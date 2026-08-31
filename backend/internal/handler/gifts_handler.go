@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/service/gifts"
 	"ifragment-backend/internal/service/gifts/crafting"
@@ -271,3 +273,28 @@ func (h *GiftsHandler) GetEnrichedReport(w http.ResponseWriter, r *http.Request)
 	}
 	RespondJSON(w, http.StatusOK, report)
 }
+
+// GetGiftImage proxies and caches the gift PNG image
+func (h *GiftsHandler) GetGiftImage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	slug := chi.URLParam(r, "slug")
+	if slug == "" {
+		slug = r.URL.Query().Get("slug")
+	}
+	if slug == "" {
+		http.Error(w, "slug required", http.StatusBadRequest)
+		return
+	}
+
+	bytes, err := h.service.GetGiftImageBytes(ctx, slug)
+	if err != nil || len(bytes) == 0 {
+		http.Error(w, "image not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(bytes)
+}
+

@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
-import { giftsApi, getGiftCdnImageUrl, getModelCdnImageUrl } from '@/entities/gifts/index.js';
+import { giftsApi, getGiftCdnImageUrl, getModelCdnImageUrl, GiftThumbnail } from '@/entities/gifts/index.js';
 import type {
 	CollectionIntelResponse,
 	CollectionModelFloor,
@@ -253,16 +253,7 @@ export const GiftCollectionPage: Component = () => {
 										onClick={() => selectCollection(coll.slug)}
 										class="w-full flex items-center gap-3 p-3 bg-[#12141C]/80 hover:bg-[#12141C] border border-white/[0.06] hover:border-[#0098EA]/30 rounded-xl transition-all active:scale-[0.98]"
 									>
-										<div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0098EA]/20 to-[#AF52DE]/20 flex items-center justify-center border border-white/10 overflow-hidden p-1 flex-shrink-0">
-											<img
-												src={getGiftCdnImageUrl(coll.slug)}
-												alt={coll.name}
-												class="w-full h-full object-contain"
-												onError={(e) => {
-													e.currentTarget.style.display = 'none';
-												}}
-											/>
-										</div>
+										<GiftThumbnail slug={coll.slug} name={coll.name} size="sm" class="w-10 h-10 rounded-xl" />
 										<div class="flex-1 text-left rtl:text-right">
 											<div class="text-sm font-bold text-white">{coll.name}</div>
 											<div class="text-[11px] text-white/40 font-medium">
@@ -304,16 +295,7 @@ export const GiftCollectionPage: Component = () => {
 							<div class="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-[#0098EA]/10 to-transparent blur-2xl pointer-events-none" />
 
 							<div class="flex items-start gap-4 relative z-10">
-								<div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#0098EA]/20 to-[#AF52DE]/20 border border-white/10 flex items-center justify-center flex-shrink-0 shadow-xl overflow-hidden p-2">
-									<img
-										src={getGiftCdnImageUrl(slug())}
-										alt={data()!.collection_name}
-										class="w-full h-full object-contain drop-shadow-md"
-										onError={(e) => {
-											e.currentTarget.style.display = 'none';
-										}}
-									/>
-								</div>
+								<GiftThumbnail slug={slug()} name={data()!.collection_name} size="lg" class="w-20 h-20 rounded-2xl shadow-xl p-2" />
 
 								<div class="flex-1 min-w-0">
 									<h2 class="text-xl font-black text-white truncate mb-1">{data()!.collection_name}</h2>

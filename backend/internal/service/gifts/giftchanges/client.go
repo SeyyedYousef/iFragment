@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -200,4 +201,47 @@ func (c *Client) GetGiftDetail(ctx context.Context, giftNameOrSlug string) (*Gif
 
 	return &detail, nil
 }
+
+// GetGiftImageBytes fetches image from api.changes.tg and caches for 7 days
+func (c *Client) GetGiftImageBytes(ctx context.Context, slug, model string) ([]byte, error) {
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	slug = strings.ReplaceAll(slug, "_", "-")
+
+	if model == "" {
+		detail, err := c.GetGiftDetail(ctx, slug)
+		if err == nil && detail != nil && len(detail.Models) > 0 {
+			model = detail.Models[0].Name
+		} else {
+			model = "1"
+		}
+	}
+
+	cacheKey := fmt.Sprintf("gift_img:%s:%s", slug, model)
+	c.mu.RLock()
+	if item, ok := c.cache[cacheKey]; ok && time.Now().Before(item.expiresAt) {
+		c.mu.RUnlock()
+		return item.data.([]byte), nil
+	}
+	c.mu.RUnlock()
+
+	reqURL := fmt.Sprintf("%s/model/%s/%s.png?size=256", BaseAPIURL, url.PathEscape(slug), url.PathEscape(model))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "iFragment/1.0 (Telegram Mini App)")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("image fetch failed with status %d", resp.StatusCode)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
 

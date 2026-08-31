@@ -1,4 +1,4 @@
-// Official Telegram 120 Gifts Catalog with real primary models & CDN artwork
+// Official Telegram 120 Gifts Catalog with real primary models, emojis & CDN artwork
 export interface OfficialGiftItem {
 	id: string;
 	name: string;
@@ -7,6 +7,7 @@ export interface OfficialGiftItem {
 	supply?: number;
 	floorTon: number;
 	primaryModel: string;
+	emoji: string;
 }
 
 export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
@@ -17,7 +18,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Bluechip",
     "primaryModel": "Jingle Volts",
     "supply": 10000,
-    "floorTon": 24.0
+    "emoji": "\ud83c\udf85"
   },
   {
     "id": "2",
@@ -26,7 +27,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Bluechip",
     "primaryModel": "Skibidi",
     "supply": 10000,
-    "floorTon": 140.0
+    "emoji": "\ud83d\udc8d"
   },
   {
     "id": "3",
@@ -35,7 +36,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Bluechip",
     "primaryModel": "Spanked",
     "supply": 10000,
-    "floorTon": 210.0
+    "emoji": "\ud83c\udf51"
   },
   {
     "id": "4",
@@ -44,7 +45,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Bluechip",
     "primaryModel": "Ninja Mike",
     "supply": 10000,
-    "floorTon": 5200.0
+    "emoji": "\ud83d\udc38"
   },
   {
     "id": "5",
@@ -53,7 +54,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Classic",
     "primaryModel": "Moon Rocks",
     "supply": 10000,
-    "floorTon": 33.5
+    "emoji": "\ud83c\udf77"
   },
   {
     "id": "6",
@@ -62,7 +63,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Classic",
     "primaryModel": "Sticky Red",
     "supply": 10000,
-    "floorTon": 37.2
+    "emoji": "\ud83d\udc30"
   },
   {
     "id": "7",
@@ -71,7 +72,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Bluechip",
     "primaryModel": "Asterix",
     "supply": 10000,
-    "floorTon": 440.0
+    "emoji": "\ud83e\udde2"
   },
   {
     "id": "8",
@@ -80,7 +81,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Luxury",
     "primaryModel": "Blizzard",
     "supply": 10000,
-    "floorTon": 44.6
+    "emoji": "\ud83e\uddf4"
   },
   {
     "id": "9",
@@ -89,7 +90,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Quantum",
     "supply": 10000,
-    "floorTon": 32.0
+    "emoji": "\ud83c\udf39"
   },
   {
     "id": "10",
@@ -98,7 +99,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Classic",
     "primaryModel": "Sweet Kiss",
     "supply": 10000,
-    "floorTon": 52.0
+    "emoji": "\ud83e\uded0"
   },
   {
     "id": "11",
@@ -107,7 +108,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Classic",
     "primaryModel": "Spectral Smoke",
     "supply": 10000,
-    "floorTon": 55.7
+    "emoji": "\ud83d\udeac"
   },
   {
     "id": "12",
@@ -116,7 +117,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Talisman",
     "primaryModel": "Deep Freeze",
     "supply": 10000,
-    "floorTon": 65.0
+    "emoji": "\ud83e\uddea"
   },
   {
     "id": "13",
@@ -125,7 +126,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Classic",
     "primaryModel": "Tree Frog",
     "supply": 10000,
-    "floorTon": 63.1
+    "emoji": "\ud83d\udc38"
   },
   {
     "id": "14",
@@ -134,7 +135,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Talisman",
     "primaryModel": "Amortentia",
     "supply": 10000,
-    "floorTon": 66.8
+    "emoji": "\ud83e\uded5"
   },
   {
     "id": "15",
@@ -143,7 +144,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Talisman",
     "primaryModel": "Tesla Coil",
     "supply": 10000,
-    "floorTon": 70.5
+    "emoji": "\ud83e\uddff"
   },
   {
     "id": "16",
@@ -152,7 +153,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Secret Look",
     "supply": 10000,
-    "floorTon": 74.2
+    "emoji": "\ud83d\udc45"
   },
   {
     "id": "17",
@@ -161,7 +162,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Jinx",
     "supply": 10000,
-    "floorTon": 77.9
+    "emoji": "\ud83d\udc96"
   },
   {
     "id": "18",
@@ -170,7 +171,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Black Cat",
     "supply": 10000,
-    "floorTon": 16.6
+    "emoji": "\ud83d\udc80"
   },
   {
     "id": "19",
@@ -179,7 +180,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Bubblegum",
     "supply": 10000,
-    "floorTon": 380.0
+    "emoji": "\ud83d\ude40"
   },
   {
     "id": "20",
@@ -188,7 +189,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Nosferatu",
     "supply": 10000,
-    "floorTon": 24.0
+    "emoji": "\ud83c\udf44"
   },
   {
     "id": "21",
@@ -197,7 +198,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Candy Cane",
     "supply": 10000,
-    "floorTon": 27.7
+    "emoji": "\ud83c\udf82"
   },
   {
     "id": "22",
@@ -206,7 +207,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Talisman",
     "primaryModel": "Aladdin",
     "supply": 10000,
-    "floorTon": 31.4
+    "emoji": "\ud83e\ude94"
   },
   {
     "id": "23",
@@ -215,7 +216,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Hot Cherry",
     "supply": 10000,
-    "floorTon": 35.1
+    "emoji": "\ud83d\udc0d"
   },
   {
     "id": "24",
@@ -224,7 +225,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Power Line",
     "supply": 10000,
-    "floorTon": 38.8
+    "emoji": "\ud83c\udf87"
   },
   {
     "id": "25",
@@ -233,7 +234,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Hellscape",
     "supply": 10000,
-    "floorTon": 42.5
+    "emoji": "\ud83c\udccf"
   },
   {
     "id": "26",
@@ -242,7 +243,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Bat Swarm",
     "supply": 10000,
-    "floorTon": 46.2
+    "emoji": "\ud83e\uddd9"
   },
   {
     "id": "27",
@@ -251,7 +252,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Shamrock",
     "supply": 10000,
-    "floorTon": 49.9
+    "emoji": "\u2b50"
   },
   {
     "id": "28",
@@ -260,7 +261,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Love Bubbles",
     "supply": 10000,
-    "floorTon": 53.6
+    "emoji": "\ud83d\udd6f\ufe0f"
   },
   {
     "id": "29",
@@ -269,7 +270,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Yamete Kudasai",
     "supply": 10000,
-    "floorTon": 57.3
+    "emoji": "\ud83c\udf6a"
   },
   {
     "id": "30",
@@ -278,7 +279,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "\u00d3\u00f0insdagr",
     "supply": 10000,
-    "floorTon": 61.0
+    "emoji": "\ud83d\udcc5"
   },
   {
     "id": "31",
@@ -287,7 +288,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Seasonal",
     "primaryModel": "Hot Cherry",
     "supply": 10000,
-    "floorTon": 18.0
+    "emoji": "\ud83d\udd14"
   },
   {
     "id": "32",
@@ -296,7 +297,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Diamond Hands",
     "supply": 10000,
-    "floorTon": 68.4
+    "emoji": "\ud83e\udde4"
   },
   {
     "id": "33",
@@ -305,7 +306,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Talisman",
     "primaryModel": "Scribble Stab",
     "supply": 10000,
-    "floorTon": 48.0
+    "emoji": "\ud83e\ude86"
   },
   {
     "id": "34",
@@ -314,7 +315,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Dark Dipsy",
     "supply": 10000,
-    "floorTon": 75.8
+    "emoji": "\ud83c\udf83"
   },
   {
     "id": "35",
@@ -323,7 +324,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Reward",
     "supply": 10000,
-    "floorTon": 79.5
+    "emoji": "\ud83c\udf6d"
   },
   {
     "id": "36",
@@ -332,7 +333,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "On Fire",
     "supply": 10000,
-    "floorTon": 18.2
+    "emoji": "\ud83d\udd6f\ufe0f"
   },
   {
     "id": "37",
@@ -341,7 +342,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Gold",
     "supply": 10000,
-    "floorTon": 21.9
+    "emoji": "\ud83e\uddc1"
   },
   {
     "id": "38",
@@ -350,7 +351,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Talisman",
     "primaryModel": "Elven Might",
     "supply": 10000,
-    "floorTon": 25.6
+    "emoji": "\ud83d\udc8e"
   },
   {
     "id": "39",
@@ -359,7 +360,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Gryffindor",
     "supply": 10000,
-    "floorTon": 29.3
+    "emoji": "\ud83e\uddf9"
   },
   {
     "id": "40",
@@ -368,7 +369,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Talisman",
     "primaryModel": "The Seeker",
     "supply": 10000,
-    "floorTon": 33.0
+    "emoji": "\ud83d\udd2e"
   },
   {
     "id": "41",
@@ -377,7 +378,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Cherry Burn",
     "supply": 10000,
-    "floorTon": 36.7
+    "emoji": "\ud83d\udd6f\ufe0f"
   },
   {
     "id": "42",
@@ -386,7 +387,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Luxury",
     "primaryModel": "Dr. Strange",
     "supply": 10000,
-    "floorTon": 95.0
+    "emoji": "\u231a"
   },
   {
     "id": "43",
@@ -395,7 +396,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Universe",
     "supply": 10000,
-    "floorTon": 44.1
+    "emoji": "\ud83c\udf6a"
   },
   {
     "id": "44",
@@ -404,7 +405,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Luxury",
     "primaryModel": "Boulevard",
     "supply": 10000,
-    "floorTon": 110.0
+    "emoji": "\ud83c\udfc6"
   },
   {
     "id": "45",
@@ -413,7 +414,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Celestia",
     "supply": 10000,
-    "floorTon": 51.5
+    "emoji": "\ud83c\udf6d"
   },
   {
     "id": "46",
@@ -422,7 +423,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Elements",
     "supply": 10000,
-    "floorTon": 55.2
+    "emoji": "\ud83d\udc8e"
   },
   {
     "id": "47",
@@ -431,7 +432,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Clown",
     "supply": 10000,
-    "floorTon": 58.9
+    "emoji": "\ud83d\udcdd"
   },
   {
     "id": "48",
@@ -440,7 +441,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Lust Beat",
     "supply": 10000,
-    "floorTon": 62.6
+    "emoji": "\ud83c\udf92"
   },
   {
     "id": "49",
@@ -449,7 +450,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Espresso",
     "supply": 10000,
-    "floorTon": 66.3
+    "emoji": "\ud83e\uddea"
   },
   {
     "id": "50",
@@ -458,7 +459,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Golden Cub",
     "supply": 10000,
-    "floorTon": 70.0
+    "emoji": "\ud83e\uddf8"
   },
   {
     "id": "51",
@@ -467,7 +468,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Bluechip",
     "primaryModel": "Graffiti",
     "supply": 10000,
-    "floorTon": 185.0
+    "emoji": "\ud83d\udc8d"
   },
   {
     "id": "52",
@@ -476,7 +477,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Flowey",
     "supply": 10000,
-    "floorTon": 77.4
+    "emoji": "\ud83c\udf38"
   },
   {
     "id": "53",
@@ -485,7 +486,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Darth Vader",
     "supply": 10000,
-    "floorTon": 16.1
+    "emoji": "\ud83d\udd14"
   },
   {
     "id": "54",
@@ -494,7 +495,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Pixel Perfect",
     "supply": 10000,
-    "floorTon": 19.8
+    "emoji": "\ud83c\udfa9"
   },
   {
     "id": "55",
@@ -503,7 +504,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Broken Record",
     "supply": 10000,
-    "floorTon": 23.5
+    "emoji": "\ud83d\udcfb"
   },
   {
     "id": "56",
@@ -512,7 +513,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Seasonal",
     "primaryModel": "Telegram",
     "supply": 10000,
-    "floorTon": 27.2
+    "emoji": "\ud83c\udf84"
   },
   {
     "id": "57",
@@ -521,7 +522,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Seasonal",
     "primaryModel": "Musk",
     "supply": 10000,
-    "floorTon": 30.9
+    "emoji": "\ud83d\udd2e"
   },
   {
     "id": "58",
@@ -530,7 +531,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Nightmare",
     "supply": 10000,
-    "floorTon": 34.6
+    "emoji": "\u26a1"
   },
   {
     "id": "59",
@@ -539,7 +540,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Tech",
     "primaryModel": "Diamond Ton",
     "supply": 10000,
-    "floorTon": 38.3
+    "emoji": "\ud83d\udc7e"
   },
   {
     "id": "60",
@@ -548,7 +549,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Seasonal",
     "primaryModel": "Hex Pot",
     "supply": 10000,
-    "floorTon": 42.0
+    "emoji": "\ud83e\uddaf"
   },
   {
     "id": "61",
@@ -557,7 +558,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "White Rabbit",
     "supply": 10000,
-    "floorTon": 45.7
+    "emoji": "\ud83d\udc31"
   },
   {
     "id": "62",
@@ -566,7 +567,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Haunted House",
     "supply": 10000,
-    "floorTon": 49.4
+    "emoji": "\ud83c\udf81"
   },
   {
     "id": "63",
@@ -575,7 +576,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Seasonal",
     "primaryModel": "Baby Turtle",
     "supply": 10000,
-    "floorTon": 53.1
+    "emoji": "\ud83e\udd5a"
   },
   {
     "id": "64",
@@ -584,7 +585,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Ring of Roots",
     "supply": 10000,
-    "floorTon": 56.8
+    "emoji": "\ud83d\udc8d"
   },
   {
     "id": "65",
@@ -593,7 +594,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Portal",
     "supply": 10000,
-    "floorTon": 60.5
+    "emoji": "\ud83d\udc0d"
   },
   {
     "id": "66",
@@ -602,7 +603,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "1",
     "supply": 10000,
-    "floorTon": 64.2
+    "emoji": "\ud83d\udce6"
   },
   {
     "id": "67",
@@ -611,7 +612,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Seasonal",
     "primaryModel": "1",
     "supply": 10000,
-    "floorTon": 67.9
+    "emoji": "\ud83e\udde6"
   },
   {
     "id": "68",
@@ -620,7 +621,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Creator",
     "supply": 10000,
-    "floorTon": 71.6
+    "emoji": "\ud83c\udf86"
   },
   {
     "id": "69",
@@ -629,7 +630,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Gold Dust",
     "supply": 10000,
-    "floorTon": 75.3
+    "emoji": "\ud83c\udf79"
   },
   {
     "id": "70",
@@ -638,7 +639,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Spinny Boi",
     "supply": 10000,
-    "floorTon": 79.0
+    "emoji": "\ud83d\udc8d"
   },
   {
     "id": "71",
@@ -647,7 +648,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Wrath of Vader",
     "supply": 10000,
-    "floorTon": 17.7
+    "emoji": "\u2694\ufe0f"
   },
   {
     "id": "72",
@@ -656,7 +657,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Gift Holder",
     "supply": 10000,
-    "floorTon": 21.4
+    "emoji": "\ud83c\udffa"
   },
   {
     "id": "73",
@@ -665,7 +666,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Luxury",
     "primaryModel": "Diamond",
     "supply": 10000,
-    "floorTon": 25.1
+    "emoji": "\ud83d\udcff"
   },
   {
     "id": "74",
@@ -674,7 +675,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Dynamo",
     "supply": 10000,
-    "floorTon": 28.8
+    "emoji": "\ud83e\ude96"
   },
   {
     "id": "75",
@@ -683,7 +684,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Velvet Gold",
     "supply": 10000,
-    "floorTon": 32.5
+    "emoji": "\ud83c\udf80"
   },
   {
     "id": "76",
@@ -692,7 +693,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Tuxedo Mask",
     "supply": 10000,
-    "floorTon": 36.2
+    "emoji": "\ud83d\udc96"
   },
   {
     "id": "77",
@@ -701,7 +702,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Million Roses",
     "supply": 10000,
-    "floorTon": 39.9
+    "emoji": "\ud83d\udc90"
   },
   {
     "id": "78",
@@ -710,7 +711,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Deep State",
     "supply": 10000,
-    "floorTon": 43.6
+    "emoji": "\ud83e\uddc1"
   },
   {
     "id": "79",
@@ -719,7 +720,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Pure Gold",
     "supply": 10000,
-    "floorTon": 47.3
+    "emoji": "\ud83c\udf81"
   },
   {
     "id": "80",
@@ -728,7 +729,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Moon Prism",
     "supply": 10000,
-    "floorTon": 51.0
+    "emoji": "\ud83d\udc98"
   },
   {
     "id": "81",
@@ -737,7 +738,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Toncoin",
     "supply": 10000,
-    "floorTon": 54.7
+    "emoji": "\ud83d\udc9d"
   },
   {
     "id": "82",
@@ -746,7 +747,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Goldizzle",
     "supply": 10000,
-    "floorTon": 750.0
+    "emoji": "\ud83d\udc36"
   },
   {
     "id": "83",
@@ -755,7 +756,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Snoop Life",
     "supply": 10000,
-    "floorTon": 62.1
+    "emoji": "\ud83d\udc5c"
   },
   {
     "id": "84",
@@ -764,7 +765,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Cartoon Roll",
     "supply": 10000,
-    "floorTon": 65.8
+    "emoji": "\ud83d\udeac"
   },
   {
     "id": "85",
@@ -773,7 +774,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "DeLorean",
     "supply": 10000,
-    "floorTon": 69.5
+    "emoji": "\ud83d\ude97"
   },
   {
     "id": "86",
@@ -782,7 +783,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Champion",
     "supply": 10000,
-    "floorTon": 73.2
+    "emoji": "\ud83e\udd19"
   },
   {
     "id": "87",
@@ -791,7 +792,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Tech",
     "primaryModel": "Mission Uranus",
     "supply": 10000,
-    "floorTon": 115.0
+    "emoji": "\ud83d\ude80"
   },
   {
     "id": "88",
@@ -800,7 +801,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Smash King",
     "supply": 10000,
-    "floorTon": 15.6
+    "emoji": "\ud83d\udc35"
   },
   {
     "id": "89",
@@ -809,7 +810,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Princess",
     "supply": 10000,
-    "floorTon": 19.3
+    "emoji": "\ud83c\udf19"
   },
   {
     "id": "90",
@@ -818,7 +819,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Tech",
     "primaryModel": "Simpsonic",
     "supply": 10000,
-    "floorTon": 23.0
+    "emoji": "\ud83d\udca8"
   },
   {
     "id": "91",
@@ -827,7 +828,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Tech",
     "primaryModel": "Quad Damage",
     "supply": 10000,
-    "floorTon": 26.7
+    "emoji": "\u2328\ufe0f"
   },
   {
     "id": "92",
@@ -836,7 +837,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Best Muscles",
     "supply": 10000,
-    "floorTon": 30.4
+    "emoji": "\ud83d\udcaa"
   },
   {
     "id": "93",
@@ -845,7 +846,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Gold Block",
     "supply": 10000,
-    "floorTon": 34.1
+    "emoji": "\ud83e\uddf1"
   },
   {
     "id": "94",
@@ -854,7 +855,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Kelly Green",
     "supply": 10000,
-    "floorTon": 37.8
+    "emoji": "\ud83c\udf40"
   },
   {
     "id": "95",
@@ -863,7 +864,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Spidergirl",
     "supply": 10000,
-    "floorTon": 41.5
+    "emoji": "\ud83d\udc60"
   },
   {
     "id": "96",
@@ -872,7 +873,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Billie Jean",
     "supply": 10000,
-    "floorTon": 45.2
+    "emoji": "\ud83e\udde6"
   },
   {
     "id": "97",
@@ -881,7 +882,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Kinky Stinky",
     "supply": 10000,
-    "floorTon": 48.9
+    "emoji": "\ud83c\udf6b"
   },
   {
     "id": "98",
@@ -890,7 +891,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Cryo Pepe",
     "supply": 10000,
-    "floorTon": 52.6
+    "emoji": "\ud83c\udf66"
   },
   {
     "id": "99",
@@ -899,7 +900,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Meme God",
     "supply": 10000,
-    "floorTon": 56.3
+    "emoji": "\ud83e\uddfa"
   },
   {
     "id": "100",
@@ -908,7 +909,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Kraken",
     "supply": 10000,
-    "floorTon": 60.0
+    "emoji": "\ud83c\udf5c"
   },
   {
     "id": "101",
@@ -917,7 +918,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Talisman",
     "primaryModel": "Golden Lace",
     "supply": 10000,
-    "floorTon": 63.7
+    "emoji": "\ud83e\uddff"
   },
   {
     "id": "102",
@@ -926,7 +927,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Still Alive",
     "supply": 10000,
-    "floorTon": 67.4
+    "emoji": "\ud83c\udf70"
   },
   {
     "id": "103",
@@ -935,7 +936,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Red Lipstick",
     "supply": 10000,
-    "floorTon": 71.1
+    "emoji": "\ud83c\udf7c"
   },
   {
     "id": "104",
@@ -944,7 +945,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Skibidi Toilet",
     "supply": 10000,
-    "floorTon": 74.8
+    "emoji": "\ud83c\udf6f"
   },
   {
     "id": "105",
@@ -953,7 +954,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Roadworks",
     "supply": 10000,
-    "floorTon": 78.5
+    "emoji": "\ud83d\udc90"
   },
   {
     "id": "106",
@@ -962,7 +963,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Legendary Item",
     "supply": 10000,
-    "floorTon": 320.0
+    "emoji": "\ud83e\udd4a"
   },
   {
     "id": "107",
@@ -971,7 +972,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Gold Topuria",
     "supply": 10000,
-    "floorTon": 175.0
+    "emoji": "\ud83e\udd4b"
   },
   {
     "id": "108",
@@ -980,7 +981,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "First Finisher",
     "supply": 10000,
-    "floorTon": 130.0
+    "emoji": "\ud83e\udd47"
   },
   {
     "id": "109",
@@ -989,7 +990,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Zombie Rider",
     "supply": 10000,
-    "floorTon": 90.0
+    "emoji": "\ud83e\udd85"
   },
   {
     "id": "110",
@@ -998,7 +999,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Proton Pack",
     "supply": 10000,
-    "floorTon": 32.0
+    "emoji": "\ud83c\udfad"
   },
   {
     "id": "111",
@@ -1007,7 +1008,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Luxury Yacht",
     "supply": 10000,
-    "floorTon": 35.7
+    "emoji": "\ud83d\udedf"
   },
   {
     "id": "112",
@@ -1016,7 +1017,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Death Note",
     "supply": 10000,
-    "floorTon": 45.0
+    "emoji": "\ud83d\udcd6"
   },
   {
     "id": "113",
@@ -1025,7 +1026,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Satis-fire",
     "supply": 10000,
-    "floorTon": 85.0
+    "emoji": "\ud83d\udd25"
   },
   {
     "id": "114",
@@ -1034,7 +1035,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Tralashark",
     "supply": 10000,
-    "floorTon": 70.0
+    "emoji": "\ud83c\udf68"
   },
   {
     "id": "115",
@@ -1043,7 +1044,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Duke",
     "supply": 10000,
-    "floorTon": 160.0
+    "emoji": "\ud83c\udfc4"
   },
   {
     "id": "116",
@@ -1052,7 +1053,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Luxury",
     "primaryModel": "Marilyn",
     "supply": 10000,
-    "floorTon": 190.0
+    "emoji": "\ud83d\uddfd"
   },
   {
     "id": "117",
@@ -1061,7 +1062,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Thug Life",
     "supply": 10000,
-    "floorTon": 120.0
+    "emoji": "\ud83d\udc53"
   },
   {
     "id": "118",
@@ -1070,7 +1071,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Luxury",
     "primaryModel": "Survivalist",
     "supply": 10000,
-    "floorTon": 135.0
+    "emoji": "\u2712\ufe0f"
   },
   {
     "id": "119",
@@ -1079,7 +1080,7 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Gold",
     "supply": 10000,
-    "floorTon": 250.0
+    "emoji": "\ud83c\udfc6"
   },
   {
     "id": "120",
@@ -1088,6 +1089,6 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "tag": "Special",
     "primaryModel": "Gold",
     "supply": 10000,
-    "floorTon": 280.0
+    "emoji": "\ud83c\udfc6"
   }
 ];

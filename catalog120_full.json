@@ -5,7 +5,8 @@
     "slug": "santa-hat",
     "tag": "Bluechip",
     "primaryModel": "Jingle Volts",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎅"
   },
   {
     "id": "2",
@@ -13,7 +14,8 @@
     "slug": "signet-ring",
     "tag": "Bluechip",
     "primaryModel": "Skibidi",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💍"
   },
   {
     "id": "3",
@@ -21,7 +23,8 @@
     "slug": "precious-peach",
     "tag": "Bluechip",
     "primaryModel": "Spanked",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍑"
   },
   {
     "id": "4",
@@ -29,7 +32,8 @@
     "slug": "plush-pepe",
     "tag": "Bluechip",
     "primaryModel": "Ninja Mike",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🐸"
   },
   {
     "id": "5",
@@ -37,7 +41,8 @@
     "slug": "spiced-wine",
     "tag": "Classic",
     "primaryModel": "Moon Rocks",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍷"
   },
   {
     "id": "6",
@@ -45,7 +50,8 @@
     "slug": "jelly-bunny",
     "tag": "Classic",
     "primaryModel": "Sticky Red",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🐰"
   },
   {
     "id": "7",
@@ -53,7 +59,8 @@
     "slug": "durovs-cap",
     "tag": "Bluechip",
     "primaryModel": "Asterix",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧢"
   },
   {
     "id": "8",
@@ -61,7 +68,8 @@
     "slug": "perfume-bottle",
     "tag": "Luxury",
     "primaryModel": "Blizzard",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧴"
   },
   {
     "id": "9",
@@ -69,7 +77,8 @@
     "slug": "eternal-rose",
     "tag": "Special",
     "primaryModel": "Quantum",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🌹"
   },
   {
     "id": "10",
@@ -77,7 +86,8 @@
     "slug": "berry-box",
     "tag": "Classic",
     "primaryModel": "Sweet Kiss",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🫐"
   },
   {
     "id": "11",
@@ -85,7 +95,8 @@
     "slug": "vintage-cigar",
     "tag": "Classic",
     "primaryModel": "Spectral Smoke",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🚬"
   },
   {
     "id": "12",
@@ -93,7 +104,8 @@
     "slug": "magic-potion",
     "tag": "Talisman",
     "primaryModel": "Deep Freeze",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧪"
   },
   {
     "id": "13",
@@ -101,7 +113,8 @@
     "slug": "kissed-frog",
     "tag": "Classic",
     "primaryModel": "Tree Frog",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🐸"
   },
   {
     "id": "14",
@@ -109,7 +122,8 @@
     "slug": "hex-pot",
     "tag": "Talisman",
     "primaryModel": "Amortentia",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🫕"
   },
   {
     "id": "15",
@@ -117,7 +131,8 @@
     "slug": "evil-eye",
     "tag": "Talisman",
     "primaryModel": "Tesla Coil",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧿"
   },
   {
     "id": "16",
@@ -125,7 +140,8 @@
     "slug": "sharp-tongue",
     "tag": "Special",
     "primaryModel": "Secret Look",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "👅"
   },
   {
     "id": "17",
@@ -133,7 +149,8 @@
     "slug": "trapped-heart",
     "tag": "Special",
     "primaryModel": "Jinx",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💖"
   },
   {
     "id": "18",
@@ -141,7 +158,8 @@
     "slug": "skull-flower",
     "tag": "Special",
     "primaryModel": "Black Cat",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💀"
   },
   {
     "id": "19",
@@ -149,7 +167,8 @@
     "slug": "scared-cat",
     "tag": "Special",
     "primaryModel": "Bubblegum",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🙀"
   },
   {
     "id": "20",
@@ -157,7 +176,8 @@
     "slug": "spy-agaric",
     "tag": "Special",
     "primaryModel": "Nosferatu",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍄"
   },
   {
     "id": "21",
@@ -165,7 +185,8 @@
     "slug": "homemade-cake",
     "tag": "Special",
     "primaryModel": "Candy Cane",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎂"
   },
   {
     "id": "22",
@@ -173,7 +194,8 @@
     "slug": "genie-lamp",
     "tag": "Talisman",
     "primaryModel": "Aladdin",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🪔"
   },
   {
     "id": "23",
@@ -181,7 +203,8 @@
     "slug": "lunar-snake",
     "tag": "Special",
     "primaryModel": "Hot Cherry",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🐍"
   },
   {
     "id": "24",
@@ -189,7 +212,8 @@
     "slug": "party-sparkler",
     "tag": "Special",
     "primaryModel": "Power Line",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎇"
   },
   {
     "id": "25",
@@ -197,7 +221,8 @@
     "slug": "jester-hat",
     "tag": "Special",
     "primaryModel": "Hellscape",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🃏"
   },
   {
     "id": "26",
@@ -205,7 +230,8 @@
     "slug": "witch-hat",
     "tag": "Special",
     "primaryModel": "Bat Swarm",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧙"
   },
   {
     "id": "27",
@@ -213,7 +239,8 @@
     "slug": "hanging-star",
     "tag": "Special",
     "primaryModel": "Shamrock",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "⭐"
   },
   {
     "id": "28",
@@ -221,7 +248,8 @@
     "slug": "love-candle",
     "tag": "Special",
     "primaryModel": "Love Bubbles",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🕯️"
   },
   {
     "id": "29",
@@ -229,7 +257,8 @@
     "slug": "cookie-heart",
     "tag": "Special",
     "primaryModel": "Yamete Kudasai",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍪"
   },
   {
     "id": "30",
@@ -237,7 +266,8 @@
     "slug": "desk-calendar",
     "tag": "Special",
     "primaryModel": "Óðinsdagr",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "📅"
   },
   {
     "id": "31",
@@ -245,7 +275,8 @@
     "slug": "jingle-bells",
     "tag": "Seasonal",
     "primaryModel": "Hot Cherry",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🔔"
   },
   {
     "id": "32",
@@ -253,7 +284,8 @@
     "slug": "snow-mittens",
     "tag": "Special",
     "primaryModel": "Diamond Hands",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧤"
   },
   {
     "id": "33",
@@ -261,7 +293,8 @@
     "slug": "voodoo-doll",
     "tag": "Talisman",
     "primaryModel": "Scribble Stab",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🪆"
   },
   {
     "id": "34",
@@ -269,7 +302,8 @@
     "slug": "mad-pumpkin",
     "tag": "Special",
     "primaryModel": "Dark Dipsy",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎃"
   },
   {
     "id": "35",
@@ -277,7 +311,8 @@
     "slug": "hypno-lollipop",
     "tag": "Special",
     "primaryModel": "Reward",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍭"
   },
   {
     "id": "36",
@@ -285,7 +320,8 @@
     "slug": "b-day-candle",
     "tag": "Special",
     "primaryModel": "On Fire",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🕯️"
   },
   {
     "id": "37",
@@ -293,7 +329,8 @@
     "slug": "bunny-muffin",
     "tag": "Special",
     "primaryModel": "Gold",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧁"
   },
   {
     "id": "38",
@@ -301,7 +338,8 @@
     "slug": "astral-shard",
     "tag": "Talisman",
     "primaryModel": "Elven Might",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💎"
   },
   {
     "id": "39",
@@ -309,7 +347,8 @@
     "slug": "flying-broom",
     "tag": "Special",
     "primaryModel": "Gryffindor",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧹"
   },
   {
     "id": "40",
@@ -317,7 +356,8 @@
     "slug": "crystal-ball",
     "tag": "Talisman",
     "primaryModel": "The Seeker",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🔮"
   },
   {
     "id": "41",
@@ -325,7 +365,8 @@
     "slug": "eternal-candle",
     "tag": "Special",
     "primaryModel": "Cherry Burn",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🕯️"
   },
   {
     "id": "42",
@@ -333,7 +374,8 @@
     "slug": "swiss-watch",
     "tag": "Luxury",
     "primaryModel": "Dr. Strange",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "⌚"
   },
   {
     "id": "43",
@@ -341,7 +383,8 @@
     "slug": "ginger-cookie",
     "tag": "Special",
     "primaryModel": "Universe",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍪"
   },
   {
     "id": "44",
@@ -349,7 +392,8 @@
     "slug": "mini-oscar",
     "tag": "Luxury",
     "primaryModel": "Boulevard",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🏆"
   },
   {
     "id": "45",
@@ -357,7 +401,8 @@
     "slug": "lol-pop",
     "tag": "Special",
     "primaryModel": "Celestia",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍭"
   },
   {
     "id": "46",
@@ -365,7 +410,8 @@
     "slug": "ion-gem",
     "tag": "Special",
     "primaryModel": "Elements",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💎"
   },
   {
     "id": "47",
@@ -373,7 +419,8 @@
     "slug": "star-notepad",
     "tag": "Special",
     "primaryModel": "Clown",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "📝"
   },
   {
     "id": "48",
@@ -381,7 +428,8 @@
     "slug": "loot-bag",
     "tag": "Special",
     "primaryModel": "Lust Beat",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎒"
   },
   {
     "id": "49",
@@ -389,7 +437,8 @@
     "slug": "love-potion",
     "tag": "Special",
     "primaryModel": "Espresso",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧪"
   },
   {
     "id": "50",
@@ -397,7 +446,8 @@
     "slug": "toy-bear",
     "tag": "Special",
     "primaryModel": "Golden Cub",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧸"
   },
   {
     "id": "51",
@@ -405,7 +455,8 @@
     "slug": "diamond-ring",
     "tag": "Bluechip",
     "primaryModel": "Graffiti",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💍"
   },
   {
     "id": "52",
@@ -413,7 +464,8 @@
     "slug": "sakura-flower",
     "tag": "Special",
     "primaryModel": "Flowey",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🌸"
   },
   {
     "id": "53",
@@ -421,7 +473,8 @@
     "slug": "sleigh-bell",
     "tag": "Special",
     "primaryModel": "Darth Vader",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🔔"
   },
   {
     "id": "54",
@@ -429,7 +482,8 @@
     "slug": "top-hat",
     "tag": "Special",
     "primaryModel": "Pixel Perfect",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎩"
   },
   {
     "id": "55",
@@ -437,7 +491,8 @@
     "slug": "record-player",
     "tag": "Special",
     "primaryModel": "Broken Record",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "📻"
   },
   {
     "id": "56",
@@ -445,7 +500,8 @@
     "slug": "winter-wreath",
     "tag": "Seasonal",
     "primaryModel": "Telegram",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎄"
   },
   {
     "id": "57",
@@ -453,7 +509,8 @@
     "slug": "snow-globe",
     "tag": "Seasonal",
     "primaryModel": "Musk",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🔮"
   },
   {
     "id": "58",
@@ -461,7 +518,8 @@
     "slug": "electric-skull",
     "tag": "Special",
     "primaryModel": "Nightmare",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "⚡"
   },
   {
     "id": "59",
@@ -469,7 +527,8 @@
     "slug": "tama-gadget",
     "tag": "Tech",
     "primaryModel": "Diamond Ton",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "👾"
   },
   {
     "id": "60",
@@ -477,7 +536,8 @@
     "slug": "candy-cane",
     "tag": "Seasonal",
     "primaryModel": "Hex Pot",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🦯"
   },
   {
     "id": "61",
@@ -485,7 +545,8 @@
     "slug": "neko-helmet",
     "tag": "Special",
     "primaryModel": "White Rabbit",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🐱"
   },
   {
     "id": "62",
@@ -493,7 +554,8 @@
     "slug": "jack-in-the-box",
     "tag": "Special",
     "primaryModel": "Haunted House",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎁"
   },
   {
     "id": "63",
@@ -501,7 +563,8 @@
     "slug": "easter-egg",
     "tag": "Seasonal",
     "primaryModel": "Baby Turtle",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🥚"
   },
   {
     "id": "64",
@@ -509,7 +572,8 @@
     "slug": "bonded-ring",
     "tag": "Special",
     "primaryModel": "Ring of Roots",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💍"
   },
   {
     "id": "65",
@@ -517,7 +581,8 @@
     "slug": "pet-snake",
     "tag": "Special",
     "primaryModel": "Portal",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🐍"
   },
   {
     "id": "66",
@@ -525,7 +590,8 @@
     "slug": "snake-box",
     "tag": "Special",
     "primaryModel": "1",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "📦"
   },
   {
     "id": "67",
@@ -533,7 +599,8 @@
     "slug": "xmas-stocking",
     "tag": "Seasonal",
     "primaryModel": "1",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧦"
   },
   {
     "id": "68",
@@ -541,7 +608,8 @@
     "slug": "big-year",
     "tag": "Special",
     "primaryModel": "Creator",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎆"
   },
   {
     "id": "69",
@@ -549,7 +617,8 @@
     "slug": "holiday-drink",
     "tag": "Special",
     "primaryModel": "Gold Dust",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍹"
   },
   {
     "id": "70",
@@ -557,7 +626,8 @@
     "slug": "gem-signet",
     "tag": "Special",
     "primaryModel": "Spinny Boi",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💍"
   },
   {
     "id": "71",
@@ -565,7 +635,8 @@
     "slug": "light-sword",
     "tag": "Special",
     "primaryModel": "Wrath of Vader",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "⚔️"
   },
   {
     "id": "72",
@@ -573,7 +644,8 @@
     "slug": "restless-jar",
     "tag": "Special",
     "primaryModel": "Gift Holder",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🏺"
   },
   {
     "id": "73",
@@ -581,7 +653,8 @@
     "slug": "nail-bracelet",
     "tag": "Luxury",
     "primaryModel": "Diamond",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "📿"
   },
   {
     "id": "74",
@@ -589,7 +662,8 @@
     "slug": "heroic-helmet",
     "tag": "Special",
     "primaryModel": "Dynamo",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🪖"
   },
   {
     "id": "75",
@@ -597,7 +671,8 @@
     "slug": "bow-tie",
     "tag": "Special",
     "primaryModel": "Velvet Gold",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎀"
   },
   {
     "id": "76",
@@ -605,7 +680,8 @@
     "slug": "heart-locket",
     "tag": "Special",
     "primaryModel": "Tuxedo Mask",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💖"
   },
   {
     "id": "77",
@@ -613,7 +689,8 @@
     "slug": "lush-bouquet",
     "tag": "Special",
     "primaryModel": "Million Roses",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💐"
   },
   {
     "id": "78",
@@ -621,7 +698,8 @@
     "slug": "whip-cupcake",
     "tag": "Special",
     "primaryModel": "Deep State",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧁"
   },
   {
     "id": "79",
@@ -629,7 +707,8 @@
     "slug": "joyful-bundle",
     "tag": "Special",
     "primaryModel": "Pure Gold",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎁"
   },
   {
     "id": "80",
@@ -637,7 +716,8 @@
     "slug": "cupid-charm",
     "tag": "Special",
     "primaryModel": "Moon Prism",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💘"
   },
   {
     "id": "81",
@@ -645,7 +725,8 @@
     "slug": "valentine-box",
     "tag": "Special",
     "primaryModel": "Toncoin",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💝"
   },
   {
     "id": "82",
@@ -653,7 +734,8 @@
     "slug": "snoop-dogg",
     "tag": "Special",
     "primaryModel": "Goldizzle",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🐶"
   },
   {
     "id": "83",
@@ -661,7 +743,8 @@
     "slug": "swag-bag",
     "tag": "Special",
     "primaryModel": "Snoop Life",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "👜"
   },
   {
     "id": "84",
@@ -669,7 +752,8 @@
     "slug": "snoop-cigar",
     "tag": "Special",
     "primaryModel": "Cartoon Roll",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🚬"
   },
   {
     "id": "85",
@@ -677,7 +761,8 @@
     "slug": "low-rider",
     "tag": "Special",
     "primaryModel": "DeLorean",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🚗"
   },
   {
     "id": "86",
@@ -685,7 +770,8 @@
     "slug": "westside-sign",
     "tag": "Special",
     "primaryModel": "Champion",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🤙"
   },
   {
     "id": "87",
@@ -693,7 +779,8 @@
     "slug": "stellar-rocket",
     "tag": "Tech",
     "primaryModel": "Mission Uranus",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🚀"
   },
   {
     "id": "88",
@@ -701,7 +788,8 @@
     "slug": "jolly-chimp",
     "tag": "Special",
     "primaryModel": "Smash King",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🐵"
   },
   {
     "id": "89",
@@ -709,7 +797,8 @@
     "slug": "moon-pendant",
     "tag": "Special",
     "primaryModel": "Princess",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🌙"
   },
   {
     "id": "90",
@@ -717,7 +806,8 @@
     "slug": "ionic-dryer",
     "tag": "Tech",
     "primaryModel": "Simpsonic",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💨"
   },
   {
     "id": "91",
@@ -725,7 +815,8 @@
     "slug": "input-key",
     "tag": "Tech",
     "primaryModel": "Quad Damage",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "⌨️"
   },
   {
     "id": "92",
@@ -733,7 +824,8 @@
     "slug": "mighty-arm",
     "tag": "Special",
     "primaryModel": "Best Muscles",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💪"
   },
   {
     "id": "93",
@@ -741,7 +833,8 @@
     "slug": "artisan-brick",
     "tag": "Special",
     "primaryModel": "Gold Block",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧱"
   },
   {
     "id": "94",
@@ -749,7 +842,8 @@
     "slug": "clover-pin",
     "tag": "Special",
     "primaryModel": "Kelly Green",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍀"
   },
   {
     "id": "95",
@@ -757,7 +851,8 @@
     "slug": "sky-stilettos",
     "tag": "Special",
     "primaryModel": "Spidergirl",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "👠"
   },
   {
     "id": "96",
@@ -765,7 +860,8 @@
     "slug": "fresh-socks",
     "tag": "Special",
     "primaryModel": "Billie Jean",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧦"
   },
   {
     "id": "97",
@@ -773,7 +869,8 @@
     "slug": "happy-brownie",
     "tag": "Special",
     "primaryModel": "Kinky Stinky",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍫"
   },
   {
     "id": "98",
@@ -781,7 +878,8 @@
     "slug": "ice-cream",
     "tag": "Special",
     "primaryModel": "Cryo Pepe",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍦"
   },
   {
     "id": "99",
@@ -789,7 +887,8 @@
     "slug": "spring-basket",
     "tag": "Special",
     "primaryModel": "Meme God",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧺"
   },
   {
     "id": "100",
@@ -797,7 +896,8 @@
     "slug": "instant-ramen",
     "tag": "Special",
     "primaryModel": "Kraken",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍜"
   },
   {
     "id": "101",
@@ -805,7 +905,8 @@
     "slug": "faith-amulet",
     "tag": "Talisman",
     "primaryModel": "Golden Lace",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🧿"
   },
   {
     "id": "102",
@@ -813,7 +914,8 @@
     "slug": "mousse-cake",
     "tag": "Special",
     "primaryModel": "Still Alive",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍰"
   },
   {
     "id": "103",
@@ -821,7 +923,8 @@
     "slug": "bling-binky",
     "tag": "Special",
     "primaryModel": "Red Lipstick",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍼"
   },
   {
     "id": "104",
@@ -829,7 +932,8 @@
     "slug": "money-pot",
     "tag": "Special",
     "primaryModel": "Skibidi Toilet",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍯"
   },
   {
     "id": "105",
@@ -837,7 +941,8 @@
     "slug": "pretty-posy",
     "tag": "Special",
     "primaryModel": "Roadworks",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "💐"
   },
   {
     "id": "106",
@@ -845,7 +950,8 @@
     "slug": "khabibs-papakha",
     "tag": "Special",
     "primaryModel": "Legendary Item",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🥊"
   },
   {
     "id": "107",
@@ -853,7 +959,8 @@
     "slug": "ufc-strike",
     "tag": "Special",
     "primaryModel": "Gold Topuria",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🥋"
   },
   {
     "id": "108",
@@ -861,7 +968,8 @@
     "slug": "victory-medal",
     "tag": "Special",
     "primaryModel": "First Finisher",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🥇"
   },
   {
     "id": "109",
@@ -869,7 +977,8 @@
     "slug": "rare-bird",
     "tag": "Special",
     "primaryModel": "Zombie Rider",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🦅"
   },
   {
     "id": "110",
@@ -877,7 +986,8 @@
     "slug": "mood-pack",
     "tag": "Special",
     "primaryModel": "Proton Pack",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🎭"
   },
   {
     "id": "111",
@@ -885,7 +995,8 @@
     "slug": "pool-float",
     "tag": "Special",
     "primaryModel": "Luxury Yacht",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🛟"
   },
   {
     "id": "112",
@@ -893,7 +1004,8 @@
     "slug": "timeless-book",
     "tag": "Special",
     "primaryModel": "Death Note",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "📖"
   },
   {
     "id": "113",
@@ -901,7 +1013,8 @@
     "slug": "chill-flame",
     "tag": "Special",
     "primaryModel": "Satis-fire",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🔥"
   },
   {
     "id": "114",
@@ -909,7 +1022,8 @@
     "slug": "vice-cream",
     "tag": "Special",
     "primaryModel": "Tralashark",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🍨"
   },
   {
     "id": "115",
@@ -917,7 +1031,8 @@
     "slug": "surge-board",
     "tag": "Special",
     "primaryModel": "Duke",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🏄"
   },
   {
     "id": "116",
@@ -925,7 +1040,8 @@
     "slug": "liberty-figure",
     "tag": "Luxury",
     "primaryModel": "Marilyn",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🗽"
   },
   {
     "id": "117",
@@ -933,7 +1049,8 @@
     "slug": "durovs-glasses",
     "tag": "Special",
     "primaryModel": "Thug Life",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "👓"
   },
   {
     "id": "118",
@@ -941,7 +1058,8 @@
     "slug": "fine-pen",
     "tag": "Luxury",
     "primaryModel": "Survivalist",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "✒️"
   },
   {
     "id": "119",
@@ -949,7 +1067,8 @@
     "slug": "intelligence-cup",
     "tag": "Special",
     "primaryModel": "Gold",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🏆"
   },
   {
     "id": "120",
@@ -957,6 +1076,7 @@
     "slug": "algorithm-cup",
     "tag": "Special",
     "primaryModel": "Gold",
-    "supply": 10000
+    "supply": 10000,
+    "emoji": "🏆"
   }
 ]

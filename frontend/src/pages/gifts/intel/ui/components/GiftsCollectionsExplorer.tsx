@@ -1,6 +1,6 @@
 import { useNavigate } from '@solidjs/router';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
-import { OFFICIAL_GIFTS_120, type OfficialGiftItem, getGiftCdnImageUrl } from '@/entities/gifts/index.js';
+import { OFFICIAL_GIFTS_120, type OfficialGiftItem, getGiftCdnImageUrl, GiftThumbnail } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -134,16 +134,7 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 								onClick={() => handleChipClick(gift)}
 								class="flex items-center gap-1.5 px-2 py-1 bg-white/[0.02] hover:bg-[#0098EA]/20 border border-white/[0.05] hover:border-[#0098EA]/40 rounded-xl text-[11px] font-semibold text-white/80 hover:text-white transition-all active:scale-95 flex-shrink-0"
 							>
-								<div class="w-4 h-4 rounded-md overflow-hidden bg-white/5 flex-shrink-0">
-									<img
-										src={getGiftCdnImageUrl(gift.slug)}
-										alt={gift.name}
-										class="w-full h-full object-contain"
-										onError={(e) => {
-											e.currentTarget.style.display = 'none';
-										}}
-									/>
-								</div>
+								<GiftThumbnail slug={gift.slug} name={gift.name} size="sm" class="w-4 h-4 rounded-md border-0 bg-transparent" />
 								<span>{gift.name}</span>
 							</button>
 						)}
@@ -166,17 +157,13 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 								onClick={() => handleCardClick(gift)}
 								class="flex items-center gap-3 p-3 bg-[#0b0e17]/80 hover:bg-[#0b0e17] border border-white/[0.06] hover:border-[#0098EA]/40 rounded-2xl transition-all active:scale-[0.98] group text-left rtl:text-right shadow-lg"
 							>
-								{/* Official Artwork from CDN */}
-								<div class="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/[0.08] p-1 flex-shrink-0 flex items-center justify-center relative overflow-hidden group-hover:border-[#0098EA]/50 transition-colors">
-									<img
-										src={getGiftCdnImageUrl(gift.slug)}
-										alt={gift.name}
-										class="w-full h-full object-contain drop-shadow-md group-hover:scale-105 transition-transform"
-										onError={(e) => {
-											e.currentTarget.style.display = 'none';
-										}}
-									/>
-								</div>
+								{/* Official Artwork / 3D Emoji Avatar */}
+								<GiftThumbnail
+									slug={gift.slug}
+									name={gift.name}
+									size="md"
+									class="w-12 h-12 rounded-xl group-hover:border-[#0098EA]/50 group-hover:scale-105 transition-all"
+								/>
 
 								{/* Info */}
 								<div class="flex-1 min-w-0">

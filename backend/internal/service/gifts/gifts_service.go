@@ -629,3 +629,12 @@ func (s *GiftsService) GetWatchlist(ctx context.Context, userID int64) ([]reposi
 func round2(v float64) float64 {
 	return math.Round(v*100.0) / 100.0
 }
+
+// GetGiftImageBytes returns cached PNG image bytes for a given gift
+func (s *GiftsService) GetGiftImageBytes(ctx context.Context, slug string) ([]byte, error) {
+	if s.giftchangesClient == nil {
+		return nil, errors.New("giftchanges client not initialized")
+	}
+	return s.giftchangesClient.GetGiftImageBytes(ctx, slug, "")
+}
+
