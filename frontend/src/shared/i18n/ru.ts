@@ -134,11 +134,11 @@ export const dict = {
 		freeInfoPrefix: 'Просмотр общей информации ',
 		freeInfoSuffix: ' прямо сейчас.',
 		gifts: {
-			analyzeBtn: 'Сканировать актив подарка',
-			description: 'Мониторьте дорогостоящие переводы и оценивайте истинную редкость подарков Telegram.',
-			inputPlaceholder: 'Введите ID подарка или транзакцию...',
-			label: 'Подарки',
-			title: 'Отслеживай скрытое богатство.',
+			analyzeBtn: 'Оценить и анализировать подарок',
+			description: 'Введите ссылку t.me/nft/..., ID или название, чтобы получить справедливую оценку AVM и проверенную родословную.',
+			inputPlaceholder: 'https://t.me/nft/PlushPepe-1 или ID...',
+			label: 'Подарки Telegram',
+			title: 'Интеллектуальная оценка подарков.',
 		},
 		tempDisabled: 'Этот раздел временно отключен',
 		trending: {

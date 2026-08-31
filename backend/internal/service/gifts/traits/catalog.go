@@ -643,6 +643,7 @@ var OfficialSymbols = map[string]struct {
 // ResolveCollection finds collection metadata by raw modelID or normalized string
 func ResolveCollection(key string) (CollectionMeta, bool) {
 	clean := strings.ToLower(strings.TrimSpace(key))
+	cleanNoUnderscore := strings.ReplaceAll(strings.ReplaceAll(clean, "-", ""), "_", "")
 	clean = strings.ReplaceAll(clean, "-", "_")
 	clean = strings.ReplaceAll(clean, " ", "_")
 
@@ -650,24 +651,43 @@ func ResolveCollection(key string) (CollectionMeta, bool) {
 		return col, true
 	}
 
-	// Partial match search
+	// Exact match ignoring underscores (e.g. plushpepe == plush_pepe, durovscap == durov_cap)
 	for mID, col := range OfficialCollections {
-		if strings.Contains(clean, mID) || strings.Contains(mID, clean) {
+		mIDClean := strings.ReplaceAll(mID, "_", "")
+		if mIDClean == cleanNoUnderscore {
 			return col, true
 		}
 	}
 
+	// Partial match search
+	for mID, col := range OfficialCollections {
+		mIDClean := strings.ReplaceAll(mID, "_", "")
+		if strings.Contains(cleanNoUnderscore, mIDClean) || strings.Contains(mIDClean, cleanNoUnderscore) {
+			return col, true
+		}
+	}
+
+	// Humanize name if not in static map
+	parts := strings.Split(clean, "_")
+	for i, p := range parts {
+		if len(p) > 0 {
+			parts[i] = strings.ToUpper(p[:1]) + p[1:]
+		}
+	}
+	humanName := strings.Join(parts, " ")
+
 	// Default fallback with reasonable defaults
 	return CollectionMeta{
 		ModelID:          clean,
-		Name:             strings.Title(strings.ReplaceAll(clean, "_", " ")),
-		TotalSupply:      5000,
+		Name:             humanName,
+		TotalSupply:      10000,
 		CraftedFlag:      false,
 		BaseStarsPrice:   5000,
-		InitialFloorGRAM: 30.0,
+		InitialFloorGRAM: 45.0,
 		Description:      "Official Telegram gift collectible",
 	}, false
 }
+
 
 // ResolveBackdrop returns backdrop metadata and whether it was an exact catalog match
 func ResolveBackdrop(name string) (string, int, BackdropColorSet, bool) {

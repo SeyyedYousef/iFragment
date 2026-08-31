@@ -134,11 +134,11 @@ export const dict = {
 		freeInfoPrefix: 'اطلاعات عمومی مجموعه را ',
 		freeInfoSuffix: ' همین حالا ببینید.',
 		gifts: {
-			analyzeBtn: 'اسکن دارایی هدیه',
-			description: 'انتقالات با ارزش بالا را رصد و کمیابی واقعی هدایای تلگرام را بررسی کنید.',
-			inputPlaceholder: 'شناسه هدیه را وارد کنید...',
-			label: 'هدایا',
-			title: 'ردیابی ثروت پنهان.',
+			analyzeBtn: 'ارزش‌گذاری و تحلیل هدیه',
+			description: 'لینک تلگرام گیفت (t.me/nft/...)، شناسه یا نام را وارد کنید تا ارزش منصفانه و شجره‌نامه دقیق آن استخراج شود.',
+			inputPlaceholder: 'https://t.me/nft/PlushPepe-1 یا شناسه...',
+			label: 'هدایای تلگرام',
+			title: 'ارزش‌گذاری هوشمند هدایا.',
 		},
 		tempDisabled: 'این بخش موقتا غیرفعال شده است',
 		trending: {

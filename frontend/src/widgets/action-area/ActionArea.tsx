@@ -1,7 +1,7 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { type Component, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { giftsApi } from '@/entities/gifts/api/giftsApi.js';
+import { giftsApi, GiftThumbnail, OFFICIAL_GIFTS_120 } from '@/entities/gifts/index.js';
 import { creditsApi } from '@/entities/intel/api/creditsApi.js';
 import { numbersApi } from '@/entities/numbers/api/numbersApi.js';
 import { formatLiveNumberInput } from '@/entities/numbers/lib/formatNumber.js';
@@ -62,6 +62,21 @@ interface TrendingPool {
 	items: string[];
 }
 
+interface GiftTrendingCard {
+	slug: string;
+	name: string;
+	serial: number;
+	url: string;
+	floor: number;
+	emoji: string;
+	tag: string;
+}
+
+interface GiftTrendingPool {
+	badge: string;
+	items: GiftTrendingCard[];
+}
+
 const NUMBER_TRENDING_POOLS: TrendingPool[] = [
 	{
 		categoryKey: 'numbers.poolRoyal',
@@ -85,31 +100,42 @@ const NUMBER_TRENDING_POOLS: TrendingPool[] = [
 	},
 ];
 
-const GIFTS_TRENDING_POOLS: TrendingPool[] = [
+const RICH_GIFTS_TRENDING_POOLS: GiftTrendingPool[] = [
 	{
-		categoryKey: 'gifts.tabCollections',
-		badge: 'BLUECHIP & APEX',
-		items: ['Plush Pepe', "Durov's Cap", 'Signet Ring', 'Precious Peach'],
+		badge: 'BLUECHIP & APEX (بلوچیپ)',
+		items: [
+			{ slug: 'plush_pepe', name: 'Plush Pepe #1', serial: 1, url: 'https://t.me/nft/PlushPepe-1', floor: 5200, emoji: '🐸', tag: 'Top 0.01% Elite' },
+			{ slug: 'durov_cap', name: "Durov's Cap #1", serial: 1, url: 'https://t.me/nft/DurovsCap-1', floor: 2800, emoji: '🧢', tag: 'Mythic Genesis' },
+			{ slug: 'signet_ring', name: 'Signet Ring #7', serial: 7, url: 'https://t.me/nft/SignetRing-7', floor: 950, emoji: '💍', tag: 'Lucky 7' },
+			{ slug: 'precious_peach', name: 'Precious Peach #88', serial: 88, url: 'https://t.me/nft/PreciousPeach-88', floor: 1100, emoji: '🍑', tag: 'Double 8' },
+		],
 	},
 	{
-		categoryKey: 'gifts.tabCollections',
-		badge: 'SEASONAL & MAGIC',
-		items: ['Santa Hat', 'Magic Potion', 'Kissed Frog', 'Hex Pot'],
+		badge: 'SEASONAL & MAGIC (فصلی و جادو)',
+		items: [
+			{ slug: 'santa_hat', name: 'Santa Hat #1', serial: 1, url: 'https://t.me/nft/SantaHat-1', floor: 650, emoji: '🎅', tag: 'Genesis Mint' },
+			{ slug: 'magic_potion', name: 'Magic Potion #777', serial: 777, url: 'https://t.me/nft/MagicPotion-777', floor: 480, emoji: '🧪', tag: 'Triple 7' },
+			{ slug: 'kissed_frog', name: 'Kissed Frog #10', serial: 10, url: 'https://t.me/nft/KissedFrog-10', floor: 390, emoji: '🐸', tag: 'Apex' },
+			{ slug: 'hex_pot', name: 'Hex Pot #42', serial: 42, url: 'https://t.me/nft/HexPot-42', floor: 320, emoji: '🏺', tag: 'Rare' },
+		],
 	},
 	{
-		categoryKey: 'gifts.tabCollections',
-		badge: 'TALISMANS & RELICS',
-		items: ['Genie Lamp', 'Evil Eye', 'Lunar Snake', 'Astral Shard'],
+		badge: 'TALISMANS & STARS (ستارگان و نمادین)',
+		items: [
+			{ slug: 'snoop_dogg', name: 'Snoop Dogg #420', serial: 420, url: 'https://t.me/nft/SnoopDogg-420', floor: 3200, emoji: '🎙️', tag: '420 OG' },
+			{ slug: 'scared_cat', name: 'Scared Cat #10', serial: 10, url: 'https://t.me/nft/ScaredCat-10', floor: 1450, emoji: '🐱', tag: 'Top Tier' },
+			{ slug: 'lunar_snake', name: 'Lunar Snake #8', serial: 8, url: 'https://t.me/nft/LunarSnake-8', floor: 850, emoji: '🐍', tag: 'Single Digit' },
+			{ slug: 'astral_shard', name: 'Astral Shard #99', serial: 99, url: 'https://t.me/nft/AstralShard-99', floor: 780, emoji: '💎', tag: 'Apex' },
+		],
 	},
 	{
-		categoryKey: 'gifts.tabCollections',
-		badge: 'LUXURY & HIGH TIER',
-		items: ['Swiss Watch', 'Diamond Ring', 'Record Player', 'Mini Oscar'],
-	},
-	{
-		categoryKey: 'gifts.tabCollections',
-		badge: 'SPECIAL & STARS',
-		items: ['Snoop Dogg', "Khabib's Papakha", 'Liberty Figure', 'Victory Medal'],
+		badge: 'LUXURY & HIGH TIER (لوکس و کلکسیونی)',
+		items: [
+			{ slug: 'swiss_watch', name: 'Swiss Watch #12', serial: 12, url: 'https://t.me/nft/SwissWatch-12', floor: 1800, emoji: '⌚', tag: 'High Luxury' },
+			{ slug: 'diamond_ring', name: 'Diamond Ring #1', serial: 1, url: 'https://t.me/nft/DiamondRing-1', floor: 4500, emoji: '💎', tag: 'Genesis #1' },
+			{ slug: 'record_player', name: 'Record Player #100', serial: 100, url: 'https://t.me/nft/RecordPlayer-100', floor: 920, emoji: '📻', tag: 'Centennial' },
+			{ slug: 'mini_oscar', name: 'Mini Oscar #1', serial: 1, url: 'https://t.me/nft/MiniOscar-1', floor: 2900, emoji: '🏆', tag: 'Apex #1' },
+		],
 	},
 ];
 
@@ -140,6 +166,103 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		if ((s.startsWith('0:') || s.startsWith('-1:')) && s.length >= 66) return true;
 		return false;
 	};
+
+	const giftsValidation = createMemo(() => {
+		if (props.activeTab !== 'gifts') {
+			return { isValid: false, isLink: false, isWallet: false, isUser: false, title: '', subtitle: '', slug: '', serial: 1, emoji: '🎁', tag: '' };
+		}
+		const raw = searchQuery().trim();
+		if (!raw) {
+			return { isValid: false, isLink: false, isWallet: false, isUser: false, title: '', subtitle: '', slug: '', serial: 1, emoji: '🎁', tag: '' };
+		}
+
+		if (isTonWalletAddress(raw)) {
+			return {
+				isValid: true,
+				isLink: false,
+				isWallet: true,
+				isUser: false,
+				title: 'والت آن‌چین مالک هدیه',
+				subtitle: `${raw.slice(0, 8)}...${raw.slice(-6)} · اسکن کامل دارایی‌ها و هدایا`,
+				slug: raw,
+				serial: 1,
+				emoji: '💎',
+				tag: 'ON-CHAIN WALLET',
+			};
+		}
+
+		if (raw.startsWith('@')) {
+			return {
+				isValid: true,
+				isLink: false,
+				isWallet: false,
+				isUser: true,
+				title: `پورتفولیوی کاربر ${raw}`,
+				subtitle: 'اسکن کامل تمام هدایای پروفایل و ارزیابی دارایی‌ها',
+				slug: raw.replace(/^@/, ''),
+				serial: 1,
+				emoji: '👤',
+				tag: 'TELEGRAM USER',
+			};
+		}
+
+		// Check link or direct identifier (e.g. https://t.me/nft/PlushPepe-1 or PlushPepe-1 or Plush Pepe #1)
+		let clean = raw.replace(/^https?:\/\//i, '').replace(/^telegram\.me\/nft\//i, '').replace(/^t\.me\/nft\//i, '').replace(/^fragment\.com\/gift\//i, '');
+		if (clean.includes('?')) clean = clean.split('?')[0];
+		clean = clean.replace(/\/$/, '').trim();
+
+		// Match name/slug + serial number (e.g. PlushPepe-1 or DurovsCap-123 or Plush Pepe #1)
+		const match = clean.match(/^([a-zA-Z0-9_\s-]+?)[-#_\s]?(\d+)$/);
+		if (match) {
+			const modelRaw = match[1].toLowerCase().replace(/[\s_-]+/g, '_');
+			const serialNum = parseInt(match[2], 10) || 1;
+			const catalogItem = OFFICIAL_GIFTS_120.find(
+				(g) => g.slug.replace(/_/g, '') === modelRaw.replace(/_/g, '') ||
+				       g.name.toLowerCase().replace(/[^a-z0-9]/g, '') === modelRaw.replace(/[^a-z0-9]/g, '')
+			);
+
+			const displayName = catalogItem ? catalogItem.name : match[1].replace(/_/g, ' ').trim();
+			const resolvedSlug = catalogItem ? catalogItem.slug : modelRaw;
+			const emoji = catalogItem?.emoji || '🎁';
+			const floor = catalogItem ? `${catalogItem.floorTon} TON` : 'متصل به بازار';
+
+			return {
+				isValid: true,
+				isLink: true,
+				isWallet: false,
+				isUser: false,
+				title: `${displayName} #${serialNum}`,
+				subtitle: `کف قیمت: ${floor} · آماده ارزیابی AVM، شجره‌نامه و کف ویژگی‌ها`,
+				slug: `${resolvedSlug}-${serialNum}`,
+				serial: serialNum,
+				emoji,
+				tag: serialNum <= 10 ? '👑 APEX SERIAL' : 'VERIFIED GIFT',
+			};
+		}
+
+		// Match collection without number (e.g. Plush Pepe or durov_cap)
+		const colRaw = clean.toLowerCase().replace(/[\s_-]+/g, '_');
+		const catalogItem = OFFICIAL_GIFTS_120.find(
+			(g) => g.slug.replace(/_/g, '') === colRaw.replace(/_/g, '') ||
+			       g.name.toLowerCase().replace(/[^a-z0-9]/g, '') === colRaw.replace(/[^a-z0-9]/g, '')
+		);
+		if (catalogItem) {
+			return {
+				isValid: true,
+				isLink: false,
+				isWallet: false,
+				isUser: false,
+				title: `کالکشن رسمی ${catalogItem.name}`,
+				subtitle: `کف قیمت: ${catalogItem.floorTon} TON · تیراژ: ${catalogItem.supply.toLocaleString()}`,
+				slug: catalogItem.slug,
+				serial: 1,
+				emoji: catalogItem.emoji || '🎁',
+				tag: 'OFFICIAL COLLECTION',
+			};
+		}
+
+		return { isValid: false, isLink: false, isWallet: false, isUser: false, title: '', subtitle: '', slug: '', serial: 1, emoji: '🎁', tag: '' };
+	});
 
 	const numbersValidation = createMemo(() => {
 		if (props.activeTab !== 'collectibles') {
@@ -311,8 +434,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 		// Auto cycle collectibles trending numbers every 7 seconds when idle
 		cycleInterval = setInterval(() => {
-			if (!isFocused() && !searchQuery() && props.activeTab === 'collectibles') {
-				setPoolIndex((prev) => (prev + 1) % NUMBER_TRENDING_POOLS.length);
+			if (!isFocused() && !searchQuery()) {
+				if (props.activeTab === 'collectibles') {
+					setPoolIndex((prev) => (prev + 1) % NUMBER_TRENDING_POOLS.length);
+				} else if (props.activeTab === 'gifts') {
+					setPoolIndex((prev) => (prev + 1) % RICH_GIFTS_TRENDING_POOLS.length);
+				}
 			}
 		}, 7000);
 	});
@@ -320,18 +447,18 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	onCleanup(() => {
 		if (cycleInterval) clearInterval(cycleInterval);
 		if (autoGuideTimeout) clearTimeout(autoGuideTimeout);
-		if (verifyTimeout) clearTimeout(verifyTimeout);
+		if (verifyTimeout) clearInterval(verifyTimeout);
 	});
 
 	const currentTrendingPool = createMemo(() => NUMBER_TRENDING_POOLS[poolIndex() % NUMBER_TRENDING_POOLS.length]);
-	const currentGiftsTrendingPool = createMemo(() => GIFTS_TRENDING_POOLS[poolIndex() % GIFTS_TRENDING_POOLS.length]);
+	const currentGiftsTrendingPool = createMemo(() => RICH_GIFTS_TRENDING_POOLS[poolIndex() % RICH_GIFTS_TRENDING_POOLS.length]);
 
 	const trendingItems = createMemo(() => {
 		if (props.activeTab === 'collectibles') {
 			return currentTrendingPool().items;
 		}
 		if (props.activeTab === 'gifts') {
-			return currentGiftsTrendingPool().items;
+			return currentGiftsTrendingPool().items.map((i) => i.url);
 		}
 		return trendingUsernames();
 	});
@@ -341,7 +468,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			haptic.selection();
 		} catch {}
 		setIsRotating(true);
-		const maxLen = props.activeTab === 'gifts' ? GIFTS_TRENDING_POOLS.length : NUMBER_TRENDING_POOLS.length;
+		const maxLen = props.activeTab === 'gifts' ? RICH_GIFTS_TRENDING_POOLS.length : NUMBER_TRENDING_POOLS.length;
 		setPoolIndex((prev) => (prev + 1) % maxLen);
 		setTimeout(() => setIsRotating(false), 450);
 	};
@@ -369,42 +496,64 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			return;
 		}
 
+		if (props.activeTab === 'gifts') {
+			const v = giftsValidation();
+			try {
+				haptic.impact('medium');
+			} catch {}
+			setAnalyzeState('loading');
+
+			if (v.isWallet) {
+				setAnalyzeState('idle');
+				navigate(`/gifts/portfolio?address=${encodeURIComponent(v.slug)}`);
+				return;
+			}
+			if (v.isUser) {
+				setAnalyzeState('idle');
+				navigate(`/gifts/portfolio?u=${encodeURIComponent(v.slug)}`);
+				return;
+			}
+			if (v.isValid) {
+				setAnalyzeState('idle');
+				if (v.isLink || v.slug.includes('-')) {
+					navigate(`/gifts/report?g=${encodeURIComponent(v.slug)}`);
+				} else {
+					navigate(`/gifts/collection?c=${encodeURIComponent(v.slug)}`);
+				}
+				return;
+			}
+
+			// Fallback parsing
+			let q = searchQuery().trim();
+			let clean = q.replace(/^https?:\/\//i, '').replace(/^telegram\.me\/nft\//i, '').replace(/^t\.me\/nft\//i, '').replace(/^fragment\.com\/gift\//i, '');
+			if (clean.includes('?')) clean = clean.split('?')[0];
+			clean = clean.replace(/\/$/, '').trim();
+
+			setAnalyzeState('idle');
+			if (clean.startsWith('@')) {
+				navigate(`/gifts/portfolio?u=${encodeURIComponent(clean.replace(/^@/, ''))}`);
+			} else if (/\d/.test(clean)) {
+				navigate(`/gifts/report?g=${encodeURIComponent(clean.toLowerCase().replace(/[\s#]+/g, '-'))}`);
+			} else {
+				navigate(`/gifts/collection?c=${encodeURIComponent(clean.toLowerCase().replace(/\s+/g, '_'))}`);
+			}
+			return;
+		}
+
 		if (!searchQuery() || searchError()) return;
 		try {
 			haptic.impact('medium');
 		} catch {}
 
 		setAnalyzeState('loading');
-
-		if (props.activeTab === 'gifts') {
-			let q = searchQuery().trim();
-			const m = q.match(/t\.me\/nft\/([A-Za-z0-9_]+)-?(\d*)/i);
-			if (m) {
-				q = `${m[1].toLowerCase()}-${m[2] || '1'}`;
-			}
-
-			if (q.startsWith('@')) {
-				setAnalyzeState('idle');
-				navigate(`/gifts/portfolio?u=${encodeURIComponent(q.replace(/^@/, ''))}`);
-			} else if (!/\d/.test(q)) {
-				// Collection level search (e.g. "plush_pepe", "diamond_ring")
-				setAnalyzeState('idle');
-				navigate(`/gifts/collection?c=${encodeURIComponent(q.toLowerCase().replace(/\s+/g, '_'))}`);
-			} else {
-				// Single gift report (e.g. "plush_pepe-42")
-				setAnalyzeState('idle');
-				navigate(`/gifts/report?g=${encodeURIComponent(q)}`);
-			}
+		if (validate(searchQuery(), props.activeTab)) {
+			setAnalyzeState('idle');
+			navigate(`/username/report?u=${encodeURIComponent(searchQuery())}`);
 		} else {
-			if (validate(searchQuery(), props.activeTab)) {
-				setAnalyzeState('idle');
-				navigate(`/username/report?u=${encodeURIComponent(searchQuery())}`);
-			} else {
-				setAnalyzeState('idle');
-				try {
-					haptic.notify('error');
-				} catch {}
-			}
+			setAnalyzeState('idle');
+			try {
+				haptic.notify('error');
+			} catch {}
 		}
 	};
 
@@ -466,6 +615,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			return;
 		}
 
+		if (props.activeTab === 'gifts') {
+			setSearchQuery(val.trim());
+			setSearchError(null);
+			return;
+		}
+
 		const stripped = val.replace(/^[@+]/, '');
 		setSearchQuery(stripped);
 		if (props.activeTab === 'username') {
@@ -489,6 +644,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			if (sv && sv.is_minted === false) return true;
 			return false;
 		}
+		if (props.activeTab === 'gifts') {
+			return !searchQuery().trim();
+		}
 		return !searchQuery() || Boolean(searchError());
 	});
 
@@ -505,8 +663,15 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			}
 			return t('action.collectibles.analyzeBtn');
 		}
+		if (props.activeTab === 'gifts') {
+			const v = giftsValidation();
+			if (v.isWallet) return 'اسکن پورتفولیوی والت';
+			if (v.isUser) return 'اسکن هدایای کاربر';
+			if (v.isLink || (v.isValid && v.slug.includes('-'))) return 'ارزش‌گذاری و تحلیل هوشمند AVM';
+			if (v.isValid) return 'مشاهده اطلاعات کالکشن';
+			return t('action.gifts.analyzeBtn');
+		}
 		if (props.activeTab === 'username') return t('action.username.analyzeMarketBtn');
-		if (props.activeTab === 'gifts') return t('action.gifts.analyzeBtn');
 		return t(keys().analyzeBtn);
 	};
 
@@ -725,18 +890,27 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									<Show
 										when={props.activeTab === 'collectibles'}
 										fallback={
-											<span
-												class="text-[24px] font-medium transition-colors duration-300 min-w-[20px]"
-												style={{
-													color: isFocused()
-														? searchQuery()
-															? inputStateColors().icon
-															: '#3390ec'
-														: 'rgba(255,255,255,0.2)',
-												}}
+											<Show
+												when={props.activeTab === 'gifts'}
+												fallback={
+													<span
+														class="text-[24px] font-medium transition-colors duration-300 min-w-[20px]"
+														style={{
+															color: isFocused()
+																? searchQuery()
+																	? inputStateColors().icon
+																	: '#3390ec'
+																: 'rgba(255,255,255,0.2)',
+														}}
+													>
+														@
+													</span>
+												}
 											>
-												{props.activeTab === 'username' ? '@' : ''}
-											</span>
+												<span class="text-[22px] select-none shrink-0" title="Telegram Gifts">
+													🎁
+												</span>
+											</Show>
 										}
 									>
 										{/* Fixed +888 Prefix Badge */}
@@ -747,11 +921,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 									<input
 										id="search-input"
-										class="flex-1 bg-transparent border-none focus:ring-0 outline-none text-left font-mono text-[20px] font-bold text-white placeholder:text-white/20 tracking-wider"
+										class="flex-1 bg-transparent border-none focus:ring-0 outline-none text-left font-mono text-[16px] sm:text-[19px] font-bold text-white placeholder:text-white/20 tracking-wider min-w-0"
 										placeholder={
 											props.activeTab === 'collectibles'
 												? '8888 8888'
-												: t(keys().inputPlaceholder)
+												: props.activeTab === 'gifts'
+													? 't.me/nft/PlushPepe-1'
+													: t(keys().inputPlaceholder)
 										}
 										value={searchQuery()}
 										onInput={(e) => updateSearchQuery(e.currentTarget.value)}
@@ -760,8 +936,28 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										autocomplete="off"
 										spellcheck={false}
 									/>
-									<Show when={searchQuery()}>
-										<div class="flex items-center shrink-0">
+
+									<div class="flex items-center gap-1.5 shrink-0">
+										{/* Paste from Clipboard Button for Gifts & Collectibles */}
+										<button
+											type="button"
+											onClick={async () => {
+												try {
+													const text = await navigator.clipboard.readText();
+													if (text) {
+														updateSearchQuery(text);
+														haptic.impact('medium');
+													}
+												} catch {}
+											}}
+											class="px-2.5 py-1 rounded-xl bg-white/[0.05] hover:bg-white/10 border border-white/10 text-white/60 hover:text-white text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95"
+											title="جاگذاری از کلیپ‌بورد"
+										>
+											<span class="material-symbols-outlined text-[14px] text-[#0098EA]">content_paste</span>
+											<span class="hidden xs:inline">Paste</span>
+										</button>
+
+										<Show when={searchQuery()}>
 											<button
 												type="button"
 												onClick={() => {
@@ -769,12 +965,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 													setShowNumberGuide(false);
 													setServerVerified(null);
 												}}
-												class="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/40 hover:text-white transition-all flex items-center justify-center"
+												class="w-7 h-7 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/40 hover:text-white transition-all flex items-center justify-center active:scale-90"
 											>
-												<span class="material-symbols-outlined text-[18px]">close</span>
+												<span class="material-symbols-outlined text-[16px]">close</span>
 											</button>
-										</div>
-									</Show>
+										</Show>
+									</div>
 								</div>
 
 								{/* Error for Usernames / Gifts */}
@@ -787,6 +983,31 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										<span class="material-symbols-outlined text-[15px] text-[#ff453a]">error</span>
 										<span class="text-[13px] font-medium text-[#ff453a]">{searchError()}</span>
 									</Motion.div>
+								</Show>
+
+								{/* 🎁 Reactive Live Recognition Card for Gifts */}
+								<Show when={props.activeTab === 'gifts' && giftsValidation().isValid}>
+									<div class="mx-1 mb-1.5 p-3 rounded-[20px] bg-gradient-to-r from-emerald-500/10 via-[#0098EA]/10 to-transparent border border-emerald-500/30 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
+										<div class="flex items-center justify-between gap-2 mb-1">
+											<div class="flex items-center gap-2">
+												<span class="text-base">{giftsValidation().emoji}</span>
+												<div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,199,89,0.8)] animate-pulse shrink-0" />
+												<span class="text-[13px] font-bold text-white tracking-tight">
+													{giftsValidation().title}
+												</span>
+											</div>
+											<span class="text-[9px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 shrink-0">
+												{giftsValidation().tag}
+											</span>
+										</div>
+										<div class="flex items-center justify-between text-[11px] text-white/60 pt-0.5">
+											<span class="truncate">{giftsValidation().subtitle}</span>
+											<span class="text-emerald-400 font-semibold text-[10px] shrink-0 flex items-center gap-1">
+												<span class="material-symbols-outlined text-[12px]">verified</span>
+												<span>تایید شده</span>
+											</span>
+										</div>
+									</div>
 								</Show>
 
 								{/* Reactive Realtime Validation & VIP Live Intelligence for Collectible Numbers */}
@@ -859,6 +1080,41 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							</div>
 						</div>
 
+						{/* Format Helper Pills for Gifts */}
+						<Show when={props.activeTab === 'gifts' && !searchQuery()}>
+							<div class="flex flex-wrap items-center justify-center gap-1.5 mt-2.5 px-2">
+								<span class="text-[10px] font-bold text-white/40">قالب‌های مجاز:</span>
+								<button
+									type="button"
+									onClick={() => updateSearchQuery('https://t.me/nft/PlushPepe-1')}
+									class="px-2 py-0.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-[10px] font-mono text-[#0098EA] transition-all"
+								>
+									t.me/nft/PlushPepe-1
+								</button>
+								<button
+									type="button"
+									onClick={() => updateSearchQuery('DurovsCap-1')}
+									class="px-2 py-0.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-[10px] font-mono text-purple-300 transition-all"
+								>
+									DurovsCap-1
+								</button>
+								<button
+									type="button"
+									onClick={() => updateSearchQuery('Signet Ring #7')}
+									class="px-2 py-0.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-[10px] font-mono text-amber-300 transition-all"
+								>
+									Signet Ring #7
+								</button>
+								<button
+									type="button"
+									onClick={() => updateSearchQuery('@durov')}
+									class="px-2 py-0.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-[10px] font-mono text-emerald-300 transition-all"
+								>
+									@durov (پورتفولیو)
+								</button>
+							</div>
+						</Show>
+
 						{/* Analyze Button */}
 						<button
 							type="button"
@@ -929,41 +1185,92 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							</Show>
 						</div>
 
-						<div class="flex flex-wrap justify-center gap-2.5 w-full" dir="ltr">
-							<For each={trendingItems()}>
-								{(item, idx) => (
-									<Motion.button
-										initial={{ opacity: 0, y: 8 }}
-										animate={{ opacity: 1, y: 0 }}
-										transition={{
-											duration: 0.35,
-											delay: idx() * 0.04,
-											easing: [0.16, 1, 0.3, 1],
-										}}
-										onClick={() => {
-											try {
-												haptic.selection();
-											} catch {}
-											updateSearchQuery(item);
-											const el = document.getElementById('search-input');
-											if (el) el.focus();
-										}}
-										class="group relative px-4 py-2.5 rounded-[16px] bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white text-[13px] font-mono font-medium transition-all duration-300 active:scale-95 flex items-center gap-1.5 border border-white/[0.05] hover:border-white/15 shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
-									>
-										<Show when={props.activeTab === 'username'}>
-											<span class="text-white/25">@</span>
-										</Show>
-										<Show when={props.activeTab === 'collectibles' && !item.startsWith('+')}>
-											<span class="text-[#0098EA]/60 font-bold">+888 </span>
-										</Show>
-										<span class="tracking-wider">{item}</span>
-										<span class="material-symbols-outlined text-[12px] opacity-0 group-hover:opacity-60 -translate-x-1 group-hover:translate-x-0 transition-all text-white">
-											arrow_outward
-										</span>
-									</Motion.button>
-								)}
-							</For>
-						</div>
+						{/* Gifts Custom Luxury Cards */}
+						<Show
+							when={props.activeTab === 'gifts'}
+							fallback={
+								<div class="flex flex-wrap justify-center gap-2.5 w-full" dir="ltr">
+									<For each={trendingItems()}>
+										{(item, idx) => (
+											<Motion.button
+												initial={{ opacity: 0, y: 8 }}
+												animate={{ opacity: 1, y: 0 }}
+												transition={{
+													duration: 0.35,
+													delay: idx() * 0.04,
+													easing: [0.16, 1, 0.3, 1],
+												}}
+												onClick={() => {
+													try {
+														haptic.selection();
+													} catch {}
+													updateSearchQuery(item);
+													const el = document.getElementById('search-input');
+													if (el) el.focus();
+												}}
+												class="group relative px-4 py-2.5 rounded-[16px] bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white text-[13px] font-mono font-medium transition-all duration-300 active:scale-95 flex items-center gap-1.5 border border-white/[0.05] hover:border-white/15 shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
+											>
+												<Show when={props.activeTab === 'username'}>
+													<span class="text-white/25">@</span>
+												</Show>
+												<Show when={props.activeTab === 'collectibles' && !item.startsWith('+')}>
+													<span class="text-[#0098EA]/60 font-bold">+888 </span>
+												</Show>
+												<span class="tracking-wider">{item}</span>
+												<span class="material-symbols-outlined text-[12px] opacity-0 group-hover:opacity-60 -translate-x-1 group-hover:translate-x-0 transition-all text-white">
+													arrow_outward
+												</span>
+											</Motion.button>
+										)}
+									</For>
+								</div>
+							}
+						>
+							<div class="grid grid-cols-1 xs:grid-cols-2 gap-2.5 w-full max-w-[460px]">
+								<For each={currentGiftsTrendingPool().items}>
+									{(gCard, idx) => (
+										<Motion.button
+											initial={{ opacity: 0, y: 8 }}
+											animate={{ opacity: 1, y: 0 }}
+											transition={{
+												duration: 0.35,
+												delay: idx() * 0.05,
+												easing: [0.16, 1, 0.3, 1],
+											}}
+											onClick={() => {
+												try {
+													haptic.impact('medium');
+												} catch {}
+												updateSearchQuery(gCard.url);
+												const el = document.getElementById('search-input');
+												if (el) el.focus();
+											}}
+											class="group relative p-3 rounded-[20px] bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-[#0098EA]/40 text-left transition-all duration-300 active:scale-98 flex items-center gap-3 shadow-lg overflow-hidden backdrop-blur-xl"
+										>
+											<div class="w-10 h-10 rounded-2xl bg-black/40 border border-white/10 shrink-0 overflow-hidden flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
+												<GiftThumbnail slug={gCard.slug} alt={gCard.name} class="w-full h-full object-contain" />
+											</div>
+											<div class="flex-1 min-w-0">
+												<div class="flex items-center justify-between gap-1">
+													<span class="text-xs font-black text-white truncate group-hover:text-[#0098EA] transition-colors">
+														{gCard.name}
+													</span>
+													<span class="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/5 text-white/50 border border-white/5">
+														#{gCard.serial}
+													</span>
+												</div>
+												<div class="flex items-center justify-between text-[10px] mt-0.5">
+													<span class="text-white/40 truncate font-mono">{gCard.url.replace('https://', '')}</span>
+													<span class="text-emerald-400 font-mono font-bold shrink-0">
+														{gCard.floor.toLocaleString()} T
+													</span>
+												</div>
+											</div>
+										</Motion.button>
+									)}
+								</For>
+							</div>
+						</Show>
 					</Motion.div>
 				</div>
 			</div>

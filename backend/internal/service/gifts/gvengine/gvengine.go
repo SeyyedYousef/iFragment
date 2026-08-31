@@ -66,10 +66,22 @@ func NormalizeGiftIdentifier(raw string) (*ParsedGiftRef, error) {
 	clean := strings.TrimSpace(raw)
 	clean = strings.TrimPrefix(clean, "https://")
 	clean = strings.TrimPrefix(clean, "http://")
+	clean = strings.TrimPrefix(clean, "telegram.me/nft/")
 	clean = strings.TrimPrefix(clean, "t.me/nft/")
+	clean = strings.TrimPrefix(clean, "fragment.com/gift/")
 
+	// Clean out trailing slashes and query params
+	if idx := strings.Index(clean, "?"); idx != -1 {
+		clean = clean[:idx]
+	}
+	clean = strings.TrimRight(clean, "/")
 	clean = strings.ToLower(clean)
-	// Replace non-alphanumeric with dash
+
+	// Replace # and spaces with dash
+	clean = strings.ReplaceAll(clean, "#", "-")
+	clean = strings.ReplaceAll(clean, " ", "-")
+
+	// Match pattern: collection_name - number
 	re := regexp.MustCompile(`([a-z0-9_]+)[-#_]?(\d+)`)
 	matches := re.FindStringSubmatch(clean)
 
@@ -103,6 +115,7 @@ func NormalizeGiftIdentifier(raw string) (*ParsedGiftRef, error) {
 
 	return nil, fmt.Errorf("invalid gift identifier: %s", raw)
 }
+
 
 // GenerateCuriosityGate creates the pre-paywall teaser with ZERO valuation leakage (Sacred Rule 3)
 func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string) (*CuriosityGateResponse, error) {
