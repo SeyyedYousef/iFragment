@@ -2313,7 +2313,22 @@ export const dict = {
 		"sumInverses": "Sum of Inverses",
 		"avgRarity": "Average Rarity",
 		"statProduct": "Statistical Product",
-		"infoEntropy": "Information Entropy"
+		"infoEntropy": "Information Entropy",
+		"macroStatsTitle": "Macro Ecosystem Statistics",
+		"totalGiftsCount": "Total Gifts",
+		"upgradableGiftsCount": "Upgradable to NFT",
+		"limitedGiftsCount": "Limited Edition",
+		"unlimitedGiftsCount": "Unlimited Gifts",
+		"uniqueModelsCount": "Unique Models",
+		"backdropsCount": "Backdrops",
+		"patternsCount": "Patterns & Symbols",
+		"cumulativeVolume": "Cumulative Volume",
+		"holderUsers": "Holder Users",
+		"circulatingGifts": "Circulating Supply",
+		"exportHeatmap": "Download Heatmap",
+		"quickSelectAll": "Quick Selection (120 Gifts)",
+		"tabCollections": "Collections (120 Gifts)",
+		"arbitrageScanner": "Cross-Market Arbitrage Scanner"
 	},
 	"groupAnalytics": {
 		"activityHeatmap": "24x7 Group Activity Heatmap",
@@ -4372,3 +4387,4 @@ export const dict = {
 		"upgrade": "Pro"
 	}
 };
+

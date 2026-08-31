@@ -2313,6 +2313,21 @@ export const dict = {
 		avgRarity: 'میانگین نایابی (Average Rarity)',
 		statProduct: 'ضرب احتمالات آماری (Statistical Product)',
 		infoEntropy: 'آنتروپی و نظریه اطلاعات (Information Content)',
+		macroStatsTitle: 'آمار کلان اکوسیستم هدایا',
+		totalGiftsCount: 'کل گیفت‌ها',
+		upgradableGiftsCount: 'قابل ارتقا به NFT',
+		limitedGiftsCount: 'گیفت‌های محدود',
+		unlimitedGiftsCount: 'گیفت‌های نامحدود',
+		uniqueModelsCount: 'کل مدل‌های یکتا',
+		backdropsCount: 'بک‌دراپ‌ها (پس‌زمینه)',
+		patternsCount: 'پترن‌ها و سیمبل‌ها',
+		cumulativeVolume: 'حجم تجمیعی معاملات',
+		holderUsers: 'کاربران هولدر',
+		circulatingGifts: 'گیفت‌های در گردش',
+		exportHeatmap: 'دانلود نقشه حرارتی',
+		quickSelectAll: 'انتخاب سریع از تمام ۱۲۰ گیفت',
+		tabCollections: 'کالکشن‌ها (۱۲۰ گیفت)',
+		arbitrageScanner: 'اسکنر آربیتراژ میان‌بازاری',
 	},
 	groupAnalytics: {
 		activityHeatmap: 'نقشه فعالیت ۲۴×۷ گروه (Heatmap)',
@@ -4371,3 +4386,4 @@ export const dict = {
 		upgrade: 'پرو',
 	},
 };
+

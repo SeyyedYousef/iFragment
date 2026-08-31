@@ -2312,6 +2312,21 @@ export const dict = {
 		avgRarity: '平均稀有度法',
 		statProduct: '统计乘积法',
 		infoEntropy: '信息熵法',
+		macroStatsTitle: '礼物生态宏观统计数据',
+		totalGiftsCount: '礼物总种类',
+		upgradableGiftsCount: '可升级为 NFT',
+		limitedGiftsCount: '限量版礼物',
+		unlimitedGiftsCount: '非限量礼物',
+		uniqueModelsCount: '独立模型总数',
+		backdropsCount: '背景 (Backdrops)',
+		patternsCount: '图案与符号',
+		cumulativeVolume: '累计交易量',
+		holderUsers: '持有者用户数',
+		circulatingGifts: '流通中礼物总量',
+		exportHeatmap: '导出热力图',
+		quickSelectAll: '快速选择 (120 款礼物)',
+		tabCollections: '藏品集合 (120 款)',
+		arbitrageScanner: '跨市场套利扫描器',
 	},
 	groupAnalytics: {
 		activityHeatmap: '24x7 群组活跃度热力图',
@@ -4370,3 +4385,4 @@ export const dict = {
 		upgrade: 'Pro',
 	},
 };
+

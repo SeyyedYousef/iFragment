@@ -85,6 +85,34 @@ const NUMBER_TRENDING_POOLS: TrendingPool[] = [
 	},
 ];
 
+const GIFTS_TRENDING_POOLS: TrendingPool[] = [
+	{
+		categoryKey: 'gifts.tabCollections',
+		badge: 'BLUECHIP & APEX',
+		items: ['Plush Pepe', "Durov's Cap", 'Signet Ring', 'Precious Peach'],
+	},
+	{
+		categoryKey: 'gifts.tabCollections',
+		badge: 'SEASONAL & MAGIC',
+		items: ['Santa Hat', 'Magic Potion', 'Kissed Frog', 'Hex Pot'],
+	},
+	{
+		categoryKey: 'gifts.tabCollections',
+		badge: 'TALISMANS & RELICS',
+		items: ['Genie Lamp', 'Evil Eye', 'Lunar Snake', 'Astral Shard'],
+	},
+	{
+		categoryKey: 'gifts.tabCollections',
+		badge: 'LUXURY & HIGH TIER',
+		items: ['Swiss Watch', 'Diamond Ring', 'Record Player', 'Mini Oscar'],
+	},
+	{
+		categoryKey: 'gifts.tabCollections',
+		badge: 'SPECIAL & STARS',
+		items: ['Snoop Dogg', "Khabib's Papakha", 'Liberty Figure', 'Victory Medal'],
+	},
+];
+
 export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const { searchQuery, setSearchQuery, searchError, setSearchError, validate } =
 		useUsernameSearch();
@@ -295,16 +323,15 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		if (verifyTimeout) clearTimeout(verifyTimeout);
 	});
 
-	const currentTrendingPool = createMemo(() => NUMBER_TRENDING_POOLS[poolIndex()]);
+	const currentTrendingPool = createMemo(() => NUMBER_TRENDING_POOLS[poolIndex() % NUMBER_TRENDING_POOLS.length]);
+	const currentGiftsTrendingPool = createMemo(() => GIFTS_TRENDING_POOLS[poolIndex() % GIFTS_TRENDING_POOLS.length]);
 
 	const trendingItems = createMemo(() => {
 		if (props.activeTab === 'collectibles') {
 			return currentTrendingPool().items;
 		}
 		if (props.activeTab === 'gifts') {
-			return trendingGifts().length > 0
-				? trendingGifts()
-				: ['Plush Pepe', "Durov's Black Cap", 'Phoenix Feather', 'Celestial Star'];
+			return currentGiftsTrendingPool().items;
 		}
 		return trendingUsernames();
 	});
@@ -314,7 +341,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			haptic.selection();
 		} catch {}
 		setIsRotating(true);
-		setPoolIndex((prev) => (prev + 1) % NUMBER_TRENDING_POOLS.length);
+		const maxLen = props.activeTab === 'gifts' ? GIFTS_TRENDING_POOLS.length : NUMBER_TRENDING_POOLS.length;
+		setPoolIndex((prev) => (prev + 1) % maxLen);
 		setTimeout(() => setIsRotating(false), 450);
 	};
 
@@ -883,7 +911,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 								<span>{t('action.trending.title')}</span>
 							</span>
 
-							<Show when={props.activeTab === 'collectibles'}>
+							<Show when={props.activeTab === 'collectibles' || props.activeTab === 'gifts'}>
 								<button
 									type="button"
 									onClick={handleCycleTrending}
@@ -892,7 +920,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									<span class={`material-symbols-outlined text-[13px] text-[#0098EA] transition-transform duration-500 ${isRotating() ? 'rotate-180' : 'group-hover:rotate-45'}`}>
 										cached
 									</span>
-									<span>{t(currentTrendingPool().categoryKey)}</span>
+									<span>
+										{props.activeTab === 'gifts'
+											? currentGiftsTrendingPool().badge
+											: t(currentTrendingPool().categoryKey)}
+									</span>
 								</button>
 							</Show>
 						</div>

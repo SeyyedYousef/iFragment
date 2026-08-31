@@ -2313,6 +2313,21 @@ export const dict = {
 		avgRarity: 'Средняя редкость',
 		statProduct: 'Статистическое произведение',
 		infoEntropy: 'Информационная энтропия',
+		macroStatsTitle: 'Макростатистика экосистемы',
+		totalGiftsCount: 'Всего подарков',
+		upgradableGiftsCount: 'Улучшаемые до NFT',
+		limitedGiftsCount: 'Лимитированные',
+		unlimitedGiftsCount: 'Нелимитированные',
+		uniqueModelsCount: 'Уникальные модели',
+		backdropsCount: 'Бэкдропы (фоны)',
+		patternsCount: 'Паттерны и символы',
+		cumulativeVolume: 'Совокупный объем',
+		holderUsers: 'Пользователи-холдеры',
+		circulatingGifts: 'В обращении',
+		exportHeatmap: 'Скачать карту',
+		quickSelectAll: 'Быстрый выбор (120 подарков)',
+		tabCollections: 'Коллекции (120 подарков)',
+		arbitrageScanner: 'Межрыночный сканер арбитража',
 	},
 	groupAnalytics: {
 		activityHeatmap: 'Тепловая карта активности 24/7',
@@ -4371,3 +4386,4 @@ export const dict = {
 		upgrade: 'Pro',
 	},
 };
+
