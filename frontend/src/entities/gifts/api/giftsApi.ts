@@ -1,7 +1,9 @@
 import { apiClient } from '@/shared/api/axios.js';
 import type {
+	CollectionIntelResponse,
 	CraftingEVData,
 	CuriosityGateData,
+	EnrichedGiftReport,
 	GiftsIntelResponse,
 	GiftValuationReport,
 	PortfolioScanResponse,
@@ -85,6 +87,36 @@ export const giftsApi = {
 
 	getWatchlist: async (): Promise<any[]> => {
 		const res = await apiClient.get('/gifts/watchlist');
+		return res.data;
+	},
+
+	// ═══════════════════════════════════════════════════════════
+	// Collection Intelligence API
+	// ═══════════════════════════════════════════════════════════
+
+	getCollectionIntel: async (collectionSlug: string): Promise<CollectionIntelResponse> => {
+		const res = await apiClient.get<CollectionIntelResponse>('/gifts/collection-intel', {
+			params: { c: collectionSlug },
+		});
+		return res.data;
+	},
+
+	listCollections: async (): Promise<Array<{
+		slug: string;
+		name: string;
+		image_url?: string;
+		total_supply: number;
+		floor_gram: number;
+	}>> => {
+		const res = await apiClient.get('/gifts/collections');
+		return res.data;
+	},
+
+	// Enriched Single Gift Report (with provenance + on-chain)
+	getEnrichedReport: async (giftID: string): Promise<EnrichedGiftReport> => {
+		const res = await apiClient.get<EnrichedGiftReport>('/gifts/enriched-report', {
+			params: { g: giftID },
+		});
 		return res.data;
 	},
 };

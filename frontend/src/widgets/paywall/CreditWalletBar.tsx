@@ -1,6 +1,6 @@
 import { haptic } from '@/shared/lib/haptic.js';
 import { t } from '@/shared/i18n/index.js';
-import { Show, createSignal, onCleanup, onMount } from 'solid-js';
+import { Show, createSignal, createEffect, onCleanup } from 'solid-js';
 import { useWallet } from './useWallet.js';
 
 interface CreditWalletBarProps {
@@ -11,31 +11,37 @@ interface CreditWalletBarProps {
 function useCountUp(target: () => number | null) {
     const [display, setDisplay] = createSignal<number | null>(null);
     let raf = 0;
+    let currentVal = 0;
 
-    onMount(() => {
+    createEffect(() => {
+        const to = target();
+        if (to === null) {
+            setDisplay(null);
+            return;
+        }
         const reduce =
             typeof window !== 'undefined' &&
             window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-        const tick = () => {
-            const to = target();
-            if (to === null) return;
-            if (reduce) {
-                setDisplay(to);
-                return;
-            }
-            const start = performance.now();
-            const dur = 280;
-            const step = (now: number) => {
-                const p = Math.min(1, (now - start) / dur);
-                const eased = 1 - Math.pow(2, -10 * p);
-                setDisplay(Math.round(to * eased));
-                if (p < 1) raf = requestAnimationFrame(step);
-            };
-            raf = requestAnimationFrame(step);
-        };
+        if (reduce) {
+            currentVal = to;
+            setDisplay(to);
+            return;
+        }
 
-        tick();
+        cancelAnimationFrame(raf);
+        const from = currentVal;
+        const start = performance.now();
+        const dur = 280;
+        const step = (now: number) => {
+            const p = Math.min(1, (now - start) / dur);
+            const eased = 1 - Math.pow(2, -10 * p);
+            const val = Math.round(from + (to - from) * eased);
+            currentVal = val;
+            setDisplay(val);
+            if (p < 1) raf = requestAnimationFrame(step);
+        };
+        raf = requestAnimationFrame(step);
     });
 
     onCleanup(() => cancelAnimationFrame(raf));

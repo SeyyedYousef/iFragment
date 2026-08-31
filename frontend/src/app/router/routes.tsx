@@ -188,6 +188,9 @@ const GiftsIntelPage = lazy(() =>
 const GiftReportPage = lazy(() =>
 	import('@/pages/gifts/report/index.js').then((m) => ({ default: m.GiftReportPage })),
 );
+const GiftCollectionPage = lazy(() =>
+	import('@/pages/gifts/collection/index.js').then((m) => ({ default: m.GiftCollectionPage })),
+);
 const CraftingCalculatorPage = lazy(() =>
 	import('@/pages/gifts/crafting/index.js').then((m) => ({ default: m.CraftingCalculatorPage })),
 );
@@ -320,6 +323,7 @@ export const routes: Route[] = [
 	{ path: '/numbers/mask', Component: MaskBuilderPage },
 	{ path: '/gifts', Component: GiftsIntelPage },
 	{ path: '/gifts/intel', Component: GiftsIntelPage },
+	{ path: '/gifts/collection', Component: GiftCollectionPage },
 	{ path: '/gifts/report', Component: GiftReportPage },
 	{ path: '/gifts/valuation', Component: GiftReportPage },
 	{ path: '/gifts/crafting', Component: CraftingCalculatorPage },

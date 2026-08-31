@@ -300,3 +300,193 @@ export interface PortfolioScanResponse {
 	collection_breakdown: CollectionShareItem[];
 	scanned_at: string;
 }
+
+// ═══════════════════════════════════════════════════════════
+// Collection Intelligence Types
+// ═══════════════════════════════════════════════════════════
+
+export interface CollectionModelFloor {
+	model_id: string;
+	model_name: string;
+	rarity_permille: number;
+	total_supply: number;
+	upgraded_count: number;
+	floor_gram: number;
+	floor_usd: number;
+	best_venue: string;
+	change_24h_pct: number;
+	change_7d_pct: number;
+	volume_24h_gram: number;
+	is_trending: boolean;
+}
+
+export interface RarityHeatmapCell {
+	model_id: string;
+	model_name: string;
+	backdrop_id: string;
+	backdrop_name: string;
+	symbol_id?: string;
+	symbol_name?: string;
+	count: number;
+	total_in_collection: number;
+	rarity_permille: number;
+	rarity_tier: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic';
+	floor_gram: number;
+	floor_usd: number;
+}
+
+export interface MarketVenueFloor {
+	venue_id: string;
+	venue_name: string;
+	floor_gram: number;
+	floor_usd: number;
+	fee_pct: number;
+	net_payout_gram: number;
+	listed_count: number;
+	is_on_chain: boolean;
+}
+
+export interface CrossMarketArbitrage {
+	buy_venue: string;
+	buy_price_gram: number;
+	sell_venue: string;
+	sell_price_gram: number;
+	spread_pct: number;
+	net_profit_gram: number;
+	net_profit_usd: number;
+}
+
+export interface WhaleProfile {
+	rank: number;
+	owner_address: string;
+	display_name?: string;
+	telegram_username?: string;
+	holdings_count: number;
+	total_value_gram: number;
+	total_value_usd: number;
+	classification: 'diamond_hands' | 'flipper' | 'accumulator' | 'unknown';
+	change_24h_count: number;
+	avg_hold_days: number;
+}
+
+export interface MarketActivityItem {
+	activity_type: 'sale' | 'listing' | 'upgrade' | 'craft' | 'transfer' | 'delist';
+	gift_id: string;
+	model_name: string;
+	serial_number: number;
+	price_gram?: number;
+	price_usd?: number;
+	venue?: string;
+	from_address?: string;
+	to_address?: string;
+	timestamp: string;
+}
+
+export interface FearGreedData {
+	index: number;
+	label: string;
+	volume_component: number;
+	price_component: number;
+	listing_ratio_component: number;
+	on_chain_component: number;
+	previous_index: number;
+	trend: 'rising' | 'falling' | 'stable';
+}
+
+export interface UpgradeStepInfo {
+	step: number;
+	price_stars: number;
+	price_gram: number;
+	price_usd: number;
+	effective_at: string;
+	is_current: boolean;
+	savings_vs_current_stars: number;
+}
+
+export interface CollectionIntelResponse {
+	collection_id: string;
+	collection_name: string;
+	collection_slug: string;
+	lottie_url?: string;
+	image_url?: string;
+	total_supply: number;
+	upgraded_count: number;
+	is_limited: boolean;
+	is_craftable: boolean;
+	release_date: string;
+	upgrade_enabled_date?: string;
+
+	// Market Pulse
+	best_floor_gram: number;
+	best_floor_usd: number;
+	best_floor_venue: string;
+	change_24h_pct: number;
+	change_7d_pct: number;
+	change_30d_pct: number;
+	volume_24h_gram: number;
+	volume_24h_usd: number;
+	market_cap_gram: number;
+	market_cap_usd: number;
+	listed_count: number;
+	liquidity_ratio: number;
+
+	// Sections
+	model_floors: CollectionModelFloor[];
+	rarity_heatmap: RarityHeatmapCell[];
+	venue_floors: MarketVenueFloor[];
+	arbitrage: CrossMarketArbitrage | null;
+	whales: WhaleProfile[];
+	recent_activity: MarketActivityItem[];
+	fear_greed: FearGreedData;
+	upgrade_ladder: UpgradeStepInfo[];
+
+	// Floor price history (for chart)
+	floor_history: Array<{
+		timestamp: string;
+		floor_gram: number;
+		venue_breakdown: Record<string, number>;
+	}>;
+
+	// Attribution
+	data_sources: string[];
+	updated_at: string;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Single Gift Deep-Dive — New Types
+// ═══════════════════════════════════════════════════════════
+
+export interface ProvenanceEvent {
+	event_type: 'created' | 'sent' | 'upgraded' | 'sold' | 'transferred' | 'crafted' | 'listed' | 'delisted';
+	timestamp: string;
+	from_address?: string;
+	from_username?: string;
+	to_address?: string;
+	to_username?: string;
+	price_gram?: number;
+	price_usd?: number;
+	venue?: string;
+	tx_hash?: string;
+	tonviewer_url?: string;
+	note?: string;
+}
+
+export interface OnChainMetadata {
+	nft_address: string;
+	collection_address: string;
+	owner_address: string;
+	mint_number: number;
+	attributes: Array<{ trait_type: string; value: string }>;
+	metadata_url: string;
+	tonviewer_url: string;
+	tonscan_url: string;
+	marketplace_links: Record<string, string>;
+}
+
+export interface EnrichedGiftReport extends GiftValuationReport {
+	rarity_score: number;
+	rarity_rank: number;
+	rarity_percentile: number;
+	provenance: ProvenanceEvent[];
+	on_chain: OnChainMetadata | null;
+}

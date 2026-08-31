@@ -1,2 +1,3 @@
 export * from './api/giftsApi.js';
 export * from './model/types.js';
+export * from './lib/cdn.js';

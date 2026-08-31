@@ -1,7 +1,7 @@
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
-import { giftsApi } from '@/entities/gifts/index.js';
+import { giftsApi, getGiftCdnImageUrl } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
@@ -62,6 +62,22 @@ export const GiftsIntelPage: Component = () => {
 					</div>
 
 					<div class="flex items-center gap-1.5">
+						<button
+							type="button"
+							onClick={() => {
+								try {
+									haptic.impact('light');
+								} catch {}
+								navigate('/gifts/collection');
+							}}
+							class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-bold text-white/80 transition-all active:scale-95"
+							title={t('gifts.collectionIntel')}
+						>
+							<span class="material-symbols-outlined text-sm text-[#0098EA]">
+								category
+							</span>
+							<span class="hidden xs:inline">{t('gifts.tabOverview')}</span>
+						</button>
 						<button
 							type="button"
 							onClick={() => {
@@ -185,24 +201,36 @@ export const GiftsIntelPage: Component = () => {
 							{(item) => (
 								<div class="bg-[#12141C]/80 border border-white/[0.08] rounded-2xl p-4 backdrop-blur-xl shadow-lg relative overflow-hidden">
 									<div class="flex items-start justify-between mb-3">
-										<div>
-											<div class="flex items-center gap-2">
-												<h3 class="font-black text-white text-base">{item.name}</h3>
-												<Show when={item.has_real_volume_badge}>
-													<span
-														class="text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-														title={t('gifts.dropsTabVerified')}
-													>
-														{t('gifts.realVol')}
-													</span>
-												</Show>
+										<div class="flex items-center gap-3">
+											<div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0098EA]/20 to-[#AF52DE]/20 border border-white/10 flex items-center justify-center overflow-hidden p-1.5 flex-shrink-0">
+												<img
+													src={getGiftCdnImageUrl(item.model_id)}
+													alt={item.name}
+													class="w-full h-full object-contain"
+													onError={(e) => {
+														e.currentTarget.style.display = 'none';
+													}}
+												/>
 											</div>
-											<span class="text-[11px] text-white/40 font-medium">
-												Supply: {item.total_supply.toLocaleString()} Items
-											</span>
+											<div>
+												<div class="flex items-center gap-2">
+													<h3 class="font-black text-white text-base">{item.name}</h3>
+													<Show when={item.has_real_volume_badge}>
+														<span
+															class="text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+															title={t('gifts.dropsTabVerified')}
+														>
+															{t('gifts.realVol')}
+														</span>
+													</Show>
+												</div>
+												<span class="text-[11px] text-white/40 font-medium">
+													Supply: {item.total_supply.toLocaleString()} Items
+												</span>
+											</div>
 										</div>
 
-										<div class="text-right">
+										<div class="text-right flex-shrink-0">
 											<span class="text-[10px] uppercase font-bold text-white/40">
 												{t('gifts.collectionFloor')}
 											</span>
@@ -232,21 +260,36 @@ export const GiftsIntelPage: Component = () => {
 										</For>
 									</div>
 
-									<button
-										type="button"
-										onClick={() => {
-											try {
-												haptic.impact('medium');
-											} catch {}
-											navigate(`/gifts/report?g=${item.model_id}-1`);
-										}}
-										class="w-full mt-3 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] active:scale-[0.98] border border-white/10 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all"
-									>
-										<span>{t('gifts.deepValuation')}</span>
-										<span class="material-symbols-outlined text-sm rtl:rotate-180">
-											arrow_forward
-										</span>
-									</button>
+									<div class="grid grid-cols-2 gap-2 mt-3">
+										<button
+											type="button"
+											onClick={() => {
+												try {
+													haptic.impact('medium');
+												} catch {}
+												navigate(`/gifts/collection?c=${encodeURIComponent(item.model_id)}`);
+											}}
+											class="py-2.5 bg-[#0098EA]/15 hover:bg-[#0098EA]/25 active:scale-[0.98] border border-[#0098EA]/30 rounded-xl text-xs font-bold text-[#0098EA] flex items-center justify-center gap-1.5 transition-all"
+										>
+											<span class="material-symbols-outlined text-sm">category</span>
+											<span>{t('gifts.collectionIntel')}</span>
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												try {
+													haptic.impact('medium');
+												} catch {}
+												navigate(`/gifts/report?g=${item.model_id}-1`);
+											}}
+											class="py-2.5 bg-white/[0.05] hover:bg-white/[0.1] active:scale-[0.98] border border-white/10 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all"
+										>
+											<span>{t('gifts.deepValuation')}</span>
+											<span class="material-symbols-outlined text-sm rtl:rotate-180">
+												arrow_forward
+											</span>
+										</button>
+									</div>
 								</div>
 							)}
 						</For>

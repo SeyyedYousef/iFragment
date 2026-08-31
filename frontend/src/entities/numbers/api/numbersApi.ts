@@ -6,7 +6,7 @@ import type {
 	NumberValuationResult,
 } from '../model/types.js';
 
-function parseNumbersFromHTML(html: string): {
+export function parseNumbersFromHTML(html: string): {
 	items: import('../model/types.js').NumberTableItem[];
 	totalPages: number;
 } {

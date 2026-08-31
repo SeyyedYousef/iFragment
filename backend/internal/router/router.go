@@ -91,11 +91,14 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		if cfg.GiftsHandler != nil {
 			r.Route("/gifts", func(r chi.Router) {
 				r.Get("/intel", cfg.GiftsHandler.GetIntel)
+				r.Get("/collections", cfg.GiftsHandler.ListCollections)
+				r.Get("/collection-intel", cfg.GiftsHandler.GetCollectionIntel)
 				r.Get("/gate", cfg.GiftsHandler.GetCuriosityGate)
 				r.Get("/upgrade-advice", cfg.GiftsHandler.GetUpgradeAdvice)
 				r.Get("/portfolio", cfg.GiftsHandler.ScanPortfolio)
 				r.Post("/crafting-ev", cfg.GiftsHandler.CalculateCraftingEV)
 				r.With(middleware.OptionalAuthMiddleware).Get("/valuate", cfg.GiftsHandler.Valuate)
+				r.With(middleware.OptionalAuthMiddleware).Get("/enriched-report", cfg.GiftsHandler.GetEnrichedReport)
 				r.With(middleware.AuthMiddleware).Post("/unlock-coins", cfg.GiftsHandler.UnlockWithCoins)
 				r.With(middleware.AuthMiddleware).Post("/unlock-credit", cfg.GiftsHandler.UnlockWithCredit)
 				r.With(middleware.AuthMiddleware).Post("/watchlist", cfg.GiftsHandler.ToggleWatchlist)

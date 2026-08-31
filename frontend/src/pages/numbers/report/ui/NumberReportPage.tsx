@@ -8,7 +8,8 @@ import {
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
-import { SearchTeaser, UnifiedPaywallGate } from '@/widgets/paywall/index.js';
+import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import { CreditStoreSheet, UnifiedPaywallGate, useWallet } from '@/widgets/paywall/index.js';
 
 interface NumberValidation {
 	isValid: boolean;

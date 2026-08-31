@@ -26,7 +26,8 @@ import {
 } from '@/shared/lib/report-cache.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
 import { creditsApi } from '@/entities/intel/api/creditsApi.js';
-import { SearchTeaser, UnifiedPaywallGate } from '@/widgets/paywall/index.js';
+import { SparklineChart } from '@/shared/ui/index.js';
+import { UnifiedPaywallGate } from '@/widgets/paywall/index.js';
 
 interface ValuationResult {
 	run_id: number;

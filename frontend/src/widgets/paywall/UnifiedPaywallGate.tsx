@@ -177,12 +177,8 @@ export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) =>
 					onClick={handlePrimary}
 					class="group relative flex h-14 w-full items-center justify-center gap-2.5 overflow-hidden rounded-[20px] py-3.5 text-sm font-black text-white shadow-xl transition-all duration-200 hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
 					style={{
-						background: canAfford()
-							? theme().gradient
-							: 'linear-gradient(135deg, #FFB800 0%, #FF8C00 100%)',
-						'box-shadow': canAfford()
-							? `0 10px 30px -6px ${theme().glow}`
-							: '0 10px 30px -6px rgba(255, 184, 0, 0.35)',
+						background: theme().gradient,
+						'box-shadow': `0 10px 30px -6px ${theme().glow}`,
 					}}
 				>
 					{/* Shimmer sweep effect */}
@@ -199,18 +195,15 @@ export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) =>
 						}
 					>
 						<span class="material-symbols-outlined text-[20px]">
-							{canAfford() ? 'lock_open' : 'add_circle'}
+							lock_open
 						</span>
 					</Show>
 					<span class="tracking-wide">
 						{props.unlocking
 							? t('paywall.working')
-							: canAfford()
-								? (props.unlockCtaText ||
-									t('paywall.cta_unlock_specific', { target: props.targetTitle || '' }) ||
-									t('paywall.cta_unlock'))
-								: (t('paywall.cta_get_credits_to_unlock') ||
-									t('paywall.cta_get_credits'))}
+							: (props.unlockCtaText ||
+								t('paywall.cta_unlock_specific', { target: props.targetTitle || '' }) ||
+								t('paywall.cta_unlock'))}
 					</span>
 				</button>
 

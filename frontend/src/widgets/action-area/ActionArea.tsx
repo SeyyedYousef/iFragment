@@ -355,10 +355,15 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				q = `${m[1].toLowerCase()}-${m[2] || '1'}`;
 			}
 
-			if (q.startsWith('@') || (!q.includes('-') && !q.includes('_') && !/\d/.test(q))) {
+			if (q.startsWith('@')) {
 				setAnalyzeState('idle');
 				navigate(`/gifts/portfolio?u=${encodeURIComponent(q.replace(/^@/, ''))}`);
+			} else if (!/\d/.test(q)) {
+				// Collection level search (e.g. "plush_pepe", "diamond_ring")
+				setAnalyzeState('idle');
+				navigate(`/gifts/collection?c=${encodeURIComponent(q.toLowerCase().replace(/\s+/g, '_'))}`);
 			} else {
+				// Single gift report (e.g. "plush_pepe-42")
 				setAnalyzeState('idle');
 				navigate(`/gifts/report?g=${encodeURIComponent(q)}`);
 			}

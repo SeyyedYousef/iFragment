@@ -226,3 +226,48 @@ func (h *GiftsHandler) GetWatchlist(w http.ResponseWriter, r *http.Request) {
 	}
 	RespondJSON(w, http.StatusOK, items)
 }
+
+// ListCollections returns available gift collections
+func (h *GiftsHandler) ListCollections(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	list, err := h.service.ListCollections(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to list collections", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, list)
+}
+
+// GetCollectionIntel returns deep analytics for a gift collection
+func (h *GiftsHandler) GetCollectionIntel(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	slug := r.URL.Query().Get("c")
+	if slug == "" {
+		slug = "plush_pepe"
+	}
+
+	data, err := h.service.GetCollectionIntel(ctx, slug)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch collection intelligence", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, data)
+}
+
+// GetEnrichedReport returns single gift valuation with provenance & on-chain info
+func (h *GiftsHandler) GetEnrichedReport(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	giftID := r.URL.Query().Get("g")
+	if giftID == "" {
+		RespondError(w, r, http.StatusBadRequest, "gift parameter 'g' is required", nil)
+		return
+	}
+
+	userID, _ := middleware.GetUserID(ctx)
+	report, err := h.service.GetEnrichedReport(ctx, userID, giftID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to generate enriched gift report", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, report)
+}

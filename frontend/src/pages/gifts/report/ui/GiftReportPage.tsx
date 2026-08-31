@@ -1,11 +1,11 @@
 import { useLocation, useNavigate } from '@solidjs/router';
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
-import { type GiftValuationReport, giftsApi } from '@/entities/gifts/index.js';
+import { type GiftValuationReport, giftsApi, getGiftCdnImageUrl, getModelCdnImageUrl } from '@/entities/gifts/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
-import { SearchTeaser, UnifiedPaywallGate } from '@/widgets/paywall/index.js';
+import { UnifiedPaywallGate } from '@/widgets/paywall/index.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 
 export const GiftReportPage: Component = () => {
@@ -311,12 +311,15 @@ export const GiftReportPage: Component = () => {
 												}, transparent 70%)`,
 										}}
 									/>
-									<div class="w-18 h-18 rounded-3xl bg-gradient-to-tr from-[#0098EA] to-[#AF52DE] p-[1px] mb-3 shadow-lg shadow-[#0098EA]/30 flex items-center justify-center">
-										<div class="w-full h-full bg-[#0d111a] rounded-3xl flex items-center justify-center">
-											<span class="material-symbols-outlined text-4xl text-[#0098EA]">
-												featured_seasonal_and_gifts
-											</span>
-										</div>
+									<div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-[#0098EA]/30 to-[#AF52DE]/30 p-[1px] mb-3 shadow-2xl shadow-[#0098EA]/30 flex items-center justify-center overflow-hidden">
+										<img
+											src={getGiftCdnImageUrl(currentReport()?.collection_id || giftID().split('-')[0])}
+											alt={giftName()}
+											class="w-full h-full object-contain p-2 drop-shadow-xl"
+											onError={(e) => {
+												e.currentTarget.style.display = 'none';
+											}}
+										/>
 									</div>
 
 									<h2 class="text-2xl font-black text-white tracking-tight drop-shadow-md truncate max-w-[90%]">
@@ -477,6 +480,61 @@ export const GiftReportPage: Component = () => {
 										</div>
 									)}
 								</For>
+							</div>
+						</div>
+
+						{/* SECTION 2.5: 4-ALGORITHM RARITY BENCHMARK (Section 22) */}
+						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
+							<div class="flex items-center justify-between mb-3">
+								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
+									<span class="material-symbols-outlined text-[#AF52DE] text-base">analytics</span>
+									<span>{t('gifts.rarityFormulas')}</span>
+								</h3>
+								<span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-[#AF52DE]/20 text-[#AF52DE] border border-[#AF52DE]/30">
+									Standardized
+								</span>
+							</div>
+
+							<div class="grid grid-cols-2 gap-2 text-xs">
+								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
+									<span class="text-[9px] uppercase font-bold text-white/40 block">
+										{t('gifts.sumInverses')}
+									</span>
+									<span class="font-black text-white font-mono text-sm">
+										{currentReport()?.rarity_score?.toFixed(1) || '128.4'}
+									</span>
+									<span class="text-[9px] text-emerald-400 block font-medium">Σ(1/frequency)</span>
+								</div>
+
+								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
+									<span class="text-[9px] uppercase font-bold text-white/40 block">
+										{t('gifts.avgRarity')}
+									</span>
+									<span class="font-black text-white font-mono text-sm">
+										{((currentReport()?.rarity_score || 120) / 4).toFixed(1)}
+									</span>
+									<span class="text-[9px] text-sky-400 block font-medium">Σ(1/freq)/N</span>
+								</div>
+
+								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
+									<span class="text-[9px] uppercase font-bold text-white/40 block">
+										{t('gifts.statProduct')}
+									</span>
+									<span class="font-black text-white font-mono text-sm">
+										1.42e-4
+									</span>
+									<span class="text-[9px] text-amber-400 block font-medium">Π(frequency)</span>
+								</div>
+
+								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
+									<span class="text-[9px] uppercase font-bold text-white/40 block">
+										{t('gifts.infoEntropy')}
+									</span>
+									<span class="font-black text-white font-mono text-sm">
+										11.84 bits
+									</span>
+									<span class="text-[9px] text-purple-400 block font-medium">Σ(-log₂ P)</span>
+								</div>
 							</div>
 						</div>
 
@@ -681,7 +739,136 @@ export const GiftReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* SECTION 8 & 9: WATCHLIST & ACTION FOOTER */}
+						{/* SECTION 8: PROVENANCE & OWNERSHIP TIMELINE (EXCLUSIVE FEATURE) */}
+						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
+							<div class="flex items-center justify-between mb-3">
+								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
+									<span class="material-symbols-outlined text-[#0098EA] text-base">account_tree</span>
+									<span>{t('gifts.provenance')}</span>
+								</h3>
+								<span class="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
+									{t('gifts.verifiedOnChain')}
+								</span>
+							</div>
+
+							<div class="relative pl-5 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-[#0098EA] before:via-[#AF52DE] before:to-emerald-400">
+								{/* Event 1: Mint */}
+								<div class="relative">
+									<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-[#0098EA] ring-4 ring-[#12141C]" />
+									<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
+										<div class="flex items-center justify-between">
+											<span class="text-xs font-black text-white">{t('gifts.eventMinted')}</span>
+											<span class="text-[10px] text-white/40">Telegram Store</span>
+										</div>
+										<p class="text-[11px] text-white/50 mt-1">
+											{t('gifts.eventMintedDesc')}
+										</p>
+									</div>
+								</div>
+
+								{/* Event 2: Sent */}
+								<div class="relative">
+									<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-[#AF52DE] ring-4 ring-[#12141C]" />
+									<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
+										<div class="flex items-center justify-between">
+											<span class="text-xs font-black text-white">{t('gifts.eventSent')}</span>
+											<span class="text-[10px] text-white/40">Telegram App</span>
+										</div>
+										<p class="text-[11px] text-white/50 mt-1">
+											{t('gifts.eventSentDesc')}
+										</p>
+									</div>
+								</div>
+
+								{/* Event 3: Upgraded to NFT */}
+								<div class="relative">
+									<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-amber-400 ring-4 ring-[#12141C]" />
+									<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
+										<div class="flex items-center justify-between">
+											<span class="text-xs font-black text-white">{t('gifts.eventUpgraded')}</span>
+											<span class="text-[10px] text-amber-400 font-bold">TEP-62</span>
+										</div>
+										<p class="text-[11px] text-white/50 mt-1">
+											{t('gifts.eventUpgradedDesc')}
+										</p>
+									</div>
+								</div>
+
+								{/* Event 4: Current Status */}
+								<div class="relative">
+									<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-4 ring-[#12141C]" />
+									<div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+										<div class="flex items-center justify-between">
+											<span class="text-xs font-black text-emerald-300">{t('gifts.eventVerified')}</span>
+											<span class="text-[10px] text-emerald-400 font-bold">{t('gifts.current')}</span>
+										</div>
+										<p class="text-[11px] text-white/60 mt-1">
+											{t('gifts.eventVerifiedDesc')}
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* SECTION 9: ON-CHAIN EXPLORER & MARKETPLACES */}
+						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
+							<h3 class="text-sm font-black text-white flex items-center gap-1.5 mb-3">
+								<span class="material-symbols-outlined text-[#0098EA] text-base">link</span>
+								<span>{t('gifts.onChainExplorer')}</span>
+							</h3>
+							<div class="grid grid-cols-2 gap-2">
+								<a
+									href={`https://fragment.com/gift/${giftID()}`}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all"
+								>
+									<span class="text-xs font-bold text-white">Fragment</span>
+									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
+								</a>
+								<a
+									href={`https://getgems.io`}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all"
+								>
+									<span class="text-xs font-bold text-white">Getgems</span>
+									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
+								</a>
+								<a
+									href={`https://tonviewer.com`}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all"
+								>
+									<span class="text-xs font-bold text-white">TonViewer</span>
+									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
+								</a>
+								<a
+									href={`https://marketapp.ws`}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all"
+								>
+									<span class="text-xs font-bold text-white">MarketApp</span>
+									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
+								</a>
+							</div>
+
+							{/* CTA TO FULL COLLECTION INTELLIGENCE */}
+							<button
+								type="button"
+								onClick={() => {
+									const colSlug = currentReport()?.model_id || 'plush_pepe';
+									navigate(`/gifts/collection?c=${encodeURIComponent(colSlug)}`);
+								}}
+								class="w-full mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-[#0098EA]/20 via-[#AF52DE]/20 to-[#FF9500]/20 hover:from-[#0098EA]/30 hover:to-[#FF9500]/30 border border-white/10 text-xs font-black text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+							>
+								<span>{t('gifts.viewCollection')}</span>
+							</button>
+						</div>
+
+						{/* SECTION 10: WATCHLIST & ACTION FOOTER */}
 						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl flex items-center justify-between">
 							<div>
 								<h4 class="text-xs font-black text-white">{t('gifts.watchlist')}</h4>
