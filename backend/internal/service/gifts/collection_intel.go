@@ -247,31 +247,47 @@ func (s *GiftsService) ListCollections(ctx context.Context) ([]CollectionListIte
 
 // GetCollectionIntel generates full collection intelligence data backed by live API
 func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*CollectionIntelResponse, error) {
-	slug = strings.ToLower(strings.TrimSpace(slug))
-	col, exists := traits.OfficialCollections[slug]
+	origSlug := strings.TrimSpace(slug)
+	normSlug := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(origSlug, "_", "-"), " ", "-"))
+	underscoreSlug := strings.ReplaceAll(normSlug, "-", "_")
+
+	// Fetch live details from api.changes.tg first (with 12h cache)
+	var liveDetail *giftchanges.GiftDetail
+	if s.giftchangesClient != nil {
+		if d, err := s.giftchangesClient.GetGiftDetail(ctx, normSlug); err == nil && d != nil {
+			liveDetail = d
+		}
+	}
+
+	col, exists := traits.OfficialCollections[underscoreSlug]
 	if !exists {
-		// Fallback: search by prefix or match first
+		col, exists = traits.OfficialCollections[normSlug]
+	}
+	if !exists {
+		// Fallback: search by prefix or match name
 		for k, v := range traits.OfficialCollections {
-			if strings.Contains(strings.ToLower(v.Name), slug) || strings.Contains(k, slug) {
+			if strings.Contains(strings.ToLower(v.Name), normSlug) || strings.Contains(k, underscoreSlug) {
 				col = v
-				slug = k
 				exists = true
 				break
 			}
 		}
 	}
-	if !exists {
-		col = traits.OfficialCollections["plush_pepe"]
-		slug = "plush_pepe"
-	}
 
-	// Fetch live details from api.changes.tg if available
-	var liveDetail *giftchanges.GiftDetail
-	if s.giftchangesClient != nil {
-		formattedSlug := strings.ReplaceAll(slug, "_", "-")
-		if d, err := s.giftchangesClient.GetGiftDetail(ctx, formattedSlug); err == nil && d != nil {
-			liveDetail = d
+	collectionName := origSlug
+	if liveDetail != nil && liveDetail.Gift.Name != "" {
+		collectionName = liveDetail.Gift.Name
+	} else if exists && col.Name != "" {
+		collectionName = col.Name
+	} else {
+		// Humanize slug
+		parts := strings.Split(normSlug, "-")
+		for i, p := range parts {
+			if len(p) > 0 {
+				parts[i] = strings.ToUpper(p[:1]) + p[1:]
+			}
 		}
+		collectionName = strings.Join(parts, " ")
 	}
 
 	gramRate := 5.50
@@ -282,21 +298,25 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	}
 
 	now := time.Now().UTC()
-	floorGram := col.InitialFloorGRAM
-	if floorGram <= 0 {
-		floorGram = 50.0
+	floorGram := 45.0
+	if exists && col.InitialFloorGRAM > 0 {
+		floorGram = col.InitialFloorGRAM
+	} else if liveDetail != nil && liveDetail.Gift.UpgradedCount > 0 {
+		floorGram = 35.0
 	}
 
-	totalSupply := col.TotalSupply
+	totalSupply := 10000
+	if exists && col.TotalSupply > 0 {
+		totalSupply = col.TotalSupply
+	}
 	upgradedCount := int(float64(totalSupply) * 0.42)
 	isLimited := true
-	isCraftable := col.CraftedFlag
-	collectionName := col.Name
+	isCraftable := false
+	if exists {
+		isCraftable = col.CraftedFlag
+	}
 
 	if liveDetail != nil {
-		if liveDetail.Gift.Name != "" {
-			collectionName = liveDetail.Gift.Name
-		}
 		if liveDetail.Gift.TotalSupply > 0 {
 			totalSupply = liveDetail.Gift.TotalSupply
 		}

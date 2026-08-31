@@ -1,0 +1,722 @@
+[
+  {
+    "id": "1",
+    "name": "Santa Hat",
+    "slug": "santa-hat",
+    "tag": "Bluechip"
+  },
+  {
+    "id": "2",
+    "name": "Signet Ring",
+    "slug": "signet-ring",
+    "tag": "Bluechip"
+  },
+  {
+    "id": "3",
+    "name": "Precious Peach",
+    "slug": "precious-peach",
+    "tag": "Bluechip"
+  },
+  {
+    "id": "4",
+    "name": "Plush Pepe",
+    "slug": "plush-pepe",
+    "tag": "Bluechip"
+  },
+  {
+    "id": "5",
+    "name": "Spiced Wine",
+    "slug": "spiced-wine",
+    "tag": "Classic"
+  },
+  {
+    "id": "6",
+    "name": "Jelly Bunny",
+    "slug": "jelly-bunny",
+    "tag": "Classic"
+  },
+  {
+    "id": "7",
+    "name": "Durov's Cap",
+    "slug": "durovs-cap",
+    "tag": "Bluechip"
+  },
+  {
+    "id": "8",
+    "name": "Perfume Bottle",
+    "slug": "perfume-bottle",
+    "tag": "Luxury"
+  },
+  {
+    "id": "9",
+    "name": "Eternal Rose",
+    "slug": "eternal-rose",
+    "tag": "Special"
+  },
+  {
+    "id": "10",
+    "name": "Berry Box",
+    "slug": "berry-box",
+    "tag": "Classic"
+  },
+  {
+    "id": "11",
+    "name": "Vintage Cigar",
+    "slug": "vintage-cigar",
+    "tag": "Classic"
+  },
+  {
+    "id": "12",
+    "name": "Magic Potion",
+    "slug": "magic-potion",
+    "tag": "Talisman"
+  },
+  {
+    "id": "13",
+    "name": "Kissed Frog",
+    "slug": "kissed-frog",
+    "tag": "Classic"
+  },
+  {
+    "id": "14",
+    "name": "Hex Pot",
+    "slug": "hex-pot",
+    "tag": "Talisman"
+  },
+  {
+    "id": "15",
+    "name": "Evil Eye",
+    "slug": "evil-eye",
+    "tag": "Talisman"
+  },
+  {
+    "id": "16",
+    "name": "Sharp Tongue",
+    "slug": "sharp-tongue",
+    "tag": "Special"
+  },
+  {
+    "id": "17",
+    "name": "Trapped Heart",
+    "slug": "trapped-heart",
+    "tag": "Special"
+  },
+  {
+    "id": "18",
+    "name": "Skull Flower",
+    "slug": "skull-flower",
+    "tag": "Special"
+  },
+  {
+    "id": "19",
+    "name": "Scared Cat",
+    "slug": "scared-cat",
+    "tag": "Special"
+  },
+  {
+    "id": "20",
+    "name": "Spy Agaric",
+    "slug": "spy-agaric",
+    "tag": "Special"
+  },
+  {
+    "id": "21",
+    "name": "Homemade Cake",
+    "slug": "homemade-cake",
+    "tag": "Special"
+  },
+  {
+    "id": "22",
+    "name": "Genie Lamp",
+    "slug": "genie-lamp",
+    "tag": "Talisman"
+  },
+  {
+    "id": "23",
+    "name": "Lunar Snake",
+    "slug": "lunar-snake",
+    "tag": "Special"
+  },
+  {
+    "id": "24",
+    "name": "Party Sparkler",
+    "slug": "party-sparkler",
+    "tag": "Special"
+  },
+  {
+    "id": "25",
+    "name": "Jester Hat",
+    "slug": "jester-hat",
+    "tag": "Special"
+  },
+  {
+    "id": "26",
+    "name": "Witch Hat",
+    "slug": "witch-hat",
+    "tag": "Special"
+  },
+  {
+    "id": "27",
+    "name": "Hanging Star",
+    "slug": "hanging-star",
+    "tag": "Special"
+  },
+  {
+    "id": "28",
+    "name": "Love Candle",
+    "slug": "love-candle",
+    "tag": "Special"
+  },
+  {
+    "id": "29",
+    "name": "Cookie Heart",
+    "slug": "cookie-heart",
+    "tag": "Special"
+  },
+  {
+    "id": "30",
+    "name": "Desk Calendar",
+    "slug": "desk-calendar",
+    "tag": "Special"
+  },
+  {
+    "id": "31",
+    "name": "Jingle Bells",
+    "slug": "jingle-bells",
+    "tag": "Seasonal"
+  },
+  {
+    "id": "32",
+    "name": "Snow Mittens",
+    "slug": "snow-mittens",
+    "tag": "Special"
+  },
+  {
+    "id": "33",
+    "name": "Voodoo Doll",
+    "slug": "voodoo-doll",
+    "tag": "Talisman"
+  },
+  {
+    "id": "34",
+    "name": "Mad Pumpkin",
+    "slug": "mad-pumpkin",
+    "tag": "Special"
+  },
+  {
+    "id": "35",
+    "name": "Hypno Lollipop",
+    "slug": "hypno-lollipop",
+    "tag": "Special"
+  },
+  {
+    "id": "36",
+    "name": "B-Day Candle",
+    "slug": "b-day-candle",
+    "tag": "Special"
+  },
+  {
+    "id": "37",
+    "name": "Bunny Muffin",
+    "slug": "bunny-muffin",
+    "tag": "Special"
+  },
+  {
+    "id": "38",
+    "name": "Astral Shard",
+    "slug": "astral-shard",
+    "tag": "Talisman"
+  },
+  {
+    "id": "39",
+    "name": "Flying Broom",
+    "slug": "flying-broom",
+    "tag": "Special"
+  },
+  {
+    "id": "40",
+    "name": "Crystal Ball",
+    "slug": "crystal-ball",
+    "tag": "Talisman"
+  },
+  {
+    "id": "41",
+    "name": "Eternal Candle",
+    "slug": "eternal-candle",
+    "tag": "Special"
+  },
+  {
+    "id": "42",
+    "name": "Swiss Watch",
+    "slug": "swiss-watch",
+    "tag": "Luxury"
+  },
+  {
+    "id": "43",
+    "name": "Ginger Cookie",
+    "slug": "ginger-cookie",
+    "tag": "Special"
+  },
+  {
+    "id": "44",
+    "name": "Mini Oscar",
+    "slug": "mini-oscar",
+    "tag": "Luxury"
+  },
+  {
+    "id": "45",
+    "name": "Lol Pop",
+    "slug": "lol-pop",
+    "tag": "Special"
+  },
+  {
+    "id": "46",
+    "name": "Ion Gem",
+    "slug": "ion-gem",
+    "tag": "Special"
+  },
+  {
+    "id": "47",
+    "name": "Star Notepad",
+    "slug": "star-notepad",
+    "tag": "Special"
+  },
+  {
+    "id": "48",
+    "name": "Loot Bag",
+    "slug": "loot-bag",
+    "tag": "Special"
+  },
+  {
+    "id": "49",
+    "name": "Love Potion",
+    "slug": "love-potion",
+    "tag": "Special"
+  },
+  {
+    "id": "50",
+    "name": "Toy Bear",
+    "slug": "toy-bear",
+    "tag": "Special"
+  },
+  {
+    "id": "51",
+    "name": "Diamond Ring",
+    "slug": "diamond-ring",
+    "tag": "Bluechip"
+  },
+  {
+    "id": "52",
+    "name": "Sakura Flower",
+    "slug": "sakura-flower",
+    "tag": "Special"
+  },
+  {
+    "id": "53",
+    "name": "Sleigh Bell",
+    "slug": "sleigh-bell",
+    "tag": "Special"
+  },
+  {
+    "id": "54",
+    "name": "Top Hat",
+    "slug": "top-hat",
+    "tag": "Special"
+  },
+  {
+    "id": "55",
+    "name": "Record Player",
+    "slug": "record-player",
+    "tag": "Special"
+  },
+  {
+    "id": "56",
+    "name": "Winter Wreath",
+    "slug": "winter-wreath",
+    "tag": "Seasonal"
+  },
+  {
+    "id": "57",
+    "name": "Snow Globe",
+    "slug": "snow-globe",
+    "tag": "Seasonal"
+  },
+  {
+    "id": "58",
+    "name": "Electric Skull",
+    "slug": "electric-skull",
+    "tag": "Special"
+  },
+  {
+    "id": "59",
+    "name": "Tama Gadget",
+    "slug": "tama-gadget",
+    "tag": "Tech"
+  },
+  {
+    "id": "60",
+    "name": "Candy Cane",
+    "slug": "candy-cane",
+    "tag": "Seasonal"
+  },
+  {
+    "id": "61",
+    "name": "Neko Helmet",
+    "slug": "neko-helmet",
+    "tag": "Special"
+  },
+  {
+    "id": "62",
+    "name": "Jack-in-the-Box",
+    "slug": "jack-in-the-box",
+    "tag": "Special"
+  },
+  {
+    "id": "63",
+    "name": "Easter Egg",
+    "slug": "easter-egg",
+    "tag": "Seasonal"
+  },
+  {
+    "id": "64",
+    "name": "Bonded Ring",
+    "slug": "bonded-ring",
+    "tag": "Special"
+  },
+  {
+    "id": "65",
+    "name": "Pet Snake",
+    "slug": "pet-snake",
+    "tag": "Special"
+  },
+  {
+    "id": "66",
+    "name": "Snake Box",
+    "slug": "snake-box",
+    "tag": "Special"
+  },
+  {
+    "id": "67",
+    "name": "Xmas Stocking",
+    "slug": "xmas-stocking",
+    "tag": "Seasonal"
+  },
+  {
+    "id": "68",
+    "name": "Big Year",
+    "slug": "big-year",
+    "tag": "Special"
+  },
+  {
+    "id": "69",
+    "name": "Holiday Drink",
+    "slug": "holiday-drink",
+    "tag": "Special"
+  },
+  {
+    "id": "70",
+    "name": "Gem Signet",
+    "slug": "gem-signet",
+    "tag": "Special"
+  },
+  {
+    "id": "71",
+    "name": "Light Sword",
+    "slug": "light-sword",
+    "tag": "Special"
+  },
+  {
+    "id": "72",
+    "name": "Restless Jar",
+    "slug": "restless-jar",
+    "tag": "Special"
+  },
+  {
+    "id": "73",
+    "name": "Nail Bracelet",
+    "slug": "nail-bracelet",
+    "tag": "Luxury"
+  },
+  {
+    "id": "74",
+    "name": "Heroic Helmet",
+    "slug": "heroic-helmet",
+    "tag": "Special"
+  },
+  {
+    "id": "75",
+    "name": "Bow Tie",
+    "slug": "bow-tie",
+    "tag": "Special"
+  },
+  {
+    "id": "76",
+    "name": "Heart Locket",
+    "slug": "heart-locket",
+    "tag": "Special"
+  },
+  {
+    "id": "77",
+    "name": "Lush Bouquet",
+    "slug": "lush-bouquet",
+    "tag": "Special"
+  },
+  {
+    "id": "78",
+    "name": "Whip Cupcake",
+    "slug": "whip-cupcake",
+    "tag": "Special"
+  },
+  {
+    "id": "79",
+    "name": "Joyful Bundle",
+    "slug": "joyful-bundle",
+    "tag": "Special"
+  },
+  {
+    "id": "80",
+    "name": "Cupid Charm",
+    "slug": "cupid-charm",
+    "tag": "Special"
+  },
+  {
+    "id": "81",
+    "name": "Valentine Box",
+    "slug": "valentine-box",
+    "tag": "Special"
+  },
+  {
+    "id": "82",
+    "name": "Snoop Dogg",
+    "slug": "snoop-dogg",
+    "tag": "Special"
+  },
+  {
+    "id": "83",
+    "name": "Swag Bag",
+    "slug": "swag-bag",
+    "tag": "Special"
+  },
+  {
+    "id": "84",
+    "name": "Snoop Cigar",
+    "slug": "snoop-cigar",
+    "tag": "Special"
+  },
+  {
+    "id": "85",
+    "name": "Low Rider",
+    "slug": "low-rider",
+    "tag": "Special"
+  },
+  {
+    "id": "86",
+    "name": "Westside Sign",
+    "slug": "westside-sign",
+    "tag": "Special"
+  },
+  {
+    "id": "87",
+    "name": "Stellar Rocket",
+    "slug": "stellar-rocket",
+    "tag": "Tech"
+  },
+  {
+    "id": "88",
+    "name": "Jolly Chimp",
+    "slug": "jolly-chimp",
+    "tag": "Special"
+  },
+  {
+    "id": "89",
+    "name": "Moon Pendant",
+    "slug": "moon-pendant",
+    "tag": "Special"
+  },
+  {
+    "id": "90",
+    "name": "Ionic Dryer",
+    "slug": "ionic-dryer",
+    "tag": "Tech"
+  },
+  {
+    "id": "91",
+    "name": "Input Key",
+    "slug": "input-key",
+    "tag": "Tech"
+  },
+  {
+    "id": "92",
+    "name": "Mighty Arm",
+    "slug": "mighty-arm",
+    "tag": "Special"
+  },
+  {
+    "id": "93",
+    "name": "Artisan Brick",
+    "slug": "artisan-brick",
+    "tag": "Special"
+  },
+  {
+    "id": "94",
+    "name": "Clover Pin",
+    "slug": "clover-pin",
+    "tag": "Special"
+  },
+  {
+    "id": "95",
+    "name": "Sky Stilettos",
+    "slug": "sky-stilettos",
+    "tag": "Special"
+  },
+  {
+    "id": "96",
+    "name": "Fresh Socks",
+    "slug": "fresh-socks",
+    "tag": "Special"
+  },
+  {
+    "id": "97",
+    "name": "Happy Brownie",
+    "slug": "happy-brownie",
+    "tag": "Special"
+  },
+  {
+    "id": "98",
+    "name": "Ice Cream",
+    "slug": "ice-cream",
+    "tag": "Special"
+  },
+  {
+    "id": "99",
+    "name": "Spring Basket",
+    "slug": "spring-basket",
+    "tag": "Special"
+  },
+  {
+    "id": "100",
+    "name": "Instant Ramen",
+    "slug": "instant-ramen",
+    "tag": "Special"
+  },
+  {
+    "id": "101",
+    "name": "Faith Amulet",
+    "slug": "faith-amulet",
+    "tag": "Talisman"
+  },
+  {
+    "id": "102",
+    "name": "Mousse Cake",
+    "slug": "mousse-cake",
+    "tag": "Special"
+  },
+  {
+    "id": "103",
+    "name": "Bling Binky",
+    "slug": "bling-binky",
+    "tag": "Special"
+  },
+  {
+    "id": "104",
+    "name": "Money Pot",
+    "slug": "money-pot",
+    "tag": "Special"
+  },
+  {
+    "id": "105",
+    "name": "Pretty Posy",
+    "slug": "pretty-posy",
+    "tag": "Special"
+  },
+  {
+    "id": "106",
+    "name": "Khabib's Papakha",
+    "slug": "khabibs-papakha",
+    "tag": "Special"
+  },
+  {
+    "id": "107",
+    "name": "UFC Strike",
+    "slug": "ufc-strike",
+    "tag": "Special"
+  },
+  {
+    "id": "108",
+    "name": "Victory Medal",
+    "slug": "victory-medal",
+    "tag": "Special"
+  },
+  {
+    "id": "109",
+    "name": "Rare Bird",
+    "slug": "rare-bird",
+    "tag": "Special"
+  },
+  {
+    "id": "110",
+    "name": "Mood Pack",
+    "slug": "mood-pack",
+    "tag": "Special"
+  },
+  {
+    "id": "111",
+    "name": "Pool Float",
+    "slug": "pool-float",
+    "tag": "Special"
+  },
+  {
+    "id": "112",
+    "name": "Timeless Book",
+    "slug": "timeless-book",
+    "tag": "Special"
+  },
+  {
+    "id": "113",
+    "name": "Chill Flame",
+    "slug": "chill-flame",
+    "tag": "Special"
+  },
+  {
+    "id": "114",
+    "name": "Vice Cream",
+    "slug": "vice-cream",
+    "tag": "Special"
+  },
+  {
+    "id": "115",
+    "name": "Surge Board",
+    "slug": "surge-board",
+    "tag": "Special"
+  },
+  {
+    "id": "116",
+    "name": "Liberty Figure",
+    "slug": "liberty-figure",
+    "tag": "Luxury"
+  },
+  {
+    "id": "117",
+    "name": "Durov's Glasses",
+    "slug": "durovs-glasses",
+    "tag": "Special"
+  },
+  {
+    "id": "118",
+    "name": "Fine Pen",
+    "slug": "fine-pen",
+    "tag": "Luxury"
+  },
+  {
+    "id": "119",
+    "name": "Intelligence Cup",
+    "slug": "intelligence-cup",
+    "tag": "Special"
+  },
+  {
+    "id": "120",
+    "name": "Algorithm Cup",
+    "slug": "algorithm-cup",
+    "tag": "Special"
+  }
+]

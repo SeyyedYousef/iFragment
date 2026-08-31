@@ -169,10 +169,11 @@ func (c *Client) GetGifts(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
-// GetGiftDetail returns real models, backdrops, and symbols for a given gift
+// GetGiftDetail returns real models, backdrops, and symbols for a given gift with 12h cache
 func (c *Client) GetGiftDetail(ctx context.Context, giftNameOrSlug string) (*GiftDetail, error) {
-	slug := strings.TrimSpace(giftNameOrSlug)
-	cacheKey := "gift_detail:" + strings.ToLower(slug)
+	slug := strings.ToLower(strings.TrimSpace(giftNameOrSlug))
+	slug = strings.ReplaceAll(slug, "_", "-")
+	cacheKey := "gift_detail:" + slug
 
 	c.mu.RLock()
 	if item, ok := c.cache[cacheKey]; ok && time.Now().Before(item.expiresAt) {
@@ -183,15 +184,20 @@ func (c *Client) GetGiftDetail(ctx context.Context, giftNameOrSlug string) (*Gif
 
 	var detail GiftDetail
 	if err := c.get(ctx, "/gift/"+url.PathEscape(slug), &detail); err != nil {
-		return nil, err
+		// Try title casing if hyphenated failed
+		altSlug := strings.ReplaceAll(slug, "-", " ")
+		if err2 := c.get(ctx, "/gift/"+url.PathEscape(altSlug), &detail); err2 != nil {
+			return nil, err
+		}
 	}
 
 	c.mu.Lock()
 	c.cache[cacheKey] = &cacheItem{
 		data:      &detail,
-		expiresAt: time.Now().Add(15 * time.Minute),
+		expiresAt: time.Now().Add(12 * time.Hour), // 12 Hours TTL
 	}
 	c.mu.Unlock()
 
 	return &detail, nil
 }
+

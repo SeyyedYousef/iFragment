@@ -4,7 +4,6 @@ import { giftsApi } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import { GiftsArbitrageRadar } from './components/GiftsArbitrageRadar.js';
 import { GiftsChartView } from './components/GiftsChartView.js';
 import { GiftsCollectionsExplorer } from './components/GiftsCollectionsExplorer.js';
 import { GiftsGlobalHeatmap } from './components/GiftsGlobalHeatmap.js';
@@ -12,7 +11,7 @@ import { GiftsGlobalHeatmap } from './components/GiftsGlobalHeatmap.js';
 export const GiftsIntelPage: Component = () => {
 	useTelegramBackButton(-1);
 
-	const [activeTab, setActiveTab] = createSignal<'chart' | 'collections' | 'heatmap' | 'arbitrage'>('chart');
+	const [activeTab, setActiveTab] = createSignal<'chart' | 'collections' | 'heatmap'>('chart');
 
 	const intelQuery = createQuery(() => ({
 		queryKey: ['giftsIntel'],
@@ -23,10 +22,9 @@ export const GiftsIntelPage: Component = () => {
 	const intel = () => intelQuery.data;
 
 	const tabsList = () => [
-		{ id: 'chart', label: t('gifts.tabChart') || 'Chart & Bollinger', icon: 'show_chart' },
-		{ id: 'collections', label: t('gifts.tabCollections') || 'Collections', icon: 'category' },
-		{ id: 'heatmap', label: t('gifts.tabHeatmap') || 'Rarity Matrix', icon: 'grid_view' },
-		{ id: 'arbitrage', label: t('gifts.tabArbitrage') || 'Arbitrage Radar', icon: 'swap_horiz' },
+		{ id: 'chart', label: t('gifts.tabChart') || 'نمودار و بولینگر', icon: 'show_chart' },
+		{ id: 'collections', label: t('gifts.tabCollections') || 'کالکشن‌ها', icon: 'category' },
+		{ id: 'heatmap', label: t('gifts.tabHeatmap') || 'نقشه حرارتی', icon: 'grid_view' },
 	] as const;
 
 	return (
@@ -66,8 +64,8 @@ export const GiftsIntelPage: Component = () => {
 					</div>
 				</div>
 
-				{/* ═══════ TOP PRIMARY 4 TABS (AT THE HIGHEST POINT) ═══════ */}
-				<div class="grid grid-cols-4 bg-[#0d121c] p-1 rounded-2xl border border-white/[0.08] shadow-lg">
+				{/* ═══════ TOP PRIMARY 3 TABS (AT THE HIGHEST POINT) ═══════ */}
+				<div class="grid grid-cols-3 bg-[#0d121c] p-1 rounded-2xl border border-white/[0.08] shadow-lg">
 					<For each={tabsList()}>
 						{(tab) => (
 							<button
@@ -78,14 +76,14 @@ export const GiftsIntelPage: Component = () => {
 									} catch {}
 									setActiveTab(tab.id);
 								}}
-								class={`py-2 px-1 text-[11px] font-black rounded-xl transition-all flex flex-col items-center justify-center gap-0.5 ${
+								class={`py-2 px-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 ${
 									activeTab() === tab.id
 										? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25 scale-[1.02]'
 										: 'text-white/50 hover:text-white'
 								}`}
 							>
 								<span class="material-symbols-outlined text-sm">{tab.icon}</span>
-								<span class="truncate max-w-full px-0.5">{tab.label}</span>
+								<span class="truncate max-w-full">{tab.label}</span>
 							</button>
 						)}
 					</For>
@@ -102,10 +100,6 @@ export const GiftsIntelPage: Component = () => {
 
 				<Show when={activeTab() === 'heatmap'}>
 					<GiftsGlobalHeatmap />
-				</Show>
-
-				<Show when={activeTab() === 'arbitrage'}>
-					<GiftsArbitrageRadar intel={intel()} />
 				</Show>
 
 				{/* Attribution Badge */}
