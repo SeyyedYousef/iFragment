@@ -1,4 +1,3 @@
-import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { giftsApi } from '@/entities/gifts/index.js';
@@ -9,11 +8,9 @@ import { GiftsArbitrageRadar } from './components/GiftsArbitrageRadar.js';
 import { GiftsChartView } from './components/GiftsChartView.js';
 import { GiftsCollectionsExplorer } from './components/GiftsCollectionsExplorer.js';
 import { GiftsGlobalHeatmap } from './components/GiftsGlobalHeatmap.js';
-import { GiftsMacroStats } from './components/GiftsMacroStats.js';
 
 export const GiftsIntelPage: Component = () => {
 	useTelegramBackButton(-1);
-	const navigate = useNavigate();
 
 	const [activeTab, setActiveTab] = createSignal<'chart' | 'collections' | 'heatmap' | 'arbitrage'>('chart');
 
@@ -25,28 +22,32 @@ export const GiftsIntelPage: Component = () => {
 
 	const intel = () => intelQuery.data;
 
+	const tabsList = () => [
+		{ id: 'chart', label: t('gifts.tabChart') || 'Chart & Bollinger', icon: 'show_chart' },
+		{ id: 'collections', label: t('gifts.tabCollections') || 'Collections', icon: 'category' },
+		{ id: 'heatmap', label: t('gifts.tabHeatmap') || 'Rarity Matrix', icon: 'grid_view' },
+		{ id: 'arbitrage', label: t('gifts.tabArbitrage') || 'Arbitrage Radar', icon: 'swap_horiz' },
+	] as const;
+
 	return (
 		<div class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
-			{/* Ambient Gradient Glows */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#0098EA]/20 via-[#AF52DE]/10 to-transparent blur-[100px] pointer-events-none z-0" />
-			<div class="fixed bottom-20 right-0 w-80 h-80 bg-[#0098EA]/10 blur-[100px] pointer-events-none z-0" />
+			{/* Ambient background glows matching iFragment palette */}
+			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#0098EA]/15 via-transparent to-transparent blur-[100px] pointer-events-none z-0" />
 
 			<div class="relative z-10 max-w-[520px] mx-auto px-4 pt-3 space-y-4">
 				{/* Top Header Bar */}
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2.5">
-						<div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#AF52DE] to-[#0098EA] p-[1px] shadow-lg shadow-[#0098EA]/20 flex items-center justify-center">
-							<div class="w-full h-full bg-[#0d111a] rounded-2xl flex items-center justify-center">
-								<span class="material-symbols-outlined text-[#0098EA] text-[22px]">
-									featured_seasonal_and_gifts
-								</span>
+						<div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0098EA] to-[#0060aa] p-[1px] shadow-lg shadow-[#0098EA]/20 flex items-center justify-center">
+							<div class="w-full h-full bg-[#0a0e17] rounded-xl flex items-center justify-center text-base">
+								🎁
 							</div>
 						</div>
 						<div>
 							<h1 class="text-base font-black tracking-tight text-white flex items-center gap-1.5">
 								<span>Telegram Gifts</span>
 								<span class="text-[9px] uppercase font-black px-1.5 py-0.5 rounded-md bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
-									TON NFT
+									NFT
 								</span>
 							</h1>
 							<p class="text-[10px] font-semibold text-white/40">Telegram Gifts & NFT Marketplace</p>
@@ -65,40 +66,34 @@ export const GiftsIntelPage: Component = () => {
 					</div>
 				</div>
 
-				{/* ═══════ 1. MACRO ECOSYSTEM STATISTICS ═══════ */}
-				<GiftsMacroStats data={intel()} />
-
-				{/* ═══════ 2. TAB CONTROLS (4 TABS) ═══════ */}
-				<div class="grid grid-cols-4 gap-1 p-1 bg-white/[0.04] border border-white/[0.06] rounded-2xl">
-					<For each={[
-						{ id: 'chart', label: t('gifts.tabChart'), icon: 'show_chart' },
-						{ id: 'collections', label: t('gifts.tabCollections'), icon: 'category' },
-						{ id: 'heatmap', label: t('gifts.tabHeatmap'), icon: 'grid_view' },
-						{ id: 'arbitrage', label: t('gifts.tabArbitrage'), icon: 'swap_horiz' },
-					] as const}>
+				{/* ═══════ TOP PRIMARY 4 TABS (AT THE HIGHEST POINT) ═══════ */}
+				<div class="grid grid-cols-4 bg-[#0d121c] p-1 rounded-2xl border border-white/[0.08] shadow-lg">
+					<For each={tabsList()}>
 						{(tab) => (
 							<button
 								type="button"
 								onClick={() => {
-									setActiveTab(tab.id as any);
-									try { haptic.selection(); } catch {}
+									try {
+										haptic.selection();
+									} catch {}
+									setActiveTab(tab.id);
 								}}
-								class={`py-2 text-[11px] font-black rounded-xl transition-all flex flex-col items-center gap-0.5 ${
+								class={`py-2 px-1 text-[11px] font-black rounded-xl transition-all flex flex-col items-center justify-center gap-0.5 ${
 									activeTab() === tab.id
-										? 'bg-[#0098EA] text-white shadow-lg shadow-[#0098EA]/30'
+										? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25 scale-[1.02]'
 										: 'text-white/50 hover:text-white'
 								}`}
 							>
 								<span class="material-symbols-outlined text-sm">{tab.icon}</span>
-								<span class="truncate max-w-full px-1">{tab.label}</span>
+								<span class="truncate max-w-full px-0.5">{tab.label}</span>
 							</button>
 						)}
 					</For>
 				</div>
 
-				{/* ═══════ 3. TAB VIEWS ═══════ */}
+				{/* ═══════ TAB VIEWS ═══════ */}
 				<Show when={activeTab() === 'chart'}>
-					<GiftsChartView />
+					<GiftsChartView intel={intel()} />
 				</Show>
 
 				<Show when={activeTab() === 'collections'}>
@@ -114,7 +109,7 @@ export const GiftsIntelPage: Component = () => {
 				</Show>
 
 				{/* Attribution Badge */}
-				<div class="text-center pt-6 pb-2">
+				<div class="text-center pt-4 pb-2">
 					<a
 						href="https://t.me/GiftChanges"
 						target="_blank"

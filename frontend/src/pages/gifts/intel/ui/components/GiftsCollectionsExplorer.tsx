@@ -14,7 +14,16 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 	const [selectedTag, setSelectedTag] = createSignal<string>('all');
 	const [showAllChips, setShowAllChips] = createSignal(false);
 
-	const tags = () => ['all', 'Bluechip', 'Luxury', 'Seasonal', 'Talisman', 'Classic', 'Special', 'Tech'];
+	const tags = () => [
+		{ id: 'all', label: `همه ۱۲۰ گیفت` },
+		{ id: 'Bluechip', label: 'بلوچیپ (Apex)' },
+		{ id: 'Luxury', label: 'لوکس (Luxury)' },
+		{ id: 'Seasonal', label: 'فصلی (Seasonal)' },
+		{ id: 'Talisman', label: 'طلسم (Talisman)' },
+		{ id: 'Classic', label: 'کلاسیک (Classic)' },
+		{ id: 'Special', label: 'ویژه (Special)' },
+		{ id: 'Tech', label: 'فناوری (Tech)' },
+	];
 
 	const filteredGifts = createMemo(() => {
 		const q = searchQuery().toLowerCase().trim();
@@ -51,7 +60,7 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 	};
 
 	return (
-		<div class="space-y-4">
+		<div class="space-y-3.5">
 			{/* Search Input Bar */}
 			<div class="relative">
 				<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-lg">
@@ -61,8 +70,8 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 					type="text"
 					value={searchQuery()}
 					onInput={(e) => setSearchQuery(e.currentTarget.value)}
-					placeholder={t('gifts.searchCollection')}
-					class="w-full pl-10 pr-10 py-3 bg-[#12141C] border border-white/10 rounded-2xl text-white text-sm font-medium placeholder:text-white/30 focus:outline-none focus:border-[#0098EA]/50 focus:ring-1 focus:ring-[#0098EA]/30 transition-all shadow-lg"
+					placeholder={t('gifts.searchCollection') || 'Search among 120 official gifts...'}
+					class="w-full pl-10 pr-10 py-3 bg-[#0b0e17]/90 border border-white/[0.08] rounded-2xl text-white text-sm font-medium placeholder:text-white/30 focus:outline-none focus:border-[#0098EA]/50 focus:ring-1 focus:ring-[#0098EA]/30 transition-all shadow-lg"
 				/>
 				<Show when={searchQuery().length > 0}>
 					<button
@@ -82,25 +91,25 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 						<button
 							type="button"
 							onClick={() => {
-								setSelectedTag(tag);
+								setSelectedTag(tag.id);
 								try { haptic.selection(); } catch {}
 							}}
 							class={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-								selectedTag() === tag
+								selectedTag() === tag.id
 									? 'bg-[#0098EA] text-white shadow-md'
-									: 'bg-white/[0.04] hover:bg-white/[0.08] text-white/50 hover:text-white border border-white/5'
+									: 'bg-white/[0.03] hover:bg-white/[0.06] text-white/50 hover:text-white border border-white/5'
 							}`}
 						>
-							{tag === 'all' ? `All (${OFFICIAL_GIFTS_120.length})` : tag}
+							{tag.label}
 						</button>
 					)}
 				</For>
 			</div>
 
 			{/* 120 Interactive Chip Cloud */}
-			<div class="bg-[#12141C]/60 border border-white/[0.06] rounded-2xl p-3 backdrop-blur-xl">
+			<div class="bg-[#0b0e17]/90 border border-white/[0.07] rounded-[22px] p-3.5 backdrop-blur-xl shadow-lg">
 				<div class="flex items-center justify-between mb-2 px-1">
-					<span class="text-[11px] font-extrabold text-white/60 flex items-center gap-1.5">
+					<span class="text-[11px] font-bold text-white/70 flex items-center gap-1.5">
 						<span class="material-symbols-outlined text-[#0098EA] text-sm">touch_app</span>
 						<span>{t('gifts.quickSelectAll')}</span>
 					</span>
@@ -109,7 +118,7 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 						onClick={() => setShowAllChips(!showAllChips())}
 						class="text-[10px] font-bold text-[#0098EA] hover:underline"
 					>
-						{showAllChips() ? 'Show Less' : 'Show All (120)'}
+						{showAllChips() ? 'نمایش کمتر' : 'نمایش همه ۱۲۰ گیفت'}
 					</button>
 				</div>
 
@@ -123,7 +132,7 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 							<button
 								type="button"
 								onClick={() => handleChipClick(gift)}
-								class="flex items-center gap-1.5 px-2 py-1 bg-white/[0.03] hover:bg-[#0098EA]/20 border border-white/[0.06] hover:border-[#0098EA]/40 rounded-xl text-[11px] font-semibold text-white/80 hover:text-white transition-all active:scale-95 flex-shrink-0"
+								class="flex items-center gap-1.5 px-2 py-1 bg-white/[0.02] hover:bg-[#0098EA]/20 border border-white/[0.05] hover:border-[#0098EA]/40 rounded-xl text-[11px] font-semibold text-white/80 hover:text-white transition-all active:scale-95 flex-shrink-0"
 							>
 								<div class="w-4 h-4 rounded-md overflow-hidden bg-white/5 flex-shrink-0">
 									<img
@@ -142,59 +151,58 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 				</div>
 			</div>
 
-			{/* Collection Grid Cards */}
-			<div class="space-y-2.5">
+			{/* Matching Collection Cards */}
+			<div class="space-y-2">
 				<div class="flex items-center justify-between px-1 text-xs text-white/40 font-bold">
-					<span>Matching Collections ({filteredGifts().length})</span>
-					<span>Floor (TON)</span>
+					<span>کالکشن‌های یافت‌شده ({filteredGifts().length})</span>
+					<span>کف قیمت (TON)</span>
 				</div>
 
-				<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
 					<For each={filteredGifts()}>
 						{(gift) => (
 							<button
 								type="button"
 								onClick={() => handleCardClick(gift)}
-								class="flex items-center gap-3 p-3 bg-[#12141C]/80 hover:bg-[#12141C] border border-white/[0.06] hover:border-[#0098EA]/40 rounded-2xl transition-all active:scale-[0.98] group text-left rtl:text-right shadow-lg"
+								class="flex items-center gap-3 p-3 bg-[#0b0e17]/80 hover:bg-[#0b0e17] border border-white/[0.06] hover:border-[#0098EA]/40 rounded-2xl transition-all active:scale-[0.98] group text-left rtl:text-right shadow-lg"
 							>
 								{/* Official Artwork from CDN */}
-								<div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0098EA]/20 to-[#AF52DE]/20 border border-white/10 flex items-center justify-center overflow-hidden p-1.5 flex-shrink-0 group-hover:scale-105 transition-transform shadow-md">
+								<div class="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/[0.08] p-1 flex-shrink-0 flex items-center justify-center relative overflow-hidden group-hover:border-[#0098EA]/50 transition-colors">
 									<img
 										src={getGiftCdnImageUrl(gift.slug)}
 										alt={gift.name}
-										class="w-full h-full object-contain drop-shadow"
+										class="w-full h-full object-contain drop-shadow-md group-hover:scale-105 transition-transform"
 										onError={(e) => {
 											e.currentTarget.style.display = 'none';
 										}}
 									/>
 								</div>
 
-								{/* Details */}
+								{/* Info */}
 								<div class="flex-1 min-w-0">
 									<div class="flex items-center gap-1.5">
-										<span class="text-sm font-bold text-white truncate">{gift.name}</span>
-										<span class="text-[8px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-white/[0.06] text-white/60">
+										<h4 class="text-sm font-bold text-white truncate group-hover:text-[#0098EA] transition-colors">
+											{gift.name}
+										</h4>
+										<span class="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-white/[0.04] text-white/40 border border-white/5 flex-shrink-0">
 											{gift.tag}
 										</span>
 									</div>
-									<div class="text-[11px] text-white/40 font-medium mt-0.5">
-										Supply: {gift.supply.toLocaleString()}
+									<div class="text-[10px] text-white/40 font-mono mt-0.5 truncate">
+										{gift.supply ? `${gift.supply.toLocaleString()} Items` : '100% On-Chain'}
 									</div>
 								</div>
 
-								{/* Floor Price */}
-								<div class="text-right flex-shrink-0">
-									<div class="text-sm font-black text-white font-mono flex items-center justify-end gap-1">
-										<span>⭐ {gift.floor.toLocaleString()}</span>
+								{/* Floor */}
+								<div class="text-right rtl:text-left flex-shrink-0">
+									<div class="text-sm font-black text-white font-mono flex items-center justify-end rtl:justify-start gap-1">
+										<span class="text-[#0098EA] text-xs">💎</span>
+										<span>{gift.floorTon} TON</span>
 									</div>
-									<div class="text-[10px] text-emerald-400 font-semibold">
-										~${(gift.floor * 5.25).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+									<div class="text-[10px] text-white/40 font-mono">
+										≈ ${(gift.floorTon * 4.0).toFixed(0)}
 									</div>
 								</div>
-
-								<span class="material-symbols-outlined text-white/20 group-hover:text-[#0098EA] text-base transition-colors rtl:rotate-180">
-									chevron_right
-								</span>
 							</button>
 						)}
 					</For>

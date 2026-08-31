@@ -2259,8 +2259,10 @@ export const dict = {
 		"fearGreed": "Fear & Greed",
 		"bestVenue": "Best Venue",
 		"tabOverview": "Overview",
-		"tabHeatmap": "Rarity Heatmap",
-		"tabArbitrage": "Arbitrage",
+		"tabChart": "Chart & Bollinger",
+		"tabCollections": "Collections",
+		"tabHeatmap": "Rarity Matrix",
+		"tabArbitrage": "Arbitrage Radar",
 		"tabWhales": "Whale Intel",
 		"modelsLeaderboard": "Models Leaderboard",
 		"now": "NOW",
@@ -2297,7 +2299,6 @@ export const dict = {
 		"eventVerifiedDesc": "Authenticity and trait scarcity fully validated by iFragment GV Engine.",
 		"verifiedOnChain": "Verified On-Chain",
 		"current": "Current",
-		"tabChart": "Price Chart & Bands",
 		"tabCrafting": "Crafting Simulator",
 		"bollingerBands": "Floor Price Bollinger Bands",
 		"upperBand": "Upper Band (+2σ)",
@@ -2327,7 +2328,6 @@ export const dict = {
 		"circulatingGifts": "Circulating Supply",
 		"exportHeatmap": "Download Heatmap",
 		"quickSelectAll": "Quick Selection (120 Gifts)",
-		"tabCollections": "Collections (120 Gifts)",
 		"arbitrageScanner": "Cross-Market Arbitrage Scanner"
 	},
 	"groupAnalytics": {

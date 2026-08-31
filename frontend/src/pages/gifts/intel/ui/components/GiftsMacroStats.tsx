@@ -1,4 +1,4 @@
-import { type Component, For, Show } from 'solid-js';
+import { type Component, For } from 'solid-js';
 import type { GiftsIntelResponse } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 
@@ -7,160 +7,133 @@ interface Props {
 }
 
 export const GiftsMacroStats: Component<Props> = (props) => {
-	const statsList = () => [
+	const macroSections = () => [
 		{
-			id: 'total_gifts',
-			label: t('gifts.totalGiftsCount'),
-			value: props.data?.macro_stats?.total_unique_gifts || 149,
-			source: 'api.changes.tg/total',
-			icon: 'featured_seasonal_and_gifts',
-			color: 'from-[#0098EA]/20 to-[#0098EA]/5 text-[#0098EA] border-[#0098EA]/30',
-			subtitle: '138 Limited + 11 Unlimited',
+			title: 'دارایی‌ها و متادیتا (Supply & Assets)',
+			badge: 'api.changes.tg',
+			items: [
+				{
+					label: t('gifts.totalGiftsCount') || 'Total Gifts',
+					value: '149',
+					sub: '138 Limited · 11 Store',
+					icon: 'inventory_2',
+				},
+				{
+					label: t('gifts.upgradableGiftsCount') || 'Upgradable to NFT',
+					value: '120',
+					sub: 'TEP-62 Standard',
+					icon: 'auto_awesome',
+				},
+				{
+					label: t('gifts.uniqueModelsCount') || 'Unique 3D Models',
+					value: (props.data?.macro_stats?.total_unique_models || 7576).toLocaleString(),
+					sub: 'High-Poly Renderings',
+					icon: 'view_in_ar',
+				},
+				{
+					label: t('gifts.backdropsCount') || 'Backdrops',
+					value: '80',
+					sub: 'Metallic & Gradient',
+					icon: 'palette',
+				},
+				{
+					label: t('gifts.patternsCount') || 'Symbols & Textures',
+					value: (props.data?.macro_stats?.total_patterns || 25373).toLocaleString(),
+					sub: 'Pattern DNA',
+					icon: 'texture',
+				},
+				{
+					label: t('gifts.circulatingGifts') || 'Circulating Supply',
+					value: '~9,000,000',
+					sub: 'Total Minted Items',
+					icon: 'layers',
+				},
+			],
 		},
 		{
-			id: 'upgradable',
-			label: t('gifts.upgradableGiftsCount'),
-			value: props.data?.macro_stats?.total_upgradable || 120,
-			source: 'api.changes.tg/total',
-			icon: 'upgrade',
-			color: 'from-[#AF52DE]/20 to-[#AF52DE]/5 text-[#AF52DE] border-[#AF52DE]/30',
-			subtitle: 'NFT Ready on TON Blockchain',
-		},
-		{
-			id: 'limited',
-			label: t('gifts.limitedGiftsCount'),
-			value: 138,
-			source: 'api.changes.tg/total',
-			icon: 'lock',
-			color: 'from-amber-500/20 to-amber-500/5 text-amber-400 border-amber-500/30',
-			subtitle: 'Capped Minting Supply',
-		},
-		{
-			id: 'unlimited',
-			label: t('gifts.unlimitedGiftsCount'),
-			value: 11,
-			source: 'api.changes.tg/total',
-			icon: 'all_inclusive',
-			color: 'from-emerald-500/20 to-emerald-500/5 text-emerald-400 border-emerald-500/30',
-			subtitle: 'Continuous Telegram Store',
-		},
-		{
-			id: 'models',
-			label: t('gifts.uniqueModelsCount'),
-			value: props.data?.macro_stats?.total_unique_models?.toLocaleString() || '7,576',
-			source: 'api.changes.tg/total',
-			icon: 'view_in_ar',
-			color: 'from-cyan-500/20 to-cyan-500/5 text-cyan-400 border-cyan-500/30',
-			subtitle: 'Distinct 3D Visual Renderings',
-		},
-		{
-			id: 'backdrops',
-			label: t('gifts.backdropsCount'),
-			value: props.data?.macro_stats?.total_backdrops || 80,
-			source: 'api.changes.tg/total',
-			icon: 'palette',
-			color: 'from-pink-500/20 to-pink-500/5 text-pink-400 border-pink-500/30',
-			subtitle: 'Gradient & Metallic Palettes',
-		},
-		{
-			id: 'patterns',
-			label: t('gifts.patternsCount'),
-			value: props.data?.macro_stats?.total_patterns?.toLocaleString() || '25,373',
-			source: 'api.changes.tg/total',
-			icon: 'grain',
-			color: 'from-purple-500/20 to-purple-500/5 text-purple-400 border-purple-500/30',
-			subtitle: 'Symbolic Background Textures',
-		},
-		{
-			id: 'market_cap',
-			label: t('gifts.marketCap'),
-			value: '$128M+',
-			source: 'Dropstab / Binance',
-			icon: 'monitoring',
-			color: 'from-blue-500/20 to-blue-500/5 text-blue-400 border-blue-500/30',
-			subtitle: '~32M TON Equivalent',
-		},
-		{
-			id: 'volume_cum',
-			label: t('gifts.cumulativeVolume'),
-			value: '$300M+',
-			source: 'DurovsCode / Binance',
-			icon: 'bar_chart',
-			color: 'from-emerald-500/20 to-emerald-500/5 text-emerald-400 border-emerald-500/30',
-			subtitle: 'All-time Secondary & Store',
-		},
-		{
-			id: 'active_wallets',
-			label: t('gifts.activeWallets'),
-			value: '500,000+',
-			source: 'Dropstab / On-chain',
-			icon: 'account_balance_wallet',
-			color: 'from-amber-500/20 to-amber-500/5 text-amber-400 border-amber-500/30',
-			subtitle: 'Monthly Active Traders',
-		},
-		{
-			id: 'holders',
-			label: t('gifts.holderUsers'),
-			value: '~2,000,000',
-			source: 'Dropstab / Telegram',
-			icon: 'groups',
-			color: 'from-indigo-500/20 to-indigo-500/5 text-indigo-400 border-indigo-500/30',
-			subtitle: 'Profiles with Displayed Gifts',
-		},
-		{
-			id: 'circulating',
-			label: t('gifts.circulatingGifts'),
-			value: '~9,000,000',
-			source: 'Dropstab / On-chain',
-			icon: 'inventory_2',
-			color: 'from-teal-500/20 to-teal-500/5 text-teal-400 border-teal-500/30',
-			subtitle: 'Total Minted & Transferred',
+			title: 'اقتصاد و بازار (Market Economics)',
+			badge: 'Dropstab · On-Chain',
+			items: [
+				{
+					label: t('gifts.marketCap') || 'Market Cap',
+					value: '$128M+',
+					sub: '≈ 32,000,000 TON',
+					icon: 'account_balance',
+					highlight: true,
+				},
+				{
+					label: t('gifts.cumulativeVolume') || 'All-Time Volume',
+					value: '$300M+',
+					sub: '7 Major Venues',
+					icon: 'query_stats',
+					highlight: true,
+				},
+				{
+					label: t('gifts.activeWallets') || 'Active Wallets',
+					value: '500,000+',
+					sub: 'Monthly Active',
+					icon: 'wallet',
+				},
+				{
+					label: t('gifts.holderUsers') || 'Unique Holders',
+					value: '~2,000,000',
+					sub: 'Telegram Profiles',
+					icon: 'group',
+				},
+			],
 		},
 	];
 
 	return (
 		<div class="space-y-3">
-			{/* Section Header with Live API Badge */}
-			<div class="flex items-center justify-between px-1">
-				<div class="flex items-center gap-2">
-					<span class="material-symbols-outlined text-[#0098EA] text-lg">dataset</span>
-					<h2 class="text-sm font-black text-white tracking-tight">{t('gifts.macroStatsTitle')}</h2>
-				</div>
-				<div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400">
-					<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-					<span>api.changes.tg • Live</span>
-				</div>
-			</div>
-
-			{/* 12-Card Grid */}
-			<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-				<For each={statsList()}>
-					{(item) => (
-						<div
-							class={`bg-gradient-to-br ${item.color} border rounded-2xl p-3 flex flex-col justify-between backdrop-blur-xl transition-all hover:scale-[1.02]`}
-						>
-							<div class="flex items-start justify-between mb-1.5">
-								<span class="material-symbols-outlined text-xl opacity-80">{item.icon}</span>
-								<span class="text-[9px] font-mono opacity-50 px-1.5 py-0.5 rounded bg-black/30 truncate max-w-[90px]">
-									{item.source}
-								</span>
-							</div>
-
-							<div>
-								<div class="text-[11px] font-bold text-white/70 leading-tight mb-0.5 truncate">
-									{item.label}
-								</div>
-								<div class="text-base font-black text-white font-mono tracking-tight">
-									{typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
-								</div>
-								<div class="text-[9px] font-medium text-white/40 truncate mt-0.5">
-									{item.subtitle}
-								</div>
-							</div>
+			<For each={macroSections()}>
+				{(section) => (
+					<div class="bg-[#0b0e17]/90 border border-white/[0.07] rounded-[22px] p-3.5 backdrop-blur-2xl shadow-xl space-y-2.5">
+						{/* Group Header */}
+						<div class="flex items-center justify-between px-1 pb-1 border-b border-white/[0.05]">
+							<span class="text-[11px] font-bold text-white/70 tracking-wide">
+								{section.title}
+							</span>
+							<span class="text-[9px] font-mono text-[#0098EA] bg-[#0098EA]/10 border border-[#0098EA]/20 px-2 py-0.5 rounded-full font-bold">
+								{section.badge}
+							</span>
 						</div>
-					)}
-				</For>
-			</div>
+
+						{/* Metric Cells */}
+						<div class={`grid gap-2 ${section.items.length === 6 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'}`}>
+							<For each={section.items}>
+								{(item) => (
+									<div
+										class={`p-2.5 rounded-xl border transition-all flex flex-col justify-between ${
+											item.highlight
+												? 'bg-[#0098EA]/[0.06] border-[#0098EA]/20 hover:border-[#0098EA]/40'
+												: 'bg-white/[0.02] border-white/[0.04] hover:border-white/10'
+										}`}
+									>
+										<div class="flex items-center justify-between mb-1">
+											<span class="text-[10px] font-medium text-white/40 truncate">
+												{item.label}
+											</span>
+											<span class="material-symbols-outlined text-[13px] text-white/30">
+												{item.icon}
+											</span>
+										</div>
+
+										<div>
+											<div class="text-base font-bold text-white font-mono tracking-tight tabular-nums">
+												{item.value}
+											</div>
+											<div class="text-[9px] font-mono text-white/30 truncate mt-0.5">
+												{item.sub}
+											</div>
+										</div>
+									</div>
+								)}
+							</For>
+						</div>
+					</div>
+				)}
+			</For>
 		</div>
 	);
 };
