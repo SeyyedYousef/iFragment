@@ -403,10 +403,20 @@ export interface UpgradeStepInfo {
 	savings_vs_current_stars: number;
 }
 
+export interface CollectionBackdropSummary {
+	name: string;
+	rarity_permille: number;
+	center_hex: string;
+	edge_hex: string;
+	pattern_hex: string;
+	text_hex: string;
+}
+
 export interface CollectionIntelResponse {
 	collection_id: string;
 	collection_name: string;
 	collection_slug: string;
+	contract_address?: string;
 	lottie_url?: string;
 	image_url?: string;
 	total_supply: number;
@@ -415,6 +425,12 @@ export interface CollectionIntelResponse {
 	is_craftable: boolean;
 	release_date: string;
 	upgrade_enabled_date?: string;
+
+	// Trait Counts
+	total_models?: number;
+	total_backdrops?: number;
+	total_symbols?: number;
+	backdrops_list?: CollectionBackdropSummary[];
 
 	// Market Pulse
 	best_floor_gram: number;

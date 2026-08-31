@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -23,10 +22,20 @@ type CollectionListItem struct {
 }
 
 // CollectionIntelResponse represents comprehensive collection intelligence
+type BackdropSummary struct {
+	Name           string `json:"name"`
+	RarityPermille int    `json:"rarity_permille"`
+	CenterHex      string `json:"center_hex"`
+	EdgeHex        string `json:"edge_hex"`
+	PatternHex     string `json:"pattern_hex"`
+	TextHex        string `json:"text_hex"`
+}
+
 type CollectionIntelResponse struct {
 	CollectionID       string                 `json:"collection_id"`
 	CollectionName     string                 `json:"collection_name"`
 	CollectionSlug     string                 `json:"collection_slug"`
+	ContractAddress    string                 `json:"contract_address"`
 	LottieURL          string                 `json:"lottie_url,omitempty"`
 	ImageURL           string                 `json:"image_url,omitempty"`
 	TotalSupply        int                    `json:"total_supply"`
@@ -36,34 +45,40 @@ type CollectionIntelResponse struct {
 	ReleaseDate        string                 `json:"release_date"`
 	UpgradeEnabledDate string                 `json:"upgrade_enabled_date,omitempty"`
 
+	// Trait Counts
+	TotalModels    int               `json:"total_models"`
+	TotalBackdrops int               `json:"total_backdrops"`
+	TotalSymbols   int               `json:"total_symbols"`
+	BackdropsList  []BackdropSummary `json:"backdrops_list,omitempty"`
+
 	// Market Pulse
-	BestFloorGRAM      float64                `json:"best_floor_gram"`
-	BestFloorUSD       float64                `json:"best_floor_usd"`
-	BestFloorVenue     string                 `json:"best_floor_venue"`
-	Change24hPct       float64                `json:"change_24h_pct"`
-	Change7dPct        float64                `json:"change_7d_pct"`
-	Change30dPct       float64                `json:"change_30d_pct"`
-	Volume24hGRAM      float64                `json:"volume_24h_gram"`
-	Volume24hUSD       float64                `json:"volume_24h_usd"`
-	MarketCapGRAM      float64                `json:"market_cap_gram"`
-	MarketCapUSD       float64                `json:"market_cap_usd"`
-	ListedCount        int                    `json:"listed_count"`
-	LiquidityRatio     float64                `json:"liquidity_ratio"`
+	BestFloorGRAM  float64 `json:"best_floor_gram"`
+	BestFloorUSD   float64 `json:"best_floor_usd"`
+	BestFloorVenue string  `json:"best_floor_venue"`
+	Change24hPct   float64 `json:"change_24h_pct"`
+	Change7dPct    float64 `json:"change_7d_pct"`
+	Change30dPct   float64 `json:"change_30d_pct"`
+	Volume24hGRAM  float64 `json:"volume_24h_gram"`
+	Volume24hUSD   float64 `json:"volume_24h_usd"`
+	MarketCapGRAM  float64 `json:"market_cap_gram"`
+	MarketCapUSD   float64 `json:"market_cap_usd"`
+	ListedCount    int     `json:"listed_count"`
+	LiquidityRatio float64 `json:"liquidity_ratio"`
 
 	// Sub-sections
-	ModelFloors        []CollectionModelFloor `json:"model_floors"`
-	RarityHeatmap      []RarityHeatmapCell    `json:"rarity_heatmap"`
-	VenueFloors        []MarketVenueFloor     `json:"venue_floors"`
-	Arbitrage          *CrossMarketArbitrage  `json:"arbitrage,omitempty"`
-	Whales             []WhaleProfile         `json:"whales"`
-	RecentActivity     []MarketActivityItem   `json:"recent_activity"`
-	FearGreed          FearGreedData          `json:"fear_greed"`
-	UpgradeLadder      []UpgradeStepInfo      `json:"upgrade_ladder"`
-	FloorHistory       []FloorHistoryPoint    `json:"floor_history"`
+	ModelFloors    []CollectionModelFloor `json:"model_floors"`
+	RarityHeatmap  []RarityHeatmapCell    `json:"rarity_heatmap"`
+	VenueFloors    []MarketVenueFloor     `json:"venue_floors"`
+	Arbitrage      *CrossMarketArbitrage  `json:"arbitrage,omitempty"`
+	Whales         []WhaleProfile         `json:"whales"`
+	RecentActivity []MarketActivityItem   `json:"recent_activity"`
+	FearGreed      FearGreedData          `json:"fear_greed"`
+	UpgradeLadder  []UpgradeStepInfo      `json:"upgrade_ladder"`
+	FloorHistory   []FloorHistoryPoint    `json:"floor_history"`
 
 	// Attribution & metadata
-	DataSources        []string               `json:"data_sources"`
-	UpdatedAt          string                 `json:"updated_at"`
+	DataSources []string `json:"data_sources"`
+	UpdatedAt   string   `json:"updated_at"`
 }
 
 type CollectionModelFloor struct {
@@ -165,37 +180,37 @@ type UpgradeStepInfo struct {
 }
 
 type FloorHistoryPoint struct {
-	Timestamp       string             `json:"timestamp"`
-	FloorGRAM       float64            `json:"floor_gram"`
-	VenueBreakdown  map[string]float64 `json:"venue_breakdown"`
+	Timestamp      string             `json:"timestamp"`
+	FloorGRAM      float64            `json:"floor_gram"`
+	VenueBreakdown map[string]float64 `json:"venue_breakdown"`
 }
 
 // EnrichedGiftReport represents a single gift report with provenance & on-chain metadata
 type ProvenanceEvent struct {
-	EventType     string  `json:"event_type"` // "created", "sent", "upgraded", "sold", "transferred", "crafted"
-	Timestamp     string  `json:"timestamp"`
-	FromAddress   string  `json:"from_address,omitempty"`
-	FromUsername  string  `json:"from_username,omitempty"`
-	ToAddress     string  `json:"to_address,omitempty"`
-	ToUsername    string  `json:"to_username,omitempty"`
-	PriceGRAM     float64 `json:"price_gram,omitempty"`
-	PriceUSD      float64 `json:"price_usd,omitempty"`
-	Venue         string  `json:"venue,omitempty"`
-	TxHash        string  `json:"tx_hash,omitempty"`
-	TonviewerURL  string  `json:"tonviewer_url,omitempty"`
-	Note          string  `json:"note,omitempty"`
+	EventType    string  `json:"event_type"` // "created", "sent", "upgraded", "sold", "transferred", "crafted"
+	Timestamp    string  `json:"timestamp"`
+	FromAddress  string  `json:"from_address,omitempty"`
+	FromUsername string  `json:"from_username,omitempty"`
+	ToAddress    string  `json:"to_address,omitempty"`
+	ToUsername   string  `json:"to_username,omitempty"`
+	PriceGRAM    float64 `json:"price_gram,omitempty"`
+	PriceUSD     float64 `json:"price_usd,omitempty"`
+	Venue        string  `json:"venue,omitempty"`
+	TxHash       string  `json:"tx_hash,omitempty"`
+	TonviewerURL string  `json:"tonviewer_url,omitempty"`
+	Note         string  `json:"note,omitempty"`
 }
 
 type OnChainMetadata struct {
-	NFTAddress        string                 `json:"nft_address"`
-	CollectionAddress string                 `json:"collection_address"`
-	OwnerAddress      string                 `json:"owner_address"`
-	MintNumber        int                    `json:"mint_number"`
-	Attributes        []map[string]string    `json:"attributes"`
-	MetadataURL       string                 `json:"metadata_url"`
-	TonviewerURL      string                 `json:"tonviewer_url"`
-	TonscanURL        string                 `json:"tonscan_url"`
-	MarketplaceLinks  map[string]string      `json:"marketplace_links"`
+	NFTAddress        string              `json:"nft_address"`
+	CollectionAddress string              `json:"collection_address"`
+	OwnerAddress      string              `json:"owner_address"`
+	MintNumber        int                 `json:"mint_number"`
+	Attributes        []map[string]string `json:"attributes"`
+	MetadataURL       string              `json:"metadata_url"`
+	TonviewerURL      string              `json:"tonviewer_url"`
+	TonscanURL        string              `json:"tonscan_url"`
+	MarketplaceLinks  map[string]string   `json:"marketplace_links"`
 }
 
 type EnrichedGiftReport struct {
@@ -275,8 +290,12 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	}
 
 	collectionName := origSlug
+	contractID := "5936013938331222567"
 	if liveDetail != nil && liveDetail.Gift.Name != "" {
 		collectionName = liveDetail.Gift.Name
+		if liveDetail.Gift.ID != "" {
+			contractID = liveDetail.Gift.ID
+		}
 	} else if exists && col.Name != "" {
 		collectionName = col.Name
 	} else {
@@ -316,6 +335,9 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		isCraftable = col.CraftedFlag
 	}
 
+	var totalModels, totalBackdrops, totalSymbols int
+	var backdropsList []BackdropSummary
+
 	if liveDetail != nil {
 		if liveDetail.Gift.TotalSupply > 0 {
 			totalSupply = liveDetail.Gift.TotalSupply
@@ -327,9 +349,27 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		if liveDetail.Gift.Craftable {
 			isCraftable = true
 		}
+		totalModels = len(liveDetail.Models)
+		totalBackdrops = len(liveDetail.Backdrops)
+		totalSymbols = len(liveDetail.Symbols)
+
+		for _, b := range liveDetail.Backdrops {
+			backdropsList = append(backdropsList, BackdropSummary{
+				Name:           b.Name,
+				RarityPermille: b.RarityPermille,
+				CenterHex:      b.Hex.Center,
+				EdgeHex:        b.Hex.Edge,
+				PatternHex:     b.Hex.Pattern,
+				TextHex:        b.Hex.Text,
+			})
+		}
+	} else {
+		totalModels = 50
+		totalBackdrops = 60
+		totalSymbols = 200
 	}
 
-	// 7 Venues Floors
+	// 7 Venues Floors - deterministic market fee and multi ratios
 	venueList := []struct {
 		ID      string
 		Name    string
@@ -338,12 +378,12 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		OnChain bool
 	}{
 		{"fragment", "Fragment", 5.0, 1.00, true},
-		{"getgems", "Getgems", 5.0, 1.04, true},
+		{"getgems", "Getgems", 5.0, 1.03, true},
+		{"portals", "Portals", 3.0, 0.97, false},
 		{"marketapp", "MarketApp.ws", 3.0, 0.98, true},
-		{"portals", "Portals", 4.0, 0.95, false},
-		{"tonnel", "Tonnel Network", 3.5, 0.97, false},
-		{"mrkt", "MRKT", 2.5, 0.94, false},
-		{"telegram", "Telegram Native", 0.0, 1.08, true},
+		{"tonnel", "Tonnel Network", 3.5, 0.96, false},
+		{"mrkt", "MRKT", 2.5, 0.95, false},
+		{"telegram", "Telegram Resale", 0.0, 1.05, true},
 	}
 
 	var venueFloors []MarketVenueFloor
@@ -351,6 +391,11 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	bestFloor := math.MaxFloat64
 	var highestFloor float64
 	var highestVenue string
+
+	listedCount := int(float64(totalSupply) * 0.034)
+	if listedCount < 1 {
+		listedCount = 1
+	}
 
 	for _, v := range venueList {
 		vf := round2(floorGram * v.Mult)
@@ -362,7 +407,7 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 			FloorUSD:      round2(vf * gramRate),
 			FeePct:        v.Fee,
 			NetPayoutGRAM: net,
-			ListedCount:   int(float64(totalSupply) * 0.02 * (1.0 + (rand.Float64()*0.2 - 0.1))),
+			ListedCount:   listedCount,
 			IsOnChain:     v.OnChain,
 		})
 		if vf < bestFloor {
@@ -375,7 +420,7 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		}
 	}
 
-	// Arbitrage computation
+	// Arbitrage computation (deterministic)
 	var arb *CrossMarketArbitrage
 	if highestFloor > bestFloor {
 		spread := ((highestFloor - bestFloor) / bestFloor) * 100.0
@@ -393,13 +438,18 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		}
 	}
 
-	// Model floors with LIVE API data if present
+	// Model floors with LIVE API data if present (Deterministic)
 	var modelFloors []CollectionModelFloor
 	if liveDetail != nil && len(liveDetail.Models) > 0 {
 		for i, m := range liveDetail.Models {
-			mMult := 1.0 + float64(len(liveDetail.Models)-1-i)*0.08
-			mFloor := round2(floorGram * mMult)
-			supply := int(float64(totalSupply) * float64(m.RarityPermille) / 1000.0)
+			// Inverted rarity pricing: rare model (e.g. 10 permille) has higher floor multiplier
+			permilleNorm := float64(m.RarityPermille)
+			if permilleNorm <= 0 {
+				permilleNorm = 20.0
+			}
+			rarityFactor := 1.0 + (50.0 / permilleNorm) * 0.35
+			mFloor := round2(floorGram * rarityFactor)
+			supply := int(float64(totalSupply) * permilleNorm / 1000.0)
 			if supply <= 0 {
 				supply = 10
 			}
@@ -408,18 +458,15 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 				ModelName:      m.Name,
 				RarityPermille: m.RarityPermille,
 				TotalSupply:    supply,
-				UpgradedCount:  int(float64(supply) * 0.55),
+				UpgradedCount:  int(float64(supply) * 0.65),
 				FloorGRAM:      mFloor,
 				FloorUSD:       round2(mFloor * gramRate),
 				BestVenue:      bestVenue,
-				Change24hPct:   round2(rand.Float64()*12.0 - 4.0),
-				Change7dPct:    round2(rand.Float64()*25.0 - 5.0),
-				Volume24hGRAM:  round2(mFloor * float64(10+rand.Intn(20))),
-				IsTrending:     i >= len(liveDetail.Models)/2,
+				Change24hPct:   0.0,
+				Change7dPct:    0.0,
+				Volume24hGRAM:  round2(mFloor * 12.0),
+				IsTrending:     m.RarityPermille <= 20,
 			})
-			if len(modelFloors) >= 15 {
-				break
-			}
 		}
 	} else {
 		modelNames := []string{"Classic", "Golden", "Midnight Noir", "Emerald Matrix", "Ruby Flare", "Cyberpunk"}
@@ -436,10 +483,10 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 				FloorGRAM:      mFloor,
 				FloorUSD:       round2(mFloor * gramRate),
 				BestVenue:      bestVenue,
-				Change24hPct:   round2(rand.Float64()*12.0 - 4.0),
-				Change7dPct:    round2(rand.Float64()*25.0 - 5.0),
-				Volume24hGRAM:  round2(mFloor * float64(10+rand.Intn(20))),
-				IsTrending:     i >= 3,
+				Change24hPct:   0.0,
+				Change7dPct:    0.0,
+				Volume24hGRAM:  round2(mFloor * 10.0),
+				IsTrending:     i >= 4,
 			})
 		}
 	}
@@ -475,69 +522,31 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 				break
 			}
 		}
-	} else {
-		backdrops := []string{"Onyx Deep", "Aurora Borealis", "Solar Flare", "Neon Grid"}
-		for _, m := range modelFloors {
-			for bIdx, bName := range backdrops {
-				tier := tiers[(m.RarityPermille/200+bIdx)%len(tiers)]
-				combPermille := m.RarityPermille / len(backdrops)
-				heatmap = append(heatmap, RarityHeatmapCell{
-					ModelID:           m.ModelID,
-					ModelName:         m.ModelName,
-					BackdropID:        fmt.Sprintf("bd_%d", bIdx+1),
-					BackdropName:      bName,
-					Count:             int(float64(totalSupply) * float64(combPermille) / 1000.0),
-					TotalInCollection: totalSupply,
-					RarityPermille:    combPermille,
-					RarityTier:        tier,
-					FloorGRAM:         round2(m.FloorGRAM * (1.0 + float64(bIdx)*0.25)),
-					FloorUSD:          round2(m.FloorGRAM * (1.0 + float64(bIdx)*0.25) * gramRate),
-				})
-			}
-		}
 	}
 
-	// Whales
+	// Whales (Deterministic addresses)
 	whaleClasses := []string{"diamond_hands", "accumulator", "flipper", "diamond_hands", "accumulator"}
 	var whales []WhaleProfile
 	for i := 1; i <= 5; i++ {
-		hCount := int(float64(col.TotalSupply) * (0.05 - float64(i)*0.008))
+		hCount := int(float64(totalSupply) * (0.04 - float64(i)*0.005))
 		if hCount < 5 {
 			hCount = 5
 		}
-		valGRAM := float64(hCount) * floorGram * 1.2
+		valGRAM := float64(hCount) * floorGram * 1.25
 		whales = append(whales, WhaleProfile{
 			Rank:             i,
-			OwnerAddress:     fmt.Sprintf("EQ%x...%x", rand.Int63(), rand.Int63()%10000),
-			TelegramUsername: fmt.Sprintf("whale_%s_%d", strings.ReplaceAll(slug, "_", ""), i),
+			OwnerAddress:     fmt.Sprintf("EQ%s...%04d", normSlug[:int(math.Min(float64(len(normSlug)), 6))], i*731),
+			TelegramUsername: fmt.Sprintf("vault_%s_%d", strings.ReplaceAll(normSlug, "-", ""), i),
 			HoldingsCount:    hCount,
 			TotalValueGRAM:   round2(valGRAM),
 			TotalValueUSD:    round2(valGRAM * gramRate),
 			Classification:   whaleClasses[i-1],
-			Change24hCount:   rand.Intn(5) - 1,
-			AvgHoldDays:      45 + i*20,
+			Change24hCount:   0,
+			AvgHoldDays:      60 + i*15,
 		})
 	}
 
-	// Recent activity
-	actTypes := []string{"sale", "listing", "upgrade", "craft", "transfer"}
-	var activity []MarketActivityItem
-	for i := 0; i < 15; i++ {
-		aType := actTypes[rand.Intn(len(actTypes))]
-		mItem := modelFloors[rand.Intn(len(modelFloors))]
-		activity = append(activity, MarketActivityItem{
-			ActivityType: aType,
-			GiftID:       fmt.Sprintf("%s-%d", slug, rand.Intn(col.TotalSupply)+1),
-			ModelName:    mItem.ModelName,
-			SerialNumber: rand.Intn(col.TotalSupply) + 1,
-			PriceGRAM:    round2(mItem.FloorGRAM * (1.0 + (rand.Float64()*0.4 - 0.1))),
-			PriceUSD:     round2(mItem.FloorGRAM * gramRate),
-			Venue:        venueList[rand.Intn(len(venueList))].Name,
-			Timestamp:    now.Add(-time.Duration(i*12) * time.Minute).Format(time.RFC3339),
-		})
-	}
-
-	// Upgrade Ladder (Dutch Auction)
+	// Upgrade Ladder (Dutch Auction - Deterministic)
 	baseStars := col.BaseStarsPrice
 	if baseStars <= 0 {
 		baseStars = 5000
@@ -557,62 +566,67 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		})
 	}
 
-	// 24h Floor History points
+	// 24h Floor History points (Deterministic)
 	var floorHistory []FloorHistoryPoint
-	for h := 24; h >= 0; h -= 2 {
+	for h := 24; h >= 0; h -= 4 {
 		tPoint := now.Add(-time.Duration(h) * time.Hour)
-		hFloor := round2(floorGram * (1.0 + math.Sin(float64(h)/4.0)*0.08))
+		hFloor := round2(floorGram * (1.0 + math.Sin(float64(h)/8.0)*0.04))
 		floorHistory = append(floorHistory, FloorHistoryPoint{
 			Timestamp:      tPoint.Format(time.RFC3339),
 			FloorGRAM:      hFloor,
-			VenueBreakdown: map[string]float64{"Fragment": hFloor, "Getgems": round2(hFloor * 1.04), "Portals": round2(hFloor * 0.96)},
+			VenueBreakdown: map[string]float64{"Fragment": hFloor, "Getgems": round2(hFloor * 1.03), "Portals": round2(hFloor * 0.97)},
 		})
 	}
 
-	vol24h := floorGram * 125.0
+	vol24h := floorGram * 85.0
 	marketCap := float64(totalSupply) * floorGram
 
 	return &CollectionIntelResponse{
 		CollectionID:       slug,
 		CollectionName:     collectionName,
 		CollectionSlug:     slug,
+		ContractAddress:    contractID,
 		TotalSupply:        totalSupply,
 		UpgradedCount:      upgradedCount,
 		IsLimited:          isLimited,
 		IsCraftable:        isCraftable,
 		ReleaseDate:        "2025-12-01T00:00:00Z",
 		UpgradeEnabledDate: "2026-01-15T00:00:00Z",
+		TotalModels:        totalModels,
+		TotalBackdrops:     totalBackdrops,
+		TotalSymbols:       totalSymbols,
+		BackdropsList:      backdropsList,
 		BestFloorGRAM:      bestFloor,
 		BestFloorUSD:       round2(bestFloor * gramRate),
 		BestFloorVenue:     bestVenue,
-		Change24hPct:       3.8,
-		Change7dPct:        14.2,
-		Change30dPct:       -2.1,
+		Change24hPct:       0.0,
+		Change7dPct:        0.0,
+		Change30dPct:       0.0,
 		Volume24hGRAM:      round2(vol24h),
 		Volume24hUSD:       round2(vol24h * gramRate),
 		MarketCapGRAM:      round2(marketCap),
 		MarketCapUSD:       round2(marketCap * gramRate),
-		ListedCount:        int(float64(totalSupply) * 0.08),
-		LiquidityRatio:     0.08,
+		ListedCount:        listedCount,
+		LiquidityRatio:     0.034,
 		ModelFloors:        modelFloors,
 		RarityHeatmap:      heatmap,
 		VenueFloors:        venueFloors,
 		Arbitrage:          arb,
 		Whales:             whales,
-		RecentActivity:     activity,
+		RecentActivity:     []MarketActivityItem{},
 		FearGreed: FearGreedData{
-			Index:                 68,
+			Index:                 65,
 			Label:                 "Greed",
-			VolumeComponent:       72.0,
+			VolumeComponent:       70.0,
 			PriceComponent:        65.0,
 			ListingRatioComponent: 60.0,
-			OnChainComponent:      75.0,
-			PreviousIndex:         62,
-			Trend:                 "rising",
+			OnChainComponent:      70.0,
+			PreviousIndex:         65,
+			Trend:                 "stable",
 		},
 		UpgradeLadder: upgradeLadder,
 		FloorHistory:  floorHistory,
-		DataSources:   []string{"@GiftChanges", "GiftAsset", "Giftstat", "TonAPI", "Fragment"},
+		DataSources:   []string{"@GiftChanges", "TonAPI", "Fragment", "Getgems"},
 		UpdatedAt:     now.Format(time.RFC3339),
 	}, nil
 }
@@ -664,8 +678,8 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, gift
 			Timestamp:    now.Add(-45 * 24 * time.Hour).Format(time.RFC3339),
 			FromUsername: "bob_collector",
 			Note:         "Upgraded to TEP-62 Unique Collectible NFT on TON Blockchain",
-			TxHash:       fmt.Sprintf("9a%x%x", rand.Int63(), rand.Int63()),
-			TonviewerURL: fmt.Sprintf("https://tonviewer.com/transaction/9a%x", rand.Int63()),
+			TxHash:       fmt.Sprintf("9a%x%d", len(giftID)*137, val.SerialNumber),
+			TonviewerURL: fmt.Sprintf("https://tonviewer.com/transaction/9a%x%d", len(giftID)*137, val.SerialNumber),
 		},
 		{
 			EventType:    "sold",
@@ -675,14 +689,14 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, gift
 			PriceGRAM:    round2(val.ExpectedUSD / val.GRAMUSDRate * 0.9),
 			PriceUSD:     round2(val.ExpectedUSD * 0.9),
 			Venue:        "Portals Marketplace",
-			TxHash:       fmt.Sprintf("b8%x%x", rand.Int63(), rand.Int63()),
-			TonviewerURL: fmt.Sprintf("https://tonviewer.com/transaction/b8%x", rand.Int63()),
+			TxHash:       fmt.Sprintf("b8%x%d", len(giftID)*359, val.SerialNumber),
+			TonviewerURL: fmt.Sprintf("https://tonviewer.com/transaction/b8%x%d", len(giftID)*359, val.SerialNumber),
 		},
 	}
 
-	nftAddr := fmt.Sprintf("EQ%x%x", rand.Int63(), rand.Int63())
-	colAddr := fmt.Sprintf("EQ%x0000", rand.Int63())
-	ownerAddr := fmt.Sprintf("EQ%x8888", rand.Int63())
+	nftAddr := fmt.Sprintf("EQD%x%04d", len(giftID)*7919, val.SerialNumber)
+	colAddr := fmt.Sprintf("EQC%x0000", len(val.ModelID)*1013)
+	ownerAddr := fmt.Sprintf("EQB%x8888", val.SerialNumber*9973)
 
 	var attrs []map[string]string
 	for _, td := range val.TraitDNA {
