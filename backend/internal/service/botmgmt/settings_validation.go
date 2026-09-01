@@ -57,7 +57,7 @@ func ValidateSettingsCategory(category string, raw json.RawMessage) error {
 		}
 		restrictions := []repository.RestrictionDetail{
 			c.RemoveLinks, c.BlockBots, c.RemoveBotInviters, c.BlockDomains,
-			c.BlockUsernames, c.BlockHashtags, c.BlockTextPatterns, c.BlockEmojis,
+			c.BlockUsernames, c.BlockHashtags, c.BlockEmojis,
 			c.BlockEmojiOnly, c.BlockPhoneNumbers, c.BlockPhotos, c.BlockStickers,
 			c.BlockLocations, c.BlockAudio, c.BlockVoiceMessages, c.BlockFiles,
 			c.BlockGifs, c.BlockCaptionless, c.BlockForwards, c.RestrictChannelForwards,

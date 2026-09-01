@@ -6,7 +6,7 @@ import type {
 	NumberValuationResult,
 } from '../model/types.js';
 
-export function parseNumbersFromHTML(html: string): {
+export function parseNumbersFromHTML(html: string, rate: number = 5.5): {
 	items: import('../model/types.js').NumberTableItem[];
 	totalPages: number;
 } {
@@ -75,7 +75,7 @@ export function parseNumbersFromHTML(html: string): {
 			color_hex: colorHex,
 			color_name: 'NFT Color',
 			last_sale_ton: lastSaleTon,
-			last_sale_usd: Math.round(lastSaleTon * 5.5),
+			last_sale_usd: Math.round(lastSaleTon * rate),
 			last_sale_date: lastSaleDate,
 			current_bid_ton: currentBidTon,
 			owners_count: ownersCount,
@@ -287,7 +287,7 @@ export const numbersApi = {
 
 		// 2. Fallback when network is offline / upstream is unavailable
 		const intel = await numbersApi.getIntel().catch(() => null);
-		const rate = 5.5;
+		const rate = intel?.floor_price_usd && intel?.floor_price_ton ? Math.round((intel.floor_price_usd / intel.floor_price_ton) * 100) / 100 : 5.5;
 		const floorTon = intel?.floor_price_ton || 2280;
 		const floorUsd = Math.round(floorTon * rate);
 		const floorNTon = Math.round(floorTon * 1.05);
@@ -397,7 +397,7 @@ export const numbersApi = {
 				color = found || { hex: hexWithHash, name: 'NFT Color' };
 			}
 
-			const price = Math.round(2179 + ((idx * 13) % 45000));
+			const price = Math.round(2280 + ((idx * 13) % 45000));
 			let owners = ((idx * 7) % 8) + 1;
 			if (ownersHistory === '1') {
 				owners = 1;

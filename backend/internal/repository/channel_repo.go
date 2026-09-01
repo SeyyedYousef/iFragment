@@ -293,6 +293,15 @@ func (r *ChannelRepo) DisconnectChannel(ctx context.Context, id uuid.UUID) error
 	return err
 }
 
+func (r *ChannelRepo) ReconnectChannel(ctx context.Context, id uuid.UUID, botID uuid.UUID, connectedByUserID int64, status string, title string) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	query := `UPDATE managed_channels SET bot_id = $1, connected_by_user_id = $2, subscription_status = $3, chat_title = $4, updated_at = now() WHERE id = $5`
+	_, err := r.db.Pool.Exec(ctx, query, botID, connectedByUserID, status, title, id)
+	return err
+}
+
 // Channel Settings (JSONB columns)
 
 func (r *ChannelRepo) GetChannelSettings(ctx context.Context, channelID uuid.UUID) (*ChannelSettings, error) {

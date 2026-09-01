@@ -67,8 +67,10 @@ func (w *VenueSnapshotWorker) syncSnapshots(ctx context.Context) {
 		}
 	}
 
-	// Iterate all catalog collections
-	for modelID, col := range traits.OfficialCollections {
+	// Iterate all catalog collections from live 24h DynamicCatalog
+	allCols := traits.GetGlobalCatalog().GetAllCollections()
+	for _, col := range allCols {
+		modelID := col.ModelID
 		baseFloor := col.InitialFloorGRAM
 
 		// Market spread variances across the 7 venues

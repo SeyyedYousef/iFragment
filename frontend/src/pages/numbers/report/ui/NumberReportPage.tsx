@@ -288,7 +288,12 @@ export const NumberReportPage: Component = () => {
 			haptic.notify('success');
 		} catch (err: any) {
 			haptic.notify('error');
-			setError(err?.message || 'Failed to unlock with Intel Credit');
+			const errorMsg =
+				err?.response?.data?.error ||
+				err?.response?.data?.message ||
+				err?.message ||
+				'خطا در بازگشایی گزارش با کردیت اینتل.';
+			setError(errorMsg);
 		} finally {
 			setLoading(false);
 		}

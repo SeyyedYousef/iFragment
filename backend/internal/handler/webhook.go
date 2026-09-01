@@ -499,9 +499,9 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 
 	if chat.Type == "channel" {
 		ch, err := h.channelService.GetChannelByChatID(ctx, chat.ID)
-		if err == nil {
+		if err == nil && ch != nil && ch.BotID == bot.ID {
 			if newStatus == "left" || newStatus == "kicked" || (newStatus == "member" && oldStatus == "administrator") {
-				slog.Warn("Bot was kicked or demoted from channel via webhook", "channel_id", ch.ID)
+				slog.Warn("Bot was kicked or demoted from channel via webhook", "channel_id", ch.ID, "bot_id", bot.ID)
 				_ = h.channelService.GetChannelRepo().DisconnectChannel(ctx, ch.ID)
 
 				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
@@ -1090,6 +1090,27 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		return
 	}
 
+	// Handle group to supergroup migration (Telegram Bot API: migrate_to_chat_id)
+	if msg.MigrateToChatID != nil && *msg.MigrateToChatID != 0 {
+		oldChatID := msg.Chat.ID
+		newChatID := *msg.MigrateToChatID
+		slog.Info("Migrating group to supergroup", "old_chat_id", oldChatID, "new_chat_id", newChatID)
+
+		// Update managed_groups
+		_, _ = h.db.Pool.Exec(ctx, `UPDATE managed_groups SET chat_id = $1, chat_type = 'supergroup', updated_at = now() WHERE chat_id = $2`, newChatID, oldChatID)
+		// Update managed_channels if any
+		_, _ = h.db.Pool.Exec(ctx, `UPDATE managed_channels SET chat_id = $1, updated_at = now() WHERE chat_id = $2`, newChatID, oldChatID)
+		// Invalidate caches
+		cache := h.moderator.GetCache()
+		if cache != nil && cache.Client != nil {
+			cache.Client.Del(ctx, fmt.Sprintf("bot_enabled:%s:%d", bot.ID.String(), oldChatID))
+			cache.Client.Del(ctx, fmt.Sprintf("bot_enabled:%s:%d", bot.ID.String(), newChatID))
+			cache.Client.Del(ctx, fmt.Sprintf("bot_perms:%d:%d", oldChatID, bot.BotID))
+			cache.Client.Del(ctx, fmt.Sprintf("bot_perms:%d:%d", newChatID, bot.BotID))
+		}
+		return
+	}
+
 	// Enforce Telegram Premium restriction for @FragmentInvestors ONLY (bypass regular group moderation)
 	if botmgmt.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username) && msg.From != nil {
 		if !msg.From.IsBot && !msg.From.IsPremium {
@@ -1450,7 +1471,7 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 		HasInlineKeyboard:  hasRawField(m.ReplyMarkup),
 		HasReply:           m.ReplyToMessage != nil,
 		ReplyToUserID:      replyToUserID,
-		IsReplyToCrossChat: m.ReplyToMessage != nil && m.ReplyToMessage.Chat != nil && m.ReplyToMessage.Chat.ID != m.Chat.ID,
+		IsReplyToCrossChat: m.ExternalReply != nil || (m.ReplyToMessage != nil && m.ReplyToMessage.Chat != nil && m.ReplyToMessage.Chat.ID != m.Chat.ID),
 		HasViaBot:          m.ViaBot != nil,
 		IsCommand:          isCommand,
 		MessageThreadID:    m.MessageThreadID,
@@ -1594,9 +1615,32 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 		slog.Warn("Could not check bot permissions before executing violation action", "error", err)
 	}
 
-	// 1. Delete message
+	group, _ := h.botRepo.GetGroup(ctx, bot.ID, chatID)
+
+	// 1. Delete message & Rescue to PV
 	if botPerms == nil || botPerms.CanDeleteMessages {
 		_ = tgClient.DeleteMessage(ctx, chatID, messageID)
+		if violation.OriginalText != "" && userID > 0 {
+			// Message 1: Raw original user text (no parse_mode to avoid breaking on malformed HTML)
+			_, err1 := tgClient.Request(ctx, "sendMessage", map[string]interface{}{
+				"chat_id": userID,
+				"text":    violation.OriginalText,
+			})
+			// Message 2: Explanation notice & editing guide
+			if err1 == nil {
+				userLangFromDB, _ := h.db.GetUserLanguage(ctx, userID)
+				userLang := i18n.DetectLanguage(userLangFromDB)
+				groupTitle := ""
+				if group != nil {
+					groupTitle = group.ChatTitle
+				}
+				notice := i18n.T(userLang, "moderation.deleted_notice", map[string]interface{}{
+					"group":  telegram.EscapeHTML(groupTitle),
+					"reason": telegram.EscapeHTML(violation.Message),
+				})
+				_ = tgClient.SendMessage(ctx, userID, notice, nil, nil)
+			}
+		}
 	} else {
 		slog.Warn("Skipped deleting message: bot lacks can_delete_messages", "chat_id", chatID)
 	}
@@ -1626,8 +1670,7 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 	lang := "en"
 	var general repository.SettingsGeneral
 	var ct repository.SettingsCustomTexts
-	group, err := h.botRepo.GetGroup(ctx, bot.ID, chatID)
-	if err == nil {
+	if group != nil {
 		settings, _ := h.moderator.GetSettings(ctx, group.ID)
 		if settings != nil {
 			if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
@@ -1641,24 +1684,40 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 	if violation.Action == "warn" || violation.Action == "delete" {
 		template := ct.WarningText
 		if template == "" || repository.IsLegacyText(template) {
-			template = "⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}"
+			if lang == "fa" {
+				template = "⚠️ {user}\n▫️ اخطار {count}/{threshold} — {reason}"
+			} else {
+				template = "⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}"
+			}
 		}
 
 		switch violation.Type {
 		case "mandatory_membership":
 			template = ct.ForceJoinText
 			if template == "" || repository.IsLegacyText(template) {
-				template = "📢 {user}, join required channels to chat:\n{channel_names}"
+				if lang == "fa" {
+					template = "📢 {user}، برای گفتگو ابتدا در کانال‌های زیر عضو شو:\n{channel_names}"
+				} else {
+					template = "📢 {user}, join required channels to chat:\n{channel_names}"
+				}
 			}
 		case "forced_add":
 			template = ct.ForceAddText
 			if template == "" || repository.IsLegacyText(template) {
-				template = "👥 {user}, invite {remainadd} member(s) to chat ({added}/{number})"
+				if lang == "fa" {
+					template = "👥 {user}، برای فعال شدن چت، {remainadd} نفر دعوت کن ({added}/{number})"
+				} else {
+					template = "👥 {user}, invite {remainadd} member(s) to chat ({added}/{number})"
+				}
 			}
 		case "quiet_hours":
 			template = ct.SilenceStartText
 			if template == "" || repository.IsLegacyText(template) {
-				template = "🔒 Quiet mode activated"
+				if lang == "fa" {
+					template = "🌙 ساعات سکوت گروه آغاز شد."
+				} else {
+					template = "🔒 Quiet mode activated"
+				}
 			}
 		}
 
@@ -1673,10 +1732,14 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 	}
 
 	sendMsg := func(text string) {
+		var markup map[string]interface{}
+		if len(ct.InlineButtons) > 0 {
+			markup = buildCustomInlineMarkup(ct.InlineButtons, nil)
+		}
 		if general.EphemeralWarnings || general.EphemeralAll {
-			h.sendEphemeralBotMessage(ctx, tgClient, chatID, userID, text, nil, threadID, general)
+			h.sendEphemeralBotMessage(ctx, tgClient, chatID, userID, text, markup, threadID, general)
 		} else {
-			h.sendBotMessage(ctx, tgClient, chatID, text, nil, threadID, general)
+			h.sendBotMessage(ctx, tgClient, chatID, text, markup, threadID, general)
 		}
 	}
 
@@ -1765,7 +1828,12 @@ func (h *WebhookHandler) pushPaymentDLQ(ctx context.Context, reason string, payl
 }
 
 func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) {
-	if strings.HasPrefix(m.Text, "/start") {
+	cmdText := m.Text
+	if cmdText == "" {
+		cmdText = m.Caption
+	}
+
+	if strings.HasPrefix(cmdText, "/start") {
 		miniAppURL := os.Getenv("MINI_APP_URL")
 		if miniAppURL == "" {
 			miniAppURL = "https://t.me/iFragmentBot/iFragment"
@@ -1773,7 +1841,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 
 		// Extract deep linking parameter
 		var startParam string
-		parts := strings.Split(m.Text, " ")
+		parts := strings.Split(cmdText, " ")
 		if len(parts) > 1 {
 			startParam = parts[1]
 		}
@@ -1789,7 +1857,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			startParam = string(sanitized)
 		}
 
-		if startParam != "" {
+		if startParam != "" && !strings.HasPrefix(startParam, "group_") && !strings.HasPrefix(startParam, "gift_") && !strings.HasPrefix(startParam, "channel_") && !strings.HasPrefix(startParam, "nft_") {
 			// Pre-register user to count referral immediately on /start
 			err := h.db.UpsertUser(ctx, repository.User{
 				TelegramID:   m.From.ID,
@@ -1801,7 +1869,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			if err == nil {
 				_, err := h.db.SetReferredBy(ctx, m.From.ID, startParam)
 				if err != nil {
-					slog.Warn("Failed to set referred_by via webhook", "user_id", m.From.ID, "referrer_code", startParam, "error", err)
+					slog.Debug("Referred_by skipped or invalid", "user_id", m.From.ID, "referrer_code", startParam, "error", err)
 				}
 			} else {
 				slog.Error("Failed to upsert user for referral via webhook", "error", err)
@@ -1826,6 +1894,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		userName := m.From.FirstName
 
 		var welcome string
+		isHostedPublic := false
 		if m.From.ID == bot.OwnerUserID {
 			welcome = i18n.T(lang, "onboarding.welcome_owner", userName)
 		} else {
@@ -1833,6 +1902,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 				welcome = i18n.T(lang, "onboarding.welcome_public", userName)
 			} else {
 				welcome = i18n.T(lang, "onboarding.welcome_hosted_public", userName)
+				isHostedPublic = true
 			}
 		}
 
@@ -1841,19 +1911,34 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 
 		// Inline keyboard with Telegram Web App overlay trigger
 		btnText := i18n.T(lang, "onboarding.open_app")
-		markup := map[string]interface{}{
-			"inline_keyboard": [][]map[string]interface{}{
+		keyboardRows := [][]map[string]interface{}{
+			{
 				{
-					{
-						"text": btnText,
-						"url":  targetURL,
-					},
+					"text": btnText,
+					"url":  targetURL,
 				},
 			},
 		}
 
+		if isHostedPublic {
+			createBotBtnText := i18n.T(lang, "onboarding.create_bot")
+			if createBotBtnText == "" || createBotBtnText == "onboarding.create_bot" {
+				createBotBtnText = "🤖 ساخت ربات اختصاصی من"
+			}
+			keyboardRows = append(keyboardRows, []map[string]interface{}{
+				{
+					"text": createBotBtnText,
+					"url":  "https://t.me/iFragmentBot",
+				},
+			})
+		}
+
+		markup := map[string]interface{}{
+			"inline_keyboard": keyboardRows,
+		}
+
 		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, welcome, markup, m.MessageThreadID)
-	} else if strings.HasPrefix(m.Text, "/language") {
+	} else if strings.HasPrefix(cmdText, "/language") {
 		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 		tg := telegram.NewBotAPIClient(token)
 
@@ -2193,22 +2278,16 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 		if gen.CasEnabled {
 			casIcon = onText
 		}
-		badWordsIcon := offText
-		if cont.BlockTextPatterns.Enabled {
-			badWordsIcon = onText
-		}
 
 		lblLink := "🔗 Block Links: "
 		lblPhone := "📞 Block Phone Numbers: "
 		lblForward := "↗️ Block Forwards: "
 		lblCas := "🤖 Combot CAS Anti-Spam: "
-		lblWords := "🤬 Filter Bad Words: "
 		if isFa {
 			lblLink = "🔗 حذف لینک‌ها: "
 			lblPhone = "📞 حذف شماره تماس: "
 			lblForward = "↗️ حذف فوروارد: "
 			lblCas = "🤖 ضداسپم CAS: "
-			lblWords = "🤬 فیلتر کلمات نامناسب: "
 		}
 
 		rows = [][]map[string]interface{}{
@@ -2223,9 +2302,6 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 			},
 			{
 				{"text": lblCas + casIcon, "callback_data": fmt.Sprintf("gset:tog:content:cas:%s", group.ID)},
-			},
-			{
-				{"text": lblWords + badWordsIcon, "callback_data": fmt.Sprintf("gset:tog:content:bad_words:%s", group.ID)},
 			},
 			{
 				{"text": backBtnText, "callback_data": fmt.Sprintf("gset:menu:%s", group.ID)},
@@ -2480,19 +2556,78 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 		// Group not found under this bot. Check if it exists under another bot to migrate and preserve settings.
 		var existingGroupID uuid.UUID
 		var oldBotID uuid.UUID
-		query := `SELECT id, bot_id FROM managed_groups WHERE chat_id = $1 LIMIT 1`
-		errScan := h.db.Pool.QueryRow(ctx, query, chat.ID).Scan(&existingGroupID, &oldBotID)
+		var oldConnectedUserID *int64
+		query := `SELECT id, bot_id, connected_by_user_id FROM managed_groups WHERE chat_id = $1 ORDER BY updated_at DESC LIMIT 1`
+		errScan := h.db.Pool.QueryRow(ctx, query, chat.ID).Scan(&existingGroupID, &oldBotID, &oldConnectedUserID)
 		if errScan == nil {
 			oldBot, errOldBot := h.botRepo.GetBotByID(ctx, oldBotID)
-			if errOldBot == nil && oldBot != nil && oldBot.OwnerUserID == bot.OwnerUserID {
-				// Migrate the group to the new bot owned by the same user
-				updateQuery := `UPDATE managed_groups SET bot_id = $1, updated_at = now() WHERE id = $2`
-				_, errUpdate := h.db.Pool.Exec(ctx, updateQuery, bot.ID, existingGroupID)
+
+			// Determine if migration is allowed:
+			// 1. Same user owns both bots (oldBot.OwnerUserID == bot.OwnerUserID)
+			// 2. Old bot is the main / mother bot (@ifragmentbot) being replaced by user's dedicated bot
+			// 3. User who originally connected the group is the current bot's owner
+			// 4. User who invited the current bot is the current bot's owner
+			// 5. Fallback: Old bot is replaced by newly added active bot in the group
+			isOldMain := false
+			if oldBot != nil {
+				if strings.EqualFold(oldBot.BotUsername, "iFragmentBot") {
+					isOldMain = true
+				}
+				mainBotToken := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
+				if mainBotToken == "" {
+					mainBotToken = strings.TrimSpace(os.Getenv("BOT_TOKEN"))
+				}
+				if mainBotToken != "" {
+					if strings.HasPrefix(strings.ToLower(mainBotToken), "bot") {
+						mainBotToken = mainBotToken[3:]
+					}
+					parts := strings.SplitN(mainBotToken, ":", 2)
+					if len(parts) >= 1 {
+						if mainID, parseErr := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64); parseErr == nil && mainID > 0 && oldBot.BotID == mainID {
+							isOldMain = true
+						}
+					}
+				}
+				if mainBot, mainErr := h.botRepo.GetMainBot(ctx); mainErr == nil && mainBot != nil && (oldBot.ID == mainBot.ID || oldBot.BotID == mainBot.BotID) {
+					isOldMain = true
+				}
+			}
+
+			shouldMigrate := false
+			if errOldBot == nil && oldBot != nil {
+				if oldBot.OwnerUserID == bot.OwnerUserID || isOldMain {
+					shouldMigrate = true
+				} else if (oldConnectedUserID != nil && *oldConnectedUserID == bot.OwnerUserID) || (inviterID != 0 && inviterID == bot.OwnerUserID) {
+					shouldMigrate = true
+				} else {
+					shouldMigrate = true
+				}
+			} else {
+				shouldMigrate = true
+			}
+
+			if shouldMigrate {
+				connectedUserID := bot.OwnerUserID
+				if inviterID != 0 {
+					connectedUserID = inviterID
+				}
+				// Migrate the group to the new bot and update connected_by_user_id
+				updateQuery := `UPDATE managed_groups SET bot_id = $1, connected_by_user_id = $2, updated_at = now() WHERE id = $3`
+				_, errUpdate := h.db.Pool.Exec(ctx, updateQuery, bot.ID, connectedUserID, existingGroupID)
 				if errUpdate != nil {
 					slog.Error("Failed to migrate group to new bot", "error", errUpdate, "group_id", existingGroupID, "new_bot_id", bot.ID)
 					return
 				}
-				slog.Info("Successfully migrated group to new bot", "group_id", existingGroupID, "old_bot_id", oldBotID, "new_bot_id", bot.ID)
+				slog.Info("Successfully migrated group to new bot", "group_id", existingGroupID, "old_bot_id", oldBotID, "new_bot_id", bot.ID, "is_main_bot", isOldMain)
+
+				// Clear Redis caches for old bot and new bot
+				cache := h.moderator.GetCache()
+				if cache != nil && cache.Client != nil {
+					cache.Client.Del(ctx, fmt.Sprintf("bot_enabled:%s:%d", oldBotID.String(), chat.ID))
+					cache.Client.Del(ctx, fmt.Sprintf("bot_enabled:%s:%d", bot.ID.String(), chat.ID))
+					cache.Client.Del(ctx, fmt.Sprintf("bot_perms:%d:%d", chat.ID, bot.BotID))
+				}
+
 				managedGroup, err = h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 				if err != nil {
 					slog.Error("Failed to fetch migrated group", "error", err)
@@ -2502,7 +2637,7 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 					_ = h.botRepo.UpdateGroupDetails(ctx, managedGroup.ID, chat.Title, liveMembersCount, livePhotoURL)
 				}
 			} else {
-				slog.Warn("Group migration rejected: old and new bot owners do not match", "chat_id", chat.ID, "old_bot_id", oldBotID, "new_bot_id", bot.ID)
+				slog.Warn("Group migration rejected", "chat_id", chat.ID, "old_bot_id", oldBotID, "new_bot_id", bot.ID)
 			}
 		} else {
 			status := "trial"
@@ -2516,6 +2651,11 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 				_ = h.botRepo.RecordTrial(ctx, chat.ID)
 			}
 
+			connectedUserID := inviterID
+			if connectedUserID == 0 {
+				connectedUserID = bot.OwnerUserID
+			}
+
 			managedGroup = &repository.ManagedGroup{
 				BotID:              bot.ID,
 				ChatID:             chat.ID,
@@ -2525,7 +2665,7 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 				PhotoURL:           livePhotoURL,
 				SubscriptionStatus: status,
 				TrialEndsAt:        time.Now().Add(72 * time.Hour),
-				ConnectedByUserID:  &inviterID,
+				ConnectedByUserID:  &connectedUserID,
 			}
 			err = h.botRepo.CreateGroup(ctx, managedGroup)
 			if err != nil {
@@ -2570,7 +2710,10 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 			dashboardURL = miniAppURL
 		}
 
-		welcomeMsg := fmt.Sprintf(`🛡️ <b>محافظ هوشمند iFragment فعال شد!</b>
+		var welcomeMsg string
+		var btnSettingsText, btnDashboardText string
+		if lang == "fa" {
+			welcomeMsg = fmt.Sprintf(`🛡️ <b>محافظ هوشمند iFragment فعال شد!</b>
 
 گروه <b>%s</b> تحت حفاظت هوشمند قرار گرفت.
 
@@ -2582,15 +2725,34 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 • دستورات فوری: <code>/lock</code>, <code>/mute</code>, <code>/warn</code>, <code>/slowmode</code>, <code>/ephemeral</code>, <code>/rules</code>
 
 ⚙️ <b>دسترسی‌های لازم ادمین:</b>
-✅ حذف پیام‌ها  ✅ محدودسازی اعضا  ✅ بن کاربران  ✅ سنجاق پیام`, chat.Title)
+✅ حذف پیام‌ها  ✅ محدودسازی اعضا  ✅ بن کاربران  ✅ سنجاق پیام`, telegram.EscapeHTML(chat.Title))
+			btnSettingsText = "⚙️ تنظیمات گروه (Inline Settings)"
+			btnDashboardText = "🌐 ورود به وب داشبورد (Web App)"
+		} else {
+			welcomeMsg = fmt.Sprintf(`🛡️ <b>iFragment Smart Guardian Activated!</b>
+
+Group <b>%s</b> is now under smart protection.
+
+✨ <b>100%% Zero-Ads Guarantee:</b>
+No promotional messages, ads, or unwanted broadcasts will ever be sent to your group.
+
+⚡ <b>Quick Admin Access:</b>
+• <code>/settings</code> or <code>/config</code> for interactive button settings
+• Quick commands: <code>/lock</code>, <code>/mute</code>, <code>/warn</code>, <code>/slowmode</code>, <code>/ephemeral</code>, <code>/rules</code>
+
+⚙️ <b>Required Admin Permissions:</b>
+✅ Delete Messages  ✅ Restrict Members  ✅ Ban Users  ✅ Pin Messages`, telegram.EscapeHTML(chat.Title))
+			btnSettingsText = "⚙️ Group Settings (Inline)"
+			btnDashboardText = "🌐 Open Web Dashboard (Web App)"
+		}
 
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
 				{
-					{"text": "⚙️ تنظیمات گروه (Inline Settings)", "callback_data": fmt.Sprintf("gset:menu:%s", mGroup.ID)},
+					{"text": btnSettingsText, "callback_data": fmt.Sprintf("gset:menu:%s", mGroup.ID)},
 				},
 				{
-					{"text": "🌐 ورود به وب داشبورد (Web App)", "url": dashboardURL},
+					{"text": btnDashboardText, "url": dashboardURL},
 				},
 			},
 		}
@@ -2876,8 +3038,6 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 		return h.adminResetWarns(ctx, bot, tg, m, lang, group.ID)
 	case "/warns":
 		return h.adminCheckWarns(ctx, bot, tg, m, lang, group.ID)
-	case "/slowmode":
-		return h.adminSlowmode(ctx, bot, tg, m, lang, group.ID)
 	case "/ephemeral":
 		return h.adminEphemeral(ctx, bot, tg, m, lang, group.ID)
 	case "/del":
@@ -3152,36 +3312,6 @@ func (h *WebhookHandler) adminCheckWarns(ctx context.Context, _ *repository.Mana
 	return true
 }
 
-func (h *WebhookHandler) adminSlowmode(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
-	args := strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0]))
-	seconds := 0
-	if args != "" {
-		if s, err := strconv.Atoi(args); err == nil && s >= 0 {
-			seconds = s
-		}
-	}
-
-	_ = tg.SetChatSlowModeDelay(ctx, m.Chat.ID, seconds)
-
-	settings, _ := h.moderator.GetSettings(ctx, groupID)
-	var limits repository.SettingsLimits
-	if settings != nil {
-		_ = json.Unmarshal(settings.Limits, &limits)
-	}
-	limits.SlowMode = seconds
-	data, _ := json.Marshal(limits)
-	_ = h.moderator.ForceUpdateCategory(ctx, groupID, "limits", data)
-
-	var msg string
-	if seconds > 0 {
-		msg = fmt.Sprintf("⏳ <b>Slow mode set to %d seconds.</b>", seconds)
-	} else {
-		msg = "⏳ <b>Slow mode disabled.</b>"
-	}
-	_ = tg.SendMessage(ctx, m.Chat.ID, msg, &m.MessageID, m.MessageThreadID)
-	return true
-}
-
 func (h *WebhookHandler) adminEphemeral(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
 	args := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0])))
 
@@ -3194,13 +3324,11 @@ func (h *WebhookHandler) adminEphemeral(ctx context.Context, _ *repository.Manag
 	var msg string
 	if args == "off" || args == "false" || args == "disable" {
 		gen.EphemeralAll = false
-		gen.EphemeralAdminCmd = false
-		gen.EphemeralWarnings = false
+		gen.AutoDeleteBot = false
 		msg = "👻 <b>Ephemeral mode disabled.</b> Bot messages will remain in chat."
 	} else {
 		gen.EphemeralAll = true
-		gen.EphemeralAdminCmd = true
-		gen.EphemeralWarnings = true
+		gen.AutoDeleteBot = true
 		delay := 15
 		if args != "" && args != "on" && args != "enable" {
 			dur := parseDurationStr(args, 15*time.Second)
@@ -3210,7 +3338,7 @@ func (h *WebhookHandler) adminEphemeral(ctx context.Context, _ *repository.Manag
 			}
 		}
 		gen.AutoDeleteDelay = delay
-		msg = fmt.Sprintf("👻 <b>Ephemeral mode enabled.</b> Bot messages auto-delete in %ds.", delay)
+		msg = fmt.Sprintf("👻 <b>Ephemeral mode enabled.</b> Bot messages will auto-delete in %ds.", delay)
 	}
 
 	data, _ := json.Marshal(gen)
@@ -3404,10 +3532,14 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 	}
 
 	text := i18n.T(lang, "moderation.rules_title", map[string]interface{}{"rules": rulesText})
+	var markup map[string]interface{}
+	if len(ct.InlineButtons) > 0 {
+		markup = buildCustomInlineMarkup(ct.InlineButtons, nil)
+	}
 	if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
-		h.sendEphemeralBotMessage(ctx, tg, m.Chat.ID, m.From.ID, text, nil, m.MessageThreadID, general)
+		h.sendEphemeralBotMessage(ctx, tg, m.Chat.ID, m.From.ID, text, markup, m.MessageThreadID, general)
 	} else {
-		_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
+		h.sendBotMessage(ctx, tg, m.Chat.ID, text, markup, m.MessageThreadID, general)
 	}
 	return true
 }
@@ -3417,11 +3549,11 @@ func (h *WebhookHandler) adminReport(ctx context.Context, tg *telegram.BotAPICli
 		return false
 	}
 
-	reportMsg := fmt.Sprintf("🚨 *Report Received*\n\nGroup: %s\nReporter: %d\nOffender: %d\nMessage: [Link](https://t.me/c/%s/%d)",
-		m.Chat.Title, m.From.ID, m.ReplyToMessage.From.ID, strings.TrimPrefix(fmt.Sprintf("%d", m.Chat.ID), "-100"), m.ReplyToMessage.MessageID)
+	reportMsg := fmt.Sprintf("🚨 <b>گزارش تخلف جدید</b>\n\n📌 <b>گروه:</b> %s\n👤 <b>گزارش‌دهنده:</b> <code>%d</code>\n🚫 <b>متخلف:</b> <code>%d</code>\n🔗 <b>پیام:</b> <a href=\"https://t.me/c/%s/%d\">مشاهده پیام در گروه</a>",
+		telegram.EscapeHTML(m.Chat.Title), m.From.ID, m.ReplyToMessage.From.ID, strings.TrimPrefix(fmt.Sprintf("%d", m.Chat.ID), "-100"), m.ReplyToMessage.MessageID)
 
 	_ = tg.SendMessage(ctx, ownerID, reportMsg, nil, nil)
-	_ = tg.SendMessage(ctx, m.Chat.ID, "✅ Report sent to administrators.", &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, "✅ گزارش با موفقیت برای مدیریت ارسال شد.", &m.MessageID, m.MessageThreadID)
 	return true
 }
 
@@ -3672,6 +3804,14 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 		return
 	}
 
+	// ⚡ Fast immediate ACK to stop Telegram loading spinner immediately
+	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	var tg *telegram.BotAPIClient
+	if token != "" {
+		tg = telegram.NewBotAPIClient(token)
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "", false)
+	}
+
 	parts := strings.Split(cq.Data, ":")
 	if len(parts) < 3 {
 		return
@@ -3692,11 +3832,10 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 	lang := i18n.DetectLanguage(langCode)
 	isFa := (lang == "fa")
 
-	tg, errTg := h.moderator.GetTelegramClient(ctx, bot)
-	if errTg != nil || tg == nil {
-		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-		if token != "" {
-			tg = telegram.NewBotAPIClient(token)
+	if tg == nil {
+		tgClient, errTg := h.moderator.GetTelegramClient(ctx, bot)
+		if errTg == nil && tgClient != nil {
+			tg = tgClient
 		}
 	}
 	if tg == nil {
@@ -3749,22 +3888,26 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 
 	if action == "menu" {
 		text, markup := h.renderMainSettingsMenu(ctx, group, settings, lang)
-		_ = tg.EditMessageTextWithMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, markup, "HTML")
-		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "", false)
+		if err := tg.EditMessageTextWithMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, markup, "HTML"); err != nil {
+			slog.Warn("Settings main menu edit failed", "err", err, "group_id", group.ID)
+		}
 		return
 	}
 
 	if action == "cat" && len(parts) >= 4 {
 		category := parts[2]
 		text, markup := h.renderCategorySettingsMenu(ctx, group, settings, category, lang)
-		_ = tg.EditMessageTextWithMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, markup, "HTML")
-		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "", false)
+		if err := tg.EditMessageTextWithMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, markup, "HTML"); err != nil {
+			slog.Warn("Settings category menu edit failed", "err", err, "group_id", group.ID, "category", category)
+		}
 		return
 	}
 
 	if action == "tog" && len(parts) >= 5 {
 		category := parts[2]
 		key := parts[3]
+
+		var updateErr error
 
 		switch category {
 		case "content":
@@ -3781,23 +3924,19 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 			case "link_filter":
 				cont.RemoveLinks.Enabled = !cont.RemoveLinks.Enabled
 				data, _ := json.Marshal(cont)
-				_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
+				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
 			case "phone_filter":
 				cont.BlockPhoneNumbers.Enabled = !cont.BlockPhoneNumbers.Enabled
 				data, _ := json.Marshal(cont)
-				_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
+				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
 			case "forward_filter":
 				cont.BlockForwards.Enabled = !cont.BlockForwards.Enabled
 				data, _ := json.Marshal(cont)
-				_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
+				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
 			case "cas":
 				gen.CasEnabled = !gen.CasEnabled
 				data, _ := json.Marshal(gen)
-				_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
-			case "bad_words":
-				cont.BlockTextPatterns.Enabled = !cont.BlockTextPatterns.Enabled
-				data, _ := json.Marshal(cont)
-				_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
+				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
 			}
 
 		case "quiet":
@@ -3809,11 +3948,28 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 			case "emergencyLock":
 				quiet.EmergencyLock = !quiet.EmergencyLock
 				data, _ := json.Marshal(quiet)
-				_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "quiet_hours", data)
+				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "quiet_hours", data)
+				if updateErr == nil {
+					var customTexts repository.SettingsCustomTexts
+					_ = json.Unmarshal(settings.CustomTexts, &customTexts)
+					if quiet.EmergencyLock {
+						msg := customTexts.SilenceStartText
+						if msg == "" {
+							msg = "🔒 <b>حالت سکوت اضطراری در گروه فعال شد.</b> اعضای عادی موقتاً امکان ارسال پیام ندارند."
+						}
+						_ = tg.SendMessage(ctx, group.ChatID, msg, nil, nil)
+					} else {
+						msg := customTexts.SilenceEndText
+						if msg == "" {
+							msg = "🔓 <b>حالت سکوت اضطراری به پایان رسید.</b> اعضا اکنون می‌توانند پیام ارسال کنند."
+						}
+						_ = tg.SendMessage(ctx, group.ChatID, msg, nil, nil)
+					}
+				}
 			case "adminOverride":
 				quiet.AdminOverride = !quiet.AdminOverride
 				data, _ := json.Marshal(quiet)
-				_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "quiet_hours", data)
+				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "quiet_hours", data)
 			}
 
 		case "ephemeral":
@@ -3830,7 +3986,7 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				gen.EphemeralWarnings = !gen.EphemeralWarnings
 			}
 			data, _ := json.Marshal(gen)
-			_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
+			updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
 
 		case "mandatory":
 			var mand repository.SettingsMandatoryMembership
@@ -3847,7 +4003,7 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				}
 			}
 			data, _ := json.Marshal(mand)
-			_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "mandatory_membership", data)
+			updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "mandatory_membership", data)
 
 		case "general":
 			var gen repository.SettingsGeneral
@@ -3861,23 +4017,32 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				gen.HideJoinLeave = !gen.HideJoinLeave
 			}
 			data, _ := json.Marshal(gen)
-			_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
+			updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
+		}
+
+		if updateErr != nil {
+			slog.Error("Failed to update setting category", "err", updateErr, "group_id", group.ID, "category", category)
+			errMsg := "⚠️ خطا در ذخیره تنظیمات"
+			if !isFa {
+				errMsg = "⚠️ Error updating setting"
+			}
+			_ = tg.AnswerCallbackQuery(ctx, cq.ID, errMsg, true)
+			return
 		}
 
 		updatedSettings, _ := h.moderator.GetSettings(ctx, group.ID)
 		text, markup := h.renderCategorySettingsMenu(ctx, group, updatedSettings, category, lang)
-		_ = tg.EditMessageTextWithMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, markup, "HTML")
-		successMsg := "تنظیمات تغییر کرد ✅"
-		if !isFa {
-			successMsg = "Setting updated! ✅"
+		if err := tg.EditMessageTextWithMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, markup, "HTML"); err != nil {
+			slog.Warn("Settings toggle menu edit failed", "err", err, "group_id", group.ID)
 		}
-		_ = tg.AnswerCallbackQuery(ctx, cq.ID, successMsg, false)
 		return
 	}
 
 	if action == "cycle" && len(parts) >= 5 {
 		category := parts[2]
 		key := parts[3]
+
+		var updateErr error
 
 		switch category {
 		case "limits":
@@ -3900,7 +4065,7 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				}
 			}
 			data, _ := json.Marshal(limits)
-			_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "limits", data)
+			updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "limits", data)
 
 		case "ephemeral":
 			var gen repository.SettingsGeneral
@@ -3919,18 +4084,25 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 					gen.AutoDeleteDelay = 5
 				}
 				data, _ := json.Marshal(gen)
-				_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
+				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
 			}
+		}
+
+		if updateErr != nil {
+			slog.Error("Failed to cycle setting", "err", updateErr, "group_id", group.ID, "category", category)
+			errMsg := "⚠️ خطا در ذخیره مقدار"
+			if !isFa {
+				errMsg = "⚠️ Error cycling value"
+			}
+			_ = tg.AnswerCallbackQuery(ctx, cq.ID, errMsg, true)
+			return
 		}
 
 		updatedSettings, _ := h.moderator.GetSettings(ctx, group.ID)
 		text, markup := h.renderCategorySettingsMenu(ctx, group, updatedSettings, category, lang)
-		_ = tg.EditMessageTextWithMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, markup, "HTML")
-		successMsg := "مقدار به‌روزرسانی شد ✅"
-		if !isFa {
-			successMsg = "Value updated! ✅"
+		if err := tg.EditMessageTextWithMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, markup, "HTML"); err != nil {
+			slog.Warn("Settings cycle menu edit failed", "err", err, "group_id", group.ID)
 		}
-		_ = tg.AnswerCallbackQuery(ctx, cq.ID, successMsg, false)
 		return
 	}
 }
@@ -5046,6 +5218,52 @@ func (h *WebhookHandler) adminDebug(ctx context.Context, bot *repository.Managed
 	return true
 }
 
+func buildCustomInlineMarkup(buttons []repository.InlineButton, existingMarkup map[string]interface{}) map[string]interface{} {
+	if len(buttons) == 0 {
+		return existingMarkup
+	}
+	var inlineKeyboard [][]map[string]interface{}
+	if existingMarkup != nil {
+		if rawKb, ok := existingMarkup["inline_keyboard"]; ok {
+			if existingRows, ok := rawKb.([][]map[string]interface{}); ok {
+				inlineKeyboard = append(inlineKeyboard, existingRows...)
+			}
+		}
+	}
+	var currentRow []map[string]interface{}
+	for _, btn := range buttons {
+		if btn.Title == "" || btn.URL == "" {
+			continue
+		}
+		ikb := map[string]interface{}{
+			"text": btn.Title,
+			"url":  btn.URL,
+		}
+		if len(btn.Title) > 20 {
+			if len(currentRow) > 0 {
+				inlineKeyboard = append(inlineKeyboard, currentRow)
+				currentRow = nil
+			}
+			inlineKeyboard = append(inlineKeyboard, []map[string]interface{}{ikb})
+		} else {
+			currentRow = append(currentRow, ikb)
+			if len(currentRow) == 2 {
+				inlineKeyboard = append(inlineKeyboard, currentRow)
+				currentRow = nil
+			}
+		}
+	}
+	if len(currentRow) > 0 {
+		inlineKeyboard = append(inlineKeyboard, currentRow)
+	}
+	if len(inlineKeyboard) == 0 {
+		return existingMarkup
+	}
+	return map[string]interface{}{
+		"inline_keyboard": inlineKeyboard,
+	}
+}
+
 func (h *WebhookHandler) sendBotMessage(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, text string, replyMarkup map[string]interface{}, threadID *int, general repository.SettingsGeneral) {
 	if tg == nil {
 		slog.Error("sendBotMessage: telegram client is nil")
@@ -5079,8 +5297,12 @@ func (h *WebhookHandler) sendBotMessage(ctx context.Context, tg *telegram.BotAPI
 		}
 	}
 
-	if err == nil && msg != nil && general.AutoDeleteBot && general.AutoDeleteDelay > 0 {
-		time.AfterFunc(time.Duration(general.AutoDeleteDelay)*time.Second, func() {
+	if err == nil && msg != nil && (general.AutoDeleteBot || general.EphemeralAll) {
+		delaySeconds := general.AutoDeleteDelay
+		if delaySeconds <= 0 {
+			delaySeconds = 15
+		}
+		time.AfterFunc(time.Duration(delaySeconds)*time.Second, func() {
 			_ = tg.DeleteMessage(context.Background(), chatID, msg.MessageID)
 		})
 	}

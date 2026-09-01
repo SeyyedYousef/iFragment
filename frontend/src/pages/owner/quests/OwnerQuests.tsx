@@ -383,7 +383,6 @@ export const OwnerQuests: Component = () => {
 						key: questToDelete()?.key,
 					})}
 					actionLabel={t('owner.quests.deleteQuest')}
-					confirmWord="DELETE"
 					riskLevel="medium"
 					requireReason={false}
 					loading={deleteMutation.isPending}

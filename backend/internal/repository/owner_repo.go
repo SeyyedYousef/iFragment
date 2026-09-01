@@ -336,7 +336,7 @@ func (r *OwnerRepo) EndImpersonationSession(ctx context.Context, id string, acti
 		SET ended_at = CURRENT_TIMESTAMP,
 		    duration_seconds = EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - started_at))::int,
 		    actions_taken = $1
-		WHERE id = $2
+		WHERE id = $2::uuid
 	`
 	_, err := r.db.Pool.Exec(ctx, query, actionsJSON, id)
 	return err
@@ -346,7 +346,7 @@ func (r *OwnerRepo) GetImpersonationSession(ctx context.Context, id string) (*mo
 	query := `
 		SELECT id, owner_id, target_user_id, started_at, ended_at, duration_seconds, actions_taken
 		FROM impersonation_sessions
-		WHERE id = $1
+		WHERE id = $1::uuid
 	`
 	var s model.ImpersonationSession
 	var duration *int
@@ -543,7 +543,7 @@ func (r *OwnerRepo) GetBroadcastByID(ctx context.Context, id string) (*model.Bro
 	query := `
 		SELECT id, owner_id, target_audience, message, status, scheduled_at, sent_count, total_count, failed_count, started_at, completed_at, created_at
 		FROM broadcasts
-		WHERE id = $1
+		WHERE id = $1::uuid
 	`
 	var b model.Broadcast
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
@@ -590,7 +590,7 @@ func (r *OwnerRepo) GetDueBroadcasts(ctx context.Context) ([]model.Broadcast, er
 }
 
 func (r *OwnerRepo) UpdateBroadcastStatus(ctx context.Context, id string, status string) error {
-	query := `UPDATE broadcasts SET status = $1 WHERE id = $2`
+	query := `UPDATE broadcasts SET status = $1 WHERE id = $2::uuid`
 	_, err := r.db.Pool.Exec(ctx, query, status, id)
 	return err
 }
@@ -604,7 +604,7 @@ func (r *OwnerRepo) UpdateBroadcastProgress(ctx context.Context, id string, stat
 	query := `
 		UPDATE broadcasts
 		SET status = $1, sent_count = $2, total_count = $3, failed_count = $4, completed_at = COALESCE($5, completed_at)
-		WHERE id = $6
+		WHERE id = $6::uuid
 	`
 	_, err := r.db.Pool.Exec(ctx, query, status, sent, total, failed, completedAt, id)
 	return err
@@ -1055,7 +1055,7 @@ func (r *OwnerRepo) GetActiveManagedUserbots(ctx context.Context) ([]model.Manag
 }
 
 func (r *OwnerRepo) GetManagedUserbotByID(ctx context.Context, id string) (*model.ManagedUserbot, error) {
-	query := `SELECT id, phone_number, status, channels_count, created_at, updated_at FROM managed_userbots WHERE id = $1`
+	query := `SELECT id, phone_number, status, channels_count, created_at, updated_at FROM managed_userbots WHERE id = $1::uuid`
 	var b model.ManagedUserbot
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(&b.ID, &b.PhoneNumber, &b.Status, &b.ChannelsCount, &b.CreatedAt, &b.UpdatedAt)
 	if err != nil {
@@ -1068,7 +1068,7 @@ func (r *OwnerRepo) GetManagedUserbotByID(ctx context.Context, id string) (*mode
 }
 
 func (r *OwnerRepo) DeleteManagedUserbot(ctx context.Context, id string) error {
-	_, err := r.db.Pool.Exec(ctx, "DELETE FROM managed_userbots WHERE id = $1", id)
+	_, err := r.db.Pool.Exec(ctx, "DELETE FROM managed_userbots WHERE id = $1::uuid", id)
 	return err
 }
 
@@ -1248,7 +1248,7 @@ func (r *OwnerRepo) GetAllGroups(ctx context.Context, limit, offset int) ([]mode
 
 func (r *OwnerRepo) AddChannelSubscriptionDays(ctx context.Context, id string, days int) (*time.Time, error) {
 	var current *time.Time
-	err := r.db.Pool.QueryRow(ctx, "SELECT paid_until FROM managed_channels WHERE id = $1", id).Scan(&current)
+	err := r.db.Pool.QueryRow(ctx, "SELECT paid_until FROM managed_channels WHERE id = $1::uuid", id).Scan(&current)
 	if err != nil {
 		return nil, err
 	}
@@ -1259,7 +1259,7 @@ func (r *OwnerRepo) AddChannelSubscriptionDays(ctx context.Context, id string, d
 		newUntil = current.Add(duration)
 	}
 
-	_, err = r.db.Pool.Exec(ctx, "UPDATE managed_channels SET paid_until = $1, subscription_status = 'premium' WHERE id = $2", newUntil, id)
+	_, err = r.db.Pool.Exec(ctx, "UPDATE managed_channels SET paid_until = $1, subscription_status = 'premium' WHERE id = $2::uuid", newUntil, id)
 	return &newUntil, err
 }
 
@@ -1268,7 +1268,7 @@ func (r *OwnerRepo) AddChannelCoins(ctx context.Context, id string, amount float
 	query := `
 		UPDATE managed_channels
 		SET credit_balance = COALESCE(credit_balance, 0) + $1
-		WHERE id = $2
+		WHERE id = $2::uuid
 		RETURNING credit_balance
 	`
 	err := r.db.Pool.QueryRow(ctx, query, amount, id).Scan(&newBal)
@@ -1277,7 +1277,7 @@ func (r *OwnerRepo) AddChannelCoins(ctx context.Context, id string, amount float
 
 func (r *OwnerRepo) AddGroupSubscriptionDays(ctx context.Context, id string, days int) (*time.Time, error) {
 	var current *time.Time
-	err := r.db.Pool.QueryRow(ctx, "SELECT paid_until FROM managed_groups WHERE id = $1", id).Scan(&current)
+	err := r.db.Pool.QueryRow(ctx, "SELECT paid_until FROM managed_groups WHERE id = $1::uuid", id).Scan(&current)
 	if err != nil {
 		return nil, err
 	}
@@ -1288,7 +1288,7 @@ func (r *OwnerRepo) AddGroupSubscriptionDays(ctx context.Context, id string, day
 		newUntil = current.Add(duration)
 	}
 
-	_, err = r.db.Pool.Exec(ctx, "UPDATE managed_groups SET paid_until = $1, subscription_status = 'premium' WHERE id = $2", newUntil, id)
+	_, err = r.db.Pool.Exec(ctx, "UPDATE managed_groups SET paid_until = $1, subscription_status = 'premium' WHERE id = $2::uuid", newUntil, id)
 	return &newUntil, err
 }
 
@@ -1297,7 +1297,7 @@ func (r *OwnerRepo) AddGroupCoins(ctx context.Context, id string, amount float64
 	query := `
 		UPDATE managed_groups
 		SET credit_balance = COALESCE(credit_balance, 0) + $1
-		WHERE id = $2
+		WHERE id = $2::uuid
 		RETURNING credit_balance
 	`
 	err := r.db.Pool.QueryRow(ctx, query, amount, id).Scan(&newBal)

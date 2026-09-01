@@ -280,7 +280,6 @@ export const OwnerUserbot: Component = () => {
 					title={t('ownerUserbot.revokeUserbot')}
 					description={`Terminate MTProto session for ${maskPhoneNumber(userbotToDelete()?.phone_number || '')}? This will log out on Telegram and delete the session file.`}
 					actionLabel="Revoke & Delete"
-					confirmWord="DELETE"
 					riskLevel="critical"
 					requireReason={false}
 					loading={deleteMutation.isPending}

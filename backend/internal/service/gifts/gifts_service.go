@@ -231,7 +231,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 
 		var dynamicMarketCap float64
 		for modelID, venueFloors := range modelMap {
-			col, ok := traits.OfficialCollections[modelID]
+			col, ok := traits.ResolveCollection(modelID)
 			name := modelID
 			totalSupply := 0
 			if ok {
@@ -304,7 +304,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 			if err := trendingRows.Scan(&mID, &count, &avgPrice); err == nil {
 				colName := mID
 				isCrafted := false
-				if col, ok := traits.OfficialCollections[mID]; ok {
+				if col, ok := traits.ResolveCollection(mID); ok {
 					colName = col.Name
 					isCrafted = col.CraftedFlag
 				}
@@ -612,10 +612,7 @@ func (s *GiftsService) GetUpgradeAdvice(ctx context.Context, raw string) (*upgra
 		return nil, err
 	}
 
-	col, ok := traits.OfficialCollections[ref.ModelID]
-	if !ok {
-		col = traits.OfficialCollections["durov_cap"]
-	}
+	col, _ := traits.ResolveCollection(ref.ModelID)
 
 	gramUsdRate := 5.50
 	if s.cryptoPrice != nil {

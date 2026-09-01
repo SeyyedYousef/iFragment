@@ -1252,7 +1252,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 											class="group relative p-3 rounded-[20px] bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-[#0098EA]/40 text-left transition-all duration-300 active:scale-98 flex items-center gap-3 shadow-lg overflow-hidden backdrop-blur-xl"
 										>
 											<div class="w-10 h-10 rounded-2xl bg-black/40 border border-white/10 shrink-0 overflow-hidden flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
-												<GiftThumbnail slug={gCard.slug} alt={gCard.name} class="w-full h-full object-contain" />
+												<GiftThumbnail slug={gCard.slug} name={gCard.name} class="w-full h-full object-contain" />
 											</div>
 											<div class="flex-1 min-w-0">
 												<div class="flex items-center justify-between gap-1">
@@ -1309,6 +1309,81 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							class="w-full py-3 px-6 rounded-2xl bg-white/[0.05] hover:bg-white/10 text-white/80 font-medium text-xs transition-colors"
 						>
 							{t('noCreditsModal.earnCredits')}
+						</button>
+					</div>
+				</div>
+			</Show>
+
+			{/* ━━━ NUMBER FORMAT GUIDE MODAL ━━━ */}
+			<Show when={showNumberGuide()}>
+				<div class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/85 backdrop-blur-lg animate-fade-in">
+					<div class="bg-[#12141C] w-full max-w-sm rounded-[32px] p-6 flex flex-col items-center text-center shadow-[0_20px_60px_rgba(0,0,0,0.9)] border border-white/10 relative overflow-hidden animate-slide-up">
+						<div class="w-14 h-14 rounded-2xl bg-[#0098EA]/10 border border-[#0098EA]/20 flex items-center justify-center mb-3 text-[#0098EA]">
+							<span class="material-symbols-outlined text-3xl">dialpad</span>
+						</div>
+						<h3 class="text-lg font-bold text-white mb-1.5">{t('numbers.formatGuideTitle')}</h3>
+						<p class="text-xs text-white/60 mb-5 leading-relaxed">
+							{t('numbers.formatGuideSubtitle')}
+						</p>
+
+						<div class="w-full space-y-2.5 mb-5 text-left">
+							{/* Valid Formats */}
+							<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+								<span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block mb-1.5 flex items-center gap-1">
+									<span class="material-symbols-outlined text-xs">check_circle</span>
+									{t('numbers.formatValidBadge')}
+								</span>
+								<div class="space-y-1 text-xs font-mono text-white/90">
+									<button
+										type="button"
+										onClick={() => {
+											updateSearchQuery('00000000');
+											setShowNumberGuide(false);
+										}}
+										class="w-full text-left p-1 rounded hover:bg-emerald-500/15 flex items-center justify-between group transition-colors"
+									>
+										<span>+888 0000 0000</span>
+										<span class="text-[10px] font-sans text-emerald-400/70 group-hover:text-emerald-300">8 Digits Standard</span>
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											updateSearchQuery('8000');
+											setShowNumberGuide(false);
+										}}
+										class="w-full text-left p-1 rounded hover:bg-emerald-500/15 flex items-center justify-between group transition-colors"
+									>
+										<span>+888 8000</span>
+										<span class="text-[10px] font-sans text-emerald-400/70 group-hover:text-emerald-300">4 Digits Genesis</span>
+									</button>
+								</div>
+							</div>
+
+							{/* Invalid Formats */}
+							<div class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+								<span class="text-[10px] font-bold uppercase tracking-wider text-rose-400 block mb-1.5 flex items-center gap-1">
+									<span class="material-symbols-outlined text-xs">cancel</span>
+									{t('numbers.formatInvalidBadge')}
+								</span>
+								<div class="space-y-1 text-xs font-mono text-white/60">
+									<div class="flex items-center justify-between p-1">
+										<span class="line-through">+98 912...</span>
+										<span class="text-[10px] font-sans text-rose-400/70">Cellular / SIM</span>
+									</div>
+									<div class="flex items-center justify-between p-1">
+										<span class="line-through">+888 12</span>
+										<span class="text-[10px] font-sans text-rose-400/70">&lt; 4 Digits</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<button
+							type="button"
+							onClick={() => setShowNumberGuide(false)}
+							class="w-full py-3 px-6 rounded-2xl bg-[#0098EA] hover:bg-[#0087d1] text-white font-bold text-xs active:scale-98 transition-all shadow-[0_0_20px_rgba(0,152,234,0.3)]"
+						>
+							{t('common.close') || 'متوجه شدم'}
 						</button>
 					</div>
 				</div>

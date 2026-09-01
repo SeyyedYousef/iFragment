@@ -1,4 +1,5 @@
 import { type Component, createSignal, Show } from 'solid-js';
+import { buildAvatarUrl } from '@/shared/api/config.js';
 
 interface AvatarProps {
 	src?: string;
@@ -54,7 +55,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
 		>
 			<Show when={props.src && !imageError()} fallback={<span>{initial()}</span>}>
 				<img
-					src={props.src}
+					src={buildAvatarUrl(props.src)}
 					alt={props.name}
 					class={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded() ? 'opacity-100' : 'opacity-0'}`}
 					onLoad={() => setImageLoaded(true)}

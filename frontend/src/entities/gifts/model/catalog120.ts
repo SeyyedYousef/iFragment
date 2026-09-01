@@ -46,10 +46,10 @@ export const OFFICIAL_GIFTS_120: OfficialGiftItem[] = [
     "name": "Plush Pepe",
     "slug": "plush-pepe",
     "tag": "Bluechip",
-    "primaryModel": "Ninja Mike",
-    "supply": 5000,
+    "primaryModel": "Pumpkin",
+    "supply": 2861,
     "emoji": "🐸",
-    "floorTon": 120.0
+    "floorTon": 5200.0
   },
   {
     "id": "5",

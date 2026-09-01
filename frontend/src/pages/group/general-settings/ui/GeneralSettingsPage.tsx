@@ -361,7 +361,7 @@ export const GeneralSettingsPage: Component = () => {
 					</div>
 				</div>
 
-				{/* ═══════ EPHEMERAL MODE (PRIVATE MESSAGES) ═══════ */}
+				{/* ═══════ EPHEMERAL MODE (AUTO-DELETE BOT MESSAGES) ═══════ */}
 				<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4 mt-2">
 					<div class="absolute -right-6 -top-6 w-24 h-24 bg-sky-500/10 blur-2xl rounded-full pointer-events-none" />
 					<div class="flex items-center gap-2 mb-1 relative z-10">
@@ -376,38 +376,37 @@ export const GeneralSettingsPage: Component = () => {
 							title={t('generalSettings.ephemeralAll')}
 							description={t('generalSettings.ephemeralAllDesc')}
 							enabled={config.ephemeralAll}
-							onToggle={(v) => updateField('ephemeralAll', v)}
+							onToggle={(v) => {
+								updateField('ephemeralAll', v);
+								updateField('autoDeleteBot', v);
+							}}
 						/>
 
-						<SettingsSection
-							title={t('generalSettings.ephemeralWelcome')}
-							description={t('generalSettings.ephemeralWelcomeDesc')}
-							enabled={config.ephemeralWelcome}
-							onToggle={(v) => updateField('ephemeralWelcome', v)}
-						/>
-
-						<SettingsSection
-							title={t('generalSettings.ephemeralWarnings')}
-							description={t('generalSettings.ephemeralWarningsDesc')}
-							enabled={config.ephemeralWarnings}
-							onToggle={(v) => updateField('ephemeralWarnings', v)}
-						/>
-
-						{/* Control: Ephemeral Captcha */}
-						<SettingsSection
-							title={t('generalSettings.ephemeralCaptcha')}
-							description={t('generalSettings.ephemeralCaptchaDesc')}
-							enabled={config.ephemeralCaptcha}
-							onToggle={(v) => updateField('ephemeralCaptcha', v)}
-						/>
-
-						{/* Control: Ephemeral Admin Cmd */}
-						<SettingsSection
-							title={t('generalSettings.ephemeralAdminCmd')}
-							description={t('generalSettings.ephemeralAdminCmdDesc')}
-							enabled={config.ephemeralAdminCmd}
-							onToggle={(v) => updateField('ephemeralAdminCmd', v)}
-						/>
+						<Show when={config.ephemeralAll}>
+							<div class="flex flex-col gap-2 pt-2 border-t border-white/5">
+								<div class="flex justify-between items-center text-[13px]">
+									<span class="text-white/70">{t('generalSettings.autoDeleteDelay')}</span>
+									<span class="text-sky-400 font-mono font-bold">{config.autoDeleteDelay}s</span>
+								</div>
+								<div class="grid grid-cols-4 gap-2 mt-1">
+									<For each={[10, 15, 30, 60]}>
+										{(sec) => (
+											<button
+												type="button"
+												onClick={() => updateField('autoDeleteDelay', sec)}
+												class={`py-2 text-xs font-semibold rounded-xl border transition-all ${
+													config.autoDeleteDelay === sec
+														? 'bg-sky-500/20 border-sky-500/50 text-sky-300 shadow-sm'
+														: 'bg-white/5 border-white/5 text-white/60 hover:text-white'
+												}`}
+											>
+												{sec}s
+											</button>
+										)}
+									</For>
+								</div>
+							</div>
+						</Show>
 					</div>
 				</div>
 

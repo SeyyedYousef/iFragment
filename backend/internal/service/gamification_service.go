@@ -50,6 +50,7 @@ func NewGamificationService(db *repository.Database, cache *repository.Cache) *G
 		go s.startLeaderboardCacheWorker(context.Background())
 		go s.startTapBatchWorker(context.Background())
 		go s.StartExpirationReminderWorker(context.Background())
+		go s.StartTapBotFullReminderWorker(context.Background())
 	}
 
 	return s
@@ -1436,24 +1437,21 @@ type OfflineMiningResult struct {
 }
 
 const (
-	// minOfflineDuration is the minimum seconds the user must be offline for bot to mine
-	minOfflineDuration = 300 // 5 minutes
-	// collectionCooldownSec prevents rapid re-collection calls
+	// minOfflineDuration is the minimum seconds the user must be offline for bot to mine (1 minute)
+	minOfflineDuration = 60
+	// collectionCooldownSec prevents rapid re-collection calls (60 seconds)
 	collectionCooldownSec = 60
-	// energyGateThresholdPct is the max energy percentage to allow mining (10% = user must have tapped down)
-	energyGateThresholdPct = 0.10
 	// dailyCapMultiplier defines how many session-caps worth of coins can be earned per day
 	dailyCapMultiplier = 3
 )
 
 // StartOfflineMining records the user's current energy state when they go offline.
-// The frontend must call this when the app becomes hidden / user leaves.
+// The frontend calls this when the app becomes hidden / user leaves.
 func (s *GamificationService) StartOfflineMining(ctx context.Context, userID int64) error {
 	if s.db.Pool == nil {
 		return fmt.Errorf("database pool is nil")
 	}
 
-	// Read current energy and max energy to snapshot
 	var storedEnergy int
 	var energyUpdatedAt time.Time
 	var energyLimitLevel int
@@ -1466,12 +1464,11 @@ func (s *GamificationService) StartOfflineMining(ctx context.Context, userID int
 	`, userID).Scan(&storedEnergy, &energyUpdatedAt, &energyLimitLevel)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil // No stats yet, nothing to snapshot
+			return nil
 		}
 		return fmt.Errorf("failed to read energy state: %w", err)
 	}
 
-	// Calculate current energy with regen
 	maxEnergy := 500 + (energyLimitLevel-1)*250
 	regen := int(time.Since(energyUpdatedAt).Seconds())
 	currentEnergy := storedEnergy + regen
@@ -1479,7 +1476,6 @@ func (s *GamificationService) StartOfflineMining(ctx context.Context, userID int
 		currentEnergy = maxEnergy
 	}
 
-	// Record the snapshot and reset last_collected_at to now
 	_, err = s.db.Pool.Exec(ctx, `
 		UPDATE user_boosts
 		SET tap_bot_energy_snapshot = $1,
@@ -1493,13 +1489,13 @@ func (s *GamificationService) StartOfflineMining(ctx context.Context, userID int
 	return nil
 }
 
-// CollectOfflineMining calculates and awards offline mining rewards with hardened constraints:
-// 1. Energy-gate: user must have depleted energy (≤ 10% of max) when they went offline
-// 2. Minimum offline duration: 5 minutes
-// 3. Per-session cap: maxEnergy * multitapLevel
-// 4. Daily cap: sessionCap * 3
-// 5. Diminishing returns: 50% rate after 50% of cap, 25% after 75%
-// 6. Collection cooldown: 60 seconds between collections
+// CollectOfflineMining calculates and awards offline mining rewards:
+// 1. Minimum offline duration: 60 seconds
+// 2. Collection cooldown: 60 seconds
+// 3. Dynamic scaling: rates and caps scale with Multitap, Energy Limit, and Bot Level
+// 4. Session cap: (maxEnergy * multitap * 1.5) + 2000
+// 5. Daily cap: sessionCap * 3
+// 6. Smooth diminishing returns
 func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID int64) (*OfflineMiningResult, error) {
 	if s.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is nil")
@@ -1554,35 +1550,9 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		elapsed = 0
 	}
 
-	// Rule 6: Collection cooldown — prevent rapid re-calls
-	if elapsed < collectionCooldownSec {
-		return &OfflineMiningResult{Earned: 0, DurationSeconds: 0}, nil
-	}
-
-	// Rule 3: Minimum offline duration — bot needs at least 5 minutes to start
-	if elapsed < minOfflineDuration {
-		// Still update last_collected_at so the timer doesn't stack
-		_, _ = tx.Exec(ctx, `UPDATE user_boosts SET tap_bot_last_collected_at = CURRENT_TIMESTAMP WHERE user_id = $1`, userID)
-		_ = tx.Commit(ctx)
+	// Rule 1: Collection cooldown & minimum offline duration
+	if elapsed < collectionCooldownSec || elapsed < minOfflineDuration {
 		return &OfflineMiningResult{Earned: 0, DurationSeconds: elapsed}, nil
-	}
-
-	// Rule 1: Energy-gate — user must have depleted energy (≤ 10% of max) before bot mines
-	maxEnergy := 500 + (energyLimitLevel-1)*250
-	energyThreshold := int(float64(maxEnergy) * energyGateThresholdPct)
-
-	// If energy snapshot was never set (old users / graceful fallback), apply reduced rate (50%)
-	gracefulFallback := false
-	if energySnapshot > energyThreshold {
-		if energySnapshot == 0 {
-			// Never set — old user who hasn't called StartOfflineMining yet
-			gracefulFallback = true
-		} else {
-			// Energy was NOT depleted — bot doesn't mine
-			_, _ = tx.Exec(ctx, `UPDATE user_boosts SET tap_bot_last_collected_at = CURRENT_TIMESTAMP WHERE user_id = $1`, userID)
-			_ = tx.Commit(ctx)
-			return &OfflineMiningResult{Earned: 0, DurationSeconds: elapsed}, nil
-		}
 	}
 
 	if capSeconds <= 0 {
@@ -1592,15 +1562,19 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		elapsed = capSeconds
 	}
 
-	// Rule 4: Reset daily counter if new day
+	// Rule 2: Reset daily counter if new day
 	today := now.Truncate(24 * time.Hour)
 	if dailyResetAt == nil || dailyResetAt.Before(today) {
 		dailyEarned = 0
 	}
 
-	// Calculate caps
-	sessionCap := float64(maxEnergy * multitap)          // Per-session cap
-	dailyCap := sessionCap * float64(dailyCapMultiplier) // Daily cap (3x session)
+	maxEnergy := 500 + (energyLimitLevel-1)*250
+	multitapLevel := max(1, multitap)
+	energyLevel := max(1, energyLimitLevel)
+
+	// Calculate balanced caps based on player stats
+	sessionCap := (float64(maxEnergy*multitapLevel) * 1.5) + 2000.0
+	dailyCap := sessionCap * float64(dailyCapMultiplier)
 
 	// Check daily cap headroom
 	dailyRemaining := dailyCap - dailyEarned
@@ -1610,11 +1584,8 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		return &OfflineMiningResult{Earned: 0, DurationSeconds: elapsed, DailyRemaining: 0}, nil
 	}
 
-	// Rule 5: Diminishing returns — calculate earned with tiered rates
-	baseRate := (float64(multitap) / 10.0) * float64(level)
-	if gracefulFallback {
-		baseRate *= 0.5 // 50% rate for users who haven't adopted the new flow
-	}
+	// Base rate scaled with player level, multitap, and energy limit
+	baseRate := (float64(multitapLevel)*0.35 + float64(energyLevel)*0.15 + 0.20) * float64(level)
 
 	// Calculate earned with diminishing returns applied against session cap
 	earned := calculateDiminishingEarnings(float64(elapsed), baseRate, sessionCap)
@@ -1642,7 +1613,7 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		`, userID, float64(earnedInt))
 	}
 
-	// Update tap bot state: reset timer, accumulate daily earnings, reset daily date if new day
+	// Update tap bot state: reset timer, accumulate daily earnings, reset daily date if new day, clear notification flag
 	_, err = tx.Exec(ctx, `
 		UPDATE user_boosts
 		SET tap_bot_last_collected_at = CURRENT_TIMESTAMP,
@@ -1651,7 +1622,8 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		        ELSE COALESCE(tap_bot_daily_earned, 0) + $3
 		    END,
 		    tap_bot_daily_reset_at = $2::date,
-		    tap_bot_energy_snapshot = 0
+		    tap_bot_energy_snapshot = 0,
+		    tap_bot_notified_at = NULL
 		WHERE user_id = $1
 	`, userID, now, float64(earnedInt))
 	if err != nil {
@@ -1671,7 +1643,7 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		Earned:          float64(earnedInt),
 		DurationSeconds: elapsed,
 		SessionCap:      sessionCap,
-		DailyRemaining:  dailyCap - newDailyEarned,
+		DailyRemaining:  max(0, dailyCap-newDailyEarned),
 	}, nil
 }
 
@@ -1720,6 +1692,105 @@ func calculateDiminishingEarnings(elapsedSec, baseRate, sessionCap float64) floa
 	earned += tier3Amount
 
 	return earned
+}
+
+// StartTapBotFullReminderWorker periodically checks users whose 12-hour offline mining is full
+func (s *GamificationService) StartTapBotFullReminderWorker(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.notifyFullTapBots(ctx)
+		}
+	}
+}
+
+func (s *GamificationService) notifyFullTapBots(ctx context.Context) {
+	if s.db == nil || s.db.Pool == nil {
+		return
+	}
+
+	tg := s.getBotAPIClient()
+	if tg == nil {
+		return
+	}
+
+	query := `
+		SELECT b.user_id, COALESCE(u.language_code, 'en') as lang
+		FROM user_boosts b
+		LEFT JOIN users u ON u.id = b.user_id
+		WHERE b.tap_bot_level >= 1
+		  AND b.tap_bot_last_collected_at IS NOT NULL
+		  AND b.tap_bot_last_collected_at <= NOW() - (COALESCE(b.tap_bot_cap_seconds, 43200) * INTERVAL '1 second')
+		  AND (b.tap_bot_notified_at IS NULL OR b.tap_bot_notified_at < b.tap_bot_last_collected_at)
+		LIMIT 100
+	`
+	rows, err := s.db.Pool.Query(ctx, query)
+	if err != nil {
+		slog.Error("failed to query full tap bots", "err", err)
+		return
+	}
+	defer rows.Close()
+
+	type notifyTarget struct {
+		UserID int64
+		Lang   string
+	}
+	var targets []notifyTarget
+	for rows.Next() {
+		var t notifyTarget
+		if err := rows.Scan(&t.UserID, &t.Lang); err == nil {
+			targets = append(targets, t)
+		}
+	}
+
+	if len(targets) == 0 {
+		return
+	}
+
+	miniAppURL := os.Getenv("TELEGRAM_MINI_APP_URL")
+	if miniAppURL == "" {
+		miniAppURL = "https://t.me/iFragmentBot/app?startapp=tap"
+	}
+
+	for _, target := range targets {
+		var msgText string
+		var btnText string
+
+		switch strings.ToLower(target.Lang) {
+		case "fa", "fas", "per":
+			msgText = "🤖 <b>ظرفیت ربات استخراج شما تکمیل شد!</b>\n\nربات ماینر شما به مدت ۱۲ ساعت استخراج کرده و مخزن آن پر شده است. برای دریافت سکه‌ها و فعال‌سازی مجدد استخراج، وارد وب‌اپ شوید."
+			btnText = "🪙 دریافت سکه‌های ماین‌شده"
+		case "ru":
+			msgText = "🤖 <b>Ваш майнинг-бот заполнен!</b>\n\nВаш авто-бот добывал монеты в течение 12 часов. Зайдите в приложение, чтобы забрать награду и продолжить добычу."
+			btnText = "🪙 Забрать монеты"
+		default:
+			msgText = "🤖 <b>Your Tap-Bot storage is full!</b>\n\nYour mining bot has been active for 12 hours. Open the app now to claim your mined coins and resume mining."
+			btnText = "🪙 Claim Mined Coins"
+		}
+
+		replyMarkup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
+					{
+						"text": btnText,
+						"url":  miniAppURL,
+					},
+				},
+			},
+		}
+
+		_, sendErr := tg.SendMessageWithMarkup(ctx, target.UserID, msgText, replyMarkup, nil, "HTML")
+		if sendErr != nil {
+			slog.Debug("failed to send tap bot full reminder", "userID", target.UserID, "err", sendErr)
+		}
+
+		_, _ = s.db.Pool.Exec(ctx, `UPDATE user_boosts SET tap_bot_notified_at = CURRENT_TIMESTAMP WHERE user_id = $1`, target.UserID)
+	}
 }
 
 // ApplyTurbo applies a daily turbo boost

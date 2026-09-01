@@ -383,7 +383,7 @@ export const GiftCollectionPage: Component = () => {
 												</span>
 
 												<div class="w-11 h-11 rounded-2xl bg-white/[0.03] border border-white/[0.08] p-1 flex items-center justify-center shrink-0">
-													<GiftThumbnail slug={slug()} name={model.model_name} size="sm" class="w-full h-full object-contain" />
+													<GiftThumbnail slug={slug()} name={model.model_name} model={model.model_name} size="sm" class="w-full h-full object-contain" />
 												</div>
 
 												<div class="flex-1 min-w-0">

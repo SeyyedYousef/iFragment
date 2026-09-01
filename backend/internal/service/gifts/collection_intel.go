@@ -221,39 +221,22 @@ type EnrichedGiftReport struct {
 	OnChain          *OnChainMetadata  `json:"on_chain"`
 }
 
-// ListCollections returns catalog of all known gift collections, augmented with live names
+// ListCollections returns catalog of all known gift collections synced from live 24h API
 func (s *GiftsService) ListCollections(ctx context.Context) ([]CollectionListItem, error) {
-	list := make([]CollectionListItem, 0, len(traits.OfficialCollections))
-	for slug, col := range traits.OfficialCollections {
+	allCols := traits.GetGlobalCatalog().GetAllCollections()
+	if len(allCols) == 0 {
+		_ = traits.GetGlobalCatalog().Sync(ctx)
+		allCols = traits.GetGlobalCatalog().GetAllCollections()
+	}
+
+	list := make([]CollectionListItem, 0, len(allCols))
+	for _, col := range allCols {
 		list = append(list, CollectionListItem{
-			Slug:        slug,
+			Slug:        col.ModelID,
 			Name:        col.Name,
 			TotalSupply: col.TotalSupply,
 			FloorGRAM:   col.InitialFloorGRAM,
 		})
-	}
-
-	// Try augmenting with live gifts list from api.changes.tg
-	if s.giftchangesClient != nil {
-		if liveNames, err := s.giftchangesClient.GetGifts(ctx); err == nil && len(liveNames) > 0 {
-			existingNames := make(map[string]bool)
-			for _, item := range list {
-				existingNames[strings.ToLower(item.Name)] = true
-			}
-			for _, name := range liveNames {
-				lowerName := strings.ToLower(name)
-				if !existingNames[lowerName] {
-					slug := strings.ReplaceAll(strings.ToLower(name), " ", "_")
-					list = append(list, CollectionListItem{
-						Slug:        slug,
-						Name:        name,
-						TotalSupply: 10000,
-						FloorGRAM:   40.0,
-					})
-					existingNames[lowerName] = true
-				}
-			}
-		}
 	}
 
 	return list, nil
@@ -263,7 +246,6 @@ func (s *GiftsService) ListCollections(ctx context.Context) ([]CollectionListIte
 func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*CollectionIntelResponse, error) {
 	origSlug := strings.TrimSpace(slug)
 	normSlug := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(origSlug, "_", "-"), " ", "-"))
-	underscoreSlug := strings.ReplaceAll(normSlug, "-", "_")
 
 	cacheKey := fmt.Sprintf("gifts:collection_intel:%s", normSlug)
 	if s.cache != nil && s.cache.Client != nil {
@@ -283,19 +265,10 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		}
 	}
 
-	col, exists := traits.OfficialCollections[underscoreSlug]
+	underscoreSlug := strings.ReplaceAll(normSlug, "-", "_")
+	col, exists := traits.ResolveCollection(underscoreSlug)
 	if !exists {
-		col, exists = traits.OfficialCollections[normSlug]
-	}
-	if !exists {
-		// Fallback: search by prefix or match name
-		for k, v := range traits.OfficialCollections {
-			if strings.Contains(strings.ToLower(v.Name), normSlug) || strings.Contains(k, underscoreSlug) {
-				col = v
-				exists = true
-				break
-			}
-		}
+		col, exists = traits.ResolveCollection(normSlug)
 	}
 
 	collectionName := origSlug
@@ -740,7 +713,8 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, gift
 		rarityScore = 142.5
 	}
 
-	totalSup := traits.OfficialCollections[val.ModelID].TotalSupply
+	col, _ := traits.ResolveCollection(val.ModelID)
+	totalSup := col.TotalSupply
 	if totalSup <= 0 {
 		totalSup = 5000
 	}

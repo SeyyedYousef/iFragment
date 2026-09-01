@@ -1207,10 +1207,12 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 
 	// 2. Fetch Connected Properties (Managed Channels & Groups)
 	channelRows, err := db.Pool.Query(ctx, `
-		SELECT id, chat_title, COALESCE(chat_id::text, ''), subscription_status, paid_until, subscribers_count
-		FROM managed_channels
-		WHERE connected_by_user_id = $1
-		ORDER BY created_at DESC
+		SELECT mc.id, mc.chat_title, COALESCE(mc.chat_id::text, ''), mc.subscription_status, mc.paid_until, mc.subscribers_count
+		FROM managed_channels mc
+		LEFT JOIN managed_bots mb ON mc.bot_id = mb.id
+		WHERE mc.connected_by_user_id = $1 OR mb.owner_user_id = $1
+		   OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = mc.id AND ca.telegram_id = $1)
+		ORDER BY mc.created_at DESC
 	`, userID)
 	if err == nil {
 		defer channelRows.Close()
@@ -1228,18 +1230,21 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 	}
 
 	groupRows, err := db.Pool.Query(ctx, `
-		SELECT id, group_title, COALESCE(group_id::text, ''), COALESCE(photo_url, ''), members_count
-		FROM managed_groups
-		WHERE connected_by_user_id = $1
-		ORDER BY created_at DESC
+		SELECT mg.id, mg.chat_title, COALESCE(mg.chat_id::text, ''), COALESCE(mg.photo_url, ''), mg.members_count, mg.subscription_status, mg.paid_until
+		FROM managed_groups mg
+		LEFT JOIN managed_bots mb ON mg.bot_id = mb.id
+		WHERE mg.connected_by_user_id = $1 OR mb.owner_user_id = $1
+		ORDER BY mg.created_at DESC
 	`, userID)
 	if err == nil {
 		defer groupRows.Close()
 		for groupRows.Next() {
 			var p model.MyConnectedProperty
 			p.Type = "group"
-			p.SubscriptionStatus = "active"
-			if err := groupRows.Scan(&p.ID, &p.Title, &p.Username, &p.PhotoURL, &p.MemberCount); err == nil {
+			if err := groupRows.Scan(&p.ID, &p.Title, &p.Username, &p.PhotoURL, &p.MemberCount, &p.SubscriptionStatus, &p.PaidUntil); err == nil {
+				if p.PaidUntil != nil && p.PaidUntil.After(time.Now()) {
+					p.DaysLeft = int(time.Until(*p.PaidUntil).Hours() / 24)
+				}
 				p.DashboardURL = fmt.Sprintf("/group/%s", p.ID)
 				resp.Properties = append(resp.Properties, p)
 			}

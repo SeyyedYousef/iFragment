@@ -39,7 +39,6 @@ const settingKeys = {
 	links: ['removeLinks', 'blockBots', 'removeBotInviters', 'blockDomains', 'blockUsernames'],
 	text: [
 		'blockHashtags',
-		'blockTextPatterns',
 		'blockEmojis',
 		'blockEmojiOnly',
 		'blockPhoneNumbers',
@@ -355,7 +354,6 @@ export const ContentRestrictionsPage: Component = () => {
 						class="flex flex-col gap-4"
 					>
 						{renderSetting('blockHashtags', 'blockHashtags', 'blockHashtagsDesc')}
-						{renderSetting('blockTextPatterns', 'blockTextPatterns', 'blockTextPatternsDesc')}
 						{renderSetting('blockEmojis', 'blockEmojis', 'blockEmojisDesc')}
 						{renderSetting('blockEmojiOnly', 'blockEmojiOnly', 'blockEmojiOnlyDesc')}
 						{renderSetting('blockPhoneNumbers', 'blockPhoneNumbers', 'blockPhoneNumbersDesc')}

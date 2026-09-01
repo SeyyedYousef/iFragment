@@ -51,8 +51,8 @@ func AuditGiftRisk(ctx context.Context, modelID string, serialNumber int, resale
 		commWarn = fmt.Sprintf("High creator resale commission (%.1f%%) applies upon in-app Telegram resale.", commPct)
 	}
 
-	// Verify model authenticity against official registry
-	_, isOfficial := traits.OfficialCollections[modelID]
+	// Verify model authenticity against live official registry
+	_, isOfficial := traits.ResolveCollection(modelID)
 	authStatus := "Verified Official Telegram Mint (Cryptographically Validated)"
 	if !isOfficial {
 		authStatus = "⚠️ Unofficial Collection (Possible Copycat / Spoofed Metadata)"

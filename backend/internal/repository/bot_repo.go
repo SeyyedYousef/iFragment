@@ -143,6 +143,9 @@ func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedB
 			SELECT 1 FROM managed_channels c
 			JOIN channel_admins ca ON c.id = ca.channel_id
 			WHERE c.bot_id = b.id AND ca.telegram_id = $1
+		) OR EXISTS (
+			SELECT 1 FROM managed_groups g
+			WHERE g.bot_id = b.id AND g.connected_by_user_id = $1
 		)
 		ORDER BY b.created_at DESC`
 	rows, err := r.db.Pool.Query(ctx, query, ownerID)

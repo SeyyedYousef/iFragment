@@ -14,17 +14,20 @@ import (
 
 // CuriosityGateResponse is the zero price leakage response (Sacred Rule 3)
 type CuriosityGateResponse struct {
-	GiftID           string `json:"gift_id"`
-	ModelID          string `json:"model_id"`
-	ModelName        string `json:"model_name"`
-	SerialNumber     int    `json:"serial_number"`
-	SignalsAnalyzed  int    `json:"signals_analyzed"`  // e.g. 34 signals
-	RisksIdentified  int    `json:"risks_identified"`  // e.g. 2 risks
-	DataSourcesCount int    `json:"data_sources_count"` // 6 venues + Telegram on-chain
-	IsCrafted        bool   `json:"is_crafted"`
-	FloorPriceGRAM   float64 `json:"floor_price_gram"`  // Public floor data is permissible
+	GiftID           string  `json:"gift_id"`
+	ModelID          string  `json:"model_id"`
+	ModelName        string  `json:"model_name"`
+	SerialNumber     int     `json:"serial_number"`
+	SelectedModel    string  `json:"selected_model,omitempty"`
+	OwnerName        string  `json:"owner_name,omitempty"`
+	ImageURL         string  `json:"image_url,omitempty"`
+	SignalsAnalyzed  int     `json:"signals_analyzed"`   // e.g. 34 signals
+	RisksIdentified  int     `json:"risks_identified"`   // e.g. 2 risks
+	DataSourcesCount int     `json:"data_sources_count"` // 6 venues + Telegram on-chain
+	IsCrafted        bool    `json:"is_crafted"`
+	FloorPriceGRAM   float64 `json:"floor_price_gram"` // Public floor data is permissible
 	FloorPriceUSD    float64 `json:"floor_price_usd"`
-	CheckedAt        string `json:"checked_at"`
+	CheckedAt        string  `json:"checked_at"`
 }
 
 // TraitDNABar holds the 4-axis attribute rarity representation
@@ -81,6 +84,9 @@ type GiftValuation struct {
 	ModelID            string                         `json:"model_id"`
 	ModelName          string                         `json:"model_name"`
 	SerialNumber       int                            `json:"serial_number"`
+	SelectedModel      string                         `json:"selected_model,omitempty"`
+	OwnerName          string                         `json:"owner_name,omitempty"`
+	ImageURL           string                         `json:"image_url,omitempty"`
 	DisplayTitle       string                         `json:"display_title"` // e.g. "Plush Pepe #42"
 	ModelVersion       string                         `json:"model_version"`
 	BasePriceGRAM      decimal.Decimal                `json:"base_price_gram"`

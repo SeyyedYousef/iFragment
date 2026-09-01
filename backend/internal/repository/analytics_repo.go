@@ -258,3 +258,54 @@ func (r *AnalyticsRepo) GetGroupMemberIDs(ctx context.Context, groupID uuid.UUID
 	return userIDs, nil
 }
 
+type WarnedMemberRecord struct {
+	UserID     int64
+	Count      int
+	LastReason string
+	UpdatedAt  time.Time
+}
+
+func (r *AnalyticsRepo) GetGroupWarnedMembers(ctx context.Context, groupID uuid.UUID, days int) ([]WarnedMemberRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+	if days <= 0 {
+		days = 7
+	}
+	since := time.Now().UTC().Truncate(24 * time.Hour).AddDate(0, 0, -days)
+	query := `
+		SELECT user_id, COUNT(*) as cnt,
+		       COALESCE(MAX(payload->>'reason'), 'Rule violation') as last_reason,
+		       MAX(created_at) as last_updated
+		FROM group_events
+		WHERE group_id = $1 AND event_type = 'member_warned' AND created_at >= $2 AND user_id IS NOT NULL
+		GROUP BY user_id
+		ORDER BY last_updated DESC
+	`
+	rows, err := r.db.Pool.Query(ctx, query, groupID, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []WarnedMemberRecord
+	for rows.Next() {
+		var rec WarnedMemberRecord
+		if err := rows.Scan(&rec.UserID, &rec.Count, &rec.LastReason, &rec.UpdatedAt); err == nil {
+			records = append(records, rec)
+		}
+	}
+	return records, nil
+}
+
+func (r *AnalyticsRepo) ResetUserWarnings(ctx context.Context, groupID uuid.UUID, userID int64) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+	_, err := r.db.Pool.Exec(ctx,
+		`DELETE FROM group_events WHERE group_id = $1 AND user_id = $2 AND event_type = 'member_warned'`,
+		groupID, userID,
+	)
+	return err
+}
+

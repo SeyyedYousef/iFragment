@@ -251,7 +251,6 @@ export const OwnerPromos: Component = () => {
 					title={t('ownerPromos.deleteCode')}
 					description={`Permanently invalidate promo code "${promoToDelete()?.code}"? Users will no longer be able to claim it.`}
 					actionLabel="Delete Promo Code"
-					confirmWord="DELETE"
 					riskLevel="medium"
 					requireReason={false}
 					loading={deleteMutation.isPending}

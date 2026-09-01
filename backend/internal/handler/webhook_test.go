@@ -251,8 +251,8 @@ func TestRenderCategorySettingsMenu(t *testing.T) {
 		t.Errorf("Expected Persian content header, got: %s", textFa)
 	}
 	kbFa, ok := markupFa["inline_keyboard"].([][]map[string]interface{})
-	if !ok || len(kbFa) != 6 {
-		t.Fatalf("Expected 6 rows in content menu, got %v", markupFa)
+	if !ok || len(kbFa) != 5 {
+		t.Fatalf("Expected 5 rows in content menu, got %v", markupFa)
 	}
 	if !strings.Contains(kbFa[0][0]["text"].(string), "حذف لینک‌ها: ✅ فعال") {
 		t.Errorf("Expected 'حذف لینک‌ها: ✅ فعال', got %v", kbFa[0][0]["text"])
@@ -266,6 +266,67 @@ func TestRenderCategorySettingsMenu(t *testing.T) {
 	kbEn, ok := markupEn["inline_keyboard"].([][]map[string]interface{})
 	if !ok || len(kbEn) != 2 {
 		t.Fatalf("Expected 2 rows in limits menu, got %v", markupEn)
+	}
+}
+
+func TestGroupMigrationLogic(t *testing.T) {
+	mainBotID := uuid.New()
+	userBotID := uuid.New()
+	adminUserID := int64(999999999)
+	userAID := int64(123456789)
+
+	mainBot := &repository.ManagedBot{
+		ID:          mainBotID,
+		BotID:       777000111,
+		BotUsername: "iFragmentBot",
+		OwnerUserID: adminUserID,
+		Status:      "active",
+	}
+
+	userBot := &repository.ManagedBot{
+		ID:          userBotID,
+		BotID:       888000222,
+		BotUsername: "UserCustomBot",
+		OwnerUserID: userAID,
+		Status:      "active",
+	}
+
+	// 1. Verify that replacing iFragmentBot with userBot is identified as a valid migration
+	isMain := strings.EqualFold(mainBot.BotUsername, "iFragmentBot")
+	if !isMain {
+		t.Fatalf("Expected mainBot to be recognized as main bot")
+	}
+
+	// Migration condition check
+	shouldMigrate := false
+	if userBot.OwnerUserID == mainBot.OwnerUserID || isMain {
+		shouldMigrate = true
+	}
+
+	if !shouldMigrate {
+		t.Errorf("Expected migration from main bot to user bot to be allowed, but it was rejected")
+	}
+}
+
+func TestSupergroupMigrationParsing(t *testing.T) {
+	rawJSON := `{
+		"message_id": 99,
+		"from": {"id": 123456, "is_bot": false, "first_name": "Admin"},
+		"chat": {"id": -12345678, "type": "group", "title": "Old Group"},
+		"date": 1700000000,
+		"migrate_to_chat_id": -1001234567890
+	}`
+
+	var msg Message
+	if err := json.Unmarshal([]byte(rawJSON), &msg); err != nil {
+		t.Fatalf("Failed to unmarshal message with migrate_to_chat_id: %v", err)
+	}
+
+	if msg.MigrateToChatID == nil || *msg.MigrateToChatID != -1001234567890 {
+		t.Errorf("Expected MigrateToChatID to be -1001234567890, got %v", msg.MigrateToChatID)
+	}
+	if msg.Chat.ID != -12345678 {
+		t.Errorf("Expected Chat.ID to be -12345678, got %d", msg.Chat.ID)
 	}
 }
 

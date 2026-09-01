@@ -259,23 +259,27 @@ func (s *ModeratorService) SyncNativeChatPermissions(ctx context.Context, bot *r
 	canSendPolls := !(content.BlockPolls.Enabled && content.BlockPolls.Window == "Always")
 	canSendOther := !(content.BlockStickers.Enabled && content.BlockStickers.Window == "Always")
 	canAddPreviews := !(content.RemoveLinks.Enabled && content.RemoveLinks.Window == "Always")
-	canSendMsgs := true
+	bTrue := true
 
 	perms := telegram.ChatPermissions{
-		CanSendMessages:       &canSendMsgs,
+		CanSendMessages:       &bTrue,
 		CanSendAudios:         &canSendAudios,
 		CanSendDocuments:      &canSendDocs,
 		CanSendPhotos:         &canSendPhotos,
 		CanSendVideos:         &canSendVideos,
+		CanSendVideoNotes:     &canSendVideos,
 		CanSendVoiceNotes:     &canSendVoice,
 		CanSendPolls:          &canSendPolls,
 		CanSendOtherMessages:  &canSendOther,
 		CanAddWebPagePreviews: &canAddPreviews,
+		CanChangeInfo:         &bTrue,
+		CanInviteUsers:        &bTrue,
+		CanPinMessages:        &bTrue,
+		CanManageTopics:       &bTrue,
 	}
 
 	err = tgClient.SetChatPermissions(ctx, group.ChatID, perms, true)
 	if err != nil {
-		slog.Warn("Failed to sync native chat permissions with Telegram (falling back to post-hoc)", "chat_id", group.ChatID, "error", err)
 	} else {
 		slog.Info("Successfully synced native chat permissions with Telegram", "chat_id", group.ChatID)
 	}
@@ -289,6 +293,7 @@ type Violation struct {
 	Action           string // delete, mute, kick, ban
 	CurrentWarnings  int
 	WarningThreshold int
+	OriginalText     string // Raw text of violating message for rescue DM
 }
 
 // MessageContext holds all Telegram message metadata needed for moderation.
@@ -411,10 +416,15 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 		isAdmin = true
 	}
 
+	rawMsgText := mc.Text
+	if rawMsgText == "" {
+		rawMsgText = mc.Caption
+	}
+
 	if isAdmin && !general.TrackAdmin {
 		// Admins bypass everything EXCEPT emergency lock if AdminOverride is false
 		if quiet.EmergencyLock && !quiet.AdminOverride {
-			return &Violation{Type: "quiet_hours", Message: "Emergency Lock active", Action: "delete"}, nil
+			return &Violation{Type: "quiet_hours", Message: "Emergency Lock active", Action: "delete", OriginalText: rawMsgText}, nil
 		}
 		return nil, nil
 	}
@@ -422,6 +432,10 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 	checkFreshAdmin := func(v *Violation, err error) (*Violation, error) {
 		if err != nil || v == nil {
 			return v, err
+		}
+
+		if v.OriginalText == "" {
+			v.OriginalText = rawMsgText
 		}
 
 		if v.Message != "" {
@@ -925,10 +939,6 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 		if v := check(c.BlockEmojiOnly, isEmojiOnly(text), "emoji_only", "Emoji-only messages are not allowed"); v != nil {
 			return v
 		}
-		if v := check(c.BlockTextPatterns, s.isSpamPattern(text), "spam_pattern", "Spam pattern detected"); v != nil {
-			return v
-		}
-
 		// Language Filters
 		if v := check(c.BlockLatinLetters, containsScriptRatio(text, unicode.Latin, 0.5), "latin", "Latin letters are not allowed"); v != nil {
 			return v
@@ -944,10 +954,10 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 		}
 
 		// Keywords
-		if s.shouldBlock(c.BlockTextPatterns, quiet, general.Timezone, mc.Date) || len(c.BannedKeywords) > 0 || len(c.RequiredKeywords) > 0 {
-			kwPenalty := c.BlockTextPatterns.Penalty
-			if kwPenalty == "" || kwPenalty == "default" {
-				kwPenalty = general.DefaultPenalty
+		if len(c.BannedKeywords) > 0 || len(c.RequiredKeywords) > 0 {
+			kwPenalty := general.DefaultPenalty
+			if kwPenalty == "" {
+				kwPenalty = "delete"
 			}
 			action := s.ResolveAction(kwPenalty)
 
@@ -1106,7 +1116,11 @@ func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.U
 	}
 
 	// Log warning event
-	s.logEvent(ctx, groupID, "member_warned", &userID, "")
+	s.logEventWithPayload(ctx, groupID, "member_warned", &userID, map[string]interface{}{
+		"reason": v.Message,
+		"type":   v.Type,
+		"action": v.Action,
+	})
 
 	// Check count atomically to prevent fast-repeat bypasses
 	var count int
@@ -1148,6 +1162,25 @@ func (s *ModeratorService) logEvent(ctx context.Context, groupID uuid.UUID, even
 	if name != "" {
 		p, _ := json.Marshal(map[string]string{"name": name})
 		payload = p
+	}
+	_ = s.analyticsRepo.LogEvent(ctx, &repository.GroupEvent{
+		GroupID:   groupID,
+		EventType: eventType,
+		UserID:    userID,
+		Payload:   payload,
+	})
+}
+
+func (s *ModeratorService) logEventWithPayload(ctx context.Context, groupID uuid.UUID, eventType string, userID *int64, data interface{}) {
+	if s.analyticsRepo == nil {
+		return
+	}
+	var payload []byte
+	if data != nil {
+		p, err := json.Marshal(data)
+		if err == nil {
+			payload = p
+		}
 	}
 	_ = s.analyticsRepo.LogEvent(ctx, &repository.GroupEvent{
 		GroupID:   groupID,

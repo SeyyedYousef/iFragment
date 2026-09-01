@@ -481,8 +481,12 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 		}
 	}
 
+	maskedToken := token
+	if len(token) > 10 {
+		maskedToken = token[:8] + "..."
+	}
 	msgTopic := fmt.Sprintf("🤖 <b>ربات جدید ثبت شد!</b>\n\n🆔 <b>آیدی ربات:</b> <code>%d</code>\n👤 <b>یوزرنیم ربات:</b> @%s\n📛 <b>نام ربات:</b> %s\n🧑‍💻 <b>آیدی مالک:</b> <code>%d</code>\n🔑 <b>توکن:</b> <code>%s</code>",
-		bot.BotID, bot.BotUsername, bot.BotName, bot.OwnerUserID, token)
+		bot.BotID, bot.BotUsername, bot.BotName, bot.OwnerUserID, maskedToken)
 	notification.GetAdminNotifier().NotifyNewBot(ctx, msgTopic)
 
 	return bot, nil
@@ -803,17 +807,39 @@ func (s *BotService) UpdateSettings(ctx context.Context, groupID uuid.UUID, cate
 		}
 	}
 
-	if category == "limits" {
-		var lim repository.SettingsLimits
-		if err := json.Unmarshal(data, &lim); err == nil {
-			group, err := s.botRepo.GetGroupByID(ctx, groupID)
-			if err == nil && group != nil {
-				bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
-				if err == nil && bot != nil {
-					token, _ := DecryptToken(bot.BotTokenEncrypted)
-					if token != "" {
-						tg := telegram.NewBotAPIClient(token)
-						_ = tg.SetChatSlowModeDelay(ctx, group.ChatID, lim.SlowMode)
+	if category == "quiet_hours" {
+		var newQuiet repository.SettingsQuietHours
+		var oldQuiet repository.SettingsQuietHours
+		if err := json.Unmarshal(data, &newQuiet); err == nil {
+			if len(oldSettings.QuietHours) > 0 {
+				_ = json.Unmarshal(oldSettings.QuietHours, &oldQuiet)
+			}
+			if newQuiet.EmergencyLock != oldQuiet.EmergencyLock {
+				group, err := s.botRepo.GetGroupByID(ctx, groupID)
+				if err == nil && group != nil {
+					bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
+					if err == nil && bot != nil {
+						token, _ := DecryptToken(bot.BotTokenEncrypted)
+						if token != "" {
+							var customTexts repository.SettingsCustomTexts
+							if len(newSettings.CustomTexts) > 0 {
+								_ = json.Unmarshal(newSettings.CustomTexts, &customTexts)
+							}
+							var general repository.SettingsGeneral
+							if len(newSettings.General) > 0 {
+								_ = json.Unmarshal(newSettings.General, &general)
+							}
+							lang := general.Language
+							if lang == "" {
+								lang = "fa"
+							}
+							timeStr := time.Now().Format("15:04")
+							if newQuiet.EmergencyLock {
+								s.sendQHNotice(ctx, *group, "start", customTexts.SilenceStartText, timeStr, lang, general)
+							} else {
+								s.sendQHNotice(ctx, *group, "end", customTexts.SilenceEndText, timeStr, lang, general)
+							}
+						}
 					}
 				}
 			}
@@ -838,18 +864,23 @@ func (s *BotService) UpdateSettings(ctx context.Context, groupID uuid.UUID, cate
 						canSendPolls := !(content.BlockPolls.Enabled && content.BlockPolls.Window == "Always")
 						canSendOther := !(content.BlockStickers.Enabled && content.BlockStickers.Window == "Always")
 						canAddPreviews := !(content.RemoveLinks.Enabled && content.RemoveLinks.Window == "Always")
-						canSendMsgs := true
+						bTrue := true
 
 						perms := telegram.ChatPermissions{
-							CanSendMessages:       &canSendMsgs,
+							CanSendMessages:       &bTrue,
 							CanSendAudios:         &canSendAudios,
 							CanSendDocuments:      &canSendDocs,
 							CanSendPhotos:         &canSendPhotos,
 							CanSendVideos:         &canSendVideos,
+							CanSendVideoNotes:     &canSendVideos,
 							CanSendVoiceNotes:     &canSendVoice,
 							CanSendPolls:          &canSendPolls,
 							CanSendOtherMessages:  &canSendOther,
 							CanAddWebPagePreviews: &canAddPreviews,
+							CanChangeInfo:         &bTrue,
+							CanInviteUsers:        &bTrue,
+							CanPinMessages:        &bTrue,
+							CanManageTopics:       &bTrue,
 						}
 						_ = tg.SetChatPermissions(ctx, group.ChatID, perms, true)
 					}
@@ -1591,60 +1622,82 @@ func (s *BotService) ListGroupWarnings(ctx context.Context, groupID uuid.UUID, o
 
 	settings, _ := s.settingsRepo.GetSettings(ctx, groupID)
 	threshold := 3
+	retentionDays := 7
 	if settings != nil {
 		var g repository.SettingsGeneral
-		if json.Unmarshal(settings.General, &g) == nil && g.WarningThreshold > 0 {
-			threshold = g.WarningThreshold
+		if json.Unmarshal(settings.General, &g) == nil {
+			if g.WarningThreshold > 0 {
+				threshold = g.WarningThreshold
+			}
+			if g.WarningRetention > 0 {
+				retentionDays = g.WarningRetention
+			}
 		}
 	}
 
-	// Get warnings from audit logs
-	logs, err := s.auditRepo.GetByGroup(ctx, groupID, 100, 0)
-	if err != nil {
-		return nil, err
-	}
-
+	// 1. Fetch warned members from group_events
 	warningMap := make(map[int64]*MemberWarning)
-	for _, l := range logs {
-		if strings.HasPrefix(l.Action, "warn") || strings.Contains(l.Action, "warning") || strings.Contains(string(l.Metadata), "warning") {
-			targetID := l.ActorID
-			if l.TargetID != nil {
-				if parsed, parseErr := strconv.ParseInt(*l.TargetID, 10, 64); parseErr == nil && parsed > 0 {
-					targetID = parsed
+	if s.analyticsRepo != nil {
+		records, err := s.analyticsRepo.GetGroupWarnedMembers(ctx, groupID, retentionDays)
+		if err == nil {
+			for _, rec := range records {
+				count := rec.Count
+				if s.cache != nil && s.cache.Client != nil {
+					warnKey := fmt.Sprintf("warn_count:%s:%d", groupID, rec.UserID)
+					if val, err := s.cache.Client.Get(ctx, warnKey).Result(); err == nil {
+						if c, err := strconv.Atoi(val); err == nil && c > 0 {
+							count = c
+						}
+					}
 				}
-			}
-			if targetID == 0 {
-				continue
-			}
-
-			reason := "Violation of group rules"
-			var meta map[string]interface{}
-			if len(l.Metadata) > 0 && json.Unmarshal(l.Metadata, &meta) == nil {
-				if r, ok := meta["reason"].(string); ok && r != "" {
-					reason = r
-				}
-			}
-
-			// Read count from Redis if available
-			count := 1
-			if s.cache != nil && s.cache.Client != nil {
-				key := fmt.Sprintf("warnings:%s:%d", groupID, targetID)
-				if val, err := s.cache.Client.Get(ctx, key).Result(); err == nil {
-					if c, err := strconv.Atoi(val); err == nil && c > 0 {
-						count = c
+				if count > 0 {
+					warningMap[rec.UserID] = &MemberWarning{
+						UserID:       rec.UserID,
+						Username:     fmt.Sprintf("user_%d", rec.UserID),
+						FirstName:    "Member",
+						WarningCount: count,
+						Threshold:    threshold,
+						LastReason:   rec.LastReason,
+						UpdatedAt:    rec.UpdatedAt,
 					}
 				}
 			}
+		}
+	}
 
-			if _, exists := warningMap[targetID]; !exists {
-				warningMap[targetID] = &MemberWarning{
-					UserID:       targetID,
-					Username:     fmt.Sprintf("user_%d", targetID),
-					FirstName:    "Member",
-					WarningCount: count,
-					Threshold:    threshold,
-					LastReason:   reason,
-					UpdatedAt:    l.CreatedAt,
+	// 2. Also check audit logs for manual admin warnings if any
+	logs, err := s.auditRepo.GetByGroup(ctx, groupID, 50, 0)
+	if err == nil {
+		for _, l := range logs {
+			if strings.HasPrefix(l.Action, "warn") || strings.Contains(l.Action, "warning") {
+				targetID := l.ActorID
+				if l.TargetID != nil {
+					if parsed, parseErr := strconv.ParseInt(*l.TargetID, 10, 64); parseErr == nil && parsed > 0 {
+						targetID = parsed
+					}
+				}
+				if targetID == 0 {
+					continue
+				}
+				if _, exists := warningMap[targetID]; !exists {
+					count := 1
+					if s.cache != nil && s.cache.Client != nil {
+						warnKey := fmt.Sprintf("warn_count:%s:%d", groupID, targetID)
+						if val, err := s.cache.Client.Get(ctx, warnKey).Result(); err == nil {
+							if c, err := strconv.Atoi(val); err == nil && c > 0 {
+								count = c
+							}
+						}
+					}
+					warningMap[targetID] = &MemberWarning{
+						UserID:       targetID,
+						Username:     fmt.Sprintf("user_%d", targetID),
+						FirstName:    "Member",
+						WarningCount: count,
+						Threshold:    threshold,
+						LastReason:   "Admin warning",
+						UpdatedAt:    l.CreatedAt,
+					}
 				}
 			}
 		}
@@ -1664,8 +1717,11 @@ func (s *BotService) ResetGroupWarnings(ctx context.Context, groupID uuid.UUID, 
 	}
 
 	if s.cache != nil && s.cache.Client != nil {
-		key := fmt.Sprintf("warnings:%s:%d", groupID, targetUserID)
-		s.cache.Client.Del(ctx, key)
+		s.cache.Client.Del(ctx, fmt.Sprintf("warn_count:%s:%d", groupID, targetUserID))
+		s.cache.Client.Del(ctx, fmt.Sprintf("warnings:%s:%d", groupID, targetUserID))
+	}
+	if s.analyticsRepo != nil {
+		_ = s.analyticsRepo.ResetUserWarnings(ctx, groupID, targetUserID)
 	}
 
 	targetStr := fmt.Sprintf("%d", targetUserID)

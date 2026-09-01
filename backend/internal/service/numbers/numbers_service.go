@@ -77,6 +77,15 @@ func NewNumbersService(
 	}
 }
 
+func (s *NumbersService) getTonUsdRate() float64 {
+	if s.cryptoPrice != nil {
+		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
+			return r
+		}
+	}
+	return 5.50
+}
+
 type NumbersIntelResponse struct {
 	TotalSupply     int                `json:"total_supply"`
 	SupplyStatus    string             `json:"supply_status"`
@@ -108,18 +117,21 @@ type PriceChartPoint struct {
 
 type AuctionItem struct {
 	Number     string    `json:"number"`
-	Display    string    `json:"display_number"`
-	CurrentBid float64   `json:"current_bid_ton"`
+	PriceTON   float64   `json:"price_ton"`
 	EndsAt     time.Time `json:"ends_at"`
-	Color      string    `json:"color"`
+	Source     string    `json:"source"`
+	MarketURL  string    `json:"market_url"`
+	DataStatus string    `json:"data_status"`
 }
 
 type TrendingTailItem struct {
-	TailClass    string  `json:"tail_class"`
-	Label        string  `json:"label"`
-	VolumeGrowth float64 `json:"volume_growth_pct"`
-	AvgPriceTON  float64 `json:"avg_price_ton"`
-	IsHot        bool    `json:"is_hot"`
+	Pattern        string  `json:"pattern"`
+	NameEn         string  `json:"name_en"`
+	NameFa         string  `json:"name_fa"`
+	FloorPriceTON  float64 `json:"floor_price_ton"`
+	FloorPriceUSD  float64 `json:"floor_price_usd"`
+	PriceChange24h float64 `json:"price_change_24h"`
+	IsRising       bool    `json:"is_rising"`
 }
 
 type HallOfFameItem struct {
@@ -129,13 +141,16 @@ type HallOfFameItem struct {
 	PriceTON     float64 `json:"price_ton"`
 	PriceUSD     float64 `json:"price_usd"`
 	SaleDate     string  `json:"sale_date"`
-	Color        string  `json:"color"`
-	TonviewerURL string  `json:"tonviewer_url"`
+	Color        string  `json:"color,omitempty"`
+	TonviewerURL string  `json:"tonviewer_url,omitempty"`
+	Category     string  `json:"category,omitempty"`
+	Verified     bool    `json:"verified"`
+	IsGenesis4D  bool    `json:"is_genesis_4d"`
 }
 
-// GetNumbersIntel generates the market intelligence overview strictly from real DB records
+// GetNumbersIntel generates the market intelligence dashboard from live market snapshots and DB
 func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResponse, error) {
-	cacheKey := "numbers:intel_overview"
+	cacheKey := "numbers_intel_board"
 	if s.cache != nil && s.cache.Client != nil {
 		if val, err := s.cache.Client.Get(ctx, cacheKey).Result(); err == nil && val != "" {
 			var cached NumbersIntelResponse
@@ -145,12 +160,7 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 		}
 	}
 
-	tonUsdRate := 5.50
-	if s.cryptoPrice != nil {
-		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
-			tonUsdRate = r
-		}
-	}
+	tonUsdRate := s.getTonUsdRate()
 
 	_, fngLabel, fngIndex := avm.GetFearAndGreedMultiplier()
 	now := time.Now().UTC()
@@ -353,19 +363,7 @@ func (s *NumbersService) ValuateNumber(ctx context.Context, userID int64, number
 	}
 
 	// 2. Execute NV Engine computation
-	val, err := s.engine.Valuate(ctx, norm)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. Persist to purchased reports if user is active
-	if userID > 0 {
-		snapJSON, _ := json.Marshal(val)
-		fairNano := val.ExpectedTON.Mul(decimal.NewFromInt(1e9)).IntPart()
-		_, _ = s.repo.SaveNumberReport(ctx, userID, norm, fairNano, int(val.ConfidenceScore), snapJSON)
-	}
-
-	return val, nil
+	return s.engine.Valuate(ctx, norm)
 }
 
 // UnlockWithCoins unlocks report using Airdrop coins strictly with atomic transaction isolation
@@ -447,7 +445,19 @@ func (s *NumbersService) UnlockWithCredit(ctx context.Context, userID int64, num
 		}
 	}
 
-	return s.ValuateNumber(ctx, userID, norm)
+	val, err := s.engine.Valuate(ctx, norm)
+	if err != nil {
+		return nil, err
+	}
+
+	// Persist purchased report
+	if userID > 0 {
+		snapJSON, _ := json.Marshal(val)
+		fairNano := val.ExpectedTON.Mul(decimal.NewFromInt(1e9)).IntPart()
+		_, _ = s.repo.SaveNumberReport(ctx, userID, norm, fairNano, int(val.ConfidenceScore), snapJSON)
+	}
+
+	return val, nil
 }
 
 // ToggleWatchlist enables notification alerts (Sacred Rule 4: only allowed if report purchased)
@@ -646,12 +656,7 @@ func (s *NumbersService) ScanWalletPortfolio(ctx context.Context, walletAddress 
 		return nil, errors.New("wallet address cannot be empty")
 	}
 
-	tonUsdRate := 5.50
-	if s.cryptoPrice != nil {
-		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
-			tonUsdRate = r
-		}
-	}
+	tonUsdRate := s.getTonUsdRate()
 
 	seenNumbers := make(map[string]bool)
 	var orderedNums []string
@@ -860,12 +865,7 @@ func (s *NumbersService) ScanWalletPortfolio(ctx context.Context, walletAddress 
 
 // GetLiveActivityTicker returns the latest on-chain sales stream
 func (s *NumbersService) GetLiveActivityTicker(ctx context.Context) ([]nvengine.LiveActivityItem, error) {
-	tonUsdRate := 5.50
-	if s.cryptoPrice != nil {
-		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
-			tonUsdRate = r
-		}
-	}
+	tonUsdRate := s.getTonUsdRate()
 
 	items := make([]nvengine.LiveActivityItem, 0)
 	if s.db != nil && s.db.Pool != nil {
@@ -1202,7 +1202,8 @@ func (s *NumbersService) GetNumbersList(ctx context.Context, params NumbersListP
 			if resp.StatusCode == http.StatusOK {
 				bodyBytes, readErr := io.ReadAll(resp.Body)
 				if readErr == nil {
-					items, totalPages := parseNumbersHTML(string(bodyBytes))
+					rate := s.getTonUsdRate()
+					items, totalPages := parseNumbersHTML(string(bodyBytes), rate)
 					if len(items) > 0 {
 						res := &NumbersListResponse{
 							Items:      items,
@@ -1223,7 +1224,8 @@ func (s *NumbersService) GetNumbersList(ctx context.Context, params NumbersListP
 	}
 
 	// 3. Fallback generator respecting all filter parameters
-	fallback := generateSmartFallback(params)
+	rate := s.getTonUsdRate()
+	fallback := generateSmartFallback(params, rate)
 	if s.cache != nil && s.cache.Client != nil {
 		if bytes, err := json.Marshal(fallback); err == nil {
 			_ = s.cache.Client.Set(ctx, cacheKey, string(bytes), 15*time.Second).Err()
@@ -1232,7 +1234,7 @@ func (s *NumbersService) GetNumbersList(ctx context.Context, params NumbersListP
 	return fallback, nil
 }
 
-func parseNumbersHTML(htmlStr string) ([]NumberTableItem, int) {
+func parseNumbersHTML(htmlStr string, tonRate float64) ([]NumberTableItem, int) {
 	tbodyIdx := strings.Index(htmlStr, "<tbody>")
 	if tbodyIdx == -1 {
 		return nil, 0
@@ -1361,7 +1363,7 @@ func parseNumbersHTML(htmlStr string) ([]NumberTableItem, int) {
 			ColorHex:      colorHex,
 			ColorName:     "NFT Color",
 			LastSaleTON:   lastSaleTON,
-			LastSaleUSD:   math.Round(lastSaleTON * 5.5),
+			LastSaleUSD:   math.Round(lastSaleTON * tonRate),
 			LastSaleDate:  lastSaleDate,
 			CurrentBidTON: currentBidTON,
 			OwnersCount:   ownersCount,
@@ -1377,7 +1379,7 @@ func parseNumbersHTML(htmlStr string) ([]NumberTableItem, int) {
 	return items, totalPages
 }
 
-func generateSmartFallback(params NumbersListParams) *NumbersListResponse {
+func generateSmartFallback(params NumbersListParams, tonRate float64) *NumbersListResponse {
 	baseColors := []struct {
 		Hex  string
 		Name string
@@ -1470,7 +1472,7 @@ func generateSmartFallback(params NumbersListParams) *NumbersListResponse {
 			ColorHex:      color.Hex,
 			ColorName:     color.Name,
 			LastSaleTON:   price,
-			LastSaleUSD:   math.Round(price * 5.5),
+			LastSaleUSD:   math.Round(price * tonRate),
 			LastSaleDate:  "On-Chain",
 			CurrentBidTON: currentBid,
 			OwnersCount:   owners,

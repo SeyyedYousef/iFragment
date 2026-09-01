@@ -89,7 +89,6 @@ type SettingsContentRestrictions struct {
 	BlockDomains              RestrictionDetail `json:"blockDomains"`
 	BlockUsernames            RestrictionDetail `json:"blockUsernames"`
 	BlockHashtags             RestrictionDetail `json:"blockHashtags"`
-	BlockTextPatterns         RestrictionDetail `json:"blockTextPatterns"`
 	BlockEmojis               RestrictionDetail `json:"blockEmojis"`
 	BlockEmojiOnly            RestrictionDetail `json:"blockEmojiOnly"`
 	BlockPhoneNumbers         RestrictionDetail `json:"blockPhoneNumbers"`
@@ -296,9 +295,7 @@ func IsLegacyText(val string) bool {
 		strings.Contains(val, "No Spam, Ads, or Unauthorized Links") ||
 		strings.Contains(val, "join required channels to chat in") ||
 		strings.Contains(val, "invite {remainadd} member(s) to chat in") ||
-		strings.Contains(val, "Warning <b>{count}") ||
-		strings.Contains(val, "حالت سکوت") ||
-		strings.Contains(val, "خوش‌آمدید")
+		strings.Contains(val, "Warning <b>{count}")
 }
 
 func populateCustomTextsDefaults(raw json.RawMessage, lang ...string) json.RawMessage {
@@ -308,13 +305,13 @@ func populateCustomTextsDefaults(raw json.RawMessage, lang ...string) json.RawMe
 	}
 
 	defaults := map[string]interface{}{
-		"welcomeText":      "👋 Welcome {user}",
-		"warningText":      "⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}",
-		"silenceStartText": "🔒 Quiet mode activated",
-		"silenceEndText":   "🔓 Quiet mode deactivated",
-		"rulesText":        "📜 <b>Rules</b>: Respect others • No spam or links",
-		"forceJoinText":    "📢 {user}, join required channels to chat:\n{channel_names}",
-		"forceAddText":     "👥 {user}, invite {remainadd} member(s) to chat ({added}/{number})",
+		"welcomeText":      "👋 {user} عزیز، به گروه {group} خوش آمدی 🌹",
+		"warningText":      "⚠️ {user}\n▫️ اخطار {count}/{threshold} — {reason}",
+		"silenceStartText": "🌙 ساعات سکوت گروه آغاز شد.",
+		"silenceEndText":   "☀️ ساعات سکوت پایان یافت. گفتگو آزاد است.",
+		"rulesText":        "📜 قوانین گروه: احترام متقابل • بدون تبلیغات و لینک • رعایت ادب",
+		"forceJoinText":    "📢 {user}، برای گفتگو ابتدا در کانال‌های زیر عضو شو:\n{channel_names}",
+		"forceAddText":     "👥 {user}، برای فعال شدن چت، {remainadd} نفر دعوت کن ({added}/{number})",
 		"inlineButtons":    []interface{}{},
 	}
 

@@ -5,6 +5,8 @@ import { OFFICIAL_GIFTS_120 } from '../model/catalog120.js';
 interface Props {
 	slug: string;
 	name?: string;
+	model?: string;
+	customImageUrl?: string;
 	class?: string;
 	imgClass?: string;
 	size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -26,6 +28,12 @@ export const GiftThumbnail: Component<Props> = (props) => {
 	const emoji = () => giftItem()?.emoji || '🎁';
 
 	const imgSrc = () => {
+		if (props.customImageUrl) {
+			return props.customImageUrl;
+		}
+		if (props.model) {
+			return getGiftCdnImageUrl(cleanSlug(), props.model);
+		}
 		if (useFallbackProxy()) {
 			return getGiftCdnImageUrl(cleanSlug(), giftItem()?.primaryModel);
 		}
@@ -34,7 +42,7 @@ export const GiftThumbnail: Component<Props> = (props) => {
 	};
 
 	const handleImgError = () => {
-		if (!useFallbackProxy()) {
+		if (!useFallbackProxy() && !props.customImageUrl && !props.model) {
 			// Fallback to direct CDN if proxy fails
 			setUseFallbackProxy(true);
 		} else {

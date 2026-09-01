@@ -148,6 +148,7 @@ type Message struct {
 	Entities           []MessageEntity         `json:"entities"`
 	CaptionEntities    []MessageEntity         `json:"caption_entities,omitempty"`
 	ReplyToMessage     *Message                `json:"reply_to_message"`
+	ExternalReply      *ExternalReplyInfo      `json:"external_reply,omitempty"`
 	ForwardFrom        *User                   `json:"forward_from,omitempty"`
 	ForwardFromChat    *Chat                   `json:"forward_from_chat"`
 	ViaBot             *User                   `json:"via_bot"`
@@ -161,6 +162,15 @@ type Message struct {
 	SenderChat         *Chat                   `json:"sender_chat,omitempty"`
 	ReceiverUser       *User                   `json:"receiver_user,omitempty"`
 	EphemeralMessageID telegram.FlexibleString `json:"ephemeral_message_id,omitempty"`
+	MigrateToChatID    *int64                  `json:"migrate_to_chat_id,omitempty"`
+	MigrateFromChatID  *int64                  `json:"migrate_from_chat_id,omitempty"`
+}
+
+type ExternalReplyInfo struct {
+	Origin             json.RawMessage `json:"origin,omitempty"`
+	Chat               *Chat           `json:"chat,omitempty"`
+	MessageID          *int            `json:"message_id,omitempty"`
+	LinkPreviewOptions json.RawMessage `json:"link_preview_options,omitempty"`
 }
 
 type MessageEntity struct {

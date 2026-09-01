@@ -250,6 +250,26 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 			return nil, fmt.Errorf("این کانال قبلا متصل شده است و شما در تلگرام دسترسی ادمین ندارید")
 		}
 
+		// If channel was under a different bot or was disconnected, migrate/reconnect it to the current bot!
+		if existingCh.BotID != bot.ID || existingCh.SubscriptionStatus == "disconnected" {
+			newStatus := existingCh.SubscriptionStatus
+			if newStatus == "disconnected" {
+				newStatus = "trial"
+				hasHadTrial, _ := s.botRepo.HasChatHadTrial(ctx, chatDetail.ID)
+				activeTrials, _ := s.botRepo.GetActiveTrialsCount(ctx, ownerUserID)
+				if hasHadTrial || activeTrials >= 3 {
+					newStatus = "expired"
+				}
+			}
+			errRec := s.channelRepo.ReconnectChannel(ctx, existingCh.ID, bot.ID, ownerUserID, newStatus, chatDetail.Title)
+			if errRec == nil {
+				existingCh.BotID = bot.ID
+				existingCh.ConnectedByUserID = &ownerUserID
+				existingCh.SubscriptionStatus = newStatus
+				existingCh.ChatTitle = chatDetail.Title
+			}
+		}
+
 		metricStatus = "success"
 		return existingCh, nil
 	}

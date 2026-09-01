@@ -155,7 +155,7 @@ func (db *Database) CompleteChannelStarsPayment(ctx context.Context, payload str
 
 	// 2. Fetch current paid_until
 	var currentPaidUntil *time.Time
-	err = tx.QueryRow(ctx, "SELECT paid_until FROM managed_channels WHERE id = $1 FOR UPDATE", channelID).Scan(&currentPaidUntil)
+	err = tx.QueryRow(ctx, "SELECT paid_until FROM managed_channels WHERE id = $1::uuid FOR UPDATE", channelID).Scan(&currentPaidUntil)
 	if err != nil && err != pgx.ErrNoRows {
 		return fmt.Errorf("fetch paid_until: %w", err)
 	}
@@ -166,7 +166,7 @@ func (db *Database) CompleteChannelStarsPayment(ctx context.Context, payload str
 	}
 
 	// 3. Grant subscription
-	_, err = tx.Exec(ctx, "UPDATE managed_channels SET subscription_status = 'premium', paid_until = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", newUntil, channelID)
+	_, err = tx.Exec(ctx, "UPDATE managed_channels SET subscription_status = 'premium', paid_until = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid", newUntil, channelID)
 	if err != nil {
 		return fmt.Errorf("grant channel premium: %w", err)
 	}

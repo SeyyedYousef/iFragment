@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -986,8 +987,29 @@ func (s *ProfileService) GetLedger(ctx context.Context, userID int64, category s
 	return s.db.GetLedgerEvents(ctx, userID, category, limit, cursor)
 }
 
+func (s *ProfileService) getLiveTonRate(ctx context.Context) float64 {
+	if s.cache != nil && s.cache.Client != nil {
+		if val, err := s.cache.Client.Get(ctx, "cryptoprice:the-open-network").Result(); err == nil && val != "" {
+			if r, err := strconv.ParseFloat(val, 64); err == nil && r > 0 {
+				return r
+			}
+		}
+	}
+	return 5.50
+}
+
 func (s *ProfileService) GetMyAssets(ctx context.Context, userID int64) (*model.MyAssetsResponse, error) {
-	return s.db.GetMyAssets(ctx, userID)
+	resp, err := s.db.GetMyAssets(ctx, userID)
+	if err != nil || resp == nil {
+		return resp, err
+	}
+	tonRate := s.getLiveTonRate(ctx)
+	for i := range resp.Gifts {
+		if resp.Gifts[i].EstimatedValGRAM > 0 {
+			resp.Gifts[i].EstimatedValUSD = math.Round(resp.Gifts[i].EstimatedValGRAM*tonRate*100) / 100
+		}
+	}
+	return resp, nil
 }
 
 func (s *ProfileService) ClaimEmojiStatusReward(ctx context.Context, userID int64) (*model.EmojiRewardResponse, error) {

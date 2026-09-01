@@ -26,7 +26,6 @@ interface LimitsConfig {
 	floodWindow: number;
 	duplicateCount: number;
 	duplicateWindow: number;
-	slowMode: number;
 }
 
 const defaultConfig: LimitsConfig = {
@@ -36,18 +35,7 @@ const defaultConfig: LimitsConfig = {
 	floodWindow: 5,
 	duplicateCount: 2,
 	duplicateWindow: 10,
-	slowMode: 0,
 };
-
-const getSlowModePresets = (t: any) => [
-	{ label: t('groupLimits.off'), value: 0 },
-	{ label: '10s', value: 10 },
-	{ label: '30s', value: 30 },
-	{ label: '1m', value: 60 },
-	{ label: '5m', value: 300 },
-	{ label: '15m', value: 900 },
-	{ label: '1h', value: 3600 },
-];
 
 export const LimitsPage: Component = () => {
 	const navigate = useNavigate();
@@ -76,7 +64,6 @@ export const LimitsPage: Component = () => {
 				floodWindow: remoteLimits.floodWindow || 5,
 				duplicateCount: remoteLimits.duplicateCount || 2,
 				duplicateWindow: remoteLimits.duplicateWindow || 10,
-				slowMode: remoteLimits.slowMode ?? 0,
 			};
 
 			setInitialLimits({ ...mappedLimits });
@@ -116,7 +103,6 @@ export const LimitsPage: Component = () => {
 				floodWindow: limits.floodWindow,
 				duplicateCount: limits.duplicateCount,
 				duplicateWindow: limits.duplicateWindow,
-				slowMode: limits.slowMode,
 			};
 			const result = await groupApi.updateSettings(params.id, 'limits', payload, settingsVersion());
 			setSettingsVersion(result.version);
@@ -205,75 +191,11 @@ export const LimitsPage: Component = () => {
 				}
 			>
 				<div class="p-5 flex flex-col gap-5 max-w-md mx-auto relative z-10 w-full">
-					{/* ═══════ NATIVE SLOW MODE CARD ═══════ */}
-					<Motion.div
-						initial={{ opacity: 0, y: 15 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.05 }}
-					>
-						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-[#3390ec]/20 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4">
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-[#3390ec] text-[20px]">
-										hourglass_bottom
-									</span>
-									<h2 class="text-[13px] font-black text-[#3390ec] uppercase tracking-widest">
-										{t('groupLimits.slowModeNative')}
-									</h2>
-								</div>
-								<span class="text-[9px] font-black bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 px-2 py-0.5 rounded-[6px] uppercase tracking-widest">
-									{'NATIVE'}
-								</span>
-							</div>
-
-							<p class="text-[11px] text-white/50 leading-relaxed font-medium">
-								{t('groupLimits.slowModeDesc')}
-							</p>
-
-							{/* Presets */}
-							<div class="grid grid-cols-4 gap-2">
-								<For each={getSlowModePresets(t)}>
-									{(preset) => (
-										<button
-											type="button"
-											onClick={() => {
-												haptic.selection();
-												updateField('slowMode', preset.value);
-											}}
-											class={`h-10 rounded-[12px] text-[12px] font-mono font-bold transition-all border ${
-												limits.slowMode === preset.value
-													? 'bg-[#3390ec] text-white border-transparent shadow-[0_0_12px_rgba(51,144,236,0.5)]'
-													: 'bg-[#08090D] text-white/60 border-white/10 hover:border-white/20'
-											}`}
-										>
-											{preset.label}
-										</button>
-									)}
-								</For>
-							</div>
-
-							<div class="flex items-center gap-3 pt-1">
-								<input
-									type="range"
-									min="0"
-									max="3600"
-									step="10"
-									value={limits.slowMode}
-									onInput={(e) => updateField('slowMode', parseInt(e.currentTarget.value, 10) || 0)}
-									class="w-full accent-[#3390ec] cursor-pointer"
-								/>
-								<span class="text-[13px] font-mono font-black text-white shrink-0 min-w-[50px] text-end">
-									{limits.slowMode}s
-								</span>
-							</div>
-						</div>
-					</Motion.div>
-
 					{/* ═══════ FLOOD CONTROL CARD ═══════ */}
 					<Motion.div
 						initial={{ opacity: 0, y: 15 }}
 						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.1 }}
+						transition={{ delay: 0.05 }}
 					>
 						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4">
 							<div class="flex items-center gap-2">

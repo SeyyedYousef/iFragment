@@ -432,7 +432,9 @@ export const GiftReportPage: Component = () => {
 									<div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-[#0098EA]/30 to-[#AF52DE]/30 p-[1px] mb-3 shadow-2xl shadow-[#0098EA]/30 flex items-center justify-center overflow-hidden">
 										<GiftThumbnail
 											slug={resolvedModelSlug()}
-											alt={giftName()}
+											name={giftName()}
+											model={currentReport()?.selected_model || currentReport()?.trait_dna?.[0]?.value}
+											customImageUrl={currentReport()?.image_url}
 											class="w-full h-full object-contain p-2 drop-shadow-xl"
 										/>
 									</div>
@@ -632,7 +634,7 @@ export const GiftReportPage: Component = () => {
 												<div class="w-full h-16 rounded-xl bg-black/40 flex items-center justify-center p-1.5 mb-2 overflow-hidden">
 													<GiftThumbnail
 														slug={item.slug}
-														alt={item.name}
+														name={item.name}
 														class="w-full h-full object-contain group-hover:scale-110 transition-transform"
 													/>
 												</div>

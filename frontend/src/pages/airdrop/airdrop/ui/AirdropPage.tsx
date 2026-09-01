@@ -220,7 +220,7 @@ export const AirdropPage: Component = () => {
 			<Show when={offlineEarnings() > 0}>
 				<div
 					class="fixed inset-0 z-[100] flex items-center justify-center p-5 bg-black/80 backdrop-blur-md animate-fade-in"
-					dir="rtl"
+					dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 				>
 					<div class="bg-[#12141C] w-full max-w-sm rounded-[32px] p-7 flex flex-col items-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/10 relative overflow-hidden animate-slide-up">
 						{/* Ambient Glows */}

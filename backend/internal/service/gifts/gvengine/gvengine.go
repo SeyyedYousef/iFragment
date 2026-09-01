@@ -20,6 +20,7 @@ import (
 	"ifragment-backend/internal/service/gifts/crafting"
 	"ifragment-backend/internal/service/gifts/risk"
 	"ifragment-backend/internal/service/gifts/starsrate"
+	"ifragment-backend/internal/service/gifts/telegramnft"
 	"ifragment-backend/internal/service/gifts/traits"
 	"ifragment-backend/internal/service/gifts/upgrade"
 	"ifragment-backend/internal/service/gifts/venues"
@@ -39,6 +40,7 @@ type ValuationEngine struct {
 	cache          *repository.Cache
 	giftsRepo      *repository.GiftsRepo
 	cryptoPriceSvc *cryptoprice.CryptoPriceService
+	nftResolver    *telegramnft.Resolver
 	sfGroup        singleflight.Group
 }
 
@@ -52,6 +54,7 @@ func NewValuationEngine(
 		cache:          cache,
 		giftsRepo:      repository.NewGiftsRepo(db),
 		cryptoPriceSvc: cryptoPrice,
+		nftResolver:    telegramnft.NewResolver(),
 	}
 }
 
@@ -136,6 +139,21 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 
 	col, _ := traits.ResolveCollection(ref.ModelID)
 
+	selectedModel := ""
+	ownerName := ""
+	imageURL := ""
+
+	if e.nftResolver != nil && ref.SerialNumber > 0 {
+		if liveNFT, err := e.nftResolver.ResolveGiftNFT(ctx, ref.ModelID, ref.SerialNumber); err == nil && liveNFT != nil {
+			selectedModel = liveNFT.Model
+			ownerName = liveNFT.OwnerName
+			imageURL = liveNFT.ImageURL
+			if liveNFT.TotalSupply > 0 {
+				col.TotalSupply = liveNFT.TotalSupply
+			}
+		}
+	}
+
 	gramUsdRate := 5.50
 	if e.cryptoPriceSvc != nil {
 		if rate, ok := e.cryptoPriceSvc.GetFloatPrice("the-open-network"); ok && rate > 0 {
@@ -160,6 +178,9 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 		ModelID:          col.ModelID,
 		ModelName:        col.Name,
 		SerialNumber:     ref.SerialNumber,
+		SelectedModel:    selectedModel,
+		OwnerName:        ownerName,
+		ImageURL:         imageURL,
 		SignalsAnalyzed:  signalsCount,
 		RisksIdentified:  risksCount,
 		DataSourcesCount: 6, // Fragment, Getgems, Tonnel, Portals, MRKT, Telegram Stars
@@ -190,6 +211,17 @@ func (e *ValuationEngine) Valuate(ctx context.Context, raw string) (*GiftValuati
 func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftRef) (*GiftValuation, error) {
 	col, isKnownCol := traits.ResolveCollection(ref.ModelID)
 
+	// Live on-chain resolver for real model, backdrop, symbol, and owner
+	var liveNFT *telegramnft.LiveNFTDetails
+	if e.nftResolver != nil && ref.SerialNumber > 0 {
+		if details, err := e.nftResolver.ResolveGiftNFT(ctx, ref.ModelID, ref.SerialNumber); err == nil && details != nil {
+			liveNFT = details
+			if liveNFT.TotalSupply > 0 {
+				col.TotalSupply = liveNFT.TotalSupply
+			}
+		}
+	}
+
 	// 1. Fetch live GRAM/USD rate (CryptoPrice TON equivalent)
 	gramUsdRate := 5.50
 	if e.cryptoPriceSvc != nil {
@@ -209,11 +241,22 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	beta0 := math.Log(col.InitialFloorGRAM)
 
 	// Axis 1: Model scarcity & crafted multiplier
+	modelKey := col.Name
+	modelPct := 2.0
+	if liveNFT != nil && liveNFT.Model != "" {
+		modelKey = liveNFT.Model
+		if liveNFT.ModelRarityPct > 0 {
+			modelPct = liveNFT.ModelRarityPct
+		}
+	}
+
 	betaModel := 0.0
 	if col.CraftedFlag {
 		betaModel = 0.85 // High prestige for crafted-only outputs
-	} else if col.TotalSupply <= 2500 {
+	} else if modelPct <= 1.0 {
 		betaModel = 0.65
+	} else if modelPct <= 3.0 {
+		betaModel = 0.45
 	} else if col.TotalSupply <= 5000 {
 		betaModel = 0.35
 	}
@@ -247,7 +290,15 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		}
 	}
 
-	if !foundDBBackdrop {
+	if liveNFT != nil && liveNFT.Backdrop != "" {
+		backdropKey = liveNFT.Backdrop
+		backdropCertainty = "exact"
+		if liveNFT.BackdropRarity > 0 {
+			backdropPermille = int(liveNFT.BackdropRarity * 10)
+		}
+		_, _, bColors, _ := traits.ResolveBackdrop(backdropKey)
+		backdropColors = bColors
+	} else if !foundDBBackdrop {
 		bName, bPerm, bColors, isExact := traits.ResolveBackdrop(backdropKey)
 		backdropKey = bName
 		backdropPermille = bPerm
@@ -260,19 +311,19 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		backdropColors = bColors
 	}
 
-	if !foundDBSymbol {
+	if liveNFT != nil && liveNFT.Symbol != "" {
+		symbolKey = liveNFT.Symbol
+		symbolCertainty = "exact"
+		if liveNFT.SymbolRarityPct > 0 {
+			symbolPermille = int(liveNFT.SymbolRarityPct * 10)
+		}
+	} else if !foundDBSymbol {
 		sName, sPerm, _, isExact := traits.ResolveSymbol(symbolKey)
 		symbolKey = sName
 		symbolPermille = sPerm
 		if !isExact {
 			symbolCertainty = "estimated"
 		}
-	}
-
-	bdMeta := traits.OfficialBackdrops[backdropKey]
-	if bdMeta.Permille > 0 {
-		backdropPermille = bdMeta.Permille
-		backdropColors = bdMeta.Colors
 	}
 
 	// Continuous smooth backdrop rarity curve: elasticity * ln(1000 / permille)
@@ -340,7 +391,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	if isKnownCol {
 		confidence += 6
 	}
-	if foundDBBackdrop || foundDBSymbol {
+	if foundDBBackdrop || foundDBSymbol || (liveNFT != nil) {
 		confidence += 8
 	}
 	if len(comps) > 0 {
@@ -352,7 +403,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	calibratedConfidence, _ := core.GetCalibratedConfidenceScore(confidence, len(comps), ModelVersion)
 
 	// 6. Trait DNA with Certainty Badges
-	traitDNA := buildTraitDNAWithCertainty(col, ref.SerialNumber, backdropKey, backdropPermille, backdropColors, symbolKey, symbolPermille, backdropCertainty, symbolCertainty)
+	traitDNA := buildTraitDNAWithCertainty(col, ref.SerialNumber, modelKey, modelPct, backdropKey, backdropPermille, backdropColors, symbolKey, symbolPermille, backdropCertainty, symbolCertainty)
 
 	// 7. Multi-Market Exit Planner (7 venues ranked by net payout)
 	exitPlanner := venues.ComputeExitPlan(ctx, expectedGRAM, gramUsdRate, 80)
@@ -447,12 +498,23 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		"comparables":        compSummaries,
 	}
 
+	selectedModel := modelKey
+	ownerName := ""
+	imageURL := ""
+	if liveNFT != nil {
+		ownerName = liveNFT.OwnerName
+		imageURL = liveNFT.ImageURL
+	}
+
 	valuation := &GiftValuation{
 		RunID:              time.Now().UnixNano(),
 		GiftID:             ref.GiftID,
 		ModelID:            ref.ModelID,
 		ModelName:          col.Name,
 		SerialNumber:       ref.SerialNumber,
+		SelectedModel:      selectedModel,
+		OwnerName:          ownerName,
+		ImageURL:           imageURL,
 		DisplayTitle:       fmt.Sprintf("%s #%d", col.Name, ref.SerialNumber),
 		ModelVersion:       ModelVersion,
 		BasePriceGRAM:      decimal.NewFromFloat(expectedGRAM),
@@ -635,24 +697,26 @@ func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, 
 	return comps, finalLogP, mad, "hedonic_model_floor_basis"
 }
 
-func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, backdropName string, backdropPermille int, colors traits.BackdropColorSet, symbolName string, symbolPermille int, backdropCert, symbolCert string) []TraitDNABar {
+func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, modelName string, modelPct float64, backdropName string, backdropPermille int, colors traits.BackdropColorSet, symbolName string, symbolPermille int, backdropCert, symbolCert string) []TraitDNABar {
 	serialPct, serialRankText := traits.CalculateSerialPercentile(serial, col.TotalSupply)
 	bdRarity := traits.CalculateExactRarity("backdrop", backdropName, backdropPermille, &colors)
 	symRarity := traits.CalculateExactRarity("symbol", symbolName, symbolPermille, nil)
 
-	modelPct := (float64(col.TotalSupply) / 1000000.0) * 100.0
-	if modelPct < 0.1 {
-		modelPct = 0.1
+	if modelPct <= 0 {
+		modelPct = (float64(col.TotalSupply) / 1000000.0) * 100.0
+		if modelPct < 0.1 {
+			modelPct = 0.1
+		}
 	}
 
 	modelTier := "Common"
-	if col.TotalSupply <= 2000 {
+	if modelPct <= 1.0 || col.TotalSupply <= 2000 {
 		modelTier = "Legendary"
-	} else if col.TotalSupply <= 5000 {
+	} else if modelPct <= 5.0 || col.TotalSupply <= 5000 {
 		modelTier = "Epic"
-	} else if col.TotalSupply <= 15000 {
+	} else if modelPct <= 15.0 || col.TotalSupply <= 15000 {
 		modelTier = "Rare"
-	} else if col.TotalSupply <= 50000 {
+	} else if modelPct <= 35.0 || col.TotalSupply <= 50000 {
 		modelTier = "Uncommon"
 	}
 
@@ -667,12 +731,17 @@ func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, backdropN
 		serialTier = "Uncommon"
 	}
 
+	displayName := col.Name
+	if modelName != "" && modelName != col.Name {
+		displayName = fmt.Sprintf("%s (%s)", col.Name, modelName)
+	}
+
 	return []TraitDNABar{
 		{
 			AxisKey:        "model",
 			LabelEn:        "Model Core",
 			LabelFa:        "مدل کالکشن",
-			Value:          col.Name,
+			Value:          displayName,
 			Percentile:     math.Round(modelPct*100.0) / 100.0,
 			RarityTier:     modelTier,
 			CertaintyLevel: "exact", // Official Collection Model is verified
@@ -713,7 +782,7 @@ func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, backdropN
 }
 
 func buildTraitDNA(col traits.CollectionMeta, serial int, backdropName string, backdropPermille int, colors traits.BackdropColorSet, symbolPermille int) []TraitDNABar {
-	return buildTraitDNAWithCertainty(col, serial, backdropName, backdropPermille, colors, "Aero Crest", symbolPermille, "exact", "exact")
+	return buildTraitDNAWithCertainty(col, serial, col.Name, 0, backdropName, backdropPermille, colors, "Aero Crest", symbolPermille, "exact", "exact")
 }
 
 func buildGiftRecommendation(expectedGRAM float64, exitPlan *venues.ExitPlannerPlan, craftEV *crafting.CraftingEVResult) ValuationActionVerdict {
