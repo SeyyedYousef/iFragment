@@ -1,6 +1,7 @@
 import { useNavigate } from '@solidjs/router';
+import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
-import { OFFICIAL_GIFTS_120, type OfficialGiftItem, getGiftCdnImageUrl, GiftThumbnail } from '@/entities/gifts/index.js';
+import { OFFICIAL_GIFTS_120, type OfficialGiftItem, giftsApi, GiftThumbnail } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -13,6 +14,55 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 	const [searchQuery, setSearchQuery] = createSignal('');
 	const [selectedTag, setSelectedTag] = createSignal<string>('all');
 	const [showAllChips, setShowAllChips] = createSignal(false);
+
+	const collectionsQuery = createQuery(() => ({
+		queryKey: ['giftsCollectionsCatalog'],
+		queryFn: () => giftsApi.listCollections(),
+		staleTime: 5 * 60 * 1000,
+	}));
+
+	const liveMap = createMemo(() => {
+		const map = new Map<string, { floor: number; supply: number }>();
+		if (collectionsQuery.data) {
+			for (const col of collectionsQuery.data) {
+				const key = (col.slug || '').toLowerCase().replace(/_/g, '-');
+				map.set(key, { floor: col.floor_gram, supply: col.total_supply });
+				if (col.name) {
+					map.set(col.name.toLowerCase(), { floor: col.floor_gram, supply: col.total_supply });
+				}
+			}
+		}
+		return map;
+	});
+
+	const getGiftFloor = (gift: OfficialGiftItem): number => {
+		const clean = (gift.slug || '').toLowerCase().replace(/_/g, '-');
+		const live = liveMap().get(clean) || liveMap().get(gift.name.toLowerCase());
+		if (live && live.floor > 0) {
+			return live.floor;
+		}
+		if (gift.floorTon && gift.floorTon > 0) {
+			return gift.floorTon;
+		}
+		switch (gift.tag) {
+			case 'Bluechip': return 85;
+			case 'Luxury': return 65;
+			case 'Special': return 50;
+			case 'Talisman': return 45;
+			case 'Tech': return 40;
+			case 'Seasonal': return 35;
+			default: return 30;
+		}
+	};
+
+	const getGiftSupply = (gift: OfficialGiftItem): number => {
+		const clean = (gift.slug || '').toLowerCase().replace(/_/g, '-');
+		const live = liveMap().get(clean) || liveMap().get(gift.name.toLowerCase());
+		if (live && live.supply > 0) {
+			return live.supply;
+		}
+		return gift.supply || 10000;
+	};
 
 	const tags = () => [
 		{ id: 'all', label: t('gifts.quickSelectAll') || 'همه ۱۲۰ گیفت' },
@@ -171,12 +221,13 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 										<h4 class="text-sm font-bold text-white truncate group-hover:text-[#0098EA] transition-colors">
 											{gift.name}
 										</h4>
-										<span class="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-white/[0.04] text-white/40 border border-white/5 flex-shrink-0">
+										<span class="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-white/40 border border-white/5 flex-shrink-0">
 											{gift.tag}
 										</span>
 									</div>
-									<div class="text-[10px] text-white/40 font-mono mt-0.5 truncate">
-										{gift.supply ? `${gift.supply.toLocaleString()} Items` : '100% On-Chain'}
+									<div class="text-[11px] text-white/50 font-mono mt-0.5 flex items-center gap-1">
+										<span class="text-white/70 font-semibold">{getGiftSupply(gift).toLocaleString()}</span>
+										<span class="text-white/30 text-[10px]">{t('numbers.statItems') || 'آیتم'}</span>
 									</div>
 								</div>
 
@@ -184,10 +235,10 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 								<div class="text-right rtl:text-left flex-shrink-0">
 									<div class="text-sm font-black text-white font-mono flex items-center justify-end rtl:justify-start gap-1">
 										<span class="text-[#0098EA] text-xs">💎</span>
-										<span>{gift.floorTon} TON</span>
+										<span>{getGiftFloor(gift).toLocaleString()} TON</span>
 									</div>
 									<div class="text-[10px] text-white/40 font-mono">
-										≈ ${(gift.floorTon * 4.0).toFixed(0)}
+										≈ ${(getGiftFloor(gift) * 5.5).toFixed(0)}
 									</div>
 								</div>
 							</button>

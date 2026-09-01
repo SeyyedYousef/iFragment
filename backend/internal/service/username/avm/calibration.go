@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service/valuation/core"
 )
 
 // ModelCalibrationSummary encapsulates empirical backtesting accuracy metrics.
@@ -30,58 +31,12 @@ var (
 // GetCalibratedConfidenceScore maps raw heuristic confidence (0-100) into an empirically calibrated probability.
 // Generates an auditable calibration note summarizing post-valuation evaluation accuracy.
 func GetCalibratedConfidenceScore(rawScore int16, sampleSize int) (int16, string) {
-	if sampleSize <= 0 {
-		sampleSize = 312 // Standard holdout baseline sample size
-	}
-
-	// Empirical monotonic mapping from heuristic score bins to actual within-band containment rates
-	var calibrated int16
-	switch {
-	case rawScore >= 85:
-		calibrated = 88 // In ~88% of cases, real post-valuation sale closed inside predicted band
-	case rawScore >= 70:
-		calibrated = 78
-	case rawScore >= 55:
-		calibrated = 68
-	case rawScore >= 40:
-		calibrated = 58
-	case rawScore >= 25:
-		calibrated = 48
-	default:
-		calibrated = 35
-	}
-
-	note := fmt.Sprintf("Confidence score calibrated across %d historical post-valuation sales (AVM v7.0)", sampleSize)
-	return calibrated, note
+	return core.GetCalibratedConfidenceScore(rawScore, sampleSize, "AVM v7.0")
 }
 
 // ComputeAdaptiveUncertainty adjusts the uncertainty multiplier based on measured within-band accuracy.
-// Rationale:
-// - If within_band_pct < 70%, the prediction cone is too narrow for current market dispersion -> increase UncertaintyMult (+0.05, max 1.50).
-// - If within_band_pct > 90%, the prediction cone is overly wide and imprecise -> tighten UncertaintyMult (-0.05, min 1.00).
 func ComputeAdaptiveUncertainty(currentMult float64, withinBandPct float64) (newMult float64, changed bool, reason string) {
-	if currentMult <= 0 {
-		currentMult = 1.50
-	}
-
-	newMult = currentMult
-	changed = false
-
-	if withinBandPct > 0 && withinBandPct < 70.0 {
-		newMult = math.Min(1.50, currentMult+0.05)
-		if newMult != currentMult {
-			changed = true
-			reason = fmt.Sprintf("Within-band rate (%.1f%%) below 70%% target -> expanded uncertainty mult to %.2fx", withinBandPct, newMult)
-		}
-	} else if withinBandPct > 90.0 {
-		newMult = math.Max(1.00, currentMult-0.05)
-		if newMult != currentMult {
-			changed = true
-			reason = fmt.Sprintf("Within-band rate (%.1f%%) above 90%% precision threshold -> tightened uncertainty mult to %.2fx", withinBandPct, newMult)
-		}
-	}
-
-	return newMult, changed, reason
+	return core.ComputeAdaptiveUncertainty(currentMult, withinBandPct)
 }
 
 // RunModelCalibration executes the backtest loop against the database to measure accuracy.

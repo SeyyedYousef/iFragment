@@ -93,13 +93,13 @@ func (r *IntelCreditRepo) ConsumeCreditFIFO(ctx context.Context, userID int64, r
 		}
 	}
 
-	// 2. Select earliest expiring batch with remaining > 0 FOR UPDATE SKIP LOCKED
+	// 2. Select earliest expiring batch with remaining > 0 FOR UPDATE
 	querySelect := `
 		WITH target AS (
 			SELECT id FROM intel_credit_batches
 			WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
 			ORDER BY expires_at NULLS LAST, created_at ASC
-			LIMIT 1 FOR UPDATE SKIP LOCKED
+			LIMIT 1 FOR UPDATE
 		)
 		UPDATE intel_credit_batches b
 		SET remaining = b.remaining - 1

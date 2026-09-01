@@ -85,7 +85,12 @@ export const GiftReportPage: Component = () => {
 			try {
 				haptic.notify('error');
 			} catch { }
-			setUnlockError(err?.response?.data?.message || 'Failed to unlock report with Intel Credit.');
+			const errorMsg =
+				err?.response?.data?.error ||
+				err?.response?.data?.message ||
+				err?.message ||
+				'خطا در بازگشایی گزارش با کردیت اینتل.';
+			setUnlockError(errorMsg);
 		},
 	}));
 

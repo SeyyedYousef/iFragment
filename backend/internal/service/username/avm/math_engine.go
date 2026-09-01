@@ -4,6 +4,8 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"ifragment-backend/internal/service/valuation/core"
 )
 
 type ComparableSale struct {
@@ -19,8 +21,6 @@ type ComparableSale struct {
 }
 
 // ApplyMarketAppreciation inflates the PriceTON of older sales based on a compounded annual growth rate.
-// For example, if annualRate is 0.20 (20%), a sale from 2 years ago is multiplied by 1.20^2 = 1.44.
-// Time horizon is bounded to 8 years maximum to prevent unrealistic runaway appreciation.
 func ApplyMarketAppreciation(sales []ComparableSale, annualRate float64, now time.Time) {
 	ApplyMarketAppreciationWithHorizon(sales, annualRate, 8.0, now)
 }
@@ -49,8 +49,6 @@ func ApplyMarketAppreciationWithHorizon(sales []ComparableSale, annualRate float
 }
 
 // WinsorizeComparables clamps extreme outliers in a set of comparable sales
-// to the [pLow, pHigh] percentiles (default 5th and 95th percentiles).
-// This mitigates the influence of wash sales, manipulative bids, or extreme lowball transactions.
 func WinsorizeComparables(sales []ComparableSale, pLow, pHigh float64) []ComparableSale {
 	if len(sales) < 5 {
 		return sales
@@ -84,7 +82,6 @@ func WinsorizeComparables(sales []ComparableSale, pLow, pHigh float64) []Compara
 	minVal := prices[lowIdx]
 	maxVal := prices[highIdx]
 
-
 	out := make([]ComparableSale, len(sales))
 	for i, s := range sales {
 		out[i] = s
@@ -97,9 +94,7 @@ func WinsorizeComparables(sales []ComparableSale, pLow, pHigh float64) []Compara
 	return out
 }
 
-
-// CalcTimeDecayWeights computes exponential time-decay weights w_i = exp(-λ * days_ago).
-// The reference point is the most recent sale's date (or `now` if provided).
+// CalcTimeDecayWeights computes exponential time-decay weights w_i = exp(-lambda * days_ago).
 func CalcTimeDecayWeights(sales []ComparableSale, lambda float64, now time.Time) []float64 {
 	weights := make([]float64, len(sales))
 	for i, s := range sales {
@@ -112,92 +107,29 @@ func CalcTimeDecayWeights(sales []ComparableSale, lambda float64, now time.Time)
 	return weights
 }
 
-// CalcEffectiveSampleSize computes n_eff = (Σw_i)² / Σ(w_i²).
-// Returns 0 if no weights.
+// CalcEffectiveSampleSize computes n_eff = (Sum w_i)^2 / Sum(w_i^2).
 func CalcEffectiveSampleSize(weights []float64) float64 {
-	if len(weights) == 0 {
-		return 0
-	}
-
-	var sumW, sumW2 float64
-	for _, w := range weights {
-		sumW += w
-		sumW2 += w * w
-	}
-
-	if sumW2 == 0 {
-		return 0
-	}
-	return (sumW * sumW) / sumW2
+	return core.CalcEffectiveSampleSize(weights)
 }
 
 // WeightedMedian computes the weighted median of values with corresponding weights.
-// Values and weights must have the same length.
 func WeightedMedian(values, weights []float64) float64 {
-	if len(values) == 0 || len(values) != len(weights) {
-		return 0
-	}
-
-	// Create sorted index pairs
-	type pair struct {
-		value  float64
-		weight float64
-	}
-	pairs := make([]pair, len(values))
-	for i := range values {
-		pairs[i] = pair{values[i], weights[i]}
-	}
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].value < pairs[j].value
-	})
-
-	// Find the weighted median
-	var totalWeight float64
-	for _, p := range pairs {
-		totalWeight += p.weight
-	}
-
-	halfWeight := totalWeight / 2.0
-	var cumWeight float64
-	for i, p := range pairs {
-		cumWeight += p.weight
-		if cumWeight >= halfWeight {
-			// If exact midpoint, average with next
-			if cumWeight == halfWeight && i+1 < len(pairs) {
-				return (p.value + pairs[i+1].value) / 2.0
-			}
-			return p.value
-		}
-	}
-	return pairs[len(pairs)-1].value
+	return core.WeightedMedian(values, weights)
 }
 
 // WeightedMAD computes the Weighted Median Absolute Deviation in log-space.
-// MAD = WeightedMedian(|log(x_i) - median_log|, w_i)
 func WeightedMAD(logValues, weights []float64, medianLog float64) float64 {
-	if len(logValues) == 0 {
-		return 0
-	}
-
-	absDevs := make([]float64, len(logValues))
-	for i, lv := range logValues {
-		absDevs[i] = math.Abs(lv - medianLog)
-	}
-
-	return WeightedMedian(absDevs, weights)
+	return core.WeightedMAD(logValues, weights, medianLog)
 }
 
 // BayesianShrinkage blends the exact-match estimate with the broad prior
-// using effective sample size:
-//
-//	Base_log = (n_eff / (n_eff + K)) * Median_exact + (K / (n_eff + K)) * Median_broad
 func BayesianShrinkage(exactMedianLog, broadMedianLog, nEff, K float64) float64 {
-	if nEff+K == 0 {
-		return broadMedianLog
-	}
-	exactWeight := nEff / (nEff + K)
-	broadWeight := K / (nEff + K)
-	return exactWeight*exactMedianLog + broadWeight*broadMedianLog
+	return core.BayesianShrinkage(exactMedianLog, broadMedianLog, nEff, K)
+}
+
+// AestheticRound rounds prices to clean numbers mimicking human appraisal
+func AestheticRound(n float64) float64 {
+	return core.AestheticRound(n)
 }
 
 // LogPrices converts a set of comparable sales to log-space prices.
@@ -407,20 +339,6 @@ func CalcBaseLog(
 	// No second denormalization needed — that was causing Double Denormalization bug.
 
 	return baseLog, nEff, mad, saleIDs
-}
-
-// AestheticRound rounds prices to clean numbers mimicking human appraisal
-func AestheticRound(n float64) float64 {
-	if n >= 10000 {
-		return math.Round(n/1000) * 1000
-	}
-	if n >= 1000 {
-		return math.Round(n/100) * 100
-	}
-	if n >= 100 {
-		return math.Round(n/10) * 10
-	}
-	return math.Floor(n)
 }
 
 // GetTier classifies a username into a rarity tier based on expected TON value

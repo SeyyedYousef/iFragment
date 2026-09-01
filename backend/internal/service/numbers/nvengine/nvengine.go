@@ -20,24 +20,25 @@ import (
 	"ifragment-backend/internal/service/numbers/features"
 	"ifragment-backend/internal/service/numbers/registry"
 	"ifragment-backend/internal/service/username/avm"
+	"ifragment-backend/internal/service/valuation/core"
 )
 
 const (
-	ModelVersion = "NV-Engine-v2.4-HedonicShrink"
+	ModelVersion = "NV-Engine-v3.0-HierarchicalBayes"
 	ShrinkageK   = 10.0
 	DecayLambda  = 0.005 // Half-life ~138 days
 )
 
 // ValuationEngine coordinates the quantitative valuation process for Telegram Anonymous Numbers
 type ValuationEngine struct {
-	db              *repository.Database
-	repo            *repository.NumbersRepo
-	cache           *repository.Cache
-	cryptoPriceSvc  *cryptoprice.CryptoPriceService
-	sfGroup         singleflight.Group
-	histMu          sync.RWMutex
-	histCache       map[string]map[string]int
-	histCachedAt    time.Time
+	db             *repository.Database
+	repo           *repository.NumbersRepo
+	cache          *repository.Cache
+	cryptoPriceSvc *cryptoprice.CryptoPriceService
+	sfGroup        singleflight.Group
+	histMu         sync.RWMutex
+	histCache      map[string]map[string]int
+	histCachedAt   time.Time
 }
 
 func NewValuationEngine(
@@ -57,6 +58,21 @@ func NewValuationEngine(
 	}
 }
 
+func cloneHistMap(src map[string]map[string]int) map[string]map[string]int {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]map[string]int, len(src))
+	for k, sub := range src {
+		subCopy := make(map[string]int, len(sub))
+		for sk, v := range sub {
+			subCopy[sk] = v
+		}
+		out[k] = subCopy
+	}
+	return out
+}
+
 func (e *ValuationEngine) getCachedHistograms(ctx context.Context) map[string]map[string]int {
 	if e.repo == nil {
 		return nil
@@ -64,7 +80,7 @@ func (e *ValuationEngine) getCachedHistograms(ctx context.Context) map[string]ma
 
 	e.histMu.RLock()
 	if len(e.histCache) > 0 && time.Since(e.histCachedAt) < 1*time.Hour {
-		res := e.histCache
+		res := cloneHistMap(e.histCache)
 		e.histMu.RUnlock()
 		return res
 	}
@@ -73,16 +89,16 @@ func (e *ValuationEngine) getCachedHistograms(ctx context.Context) map[string]ma
 	e.histMu.Lock()
 	defer e.histMu.Unlock()
 	if len(e.histCache) > 0 && time.Since(e.histCachedAt) < 1*time.Hour {
-		return e.histCache
+		return cloneHistMap(e.histCache)
 	}
 
 	hist, err := e.repo.GetFeatureHistograms(ctx)
 	if err == nil && len(hist) > 0 {
 		e.histCache = hist
 		e.histCachedAt = time.Now()
-		return hist
+		return cloneHistMap(hist)
 	}
-	return e.histCache
+	return cloneHistMap(e.histCache)
 }
 
 // GenerateCuriosityGate creates the pre-paywall curiosity response with zero valuation leakage (Sacred Rule 3)
@@ -175,15 +191,25 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		features.CalculateExactPercentiles(&fv, histograms, registry.TotalSupply)
 	}
 
-	// 4. Hedonic Regression Model
-	// log(P_hat) = beta0 + sum(beta_i * f_i) + gamma_color + delta_fng
+	// 4. Hierarchical Bayesian Hedonic Regression Model
+	// log(P_hat) = beta0 + betaGenesis + betaMaxRun + betaDistinct + betaPalin + betaBlock + betaMonotonic + betaCultural + betaTail + betaSemantic + log(fngMult)
 	beta0 := math.Log(registry.InitialFloorTON) // ~7.6497 for 2,100 TON floor
 
-	// Max run exponent
+	// Genesis 4-Digit Ultra Scarcity Premium (only 1,000 exist in entire history)
+	betaGenesis := 0.0
+	if fv.IsGenesis4Digit {
+		betaGenesis = 3.90 // Multiplier ~49.4x over floor (~103,700 TON minimum baseline)
+	}
+
+	// Max run exponent (using EffectiveMaxRun for contiguous dial-string awareness, e.g. +888 8001 -> 4, +888 8888 -> 7)
+	effectiveRun := fv.EffectiveMaxRun
+	if effectiveRun < fv.MaxRun {
+		effectiveRun = fv.MaxRun
+	}
 	betaMaxRun := 0.0
-	switch fv.MaxRun {
+	switch effectiveRun {
 	case 8, 9:
-		betaMaxRun = 5.95 // ~ATH 864,000 TON
+		betaMaxRun = 5.95 // ~ATH level
 	case 7:
 		betaMaxRun = 4.20
 	case 6:
@@ -262,20 +288,81 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		betaTail = 0.20
 	}
 
-	// Sum log price
-	logP := beta0 + betaMaxRun + betaDistinct + betaPalin + betaBlock + betaMonotonic + betaCultural + betaTail
-	rawEstimateTON := math.Exp(logP) * colorInfo.Multiplier * fngMult
+	// Semantic Lexicon Bonus
+	betaSemantic := fv.SemanticBonusLogP
 
+	// Sum log prior (Hedonic)
+	hedonicLogP := beta0 + betaGenesis + betaMaxRun + betaDistinct + betaPalin + betaBlock + betaMonotonic + betaCultural + betaTail + betaSemantic + math.Log(fngMult)
+
+	// 5. Query Real Comps and execute Bayesian Shrinkage blending
+	var comps []ComparableSale
+	var compsForMath []core.ComparableSale
+	finalLogP := hedonicLogP
+	mad := 0.18 // default MAD baseline
+	priceBasis := "hedonic_regression_prior_only"
+
+	if e.repo != nil {
+		realSales, err := e.repo.GetCompsForNumber(ctx, normNumber, fv.TailClass, effectiveRun, 5)
+		if err == nil && len(realSales) > 0 {
+			now := time.Now()
+			for _, rs := range realSales {
+				compsForMath = append(compsForMath, core.ComparableSale{
+					ID:          rs.ID,
+					PriceTON:    rs.SalePriceTON,
+					RawPriceTON: rs.SalePriceTON,
+					SaleDate:    rs.SaleDate,
+				})
+			}
+
+			// Apply compounded market appreciation (20% annual CAGR) & Winsorization
+			core.ApplyMarketAppreciation(compsForMath, 0.20, now)
+			compsForMath = core.WinsorizeComparables(compsForMath, 0.05, 0.95)
+			decayWeights := core.CalcTimeDecayWeights(compsForMath, DecayLambda, now)
+			nEff := core.CalcEffectiveSampleSize(decayWeights)
+
+			if len(compsForMath) > 0 && nEff > 0 {
+				logPrices := make([]float64, len(compsForMath))
+				for i, s := range compsForMath {
+					logPrices[i] = math.Log(math.Max(s.PriceTON, 1.0))
+				}
+				exactMedianLog := core.WeightedMedian(logPrices, decayWeights)
+				finalLogP = core.BayesianShrinkage(exactMedianLog, hedonicLogP, nEff, ShrinkageK)
+				mad = core.WeightedMAD(logPrices, decayWeights, exactMedianLog)
+				priceBasis = "pattern_comps_bayesian_shrunk"
+			}
+
+			// Build presentation comps with diff relative to estimated value
+			tempEstTON := math.Exp(finalLogP) * colorInfo.Multiplier
+			for i, rs := range realSales {
+				diffPct := 0.0
+				if tempEstTON > 0 {
+					diffPct = ((compsForMath[i].PriceTON - tempEstTON) / tempEstTON) * 100.0
+				}
+				comps = append(comps, ComparableSale{
+					Number:       rs.Number,
+					PriceTON:     compsForMath[i].PriceTON,
+					PriceUSD:     compsForMath[i].PriceTON * tonUsdRate,
+					SaleDate:     rs.SaleDate,
+					Color:        colorName,
+					TailClass:    fv.TailClass,
+					DiffPercent:  math.Round(diffPct*10.0) / 10.0,
+					TonviewerURL: fmt.Sprintf("https://tonviewer.com/transaction/%s", rs.TransactionHash),
+				})
+			}
+		}
+	}
+
+	rawEstimateTON := math.Exp(finalLogP) * colorInfo.Multiplier
 	if rawEstimateTON < registry.InitialFloorTON {
 		rawEstimateTON = registry.InitialFloorTON
 	}
-	if rawEstimateTON > registry.RecordATHSaleTON {
-		rawEstimateTON = registry.RecordATHSaleTON
-	}
 
 	expectedTON := roundPrice(rawEstimateTON)
-	lowTON := roundPrice(expectedTON * 0.82)
-	highTON := roundPrice(expectedTON * 1.22)
+
+	// Dynamic adaptive uncertainty bounds using MAD and Bayesian scale
+	lowBound, highBound := core.ComputeUncertaintyBounds(expectedTON, mad, 1.25, 0.12, 0.40)
+	lowTON := roundPrice(lowBound)
+	highTON := roundPrice(highBound)
 
 	// Ensure invariant Low <= Expected <= High
 	if lowTON > expectedTON {
@@ -288,34 +375,6 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	lowUSD := lowTON * tonUsdRate
 	expectedUSD := expectedTON * tonUsdRate
 	highUSD := highTON * tonUsdRate
-
-	// 5. Query Real Comps from on-chain sales
-	var comps []ComparableSale
-	if e.repo != nil {
-		realSales, err := e.repo.GetCompsForNumber(ctx, normNumber, fv.TailClass, fv.MaxRun, 5)
-		if err == nil && len(realSales) > 0 {
-			for _, rs := range realSales {
-				diffPct := 0.0
-				if expectedTON > 0 {
-					diffPct = ((rs.SalePriceTON - expectedTON) / expectedTON) * 100.0
-				}
-				comps = append(comps, ComparableSale{
-					Number:       rs.Number,
-					PriceTON:     rs.SalePriceTON,
-					PriceUSD:     rs.SalePriceTON * tonUsdRate,
-					SaleDate:     rs.SaleDate,
-					Color:        colorName,
-					TailClass:    fv.TailClass,
-					DiffPercent:  math.Round(diffPct*10.0) / 10.0,
-					TonviewerURL: fmt.Sprintf("https://tonviewer.com/transaction/%s", rs.TransactionHash),
-				})
-			}
-		}
-	}
-	priceBasis := "hedonic_regression_only"
-	if len(comps) > 0 {
-		priceBasis = "pattern_comps_shrunk_to_class"
-	}
 
 	// 6. Query Real Historical Sales for this exact number
 	var history ValuationHistory
@@ -347,22 +406,28 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		}
 	}
 
-	// 7. Dynamic Confidence Score based on real evidence
-	confidenceScore := int16(72) // Mathematical regression baseline
-	if len(comps) >= 3 {
-		confidenceScore += 16
-	} else if len(comps) > 0 {
-		confidenceScore += 8
+	// 7. Dynamic Confidence Score based on evidence and empirical calibration
+	rawConfidence := int16(70)
+	if fv.IsGenesis4Digit {
+		rawConfidence += 10 // Genesis numbers have exact known 1000 supply
 	}
-	if fv.MaxRun >= 5 || fv.IsPalindrome {
-		confidenceScore += 8
+	if len(comps) >= 3 {
+		rawConfidence += 14
+	} else if len(comps) > 0 {
+		rawConfidence += 7
+	}
+	if fv.EffectiveMaxRun >= 5 || fv.IsPalindrome {
+		rawConfidence += 6
 	}
 	if history.IsSold {
-		confidenceScore += 6
+		rawConfidence += 6
 	}
-	if confidenceScore > 98 {
-		confidenceScore = 98
+	if rawConfidence > 98 {
+		rawConfidence = 98
 	}
+
+	calibratedConfidence, calibNote := core.GetCalibratedConfidenceScore(rawConfidence, len(comps), ModelVersion)
+	_ = calibNote
 
 	// 8. Rarity DNA Bars
 	rarityDNA := buildRarityDNA(fv)
@@ -459,7 +524,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		ExpectedUSD:        expectedUSD,
 		HighUSD:            highUSD,
 		TONUSDRate:         tonUsdRate,
-		ConfidenceScore:    confidenceScore,
+		ConfidenceScore:    calibratedConfidence,
 		PriceBasis:         priceBasis,
 		GlobalRank:         globalRank,
 		CategoryClub:       categoryClub,
@@ -714,55 +779,90 @@ func buildRecommendation(fv features.FeatureVector, expectedTON, netPayoutTON fl
 
 func computeGlobalRank(fv features.FeatureVector) int {
 	suffix := fv.Suffix
-	if len(suffix) <= 4 {
-		if suffix == "8888" {
-			return 1
-		}
-		if suffix == "7777" {
-			return 2
-		}
-		if suffix == "0000" {
-			return 3
-		}
-		hashVal := 0
-		for _, r := range suffix {
-			if r >= '0' && r <= '9' {
-				hashVal = hashVal*10 + int(r-'0')
-			}
-		}
-		return 4 + (hashVal % 96)
-	}
 
-	if fv.DistinctDigits == 1 {
-		if strings.Contains(suffix, "8") {
-			return 1
+	// Tier 1: Genesis 4-Digit Numbers (8000..8999, Total Supply = 1,000) -> Global Rank 1 to 1000
+	if fv.IsGenesis4Digit || len(suffix) <= 4 {
+		if suffix == "8888" {
+			return 1 // The absolute #1 Holy Grail in Telegram history
 		}
-		if strings.Contains(suffix, "7") {
-			return 4
+		if suffix == "8000" {
+			return 2 // The genesis milestone origin
 		}
-		if strings.Contains(suffix, "0") {
+		if suffix == "8777" {
+			return 3 // Auspicious 7-cluster genesis
+		}
+		if suffix == "8999" {
+			return 4 // Auspicious 9-cluster genesis
+		}
+		if suffix == "8008" || suffix == "8800" || suffix == "8880" {
 			return 5
 		}
-		return 6 + int(suffix[0]-'0')
+
+		// Rank remaining 995 genesis numbers by their composite rarity and pattern
+		// Higher rarity score -> lower rank (closer to #1)
+		// RarityScore is in [60, 100], map to [6, 1000]
+		scarcityFraction := (100.0 - float64(fv.RarityScore)) / 40.0
+		if scarcityFraction < 0 {
+			scarcityFraction = 0
+		}
+		if scarcityFraction > 1 {
+			scarcityFraction = 1
+		}
+		return 6 + int(scarcityFraction*994.0)
 	}
 
-	if fv.MaxRun >= 6 {
-		return 10 + int((100.0-float64(fv.RarityScore))*2.4)
+	// Tier 2: 8-digit Monodigit Numbers (88888888, 77777777, etc.) -> Global Rank 1001 to 1010
+	if fv.DistinctDigits == 1 {
+		if strings.Contains(suffix, "8") {
+			return 1001
+		}
+		if strings.Contains(suffix, "7") {
+			return 1002
+		}
+		if strings.Contains(suffix, "9") {
+			return 1003
+		}
+		if strings.Contains(suffix, "0") {
+			return 1004
+		}
+		return 1005 + int(suffix[0]-'0')%5
 	}
+
+	// Tier 3: Grand 8-digit Ascending / Descending Ladders -> Global Rank 1011 to 1030
+	if suffix == "12345678" || suffix == "01234567" {
+		return 1011
+	}
+	if suffix == "87654321" || suffix == "76543210" {
+		return 1012
+	}
+
+	// Tier 4: Hepta & Hexa Contiguous Cluster Runs (EffectiveMaxRun >= 6) -> Global Rank 1031 to 3000
+	if fv.EffectiveMaxRun >= 6 {
+		scarcityFraction := (100.0 - float64(fv.RarityScore)) / 100.0
+		return 1031 + int(scarcityFraction*1969.0)
+	}
+
+	// Tier 5: Pure Palindromes & Symmetric Mirrors -> Global Rank 3001 to 7000
 	if fv.IsPalindrome || fv.MirrorScore >= 1.0 {
-		return 250 + int((100.0-float64(fv.RarityScore))*7.0)
-	}
-	if fv.HasMonotonicAsc || fv.HasMonotonicDesc {
-		return 950 + int((100.0-float64(fv.RarityScore))*12.5)
-	}
-	if fv.DistinctDigits == 2 {
-		return 2200 + int((100.0-float64(fv.RarityScore))*43.0)
-	}
-	if fv.TailClass == "QUAD_8888" {
-		return 6500 + int((100.0-float64(fv.RarityScore))*55.0)
+		scarcityFraction := (100.0 - float64(fv.RarityScore)) / 100.0
+		return 3001 + int(scarcityFraction*3999.0)
 	}
 
-	rank := 12000 + int((100.0-float64(fv.RarityScore))/100.0*124565.0)
+	// Tier 6: Monotonic Ladder & Binary Duals -> Global Rank 7001 to 18000
+	if fv.HasMonotonicAsc || fv.HasMonotonicDesc || fv.DistinctDigits <= 2 {
+		scarcityFraction := (100.0 - float64(fv.RarityScore)) / 100.0
+		return 7001 + int(scarcityFraction*10999.0)
+	}
+
+	// Tier 7: Tail Quad / Auspicious Endings -> Global Rank 18001 to 35000
+	if strings.HasPrefix(fv.TailClass, "QUAD_") || strings.HasPrefix(fv.TailClass, "TRIPLE_") {
+		scarcityFraction := (100.0 - float64(fv.RarityScore)) / 100.0
+		return 18001 + int(scarcityFraction*16999.0)
+	}
+
+	// Tier 8: Standard Telemint Population (Rank 35001 to 136566)
+	scarcityFraction := (100.0 - float64(fv.RarityScore)) / 100.0
+	rank := 35001 + int(scarcityFraction*101565.0)
 	if rank > registry.TotalSupply {
 		rank = registry.TotalSupply
 	}
@@ -986,10 +1086,21 @@ func buildOnChainAudit(normNumber string, history ValuationHistory) OnChainAudit
 	if history.HighestPastSaleTON > registry.InitialFloorTON {
 		appreciation = roundPrice(((history.HighestPastSaleTON - registry.InitialFloorTON) / registry.InitialFloorTON) * 100.0)
 	}
+
+	cleanDigits := features.CleanNumber(normNumber)
+	isGenesis := len(cleanDigits) == 4 && cleanDigits >= "8000" && cleanDigits <= "8999"
+
+	statusFa := "تایید شده در قرارداد هوشمند تلمینت تلگرام"
+	statusEn := "Verified on-chain asset via Telegram Telemint"
+	if isGenesis {
+		statusFa = "شماره جنسیس ۴ رقمی اصل — تایید شده و معتبر"
+		statusEn = "Original 4-Digit Genesis — Clean & Verified"
+	}
+
 	return OnChainAudit{
 		IsRestricted:        false,
-		RestrictionStatusFa: "تایید شده در قرارداد هوشمند تلمینت تلگرام",
-		RestrictionStatusEn: "Verified on-chain asset via Telegram Telemint",
+		RestrictionStatusFa: statusFa,
+		RestrictionStatusEn: statusEn,
 		TelemintContract:    registry.AnonymousNumbersCollectionAddr,
 		MintDate:            mintDate,
 		TransferCount:       txCount,

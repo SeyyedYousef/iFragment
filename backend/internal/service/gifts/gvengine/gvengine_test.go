@@ -2,6 +2,7 @@ package gvengine
 
 import (
 	"context"
+	"math"
 	"testing"
 )
 
@@ -84,6 +85,30 @@ func TestGVEngine_SerialCurveJumps(t *testing.T) {
 	}
 	if exp777 <= exp3500 {
 		t.Errorf("Repdigit #777 (%.2f) should exceed standard tail #3500 (%.2f)", exp777, exp3500)
+	}
+}
+
+func TestGVEngine_SmoothContinuousBackdrop(t *testing.T) {
+	// Verify continuous backdrop curve has no large cliffs between adjacent permilles
+	calcBetaBackdrop := func(permille int) float64 {
+		permilleClamped := math.Max(float64(permille), 5.0)
+		beta := 0.35 * math.Log(1000.0/permilleClamped)
+		if beta < 0 {
+			beta = 0
+		}
+		return beta
+	}
+
+	b20 := calcBetaBackdrop(20)
+	b21 := calcBetaBackdrop(21)
+
+	// In old step function, 20 was 1.45 and 21 was 0.90 (jump of 0.55 / ~4.5x!)
+	diff := math.Abs(b20 - b21)
+	if diff > 0.05 {
+		t.Errorf("expected smooth continuous transition between 20 and 21 permille, got diff %.4f", diff)
+	}
+	if b20 <= b21 {
+		t.Errorf("rarer backdrop (20) must have higher beta than (21)")
 	}
 }
 

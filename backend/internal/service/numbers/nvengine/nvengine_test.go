@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync"
 	"testing"
 )
 
@@ -77,4 +78,59 @@ func TestValuationEngine_ValuationInvariants(t *testing.T) {
 			t.Errorf("cultural radar must contain 3 regions, got %d for %s", len(val.CulturalRadar), num)
 		}
 	}
+}
+
+func TestValuationEngine_Genesis4DigitValuation(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	ctx := context.Background()
+
+	// 1. Test +888 8001 (Genesis 4-digit number with leading 8)
+	val8001, err := engine.Valuate(ctx, "+888 8001")
+	if err != nil {
+		t.Fatalf("valuation failed for +888 8001: %v", err)
+	}
+
+	exp8001, _ := val8001.ExpectedTON.Float64()
+	if exp8001 < 100000.0 {
+		t.Errorf("expected +888 8001 valuation to be >= 100,000 TON, got %.2f TON", exp8001)
+	}
+	if val8001.GlobalRank > 1000 {
+		t.Errorf("expected genesis number to be ranked <= 1000, got %d", val8001.GlobalRank)
+	}
+	if !val8001.Features.IsGenesis4Digit {
+		t.Errorf("expected IsGenesis4Digit to be true for +888 8001")
+	}
+	if val8001.Features.EffectiveMaxRun < 4 {
+		t.Errorf("expected EffectiveMaxRun >= 4 for +888 8001 (prefix 888 + leading 8), got %d", val8001.Features.EffectiveMaxRun)
+	}
+
+	// 2. Test +888 8888 (Genesis holy grail ATH)
+	val8888, err := engine.Valuate(ctx, "+888 8888")
+	if err != nil {
+		t.Fatalf("valuation failed for +888 8888: %v", err)
+	}
+	exp8888, _ := val8888.ExpectedTON.Float64()
+	if exp8888 < 300000.0 {
+		t.Errorf("expected +888 8888 valuation to be >= 300,000 TON, got %.2f TON", exp8888)
+	}
+	if val8888.GlobalRank != 1 {
+		t.Errorf("expected +888 8888 GlobalRank to be 1, got %d", val8888.GlobalRank)
+	}
+}
+
+func TestValuationEngine_ConcurrentRaceSafety(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	ctx := context.Background()
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			num := fmt.Sprintf("+888%08d", 80000000+idx)
+			_, _ = engine.Valuate(ctx, num)
+			_ = engine.getCachedHistograms(ctx)
+		}(i)
+	}
+	wg.Wait()
 }

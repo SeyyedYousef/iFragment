@@ -34,7 +34,11 @@ export function parseNumbersFromHTML(html: string): {
 			suffix = rawDigits.slice(3);
 		}
 
-		const isRestricted = chunk.includes('nftitem__banned');
+		let isRestricted = chunk.includes('nftitem__banned');
+		// 4-Digit Genesis numbers (8000..8999) are pristine Telemint historical assets and never restricted
+		if (suffix.length === 4 && parseInt(suffix, 10) >= 8000 && parseInt(suffix, 10) <= 8999) {
+			isRestricted = false;
+		}
 
 		const marketMatch = chunk.match(/href="(https:\/\/(?:fragment\.com|getgems\.io)[^"]+)"/);
 		const marketUrl = marketMatch ? marketMatch[1] : `https://fragment.com/number/${suffix}`;
@@ -403,8 +407,8 @@ export const numbersApi = {
 				owners = 4 + (i % 5);
 			}
 
-			// ONLY true if user actively filtered by banned
-			const isRestricted = numberType === 'banned';
+			// ONLY true if user actively filtered by banned and not a 4-digit genesis
+			const isRestricted = numberType === 'banned' && numSuffix.length !== 4;
 
 			let currentBid: number | undefined = undefined;
 			if (saleType === 'auction' || (saleType === '' && i % 7 === 0)) {

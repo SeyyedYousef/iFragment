@@ -397,7 +397,8 @@ func (s *GiftsService) UnlockWithCredit(ctx context.Context, userID int64, raw s
 		if s.creditRepo == nil {
 			return nil, ErrInsufficientCredit
 		}
-		_, err := s.creditRepo.ConsumeCreditFIFO(ctx, userID, "report:gift", ref.GiftID, "")
+		idemKey := fmt.Sprintf("report:gift:%d:%s", userID, ref.GiftID)
+		_, err := s.creditRepo.ConsumeCreditFIFO(ctx, userID, "report:gift", ref.GiftID, idemKey)
 		if err != nil {
 			return nil, ErrInsufficientCredit
 		}

@@ -27,14 +27,15 @@ export const GiftThumbnail: Component<Props> = (props) => {
 
 	const imgSrc = () => {
 		if (useFallbackProxy()) {
-			return getGiftProxyImageUrl(cleanSlug());
+			return getGiftCdnImageUrl(cleanSlug(), giftItem()?.primaryModel);
 		}
-		return getGiftCdnImageUrl(cleanSlug());
+		// Primary: High-speed European VPS proxy with 7-day cache
+		return getGiftProxyImageUrl(cleanSlug());
 	};
 
 	const handleImgError = () => {
 		if (!useFallbackProxy()) {
-			// Try proxy endpoint first before failing to emoji
+			// Fallback to direct CDN if proxy fails
 			setUseFallbackProxy(true);
 		} else {
 			setImageError(true);
@@ -61,20 +62,21 @@ export const GiftThumbnail: Component<Props> = (props) => {
 				props.class || ''
 			}`}
 		>
-			{/* Fallback 3D Emoji Badge (Always visible behind image or on network fail) */}
-			<div class="absolute inset-0 flex items-center justify-center pointer-events-none drop-shadow-md">
-				<span>{emoji()}</span>
-			</div>
+			{/* Fallback 3D Emoji Badge: visible while image is loading or if failed */}
+			<Show when={!imageLoaded() || imageError()}>
+				<div class="absolute inset-0 flex items-center justify-center pointer-events-none drop-shadow-md">
+					<span>{emoji()}</span>
+				</div>
+			</Show>
 
-			{/* Official High-Res CDN / Proxy Model Image */}
+			{/* Official High-Res Model Image */}
 			<Show when={!imageError()}>
 				<img
 					src={imgSrc()}
 					alt={props.name || cleanSlug()}
-					loading="lazy"
 					onLoad={() => setImageLoaded(true)}
 					onError={handleImgError}
-					class={`absolute inset-0 w-full h-full object-contain p-1 drop-shadow-md transition-all duration-300 ${
+					class={`absolute inset-0 w-full h-full object-contain p-1 drop-shadow-md transition-all duration-200 ${
 						imageLoaded() ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
 					} ${props.imgClass || ''}`}
 				/>

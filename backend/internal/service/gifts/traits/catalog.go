@@ -644,6 +644,7 @@ var OfficialSymbols = map[string]struct {
 func ResolveCollection(key string) (CollectionMeta, bool) {
 	clean := strings.ToLower(strings.TrimSpace(key))
 	cleanNoUnderscore := strings.ReplaceAll(strings.ReplaceAll(clean, "-", ""), "_", "")
+	cleanNoS := strings.ReplaceAll(cleanNoUnderscore, "s", "")
 	clean = strings.ReplaceAll(clean, "-", "_")
 	clean = strings.ReplaceAll(clean, " ", "_")
 
@@ -654,7 +655,8 @@ func ResolveCollection(key string) (CollectionMeta, bool) {
 	// Exact match ignoring underscores (e.g. plushpepe == plush_pepe, durovscap == durov_cap)
 	for mID, col := range OfficialCollections {
 		mIDClean := strings.ReplaceAll(mID, "_", "")
-		if mIDClean == cleanNoUnderscore {
+		mIDNoS := strings.ReplaceAll(mIDClean, "s", "")
+		if mIDClean == cleanNoUnderscore || mIDClean == cleanNoS || mIDNoS == cleanNoS {
 			return col, true
 		}
 	}
@@ -662,7 +664,8 @@ func ResolveCollection(key string) (CollectionMeta, bool) {
 	// Partial match search
 	for mID, col := range OfficialCollections {
 		mIDClean := strings.ReplaceAll(mID, "_", "")
-		if strings.Contains(cleanNoUnderscore, mIDClean) || strings.Contains(mIDClean, cleanNoUnderscore) {
+		mIDNoS := strings.ReplaceAll(mIDClean, "s", "")
+		if strings.Contains(cleanNoUnderscore, mIDClean) || strings.Contains(cleanNoS, mIDNoS) || strings.Contains(mIDClean, cleanNoUnderscore) {
 			return col, true
 		}
 	}

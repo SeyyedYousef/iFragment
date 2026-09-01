@@ -23,10 +23,11 @@ import (
 	"ifragment-backend/internal/service/gifts/upgrade"
 	"ifragment-backend/internal/service/gifts/venues"
 	"ifragment-backend/internal/service/username/avm"
+	"ifragment-backend/internal/service/valuation/core"
 )
 
 const (
-	ModelVersion = "GV-Engine-v3.0-HedonicMultiVenue"
+	ModelVersion = "GV-Engine-v4.0-HierarchicalBayes"
 	ShrinkageK   = 10.0
 	DecayLambda  = 0.005
 )
@@ -188,7 +189,7 @@ func (e *ValuationEngine) Valuate(ctx context.Context, raw string) (*GiftValuati
 func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftRef) (*GiftValuation, error) {
 	col, isKnownCol := traits.ResolveCollection(ref.ModelID)
 
-	// 1. Fetch live GRAM/USD rate (CryptoPrice)
+	// 1. Fetch live GRAM/USD rate (CryptoPrice TON equivalent)
 	gramUsdRate := 5.50
 	if e.cryptoPriceSvc != nil {
 		if rate, ok := e.cryptoPriceSvc.GetFloatPrice("the-open-network"); ok && rate > 0 {
@@ -203,7 +204,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	// 3. 4-Axis Hedonic Pricing Model
-	// log(P_hat) = beta0 + beta_model + beta_backdrop + beta_symbol + beta_serial + beta_orig + delta_fng
+	// log(P_hat) = beta0 + beta_model + beta_backdrop + beta_symbol + beta_serial + beta_orig + log(fngMult)
 	beta0 := math.Log(col.InitialFloorGRAM)
 
 	// Axis 1: Model scarcity & crafted multiplier
@@ -273,43 +274,43 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		backdropColors = bdMeta.Colors
 	}
 
-	betaBackdrop := 0.0
-	switch {
-	case backdropPermille <= 20:
-		betaBackdrop = 1.45 // Legendary
-	case backdropPermille <= 50:
-		betaBackdrop = 0.90 // Epic
-	case backdropPermille <= 150:
-		betaBackdrop = 0.45 // Rare
-	case backdropPermille <= 300:
-		betaBackdrop = 0.18 // Uncommon
+	// Continuous smooth backdrop rarity curve: elasticity * ln(1000 / permille)
+	permilleClamped := math.Max(float64(backdropPermille), 5.0)
+	betaBackdrop := 0.35 * math.Log(1000.0/permilleClamped)
+	if betaBackdrop < 0 {
+		betaBackdrop = 0
 	}
 
-	// Axis 3: Symbol
-	betaSymbol := 0.15
-	if symbolPermille <= 20 {
-		betaSymbol = 0.45
-	} else if symbolPermille <= 50 {
-		betaSymbol = 0.30
+	// Axis 3: Symbol smooth continuous rarity
+	symPermClamped := math.Max(float64(symbolPermille), 5.0)
+	betaSymbol := 0.12 * math.Log(1000.0/symPermClamped)
+	if betaSymbol < 0.05 {
+		betaSymbol = 0.05
 	}
 
-	// Axis 4: Serial non-linear curve f(rank / supply) with sacred jumps
+	// Axis 4: Serial smooth non-linear curve f(rank / supply) with sacred jumps
 	betaSerial := computeSerialExponent(ref.SerialNumber, col.TotalSupply)
 
 	// Axis 5: Keep Original Details
 	betaOriginal := 0.08
 
-	// Sum Log price
-	logP := beta0 + betaModel + betaBackdrop + betaSymbol + betaSerial + betaOriginal + math.Log(fngMult)
-	rawEstimateGRAM := math.Exp(logP)
+	// Sum Log prior (Hedonic)
+	hedonicLogP := beta0 + betaModel + betaBackdrop + betaSymbol + betaSerial + betaOriginal + math.Log(fngMult)
 
+	// 4. Fetch Real Comparable Sales from Database and blend with Bayesian Shrinkage
+	comps, finalLogP, mad, priceBasis := e.resolveComps(ctx, ref, backdropKey, gramUsdRate, hedonicLogP)
+
+	rawEstimateGRAM := math.Exp(finalLogP)
 	if rawEstimateGRAM < col.InitialFloorGRAM {
 		rawEstimateGRAM = col.InitialFloorGRAM
 	}
 
 	expectedGRAM := roundPrice(rawEstimateGRAM)
-	lowGRAM := roundPrice(expectedGRAM * 0.85)
-	highGRAM := roundPrice(expectedGRAM * 1.20)
+
+	// Dynamic adaptive uncertainty bounds using MAD and Bayesian scale
+	lowBound, highBound := core.ComputeUncertaintyBounds(expectedGRAM, mad, 1.20, 0.12, 0.38)
+	lowGRAM := roundPrice(lowBound)
+	highGRAM := roundPrice(highBound)
 
 	// Ensure invariant: Low <= Expected <= High
 	if lowGRAM > expectedGRAM {
@@ -323,11 +324,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	expectedUSD := roundPrice(expectedGRAM * gramUsdRate)
 	highUSD := roundPrice(highGRAM * gramUsdRate)
 
-	// 4. Fetch Real Comparable Sales from Database
-	comps, priceBasis := e.resolveComps(ctx, ref, backdropKey, gramUsdRate, expectedGRAM)
-
 	// 5. 4-Component Confidence Score with Real Calibration
-	confidence := int16(78)
+	confidence := int16(74)
 	if isKnownCol {
 		confidence += 6
 	}
@@ -335,11 +333,12 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		confidence += 8
 	}
 	if len(comps) > 0 {
-		confidence += 6
+		confidence += 8
 	}
-	if confidence > 96 {
-		confidence = 96
+	if confidence > 98 {
+		confidence = 98
 	}
+	calibratedConfidence, _ := core.GetCalibratedConfidenceScore(confidence, len(comps), ModelVersion)
 
 	// 6. Trait DNA with Certainty Badges
 	traitDNA := buildTraitDNAWithCertainty(col, ref.SerialNumber, backdropKey, backdropPermille, backdropColors, symbolKey, symbolPermille, backdropCertainty, symbolCertainty)
@@ -443,7 +442,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		ExpectedUSD:     expectedUSD,
 		HighUSD:         highUSD,
 		GRAMUSDRate:     gramUsdRate,
-		ConfidenceScore: confidence,
+		ConfidenceScore: calibratedConfidence,
 		PriceBasis:      priceBasis,
 		TraitDNA:        traitDNA,
 		ExitPlanner:     exitPlanner,
@@ -460,7 +459,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 	// Mandatory Audit Write (Sacred Rule 5)
 	if e.giftsRepo != nil {
-		id, err := e.giftsRepo.SaveValuationAudit(ctx, ref.GiftID, ref.ModelID, ref.SerialNumber, ModelVersion, configSnapshot, gramUsdRate, col.InitialFloorGRAM, lowGRAM, expectedGRAM, highGRAM, confidence, priceBasis, reasoningLog)
+		id, err := e.giftsRepo.SaveValuationAudit(ctx, ref.GiftID, ref.ModelID, ref.SerialNumber, ModelVersion, configSnapshot, gramUsdRate, col.InitialFloorGRAM, lowGRAM, expectedGRAM, highGRAM, calibratedConfidence, priceBasis, reasoningLog)
 		if err != nil {
 			slog.Error("CRITICAL: Mandatory Gift Valuation Audit Write failed", "gift_id", ref.GiftID, "error", err)
 			return nil, fmt.Errorf("mandatory audit write failed: %w", err)
@@ -472,56 +471,117 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 }
 
 func computeSerialExponent(serial, supply int) float64 {
-	if serial <= 1 {
-		return 1.45 // Sacred #1 jump (exp(1.45) ≈ 4.25x floor multiplier)
+	if serial <= 0 {
+		serial = 1
 	}
-	if serial <= 3 {
-		return 1.10 // Top 3 prestige (exp(1.10) ≈ 3.0x)
-	}
-	if serial <= 9 {
-		return 0.80 // Single digit prestige (exp(0.80) ≈ 2.2x)
-	}
-	if serial == 77 || serial == 88 || serial == 99 || serial == 777 || serial == 888 || serial == 999 || serial == 7777 || serial == 8888 {
-		return 0.70 // Repdigit sacred jump (exp(0.70) ≈ 2.0x)
-	}
-	if serial <= 99 {
-		return 0.47 // Double digit (exp(0.47) ≈ 1.6x)
-	}
-	if serial%100 == 0 || serial%500 == 0 || serial%1000 == 0 {
-		return 0.30 // Milestone round numbers (exp(0.30) ≈ 1.35x)
-	}
-	if serial <= 500 {
-		return 0.16 // Low serial (exp(0.16) ≈ 1.18x)
-	}
-	if serial <= 1000 {
-		return 0.08 // Sub-1000 (exp(0.08) ≈ 1.08x)
+	if supply <= 0 {
+		supply = 10000
 	}
 
-	// Standard decreasing rank percentile for long tail
-	if supply > 0 {
-		rankPct := (float64(serial) / float64(supply)) * 100.0
-		if rankPct > 80.0 {
-			return -0.08 // Deep floor discount (~0.92x)
-		}
+	// 1. Smooth continuous logarithmic low-serial prestige curve
+	var betaAbs float64
+	if serial == 1 {
+		betaAbs = 1.45 // Sacred #1 jump (exp(1.45) ≈ 4.26x)
+	} else if serial == 2 || serial == 3 {
+		betaAbs = 1.20 - float64(serial-2)*0.08 // Top 3 prestige (~3.3x)
+	} else if serial <= 9 {
+		// Smooth decay from 1.05 down to 0.78
+		betaAbs = 1.05 - (float64(serial-4)/5.0)*0.27
+	} else if serial <= 99 {
+		// Smooth decay from 0.75 down to 0.40
+		t := float64(serial-10) / 89.0
+		betaAbs = 0.75 - t*0.35
+	} else if serial <= 1000 {
+		// Smooth decay from 0.38 down to 0.10
+		t := float64(serial-100) / 900.0
+		betaAbs = 0.38 - t*0.28
+	} else if serial <= 5000 {
+		t := float64(serial-1000) / 4000.0
+		betaAbs = 0.10 - t*0.08
+	} else {
+		betaAbs = 0.02
 	}
-	return 0.0 // Baseline floor
+
+	// Sacred milestone repdigits and round numbers bonus (smooth additive bump)
+	if isRepdigit(serial) {
+		betaAbs += 0.22 // e.g. 77, 88, 99, 777, 888, 999, 7777, 8888
+	} else if serial%1000 == 0 {
+		betaAbs += 0.15
+	} else if serial%100 == 0 {
+		betaAbs += 0.10
+	}
+
+	// 2. Relative Percentile Rarity relative to total model supply
+	rankPct := float64(serial) / float64(supply)
+	var betaRel float64
+	if rankPct > 0.80 {
+		// Discount for long tail
+		betaRel = -0.08 * ((rankPct - 0.80) / 0.20)
+	} else if rankPct < 0.01 {
+		// Additional scarcity bonus for top 1% percentile of collection
+		betaRel = 0.12 * (1.0 - rankPct/0.01)
+	}
+
+	return betaAbs + betaRel
 }
 
-func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, backdrop string, gramUsdRate, targetGRAM float64) ([]ComparableGiftSale, string) {
+func isRepdigit(n int) bool {
+	if n < 11 {
+		return false
+	}
+	s := strconv.Itoa(n)
+	for i := 1; i < len(s); i++ {
+		if s[i] != s[0] {
+			return false
+		}
+	}
+	return true
+}
+
+func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, backdrop string, gramUsdRate, hedonicLogP float64) ([]ComparableGiftSale, float64, float64, string) {
+	comps := []ComparableGiftSale{}
+	finalLogP := hedonicLogP
+	mad := 0.16 // default MAD baseline
+
 	if e.giftsRepo != nil {
-		sales, err := e.giftsRepo.GetCompsForGift(ctx, ref.ModelID, ref.SerialNumber, 4)
+		sales, err := e.giftsRepo.GetCompsForGift(ctx, ref.ModelID, ref.SerialNumber, 5)
 		if err == nil && len(sales) > 0 {
-			comps := make([]ComparableGiftSale, 0, len(sales))
+			now := time.Now()
+			compsForMath := make([]core.ComparableSale, 0, len(sales))
 			for _, s := range sales {
 				pGram, _ := s.SalePriceGRAM.Float64()
-				pUsd, _ := s.SalePriceUSD.Float64()
-				if pUsd <= 0 {
-					pUsd = pGram * gramUsdRate
+				compsForMath = append(compsForMath, core.ComparableSale{
+					ID:          s.ID,
+					PriceTON:    pGram,
+					RawPriceTON: pGram,
+					SaleDate:    s.SaleDate,
+				})
+			}
+
+			// Apply market appreciation (15% annual for gifts) & Winsorization
+			core.ApplyMarketAppreciation(compsForMath, 0.15, now)
+			compsForMath = core.WinsorizeComparables(compsForMath, 0.05, 0.95)
+			decayWeights := core.CalcTimeDecayWeights(compsForMath, DecayLambda, now)
+			nEff := core.CalcEffectiveSampleSize(decayWeights)
+
+			if len(compsForMath) > 0 && nEff > 0 {
+				logPrices := make([]float64, len(compsForMath))
+				for i, s := range compsForMath {
+					logPrices[i] = math.Log(math.Max(s.PriceTON, 1.0))
 				}
+				exactMedianLog := core.WeightedMedian(logPrices, decayWeights)
+				finalLogP = core.BayesianShrinkage(exactMedianLog, hedonicLogP, nEff, ShrinkageK)
+				mad = core.WeightedMAD(logPrices, decayWeights, exactMedianLog)
+			}
+
+			tempEstGRAM := math.Exp(finalLogP)
+			for i, s := range sales {
+				pGram := compsForMath[i].PriceTON
+				pUsd := pGram * gramUsdRate
 
 				diffPct := 0.0
-				if targetGRAM > 0 {
-					diffPct = roundPrice(((pGram - targetGRAM) / targetGRAM) * 100.0)
+				if tempEstGRAM > 0 {
+					diffPct = roundPrice(((pGram - tempEstGRAM) / tempEstGRAM) * 100.0)
 				}
 
 				tonviewer := "https://tonviewer.com"
@@ -542,12 +602,11 @@ func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, 
 					TonviewerURL:  tonviewer,
 				})
 			}
-			return comps, "real_market_sales_comps"
+			return comps, finalLogP, mad, "gift_market_comps_bayesian_shrunk"
 		}
 	}
 
-	// If no sales in DB, return empty comps and clear basis
-	return []ComparableGiftSale{}, "hedonic_model_floor_basis"
+	return comps, finalLogP, mad, "hedonic_model_floor_basis"
 }
 
 func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, backdropName string, backdropPermille int, colors traits.BackdropColorSet, symbolName string, symbolPermille int, backdropCert, symbolCert string) []TraitDNABar {
@@ -667,48 +726,6 @@ func buildGiftRecommendation(expectedGRAM float64, exitPlan *venues.ExitPlannerP
 		SummaryEn:       sumEn,
 		SummaryFa:       sumFa,
 	}
-}
-
-func generateGiftComps(ref *ParsedGiftRef, backdrop string, gramUsdRate, targetGRAM float64) []ComparableGiftSale {
-	comps := []ComparableGiftSale{
-		{
-			GiftID:        fmt.Sprintf("%s-%d", ref.ModelID, ref.SerialNumber+15),
-			ModelID:       ref.ModelID,
-			SerialNumber:  ref.SerialNumber + 15,
-			Venue:         "Getgems",
-			SalePriceGRAM: roundPrice(targetGRAM * 1.04),
-			SalePriceUSD:  roundPrice(targetGRAM * 1.04 * gramUsdRate),
-			SaleDate:      time.Now().Add(-6 * 24 * time.Hour),
-			BackdropName:  backdrop,
-			DiffPercent:   4.0,
-			TonviewerURL:  "https://tonviewer.com",
-		},
-		{
-			GiftID:        fmt.Sprintf("%s-%d", ref.ModelID, ref.SerialNumber-22),
-			ModelID:       ref.ModelID,
-			SerialNumber:  ref.SerialNumber - 22,
-			Venue:         "Fragment",
-			SalePriceGRAM: roundPrice(targetGRAM * 0.97),
-			SalePriceUSD:  roundPrice(targetGRAM * 0.97 * gramUsdRate),
-			SaleDate:      time.Now().Add(-18 * 24 * time.Hour),
-			BackdropName:  backdrop,
-			DiffPercent:   -3.0,
-			TonviewerURL:  "https://tonviewer.com",
-		},
-		{
-			GiftID:        fmt.Sprintf("%s-%d", ref.ModelID, ref.SerialNumber+85),
-			ModelID:       ref.ModelID,
-			SerialNumber:  ref.SerialNumber + 85,
-			Venue:         "MRKT",
-			SalePriceGRAM: roundPrice(targetGRAM * 1.01),
-			SalePriceUSD:  roundPrice(targetGRAM * 1.01 * gramUsdRate),
-			SaleDate:      time.Now().Add(-35 * 24 * time.Hour),
-			BackdropName:  backdrop,
-			DiffPercent:   1.0,
-			TonviewerURL:  "https://tonviewer.com",
-		},
-	}
-	return comps
 }
 
 func formatCount(n int) string {

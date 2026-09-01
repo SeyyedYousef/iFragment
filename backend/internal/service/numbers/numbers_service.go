@@ -1327,6 +1327,12 @@ func parseNumbersHTML(htmlStr string) ([]NumberTableItem, int) {
 			}
 		}
 
+		// 4-Digit Genesis numbers (8000..8999) are pristine Telemint historical assets and never restricted
+		rawDigitsOnly := features.CleanNumber(cleanNum)
+		if len(rawDigitsOnly) == 4 && rawDigitsOnly >= "8000" && rawDigitsOnly <= "8999" {
+			isRestricted = false
+		}
+
 		suffix := strings.TrimPrefix(cleanNum, "+888")
 		marketURL := fmt.Sprintf("https://fragment.com/number/%s", suffix)
 		source := "fragment"
@@ -1436,8 +1442,8 @@ func generateSmartFallback(params NumbersListParams) *NumbersListResponse {
 			owners = 4 + (i % 5)
 		}
 
-		// Restricted is ONLY true if user explicitly filters for banned numbers
-		isRestricted := params.NumberType == "banned"
+		// Restricted is ONLY true if user explicitly filters for banned numbers AND it is not a 4-digit genesis
+		isRestricted := params.NumberType == "banned" && len(numSuffix) != 4
 
 		var currentBid *float64
 		if params.SaleType == "auction" || (params.SaleType == "" && i%7 == 0) {
