@@ -3,6 +3,7 @@ package features
 import (
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -70,32 +71,39 @@ func NormalizeNumber(raw string) (string, error) {
 
 // FeatureVector represents the complete mathematical profile of an anonymous number
 type FeatureVector struct {
-	Number              string   `json:"number"`                // Normalized: +888XXXXXXXX or +888XXXX
-	Suffix              string   `json:"suffix"`                // Digits after 888 (4 digits for Genesis, 8 for Telemint)
-	IsGenesis4Digit     bool     `json:"is_genesis_4digit"`     // True if 4-digit Genesis Grail (8000..8999, supply=1000)
-	LeadingEightCount   int      `json:"leading_eight_count"`   // Count of consecutive 8s at start of suffix
-	PrefixJoinRun       int      `json:"prefix_join_run"`       // 3 (from +888) + leading 8s (e.g. +888 8001 -> 4, +888 8888 -> 7)
-	EffectiveMaxRun     int      `json:"effective_max_run"`     // Max contiguous run across the full dial string
-	MaxRun              int      `json:"max_run"`               // Contiguous identical digits inside suffix
-	RunCount2Plus       int      `json:"run_count_2plus"`       // Number of runs of length >= 2
-	RunCount3Plus       int      `json:"run_count_3plus"`       // Number of runs of length >= 3
-	DistinctDigits      int      `json:"distinct_digits"`       // Count of unique digits (1 to 10)
-	IsPalindrome        bool     `json:"is_palindrome"`         // Perfect symmetry
-	MirrorScore         float64  `json:"mirror_score"`          // Structural mirror score 0.0 - 1.0
-	HasMonotonicAsc     bool     `json:"has_monotonic_asc"`     // Contains monotonic ascending run >= 4
-	HasMonotonicDesc    bool     `json:"has_monotonic_desc"`    // Contains monotonic descending run >= 4
-	RepeatedBlock       string   `json:"repeated_block"`        // "AAAA", "ABAB", "AABB", "ABCDABCD", etc.
-	DigitFreq           [10]int  `json:"digit_freq"`            // Frequency array for 0..9
-	LuckyWeight         float64  `json:"lucky_weight"`          // Cultural positive bonus
-	UnluckyWeight       float64  `json:"unlucky_weight"`        // Cultural negative penalty
-	SemanticMatches     []string `json:"semantic_matches"`      // Matched lexicon pattern names
-	SemanticBonusLogP   float64  `json:"semantic_bonus_log_p"`  // Hedonic log-price bonus from semantic lexicon
-	SemanticRarityBonus float64  `json:"semantic_rarity_bonus"` // Rarity score bonus from semantic lexicon
-	DateLike            bool     `json:"date_like"`             // Contains 19xx/20xx or date pattern
-	TailClass           string   `json:"tail_class"`            // Last 4 digits pattern classification
-	LeadingPattern      string   `json:"leading_pattern"`       // First 2 digits of suffix
-	RarityPercentile    float64  `json:"rarity_percentile"`     // Percentile within 136,566 total supply
-	RarityScore         int      `json:"rarity_score"`          // Composite score 0 - 100
+	Number              string          `json:"number"`                // Normalized: +888XXXXXXXX or +888XXXX
+	Suffix              string          `json:"suffix"`                // Digits after 888 (4 digits for Genesis, 8 for Telemint)
+	IsGenesis4Digit     bool            `json:"is_genesis_4digit"`     // True if 4-digit Genesis Grail (8000..8999, supply=1000)
+	Genesis             GenesisMeta     `json:"genesis"`               // 7-tier micro-segment Genesis details
+	VIP                 VIPTaxonomy     `json:"vip"`                   // Standard Telephony VIP Tiering (Diamond, Platinum, Gold, Silver, Bronze)
+	DialPad             DialPadFeatures `json:"dial_pad"`              // Physical ergonomics and spatial geometry on keypad
+	LeadingEightCount   int             `json:"leading_eight_count"`   // Count of consecutive 8s at start of suffix
+	PrefixJoinRun       int             `json:"prefix_join_run"`       // 3 (from +888) + leading 8s (e.g. +888 8001 -> 4, +888 8888 -> 7)
+	EffectiveMaxRun     int             `json:"effective_max_run"`     // Max contiguous run across the full dial string
+	MaxRun              int             `json:"max_run"`               // Contiguous identical digits inside suffix
+	RunCount2Plus       int             `json:"run_count_2plus"`       // Number of runs of length >= 2
+	RunCount3Plus       int             `json:"run_count_3plus"`       // Number of runs of length >= 3
+	DistinctDigits      int             `json:"distinct_digits"`       // Count of unique digits (1 to 10)
+	BinaryVanity        bool            `json:"binary_vanity"`         // Exactly <= 2 distinct digits (High prestige binary)
+	TernaryVanity       bool            `json:"ternary_vanity"`        // Exactly 3 distinct digits
+	EchoHarmonics       string          `json:"echo_harmonics"`        // "ECHO_SANDWICH_888", "CLAMP_888_000", "PREFIX_MIRROR", "NONE"
+	HarmonicEntropy     float64         `json:"harmonic_entropy"`      // Shannon information entropy (0.0 = pure single digit)
+	IsPalindrome        bool            `json:"is_palindrome"`         // Perfect symmetry
+	MirrorScore         float64         `json:"mirror_score"`          // Structural mirror score 0.0 - 1.0
+	HasMonotonicAsc     bool            `json:"has_monotonic_asc"`     // Contains monotonic ascending run >= 4
+	HasMonotonicDesc    bool            `json:"has_monotonic_desc"`    // Contains monotonic descending run >= 4
+	RepeatedBlock       string          `json:"repeated_block"`        // "AAAA", "ABAB", "AABB", "ABCDABCD", etc.
+	DigitFreq           [10]int         `json:"digit_freq"`            // Frequency array for 0..9
+	LuckyWeight         float64         `json:"lucky_weight"`          // Cultural positive bonus
+	UnluckyWeight       float64         `json:"unlucky_weight"`        // Cultural negative penalty
+	SemanticMatches     []string        `json:"semantic_matches"`      // Matched lexicon pattern names
+	SemanticBonusLogP   float64         `json:"semantic_bonus_log_p"`  // Hedonic log-price bonus from semantic lexicon
+	SemanticRarityBonus float64         `json:"semantic_rarity_bonus"` // Rarity score bonus from semantic lexicon
+	DateLike            bool            `json:"date_like"`             // Contains 19xx/20xx or date pattern
+	TailClass           string          `json:"tail_class"`            // Last 4 digits pattern classification
+	LeadingPattern      string          `json:"leading_pattern"`       // First 2 digits of suffix
+	RarityPercentile    float64         `json:"rarity_percentile"`     // Percentile within 136,566 total supply
+	RarityScore         int             `json:"rarity_score"`          // Composite score 0 - 100
 }
 
 // CleanNumber removes whitespace, hyphens, and standardizes input to ASCII digits only
@@ -163,6 +171,13 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 		IsGenesis4Digit: (length == 4),
 	}
 
+	// 0. Genesis 4-Digit Specialized Classification
+	if fv.IsGenesis4Digit {
+		if gMeta, ok := ClassifyGenesis(suffix); ok {
+			fv.Genesis = gMeta
+		}
+	}
+
 	// 1. PrefixJoinRun & Leading 8s (Country code +888 contiguous dialing run)
 	leadingEights := 0
 	for _, r := range suffix {
@@ -177,7 +192,7 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 		fv.PrefixJoinRun = 3 + leadingEights // 3 from prefix +888
 	}
 
-	// 2. Digit Frequencies & Distinct Digits
+	// 2. Digit Frequencies, Distinct Digits & Shannon Entropy
 	distinctSet := make(map[rune]bool)
 	for _, r := range suffix {
 		if r >= '0' && r <= '9' {
@@ -187,6 +202,18 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 		}
 	}
 	fv.DistinctDigits = len(distinctSet)
+	fv.BinaryVanity = (fv.DistinctDigits <= 2)
+	fv.TernaryVanity = (fv.DistinctDigits == 3)
+
+	// Shannon Entropy: H = -sum(p * log2(p))
+	entropy := 0.0
+	for i := 0; i < 10; i++ {
+		if fv.DigitFreq[i] > 0 {
+			p := float64(fv.DigitFreq[i]) / float64(length)
+			entropy -= p * (math.Log(p) / math.Ln2)
+		}
+	}
+	fv.HarmonicEntropy = math.Round(entropy*100.0) / 100.0
 
 	// 3. Max Run & Run Counts
 	currentRun := 1
@@ -250,7 +277,24 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 	// 6. Repeated Block Detection
 	fv.RepeatedBlock = detectRepeatedBlock(suffix)
 
-	// 7. Cultural Weights
+	// 7. Dial-Pad Ergonomics & Geometry
+	fv.DialPad = AnalyzeDialPad(suffix)
+
+	// 8. Telephony Standard VIP Taxonomy
+	fv.VIP = ClassifyVIPTaxonomy(suffix, fv.EffectiveMaxRun, fv.DistinctDigits, fv.IsPalindrome, fv.HasMonotonicAsc, fv.HasMonotonicDesc)
+
+	// 9. Echo Harmonics (Prefix +888 synergy)
+	if strings.HasSuffix(suffix, "888") && strings.Contains(suffix[:len(suffix)-3], "888") {
+		fv.EchoHarmonics = "ECHO_SANDWICH_888"
+	} else if strings.HasSuffix(suffix, "888") {
+		fv.EchoHarmonics = "PREFIX_SUFFIX_CLAMP_888"
+	} else if strings.HasSuffix(suffix, "0000") && strings.HasPrefix(suffix, "8888") {
+		fv.EchoHarmonics = "CLAMP_888_000"
+	} else {
+		fv.EchoHarmonics = "STANDARD"
+	}
+
+	// 10. Cultural Weights
 	var lucky float64
 	var unlucky float64
 	for _, r := range suffix {
@@ -270,7 +314,7 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 	fv.LuckyWeight = lucky
 	fv.UnluckyWeight = unlucky
 
-	// 8. Number Semantic Lexicon Matching
+	// 11. Number Semantic Lexicon Matching
 	semMatches, bonusLogP, rarityBonus := MatchNumberSemantics(suffix)
 	fv.SemanticBonusLogP = bonusLogP
 	fv.SemanticRarityBonus = rarityBonus
@@ -278,20 +322,20 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 		fv.SemanticMatches = append(fv.SemanticMatches, m.PatternName)
 	}
 
-	// 9. Date Like Pattern (e.g. 19xx, 20xx or MMDD)
+	// 12. Date Like Pattern (e.g. 19xx, 20xx, 14xx or MMDD)
 	fv.DateLike = checkDateLike(suffix)
 
-	// 10. Tail Class (last 4 digits classification)
+	// 13. Tail Class (last 4 digits classification)
 	fv.TailClass = classifyTail(suffix)
 
-	// 11. Leading Pattern (first 2 digits of suffix)
+	// 14. Leading Pattern (first 2 digits of suffix)
 	if length >= 2 {
 		fv.LeadingPattern = suffix[0:2]
 	} else {
 		fv.LeadingPattern = suffix
 	}
 
-	// 12. Composite Rarity Score (0 to 100) & Percentile Estimation
+	// 15. Composite Rarity Score (0 to 100) & Percentile Estimation
 	fv.RarityScore = computeCompositeScore(fv)
 	fv.RarityPercentile = estimateInitialPercentile(fv)
 

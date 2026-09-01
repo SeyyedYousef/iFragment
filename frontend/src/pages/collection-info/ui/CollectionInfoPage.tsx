@@ -33,6 +33,7 @@ interface CollectionData {
 	recent_activity: CollectionAuction[];
 	fear_greed_index: number;
 	fear_greed_label: string;
+	ton_usd_rate?: number;
 	status?: string;
 }
 
@@ -381,7 +382,7 @@ export const CollectionInfoPage: Component = () => {
 									{(
 										parseFloat(
 											usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10',
-										) * 5.5
+										) * (usernameQuery.data?.ton_usd_rate || 5.5)
 									).toFixed(1)}
 								</div>
 							</div>
@@ -591,7 +592,7 @@ export const CollectionInfoPage: Component = () => {
 													</span>
 												</div>
 												<span class="text-[10px] font-mono text-white/40">
-													≈ ${((item.priceUsd ?? item.priceTon * 5.5) / 1000).toFixed(0)}K
+													≈ ${((item.priceUsd ?? item.priceTon * (usernameQuery.data?.ton_usd_rate || 5.5)) / 1000).toFixed(0)}K
 												</span>
 											</div>
 										</div>

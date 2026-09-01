@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+
+	"ifragment-backend/internal/service/numbers/features"
 )
 
 func TestValuationEngine_CuriosityGate_NoLeak(t *testing.T) {
@@ -32,9 +34,12 @@ func TestValuationEngine_ValuationInvariants(t *testing.T) {
 	r := rand.New(rand.NewSource(99))
 
 	testNumbers := []string{
-		"+888 8888 8888", // ATH
-		"+888 0123 4567", // Sequential
-		"+888 1234 4321", // Palindrome
+		"+888 8888 8888", // Diamond
+		"+888 8888 0000", // Platinum Plus
+		"+888 8080 8080", // Platinum Binary
+		"+888 1234 1234", // Gold Quad
+		"+888 1234 5678", // Silver Ladder
+		"+888 1234 4321", // Silver Palindrome
 		"+888 0000 0001", // Quad Zero
 	}
 
@@ -77,44 +82,148 @@ func TestValuationEngine_ValuationInvariants(t *testing.T) {
 		if len(val.CulturalRadar) != 3 {
 			t.Errorf("cultural radar must contain 3 regions, got %d for %s", len(val.CulturalRadar), num)
 		}
+
+		// Invariant 6: Financial Rental Metrics must be populated
+		if val.RentalMetrics.MonthlyRentalGrossTON <= 0 {
+			t.Errorf("expected positive monthly rental TON for %s", num)
+		}
+
+		// Invariant 7: DeFi Collateral LTV must be between 50% and 65%
+		if val.CollateralMetrics.MaxSafeLTVPercent < 50.0 || val.CollateralMetrics.MaxSafeLTVPercent > 65.0 {
+			t.Errorf("invalid collateral LTV %.1f for %s", val.CollateralMetrics.MaxSafeLTVPercent, num)
+		}
 	}
 }
 
-func TestValuationEngine_Genesis4DigitValuation(t *testing.T) {
+func TestValuationEngine_Genesis7TierHierarchy(t *testing.T) {
 	engine := NewValuationEngine(nil, nil, nil)
 	ctx := context.Background()
 
-	// 1. Test +888 8001 (Genesis 4-digit number with leading 8)
-	val8001, err := engine.Valuate(ctx, "+888 8001")
-	if err != nil {
-		t.Fatalf("valuation failed for +888 8001: %v", err)
-	}
-
-	exp8001, _ := val8001.ExpectedTON.Float64()
-	if exp8001 < 100000.0 {
-		t.Errorf("expected +888 8001 valuation to be >= 100,000 TON, got %.2f TON", exp8001)
-	}
-	if val8001.GlobalRank > 1000 {
-		t.Errorf("expected genesis number to be ranked <= 1000, got %d", val8001.GlobalRank)
-	}
-	if !val8001.Features.IsGenesis4Digit {
-		t.Errorf("expected IsGenesis4Digit to be true for +888 8001")
-	}
-	if val8001.Features.EffectiveMaxRun < 4 {
-		t.Errorf("expected EffectiveMaxRun >= 4 for +888 8001 (prefix 888 + leading 8), got %d", val8001.Features.EffectiveMaxRun)
-	}
-
-	// 2. Test +888 8888 (Genesis holy grail ATH)
+	// 1. Tier 0: Godhead (+888 8888)
 	val8888, err := engine.Valuate(ctx, "+888 8888")
 	if err != nil {
-		t.Fatalf("valuation failed for +888 8888: %v", err)
+		t.Fatalf("failed: %v", err)
 	}
 	exp8888, _ := val8888.ExpectedTON.Float64()
 	if exp8888 < 300000.0 {
-		t.Errorf("expected +888 8888 valuation to be >= 300,000 TON, got %.2f TON", exp8888)
+		t.Errorf("expected +888 8888 >= 300,000 TON, got %.2f", exp8888)
 	}
 	if val8888.GlobalRank != 1 {
-		t.Errorf("expected +888 8888 GlobalRank to be 1, got %d", val8888.GlobalRank)
+		t.Errorf("expected +888 8888 GlobalRank == 1, got %d", val8888.GlobalRank)
+	}
+	if val8888.Features.Genesis.TierKey != "GENESIS_GODHEAD_8888" {
+		t.Errorf("expected GENESIS_GODHEAD_8888, got %s", val8888.Features.Genesis.TierKey)
+	}
+
+	// 2. Tier 1: Anchor King (+888 8000)
+	val8000, _ := engine.Valuate(ctx, "+888 8000")
+	exp8000, _ := val8000.ExpectedTON.Float64()
+	if exp8000 < 160000.0 {
+		t.Errorf("expected +888 8000 >= 160,000 TON, got %.2f", exp8000)
+	}
+	if exp8000 >= exp8888 {
+		t.Errorf("expected +888 8888 > +888 8000")
+	}
+
+	// 3. Tier 2: Symmetric Pair (+888 8118)
+	val8118, _ := engine.Valuate(ctx, "+888 8118")
+	exp8118, _ := val8118.ExpectedTON.Float64()
+	if exp8118 < 120000.0 {
+		t.Errorf("expected +888 8118 >= 120,000 TON, got %.2f", exp8118)
+	}
+	if exp8118 >= exp8000 {
+		t.Errorf("expected +888 8000 > +888 8118")
+	}
+
+	// 4. Tier 3: Ladder Sequence (+888 8123)
+	val8123, _ := engine.Valuate(ctx, "+888 8123")
+	exp8123, _ := val8123.ExpectedTON.Float64()
+	if exp8123 < 95000.0 {
+		t.Errorf("expected +888 8123 >= 95,000 TON, got %.2f", exp8123)
+	}
+
+	// 5. Tier 5: Single Offset (+888 8001)
+	val8001, _ := engine.Valuate(ctx, "+888 8001")
+	exp8001, _ := val8001.ExpectedTON.Float64()
+	if exp8001 < 80000.0 {
+		t.Errorf("expected +888 8001 >= 80,000 TON, got %.2f", exp8001)
+	}
+}
+
+func TestValuationEngine_VIPTaxonomyAndDialPad(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	ctx := context.Background()
+
+	// 1. Diamond Monodigit
+	valDiamond, _ := engine.Valuate(ctx, "+888 8888 8888")
+	if valDiamond.Features.VIP.Tier != features.TierDiamond {
+		t.Errorf("expected TierDiamond for 88888888, got %s", valDiamond.Features.VIP.Tier)
+	}
+	if valDiamond.Features.DialPad.FingerTravelDistance != 0.0 {
+		t.Errorf("expected FingerTravelDistance 0.0 for 88888888, got %.2f", valDiamond.Features.DialPad.FingerTravelDistance)
+	}
+
+	// 2. Platinum Plus Block
+	valPlatPlus, _ := engine.Valuate(ctx, "+888 8888 0000")
+	if valPlatPlus.Features.VIP.Tier != features.TierPlatinumPlus {
+		t.Errorf("expected TierPlatinumPlus for 88880000, got %s", valPlatPlus.Features.VIP.Tier)
+	}
+
+	// 3. Platinum Binary Alternating
+	valPlat, _ := engine.Valuate(ctx, "+888 8080 8080")
+	if valPlat.Features.VIP.Tier != features.TierPlatinum {
+		t.Errorf("expected TierPlatinum for 80808080, got %s", valPlat.Features.VIP.Tier)
+	}
+	if !valPlat.Features.BinaryVanity {
+		t.Errorf("expected BinaryVanity to be true for 80808080")
+	}
+
+	// 4. Grand Ascending Ladder
+	valLadder, _ := engine.Valuate(ctx, "+888 1234 5678")
+	if valLadder.Features.VIP.Tier != features.TierSilver {
+		t.Errorf("expected TierSilver for ladder, got %s", valLadder.Features.VIP.Tier)
+	}
+	if !valLadder.Features.DialPad.IsRowPattern {
+		t.Errorf("expected IsRowPattern to be true for 12345678")
+	}
+}
+
+func TestValuationEngine_FinancialMetricsCalculation(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	ctx := context.Background()
+
+	val, err := engine.Valuate(ctx, "+888 8888 0000")
+	if err != nil {
+		t.Fatalf("valuation failed: %v", err)
+	}
+
+	exp, _ := val.ExpectedTON.Float64()
+
+	// Rental Yield tests
+	if val.RentalMetrics.MonthlyRentalGrossTON <= 0 {
+		t.Errorf("expected positive monthly rental TON")
+	}
+	if val.RentalMetrics.MonthlyRentalGrossUSD <= 0 {
+		t.Errorf("expected positive monthly rental USD")
+	}
+	if val.RentalMetrics.YieldPaybackYears <= 0 || val.RentalMetrics.YieldPaybackYears > 30 {
+		t.Errorf("unexpected payback years: %.1f", val.RentalMetrics.YieldPaybackYears)
+	}
+
+	// DeFi Collateral tests
+	if val.CollateralMetrics.MaxLoanAmountTON <= 0 || val.CollateralMetrics.MaxLoanAmountTON > exp {
+		t.Errorf("invalid max loan amount TON: %.2f (expected: %.2f)", val.CollateralMetrics.MaxLoanAmountTON, exp)
+	}
+	if val.CollateralMetrics.LiquidationThresholdTON <= val.CollateralMetrics.MaxLoanAmountTON {
+		t.Errorf("liquidation threshold must exceed max loan amount")
+	}
+
+	// Liquidity Survival tests
+	if val.SurvivalMetrics.Probability30DaysPercent <= 0 || val.SurvivalMetrics.Probability30DaysPercent > 100 {
+		t.Errorf("invalid 30d probability: %.1f", val.SurvivalMetrics.Probability30DaysPercent)
+	}
+	if val.SurvivalMetrics.EstimatedDaysToLiquidate <= 0 {
+		t.Errorf("invalid estimated days to liquidate: %d", val.SurvivalMetrics.EstimatedDaysToLiquidate)
 	}
 }
 

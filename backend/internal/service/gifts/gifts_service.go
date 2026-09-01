@@ -229,6 +229,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 			modelMap[snap.ModelID][venues.VenueID(snap.Venue)] = fGram
 		}
 
+		var dynamicMarketCap float64
 		for modelID, venueFloors := range modelMap {
 			col, ok := traits.OfficialCollections[modelID]
 			name := modelID
@@ -251,6 +252,10 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 				bestFloor = 0
 			}
 
+			if bestFloor > 0 && totalSupply > 0 {
+				dynamicMarketCap += (bestFloor * float64(totalSupply) * gramUsdRate)
+			}
+
 			resp.UnifiedFloorBoard = append(resp.UnifiedFloorBoard, UnifiedFloorBoardItem{
 				ModelID:            modelID,
 				Name:               name,
@@ -263,6 +268,9 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 				VenueFloors:        venueFloors,
 				HasRealVolumeBadge: true,
 			})
+		}
+		if dynamicMarketCap > 0 {
+			resp.TotalMarketCapUSD = round2(dynamicMarketCap)
 		}
 	}
 

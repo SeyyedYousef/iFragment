@@ -44,6 +44,9 @@ type NumberValuation struct {
 	Playbook             ActionablePlaybook       `json:"playbook"`
 	PatternAnatomy       PatternAnatomy           `json:"pattern_anatomy"`
 	RentalYield          RentalYield              `json:"rental_yield"`
+	RentalMetrics        RentalYieldMetrics       `json:"rental_metrics"`
+	CollateralMetrics    DeFiCollateralMetrics    `json:"collateral_metrics"`
+	SurvivalMetrics      LiquiditySurvivalMetrics `json:"survival_metrics"`
 	MarketDepth          MarketDepthInfo          `json:"market_depth"`
 	OnChainAudit         OnChainAudit             `json:"on_chain_audit"`
 	CertificateID        string                   `json:"certificate_id"`

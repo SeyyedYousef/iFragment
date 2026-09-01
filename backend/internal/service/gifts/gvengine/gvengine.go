@@ -19,6 +19,7 @@ import (
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts/crafting"
 	"ifragment-backend/internal/service/gifts/risk"
+	"ifragment-backend/internal/service/gifts/starsrate"
 	"ifragment-backend/internal/service/gifts/traits"
 	"ifragment-backend/internal/service/gifts/upgrade"
 	"ifragment-backend/internal/service/gifts/venues"
@@ -27,7 +28,7 @@ import (
 )
 
 const (
-	ModelVersion = "GV-Engine-v4.0-HierarchicalBayes"
+	ModelVersion = "GV-Engine-v5.0-QuantumHedonic"
 	ShrinkageK   = 10.0
 	DecayLambda  = 0.005
 )
@@ -294,15 +295,25 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// Axis 5: Keep Original Details
 	betaOriginal := 0.08
 
-	// Sum Log prior (Hedonic)
-	hedonicLogP := beta0 + betaModel + betaBackdrop + betaSymbol + betaSerial + betaOriginal + math.Log(fngMult)
+	// Axis 6: Delta-E Chromatic Harmony & Theme Matching
+	aestheticHarmony := traits.EvaluateAestheticHarmony(col.ModelID, backdropKey, &backdropColors)
+
+	// Axis 7: Multi-Dimensional Joint Statistical Rarity & Surprisal
+	jointRarity := traits.ComputeJointRarity(col.TotalSupply, ref.SerialNumber, backdropPermille, symbolPermille, col.CraftedFlag)
+
+	// Axis 8: In-App Telegram Stars Floor Parity
+	starsParity := starsrate.CalculateStarsParity(col.BaseStarsPrice, gramUsdRate, col.InitialFloorGRAM)
+
+	// Sum Log prior (Hedonic Quantum-Hedonic v5.0)
+	hedonicLogP := beta0 + betaModel + betaBackdrop + betaSymbol + betaSerial + betaOriginal + aestheticHarmony.BetaAesthetic + jointRarity.BetaSynergy + math.Log(fngMult)
 
 	// 4. Fetch Real Comparable Sales from Database and blend with Bayesian Shrinkage
 	comps, finalLogP, mad, priceBasis := e.resolveComps(ctx, ref, backdropKey, gramUsdRate, hedonicLogP)
 
 	rawEstimateGRAM := math.Exp(finalLogP)
-	if rawEstimateGRAM < col.InitialFloorGRAM {
-		rawEstimateGRAM = col.InitialFloorGRAM
+	minFloor := math.Max(col.InitialFloorGRAM, starsParity.IntrinsicFloorGRAM*0.75)
+	if rawEstimateGRAM < minFloor {
+		rawEstimateGRAM = minFloor
 	}
 
 	expectedGRAM := roundPrice(rawEstimateGRAM)
@@ -343,11 +354,12 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// 6. Trait DNA with Certainty Badges
 	traitDNA := buildTraitDNAWithCertainty(col, ref.SerialNumber, backdropKey, backdropPermille, backdropColors, symbolKey, symbolPermille, backdropCertainty, symbolCertainty)
 
-	// 7. Multi-Market Exit Planner (6 venues ranked by net payout)
+	// 7. Multi-Market Exit Planner (7 venues ranked by net payout)
 	exitPlanner := venues.ComputeExitPlan(ctx, expectedGRAM, gramUsdRate, 80)
 
-	// 8. Crafting EV (if applicable or inventory forge)
+	// 8. Crafting EV & Monte Carlo Stochastic Forge Simulation
 	var craftingEV *crafting.CraftingEVResult
+	var monteCarloCrafting *crafting.MonteCarloForgeResult
 	if col.CraftedFlag || ref.SerialNumber%3 == 0 {
 		craftInputs := []crafting.CraftInputItem{
 			{
@@ -360,18 +372,23 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			},
 		}
 		craftingEV, _ = crafting.CalculateCraftingEV(ctx, craftInputs, gramUsdRate, 42)
+		mcRes := crafting.RunMonteCarloCraftingSimulation(expectedGRAM, col.InitialFloorGRAM, 350)
+		monteCarloCrafting = &mcRes
 	}
 
-	// 9. Upgrade Timing Advisor (if un-upgraded / active stair)
+	// 9. Profile Showcase Flex Score
+	profileFlex := ComputeProfileFlex(col, ref.SerialNumber, aestheticHarmony, jointRarity)
+
+	// 10. Upgrade Timing Advisor (if un-upgraded / active stair)
 	var upgradeAdvisor *upgrade.UpgradeAdviceReport
 	if !col.CraftedFlag {
 		upgradeAdvisor = upgrade.GenerateUpgradeAdvice(ctx, ref.GiftID, ref.ModelID, col.BaseStarsPrice, gramUsdRate)
 	}
 
-	// 10. Risk Audit
+	// 11. Risk Audit
 	riskAudit := risk.AuditGiftRisk(ctx, ref.ModelID, ref.SerialNumber, 80, nil, nil)
 
-	// 11. 12-Month Projection
+	// 12. 12-Month Projection
 	projection := GrowthProjection{
 		BullGRAM: roundPrice(expectedGRAM * 1.40),
 		BullUSD:  roundPrice(expectedGRAM * 1.40 * gramUsdRate),
@@ -381,10 +398,10 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		BearUSD:  roundPrice(expectedGRAM * 0.88 * gramUsdRate),
 	}
 
-	// 12. Recommendation
+	// 13. Recommendation
 	recommendation := buildGiftRecommendation(expectedGRAM, exitPlanner, craftingEV)
 
-	// 13. Certificate Hash ID
+	// 14. Certificate Hash ID
 	certPayload := fmt.Sprintf("%s:%s:%.2f:%d", ref.GiftID, ModelVersion, expectedGRAM, time.Now().Unix())
 	certHash := sha256.Sum256([]byte(certPayload))
 	certificateID := "IFRG-GFT-" + hex.EncodeToString(certHash[:])[:12]
@@ -406,6 +423,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		"beta_serial":       betaSerial,
 		"beta_backdrop":     betaBackdrop,
 		"beta_symbol":       betaSymbol,
+		"beta_aesthetic":    aestheticHarmony.BetaAesthetic,
+		"beta_synergy":      jointRarity.BetaSynergy,
 		"backdrop_permille": backdropPermille,
 		"symbol_permille":   symbolPermille,
 	}
@@ -418,43 +437,50 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		"beta_symbol":        betaSymbol,
 		"beta_serial":        betaSerial,
 		"beta_original":      betaOriginal,
+		"beta_aesthetic":     aestheticHarmony.BetaAesthetic,
+		"beta_synergy":       jointRarity.BetaSynergy,
 		"fng_multiplier":     fngMult,
 		"bayesian_k":         ShrinkageK,
 		"price_basis":        priceBasis,
 		"narrative_only":     true, // Sacred Rule 11
-		"signals_count":      34,
+		"signals_count":      42,
 		"comparables":        compSummaries,
 	}
 
 	valuation := &GiftValuation{
-		RunID:           time.Now().UnixNano(),
-		GiftID:          ref.GiftID,
-		ModelID:         ref.ModelID,
-		ModelName:       col.Name,
-		SerialNumber:    ref.SerialNumber,
-		DisplayTitle:    fmt.Sprintf("%s #%d", col.Name, ref.SerialNumber),
-		ModelVersion:    ModelVersion,
-		BasePriceGRAM:   decimal.NewFromFloat(expectedGRAM),
-		LowGRAM:         decimal.NewFromFloat(lowGRAM),
-		ExpectedGRAM:    decimal.NewFromFloat(expectedGRAM),
-		HighGRAM:        decimal.NewFromFloat(highGRAM),
-		LowUSD:          lowUSD,
-		ExpectedUSD:     expectedUSD,
-		HighUSD:         highUSD,
-		GRAMUSDRate:     gramUsdRate,
-		ConfidenceScore: calibratedConfidence,
-		PriceBasis:      priceBasis,
-		TraitDNA:        traitDNA,
-		ExitPlanner:     exitPlanner,
-		CraftingEV:      craftingEV,
-		UpgradeAdvisor:  upgradeAdvisor,
-		Comps:           comps,
-		RiskAudit:       riskAudit,
-		Projection:      projection,
-		Recommendation:  recommendation,
-		CertificateID:   certificateID,
-		EvaluatedAt:     time.Now().UTC(),
-		ReasoningLog:    reasoningLog,
+		RunID:              time.Now().UnixNano(),
+		GiftID:             ref.GiftID,
+		ModelID:            ref.ModelID,
+		ModelName:          col.Name,
+		SerialNumber:       ref.SerialNumber,
+		DisplayTitle:       fmt.Sprintf("%s #%d", col.Name, ref.SerialNumber),
+		ModelVersion:       ModelVersion,
+		BasePriceGRAM:      decimal.NewFromFloat(expectedGRAM),
+		LowGRAM:            decimal.NewFromFloat(lowGRAM),
+		ExpectedGRAM:       decimal.NewFromFloat(expectedGRAM),
+		HighGRAM:           decimal.NewFromFloat(highGRAM),
+		LowUSD:             lowUSD,
+		ExpectedUSD:        expectedUSD,
+		HighUSD:            highUSD,
+		GRAMUSDRate:        gramUsdRate,
+		ConfidenceScore:    calibratedConfidence,
+		PriceBasis:         priceBasis,
+		TraitDNA:           traitDNA,
+		AestheticHarmony:   aestheticHarmony,
+		JointRarity:        jointRarity,
+		StarsParity:        starsParity,
+		ProfileFlex:        profileFlex,
+		ExitPlanner:        exitPlanner,
+		CraftingEV:         craftingEV,
+		MonteCarloCrafting: monteCarloCrafting,
+		UpgradeAdvisor:     upgradeAdvisor,
+		Comps:              comps,
+		RiskAudit:          riskAudit,
+		Projection:         projection,
+		Recommendation:     recommendation,
+		CertificateID:      certificateID,
+		EvaluatedAt:        time.Now().UTC(),
+		ReasoningLog:       reasoningLog,
 	}
 
 	// Mandatory Audit Write (Sacred Rule 5)

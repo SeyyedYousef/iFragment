@@ -6,6 +6,7 @@ import (
 	"github.com/shopspring/decimal"
 	"ifragment-backend/internal/service/gifts/crafting"
 	"ifragment-backend/internal/service/gifts/risk"
+	"ifragment-backend/internal/service/gifts/starsrate"
 	"ifragment-backend/internal/service/gifts/traits"
 	"ifragment-backend/internal/service/gifts/upgrade"
 	"ifragment-backend/internal/service/gifts/venues"
@@ -75,32 +76,37 @@ type ValuationActionVerdict struct {
 
 // GiftValuation is the complete quantitative valuation artifact for a Telegram Gift
 type GiftValuation struct {
-	RunID           int64                     `json:"run_id"`
-	GiftID          string                    `json:"gift_id"`
-	ModelID         string                    `json:"model_id"`
-	ModelName       string                    `json:"model_name"`
-	SerialNumber    int                       `json:"serial_number"`
-	DisplayTitle    string                    `json:"display_title"` // e.g. "Plush Pepe #42"
-	ModelVersion    string                    `json:"model_version"`
-	BasePriceGRAM   decimal.Decimal           `json:"base_price_gram"`
-	LowGRAM         decimal.Decimal           `json:"low_gram"`
-	ExpectedGRAM    decimal.Decimal           `json:"expected_gram"`
-	HighGRAM        decimal.Decimal           `json:"high_gram"`
-	LowUSD          float64                   `json:"low_usd"`
-	ExpectedUSD     float64                   `json:"expected_usd"`
-	HighUSD         float64                   `json:"high_usd"`
-	GRAMUSDRate     float64                   `json:"gram_usd_rate"`
-	ConfidenceScore int16                     `json:"confidence_score"`
-	PriceBasis      string                    `json:"price_basis"` // direct_sales_of_this_item, trait_comps_shrunk_to_class, class_median_only
-	TraitDNA        []TraitDNABar             `json:"trait_dna"`
-	ExitPlanner     *venues.ExitPlannerPlan   `json:"exit_planner"`
-	CraftingEV      *crafting.CraftingEVResult `json:"crafting_ev,omitempty"`
-	UpgradeAdvisor  *upgrade.UpgradeAdviceReport `json:"upgrade_advisor,omitempty"`
-	Comps           []ComparableGiftSale      `json:"comps"`
-	RiskAudit       *risk.RiskAuditResult     `json:"risk_audit"`
-	Projection      GrowthProjection          `json:"projection"`
-	Recommendation  ValuationActionVerdict    `json:"recommendation"`
-	CertificateID   string                    `json:"certificate_id"`
-	EvaluatedAt     time.Time                 `json:"evaluated_at"`
-	ReasoningLog    map[string]interface{}    `json:"reasoning_log"`
+	RunID              int64                          `json:"run_id"`
+	GiftID             string                         `json:"gift_id"`
+	ModelID            string                         `json:"model_id"`
+	ModelName          string                         `json:"model_name"`
+	SerialNumber       int                            `json:"serial_number"`
+	DisplayTitle       string                         `json:"display_title"` // e.g. "Plush Pepe #42"
+	ModelVersion       string                         `json:"model_version"`
+	BasePriceGRAM      decimal.Decimal                `json:"base_price_gram"`
+	LowGRAM            decimal.Decimal                `json:"low_gram"`
+	ExpectedGRAM       decimal.Decimal                `json:"expected_gram"`
+	HighGRAM           decimal.Decimal                `json:"high_gram"`
+	LowUSD             float64                        `json:"low_usd"`
+	ExpectedUSD        float64                        `json:"expected_usd"`
+	HighUSD            float64                        `json:"high_usd"`
+	GRAMUSDRate        float64                        `json:"gram_usd_rate"`
+	ConfidenceScore    int16                          `json:"confidence_score"`
+	PriceBasis         string                         `json:"price_basis"` // direct_sales_of_this_item, trait_comps_shrunk_to_class, class_median_only
+	TraitDNA           []TraitDNABar                  `json:"trait_dna"`
+	AestheticHarmony   traits.AestheticHarmonyResult  `json:"aesthetic_harmony"`
+	JointRarity        traits.JointRarityAnalysis     `json:"joint_rarity"`
+	StarsParity        starsrate.StarsParityMetrics   `json:"stars_parity"`
+	ProfileFlex        ProfileFlexReport              `json:"profile_flex"`
+	ExitPlanner        *venues.ExitPlannerPlan        `json:"exit_planner"`
+	CraftingEV         *crafting.CraftingEVResult     `json:"crafting_ev,omitempty"`
+	MonteCarloCrafting *crafting.MonteCarloForgeResult `json:"monte_carlo_crafting,omitempty"`
+	UpgradeAdvisor     *upgrade.UpgradeAdviceReport   `json:"upgrade_advisor,omitempty"`
+	Comps              []ComparableGiftSale           `json:"comps"`
+	RiskAudit          *risk.RiskAuditResult          `json:"risk_audit"`
+	Projection         GrowthProjection               `json:"projection"`
+	Recommendation     ValuationActionVerdict         `json:"recommendation"`
+	CertificateID      string                         `json:"certificate_id"`
+	EvaluatedAt        time.Time                      `json:"evaluated_at"`
+	ReasoningLog       map[string]interface{}         `json:"reasoning_log"`
 }

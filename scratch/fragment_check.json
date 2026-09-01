@@ -1,0 +1,128 @@
+{
+  "88888888": {
+    "error": "Command '['curl.exe', '-s', '-I', '--max-time', '5', 'https://fragment.com/number/88888888888']' returned non-zero exit status 28."
+  },
+  "00000000": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "8888": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "8000": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "12344321": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 302 Found",
+    "minted": false
+  },
+  "01233210": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "80088008": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 302 Found",
+    "minted": false
+  },
+  "09900990": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "12345678": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 302 Found",
+    "minted": false
+  },
+  "01234567": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "98765432": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 302 Found",
+    "minted": false
+  },
+  "87654321": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 302 Found",
+    "minted": false
+  },
+  "01010101": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "80808080": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 302 Found",
+    "minted": false
+  },
+  "11001100": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 302 Found",
+    "minted": false
+  },
+  "77887788": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 302 Found",
+    "minted": false
+  },
+  "8001": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "8002": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "8003": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "8004": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "8005": {
+    "error": "Command '['curl.exe', '-s', '-I', '--max-time', '5', 'https://fragment.com/number/8005']' returned non-zero exit status 28."
+  },
+  "8008": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "8800": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "8880": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "8777": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  },
+  "8999": {
+    "url1": "HTTP/1.1 302 Found",
+    "url2": "HTTP/1.1 200 OK",
+    "minted": true
+  }
+}

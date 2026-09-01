@@ -7,6 +7,7 @@ import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
 	onSelectCollection?: (slug: string) => void;
+	rate?: number;
 }
 
 export const GiftsCollectionsExplorer: Component<Props> = (props) => {
@@ -238,7 +239,7 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 										<span>{getGiftFloor(gift).toLocaleString()} TON</span>
 									</div>
 									<div class="text-[10px] text-white/40 font-mono">
-										≈ ${(getGiftFloor(gift) * 5.5).toFixed(0)}
+										≈ ${(getGiftFloor(gift) * (props.rate || 5.5)).toFixed(0)}
 									</div>
 								</div>
 							</button>

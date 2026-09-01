@@ -1,54 +1,13 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 
-import { type Component, createSignal, For, onMount, Show } from 'solid-js';
-import { apiClient } from '@/shared/api/axios.js';
-import { buildMediaUrl } from '@/shared/api/config.js';
-import { adsApi } from '@/entities/ads/api/adsApi.js';
+import type { Component } from 'solid-js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 
-interface DashboardAd {
-	id: string;
-	title: string;
-	image_url: string;
-	target: string;
-	is_active: boolean;
-}
-
 export const DashboardPage: Component = () => {
 	const navigate = useNavigate();
-	const [ads, setAds] = createSignal<DashboardAd[]>([]);
-
-	onMount(async () => {
-		try {
-			// First try direct active ads endpoint
-			const activeList = await adsApi.getActiveAds('dashboard_banner');
-			if (activeList && activeList.length > 0) {
-				setAds(
-					activeList.map((a) => ({
-						id: a.id,
-						title: a.title,
-						image_url: a.image_url,
-						target: a.target_url,
-						is_active: a.is_active,
-					})),
-				);
-				activeList.forEach((a) => adsApi.trackImpression(a.id));
-				return;
-			}
-
-			// Fallback to public-config
-			const { data } = await apiClient.get('/profile/public-config');
-			if (data?.dashboard_ads) {
-				setAds(data.dashboard_ads);
-				data.dashboard_ads.forEach((a: DashboardAd) => adsApi.trackImpression(a.id));
-			}
-		} catch (error) {
-			console.error('Failed to load dashboard ads', error);
-		}
-	});
 
 	return (
 		<div
@@ -97,40 +56,6 @@ export const DashboardPage: Component = () => {
 				<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-8" />
 
 				<div class="w-full max-w-[420px] flex flex-col gap-6">
-					{/* ── ADS CAROUSEL (App Store Style) ── */}
-					<Show when={ads().length > 0}>
-						<div class="flex overflow-x-auto snap-x snap-mandatory gap-3.5 pb-2 no-scrollbar -mx-4 px-4 w-[calc(100%+2rem)]">
-							<For each={ads()}>
-								{(ad) => (
-									<a
-										href={ad.target}
-										target="_blank"
-										rel="noopener noreferrer"
-										onClick={() => {
-											try {
-												haptic.impact('light');
-											} catch {}
-											adsApi.trackClick(ad.id);
-										}}
-										class="snap-center shrink-0 w-[88%] relative rounded-[24px] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-white/10 active:scale-[0.98] transition-transform block group"
-									>
-										<div class="aspect-[21/9] w-full bg-[#08090D] relative overflow-hidden">
-											<img
-												loading="lazy"
-												src={buildMediaUrl(ad.image_url)}
-												alt={ad.title}
-												class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-											/>
-											<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-											<div class="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-[8px] text-[10px] text-white/90 font-black uppercase tracking-widest border border-white/10 shadow-sm">
-												{t('dashboardPg.adBadge')}
-											</div>
-										</div>
-									</a>
-								)}
-							</For>
-						</div>
-					</Show>
 
 					{/* ── MANAGEMENT CARDS ── */}
 					<div class="flex flex-col gap-3.5 w-full">

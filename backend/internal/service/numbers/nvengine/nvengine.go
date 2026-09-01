@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	ModelVersion = "NV-Engine-v3.0-HierarchicalBayes"
+	ModelVersion = "NV-Engine-v4.0-QuantumBayes"
 	ShrinkageK   = 10.0
 	DecayLambda  = 0.005 // Half-life ~138 days
 )
@@ -191,14 +191,38 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		features.CalculateExactPercentiles(&fv, histograms, registry.TotalSupply)
 	}
 
-	// 4. Hierarchical Bayesian Hedonic Regression Model
-	// log(P_hat) = beta0 + betaGenesis + betaMaxRun + betaDistinct + betaPalin + betaBlock + betaMonotonic + betaCultural + betaTail + betaSemantic + log(fngMult)
+	// 4. Hierarchical Bayesian Hedonic Regression Model v4.0 (Quantum-Bayes)
+	// log(P_hat) = beta0 + betaGenesis + betaVIP + betaMaxRun + betaDistinct + betaPalin + betaBlock + betaMonotonic + betaCultural + betaTail + betaSemantic + betaDialPad + betaEntropy + betaEcho + log(fngMult)
 	beta0 := math.Log(registry.InitialFloorTON) // ~7.6497 for 2,100 TON floor
 
-	// Genesis 4-Digit Ultra Scarcity Premium (only 1,000 exist in entire history)
+	// 1. Genesis 4-Digit 7-Tier Micro-Segment Premium
 	betaGenesis := 0.0
 	if fv.IsGenesis4Digit {
-		betaGenesis = 3.90 // Multiplier ~49.4x over floor (~103,700 TON minimum baseline)
+		if fv.Genesis.BetaGenesis > 0 {
+			betaGenesis = fv.Genesis.BetaGenesis
+		} else {
+			betaGenesis = 3.50
+		}
+	}
+
+	// 2. VIP Standard Telephony Taxonomy
+	betaVIP := fv.VIP.BetaTaxonomy * 0.35
+
+	// 3. Dial-Pad Ergonomics & Geometry
+	betaDialPad := (fv.DialPad.DialPadEleganceScore - 20.0) / 100.0 * 0.40
+
+	// 4. Shannon Information Entropy (rewarding clean low-entropy vanity)
+	betaEntropy := math.Max(0.0, (2.80-fv.HarmonicEntropy)*0.15)
+
+	// 5. Echo Harmonics (Prefix +888 synergy)
+	betaEcho := 0.0
+	switch fv.EchoHarmonics {
+	case "ECHO_SANDWICH_888":
+		betaEcho = 0.40
+	case "PREFIX_SUFFIX_CLAMP_888":
+		betaEcho = 0.25
+	case "CLAMP_888_000":
+		betaEcho = 0.35
 	}
 
 	// Max run exponent (using EffectiveMaxRun for contiguous dial-string awareness, e.g. +888 8001 -> 4, +888 8888 -> 7)
@@ -208,7 +232,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	}
 	betaMaxRun := 0.0
 	switch effectiveRun {
-	case 8, 9:
+	case 8, 9, 10, 11:
 		betaMaxRun = 5.95 // ~ATH level
 	case 7:
 		betaMaxRun = 4.20
@@ -291,8 +315,20 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	// Semantic Lexicon Bonus
 	betaSemantic := fv.SemanticBonusLogP
 
-	// Sum log prior (Hedonic)
-	hedonicLogP := beta0 + betaGenesis + betaMaxRun + betaDistinct + betaPalin + betaBlock + betaMonotonic + betaCultural + betaTail + betaSemantic + math.Log(fngMult)
+	if fv.IsGenesis4Digit {
+		// For 4-digit Genesis numbers, BetaGenesis strictly governs the baseline 7-tier hierarchy.
+		// Damping generic 8-digit heuristic features prevents double-counting.
+		betaPalin *= 0.15
+		betaVIP *= 0.15
+		betaBlock *= 0.15
+		betaTail *= 0.15
+		betaMonotonic *= 0.15
+		betaDialPad *= 0.15
+		betaSemantic *= 0.15
+	}
+
+	// Sum log prior (Hedonic Quantum-Bayes)
+	hedonicLogP := beta0 + betaGenesis + betaVIP + betaMaxRun + betaDistinct + betaPalin + betaBlock + betaMonotonic + betaCultural + betaTail + betaSemantic + betaDialPad + betaEntropy + betaEcho + math.Log(fngMult)
 
 	// 5. Query Real Comps and execute Bayesian Shrinkage blending
 	var comps []ComparableSale
@@ -353,8 +389,12 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	}
 
 	rawEstimateTON := math.Exp(finalLogP) * colorInfo.Multiplier
-	if rawEstimateTON < registry.InitialFloorTON {
-		rawEstimateTON = registry.InitialFloorTON
+	minFloor := registry.InitialFloorTON
+	if fv.IsGenesis4Digit && fv.Genesis.EstimatedFloorTON > 0 {
+		minFloor = fv.Genesis.EstimatedFloorTON
+	}
+	if rawEstimateTON < minFloor {
+		rawEstimateTON = minFloor
 	}
 
 	expectedTON := roundPrice(rawEstimateTON)
@@ -407,7 +447,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	}
 
 	// 7. Dynamic Confidence Score based on evidence and empirical calibration
-	rawConfidence := int16(70)
+	rawConfidence := int16(72)
 	if fv.IsGenesis4Digit {
 		rawConfidence += 10 // Genesis numbers have exact known 1000 supply
 	}
@@ -474,12 +514,15 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	patternAnatomy := buildPatternAnatomy(fv)
 	playbook := buildActionablePlaybook(expectedTON, tonUsdRate)
 	rentalYield := buildRentalYield(expectedTON, tonUsdRate)
+	rentalMetrics := CalculateRentalYield(expectedTON, tonUsdRate, fv)
+	collateralMetrics := CalculateDeFiCollateral(expectedTON, tonUsdRate, fv)
+	survivalMetrics := CalculateLiquiditySurvival(expectedTON, len(comps), fv)
 	marketDepth := buildMarketDepthInfo(fv, expectedTON, tonUsdRate)
 	onChainAudit := buildOnChainAudit(normNumber, history)
 
-	// 16. NFT Collateral & Lending Limit (55% LTV)
-	collateralTON := roundPrice(expectedTON * 0.55)
-	collateralUSD := collateralTON * tonUsdRate
+	// 16. NFT Collateral & Lending Limit from CollateralMetrics
+	collateralTON := collateralMetrics.MaxLoanAmountTON
+	collateralUSD := collateralMetrics.MaxLoanAmountUSD
 
 	// 17. Fragment Direct Auction / Buy URL
 	rawSuffix := strings.TrimPrefix(normNumber, "+888")
@@ -493,6 +536,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	reasoningLog := map[string]interface{}{
 		"model_version":      ModelVersion,
 		"beta0_floor":        beta0,
+		"beta_genesis":       betaGenesis,
+		"beta_vip":           betaVIP,
+		"beta_dialpad":       betaDialPad,
+		"beta_entropy":       betaEntropy,
+		"beta_echo":          betaEcho,
 		"beta_max_run":       betaMaxRun,
 		"beta_distinct":      betaDistinct,
 		"beta_palin":         betaPalin,
@@ -506,9 +554,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		"price_basis":        priceBasis,
 		"global_rank":        globalRank,
 		"category_club":      categoryClub,
+		"vip_tier":           fv.VIP.Tier,
+		"dialpad_geom":       fv.DialPad.GeometryClass,
 		"comps_count":        len(comps),
 		"is_sold_historical": history.IsSold,
-		"signals_count":      27,
+		"signals_count":      36,
 	}
 
 	valuation := &NumberValuation{
@@ -546,6 +596,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		Playbook:           playbook,
 		PatternAnatomy:     patternAnatomy,
 		RentalYield:        rentalYield,
+		RentalMetrics:      rentalMetrics,
+		CollateralMetrics:  collateralMetrics,
+		SurvivalMetrics:    survivalMetrics,
 		MarketDepth:        marketDepth,
 		OnChainAudit:       onChainAudit,
 		CertificateID:      certificateID,

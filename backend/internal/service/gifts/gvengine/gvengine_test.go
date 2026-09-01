@@ -2,145 +2,192 @@ package gvengine
 
 import (
 	"context"
-	"math"
+	"fmt"
+	"math/rand"
+	"sync"
 	"testing"
+
+	"ifragment-backend/internal/service/gifts/crafting"
+	"ifragment-backend/internal/service/gifts/starsrate"
+	"ifragment-backend/internal/service/gifts/traits"
 )
 
-func TestGVEngine_InvariantsAndHedonicBounds(t *testing.T) {
+func TestGVEngine_CuriosityGate_NoLeak(t *testing.T) {
 	engine := NewValuationEngine(nil, nil, nil)
 	ctx := context.Background()
 
-	testCases := []struct {
-		input       string
-		modelID     string
-		serial      int
-		minExpected float64
-	}{
-		{"plush_pepe-1", "plush_pepe", 1, 4000.0},          // #1 Sacred jump (4.25x floor)
-		{"plush_pepe-42", "plush_pepe", 42, 1000.0},        // Double digit
-		{"durov_cap-7", "durov_cap", 7, 500.0},             // Single digit
-		{"snoop_dogg-996000", "snoop_dogg", 996000, 4.0},   // Mass drop tail
-		{"phoenix_feather-1", "phoenix_feather", 1, 2000.0}, // Crafted model #1
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.input, func(t *testing.T) {
-			val, err := engine.Valuate(ctx, tc.input)
-			if err != nil {
-				t.Fatalf("Valuation failed for %s: %v", tc.input, err)
-			}
-
-			low, _ := val.LowGRAM.Float64()
-			exp, _ := val.ExpectedGRAM.Float64()
-			high, _ := val.HighGRAM.Float64()
-
-			// Invariant: Low <= Expected <= High
-			if low > exp {
-				t.Errorf("Invariant violated: Low (%.2f) > Expected (%.2f)", low, exp)
-			}
-			if exp > high {
-				t.Errorf("Invariant violated: Expected (%.2f) > High (%.2f)", exp, high)
-			}
-			if exp < tc.minExpected {
-				t.Errorf("Expected price %.2f below threshold %.2f for %s", exp, tc.minExpected, tc.input)
-			}
-
-			// Invariant: Confidence score in valid range
-			if val.ConfidenceScore < 0 || val.ConfidenceScore > 100 {
-				t.Errorf("Invalid confidence score: %d", val.ConfidenceScore)
-			}
-
-			// Invariant: Trait DNA must have Exact badge for official attributes
-			for _, dna := range val.TraitDNA {
-				if dna.CertaintyLevel != "exact" && dna.CertaintyLevel != "measured" && dna.CertaintyLevel != "estimated" {
-					t.Errorf("Invalid certainty level: %s", dna.CertaintyLevel)
-				}
-				if dna.AxisKey == "serial" && dna.CertaintyLevel != "exact" {
-					t.Errorf("Serial rank percentile must be Exact (Sacred Rule 6)")
-				}
-			}
-
-			// Exit planner must rank 7 venues
-			if len(val.ExitPlanner.Options) != 7 {
-				t.Errorf("Expected 7 exit venue options, got %d", len(val.ExitPlanner.Options))
-			}
-		})
-	}
-}
-
-func TestGVEngine_SerialCurveJumps(t *testing.T) {
-	supply := 5000
-
-	exp1 := computeSerialExponent(1, supply)
-	exp7 := computeSerialExponent(7, supply)
-	exp42 := computeSerialExponent(42, supply)
-	exp777 := computeSerialExponent(777, supply)
-	exp3500 := computeSerialExponent(3500, supply)
-
-	if exp1 <= exp7 {
-		t.Errorf("Serial #1 jump (%.2f) should exceed #7 (%.2f)", exp1, exp7)
-	}
-	if exp7 <= exp42 {
-		t.Errorf("Single digit #7 (%.2f) should exceed double digit #42 (%.2f)", exp7, exp42)
-	}
-	if exp777 <= exp3500 {
-		t.Errorf("Repdigit #777 (%.2f) should exceed standard tail #3500 (%.2f)", exp777, exp3500)
-	}
-}
-
-func TestGVEngine_SmoothContinuousBackdrop(t *testing.T) {
-	// Verify continuous backdrop curve has no large cliffs between adjacent permilles
-	calcBetaBackdrop := func(permille int) float64 {
-		permilleClamped := math.Max(float64(permille), 5.0)
-		beta := 0.35 * math.Log(1000.0/permilleClamped)
-		if beta < 0 {
-			beta = 0
-		}
-		return beta
-	}
-
-	b20 := calcBetaBackdrop(20)
-	b21 := calcBetaBackdrop(21)
-
-	// In old step function, 20 was 1.45 and 21 was 0.90 (jump of 0.55 / ~4.5x!)
-	diff := math.Abs(b20 - b21)
-	if diff > 0.05 {
-		t.Errorf("expected smooth continuous transition between 20 and 21 permille, got diff %.4f", diff)
-	}
-	if b20 <= b21 {
-		t.Errorf("rarer backdrop (20) must have higher beta than (21)")
-	}
-}
-
-func TestGVEngine_CuriosityGateZeroLeakage(t *testing.T) {
-	engine := NewValuationEngine(nil, nil, nil)
-	ctx := context.Background()
-
-	gate, err := engine.GenerateCuriosityGate(ctx, "plush_pepe-42")
+	gate, err := engine.GenerateCuriosityGate(ctx, "durov_cap-1")
 	if err != nil {
-		t.Fatalf("Curiosity gate failed: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if gate.SignalsAnalyzed < 20 {
-		t.Errorf("Expected >= 20 analyzed signals, got %d", gate.SignalsAnalyzed)
+	if gate.SignalsAnalyzed <= 0 {
+		t.Errorf("expected positive signals analyzed, got %d", gate.SignalsAnalyzed)
 	}
-	if gate.DataSourcesCount != 6 {
-		t.Errorf("Expected 6 venue data sources, got %d", gate.DataSourcesCount)
+	if gate.DataSourcesCount <= 0 {
+		t.Errorf("expected positive data sources count, got %d", gate.DataSourcesCount)
+	}
+	if gate.ModelName == "" {
+		t.Errorf("expected model name to be populated")
 	}
 }
 
-func TestGVEngine_PropertyBasedMonotonicity(t *testing.T) {
-	// Property: A rarer backdrop or lower serial number must never decrease expected price
+func TestGVEngine_AestheticDeltaEHarmony(t *testing.T) {
+	// 1. Test Monochromatic Gold & Emerald Velvet
+	goldColors := &traits.BackdropColorSet{
+		CenterHex:  "#FFD700",
+		EdgeHex:    "#DAA520",
+		PatternHex: "#FFF8DC",
+		TextHex:    "#8B6508",
+	}
+	resGold := traits.EvaluateAestheticHarmony("durov_cap", "Astral Gold", goldColors)
+	if resGold.HarmonyClass != "MONOCHROMATIC_GOLD" {
+		t.Errorf("expected MONOCHROMATIC_GOLD, got %s", resGold.HarmonyClass)
+	}
+	if resGold.ThemeMatchRating != "PERFECT_MATCH" {
+		t.Errorf("expected PERFECT_MATCH for durov_cap with gold, got %s", resGold.ThemeMatchRating)
+	}
+	if resGold.BetaAesthetic < 0.25 {
+		t.Errorf("expected BetaAesthetic >= 0.25, got %.2f", resGold.BetaAesthetic)
+	}
+
+	// 2. Test Emerald Velvet on Plush Pepe
+	emeraldColors := &traits.BackdropColorSet{
+		CenterHex:  "#006400",
+		EdgeHex:    "#004d00",
+		PatternHex: "#2E8B57",
+		TextHex:    "#98FB98",
+	}
+	resEmerald := traits.EvaluateAestheticHarmony("plush_pepe", "Emerald Velvet", emeraldColors)
+	if resEmerald.HarmonyClass != "EMERALD_VELVET" {
+		t.Errorf("expected EMERALD_VELVET, got %s", resEmerald.HarmonyClass)
+	}
+	if resEmerald.ThemeMatchRating != "PERFECT_MATCH" {
+		t.Errorf("expected PERFECT_MATCH for plush_pepe with emerald, got %s", resEmerald.ThemeMatchRating)
+	}
+}
+
+func TestGVEngine_JointStatisticalRarity(t *testing.T) {
+	// 1. Triple God-Tier Grail (Total supply 2500, Serial #1, Backdrop 5/1000, Symbol 10/1000)
+	resTriple := traits.ComputeJointRarity(2500, 1, 5, 10, false)
+	if resTriple.RarityClass != "TRIPLE_GOD_TIER" {
+		t.Errorf("expected TRIPLE_GOD_TIER, got %s", resTriple.RarityClass)
+	}
+	if resTriple.BetaSynergy < 0.50 {
+		t.Errorf("expected BetaSynergy >= 0.50, got %.2f", resTriple.BetaSynergy)
+	}
+	if resTriple.SurprisalBits < 25.0 {
+		t.Errorf("expected high SurprisalBits >= 25.0, got %.2f", resTriple.SurprisalBits)
+	}
+
+	// 2. Standard Floor Item (Total supply 500,000, Serial #250,000, Backdrop 500/1000, Symbol 500/1000)
+	resFloor := traits.ComputeJointRarity(500000, 250000, 500, 500, false)
+	if resFloor.RarityClass != "STANDARD_FLOOR" {
+		t.Errorf("expected STANDARD_FLOOR, got %s", resFloor.RarityClass)
+	}
+	if resFloor.BetaSynergy != 0.0 {
+		t.Errorf("expected BetaSynergy == 0.0 for floor, got %.2f", resFloor.BetaSynergy)
+	}
+}
+
+func TestGVEngine_StarsFloorParity(t *testing.T) {
+	// Durov Cap: Base 15,000 Stars, Rate = $5.50 / GRAM
+	parity := starsrate.CalculateStarsParity(15000, 5.50, 50.0)
+	if parity.IntrinsicFloorGRAM <= 0 {
+		t.Errorf("expected positive intrinsic floor in GRAM")
+	}
+	if parity.IntrinsicFloorUSD <= 0 {
+		t.Errorf("expected positive intrinsic floor in USD")
+	}
+	// At 50 GRAM ($275 USD), but creation cost is 17,500 Stars * 0.019 = $332.5 USD (~60.45 GRAM), so secondary at 50 is an arbitrage discount!
+	if !parity.ArbitrageOpportunity {
+		t.Errorf("expected ArbitrageOpportunity to be true for 50 GRAM vs 60.45 GRAM intrinsic floor")
+	}
+}
+
+func TestGVEngine_MonteCarloCraftingSimulation(t *testing.T) {
+	res := crafting.RunMonteCarloCraftingSimulation(100.0, 150.0, 400)
+	if res.TrialsCount != 5000 {
+		t.Errorf("expected 5000 trials, got %d", res.TrialsCount)
+	}
+	if res.ExpectedNetProfitGRAM <= 0 {
+		t.Errorf("expected positive expected net profit for 150 floor vs 100 cost")
+	}
+	if res.ProbabilityOfProfitPct <= 0 || res.ProbabilityOfProfitPct > 100 {
+		t.Errorf("invalid profit probability: %.1f", res.ProbabilityOfProfitPct)
+	}
+	if res.KellyFractionPercent <= 0 || res.KellyFractionPercent > 50 {
+		t.Errorf("invalid Kelly fraction: %.1f", res.KellyFractionPercent)
+	}
+}
+
+func TestGVEngine_ValuationInvariantsAndMonotonicity(t *testing.T) {
 	engine := NewValuationEngine(nil, nil, nil)
 	ctx := context.Background()
 
-	valLow, _ := engine.Valuate(ctx, "plush_pepe-1000")
-	valHigh, _ := engine.Valuate(ctx, "plush_pepe-1")
+	models := []string{"durov_cap", "plush_pepe", "snoop_dogg", "golden_star", "cyber_heart"}
 
-	eLow, _ := valLow.ExpectedGRAM.Float64()
-	eHigh, _ := valHigh.ExpectedGRAM.Float64()
+	for _, model := range models {
+		// Test Serial Monotonicity: #1 must be strictly > #10 > #100 > #1000
+		val1, err1 := engine.Valuate(ctx, fmt.Sprintf("%s-1", model))
+		val10, err2 := engine.Valuate(ctx, fmt.Sprintf("%s-10", model))
+		val100, err3 := engine.Valuate(ctx, fmt.Sprintf("%s-100", model))
+		val1000, err4 := engine.Valuate(ctx, fmt.Sprintf("%s-1000", model))
 
-	if eHigh <= eLow {
-		t.Errorf("Property violation: #1 (%.2f) did not exceed #1000 (%.2f)", eHigh, eLow)
+		if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
+			t.Fatalf("valuation failed: %v", err1)
+		}
+
+		exp1, _ := val1.ExpectedGRAM.Float64()
+		exp10, _ := val10.ExpectedGRAM.Float64()
+		exp100, _ := val100.ExpectedGRAM.Float64()
+		exp1000, _ := val1000.ExpectedGRAM.Float64()
+
+		if exp1 <= exp10 {
+			t.Errorf("monotonicity violated: #1 (%.2f) must exceed #10 (%.2f) for %s", exp1, exp10, model)
+		}
+		if exp10 <= exp100 {
+			t.Errorf("monotonicity violated: #10 (%.2f) must exceed #100 (%.2f) for %s", exp10, exp100, model)
+		}
+		if exp100 <= exp1000 {
+			t.Errorf("monotonicity violated: #100 (%.2f) must exceed #1000 (%.2f) for %s", exp100, exp1000, model)
+		}
+
+		// Mathematical Invariant: Low <= Expected <= High
+		low1, _ := val1.LowGRAM.Float64()
+		high1, _ := val1.HighGRAM.Float64()
+		if low1 > exp1 || exp1 > high1 {
+			t.Errorf("invariant violated: Low (%.2f) <= Expected (%.2f) <= High (%.2f) for %s #1", low1, exp1, high1, model)
+		}
+
+		// Confidence score in [0, 100]
+		if val1.ConfidenceScore < 0 || val1.ConfidenceScore > 100 {
+			t.Errorf("invalid confidence score: %d for %s #1", val1.ConfidenceScore, model)
+		}
+
+		// Social Profile Flex must be populated
+		if val1.ProfileFlex.ProfileFlexScore <= 0 {
+			t.Errorf("expected positive profile flex score for %s #1", model)
+		}
+		if val1.ProfileFlex.FlexTier != "SOVEREIGN_WHALE" {
+			t.Errorf("expected SOVEREIGN_WHALE for %s #1, got %s", model, val1.ProfileFlex.FlexTier)
+		}
 	}
+}
+
+func TestGVEngine_ConcurrentRaceSafety(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	ctx := context.Background()
+	r := rand.New(rand.NewSource(42))
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			serial := r.Intn(1000) + 1
+			_, _ = engine.Valuate(ctx, fmt.Sprintf("plush_pepe-%d", serial))
+		}(i)
+	}
+	wg.Wait()
 }

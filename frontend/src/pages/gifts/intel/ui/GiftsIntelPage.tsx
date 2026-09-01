@@ -1,5 +1,5 @@
 import { createQuery } from '@tanstack/solid-query';
-import { type Component, createSignal, For, Show } from 'solid-js';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { giftsApi } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -20,6 +20,18 @@ export const GiftsIntelPage: Component = () => {
 	}));
 
 	const intel = () => intelQuery.data;
+
+	const effectiveRate = createMemo(() => {
+		const board = intel()?.unified_floor_board;
+		if (board && board.length > 0) {
+			for (const item of board) {
+				if (item.best_floor_usd > 0 && item.best_floor_gram > 0) {
+					return item.best_floor_usd / item.best_floor_gram;
+				}
+			}
+		}
+		return 5.5;
+	});
 
 	const tabsList = () => [
 		{ id: 'chart', label: t('gifts.tabChart') || 'نمودار و بولینگر', icon: 'show_chart' },
@@ -95,7 +107,7 @@ export const GiftsIntelPage: Component = () => {
 				</Show>
 
 				<Show when={activeTab() === 'collections'}>
-					<GiftsCollectionsExplorer />
+					<GiftsCollectionsExplorer rate={effectiveRate()} />
 				</Show>
 
 				<Show when={activeTab() === 'heatmap'}>

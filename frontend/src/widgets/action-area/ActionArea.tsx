@@ -81,22 +81,22 @@ const NUMBER_TRENDING_POOLS: TrendingPool[] = [
 	{
 		categoryKey: 'numbers.poolRoyal',
 		badge: 'ROYAL & GENESIS',
-		items: ['+888 8888 8888', '+888 0000 0000', '+888 8888', '+888 7777 7777'],
+		items: ['+888 8888', '+888 0000 0000', '+888 8000', '+888 0888 8888'],
 	},
 	{
 		categoryKey: 'numbers.poolMirror',
 		badge: 'APEX MIRROR',
-		items: ['+888 1234 4321', '+888 0123 3210', '+888 8008 8008', '+888 0990 0990'],
+		items: ['+888 0123 3210', '+888 0990 0990', '+888 0880 0880', '+888 0770 0770'],
 	},
 	{
 		categoryKey: 'numbers.poolLadder',
 		badge: 'LADDER RUNS',
-		items: ['+888 1234 5678', '+888 0123 4567', '+888 9876 5432', '+888 8765 4321'],
+		items: ['+888 0123 4567', '+888 0765 4321', '+888 0876 5432', '+888 0987 6543'],
 	},
 	{
 		categoryKey: 'numbers.poolBinary',
 		badge: 'BINARY DUAL',
-		items: ['+888 0101 0101', '+888 8080 8080', '+888 1100 1100', '+888 7788 7788'],
+		items: ['+888 0808 0808', '+888 0707 0707', '+888 0202 0202', '+888 0000 2222'],
 	},
 ];
 
@@ -577,8 +577,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			if (verifyTimeout) clearTimeout(verifyTimeout);
 
 			// Auto-open format guide if invalid after 2.5 seconds of non-empty typing
+			const is4DigitGen = digits.length === 4 && parseInt(digits, 10) >= 8000 && parseInt(digits, 10) <= 8999;
+			const isFullValid = digits.length === 8 || is4DigitGen;
+
 			if (digits.length > 0) {
-				if (digits.length !== 8 && digits !== '8888') {
+				if (!isFullValid) {
 					setServerVerified(null);
 					setIsVerifying(false);
 					autoGuideTimeout = setTimeout(() => {
@@ -596,7 +599,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							setServerVerified({
 								number: '+888' + digits,
 								display_number: '+888 ' + (digits.length > 4 ? `${digits.slice(0, 4)} ${digits.slice(4)}` : digits),
-								is_minted: digits.length === 8 || digits === '8888',
+								is_minted: isFullValid,
 								exists: true,
 								tier: numbersValidation().pattern?.tier || 'STANDARD TIER',
 								category_club: 'Standard Collection',

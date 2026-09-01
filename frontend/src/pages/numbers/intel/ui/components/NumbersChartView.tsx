@@ -25,6 +25,9 @@ import { haptic } from '@/shared/lib/haptic.js';
 interface Props {
 	intel?: NumbersIntelData;
 	chartData?: Record<string, number[]>;
+	floor?: { ton: number; usd: number };
+	floorN?: { ton: number; usd: number };
+	rate?: number;
 	isLoading?: boolean;
 	onSelectTab?: (tab: 'chart' | 'numbers' | 'portfolio') => void;
 	onFilterType?: (type: 'auction' | 'for_sale' | 'banned') => void;
@@ -71,9 +74,52 @@ export const NumbersChartView: Component<Props> = (props) => {
 	};
 
 	const currentFloor = createMemo(() => {
-		const rawTon = props.intel?.floor_price_ton || 2179;
-		const ton = unrestrictedFloor() ? Math.round(rawTon * 1.05) : rawTon;
-		const usd = Math.round(ton * 5.5);
+		// 1. Calculate dynamic conversion rate
+		let effectiveRate = props.rate;
+		if (!effectiveRate || effectiveRate <= 0) {
+			if (props.intel?.floor_price_usd && props.intel?.floor_price_ton && props.intel.floor_price_ton > 0) {
+				effectiveRate = props.intel.floor_price_usd / props.intel.floor_price_ton;
+			} else if (props.floor?.usd && props.floor?.ton && props.floor.ton > 0) {
+				effectiveRate = props.floor.usd / props.floor.ton;
+			} else {
+				effectiveRate = 5.5;
+			}
+		}
+
+		// 2. Determine base TON floor: prioritize props.floor -> latest chart candle -> props.intel
+		let rawTon = props.floor?.ton;
+		if (!rawTon || rawTon <= 0) {
+			if (props.chartData && Object.keys(props.chartData).length > 0) {
+				const dates = Object.keys(props.chartData).sort();
+				const latestKey = dates[dates.length - 1];
+				const latestEntry = props.chartData[latestKey];
+				if (latestEntry && latestEntry[0] > 0) {
+					rawTon = latestEntry[0];
+				}
+			}
+		}
+		if (!rawTon || rawTon <= 0) {
+			rawTon = props.intel?.floor_price_ton || 2280;
+		}
+
+		// 3. Handle unrestricted floor filter (+5% or props.floorN)
+		let ton = rawTon;
+		if (unrestrictedFloor()) {
+			if (props.floorN?.ton && props.floorN.ton > 0) {
+				ton = props.floorN.ton;
+			} else {
+				ton = Math.round(rawTon * 1.05);
+			}
+		}
+
+		// 4. Calculate USD value using dynamic rate
+		let usd = Math.round(ton * effectiveRate);
+		if (!unrestrictedFloor() && props.floor?.usd && props.floor.usd > 0) {
+			usd = props.floor.usd;
+		} else if (unrestrictedFloor() && props.floorN?.usd && props.floorN.usd > 0) {
+			usd = props.floorN.usd;
+		}
+
 		return { ton, usd };
 	});
 

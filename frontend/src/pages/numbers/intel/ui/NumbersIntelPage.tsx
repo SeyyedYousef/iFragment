@@ -1,6 +1,6 @@
 import { createQuery } from '@tanstack/solid-query';
 import { useNavigate, useSearchParams } from '@solidjs/router';
-import { type Component, createEffect, createSignal, Show } from 'solid-js';
+import { type Component, createEffect, createMemo, createSignal, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -48,6 +48,32 @@ export const NumbersIntelPage: Component = () => {
 
 	const intel = () => intelQuery.data;
 	const chartData = () => chartQuery.data?.data;
+
+	const liveFloor = createMemo(() => {
+		const chartFloor = chartQuery.data?.floor?.ton;
+		const rate =
+			chartQuery.data?.rate ||
+			(intel()?.floor_price_usd && intel()?.floor_price_ton && intel()!.floor_price_ton > 0
+				? intel()!.floor_price_usd / intel()!.floor_price_ton
+				: 5.5);
+
+		let ton = chartFloor;
+		if (!ton || ton <= 0) {
+			const data = chartQuery.data?.data;
+			if (data && Object.keys(data).length > 0) {
+				const dates = Object.keys(data).sort();
+				const latest = data[dates[dates.length - 1]];
+				if (latest && latest[0] > 0) {
+					ton = latest[0];
+				}
+			}
+		}
+		if (!ton || ton <= 0) {
+			ton = intel()?.floor_price_ton || 2280;
+		}
+		const usd = chartQuery.data?.floor?.usd || Math.round(ton * rate);
+		return { ton, usd, rate };
+	});
 
 	const formatTon = (val?: number) => {
 		if (val === undefined || val === null) return '0';
@@ -117,10 +143,10 @@ export const NumbersIntelPage: Component = () => {
 					<div class="text-right">
 						<div class="text-xs font-black text-white font-mono flex items-center justify-end gap-1.5">
 							<span class="w-1.5 h-1.5 rounded-full bg-[#0098EA]" />
-							<span>{formatTon(intel()?.floor_price_ton || 2179)} TON</span>
+							<span>{formatTon(liveFloor().ton)} TON</span>
 						</div>
 						<div class="text-[10px] text-white/40 font-mono">
-							≈ {formatUsd(intel()?.floor_price_usd || Math.round((intel()?.floor_price_ton || 2179) * 5.5))}
+							≈ {formatUsd(liveFloor().usd)}
 						</div>
 					</div>
 				</div>
@@ -187,6 +213,9 @@ export const NumbersIntelPage: Component = () => {
 					<NumbersChartView
 						intel={intel()}
 						chartData={chartData()}
+						floor={chartQuery.data?.floor}
+						floorN={chartQuery.data?.floor_n}
+						rate={chartQuery.data?.rate}
 						isLoading={chartQuery.isPending}
 						onFilterType={handleChartQuickFilter}
 					/>
@@ -203,7 +232,8 @@ export const NumbersIntelPage: Component = () => {
 				<Show when={activeTab() === 'portfolio'}>
 					<NumbersPortfolioView
 						initialAddress={portfolioTargetAddress()}
-						floorPriceTon={intel()?.floor_price_ton || 2179}
+						floorPriceTon={liveFloor().ton}
+						rate={liveFloor().rate}
 						onValuateNumber={handleSelectNumber}
 					/>
 				</Show>

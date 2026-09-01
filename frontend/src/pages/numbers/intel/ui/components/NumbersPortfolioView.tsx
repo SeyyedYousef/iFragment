@@ -14,6 +14,7 @@ import { haptic } from '@/shared/lib/haptic.js';
 interface Props {
 	initialAddress?: string;
 	floorPriceTon?: number;
+	rate?: number;
 	onValuateNumber?: (num: string) => void;
 }
 
@@ -37,8 +38,8 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 		}
 	});
 
-	const floorTon = () => props.floorPriceTon || 2179;
-	const tonRate = 5.5;
+	const floorTon = () => props.floorPriceTon || 2280;
+	const tonRate = () => props.rate || 5.5;
 
 	const handleScan = async (targetAddr?: string) => {
 		const query = (targetAddr !== undefined ? targetAddr : address()).trim();

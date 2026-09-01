@@ -96,3 +96,38 @@ func TestNumbersService_ScanWalletPortfolio_Empty(t *testing.T) {
 		t.Errorf("expected empty assets list, got %d", len(res.Assets))
 	}
 }
+
+func TestNumbersService_VerifyNumber(t *testing.T) {
+	svc := NewNumbersService(nil, nil, nil, nil)
+	ctx := context.Background()
+
+	testCases := []struct {
+		input       string
+		expectedNum string
+		isMinted    bool
+		isGenesis   bool
+	}{
+		{"+888 0000 0000", "+88800000000", true, false},
+		{"+888 8888 8888", "+88888888888", true, false},
+		{"+888 8004", "+8888004", true, true},
+		{"+888 8000", "+8888000", true, true},
+		{"+888 123", "", false, false},
+	}
+
+	for _, tc := range testCases {
+		res, err := svc.VerifyNumber(ctx, tc.input)
+		if err != nil {
+			t.Fatalf("unexpected error verifying %s: %v", tc.input, err)
+		}
+		if res.IsMinted != tc.isMinted {
+			t.Errorf("for input %s, expected isMinted=%v, got %v (error: %s)", tc.input, tc.isMinted, res.IsMinted, res.Error)
+		}
+		if tc.isMinted && res.Number != tc.expectedNum {
+			t.Errorf("for input %s, expected number %s, got %s", tc.input, tc.expectedNum, res.Number)
+		}
+		if tc.isGenesis && res.Tier != "4-DIGIT ULTRA (GENESIS)" {
+			t.Errorf("for genesis input %s, expected 4-DIGIT ULTRA tier, got %s", tc.input, res.Tier)
+		}
+	}
+}
+

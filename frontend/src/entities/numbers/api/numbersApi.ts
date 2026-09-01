@@ -103,7 +103,7 @@ export const numbersApi = {
 			const latestRes = await fetch('https://nums888.io/api/latest/').then((r) => r.json());
 			if (latestRes) {
 				const rate = latestRes.r || 5.5;
-				const floorTon = latestRes.f || 2179;
+				const floorTon = latestRes.f || 2280;
 				const floorUsd = Math.round(floorTon * rate);
 				return {
 					total_supply: 136566,
@@ -135,8 +135,8 @@ export const numbersApi = {
 			total_owners: 0,
 			total_sales: 0,
 			total_volume_ton: 0,
-			floor_price_ton: 2179,
-			floor_price_usd: 11985,
+			floor_price_ton: 2280,
+			floor_price_usd: 12540,
 			volume_24h_ton: 0,
 			volume_7d_ton: 0,
 			fng_index: 50,
@@ -269,7 +269,7 @@ export const numbersApi = {
 
 			if (chartRes && typeof chartRes === 'object' && latestRes) {
 				const rate = latestRes.r || 5.5;
-				const floorTon = latestRes.f || 2179;
+				const floorTon = latestRes.f || 2280;
 				const floorUsd = Math.round(floorTon * rate);
 				const floorNTon = latestRes.fn || floorTon;
 				const floorNUsd = Math.round(floorNTon * rate);
@@ -288,7 +288,7 @@ export const numbersApi = {
 		// 2. Fallback when network is offline / upstream is unavailable
 		const intel = await numbersApi.getIntel().catch(() => null);
 		const rate = 5.5;
-		const floorTon = intel?.floor_price_ton || 2179;
+		const floorTon = intel?.floor_price_ton || 2280;
 		const floorUsd = Math.round(floorTon * rate);
 		const floorNTon = Math.round(floorTon * 1.05);
 		const floorNUsd = Math.round(floorNTon * rate);

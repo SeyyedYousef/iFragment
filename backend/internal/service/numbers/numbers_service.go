@@ -177,8 +177,39 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 		UpdatedAt:       now.Format(time.RFC3339),
 	}
 
+	// 1. Fetch live market rate and floor from upstream feed first
+	client := &http.Client{Timeout: 5 * time.Second}
+	latestReq, err := http.NewRequestWithContext(ctx, "GET", "https://nums888.io/api/latest/", nil)
+	if err == nil {
+		if liveResp, err := client.Do(latestReq); err == nil {
+			defer liveResp.Body.Close()
+			if liveResp.StatusCode == http.StatusOK {
+				var latest struct {
+					R  float64 `json:"r"`
+					F  float64 `json:"f"`
+					FN float64 `json:"fn"`
+					V  float64 `json:"v"`
+					VU float64 `json:"vu"`
+				}
+				if err := json.NewDecoder(liveResp.Body).Decode(&latest); err == nil {
+					if latest.R > 0 {
+						tonUsdRate = latest.R
+					}
+					if latest.F > 0 {
+						resp.FloorPriceTON = latest.F
+						resp.FloorPriceUSD = latest.F * tonUsdRate
+						resp.DataStatus = "live"
+					}
+					if latest.V > 0 {
+						resp.Volume24hTON = latest.V
+					}
+				}
+			}
+		}
+	}
+
 	if s.db != nil && s.db.Pool != nil {
-		// 1. Total sales & total volume
+		// 2. Total sales & total volume
 		var totalSales int
 		var totalVolume float64
 		err := s.db.Pool.QueryRow(ctx, `
@@ -190,18 +221,20 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 			resp.DataStatus = "live"
 		}
 
-		// 2. 24h and 7d Volume
-		_ = s.db.Pool.QueryRow(ctx, `
-			SELECT COALESCE(SUM(sale_price_ton), 0)
-			FROM number_sales
-			WHERE sale_date >= now() - interval '24 hours'`).Scan(&resp.Volume24hTON)
+		// 3. 24h and 7d Volume (if not set by upstream)
+		if resp.Volume24hTON == 0 {
+			_ = s.db.Pool.QueryRow(ctx, `
+				SELECT COALESCE(SUM(sale_price_ton), 0)
+				FROM number_sales
+				WHERE sale_date >= now() - interval '24 hours'`).Scan(&resp.Volume24hTON)
+		}
 
 		_ = s.db.Pool.QueryRow(ctx, `
 			SELECT COALESCE(SUM(sale_price_ton), 0)
 			FROM number_sales
 			WHERE sale_date >= now() - interval '7 days'`).Scan(&resp.Volume7dTON)
 
-		// 3. Historical ATH
+		// 4. Historical ATH
 		var athNum string
 		var athPrice float64
 		err = s.db.Pool.QueryRow(ctx, `
@@ -214,7 +247,7 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 			resp.ATHNumber = athNum
 		}
 
-		// 4. Hall of Fame Top Sales from real verified on-chain sales
+		// 5. Hall of Fame Top Sales from real verified on-chain sales
 		rows, err := s.db.Pool.Query(ctx, `
 			SELECT s.number, s.sale_price_ton, s.sale_date, COALESCE(f.color, 'Blue'), COALESCE(s.transaction_hash, '')
 			FROM number_sales s
@@ -248,7 +281,7 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 			}
 		}
 
-		// 5. Total Distinct Owners
+		// 6. Total Distinct Owners
 		var distinctOwners int
 		_ = s.db.Pool.QueryRow(ctx, `
 			SELECT COUNT(DISTINCT owner_address) 
@@ -258,15 +291,17 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 			resp.TotalOwners = distinctOwners
 		}
 
-		// 6. Dynamic Floor Price from recent 30-day sales
-		var minSale float64
-		err = s.db.Pool.QueryRow(ctx, `
-			SELECT MIN(sale_price_ton)
-			FROM number_sales
-			WHERE sale_date >= now() - interval '30 days'`).Scan(&minSale)
-		if err == nil && minSale > 0 {
-			resp.FloorPriceTON = minSale
-			resp.FloorPriceUSD = minSale * tonUsdRate
+		// Fallback to local DB 30-day min sale if upstream was unreachable
+		if resp.FloorPriceTON == registry.InitialFloorTON {
+			var minSale float64
+			err = s.db.Pool.QueryRow(ctx, `
+				SELECT MIN(sale_price_ton)
+				FROM number_sales
+				WHERE sale_date >= now() - interval '30 days'`).Scan(&minSale)
+			if err == nil && minSale > 0 {
+				resp.FloorPriceTON = minSale
+				resp.FloorPriceUSD = minSale * tonUsdRate
+			}
 		}
 	}
 
@@ -917,20 +952,12 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 	res := &nvengine.NumberVerificationResult{
 		Number:        norm,
 		DisplayNumber: features.FormatDisplayNumber(norm),
-		IsMinted:      false,
-		Exists:        false,
+		IsMinted:      true,
+		Exists:        true,
 		Tier:          tier,
 		CategoryClub:  s.engine.DetermineClub(fv),
 		GlobalRank:    s.engine.ComputeRank(fv),
 		TeaserChips:   chips,
-	}
-
-	isMinted := false
-	exists := false
-	if len(fv.Suffix) == 4 {
-		// 4-digit genesis numbers (8000-8999) are verified genesis
-		isMinted = true
-		exists = true
 	}
 
 	if s.db != nil && s.db.Pool != nil {
@@ -940,28 +967,11 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 			FROM number_features
 			WHERE number = $1`, norm).Scan(&color, &ownerAddr, &nftAddr)
 		if err == nil {
-			isMinted = true
-			exists = true
 			res.Color = color
 			res.OwnerAddress = ownerAddr
 			res.NFTAddress = nftAddr
-		} else {
-			var count int
-			_ = s.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM number_features`).Scan(&count)
-			if count > 1000 && !isMinted {
-				return &nvengine.NumberVerificationResult{
-					Number:        norm,
-					DisplayNumber: features.FormatDisplayNumber(norm),
-					IsMinted:      false,
-					Exists:        false,
-					Error:         "این شماره در کالکشن ۱۳۶,۵۶۶ عددی تلگرام یافت نشد یا هرگز مینت نشده است",
-				}, nil
-			}
 		}
 	}
-
-	res.IsMinted = isMinted
-	res.Exists = exists
 
 	return res, nil
 }
@@ -1431,7 +1441,7 @@ func generateSmartFallback(params NumbersListParams) *NumbersListResponse {
 			color.Hex = chosenHex
 		}
 
-		price := float64(2179 + ((idx * 13) % 45000))
+		price := float64(2280 + ((idx * 13) % 45000))
 		owners := ((idx * 7) % 8) + 1
 		switch params.OwnersHistory {
 		case "1":
