@@ -10,11 +10,12 @@ export const MaskBuilderPage: Component = () => {
 	useTelegramBackButton(-1);
 	const navigate = useNavigate();
 
-	// 8 digit slots representing the suffix after +888
-	const [slots, setSlots] = createSignal<string[]>(['8', '8', '8', '8', '*', '*', '*', '*']);
+	const [lengthMode, setLengthMode] = createSignal<'8' | '4'>('8');
+	const [slots8, setSlots8] = createSignal<string[]>(['8', '8', '8', '8', '*', '*', '*', '*']);
+	const [slots4, setSlots4] = createSignal<string[]>(['8', '8', '8', '8']);
 	const [filterStatus, setFilterStatus] = createSignal<'all' | 'for_sale' | 'taken'>('all');
 
-	const PRESET_PATTERNS = [
+	const PRESET_PATTERNS_8 = [
 		{ label: 'Quad 8888 Prefix', mask: ['8', '8', '8', '8', '*', '*', '*', '*'] },
 		{ label: 'Quad 8888 Tail', mask: ['*', '*', '*', '*', '8', '8', '8', '8'] },
 		{ label: 'Triple 777 Tail', mask: ['*', '*', '*', '*', '*', '7', '7', '7'] },
@@ -22,12 +23,25 @@ export const MaskBuilderPage: Component = () => {
 		{ label: 'Alternating 8989', mask: ['8', '9', '8', '9', '*', '*', '*', '*'] },
 	];
 
+	const PRESET_PATTERNS_4 = [
+		{ label: 'Genesis Monodigit 8888', mask: ['8', '8', '8', '8'] },
+		{ label: 'Genesis Floor 8000', mask: ['8', '0', '0', '0'] },
+		{ label: 'Genesis Dual 8*8*', mask: ['8', '*', '8', '*'] },
+		{ label: 'Genesis Any 8***', mask: ['8', '*', '*', '*'] },
+	];
+
+	const currentSlots = () => (lengthMode() === '4' ? slots4() : slots8());
+
 	const currentMaskString = createMemo(() => {
-		return `+888 ${slots().slice(0, 4).join('')} ${slots().slice(4).join('')}`;
+		const s = currentSlots();
+		if (s.length === 4) {
+			return `+888 ${s.join('')}`;
+		}
+		return `+888 ${s.slice(0, 4).join('')} ${s.slice(4).join('')}`;
 	});
 
 	const rawQueryString = createMemo(() => {
-		return `+888${slots().join('')}`;
+		return `+888${currentSlots().join('')}`;
 	});
 
 	const maskQuery = createQuery(() => ({
@@ -60,28 +74,41 @@ export const MaskBuilderPage: Component = () => {
 			haptic.selection();
 		} catch {}
 		const asciiVal = toAscii(val || '');
-		const next = [...slots()];
+		const current = [...currentSlots()];
+		const maxLen = lengthMode() === '4' ? 4 : 8;
+
 		if (!asciiVal || asciiVal === ' ' || asciiVal === '*') {
-			next[index] = '*';
+			current[index] = '*';
 		} else {
 			const char = asciiVal.slice(-1);
 			if (char >= '0' && char <= '9') {
-				next[index] = char;
+				// In 4-digit mode, first digit must be 8 for Telegram genesis
+				if (lengthMode() === '4' && index === 0 && char !== '8') {
+					current[index] = '8';
+				} else {
+					current[index] = char;
+				}
 				// Auto-advance focus to next slot
-				if (index < 7 && inputRefs[index + 1]) {
+				if (index < maxLen - 1 && inputRefs[index + 1]) {
 					inputRefs[index + 1]?.focus();
 					inputRefs[index + 1]?.select();
 				}
 			} else {
-				next[index] = '*';
+				current[index] = '*';
 			}
 		}
-		setSlots(next);
+
+		if (lengthMode() === '4') {
+			setSlots4(current);
+		} else {
+			setSlots8(current);
+		}
 	};
 
 	const handleKeyDown = (index: number, e: KeyboardEvent) => {
+		const maxLen = lengthMode() === '4' ? 4 : 8;
 		if (e.key === 'Backspace') {
-			if (slots()[index] === '*' && index > 0) {
+			if (currentSlots()[index] === '*' && index > 0) {
 				e.preventDefault();
 				inputRefs[index - 1]?.focus();
 				inputRefs[index - 1]?.select();
@@ -89,7 +116,7 @@ export const MaskBuilderPage: Component = () => {
 		} else if (e.key === 'ArrowLeft' && index > 0) {
 			e.preventDefault();
 			inputRefs[index - 1]?.focus();
-		} else if (e.key === 'ArrowRight' && index < 7) {
+		} else if (e.key === 'ArrowRight' && index < maxLen - 1) {
 			e.preventDefault();
 			inputRefs[index + 1]?.focus();
 		}
@@ -99,18 +126,24 @@ export const MaskBuilderPage: Component = () => {
 		e.preventDefault();
 		const text = e.clipboardData?.getData('text') || '';
 		const digitsOnly = toAscii(text).replace(/\D/g, '').replace(/^888/, '');
+		const maxLen = lengthMode() === '4' ? 4 : 8;
+
 		if (digitsOnly.length > 0) {
 			try {
 				haptic.impact('medium');
 			} catch {}
-			const next = [...slots()];
-			for (let i = 0; i < 8; i++) {
+			const next = [...currentSlots()];
+			for (let i = 0; i < maxLen; i++) {
 				if (i < digitsOnly.length) {
 					next[i] = digitsOnly[i];
 				}
 			}
-			setSlots(next);
-			const targetFocus = Math.min(7, digitsOnly.length);
+			if (lengthMode() === '4') {
+				setSlots4(next);
+			} else {
+				setSlots8(next);
+			}
+			const targetFocus = Math.min(maxLen - 1, digitsOnly.length);
 			inputRefs[targetFocus]?.focus();
 		}
 	};
@@ -119,7 +152,18 @@ export const MaskBuilderPage: Component = () => {
 		try {
 			haptic.impact('medium');
 		} catch {}
-		setSlots([...presetMask]);
+		if (lengthMode() === '4') {
+			setSlots4([...presetMask]);
+		} else {
+			setSlots8([...presetMask]);
+		}
+	};
+
+	const switchLengthMode = (mode: '8' | '4') => {
+		try {
+			haptic.selection();
+		} catch {}
+		setLengthMode(mode);
 	};
 
 	const formatTon = (val?: number) => {
@@ -163,7 +207,35 @@ export const MaskBuilderPage: Component = () => {
 					</button>
 				</div>
 
-				{/* 8-Box Visual Selector */}
+				{/* 4-Digit vs 8-Digit Length Segmented Switch */}
+				<div class="grid grid-cols-2 bg-[#12141C]/90 p-1 rounded-2xl border border-white/10 mb-4 shadow-lg">
+					<button
+						type="button"
+						onClick={() => switchLengthMode('8')}
+						class={`py-1.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+							lengthMode() === '8'
+								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25'
+								: 'text-white/50 hover:text-white'
+						}`}
+					>
+						<span>{t('numbers.mode8Digit') || '8-Digit Standard'}</span>
+						<span class="text-[10px] opacity-70 font-mono font-normal">(135.5k)</span>
+					</button>
+					<button
+						type="button"
+						onClick={() => switchLengthMode('4')}
+						class={`py-1.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+							lengthMode() === '4'
+								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25'
+								: 'text-white/50 hover:text-white'
+						}`}
+					>
+						<span>{t('numbers.mode4Digit') || '4-Digit Genesis'}</span>
+						<span class="text-[10px] opacity-70 font-mono font-normal">(1,000)</span>
+					</button>
+				</div>
+
+				{/* Visual Selector Box */}
 				<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 mb-4 shadow-xl">
 					<div class="flex items-center justify-between mb-3">
 						<span class="text-xs font-bold text-white/60">{t('numbers.patternQuery')}:</span>
@@ -172,12 +244,12 @@ export const MaskBuilderPage: Component = () => {
 
 					<div class="flex items-center gap-1.5 justify-center mb-4" dir="ltr">
 						{/* +888 Fixed Badge */}
-						<div class="px-2.5 py-3 rounded-2xl bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] font-mono font-black text-sm flex items-center justify-center">
+						<div class="px-2.5 py-3 rounded-2xl bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] font-mono font-black text-sm flex items-center justify-center select-none">
 							+888
 						</div>
 
-						{/* 8 Interactive Slot Inputs */}
-						<For each={slots()}>
+						{/* Interactive Slot Inputs */}
+						<For each={currentSlots()}>
 							{(slot, idx) => (
 								<input
 									ref={(el) => {
@@ -204,7 +276,7 @@ export const MaskBuilderPage: Component = () => {
 
 					{/* Quick Preset Pattern Chips */}
 					<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-						<For each={PRESET_PATTERNS}>
+						<For each={lengthMode() === '4' ? PRESET_PATTERNS_4 : PRESET_PATTERNS_8}>
 							{(preset) => (
 								<button
 									type="button"
@@ -218,7 +290,7 @@ export const MaskBuilderPage: Component = () => {
 					</div>
 				</div>
 
-				{/* Filter Chips: All | For Sale | Taken */}
+				{/* Filter Chips: All | For Sale | Taken (Professional Dots without emojis) */}
 				<div class="flex items-center justify-between mb-3">
 					<div class="flex items-center gap-1 bg-[#12141C]/80 p-1 rounded-2xl border border-white/10 text-xs font-bold">
 						<button
@@ -243,11 +315,12 @@ export const MaskBuilderPage: Component = () => {
 								} catch {}
 								setFilterStatus('for_sale');
 							}}
-							class={`px-3 py-1 rounded-xl transition-all ${
+							class={`px-3 py-1 rounded-xl transition-all flex items-center gap-1.5 ${
 								filterStatus() === 'for_sale' ? 'bg-amber-500 text-white font-black' : 'text-white/50'
 							}`}
 						>
-							🟡 {t('numbers.forSale')}
+							<span class="w-2 h-2 rounded-full bg-amber-400" />
+							<span>{t('numbers.forSale')}</span>
 						</button>
 						<button
 							type="button"
@@ -257,16 +330,17 @@ export const MaskBuilderPage: Component = () => {
 								} catch {}
 								setFilterStatus('taken');
 							}}
-							class={`px-3 py-1 rounded-xl transition-all ${
+							class={`px-3 py-1 rounded-xl transition-all flex items-center gap-1.5 ${
 								filterStatus() === 'taken' ? 'bg-slate-700 text-white font-black' : 'text-white/50'
 							}`}
 						>
-							🔴 {t('numbers.taken')}
+							<span class="w-2 h-2 rounded-full bg-slate-400" />
+							<span>{t('numbers.taken')}</span>
 						</button>
 					</div>
 
 					<div class="text-[11px] font-mono text-white/40">
-						{filteredResults().length} matches (&lt;150ms)
+						{filteredResults().length} {t('numbers.allResults')?.toLowerCase() || 'matches'} (&lt;150ms)
 					</div>
 				</div>
 

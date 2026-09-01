@@ -371,7 +371,7 @@ export const GiftCollectionPage: Component = () => {
 											<button
 												type="button"
 												onClick={() => {
-													navigate(`/gifts/report?g=${model.model_id}-1`);
+													navigate(`/gifts/report?g=${slug()}-${i() + 1}`);
 													try {
 														haptic.impact('light');
 													} catch {}
@@ -389,6 +389,11 @@ export const GiftCollectionPage: Component = () => {
 												<div class="flex-1 min-w-0">
 													<div class="flex items-center gap-1.5">
 														<span class="text-xs font-bold text-white truncate">{model.model_name}</span>
+														<Show when={model.custom_emoji_id}>
+															<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-[#0098EA]/15 text-[#0098EA] border border-[#0098EA]/30 font-mono shrink-0" title={`TG Custom Emoji ID: ${model.custom_emoji_id}`}>
+																TG Emoji
+															</span>
+														</Show>
 													</div>
 													<div class="text-[10px] text-white/40 flex items-center gap-2 mt-0.5">
 														<span>تیراژ: {model.total_supply.toLocaleString()}</span>

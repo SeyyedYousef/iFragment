@@ -61,6 +61,15 @@ export const GiftReportPage: Component = () => {
 		retry: false,
 	}));
 
+	// Enriched Report Query (Fetches provenance & on-chain metadata when unlocked)
+	const enrichedQuery = createQuery(() => ({
+		queryKey: ['giftEnrichedReport', giftID()],
+		queryFn: () => giftsApi.getEnrichedReport(giftID()),
+		enabled: !!(unlockedReport() || valuateQuery.data),
+		staleTime: 5 * 60 * 1000,
+		retry: false,
+	}));
+
 	// Unlock with Credit Mutation
 	const unlockCreditMutation = createMutation(() => ({
 		mutationFn: () => giftsApi.unlockWithCredit(giftID()),
@@ -70,6 +79,7 @@ export const GiftReportPage: Component = () => {
 			} catch { }
 			setUnlockedReport(data);
 			queryClient.invalidateQueries({ queryKey: ['giftValuation', giftID()] });
+			queryClient.invalidateQueries({ queryKey: ['giftEnrichedReport', giftID()] });
 		},
 		onError: (err: any) => {
 			try {
@@ -79,7 +89,7 @@ export const GiftReportPage: Component = () => {
 		},
 	}));
 
-	const currentReport = () => unlockedReport() || valuateQuery.data;
+	const currentReport = () => enrichedQuery.data || unlockedReport() || valuateQuery.data;
 
 	const handleWatchlistToggle = async () => {
 		const nextState = !isWatching();
@@ -824,7 +834,7 @@ export const GiftReportPage: Component = () => {
 									<span class="font-black text-white font-mono text-sm">
 										11.84 bits
 									</span>
-									<span class="text-[9px] text-purple-400 block font-medium">Σ(-log₂ P)</span>
+									<span class="text-[9px] text-sky-400 block font-medium">Σ(-log₂ P)</span>
 								</div>
 							</div>
 						</div>
@@ -1110,62 +1120,102 @@ export const GiftReportPage: Component = () => {
 								</span>
 							</div>
 
-							<div class="relative pl-5 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-[#0098EA] before:via-[#AF52DE] before:to-emerald-400">
-								{/* Event 1: Mint */}
-								<div class="relative">
-									<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-[#0098EA] ring-4 ring-[#12141C]" />
-									<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
-										<div class="flex items-center justify-between">
-											<span class="text-xs font-black text-white">{t('gifts.eventMinted')}</span>
-											<span class="text-[10px] text-white/40">Telegram Store</span>
-										</div>
-										<p class="text-[11px] text-white/50 mt-1">
-											{t('gifts.eventMintedDesc')}
-										</p>
-									</div>
-								</div>
+							<div class="relative pl-5 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-[#0098EA] before:via-sky-400 before:to-emerald-400">
+								<Show
+									when={enrichedQuery.data?.provenance && enrichedQuery.data.provenance.length > 0}
+									fallback={
+										<>
+											{/* Event 1: Mint */}
+											<div class="relative">
+												<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-[#0098EA] ring-4 ring-[#12141C]" />
+												<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
+													<div class="flex items-center justify-between">
+														<span class="text-xs font-black text-white">{t('gifts.eventMinted')}</span>
+														<span class="text-[10px] text-white/40">Telegram Store</span>
+													</div>
+													<p class="text-[11px] text-white/50 mt-1">
+														{t('gifts.eventMintedDesc')}
+													</p>
+												</div>
+											</div>
 
-								{/* Event 2: Sent */}
-								<div class="relative">
-									<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-[#AF52DE] ring-4 ring-[#12141C]" />
-									<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
-										<div class="flex items-center justify-between">
-											<span class="text-xs font-black text-white">{t('gifts.eventSent')}</span>
-											<span class="text-[10px] text-white/40">Telegram App</span>
-										</div>
-										<p class="text-[11px] text-white/50 mt-1">
-											{t('gifts.eventSentDesc')}
-										</p>
-									</div>
-								</div>
+											{/* Event 2: Sent */}
+											<div class="relative">
+												<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-sky-400 ring-4 ring-[#12141C]" />
+												<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
+													<div class="flex items-center justify-between">
+														<span class="text-xs font-black text-white">{t('gifts.eventSent')}</span>
+														<span class="text-[10px] text-white/40">Telegram App</span>
+													</div>
+													<p class="text-[11px] text-white/50 mt-1">
+														{t('gifts.eventSentDesc')}
+													</p>
+												</div>
+											</div>
 
-								{/* Event 3: Upgraded to NFT */}
-								<div class="relative">
-									<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-amber-400 ring-4 ring-[#12141C]" />
-									<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
-										<div class="flex items-center justify-between">
-											<span class="text-xs font-black text-white">{t('gifts.eventUpgraded')}</span>
-											<span class="text-[10px] text-amber-400 font-bold">TEP-62</span>
-										</div>
-										<p class="text-[11px] text-white/50 mt-1">
-											{t('gifts.eventUpgradedDesc')}
-										</p>
-									</div>
-								</div>
+											{/* Event 3: Upgraded to NFT */}
+											<div class="relative">
+												<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-amber-400 ring-4 ring-[#12141C]" />
+												<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
+													<div class="flex items-center justify-between">
+														<span class="text-xs font-black text-white">{t('gifts.eventUpgraded')}</span>
+														<span class="text-[10px] text-amber-400 font-bold">TEP-62</span>
+													</div>
+													<p class="text-[11px] text-white/50 mt-1">
+														{t('gifts.eventUpgradedDesc')}
+													</p>
+												</div>
+											</div>
 
-								{/* Event 4: Current Status */}
-								<div class="relative">
-									<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-4 ring-[#12141C]" />
-									<div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
-										<div class="flex items-center justify-between">
-											<span class="text-xs font-black text-emerald-300">{t('gifts.eventVerified')}</span>
-											<span class="text-[10px] text-emerald-400 font-bold">{t('gifts.current')}</span>
-										</div>
-										<p class="text-[11px] text-white/60 mt-1">
-											{t('gifts.eventVerifiedDesc')}
-										</p>
-									</div>
-								</div>
+											{/* Event 4: Current Status */}
+											<div class="relative">
+												<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-4 ring-[#12141C]" />
+												<div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+													<div class="flex items-center justify-between">
+														<span class="text-xs font-black text-emerald-300">{t('gifts.eventVerified')}</span>
+														<span class="text-[10px] text-emerald-400 font-bold">{t('gifts.current')}</span>
+													</div>
+													<p class="text-[11px] text-white/60 mt-1">
+														{t('gifts.eventVerifiedDesc')}
+													</p>
+												</div>
+											</div>
+										</>
+									}
+								>
+									<For each={enrichedQuery.data!.provenance}>
+										{(ev) => (
+											<div class="relative">
+												<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-[#0098EA] ring-4 ring-[#12141C]" />
+												<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
+													<div class="flex items-center justify-between">
+														<span class="text-xs font-black text-white capitalize">{ev.event_type}</span>
+														<span class="text-[10px] text-white/40">{new Date(ev.timestamp).toLocaleDateString()}</span>
+													</div>
+													<Show when={ev.price_gram}>
+														<div class="text-[11px] text-emerald-400 font-bold font-mono mt-0.5">
+															⭐ {ev.price_gram} TON {ev.venue ? `(${ev.venue})` : ''}
+														</div>
+													</Show>
+													<p class="text-[11px] text-white/50 mt-1">
+														{ev.note || `${ev.from_username || ev.from_address || 'Origin'} ➔ ${ev.to_username || ev.to_address || 'Current'}`}
+													</p>
+													<Show when={ev.tonviewer_url}>
+														<a
+															href={ev.tonviewer_url}
+															target="_blank"
+															rel="noopener noreferrer"
+															class="text-[10px] text-[#0098EA] hover:underline flex items-center gap-1 mt-1 font-bold"
+														>
+															<span>مشاهده در TonViewer</span>
+															<span class="material-symbols-outlined text-xs">open_in_new</span>
+														</a>
+													</Show>
+												</div>
+											</div>
+										)}
+									</For>
+								</Show>
 							</div>
 						</div>
 
@@ -1177,7 +1227,7 @@ export const GiftReportPage: Component = () => {
 							</h3>
 							<div class="grid grid-cols-2 gap-2">
 								<a
-									href={`https://fragment.com/gift/${giftID()}`}
+									href={enrichedQuery.data?.on_chain?.marketplace_links?.fragment || `https://fragment.com/gift/${giftID()}`}
 									target="_blank"
 									rel="noopener noreferrer"
 									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all"
@@ -1186,7 +1236,7 @@ export const GiftReportPage: Component = () => {
 									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
 								</a>
 								<a
-									href={`https://getgems.io`}
+									href={enrichedQuery.data?.on_chain?.marketplace_links?.getgems || `https://getgems.io`}
 									target="_blank"
 									rel="noopener noreferrer"
 									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all"
@@ -1195,7 +1245,7 @@ export const GiftReportPage: Component = () => {
 									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
 								</a>
 								<a
-									href={`https://tonviewer.com`}
+									href={enrichedQuery.data?.on_chain?.tonviewer_url || `https://tonviewer.com/${deterministicOwner().fullAddress}`}
 									target="_blank"
 									rel="noopener noreferrer"
 									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all"
@@ -1204,12 +1254,12 @@ export const GiftReportPage: Component = () => {
 									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
 								</a>
 								<a
-									href={`https://marketapp.ws`}
+									href={enrichedQuery.data?.on_chain?.tonscan_url || `https://tonscan.org`}
 									target="_blank"
 									rel="noopener noreferrer"
 									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all"
 								>
-									<span class="text-xs font-bold text-white">MarketApp</span>
+									<span class="text-xs font-bold text-white">TonScan</span>
 									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
 								</a>
 							</div>
@@ -1221,7 +1271,7 @@ export const GiftReportPage: Component = () => {
 									const colSlug = currentReport()?.model_id || 'plush_pepe';
 									navigate(`/gifts/collection?c=${encodeURIComponent(colSlug)}`);
 								}}
-								class="w-full mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-[#0098EA]/20 via-[#AF52DE]/20 to-[#FF9500]/20 hover:from-[#0098EA]/30 hover:to-[#FF9500]/30 border border-white/10 text-xs font-black text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+								class="w-full mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-[#0098EA]/20 via-cyan-500/20 to-[#FF9500]/20 hover:from-[#0098EA]/30 hover:to-[#FF9500]/30 border border-white/10 text-xs font-black text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
 							>
 								<span>{t('gifts.viewCollection')}</span>
 							</button>
@@ -1242,18 +1292,29 @@ export const GiftReportPage: Component = () => {
 								<div class="truncate">
 									<span class="text-[9px] text-white/40 block font-bold">آدرس قرارداد هوشمند این هدیه:</span>
 									<span class="font-mono text-white text-[11px] block mt-0.5 truncate">
-										{deterministicOwner().fullAddress.slice(0, 24)}...
+										{enrichedQuery.data?.on_chain?.nft_address || `${deterministicOwner().fullAddress.slice(0, 24)}...`}
 									</span>
 								</div>
-								<a
-									href={`https://tonviewer.com/${deterministicOwner().fullAddress}`}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="px-2.5 py-1 rounded-lg bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 text-[10px] font-bold flex items-center gap-1 shrink-0"
-								>
-									<span>Tonscan</span>
-									<span class="material-symbols-outlined text-xs">open_in_new</span>
-								</a>
+								<div class="flex items-center gap-1.5 shrink-0">
+									<a
+										href={enrichedQuery.data?.on_chain?.tonviewer_url || `https://tonviewer.com/${deterministicOwner().fullAddress}`}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="px-2.5 py-1 rounded-lg bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 text-[10px] font-bold flex items-center gap-1"
+									>
+										<span>TonViewer</span>
+										<span class="material-symbols-outlined text-xs">open_in_new</span>
+									</a>
+									<a
+										href={enrichedQuery.data?.on_chain?.tonscan_url || `https://tonscan.org`}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 text-[10px] font-bold flex items-center gap-1"
+									>
+										<span>TonScan</span>
+										<span class="material-symbols-outlined text-xs">open_in_new</span>
+									</a>
+								</div>
 							</div>
 						</div>
 

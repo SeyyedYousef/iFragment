@@ -4,6 +4,7 @@ import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { AdCampaign } from '@/entities/owner/model/types.js';
 import { ImageCropUploader } from '@/features/owner/ads/ImageCropUploader.jsx';
 import { t } from '@/shared/i18n/index.js';
+import { buildMediaUrl } from '@/shared/api/config.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerAds: Component = () => {
@@ -252,6 +253,17 @@ export const OwnerAds: Component = () => {
 				</div>
 			</Show>
 
+			<Show when={deleteMutation.error}>
+				<div class="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300 flex items-center gap-2">
+					<span class="material-symbols-outlined text-rose-400 text-sm">error</span>
+					<span>
+						{(deleteMutation.error as any)?.response?.data?.error ||
+							deleteMutation.error?.message ||
+							'Failed to delete campaign'}
+					</span>
+				</div>
+			</Show>
+
 			{/* Campaigns Table & Live Preview */}
 			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 				<div class="flex items-center justify-between">
@@ -296,7 +308,7 @@ export const OwnerAds: Component = () => {
 												<td class="py-3">
 													<div class="h-10 w-28 rounded-lg overflow-hidden border border-white/10 bg-black/40">
 														<img
-															src={ad.image_url}
+															src={buildMediaUrl(ad.image_url)}
 															alt={ad.title}
 															class="h-full w-full object-cover"
 														/>
@@ -368,7 +380,6 @@ export const OwnerAds: Component = () => {
 					title={t('owner.ads.deleteAdTitle')}
 					description={t('owner.ads.deleteConfirmDesc', { title: adToDelete()?.title })}
 					actionLabel={t('owner.ads.deleteAdAction')}
-					confirmWord="DELETE"
 					riskLevel="high"
 					requireReason={false}
 					loading={deleteMutation.isPending}

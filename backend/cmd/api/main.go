@@ -373,7 +373,7 @@ func main() {
 			}
 		}
 	}()
-	profileHandler := handler.NewProfileHandler(profileService, paymentService, settingsRepo)
+	profileHandler := handler.NewProfileHandler(profileService, paymentService, settingsRepo, ownerRepo)
 	gamificationService := service.NewGamificationService(db, cache)
 	gamificationHandler := handler.NewGamificationHandler(gamificationService)
 	clanService := service.NewClanService(db, cache, mtprotoClient, telegram.NewBotAPIClient(botToken))

@@ -19,7 +19,7 @@ export const CraftingCalculatorPage: Component = () => {
 	useTelegramBackButton(-1);
 	const navigate = useNavigate();
 
-	// 1 to 4 Input Slots
+	// 1 to 4 Input Slots (Strict Telegram Crafting Rule: same collection)
 	const [slots, setSlots] = createSignal<CraftSlot[]>([
 		{
 			id: '1',
@@ -27,19 +27,20 @@ export const CraftingCalculatorPage: Component = () => {
 			modelId: 'plush_pepe',
 			serial: 42,
 			valueGram: 320,
-			craftChancePermille: 350,
+			craftChancePermille: 250,
 		},
 		{
 			id: '2',
-			name: 'Cyber Heart #188',
-			modelId: 'cyber_heart',
+			name: 'Plush Pepe #188',
+			modelId: 'plush_pepe',
 			serial: 188,
-			valueGram: 85,
-			craftChancePermille: 250,
+			valueGram: 180,
+			craftChancePermille: 450,
 		},
 	]);
 
 	const [calculationResult, setCalculationResult] = createSignal<CraftingEVData | null>(null);
+	const [errorMsg, setErrorMsg] = createSignal<string | null>(null);
 
 	const evMutation = createMutation(() => ({
 		mutationFn: () =>
@@ -57,12 +58,14 @@ export const CraftingCalculatorPage: Component = () => {
 			try {
 				haptic.notify('success');
 			} catch {}
+			setErrorMsg(null);
 			setCalculationResult(data);
 		},
-		onError: () => {
+		onError: (err: any) => {
 			try {
 				haptic.notify('error');
 			} catch {}
+			setErrorMsg(err?.response?.data?.message || 'Calculation failed. All items must belong to the same collection.');
 		},
 	}));
 
@@ -72,15 +75,19 @@ export const CraftingCalculatorPage: Component = () => {
 			haptic.impact('light');
 		} catch {}
 		const nextIdx = slots().length + 1;
+		const serials = [42, 188, 550, 1200];
+		const values = [320, 180, 110, 75];
+		const sNum = serials[nextIdx - 1] || nextIdx * 300;
+		const val = values[nextIdx - 1] || 65;
 		setSlots([
 			...slots(),
 			{
 				id: String(nextIdx),
-				name: `Celestial Star #${nextIdx * 100}`,
-				modelId: 'golden_star',
-				serial: nextIdx * 100,
-				valueGram: 45,
-				craftChancePermille: 200,
+				name: `Plush Pepe #${sNum}`,
+				modelId: 'plush_pepe',
+				serial: sNum,
+				valueGram: val,
+				craftChancePermille: nextIdx === 3 ? 650 : 850,
 			},
 		]);
 	};
@@ -103,7 +110,7 @@ export const CraftingCalculatorPage: Component = () => {
 	return (
 		<div class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
 			{/* Ambient Light */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#FF9500]/20 via-[#AF52DE]/10 to-transparent blur-[90px] pointer-events-none z-0" />
+			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#FF9500]/20 via-[#0098EA]/10 to-transparent blur-[90px] pointer-events-none z-0" />
 
 			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
 				{/* Top Bar */}
@@ -136,6 +143,13 @@ export const CraftingCalculatorPage: Component = () => {
 						{t('gifts.combineGiftsDesc')}
 					</p>
 				</div>
+
+				<Show when={errorMsg()}>
+					<div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-3.5 mb-4 flex items-center gap-2.5 text-xs text-red-400">
+						<span class="material-symbols-outlined text-base shrink-0">error</span>
+						<span>{errorMsg()}</span>
+					</div>
+				</Show>
 
 				{/* Input Slots Workbench */}
 				<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl mb-4">

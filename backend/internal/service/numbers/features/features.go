@@ -34,6 +34,12 @@ func NormalizeNumber(raw string) (string, error) {
 	case len(cleaned) == 7 && strings.HasPrefix(cleaned, "888"):
 		// Format: +888 XXXX (country code 888 + 4 digits, e.g. 8000, 8888)
 		suffix = cleaned[3:]
+	case len(cleaned) == 14 && strings.HasPrefix(cleaned, "888888"):
+		// Defensive cleanup for redundant double +888 prefix (e.g. +888 +888 XXXXXXXX)
+		suffix = cleaned[6:]
+	case len(cleaned) == 10 && strings.HasPrefix(cleaned, "888888"):
+		// Defensive cleanup for redundant double +888 prefix (e.g. +888 +888 XXXX)
+		suffix = cleaned[6:]
 	case len(cleaned) == 8:
 		// Format: XXXXXXXX (8 digits directly, e.g. 88888888 or 12345678)
 		suffix = cleaned

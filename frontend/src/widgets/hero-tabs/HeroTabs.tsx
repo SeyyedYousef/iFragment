@@ -1,6 +1,10 @@
 import { Motion } from '@motionone/solid';
+import { createQuery } from '@tanstack/solid-query';
 
-import { type Component, For, Show } from 'solid-js';
+import { type Component, createEffect, For, Show } from 'solid-js';
+import { adsApi } from '@/entities/ads/api/adsApi.js';
+import type { AdCampaign } from '@/entities/owner/model/types.js';
+import { buildMediaUrl } from '@/shared/api/config.js';
 import { type DictPaths, locale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -25,6 +29,37 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 			haptic.impact('light');
 		} catch {}
 		props.onTabChange(tab.id);
+	};
+
+	const adsQuery = createQuery<AdCampaign[]>(() => ({
+		queryKey: ['ads', 'active', 'dashboard_banner'],
+		queryFn: () => adsApi.getActiveAds('dashboard_banner'),
+		staleTime: 60 * 1000,
+	}));
+
+	const activeAd = () => {
+		const list = adsQuery.data;
+		if (list && list.length > 0) {
+			return list[0];
+		}
+		return null;
+	};
+
+	createEffect(() => {
+		const ad = activeAd();
+		if (ad) {
+			adsApi.trackImpression(ad.id);
+		}
+	});
+
+	const handleAdClick = (ad: AdCampaign) => {
+		try {
+			haptic.impact('light');
+		} catch {}
+		adsApi.trackClick(ad.id);
+		if (ad.target_url) {
+			window.open(ad.target_url, '_blank', 'noopener,noreferrer');
+		}
 	};
 
 	return (
@@ -58,19 +93,58 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 					transition={{ duration: 0.5, easing: [0.4, 0, 0.2, 1] }}
 					class="w-full flex flex-col items-center overflow-hidden relative z-10"
 				>
-					{/* Promo Card with Shimmer & Glass Glow */}
-					<div class="w-full max-w-sm bg-white/[0.03] backdrop-blur-2xl border border-white/[0.1] rounded-[32px] p-5 mb-10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col items-center relative overflow-hidden group">
-						<div class="shimmer-overlay opacity-30"></div>
-						<div class="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white px-8 py-2.5 rounded-2xl rotate-[-1deg] shadow-[0_10px_25px_rgba(16,185,129,0.3)] mb-2.5 relative z-10">
-							<p class="text-[11px] font-black tracking-[0.25em] opacity-90 leading-none uppercase">
-								{t('home.promotion')}
-							</p>
-							<p class="text-[20px] font-black leading-none mt-1">{t('hero.promoBadge')}</p>
-						</div>
-						<p class="text-white/50 text-[11px] font-bold tracking-widest uppercase relative z-10">
-							{t('home.scatterFloorLimit')}
-						</p>
-					</div>
+					<Show
+						when={activeAd()}
+						fallback={
+							/* Static Promo Card with Shimmer & Glass Glow (Fallback) */
+							<div class="w-full max-w-sm bg-white/[0.03] backdrop-blur-2xl border border-white/[0.1] rounded-[32px] p-5 mb-10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col items-center relative overflow-hidden group">
+								<div class="shimmer-overlay opacity-30"></div>
+								<div class="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white px-8 py-2.5 rounded-2xl rotate-[-1deg] shadow-[0_10px_25px_rgba(16,185,129,0.3)] mb-2.5 relative z-10">
+									<p class="text-[11px] font-black tracking-[0.25em] opacity-90 leading-none uppercase">
+										{t('home.promotion')}
+									</p>
+									<p class="text-[20px] font-black leading-none mt-1">{t('hero.promoBadge')}</p>
+								</div>
+								<p class="text-white/50 text-[11px] font-bold tracking-widest uppercase relative z-10">
+									{t('home.scatterFloorLimit')}
+								</p>
+							</div>
+						}
+					>
+						{(ad) => (
+							/* Dynamic Active Campaign Banner Card */
+							<div
+								role="button"
+								tabIndex={0}
+								onClick={() => handleAdClick(ad())}
+								class="w-full max-w-sm mb-10 relative group cursor-pointer active:scale-[0.98] transition-transform select-none"
+							>
+								<div class="relative overflow-hidden rounded-[28px] border border-white/15 bg-black/50 aspect-[25/9] shadow-[0_20px_50px_rgba(0,0,0,0.7)]">
+									<img
+										src={buildMediaUrl(ad().image_url)}
+										alt={ad().title}
+										class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+									/>
+									{/* Subtle gradient overlay for readability */}
+									<div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
+
+									{/* Badge: Ad / تبلیغات */}
+									<div class="absolute top-2.5 start-2.5 bg-emerald-500/80 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] text-white font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
+										<span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+										<span>{t('home.promotion')}</span>
+									</div>
+
+									{/* Title & Target Info */}
+									<div class="absolute bottom-2.5 inset-x-3 flex items-center justify-between pointer-events-none">
+										<div class="text-xs font-bold text-white truncate drop-shadow-md max-w-[80%]">
+											{ad().title}
+										</div>
+										<span class="material-symbols-outlined text-white/80 text-sm">open_in_new</span>
+									</div>
+								</div>
+							</div>
+						)}
+					</Show>
 
 					{/* Main Slogan */}
 					<div class="text-center space-y-6 mb-16">

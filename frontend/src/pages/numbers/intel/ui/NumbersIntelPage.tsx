@@ -96,8 +96,8 @@ export const NumbersIntelPage: Component = () => {
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2.5">
 						<div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0098EA] to-[#0060aa] p-[1px] shadow-lg shadow-[#0098EA]/20 flex items-center justify-center">
-							<div class="w-full h-full bg-[#0a0e17] rounded-xl flex items-center justify-center text-base">
-								🏴‍☠️
+							<div class="w-full h-full bg-[#0a0e17] rounded-xl flex items-center justify-center text-[#0098EA]">
+								<span class="material-symbols-outlined text-lg">tag</span>
 							</div>
 						</div>
 						<div>
@@ -107,14 +107,16 @@ export const NumbersIntelPage: Component = () => {
 									TON
 								</span>
 							</h1>
-							<p class="text-[10px] font-semibold text-white/40">Telegram Anonymous Marketplace</p>
+							<p class="text-[10px] font-semibold text-white/40">
+								{t('numbers.headerSubtitle') || 'Telegram Anonymous Marketplace'}
+							</p>
 						</div>
 					</div>
 
 					{/* Live Floor Badge on Top Right */}
 					<div class="text-right">
-						<div class="text-xs font-black text-white font-mono flex items-center justify-end gap-1">
-							<span class="text-[#0098EA] text-[10px]">💎</span>
+						<div class="text-xs font-black text-white font-mono flex items-center justify-end gap-1.5">
+							<span class="w-1.5 h-1.5 rounded-full bg-[#0098EA]" />
 							<span>{formatTon(intel()?.floor_price_ton || 2179)} TON</span>
 						</div>
 						<div class="text-[10px] text-white/40 font-mono">

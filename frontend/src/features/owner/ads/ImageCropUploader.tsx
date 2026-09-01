@@ -1,5 +1,6 @@
 import { type Component, createEffect, createSignal, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/index.js';
+import { buildMediaUrl } from '@/shared/api/config.js';
 import { t } from '@/shared/i18n/index.js';
 
 interface ImageCropUploaderProps {
@@ -162,7 +163,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 						<span class="text-emerald-400 font-mono">{t('imageCrop.ready')}</span>
 					</div>
 					<div class="relative overflow-hidden rounded-lg border border-white/10 aspect-[25/9] bg-white/5">
-						<img src={uploadedUrl()!} alt={t('imageCrop.bannerPreviewAlt')} class="h-full w-full object-cover" />
+						<img src={buildMediaUrl(uploadedUrl()!)} alt={t('imageCrop.bannerPreviewAlt')} class="h-full w-full object-cover" />
 					</div>
 				</div>
 			</Show>

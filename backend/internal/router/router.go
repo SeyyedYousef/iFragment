@@ -1,6 +1,7 @@
 package router
 
 import (
+	"net/http"
 	"time"
 
 	"ifragment-backend/internal/handler"
@@ -287,9 +288,18 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			})
 		}
 
-		// Public Ads Tracking
-		r.Post("/ads/{id}/impression", cfg.OwnerHandler.TrackAdImpression)
-		r.Post("/ads/{id}/click", cfg.OwnerHandler.TrackAdClick)
+		// Public Ads Endpoints
+		if cfg.OwnerHandler != nil {
+			r.Get("/ads/active", cfg.OwnerHandler.GetActiveAds)
+			r.Post("/ads/{id}/impression", cfg.OwnerHandler.TrackAdImpression)
+			r.Post("/ads/{id}/click", cfg.OwnerHandler.TrackAdClick)
+		}
+
+		// Public uploads media serving fallback
+		r.Handle("/uploads/*", http.StripPrefix("/api/v1/uploads/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			http.FileServer(http.Dir("./uploads")).ServeHTTP(w, r)
+		})))
 
 		// Owner Panel Routes
 		r.Route("/owner", func(r chi.Router) {

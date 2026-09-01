@@ -20,13 +20,15 @@ type ProfileHandler struct {
 	profileService *service.ProfileService
 	paymentService *payment.StarsService
 	settingsRepo   *repository.SettingsRepo
+	ownerRepo      *repository.OwnerRepo
 }
 
-func NewProfileHandler(s *service.ProfileService, p *payment.StarsService, r *repository.SettingsRepo) *ProfileHandler {
+func NewProfileHandler(s *service.ProfileService, p *payment.StarsService, r *repository.SettingsRepo, o *repository.OwnerRepo) *ProfileHandler {
 	return &ProfileHandler{
 		profileService: s,
 		paymentService: p,
 		settingsRepo:   r,
+		ownerRepo:      o,
 	}
 }
 
@@ -58,18 +60,39 @@ func (h *ProfileHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request)
 		"daily_rewards": []int{500, 1000, 2500, 5000, 10000, 25000, 50000},
 	}
 
-	if sys, err := h.settingsRepo.GetSystemSettings(r.Context()); err == nil && sys != nil {
-		activeAds := []model.DashboardAd{}
-		for _, ad := range sys.DashboardAds {
-			if ad.IsActive {
-				activeAds = append(activeAds, ad)
+	activeAds := []model.DashboardAd{}
+	if h.ownerRepo != nil {
+		if campaigns, err := h.ownerRepo.ListActiveAdCampaigns(r.Context(), "dashboard_banner"); err == nil && len(campaigns) > 0 {
+			for _, c := range campaigns {
+				activeAds = append(activeAds, model.DashboardAd{
+					ID:        c.ID,
+					Slot:      c.Slot,
+					Title:     c.Title,
+					AltText:   c.AltText,
+					ImageURL:  c.ImageURL,
+					TargetURL: c.TargetURL,
+					Target:    c.TargetURL,
+					IsActive:  c.IsActive,
+					Priority:  c.Priority,
+					StartDate: c.StartDate,
+					EndDate:   c.EndDate,
+				})
 			}
 		}
-		config["dashboard_ads"] = activeAds
 	}
+	if len(activeAds) == 0 && h.settingsRepo != nil {
+		if sys, err := h.settingsRepo.GetSystemSettings(r.Context()); err == nil && sys != nil {
+			for _, ad := range sys.DashboardAds {
+				if ad.IsActive {
+					activeAds = append(activeAds, ad)
+				}
+			}
+		}
+	}
+	config["dashboard_ads"] = activeAds
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Cache-Control", "public, max-age=60")
 	json.NewEncoder(w).Encode(config)
 }
 

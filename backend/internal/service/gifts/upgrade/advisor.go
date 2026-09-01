@@ -122,8 +122,8 @@ func GenerateUpgradeAdvice(ctx context.Context, giftID, modelID string, baseStar
 		recommendation = "UPGRADE_NOW"
 	}
 
-	headlineEn := fmt.Sprintf("Wait to Save %d Stars (%.2f GRAM / $%.2f)", maxSavingsStars, maxSavingsGRAM, maxSavingsUSD)
-	headlineFa := fmt.Sprintf("صبر کنید تا %s استارز (%.2f گرام / $%.2f) صرفه‌جویی کنید", formatInt(maxSavingsStars), maxSavingsGRAM, maxSavingsUSD)
+	headlineEn := fmt.Sprintf("Wait to Save %d Stars (%.2f TON / $%.2f)", maxSavingsStars, maxSavingsGRAM, maxSavingsUSD)
+	headlineFa := fmt.Sprintf("صبر کنید تا %s استارز (%.2f تن‌کوین / $%.2f) صرفه‌جویی کنید", formatInt(maxSavingsStars), maxSavingsGRAM, maxSavingsUSD)
 
 	tradeOffEn := "Honest Trade-off: While waiting for lower stairs saves on upgrade fees, top-tier backdrop attribute availability may experience minor trait supply drift (~3.5% estimated)."
 	tradeOffFa := "موازنه صادقانه: با وجود صرفه‌جویی چشمگیر در کارمزد آپگرید در پله‌های پایینی، شانس ثبت بک‌دراپ‌های کمیاب به دلیل رقابت سایر کاربران ممکن است دچار افت گردد."

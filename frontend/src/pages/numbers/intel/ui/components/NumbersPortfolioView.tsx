@@ -128,7 +128,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 					<div class="flex gap-2">
 						<input
 							type="text"
-							placeholder="Enter TON wallet address (EQ... / UQ...)"
+							placeholder={t('numbers.walletInputPlaceholder') || 'Enter TON wallet address (EQ... / UQ...)'}
 							value={address()}
 							onInput={(e) => setAddress(e.currentTarget.value)}
 							class="flex-1 bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#0098EA] font-mono transition-all"
@@ -145,7 +145,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 								}
 							>
 								<span class="material-symbols-outlined text-base">search</span>
-								<span>Scan</span>
+								<span>{t('numbers.scanBtn') || 'Scan'}</span>
 							</Show>
 						</button>
 					</div>
@@ -177,9 +177,10 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 								setAddress(sample);
 								handleScan(sample);
 							}}
-							class="text-[10px] font-bold text-[#0098EA] hover:underline"
+							class="text-[10px] font-bold text-[#0098EA] hover:underline flex items-center gap-1"
 						>
-							Sample Whale Wallet ➔
+							<span>{t('numbers.sampleWhale') || 'Sample Whale Wallet'}</span>
+							<span class="material-symbols-outlined text-[12px]">arrow_forward</span>
 						</button>
 					</div>
 				</form>
@@ -197,7 +198,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 					{/* Summary KPIs */}
 					<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
 						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-3.5 backdrop-blur-xl">
-							<div class="text-[10px] font-bold text-white/40 uppercase">Total Numbers</div>
+							<div class="text-[10px] font-bold text-white/40 uppercase">{t('numbers.totalNumbers') || 'Total Numbers'}</div>
 							<div class="text-xl font-black text-white font-mono mt-1">
 								{portfolioMetrics().totalAssets}{' '}
 								<span class="text-xs font-medium text-white/40">NFTs</span>
@@ -206,7 +207,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 
 						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-3.5 backdrop-blur-xl">
 							<div class="text-[10px] font-bold text-white/40 uppercase">
-								{deductFee() ? 'Net Portfolio (5% Fee)' : 'Floor Portfolio Value'}
+								{deductFee() ? (t('numbers.netPortfolioFee') || 'Net Portfolio (5% Fee)') : (t('numbers.floorPortfolioValue') || 'Floor Portfolio Value')}
 							</div>
 							<div class="text-xl font-black text-[#0098EA] font-mono mt-1 flex items-center gap-1">
 								<span>{formatTon(portfolioMetrics().netTon)}</span>
@@ -218,7 +219,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 						</div>
 
 						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-3.5 backdrop-blur-xl col-span-2 sm:col-span-1">
-							<div class="text-[10px] font-bold text-white/40 uppercase">Best Global Rank</div>
+							<div class="text-[10px] font-bold text-white/40 uppercase">{t('numbers.bestGlobalRank') || 'Best Global Rank'}</div>
 							<div class="text-xl font-black text-amber-400 font-mono mt-1">
 								#{result()?.best_global_rank || '-'}
 							</div>
@@ -228,14 +229,14 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 					{/* Owned Numbers List */}
 					<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-4 backdrop-blur-xl shadow-xl">
 						<h4 class="text-xs font-black text-white/70 uppercase tracking-wider mb-3">
-							Holdings ({result()?.assets?.length || 0})
+							{t('numbers.holdings') || 'Holdings'} ({result()?.assets?.length || 0})
 						</h4>
 
 						<Show
 							when={(result()?.assets || []).length > 0}
 							fallback={
 								<div class="p-8 text-center text-white/40 text-xs font-medium">
-									No Anonymous Numbers found in this wallet.
+									{t('numbers.portfolioNoAssets') || 'No Anonymous Numbers found in this wallet.'}
 								</div>
 							}
 						>
@@ -270,8 +271,8 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 											</div>
 
 											<div class="text-right">
-												<div class="font-black text-white font-mono text-xs flex items-center justify-end gap-1">
-													<span class="text-[#0098EA]">💎</span>
+												<div class="font-black text-white font-mono text-xs flex items-center justify-end gap-1.5">
+													<span class="w-1.5 h-1.5 rounded-full bg-[#0098EA]" />
 													<span>{formatTon(asset.expected_ton || floorTon())} TON</span>
 												</div>
 												<div class="text-[10px] text-white/40 font-mono">

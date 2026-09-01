@@ -750,11 +750,29 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, gift
 	}
 
 	now := time.Now().UTC()
+	createdTime := now.Add(-60 * 24 * time.Hour)
+	upgradedTime := now.Add(-30 * 24 * time.Hour)
+	if s.giftchangesClient != nil {
+		if dates, err := s.giftchangesClient.GetDates(ctx); err == nil {
+			for _, d := range dates {
+				if d.Name == val.ModelName || d.ID == val.ModelID {
+					if d.ReleasedAt > 0 {
+						createdTime = time.Unix(d.ReleasedAt, 0).UTC()
+					}
+					if d.UpgradableAt != nil && *d.UpgradableAt > 0 {
+						upgradedTime = time.Unix(*d.UpgradableAt, 0).UTC()
+					}
+					break
+				}
+			}
+		}
+	}
+
 	// Authentic verifiable timeline (No fake mock users or synthetic hashes)
 	provenance := []ProvenanceEvent{
 		{
 			EventType:    "created",
-			Timestamp:    now.Add(-60 * 24 * time.Hour).Format(time.RFC3339),
+			Timestamp:    createdTime.Format(time.RFC3339),
 			FromUsername: "Telegram StarGift Mint",
 			ToUsername:   "Initial Buyer",
 			PriceGRAM:    round2(val.ExpectedUSD / val.GRAMUSDRate * 0.5),
@@ -764,7 +782,7 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, gift
 		},
 		{
 			EventType: "upgraded",
-			Timestamp: now.Add(-30 * 24 * time.Hour).Format(time.RFC3339),
+			Timestamp: upgradedTime.Format(time.RFC3339),
 			Note:      "Upgraded to TEP-62 Unique Collectible NFT on TON Blockchain",
 		},
 	}

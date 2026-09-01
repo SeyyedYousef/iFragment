@@ -1146,6 +1146,10 @@ func (s *OwnerService) ListAdCampaigns(ctx context.Context, slot string) ([]mode
 	return s.repo.ListAdCampaigns(ctx, slot)
 }
 
+func (s *OwnerService) ListActiveAdCampaigns(ctx context.Context, slot string) ([]model.AdCampaign, error) {
+	return s.repo.ListActiveAdCampaigns(ctx, slot)
+}
+
 func (s *OwnerService) UpdateAdCampaign(ctx context.Context, ad *model.AdCampaign, ownerID int64, ip string) error {
 	err := s.repo.UpdateAdCampaign(ctx, ad)
 	if err != nil {

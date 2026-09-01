@@ -373,8 +373,8 @@ export const NumbersChartView: Component<Props> = (props) => {
 							<span>{t('numbers.currentFloorPrice') || 'Current Floor Price'}</span>
 						</div>
 						<div class="flex items-baseline gap-2.5">
-							<span class="text-2xl sm:text-3xl font-black text-white font-mono flex items-center gap-1">
-								<span class="text-[#0098EA] text-xl sm:text-2xl">💎</span>
+							<span class="text-2xl sm:text-3xl font-black text-white font-mono flex items-center gap-2">
+								<span class="w-2.5 h-2.5 rounded-full bg-[#0098EA]" />
 								{formatTon(currentFloor().ton)}{' '}
 								<span class="text-xs font-extrabold text-[#0098EA]">TON</span>
 							</span>
@@ -652,19 +652,19 @@ export const NumbersChartView: Component<Props> = (props) => {
 
 				<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
 					<div class="bg-white/[0.03] border border-white/[0.05] rounded-xl p-2.5">
-						<div class="text-[10px] font-bold text-white/40">Items</div>
+						<div class="text-[10px] font-bold text-white/40">{t('numbers.statItems') || 'Items'}</div>
 						<div class="text-sm font-black text-white font-mono mt-0.5">136,566</div>
 					</div>
 
 					<div class="bg-white/[0.03] border border-white/[0.05] rounded-xl p-2.5">
-						<div class="text-[10px] font-bold text-white/40">Sales</div>
+						<div class="text-[10px] font-bold text-white/40">{t('numbers.statSales') || 'Sales'}</div>
 						<div class="text-sm font-black text-white font-mono mt-0.5">
 							{formatTon(props.intel?.total_sales || 371552)}
 						</div>
 					</div>
 
 					<div class="bg-white/[0.03] border border-white/[0.05] rounded-xl p-2.5">
-						<div class="text-[10px] font-bold text-white/40">24h Volume</div>
+						<div class="text-[10px] font-bold text-white/40">{t('numbers.stat24hVolume') || '24h Volume'}</div>
 						<div class="text-sm font-black text-emerald-400 font-mono mt-0.5 flex items-center gap-1">
 							<span>{formatTon(props.intel?.volume_24h_ton || 77762)}</span>
 							<span class="text-[10px] text-white/40">TON</span>
@@ -672,7 +672,7 @@ export const NumbersChartView: Component<Props> = (props) => {
 					</div>
 
 					<div class="bg-white/[0.03] border border-white/[0.05] rounded-xl p-2.5">
-						<div class="text-[10px] font-bold text-white/40">Total Volume</div>
+						<div class="text-[10px] font-bold text-white/40">{t('numbers.statTotalVolume') || 'Total Volume'}</div>
 						<div class="text-sm font-black text-[#0098EA] font-mono mt-0.5 flex items-center gap-1">
 							<span>{formatTon(props.intel?.total_volume_ton || 120480130)}</span>
 							<span class="text-[10px] text-white/40">TON</span>
@@ -680,14 +680,14 @@ export const NumbersChartView: Component<Props> = (props) => {
 					</div>
 
 					<div class="bg-white/[0.03] border border-white/[0.05] rounded-xl p-2.5">
-						<div class="text-[10px] font-bold text-white/40">Owners</div>
+						<div class="text-[10px] font-bold text-white/40">{t('numbers.statOwners') || 'Owners'}</div>
 						<div class="text-sm font-black text-white font-mono mt-0.5">
 							{formatTon(props.intel?.total_owners || 48597)}
 						</div>
 					</div>
 
 					<div class="bg-white/[0.03] border border-white/[0.05] rounded-xl p-2.5">
-						<div class="text-[10px] font-bold text-white/40">Highest Price (ATH)</div>
+						<div class="text-[10px] font-bold text-white/40">{t('numbers.statAth') || 'Highest Price (ATH)'}</div>
 						<div class="text-sm font-black text-amber-400 font-mono mt-0.5 flex items-center gap-1">
 							<span>{formatTon(props.intel?.historical_ath_ton || 864000)}</span>
 							<span class="text-[10px] text-white/40">TON</span>
@@ -703,8 +703,8 @@ export const NumbersChartView: Component<Props> = (props) => {
 						class="bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-xl p-2.5 text-left transition-all group"
 					>
 						<div class="text-[10px] font-bold text-[#0098EA] group-hover:underline flex items-center justify-between">
-							<span>Auctions</span>
-							<span>➔</span>
+							<span>{t('numbers.filterAuctions') || 'Auctions'}</span>
+							<span class="material-symbols-outlined text-[13px]">arrow_forward</span>
 						</div>
 						<div class="text-sm font-black text-white font-mono mt-0.5">190</div>
 					</button>
@@ -717,8 +717,8 @@ export const NumbersChartView: Component<Props> = (props) => {
 						class="bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-xl p-2.5 text-left transition-all group"
 					>
 						<div class="text-[10px] font-bold text-emerald-400 group-hover:underline flex items-center justify-between">
-							<span>Fixed Price</span>
-							<span>➔</span>
+							<span>{t('numbers.filterFixedPrice') || 'Fixed Price'}</span>
+							<span class="material-symbols-outlined text-[13px]">arrow_forward</span>
 						</div>
 						<div class="text-sm font-black text-white font-mono mt-0.5">866</div>
 					</button>
@@ -731,8 +731,8 @@ export const NumbersChartView: Component<Props> = (props) => {
 						class="bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-xl p-2.5 text-left transition-all group"
 					>
 						<div class="text-[10px] font-bold text-rose-400 group-hover:underline flex items-center justify-between">
-							<span>Restricted</span>
-							<span>➔</span>
+							<span>{t('numbers.filterRestricted') || 'Restricted'}</span>
+							<span class="material-symbols-outlined text-[13px]">arrow_forward</span>
 						</div>
 						<div class="text-sm font-black text-white font-mono mt-0.5">4,521</div>
 					</button>

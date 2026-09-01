@@ -3,6 +3,8 @@ import { useNavigate } from '@solidjs/router';
 
 import { type Component, createSignal, For, onMount, Show } from 'solid-js';
 import { apiClient } from '@/shared/api/axios.js';
+import { buildMediaUrl } from '@/shared/api/config.js';
+import { adsApi } from '@/entities/ads/api/adsApi.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
@@ -21,9 +23,27 @@ export const DashboardPage: Component = () => {
 
 	onMount(async () => {
 		try {
+			// First try direct active ads endpoint
+			const activeList = await adsApi.getActiveAds('dashboard_banner');
+			if (activeList && activeList.length > 0) {
+				setAds(
+					activeList.map((a) => ({
+						id: a.id,
+						title: a.title,
+						image_url: a.image_url,
+						target: a.target_url,
+						is_active: a.is_active,
+					})),
+				);
+				activeList.forEach((a) => adsApi.trackImpression(a.id));
+				return;
+			}
+
+			// Fallback to public-config
 			const { data } = await apiClient.get('/profile/public-config');
 			if (data?.dashboard_ads) {
 				setAds(data.dashboard_ads);
+				data.dashboard_ads.forEach((a: DashboardAd) => adsApi.trackImpression(a.id));
 			}
 		} catch (error) {
 			console.error('Failed to load dashboard ads', error);
@@ -90,13 +110,14 @@ export const DashboardPage: Component = () => {
 											try {
 												haptic.impact('light');
 											} catch {}
+											adsApi.trackClick(ad.id);
 										}}
 										class="snap-center shrink-0 w-[88%] relative rounded-[24px] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-white/10 active:scale-[0.98] transition-transform block group"
 									>
 										<div class="aspect-[21/9] w-full bg-[#08090D] relative overflow-hidden">
 											<img
 												loading="lazy"
-												src={ad.image_url}
+												src={buildMediaUrl(ad.image_url)}
 												alt={ad.title}
 												class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
 											/>

@@ -86,11 +86,11 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		};
 	}
 
-	if (suffix.length < 4) {
+	if (suffix.length !== 4 && suffix.length !== 8) {
 		return {
 			isValid: false,
-			error: t('numbers.errorTooShort'),
-			formatted: `+888 ${suffix}`,
+			error: suffix.length < 4 ? t('numbers.errorTooShort') : (suffix.length > 8 ? t('numbers.errorTooLong') : (t('numbers.errorInvalidLength') || 'Anonymous numbers must be either 4 or 8 digits')),
+			formatted: suffix.length > 4 ? `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}` : `+888 ${suffix}`,
 			cleanDigits: clean,
 			suffix,
 			tier: 'STANDARD',
@@ -98,16 +98,19 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		};
 	}
 
-	if (suffix.length > 8) {
-		return {
-			isValid: false,
-			error: t('numbers.errorTooLong'),
-			formatted: `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}`,
-			cleanDigits: clean,
-			suffix,
-			tier: 'STANDARD',
-			patternLabel: '',
-		};
+	if (suffix.length === 4) {
+		const val = parseInt(suffix, 10);
+		if (isNaN(val) || val < 8000 || val > 8999) {
+			return {
+				isValid: false,
+				error: t('numbers.errorGenesisRange') || '4-digit genesis numbers must be between +888 8000 and +888 8999',
+				formatted: `+888 ${suffix}`,
+				cleanDigits: clean,
+				suffix,
+				tier: 'STANDARD',
+				patternLabel: '',
+			};
+		}
 	}
 
 	let formatted = '';
@@ -326,7 +329,7 @@ export const NumberReportPage: Component = () => {
 		haptic.impact('medium');
 		const numClean = reportData()!.number.replace(/\s+/g, '');
 		const shareUrl = `https://t.me/iFragmentBot/iFragment?startapp=number_${numClean.replace('+', '')}`;
-		shareToStory(`https://ifragment.org/api/v1/numbers/card?n=${encodeURIComponent(numClean)}`, {
+		shareToStory(`${window.location.origin}/promo_banner.png`, {
 			text: `💎 AI Appraisal: ${reportData()!.display_number} is valued at ${formatTon(reportData()!.expected_ton)} TON on iFragment!`,
 			widget_link: {
 				url: shareUrl,

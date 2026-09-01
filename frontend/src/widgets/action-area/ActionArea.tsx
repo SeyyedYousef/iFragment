@@ -316,7 +316,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			};
 		}
 
-		if (digits.length > 0 && digits.length !== 8 && digits !== '8888') {
+		const is4DigitGenesis = digits.length === 4 && parseInt(digits, 10) >= 8000 && parseInt(digits, 10) <= 8999;
+		if (digits.length > 0 && digits.length !== 8 && !is4DigitGenesis) {
 			return {
 				isValid: false,
 				isWallet: false,
@@ -338,7 +339,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			icon: 'stars',
 		};
 
-		if (digits === '8888') {
+		if (is4DigitGenesis) {
 			pattern = {
 				name: t('numbers.patternGenesisName'),
 				tier: '4-DIGIT ULTRA (GENESIS)',

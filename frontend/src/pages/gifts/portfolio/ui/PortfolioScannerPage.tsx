@@ -17,7 +17,7 @@ export const PortfolioScannerPage: Component = () => {
 
 	onMount(() => {
 		const params = new URLSearchParams(location.search);
-		const u = params.get('u');
+		const u = params.get('u') || params.get('address') || params.get('q');
 		if (u) {
 			setUsername(u);
 			scanMutation.mutate(u);

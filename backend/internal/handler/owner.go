@@ -799,6 +799,16 @@ func (h *OwnerHandler) ListAdCampaigns(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, campaigns)
 }
 
+func (h *OwnerHandler) GetActiveAds(w http.ResponseWriter, r *http.Request) {
+	slot := r.URL.Query().Get("slot")
+	campaigns, err := h.ownerService.ListActiveAdCampaigns(r.Context(), slot)
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	h.writeJSON(w, http.StatusOK, campaigns)
+}
+
 func (h *OwnerHandler) UpdateAdCampaign(w http.ResponseWriter, r *http.Request) {
 	adminID, _ := r.Context().Value(middleware.UserIDKey).(int64)
 	id := chi.URLParam(r, "id")

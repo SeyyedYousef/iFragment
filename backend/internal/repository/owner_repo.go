@@ -1359,11 +1359,52 @@ func (r *OwnerRepo) ListAdCampaigns(ctx context.Context, slot string) ([]model.A
 	return list, nil
 }
 
+func (r *OwnerRepo) ListActiveAdCampaigns(ctx context.Context, slot string) ([]model.AdCampaign, error) {
+	var query string
+	var args []interface{}
+	if slot != "" {
+		query = `
+			SELECT id, slot, title, alt_text, image_url, target_url, is_active, priority, start_date, end_date, impressions_count, clicks_count, created_at, updated_at
+			FROM ads_campaigns
+			WHERE slot = $1 AND is_active = true AND (start_date IS NULL OR start_date <= NOW()) AND (end_date IS NULL OR end_date >= NOW())
+			ORDER BY priority DESC, created_at DESC
+		`
+		args = append(args, slot)
+	} else {
+		query = `
+			SELECT id, slot, title, alt_text, image_url, target_url, is_active, priority, start_date, end_date, impressions_count, clicks_count, created_at, updated_at
+			FROM ads_campaigns
+			WHERE is_active = true AND (start_date IS NULL OR start_date <= NOW()) AND (end_date IS NULL OR end_date >= NOW())
+			ORDER BY priority DESC, created_at DESC
+		`
+	}
+
+	rows, err := r.db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]model.AdCampaign, 0)
+	for rows.Next() {
+		var a model.AdCampaign
+		err := rows.Scan(
+			&a.ID, &a.Slot, &a.Title, &a.AltText, &a.ImageURL, &a.TargetURL, &a.IsActive,
+			&a.Priority, &a.StartDate, &a.EndDate, &a.ImpressionsCount, &a.ClicksCount, &a.CreatedAt, &a.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, a)
+	}
+	return list, nil
+}
+
 func (r *OwnerRepo) UpdateAdCampaign(ctx context.Context, ad *model.AdCampaign) error {
 	query := `
 		UPDATE ads_campaigns
 		SET slot = $1, title = $2, alt_text = $3, image_url = $4, target_url = $5, is_active = $6, priority = $7, start_date = $8, end_date = $9, updated_at = NOW()
-		WHERE id = $10
+		WHERE id = $10::uuid
 	`
 	_, err := r.db.Pool.Exec(ctx, query,
 		ad.Slot, ad.Title, ad.AltText, ad.ImageURL, ad.TargetURL, ad.IsActive, ad.Priority, ad.StartDate, ad.EndDate, ad.ID,
@@ -1372,19 +1413,19 @@ func (r *OwnerRepo) UpdateAdCampaign(ctx context.Context, ad *model.AdCampaign) 
 }
 
 func (r *OwnerRepo) DeleteAdCampaign(ctx context.Context, id string) error {
-	query := `DELETE FROM ads_campaigns WHERE id = $1`
+	query := `DELETE FROM ads_campaigns WHERE id = $1::uuid`
 	_, err := r.db.Pool.Exec(ctx, query, id)
 	return err
 }
 
 func (r *OwnerRepo) TrackAdImpression(ctx context.Context, id string) error {
-	query := `UPDATE ads_campaigns SET impressions_count = impressions_count + 1 WHERE id = $1`
+	query := `UPDATE ads_campaigns SET impressions_count = impressions_count + 1 WHERE id = $1::uuid`
 	_, err := r.db.Pool.Exec(ctx, query, id)
 	return err
 }
 
 func (r *OwnerRepo) TrackAdClick(ctx context.Context, id string) error {
-	query := `UPDATE ads_campaigns SET clicks_count = clicks_count + 1 WHERE id = $1`
+	query := `UPDATE ads_campaigns SET clicks_count = clicks_count + 1 WHERE id = $1::uuid`
 	_, err := r.db.Pool.Exec(ctx, query, id)
 	return err
 }

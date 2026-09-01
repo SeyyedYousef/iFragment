@@ -51,7 +51,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 	const [isFiltersOpen, setIsFiltersOpen] = createSignal<boolean>(false);
 	const [copiedAddress, setCopiedAddress] = createSignal<string | null>(null);
 	const [jumpPageInput, setJumpPageInput] = createSignal<string>('');
-	const [localMask, setLocalMask] = createSignal<string>(props.initialFilter?.saleType || '');
+	const [localMask, setLocalMask] = createSignal<string>('');
 	let maskDebounceTimer: any = null;
 
 	const handleMaskInput = (val: string) => {
@@ -150,14 +150,14 @@ export const NumbersTableView: Component<Props> = (props) => {
 
 	return (
 		<div class="space-y-4">
-			{/* Fast Filter Quick Chips */}
+			{/* Fast Filter Quick Chips (No emojis, clean Material icons, fully localized) */}
 			<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
 				{[
-					{ label: 'All Numbers', count: '136.5k', saleType: '', numberType: '' },
-					{ label: '🔥 Auctions', count: '190+', saleType: 'auction', numberType: '' },
-					{ label: '💎 Fixed Price', count: '860+', saleType: 'for_sale', numberType: '' },
-					{ label: '🔒 Not For Sale', count: '135k', saleType: 'not_for_sale', numberType: '' },
-					{ label: '⚠️ Restricted', count: '4.5k', saleType: '', numberType: 'banned' },
+					{ label: () => t('numbers.filterAll') || 'All Numbers', count: '136.5k', saleType: '', numberType: '', icon: 'all_inclusive' },
+					{ label: () => t('numbers.filterAuctions') || 'Auctions', count: '190+', saleType: 'auction', numberType: '', icon: 'gavel' },
+					{ label: () => t('numbers.filterFixedPrice') || 'Fixed Price', count: '860+', saleType: 'for_sale', numberType: '', icon: 'sell' },
+					{ label: () => t('numbers.filterNotForSale') || 'Not For Sale', count: '135k', saleType: 'not_for_sale', numberType: '', icon: 'lock' },
+					{ label: () => t('numbers.filterRestricted') || 'Restricted', count: '4.5k', saleType: '', numberType: 'banned', icon: 'warning' },
 				].map((chip) => {
 					const isActive = () =>
 						filters().saleType === chip.saleType &&
@@ -182,7 +182,8 @@ export const NumbersTableView: Component<Props> = (props) => {
 									: 'bg-white/[0.03] border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.06]'
 							}`}
 						>
-							<span>{chip.label}</span>
+							<span class="material-symbols-outlined text-[13px]">{chip.icon}</span>
+							<span>{chip.label()}</span>
 							<span class="text-[10px] opacity-60 font-mono">({chip.count})</span>
 						</button>
 					);
@@ -299,13 +300,13 @@ export const NumbersTableView: Component<Props> = (props) => {
 						{/* 3. Number Type */}
 						<div>
 							<label class="block text-[11px] font-extrabold text-white/50 mb-1.5 uppercase tracking-wider">
-								Number Type
+								{t('numbers.filterNumberType') || 'Number Type'}
 							</label>
 							<div class="grid grid-cols-3 gap-1.5">
 								{[
-									{ id: '', label: 'Any' },
-									{ id: 'banned', label: 'Restricted' },
-									{ id: 'not_banned', label: 'Non-Restricted' },
+									{ id: '', label: () => t('numbers.filterAny') || 'Any' },
+									{ id: 'banned', label: () => t('numbers.filterRestricted') || 'Restricted' },
+									{ id: 'not_banned', label: () => t('numbers.filterNonRestricted') || 'Non-Restricted' },
 								].map((item) => (
 									<button
 										type="button"
@@ -325,7 +326,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 												: 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
 										}`}
 									>
-										{item.label}
+										{item.label()}
 									</button>
 								))}
 							</div>
@@ -334,14 +335,14 @@ export const NumbersTableView: Component<Props> = (props) => {
 						{/* 4. Owners History */}
 						<div>
 							<label class="block text-[11px] font-extrabold text-white/50 mb-1.5 uppercase tracking-wider">
-								Owners History
+								{t('numbers.filterOwnersHistory') || 'Owners History'}
 							</label>
 							<div class="grid grid-cols-4 gap-1.5">
 								{[
-									{ id: '', label: 'Any' },
-									{ id: '1', label: 'The Only' },
-									{ id: '2-3', label: '2-3' },
-									{ id: '4+', label: '4+' },
+									{ id: '', label: () => t('numbers.filterAny') || 'Any' },
+									{ id: '1', label: () => t('numbers.filterTheOnly') || 'The Only' },
+									{ id: '2-3', label: () => '2-3' },
+									{ id: '4+', label: () => '4+' },
 								].map((item) => (
 									<button
 										type="button"
@@ -361,7 +362,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 												: 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
 										}`}
 									>
-										{item.label}
+										{item.label()}
 									</button>
 								))}
 							</div>
@@ -371,7 +372,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 						<div>
 							<div class="flex items-center justify-between mb-1.5">
 								<label class="block text-[11px] font-extrabold text-white/50 uppercase tracking-wider">
-									NFT Color
+									{t('numbers.filterNftColor') || 'NFT Color'}
 								</label>
 								<Show when={filters().nftColors.length > 0}>
 									<button
@@ -379,7 +380,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 										onClick={() => setFilters((prev) => ({ ...prev, nftColors: [], page: 1 }))}
 										class="text-[10px] text-[#0098EA] hover:underline"
 									>
-										Clear colors
+										{t('numbers.filterClearColors') || 'Clear colors'}
 									</button>
 								</Show>
 							</div>
@@ -426,13 +427,13 @@ export const NumbersTableView: Component<Props> = (props) => {
 				<div class="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-						<span class="text-xs font-black text-white">Live On-Chain Feed</span>
+						<span class="text-xs font-black text-white">{t('numbers.liveOnChainFeed') || 'Live On-Chain Feed'}</span>
 						<span class="text-[10px] font-mono text-white/40">
-							(Showing {numbersQuery.data?.items.length || 0} of {numbersQuery.data?.total?.toLocaleString() || '136,566'})
+							({numbersQuery.data?.items.length || 0} / {numbersQuery.data?.total?.toLocaleString() || '136,566'})
 						</span>
 					</div>
 					<div class="text-[11px] font-mono text-white/60">
-						Page <span class="font-bold text-white">{filters().page}</span> / {numbersQuery.data?.totalPages || 2732}
+						{filters().page} / {numbersQuery.data?.totalPages || 2732}
 					</div>
 				</div>
 
@@ -482,30 +483,33 @@ export const NumbersTableView: Component<Props> = (props) => {
 							<table class="w-full text-left border-collapse min-w-[460px]">
 								<thead>
 									<tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] font-black text-white/40 uppercase tracking-wider">
-										<th class="py-3 px-4">Number</th>
-										<th class="py-3 px-4 text-center">Last Sale / Bid</th>
-										<th class="py-3 px-4 text-center">Owners</th>
-										<th class="py-3 px-4 text-right">Current Owner</th>
+										<th class="py-3 px-4">{t('numbers.colNumber') || 'Number'}</th>
+										<th class="py-3 px-4 text-center">{t('numbers.colLastSaleBid') || 'Last Sale / Bid'}</th>
+										<th class="py-3 px-4 text-center">{t('numbers.colOwners') || 'Owners'}</th>
+										<th class="py-3 px-4 text-right">{t('numbers.colCurrentOwner') || 'Current Owner'}</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-white/[0.04] text-xs">
 									<For each={numbersQuery.data?.items || []}>
 										{(item) => (
-											<tr class="hover:bg-white/[0.04] transition-colors group">
+											<tr
+												onClick={() => props.onSelectNumber?.(item.number)}
+												class="hover:bg-white/[0.06] active:bg-white/[0.09] transition-colors group cursor-pointer"
+											>
 												{/* Number & Color */}
 												<td class="py-3 px-4">
 													<div class="flex items-center gap-2.5">
 														<span
 															class="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm border border-white/30"
-															style={{ background: item.color_hex }}
+															style={{
+																background: item.color_hex?.startsWith('#')
+																	? item.color_hex
+																	: `#${item.color_hex || '0098EA'}`,
+															}}
 															title={item.color_name}
 														/>
 														<div class="flex flex-col">
-															<button
-																type="button"
-																onClick={() => props.onSelectNumber?.(item.number)}
-																class="font-mono hover:opacity-80 transition-opacity flex items-center text-left"
-															>
+															<div class="font-mono flex items-center text-left">
 																{(() => {
 																	const p = splitNumberPrefix(item.display_number || item.number);
 																	return (
@@ -513,26 +517,27 @@ export const NumbersTableView: Component<Props> = (props) => {
 																			<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-[#0098EA]/15 text-[#0098EA] border border-[#0098EA]/30 shrink-0 select-none">
 																				+888
 																			</span>
-																			<span class="font-black text-white text-xs tracking-wider">
+																			<span class="font-black text-white text-xs tracking-wider group-hover:text-[#0098EA] transition-colors">
 																				{p.body || p.rawDigits}
 																			</span>
 																			<Show when={item.is_restricted}>
 																				<span
-																					class="text-[9px] px-1 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-sans leading-none"
+																					class="text-[9px] px-1 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-sans leading-none flex items-center"
 																					title="Restricted / Banned on Telegram"
 																				>
-																					⚠️
+																					<span class="material-symbols-outlined text-[10px]">warning</span>
 																				</span>
 																			</Show>
 																		</div>
 																	);
 																})()}
-															</button>
+															</div>
 															<div class="flex items-center gap-1.5 mt-0.5">
 																<a
 																	href={item.market_url}
 																	target="_blank"
 																	rel="noreferrer"
+																	onClick={(e) => e.stopPropagation()}
 																	class="text-[9px] font-bold text-white/40 hover:text-[#0098EA] transition-colors flex items-center gap-0.5"
 																>
 																	<span class="material-symbols-outlined text-[10px]">open_in_new</span>
@@ -549,8 +554,8 @@ export const NumbersTableView: Component<Props> = (props) => {
 														when={item.current_bid_ton}
 														fallback={
 															<>
-																<div class="font-black text-white font-mono flex items-center justify-center gap-1">
-																	<span class="text-[#0098EA] text-xs">💎</span>
+																<div class="font-black text-white font-mono flex items-center justify-center gap-1.5">
+																	<span class="w-1.5 h-1.5 rounded-full bg-[#0098EA]" />
 																	<span>{formatTon(item.last_sale_ton)}</span>
 																</div>
 																<div class="text-[10px] text-white/40 mt-0.5 hover:text-white transition-colors">
@@ -560,11 +565,11 @@ export const NumbersTableView: Component<Props> = (props) => {
 														}
 													>
 														<div class="font-black text-amber-400 font-mono flex items-center justify-center gap-1">
-															<span class="text-xs">⚡</span>
+															<span class="material-symbols-outlined text-[13px]">bolt</span>
 															<span>{formatTon(item.current_bid_ton)} TON</span>
 														</div>
 														<div class="text-[9px] font-bold text-emerald-400 uppercase tracking-wider mt-0.5">
-															Live Bid
+															{t('numbers.liveBid') || 'Live Bid'}
 														</div>
 													</Show>
 												</td>
@@ -579,9 +584,12 @@ export const NumbersTableView: Component<Props> = (props) => {
 													<div class="flex items-center justify-end gap-1.5">
 														<button
 															type="button"
-															onClick={() => props.onViewOwnerPortfolio?.(item.current_owner)}
+															onClick={(e) => {
+																e.stopPropagation();
+																props.onViewOwnerPortfolio?.(item.current_owner);
+															}}
 															class="font-mono text-[11px] text-white/60 hover:text-[#0098EA] underline decoration-dotted transition-colors max-w-[120px] sm:max-w-none truncate"
-															title="View Portfolio"
+															title={t('numbers.viewPortfolio') || 'View Portfolio'}
 														>
 															{item.current_owner.length > 15
 																? `${item.current_owner.slice(0, 6)}...${item.current_owner.slice(-6)}`
@@ -589,9 +597,12 @@ export const NumbersTableView: Component<Props> = (props) => {
 														</button>
 														<button
 															type="button"
-															onClick={() => handleCopy(item.current_owner)}
+															onClick={(e) => {
+																e.stopPropagation();
+																handleCopy(item.current_owner);
+															}}
 															class="text-white/30 hover:text-white transition-colors p-1"
-															title="Copy address"
+															title={t('numbers.copyAddress') || 'Copy address'}
 														>
 															<span class="material-symbols-outlined text-xs">
 																{copiedAddress() === item.current_owner ? 'check' : 'content_copy'}
@@ -620,10 +631,10 @@ export const NumbersTableView: Component<Props> = (props) => {
 										} catch {}
 										setFilters((prev) => ({ ...prev, page: 1 }));
 									}}
-									class="px-2 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs"
-									title="First page"
+									class="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs flex items-center justify-center"
+									title={t('numbers.firstPage') || 'First page'}
 								>
-									⏮
+									<span class="material-symbols-outlined text-sm">first_page</span>
 								</button>
 								{/* Prev Page */}
 								<button
@@ -635,9 +646,10 @@ export const NumbersTableView: Component<Props> = (props) => {
 										} catch {}
 										setFilters((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }));
 									}}
-									class="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs"
+									class="h-7 px-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs flex items-center gap-1"
 								>
-									◀ Prev
+									<span class="material-symbols-outlined text-sm">chevron_left</span>
+									<span>{t('numbers.prevPage') || 'Prev'}</span>
 								</button>
 
 								{/* Page Number Pills */}
@@ -678,9 +690,10 @@ export const NumbersTableView: Component<Props> = (props) => {
 										} catch {}
 										setFilters((prev) => ({ ...prev, page: prev.page + 1 }));
 									}}
-									class="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs"
+									class="h-7 px-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs flex items-center gap-1"
 								>
-									Next ▶
+									<span>{t('numbers.nextPage') || 'Next'}</span>
+									<span class="material-symbols-outlined text-sm">chevron_right</span>
 								</button>
 								{/* Last Page */}
 								<button
@@ -692,16 +705,16 @@ export const NumbersTableView: Component<Props> = (props) => {
 										} catch {}
 										setFilters((prev) => ({ ...prev, page: numbersQuery.data?.totalPages || 1 }));
 									}}
-									class="px-2 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs"
-									title="Last page"
+									class="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs flex items-center justify-center"
+									title={t('numbers.lastPage') || 'Last page'}
 								>
-									⏭
+									<span class="material-symbols-outlined text-sm">last_page</span>
 								</button>
 							</div>
 
 							{/* Jump to Page Form */}
 							<form onSubmit={handleJumpPage} class="flex items-center gap-2">
-								<span class="text-white/40 text-[11px]">Go to:</span>
+								<span class="text-white/40 text-[11px]">{t('numbers.goToPage') || 'Go to:'}</span>
 								<input
 									type="number"
 									min="1"
@@ -715,7 +728,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 									type="submit"
 									class="px-2.5 py-1 rounded-lg bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] font-bold text-xs hover:bg-[#0098EA] hover:text-white transition-all"
 								>
-									Go
+									➔
 								</button>
 							</form>
 						</div>

@@ -15,14 +15,14 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 	const [showAllChips, setShowAllChips] = createSignal(false);
 
 	const tags = () => [
-		{ id: 'all', label: `همه ۱۲۰ گیفت` },
-		{ id: 'Bluechip', label: 'بلوچیپ (Apex)' },
-		{ id: 'Luxury', label: 'لوکس (Luxury)' },
-		{ id: 'Seasonal', label: 'فصلی (Seasonal)' },
-		{ id: 'Talisman', label: 'طلسم (Talisman)' },
-		{ id: 'Classic', label: 'کلاسیک (Classic)' },
-		{ id: 'Special', label: 'ویژه (Special)' },
-		{ id: 'Tech', label: 'فناوری (Tech)' },
+		{ id: 'all', label: t('gifts.quickSelectAll') || 'همه ۱۲۰ گیفت' },
+		{ id: 'Bluechip', label: 'Apex (بلوچیپ)' },
+		{ id: 'Luxury', label: 'Luxury (لوکس)' },
+		{ id: 'Seasonal', label: 'Seasonal (فصلی)' },
+		{ id: 'Talisman', label: 'Talisman (طلسم)' },
+		{ id: 'Classic', label: 'Classic (کلاسیک)' },
+		{ id: 'Special', label: 'Special (ویژه)' },
+		{ id: 'Tech', label: 'Tech (فناوری)' },
 	];
 
 	const filteredGifts = createMemo(() => {
