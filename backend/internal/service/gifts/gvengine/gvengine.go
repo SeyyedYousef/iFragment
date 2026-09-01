@@ -63,7 +63,15 @@ type ParsedGiftRef struct {
 
 // NormalizeGiftIdentifier parses 4 formats: t.me/nft/..., NFT-ID, address, username
 func NormalizeGiftIdentifier(raw string) (*ParsedGiftRef, error) {
-	clean := strings.TrimSpace(raw)
+	trimmed := strings.TrimSpace(raw)
+	if strings.HasPrefix(trimmed, "@") {
+		return nil, fmt.Errorf("user identifier '%s' is not a single gift; use portfolio scanner", trimmed)
+	}
+	if (strings.HasPrefix(trimmed, "EQ") || strings.HasPrefix(trimmed, "UQ") || strings.HasPrefix(trimmed, "eq") || strings.HasPrefix(trimmed, "uq")) && len(trimmed) >= 48 {
+		return nil, fmt.Errorf("wallet address '%s' is not a single gift; use portfolio scanner", trimmed)
+	}
+
+	clean := trimmed
 	clean = strings.TrimPrefix(clean, "https://")
 	clean = strings.TrimPrefix(clean, "http://")
 	clean = strings.TrimPrefix(clean, "telegram.me/nft/")
@@ -82,14 +90,14 @@ func NormalizeGiftIdentifier(raw string) (*ParsedGiftRef, error) {
 	clean = strings.ReplaceAll(clean, " ", "-")
 
 	// Match pattern: collection_name - number
-	re := regexp.MustCompile(`([a-z0-9_]+)[-#_]?(\d+)`)
+	re := regexp.MustCompile(`^([a-z0-9_]+?)[-#_]?(\d+)$`)
 	matches := re.FindStringSubmatch(clean)
 
 	if len(matches) >= 3 {
 		modelKey := matches[1]
 		serial, err := strconv.Atoi(matches[2])
 		if err != nil || serial <= 0 {
-			serial = 1
+			return nil, fmt.Errorf("invalid serial number: serial must be >= 1")
 		}
 
 		col, _ := traits.ResolveCollection(modelKey)
@@ -382,6 +390,27 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	certHash := sha256.Sum256([]byte(certPayload))
 	certificateID := "IFRG-GFT-" + hex.EncodeToString(certHash[:])[:12]
 
+	compSummaries := make([]map[string]interface{}, 0, len(comps))
+	for _, c := range comps {
+		compSummaries = append(compSummaries, map[string]interface{}{
+			"gift_id":         c.GiftID,
+			"serial":          c.SerialNumber,
+			"venue":           c.Venue,
+			"sale_price_gram": c.SalePriceGRAM,
+			"sale_date":       c.SaleDate,
+		})
+	}
+
+	configSnapshot := map[string]interface{}{
+		"base_floor_gram":   col.InitialFloorGRAM,
+		"model_supply":      col.TotalSupply,
+		"beta_serial":       betaSerial,
+		"beta_backdrop":     betaBackdrop,
+		"beta_symbol":       betaSymbol,
+		"backdrop_permille": backdropPermille,
+		"symbol_permille":   symbolPermille,
+	}
+
 	reasoningLog := map[string]interface{}{
 		"model_version":      ModelVersion,
 		"beta0_floor":        beta0,
@@ -395,6 +424,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		"price_basis":        priceBasis,
 		"narrative_only":     true, // Sacred Rule 11
 		"signals_count":      34,
+		"comparables":        compSummaries,
 	}
 
 	valuation := &GiftValuation{
@@ -430,7 +460,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 	// Mandatory Audit Write (Sacred Rule 5)
 	if e.giftsRepo != nil {
-		id, err := e.giftsRepo.SaveValuationAudit(ctx, ref.GiftID, ref.ModelID, ref.SerialNumber, ModelVersion, reasoningLog, gramUsdRate, col.InitialFloorGRAM, lowGRAM, expectedGRAM, highGRAM, confidence, priceBasis, reasoningLog)
+		id, err := e.giftsRepo.SaveValuationAudit(ctx, ref.GiftID, ref.ModelID, ref.SerialNumber, ModelVersion, configSnapshot, gramUsdRate, col.InitialFloorGRAM, lowGRAM, expectedGRAM, highGRAM, confidence, priceBasis, reasoningLog)
 		if err != nil {
 			slog.Error("CRITICAL: Mandatory Gift Valuation Audit Write failed", "gift_id", ref.GiftID, "error", err)
 			return nil, fmt.Errorf("mandatory audit write failed: %w", err)
@@ -443,36 +473,38 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 func computeSerialExponent(serial, supply int) float64 {
 	if serial <= 1 {
-		return 5.20 // Sacred #1 jump! (~180x floor)
+		return 1.45 // Sacred #1 jump (exp(1.45) ≈ 4.25x floor multiplier)
 	}
 	if serial <= 3 {
-		return 3.90
+		return 1.10 // Top 3 prestige (exp(1.10) ≈ 3.0x)
 	}
 	if serial <= 9 {
-		return 2.90 // Single digit prestige
+		return 0.80 // Single digit prestige (exp(0.80) ≈ 2.2x)
 	}
 	if serial == 77 || serial == 88 || serial == 99 || serial == 777 || serial == 888 || serial == 999 || serial == 7777 || serial == 8888 {
-		return 2.40 // Repdigit sacred jump
+		return 0.70 // Repdigit sacred jump (exp(0.70) ≈ 2.0x)
 	}
 	if serial <= 99 {
-		return 1.60 // Double digit
+		return 0.47 // Double digit (exp(0.47) ≈ 1.6x)
 	}
 	if serial%100 == 0 || serial%500 == 0 || serial%1000 == 0 {
-		return 1.10 // Milestone round numbers
+		return 0.30 // Milestone round numbers (exp(0.30) ≈ 1.35x)
 	}
 	if serial <= 500 {
-		return 0.70
+		return 0.16 // Low serial (exp(0.16) ≈ 1.18x)
 	}
 	if serial <= 1000 {
-		return 0.35
+		return 0.08 // Sub-1000 (exp(0.08) ≈ 1.08x)
 	}
 
-	// Standard decreasing rank percentile
-	rankPct := (float64(serial) / float64(supply)) * 100.0
-	if rankPct > 80.0 {
-		return -0.15
+	// Standard decreasing rank percentile for long tail
+	if supply > 0 {
+		rankPct := (float64(serial) / float64(supply)) * 100.0
+		if rankPct > 80.0 {
+			return -0.08 // Deep floor discount (~0.92x)
+		}
 	}
-	return 0.05
+	return 0.0 // Baseline floor
 }
 
 func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, backdrop string, gramUsdRate, targetGRAM float64) ([]ComparableGiftSale, string) {
@@ -528,6 +560,28 @@ func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, backdropN
 		modelPct = 0.1
 	}
 
+	modelTier := "Common"
+	if col.TotalSupply <= 2000 {
+		modelTier = "Legendary"
+	} else if col.TotalSupply <= 5000 {
+		modelTier = "Epic"
+	} else if col.TotalSupply <= 15000 {
+		modelTier = "Rare"
+	} else if col.TotalSupply <= 50000 {
+		modelTier = "Uncommon"
+	}
+
+	serialTier := "Common"
+	if serialPct <= 1.0 {
+		serialTier = "Legendary"
+	} else if serialPct <= 5.0 {
+		serialTier = "Epic"
+	} else if serialPct <= 15.0 {
+		serialTier = "Rare"
+	} else if serialPct <= 35.0 {
+		serialTier = "Uncommon"
+	}
+
 	return []TraitDNABar{
 		{
 			AxisKey:        "model",
@@ -535,7 +589,7 @@ func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, backdropN
 			LabelFa:        "مدل کالکشن",
 			Value:          col.Name,
 			Percentile:     math.Round(modelPct*100.0) / 100.0,
-			RarityTier:     "Legendary",
+			RarityTier:     modelTier,
 			CertaintyLevel: "exact", // Official Collection Model is verified
 			Description:    fmt.Sprintf("Official Telegram collection of %s total minted units", formatCount(col.TotalSupply)),
 		},
@@ -566,7 +620,7 @@ func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, backdropN
 			LabelFa:        "شماره سریال",
 			Value:          serialRankText,
 			Percentile:     math.Round(serialPct*100.0) / 100.0,
-			RarityTier:     "Legendary",
+			RarityTier:     serialTier,
 			CertaintyLevel: "exact", // Serial number is exact on-chain
 			Description:    fmt.Sprintf("Absolute rank #%d out of total supply of %s", serial, formatCount(col.TotalSupply)),
 		},

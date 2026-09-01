@@ -12,8 +12,8 @@ func TestVenues_ExitPlannerCalculations(t *testing.T) {
 
 	plan := ComputeExitPlan(ctx, targetPrice, gramUsdRate, 100)
 
-	if len(plan.Options) != 6 {
-		t.Fatalf("Expected 6 exit venue options, got %d", len(plan.Options))
+	if len(plan.Options) != 7 {
+		t.Fatalf("Expected 7 exit venue options, got %d", len(plan.Options))
 	}
 
 	// Verify options are strictly sorted descending by NetPayoutGRAM

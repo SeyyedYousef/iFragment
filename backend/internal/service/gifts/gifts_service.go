@@ -207,7 +207,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 		UpgradePriceClock:        []UpgradeClockItem{},
 		TrendingModels:           []TrendingModelItem{},
 		EndingSoonAuctions:       []GiftAuctionItem{},
-		DataStatus:               "live",
+		DataStatus:               "estimated",
 		UpdatedAt:                now.Format(time.RFC3339),
 	}
 
@@ -319,14 +319,14 @@ func (s *GiftsService) GetCuriosityGate(ctx context.Context, raw string) (*gveng
 	return s.engine.GenerateCuriosityGate(ctx, raw)
 }
 
-// ValuateGift executes full valuation and enforces 24h caching
+// ValuateGift executes valuation computation (respects purchased cache, does NOT auto-grant purchase)
 func (s *GiftsService) ValuateGift(ctx context.Context, userID int64, raw string) (*gvengine.GiftValuation, error) {
 	ref, err := gvengine.NormalizeGiftIdentifier(raw)
 	if err != nil {
 		return nil, err
 	}
 
-	// 1. Check 24-hour purchased report in DB
+	// 1. Check 24-hour purchased report in DB if user is authenticated
 	if userID > 0 {
 		if rec, err := s.repo.GetPurchasedGiftReport(ctx, userID, ref.GiftID); err == nil && rec != nil {
 			var cachedVal gvengine.GiftValuation
@@ -337,22 +337,10 @@ func (s *GiftsService) ValuateGift(ctx context.Context, userID int64, raw string
 	}
 
 	// 2. Execute GV Engine computation
-	val, err := s.engine.Valuate(ctx, raw)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. Persist to purchased reports if user is active
-	if userID > 0 {
-		snapJSON, _ := json.Marshal(val)
-		fairNano := val.ExpectedGRAM.Mul(decimal.NewFromInt(1e9)).IntPart()
-		_, _ = s.repo.SaveGiftReport(ctx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON)
-	}
-
-	return val, nil
+	return s.engine.Valuate(ctx, raw)
 }
 
-// UnlockWithCoins unlocks report using Airdrop coins strictly without soft fallback
+// UnlockWithCoins unlocks report using Airdrop coins strictly and persists purchase record
 func (s *GiftsService) UnlockWithCoins(ctx context.Context, userID int64, raw string) (*gvengine.GiftValuation, error) {
 	ref, err := gvengine.NormalizeGiftIdentifier(raw)
 	if err != nil {
@@ -382,10 +370,22 @@ func (s *GiftsService) UnlockWithCoins(ctx context.Context, userID int64, raw st
 		}
 	}
 
-	return s.ValuateGift(ctx, userID, raw)
+	val, err := s.engine.Valuate(ctx, raw)
+	if err != nil {
+		return nil, err
+	}
+
+	// Persist purchased report
+	if userID > 0 {
+		snapJSON, _ := json.Marshal(val)
+		fairNano := val.ExpectedGRAM.Mul(decimal.NewFromInt(1e9)).IntPart()
+		_, _ = s.repo.SaveGiftReport(ctx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON)
+	}
+
+	return val, nil
 }
 
-// UnlockWithCredit unlocks report using 1 shared Intel Credit with strict atomic check
+// UnlockWithCredit unlocks report using 1 shared Intel Credit with strict atomic check and persists purchase
 func (s *GiftsService) UnlockWithCredit(ctx context.Context, userID int64, raw string) (*gvengine.GiftValuation, error) {
 	ref, err := gvengine.NormalizeGiftIdentifier(raw)
 	if err != nil {
@@ -403,19 +403,34 @@ func (s *GiftsService) UnlockWithCredit(ctx context.Context, userID int64, raw s
 		}
 	}
 
-	return s.ValuateGift(ctx, userID, raw)
+	val, err := s.engine.Valuate(ctx, raw)
+	if err != nil {
+		return nil, err
+	}
+
+	// Persist purchased report
+	if userID > 0 {
+		snapJSON, _ := json.Marshal(val)
+		fairNano := val.ExpectedGRAM.Mul(decimal.NewFromInt(1e9)).IntPart()
+		_, _ = s.repo.SaveGiftReport(ctx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON)
+	}
+
+	return val, nil
 }
 
-// ScanPortfolio scans user gift inventory with strict 10-minute rate limit and real on-chain/DB lookup
-func (s *GiftsService) ScanPortfolio(ctx context.Context, username string) (*PortfolioScanResponse, error) {
+// ScanPortfolio scans user gift inventory with strict 10-minute rate limit per caller
+func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username string) (*PortfolioScanResponse, error) {
 	cleanUser := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(username), "@"))
 	if cleanUser == "" {
 		return nil, fmt.Errorf("username is required")
 	}
 
-	// 10-Minute Rate Limit Check
+	// 10-Minute Rate Limit Check per caller (prevents target lockout griefing)
 	if s.cache != nil && s.cache.Client != nil {
-		cacheKey := fmt.Sprintf("gifts:portfolio:rl:%s", cleanUser)
+		if callerKey == "" {
+			callerKey = cleanUser
+		}
+		cacheKey := fmt.Sprintf("gifts:portfolio:rl:%s", callerKey)
 		set, _ := s.cache.Client.SetNX(ctx, cacheKey, "1", 10*time.Minute).Result()
 		if !set {
 			return nil, ErrPortfolioRateLimited

@@ -138,8 +138,8 @@ func TestNormalizeNumber_Comprehensive(t *testing.T) {
 		{input: "8888000", expected: "+8888000", wantErr: false},
 		{input: "01234567", expected: "+88801234567", wantErr: false},
 		{input: "+888 0123 4567", expected: "+88801234567", wantErr: false},
-		{input: "1234", expected: "+8881234", wantErr: false},
-		{input: "+888 1234", expected: "+8881234", wantErr: false},
+		{input: "1234", expected: "", wantErr: true},
+		{input: "+888 1234", expected: "", wantErr: true},
 		{input: "715311", expected: "", wantErr: true},    // 6 digits
 		{input: "12345", expected: "", wantErr: true},     // 5 digits
 		{input: "123456789", expected: "", wantErr: true}, // 9 digits

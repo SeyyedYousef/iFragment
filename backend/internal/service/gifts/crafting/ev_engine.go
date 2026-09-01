@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"sort"
 	"time"
+
+	"ifragment-backend/internal/service/gifts/starsrate"
 )
 
 // CraftInputItem represents a gift proposed for crafting combination
@@ -71,32 +73,46 @@ func CalculateCraftingEV(ctx context.Context, inputs []CraftInputItem, gramUsdRa
 		return nil, fmt.Errorf("maximum 4 input gifts allowed per Telegram crafting rule")
 	}
 
+	// Telegram Crafting Rule: All input items must belong to the exact same collection
+	firstModel := inputs[0].ModelID
+	for _, item := range inputs {
+		if item.ModelID != "" && firstModel != "" && item.ModelID != firstModel {
+			return nil, fmt.Errorf("crafting rule violation: all input gifts must belong to the same collection (%s vs %s)", firstModel, item.ModelID)
+		}
+	}
+
 	if gramUsdRate <= 0 {
 		gramUsdRate = 5.50
 	}
 
 	// 1. Calculate input burn cost & aggregate success chance
 	totalCostGRAM := 0.0
-	totalChancePermille := 0
 	lockWarning := ""
 	now := time.Now()
 
 	for _, item := range inputs {
 		totalCostGRAM += item.EstimatedValueGRAM
-		totalChancePermille += item.CraftChancePermille
 		if item.CanCraftAt != nil && item.CanCraftAt.After(now) {
 			lockWarning = fmt.Sprintf("Gift %s is locked from crafting until %s", item.GiftID, item.CanCraftAt.Format(time.RFC3339))
 		}
 	}
 
-	if totalChancePermille > 1000 {
-		totalChancePermille = 1000 // Cap at 100%
+	// Telegram official server odds matrix: 1 gift = 25%, 2 gifts = 45%, 3 gifts = 65%, 4 gifts = 85%
+	oddsMatrix := map[int]int{
+		1: 250,
+		2: 450,
+		3: 650,
+		4: 850,
+	}
+	totalChancePermille := oddsMatrix[len(inputs)]
+	if totalChancePermille == 0 {
+		totalChancePermille = 250
 	}
 	pSuccess := float64(totalChancePermille) / 1000.0
 
-	// Crafting fee in Stars (500 Stars ~ 2.5 GRAM)
+	// Crafting fee in Stars (500 Stars converted dynamically to GRAM)
 	craftingFeeStars := 500
-	craftingFeeGRAM := 2.50
+	craftingFeeGRAM := starsrate.ConvertStarsToGRAM(craftingFeeStars, gramUsdRate)
 
 	// 2. Monte Carlo Simulation (10,000 runs)
 	iterations := 10000

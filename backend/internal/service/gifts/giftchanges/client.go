@@ -241,7 +241,126 @@ func (c *Client) GetGiftImageBytes(ctx context.Context, slug, model string) ([]b
 		return nil, fmt.Errorf("image fetch failed with status %d", resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
+	imgBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	// Bounded cache eviction: if cache exceeds 500 items, clear expired or prune
+	if len(c.cache) > 500 {
+		now := time.Now()
+		for k, v := range c.cache {
+			if now.After(v.expiresAt) {
+				delete(c.cache, k)
+			}
+		}
+	}
+	c.cache[cacheKey] = &cacheItem{
+		data:      imgBytes,
+		expiresAt: time.Now().Add(7 * 24 * time.Hour), // 7 days TTL
+	}
+	c.mu.Unlock()
+
+	return imgBytes, nil
 }
+
+// ModelEmoji represents custom emoji information from /emoji/:gift
+type ModelEmoji struct {
+	Name          string  `json:"name"`
+	Rarity        float64 `json:"rarity"`
+	CustomEmojiID string  `json:"customEmojiId"`
+}
+
+// GiftDateItem represents an entry from /dates
+type GiftDateItem struct {
+	ID           string `json:"id"`
+	ReleasedAt   int64  `json:"releasedAt"`
+	UpgradableAt *int64 `json:"upgradableAt"`
+	Upgradable   bool   `json:"upgradable"`
+	Auction      bool   `json:"auction"`
+	Name         string `json:"name,omitempty"`
+}
+
+// GetGiftEmojis returns the official custom animated emoji IDs for models
+func (c *Client) GetGiftEmojis(ctx context.Context, slug string) ([]ModelEmoji, error) {
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	slug = strings.ReplaceAll(slug, "_", "-")
+	cacheKey := "gift_emojis:" + slug
+
+	c.mu.RLock()
+	if item, ok := c.cache[cacheKey]; ok && time.Now().Before(item.expiresAt) {
+		c.mu.RUnlock()
+		return item.data.([]ModelEmoji), nil
+	}
+	c.mu.RUnlock()
+
+	var emojis []ModelEmoji
+	if err := c.get(ctx, "/emoji/"+url.PathEscape(slug), &emojis); err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	c.cache[cacheKey] = &cacheItem{
+		data:      emojis,
+		expiresAt: time.Now().Add(24 * time.Hour),
+	}
+	c.mu.Unlock()
+
+	return emojis, nil
+}
+
+// GetDates returns the release and upgrade dates for all gifts
+func (c *Client) GetDates(ctx context.Context) ([]GiftDateItem, error) {
+	cacheKey := "gift_dates"
+
+	c.mu.RLock()
+	if item, ok := c.cache[cacheKey]; ok && time.Now().Before(item.expiresAt) {
+		c.mu.RUnlock()
+		return item.data.([]GiftDateItem), nil
+	}
+	c.mu.RUnlock()
+
+	var dates []GiftDateItem
+	if err := c.get(ctx, "/dates", &dates); err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	c.cache[cacheKey] = &cacheItem{
+		data:      dates,
+		expiresAt: time.Now().Add(12 * time.Hour),
+	}
+	c.mu.Unlock()
+
+	return dates, nil
+}
+
+// GetIDs returns the mapping of 64-bit Telegram contract IDs to gift names
+func (c *Client) GetIDs(ctx context.Context) (map[string]string, error) {
+	cacheKey := "gift_ids"
+
+	c.mu.RLock()
+	if item, ok := c.cache[cacheKey]; ok && time.Now().Before(item.expiresAt) {
+		c.mu.RUnlock()
+		return item.data.(map[string]string), nil
+	}
+	c.mu.RUnlock()
+
+	var ids map[string]string
+	if err := c.get(ctx, "/ids", &ids); err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	c.cache[cacheKey] = &cacheItem{
+		data:      ids,
+		expiresAt: time.Now().Add(12 * time.Hour),
+	}
+	c.mu.Unlock()
+
+	return ids, nil
+}
+
 
 

@@ -42,6 +42,7 @@ export interface NumbersIntelData {
 		color: string;
 		tonviewer_url: string;
 	}[];
+	data_status?: 'live' | 'insufficient_data';
 	updated_at: string;
 }
 
@@ -350,6 +351,8 @@ export interface NumberTableItem {
 	is_restricted: boolean;
 	source: string;
 	market_url: string;
+	is_estimated?: boolean;
+	data_status?: 'live' | 'estimated';
 }
 
 export interface ChartHistoricalPoint {

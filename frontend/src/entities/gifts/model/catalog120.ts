@@ -5,7 +5,7 @@ export interface OfficialGiftItem {
 	slug: string;
 	tag: 'Bluechip' | 'Luxury' | 'Seasonal' | 'Talisman' | 'Classic' | 'Special' | 'Tech';
 	supply?: number;
-	floorTon: number;
+	floorTon?: number;
 	primaryModel: string;
 	emoji: string;
 }

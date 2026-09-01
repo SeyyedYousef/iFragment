@@ -94,10 +94,16 @@ func (b *BootstrapWorker) RunResilientBootstrap(ctx context.Context) error {
 }
 
 func (b *BootstrapWorker) processNFTItem(ctx context.Context, item tonapi.NFTItem) {
-	// Anonymous numbers typically have names/DNS like "+888 8888 8888" or "+888 0123 4567"
-	rawNumber := item.DNS
+	rawNumber := item.Metadata.Name
 	if rawNumber == "" {
-		rawNumber = fmt.Sprintf("+888%08d", item.Index)
+		rawNumber = item.DNS
+	}
+	if rawNumber == "" {
+		if item.Index >= 8000 && item.Index <= 8999 {
+			rawNumber = fmt.Sprintf("+888%04d", item.Index)
+		} else {
+			rawNumber = fmt.Sprintf("+888%08d", item.Index)
+		}
 	}
 
 	norm, err := features.NormalizeNumber(rawNumber)

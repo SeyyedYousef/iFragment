@@ -318,6 +318,7 @@ export interface CollectionModelFloor {
 	change_7d_pct: number;
 	volume_24h_gram: number;
 	is_trending: boolean;
+	custom_emoji_id?: string;
 }
 
 export interface RarityHeatmapCell {
@@ -340,10 +341,12 @@ export interface MarketVenueFloor {
 	venue_name: string;
 	floor_gram: number;
 	floor_usd: number;
+	currency?: string;
 	fee_pct: number;
 	net_payout_gram: number;
-	listed_count: number;
+	listed_count?: number;
 	is_on_chain: boolean;
+	data_status?: 'live' | 'estimated' | 'unavailable';
 }
 
 export interface CrossMarketArbitrage {
@@ -364,7 +367,7 @@ export interface WhaleProfile {
 	holdings_count: number;
 	total_value_gram: number;
 	total_value_usd: number;
-	classification: 'diamond_hands' | 'flipper' | 'accumulator' | 'unknown';
+	classification: 'diamond_hands' | 'flipper' | 'accumulator';
 	change_24h_count: number;
 	avg_hold_days: number;
 }
@@ -463,7 +466,8 @@ export interface CollectionIntelResponse {
 		venue_breakdown: Record<string, number>;
 	}>;
 
-	// Attribution
+	// Attribution & metadata
+	data_status?: 'live' | 'estimated' | 'unavailable';
 	data_sources: string[];
 	updated_at: string;
 }
@@ -488,11 +492,11 @@ export interface ProvenanceEvent {
 }
 
 export interface OnChainMetadata {
-	nft_address: string;
+	nft_address?: string;
 	collection_address: string;
-	owner_address: string;
+	owner_address?: string;
 	mint_number: number;
-	attributes: Array<{ trait_type: string; value: string }>;
+	attributes: Array<{ trait_type: string; value: string; rarity?: string }>;
 	metadata_url: string;
 	tonviewer_url: string;
 	tonscan_url: string;

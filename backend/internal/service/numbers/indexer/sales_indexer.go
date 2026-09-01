@@ -260,17 +260,38 @@ func (s *NumbersSalesIndexer) extractPriceFromTrace(ctx context.Context, traceID
 
 	maxNano := int64(0)
 	saleType := "auction"
-	confidence := "exact"
+	confidence := "heuristic"
+	matchedMarket := false
 
 	var traverse func(t *tonapi.Trace)
 	traverse = func(t *tonapi.Trace) {
-		if t.Transaction.InMsg != nil && t.Transaction.InMsg.Value > maxNano {
-			maxNano = t.Transaction.InMsg.Value
+		isMarketTx := false
+		for _, iface := range t.Interfaces {
+			lower := strings.ToLower(iface)
+			if strings.Contains(lower, "sale") || strings.Contains(lower, "market") {
+				saleType = "direct_sale"
+				isMarketTx = true
+				matchedMarket = true
+			} else if strings.Contains(lower, "auction") || strings.Contains(lower, "telemint") {
+				saleType = "auction"
+				isMarketTx = true
+				matchedMarket = true
+			}
 		}
 
-		for _, iface := range t.Interfaces {
-			if strings.Contains(strings.ToLower(iface), "sale") || strings.Contains(strings.ToLower(iface), "direct") {
-				saleType = "direct_sale"
+		if t.Transaction.InMsg != nil {
+			msg := t.Transaction.InMsg
+			op := strings.ToLower(msg.DecodedOpName)
+			if strings.Contains(op, "bid") || strings.Contains(op, "purchase") || strings.Contains(op, "buy") || strings.Contains(op, "sale") {
+				if msg.Value > 0 {
+					maxNano = msg.Value
+					matchedMarket = true
+					confidence = "exact"
+				}
+			} else if isMarketTx && msg.Value > maxNano {
+				maxNano = msg.Value
+			} else if !matchedMarket && msg.Value > maxNano {
+				maxNano = msg.Value
 			}
 		}
 
@@ -288,6 +309,10 @@ func (s *NumbersSalesIndexer) extractPriceFromTrace(ctx context.Context, traceID
 	tonValue := float64(maxNano) / math.Pow10(9)
 	if tonValue < 0.5 {
 		return 0, "unknown", "heuristic"
+	}
+
+	if matchedMarket && confidence != "exact" {
+		confidence = "exact"
 	}
 
 	return tonValue, saleType, confidence

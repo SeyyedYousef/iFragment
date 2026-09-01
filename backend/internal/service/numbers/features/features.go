@@ -44,8 +44,12 @@ func NormalizeNumber(raw string) (string, error) {
 		return "", ErrNumberNotMinted
 	}
 
-	// 1. 4-digit numbers (7 digits with +888)
+	// 1. 4-digit genesis numbers (7 digits with +888): Telegram only minted 8000..8999
 	if len(suffix) == 4 {
+		n, err := strconv.Atoi(suffix)
+		if err != nil || n < 8000 || n > 8999 {
+			return "", ErrNumberNotMinted
+		}
 		return "+888" + suffix, nil
 	}
 

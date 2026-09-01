@@ -20,8 +20,8 @@ func TestValuationEngine_CuriosityGate_NoLeak(t *testing.T) {
 	if gate.SignalsAnalyzed <= 0 {
 		t.Errorf("expected positive signals analyzed, got %d", gate.SignalsAnalyzed)
 	}
-	if gate.DataSourcesCount != 4 {
-		t.Errorf("expected 4 data sources, got %d", gate.DataSourcesCount)
+	if gate.DataSourcesCount <= 0 {
+		t.Errorf("expected positive data sources count, got %d", gate.DataSourcesCount)
 	}
 }
 

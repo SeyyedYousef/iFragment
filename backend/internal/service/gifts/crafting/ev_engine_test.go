@@ -9,8 +9,8 @@ func TestCraftingEV_MonteCarloDeterminism(t *testing.T) {
 	ctx := context.Background()
 
 	inputs := []CraftInputItem{
-		{GiftID: "pepe-42", ModelID: "plush_pepe", Name: "Plush Pepe #42", EstimatedValueGRAM: 120, CraftChancePermille: 350},
-		{GiftID: "cap-7", ModelID: "durov_cap", Name: "Durov Cap #7", EstimatedValueGRAM: 240, CraftChancePermille: 400},
+		{GiftID: "pepe-42", ModelID: "plush_pepe", Name: "Plush Pepe #42", EstimatedValueGRAM: 120, CraftChancePermille: 250},
+		{GiftID: "pepe-7", ModelID: "plush_pepe", Name: "Plush Pepe #7", EstimatedValueGRAM: 240, CraftChancePermille: 250},
 	}
 
 	// Two runs with the exact same seed must produce identical outputs
@@ -31,8 +31,8 @@ func TestCraftingEV_MonteCarloDeterminism(t *testing.T) {
 	if res1.DistributionP50 != res2.DistributionP50 {
 		t.Errorf("Distribution P50 mismatch: %.2f vs %.2f", res1.DistributionP50, res2.DistributionP50)
 	}
-	if res1.SuccessProbability != 75.0 {
-		t.Errorf("Expected 75%% success rate (350+400 permille), got %.1f%%", res1.SuccessProbability)
+	if res1.SuccessProbability != 45.0 {
+		t.Errorf("Expected 45%% success rate for 2 items, got %.1f%%", res1.SuccessProbability)
 	}
 }
 

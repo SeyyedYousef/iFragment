@@ -97,7 +97,19 @@ func (r *NumbersRepo) SaveNumberReport(ctx context.Context, userID int64, number
 	return reportID, err
 }
 
-// GetPurchasedNumberReport retrieves a previously bought report
+// SaveNumberReportTx persists purchased report within an existing database transaction
+func (r *NumbersRepo) SaveNumberReportTx(ctx context.Context, tx pgx.Tx, userID int64, number string, fairValueNano int64, confidence int, snapshot json.RawMessage) (uuid.UUID, error) {
+	query := `
+		INSERT INTO number_reports (user_id, number, fair_value_nano_ton, confidence_score, report_snapshot, purchased_at)
+		VALUES ($1, $2, $3, $4, $5, now())
+		RETURNING report_id`
+
+	var reportID uuid.UUID
+	err := tx.QueryRow(ctx, query, userID, number, fairValueNano, confidence, snapshot).Scan(&reportID)
+	return reportID, err
+}
+
+// GetPurchasedNumberReport retrieves a previously bought report strictly within 24h cache window
 func (r *NumbersRepo) GetPurchasedNumberReport(ctx context.Context, userID int64, number string) (*NumberReportRecord, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return nil, nil
@@ -105,7 +117,7 @@ func (r *NumbersRepo) GetPurchasedNumberReport(ctx context.Context, userID int64
 	query := `
 		SELECT report_id, user_id, number, fair_value_nano_ton, confidence_score, report_snapshot, purchased_at
 		FROM number_reports
-		WHERE user_id = $1 AND number = $2
+		WHERE user_id = $1 AND number = $2 AND purchased_at >= now() - interval '24 hours'
 		ORDER BY purchased_at DESC
 		LIMIT 1`
 
@@ -124,14 +136,22 @@ func (r *NumbersRepo) GetPurchasedNumberReport(ctx context.Context, userID int64
 	return &rec, nil
 }
 
-// IsNumberReportPurchased checks if user has unlocked this number
+// IsNumberReportPurchased checks if user has unlocked this number within the past 24 hours
 func (r *NumbersRepo) IsNumberReportPurchased(ctx context.Context, userID int64, number string) (bool, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return false, nil
 	}
-	query := `SELECT EXISTS(SELECT 1 FROM number_reports WHERE user_id = $1 AND number = $2)`
+	query := `SELECT EXISTS(SELECT 1 FROM number_reports WHERE user_id = $1 AND number = $2 AND purchased_at >= now() - interval '24 hours')`
 	var exists bool
 	err := r.db.Pool.QueryRow(ctx, query, userID, number).Scan(&exists)
+	return exists, err
+}
+
+// IsNumberReportPurchasedTx checks within a transaction if user unlocked this number within 24h
+func (r *NumbersRepo) IsNumberReportPurchasedTx(ctx context.Context, tx pgx.Tx, userID int64, number string) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM number_reports WHERE user_id = $1 AND number = $2 AND purchased_at >= now() - interval '24 hours')`
+	var exists bool
+	err := tx.QueryRow(ctx, query, userID, number).Scan(&exists)
 	return exists, err
 }
 
@@ -201,7 +221,7 @@ type NumberSaleRecord struct {
 	IndexedAt       time.Time `json:"indexed_at"`
 }
 
-// InsertNumberSale inserts a verified on-chain sale for a number
+// InsertNumberSale inserts a verified on-chain sale for a number with conflict idempotency
 func (r *NumbersRepo) InsertNumberSale(ctx context.Context, sale NumberSaleRecord) error {
 	if r.db == nil || r.db.Pool == nil {
 		return nil
@@ -211,7 +231,8 @@ func (r *NumbersRepo) InsertNumberSale(ctx context.Context, sale NumberSaleRecor
 			number, sale_price_ton, sale_type, sale_date,
 			buyer_address, seller_address, market_address,
 			price_confidence, transaction_hash, raw_data, indexed_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())`
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+		ON CONFLICT DO NOTHING`
 
 	_, err := r.db.Pool.Exec(ctx, query,
 		sale.Number, sale.SalePriceTON, sale.SaleType, sale.SaleDate,
@@ -274,7 +295,7 @@ func (r *NumbersRepo) GetCompsForNumber(ctx context.Context, targetNumber, tailC
 		WHERE s.number != $1
 		  AND (
 		      (f.features->>'tail_class' = $2 AND $2 != '')
-		      OR (f.features->>'max_run')::int >= $3
+		      OR COALESCE(NULLIF(f.features->>'max_run', '')::int, 0) >= $3
 		  )
 		ORDER BY s.sale_date DESC
 		LIMIT $4`
@@ -378,26 +399,42 @@ func (r *NumbersRepo) GetWatchedUsersForNumber(ctx context.Context, number strin
 
 // SearchNumbersByMask searches the 136k supply with wildcard or regex matching in <150ms p95
 func (r *NumbersRepo) SearchNumbersByMask(ctx context.Context, pattern string, limit, offset int) ([]MaskSearchResultItem, error) {
+	if offset < 0 {
+		offset = 0
+	}
 	if limit <= 0 || limit > 50 {
 		limit = 30
 	}
 
-	// Translate wildcard mask (e.g. "+888 8888 ****" -> LIKE '+8888888____')
+	// 1. Sanitize wildcard pattern to avoid LIKE wildcard injection
 	cleanPattern := strings.ReplaceAll(pattern, " ", "")
-	sqlPattern := strings.ReplaceAll(cleanPattern, "*", "_")
-	if !strings.HasPrefix(sqlPattern, "+888") {
-		sqlPattern = "+888" + sqlPattern
+	cleanPattern = strings.TrimPrefix(cleanPattern, "+")
+	cleanPattern = strings.TrimPrefix(cleanPattern, "888")
+
+	// Escape raw % and _ to prevent wildcard injection
+	cleanPattern = strings.ReplaceAll(cleanPattern, "\\", "\\\\")
+	cleanPattern = strings.ReplaceAll(cleanPattern, "%", "\\%")
+	cleanPattern = strings.ReplaceAll(cleanPattern, "_", "\\_")
+
+	// Convert user wildcard '*' to SQL single-character wildcard '_'
+	sqlWildcard := strings.ReplaceAll(cleanPattern, "*", "_")
+	if len(sqlWildcard) > 8 {
+		sqlWildcard = sqlWildcard[:8]
 	}
+	sqlPattern := "+888" + sqlWildcard
 
 	if r.db == nil || r.db.Pool == nil {
 		return []MaskSearchResultItem{}, nil
 	}
 
 	query := `
-		SELECT number, color, features
-		FROM number_features
-		WHERE number LIKE $1
-		ORDER BY number ASC
+		SELECT f.number, f.color, f.features, f.owner_address,
+		       COALESCE(m.market_type, CASE WHEN f.features->>'listing_price_ton' IS NOT NULL THEN 'sale' ELSE '' END) AS market_status,
+		       COALESCE(NULLIF(f.features->>'listing_price_ton', '')::float8, 0) AS listing_price
+		FROM number_features f
+		LEFT JOIN market_registry m ON f.owner_address = m.address
+		WHERE f.number LIKE $1
+		ORDER BY f.number ASC
 		LIMIT $2 OFFSET $3`
 
 	rows, err := r.db.Pool.Query(ctx, query, sqlPattern, limit, offset)
@@ -408,9 +445,10 @@ func (r *NumbersRepo) SearchNumbersByMask(ctx context.Context, pattern string, l
 
 	results := make([]MaskSearchResultItem, 0)
 	for rows.Next() {
-		var num, color string
+		var num, color, ownerAddr, marketStatus string
 		var featJSON []byte
-		if err := rows.Scan(&num, &color, &featJSON); err == nil {
+		var listingPrice float64
+		if err := rows.Scan(&num, &color, &featJSON, &ownerAddr, &marketStatus, &listingPrice); err == nil {
 			rarity := 50
 			var fv struct {
 				RarityScore      int     `json:"rarity_score"`
@@ -424,12 +462,25 @@ func (r *NumbersRepo) SearchNumbersByMask(ctx context.Context, pattern string, l
 				}
 			}
 
+			status := "taken"
+			if marketStatus == "auction" {
+				status = "on_auction"
+			} else if marketStatus == "sale" || listingPrice > 0 {
+				status = "for_sale"
+			}
+
+			var pricePtr *float64
+			if listingPrice > 0 {
+				pricePtr = &listingPrice
+			}
+
 			results = append(results, MaskSearchResultItem{
-				Number:      num,
-				Display:     formatDisplay(num),
-				Status:      "taken",
-				Color:       color,
-				RarityScore: rarity,
+				Number:       num,
+				Display:      formatDisplay(num),
+				Status:       status,
+				ListingPrice: pricePtr,
+				Color:        color,
+				RarityScore:  rarity,
 			})
 		}
 	}

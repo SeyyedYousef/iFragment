@@ -72,11 +72,7 @@ func (h *NumbersHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := middleware.GetUserID(ctx)
-	if err != nil {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
-		return
-	}
+	userID, _ := middleware.GetUserID(ctx) // 0 for guests, >0 for authenticated users
 	val, err := h.service.ValuateNumber(ctx, userID, number)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "valuation failed", err)
@@ -193,6 +189,13 @@ func (h *NumbersHandler) SearchMask(w http.ResponseWriter, r *http.Request) {
 
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	if offset < 0 {
+		offset = 0
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 30
+	}
 
 	results, err := h.service.SearchMask(ctx, pattern, limit, offset)
 	if err != nil {

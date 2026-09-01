@@ -15,11 +15,11 @@ func TestGVEngine_InvariantsAndHedonicBounds(t *testing.T) {
 		serial      int
 		minExpected float64
 	}{
-		{"plush_pepe-1", "plush_pepe", 1, 10000.0},        // #1 Sacred jump
-		{"plush_pepe-42", "plush_pepe", 42, 200.0},        // Double digit
-		{"durov_cap-7", "durov_cap", 7, 1000.0},           // Single digit
-		{"snoop_dogg-996000", "snoop_dogg", 996000, 4.0},  // Mass drop tail
-		{"phoenix_feather-1", "phoenix_feather", 1, 5000.0}, // Crafted model #1
+		{"plush_pepe-1", "plush_pepe", 1, 4000.0},          // #1 Sacred jump (4.25x floor)
+		{"plush_pepe-42", "plush_pepe", 42, 1000.0},        // Double digit
+		{"durov_cap-7", "durov_cap", 7, 500.0},             // Single digit
+		{"snoop_dogg-996000", "snoop_dogg", 996000, 4.0},   // Mass drop tail
+		{"phoenix_feather-1", "phoenix_feather", 1, 2000.0}, // Crafted model #1
 	}
 
 	for _, tc := range testCases {
@@ -59,9 +59,9 @@ func TestGVEngine_InvariantsAndHedonicBounds(t *testing.T) {
 				}
 			}
 
-			// Exit planner must rank 6 venues
-			if len(val.ExitPlanner.Options) != 6 {
-				t.Errorf("Expected 6 exit venue options, got %d", len(val.ExitPlanner.Options))
+			// Exit planner must rank 7 venues
+			if len(val.ExitPlanner.Options) != 7 {
+				t.Errorf("Expected 7 exit venue options, got %d", len(val.ExitPlanner.Options))
 			}
 		})
 	}

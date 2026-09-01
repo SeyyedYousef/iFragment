@@ -7,13 +7,14 @@ import (
 	"time"
 )
 
-// VenueID identifies one of the 6 supported marketplaces
+// VenueID identifies one of the 7 supported marketplaces
 type VenueID string
 
 const (
 	VenueTelegramStars VenueID = "telegram_stars"
 	VenueFragment      VenueID = "fragment"
 	VenueGetgems       VenueID = "getgems"
+	VenueMarketApp     VenueID = "marketapp"
 	VenueTonnel        VenueID = "tonnel"
 	VenuePortals       VenueID = "portals"
 	VenueMRKT          VenueID = "mrkt"
@@ -34,6 +35,7 @@ type VenueInfo struct {
 	ActiveListings     int     `json:"active_listings"`
 	FloorPriceGRAM     float64 `json:"floor_price_gram"`
 	EstimatedSlippage  float64 `json:"estimated_slippage_pct"`
+	DataStatus         string  `json:"data_status"`          // "live", "estimated", "unavailable"
 }
 
 // ExitOption holds the net payout simulation for a specific venue
@@ -82,6 +84,7 @@ var Registry = map[VenueID]VenueInfo{
 		Volume7dGRAM:       94500.0,
 		ActiveListings:     1250,
 		EstimatedSlippage:  0.5,
+		DataStatus:         "live",
 	},
 	VenueGetgems: {
 		ID:                 VenueGetgems,
@@ -96,6 +99,22 @@ var Registry = map[VenueID]VenueInfo{
 		Volume7dGRAM:       88200.0,
 		ActiveListings:     3400,
 		EstimatedSlippage:  0.8,
+		DataStatus:         "live",
+	},
+	VenueMarketApp: {
+		ID:                 VenueMarketApp,
+		Name:               "MarketApp.ws",
+		Currency:           "GRAM",
+		ProtocolFeePct:     2.5,
+		ListingFeePct:      0.0,
+		RequiresKYC:        false,
+		EscrowType:         "smart_contract",
+		DeepLinkBase:       "https://marketapp.ws/gifts",
+		HasRealVolumeBadge: true,
+		Volume7dGRAM:       38500.0,
+		ActiveListings:     720,
+		EstimatedSlippage:  1.1,
+		DataStatus:         "estimated",
 	},
 	VenueMRKT: {
 		ID:                 VenueMRKT,
@@ -110,12 +129,13 @@ var Registry = map[VenueID]VenueInfo{
 		Volume7dGRAM:       42100.0,
 		ActiveListings:     890,
 		EstimatedSlippage:  1.2,
+		DataStatus:         "estimated",
 	},
 	VenuePortals: {
 		ID:                 VenuePortals,
 		Name:               "Portals",
 		Currency:           "GRAM",
-		ProtocolFeePct:     1.5,
+		ProtocolFeePct:     2.5,
 		ListingFeePct:      0.0,
 		RequiresKYC:        false,
 		EscrowType:         "smart_contract",
@@ -124,12 +144,13 @@ var Registry = map[VenueID]VenueInfo{
 		Volume7dGRAM:       31400.0,
 		ActiveListings:     650,
 		EstimatedSlippage:  1.5,
+		DataStatus:         "estimated",
 	},
 	VenueTonnel: {
 		ID:                 VenueTonnel,
 		Name:               "Tonnel Network",
 		Currency:           "GRAM",
-		ProtocolFeePct:     2.0,
+		ProtocolFeePct:     3.0,
 		ListingFeePct:      0.0,
 		RequiresKYC:        false,
 		EscrowType:         "bot_orderbook",
@@ -138,6 +159,7 @@ var Registry = map[VenueID]VenueInfo{
 		Volume7dGRAM:       12300.0,
 		ActiveListings:     420,
 		EstimatedSlippage:  2.5,
+		DataStatus:         "estimated",
 	},
 	VenueTelegramStars: {
 		ID:                 VenueTelegramStars,
@@ -152,10 +174,11 @@ var Registry = map[VenueID]VenueInfo{
 		Volume7dGRAM:       68900.0,
 		ActiveListings:     5800,
 		EstimatedSlippage:  1.0,
+		DataStatus:         "estimated",
 	},
 }
 
-// ComputeExitPlan evaluates the 6 venue choices and ranks them by net payout
+// ComputeExitPlan evaluates the 7 venue choices and ranks them by net payout
 func ComputeExitPlan(ctx context.Context, targetGRAM, gramUsdRate float64, customResalePermille int) *ExitPlannerPlan {
 	if gramUsdRate <= 0 {
 		gramUsdRate = 5.50
@@ -179,6 +202,9 @@ func ComputeExitPlan(ctx context.Context, targetGRAM, gramUsdRate float64, custo
 		case VenueGetgems:
 			varianceMult = 1.00 // Standard floor benchmark
 			daysToSell = 3
+		case VenueMarketApp:
+			varianceMult = 1.01
+			daysToSell = 5
 		case VenueMRKT:
 			varianceMult = 1.02 // 0% fee attracts buyers
 			daysToSell = 6

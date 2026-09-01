@@ -17,6 +17,8 @@ tags:
   - name: Groups
   - name: Profile
   - name: Marketplace
+  - name: Gifts
+  - name: Numbers
 paths:
   /health:
     get:
@@ -388,6 +390,415 @@ paths:
       responses:
         "410":
           description: Marketplace deprecated in favor of Airdrop Shop
+  /gifts/intel:
+    get:
+      tags: [Gifts]
+      summary: Get macro market intelligence overview for Telegram Gifts
+      responses:
+        "200":
+          description: Market intelligence data with unified floor board, fear & greed index, and trending gifts
+  /gifts/collections:
+    get:
+      tags: [Gifts]
+      summary: List all cataloged gift collections
+      responses:
+        "200":
+          description: List of official collections with floor and supply
+  /gifts/collection-intel:
+    get:
+      tags: [Gifts]
+      summary: Deep collection intelligence (models, backdrops, 7 venue floors, rarity heatmap, Dutch auction ladder)
+      parameters:
+        - name: c
+          in: query
+          required: false
+          schema:
+            type: string
+            default: plush_pepe
+          description: Collection slug
+      responses:
+        "200":
+          description: Collection intelligence response
+  /gifts/gate:
+    get:
+      tags: [Gifts]
+      summary: Curiosity Gate pre-paywall teaser (zero valuation leakage)
+      parameters:
+        - name: g
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Gift identifier (e.g. plush_pepe-1)
+      responses:
+        "200":
+          description: Teaser data
+  /gifts/upgrade-advice:
+    get:
+      tags: [Gifts]
+      summary: Dutch auction upgrade timing advisor with deterministic price ladder
+      parameters:
+        - name: g
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Gift identifier
+      responses:
+        "200":
+          description: Upgrade timing advice
+  /gifts/portfolio:
+    get:
+      tags: [Gifts]
+      summary: Scan user gift inventory (rate-limited per caller)
+      parameters:
+        - name: u
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Target Telegram username
+      responses:
+        "200":
+          description: Portfolio scan breakdown
+        "429":
+          description: Rate limited (10 minutes per caller)
+  /gifts/crafting-ev:
+    post:
+      tags: [Gifts]
+      summary: Monte Carlo expected value simulation for crafting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                inputs:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      gift_id: { type: string }
+                      model_id: { type: string }
+                      name: { type: string }
+                      serial_number: { type: integer }
+                      estimated_value_gram: { type: number }
+      responses:
+        "200":
+          description: Monte Carlo simulation result
+        "400":
+          description: Input validation error (e.g. cross-collection crafting)
+  /gifts/image/{slug}:
+    get:
+      tags: [Gifts]
+      summary: Stream gift model image from CDN with local caching
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: model
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: PNG image binary
+  /gifts/valuate:
+    get:
+      tags: [Gifts]
+      summary: Execute Gift Valuation Engine computation
+      parameters:
+        - name: g
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Valuation report
+  /gifts/enriched-report:
+    get:
+      tags: [Gifts]
+      summary: Access enriched gift valuation report with provenance and on-chain metadata (Requires purchase)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: g
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Enriched valuation report
+        "401":
+          description: Unauthorized
+        "402":
+          description: Payment Required (report must be unlocked)
+  /gifts/unlock-coins:
+    post:
+      tags: [Gifts]
+      summary: Unlock gift report using 15,000 Airdrop coins
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gift_id]
+              properties:
+                gift_id: { type: string }
+      responses:
+        "200":
+          description: Unlocked valuation report
+        "400":
+          description: Insufficient coins
+  /gifts/unlock-credit:
+    post:
+      tags: [Gifts]
+      summary: Unlock gift report using 1 Intel Credit
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gift_id]
+              properties:
+                gift_id: { type: string }
+      responses:
+        "200":
+          description: Unlocked valuation report
+        "400":
+          description: Insufficient credits
+  /gifts/watchlist:
+    get:
+      tags: [Gifts]
+      summary: Get user watched gifts
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of watched gifts
+    post:
+      tags: [Gifts]
+      summary: Toggle watchlist status for a gift
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gift_id, enable]
+              properties:
+                gift_id: { type: string }
+                enable: { type: boolean }
+      responses:
+        "200":
+          description: Watchlist updated
+        "403":
+          description: Report must be unlocked before watching
+  /numbers/list:
+    get:
+      tags: [Numbers]
+      summary: Get paginated anonymous numbers table with filter parameters
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: sale_type
+          in: query
+          schema: { type: string, enum: ["", "auction", "for_sale", "not_for_sale"] }
+        - name: number_type
+          in: query
+          schema: { type: string, enum: ["", "banned", "not_banned"] }
+        - name: owners_history
+          in: query
+          schema: { type: string, enum: ["", "1", "2-3", "4+"] }
+        - name: nft_colors
+          in: query
+          schema: { type: string }
+        - name: mask
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Numbers list response
+  /numbers/verify:
+    get:
+      tags: [Numbers]
+      summary: Verify if an anonymous number is minted within the 136,566 Telegram collection
+      parameters:
+        - name: n
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Verification details
+  /numbers/intel:
+    get:
+      tags: [Numbers]
+      summary: Anonymous Numbers collection intelligence and metrics
+      responses:
+        "200":
+          description: Intelligence metrics
+  /numbers/chart-data:
+    get:
+      tags: [Numbers]
+      summary: Historical sales and floor price OHLC chart data
+      responses:
+        "200":
+          description: Chart data response
+  /numbers/gate:
+    get:
+      tags: [Numbers]
+      summary: Pre-paywall curiosity gate analysis for an anonymous number
+      parameters:
+        - name: n
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Curiosity gate summary
+  /numbers/mask:
+    get:
+      tags: [Numbers]
+      summary: Search anonymous numbers matching wildcard mask pattern
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 30 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of matching numbers
+  /numbers/deals:
+    get:
+      tags: [Numbers]
+      summary: Top undervalued arbitrage deals
+      responses:
+        "200":
+          description: Undervalued deals list
+  /numbers/clubs:
+    get:
+      tags: [Numbers]
+      summary: Curated collectible clubs and floor prices
+      responses:
+        "200":
+          description: Category clubs list
+  /numbers/portfolio:
+    get:
+      tags: [Numbers]
+      summary: Scan wallet for anonymous numbers and calculate net worth
+      parameters:
+        - name: address
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Portfolio scan result
+        "429":
+          description: Rate limit exceeded (strict limit 15 req/min)
+  /numbers/activity:
+    get:
+      tags: [Numbers]
+      summary: Live on-chain sales stream ticker
+      responses:
+        "200":
+          description: Recent sales activity list
+  /numbers/valuate:
+    get:
+      tags: [Numbers]
+      summary: Quantitative hedonic valuation report
+      parameters:
+        - name: n
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Valuation report
+  /numbers/unlock-coins:
+    post:
+      tags: [Numbers]
+      summary: Unlock valuation report using Airdrop Coins
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [number]
+              properties:
+                number: { type: string }
+      responses:
+        "200":
+          description: Unlocked valuation report
+  /numbers/unlock-credit:
+    post:
+      tags: [Numbers]
+      summary: Unlock valuation report using Paid Credits
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [number]
+              properties:
+                number: { type: string }
+      responses:
+        "200":
+          description: Unlocked valuation report
+  /numbers/watchlist:
+    get:
+      tags: [Numbers]
+      summary: Get user watchlisted numbers
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Watchlisted numbers list
+    post:
+      tags: [Numbers]
+      summary: Add or remove number from user watchlist
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [number]
+              properties:
+                number: { type: string }
+      responses:
+        "200":
+          description: Toggle result
 components:
   securitySchemes:
     BearerAuth:

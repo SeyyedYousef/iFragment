@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -134,6 +135,16 @@ type HallOfFameItem struct {
 
 // GetNumbersIntel generates the market intelligence overview strictly from real DB records
 func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResponse, error) {
+	cacheKey := "numbers:intel_overview"
+	if s.cache != nil && s.cache.Client != nil {
+		if val, err := s.cache.Client.Get(ctx, cacheKey).Result(); err == nil && val != "" {
+			var cached NumbersIntelResponse
+			if err := json.Unmarshal([]byte(val), &cached); err == nil {
+				return &cached, nil
+			}
+		}
+	}
+
 	tonUsdRate := 5.50
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
@@ -203,9 +214,9 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 			resp.ATHNumber = athNum
 		}
 
-		// 4. Hall of Fame Top Sales
+		// 4. Hall of Fame Top Sales from real verified on-chain sales
 		rows, err := s.db.Pool.Query(ctx, `
-			SELECT s.number, s.sale_price_ton, s.sale_date, COALESCE(f.color, 'Blue')
+			SELECT s.number, s.sale_price_ton, s.sale_date, COALESCE(f.color, 'Blue'), COALESCE(s.transaction_hash, '')
 			FROM number_sales s
 			LEFT JOIN number_features f ON s.number = f.number
 			ORDER BY s.sale_price_ton DESC
@@ -214,10 +225,14 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 			defer rows.Close()
 			rank := 1
 			for rows.Next() {
-				var num, color string
+				var num, color, txHash string
 				var price float64
 				var sDate time.Time
-				if err := rows.Scan(&num, &price, &sDate, &color); err == nil {
+				if err := rows.Scan(&num, &price, &sDate, &color, &txHash); err == nil {
+					tvURL := fmt.Sprintf("https://fragment.com/number/%s", strings.TrimPrefix(num, "+888"))
+					if txHash != "" && txHash != "onchain_tx" {
+						tvURL = fmt.Sprintf("https://tonviewer.com/transaction/%s", txHash)
+					}
 					resp.HallOfFame = append(resp.HallOfFame, HallOfFameItem{
 						Rank:         rank,
 						Number:       num,
@@ -226,18 +241,21 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 						PriceUSD:     price * tonUsdRate,
 						SaleDate:     sDate.Format("Jan 2006"),
 						Color:        color,
-						TonviewerURL: fmt.Sprintf("https://tonviewer.com/%s", num),
+						TonviewerURL: tvURL,
 					})
 					rank++
 				}
 			}
 		}
 
-		// 5. Total Distinct Owners & Number Features Count
-		var featureCount int
-		_ = s.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM number_features`).Scan(&featureCount)
-		if featureCount > 0 {
-			resp.TotalOwners = featureCount
+		// 5. Total Distinct Owners
+		var distinctOwners int
+		_ = s.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(DISTINCT owner_address) 
+			FROM number_features 
+			WHERE owner_address IS NOT NULL AND owner_address != ''`).Scan(&distinctOwners)
+		if distinctOwners > 0 {
+			resp.TotalOwners = distinctOwners
 		}
 
 		// 6. Dynamic Floor Price from recent 30-day sales
@@ -258,7 +276,6 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 	for i := 6; i >= 0; i-- {
 		dayTime := now.AddDate(0, 0, -i*5)
 		dateStr := dayTime.Format("02 Jan")
-		// Day variation factor based on market FnG
 		dayFactor := 1.0 + (float64(fngIndex-50)/500.0)*float64(6-i)/6.0
 		chartPoints = append(chartPoints, PriceChartPoint{
 			Date: dateStr,
@@ -268,6 +285,12 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 		})
 	}
 	resp.PercentileChart = chartPoints
+
+	if s.cache != nil && s.cache.Client != nil {
+		if bytes, err := json.Marshal(resp); err == nil {
+			_ = s.cache.Client.Set(ctx, cacheKey, string(bytes), 60*time.Second).Err()
+		}
+	}
 
 	return resp, nil
 }
@@ -310,37 +333,64 @@ func (s *NumbersService) ValuateNumber(ctx context.Context, userID int64, number
 	return val, nil
 }
 
-// UnlockWithCoins unlocks report using Airdrop coins strictly without soft fallback
+// UnlockWithCoins unlocks report using Airdrop coins strictly with atomic transaction isolation
 func (s *NumbersService) UnlockWithCoins(ctx context.Context, userID int64, number string) (*nvengine.NumberValuation, error) {
 	norm, err := features.NormalizeNumber(number)
 	if err != nil {
 		return nil, err
 	}
 
-	purchased, _ := s.repo.IsNumberReportPurchased(ctx, userID, norm)
-	if !purchased {
-		requiredCoins := 7500.0
-		if s.db == nil || s.db.Pool == nil {
-			return nil, ErrInsufficientCoins
-		}
-
-		tx, err := s.db.Pool.Begin(ctx)
-		if err != nil {
-			return nil, err
-		}
-		defer tx.Rollback(ctx)
-
-		err = s.db.DeductCreditsFIFO(ctx, tx, userID, requiredCoins)
-		if err != nil {
-			return nil, ErrInsufficientCoins
-		}
-
-		if err := tx.Commit(ctx); err != nil {
-			return nil, err
-		}
+	if s.db == nil || s.db.Pool == nil {
+		return nil, ErrInsufficientCoins
 	}
 
-	return s.ValuateNumber(ctx, userID, norm)
+	// 1. Fast check if already purchased within 24h
+	if purchased, _ := s.repo.IsNumberReportPurchased(ctx, userID, norm); purchased {
+		return s.ValuateNumber(ctx, userID, norm)
+	}
+
+	// 2. Open atomic transaction to prevent concurrent double spend
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Check inside tx with transaction visibility
+	purchasedInTx, err := s.repo.IsNumberReportPurchasedTx(ctx, tx, userID, norm)
+	if err != nil {
+		return nil, err
+	}
+	if purchasedInTx {
+		_ = tx.Rollback(ctx)
+		return s.ValuateNumber(ctx, userID, norm)
+	}
+
+	requiredCoins := 7500.0
+	err = s.db.DeductCreditsFIFO(ctx, tx, userID, requiredCoins)
+	if err != nil {
+		return nil, ErrInsufficientCoins
+	}
+
+	// Compute valuation
+	val, err := s.engine.Valuate(ctx, norm)
+	if err != nil {
+		return nil, err
+	}
+
+	// Persist report inside the same transaction
+	snapJSON, _ := json.Marshal(val)
+	fairNano := val.ExpectedTON.Mul(decimal.NewFromInt(1e9)).IntPart()
+	_, err = s.repo.SaveNumberReportTx(ctx, tx, userID, norm, fairNano, int(val.ConfidenceScore), snapJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return val, nil
 }
 
 // UnlockWithCredit unlocks report using 1 shared Intel Credit with strict atomic check
@@ -355,7 +405,8 @@ func (s *NumbersService) UnlockWithCredit(ctx context.Context, userID int64, num
 		if s.creditRepo == nil {
 			return nil, ErrInsufficientCredit
 		}
-		_, err := s.creditRepo.ConsumeCreditFIFO(ctx, userID, "report:number", norm, "")
+		idemKey := fmt.Sprintf("report:number:%d:%s", userID, norm)
+		_, err := s.creditRepo.ConsumeCreditFIFO(ctx, userID, "report:number", norm, idemKey)
 		if err != nil {
 			return nil, ErrInsufficientCredit
 		}
@@ -394,41 +445,55 @@ func (s *NumbersService) SearchMask(ctx context.Context, pattern string, limit, 
 
 // GetDealsSniper identifies active listings priced below their fair AI valuation
 func (s *NumbersService) GetDealsSniper(ctx context.Context) ([]nvengine.DealSniperItem, error) {
-	sampleNumbers := []struct {
-		Number     string
-		ListingTON float64
-		Source     string
-	}{
-		{Number: "+88801234567", ListingTON: 2800, Source: "Fragment"},
-		{Number: "+88888880000", ListingTON: 14500, Source: "Fragment"},
-		{Number: "+88812344321", ListingTON: 8900, Source: "Getgems"},
-		{Number: "+88800770077", ListingTON: 6200, Source: "Fragment"},
-		{Number: "+88877778888", ListingTON: 18000, Source: "Getgems"},
-		{Number: "+88819902024", ListingTON: 3400, Source: "Fragment"},
+	if s.db == nil || s.db.Pool == nil {
+		return []nvengine.DealSniperItem{}, nil
 	}
 
+	// Query real listings from number_features with active listing price
+	rows, err := s.db.Pool.Query(ctx, `
+		SELECT f.number, 
+		       COALESCE(NULLIF(f.features->>'listing_price_ton', '')::float8, 0) AS listing_ton,
+		       COALESCE(NULLIF(f.features->>'marketplace', ''), 'Fragment') AS marketplace,
+		       COALESCE(f.color, 'Blue')
+		FROM number_features f
+		WHERE COALESCE(NULLIF(f.features->>'listing_price_ton', '')::float8, 0) > 0
+		ORDER BY (f.features->>'listing_price_ton')::float8 ASC
+		LIMIT 20`)
+	if err != nil {
+		return []nvengine.DealSniperItem{}, nil
+	}
+	defer rows.Close()
+
 	var deals []nvengine.DealSniperItem
-	for _, item := range sampleNumbers {
-		val, err := s.engine.Valuate(ctx, item.Number)
-		if err == nil && val != nil {
-			expTON := val.ExpectedTON.InexactFloat64()
-			if expTON > item.ListingTON {
-				discPct := ((expTON - item.ListingTON) / expTON) * 100.0
-				profit := expTON - item.ListingTON
-				rawNum := strings.TrimPrefix(item.Number, "+888")
-				deals = append(deals, nvengine.DealSniperItem{
-					Number:             item.Number,
-					DisplayNumber:      features.FormatDisplayNumber(item.Number),
-					ListingPriceTON:    item.ListingTON,
-					FairValueTON:       roundPrice(expTON),
-					DiscountPercent:    math.Round(discPct*10.0) / 10.0,
-					ProfitPotentialTON: roundPrice(profit),
-					Marketplace:        item.Source,
-					MarketplaceURL:     fmt.Sprintf("https://fragment.com/number/%s", rawNum),
-					Color:              val.Color.Name,
-					GlobalRank:         val.GlobalRank,
-					CategoryClub:       val.CategoryClub,
-				})
+	for rows.Next() {
+		var num, market, color string
+		var listingPrice float64
+		if err := rows.Scan(&num, &listingPrice, &market, &color); err == nil && listingPrice > 0 {
+			val, err := s.engine.Valuate(ctx, num)
+			if err == nil && val != nil {
+				expTON := val.ExpectedTON.InexactFloat64()
+				if expTON > listingPrice {
+					discPct := ((expTON - listingPrice) / expTON) * 100.0
+					profit := expTON - listingPrice
+					rawNum := strings.TrimPrefix(num, "+888")
+					marketURL := fmt.Sprintf("https://fragment.com/number/%s", rawNum)
+					if strings.EqualFold(market, "Getgems") {
+						marketURL = fmt.Sprintf("https://getgems.io/nft/%s", val.Features.Number)
+					}
+					deals = append(deals, nvengine.DealSniperItem{
+						Number:             num,
+						DisplayNumber:      features.FormatDisplayNumber(num),
+						ListingPriceTON:    listingPrice,
+						FairValueTON:       roundPrice(expTON),
+						DiscountPercent:    math.Round(discPct*10.0) / 10.0,
+						ProfitPotentialTON: roundPrice(profit),
+						Marketplace:        market,
+						MarketplaceURL:     marketURL,
+						Color:              val.Color.Name,
+						GlobalRank:         val.GlobalRank,
+						CategoryClub:       val.CategoryClub,
+					})
+				}
 			}
 		}
 	}
@@ -444,7 +509,7 @@ func (s *NumbersService) GetCategoryClubs(ctx context.Context) ([]nvengine.Categ
 			NameFa:        "باشگاه ۴ رقمی‌های فوق نایاب",
 			Icon:          "💎",
 			FloorPriceTON: 48000,
-			TotalSupply:   100,
+			TotalSupply:   1000, // Exactly 8000-8999 (1000 genesis numbers)
 			TopSaleTON:    300000,
 			DescriptionEn: "Super-rare 4-digit genesis numbers minted at the launch of Fragment.",
 			DescriptionFa: "شماره‌های ۴ رقمی جنسیس اولیه تلگرام با بالاترین نایابی و تقاضای کلکسیونی.",
@@ -505,6 +570,37 @@ func (s *NumbersService) GetCategoryClubs(ctx context.Context) ([]nvengine.Categ
 			DescriptionFa: "شماره‌های متشکل از سال‌های تاریخی و تاریخ‌های معنادار تقویمی.",
 		},
 	}
+
+	// Update floors dynamically from verified on-chain sales where available
+	if s.db != nil && s.db.Pool != nil {
+		for i := range clubs {
+			var minPrice, maxPrice float64
+			var query string
+			switch clubs[i].ID {
+			case "4digit":
+				query = `SELECT COALESCE(MIN(sale_price_ton), 0), COALESCE(MAX(sale_price_ton), 0) FROM number_sales WHERE length(number) = 7`
+			case "grail":
+				query = `SELECT COALESCE(MIN(s.sale_price_ton), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE COALESCE(NULLIF(f.features->>'distinct_digits', '')::int, 0) = 1`
+			case "binary":
+				query = `SELECT COALESCE(MIN(s.sale_price_ton), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE COALESCE(NULLIF(f.features->>'distinct_digits', '')::int, 0) = 2`
+			case "ladder":
+				query = `SELECT COALESCE(MIN(s.sale_price_ton), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE (f.features->>'has_monotonic_asc')::bool = true OR (f.features->>'has_monotonic_desc')::bool = true`
+			case "mirror":
+				query = `SELECT COALESCE(MIN(s.sale_price_ton), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE (f.features->>'is_palindrome')::bool = true`
+			}
+			if query != "" {
+				if err := s.db.Pool.QueryRow(ctx, query).Scan(&minPrice, &maxPrice); err == nil {
+					if minPrice > 0 {
+						clubs[i].FloorPriceTON = minPrice
+					}
+					if maxPrice > 0 {
+						clubs[i].TopSaleTON = maxPrice
+					}
+				}
+			}
+		}
+	}
+
 	return clubs, nil
 }
 
@@ -535,6 +631,8 @@ func (s *NumbersService) ScanWalletPortfolio(ctx context.Context, walletAddress 
 					rawNum = item.Metadata.Name
 				} else if item.DNS != "" {
 					rawNum = item.DNS
+				} else if item.Index >= 8000 && item.Index <= 8999 {
+					rawNum = fmt.Sprintf("+888%04d", item.Index)
 				} else if item.Index > 0 {
 					rawNum = fmt.Sprintf("+888%08d", item.Index)
 				}
@@ -672,12 +770,14 @@ func (s *NumbersService) ScanWalletPortfolio(ctx context.Context, walletAddress 
 			fv, fErr := features.ExtractFeatures(num)
 			if fErr == nil {
 				rarityScore = fv.RarityScore
+				globalRank = s.engine.ComputeRank(fv)
+				catClub = s.engine.DetermineClub(fv)
 			} else {
-				rarityScore = 75
+				rarityScore = 50
+				globalRank = registry.TotalSupply
+				catClub = "Standard Collection"
 			}
-			expTON = 2179.0 // standard collection floor
-			globalRank = 50000
-			catClub = "Standard Collection"
+			expTON = registry.InitialFloorTON
 			colorName = "Blue"
 		}
 
@@ -699,14 +799,10 @@ func (s *NumbersService) ScanWalletPortfolio(ctx context.Context, walletAddress 
 		})
 	}
 
-	// Sort assets descending by expected TON value
-	for i := 0; i < len(assets); i++ {
-		for j := i + 1; j < len(assets); j++ {
-			if assets[j].ExpectedTON > assets[i].ExpectedTON {
-				assets[i], assets[j] = assets[j], assets[i]
-			}
-		}
-	}
+	// Efficient O(n log n) sorting
+	sort.Slice(assets, func(i, j int) bool {
+		return assets[i].ExpectedTON > assets[j].ExpectedTON
+	})
 
 	avgRarity := 0.0
 	if len(assets) > 0 {
@@ -736,10 +832,10 @@ func (s *NumbersService) GetLiveActivityTicker(ctx context.Context) ([]nvengine.
 		}
 	}
 
-	var items []nvengine.LiveActivityItem
+	items := make([]nvengine.LiveActivityItem, 0)
 	if s.db != nil && s.db.Pool != nil {
 		rows, err := s.db.Pool.Query(ctx, `
-			SELECT number, sale_price_ton, sale_date, COALESCE(tx_hash, '')
+			SELECT number, sale_price_ton, sale_date, COALESCE(transaction_hash, '')
 			FROM number_sales
 			ORDER BY sale_date DESC
 			LIMIT 15`)
@@ -750,6 +846,10 @@ func (s *NumbersService) GetLiveActivityTicker(ctx context.Context) ([]nvengine.
 				var price float64
 				var sDate time.Time
 				if err := rows.Scan(&num, &price, &sDate, &txHash); err == nil {
+					tvURL := fmt.Sprintf("https://fragment.com/number/%s", strings.TrimPrefix(num, "+888"))
+					if txHash != "" && txHash != "onchain_tx" {
+						tvURL = fmt.Sprintf("https://tonviewer.com/transaction/%s", txHash)
+					}
 					items = append(items, nvengine.LiveActivityItem{
 						ID:            fmt.Sprintf("%s_%d", num, sDate.Unix()),
 						Number:        num,
@@ -758,40 +858,11 @@ func (s *NumbersService) GetLiveActivityTicker(ctx context.Context) ([]nvengine.
 						SalePriceUSD:  price * tonUsdRate,
 						SaleDate:      sDate,
 						TxHash:        txHash,
-						TonviewerURL:  fmt.Sprintf("https://tonviewer.com/transaction/%s", txHash),
+						TonviewerURL:  tvURL,
 						Marketplace:   "Fragment",
 					})
 				}
 			}
-		}
-	}
-
-	if len(items) == 0 {
-		sampleSales := []struct {
-			Number string
-			Price  float64
-			Hours  int
-		}{
-			{Number: "+88801234567", Price: 3200, Hours: 1},
-			{Number: "+88888889999", Price: 16500, Hours: 3},
-			{Number: "+88800770077", Price: 7800, Hours: 6},
-			{Number: "+88812344321", Price: 11200, Hours: 12},
-			{Number: "+88800008888", Price: 24000, Hours: 18},
-		}
-		now := time.Now().UTC()
-		for _, ss := range sampleSales {
-			sDate := now.Add(-time.Duration(ss.Hours) * time.Hour)
-			items = append(items, nvengine.LiveActivityItem{
-				ID:            fmt.Sprintf("%s_%d", ss.Number, sDate.Unix()),
-				Number:        ss.Number,
-				DisplayNumber: features.FormatDisplayNumber(ss.Number),
-				SalePriceTON:  ss.Price,
-				SalePriceUSD:  ss.Price * tonUsdRate,
-				SaleDate:      sDate,
-				TxHash:        "onchain_tx",
-				TonviewerURL:  "https://tonviewer.com",
-				Marketplace:   "Fragment",
-			})
 		}
 	}
 
@@ -846,15 +917,22 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 	res := &nvengine.NumberVerificationResult{
 		Number:        norm,
 		DisplayNumber: features.FormatDisplayNumber(norm),
-		IsMinted:      true,
-		Exists:        true,
+		IsMinted:      false,
+		Exists:        false,
 		Tier:          tier,
 		CategoryClub:  s.engine.DetermineClub(fv),
 		GlobalRank:    s.engine.ComputeRank(fv),
 		TeaserChips:   chips,
 	}
 
-	// Check DB if available
+	isMinted := false
+	exists := false
+	if len(fv.Suffix) == 4 {
+		// 4-digit genesis numbers (8000-8999) are verified genesis
+		isMinted = true
+		exists = true
+	}
+
 	if s.db != nil && s.db.Pool != nil {
 		var color, ownerAddr, nftAddr string
 		err := s.db.Pool.QueryRow(ctx, `
@@ -862,11 +940,28 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 			FROM number_features
 			WHERE number = $1`, norm).Scan(&color, &ownerAddr, &nftAddr)
 		if err == nil {
+			isMinted = true
+			exists = true
 			res.Color = color
 			res.OwnerAddress = ownerAddr
 			res.NFTAddress = nftAddr
+		} else {
+			var count int
+			_ = s.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM number_features`).Scan(&count)
+			if count > 1000 && !isMinted {
+				return &nvengine.NumberVerificationResult{
+					Number:        norm,
+					DisplayNumber: features.FormatDisplayNumber(norm),
+					IsMinted:      false,
+					Exists:        false,
+					Error:         "این شماره در کالکشن ۱۳۶,۵۶۶ عددی تلگرام یافت نشد یا هرگز مینت نشده است",
+				}, nil
+			}
 		}
 	}
+
+	res.IsMinted = isMinted
+	res.Exists = exists
 
 	return res, nil
 }
@@ -883,7 +978,7 @@ type FloorInfo struct {
 	USD float64 `json:"usd"`
 }
 
-// GetChartData provides full 1,364-day on-chain OHLC and volume data with cache and proxying
+// GetChartData provides full on-chain OHLC and volume data with cache and proxying
 func (s *NumbersService) GetChartData(ctx context.Context) (*ChartDataResponse, error) {
 	cacheKey := "numbers:chart_data"
 	if s.cache != nil && s.cache.Client != nil {
@@ -898,8 +993,14 @@ func (s *NumbersService) GetChartData(ctx context.Context) (*ChartDataResponse, 
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	rate := 5.50
-	floorTon := 2179.0
-	floorNTon := 2288.0
+	if s.cryptoPrice != nil {
+		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
+			rate = r
+		}
+	}
+
+	floorTon := registry.InitialFloorTON
+	floorNTon := registry.InitialFloorTON * 1.05
 
 	// 1. Fetch live market rates
 	latestReq, err := http.NewRequestWithContext(ctx, "GET", "https://nums888.io/api/latest/", nil)
@@ -939,40 +1040,30 @@ func (s *NumbersService) GetChartData(ctx context.Context) (*ChartDataResponse, 
 		}
 	}
 
-	// Fallback generator if network is unreachable
-	if len(chartMap) == 0 {
-		startDate := time.Date(2022, 12, 6, 0, 0, 0, 0, time.UTC)
-		now := time.Now().UTC()
-		cur := startDate
-		prevTon := 280.0
-		for !cur.After(now) {
-			dStr := cur.Format("2006-01-02")
-			days := cur.Sub(startDate).Hours() / 24
-			prog := math.Min(1.0, days/700.0)
-			base := 280.0 + (floorTon-280.0)*math.Pow(prog, 1.4)
-			noise := math.Sin(days/14.0)*0.08 + math.Cos(days/7.0)*0.04
-			curTon := math.Max(200.0, math.Round(base*(1.0+noise)))
-			curUsd := math.Round(curTon * (2.2 + prog*3.3))
-			volTon := math.Round(20000.0 + math.Abs(math.Sin(days))*60000.0)
-			volUsd := math.Round(volTon * (curUsd / curTon))
-
-			openTon := prevTon
-			highTon := math.Round(math.Max(openTon, curTon) * 1.02)
-			lowTon := math.Round(math.Min(openTon, curTon) * 0.98)
-			closeTon := curTon
-
-			openUsd := math.Round(openTon * (curUsd / curTon))
-			highUsd := math.Round(math.Max(openUsd, curUsd) * 1.02)
-			lowUsd := math.Round(math.Min(openUsd, curUsd) * 0.98)
-			closeUsd := curUsd
-
-			chartMap[dStr] = []float64{
-				curTon, curUsd, volTon, volUsd,
-				openTon, highTon, lowTon, closeTon,
-				openUsd, highUsd, lowUsd, closeUsd,
+	// 3. If upstream is unreachable, aggregate from real number_sales in local DB
+	if len(chartMap) == 0 && s.db != nil && s.db.Pool != nil {
+		rows, err := s.db.Pool.Query(ctx, `
+			SELECT TO_CHAR(sale_date, 'YYYY-MM-DD') AS day_str,
+			       AVG(sale_price_ton),
+			       SUM(sale_price_ton),
+			       MIN(sale_price_ton),
+			       MAX(sale_price_ton)
+			FROM number_sales
+			GROUP BY TO_CHAR(sale_date, 'YYYY-MM-DD')
+			ORDER BY day_str ASC`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var dayStr string
+				var avgP, sumV, minP, maxP float64
+				if err := rows.Scan(&dayStr, &avgP, &sumV, &minP, &maxP); err == nil {
+					chartMap[dayStr] = []float64{
+						avgP, avgP * rate, sumV, sumV * rate,
+						minP, maxP, minP, avgP,
+						minP * rate, maxP * rate, minP * rate, avgP * rate,
+					}
+				}
 			}
-			prevTon = closeTon
-			cur = cur.AddDate(0, 0, 1)
 		}
 	}
 
@@ -1024,6 +1115,8 @@ type NumberTableItem struct {
 	IsRestricted  bool     `json:"is_restricted"`
 	Source        string   `json:"source"`
 	MarketURL     string   `json:"market_url"`
+	IsEstimated   bool     `json:"is_estimated,omitempty"`
+	DataStatus    string   `json:"data_status,omitempty"`
 }
 
 type NumbersListResponse struct {
@@ -1260,6 +1353,8 @@ func parseNumbersHTML(htmlStr string) ([]NumberTableItem, int) {
 			IsRestricted:  isRestricted,
 			Source:        source,
 			MarketURL:     marketURL,
+			IsEstimated:   false,
+			DataStatus:    "live",
 		})
 	}
 
@@ -1367,6 +1462,8 @@ func generateSmartFallback(params NumbersListParams) *NumbersListResponse {
 			IsRestricted:  isRestricted,
 			Source:        "fragment",
 			MarketURL:     fmt.Sprintf("https://fragment.com/number/%s", numSuffix),
+			IsEstimated:   true,
+			DataStatus:    "estimated",
 		})
 	}
 

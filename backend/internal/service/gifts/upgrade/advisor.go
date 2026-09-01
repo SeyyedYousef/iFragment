@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"time"
+
+	"ifragment-backend/internal/service/gifts/starsrate"
 )
 
 // UpgradePricePoint represents a single step on the falling price stair
@@ -51,29 +53,39 @@ func GenerateUpgradeAdvice(ctx context.Context, giftID, modelID string, baseStar
 		baseStarsPrice = 15000 // default initial high anchor
 	}
 
-	// 1 Star ~ 0.005 GRAM (~$0.0275)
-	starsToGRAM := 0.005
 	floorStars := 25
-
 	now := time.Now().UTC()
+
+	// Anchor Dutch auction to deterministic 48-hour cycle
+	cycleStart := now.Truncate(48 * time.Hour)
 
 	// Generate 6 stair steps dropping geometrically over 48 hours
 	ladder := make([]UpgradePricePoint, 6)
 	decayHours := []int{0, 4, 12, 24, 36, 48}
-	prices := []int{baseStarsPrice, int(float64(baseStarsPrice) * 0.55), int(float64(baseStarsPrice) * 0.25), int(float64(baseStarsPrice) * 0.08), int(float64(baseStarsPrice) * 0.02), floorStars}
+	prices := []int{
+		baseStarsPrice,
+		int(float64(baseStarsPrice) * 0.55),
+		int(float64(baseStarsPrice) * 0.25),
+		int(float64(baseStarsPrice) * 0.08),
+		int(float64(baseStarsPrice) * 0.02),
+		floorStars,
+	}
 
+	currentStepIdx := 0
 	for i := range ladder {
-		eff := now.Add(time.Duration(decayHours[i]) * time.Hour)
+		eff := cycleStart.Add(time.Duration(decayHours[i]) * time.Hour)
 		stars := prices[i]
 		if stars < floorStars {
 			stars = floorStars
 		}
-		gVal := float64(stars) * starsToGRAM
-		uVal := gVal * gramUsdRate
+		gVal := starsrate.ConvertStarsToGRAM(stars, gramUsdRate)
+		uVal := starsrate.ConvertStarsToUSD(stars)
 
 		countdown := int64(0)
-		if i > 0 {
-			countdown = int64(decayHours[i] * 3600)
+		if eff.After(now) {
+			countdown = int64(eff.Sub(now).Seconds())
+		} else {
+			currentStepIdx = i
 		}
 
 		ladder[i] = UpgradePricePoint{
@@ -82,28 +94,43 @@ func GenerateUpgradeAdvice(ctx context.Context, giftID, modelID string, baseStar
 			GRAMPrice:    math.Round(gVal*100.0) / 100.0,
 			USDPrice:     math.Round(uVal*100.0) / 100.0,
 			EffectiveAt:  eff,
-			IsCurrent:    i == 0,
+			IsCurrent:    false,
 			CountdownSec: countdown,
 		}
 	}
+	if currentStepIdx < len(ladder) {
+		ladder[currentStepIdx].IsCurrent = true
+	}
 
-	currentStars := ladder[0].StarsPrice
-	currentGRAM := ladder[0].GRAMPrice
-	currentUSD := ladder[0].USDPrice
+	currentStars := ladder[currentStepIdx].StarsPrice
+	currentGRAM := ladder[currentStepIdx].GRAMPrice
+	currentUSD := ladder[currentStepIdx].USDPrice
 
-	targetStep := ladder[3] // Sweet spot at 24h
+	targetStep := ladder[3] // 24h step
+	if currentStepIdx >= 3 {
+		targetStep = ladder[len(ladder)-1]
+	}
 	maxSavingsStars := currentStars - targetStep.StarsPrice
-	maxSavingsGRAM := float64(maxSavingsStars) * starsToGRAM
-	maxSavingsUSD := maxSavingsGRAM * gramUsdRate
+	if maxSavingsStars < 0 {
+		maxSavingsStars = 0
+	}
+	maxSavingsGRAM := starsrate.ConvertStarsToGRAM(maxSavingsStars, gramUsdRate)
+	maxSavingsUSD := starsrate.ConvertStarsToUSD(maxSavingsStars)
 
 	recommendation := "WAIT"
-	headlineEn := fmt.Sprintf("Wait 24 Hours to Save %d Stars (%.2f GRAM / $%.2f)", maxSavingsStars, maxSavingsGRAM, maxSavingsUSD)
-	headlineFa := fmt.Sprintf("۲۴ ساعت صبر کنید تا %s استارز (%.2f گرام / $%.2f) صرفه‌جویی کنید", formatInt(maxSavingsStars), maxSavingsGRAM, maxSavingsUSD)
+	if currentStepIdx >= 4 {
+		recommendation = "UPGRADE_NOW"
+	}
 
-	tradeOffEn := "Honest Trade-off: While waiting 24h saves ~92% on upgrade fees, top-tier backdrop attribute availability may experience minor trait supply drift (~3.5% estimated)."
-	tradeOffFa := "موازنه صادقانه: با وجود صرفه‌جویی ۹۲ درصدی در کارمزد آپگرید طی ۲۴ ساعت، شانس ثبت بک‌دراپ‌های کمیاب به دلیل رقابت سایر کاربران ممکن است حدود ۳.۵٪ دچار افت گردد."
+	headlineEn := fmt.Sprintf("Wait to Save %d Stars (%.2f GRAM / $%.2f)", maxSavingsStars, maxSavingsGRAM, maxSavingsUSD)
+	headlineFa := fmt.Sprintf("صبر کنید تا %s استارز (%.2f گرام / $%.2f) صرفه‌جویی کنید", formatInt(maxSavingsStars), maxSavingsGRAM, maxSavingsUSD)
+
+	tradeOffEn := "Honest Trade-off: While waiting for lower stairs saves on upgrade fees, top-tier backdrop attribute availability may experience minor trait supply drift (~3.5% estimated)."
+	tradeOffFa := "موازنه صادقانه: با وجود صرفه‌جویی چشمگیر در کارمزد آپگرید در پله‌های پایینی، شانس ثبت بک‌دراپ‌های کمیاب به دلیل رقابت سایر کاربران ممکن است دچار افت گردد."
 
 	deepLink := fmt.Sprintf("https://t.me/nft/%s?upgrade=preview", giftID)
+
+	floorGRAM := starsrate.ConvertStarsToGRAM(floorStars, gramUsdRate)
 
 	return &UpgradeAdviceReport{
 		GiftID:             giftID,
@@ -112,7 +139,7 @@ func GenerateUpgradeAdvice(ctx context.Context, giftID, modelID string, baseStar
 		CurrentPriceGRAM:   currentGRAM,
 		CurrentPriceUSD:    currentUSD,
 		FloorPriceStars:    floorStars,
-		FloorPriceGRAM:     math.Round(float64(floorStars)*starsToGRAM*100.0) / 100.0,
+		FloorPriceGRAM:     math.Round(floorGRAM*100.0) / 100.0,
 		MaxStarsSavings:    maxSavingsStars,
 		MaxSavingsGRAM:     math.Round(maxSavingsGRAM*100.0) / 100.0,
 		MaxSavingsUSD:      math.Round(maxSavingsUSD*100.0) / 100.0,

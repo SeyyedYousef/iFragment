@@ -104,27 +104,22 @@ export const numbersApi = {
 				return {
 					total_supply: 136566,
 					supply_status: 'Closed Collection — Supply Frozen Forever',
-					total_owners: 46120,
-					total_sales: 18450,
-					total_volume_ton: 117450000,
+					total_owners: 0,
+					total_sales: 0,
+					total_volume_ton: 0,
 					floor_price_ton: floorTon,
 					floor_price_usd: floorUsd,
-					volume_24h_ton: latestRes.v || 77762,
-					volume_7d_ton: (latestRes.v || 77762) * 5.2,
-					fng_index: 74,
-					fng_label: 'Greed',
-					historical_ath_ton: 864000,
-					ath_number: '+888 8888 8888',
+					volume_24h_ton: latestRes.v || 0,
+					volume_7d_ton: 0,
+					fng_index: 50,
+					fng_label: 'Neutral',
+					historical_ath_ton: 0,
+					ath_number: '',
 					percentile_chart: [],
 					ending_soon: [],
 					trending_tail: [],
-					hall_of_fame: [
-						{ rank: 1, number: '+888 8888 8888', display_number: '+888 8888 8888', price_ton: 864000, price_usd: 4752000, sale_date: 'Dec 2022', color: 'Gold', tonviewer_url: 'https://tonviewer.com/transaction/88888888' },
-						{ rank: 2, number: '+888 0000 0000', display_number: '+888 0000 0000', price_ton: 300000, price_usd: 1650000, sale_date: 'Jan 2023', color: 'Black', tonviewer_url: 'https://tonviewer.com/transaction/00000000' },
-						{ rank: 3, number: '+888 8888 0000', display_number: '+888 8888 0000', price_ton: 130000, price_usd: 715000, sale_date: 'Oct 2023', color: 'Violet', tonviewer_url: 'https://tonviewer.com/transaction/88880000' },
-						{ rank: 4, number: '+888 7777 7777', display_number: '+888 7777 7777', price_ton: 120000, price_usd: 660000, sale_date: 'Feb 2026', color: 'Brown', tonviewer_url: 'https://tonviewer.com/transaction/77777777' },
-						{ rank: 5, number: '+888 1111 1111', display_number: '+888 1111 1111', price_ton: 115000, price_usd: 632500, sale_date: 'Nov 2025', color: 'Violet', tonviewer_url: 'https://tonviewer.com/transaction/11111111' },
-					],
+					hall_of_fame: [],
+					data_status: 'insufficient_data',
 					updated_at: new Date().toISOString(),
 				};
 			}
@@ -133,21 +128,22 @@ export const numbersApi = {
 		return {
 			total_supply: 136566,
 			supply_status: 'Closed Collection — Supply Frozen Forever',
-			total_owners: 46120,
-			total_sales: 18450,
-			total_volume_ton: 117450000,
+			total_owners: 0,
+			total_sales: 0,
+			total_volume_ton: 0,
 			floor_price_ton: 2179,
 			floor_price_usd: 11985,
-			volume_24h_ton: 77762,
-			volume_7d_ton: 420000,
-			fng_index: 74,
-			fng_label: 'Greed',
-			historical_ath_ton: 864000,
-			ath_number: '+888 8888 8888',
+			volume_24h_ton: 0,
+			volume_7d_ton: 0,
+			fng_index: 50,
+			fng_label: 'Neutral',
+			historical_ath_ton: 0,
+			ath_number: '',
 			percentile_chart: [],
 			ending_soon: [],
 			trending_tail: [],
 			hall_of_fame: [],
+			data_status: 'insufficient_data',
 			updated_at: new Date().toISOString(),
 		};
 	},
@@ -285,7 +281,7 @@ export const numbersApi = {
 			console.warn('Direct live feed unavailable, falling back to local dataset', err);
 		}
 
-		// 2. Fallback / local generator based on backend intel
+		// 2. Fallback when network is offline / upstream is unavailable
 		const intel = await numbersApi.getIntel().catch(() => null);
 		const rate = 5.5;
 		const floorTon = intel?.floor_price_ton || 2179;
@@ -293,75 +289,8 @@ export const numbersApi = {
 		const floorNTon = Math.round(floorTon * 1.05);
 		const floorNUsd = Math.round(floorNTon * rate);
 
-		const historyData: Record<string, number[]> = {};
-		const startDate = new Date('2022-12-06T00:00:00Z');
-		const now = new Date();
-		let curDate = new Date(startDate);
-		let prevTon = 280;
-		let prevUsd = prevTon * 2.2;
-
-		while (curDate <= now) {
-			const dateStr = curDate.toISOString().split('T')[0];
-			const daysSinceStart = Math.floor((curDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
-			
-			const progress = Math.min(1, daysSinceStart / 700);
-			const base = 280 + (floorTon - 280) * Math.pow(progress, 1.4);
-			const noise = (Math.sin(daysSinceStart / 14) * 0.08 + Math.cos(daysSinceStart / 7) * 0.04);
-			const currentDayTon = Math.max(200, Math.round(base * (1 + noise)));
-			const currentDayUsd = Math.round(currentDayTon * (2.2 + progress * 3.3));
-			
-			const volTon = Math.round(20000 + Math.abs(Math.sin(daysSinceStart)) * 60000);
-			const volUsd = Math.round(volTon * (currentDayUsd / currentDayTon));
-
-			const openTon = prevTon;
-			const highTon = Math.round(Math.max(openTon, currentDayTon) * 1.02);
-			const lowTon = Math.round(Math.min(openTon, currentDayTon) * 0.98);
-			const closeTon = currentDayTon;
-
-			const openUsd = prevUsd;
-			const highUsd = Math.round(Math.max(openUsd, currentDayUsd) * 1.02);
-			const lowUsd = Math.round(Math.min(openUsd, currentDayUsd) * 0.98);
-			const closeUsd = currentDayUsd;
-
-			historyData[dateStr] = [
-				currentDayTon,
-				currentDayUsd,
-				volTon,
-				volUsd,
-				openTon,
-				highTon,
-				lowTon,
-				closeTon,
-				openUsd,
-				highUsd,
-				lowUsd,
-				closeUsd
-			];
-
-			prevTon = closeTon;
-			prevUsd = closeUsd;
-			curDate.setDate(curDate.getDate() + 1);
-		}
-
-		// Ensure today has exact live floor
-		const todayStr = now.toISOString().split('T')[0];
-		historyData[todayStr] = [
-			floorTon,
-			floorUsd,
-			intel?.volume_24h_ton || 77762,
-			Math.round((intel?.volume_24h_ton || 77762) * rate),
-			floorTon,
-			Math.round(floorTon * 1.01),
-			Math.round(floorTon * 0.99),
-			floorTon,
-			floorUsd,
-			Math.round(floorUsd * 1.01),
-			Math.round(floorUsd * 0.99),
-			floorUsd
-		];
-
 		return {
-			data: historyData,
+			data: {},
 			rate,
 			floor: { ton: floorTon, usd: floorUsd },
 			floor_n: { ton: floorNTon, usd: floorNUsd },
@@ -501,6 +430,8 @@ export const numbersApi = {
 				is_restricted: isRestricted,
 				source: 'fragment',
 				market_url: `https://fragment.com/number/${numSuffix}`,
+				is_estimated: true,
+				data_status: 'estimated',
 			});
 		}
 

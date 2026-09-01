@@ -71,24 +71,25 @@ func (w *VenueSnapshotWorker) syncSnapshots(ctx context.Context) {
 	for modelID, col := range traits.OfficialCollections {
 		baseFloor := col.InitialFloorGRAM
 
-		// Market spread variances across the 6 venues
+		// Market spread variances across the 7 venues
 		venueFloors := map[VenueID]struct {
 			factor float64
 			vol7d  float64
 			active int
 		}{
-			VenueFragment:      {factor: 1.00, vol7d: baseFloor * 850, active: 45},
-			VenueGetgems:       {factor: 1.02, vol7d: baseFloor * 720, active: 88},
-			VenueMRKT:          {factor: 0.98, vol7d: baseFloor * 410, active: 32},
-			VenuePortals:       {factor: 1.05, vol7d: baseFloor * 300, active: 18},
-			VenueTonnel:        {factor: 0.96, vol7d: baseFloor * 120, active: 12},
-			VenueTelegramStars: {factor: 1.08, vol7d: baseFloor * 600, active: 95},
+			VenueFragment:      {factor: 1.04, vol7d: baseFloor * 850, active: 45},
+			VenueGetgems:       {factor: 1.00, vol7d: baseFloor * 720, active: 88},
+			VenueMarketApp:     {factor: 1.01, vol7d: baseFloor * 490, active: 38},
+			VenueMRKT:          {factor: 1.02, vol7d: baseFloor * 410, active: 32},
+			VenuePortals:       {factor: 0.98, vol7d: baseFloor * 300, active: 18},
+			VenueTonnel:        {factor: 0.95, vol7d: baseFloor * 120, active: 12},
+			VenueTelegramStars: {factor: 1.06, vol7d: baseFloor * 600, active: 95},
 		}
 
 		for vID, data := range venueFloors {
 			vInfo, exists := Registry[vID]
 			feePct := 5.0
-			hasRealBadge := true
+			hasRealBadge := false
 			currency := "GRAM"
 
 			if exists {
@@ -100,7 +101,8 @@ func (w *VenueSnapshotWorker) syncSnapshots(ctx context.Context) {
 			flGram := baseFloor * data.factor
 			flRaw := flGram
 			if currency == "Stars" {
-				flRaw = flGram * 50.0 // 1 TON ≈ 50 Stars
+				// Use dynamic peg: gram * gramUsdRate * 50 Stars/USD
+				flRaw = float64(int(flGram * gramUsdRate * 50.0))
 			}
 
 			vol24h := data.vol7d / 7.0

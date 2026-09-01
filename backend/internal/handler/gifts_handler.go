@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -165,9 +167,17 @@ func (h *GiftsHandler) ScanPortfolio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.service.ScanPortfolio(ctx, username)
+	callerKey := r.Header.Get("X-Forwarded-For")
+	if callerKey == "" {
+		callerKey = r.RemoteAddr
+	}
+	if uid, err := middleware.GetUserID(ctx); err == nil && uid > 0 {
+		callerKey = fmt.Sprintf("uid:%d", uid)
+	}
+
+	res, err := h.service.ScanPortfolio(ctx, callerKey, username)
 	if err != nil {
-		if err == gifts.ErrPortfolioRateLimited {
+		if errors.Is(err, gifts.ErrPortfolioRateLimited) {
 			RespondError(w, r, http.StatusTooManyRequests, "portfolio scan rate limited (try again in 10 minutes)", nil)
 			return
 		}
@@ -256,7 +266,7 @@ func (h *GiftsHandler) GetCollectionIntel(w http.ResponseWriter, r *http.Request
 	RespondJSON(w, http.StatusOK, data)
 }
 
-// GetEnrichedReport returns single gift valuation with provenance & on-chain info
+// GetEnrichedReport returns single gift valuation with provenance & on-chain info (Requires purchased report)
 func (h *GiftsHandler) GetEnrichedReport(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	giftID := r.URL.Query().Get("g")
@@ -265,9 +275,18 @@ func (h *GiftsHandler) GetEnrichedReport(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	userID, _ := middleware.GetUserID(ctx)
+	userID, err := middleware.GetUserID(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
 	report, err := h.service.GetEnrichedReport(ctx, userID, giftID)
 	if err != nil {
+		if errors.Is(err, gifts.ErrReportNotPurchased) {
+			RespondError(w, r, http.StatusPaymentRequired, "gift report must be purchased before accessing enriched data", nil)
+			return
+		}
 		RespondError(w, r, http.StatusInternalServerError, "failed to generate enriched gift report", err)
 		return
 	}
