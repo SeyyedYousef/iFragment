@@ -23,11 +23,18 @@ var (
 	fngClassCache string  = "Neutral"
 	fngLastUpdate time.Time
 	fngMutex      sync.RWMutex
-	fngHttp       = &http.Client{Timeout: 5 * time.Second}
+	fngHttp       = &http.Client{Timeout: 1 * time.Second}
+
+	// DisableFnGNetwork can be toggled in unit tests to prevent network I/O latency & non-determinism
+	DisableFnGNetwork = false
 )
 
 // GetFearAndGreedMultiplier fetches the global crypto Fear & Greed index and maps it to a valuation multiplier.
 func GetFearAndGreedMultiplier() (float64, string, int) {
+	if DisableFnGNetwork || DisableDatamuseNetwork {
+		return 1.0, "Neutral", 50
+	}
+
 	fngMutex.RLock()
 	cached := fngCache
 	cachedIdx := fngIndexCache
@@ -44,7 +51,7 @@ func GetFearAndGreedMultiplier() (float64, string, int) {
 	if err != nil {
 		slog.Warn("FnG API fetch failed", "error", err)
 		fngMutex.Lock()
-		fngLastUpdate = time.Now() // Cache fallback so we don't repeat timeout
+		fngLastUpdate = time.Now().Add(-11 * time.Hour) // Retry in 1 hour rather than immediately
 		fngMutex.Unlock()
 		return cached, cachedClass, cachedIdx
 	}
@@ -52,7 +59,7 @@ func GetFearAndGreedMultiplier() (float64, string, int) {
 
 	if resp.StatusCode != 200 {
 		fngMutex.Lock()
-		fngLastUpdate = time.Now()
+		fngLastUpdate = time.Now().Add(-11 * time.Hour)
 		fngMutex.Unlock()
 		return cached, cachedClass, cachedIdx
 	}

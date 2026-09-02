@@ -49,3 +49,23 @@ func TestVenues_ExitPlannerCalculations(t *testing.T) {
 		t.Error("MRKT must have 0% fee")
 	}
 }
+
+func TestVenues_AdaptersRegistry(t *testing.T) {
+	frag := NewFragmentAdapter()
+	if frag.ID() != VenueFragment || frag.Name() != "Fragment" {
+		t.Errorf("Fragment adapter ID or Name incorrect")
+	}
+	if frag.ProtocolFeePct().InexactFloat64() != 5.0 {
+		t.Errorf("Fragment fee must be 5.0%%")
+	}
+
+	gems := NewGetgemsAdapter()
+	if gems.ID() != VenueGetgems || gems.Name() != "Getgems" {
+		t.Errorf("Getgems adapter ID or Name incorrect")
+	}
+
+	marketApp := NewMarketAppAdapter()
+	if marketApp.ID() != VenueMarketApp {
+		t.Errorf("MarketApp adapter ID incorrect")
+	}
+}

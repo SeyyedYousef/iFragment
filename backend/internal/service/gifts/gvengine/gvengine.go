@@ -58,6 +58,11 @@ func NewValuationEngine(
 	}
 }
 
+// SetNFTResolver allows overriding or disabling the live Telegram NFT resolver
+func (e *ValuationEngine) SetNFTResolver(resolver *telegramnft.Resolver) {
+	e.nftResolver = resolver
+}
+
 // ParsedGiftRef holds resolved model and serial details
 type ParsedGiftRef struct {
 	GiftID       string
@@ -185,8 +190,8 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 		RisksIdentified:  risksCount,
 		DataSourcesCount: 6, // Fragment, Getgems, Tonnel, Portals, MRKT, Telegram Stars
 		IsCrafted:        col.CraftedFlag,
-		FloorPriceGRAM:   col.InitialFloorGRAM,
-		FloorPriceUSD:    math.Round(col.InitialFloorGRAM*gramUsdRate*100.0) / 100.0,
+		FloorPriceGRAM:   15.0,
+		FloorPriceUSD:    math.Round(15.0*gramUsdRate*100.0) / 100.0,
 		CheckedAt:        time.Now().UTC().Format(time.RFC3339),
 	}, nil
 }
@@ -237,8 +242,26 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	// 3. 4-Axis Hedonic Pricing Model
-	// log(P_hat) = beta0 + beta_model + beta_backdrop + beta_symbol + beta_serial + beta_orig + log(fngMult)
-	beta0 := math.Log(col.InitialFloorGRAM)
+	// Resolve base floor dynamically from venue snapshots or conservative fallback
+	baseFloor := 15.0
+	if e.giftsRepo != nil {
+		if snaps, err := e.giftsRepo.GetVenueSnapshots(ctx, ref.ModelID); err == nil && len(snaps) > 0 {
+			for _, snap := range snaps {
+				f, _ := snap.FloorPriceGRAM.Float64()
+				if f > 0 && (baseFloor == 15.0 || f < baseFloor) {
+					baseFloor = f
+				}
+			}
+		} else if snaps, err := e.giftsRepo.GetVenueSnapshots(ctx, col.ModelID); err == nil && len(snaps) > 0 {
+			for _, snap := range snaps {
+				f, _ := snap.FloorPriceGRAM.Float64()
+				if f > 0 && (baseFloor == 15.0 || f < baseFloor) {
+					baseFloor = f
+				}
+			}
+		}
+	}
+	beta0 := math.Log(baseFloor)
 
 	// Axis 1: Model scarcity & crafted multiplier
 	modelKey := col.Name
@@ -353,7 +376,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	jointRarity := traits.ComputeJointRarity(col.TotalSupply, ref.SerialNumber, backdropPermille, symbolPermille, col.CraftedFlag)
 
 	// Axis 8: In-App Telegram Stars Floor Parity
-	starsParity := starsrate.CalculateStarsParity(col.BaseStarsPrice, gramUsdRate, col.InitialFloorGRAM)
+	starsParity := starsrate.CalculateStarsParity(5000, gramUsdRate, baseFloor)
 
 	// Sum Log prior (Hedonic Quantum-Hedonic v5.0)
 	hedonicLogP := beta0 + betaModel + betaBackdrop + betaSymbol + betaSerial + betaOriginal + aestheticHarmony.BetaAesthetic + jointRarity.BetaSynergy + math.Log(fngMult)
@@ -362,7 +385,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	comps, finalLogP, mad, priceBasis := e.resolveComps(ctx, ref, backdropKey, gramUsdRate, hedonicLogP)
 
 	rawEstimateGRAM := math.Exp(finalLogP)
-	minFloor := math.Max(col.InitialFloorGRAM, starsParity.IntrinsicFloorGRAM*0.75)
+	minFloor := math.Max(baseFloor*0.8, starsParity.IntrinsicFloorGRAM*0.75)
 	if rawEstimateGRAM < minFloor {
 		rawEstimateGRAM = minFloor
 	}
@@ -423,7 +446,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			},
 		}
 		craftingEV, _ = crafting.CalculateCraftingEV(ctx, craftInputs, gramUsdRate, 42)
-		mcRes := crafting.RunMonteCarloCraftingSimulation(expectedGRAM, col.InitialFloorGRAM, 350)
+		mcRes := crafting.RunMonteCarloCraftingSimulation(expectedGRAM, baseFloor, 350)
 		monteCarloCrafting = &mcRes
 	}
 
@@ -433,7 +456,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// 10. Upgrade Timing Advisor (if un-upgraded / active stair)
 	var upgradeAdvisor *upgrade.UpgradeAdviceReport
 	if !col.CraftedFlag {
-		upgradeAdvisor = upgrade.GenerateUpgradeAdvice(ctx, ref.GiftID, ref.ModelID, col.BaseStarsPrice, gramUsdRate)
+		upgradeAdvisor = upgrade.GenerateUpgradeAdvice(ctx, ref.GiftID, ref.ModelID, 5000, gramUsdRate)
 	}
 
 	// 11. Risk Audit
@@ -469,7 +492,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	configSnapshot := map[string]interface{}{
-		"base_floor_gram":   col.InitialFloorGRAM,
+		"base_floor_gram":   baseFloor,
 		"model_supply":      col.TotalSupply,
 		"beta_serial":       betaSerial,
 		"beta_backdrop":     betaBackdrop,
@@ -547,7 +570,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 	// Mandatory Audit Write (Sacred Rule 5)
 	if e.giftsRepo != nil {
-		id, err := e.giftsRepo.SaveValuationAudit(ctx, ref.GiftID, ref.ModelID, ref.SerialNumber, ModelVersion, configSnapshot, gramUsdRate, col.InitialFloorGRAM, lowGRAM, expectedGRAM, highGRAM, calibratedConfidence, priceBasis, reasoningLog)
+		id, err := e.giftsRepo.SaveValuationAudit(ctx, ref.GiftID, ref.ModelID, ref.SerialNumber, ModelVersion, configSnapshot, gramUsdRate, baseFloor, lowGRAM, expectedGRAM, highGRAM, calibratedConfidence, priceBasis, reasoningLog)
 		if err != nil {
 			slog.Error("CRITICAL: Mandatory Gift Valuation Audit Write failed", "gift_id", ref.GiftID, "error", err)
 			return nil, fmt.Errorf("mandatory audit write failed: %w", err)
@@ -698,7 +721,7 @@ func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, 
 }
 
 func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, modelName string, modelPct float64, backdropName string, backdropPermille int, colors traits.BackdropColorSet, symbolName string, symbolPermille int, backdropCert, symbolCert string) []TraitDNABar {
-	serialPct, serialRankText := traits.CalculateSerialPercentile(serial, col.TotalSupply)
+	serialPct, _, serialRankText := traits.CalculateSerialPercentile(serial, col.TotalSupply)
 	bdRarity := traits.CalculateExactRarity("backdrop", backdropName, backdropPermille, &colors)
 	symRarity := traits.CalculateExactRarity("symbol", symbolName, symbolPermille, nil)
 

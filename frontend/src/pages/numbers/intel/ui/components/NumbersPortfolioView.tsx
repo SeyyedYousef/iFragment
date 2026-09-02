@@ -38,8 +38,8 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 		}
 	});
 
-	const floorTon = () => props.floorPriceTon || 2280;
-	const tonRate = () => props.rate || 5.5;
+	const floorTon = (): number => Number(props.floorPriceTon) || 2280;
+	const tonRate = (): number => Number(props.rate) || 5.5;
 
 	const handleScan = async (targetAddr?: string) => {
 		const query = (targetAddr !== undefined ? targetAddr : address()).trim();
@@ -81,11 +81,11 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 
 		const totalAssets = data.total_assets;
 		const rawTon = data.total_value_ton || totalAssets * floorTon();
-		const rawUsd = Math.round(rawTon * tonRate);
+		const rawUsd = Math.round(rawTon * tonRate());
 		const feeFactor = deductFee() ? 0.05 : 0;
 		const feeTon = Math.round(rawTon * feeFactor);
 		const netTon = rawTon - feeTon;
-		const netUsd = Math.round(netTon * tonRate);
+		const netUsd = Math.round(netTon * tonRate());
 
 		return {
 			totalAssets,
@@ -277,7 +277,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 													<span>{formatTon(asset.expected_ton || floorTon())} TON</span>
 												</div>
 												<div class="text-[10px] text-white/40 font-mono">
-													≈ {formatUsd(asset.expected_usd || Math.round(floorTon() * tonRate))}
+													≈ {formatUsd(asset.expected_usd || Math.round(floorTon() * tonRate()))}
 												</div>
 											</div>
 										</button>

@@ -40,22 +40,22 @@ type VenueInfo struct {
 
 // ExitOption holds the net payout simulation for a specific venue
 type ExitOption struct {
-	Rank               int     `json:"rank"`
-	VenueID            VenueID `json:"venue_id"`
-	VenueName          string  `json:"venue_name"`
-	Currency           string  `json:"currency"`
-	GrossPriceGRAM     float64 `json:"gross_price_gram"`
-	GrossPriceUSD      float64 `json:"gross_price_usd"`
-	FeePercent         float64 `json:"fee_percent"`
-	FeeAmountGRAM      float64 `json:"fee_amount_gram"`
-	NetPayoutGRAM      float64 `json:"net_payout_gram"`
-	NetPayoutUSD       float64 `json:"net_payout_usd"`
-	RequiresKYC        bool    `json:"requires_kyc"`
-	HasRealVolumeBadge bool    `json:"has_real_volume_badge"` // DropsTab warning badge
-	Volume7dGRAM       float64 `json:"volume_7d_gram"`
-	EstimatedDaysToSell int    `json:"estimated_days_to_sell"`
-	DeepLink           string  `json:"deep_link"`
-	RecommendationNote string  `json:"recommendation_note"`
+	Rank                int     `json:"rank"`
+	VenueID             VenueID `json:"venue_id"`
+	VenueName           string  `json:"venue_name"`
+	Currency            string  `json:"currency"`
+	GrossPriceGRAM      float64 `json:"gross_price_gram"`
+	GrossPriceUSD       float64 `json:"gross_price_usd"`
+	FeePercent          float64 `json:"fee_percent"`
+	FeeAmountGRAM       float64 `json:"fee_amount_gram"`
+	NetPayoutGRAM       float64 `json:"net_payout_gram"`
+	NetPayoutUSD        float64 `json:"net_payout_usd"`
+	RequiresKYC         bool    `json:"requires_kyc"`
+	HasRealVolumeBadge  bool    `json:"has_real_volume_badge"` // DropsTab warning badge
+	Volume7dGRAM        float64 `json:"volume_7d_gram"`
+	EstimatedDaysToSell int     `json:"estimated_days_to_sell"`
+	DeepLink            string  `json:"deep_link"`
+	RecommendationNote  string  `json:"recommendation_note"`
 }
 
 // ExitPlannerPlan contains sorted exit destinations ranked by net payout
@@ -81,8 +81,6 @@ var Registry = map[VenueID]VenueInfo{
 		EscrowType:         "smart_contract",
 		DeepLinkBase:       "https://fragment.com/gifts",
 		HasRealVolumeBadge: true,
-		Volume7dGRAM:       94500.0,
-		ActiveListings:     1250,
 		EstimatedSlippage:  0.5,
 		DataStatus:         "live",
 	},
@@ -96,8 +94,6 @@ var Registry = map[VenueID]VenueInfo{
 		EscrowType:         "smart_contract",
 		DeepLinkBase:       "https://getgems.io/collection",
 		HasRealVolumeBadge: true,
-		Volume7dGRAM:       88200.0,
-		ActiveListings:     3400,
 		EstimatedSlippage:  0.8,
 		DataStatus:         "live",
 	},
@@ -111,10 +107,8 @@ var Registry = map[VenueID]VenueInfo{
 		EscrowType:         "smart_contract",
 		DeepLinkBase:       "https://marketapp.ws/gifts",
 		HasRealVolumeBadge: true,
-		Volume7dGRAM:       38500.0,
-		ActiveListings:     720,
 		EstimatedSlippage:  1.1,
-		DataStatus:         "estimated",
+		DataStatus:         "live",
 	},
 	VenueMRKT: {
 		ID:                 VenueMRKT,
@@ -126,10 +120,8 @@ var Registry = map[VenueID]VenueInfo{
 		EscrowType:         "smart_contract",
 		DeepLinkBase:       "https://mrkt.tg",
 		HasRealVolumeBadge: true,
-		Volume7dGRAM:       42100.0,
-		ActiveListings:     890,
 		EstimatedSlippage:  1.2,
-		DataStatus:         "estimated",
+		DataStatus:         "live",
 	},
 	VenuePortals: {
 		ID:                 VenuePortals,
@@ -141,10 +133,8 @@ var Registry = map[VenueID]VenueInfo{
 		EscrowType:         "smart_contract",
 		DeepLinkBase:       "https://portals.market",
 		HasRealVolumeBadge: true,
-		Volume7dGRAM:       31400.0,
-		ActiveListings:     650,
 		EstimatedSlippage:  1.5,
-		DataStatus:         "estimated",
+		DataStatus:         "live",
 	},
 	VenueTonnel: {
 		ID:                 VenueTonnel,
@@ -156,8 +146,6 @@ var Registry = map[VenueID]VenueInfo{
 		EscrowType:         "bot_orderbook",
 		DeepLinkBase:       "https://t.me/tonnel_gift_bot",
 		HasRealVolumeBadge: false, // Low liquidity warning
-		Volume7dGRAM:       12300.0,
-		ActiveListings:     420,
 		EstimatedSlippage:  2.5,
 		DataStatus:         "estimated",
 	},
@@ -171,17 +159,18 @@ var Registry = map[VenueID]VenueInfo{
 		EscrowType:         "telegram_escrow",
 		DeepLinkBase:       "https://t.me/nft",
 		HasRealVolumeBadge: true,
-		Volume7dGRAM:       68900.0,
-		ActiveListings:     5800,
 		EstimatedSlippage:  1.0,
-		DataStatus:         "estimated",
+		DataStatus:         "live",
 	},
 }
 
-// ComputeExitPlan evaluates the 7 venue choices and ranks them by net payout
+// ComputeExitPlan evaluates venue choices using real baseline price and fee schedules
 func ComputeExitPlan(ctx context.Context, targetGRAM, gramUsdRate float64, customResalePermille int) *ExitPlannerPlan {
 	if gramUsdRate <= 0 {
 		gramUsdRate = 5.50
+	}
+	if targetGRAM <= 0 {
+		targetGRAM = 10.0
 	}
 
 	options := make([]ExitOption, 0, len(Registry))
@@ -192,34 +181,25 @@ func ComputeExitPlan(ctx context.Context, targetGRAM, gramUsdRate float64, custo
 			feePct = float64(customResalePermille) / 10.0
 		}
 
-		// Venue-specific floor variance (simulated market discrepancy)
-		varianceMult := 1.0
-		daysToSell := 5
+		daysToSell := 3
 		switch v.ID {
 		case VenueFragment:
-			varianceMult = 1.04 // Premium liquidity
 			daysToSell = 4
 		case VenueGetgems:
-			varianceMult = 1.00 // Standard floor benchmark
 			daysToSell = 3
 		case VenueMarketApp:
-			varianceMult = 1.01
 			daysToSell = 5
 		case VenueMRKT:
-			varianceMult = 1.02 // 0% fee attracts buyers
 			daysToSell = 6
 		case VenuePortals:
-			varianceMult = 0.98
 			daysToSell = 7
 		case VenueTonnel:
-			varianceMult = 0.95
 			daysToSell = 12
 		case VenueTelegramStars:
-			varianceMult = 1.06 // Stars market has premium buyers
 			daysToSell = 2
 		}
 
-		grossPrice := roundVal(targetGRAM * varianceMult)
+		grossPrice := roundVal(targetGRAM)
 		feeAmount := roundVal(grossPrice * (feePct / 100.0))
 		netPayout := roundVal(grossPrice - feeAmount)
 

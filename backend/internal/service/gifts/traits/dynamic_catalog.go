@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,12 +13,12 @@ import (
 )
 
 const (
-	BaseAPIURL       = "https://api.changes.tg"
-	CatalogCacheTTL  = 24 * time.Hour
-	SyncWorkerCount  = 8
+	BaseAPIURL      = "https://api.changes.tg"
+	CatalogCacheTTL = 24 * time.Hour
+	SyncWorkerCount = 8
 )
 
-// DynamicCatalog manages live 24h-cached Telegram Gift catalog without hardcoding
+// DynamicCatalog manages live 24h-cached Telegram Gift catalog from api.changes.tg without hardcoding
 type DynamicCatalog struct {
 	httpClient  *http.Client
 	mu          sync.RWMutex
@@ -212,33 +211,22 @@ func (dc *DynamicCatalog) Sync(ctx context.Context) error {
 					continue
 				}
 
-				modelID := strings.ReplaceAll(strings.ToLower(detail.Gift.Name), " ", "_")
-				modelID = strings.ReplaceAll(modelID, "-", "_")
-				modelID = strings.ReplaceAll(modelID, "'", "")
-
+				modelID := NormalizeSlug(detail.Gift.Name)
 				totalSupply := detail.Gift.TotalSupply
 				if totalSupply <= 0 {
-					if staticCol, ok := ResolveCollection(modelID); ok && staticCol.TotalSupply > 0 {
-						totalSupply = staticCol.TotalSupply
-					} else if staticCol, ok := ResolveCollection(cleanSlug); ok && staticCol.TotalSupply > 0 {
-						totalSupply = staticCol.TotalSupply
-					} else {
-						totalSupply = 10000
+					if canonCol, ok := CanonicalCollections[modelID]; ok && canonCol.TotalSupply > 0 {
+						totalSupply = canonCol.TotalSupply
 					}
 				}
 
-				// Compute dynamic market floor price from real API attributes
-				floorGRAM := computeDynamicFloor(detail.Gift.Name, totalSupply, detail.Gift.UpgradedCount, detail.Gift.Craftable, detail.Gift.Limited)
-				baseStars := computeDynamicBaseStars(totalSupply, floorGRAM)
-
 				meta := CollectionMeta{
-					ModelID:          modelID,
-					Name:             detail.Gift.Name,
-					TotalSupply:      totalSupply,
-					CraftedFlag:      detail.Gift.Craftable,
-					BaseStarsPrice:   baseStars,
-					InitialFloorGRAM: floorGRAM,
-					Description:      fmt.Sprintf("Official Telegram Collectible %s (Total Supply: %d, Upgraded: %d)", detail.Gift.Name, totalSupply, detail.Gift.UpgradedCount),
+					ModelID:     modelID,
+					Name:        detail.Gift.Name,
+					TotalSupply: totalSupply,
+					CraftedFlag: detail.Gift.Craftable,
+					LimitedFlag: detail.Gift.Limited,
+					ContractID:  detail.Gift.ID,
+					Description: fmt.Sprintf("Official Telegram Collectible %s (Total Supply: %d, Upgraded: %d)", detail.Gift.Name, totalSupply, detail.Gift.UpgradedCount),
 				}
 
 				syncMu.Lock()
@@ -265,14 +253,8 @@ func (dc *DynamicCatalog) Sync(ctx context.Context) error {
 				// Symbols
 				for _, s := range detail.Symbols {
 					if s.Name != "" {
-						tier := "Common"
-						if s.RarityPermille <= 10 {
-							tier = "Legendary"
-						} else if s.RarityPermille <= 50 {
-							tier = "Epic"
-						} else if s.RarityPermille <= 150 {
-							tier = "Rare"
-						}
+						percentile := float64(s.RarityPermille) / 10.0
+						tier := ClassifyRarityTier(percentile)
 						newSymbols[s.Name] = SymbolMeta{
 							Name:     s.Name,
 							Permille: s.RarityPermille,
@@ -300,124 +282,22 @@ func (dc *DynamicCatalog) Sync(ctx context.Context) error {
 	return nil
 }
 
-// computeDynamicFloor calculates realistic market benchmark floor based on live supply & scarcity metrics
-func computeDynamicFloor(name string, totalSupply int, upgradedCount int, craftable, limited bool) float64 {
-	lower := strings.ToLower(name)
-
-	// Top Tier Historical Bluechips (Sovereign genesis icons)
-	if strings.Contains(lower, "pepe") {
-		return 5200.0 // Plush Pepe benchmark
-	}
-	if strings.Contains(lower, "durov") && strings.Contains(lower, "cap") {
-		return 450.0 // Durov's Cap
-	}
-	if strings.Contains(lower, "peach") {
-		return 1100.0 // Precious Peach
-	}
-	if strings.Contains(lower, "signet") {
-		return 950.0 // Signet Ring
-	}
-	if strings.Contains(lower, "santa hat") {
-		return 650.0 // Santa Hat
-	}
-	if strings.Contains(lower, "phoenix") {
-		return 850.0 // Phoenix Feather
-	}
-	if strings.Contains(lower, "diamond ring") {
-		return 180.0
-	}
-	if strings.Contains(lower, "glasses") {
-		return 120.0
-	}
-
-	// Dynamic mathematical scarcity floor: F(supply, upgrade_ratio, craftable)
-	base := 45.0
-	if totalSupply > 0 {
-		// Log-scarcity curve: 50,000 / supply
-		scarcityRatio := 5000.0 / float64(totalSupply)
-		base = 25.0 + 80.0*math.Pow(scarcityRatio, 0.75)
-	}
-
-	if craftable {
-		base *= 2.5
-	}
-	if limited {
-		base *= 1.2
-	}
-
-	if upgradedCount > 0 && totalSupply > 0 {
-		upgradedRatio := float64(upgradedCount) / float64(totalSupply)
-		if upgradedRatio > 0.8 {
-			base *= 1.4
-		}
-	}
-
-	return math.Round(base*10.0) / 10.0
-}
-
-func computeDynamicBaseStars(totalSupply int, floorGram float64) int {
-	if floorGram >= 5000 {
-		return 50000
-	}
-	if floorGram >= 1000 {
-		return 35000
-	}
-	if floorGram >= 400 {
-		return 20000
-	}
-	if floorGram >= 100 {
-		return 10000
-	}
-	return int(math.Max(500, floorGram*120.0))
-}
-
-// ResolveCollection finds collection metadata dynamically from live 24h synced catalog
+// ResolveCollection finds collection metadata from live 24h synced catalog
 func (dc *DynamicCatalog) ResolveCollection(key string) (CollectionMeta, bool) {
 	dc.mu.RLock()
 	defer dc.mu.RUnlock()
 
-	clean := strings.ToLower(strings.TrimSpace(key))
-	cleanNoUnderscore := strings.ReplaceAll(strings.ReplaceAll(clean, "-", ""), "_", "")
-	cleanNoS := strings.ReplaceAll(cleanNoUnderscore, "s", "")
-	cleanUnderscore := strings.ReplaceAll(strings.ReplaceAll(clean, "-", "_"), " ", "_")
-
-	if col, ok := dc.collections[cleanUnderscore]; ok {
+	norm := NormalizeSlug(key)
+	if col, ok := dc.collections[norm]; ok {
 		return col, true
 	}
+
+	cleanNoUnderscore := strings.ReplaceAll(norm, "_", "")
 	if col, ok := dc.collections[cleanNoUnderscore]; ok {
 		return col, true
 	}
 
-	// Iterate dynamic collection entries
-	for mID, col := range dc.collections {
-		mIDClean := strings.ReplaceAll(mID, "_", "")
-		mIDNoS := strings.ReplaceAll(mIDClean, "s", "")
-		if mIDClean == cleanNoUnderscore || mIDClean == cleanNoS || mIDNoS == cleanNoS {
-			return col, true
-		}
-		if strings.Contains(cleanNoUnderscore, mIDClean) || strings.Contains(mIDClean, cleanNoUnderscore) {
-			return col, true
-		}
-	}
-
-	// Humanize fallback if not found in catalog
-	parts := strings.Split(cleanUnderscore, "_")
-	for i, p := range parts {
-		if len(p) > 0 {
-			parts[i] = strings.ToUpper(p[:1]) + p[1:]
-		}
-	}
-	humanName := strings.Join(parts, " ")
-
-	return CollectionMeta{
-		ModelID:          cleanUnderscore,
-		Name:             humanName,
-		TotalSupply:      10000,
-		CraftedFlag:      false,
-		BaseStarsPrice:   5000,
-		InitialFloorGRAM: 45.0,
-		Description:      "Official Telegram gift collectible",
-	}, false
+	return CollectionMeta{}, false
 }
 
 // GetAllCollections returns list of all live 24h synced collections
@@ -431,6 +311,15 @@ func (dc *DynamicCatalog) GetAllCollections() []CollectionMeta {
 		if !seen[col.ModelID] && col.ModelID != "" {
 			seen[col.ModelID] = true
 			list = append(list, col)
+		}
+	}
+	if len(list) == 0 {
+		// Fallback to canonical collections
+		for _, col := range CanonicalCollections {
+			if !seen[col.ModelID] {
+				seen[col.ModelID] = true
+				list = append(list, col)
+			}
 		}
 	}
 	return list

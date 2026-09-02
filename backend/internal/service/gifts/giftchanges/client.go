@@ -33,7 +33,7 @@ type cacheItem struct {
 func NewClient() *Client {
 	return &Client{
 		httpClient: &http.Client{
-			Timeout: 6 * time.Second,
+			Timeout: 8 * time.Second,
 		},
 		cache: make(map[string]*cacheItem),
 	}
@@ -84,6 +84,9 @@ func (m Model) GetRarityPermille() int {
 		return m.RarityPermille
 	}
 	if m.Rarity > 0 {
+		if m.Rarity > 10.0 {
+			return int(math.Round(m.Rarity))
+		}
 		return int(math.Round(m.Rarity * 10.0))
 	}
 	return 20
@@ -144,6 +147,9 @@ func (b Backdrop) GetRarityPermille() int {
 		return b.RarityPermille
 	}
 	if b.Rarity > 0 {
+		if b.Rarity > 10.0 {
+			return int(math.Round(b.Rarity))
+		}
 		return int(math.Round(b.Rarity * 10.0))
 	}
 	return 20
@@ -160,30 +166,54 @@ func (s Symbol) GetRarityPermille() int {
 		return s.RarityPermille
 	}
 	if s.Rarity > 0 {
+		if s.Rarity > 10.0 {
+			return int(math.Round(s.Rarity))
+		}
 		return int(math.Round(s.Rarity * 10.0))
 	}
 	return 20
 }
 
 func (c *Client) get(ctx context.Context, endpoint string, target any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, BaseAPIURL+endpoint, nil)
-	if err != nil {
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(time.Duration(attempt*150) * time.Millisecond):
+			}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, BaseAPIURL+endpoint, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("User-Agent", "iFragment/1.0 (Telegram Mini App; Bot: @iFragmentBot; Thanks to @GiftChanges)")
+		req.Header.Set("Accept", "application/json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		if resp.StatusCode >= 500 && resp.StatusCode <= 504 {
+			resp.Body.Close()
+			lastErr = fmt.Errorf("api.changes.tg responded with transient status %d", resp.StatusCode)
+			continue
+		}
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			resp.Body.Close()
+			return fmt.Errorf("api.changes.tg responded with status %d", resp.StatusCode)
+		}
+
+		err = json.NewDecoder(resp.Body).Decode(target)
+		resp.Body.Close()
 		return err
 	}
-	req.Header.Set("User-Agent", "iFragment/1.0 (Telegram Mini App; Bot: @iFragmentBot)")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("api.changes.tg responded with status %d", resp.StatusCode)
-	}
-
-	return json.NewDecoder(resp.Body).Decode(target)
+	return lastErr
 }
 
 // GetTotal returns live aggregate stats across the ecosystem
@@ -204,7 +234,7 @@ func (c *Client) GetTotal(ctx context.Context) (*TotalStats, error) {
 	c.mu.Lock()
 	c.cache[cacheKey] = &cacheItem{
 		data:      &stats,
-		expiresAt: time.Now().Add(10 * time.Minute),
+		expiresAt: time.Now().Add(6 * time.Hour),
 	}
 	c.mu.Unlock()
 
@@ -229,7 +259,7 @@ func (c *Client) GetGifts(ctx context.Context) ([]string, error) {
 	c.mu.Lock()
 	c.cache[cacheKey] = &cacheItem{
 		data:      names,
-		expiresAt: time.Now().Add(30 * time.Minute),
+		expiresAt: time.Now().Add(24 * time.Hour),
 	}
 	c.mu.Unlock()
 
@@ -251,7 +281,7 @@ func (c *Client) GetGiftDetail(ctx context.Context, giftNameOrSlug string) (*Gif
 
 	var detail GiftDetail
 	if err := c.get(ctx, "/gift/"+url.PathEscape(slug), &detail); err != nil {
-		// Try title casing if hyphenated failed
+		// Try space-separated name if hyphenated slug failed
 		altSlug := strings.ReplaceAll(slug, "-", " ")
 		if err2 := c.get(ctx, "/gift/"+url.PathEscape(altSlug), &detail); err2 != nil {
 			return nil, err
@@ -266,6 +296,33 @@ func (c *Client) GetGiftDetail(ctx context.Context, giftNameOrSlug string) (*Gif
 	c.mu.Unlock()
 
 	return &detail, nil
+}
+
+// GetSortedModels fetches models sorted by rarity permille
+func (c *Client) GetSortedModels(ctx context.Context, slug string) ([]Model, error) {
+	detail, err := c.GetGiftDetail(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	return detail.Models, nil
+}
+
+// GetSortedBackdrops fetches backdrops sorted by rarity permille
+func (c *Client) GetSortedBackdrops(ctx context.Context, slug string) ([]Backdrop, error) {
+	detail, err := c.GetGiftDetail(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	return detail.Backdrops, nil
+}
+
+// GetSortedSymbols fetches symbols sorted by rarity permille
+func (c *Client) GetSortedSymbols(ctx context.Context, slug string) ([]Symbol, error) {
+	detail, err := c.GetGiftDetail(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	return detail.Symbols, nil
 }
 
 // GetGiftImageBytes fetches image from api.changes.tg and caches for 7 days
@@ -295,7 +352,7 @@ func (c *Client) GetGiftImageBytes(ctx context.Context, slug, model string) ([]b
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "iFragment/1.0 (Telegram Mini App)")
+	req.Header.Set("User-Agent", "iFragment/1.0 (Telegram Mini App; Thanks to @GiftChanges)")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -313,8 +370,8 @@ func (c *Client) GetGiftImageBytes(ctx context.Context, slug, model string) ([]b
 	}
 
 	c.mu.Lock()
-	// Bounded cache eviction: if cache exceeds 500 items, clear expired or prune
-	if len(c.cache) > 500 {
+	// Bounded cache eviction: if cache exceeds 1000 items, clear expired entries
+	if len(c.cache) > 1000 {
 		now := time.Now()
 		for k, v := range c.cache {
 			if now.After(v.expiresAt) {
@@ -427,6 +484,3 @@ func (c *Client) GetIDs(ctx context.Context) (map[string]string, error) {
 
 	return ids, nil
 }
-
-
-

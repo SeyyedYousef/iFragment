@@ -313,7 +313,13 @@ export const CollectionInfoPage: Component = () => {
 										<span
 											class={`px-2.5 py-0.5 rounded-[8px] border text-[10px] font-black uppercase tracking-widest mb-1 shadow-sm ${fearGreedNotice().bg}`}
 										>
-											{fearGreedNotice().index >= 75 ? 'GREED' : 'NEUTRAL'}
+											{fearGreedNotice().index < 30
+												? 'EXTREME FEAR'
+												: fearGreedNotice().index < 50
+												? 'FEAR'
+												: fearGreedNotice().index < 75
+												? 'GREED'
+												: 'EXTREME GREED'}
 										</span>
 									</div>
 								</div>

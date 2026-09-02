@@ -238,7 +238,7 @@ export const GiftReportPage: Component = () => {
 			{ slug: 'santa_hat', name: 'Santa Hat', serial: 12 + (seed % 300), valTon: 650, tier: 'RARE', compDiff: '+8%' },
 		];
 		const otherGifts = sampleOtherGifts.slice(0, 3 + (seed % 3));
-		const currentVal = currentReport()?.expected_gram || 4500;
+		const currentVal = Number(currentReport()?.expected_gram) || 4500;
 		const totalVaultTon = otherGifts.reduce((acc, g) => acc + g.valTon, currentVal);
 		const totalVaultUsd = totalVaultTon * 4;
 
@@ -258,7 +258,7 @@ export const GiftReportPage: Component = () => {
 	};
 
 	const sellerNetProceeds = () => {
-		const gross = currentReport()?.expected_gram || 0;
+		const gross = Number(currentReport()?.expected_gram) || 0;
 		const fragFee = gross * 0.05;
 		const telegramRoyalty = gross * 0.05;
 		const gasFee = 0.05;
@@ -810,7 +810,7 @@ export const GiftReportPage: Component = () => {
 										{t('gifts.sumInverses')}
 									</span>
 									<span class="font-black text-white font-mono text-sm">
-										{currentReport()?.rarity_score?.toFixed(1) || '128.4'}
+										{currentReport()?.joint_rarity?.harmonic_rarity_score?.toFixed(1) || '85.4'}
 									</span>
 									<span class="text-[9px] text-emerald-400 block font-medium">Σ(1/frequency)</span>
 								</div>
@@ -820,7 +820,7 @@ export const GiftReportPage: Component = () => {
 										{t('gifts.avgRarity')}
 									</span>
 									<span class="font-black text-white font-mono text-sm">
-										{((currentReport()?.rarity_score || 120) / 4).toFixed(1)}
+										{((currentReport()?.joint_rarity?.harmonic_rarity_score || 80) / 4).toFixed(1)}
 									</span>
 									<span class="text-[9px] text-sky-400 block font-medium">Σ(1/freq)/N</span>
 								</div>

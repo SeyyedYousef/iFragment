@@ -13,7 +13,7 @@ import {
 import { balance } from '@/entities/airdrop/index.js';
 import { type SubscriptionPackage, subscriptionApi } from '@/entities/bot/index.js';
 import { channelApi } from '@/entities/channel/index.js';
-import type { ManagedChannel } from '@/entities/channel/model/types.js';
+import type { ManagedChannel, Project } from '@/entities/channel/model/types.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { calculateDiscountForPlan } from '@/shared/lib/stars-calculator.js';
@@ -25,14 +25,20 @@ export const ManagedChannelsPage: Component = () => {
 	const navigate = useNavigate();
 	const wallet = useWallet();
 
-	// Fetch all channels for the logged-in user
-	const [channels, { refetch }] = createResource(
+	// Fetch projects and channels
+	const [projects, { refetch: refetchProjects }] = createResource(channelApi.getProjects);
+	const [channels, { refetch: refetchChannels }] = createResource(
 		() => true,
 		() => channelApi.getUserChannels('all'),
 	);
 
-	const [channelToDelete, setChannelToDelete] = createSignal<any | null>(null);
-	const [isDeleting, setIsDeleting] = createSignal(false);
+	const refetchAll = () => {
+		refetchProjects();
+		refetchChannels();
+	};
+
+	const [projectToDelete, setProjectToDelete] = createSignal<Project | null>(null);
+	const [isDeletingProject, setIsDeletingProject] = createSignal(false);
 
 	const [showSubscription, setShowSubscription] = createSignal(false);
 	const [paymentStep, setPaymentStep] = createSignal<'package' | 'method'>('package');
@@ -48,7 +54,7 @@ export const ManagedChannelsPage: Component = () => {
 	// Create Project Inline Modal State
 	const [showCreateProject, setShowCreateProject] = createSignal(false);
 	const [projectName, setProjectName] = createSignal(
-		t('managedChannels.defaultProjectName') || 'پروژه انتقال هوشمند',
+		t('managedChannels.defaultProjectName') || 'Smart Forwarding Project',
 	);
 	const [sourceInput, setSourceInput] = createSignal('');
 	const [targetInput, setTargetInput] = createSignal('');
@@ -79,7 +85,7 @@ export const ManagedChannelsPage: Component = () => {
 			haptic.notify('success');
 			setSuccessMsg(t('botManage.subscriptionSuccess') || 'Subscription activated successfully!');
 			wallet.refetch();
-			refetch();
+			refetchAll();
 			setTimeout(() => {
 				setShowSubscription(false);
 			}, 1200);
@@ -114,7 +120,7 @@ export const ManagedChannelsPage: Component = () => {
 						if (status === 'paid') {
 							haptic.notify('success');
 							setShowSubscription(false);
-							refetch();
+							refetchAll();
 						}
 					});
 				} else {
@@ -134,33 +140,68 @@ export const ManagedChannelsPage: Component = () => {
 		}
 	};
 
-	const formatTimeRemaining = (dateStr: string) => {
+	const formatTimeRemaining = (dateStr?: string | null) => {
+		if (!dateStr) return '';
 		const date = new Date(dateStr);
 		const now = new Date();
 		const diff = date.getTime() - now.getTime();
-		if (diff <= 0) return t('botManage.expired');
+		if (diff <= 0) return t('botManage.expired') || 'Expired';
 
 		const days = Math.floor(diff / (1000 * 3600 * 24));
 		const hours = Math.floor((diff % (1000 * 3600 * 24)) / (1000 * 3600));
 
-		if (days > 0) return `${days}${t('botManage.daysLeft')}`;
-		return `${hours}${t('botManage.hoursLeft')}`;
+		if (days > 0) return `${days} ${t('botManage.daysLeft') || 'days left'}`;
+		return `${hours} ${t('botManage.hoursLeft') || 'hours left'}`;
 	};
 
-	const handleDeleteChannel = async () => {
-		const channel = channelToDelete();
-		if (!channel) return;
+	const handleDeleteProject = async () => {
+		const project = projectToDelete();
+		if (!project) return;
 
-		setIsDeleting(true);
+		setIsDeletingProject(true);
 		try {
-			await channelApi.disconnectChannel(channel.id);
+			await channelApi.deleteProject(project.id);
 			haptic.notify('success');
-			setChannelToDelete(null);
-			refetch();
+			showToast(
+				t('managedChannels.projectDeleteSuccess') ||
+					t('channel.projects.deleted') ||
+					'Project deleted successfully',
+				'info',
+			);
+			setProjectToDelete(null);
+			refetchAll();
 		} catch (_e: any) {
 			haptic.notify('error');
+			showToast(
+				t('managedChannels.projectDeleteError') || 'Failed to delete project',
+				'error',
+			);
 		} finally {
-			setIsDeleting(false);
+			setIsDeletingProject(false);
+		}
+	};
+
+	const handleToggleStatus = async (project: Project) => {
+		const newStatus = project.status === 'active' ? 'paused' : 'active';
+		haptic.impact('medium');
+		try {
+			await channelApi.toggleProject(project.id, newStatus);
+			haptic.notify('success');
+			showToast(
+				newStatus === 'active'
+					? t('managedChannels.projectResumed') || 'Project resumed'
+					: t('managedChannels.projectPaused') || 'Project paused',
+				'info',
+			);
+			refetchProjects();
+		} catch (err: any) {
+			haptic.notify('error');
+			showToast(
+				err?.response?.data?.error ||
+					t('managedChannels.projectToggleError') ||
+					'Failed to update project status',
+				'error',
+			);
 		}
 	};
 
@@ -169,7 +210,7 @@ export const ManagedChannelsPage: Component = () => {
 		const val = (customInput !== undefined ? customInput : sourceInput()).trim();
 		if (!val) {
 			setSourceError(
-				t('managedChannels.enterSourceError') || 'لطفاً آیدی یا یوزرنیم کانال ورودی را وارد کنید',
+				t('managedChannels.enterSourceError') || 'Please enter source channel username or ID',
 			);
 			return;
 		}
@@ -186,7 +227,7 @@ export const ManagedChannelsPage: Component = () => {
 				err?.response?.data?.error ||
 				err?.message ||
 				t('managedChannels.botNotAdminError') ||
-				'ربات در این کانال عضو یا ادمین نیست. لطفاً ابتدا ربات را در کانال ادمین کنید.';
+				'Bot is not an admin in this channel. Please add the bot as admin first.';
 			setSourceError(msg);
 			haptic.notify('error');
 		} finally {
@@ -199,7 +240,7 @@ export const ManagedChannelsPage: Component = () => {
 		const val = (customInput !== undefined ? customInput : targetInput()).trim();
 		if (!val) {
 			setTargetError(
-				t('managedChannels.enterTargetError') || 'لطفاً آیدی یا یوزرنیم کانال خروجی را وارد کنید',
+				t('managedChannels.enterTargetError') || 'Please enter target channel username or ID',
 			);
 			return;
 		}
@@ -216,7 +257,7 @@ export const ManagedChannelsPage: Component = () => {
 				err?.response?.data?.error ||
 				err?.message ||
 				t('managedChannels.botNotAdminError') ||
-				'ربات در این کانال عضو یا ادمین نیست. لطفاً ابتدا ربات را در کانال ادمین کنید.';
+				'Bot is not an admin in this channel. Please add the bot as admin first.';
 			setTargetError(msg);
 			haptic.notify('error');
 		} finally {
@@ -244,14 +285,14 @@ export const ManagedChannelsPage: Component = () => {
 		if (!src) {
 			setSourceError(
 				t('managedChannels.verifySourceFirst') ||
-					'لطفاً ابتدا کانال ورودی معتبر را بررسی و تایید کنید.',
+					'Please verify a valid source channel first.',
 			);
 			return;
 		}
 		if (!tgt) {
 			setTargetError(
 				t('managedChannels.verifyTargetFirst') ||
-					'لطفاً ابتدا کانال خروجی معتبر را بررسی و تایید کنید.',
+					'Please verify a valid target channel first.',
 			);
 			return;
 		}
@@ -262,7 +303,7 @@ export const ManagedChannelsPage: Component = () => {
 				name:
 					projectName().trim() ||
 					t('managedChannels.defaultProjectName') ||
-					'پروژه انتقال هوشمند',
+					'Smart Forwarding Project',
 				source_channel_id: src.id,
 				target_channel_id: tgt.id,
 			});
@@ -270,7 +311,7 @@ export const ManagedChannelsPage: Component = () => {
 			haptic.notify('success');
 			showToast(
 				t('managedChannels.projectCreatedSuccess') ||
-					'پروژه با موفقیت ساخته شد و ۷۲ ساعت تست رایگان فعال گردید!',
+					'Project created successfully with 72h free trial!',
 				'success',
 			);
 			setShowCreateProject(false);
@@ -280,14 +321,14 @@ export const ManagedChannelsPage: Component = () => {
 			setTargetChannel(null);
 			setSourceError('');
 			setTargetError('');
-			refetch();
+			refetchAll();
 		} catch (err: any) {
 			haptic.notify('error');
 			const msg =
 				err?.response?.data?.error ||
 				err?.message ||
 				t('managedChannels.projectCreateError') ||
-				'خطا در ساخت پروژه';
+				'Failed to create project';
 			setTargetError(msg);
 			showToast(msg, 'error');
 		} finally {
@@ -325,7 +366,7 @@ export const ManagedChannelsPage: Component = () => {
 							navigate('/dashboard');
 						}}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
-						aria-label="Back"
+						aria-label={t('common.back') || 'Back'}
 					>
 						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
@@ -339,28 +380,26 @@ export const ManagedChannelsPage: Component = () => {
 					</div>
 				</div>
 
-				{/* Quick Add Button in Header when channels exist */}
-				<Show when={channels() && channels()!.length > 0}>
-					<button
-						type="button"
-						onClick={() => {
-							haptic.impact('medium');
-							setShowCreateProject(true);
-						}}
-						class="h-10 px-3.5 rounded-[12px] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-[0_4px_12px_rgba(51,144,236,0.3)] active:scale-95 transition-all shrink-0"
-					>
-						<span class="material-symbols-outlined text-[16px]">add</span>
-						<span>{t('managedChannels.createProject') || 'ساخت پروژه'}</span>
-					</button>
-				</Show>
+				{/* Quick Add Button in Header */}
+				<button
+					type="button"
+					onClick={() => {
+						haptic.impact('medium');
+						setShowCreateProject(true);
+					}}
+					class="h-10 px-3.5 rounded-[12px] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-[0_4px_12px_rgba(51,144,236,0.3)] active:scale-95 transition-all shrink-0"
+				>
+					<span class="material-symbols-outlined text-[16px]">add</span>
+					<span>{t('managedChannels.createProject') || 'Create Project'}</span>
+				</button>
 			</div>
 
 			<div class="px-5 pt-6 flex flex-col gap-6 max-w-md mx-auto relative z-10 w-full">
-				{/* ═══════ CHANNEL LIST ═══════ */}
+				{/* ═══════ PROJECTS LIST ═══════ */}
 				<Show
-					when={channels() && channels()!.length > 0}
+					when={projects() && projects()!.length > 0}
 					fallback={
-						!channels.loading ? (
+						!projects.loading ? (
 							<Motion.div
 								initial={{ opacity: 0, y: 15 }}
 								animate={{ opacity: 1, y: 0 }}
@@ -370,16 +409,17 @@ export const ManagedChannelsPage: Component = () => {
 
 								<div class="w-20 h-20 rounded-[20px] bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5 border border-[#3390ec]/30 flex items-center justify-center shadow-inner relative z-10">
 									<span class="material-symbols-outlined text-[#3390ec] text-[40px] drop-shadow-md">
-										campaign
+										rocket_launch
 									</span>
 								</div>
 
 								<div class="flex flex-col gap-2 relative z-10">
 									<h3 class="text-white font-black text-[20px] tracking-tight">
-										{t('managedChannels.noChannels')}
+										{t('managedChannels.noProjects') || "You haven't created any projects yet."}
 									</h3>
-									<p class="text-[12px] text-white/50 leading-relaxed font-medium max-w-[250px] mx-auto">
-										{t('managedChannels.noChannelsDesc')}
+									<p class="text-[12px] text-white/50 leading-relaxed font-medium max-w-[280px] mx-auto">
+										{t('managedChannels.noProjectsDesc') ||
+											'Create a smart forwarding project to connect your input and output channels with custom filters.'}
 									</p>
 								</div>
 
@@ -420,7 +460,7 @@ export const ManagedChannelsPage: Component = () => {
 									class="mt-4 w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] flex items-center justify-center gap-2 hover:from-[#2b7ec9] hover:to-[#3390ec] transition-all active:scale-95 shadow-[0_10px_25px_rgba(51,144,236,0.3)] relative z-10 border border-white/10"
 								>
 									<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
-									<span>{t('managedChannels.createProjectTrial') || 'ساخت پروژه جدید (۷۲ ساعت تست رایگان)'}</span>
+									<span>{t('managedChannels.createProjectTrial') || 'Create New Project (72h Free Trial)'}</span>
 								</button>
 
 								<button
@@ -440,15 +480,17 @@ export const ManagedChannelsPage: Component = () => {
 								<div class="flex items-center justify-between mb-1 pl-2">
 									<div class="h-4 w-32 bg-white/5 rounded-[4px] animate-pulse"></div>
 								</div>
-								<For each={[1, 2, 3]}>
+								<For each={[1, 2]}>
 									{() => (
-										<div class="bg-[#12141C]/50 rounded-[24px] p-5 border border-white/5 flex items-center gap-4">
-											<div class="w-14 h-14 rounded-[16px] bg-white/5 animate-pulse shrink-0"></div>
-											<div class="flex-1 flex flex-col gap-2">
-												<div class="h-4 w-1/2 bg-white/5 rounded-[4px] animate-pulse"></div>
-												<div class="h-3 w-1/3 bg-white/5 rounded-[4px] animate-pulse"></div>
+										<div class="bg-[#12141C]/50 rounded-[24px] p-5 border border-white/5 flex flex-col gap-4">
+											<div class="flex items-center gap-4">
+												<div class="w-12 h-12 rounded-[16px] bg-white/5 animate-pulse shrink-0"></div>
+												<div class="flex-1 flex flex-col gap-2">
+													<div class="h-4 w-1/2 bg-white/5 rounded-[4px] animate-pulse"></div>
+													<div class="h-3 w-1/3 bg-white/5 rounded-[4px] animate-pulse"></div>
+												</div>
 											</div>
-											<div class="w-10 h-10 rounded-[12px] bg-white/5 animate-pulse shrink-0"></div>
+											<div class="h-16 bg-white/5 rounded-[16px] animate-pulse"></div>
 										</div>
 									)}
 								</For>
@@ -459,101 +501,193 @@ export const ManagedChannelsPage: Component = () => {
 					<div class="flex flex-col gap-4">
 						<div class="flex items-center justify-between mb-1 px-1 border-b border-white/5 pb-2">
 							<div class="flex items-center gap-2">
-								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">view_list</span>
-								<h2 class="text-[12px] font-black text-white/40 uppercase tracking-widest">
-									{t('managedChannels.yourChannels')}
+								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">hub</span>
+								<h2 class="text-[12px] font-black text-white/50 uppercase tracking-widest">
+									{t('managedChannels.yourProjects') || 'Your Projects'}
 								</h2>
 							</div>
+							<span class="text-[11px] font-black text-[#3390ec] bg-[#3390ec]/10 px-2 py-0.5 rounded-[6px] border border-[#3390ec]/20">
+								{projects()!.length} {t('managedChannels.projectsCountSuffix') || 'Projects'}
+							</span>
 						</div>
 
-						<For each={channels()}>
-							{(channel, i) => {
-								const endDateStr =
-									channel.subscription_status === 'trial'
-										? channel.trial_ends_at
-										: channel.paid_until;
+						<For each={projects()}>
+							{(project, i) => {
+								const isPaidActive = project.stars_subscription_active;
+								const isTrialActive = !isPaidActive && (project.trial_used || project.status === 'active') && project.trial_ends_at;
+								const endDateStr = isPaidActive ? project.stars_expires_at : project.trial_ends_at;
+								const isPaused = project.status === 'paused';
+
 								return (
 									<Motion.div
 										initial={{ opacity: 0, y: 10 }}
 										animate={{ opacity: 1, y: 0 }}
 										transition={{ delay: i() * 0.05 }}
-										class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] p-5 border border-white/5 hover:border-white/15 flex flex-col gap-5 shadow-sm transition-all relative overflow-hidden group"
+										class="bg-[#12141C]/90 backdrop-blur-xl rounded-[26px] p-5 border border-white/10 hover:border-white/20 flex flex-col gap-4 shadow-lg transition-all relative overflow-hidden group"
 									>
+										{/* Ambient Card Glow */}
+										<div class="absolute -right-8 -top-8 w-32 h-32 bg-[#3390ec]/10 blur-2xl rounded-full pointer-events-none" />
+
+										{/* Top Row: Project Info & Status */}
 										<div class="flex items-center justify-between relative z-10">
-											<div class="flex items-center gap-4 overflow-hidden pr-2">
-												<div class="w-[52px] h-[52px] rounded-[16px] bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5 border border-[#3390ec]/30 flex items-center justify-center font-black text-[#3390ec] text-[22px] shadow-inner shrink-0 group-hover:scale-105 transition-transform">
-													{channel.avatar}
+											<div class="flex items-center gap-3.5 overflow-hidden">
+												<div class="w-12 h-12 rounded-[16px] bg-gradient-to-br from-[#3390ec]/25 to-[#3390ec]/5 border border-[#3390ec]/40 flex items-center justify-center text-[#3390ec] shadow-inner shrink-0 group-hover:scale-105 transition-transform">
+													<span class="material-symbols-outlined text-[24px]">rocket_launch</span>
 												</div>
 												<div class="flex flex-col overflow-hidden gap-0.5">
-													<span class="text-white font-black text-[15px] truncate tracking-tight">
-														{channel.title}
-													</span>
+													<h3 class="text-white font-black text-[16px] truncate tracking-tight">
+														{project.name}
+													</h3>
 													<span class="text-[11px] font-bold text-white/40 tracking-wider">
-														{channel.members} {t('managedChannels.subscribers')}
+														{t('managedChannels.projectId') || 'Project ID'}: {project.id.slice(0, 8)}
 													</span>
 												</div>
 											</div>
+
 											<div class="flex flex-col items-end shrink-0 gap-1">
 												<span
 													class={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-[8px] border shadow-sm ${
-														channel.subscription_status === 'paid'
+														isPaidActive
 															? 'text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10'
-															: channel.subscription_status === 'trial'
-																? 'text-amber-400 border-amber-400/30 bg-amber-400/10'
-																: 'text-[#ff4a4a] border-[#ff4a4a]/30 bg-[#ff4a4a]/10'
+															: isPaused
+																? 'text-white/50 border-white/20 bg-white/5'
+																: isTrialActive
+																	? 'text-amber-400 border-amber-400/30 bg-amber-400/10'
+																	: 'text-[#ff4a4a] border-[#ff4a4a]/30 bg-[#ff4a4a]/10'
 													}`}
 												>
-													{channel.subscription_status === 'paid'
-														? 'Active'
-														: channel.subscription_status === 'trial'
-															? 'Trial'
-															: 'Expired'}
+													{isPaidActive
+														? (t('managedChannels.activeStatus') || 'ACTIVE')
+														: isPaused
+															? (t('managedChannels.pausedStatus') || 'PAUSED')
+															: isTrialActive
+																? (t('managedChannels.trialBadge72h') || 'TRIAL (72h)')
+																: (t('managedChannels.expiredStatus') || 'EXPIRED')}
 												</span>
-												<Show when={endDateStr && channel.subscription_status !== 'expired'}>
-													<span class="text-[10px] text-white/50 font-bold font-mono whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-[4px]">
-														{formatTimeRemaining(endDateStr!)}
+												<Show when={endDateStr && !isPaused}>
+													<span class="text-[10px] text-white/60 font-bold font-mono whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-[5px] border border-white/5">
+														{formatTimeRemaining(endDateStr)}
 													</span>
 												</Show>
 											</div>
 										</div>
 
-										<div class="flex gap-2.5 w-full relative z-10">
-											<Show when={channel.subscription_status !== 'expired'}>
-												<button
-													type="button"
-													onClick={() => {
-														haptic.impact('light');
-														navigate(`/channel/${channel.id}`);
-													}}
-													class="flex-[1.5] h-12 rounded-[14px] text-[12px] uppercase tracking-widest font-black transition-all bg-[#08090D] text-white/80 border border-white/5 hover:border-white/20 hover:text-white shadow-sm active:scale-95"
-												>
-													{t('botManage.manage')}
-												</button>
-											</Show>
+										{/* Middle Row: Visual Source ➔ Target Flow Card */}
+										<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex items-center justify-between gap-2.5 relative z-10 shadow-inner">
+											{/* Source Channel Box */}
+											<div class="flex-1 flex flex-col gap-1 min-w-0 bg-white/[0.02] p-2.5 rounded-[14px] border border-white/5">
+												<div class="flex items-center gap-1.5">
+													<span class="w-2 h-2 rounded-full bg-[#3390ec]" />
+													<span class="text-[10px] font-bold text-[#3390ec] uppercase tracking-wider">
+														{t('managedChannels.sourceBadge') || 'Input (Source)'}
+													</span>
+												</div>
+												<span class="text-[13px] font-black text-white truncate">
+													{project.source_title || t('managedChannels.defaultSourceTitle') || 'Source Channel'}
+												</span>
+												<span class="text-[10px] text-white/40 font-mono truncate" dir="ltr">
+													{project.source_username
+														? `@${project.source_username}`
+														: project.source_chat_id
+															? `ID: ${project.source_chat_id}`
+															: (t('managedChannels.connected') || 'Connected')}
+												</span>
+											</div>
+
+											{/* Flow Arrow */}
+											<div class="flex flex-col items-center justify-center shrink-0 px-1">
+												<div class="w-8 h-8 rounded-full bg-[#3390ec]/15 border border-[#3390ec]/30 flex items-center justify-center text-[#3390ec] shadow-sm">
+													<span class="material-symbols-outlined text-[18px] rtl:-scale-x-100">
+														arrow_forward
+													</span>
+												</div>
+											</div>
+
+											{/* Target Channel Box */}
+											<div class="flex-1 flex flex-col gap-1 min-w-0 bg-white/[0.02] p-2.5 rounded-[14px] border border-white/5">
+												<div class="flex items-center gap-1.5">
+													<span class="w-2 h-2 rounded-full bg-[#10b981]" />
+													<span class="text-[10px] font-bold text-[#10b981] uppercase tracking-wider">
+														{t('managedChannels.targetBadge') || 'Output (Target)'}
+													</span>
+												</div>
+												<span class="text-[13px] font-black text-white truncate">
+													{project.target_title || t('managedChannels.defaultTargetTitle') || 'Target Channel'}
+												</span>
+												<span class="text-[10px] text-white/40 font-mono truncate" dir="ltr">
+													{project.target_username
+														? `@${project.target_username}`
+														: project.target_chat_id
+															? `ID: ${project.target_chat_id}`
+															: (t('managedChannels.connected') || 'Connected')}
+												</span>
+											</div>
+										</div>
+
+										{/* Bottom Row: Actions Bar */}
+										<div class="flex items-center gap-2 w-full relative z-10 pt-1">
+											{/* Manage Button */}
 											<button
 												type="button"
-												onClick={() => openSubscription(channel.id)}
-												class={`h-12 rounded-[14px] text-[12px] uppercase tracking-widest font-black transition-all border active:scale-95 flex items-center justify-center gap-1 shadow-sm ${
-													channel.subscription_status === 'paid'
-														? 'flex-1 bg-white/5 text-white/60 border-transparent hover:bg-white/10 hover:text-white'
+												onClick={() => {
+													haptic.impact('light');
+													const targetId = project.target_channel_id || project.source_channel_id || project.id;
+													navigate(`/channel/${targetId}`);
+												}}
+												class="flex-[1.5] h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all bg-[#08090D] text-white/90 border border-white/10 hover:border-[#3390ec]/40 hover:text-[#3390ec] shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+											>
+												<span class="material-symbols-outlined text-[18px]">tune</span>
+												<span>{t('botManage.manage')}</span>
+											</button>
+
+											{/* Subscription Button */}
+											<button
+												type="button"
+												onClick={() => {
+													const targetId = project.target_channel_id || project.source_channel_id || project.id;
+													openSubscription(targetId);
+												}}
+												class={`h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all border active:scale-95 flex items-center justify-center gap-1.5 shadow-sm ${
+													isPaidActive
+														? 'flex-1 bg-white/5 text-white/70 border-white/5 hover:bg-white/10 hover:text-white'
 														: 'flex-[2] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white border-white/10 shadow-[0_4px_15px_rgba(51,144,236,0.3)]'
 												}`}
 											>
-												<Show when={channel.subscription_status !== 'paid'}>
+												<Show when={!isPaidActive}>
 													<span class="material-symbols-outlined text-[16px]">stars</span>
 												</Show>
-												{channel.subscription_status === 'paid'
-													? t('botManage.extendSub')
-													: t('botManage.buySubscription')}
+												<span>
+													{isPaidActive
+														? t('botManage.extendSub')
+														: t('botManage.buySubscription')}
+												</span>
 											</button>
+
+											{/* Toggle Active / Pause Status */}
+											<button
+												type="button"
+												onClick={() => handleToggleStatus(project)}
+												class={`w-11 h-11 rounded-[14px] flex items-center justify-center border transition-all active:scale-95 shrink-0 ${
+													isPaused
+														? 'bg-amber-400/10 border-amber-400/30 text-amber-400 hover:bg-amber-400/20'
+														: 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+												}`}
+												title={isPaused ? (t('managedChannels.resumeProject') || 'Resume') : (t('managedChannels.pauseProject') || 'Pause')}
+											>
+												<span class="material-symbols-outlined text-[18px]">
+													{isPaused ? 'play_arrow' : 'pause'}
+												</span>
+											</button>
+
+											{/* Delete Project Button */}
 											<button
 												type="button"
 												onClick={(e) => {
 													e.stopPropagation();
 													haptic.impact('medium');
-													setChannelToDelete(channel);
+													setProjectToDelete(project);
 												}}
-												class="w-12 h-12 rounded-[14px] bg-transparent flex items-center justify-center border border-transparent hover:bg-[#ff4a4a]/10 hover:border-[#ff4a4a]/30 text-white/30 hover:text-[#ff4a4a] transition-all active:scale-95 shrink-0"
+												class="w-11 h-11 rounded-[14px] bg-transparent flex items-center justify-center border border-transparent hover:bg-[#ff4a4a]/10 hover:border-[#ff4a4a]/30 text-white/30 hover:text-[#ff4a4a] transition-all active:scale-95 shrink-0"
 												aria-label={t('managedChannels.delete')}
 											>
 												<span class="material-symbols-outlined text-[20px]">delete</span>
@@ -595,10 +729,10 @@ export const ManagedChannelsPage: Component = () => {
 								</div>
 								<div class="flex flex-col">
 									<h3 class="text-[17px] font-black text-white tracking-tight">
-										{t('managedChannels.createProjectModalTitle') || 'ساخت پروژه جدید'}
+										{t('managedChannels.createProjectModalTitle') || 'Create New Project'}
 									</h3>
 									<span class="text-[11px] font-bold text-amber-400 flex items-center gap-1">
-										<span>⭐</span> {t('managedChannels.freeTrial72hBadge') || '۷۲ ساعت تست کاملاً رایگان'}
+										<span>⭐</span> {t('managedChannels.freeTrial72hBadge') || '72 Hours 100% Free Trial'}
 									</span>
 								</div>
 							</div>
@@ -616,14 +750,14 @@ export const ManagedChannelsPage: Component = () => {
 							{/* Project Name */}
 							<div class="flex flex-col gap-1.5">
 								<label class="text-[12px] font-bold text-white/70">
-									{t('managedChannels.projectName') || 'نام پروژه'}
+									{t('managedChannels.projectName') || 'Project Name'}
 								</label>
 								<input
 									type="text"
 									value={projectName()}
 									onInput={(e) => setProjectName(e.currentTarget.value)}
 									placeholder={
-										t('managedChannels.projectNamePlaceholder') || 'مثال: کانال اصلی به VIP'
+										t('managedChannels.projectNamePlaceholder') || 'e.g. Main Channel to VIP'
 									}
 									class="w-full h-12 bg-[#08090D] border border-white/10 focus:border-[#3390ec] rounded-[14px] px-4 text-[13px] text-white placeholder:text-white/30 outline-none transition-colors"
 									required
@@ -634,11 +768,11 @@ export const ManagedChannelsPage: Component = () => {
 							<div class="flex flex-col gap-2">
 								<div class="flex items-center justify-between">
 									<label class="text-[12px] font-bold text-white/80 flex items-center gap-1.5">
-										<span class="text-[#3390ec]">●</span> {t('managedChannels.sourceChannel') || 'کانال ورودی (Source)'}
+										<span class="text-[#3390ec]">●</span> {t('managedChannels.sourceChannel') || 'Source Channel (Input)'}
 									</label>
 									<Show when={sourceChannel()}>
 										<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/15 px-2 py-0.5 rounded-[6px] border border-[#10b981]/30">
-											✓ {t('managedChannels.verified') || 'تایید شده'}
+											✓ {t('managedChannels.verified') || 'Verified'}
 										</span>
 									</Show>
 								</div>
@@ -656,7 +790,7 @@ export const ManagedChannelsPage: Component = () => {
 										}}
 										class="w-full h-11 bg-[#08090D] border border-white/10 rounded-[14px] px-3 text-[12px] text-white/80 outline-none"
 									>
-										<option value="">{t('managedChannels.selectFromConnected') || '-- انتخاب از کانال‌های متصل شما --'}</option>
+										<option value="">{t('managedChannels.selectFromConnected') || '-- Select from your connected channels --'}</option>
 										<For each={channels()}>
 											{(ch: any) => (
 												<option value={ch.id}>
@@ -678,7 +812,7 @@ export const ManagedChannelsPage: Component = () => {
 										}}
 										placeholder={
 											t('managedChannels.sourcePlaceholder') ||
-											'یوزرنیم یا لینک کانال مبدا (مثلاً mychannel@)'
+											'Source channel @username or link (e.g. @mychannel)'
 										}
 										class={`flex-1 h-12 bg-[#08090D] rounded-[14px] px-4 text-[13px] text-white placeholder:text-white/30 outline-none transition-all border ${
 											sourceChannel()
@@ -705,9 +839,9 @@ export const ManagedChannelsPage: Component = () => {
 												<span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 											}
 										>
-											<Show when={sourceChannel()} fallback={<span>{t('managedChannels.check') || 'بررسی'}</span>}>
+											<Show when={sourceChannel()} fallback={<span>{t('managedChannels.check') || 'Check'}</span>}>
 												<span class="material-symbols-outlined text-[18px]">done</span>
-												<span>{t('managedChannels.verified') || 'تایید'}</span>
+												<span>{t('managedChannels.verified') || 'Verified'}</span>
 											</Show>
 										</Show>
 									</button>
@@ -725,7 +859,7 @@ export const ManagedChannelsPage: Component = () => {
 													{sourceChannel()?.chat_title}
 												</span>
 												<span class="text-[11px] font-medium text-[#10b981]">
-													{t('managedChannels.botIsAdmin') || 'ربات عضو و ادمین است 🟢'} ({sourceChannel()?.subscribers_count || 0} {t('managedChannels.subscribers') || 'عضو'})
+													{t('managedChannels.botIsAdmin') || 'Bot is admin & member 🟢'} ({sourceChannel()?.subscribers_count || 0} {t('managedChannels.subscribers') || 'subscribers'})
 												</span>
 											</div>
 										</div>
@@ -745,11 +879,11 @@ export const ManagedChannelsPage: Component = () => {
 							<div class="flex flex-col gap-2">
 								<div class="flex items-center justify-between">
 									<label class="text-[12px] font-bold text-white/80 flex items-center gap-1.5">
-										<span class="text-[#10b981]">●</span> {t('managedChannels.targetChannel') || 'کانال خروجی (Target)'}
+										<span class="text-[#10b981]">●</span> {t('managedChannels.targetChannel') || 'Target Channel (Output)'}
 									</label>
 									<Show when={targetChannel()}>
 										<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/15 px-2 py-0.5 rounded-[6px] border border-[#10b981]/30">
-											✓ {t('managedChannels.verified') || 'تایید شده'}
+											✓ {t('managedChannels.verified') || 'Verified'}
 										</span>
 									</Show>
 								</div>
@@ -767,7 +901,7 @@ export const ManagedChannelsPage: Component = () => {
 										}}
 										class="w-full h-11 bg-[#08090D] border border-white/10 rounded-[14px] px-3 text-[12px] text-white/80 outline-none"
 									>
-										<option value="">{t('managedChannels.selectFromConnected') || '-- انتخاب از کانال‌های متصل شما --'}</option>
+										<option value="">{t('managedChannels.selectFromConnected') || '-- Select from your connected channels --'}</option>
 										<For each={channels()}>
 											{(ch: any) => (
 												<option value={ch.id}>
@@ -789,7 +923,7 @@ export const ManagedChannelsPage: Component = () => {
 										}}
 										placeholder={
 											t('managedChannels.targetPlaceholder') ||
-											'یوزرنیم یا لینک کانال مقصد (مثلاً targetchan@)'
+											'Target channel @username or link (e.g. @targetchan)'
 										}
 										class={`flex-1 h-12 bg-[#08090D] rounded-[14px] px-4 text-[13px] text-white placeholder:text-white/30 outline-none transition-all border ${
 											targetChannel()
@@ -816,9 +950,9 @@ export const ManagedChannelsPage: Component = () => {
 												<span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 											}
 										>
-											<Show when={targetChannel()} fallback={<span>{t('managedChannels.check') || 'بررسی'}</span>}>
+											<Show when={targetChannel()} fallback={<span>{t('managedChannels.check') || 'Check'}</span>}>
 												<span class="material-symbols-outlined text-[18px]">done</span>
-												<span>{t('managedChannels.verified') || 'تایید'}</span>
+												<span>{t('managedChannels.verified') || 'Verified'}</span>
 											</Show>
 										</Show>
 									</button>
@@ -836,7 +970,7 @@ export const ManagedChannelsPage: Component = () => {
 													{targetChannel()?.chat_title}
 												</span>
 												<span class="text-[11px] font-medium text-[#10b981]">
-													{t('managedChannels.botIsAdmin') || 'ربات عضو و ادمین است 🟢'} ({targetChannel()?.subscribers_count || 0} {t('managedChannels.subscribers') || 'عضو'})
+													{t('managedChannels.botIsAdmin') || 'Bot is admin & member 🟢'} ({targetChannel()?.subscribers_count || 0} {t('managedChannels.subscribers') || 'subscribers'})
 												</span>
 											</div>
 										</div>
@@ -865,7 +999,7 @@ export const ManagedChannelsPage: Component = () => {
 									}
 								>
 									<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
-									<span>{t('managedChannels.createProjectBtn') || 'ساخت پروژه (۷۲ ساعت تست رایگان)'}</span>
+									<span>{t('managedChannels.createProjectBtn') || 'Create Project (72h Free Trial)'}</span>
 								</Show>
 							</button>
 						</form>
@@ -873,14 +1007,14 @@ export const ManagedChannelsPage: Component = () => {
 				</Motion.div>
 			</Show>
 
-			{/* ═══════ DELETE CHANNEL MODAL ═══════ */}
-			<Show when={channelToDelete()}>
+			{/* ═══════ DELETE PROJECT MODAL ═══════ */}
+			<Show when={projectToDelete()}>
 				<Motion.div
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					class="fixed inset-0 bg-[#030303]/90 backdrop-blur-2xl z-50 flex items-center justify-center px-5"
 					onClick={(e) => {
-						if (e.target === e.currentTarget && !isDeleting()) setChannelToDelete(null);
+						if (e.target === e.currentTarget && !isDeletingProject()) setProjectToDelete(null);
 					}}
 				>
 					<Motion.div
@@ -897,37 +1031,38 @@ export const ManagedChannelsPage: Component = () => {
 							</span>
 						</div>
 
-						<h3 class="text-[22px] font-black text-white mb-2 tracking-tight relative z-10">
-							{t('managedChannels.deleteConfirmTitle')}
+						<h3 class="text-[20px] font-black text-white mb-2 tracking-tight relative z-10">
+							{t('managedChannels.deleteProjectConfirmTitle') || 'Delete Project'}
 						</h3>
 						<p class="text-[13px] text-white/50 mb-8 leading-relaxed font-medium relative z-10 px-2">
-							{t('managedChannels.deleteConfirmDesc')}
+							{t('managedChannels.deleteProjectConfirmDesc') ||
+								'Are you sure you want to delete this project and stop auto-forwarding?'}
 						</p>
 
 						<div class="w-full flex flex-col gap-3 relative z-10">
 							<button
 								type="button"
-								onClick={handleDeleteChannel}
-								disabled={isDeleting()}
+								onClick={handleDeleteProject}
+								disabled={isDeletingProject()}
 								class="w-full h-14 rounded-[16px] font-black text-[14px] uppercase tracking-widest bg-[#ff4a4a] text-white hover:bg-[#ff3b30] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(255,74,74,0.3)] active:scale-95 border border-white/10"
 							>
 								<Show
-									when={!isDeleting()}
+									when={!isDeletingProject()}
 									fallback={
 										<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 									}
 								>
-									<span class="material-symbols-outlined text-[20px]">warning</span>{' '}
-									{t('managedChannels.delete')}
+									<span class="material-symbols-outlined text-[20px]">delete</span>{' '}
+									{t('managedChannels.delete') || 'Delete'}
 								</Show>
 							</button>
 							<button
 								type="button"
-								onClick={() => setChannelToDelete(null)}
-								disabled={isDeleting()}
+								onClick={() => setProjectToDelete(null)}
+								disabled={isDeletingProject()}
 								class="w-full h-14 rounded-[16px] font-bold text-[14px] uppercase tracking-widest bg-transparent text-white/60 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/5 transition-all disabled:opacity-50 active:scale-95"
 							>
-								{t('common.cancel')}
+								{t('common.cancel') || 'Cancel'}
 							</button>
 						</div>
 					</Motion.div>

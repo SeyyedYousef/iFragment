@@ -52,6 +52,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 	const [copiedAddress, setCopiedAddress] = createSignal<string | null>(null);
 	const [jumpPageInput, setJumpPageInput] = createSignal<string>('');
 	const [localMask, setLocalMask] = createSignal<string>('');
+	const [showRestrictedModal, setShowRestrictedModal] = createSignal<boolean>(false);
 	let maskDebounceTimer: any = null;
 
 	const handleMaskInput = (val: string) => {
@@ -521,11 +522,27 @@ export const NumbersTableView: Component<Props> = (props) => {
 																				{p.body || p.rawDigits}
 																			</span>
 																			<Show when={item.is_restricted}>
-																				<span
-																					class="text-[9px] px-1 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-sans leading-none flex items-center"
-																					title="Restricted / Banned on Telegram"
+																				<button
+																					type="button"
+																					onClick={(e) => {
+																						e.stopPropagation();
+																						try {
+																							haptic.impact('light');
+																						} catch {}
+																						setShowRestrictedModal(true);
+																					}}
+																					class="text-[9px] px-1 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-sans leading-none flex items-center hover:bg-rose-500/30 transition-colors"
+																					title="Restricted on Telegram (Click for details)"
 																				>
 																					<span class="material-symbols-outlined text-[10px]">warning</span>
+																				</button>
+																			</Show>
+																			<Show when={item.is_estimated}>
+																				<span
+																					class="text-[8px] font-mono px-1 py-0.5 rounded bg-amber-400/10 text-amber-300/80 border border-amber-400/20 leading-none select-none"
+																					title="Estimated data"
+																				>
+																					EST
 																				</span>
 																			</Show>
 																		</div>
@@ -735,6 +752,39 @@ export const NumbersTableView: Component<Props> = (props) => {
 					</Show>
 				</Show>
 			</div>
+
+			{/* Restricted Number Explanation Modal */}
+			<Show when={showRestrictedModal()}>
+				<div
+					class="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4"
+					onClick={() => setShowRestrictedModal(false)}
+				>
+					<div
+						class="bg-[#12141C] border border-rose-500/30 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<div class="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+							<span class="material-symbols-outlined text-2xl">warning</span>
+						</div>
+						<div>
+							<h3 class="text-base font-black text-white">
+								{t('numbers.restrictedTitle') || 'Telegram Restricted Number'}
+							</h3>
+							<p class="text-xs text-white/60 leading-relaxed mt-2">
+								{t('numbers.restrictedModalDesc') ||
+									'Restricted numbers were flagged by Telegram; they cannot receive SMS-based logins and typically trade at a 30–70% discount to floor. Ownership on TON blockchain remains 100% valid.'}
+							</p>
+						</div>
+						<button
+							type="button"
+							onClick={() => setShowRestrictedModal(false)}
+							class="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors"
+						>
+							{t('common.gotIt') || 'Got it'}
+						</button>
+					</div>
+				</div>
+			</Show>
 		</div>
 	);
 };

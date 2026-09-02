@@ -98,7 +98,7 @@ func WinsorizeComparables(sales []ComparableSale, pLow, pHigh float64) []Compara
 	return out
 }
 
-// CalcTimeDecayWeights computes exponential time-decay weights w_i = exp(-lambda * days_ago).
+// CalcTimeDecayWeights computes exponential time decay weights: w_i = exp(-lambda * days_ago)
 func CalcTimeDecayWeights(sales []ComparableSale, lambda float64, now time.Time) []float64 {
 	weights := make([]float64, len(sales))
 	for i, s := range sales {
@@ -111,19 +111,14 @@ func CalcTimeDecayWeights(sales []ComparableSale, lambda float64, now time.Time)
 	return weights
 }
 
-// CalcEffectiveSampleSize computes n_eff = (Sum w_i)^2 / Sum(w_i^2).
-// Returns 0 if no weights.
+// CalcEffectiveSampleSize computes Kish's Effective Sample Size:
+// n_eff = (sum w_i)^2 / sum(w_i^2)
 func CalcEffectiveSampleSize(weights []float64) float64 {
-	if len(weights) == 0 {
-		return 0
-	}
-
 	var sumW, sumW2 float64
 	for _, w := range weights {
 		sumW += w
 		sumW2 += w * w
 	}
-
 	if sumW2 == 0 {
 		return 0
 	}
@@ -153,6 +148,9 @@ func WeightedMedian(values, weights []float64) float64 {
 	for _, p := range pairs {
 		totalWeight += p.weight
 	}
+	if totalWeight <= 0 {
+		return pairs[0].value
+	}
 
 	halfWeight := totalWeight / 2.0
 	var cumWeight float64
@@ -171,7 +169,7 @@ func WeightedMedian(values, weights []float64) float64 {
 // WeightedMAD computes the Weighted Median Absolute Deviation in log-space.
 // MAD = WeightedMedian(|log(x_i) - median_log|, w_i)
 func WeightedMAD(logValues, weights []float64, medianLog float64) float64 {
-	if len(logValues) == 0 {
+	if len(logValues) == 0 || len(logValues) != len(weights) {
 		return 0
 	}
 
@@ -188,7 +186,7 @@ func WeightedMAD(logValues, weights []float64, medianLog float64) float64 {
 //
 //	Base_log = (n_eff / (n_eff + K)) * Median_exact + (K / (n_eff + K)) * Median_broad
 func BayesianShrinkage(exactMedianLog, broadMedianLog, nEff, K float64) float64 {
-	if nEff+K == 0 {
+	if nEff+K <= 0 {
 		return broadMedianLog
 	}
 	exactWeight := nEff / (nEff + K)
@@ -196,14 +194,12 @@ func BayesianShrinkage(exactMedianLog, broadMedianLog, nEff, K float64) float64 
 	return exactWeight*exactMedianLog + broadWeight*broadMedianLog
 }
 
-// LogPrices converts a set of comparable sales to log-space prices.
+// LogPrices converts a set of comparable sales to log-space prices, skipping invalid non-positive prices.
 func LogPrices(sales []ComparableSale) []float64 {
-	logPrices := make([]float64, len(sales))
-	for i, s := range sales {
-		if s.PriceTON <= 0 {
-			logPrices[i] = 0
-		} else {
-			logPrices[i] = math.Log(s.PriceTON)
+	logPrices := make([]float64, 0, len(sales))
+	for _, s := range sales {
+		if s.PriceTON > 0 {
+			logPrices = append(logPrices, math.Log(s.PriceTON))
 		}
 	}
 	return logPrices

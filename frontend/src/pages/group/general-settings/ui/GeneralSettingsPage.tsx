@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
-import { type Component, createResource, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';

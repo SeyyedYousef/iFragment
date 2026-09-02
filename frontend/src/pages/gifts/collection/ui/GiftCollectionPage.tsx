@@ -39,34 +39,31 @@ export const GiftCollectionPage: Component = () => {
 
 	const filteredCollections = createMemo(() => {
 		const q = searchQuery().toLowerCase().trim();
-		if (!q || !collectionsQuery.data) return collectionsQuery.data || [];
-		return collectionsQuery.data.filter(
-			(c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q),
-		);
+		const list = collectionsQuery.data || [];
+		if (!q) return list;
+		return list.filter((c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q));
 	});
 
-	const selectCollection = (collectionSlug: string) => {
-		navigate(`/gifts/collection?c=${encodeURIComponent(collectionSlug)}`);
+	const selectCollection = (newSlug: string) => {
+		navigate(`/gifts/collection?c=${newSlug}`, { replace: true });
 		setShowSearch(false);
+		setSearchQuery('');
 		try {
-			haptic.impact('light');
+			haptic.selection();
 		} catch {}
 	};
 
-	const copyContract = async (addr: string) => {
+	const copyContract = (addr?: string) => {
+		if (!addr) return;
 		try {
-			if (navigator.clipboard) {
-				await navigator.clipboard.writeText(addr);
-				setCopiedContract(true);
-				setTimeout(() => setCopiedContract(false), 2000);
-				try {
-					haptic.notify('success');
-				} catch {}
-			}
+			navigator.clipboard.writeText(addr);
+			setCopiedContract(true);
+			haptic.notify('success');
+			setTimeout(() => setCopiedContract(false), 2000);
 		} catch {}
 	};
 
-	const fmt = (val?: number, decimals = 1) => {
+	const fmt = (val?: number, decimals = 2) => {
 		if (val === undefined || val === null) return '0';
 		return val.toLocaleString('en-US', { maximumFractionDigits: decimals });
 	};
@@ -79,10 +76,11 @@ export const GiftCollectionPage: Component = () => {
 	};
 
 	const rarityTierBadge = (permille: number) => {
-		if (permille <= 10) return { label: 'Mythic', bg: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
-		if (permille <= 20) return { label: 'Legendary', bg: 'bg-[#0098EA]/20 text-[#0098EA] border-[#0098EA]/35' };
-		if (permille <= 50) return { label: 'Epic', bg: 'bg-sky-500/15 text-sky-300 border-sky-500/30' };
-		if (permille <= 150) return { label: 'Rare', bg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
+		if (permille <= 1) return { label: 'Mythic', bg: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
+		if (permille <= 5) return { label: 'Legendary', bg: 'bg-[#0098EA]/20 text-[#0098EA] border-[#0098EA]/35' };
+		if (permille <= 20) return { label: 'Epic', bg: 'bg-sky-500/15 text-sky-300 border-sky-500/30' };
+		if (permille <= 50) return { label: 'Rare', bg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
+		if (permille <= 150) return { label: 'Uncommon', bg: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' };
 		return { label: 'Common', bg: 'bg-white/5 text-white/50 border-white/10' };
 	};
 
@@ -102,12 +100,12 @@ export const GiftCollectionPage: Component = () => {
 						</button>
 						<div>
 							<h1 class="text-base font-black tracking-tight text-white flex items-center gap-2">
-								<span>{data()?.collection_name || 'کالکشن هدیه'}</span>
+								<span>{data()?.collection_name || t('gifts.giftCollection')}</span>
 								<span class="text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-[#0098EA]/15 text-[#0098EA] border border-[#0098EA]/30">
 									TEP-62
 								</span>
 							</h1>
-							<p class="text-[11px] font-medium text-white/40">اکوسیستم تحلیلی و مارکت‌پلیس‌های هدایا</p>
+							<p class="text-[11px] font-medium text-white/40">{t('gifts.collectionSubtitle')}</p>
 						</div>
 					</div>
 
@@ -134,7 +132,7 @@ export const GiftCollectionPage: Component = () => {
 								type="text"
 								value={searchQuery()}
 								onInput={(e) => setSearchQuery(e.currentTarget.value)}
-								placeholder="جستجوی نام کالکشن (مثلاً Plush Pepe, Santa Hat)..."
+								placeholder={t('gifts.searchPlaceholder')}
 								class="w-full pl-11 pr-4 py-3 bg-white/[0.04] border border-white/10 rounded-2xl text-white text-xs font-medium placeholder:text-white/30 focus:outline-none focus:border-[#0098EA]/50 transition-all"
 								autofocus
 							/>
@@ -156,7 +154,7 @@ export const GiftCollectionPage: Component = () => {
 										<div class="flex-1 text-left rtl:text-right min-w-0">
 											<div class="text-xs font-bold truncate text-white">{coll.name}</div>
 											<div class="text-[10px] text-white/40 font-medium">
-												تیراژ: {coll.total_supply.toLocaleString()} · ⭐ {fmt(coll.floor_gram)} TON
+												{t('gifts.supplyPrefix')} {coll.total_supply.toLocaleString()} · ⭐ {fmt(coll.floor_gram)} TON
 											</div>
 										</div>
 										<span class="material-symbols-outlined text-white/30 text-base rtl:rotate-180">chevron_right</span>
@@ -193,25 +191,25 @@ export const GiftCollectionPage: Component = () => {
 								<div class="flex flex-wrap gap-1.5 mb-2">
 									<Show when={data()!.is_limited}>
 										<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/25">
-											محدود (Limited)
+											{t('gifts.limited')}
 										</span>
 									</Show>
 									<Show when={!data()!.is_limited}>
 										<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-											نامحدود (Standard)
+											{t('gifts.standard')}
 										</span>
 									</Show>
 									<Show when={data()!.is_craftable}>
 										<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25">
-											🔥 کرافت‌پذیر
+											{t('gifts.craftable')}
 										</span>
 									</Show>
 								</div>
 								<div class="text-[11px] text-white/50 flex items-center gap-2 font-medium">
-									<span>تیراژ کل: <strong class="text-white">{data()!.total_supply.toLocaleString()}</strong></span>
+									<span>{t('gifts.totalSupplyLabel')} <strong class="text-white">{data()!.total_supply.toLocaleString()}</strong></span>
 									<span class="w-[1px] h-3 bg-white/10" />
 									<span class="text-emerald-400 font-bold">
-										{data()!.upgraded_count.toLocaleString()} ارتقا آن‌چین
+										{t('gifts.onChainUpgrades', { count: data()!.upgraded_count.toLocaleString() })}
 									</span>
 								</div>
 							</div>
@@ -219,67 +217,69 @@ export const GiftCollectionPage: Component = () => {
 
 						<div class="grid grid-cols-3 gap-2 pt-3 border-t border-white/[0.06] text-xs">
 							<div class="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-2.5 text-center">
-								<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">مدل‌های یکتا</span>
+								<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">{t('gifts.uniqueModels')}</span>
 								<span class="font-mono font-black text-white text-sm">{data()!.total_models || data()!.model_floors.length}</span>
 							</div>
 							<div class="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-2.5 text-center">
-								<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">پس‌زمینه‌ها</span>
+								<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">{t('gifts.backdrops')}</span>
 								<span class="font-mono font-black text-sky-400 text-sm">{data()!.total_backdrops || 60}</span>
 							</div>
 							<div class="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-2.5 text-center">
-								<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">سیمبل/پترن‌ها</span>
+								<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">{t('gifts.symbolsPatterns')}</span>
 								<span class="font-mono font-black text-amber-400 text-sm">{data()!.total_symbols || 200}</span>
 							</div>
 						</div>
 
 						<div class="bg-black/40 border border-white/[0.06] rounded-2xl p-3 flex items-center justify-between text-xs">
 							<div class="min-w-0 flex-1 pr-2 rtl:pr-0 rtl:pl-2">
-								<span class="text-[9px] uppercase font-bold text-white/40 block">شناسه قرارداد آن‌چین TEP-62</span>
+								<span class="text-[9px] uppercase font-bold text-white/40 block">{t('gifts.contractId')}</span>
 								<span class="font-mono text-white/70 text-[11px] block truncate mt-0.5">
-									{data()!.contract_address || '5936013938331222567'}
+									{data()!.contract_address || t('gifts.contractNotRegistered')}
 								</span>
 							</div>
-							<div class="flex items-center gap-1.5 shrink-0">
-								<button
-									type="button"
-									onClick={() => copyContract(data()!.contract_address || '5936013938331222567')}
-									class="px-2.5 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-[10px] font-bold flex items-center gap-1 transition-all"
-								>
-									<span class="material-symbols-outlined text-xs">
-										{copiedContract() ? 'check' : 'content_copy'}
-									</span>
-									<span>{copiedContract() ? 'کپی شد' : 'کپی'}</span>
-								</button>
-								<a
-									href={`https://tonviewer.com/${data()!.contract_address || '5936013938331222567'}`}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="px-2.5 py-1.5 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 text-[10px] font-bold flex items-center gap-1 transition-all"
-								>
-									<span>TonViewer</span>
-									<span class="material-symbols-outlined text-xs">open_in_new</span>
-								</a>
-							</div>
+							<Show when={data()!.contract_address}>
+								<div class="flex items-center gap-1.5 shrink-0">
+									<button
+										type="button"
+										onClick={() => copyContract(data()!.contract_address)}
+										class="px-2.5 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-[10px] font-bold flex items-center gap-1 transition-all"
+									>
+										<span class="material-symbols-outlined text-xs">
+											{copiedContract() ? 'check' : 'content_copy'}
+										</span>
+										<span>{copiedContract() ? t('gifts.copied') : t('gifts.copy')}</span>
+									</button>
+									<a
+										href={`https://tonviewer.com/${data()!.contract_address}`}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="px-2.5 py-1.5 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 text-[10px] font-bold flex items-center gap-1 transition-all"
+									>
+										<span>TonViewer</span>
+										<span class="material-symbols-outlined text-xs">open_in_new</span>
+									</a>
+								</div>
+							</Show>
 						</div>
 					</div>
 
 					<div class="grid grid-cols-3 gap-2.5 mb-4">
 						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-2xl p-3 text-center">
-							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">کف قیمت</span>
+							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">{t('gifts.floorPrice')}</span>
 							<div class="text-base font-black text-white font-mono">{fmt(data()!.best_floor_gram)} TON</div>
 							<span class="text-[10px] text-white/40 font-mono block mt-0.5">{fmtUsd(data()!.best_floor_usd)}</span>
 						</div>
 
 						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-2xl p-3 text-center">
-							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">حجم ۲۴ ساعت</span>
+							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">{t('gifts.volume24h')}</span>
 							<div class="text-base font-black text-white font-mono">{fmtUsd(data()!.volume_24h_usd)}</div>
 							<span class="text-[10px] text-white/40 font-mono block mt-0.5">{fmt(data()!.volume_24h_gram, 0)} TON</span>
 						</div>
 
 						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-2xl p-3 text-center">
-							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">ارزش کل بازار</span>
+							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">{t('gifts.marketCap')}</span>
 							<div class="text-base font-black text-white font-mono">{fmtUsd(data()!.market_cap_usd)}</div>
-							<span class="text-[10px] text-emerald-400 font-bold block mt-0.5">{data()!.listed_count} آیتم فعال</span>
+							<span class="text-[10px] text-emerald-400 font-bold block mt-0.5">{t('gifts.activeItemsCount', { count: data()!.listed_count })}</span>
 						</div>
 					</div>
 
@@ -298,7 +298,7 @@ export const GiftCollectionPage: Component = () => {
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
-							مدل‌ها ({data()!.model_floors.length})
+							{t('gifts.tabModels')} ({data()!.model_floors.length})
 						</button>
 
 						<button
@@ -315,7 +315,7 @@ export const GiftCollectionPage: Component = () => {
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
-							مارکت‌پلیس‌ها
+							{t('gifts.tabVenues')}
 						</button>
 
 						<button
@@ -332,7 +332,7 @@ export const GiftCollectionPage: Component = () => {
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
-							رنگ پس‌زمینه‌ها
+							{t('gifts.tabBackdrops')}
 						</button>
 
 						<button
@@ -349,7 +349,7 @@ export const GiftCollectionPage: Component = () => {
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
-							ماتریس نایابی
+							{t('gifts.tabHeatmap')}
 						</button>
 					</div>
 
@@ -358,9 +358,9 @@ export const GiftCollectionPage: Component = () => {
 							<div class="flex items-center justify-between pb-2 mb-1 border-b border-white/[0.06]">
 								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-[#0098EA] text-base">grid_view</span>
-									<span>فهرست مدل‌های ثبت‌شده</span>
+									<span>{t('gifts.registeredModelsList')}</span>
 								</h3>
-								<span class="text-[10px] text-white/40 font-medium">روی هر مدل بزنید</span>
+								<span class="text-[10px] text-white/40 font-medium">{t('gifts.clickModelHint')}</span>
 							</div>
 
 							<div class="divide-y divide-white/[0.04]">
@@ -396,9 +396,9 @@ export const GiftCollectionPage: Component = () => {
 														</Show>
 													</div>
 													<div class="text-[10px] text-white/40 flex items-center gap-2 mt-0.5">
-														<span>تیراژ: {model.total_supply.toLocaleString()}</span>
+														<span>{t('gifts.supplyPrefix')} {model.total_supply.toLocaleString()}</span>
 														<span class="w-[1px] h-2.5 bg-white/10" />
-														<span>نایابی: {(model.rarity_permille / 10).toFixed(1)}%</span>
+														<span>{t('gifts.rarityPrefix')} {(model.rarity_permille / 10).toFixed(1)}%</span>
 													</div>
 												</div>
 
@@ -423,7 +423,7 @@ export const GiftCollectionPage: Component = () => {
 							<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-[#0098EA] text-base">storefront</span>
-									<span>کف قیمت در مارکت‌پلیس‌ها</span>
+									<span>{t('gifts.venueFloorTitle')}</span>
 								</h3>
 							</div>
 
@@ -444,7 +444,7 @@ export const GiftCollectionPage: Component = () => {
 															</span>
 														</Show>
 													</div>
-													<span class="text-[10px] text-white/40">کارمزد: {venue.fee_pct}%</span>
+													<span class="text-[10px] text-white/40">{t('gifts.venueFeePrefix')} {venue.fee_pct}%</span>
 												</div>
 											</div>
 
@@ -453,7 +453,7 @@ export const GiftCollectionPage: Component = () => {
 													⭐ {fmt(venue.floor_gram)} TON
 												</div>
 												<span class="text-[10px] text-emerald-400 font-mono font-medium block">
-													خالص: {fmt(venue.net_payout_gram)} TON
+													{t('gifts.netPayoutPrefix')} {fmt(venue.net_payout_gram)} TON
 												</span>
 											</div>
 										</div>
@@ -468,7 +468,7 @@ export const GiftCollectionPage: Component = () => {
 							<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-[#0098EA] text-base">palette</span>
-									<span>پالت پس‌زمینه‌های رنگی</span>
+									<span>{t('gifts.colorBackdropsPalette')}</span>
 								</h3>
 							</div>
 
@@ -505,7 +505,7 @@ export const GiftCollectionPage: Component = () => {
 							<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-[#0098EA] text-base">heat_pump</span>
-									<span>ماتریس نایابی مدل × پس‌زمینه</span>
+									<span>{t('gifts.rarityHeatmapTitle')}</span>
 								</h3>
 							</div>
 
@@ -515,7 +515,7 @@ export const GiftCollectionPage: Component = () => {
 										<div class="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-3 flex items-center justify-between text-xs">
 											<div>
 												<span class="font-bold text-white block truncate">{cell.model_name}</span>
-												<span class="text-[10px] text-white/40 block mt-0.5">پس‌زمینه: {cell.backdrop_name}</span>
+												<span class="text-[10px] text-white/40 block mt-0.5">{t('gifts.backdropPrefix')} {cell.backdrop_name}</span>
 											</div>
 
 											<div class="text-right rtl:text-left shrink-0">
@@ -537,10 +537,10 @@ export const GiftCollectionPage: Component = () => {
 							<div class="flex items-center justify-between">
 								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-amber-400 text-base">timer</span>
-									<span>حراج هلندی ارتقا به NFT</span>
+									<span>{t('gifts.dutchAuctionTitle')}</span>
 								</h3>
 								<span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-									کاهش پلکانی قیمت
+									{t('gifts.staircasePriceReduction')}
 								</span>
 							</div>
 
@@ -552,7 +552,7 @@ export const GiftCollectionPage: Component = () => {
 												? 'bg-[#0098EA]/15 border-[#0098EA]/40 text-white'
 												: 'bg-white/[0.02] border-white/[0.05] text-white/70'
 										}`}>
-											<span class="text-[9px] text-white/40 block font-bold">پله {step.step}</span>
+											<span class="text-[9px] text-white/40 block font-bold">{t('gifts.stepPrefix', { step: step.step })}</span>
 											<span class="font-black text-white font-mono text-xs block mt-0.5">
 												{step.price_stars.toLocaleString()} ⭐
 											</span>
@@ -569,13 +569,13 @@ export const GiftCollectionPage: Component = () => {
 					{/* ═══ 5. Footer & Official Attribution ═══ */}
 					<div class="mt-6 text-center text-[10px] text-white/30 font-medium space-y-1.5 pb-4">
 						<div class="flex items-center justify-center gap-2">
-							<span>Powered by @iFragmentBot</span>
+							<span>{t('gifts.poweredBy')}</span>
 							<span>·</span>
 							<span class="px-2 py-0.5 bg-white/[0.04] border border-white/[0.06] rounded-full text-white/50 font-bold">
-								Thanks to @GiftChanges
+								{t('gifts.thanksTo')}
 							</span>
 						</div>
-						<p class="text-white/20">داده‌های قراردادهای آن‌چین TEP-62 و متادیتای رسمی کاتالوگ تلگرام</p>
+						<p class="text-white/20">{t('gifts.officialAttribution')}</p>
 					</div>
 				</Show>
 			</div>

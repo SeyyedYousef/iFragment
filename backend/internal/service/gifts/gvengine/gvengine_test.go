@@ -123,6 +123,7 @@ func TestGVEngine_MonteCarloCraftingSimulation(t *testing.T) {
 
 func TestGVEngine_ValuationInvariantsAndMonotonicity(t *testing.T) {
 	engine := NewValuationEngine(nil, nil, nil)
+	engine.SetNFTResolver(nil) // Deterministic isolated traits for pure monotonicity proof
 	ctx := context.Background()
 
 	models := []string{"durov_cap", "plush_pepe", "snoop_dogg", "golden_star", "cyber_heart"}

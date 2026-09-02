@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -39,6 +40,8 @@ type GiftsService struct {
 	cryptoPrice        *cryptoprice.CryptoPriceService
 	tgClient           *telegram.BotAPIClient
 	giftchangesClient  *giftchanges.Client
+	snapshotWorker     *venues.VenueSnapshotWorker
+	workerOnce         sync.Once
 }
 
 func NewGiftsService(
@@ -64,8 +67,12 @@ func (s *GiftsService) SetTelegramClient(tg *telegram.BotAPIClient) {
 	s.tgClient = tg
 }
 
+// GetSnapshotWorker returns singleton instance of snapshot worker
 func (s *GiftsService) GetSnapshotWorker() *venues.VenueSnapshotWorker {
-	return venues.NewVenueSnapshotWorker(s.repo, s.cryptoPrice, 3*time.Minute)
+	s.workerOnce.Do(func() {
+		s.snapshotWorker = venues.NewVenueSnapshotWorker(s.repo, s.cryptoPrice, 3*time.Minute)
+	})
+	return s.snapshotWorker
 }
 
 // GiftsIntelResponse holds the public market intelligence overview
@@ -81,7 +88,7 @@ type GiftsIntelResponse struct {
 	UpgradePriceClock        []UpgradeClockItem      `json:"upgrade_price_clock"`
 	TrendingModels           []TrendingModelItem     `json:"trending_models"`
 	EndingSoonAuctions       []GiftAuctionItem       `json:"ending_soon_auctions"`
-	DataStatus               string                  `json:"data_status"` // "live" or "insufficient_data"
+	DataStatus               string                  `json:"data_status"` // "live", "estimated", "unavailable"
 	UpdatedAt                string                  `json:"updated_at"`
 }
 
@@ -181,16 +188,16 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 	_, fngLabel, fngIndex := avm.GetFearAndGreedMultiplier()
 	now := time.Now().UTC()
 
-	totalMinted := 9_000_000
-	activeWallets := 520_000
-	totalVolume := 320_000_000.0
-	totalMarketCap := 128_000_000.0
+	totalMinted := 0
+	activeWallets := 0
+	totalVolume := 0.0
+	totalMarketCap := 0.0
 
 	// Query live aggregate stats from api.changes.tg if available
 	if s.giftchangesClient != nil {
 		if stats, err := s.giftchangesClient.GetTotal(ctx); err == nil && stats != nil {
 			if stats.Gifts.Total > 0 {
-				totalMinted = stats.Gifts.Total * 60_000 // Approximate circulating items across 149 gifts
+				totalMinted = stats.Gifts.Total
 			}
 		}
 	}
@@ -207,7 +214,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 		UpgradePriceClock:        []UpgradeClockItem{},
 		TrendingModels:           []TrendingModelItem{},
 		EndingSoonAuctions:       []GiftAuctionItem{},
-		DataStatus:               "estimated",
+		DataStatus:               "unavailable",
 		UpdatedAt:                now.Format(time.RFC3339),
 	}
 
@@ -348,7 +355,7 @@ func (s *GiftsService) ValuateGift(ctx context.Context, userID int64, raw string
 	return s.engine.Valuate(ctx, raw)
 }
 
-// UnlockWithCoins unlocks report using Airdrop coins strictly and persists purchase record
+// UnlockWithCoins unlocks report using Airdrop coins strictly and persists purchase record with idempotency
 func (s *GiftsService) UnlockWithCoins(ctx context.Context, userID int64, raw string) (*gvengine.GiftValuation, error) {
 	ref, err := gvengine.NormalizeGiftIdentifier(raw)
 	if err != nil {
@@ -373,24 +380,27 @@ func (s *GiftsService) UnlockWithCoins(ctx context.Context, userID int64, raw st
 			return nil, ErrInsufficientCoins
 		}
 
+		val, err := s.engine.Valuate(ctx, raw)
+		if err != nil {
+			return nil, err
+		}
+
+		// Persist purchased report within transaction
+		snapJSON, _ := json.Marshal(val)
+		fairNano := val.ExpectedGRAM.Mul(decimal.NewFromInt(1e9)).IntPart()
+		_, err = s.repo.SaveGiftReport(ctx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON)
+		if err != nil {
+			return nil, err
+		}
+
 		if err := tx.Commit(ctx); err != nil {
 			return nil, err
 		}
+
+		return val, nil
 	}
 
-	val, err := s.engine.Valuate(ctx, raw)
-	if err != nil {
-		return nil, err
-	}
-
-	// Persist purchased report
-	if userID > 0 {
-		snapJSON, _ := json.Marshal(val)
-		fairNano := val.ExpectedGRAM.Mul(decimal.NewFromInt(1e9)).IntPart()
-		_, _ = s.repo.SaveGiftReport(ctx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON)
-	}
-
-	return val, nil
+	return s.engine.Valuate(ctx, raw)
 }
 
 // UnlockWithCredit unlocks report using 1 shared Intel Credit with strict atomic check and persists purchase
@@ -434,7 +444,7 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 		return nil, fmt.Errorf("username is required")
 	}
 
-	// 10-Minute Rate Limit Check per caller (prevents target lockout griefing)
+	// 10-Minute Rate Limit Check per caller (prevents target lockout griefing, allows self-scan)
 	if s.cache != nil && s.cache.Client != nil {
 		if callerKey == "" {
 			callerKey = cleanUser
@@ -484,23 +494,39 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 				seenGifts[gID] = true
 
 				col, _ := traits.ResolveCollection(g.Model)
-				valGRAM := col.InitialFloorGRAM
-				if valGRAM <= 0 {
-					valGRAM = 20.0
+				valGRAM := 0.0
+
+				// Check live snapshot floor from repo
+				if s.repo != nil {
+					if snaps, err := s.repo.GetVenueSnapshots(ctx, col.ModelID); err == nil && len(snaps) > 0 {
+						for _, snap := range snaps {
+							f, _ := snap.FloorPriceGRAM.Float64()
+							if f > 0 && (valGRAM == 0 || f < valGRAM) {
+								valGRAM = f
+							}
+						}
+					}
 				}
+
+				// Apply serial number rarity factor
+				if valGRAM > 0 && g.Number > 0 {
+					_, isElite, _ := traits.CalculateSerialPercentile(int(g.Number), col.TotalSupply)
+					if isElite {
+						valGRAM *= 1.5
+					}
+				}
+
 				if g.LastResaleAmount > 0 {
 					historicalInvested += g.LastResaleAmount
-				} else {
-					historicalInvested += valGRAM * 0.8
 				}
 
 				totalGRAM += valGRAM
 				modelCounts[col.ModelID]++
 				modelValues[col.ModelID] += valGRAM
 
-				rarity := "Measured"
+				rarity := "Common"
 				if g.Rarity > 0 {
-					rarity = "Exact"
+					rarity = traits.ClassifyRarityTier(g.Rarity)
 				}
 
 				items = append(items, PortfolioItemSummary{
@@ -536,7 +562,6 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 					seenGifts[gID] = true
 					valGRAM := float64(fNano) / 1e9
 					totalGRAM += valGRAM
-					historicalInvested += valGRAM * 0.85
 					col, _ := traits.ResolveCollection(mID)
 					modelCounts[col.ModelID]++
 					modelValues[col.ModelID] += valGRAM
@@ -613,6 +638,10 @@ func (s *GiftsService) GetUpgradeAdvice(ctx context.Context, raw string) (*upgra
 	}
 
 	col, _ := traits.ResolveCollection(ref.ModelID)
+	supply := col.TotalSupply
+	if supply <= 0 {
+		supply = 5000
+	}
 
 	gramUsdRate := 5.50
 	if s.cryptoPrice != nil {
@@ -621,7 +650,7 @@ func (s *GiftsService) GetUpgradeAdvice(ctx context.Context, raw string) (*upgra
 		}
 	}
 
-	return upgrade.GenerateUpgradeAdvice(ctx, ref.GiftID, ref.ModelID, col.BaseStarsPrice, gramUsdRate), nil
+	return upgrade.GenerateUpgradeAdvice(ctx, ref.GiftID, ref.ModelID, supply, gramUsdRate), nil
 }
 
 // ToggleWatchlist enables notification alerts (Sacred Rule 4: only allowed if report purchased)
@@ -647,10 +676,6 @@ func (s *GiftsService) GetWatchlist(ctx context.Context, userID int64) ([]reposi
 	return s.repo.GetWatchlist(ctx, userID)
 }
 
-func round2(v float64) float64 {
-	return math.Round(v*100.0) / 100.0
-}
-
 // GetGiftImageBytes returns cached PNG image bytes for a given gift and optional model
 func (s *GiftsService) GetGiftImageBytes(ctx context.Context, slug, model string) ([]byte, error) {
 	if s.giftchangesClient == nil {
@@ -658,4 +683,3 @@ func (s *GiftsService) GetGiftImageBytes(ctx context.Context, slug, model string
 	}
 	return s.giftchangesClient.GetGiftImageBytes(ctx, slug, model)
 }
-

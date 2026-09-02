@@ -1,9 +1,9 @@
 package avm
 
 // ModelVersion defines the active mathematical model version for the AVM engine.
-// Bumped to v7.0: includes adaptive uncertainty, rent yield floor, quantile blend range,
-// unicode confusable homoglyph analysis, and expanded 150+ brand trademarks.
-const ModelVersion = "avm_v7.0_adaptive_calibrated"
+// Bumped to v8.0 Ultra: includes Dynamic Market-Elastic Floors (DMEF), In-Memory Multi-Domain Lexicon,
+// Deep Visual & Typo-Squatting Phishing Matrix, Game-Theoretic Auction Playbook, and Zero-Failure Resilience.
+const ModelVersion = "avm_v8.0_ultra_master"
 
 // EngineConfig holds all hyperparameters for the AVM math engine.
 // Every parameter is documented with its mathematical purpose, econometric rationale,

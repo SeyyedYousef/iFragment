@@ -23,9 +23,11 @@ type DatamuseResponse struct {
 
 var (
 	// In-memory cache to avoid repeated HTTP calls for the same username
-	wordCache  = make(map[string]float64)
-	cacheMutex sync.RWMutex
-	httpClient = &http.Client{Timeout: 500 * time.Millisecond}
+	wordCache       = make(map[string]float64)
+	cacheMutex      sync.RWMutex
+	httpClient      = &http.Client{Timeout: 350 * time.Millisecond}
+	consecutiveFails int
+	disabledUntil   time.Time
 
 	// DisableDatamuseNetwork can be toggled in unit tests to prevent network I/O latency
 	DisableDatamuseNetwork = false
@@ -45,43 +47,54 @@ func GetWordFrequency(word string) float64 {
 		return 0
 	}
 
-	// 1. Check local frequency table first
+	// 1. Check local frequency table first (O(1), zero network cost)
 	if rank := RankWord(word); rank > 0 {
 		return math.Max(5.0, 5000.0/float64(rank))
 	}
 
-	// 2. Check Cache
+	// 2. Check Cache & Circuit Breaker
 	cacheMutex.RLock()
 	freq, exists := wordCache[word]
+	isDisabled := DisableDatamuseNetwork || time.Now().Before(disabledUntil)
 	cacheMutex.RUnlock()
 	if exists {
 		return freq
 	}
 
-	if DisableDatamuseNetwork {
+	if isDisabled {
 		return 0
 	}
 
-
-	// 3. Fetch from Datamuse with negative caching
+	// 3. Fetch from Datamuse with negative caching and circuit breaker
 	url := fmt.Sprintf("https://api.datamuse.com/words?sp=%s&max=1&md=f", word)
 	resp, err := httpClient.Get(url)
 	if err != nil {
-		slog.Warn("Datamuse API fetch failed", "word", word, "error", err)
 		cacheMutex.Lock()
 		wordCache[word] = 0
+		consecutiveFails++
+		if consecutiveFails >= 2 {
+			disabledUntil = time.Now().Add(5 * time.Minute)
+			slog.Warn("Datamuse circuit breaker tripped — falling back to in-memory lexicon for 5m", "fails", consecutiveFails)
+		}
 		cacheMutex.Unlock()
 		return 0
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		slog.Warn("Datamuse API returned non-200", "word", word, "status", resp.StatusCode)
 		cacheMutex.Lock()
 		wordCache[word] = 0
+		consecutiveFails++
+		if consecutiveFails >= 2 {
+			disabledUntil = time.Now().Add(5 * time.Minute)
+		}
 		cacheMutex.Unlock()
 		return 0
 	}
+
+	cacheMutex.Lock()
+	consecutiveFails = 0
+	cacheMutex.Unlock()
 
 
 	body, err := io.ReadAll(resp.Body)

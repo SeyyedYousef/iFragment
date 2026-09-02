@@ -282,7 +282,7 @@ export const GiftsGlobalHeatmap: Component = () => {
 			link.download = `ifragment_telegram_gifts_heatmap_${timeframe()}_${metric()}.png`;
 			link.href = dataUrl;
 			link.click();
-			haptic.notification('success');
+			haptic.notify('success');
 		} catch (err) {
 			console.error('Heatmap download error:', err);
 		} finally {

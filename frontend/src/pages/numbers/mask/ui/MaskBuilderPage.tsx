@@ -14,6 +14,7 @@ export const MaskBuilderPage: Component = () => {
 	const [slots8, setSlots8] = createSignal<string[]>(['8', '8', '8', '8', '*', '*', '*', '*']);
 	const [slots4, setSlots4] = createSignal<string[]>(['8', '8', '8', '8']);
 	const [filterStatus, setFilterStatus] = createSignal<'all' | 'for_sale' | 'taken'>('all');
+	const [genesisWarning, setGenesisWarning] = createSignal<boolean>(false);
 
 	const PRESET_PATTERNS_8 = [
 		{ label: 'Quad 8888 Prefix', mask: ['8', '8', '8', '8', '*', '*', '*', '*'] },
@@ -85,6 +86,11 @@ export const MaskBuilderPage: Component = () => {
 				// In 4-digit mode, first digit must be 8 for Telegram genesis
 				if (lengthMode() === '4' && index === 0 && char !== '8') {
 					current[index] = '8';
+					setGenesisWarning(true);
+					setTimeout(() => setGenesisWarning(false), 3000);
+					try {
+						haptic.notify('warning');
+					} catch {}
 				} else {
 					current[index] = char;
 				}
@@ -273,6 +279,13 @@ export const MaskBuilderPage: Component = () => {
 							)}
 						</For>
 					</div>
+
+					<Show when={genesisWarning()}>
+						<div class="mb-3 px-3 py-2 rounded-xl bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs flex items-center gap-2 animate-pulse">
+							<span class="material-symbols-outlined text-sm">info</span>
+							<span>{t('numbers.genesisWarning') || 'Genesis numbers always start with 8 (+888 8XXX)'}</span>
+						</div>
+					</Show>
 
 					{/* Quick Preset Pattern Chips */}
 					<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">

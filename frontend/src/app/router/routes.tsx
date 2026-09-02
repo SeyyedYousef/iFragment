@@ -176,6 +176,9 @@ const UsernamePage = lazy(() =>
 const NumbersIntelPage = lazy(() =>
 	import('@/pages/numbers/intel/index.js').then((m) => ({ default: m.NumbersIntelPage })),
 );
+const NumbersCollectionPage = lazy(() =>
+	import('@/pages/numbers/collection/index.js').then((m) => ({ default: m.NumbersCollectionPage })),
+);
 const NumberReportPage = lazy(() =>
 	import('@/pages/numbers/report/index.js').then((m) => ({ default: m.NumberReportPage })),
 );
@@ -318,6 +321,7 @@ export const routes: Route[] = [
 	{ path: '/username/report', Component: UsernamePage },
 	{ path: '/numbers', Component: NumbersIntelPage },
 	{ path: '/numbers/intel', Component: NumbersIntelPage },
+	{ path: '/numbers/collection', Component: NumbersCollectionPage },
 	{ path: '/numbers/report', Component: NumberReportPage },
 	{ path: '/numbers/valuation', Component: NumberReportPage },
 	{ path: '/numbers/mask', Component: MaskBuilderPage },

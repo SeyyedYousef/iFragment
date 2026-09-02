@@ -6,7 +6,7 @@ import {
 	HistogramSeries,
 	type IChartApi,
 	type ISeriesApi,
-	LineType,
+	LineStyle,
 } from 'lightweight-charts';
 import {
 	type Component,
@@ -177,13 +177,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 				vertLine: {
 					color: '#0098EA',
 					width: 1,
-					style: LineType.Dashed,
+					style: LineStyle.Dashed,
 					labelBackgroundColor: '#0098EA',
 				},
 				horzLine: {
 					color: '#0098EA',
 					width: 1,
-					style: LineType.Dashed,
+					style: LineStyle.Dashed,
 					labelBackgroundColor: '#0098EA',
 				},
 			},

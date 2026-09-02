@@ -3,19 +3,23 @@ package venues
 import (
 	"context"
 	"log/slog"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/shopspring/decimal"
+	"golang.org/x/sync/errgroup"
 
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts/traits"
 )
 
-// VenueSnapshotWorker periodically refreshes floor prices and volume snapshots for all gift models across the 6 marketplaces
+// VenueSnapshotWorker periodically refreshes floor prices and volume snapshots across all supported marketplaces
 type VenueSnapshotWorker struct {
 	repo        *repository.GiftsRepo
 	cryptoPrice *cryptoprice.CryptoPriceService
+	adapters    []VenueAdapter
 	interval    time.Duration
 }
 
@@ -30,13 +34,19 @@ func NewVenueSnapshotWorker(
 	return &VenueSnapshotWorker{
 		repo:        repo,
 		cryptoPrice: cryptoPrice,
-		interval:    interval,
+		adapters: []VenueAdapter{
+			NewFragmentAdapter(),
+			NewGetgemsAdapter(),
+			NewMarketAppAdapter(),
+			NewTelegramStarsAdapter(cryptoPrice),
+		},
+		interval: interval,
 	}
 }
 
 // Start begins periodic snapshot aggregation
 func (w *VenueSnapshotWorker) Start(ctx context.Context) {
-	slog.Info("Starting VenueSnapshotWorker for Telegram Gifts", "interval", w.interval)
+	slog.Info("Starting real-data VenueSnapshotWorker for Telegram Gifts", "interval", w.interval)
 
 	// Initial sync immediately
 	w.syncSnapshots(ctx)
@@ -60,72 +70,80 @@ func (w *VenueSnapshotWorker) syncSnapshots(ctx context.Context) {
 		return
 	}
 
-	gramUsdRate := 5.50
-	if w.cryptoPrice != nil {
-		if rate, ok := w.cryptoPrice.GetFloatPrice("the-open-network"); ok && rate > 0 {
-			gramUsdRate = rate
-		}
-	}
-
-	// Iterate all catalog collections from live 24h DynamicCatalog
 	allCols := traits.GetGlobalCatalog().GetAllCollections()
-	for _, col := range allCols {
-		modelID := col.ModelID
-		baseFloor := col.InitialFloorGRAM
-
-		// Market spread variances across the 7 venues
-		venueFloors := map[VenueID]struct {
-			factor float64
-			vol7d  float64
-			active int
-		}{
-			VenueFragment:      {factor: 1.04, vol7d: baseFloor * 850, active: 45},
-			VenueGetgems:       {factor: 1.00, vol7d: baseFloor * 720, active: 88},
-			VenueMarketApp:     {factor: 1.01, vol7d: baseFloor * 490, active: 38},
-			VenueMRKT:          {factor: 1.02, vol7d: baseFloor * 410, active: 32},
-			VenuePortals:       {factor: 0.98, vol7d: baseFloor * 300, active: 18},
-			VenueTonnel:        {factor: 0.95, vol7d: baseFloor * 120, active: 12},
-			VenueTelegramStars: {factor: 1.06, vol7d: baseFloor * 600, active: 95},
-		}
-
-		for vID, data := range venueFloors {
-			vInfo, exists := Registry[vID]
-			feePct := 5.0
-			hasRealBadge := false
-			currency := "GRAM"
-
-			if exists {
-				feePct = vInfo.ProtocolFeePct
-				hasRealBadge = vInfo.HasRealVolumeBadge
-				currency = vInfo.Currency
-			}
-
-			flGram := baseFloor * data.factor
-			flRaw := flGram
-			if currency == "Stars" {
-				// Use dynamic peg: gram * gramUsdRate * 50 Stars/USD
-				flRaw = float64(int(flGram * gramUsdRate * 50.0))
-			}
-
-			vol24h := data.vol7d / 7.0
-
-			rec := repository.VenueSnapshotRecord{
-				ModelID:            modelID,
-				Venue:              string(vID),
-				FloorPriceRaw:      decimal.NewFromFloat(flRaw),
-				FloorPriceGRAM:     decimal.NewFromFloat(flGram),
-				Currency:           currency,
-				Volume24hGRAM:      decimal.NewFromFloat(vol24h),
-				Volume7dGRAM:       decimal.NewFromFloat(data.vol7d),
-				ActiveListings:     data.active,
-				VenueFeePct:        decimal.NewFromFloat(feePct),
-				HasRealVolumeBadge: hasRealBadge,
-				UpdatedAt:          time.Now().UTC(),
-			}
-
-			_ = w.repo.UpsertVenueSnapshot(ctx, rec)
-		}
+	if len(allCols) == 0 {
+		return
 	}
 
-	_ = gramUsdRate
+	slog.Info("VenueSnapshotWorker: Refreshing live marketplace snapshots...", "collections_count", len(allCols))
+
+	// Rate-limited sync worker pool
+	sem := make(chan struct{}, 6) // Max 6 concurrent requests
+	var wg sync.WaitGroup
+
+	for _, col := range allCols {
+		col := col
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			w.syncOneCollection(ctx, col.ModelID)
+		}()
+	}
+
+	wg.Wait()
+	slog.Info("VenueSnapshotWorker: Snapshot sync cycle completed")
+}
+
+func (w *VenueSnapshotWorker) syncOneCollection(ctx context.Context, modelID string) {
+	slug := strings.ReplaceAll(modelID, "_", "-")
+	g, gctx := errgroup.WithContext(ctx)
+
+	type snapResult struct {
+		vID  VenueID
+		res  *VenueFloorResult
+		fees decimal.Decimal
+	}
+
+	results := make(chan snapResult, len(w.adapters))
+
+	for _, adapter := range w.adapters {
+		adapter := adapter
+		g.Go(func() error {
+			floorRes, err := adapter.FetchFloor(gctx, slug)
+			if err == nil && floorRes != nil && !floorRes.FloorPriceGRAM.IsZero() {
+				results <- snapResult{
+					vID:  adapter.ID(),
+					res:  floorRes,
+					fees: adapter.ProtocolFeePct(),
+				}
+			}
+			return nil
+		})
+	}
+
+	_ = g.Wait()
+	close(results)
+
+	for r := range results {
+		rec := repository.VenueSnapshotRecord{
+			ModelID:            modelID,
+			Venue:              string(r.vID),
+			FloorPriceRaw:      r.res.FloorPriceRaw,
+			FloorPriceGRAM:     r.res.FloorPriceGRAM,
+			Currency:           r.res.Currency,
+			Volume24hGRAM:      decimal.Zero,
+			Volume7dGRAM:       decimal.Zero,
+			ActiveListings:     r.res.ActiveListings,
+			VenueFeePct:        r.fees,
+			HasRealVolumeBadge: true,
+			UpdatedAt:          time.Now().UTC(),
+		}
+
+		if err := w.repo.UpsertVenueSnapshot(ctx, rec); err != nil {
+			slog.Warn("Failed to upsert venue snapshot", "model_id", modelID, "venue", r.vID, "error", err)
+		}
+	}
 }

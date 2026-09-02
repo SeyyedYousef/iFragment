@@ -5,12 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"github.com/go-chi/chi/v5"
 
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/service/gifts"
 	"ifragment-backend/internal/service/gifts/crafting"
+)
+
+var (
+	slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
 )
 
 type GiftsHandler struct {
@@ -255,7 +260,12 @@ func (h *GiftsHandler) GetCollectionIntel(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 	slug := r.URL.Query().Get("c")
 	if slug == "" {
-		slug = "plush_pepe"
+		RespondError(w, r, http.StatusBadRequest, "collection parameter 'c' is required", nil)
+		return
+	}
+	if !slugRegex.MatchString(slug) {
+		RespondError(w, r, http.StatusBadRequest, "invalid collection slug format", nil)
+		return
 	}
 
 	data, err := h.service.GetCollectionIntel(ctx, slug)
@@ -264,33 +274,6 @@ func (h *GiftsHandler) GetCollectionIntel(w http.ResponseWriter, r *http.Request
 		return
 	}
 	RespondJSON(w, http.StatusOK, data)
-}
-
-// GetEnrichedReport returns single gift valuation with provenance & on-chain info (Requires purchased report)
-func (h *GiftsHandler) GetEnrichedReport(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	giftID := r.URL.Query().Get("g")
-	if giftID == "" {
-		RespondError(w, r, http.StatusBadRequest, "gift parameter 'g' is required", nil)
-		return
-	}
-
-	userID, err := middleware.GetUserID(ctx)
-	if err != nil {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
-		return
-	}
-
-	report, err := h.service.GetEnrichedReport(ctx, userID, giftID)
-	if err != nil {
-		if errors.Is(err, gifts.ErrReportNotPurchased) {
-			RespondError(w, r, http.StatusPaymentRequired, "gift report must be purchased before accessing enriched data", nil)
-			return
-		}
-		RespondError(w, r, http.StatusInternalServerError, "failed to generate enriched gift report", err)
-		return
-	}
-	RespondJSON(w, http.StatusOK, report)
 }
 
 // GetGiftImage proxies and caches the gift PNG image
@@ -302,6 +285,10 @@ func (h *GiftsHandler) GetGiftImage(w http.ResponseWriter, r *http.Request) {
 	}
 	if slug == "" {
 		http.Error(w, "slug required", http.StatusBadRequest)
+		return
+	}
+	if !slugRegex.MatchString(slug) {
+		http.Error(w, "invalid slug format", http.StatusBadRequest)
 		return
 	}
 
@@ -317,8 +304,7 @@ func (h *GiftsHandler) GetGiftImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "image/png")
-	w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
+	w.Header().Set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(bytes)
 }
-

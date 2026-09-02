@@ -30,6 +30,12 @@ func CheckTier(word string) TierResult {
 	if _, ok := tier_0_corporate_gods[w]; ok {
 		return TierResult{0, "Corporate God", 100.0}
 	}
+	if _, ok := tier_0_web3_gods[w]; ok {
+		return TierResult{0, "Web3 God", 100.0}
+	}
+	if _, ok := tier_ai_tech_gods[w]; ok {
+		return TierResult{0, "AI/Tech God", 80.0}
+	}
 	if _, ok := tier_1_atlas[w]; ok {
 		return TierResult{1, "Geographic Elite", 30.0}
 	}

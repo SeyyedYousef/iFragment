@@ -182,9 +182,25 @@ func (h *NumbersHandler) GetWatchlist(w http.ResponseWriter, r *http.Request) {
 // SearchMask performs fast mask pattern query for the Mask Builder (<150ms p95)
 func (h *NumbersHandler) SearchMask(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	pattern := r.URL.Query().Get("q")
+	pattern := r.URL.Query().Get("pattern")
+	if pattern == "" {
+		pattern = r.URL.Query().Get("q")
+	}
 	if pattern == "" {
 		pattern = "+888 8888 ****"
+	}
+
+	if len(pattern) > 30 {
+		RespondError(w, r, http.StatusBadRequest, "mask pattern too long (max 30 chars)", nil)
+		return
+	}
+
+	// Validate pattern contains only valid mask characters
+	for _, ch := range pattern {
+		if !((ch >= '0' && ch <= '9') || ch == '+' || ch == '*' || ch == '?' || ch == ' ' || ch == '_' || ch == '%') {
+			RespondError(w, r, http.StatusBadRequest, "invalid character in mask pattern", nil)
+			return
+		}
 	}
 
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))

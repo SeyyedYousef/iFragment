@@ -54,7 +54,7 @@ export const ProjectsPage: Component = () => {
 					if (params.id) {
 						navigate(`/channel/${params.id}/dashboard`);
 					} else {
-						navigate('/channel/managed-channels');
+						navigate('/managed-channels');
 					}
 				});
 			}

@@ -98,37 +98,6 @@ export const numbersApi = {
 			}
 		} catch {}
 
-		// Fetch live stats from upstream directly if backend DB is cold
-		try {
-			const latestRes = await fetch('https://nums888.io/api/latest/').then((r) => r.json());
-			if (latestRes) {
-				const rate = latestRes.r || 5.5;
-				const floorTon = latestRes.f || 2280;
-				const floorUsd = Math.round(floorTon * rate);
-				return {
-					total_supply: 136566,
-					supply_status: 'Closed Collection — Supply Frozen Forever',
-					total_owners: 0,
-					total_sales: 0,
-					total_volume_ton: 0,
-					floor_price_ton: floorTon,
-					floor_price_usd: floorUsd,
-					volume_24h_ton: latestRes.v || 0,
-					volume_7d_ton: 0,
-					fng_index: 50,
-					fng_label: 'Neutral',
-					historical_ath_ton: 0,
-					ath_number: '',
-					percentile_chart: [],
-					ending_soon: [],
-					trending_tail: [],
-					hall_of_fame: [],
-					data_status: 'insufficient_data',
-					updated_at: new Date().toISOString(),
-				};
-			}
-		} catch {}
-
 		return {
 			total_supply: 136566,
 			supply_status: 'Closed Collection — Supply Frozen Forever',
@@ -156,6 +125,41 @@ export const numbersApi = {
 		const { data } = await apiClient.get<import('../model/types.js').NumberVerifyResult>('/numbers/verify', {
 			params: { n: number },
 		});
+		return data;
+	},
+
+	getCollectionOverview: async (
+		address?: string,
+	): Promise<import('../model/types.js').NumbersCollectionOverview> => {
+		const { data } = await apiClient.get<import('../model/types.js').NumbersCollectionOverview>(
+			'/numbers/collection-overview',
+			{
+				params: address ? { address } : undefined,
+			},
+		);
+		return data;
+	},
+
+	searchMask: async (
+		pattern: string,
+		limit?: number,
+	): Promise<import('../model/types.js').MaskSearchResult[]> => {
+		const { data } = await apiClient.get<import('../model/types.js').MaskSearchResult[]>(
+			'/numbers/search-mask',
+			{
+				params: { pattern, limit: limit || 30 },
+			},
+		);
+		return data;
+	},
+
+	getPortfolio: async (address: string): Promise<import('../model/types.js').PortfolioScanResult> => {
+		const { data } = await apiClient.get<import('../model/types.js').PortfolioScanResult>(
+			'/numbers/portfolio',
+			{
+				params: { address },
+			},
+		);
 		return data;
 	},
 
@@ -206,13 +210,6 @@ export const numbersApi = {
 		return data;
 	},
 
-	searchMask: async (query: string, limit = 30, offset = 0): Promise<MaskItem[]> => {
-		const { data } = await apiClient.get<MaskItem[]>('/numbers/mask', {
-			params: { q: query, limit, offset },
-		});
-		return data;
-	},
-
 	getDeals: async (): Promise<import('../model/types.js').DealSniperItem[]> => {
 		const { data } = await apiClient.get<import('../model/types.js').DealSniperItem[]>('/numbers/deals');
 		return data;
@@ -260,32 +257,7 @@ export const numbersApi = {
 			}
 		} catch {}
 
-		// 2. Direct browser fetch if accessible
-		try {
-			const [latestRes, chartRes] = await Promise.all([
-				fetch('https://nums888.io/api/latest/').then((r) => r.json()),
-				fetch('https://nums888.io/api/chart-data/').then((r) => r.json()),
-			]);
-
-			if (chartRes && typeof chartRes === 'object' && latestRes) {
-				const rate = latestRes.r || 5.5;
-				const floorTon = latestRes.f || 2280;
-				const floorUsd = Math.round(floorTon * rate);
-				const floorNTon = latestRes.fn || floorTon;
-				const floorNUsd = Math.round(floorNTon * rate);
-
-				return {
-					data: chartRes,
-					rate,
-					floor: { ton: floorTon, usd: floorUsd },
-					floor_n: { ton: floorNTon, usd: floorNUsd },
-				};
-			}
-		} catch (err) {
-			console.warn('Direct live feed unavailable, falling back to local dataset', err);
-		}
-
-		// 2. Fallback when network is offline / upstream is unavailable
+		// 2. Fallback when backend cache is empty or offline
 		const intel = await numbersApi.getIntel().catch(() => null);
 		const rate = intel?.floor_price_usd && intel?.floor_price_ton ? Math.round((intel.floor_price_usd / intel.floor_price_ton) * 100) / 100 : 5.5;
 		const floorTon = intel?.floor_price_ton || 2280;

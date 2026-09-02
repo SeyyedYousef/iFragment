@@ -301,7 +301,7 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 											</span>
 											<button
 												type="button"
-												onClick={() => navigate('/channel/projects')}
+												onClick={() => navigate('/managed-channels')}
 												class="px-4 py-1.5 rounded-[10px] bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] text-[10px] font-black uppercase tracking-wider"
 											>
 												{t('assets.createProject' as any) || 'Create Project'}
@@ -343,15 +343,15 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 												<div class="flex items-center justify-between text-[10px] text-white/40 pt-0.5">
 													<span>
 														{pj.daysLeft > 0
-															? `${pj.daysLeft} days remaining`
-															: 'Subscription Expired'}
+															? `${pj.daysLeft} ${t('botManage.daysLeft') || 'days remaining'}`
+															: (t('botManage.expired') || 'Subscription Expired')}
 													</span>
 													<button
 														type="button"
-														onClick={() => navigate(`/channel/${pj.id}/edit-project`)}
+														onClick={() => navigate('/managed-channels')}
 														class="text-[#0098EA] font-black uppercase tracking-wider hover:underline"
 													>
-														Manage / Renew
+														{t('botManage.manage') || 'Manage'}
 													</button>
 												</div>
 											</div>

@@ -848,8 +848,8 @@ func (s *NumbersService) ScanWalletPortfolio(ctx context.Context, walletAddress 
 	if len(assets) > 0 {
 		avgRarity = float64(totalRarity) / float64(len(assets))
 	}
-	if bestRank == 136566 {
-		bestRank = 100
+	if len(assets) == 0 || bestRank == 136566 {
+		bestRank = 0
 	}
 
 	return &nvengine.WalletPortfolioResult{

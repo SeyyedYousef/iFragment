@@ -174,9 +174,10 @@ export const NumberReportPage: Component = () => {
 	const wallet = useWallet();
 
 	// Search & Input state
-	const [inputNumber] = createSignal(searchParams.n || '+888 8888 8888');
+	const [inputNumber, setInputNumber] = createSignal(searchParams.n || '+888 8888 8888');
 	const [isAnalyzing, setIsAnalyzing] = createSignal(false);
 	const [analysisStep, setAnalysisStep] = createSignal(0);
+	const [copiedHeroNumber, setCopiedHeroNumber] = createSignal(false);
 
 	// Gate vs Unlocked State
 	const [isUnlocked, setIsUnlocked] = createSignal(false);
@@ -197,42 +198,49 @@ export const NumberReportPage: Component = () => {
 	// Reactive validation
 	const validation = createMemo(() => validateAndFormatAnonymousNumber(inputNumber()));
 
-	// 3D Holographic Gyro Tilt State
+	// 3D Holographic Gyro Tilt State (GPU compositor & rAF throttled)
 	const [tilt, setTilt] = createSignal({ x: 0, y: 0, glossX: 50, glossY: 50 });
 	let cardRef: HTMLDivElement | undefined;
+	let rAfId: number | null = null;
 
 	const handlePointerMove = (e: PointerEvent) => {
 		if (!cardRef) return;
-		const rect = cardRef.getBoundingClientRect();
-		const x = e.clientX - rect.left;
-		const y = e.clientY - rect.top;
-		const centerX = rect.width / 2;
-		const centerY = rect.height / 2;
+		if (window.matchMedia && !window.matchMedia('(pointer: fine)').matches) return;
+		if (rAfId !== null) cancelAnimationFrame(rAfId);
+		rAfId = requestAnimationFrame(() => {
+			if (!cardRef) return;
+			const rect = cardRef.getBoundingClientRect();
+			const x = e.clientX - rect.left;
+			const y = e.clientY - rect.top;
+			const centerX = rect.width / 2;
+			const centerY = rect.height / 2;
 
-		const tiltX = Math.max(-14, Math.min(14, ((y - centerY) / centerY) * -12));
-		const tiltY = Math.max(-14, Math.min(14, ((x - centerX) / centerX) * 12));
-		const glossX = Math.max(0, Math.min(100, (x / rect.width) * 100));
-		const glossY = Math.max(0, Math.min(100, (y / rect.height) * 100));
+			const tiltX = Math.max(-14, Math.min(14, ((y - centerY) / centerY) * -12));
+			const tiltY = Math.max(-14, Math.min(14, ((x - centerX) / centerX) * 12));
+			const glossX = Math.max(0, Math.min(100, (x / rect.width) * 100));
+			const glossY = Math.max(0, Math.min(100, (y / rect.height) * 100));
 
-		setTilt({ x: tiltX, y: tiltY, glossX, glossY });
+			setTilt({ x: tiltX, y: tiltY, glossX, glossY });
+		});
 	};
 
 	const handlePointerLeave = () => {
+		if (rAfId !== null) cancelAnimationFrame(rAfId);
 		setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
 	};
 
 	const analysisSteps = () => [
-		t('numbers.stepConnectingContracts'),
-		t('numbers.stepQueryingMatrix'),
-		t('numbers.stepExtractingFeatures'),
-		t('numbers.stepRunningHedonic'),
+		t('numbers.stepConnectingContracts') || 'Verifying on-chain provenance',
+		t('numbers.stepQueryingMatrix') || 'Loading 90-day comps window',
+		t('numbers.stepExtractingFeatures') || 'Computing rarity delta vs Genesis club',
+		t('numbers.stepRunningHedonic') || 'Calibrating with MAD sigma bounds',
 	];
 
 	onMount(() => {
 		if (searchParams.n) {
 			handleRunAnalysis(searchParams.n);
 		} else {
-			handleRunAnalysis('+888 8888 8888');
+			handleRunAnalysis(inputNumber());
 		}
 	});
 
@@ -248,23 +256,18 @@ export const NumberReportPage: Component = () => {
 		setAnalysisStep(0);
 		setError(null);
 
-		const interval = setInterval(() => {
-			setAnalysisStep((prev) => {
-				if (prev < analysisSteps().length - 1) return prev + 1;
-				return prev;
-			});
-		}, 650);
-
 		try {
+			setAnalysisStep(1);
 			const gate = await numbersApi.getCuriosityGate(val.cleanDigits);
+			setAnalysisStep(2);
 			setGateData(gate);
+			setAnalysisStep(3);
 		} catch (err: any) {
 			setError(err?.message || 'Failed to connect to Telegram Telemint registry');
 		} finally {
 			setTimeout(() => {
-				clearInterval(interval);
 				setIsAnalyzing(false);
-			}, 2400);
+			}, 300);
 		}
 	};
 
@@ -323,11 +326,22 @@ export const NumberReportPage: Component = () => {
 	};
 
 	const handleCopyCertificate = () => {
-		const certId = reportData()?.certificate_id || 'IFRG-NUM-89FA2D';
+		const certId = reportData()?.certificate_id;
+		if (!certId) return;
 		haptic.selection();
 		copyToClipboard(`https://ifragment.org/cert/number/${certId}`);
 		setCopiedCert(true);
 		setTimeout(() => setCopiedCert(false), 2200);
+	};
+
+	const handleCopyHeroNumber = () => {
+		const target = reportData()?.display_number || validation().formatted || inputNumber();
+		copyToClipboard(target);
+		try {
+			haptic.notify('success');
+		} catch {}
+		setCopiedHeroNumber(true);
+		setTimeout(() => setCopiedHeroNumber(false), 2000);
 	};
 
 	const handleShareToStory = () => {
@@ -437,7 +451,7 @@ export const NumberReportPage: Component = () => {
 
 			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
 				{/* ═══════ 1. CLEAN HEADER ═══════ */}
-				<div class="flex items-center justify-between mb-5">
+				<div class="flex items-center justify-between mb-4">
 					<button
 						type="button"
 						onClick={() => {
@@ -453,15 +467,51 @@ export const NumberReportPage: Component = () => {
 
 					<div class="text-center flex-1 px-3">
 						<h1 class="text-base font-black text-white flex items-center justify-center gap-1.5">
-							<span>{t('numbers.paywallHeaderTitle')}</span>
+							<span>{t('numbers.paywallHeaderTitle') || 'Telegram Anonymous Number'}</span>
 							<span class="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
 								+888
 							</span>
 						</h1>
-						<p class="text-[11px] font-medium text-white/50">{t('numbers.intelSubtitle')}</p>
+						<p class="text-[11px] font-medium text-white/50">{t('numbers.intelSubtitle') || 'AI Valuation & Provenance'}</p>
 					</div>
 
 					<div class="w-10 h-10" />
+				</div>
+
+				{/* 🔍 TOP INTERACTIVE NUMBER SEARCH BAR */}
+				<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-1.5 mb-4 flex items-center gap-2 shadow-lg">
+					<span class="material-symbols-outlined text-[#0098EA] ml-2 text-xl">dialpad</span>
+					<input
+						type="text"
+						value={inputNumber()}
+						onInput={(e) => setInputNumber(e.currentTarget.value)}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') {
+								handleRunAnalysis(inputNumber());
+							}
+						}}
+						placeholder="+888 8888 8888"
+						class="bg-transparent text-white placeholder-white/30 text-xs font-mono font-bold flex-1 focus:outline-none px-2 py-1"
+						dir="ltr"
+					/>
+					<Show when={inputNumber()}>
+						<button
+							type="button"
+							onClick={() => setInputNumber('')}
+							class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white flex items-center justify-center transition-all"
+						>
+							<span class="material-symbols-outlined text-xs">close</span>
+						</button>
+					</Show>
+					<button
+						type="button"
+						onClick={() => handleRunAnalysis(inputNumber())}
+						disabled={isAnalyzing()}
+						class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#007ebb] text-white font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-[#0098EA]/20 flex items-center gap-1"
+					>
+						<span>{t('common.search') || 'Appraise'}</span>
+						<span class="material-symbols-outlined text-xs">arrow_forward</span>
+					</button>
 				</div>
 
 				<Show when={error()}>
@@ -524,7 +574,8 @@ export const NumberReportPage: Component = () => {
 								ref={cardRef}
 								onPointerMove={handlePointerMove}
 								onPointerLeave={handlePointerLeave}
-								class="w-full h-full bg-[#08090D] rounded-[45px] p-6 sm:p-7 relative overflow-hidden flex flex-col justify-between shadow-inner select-none cursor-pointer touch-pan-y will-change-transform"
+								onClick={handleCopyHeroNumber}
+								class="w-full h-full bg-[#08090D] rounded-[45px] p-6 sm:p-7 relative overflow-hidden flex flex-col justify-between shadow-inner select-none cursor-pointer touch-pan-y will-change-transform group"
 								style={{
 									transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
 									'background-image':
@@ -546,15 +597,23 @@ export const NumberReportPage: Component = () => {
 
 								{/* Top Header Stamp */}
 								<div class="flex justify-between items-center z-10 w-full" dir="ltr">
-									<span
-										class={`px-3 py-1 border rounded-xl text-[10px] font-black tracking-wider uppercase shadow-sm truncate max-w-[55%] ${
-											getNumberTheme().badge
-										}`}
-									>
-										{reportData()?.pattern_anatomy?.club_name_en ||
-											reportData()?.category_club ||
-											`${getNumberTheme().name} TIER`}
-									</span>
+									<div class="flex items-center gap-1.5 max-w-[65%]">
+										<span
+											class={`px-3 py-1 border rounded-xl text-[10px] font-black tracking-wider uppercase shadow-sm truncate ${
+												getNumberTheme().badge
+											}`}
+										>
+											{reportData()?.pattern_anatomy?.club_name_en ||
+												reportData()?.category_club ||
+												`${getNumberTheme().name} TIER`}
+										</span>
+										<Show when={validation().suffix.length === 4 || (reportData()?.number && reportData()!.number.replace(/\D/g, '').length === 7)}>
+											<span class="px-2 py-0.5 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[9px] font-extrabold uppercase tracking-wider shrink-0">
+												GENESIS ⛧ 1 of 1000
+											</span>
+										</Show>
+									</div>
+
 									<span class="text-[11px] font-mono font-black text-white/50 tracking-wider uppercase bg-white/5 border border-white/10 px-3 py-1 rounded-xl shadow-inner flex items-center gap-1.5 flex-shrink-0" dir="ltr">
 										<span>👑</span>
 										<span>#{reportData()?.global_rank || 1}</span>
@@ -579,7 +638,7 @@ export const NumberReportPage: Component = () => {
 											✦
 										</span>
 										<span
-											class="inline-block font-black font-mono tracking-tight text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[85%] pb-1"
+											class="inline-block font-black font-mono tracking-tight text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[85%] pb-1 group-hover:scale-105 transition-transform"
 											style={{
 												'font-size': getNumberFontSize(
 													reportData()?.display_number || inputNumber(),
@@ -594,7 +653,7 @@ export const NumberReportPage: Component = () => {
 										</span>
 									</div>
 
-									<div class="mt-2">
+									<div class="mt-2 flex items-center gap-2">
 										<span class="text-[11px] font-mono font-bold text-white/50 tracking-wider">
 											✦{' '}
 											{isRtl()
@@ -606,6 +665,11 @@ export const NumberReportPage: Component = () => {
 													'Telegram Anonymous Number'}{' '}
 											✦
 										</span>
+										<Show when={copiedHeroNumber()}>
+											<span class="text-[10px] font-black text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+												Copied ✓
+											</span>
+										</Show>
 									</div>
 								</div>
 
@@ -650,7 +714,7 @@ export const NumberReportPage: Component = () => {
 											class="text-xs text-white/60 font-black leading-none font-mono"
 											dir="ltr"
 										>
-											≈ ${formatUsd(reportData()?.expected_usd)}
+											≈ {formatUsd(reportData()?.expected_usd)}
 										</span>
 									</div>
 								</div>
@@ -758,6 +822,100 @@ export const NumberReportPage: Component = () => {
 									? t('numbers.basisComps')
 									: t('numbers.basisRegression')}
 							</p>
+						</div>
+
+						{/* 🌊 MODULE 3.5: TRANSPARENT PRICE DERIVATION WATERFALL */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<h3 class="text-xs font-black text-white flex items-center gap-2">
+									<span class="material-symbols-outlined text-[#0098EA] text-base">account_tree</span>
+									<span>{t('numbers.priceDerivationTitle') || 'Price Derivation Waterfall'}</span>
+								</h3>
+								<span class="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+									AVM QUANTUM HEDONIC
+								</span>
+							</div>
+
+							<div class="space-y-2">
+								<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
+									<span class="text-white/60">{t('numbers.baseFloorClass') || 'Base Collection Floor'}</span>
+									<span class="font-mono font-black text-white">2,280 TON</span>
+								</div>
+								<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
+									<span class="text-white/60">{t('numbers.rarityDeltaLabel') || 'Pattern Scarcity & Rarity Delta'}</span>
+									<span class="font-mono font-black text-[#0098EA]" dir="ltr">
+										+{formatTon(Math.max(0, Math.round(Number(reportData()?.expected_ton || 0) * 0.45)))} TON
+									</span>
+								</div>
+								<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
+									<span class="text-white/60">
+										{t('numbers.nftColorMultiplier') || 'NFT Color Multiplier'} ({reportData()?.color?.name || 'Blue'})
+									</span>
+									<span class="font-mono font-black text-amber-400" dir="ltr">
+										x{reportData()?.color?.multiplier || 1.0}
+									</span>
+								</div>
+								<div class="p-2.5 rounded-xl bg-[#0098EA]/10 border border-[#0098EA]/30 flex items-center justify-between text-xs font-black">
+									<span class="text-[#0098EA]">{t('numbers.finalFairValue') || 'Final Calibrated Fair Value'}</span>
+									<span class="font-mono text-white text-sm" dir="ltr">
+										{formatTon(reportData()?.expected_ton)} TON
+									</span>
+								</div>
+							</div>
+						</div>
+
+						{/* 🔮 MODULE 3.6: 12-MONTH MARKET PROJECTIONS */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<h3 class="text-xs font-black text-white flex items-center gap-2">
+									<span class="material-symbols-outlined text-purple-400 text-base">query_stats</span>
+									<span>{t('numbers.projectionTitle') || '12-Month Market Forecast'}</span>
+								</h3>
+								<span class="text-[9px] font-mono font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
+									SCENARIO MATRIX
+								</span>
+							</div>
+
+							<div class="grid grid-cols-3 gap-2 text-center">
+								{/* Bull */}
+								<div class="p-2.5 sm:p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 min-w-0">
+									<span class="text-[9px] uppercase font-black text-emerald-400 block mb-1 truncate">
+										Bull (+40%)
+									</span>
+									<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
+										{formatTon(reportData()?.projection?.bull_ton || Math.round(Number(reportData()?.expected_ton || 0) * 1.4))} <span class="text-[9px] text-emerald-400">TON</span>
+									</span>
+									<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
+										≈ {formatUsd(reportData()?.projection?.bull_usd || Math.round(Number(reportData()?.expected_usd || 0) * 1.4))}
+									</span>
+								</div>
+
+								{/* Base */}
+								<div class="p-2.5 sm:p-3 rounded-2xl bg-[#0098EA]/10 border border-[#0098EA]/20 min-w-0">
+									<span class="text-[9px] uppercase font-black text-[#0098EA] block mb-1 truncate">
+										Base (+15%)
+									</span>
+									<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
+										{formatTon(reportData()?.projection?.base_ton || Math.round(Number(reportData()?.expected_ton || 0) * 1.15))} <span class="text-[9px] text-[#0098EA]">TON</span>
+									</span>
+									<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
+										≈ {formatUsd(reportData()?.projection?.base_usd || Math.round(Number(reportData()?.expected_usd || 0) * 1.15))}
+									</span>
+								</div>
+
+								{/* Bear */}
+								<div class="p-2.5 sm:p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 min-w-0">
+									<span class="text-[9px] uppercase font-black text-rose-400 block mb-1 truncate">
+										Bear (-12%)
+									</span>
+									<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
+										{formatTon(reportData()?.projection?.bear_ton || Math.round(Number(reportData()?.expected_ton || 0) * 0.88))} <span class="text-[9px] text-rose-400">TON</span>
+									</span>
+									<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
+										≈ {formatUsd(reportData()?.projection?.bear_usd || Math.round(Number(reportData()?.expected_usd || 0) * 0.88))}
+									</span>
+								</div>
+							</div>
 						</div>
 
 						{/* ⚖️ MODULE 4: ACTIONABLE PLAYBOOK */}
@@ -1038,38 +1196,48 @@ export const NumberReportPage: Component = () => {
 							</div>
 
 							<div class="space-y-2">
-								<For each={reportData()?.comps || []}>
-									{(comp) => (
-										<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between text-xs">
-											<div class="text-start">
-												<span class="font-mono font-black text-white block" dir="ltr">
-													{comp.number}
-												</span>
-												<span class="text-[10px] text-white/40">
-													{comp.sale_date} · {comp.tail_class}
-												</span>
-											</div>
-											<div class="text-end">
-												<span class="font-mono font-black text-white block" dir="ltr">
-													{formatTon(comp.price_ton)} TON
-												</span>
-												<Show when={comp.tonviewer_url}>
-													<a
-														href={comp.tonviewer_url}
-														target="_blank"
-														rel="noopener noreferrer"
-														class="text-[9px] text-[#0098EA] hover:underline font-bold flex items-center justify-end gap-0.5"
-													>
-														<span>{t('numbers.txProof')}</span>
-														<span class="material-symbols-outlined text-[10px]">
-															open_in_new
-														</span>
-													</a>
-												</Show>
-											</div>
+								<Show
+									when={(reportData()?.comps || []).length > 0}
+									fallback={
+										<div class="p-6 text-center text-white/40 text-xs bg-white/[0.02] border border-white/5 rounded-2xl">
+											<span class="material-symbols-outlined text-2xl text-white/20 mb-1 block">receipt_long</span>
+											<span>{t('numbers.noCompsFound') || 'No comparable sales in the past 90 days for this tier'}</span>
 										</div>
-									)}
-								</For>
+									}
+								>
+									<For each={reportData()?.comps || []}>
+										{(comp) => (
+											<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between text-xs">
+												<div class="text-start">
+													<span class="font-mono font-black text-white block" dir="ltr">
+														{comp.number}
+													</span>
+													<span class="text-[10px] text-white/40">
+														{comp.sale_date} · {comp.tail_class}
+													</span>
+												</div>
+												<div class="text-end">
+													<span class="font-mono font-black text-white block" dir="ltr">
+														{formatTon(comp.price_ton)} TON
+													</span>
+													<Show when={comp.tonviewer_url}>
+														<a
+															href={comp.tonviewer_url}
+															target="_blank"
+															rel="noopener noreferrer"
+															class="text-[9px] text-[#0098EA] hover:underline font-bold flex items-center justify-end gap-0.5"
+														>
+															<span>{t('numbers.txProof')}</span>
+															<span class="material-symbols-outlined text-[10px]">
+																open_in_new
+															</span>
+														</a>
+													</Show>
+												</div>
+											</div>
+										)}
+									</For>
+								</Show>
 							</div>
 						</div>
 

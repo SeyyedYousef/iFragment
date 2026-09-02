@@ -2996,4 +2996,31 @@ var (
 		"ru",
 		"asia",
 	}
+
+	tier_0_web3_gods = map[string]struct{}{
+		"ton": {}, "wallet": {}, "crypto": {}, "bitcoin": {}, "solana": {}, "ethereum": {},
+		"defi": {}, "swap": {}, "stars": {}, "gift": {}, "gifts": {}, "dex": {}, "token": {},
+		"coin": {}, "btc": {}, "eth": {}, "usdt": {}, "toncoin": {}, "airdrop": {}, "stake": {},
+		"yield": {}, "mint": {}, "nft": {}, "nfts": {}, "dao": {}, "notcoin": {}, "dogs": {},
+		"major": {}, "blum": {}, "paws": {}, "cats": {}, "tapswap": {}, "hamster": {},
+		"memefi": {}, "bybit": {}, "binance": {}, "okx": {}, "kucoin": {}, "bitget": {},
+		"uniswap": {}, "pancakeswap": {}, "metamask": {}, "phantom": {}, "ledger": {},
+		"trezor": {}, "chainlink": {}, "polkadot": {}, "cardano": {}, "ripple": {}, "xrp": {},
+		"doge": {}, "shiba": {}, "pepe": {}, "floki": {}, "sui": {}, "aptos": {}, "near": {},
+		"polygon": {}, "arbitrum": {}, "optimism": {}, "base": {}, "blast": {}, "pump": {},
+		"raydium": {}, "jupiter": {}, "ston": {}, "dedust": {}, "getgems": {}, "fragment": {},
+		"tether": {}, "usdc": {}, "web3": {}, "whale": {}, "bull": {}, "bear": {}, "hodl": {},
+		"vault": {}, "bank": {}, "pay": {}, "cash": {}, "gold": {}, "silver": {},
+	}
+
+	tier_ai_tech_gods = map[string]struct{}{
+		"ai": {}, "chatgpt": {}, "openai": {}, "claude": {}, "gemini": {}, "deepmind": {},
+		"anthropic": {}, "agent": {}, "agents": {}, "neural": {}, "bot": {}, "bots": {},
+		"prompt": {}, "llm": {}, "gpt": {}, "midjourney": {}, "figma": {}, "copilot": {},
+		"perplexity": {}, "mistral": {}, "grok": {}, "robot": {}, "auto": {}, "cloud": {},
+		"data": {}, "cyber": {}, "code": {}, "dev": {}, "app": {}, "apps": {}, "tech": {},
+		"server": {}, "api": {}, "matrix": {}, "quantum": {}, "vision": {}, "voice": {},
+		"stream": {}, "music": {}, "video": {}, "news": {}, "chat": {}, "game": {}, "games": {},
+	}
 )
+

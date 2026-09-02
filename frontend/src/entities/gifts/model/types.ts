@@ -176,8 +176,12 @@ export interface GiftValuationReport {
 	run_id: number;
 	gift_id: string;
 	model_id: string;
+	collection_id?: string;
 	model_name: string;
 	serial_number: number;
+	selected_model?: string;
+	owner_name?: string;
+	image_url?: string;
 	display_title: string;
 	model_version: string;
 	base_price_gram: string;
@@ -191,6 +195,14 @@ export interface GiftValuationReport {
 	confidence_score: number;
 	price_basis: string;
 	trait_dna: TraitDNABar[];
+	joint_rarity?: {
+		harmonic_rarity_score: number;
+		surprisal_bits: number;
+		beta_synergy: number;
+	};
+	aesthetic_harmony?: any;
+	stars_parity?: any;
+	profile_flex?: any;
 	exit_planner: ExitPlannerPlan;
 	crafting_ev?: CraftingEVData;
 	upgrade_advisor?: UpgradeAdviceData;
