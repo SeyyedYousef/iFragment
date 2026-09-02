@@ -3,7 +3,10 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
@@ -12,10 +15,11 @@ import (
 
 type IntelCreditHandler struct {
 	service *intelcredit.IntelCreditService
+	cache   *repository.Cache
 }
 
-func NewIntelCreditHandler(service *intelcredit.IntelCreditService) *IntelCreditHandler {
-	return &IntelCreditHandler{service: service}
+func NewIntelCreditHandler(service *intelcredit.IntelCreditService, cache *repository.Cache) *IntelCreditHandler {
+	return &IntelCreditHandler{service: service, cache: cache}
 }
 
 type ConsumeCreditRequest struct {
@@ -75,6 +79,14 @@ func (h *IntelCreditHandler) Consume(w http.ResponseWriter, r *http.Request) {
 		}
 		RespondError(w, r, http.StatusInternalServerError, "failed to consume credit", err)
 		return
+	}
+
+	// Proactively cache valuation access in Redis if this credit was consumed for a username report
+	if h.cache != nil && req.Entity != "" {
+		cleanEntity := strings.ToLower(strings.TrimPrefix(req.Entity, "@"))
+		if req.Reason == "username" || req.Reason == "report:username" || req.Reason == "val_username" {
+			_ = h.cache.Client.Set(ctx, fmt.Sprintf("val_access:%d:%s", userID, cleanEntity), "credit", 24*time.Hour).Err()
+		}
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]interface{}{

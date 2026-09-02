@@ -19,6 +19,7 @@ export interface SubscriptionPackage {
 	price_per_month: number;
 	price_stars: number;
 	price_coins: number;
+	price_credits?: number;
 	price_frg: number;
 	discount?: string;
 	badge?: 'popular' | 'best_value';

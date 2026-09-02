@@ -29,28 +29,29 @@ vi.mock('@tma.js/sdk-solid', () => ({
 	openTelegramLink: vi.fn(),
 }));
 
-// ===== 3. Motion Mock (children-passthrough) =====
-const M = (props: any) => props.children;
+// ===== 3. Motion Mock (passthrough with props) =====
+const M = (props: any) => <div {...props}>{props.children}</div>;
+const MB = (props: any) => <button {...props}>{props.children}</button>;
 vi.mock('@motionone/solid', () => ({
 	Motion: {
 		div: M,
-		span: M,
-		h1: M,
-		h2: M,
-		h3: M,
-		p: M,
-		button: M,
-		section: M,
-		header: M,
-		footer: M,
-		nav: M,
-		aside: M,
-		a: M,
-		li: M,
-		ul: M,
-		ol: M,
+		span: (props: any) => <span {...props}>{props.children}</span>,
+		h1: (props: any) => <h1 {...props}>{props.children}</h1>,
+		h2: (props: any) => <h2 {...props}>{props.children}</h2>,
+		h3: (props: any) => <h3 {...props}>{props.children}</h3>,
+		p: (props: any) => <p {...props}>{props.children}</p>,
+		button: MB,
+		section: (props: any) => <section {...props}>{props.children}</section>,
+		header: (props: any) => <header {...props}>{props.children}</header>,
+		footer: (props: any) => <footer {...props}>{props.children}</footer>,
+		nav: (props: any) => <nav {...props}>{props.children}</nav>,
+		aside: (props: any) => <aside {...props}>{props.children}</aside>,
+		a: (props: any) => <a {...props}>{props.children}</a>,
+		li: (props: any) => <li {...props}>{props.children}</li>,
+		ul: (props: any) => <ul {...props}>{props.children}</ul>,
+		ol: (props: any) => <ol {...props}>{props.children}</ol>,
 	},
-	Presence: M,
+	Presence: (props: any) => props.children,
 }));
 
 // ===== 4. Shared UI Mocks =====

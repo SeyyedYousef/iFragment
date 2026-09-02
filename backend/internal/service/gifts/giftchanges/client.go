@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -72,16 +73,59 @@ type GiftInfo struct {
 }
 
 type Model struct {
-	Name           string `json:"name"`
-	RarityPermille int    `json:"rarityPermille"`
-	TotalSupply    int    `json:"totalSupply,omitempty"`
+	Name           string  `json:"name"`
+	Rarity         float64 `json:"rarity,omitempty"`
+	RarityPermille int     `json:"rarityPermille,omitempty"`
+	TotalSupply    int     `json:"totalSupply,omitempty"`
+}
+
+func (m Model) GetRarityPermille() int {
+	if m.RarityPermille > 0 {
+		return m.RarityPermille
+	}
+	if m.Rarity > 0 {
+		return int(math.Round(m.Rarity * 10.0))
+	}
+	return 20
 }
 
 type BackdropHex struct {
-	Center  string `json:"center"`
-	Edge    string `json:"edge"`
-	Pattern string `json:"pattern"`
-	Text    string `json:"text"`
+	CenterColor  string `json:"centerColor"`
+	Center       string `json:"center"`
+	EdgeColor    string `json:"edgeColor"`
+	Edge         string `json:"edge"`
+	PatternColor string `json:"patternColor"`
+	Pattern      string `json:"pattern"`
+	TextColor    string `json:"textColor"`
+	Text         string `json:"text"`
+}
+
+func (b BackdropHex) GetCenter() string {
+	if b.Center != "" {
+		return b.Center
+	}
+	return b.CenterColor
+}
+
+func (b BackdropHex) GetEdge() string {
+	if b.Edge != "" {
+		return b.Edge
+	}
+	return b.EdgeColor
+}
+
+func (b BackdropHex) GetPattern() string {
+	if b.Pattern != "" {
+		return b.Pattern
+	}
+	return b.PatternColor
+}
+
+func (b BackdropHex) GetText() string {
+	if b.Text != "" {
+		return b.Text
+	}
+	return b.TextColor
 }
 
 type Backdrop struct {
@@ -91,12 +135,34 @@ type Backdrop struct {
 	PatternColor   int         `json:"patternColor"`
 	TextColor      int         `json:"textColor"`
 	Hex            BackdropHex `json:"hex"`
-	RarityPermille int         `json:"rarityPermille"`
+	Rarity         float64     `json:"rarity,omitempty"`
+	RarityPermille int         `json:"rarityPermille,omitempty"`
+}
+
+func (b Backdrop) GetRarityPermille() int {
+	if b.RarityPermille > 0 {
+		return b.RarityPermille
+	}
+	if b.Rarity > 0 {
+		return int(math.Round(b.Rarity * 10.0))
+	}
+	return 20
 }
 
 type Symbol struct {
-	Name           string `json:"name"`
-	RarityPermille int    `json:"rarityPermille"`
+	Name           string  `json:"name"`
+	Rarity         float64 `json:"rarity,omitempty"`
+	RarityPermille int     `json:"rarityPermille,omitempty"`
+}
+
+func (s Symbol) GetRarityPermille() int {
+	if s.RarityPermille > 0 {
+		return s.RarityPermille
+	}
+	if s.Rarity > 0 {
+		return int(math.Round(s.Rarity * 10.0))
+	}
+	return 20
 }
 
 func (c *Client) get(ctx context.Context, endpoint string, target any) error {

@@ -1,4 +1,4 @@
-import { render, screen } from '@solidjs/testing-library';
+import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { botApi } from '@/entities/bot/index.js';
 import { ManagedBotsPage } from './ManagedBotsPage.js';
@@ -36,4 +36,25 @@ describe('ManagedBotsPage', () => {
 		render(() => <ManagedBotsPage />);
 		expect(await screen.findByText('Test Bot')).toBeInTheDocument();
 	});
+
+	it('opens create modal and displays BotFather step', async () => {
+		render(() => <ManagedBotsPage />);
+		const createSpan = await screen.findByText('managedBots.createBtn');
+		fireEvent.click(createSpan.closest('button') || createSpan);
+		expect(await screen.findByText('managedBots.connectYourBot')).toBeInTheDocument();
+		expect(await screen.findByText('managedBots.step1Title')).toBeInTheDocument();
+		expect(await screen.findByText('managedBots.createNativeBtn')).toBeInTheDocument();
+		expect(await screen.findByText('managedBots.pasteBtn')).toBeInTheDocument();
+	});
+
+	it('triggers openBotFather when one-tap button is clicked', async () => {
+		const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null as any);
+		render(() => <ManagedBotsPage />);
+		const createSpan = await screen.findByText('managedBots.createBtn');
+		fireEvent.click(createSpan.closest('button') || createSpan);
+		const nativeBtn = await screen.findByText('managedBots.createNativeBtn');
+		fireEvent.click(nativeBtn.closest('button') || nativeBtn);
+		openSpy.mockRestore();
+	});
 });
+

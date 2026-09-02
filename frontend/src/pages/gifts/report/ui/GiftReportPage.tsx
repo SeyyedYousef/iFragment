@@ -89,7 +89,8 @@ export const GiftReportPage: Component = () => {
 				err?.response?.data?.error ||
 				err?.response?.data?.message ||
 				err?.message ||
-				'خطا در بازگشایی گزارش با کردیت اینتل.';
+				t('valuation.unlock_error') ||
+				'Error unlocking report with credit.';
 			setUnlockError(errorMsg);
 		},
 	}));
@@ -250,9 +251,9 @@ export const GiftReportPage: Component = () => {
 			totalVaultTon,
 			totalVaultUsd,
 			whaleRank: `#${rank}`,
-			strategy: seed % 2 === 0 ? 'انباشت و نگهداری بلندمدت (بدون خروج دارایی در ۹۰ روز گذشته)' : 'کلکسیونر باسابقه اکوسیستم تلگرام',
+			strategy: seed % 2 === 0 ? t('gifts.strategyLongTerm') : t('gifts.strategyCollector'),
 			otherGifts,
-			standard: 'TEP-62 NFT (بلاکچین TON)',
+			standard: t('gifts.standardTep62'),
 		};
 	};
 
@@ -528,14 +529,14 @@ export const GiftReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* 🏛️ SECTION 1.5: VERIFIED OWNER VAULT & PORTFOLIO INTELLIGENCE (خزانه و پورتفولیوی کامل مالک) */}
+						{/* 🏛️ SECTION 1.5: VERIFIED OWNER VAULT & PORTFOLIO INTELLIGENCE */}
 						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl space-y-3.5">
 							<div class="flex items-center justify-between">
 								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-[#0098EA] text-base">
 										account_balance_wallet
 									</span>
-									<span>خزانه و پورتفولیوی مالک</span>
+									<span>{t('gifts.ownerVaultTitle')}</span>
 								</h3>
 								<span class="text-[9px] uppercase font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
 									{deterministicOwner().holderTier}
@@ -546,10 +547,10 @@ export const GiftReportPage: Component = () => {
 							<div class="bg-gradient-to-r from-[#0098EA]/15 via-emerald-500/10 to-[#AF52DE]/15 border border-[#0098EA]/30 rounded-2xl p-3.5">
 								<div class="flex items-center justify-between mb-1.5">
 									<span class="text-[10px] font-bold text-white/50 uppercase tracking-wider">
-										ارزش کل خزانه هدایای این مالک
+										{t('gifts.totalVaultValue')}
 									</span>
 									<span class="text-[10px] font-mono font-bold text-[#0098EA] bg-[#0098EA]/20 px-2 py-0.5 rounded-full">
-										{deterministicOwner().whaleRank} هولدر برتر
+										{t('gifts.topHolder', { rank: deterministicOwner().whaleRank })}
 									</span>
 								</div>
 								<div class="flex items-baseline gap-2">
@@ -561,11 +562,11 @@ export const GiftReportPage: Component = () => {
 										(≈ {formatUsd(deterministicOwner().totalVaultUsd)})
 									</span>
 									<span class="mr-auto text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
-										{deterministicOwner().totalGiftsCount} هدیه در والت
+										{t('gifts.giftsInWallet', { count: deterministicOwner().totalGiftsCount })}
 									</span>
 								</div>
 								<p class="text-[10px] text-white/50 mt-1.5">
-									استراتژی مالک: <strong class="text-white/80">{deterministicOwner().strategy}</strong>
+									{t('gifts.ownerStrategy')}: <strong class="text-white/80">{deterministicOwner().strategy}</strong>
 								</p>
 							</div>
 
@@ -573,7 +574,7 @@ export const GiftReportPage: Component = () => {
 							<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3 flex items-center justify-between text-xs">
 								<div>
 									<span class="text-[10px] uppercase font-bold text-white/40 block">
-										آدرس والت آن‌چین (Current Owner)
+										{t('gifts.onChainWalletAddress')}
 									</span>
 									<span class="font-mono font-bold text-white text-xs mt-0.5 block">
 										{deterministicOwner().shortAddress}
@@ -587,7 +588,7 @@ export const GiftReportPage: Component = () => {
 											try { haptic.notify('success'); } catch {}
 										}}
 										class="p-2 rounded-xl bg-white/[0.05] hover:bg-white/10 text-white/60 hover:text-white border border-white/10 transition-all"
-										title="کپی آدرس کامل والت"
+										title={t('gifts.copyFullWalletAddress')}
 									>
 										<span class="material-symbols-outlined text-sm">content_copy</span>
 									</button>
@@ -596,7 +597,7 @@ export const GiftReportPage: Component = () => {
 										target="_blank"
 										rel="noopener noreferrer"
 										class="p-2 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 transition-all flex items-center gap-1"
-										title="مشاهده در مرورگر TonViewer"
+										title={t('gifts.viewOnTonViewer')}
 									>
 										<span class="text-[10px] font-bold">TonViewer</span>
 										<span class="material-symbols-outlined text-xs">open_in_new</span>
@@ -608,14 +609,14 @@ export const GiftReportPage: Component = () => {
 							<div>
 								<div class="flex items-center justify-between mb-2">
 									<span class="text-[11px] font-bold text-white/70">
-										سایر هدایای موجود در این والت:
+										{t('gifts.otherGiftsInVault')}
 									</span>
 									<button
 										type="button"
 										onClick={() => navigate(`/gifts/portfolio?u=${encodeURIComponent(deterministicOwner().fullAddress)}`)}
 										class="text-[10px] text-[#0098EA] font-bold hover:underline flex items-center gap-0.5"
 									>
-										<span>اسکنر کامل پورتفولیو</span>
+										<span>{t('gifts.fullPortfolioScanner')}</span>
 										<span class="material-symbols-outlined text-xs rtl:rotate-180">arrow_forward</span>
 									</button>
 								</div>
@@ -669,7 +670,7 @@ export const GiftReportPage: Component = () => {
 									<span class="material-symbols-outlined text-sm">
 										{offerSent() ? 'done_all' : 'send_money'}
 									</span>
-									<span>{offerSent() ? 'پیشنهاد ارسال شد' : 'پیشنهاد خرید مستقیم'}</span>
+									<span>{offerSent() ? t('gifts.directOfferSent') : t('gifts.directOfferBuy')}</span>
 								</button>
 
 								<button
@@ -684,19 +685,19 @@ export const GiftReportPage: Component = () => {
 									<span class="material-symbols-outlined text-sm">
 										{alertActive() ? 'notifications_active' : 'notification_add'}
 									</span>
-									<span>{alertActive() ? 'رادار فعال شد' : 'هشدار فروش و جابه‌جایی'}</span>
+									<span>{alertActive() ? t('gifts.radarActivated') : t('gifts.saleTransferAlert')}</span>
 								</button>
 							</div>
 						</div>
 
-						{/* SECTION 2: TRAIT DNA & TRAIT FLOORS (کف هر ویژگی به تفکیک) */}
+						{/* SECTION 2: TRAIT DNA & TRAIT FLOORS */}
 						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
 							<div class="flex items-center justify-between mb-3">
 								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-[#0098EA] text-base">
 										fingerprint
 									</span>
-									<span>تحلیل ژنتیک و کف قیمت ویژگی‌ها</span>
+									<span>{t('gifts.traitFloorAnalysis')}</span>
 								</h3>
 								<span class="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
 									{t('gifts.exactData')}
@@ -733,15 +734,15 @@ export const GiftReportPage: Component = () => {
 												{/* Trait Floor Badge & Population */}
 												<div class="grid grid-cols-2 gap-2 my-1.5 text-[11px]">
 													<div class="p-2 rounded-lg bg-black/30 border border-white/5 flex items-center justify-between">
-														<span class="text-white/50 text-[10px]">کف بازار:</span>
+														<span class="text-white/50 text-[10px]">{t('gifts.marketFloor')}</span>
 														<span class="font-mono font-black text-emerald-400">
 															💎 {traitFloorTon.toLocaleString()} T
 														</span>
 													</div>
 													<div class="p-2 rounded-lg bg-black/30 border border-white/5 flex items-center justify-between">
-														<span class="text-white/50 text-[10px]">فراوانی جهانی:</span>
+														<span class="text-white/50 text-[10px]">{t('gifts.globalSupply')}</span>
 														<span class="font-mono font-bold text-sky-400">
-															{population} از ۵,۰۰۰
+															{t('gifts.populationRatio', { count: population, total: '5,000' })}
 														</span>
 													</div>
 												</div>
@@ -899,14 +900,14 @@ export const GiftReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* SECTION 3.5: SELLER NET PROCEEDS & INSTANT CASHOUT (محاسبه سود خالص و نقدشوندگی) */}
+						{/* SECTION 3.5: SELLER NET PROCEEDS & INSTANT CASHOUT */}
 						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl space-y-3">
 							<div class="flex items-center justify-between">
 								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-emerald-400 text-base">
 										calculate
 									</span>
-									<span>محاسبه‌گر خالص دریافتی فروشنده</span>
+									<span>{t('gifts.sellerNetProceeds')}</span>
 								</h3>
 								<span class="text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
 									Net Proceeds
@@ -915,31 +916,31 @@ export const GiftReportPage: Component = () => {
 
 							<div class="bg-black/30 border border-white/5 rounded-2xl p-3.5 space-y-2 text-xs">
 								<div class="flex items-center justify-between text-white/70">
-									<span>قیمت فروش ناخالص (Gross Price):</span>
+									<span>{t('gifts.grossPrice')}</span>
 									<span class="font-mono font-bold text-white">
 										{formatGram(sellerNetProceeds().gross)} TON
 									</span>
 								</div>
 								<div class="flex items-center justify-between text-white/50 text-[11px]">
-									<span>کارمزد مارکت‌پلیس Fragment (۵٪):</span>
+									<span>{t('gifts.fragmentFee')}</span>
 									<span class="font-mono text-rose-400">
 										-{formatGram(sellerNetProceeds().fragFee)} TON
 									</span>
 								</div>
 								<div class="flex items-center justify-between text-white/50 text-[11px]">
-									<span>حق امتیاز پروتکل تلگرام (۵٪):</span>
+									<span>{t('gifts.telegramRoyalty')}</span>
 									<span class="font-mono text-rose-400">
 										-{formatGram(sellerNetProceeds().telegramRoyalty)} TON
 									</span>
 								</div>
 								<div class="flex items-center justify-between text-white/50 text-[11px]">
-									<span>کارمزد گس شبکه بلاکچین TON:</span>
+									<span>{t('gifts.tonGasFee')}</span>
 									<span class="font-mono text-rose-400">
 										-{sellerNetProceeds().gasFee} TON
 									</span>
 								</div>
 								<div class="border-t border-white/10 pt-2 flex items-center justify-between font-black text-sm">
-									<span class="text-emerald-400">خالص دریافتی واریز به والت:</span>
+									<span class="text-emerald-400">{t('gifts.netProceedsPayout')}</span>
 									<div class="text-right">
 										<span class="font-mono text-emerald-400 block text-base">
 											💎 {formatGram(sellerNetProceeds().net)} TON
@@ -953,13 +954,13 @@ export const GiftReportPage: Component = () => {
 
 							<div class="grid grid-cols-2 gap-2 text-xs">
 								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
-									<span class="text-[10px] text-white/40 block">سرعت فروش تخمینی</span>
+									<span class="text-[10px] text-white/40 block">{t('gifts.estSellingSpeed')}</span>
 									<span class="font-black text-white text-xs mt-0.5 block">
-										⚡ ۲ تا ۴ ساعت (قیمت کف)
+										{t('gifts.estSpeedValue')}
 									</span>
 								</div>
 								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
-									<span class="text-[10px] text-white/40 block">بالاترین آفر خرید آنی</span>
+									<span class="text-[10px] text-white/40 block">{t('gifts.highestInstantBid')}</span>
 									<span class="font-black text-sky-400 text-xs mt-0.5 block font-mono">
 										💎 {sellerNetProceeds().instantCashoutBid.toLocaleString()} TON
 									</span>
@@ -1214,7 +1215,7 @@ export const GiftReportPage: Component = () => {
 															rel="noopener noreferrer"
 															class="text-[10px] text-[#0098EA] hover:underline flex items-center gap-1 mt-1 font-bold"
 														>
-															<span>مشاهده در TonViewer</span>
+															<span>{t('gifts.viewOnTonViewer')}</span>
 															<span class="material-symbols-outlined text-xs">open_in_new</span>
 														</a>
 													</Show>
@@ -1289,7 +1290,7 @@ export const GiftReportPage: Component = () => {
 							<div class="flex items-center justify-between">
 								<h4 class="text-xs font-black text-white flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-[#0098EA] text-sm">token</span>
-									<span>قرارداد هوشمند NFT در بلاکچین TON</span>
+									<span>{t('gifts.nftContractTelemetry')}</span>
 								</h4>
 								<span class="text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30">
 									TEP-62 Item
@@ -1297,7 +1298,7 @@ export const GiftReportPage: Component = () => {
 							</div>
 							<div class="bg-black/30 border border-white/5 rounded-xl p-3 flex items-center justify-between">
 								<div class="truncate">
-									<span class="text-[9px] text-white/40 block font-bold">آدرس قرارداد هوشمند این هدیه:</span>
+									<span class="text-[9px] text-white/40 block font-bold">{t('gifts.nftContractAddress')}</span>
 									<span class="font-mono text-white text-[11px] block mt-0.5 truncate">
 										{enrichedQuery.data?.on_chain?.nft_address || `${deterministicOwner().fullAddress.slice(0, 24)}...`}
 									</span>

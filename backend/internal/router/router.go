@@ -202,10 +202,12 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/packages", cfg.BotMgmtHandler.GetPackages)
 			r.Post("/subscribe", cfg.BotMgmtHandler.Subscribe)
 			r.Post("/subscribe-airdrop", cfg.BotMgmtHandler.SubscribeWithAirdrop)
+			r.Post("/subscribe-credits", cfg.BotMgmtHandler.SubscribeWithCredits)
 			r.Post("/subscribe-stars-invoice", cfg.BotMgmtHandler.SubscribeStarsInvoice)
 
 			r.Post("/channel/subscribe", cfg.BotMgmtHandler.SubscribeChannel)
 			r.Post("/channel/subscribe-airdrop", cfg.BotMgmtHandler.SubscribeChannelWithAirdrop)
+			r.Post("/channel/subscribe-credits", cfg.BotMgmtHandler.SubscribeChannelWithCredits)
 			r.Post("/channel/subscribe-stars-invoice", cfg.BotMgmtHandler.SubscribeChannelStarsInvoice)
 		})
 

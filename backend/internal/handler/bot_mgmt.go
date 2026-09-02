@@ -315,6 +315,32 @@ func (h *BotMgmtHandler) SubscribeWithAirdrop(w http.ResponseWriter, r *http.Req
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed_via_airdrop"})
 }
 
+func (h *BotMgmtHandler) SubscribeWithCredits(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req SubscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	groupID, err := uuid.Parse(req.GroupID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
+		return
+	}
+
+	if err := h.svc.SubscribeWithCredits(r.Context(), userID, groupID, req.PackageID); err != nil {
+		RespondError(w, r, http.StatusPaymentRequired, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed_via_credits"})
+}
+
 func (h *BotMgmtHandler) SubscribeStarsInvoice(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
 	if userID == 0 {
@@ -442,6 +468,32 @@ func (h *BotMgmtHandler) SubscribeChannelWithAirdrop(w http.ResponseWriter, r *h
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed_via_airdrop"})
+}
+
+func (h *BotMgmtHandler) SubscribeChannelWithCredits(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req ChannelSubscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	channelID, err := uuid.Parse(req.ChannelID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	if err := h.svc.SubscribeChannelWithCredits(r.Context(), userID, channelID, req.PackageID); err != nil {
+		RespondError(w, r, http.StatusPaymentRequired, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed_via_credits"})
 }
 
 func (h *BotMgmtHandler) SubscribeChannelStarsInvoice(w http.ResponseWriter, r *http.Request) {

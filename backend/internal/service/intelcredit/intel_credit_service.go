@@ -30,6 +30,10 @@ func (s *IntelCreditService) ConsumeCredit(ctx context.Context, userID int64, re
 	return s.repo.ConsumeCreditFIFO(ctx, userID, reason, entity, idemKey)
 }
 
+func (s *IntelCreditService) ConsumeCreditsBatch(ctx context.Context, userID int64, amount int, reason, entity, idemKey string) (int, error) {
+	return s.repo.ConsumeCreditsBatch(ctx, userID, amount, reason, entity, idemKey)
+}
+
 func (s *IntelCreditService) GrantCredits(ctx context.Context, userID int64, kind string, amount int, source, referenceID string, expiresAt *time.Time) (uuid.UUID, error) {
 	return s.repo.GrantCredits(ctx, userID, kind, amount, source, referenceID, expiresAt)
 }

@@ -292,7 +292,8 @@ export const NumberReportPage: Component = () => {
 				err?.response?.data?.error ||
 				err?.response?.data?.message ||
 				err?.message ||
-				'خطا در بازگشایی گزارش با کردیت اینتل.';
+				t('valuation.unlock_error') ||
+				'Error unlocking report with credit.';
 			setError(errorMsg);
 		} finally {
 			setLoading(false);
@@ -416,6 +417,15 @@ export const NumberReportPage: Component = () => {
 		return '20px';
 	};
 
+	const getTonPriceFontSize = (tonVal?: number | string) => {
+		const formatted = formatTon(tonVal);
+		const len = formatted.length;
+		if (len <= 6) return 'text-2xl sm:text-3xl';
+		if (len <= 9) return 'text-xl sm:text-2xl';
+		if (len <= 12) return 'text-lg sm:text-xl';
+		return 'text-base sm:text-lg';
+	};
+
 	return (
 		<div
 			class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden"
@@ -514,7 +524,7 @@ export const NumberReportPage: Component = () => {
 								ref={cardRef}
 								onPointerMove={handlePointerMove}
 								onPointerLeave={handlePointerLeave}
-								class="w-full h-full bg-[#08090D] rounded-[45px] p-6 sm:p-8 relative overflow-hidden flex flex-col justify-between shadow-inner select-none cursor-pointer touch-pan-y will-change-transform"
+								class="w-full h-full bg-[#08090D] rounded-[45px] p-6 sm:p-7 relative overflow-hidden flex flex-col justify-between shadow-inner select-none cursor-pointer touch-pan-y will-change-transform"
 								style={{
 									transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
 									'background-image':
@@ -535,9 +545,9 @@ export const NumberReportPage: Component = () => {
 								<div class="absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent pointer-events-none" />
 
 								{/* Top Header Stamp */}
-								<div class="flex justify-between items-center z-10">
+								<div class="flex justify-between items-center z-10 w-full" dir="ltr">
 									<span
-										class={`px-3.5 py-1.5 border rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm ${
+										class={`px-3 py-1 border rounded-xl text-[10px] font-black tracking-wider uppercase shadow-sm truncate max-w-[55%] ${
 											getNumberTheme().badge
 										}`}
 									>
@@ -545,8 +555,11 @@ export const NumberReportPage: Component = () => {
 											reportData()?.category_club ||
 											`${getNumberTheme().name} TIER`}
 									</span>
-									<span class="text-[11px] font-mono font-black text-white/30 tracking-[3px] uppercase bg-white/5 border border-white/5 px-3.5 py-1.5 rounded-[12px] shadow-inner">
-										👑 #{reportData()?.global_rank || 1} / 136k
+									<span class="text-[11px] font-mono font-black text-white/50 tracking-wider uppercase bg-white/5 border border-white/10 px-3 py-1 rounded-xl shadow-inner flex items-center gap-1.5 flex-shrink-0" dir="ltr">
+										<span>👑</span>
+										<span>#{reportData()?.global_rank || 1}</span>
+										<span class="text-white/30">/</span>
+										<span class="text-white/40">136.5K</span>
 									</span>
 								</div>
 
@@ -562,7 +575,7 @@ export const NumberReportPage: Component = () => {
 										}}
 									/>
 									<div class="flex items-center justify-center gap-2 w-full">
-										<span class="text-white/20 font-black text-[22px] sm:text-[26px] select-none drop-shadow-md">
+										<span class="text-white/20 font-black text-xl sm:text-2xl select-none drop-shadow-md">
 											✦
 										</span>
 										<span
@@ -576,7 +589,7 @@ export const NumberReportPage: Component = () => {
 										>
 											{reportData()?.display_number || inputNumber()}
 										</span>
-										<span class="text-white/20 font-black text-[22px] sm:text-[26px] select-none drop-shadow-md">
+										<span class="text-white/20 font-black text-xl sm:text-2xl select-none drop-shadow-md">
 											✦
 										</span>
 									</div>
@@ -597,14 +610,14 @@ export const NumberReportPage: Component = () => {
 								</div>
 
 								{/* Bottom Valuation & Status Bar */}
-								<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
-									<div class="flex flex-col gap-0.5 text-start">
-										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5">
+								<div class="flex justify-between items-end border-t border-white/10 pt-3.5 z-10 w-full gap-2">
+									<div class="flex flex-col gap-0.5 text-start min-w-0 flex-1">
+										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest truncate block">
 											{t('numbers.fairValue') || 'ESTIMATED VALUE'}
 										</span>
-										<div class="flex items-center gap-2" dir="ltr">
+										<div class="flex items-center gap-1.5 flex-wrap" dir="ltr">
 											<svg
-												class="w-7 h-7 filter drop-shadow-[0_0_15px_rgba(0,152,234,0.6)]"
+												class="w-6 h-6 flex-shrink-0 filter drop-shadow-[0_0_12px_rgba(0,152,234,0.6)]"
 												viewBox="0 0 56 56"
 												fill="none"
 												xmlns="http://www.w3.org/2000/svg"
@@ -619,22 +632,22 @@ export const NumberReportPage: Component = () => {
 													fill="white"
 												/>
 											</svg>
-											<span class="text-[28px] sm:text-[32px] font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] tracking-tight font-mono">
+											<span class={`font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] tracking-tight font-mono truncate ${getTonPriceFontSize(reportData()?.expected_ton)}`}>
 												{formatTon(reportData()?.expected_ton)}
 											</span>
-											<span class="text-[13px] font-black text-[#0098EA] leading-none mb-1">
+											<span class="text-xs font-black text-[#0098EA] leading-none mb-0.5 flex-shrink-0">
 												{t('common.ton')}
 											</span>
 										</div>
 									</div>
 
-									<div class="flex flex-col items-end gap-1.5">
-										<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-3 py-1 rounded-[10px] border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-widest text-[9px] shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+									<div class="flex flex-col items-end gap-1 flex-shrink-0">
+										<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-2.5 py-1 rounded-[8px] border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-wider text-[9px] shadow-[0_0_15px_rgba(16,185,129,0.2)]">
 											<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />{' '}
-											{t('valuation.verified') || 'VERIFIED'}
+											<span>{t('valuation.verified') || 'VERIFIED'}</span>
 										</div>
 										<span
-											class="text-[13px] text-white/60 font-black leading-none font-mono"
+											class="text-xs text-white/60 font-black leading-none font-mono"
 											dir="ltr"
 										>
 											≈ ${formatUsd(reportData()?.expected_usd)}
@@ -706,36 +719,36 @@ export const NumberReportPage: Component = () => {
 									</span>
 									<span>{t('numbers.priceRangeTitle')}</span>
 								</h3>
-								<span class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+								<span class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20" dir="ltr">
 									{reportData()?.confidence_score}% Confidence
 								</span>
 							</div>
 
 							<div class="grid grid-cols-3 gap-2 text-center my-3">
-								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-									<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">
+								<div class="p-2.5 sm:p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex flex-col justify-center min-w-0">
+									<span class="text-[9px] uppercase font-bold text-white/40 block mb-1 truncate">
 										{t('valuation.floor')}
 									</span>
-									<span class="font-mono font-black text-white text-xs block" dir="ltr">
-										{formatTon(reportData()?.low_ton)} TON
+									<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
+										{formatTon(reportData()?.low_ton)} <span class="text-[10px] text-[#0098EA]">TON</span>
 									</span>
 								</div>
 
-								<div class="p-3 rounded-2xl bg-[#0098EA]/10 border border-[#0098EA]/30">
-									<span class="text-[9px] uppercase font-bold text-[#0098EA] block mb-1">
+								<div class="p-2.5 sm:p-3 rounded-2xl bg-[#0098EA]/10 border border-[#0098EA]/30 flex flex-col justify-center min-w-0 shadow-lg shadow-[#0098EA]/10">
+									<span class="text-[9px] uppercase font-bold text-[#0098EA] block mb-1 truncate">
 										{t('numbers.fairValue')}
 									</span>
-									<span class="font-mono font-black text-[#0098EA] text-sm block" dir="ltr">
-										{formatTon(reportData()?.expected_ton)} TON
+									<span class="font-mono font-black text-[#0098EA] text-xs sm:text-sm block truncate" dir="ltr">
+										{formatTon(reportData()?.expected_ton)} <span class="text-[10px] text-[#0098EA]">TON</span>
 									</span>
 								</div>
 
-								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-									<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">
+								<div class="p-2.5 sm:p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex flex-col justify-center min-w-0">
+									<span class="text-[9px] uppercase font-bold text-white/40 block mb-1 truncate">
 										{t('valuation.ceiling')}
 									</span>
-									<span class="font-mono font-black text-white text-xs block" dir="ltr">
-										{formatTon(reportData()?.high_ton)} TON
+									<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
+										{formatTon(reportData()?.high_ton)} <span class="text-[10px] text-[#0098EA]">TON</span>
 									</span>
 								</div>
 							</div>
@@ -754,93 +767,93 @@ export const NumberReportPage: Component = () => {
 									<span class="material-symbols-outlined text-amber-400 text-base">gavel</span>
 									<span>{t('numbers.actionPlaybookTitle')}</span>
 								</h3>
-								<span class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md">
+								<span class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md" dir="ltr">
 									ACTION PLAYBOOK
 								</span>
 							</div>
 
 							<div class="grid grid-cols-2 gap-2.5 mb-3">
-								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start">
-									<span class="text-[9px] font-black text-emerald-400 uppercase block mb-1">
+								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start min-w-0">
+									<span class="text-[9px] font-black text-emerald-400 uppercase block mb-1 truncate">
 										{t('numbers.fairBuyTarget')}
 									</span>
-									<span class="text-sm font-mono font-black text-white block" dir="ltr">
+									<span class="text-sm font-mono font-black text-white block truncate" dir="ltr">
 										{formatTon(
 											reportData()?.playbook?.fair_buy_target_ton ||
 												Math.round(Number(reportData()?.expected_ton || 0) * 0.88),
 										)}{' '}
-										TON
+										<span class="text-[11px] text-[#0098EA]">TON</span>
 									</span>
-									<span class="text-[9px] text-white/40 block mt-0.5">
+									<span class="text-[9px] text-white/40 block mt-0.5 truncate">
 										{t('numbers.fairBuySub')}
 									</span>
 								</div>
 
-								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start">
-									<span class="text-[9px] font-black text-amber-400 uppercase block mb-1">
+								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start min-w-0">
+									<span class="text-[9px] font-black text-amber-400 uppercase block mb-1 truncate">
 										{t('numbers.suggestedAuctionStart')}
 									</span>
-									<span class="text-sm font-mono font-black text-white block" dir="ltr">
+									<span class="text-sm font-mono font-black text-white block truncate" dir="ltr">
 										{formatTon(
 											reportData()?.playbook?.suggested_auction_start_ton ||
 												Math.round(Number(reportData()?.expected_ton || 0) * 0.72),
 										)}{' '}
-										TON
+										<span class="text-[11px] text-[#0098EA]">TON</span>
 									</span>
-									<span class="text-[9px] text-white/40 block mt-0.5">
+									<span class="text-[9px] text-white/40 block mt-0.5 truncate">
 										{t('numbers.suggestedAuctionStartSub')}
 									</span>
 								</div>
 							</div>
 
 							<div class="grid grid-cols-2 gap-2.5 mb-3">
-								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start">
-									<span class="text-[9px] font-black text-[#0098EA] uppercase block mb-1">
+								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start min-w-0">
+									<span class="text-[9px] font-black text-[#0098EA] uppercase block mb-1 truncate">
 										{t('numbers.buyNowTarget')}
 									</span>
-									<span class="text-sm font-mono font-black text-white block" dir="ltr">
+									<span class="text-sm font-mono font-black text-white block truncate" dir="ltr">
 										{formatTon(
 											reportData()?.playbook?.buy_now_target_ton ||
 												Math.round(Number(reportData()?.expected_ton || 0) * 1.15),
 										)}{' '}
-										TON
+										<span class="text-[11px] text-[#0098EA]">TON</span>
 									</span>
-									<span class="text-[9px] text-white/40 block mt-0.5">
+									<span class="text-[9px] text-white/40 block mt-0.5 truncate">
 										{t('numbers.buyNowSub')}
 									</span>
 								</div>
 
-								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start">
-									<span class="text-[9px] font-black text-purple-300 uppercase block mb-1">
+								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start min-w-0">
+									<span class="text-[9px] font-black text-purple-300 uppercase block mb-1 truncate">
 										{t('numbers.bidStepLabel')}
 									</span>
-									<span class="text-sm font-mono font-black text-white block" dir="ltr">
+									<span class="text-sm font-mono font-black text-white block truncate" dir="ltr">
 										{formatTon(
 											reportData()?.playbook?.bid_step_ton ||
 												Math.round(Number(reportData()?.expected_ton || 0) * 0.05),
 										)}{' '}
-										TON
+										<span class="text-[11px] text-[#0098EA]">TON</span>
 									</span>
-									<span class="text-[9px] text-white/40 block mt-0.5">
+									<span class="text-[9px] text-white/40 block mt-0.5 truncate">
 										{t('numbers.bidStepStandard')}
 									</span>
 								</div>
 							</div>
 
 							{/* Net Proceeds Card */}
-							<div class="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center justify-between">
-								<div class="text-start">
-									<span class="text-[9px] font-bold text-white/50 block">
+							<div class="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center justify-between gap-2">
+								<div class="text-start min-w-0">
+									<span class="text-[9px] font-bold text-white/50 block truncate">
 										{t('numbers.netProceedsTitle')}
 									</span>
-									<span class="text-base font-mono font-black text-emerald-400 block" dir="ltr">
+									<span class="text-base font-mono font-black text-emerald-400 block truncate" dir="ltr">
 										{formatTon(
 											reportData()?.playbook?.net_proceeds_ton ||
 												reportData()?.economics?.net_payout_ton,
 										)}{' '}
-										TON
+										<span class="text-xs text-[#0098EA]">TON</span>
 									</span>
-									<span class="text-[10px] text-white/40 font-mono" dir="ltr">
+									<span class="text-[10px] text-white/40 font-mono block truncate" dir="ltr">
 										≈{' '}
 										{formatUsd(
 											reportData()?.playbook?.net_proceeds_usd ||
@@ -848,7 +861,7 @@ export const NumberReportPage: Component = () => {
 										)}
 									</span>
 								</div>
-								<span class="text-[10px] font-mono font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-lg">
+								<span class="text-[10px] font-mono font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-lg flex-shrink-0" dir="ltr">
 									-5.0% Fee
 								</span>
 							</div>
@@ -861,45 +874,43 @@ export const NumberReportPage: Component = () => {
 									<span class="material-symbols-outlined text-amber-400 text-base">dna</span>
 									<span>{t('numbers.patternAnatomyTitle')}</span>
 								</h3>
-								<span class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md">
+								<span class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md" dir="ltr">
 									{reportData()?.pattern_anatomy?.exact_supply_count || 10} IN EXISTENCE
 								</span>
 							</div>
 
 							<div class="space-y-2.5 text-xs text-start">
-								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between">
-									<span class="text-white/60">{t('numbers.exactSupplyLabel')}:</span>
-									<span class="font-mono font-black text-amber-300" dir="ltr">
-										{reportData()?.pattern_anatomy?.exact_supply_count || 10} / 136,566 (
-										{reportData()?.pattern_anatomy?.supply_percentage || 0.007}%)
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between gap-2">
+									<span class="text-white/60 truncate">{t('numbers.exactSupplyLabel')}:</span>
+									<span class="font-mono font-black text-amber-300 flex-shrink-0" dir="ltr">
+										{reportData()?.pattern_anatomy?.exact_supply_count || 10} / 136,566 ({reportData()?.pattern_anatomy?.supply_percentage || 0.007}%)
 									</span>
 								</div>
 
 								<div class="grid grid-cols-3 gap-2 text-center">
-									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-										<span class="text-[9px] text-white/40 block mb-0.5">
+									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 min-w-0">
+										<span class="text-[9px] text-white/40 block mb-0.5 truncate">
 											{t('numbers.uniqueDigitsLabel')}
 										</span>
-										<span class="font-mono font-black text-white text-xs">
-											{reportData()?.pattern_anatomy?.distinct_digits ?? 1}{' '}
-											{t('numbers.digitUnit')}
+										<span class="font-mono font-black text-white text-xs block truncate" dir="ltr">
+											{reportData()?.pattern_anatomy?.distinct_digits ?? 1} {t('numbers.digitUnit')}
 										</span>
 									</div>
 
-									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-										<span class="text-[9px] text-white/40 block mb-0.5">
+									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 min-w-0">
+										<span class="text-[9px] text-white/40 block mb-0.5 truncate">
 											{t('numbers.symmetryLabel')}
 										</span>
-										<span class="font-mono font-black text-emerald-400 text-xs">
+										<span class="font-mono font-black text-emerald-400 text-xs block truncate" dir="ltr">
 											{reportData()?.pattern_anatomy?.symmetry_score || 100}%
 										</span>
 									</div>
 
-									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-										<span class="text-[9px] text-white/40 block mb-0.5">
+									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 min-w-0">
+										<span class="text-[9px] text-white/40 block mb-0.5 truncate">
 											{t('numbers.memorabilityLabel')}
 										</span>
-										<span class="font-mono font-black text-[#0098EA] text-xs">
+										<span class="font-mono font-black text-[#0098EA] text-xs block truncate" dir="ltr">
 											{reportData()?.pattern_anatomy?.memorability_score || 99} / 100
 										</span>
 									</div>

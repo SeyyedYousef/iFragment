@@ -305,7 +305,12 @@ func (h *GiftsHandler) GetGiftImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bytes, err := h.service.GetGiftImageBytes(ctx, slug)
+	model := r.URL.Query().Get("m")
+	if model == "" {
+		model = r.URL.Query().Get("model")
+	}
+
+	bytes, err := h.service.GetGiftImageBytes(ctx, slug, model)
 	if err != nil || len(bytes) == 0 {
 		http.Error(w, "image not found", http.StatusNotFound)
 		return

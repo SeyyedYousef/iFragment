@@ -174,42 +174,65 @@ func (db *Database) CompleteChannelStarsPayment(ctx context.Context, payload str
 	return tx.Commit(ctx)
 }
 
-// HasPaidValuation checks if a user has a paid valuation order for the specified username within the last 24 hours.
+// HasPaidValuation checks if a user has a paid valuation order or consumed an Intel Credit for the specified username within the last 24 hours.
 // Returns (hasAccess, method, error).
 func (db *Database) HasPaidValuation(ctx context.Context, userID int64, username string) (bool, string, error) {
 	if db.Pool == nil {
 		return false, "", nil
 	}
 	cleanU := strings.ToLower(strings.TrimPrefix(username, "@"))
+
+	// 1. Check orders table (Coins, Stars, Free Quota, or Referral Credit)
 	query := `
 		SELECT payload
 		FROM orders
 		WHERE user_id = $1
 		  AND status = 'paid'
 		  AND created_at > NOW() - INTERVAL '24 hours'
-		  AND (LOWER(payload) LIKE $2 OR LOWER(payload) LIKE $3 OR LOWER(payload) LIKE $4)
+		  AND (LOWER(payload) LIKE $2 OR LOWER(payload) LIKE $3 OR LOWER(payload) LIKE $4 OR LOWER(payload) LIKE $5)
 		ORDER BY created_at DESC
 		LIMIT 1
 	`
 	p1 := "val_coins:" + cleanU + "%"
 	p2 := "val_stars:" + fmt.Sprintf("%d:%s", userID, cleanU) + "%"
 	p3 := "val_free:" + fmt.Sprintf("%d:%s", userID, cleanU) + "%"
+	p4 := "val_credit:" + cleanU + "%"
 	var payload string
-	err := db.Pool.QueryRow(ctx, query, userID, p1, p2, p3).Scan(&payload)
-	if err == pgx.ErrNoRows {
-		return false, "", nil
-	}
-	if err != nil {
+	err := db.Pool.QueryRow(ctx, query, userID, p1, p2, p3, p4).Scan(&payload)
+	if err == nil {
+		method := "coins"
+		if len(payload) >= 8 && strings.ToLower(payload[:8]) == "val_free" {
+			method = "free"
+		} else if len(payload) >= 9 && strings.ToLower(payload[:9]) == "val_stars" {
+			method = "stars"
+		} else if len(payload) >= 10 && strings.ToLower(payload[:10]) == "val_credit" {
+			method = "credit"
+		}
+		return true, method, nil
+	} else if err != pgx.ErrNoRows {
 		return false, "", err
 	}
 
-	method := "coins"
-	if len(payload) >= 8 && strings.ToLower(payload[:8]) == "val_free" {
-		method = "free"
-	} else if len(payload) >= 9 && strings.ToLower(payload[:9]) == "val_stars" {
-		method = "stars"
+	// 2. Check intel_credit_ledger for Intel Credit deductions in the last 24 hours
+	ledgerQuery := `
+		SELECT 1
+		FROM intel_credit_ledger
+		WHERE user_id = $1
+		  AND delta < 0
+		  AND reason IN ('username', 'report:username', 'val_username', 'report:intel')
+		  AND LOWER(TRIM(LEADING '@' FROM entity)) = $2
+		  AND created_at > NOW() - INTERVAL '24 hours'
+		LIMIT 1
+	`
+	var exists int
+	err = db.Pool.QueryRow(ctx, ledgerQuery, userID, cleanU).Scan(&exists)
+	if err == nil {
+		return true, "credit", nil
 	}
-	return true, method, nil
+	if err == pgx.ErrNoRows {
+		return false, "", nil
+	}
+	return false, "", err
 }
 
 // HasUsedFreeValuationQuota checks if a user has ever claimed a free valuation.

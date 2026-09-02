@@ -488,7 +488,7 @@ func main() {
 
 	// Initialize Intel Credits System
 	intelCreditService := intelcredit.NewIntelCreditService(db)
-	intelCreditHandler := handler.NewIntelCreditHandler(intelCreditService)
+	intelCreditHandler := handler.NewIntelCreditHandler(intelCreditService, cache)
 
 	// Register API and Owner routes via modular router package
 	router.RegisterAPIRoutes(r, router.Config{

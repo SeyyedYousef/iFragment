@@ -73,6 +73,10 @@ interface GiftTrendingCard {
 }
 
 interface GiftTrendingPool {
+	id: string;
+	icon: string;
+	label: string;
+	shortLabel: string;
 	badge: string;
 	items: GiftTrendingCard[];
 }
@@ -102,42 +106,84 @@ const NUMBER_TRENDING_POOLS: TrendingPool[] = [
 
 const RICH_GIFTS_TRENDING_POOLS: GiftTrendingPool[] = [
 	{
+		id: 'bluechips',
+		icon: '🔥',
+		label: 'بلوچیپ و جنسیس',
+		shortLabel: 'بلوچیپ',
 		badge: 'BLUECHIP & APEX (بلوچیپ)',
 		items: [
-			{ slug: 'plush_pepe', name: 'Plush Pepe #1', serial: 1, url: 'https://t.me/nft/PlushPepe-1', floor: 5200, emoji: '🐸', tag: 'Top 0.01% Elite' },
-			{ slug: 'durov_cap', name: "Durov's Cap #1", serial: 1, url: 'https://t.me/nft/DurovsCap-1', floor: 2800, emoji: '🧢', tag: 'Mythic Genesis' },
-			{ slug: 'signet_ring', name: 'Signet Ring #7', serial: 7, url: 'https://t.me/nft/SignetRing-7', floor: 950, emoji: '💍', tag: 'Lucky 7' },
-			{ slug: 'precious_peach', name: 'Precious Peach #88', serial: 88, url: 'https://t.me/nft/PreciousPeach-88', floor: 1100, emoji: '🍑', tag: 'Double 8' },
+			{ slug: 'plush-pepe', name: 'Plush Pepe', serial: 1, url: 'https://t.me/nft/PlushPepe-1', floor: 5200, emoji: '🐸', tag: 'Top 0.01% Genesis' },
+			{ slug: 'durov-cap', name: "Durov's Cap", serial: 1, url: 'https://t.me/nft/DurovsCap-1', floor: 2800, emoji: '🧢', tag: 'Mythic Genesis #1' },
+			{ slug: 'signet-ring', name: 'Signet Ring', serial: 7, url: 'https://t.me/nft/SignetRing-7', floor: 950, emoji: '💍', tag: 'Lucky 7 Apex' },
+			{ slug: 'precious-peach', name: 'Precious Peach', serial: 88, url: 'https://t.me/nft/PreciousPeach-88', floor: 1100, emoji: '🍑', tag: 'Double 8 Grail' },
 		],
 	},
 	{
-		badge: 'SEASONAL & MAGIC (فصلی و جادو)',
-		items: [
-			{ slug: 'santa_hat', name: 'Santa Hat #1', serial: 1, url: 'https://t.me/nft/SantaHat-1', floor: 650, emoji: '🎅', tag: 'Genesis Mint' },
-			{ slug: 'magic_potion', name: 'Magic Potion #777', serial: 777, url: 'https://t.me/nft/MagicPotion-777', floor: 480, emoji: '🧪', tag: 'Triple 7' },
-			{ slug: 'kissed_frog', name: 'Kissed Frog #10', serial: 10, url: 'https://t.me/nft/KissedFrog-10', floor: 390, emoji: '🐸', tag: 'Apex' },
-			{ slug: 'hex_pot', name: 'Hex Pot #42', serial: 42, url: 'https://t.me/nft/HexPot-42', floor: 320, emoji: '🏺', tag: 'Rare' },
-		],
-	},
-	{
+		id: 'popular',
+		icon: '🌟',
+		label: 'ستارگان و ترند',
+		shortLabel: 'ترند بازار',
 		badge: 'TALISMANS & STARS (ستارگان و نمادین)',
 		items: [
-			{ slug: 'snoop_dogg', name: 'Snoop Dogg #420', serial: 420, url: 'https://t.me/nft/SnoopDogg-420', floor: 3200, emoji: '🎙️', tag: '420 OG' },
-			{ slug: 'scared_cat', name: 'Scared Cat #10', serial: 10, url: 'https://t.me/nft/ScaredCat-10', floor: 1450, emoji: '🐱', tag: 'Top Tier' },
-			{ slug: 'lunar_snake', name: 'Lunar Snake #8', serial: 8, url: 'https://t.me/nft/LunarSnake-8', floor: 850, emoji: '🐍', tag: 'Single Digit' },
-			{ slug: 'astral_shard', name: 'Astral Shard #99', serial: 99, url: 'https://t.me/nft/AstralShard-99', floor: 780, emoji: '💎', tag: 'Apex' },
+			{ slug: 'snoop-dogg', name: 'Snoop Dogg', serial: 420, url: 'https://t.me/nft/SnoopDogg-420', floor: 3200, emoji: '🎙️', tag: '420 OG Legend' },
+			{ slug: 'scared-cat', name: 'Scared Cat', serial: 10, url: 'https://t.me/nft/ScaredCat-10', floor: 1450, emoji: '🐱', tag: 'Top 10 Apex' },
+			{ slug: 'lunar-snake', name: 'Lunar Snake', serial: 8, url: 'https://t.me/nft/LunarSnake-8', floor: 850, emoji: '🐍', tag: 'Single Digit #8' },
+			{ slug: 'astral-shard', name: 'Astral Shard', serial: 99, url: 'https://t.me/nft/AstralShard-99', floor: 780, emoji: '💎', tag: 'Double Digit #99' },
 		],
 	},
 	{
+		id: 'seasonal',
+		icon: '🎭',
+		label: 'فصلی و جادو',
+		shortLabel: 'فصلی',
+		badge: 'SEASONAL & MAGIC (فصلی و جادو)',
+		items: [
+			{ slug: 'santa-hat', name: 'Santa Hat', serial: 1, url: 'https://t.me/nft/SantaHat-1', floor: 650, emoji: '🎅', tag: 'Genesis Mint #1' },
+			{ slug: 'magic-potion', name: 'Magic Potion', serial: 777, url: 'https://t.me/nft/MagicPotion-777', floor: 480, emoji: '🧪', tag: 'Triple 7 Jackpot' },
+			{ slug: 'kissed-frog', name: 'Kissed Frog', serial: 10, url: 'https://t.me/nft/KissedFrog-10', floor: 390, emoji: '🐸', tag: 'Apex Single Digit' },
+			{ slug: 'hex-pot', name: 'Hex Pot', serial: 42, url: 'https://t.me/nft/HexPot-42', floor: 320, emoji: '🏺', tag: 'Rare Serial #42' },
+		],
+	},
+	{
+		id: 'luxury',
+		icon: '👑',
+		label: 'لوکس و خاص',
+		shortLabel: 'لوکس',
 		badge: 'LUXURY & HIGH TIER (لوکس و کلکسیونی)',
 		items: [
-			{ slug: 'swiss_watch', name: 'Swiss Watch #12', serial: 12, url: 'https://t.me/nft/SwissWatch-12', floor: 1800, emoji: '⌚', tag: 'High Luxury' },
-			{ slug: 'diamond_ring', name: 'Diamond Ring #1', serial: 1, url: 'https://t.me/nft/DiamondRing-1', floor: 4500, emoji: '💎', tag: 'Genesis #1' },
-			{ slug: 'record_player', name: 'Record Player #100', serial: 100, url: 'https://t.me/nft/RecordPlayer-100', floor: 920, emoji: '📻', tag: 'Centennial' },
-			{ slug: 'mini_oscar', name: 'Mini Oscar #1', serial: 1, url: 'https://t.me/nft/MiniOscar-1', floor: 2900, emoji: '🏆', tag: 'Apex #1' },
+			{ slug: 'swiss-watch', name: 'Swiss Watch', serial: 12, url: 'https://t.me/nft/SwissWatch-12', floor: 1800, emoji: '⌚', tag: 'High Luxury #12' },
+			{ slug: 'diamond-ring', name: 'Diamond Ring', serial: 1, url: 'https://t.me/nft/DiamondRing-1', floor: 4500, emoji: '💎', tag: 'Genesis Mint #1' },
+			{ slug: 'record-player', name: 'Record Player', serial: 100, url: 'https://t.me/nft/RecordPlayer-100', floor: 920, emoji: '📻', tag: 'Centennial #100' },
+			{ slug: 'mini-oscar', name: 'Mini Oscar', serial: 1, url: 'https://t.me/nft/MiniOscar-1', floor: 2900, emoji: '🏆', tag: 'Apex #1 Trophy' },
 		],
 	},
 ];
+
+const GIFT_MODEL_ALIASES: Record<string, string> = {
+	durovscap: 'durov-cap',
+	durovcap: 'durov-cap',
+	durovsblackcap: 'durov-cap',
+	goldenstar: 'celestial-star',
+	celestialstar: 'celestial-star',
+	snoopdogg: 'snoop-dogg',
+	snoop: 'snoop-dogg',
+	pepe: 'plush-pepe',
+	plushpepe: 'plush-pepe',
+	swisswatch: 'swiss-watch',
+	diamondring: 'diamond-ring',
+	santahat: 'santa-hat',
+	lunarsnake: 'lunar-snake',
+	astralshard: 'astral-shard',
+	magicpotion: 'magic-potion',
+	scaredcat: 'scared-cat',
+	kissedfrog: 'kissed-frog',
+	hexpot: 'hex-pot',
+	preciouspeach: 'precious-peach',
+	minioscar: 'mini-oscar',
+	recordplayer: 'record-player',
+	signetring: 'signet-ring',
+	spicedwine: 'spiced-wine',
+};
 
 export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const { searchQuery, setSearchQuery, searchError, setSearchError, validate } =
@@ -151,6 +197,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const [serverVerified, setServerVerified] = createSignal<import('@/entities/numbers/model/types.js').NumberVerifyResult | null>(null);
 	const [isVerifying, setIsVerifying] = createSignal(false);
 	const [poolIndex, setPoolIndex] = createSignal(0);
+	const [giftPoolIndex, setGiftPoolIndex] = createSignal(0);
 	const [isRotating, setIsRotating] = createSignal(false);
 
 	let autoGuideTimeout: any = null;
@@ -167,64 +214,91 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		return false;
 	};
 
+	const normalizeGiftInput = (raw: string) => {
+		// 1. Convert Persian/Arabic digits to ASCII
+		let str = raw
+			.replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1728))
+			.replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1584))
+			.trim();
+
+		// 2. Strip URLs, protocols, domains
+		str = str
+			.replace(/^https?:\/\//i, '')
+			.replace(/^tg:\/\/resolve\?domain=nft&appname=[^&]+&apparg=/i, '')
+			.replace(/^(?:www\.)?telegram\.me\/nft\//i, '')
+			.replace(/^(?:www\.)?t\.me\/nft\//i, '')
+			.replace(/^(?:www\.)?t\.me\/gift\//i, '')
+			.replace(/^(?:www\.)?fragment\.com\/gift\//i, '')
+			.replace(/^(?:www\.)?fragment\.com\/gifts\//i, '')
+			.replace(/^(?:www\.)?marketapp\.ws\/gifts\//i, '')
+			.replace(/^(?:www\.)?getgems\.io\/collection\/[^\/]+\//i, '');
+
+		// 3. Strip query params and trailing slashes
+		if (str.includes('?')) str = str.split('?')[0];
+		str = str.replace(/\/+$/, '').trim();
+
+		return str;
+	};
+
 	const giftsValidation = createMemo(() => {
 		if (props.activeTab !== 'gifts') {
-			return { isValid: false, isLink: false, isWallet: false, isUser: false, title: '', subtitle: '', slug: '', serial: 1, emoji: '🎁', tag: '' };
+			return { isValid: false, isLink: false, isWallet: false, isUser: false, title: '', subtitle: '', slug: '', serial: 1, emoji: '🎁', tag: '', floorTon: 0, supply: 0 };
 		}
 		const raw = searchQuery().trim();
 		if (!raw) {
-			return { isValid: false, isLink: false, isWallet: false, isUser: false, title: '', subtitle: '', slug: '', serial: 1, emoji: '🎁', tag: '' };
+			return { isValid: false, isLink: false, isWallet: false, isUser: false, title: '', subtitle: '', slug: '', serial: 1, emoji: '🎁', tag: '', floorTon: 0, supply: 0 };
 		}
 
-		if (isTonWalletAddress(raw)) {
-			return {
-				isValid: true,
-				isLink: false,
-				isWallet: true,
-				isUser: false,
-				title: 'والت آن‌چین مالک هدیه',
-				subtitle: `${raw.slice(0, 8)}...${raw.slice(-6)} · اسکن کامل دارایی‌ها و هدایا`,
-				slug: raw,
-				serial: 1,
-				emoji: '💎',
-				tag: 'ON-CHAIN WALLET',
-			};
+		const clean = normalizeGiftInput(raw);
+		if (!clean) {
+			return { isValid: false, isLink: false, isWallet: false, isUser: false, title: '', subtitle: '', slug: '', serial: 1, emoji: '🎁', tag: '', floorTon: 0, supply: 0 };
 		}
 
-		if (raw.startsWith('@')) {
-			return {
-				isValid: true,
-				isLink: false,
-				isWallet: false,
-				isUser: true,
-				title: `پورتفولیوی کاربر ${raw}`,
-				subtitle: 'اسکن کامل تمام هدایای پروفایل و ارزیابی دارایی‌ها',
-				slug: raw.replace(/^@/, ''),
-				serial: 1,
-				emoji: '👤',
-				tag: 'TELEGRAM USER',
-			};
+		// 1. Match model name/slug + serial number
+		// (e.g. PlushPepe-1, Plush Pepe #1, Plush_Pepe-42, SignetRing-7, DurovsCap-1, SantaHat-100)
+		let match = clean.match(/^([a-zA-Z0-9_\s'’.-]+?)(?:[-_#\s]+)(\d+)$/);
+		if (!match) {
+			// Pattern 2: PascalCase concatenated directly with digits (e.g. PlushPepe1, DurovsCap123)
+			match = clean.match(/^([a-zA-Z_\s'’]+?)(\d+)$/);
 		}
 
-		// Check link or direct identifier (e.g. https://t.me/nft/PlushPepe-1 or PlushPepe-1 or Plush Pepe #1)
-		let clean = raw.replace(/^https?:\/\//i, '').replace(/^telegram\.me\/nft\//i, '').replace(/^t\.me\/nft\//i, '').replace(/^fragment\.com\/gift\//i, '');
-		if (clean.includes('?')) clean = clean.split('?')[0];
-		clean = clean.replace(/\/$/, '').trim();
-
-		// Match name/slug + serial number (e.g. PlushPepe-1 or DurovsCap-123 or Plush Pepe #1)
-		const match = clean.match(/^([a-zA-Z0-9_\s-]+?)[-#_\s]?(\d+)$/);
 		if (match) {
-			const modelRaw = match[1].toLowerCase().replace(/[\s_-]+/g, '_');
+			const rawModel = match[1].trim();
 			const serialNum = parseInt(match[2], 10) || 1;
-			const catalogItem = OFFICIAL_GIFTS_120.find(
-				(g) => g.slug.replace(/_/g, '') === modelRaw.replace(/_/g, '') ||
-				       g.name.toLowerCase().replace(/[^a-z0-9]/g, '') === modelRaw.replace(/[^a-z0-9]/g, '')
-			);
+			const cleanKey = rawModel.toLowerCase().replace(/[^a-z0-9]/g, '');
+			const targetAliasSlug = GIFT_MODEL_ALIASES[cleanKey];
 
-			const displayName = catalogItem ? catalogItem.name : match[1].replace(/_/g, ' ').trim();
-			const resolvedSlug = catalogItem ? catalogItem.slug : modelRaw;
+			const catalogItem = OFFICIAL_GIFTS_120.find((g) => {
+				const gKey = g.slug.replace(/[^a-z0-9]/g, '');
+				const nKey = g.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+				return (
+					gKey === cleanKey ||
+					nKey === cleanKey ||
+					(targetAliasSlug && (g.slug === targetAliasSlug || gKey === targetAliasSlug.replace(/[^a-z0-9]/g, '')))
+				);
+			});
+
+			const displayName = catalogItem ? catalogItem.name : rawModel.replace(/[-_]+/g, ' ').trim();
+			const resolvedSlug = catalogItem ? catalogItem.slug : (targetAliasSlug || rawModel.toLowerCase().replace(/[\s_]+/g, '-'));
 			const emoji = catalogItem?.emoji || '🎁';
-			const floor = catalogItem ? `${catalogItem.floorTon} TON` : 'متصل به بازار';
+			const floorTon = catalogItem?.floorTon || 0;
+			const supply = catalogItem?.supply || 0;
+
+			// Determine serial tier badge
+			let serialTag = 'VERIFIED GIFT NFT';
+			if (serialNum === 1) {
+				serialTag = '👑 GENESIS MINT (#1)';
+			} else if (serialNum >= 2 && serialNum <= 9) {
+				serialTag = `💎 SINGLE DIGIT (#${serialNum})`;
+			} else if (serialNum >= 10 && serialNum <= 99) {
+				serialTag = `⚡ DOUBLE DIGIT (#${serialNum})`;
+			} else if ([420, 777, 888, 999, 1000].includes(serialNum)) {
+				serialTag = `✨ SACRED SERIAL (#${serialNum})`;
+			}
+
+			const subtitle = floorTon > 0
+				? `کف قیمت: ${floorTon.toLocaleString()} TON (≈ $${(floorTon * 3.2).toLocaleString(undefined, { maximumFractionDigits: 0 })}) · تیراژ: ${supply.toLocaleString()} هدیه`
+				: 'آماده ارزیابی AVM و شجره‌نامه آن‌چین';
 
 			return {
 				isValid: true,
@@ -232,36 +306,47 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				isWallet: false,
 				isUser: false,
 				title: `${displayName} #${serialNum}`,
-				subtitle: `کف قیمت: ${floor} · آماده ارزیابی AVM، شجره‌نامه و کف ویژگی‌ها`,
+				subtitle,
 				slug: `${resolvedSlug}-${serialNum}`,
 				serial: serialNum,
 				emoji,
-				tag: serialNum <= 10 ? '👑 APEX SERIAL' : 'VERIFIED GIFT',
+				tag: serialTag,
+				floorTon,
+				supply,
 			};
 		}
 
-		// Match collection without number (e.g. Plush Pepe or durov_cap)
-		const colRaw = clean.toLowerCase().replace(/[\s_-]+/g, '_');
-		const catalogItem = OFFICIAL_GIFTS_120.find(
-			(g) => g.slug.replace(/_/g, '') === colRaw.replace(/_/g, '') ||
-			       g.name.toLowerCase().replace(/[^a-z0-9]/g, '') === colRaw.replace(/[^a-z0-9]/g, '')
-		);
+		// 2. Match collection without explicit serial number (e.g. Plush Pepe or durov_cap or SantaHat)
+		const cleanColKey = clean.toLowerCase().replace(/[^a-z0-9]/g, '');
+		const targetAlias = GIFT_MODEL_ALIASES[cleanColKey];
+		const catalogItem = OFFICIAL_GIFTS_120.find((g) => {
+			const gKey = g.slug.replace(/[^a-z0-9]/g, '');
+			const nKey = g.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+			return (
+				gKey === cleanColKey ||
+				nKey === cleanColKey ||
+				(targetAlias && (g.slug === targetAlias || gKey === targetAlias.replace(/[^a-z0-9]/g, '')))
+			);
+		});
+
 		if (catalogItem) {
 			return {
 				isValid: true,
-				isLink: false,
+				isLink: true,
 				isWallet: false,
 				isUser: false,
-				title: `کالکشن رسمی ${catalogItem.name}`,
-				subtitle: `کف قیمت: ${catalogItem.floorTon} TON · تیراژ: ${catalogItem.supply.toLocaleString()}`,
-				slug: catalogItem.slug,
+				title: `${catalogItem.name} #1`,
+				subtitle: `کف قیمت: ${catalogItem.floorTon.toLocaleString()} TON · تیراژ: ${catalogItem.supply.toLocaleString()} هدیه`,
+				slug: `${catalogItem.slug}-1`,
 				serial: 1,
 				emoji: catalogItem.emoji || '🎁',
-				tag: 'OFFICIAL COLLECTION',
+				tag: 'OFFICIAL COLLECTION (#1)',
+				floorTon: catalogItem.floorTon,
+				supply: catalogItem.supply,
 			};
 		}
 
-		return { isValid: false, isLink: false, isWallet: false, isUser: false, title: '', subtitle: '', slug: '', serial: 1, emoji: '🎁', tag: '' };
+		return { isValid: false, isLink: false, isWallet: false, isUser: false, title: '', subtitle: '', slug: '', serial: 1, emoji: '🎁', tag: '', floorTon: 0, supply: 0 };
 	});
 
 	const numbersValidation = createMemo(() => {
@@ -433,16 +518,16 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			}
 		} catch (_e) {}
 
-		// Auto cycle collectibles trending numbers every 7 seconds when idle
+		// Auto cycle collectibles / gifts trending items every 8 seconds when idle
 		cycleInterval = setInterval(() => {
 			if (!isFocused() && !searchQuery()) {
 				if (props.activeTab === 'collectibles') {
 					setPoolIndex((prev) => (prev + 1) % NUMBER_TRENDING_POOLS.length);
 				} else if (props.activeTab === 'gifts') {
-					setPoolIndex((prev) => (prev + 1) % RICH_GIFTS_TRENDING_POOLS.length);
+					setGiftPoolIndex((prev) => (prev + 1) % RICH_GIFTS_TRENDING_POOLS.length);
 				}
 			}
-		}, 7000);
+		}, 8000);
 	});
 
 	onCleanup(() => {
@@ -452,7 +537,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	});
 
 	const currentTrendingPool = createMemo(() => NUMBER_TRENDING_POOLS[poolIndex() % NUMBER_TRENDING_POOLS.length]);
-	const currentGiftsTrendingPool = createMemo(() => RICH_GIFTS_TRENDING_POOLS[poolIndex() % RICH_GIFTS_TRENDING_POOLS.length]);
+	const currentGiftsTrendingPool = createMemo(() => RICH_GIFTS_TRENDING_POOLS[giftPoolIndex() % RICH_GIFTS_TRENDING_POOLS.length]);
 
 	const trendingItems = createMemo(() => {
 		if (props.activeTab === 'collectibles') {
@@ -469,8 +554,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			haptic.selection();
 		} catch {}
 		setIsRotating(true);
-		const maxLen = props.activeTab === 'gifts' ? RICH_GIFTS_TRENDING_POOLS.length : NUMBER_TRENDING_POOLS.length;
-		setPoolIndex((prev) => (prev + 1) % maxLen);
+		if (props.activeTab === 'gifts') {
+			setGiftPoolIndex((prev) => (prev + 1) % RICH_GIFTS_TRENDING_POOLS.length);
+		} else {
+			setPoolIndex((prev) => (prev + 1) % NUMBER_TRENDING_POOLS.length);
+		}
 		setTimeout(() => setIsRotating(false), 450);
 	};
 
@@ -504,39 +592,19 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			} catch {}
 			setAnalyzeState('loading');
 
-			if (v.isWallet) {
-				setAnalyzeState('idle');
-				navigate(`/gifts/portfolio?address=${encodeURIComponent(v.slug)}`);
-				return;
-			}
-			if (v.isUser) {
-				setAnalyzeState('idle');
-				navigate(`/gifts/portfolio?u=${encodeURIComponent(v.slug)}`);
-				return;
-			}
 			if (v.isValid) {
 				setAnalyzeState('idle');
-				if (v.isLink || v.slug.includes('-')) {
-					navigate(`/gifts/report?g=${encodeURIComponent(v.slug)}`);
-				} else {
-					navigate(`/gifts/collection?c=${encodeURIComponent(v.slug)}`);
-				}
+				navigate(`/gifts/report?g=${encodeURIComponent(v.slug)}`);
 				return;
 			}
 
-			// Fallback parsing
+			// Fallback parsing for arbitrary input
 			let q = searchQuery().trim();
-			let clean = q.replace(/^https?:\/\//i, '').replace(/^telegram\.me\/nft\//i, '').replace(/^t\.me\/nft\//i, '').replace(/^fragment\.com\/gift\//i, '');
-			if (clean.includes('?')) clean = clean.split('?')[0];
-			clean = clean.replace(/\/$/, '').trim();
+			let clean = normalizeGiftInput(q);
 
 			setAnalyzeState('idle');
-			if (clean.startsWith('@')) {
-				navigate(`/gifts/portfolio?u=${encodeURIComponent(clean.replace(/^@/, ''))}`);
-			} else if (/\d/.test(clean)) {
+			if (clean) {
 				navigate(`/gifts/report?g=${encodeURIComponent(clean.toLowerCase().replace(/[\s#]+/g, '-'))}`);
-			} else {
-				navigate(`/gifts/collection?c=${encodeURIComponent(clean.toLowerCase().replace(/\s+/g, '_'))}`);
 			}
 			return;
 		}
@@ -669,10 +737,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		}
 		if (props.activeTab === 'gifts') {
 			const v = giftsValidation();
-			if (v.isWallet) return 'اسکن پورتفولیوی والت';
-			if (v.isUser) return 'اسکن هدایای کاربر';
-			if (v.isLink || (v.isValid && v.slug.includes('-'))) return 'ارزش‌گذاری و تحلیل هوشمند AVM';
-			if (v.isValid) return 'مشاهده اطلاعات کالکشن';
+			if (v.isValid && v.title) return `ارزش‌گذاری و تحلیل ${v.title}`;
 			return t('action.gifts.analyzeBtn');
 		}
 		if (props.activeTab === 'username') return t('action.username.analyzeMarketBtn');
@@ -935,6 +1000,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										}
 										value={searchQuery()}
 										onInput={(e) => updateSearchQuery(e.currentTarget.value)}
+										onKeyDown={(e) => {
+											if (e.key === 'Enter' && !isAnalyzeDisabled()) {
+												e.preventDefault();
+												handleAnalyze();
+											}
+										}}
 										onFocus={() => setIsFocused(true)}
 										onBlur={() => setIsFocused(false)}
 										autocomplete="off"
@@ -991,23 +1062,25 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 								{/* 🎁 Reactive Live Recognition Card for Gifts */}
 								<Show when={props.activeTab === 'gifts' && giftsValidation().isValid}>
-									<div class="mx-1 mb-1.5 p-3 rounded-[20px] bg-gradient-to-r from-emerald-500/10 via-[#0098EA]/10 to-transparent border border-emerald-500/30 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
-										<div class="flex items-center justify-between gap-2 mb-1">
-											<div class="flex items-center gap-2">
-												<span class="text-base">{giftsValidation().emoji}</span>
+									<div class="mx-1 mb-1.5 p-3 rounded-[22px] bg-gradient-to-r from-emerald-500/10 via-[#0098EA]/10 to-transparent border border-emerald-500/30 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+										<div class="flex items-center justify-between gap-2 mb-1.5">
+											<div class="flex items-center gap-2.5 min-w-0">
+												<div class="w-7 h-7 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden p-0.5">
+													<GiftThumbnail slug={giftsValidation().slug.replace(/-\d+$/, '')} name={giftsValidation().title} class="w-full h-full object-contain" />
+												</div>
 												<div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,199,89,0.8)] animate-pulse shrink-0" />
-												<span class="text-[13px] font-bold text-white tracking-tight">
+												<span class="text-[13px] font-black text-white tracking-tight truncate">
 													{giftsValidation().title}
 												</span>
 											</div>
-											<span class="text-[9px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 shrink-0">
+											<span class="text-[9px] font-mono font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 shrink-0">
 												{giftsValidation().tag}
 											</span>
 										</div>
-										<div class="flex items-center justify-between text-[11px] text-white/60 pt-0.5">
+										<div class="flex items-center justify-between text-[11px] text-white/70 pt-0.5 border-t border-white/[0.06] mt-1">
 											<span class="truncate">{giftsValidation().subtitle}</span>
-											<span class="text-emerald-400 font-semibold text-[10px] shrink-0 flex items-center gap-1">
-												<span class="material-symbols-outlined text-[12px]">verified</span>
+											<span class="text-emerald-400 font-bold text-[10px] shrink-0 flex items-center gap-1">
+												<span class="material-symbols-outlined text-[13px]">verified</span>
 												<span>تایید شده</span>
 											</span>
 										</div>
@@ -1090,31 +1163,47 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 								<span class="text-[10px] font-bold text-white/40">قالب‌های مجاز:</span>
 								<button
 									type="button"
-									onClick={() => updateSearchQuery('https://t.me/nft/PlushPepe-1')}
-									class="px-2 py-0.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-[10px] font-mono text-[#0098EA] transition-all"
+									onClick={() => {
+										try { haptic.selection(); } catch {}
+										updateSearchQuery('https://t.me/nft/PlushPepe-1');
+									}}
+									class="px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-[#0098EA]/40 text-[10px] font-mono text-[#0098EA] transition-all flex items-center gap-1 active:scale-95 shadow-sm"
 								>
-									t.me/nft/PlushPepe-1
+									<span>🔗</span>
+									<span>t.me/nft/PlushPepe-1</span>
 								</button>
 								<button
 									type="button"
-									onClick={() => updateSearchQuery('DurovsCap-1')}
-									class="px-2 py-0.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-[10px] font-mono text-purple-300 transition-all"
+									onClick={() => {
+										try { haptic.selection(); } catch {}
+										updateSearchQuery('DurovsCap-1');
+									}}
+									class="px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-purple-400/40 text-[10px] font-mono text-purple-300 transition-all flex items-center gap-1 active:scale-95 shadow-sm"
 								>
-									DurovsCap-1
+									<span>🧢</span>
+									<span>DurovsCap-1</span>
 								</button>
 								<button
 									type="button"
-									onClick={() => updateSearchQuery('Signet Ring #7')}
-									class="px-2 py-0.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-[10px] font-mono text-amber-300 transition-all"
+									onClick={() => {
+										try { haptic.selection(); } catch {}
+										updateSearchQuery('Signet Ring #7');
+									}}
+									class="px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-amber-400/40 text-[10px] font-mono text-amber-300 transition-all flex items-center gap-1 active:scale-95 shadow-sm"
 								>
-									Signet Ring #7
+									<span>💍</span>
+									<span>Signet Ring #7</span>
 								</button>
 								<button
 									type="button"
-									onClick={() => updateSearchQuery('@durov')}
-									class="px-2 py-0.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-[10px] font-mono text-emerald-300 transition-all"
+									onClick={() => {
+										try { haptic.selection(); } catch {}
+										updateSearchQuery('https://fragment.com/gift/SantaHat-1');
+									}}
+									class="px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-400/40 text-[10px] font-mono text-emerald-300 transition-all flex items-center gap-1 active:scale-95 shadow-sm"
 								>
-									@durov (پورتفولیو)
+									<span>🎅</span>
+									<span>fragment.com/gift/SantaHat-1</span>
 								</button>
 							</div>
 						</Show>
@@ -1165,29 +1254,63 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						transition={{ duration: 0.5, delay: 0.2 }}
 						class="w-full mb-8 flex flex-col items-center"
 					>
-						<div class="flex items-center justify-between w-full max-w-[440px] px-2 mb-3.5">
+						<div class="flex items-center justify-between w-full max-w-[460px] px-2 mb-3.5">
 							<span class="text-[11px] font-bold text-white/40 uppercase tracking-[0.2em] flex items-center gap-1.5">
-								<span class="material-symbols-outlined text-[14px] text-amber-400">trending_up</span>
+								<span class="material-symbols-outlined text-[15px] text-amber-400">trending_up</span>
 								<span>{t('action.trending.title')}</span>
 							</span>
 
-							<Show when={props.activeTab === 'collectibles' || props.activeTab === 'gifts'}>
-								<button
-									type="button"
-									onClick={handleCycleTrending}
-									class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[11px] font-medium text-white/70 hover:text-white transition-all active:scale-95 group"
-								>
-									<span class={`material-symbols-outlined text-[13px] text-[#0098EA] transition-transform duration-500 ${isRotating() ? 'rotate-180' : 'group-hover:rotate-45'}`}>
-										cached
-									</span>
-									<span>
-										{props.activeTab === 'gifts'
-											? currentGiftsTrendingPool().badge
-											: t(currentTrendingPool().categoryKey)}
-									</span>
-								</button>
+							<Show
+								when={props.activeTab === 'gifts'}
+								fallback={
+									<Show when={props.activeTab === 'collectibles'}>
+										<button
+											type="button"
+											onClick={handleCycleTrending}
+											class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[11px] font-medium text-white/70 hover:text-white transition-all active:scale-95 group"
+										>
+											<span class={`material-symbols-outlined text-[13px] text-[#0098EA] transition-transform duration-500 ${isRotating() ? 'rotate-180' : 'group-hover:rotate-45'}`}>
+												cached
+											</span>
+											<span>{t(currentTrendingPool().categoryKey)}</span>
+										</button>
+									</Show>
+								}
+							>
+								<span class="text-[10px] font-bold text-emerald-400/90 flex items-center gap-1 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+									<span>داده‌های زنده فرگمنت</span>
+								</span>
 							</Show>
 						</div>
+
+						{/* Gifts Category Selector Pills (Tab Group) */}
+						<Show when={props.activeTab === 'gifts'}>
+							<div class="w-full max-w-[460px] px-1 mb-3.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth pb-1">
+								<For each={RICH_GIFTS_TRENDING_POOLS}>
+									{(pool, idx) => {
+										const isActive = () => giftPoolIndex() === idx();
+										return (
+											<button
+												type="button"
+												onClick={() => {
+													try { haptic.selection(); } catch {}
+													setGiftPoolIndex(idx());
+												}}
+												class={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all duration-300 flex items-center gap-1.5 shrink-0 active:scale-95 ${
+													isActive()
+														? 'bg-gradient-to-r from-[#0098EA]/30 via-[#3390ec]/20 to-white/10 border border-[#0098EA]/50 text-white shadow-[0_0_15px_rgba(0,152,234,0.3)] scale-[1.02]'
+														: 'bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.06] text-white/60 hover:text-white'
+												}`}
+											>
+												<span>{pool.icon}</span>
+												<span>{pool.label}</span>
+											</button>
+										);
+									}}
+								</For>
+							</div>
+						</Show>
 
 						{/* Gifts Custom Luxury Cards */}
 						<Show
@@ -1234,11 +1357,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 								<For each={currentGiftsTrendingPool().items}>
 									{(gCard, idx) => (
 										<Motion.button
-											initial={{ opacity: 0, y: 8 }}
+											initial={{ opacity: 0, y: 10 }}
 											animate={{ opacity: 1, y: 0 }}
 											transition={{
-												duration: 0.35,
-												delay: idx() * 0.05,
+												duration: 0.3,
+												delay: idx() * 0.04,
 												easing: [0.16, 1, 0.3, 1],
 											}}
 											onClick={() => {
@@ -1249,24 +1372,44 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 												const el = document.getElementById('search-input');
 												if (el) el.focus();
 											}}
-											class="group relative p-3 rounded-[20px] bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-[#0098EA]/40 text-left transition-all duration-300 active:scale-98 flex items-center gap-3 shadow-lg overflow-hidden backdrop-blur-xl"
+											class="group relative p-3 rounded-[22px] bg-gradient-to-b from-white/[0.05] to-white/[0.015] hover:from-white/[0.09] hover:to-white/[0.04] border border-white/[0.08] hover:border-[#0098EA]/50 text-left transition-all duration-300 active:scale-[0.98] flex items-center gap-3 shadow-[0_4px_20px_rgba(0,0,0,0.3)] overflow-hidden backdrop-blur-xl"
 										>
-											<div class="w-10 h-10 rounded-2xl bg-black/40 border border-white/10 shrink-0 overflow-hidden flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
-												<GiftThumbnail slug={gCard.slug} name={gCard.name} class="w-full h-full object-contain" />
+											{/* Background Ambient Glow */}
+											<div class="absolute -right-6 -bottom-6 w-20 h-20 bg-[#0098EA]/10 rounded-full blur-xl pointer-events-none group-hover:bg-[#0098EA]/20 transition-all duration-500" />
+
+											{/* Gift Thumbnail Art Box */}
+											<div class="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-white/10 to-black/60 border border-white/15 shrink-0 overflow-hidden flex items-center justify-center p-1 group-hover:scale-105 group-hover:border-[#0098EA]/40 transition-all duration-300 shadow-md">
+												<GiftThumbnail slug={gCard.slug} name={gCard.name} class="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]" />
+												<span class="absolute top-0.5 right-0.5 text-[8px] leading-none">{gCard.emoji}</span>
 											</div>
-											<div class="flex-1 min-w-0">
+
+											{/* Info Column */}
+											<div class="flex-1 min-w-0 flex flex-col justify-center">
 												<div class="flex items-center justify-between gap-1">
-													<span class="text-xs font-black text-white truncate group-hover:text-[#0098EA] transition-colors">
+													<span class="text-[13px] font-black text-white truncate group-hover:text-[#0098EA] transition-colors">
 														{gCard.name}
 													</span>
-													<span class="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/5 text-white/50 border border-white/5">
+													<span class="text-[9px] font-mono font-black px-1.5 py-0.5 rounded-md bg-white/[0.07] text-amber-300/90 border border-white/10 shrink-0">
 														#{gCard.serial}
 													</span>
 												</div>
-												<div class="flex items-center justify-between text-[10px] mt-0.5">
-													<span class="text-white/40 truncate font-mono">{gCard.url.replace('https://', '')}</span>
-													<span class="text-emerald-400 font-mono font-bold shrink-0">
-														{gCard.floor.toLocaleString()} T
+
+												<div class="flex items-center justify-between mt-1 text-[10px]">
+													<span class="font-mono font-bold text-emerald-400 flex items-center gap-0.5">
+														<span class="text-[9px]">💎</span>
+														<span>{gCard.floor.toLocaleString()} TON</span>
+													</span>
+													<span class="text-white/40 font-mono text-[9px]">
+														~${(gCard.floor * 3.2).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+													</span>
+												</div>
+
+												<div class="flex items-center justify-between mt-1 pt-1 border-t border-white/[0.05]">
+													<span class="text-[8px] font-mono font-black uppercase tracking-wider text-white/50 truncate">
+														{gCard.tag}
+													</span>
+													<span class="material-symbols-outlined text-[13px] text-white/40 group-hover:text-[#0098EA] group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-all">
+														arrow_forward
 													</span>
 												</div>
 											</div>

@@ -149,6 +149,129 @@ func (r *IntelCreditRepo) ConsumeCreditFIFO(ctx context.Context, userID int64, r
 	return totalRemaining, nil
 }
 
+// ConsumeCreditsBatch performs an atomic FIFO multi-credit deduction with row locking and idempotency protection.
+func (r *IntelCreditRepo) ConsumeCreditsBatch(ctx context.Context, userID int64, amount int, reason, entity, idemKey string) (int, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return 0, fmt.Errorf("database unavailable")
+	}
+	if amount <= 0 {
+		return 0, fmt.Errorf("credit amount must be positive")
+	}
+
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Check idempotency key if provided
+	if idemKey != "" {
+		var existingID int64
+		err := tx.QueryRow(ctx, `SELECT id FROM intel_credit_ledger WHERE idem_key = $1`, idemKey).Scan(&existingID)
+		if err == nil {
+			var bal int
+			_ = tx.QueryRow(ctx, `
+				SELECT COALESCE(SUM(remaining), 0) FROM intel_credit_batches
+				WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
+			`, userID).Scan(&bal)
+			_ = tx.Commit(ctx)
+			return bal, nil
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return 0, fmt.Errorf("idempotency check error: %w", err)
+		}
+	}
+
+	// 2. Check total available balance first
+	var totalAvailable int
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(SUM(remaining), 0) FROM intel_credit_batches
+		WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
+	`, userID).Scan(&totalAvailable)
+	if err != nil || totalAvailable < amount {
+		return 0, ErrInsufficientIntelCredits
+	}
+
+	// 3. Select and lock batches FIFO
+	rows, err := tx.Query(ctx, `
+		SELECT id, remaining FROM intel_credit_batches
+		WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
+		ORDER BY expires_at NULLS LAST, created_at ASC
+		FOR UPDATE
+	`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to query batches: %w", err)
+	}
+
+	type deduction struct {
+		id  uuid.UUID
+		amt int
+	}
+	var plan []deduction
+	remNeeded := amount
+
+	for rows.Next() {
+		var bID uuid.UUID
+		var rem int
+		if err := rows.Scan(&bID, &rem); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		if remNeeded <= 0 {
+			continue
+		}
+		take := rem
+		if take > remNeeded {
+			take = remNeeded
+		}
+		plan = append(plan, deduction{id: bID, amt: take})
+		remNeeded -= take
+	}
+	rows.Close()
+
+	if remNeeded > 0 {
+		return 0, ErrInsufficientIntelCredits
+	}
+
+	var idemVal *string
+	if idemKey != "" {
+		idemVal = &idemKey
+	}
+
+	for _, d := range plan {
+		_, err = tx.Exec(ctx, `
+			UPDATE intel_credit_batches
+			SET remaining = remaining - $1
+			WHERE id = $2
+		`, d.amt, d.id)
+		if err != nil {
+			return 0, fmt.Errorf("failed to update credit batch: %w", err)
+		}
+
+		_, err = tx.Exec(ctx, `
+			INSERT INTO intel_credit_ledger (user_id, delta, reason, entity, batch_id, idem_key, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, now())
+		`, userID, -d.amt, reason, entity, d.id, idemVal)
+		if err != nil {
+			return 0, fmt.Errorf("failed to insert credit ledger entry: %w", err)
+		}
+	}
+
+	var totalRemaining int
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(SUM(remaining), 0) FROM intel_credit_batches
+		WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
+	`, userID).Scan(&totalRemaining)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch updated credit balance: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("failed to commit credit deduction: %w", err)
+	}
+
+	return totalRemaining, nil
+}
+
 // GrantCredits adds a new batch of credits to the user's account and logs it to ledger
 func (r *IntelCreditRepo) GrantCredits(ctx context.Context, userID int64, kind string, amount int, source, referenceID string, expiresAt *time.Time) (uuid.UUID, error) {
 	if r.db == nil || r.db.Pool == nil {

@@ -37,6 +37,7 @@ type SubscriptionPackage struct {
 	PricePerMonth  float64 `json:"price_per_month"`
 	PriceStars     int     `json:"price_stars"`
 	PriceCoins     float64 `json:"price_coins"`
+	PriceCredits   int     `json:"price_credits"`
 	GroupsLimit    int     `json:"groups_limit"`
 	PriceFRG       float64 `json:"price_frg"`
 	Discount       string  `json:"discount,omitempty"`
@@ -56,10 +57,10 @@ var DiscountTiers = []DiscountTier{
 }
 
 var Packages = []SubscriptionPackage{
-	{ID: "1_month", Name: "1 Month", DurationMonths: 1, PriceUSD: 1.99, PricePerMonth: 1.99, PriceStars: 150, PriceCoins: 350000, GroupsLimit: 1, PriceFRG: 1.99, Discount: "", Badge: ""},
-	{ID: "3_months", Name: "3 Months", DurationMonths: 3, PriceUSD: 4.49, PricePerMonth: 1.49, PriceStars: 350, PriceCoins: 900000, GroupsLimit: 1, PriceFRG: 4.49, Discount: "25%", Badge: "popular"},
-	{ID: "6_months", Name: "6 Months", DurationMonths: 6, PriceUSD: 7.49, PricePerMonth: 1.29, PriceStars: 575, PriceCoins: 1500000, GroupsLimit: 1, PriceFRG: 7.49, Discount: "35%", Badge: ""},
-	{ID: "12_months", Name: "12 Months", DurationMonths: 12, PriceUSD: 11.99, PricePerMonth: 1.00, PriceStars: 925, PriceCoins: 2500000, GroupsLimit: 1, PriceFRG: 11.99, Discount: "50%", Badge: "best_value"},
+	{ID: "1_month", Name: "1 Month", DurationMonths: 1, PriceUSD: 1.99, PricePerMonth: 1.99, PriceStars: 150, PriceCoins: 350000, PriceCredits: 3, GroupsLimit: 1, PriceFRG: 1.99, Discount: "", Badge: ""},
+	{ID: "3_months", Name: "3 Months", DurationMonths: 3, PriceUSD: 4.49, PricePerMonth: 1.49, PriceStars: 350, PriceCoins: 900000, PriceCredits: 8, GroupsLimit: 1, PriceFRG: 4.49, Discount: "25%", Badge: "popular"},
+	{ID: "6_months", Name: "6 Months", DurationMonths: 6, PriceUSD: 7.49, PricePerMonth: 1.29, PriceStars: 575, PriceCoins: 1500000, PriceCredits: 15, GroupsLimit: 1, PriceFRG: 7.49, Discount: "35%", Badge: ""},
+	{ID: "12_months", Name: "12 Months", DurationMonths: 12, PriceUSD: 11.99, PricePerMonth: 1.00, PriceStars: 925, PriceCoins: 2500000, PriceCredits: 25, GroupsLimit: 1, PriceFRG: 11.99, Discount: "50%", Badge: "best_value"},
 }
 
 type BotService struct {
@@ -1114,6 +1115,56 @@ func (s *BotService) SubscribeWithAirdrop(ctx context.Context, userID int64, gro
 	return nil
 }
 
+func (s *BotService) SubscribeWithCredits(ctx context.Context, userID int64, groupID uuid.UUID, packageID string) error {
+	group, err := s.GetGroup(ctx, groupID, userID)
+	if err != nil {
+		return fmt.Errorf("unauthorized or invalid group: %w", err)
+	}
+
+	pkg := s.GetPackageByID(packageID)
+	if pkg == nil {
+		return fmt.Errorf("invalid package: %s", packageID)
+	}
+
+	requiredCredits := pkg.PriceCredits
+	if requiredCredits <= 0 {
+		requiredCredits = pkg.DurationMonths * 3
+	}
+
+	intelRepo := repository.NewIntelCreditRepo(s.botRepo.DB())
+	reason := fmt.Sprintf("sub:group:%s", groupID.String())
+	if _, err := intelRepo.ConsumeCreditsBatch(ctx, userID, requiredCredits, reason, pkg.ID, ""); err != nil {
+		return fmt.Errorf("failed to deduct credits: %w", err)
+	}
+
+	tx, err := s.botRepo.DB().Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := s.internalActivateSubscriptionTx(ctx, tx, userID, groupID, packageID, group, pkg); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit subscription transaction: %w", err)
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	}
+
+	bot, _ := s.botRepo.GetBotByID(ctx, group.BotID)
+	botUsername := ""
+	if bot != nil {
+		botUsername = bot.BotUsername
+	}
+	s.notifyOwnerOnSubscription(context.Background(), botUsername, group.ChatTitle, pkg.Name, "Intel Credits", userID)
+
+	return nil
+}
+
 // Analytics
 
 func (s *BotService) GetAnalytics(ctx context.Context, groupID uuid.UUID, ownerID int64, days int) (*repository.AnalyticsSummary, error) {
@@ -1546,6 +1597,57 @@ func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, u
 	}
 
 	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "Telegram Stars (Channel)", userID)
+
+	return nil
+}
+
+func (s *BotService) SubscribeChannelWithCredits(ctx context.Context, userID int64, channelID uuid.UUID, packageID string) error {
+	channelRepo := repository.NewChannelRepo(s.botRepo.DB(), nil)
+	ch, err := channelRepo.GetChannelByID(ctx, channelID)
+	if err != nil {
+		return err
+	}
+
+	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+	if err != nil {
+		return err
+	}
+
+	pkg := s.GetPackageByID(packageID)
+	if pkg == nil {
+		return fmt.Errorf("invalid package: %s", packageID)
+	}
+
+	requiredCredits := pkg.PriceCredits
+	if requiredCredits <= 0 {
+		requiredCredits = pkg.DurationMonths * 3
+	}
+
+	intelRepo := repository.NewIntelCreditRepo(s.botRepo.DB())
+	reason := fmt.Sprintf("sub:channel:%s", channelID.String())
+	if _, err := intelRepo.ConsumeCreditsBatch(ctx, userID, requiredCredits, reason, pkg.ID, ""); err != nil {
+		return fmt.Errorf("failed to deduct credits: %w", err)
+	}
+
+	tx, err := s.botRepo.DB().Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := s.internalActivateChannelSubscriptionTx(ctx, tx, userID, channelID, packageID, ch, pkg); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	}
+
+	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "Intel Credits (Channel)", userID)
 
 	return nil
 }

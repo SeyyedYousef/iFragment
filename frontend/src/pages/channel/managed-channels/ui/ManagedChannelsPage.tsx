@@ -19,9 +19,11 @@ import { haptic } from '@/shared/lib/haptic.js';
 import { calculateDiscountForPlan } from '@/shared/lib/stars-calculator.js';
 import { showToast } from '@/shared/ui/index.js';
 import { PaymentDiscountCard } from '@/shared/ui/payment-discount/PaymentDiscountCard.js';
+import { CreditStoreSheet, useWallet } from '@/widgets/paywall/index.js';
 
 export const ManagedChannelsPage: Component = () => {
 	const navigate = useNavigate();
+	const wallet = useWallet();
 
 	// Fetch all channels for the logged-in user
 	const [channels, { refetch }] = createResource(
@@ -39,6 +41,7 @@ export const ManagedChannelsPage: Component = () => {
 	const [isDiscountEnabled, setIsDiscountEnabled] = createSignal(false);
 	const [discountPercent, setDiscountPercent] = createSignal<25 | 50 | 75>(50);
 	const [isProcessing, setIsProcessing] = createSignal(false);
+	const [isStoreOpen, setIsStoreOpen] = createSignal(false);
 	const [successMsg, setSuccessMsg] = createSignal('');
 	const [errorMsg, setErrorMsg] = createSignal('');
 
@@ -64,6 +67,33 @@ export const ManagedChannelsPage: Component = () => {
 		setPaymentStep('package');
 		setShowSubscription(true);
 		haptic.impact('light');
+	};
+
+	const handleSubscribeCredits = async () => {
+		if (!selectedPkg() || !selectedChan()) return;
+		setIsProcessing(true);
+		setErrorMsg('');
+		try {
+			haptic.impact('heavy');
+			await subscriptionApi.subscribeChannelWithCredits(selectedChan(), selectedPkg());
+			haptic.notify('success');
+			setSuccessMsg(t('botManage.subscriptionSuccess') || 'Subscription activated successfully!');
+			wallet.refetch();
+			refetch();
+			setTimeout(() => {
+				setShowSubscription(false);
+			}, 1200);
+		} catch (e: any) {
+			const msg = e?.response?.data?.error || e?.message || 'Failed to activate with credits';
+			setErrorMsg(msg);
+			haptic.notify('error');
+		} finally {
+			setIsProcessing(false);
+			setTimeout(() => {
+				setSuccessMsg('');
+				setErrorMsg('');
+			}, 4000);
+		}
 	};
 
 	const handleSubscribeStars = async () => {
@@ -935,8 +965,8 @@ export const ManagedChannelsPage: Component = () => {
 						<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
 
 						{paymentStep() === 'package' ? (
-							<div class="flex flex-col gap-5">
-								<div class="flex flex-col gap-1 text-center mb-2">
+							<div class="flex flex-col gap-4">
+								<div class="flex flex-col gap-1 text-center mb-1">
 									<h3 class="text-[22px] font-black text-white tracking-tight">
 										{t('botManage.choosePackage')}
 									</h3>
@@ -945,79 +975,185 @@ export const ManagedChannelsPage: Component = () => {
 									</p>
 								</div>
 
-								<div class="space-y-3.5">
-									<For each={packages() || []}>
-										{(pkg: SubscriptionPackage) => (
-											<button
-												type="button"
-												onClick={() => {
-													setSelectedPkg(pkg.id);
-													haptic.selection();
-												}}
-												class={`w-full rounded-[24px] p-5 flex items-center justify-between border-2 transition-all active:scale-[0.98] relative overflow-hidden group ${
-													selectedPkg() === pkg.id
-														? 'border-[#3390ec] bg-[#3390ec]/10 shadow-[0_10px_30px_rgba(51,144,236,0.15)]'
-														: 'border-white/5 bg-[#08090D] hover:border-white/20 shadow-inner'
-												}`}
-											>
-												<Show when={pkg.badge}>
-													<div
-														class={`absolute top-0 ${isRtl() ? 'left-0 rounded-bl-[16px]' : 'right-0 rounded-br-[16px]'} px-3 py-1.5 text-[10px] font-black uppercase tracking-widest shadow-sm ${pkg.badge === 'best_value' ? 'bg-amber-400 text-black' : 'bg-[#3390ec] text-white'}`}
-													>
-														{pkg.badge === 'best_value'
-															? t('botManage.bestValue')
-															: t('botManage.popular')}
-													</div>
-												</Show>
+								{/* Credit Balance Hub */}
+								<div class="flex items-center justify-between w-full bg-gradient-to-r from-[#121829] to-[#0a0d14] border border-[#00C6FF]/30 rounded-[20px] p-3.5 shadow-sm">
+									<div class="flex items-center gap-2.5">
+										<span class="text-[20px]">💎</span>
+										<div class="flex flex-col text-start">
+											<span class="text-[10px] font-black uppercase text-[#00C6FF] tracking-wider">
+												{t('botManage.userCredits', { count: wallet.balance() ?? 0 })}
+											</span>
+											<span class="text-[13px] font-bold text-white/80">
+												{wallet.balance() ?? 0} {t('paywall.credit_unit')}
+											</span>
+										</div>
+									</div>
+									<button
+										type="button"
+										onClick={() => setIsStoreOpen(true)}
+										class="px-3 py-1.5 rounded-[12px] bg-[#00C6FF]/15 border border-[#00C6FF]/30 text-[#00C6FF] text-[11px] font-black active:scale-95 transition-all flex items-center gap-1 hover:bg-[#00C6FF]/25"
+									>
+										<span>+</span>
+										<span>{t('paywall.get_credits')}</span>
+									</button>
+								</div>
 
-												<div class="flex flex-col items-start gap-1">
-													<div class="flex items-center gap-2">
-														<span
-															class={`text-[18px] font-black tracking-tight ${selectedPkg() === pkg.id ? 'text-[#3390ec]' : 'text-white'}`}
+								<div class="space-y-3">
+									<For each={packages() || []}>
+										{(pkg: SubscriptionPackage) => {
+											const credits = pkg.price_credits || (pkg.duration_months === 1 ? 3 : pkg.duration_months === 3 ? 8 : pkg.duration_months === 6 ? 15 : 25);
+											const creditsPerMonth = (credits / pkg.duration_months).toFixed(1);
+											const isSelected = () => selectedPkg() === pkg.id;
+
+											return (
+												<button
+													type="button"
+													onClick={() => {
+														setSelectedPkg(pkg.id);
+														haptic.selection();
+													}}
+													class={`w-full rounded-[24px] p-4.5 flex items-center justify-between border-2 transition-all active:scale-[0.98] relative overflow-hidden group ${
+														isSelected()
+															? 'border-[#00C6FF] bg-[#00C6FF]/10 shadow-[0_10px_30px_rgba(0,198,255,0.15)]'
+															: 'border-white/5 bg-[#08090D] hover:border-white/20 shadow-inner'
+													}`}
+												>
+													<Show when={pkg.badge}>
+														<div
+															class={`absolute top-0 ${isRtl() ? 'left-0 rounded-br-[14px]' : 'right-0 rounded-bl-[14px]'} px-3 py-1 text-[9px] font-black uppercase tracking-widest shadow-sm ${pkg.badge === 'best_value' ? 'bg-amber-400 text-black' : 'bg-[#00C6FF] text-black'}`}
 														>
-															{pkg.name}
-														</span>
-														<Show when={pkg.discount}>
-															<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/20 px-2 py-0.5 rounded-[6px] shadow-sm">
-																-{pkg.discount}
+															{pkg.badge === 'best_value'
+																? t('botManage.bestValue')
+																: t('botManage.popular')}
+														</div>
+													</Show>
+
+													<div class="flex flex-col items-start gap-1">
+														<div class="flex items-center gap-2">
+															<span
+																class={`text-[17px] font-black tracking-tight ${isSelected() ? 'text-[#00C6FF]' : 'text-white'}`}
+															>
+																{pkg.name}
 															</span>
-														</Show>
-													</div>
-													<span class="text-[11px] font-bold text-white/40 flex items-center gap-1">
-														{t('botManage.totalPrice')}: ${pkg.price_usd.toFixed(2)}{' '}
-														<span class="w-1 h-1 rounded-full bg-white/20 mx-0.5" />{' '}
-														{pkg.price_stars} <span class="text-amber-400">⭐</span>
-													</span>
-												</div>
-												<div class="flex flex-col items-end gap-0.5">
-													<div class="flex items-baseline gap-1">
-														<span
-															class={`text-[24px] font-black font-mono tracking-tight ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/80'}`}
-														>
-															${pkg.price_per_month.toFixed(2)}
-														</span>
-														<span class="text-[12px] font-bold text-white/40">
-															{t('botManage.perMonth')}
+															<Show when={pkg.discount}>
+																<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/20 px-2 py-0.5 rounded-[6px] shadow-sm">
+																	-{pkg.discount}
+																</span>
+															</Show>
+														</div>
+														<span class="text-[11px] font-medium text-white/40">
+															{t('botManage.creditsEquivalent', { stars: pkg.price_stars })}
 														</span>
 													</div>
-												</div>
-											</button>
-										)}
+													<div class="flex flex-col items-end gap-0.5">
+														<div class="flex items-baseline gap-1" dir="ltr">
+															<span
+																class={`text-[24px] font-black font-mono tracking-tight ${isSelected() ? 'text-white' : 'text-white/90'}`}
+															>
+																{credits}
+															</span>
+															<span class="text-[12px] font-black text-[#00C6FF]">💎</span>
+														</div>
+														<span class="text-[10px] font-medium text-white/40">
+															({creditsPerMonth} {t('paywall.credit_unit')} / {t('botManage.perMonth') || 'mo'})
+														</span>
+													</div>
+												</button>
+											);
+										}}
 									</For>
 								</div>
 
-								<button
-									type="button"
-									onClick={() => {
-										haptic.impact('medium');
-										setPaymentStep('method');
-									}}
-									disabled={!selectedPkg()}
-									class="w-full h-16 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[20px] font-black text-[15px] uppercase tracking-widest mt-4 transition-all disabled:opacity-40 disabled:scale-100 flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(51,144,236,0.3)] active:scale-95 border border-white/10"
-								>
-									{t('botManage.continuePayment')}{' '}
-									<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
-								</button>
+								<Show when={selectedPkg()}>
+									{(() => {
+										const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+										if (!pkg) return null;
+										const reqCredits = pkg.price_credits || (pkg.duration_months === 1 ? 3 : pkg.duration_months === 3 ? 8 : pkg.duration_months === 6 ? 15 : 25);
+										const userCreds = wallet.balance() ?? 0;
+										const hasEnough = userCreds >= reqCredits;
+
+										return (
+											<div class="space-y-3 mt-1">
+												<Show
+													when={hasEnough}
+													fallback={
+														<div class="space-y-3">
+															<div class="rounded-[18px] border border-amber-400/25 bg-amber-400/10 p-3.5 text-start text-[12px]">
+																<div class="flex items-center gap-2 text-amber-300 font-bold mb-1">
+																	<span class="material-symbols-outlined text-[18px]">info</span>
+																	<span>
+																		{t('botManage.insufficientCredits', {
+																			needed: reqCredits - userCreds,
+																		}) || `Deficit: ${reqCredits - userCreds} Credits needed`}
+																	</span>
+																</div>
+																<p class="text-white/60 text-[11px] leading-relaxed">
+																	{t('botManage.insufficientCreditsDesc', { current: userCreds })}
+																</p>
+															</div>
+
+															<div class="grid grid-cols-2 gap-2.5">
+																<button
+																	type="button"
+																	onClick={() => {
+																		haptic.impact('medium');
+																		setIsStoreOpen(true);
+																	}}
+																	class="h-12 rounded-[16px] bg-gradient-to-r from-amber-400 to-amber-500 text-black font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+																>
+																	<span>⭐</span>
+																	<span>{t('botManage.buyCreditsStars')}</span>
+																</button>
+																<button
+																	type="button"
+																	onClick={() => {
+																		haptic.impact('medium');
+																		setIsStoreOpen(true);
+																	}}
+																	class="h-12 rounded-[16px] bg-white/10 hover:bg-white/15 text-white font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-1.5 border border-white/10 active:scale-95 transition-all"
+																>
+																	<span>🪙</span>
+																	<span>{t('botManage.convertCoinsToCredits')}</span>
+																</button>
+															</div>
+
+															<button
+																type="button"
+																onClick={() => {
+																	haptic.impact('light');
+																	setPaymentStep('method');
+																}}
+																class="w-full text-center text-[12px] font-bold text-white/50 hover:text-white/80 py-1 transition-colors"
+															>
+																{t('botManage.payWithStars')} ({pkg.price_stars} ⭐) ←
+															</button>
+														</div>
+													}
+												>
+													<button
+														type="button"
+														onClick={handleSubscribeCredits}
+														disabled={isProcessing()}
+														class="w-full h-14 bg-gradient-to-r from-[#00C6FF] to-[#0072FF] text-black font-black text-[15px] tracking-wide transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(0,198,255,0.35)] active:scale-95 border border-white/15 rounded-[18px]"
+													>
+														<span>💎</span>
+														<span>{t('botManage.payWithCredits', { count: reqCredits })}</span>
+													</button>
+													<button
+														type="button"
+														onClick={() => {
+															haptic.impact('light');
+															setPaymentStep('method');
+														}}
+														class="w-full text-center text-[12px] font-bold text-white/50 hover:text-white/80 py-1 transition-colors"
+													>
+														{t('common.or') || 'or'} {t('botManage.payWithStars')} ({pkg.price_stars} ⭐)
+													</button>
+												</Show>
+											</div>
+										);
+									})()}
+								</Show>
 							</div>
 						) : (
 							<div class="flex flex-col gap-5">
@@ -1118,6 +1254,16 @@ export const ManagedChannelsPage: Component = () => {
 					</Motion.div>
 				</Motion.div>
 			</Show>
+
+			{/* ═══════ CREDIT STORE SHEET (Quick Top-Up / Exchange) ═══════ */}
+			<CreditStoreSheet
+				open={isStoreOpen()}
+				onClose={() => {
+					setIsStoreOpen(false);
+					wallet.refetch();
+				}}
+				vertical="channel"
+			/>
 		</div>
 	);
 };

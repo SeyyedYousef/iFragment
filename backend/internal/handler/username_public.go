@@ -929,6 +929,8 @@ func (h *UsernameHandler) sendValuationNotification(r *http.Request, u string, r
 			paymentMethodLabel = "🪙 پرداخت با سکه (88,000 FRG)"
 		case "stars":
 			paymentMethodLabel = "⭐️ استارز تلگرام (Telegram Stars)"
+		case "credit":
+			paymentMethodLabel = "⚡️ کردیت تحلیلی (Intel Credit)"
 		case "owner":
 			paymentMethodLabel = "👑 مالک سیستم / ادمین"
 		default:

@@ -231,11 +231,19 @@ func (s *GiftsService) ListCollections(ctx context.Context) ([]CollectionListIte
 
 	list := make([]CollectionListItem, 0, len(allCols))
 	for _, col := range allCols {
+		supply := col.TotalSupply
+		if staticCol, ok := traits.ResolveCollection(col.ModelID); ok && staticCol.TotalSupply > 0 {
+			supply = staticCol.TotalSupply
+		}
+		floor := col.InitialFloorGRAM
+		if staticCol, ok := traits.ResolveCollection(col.ModelID); ok && staticCol.InitialFloorGRAM > 0 {
+			floor = staticCol.InitialFloorGRAM
+		}
 		list = append(list, CollectionListItem{
 			Slug:        col.ModelID,
 			Name:        col.Name,
-			TotalSupply: col.TotalSupply,
-			FloorGRAM:   col.InitialFloorGRAM,
+			TotalSupply: supply,
+			FloorGRAM:   floor,
 		})
 	}
 
@@ -338,11 +346,11 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		for _, b := range liveDetail.Backdrops {
 			backdropsList = append(backdropsList, BackdropSummary{
 				Name:           b.Name,
-				RarityPermille: b.RarityPermille,
-				CenterHex:      b.Hex.Center,
-				EdgeHex:        b.Hex.Edge,
-				PatternHex:     b.Hex.Pattern,
-				TextHex:        b.Hex.Text,
+				RarityPermille: b.GetRarityPermille(),
+				CenterHex:      b.Hex.GetCenter(),
+				EdgeHex:        b.Hex.GetEdge(),
+				PatternHex:     b.Hex.GetPattern(),
+				TextHex:        b.Hex.GetText(),
 			})
 		}
 	} else {
@@ -471,7 +479,8 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	var modelFloors []CollectionModelFloor
 	if liveDetail != nil && len(liveDetail.Models) > 0 {
 		for i, m := range liveDetail.Models {
-			permilleNorm := float64(m.RarityPermille)
+			rPermille := m.GetRarityPermille()
+			permilleNorm := float64(rPermille)
 			if permilleNorm <= 0 {
 				permilleNorm = 20.0
 			}
@@ -479,12 +488,12 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 			mFloor := round2(floorGram * rarityFactor)
 			supply := int(float64(totalSupply) * permilleNorm / 1000.0)
 			if supply <= 0 {
-				supply = 10
+				supply = 1
 			}
 			modelFloors = append(modelFloors, CollectionModelFloor{
 				ModelID:        fmt.Sprintf("%s_%d", slug, i+1),
 				ModelName:      m.Name,
-				RarityPermille: m.RarityPermille,
+				RarityPermille: rPermille,
 				TotalSupply:    supply,
 				UpgradedCount:  int(float64(supply) * 0.65),
 				FloorGRAM:      mFloor,
@@ -516,7 +525,7 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	if liveDetail != nil && len(liveDetail.Backdrops) > 0 {
 		for _, m := range modelFloors {
 			for bIdx, b := range liveDetail.Backdrops {
-				bPerm := b.RarityPermille
+				bPerm := b.GetRarityPermille()
 				if bPerm <= 0 {
 					bPerm = 15
 				}

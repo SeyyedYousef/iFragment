@@ -29,6 +29,11 @@ export const subscriptionApi = {
 			.post('/subscription/subscribe-airdrop', { group_id: groupId, package_id: packageId })
 			.then((r: any) => r.data),
 
+	subscribeWithCredits: (groupId: string, packageId: string) =>
+		apiClient
+			.post('/subscription/subscribe-credits', { group_id: groupId, package_id: packageId })
+			.then((r: any) => r.data),
+
 	createSubscriptionStarsInvoice: (groupId: string, packageId: string, discountPercent?: number) =>
 		apiClient
 			.post('/subscription/subscribe-stars-invoice', {
@@ -46,6 +51,14 @@ export const subscriptionApi = {
 	subscribeChannelWithAirdrop: (channelId: string, packageId: string) =>
 		apiClient
 			.post('/subscription/channel/subscribe-airdrop', {
+				channel_id: channelId,
+				package_id: packageId,
+			})
+			.then((r: any) => r.data),
+
+	subscribeChannelWithCredits: (channelId: string, packageId: string) =>
+		apiClient
+			.post('/subscription/channel/subscribe-credits', {
 				channel_id: channelId,
 				package_id: packageId,
 			})

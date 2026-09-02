@@ -925,6 +925,27 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 						_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received! You now have 24-hour full access to @%s AI valuation.", username), nil, nil)
 					}
 				}
+			} else if strings.HasPrefix(pay.InvoicePayload, "val_credits:") {
+				// Valuation pack fulfillment: payload format val_credits:<amount>:<userID>:<timestamp>
+				parts := strings.Split(pay.InvoicePayload, ":")
+				if len(parts) >= 3 {
+					credits, _ := strconv.Atoi(parts[1])
+					userID, parseErr := strconv.ParseInt(parts[2], 10, 64)
+					if parseErr == nil && userID > 0 && credits > 0 {
+						creditRepo := repository.NewIntelCreditRepo(h.db)
+						exp := time.Now().Add(time.Duration(config.Economics.CreditBatchExpiryDays) * 24 * time.Hour)
+						granted, grantErr := creditRepo.GrantPackOnce(ctx, userID, credits, "stars_pack", pay.TelegramPaymentChargeID, &exp)
+						if grantErr != nil {
+							slog.Error("CRITICAL: Failed to grant Intel Credit pack from val_credits", "error", grantErr, "user_id", userID, "payload", pay.InvoicePayload)
+							h.pushPaymentDLQ(ctx, "intel_credits_grant_failed", pay.InvoicePayload, grantErr)
+						} else if granted {
+							tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+							if tg != nil {
+								_ = tg.SendMessage(ctx, userID, fmt.Sprintf("🔑 Payment received! %d Intel Credit(s) were added to your wallet.", credits), nil, nil)
+							}
+						}
+					}
+				}
 			} else if strings.HasPrefix(pay.InvoicePayload, "intel_credits:") {
 				// Credit pack fulfillment: payload format intel_credits:<packID>:<userID>
 				parts := strings.Split(pay.InvoicePayload, ":")

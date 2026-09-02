@@ -38,7 +38,10 @@ export const PortfolioScannerPage: Component = () => {
 				haptic.notify('error');
 			} catch {}
 			setErrorMsg(
-				err?.response?.data?.message || 'Failed to scan portfolio. Please check username.',
+				err?.response?.data?.error ||
+				err?.response?.data?.message ||
+				err?.message ||
+				'خطا در اسکن پرتفوی. لطفاً یوزرنیم را بررسی کنید.',
 			);
 		},
 	}));

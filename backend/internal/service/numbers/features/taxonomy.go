@@ -55,7 +55,31 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 		}
 	}
 
-	// 3. Platinum Tier (ABABABAB, AABBCCDD, Binary Vanity with 2 distinct digits)
+	// 3. Septa Run (7 identical digits) — MUST come before binary vanity check
+	if maxRun == 7 {
+		return VIPTaxonomy{
+			Tier:         TierPlatinumPlus,
+			PatternKey:   "SEPTA_RUN",
+			TitleEn:      "Platinum Plus Septa Run",
+			TitleFa:      "رند پلاتین پلاس هفت‌تایی",
+			Description:  "7 identical digits in contiguous sequence",
+			BetaTaxonomy: 3.50,
+		}
+	}
+
+	// 4. Hexa Run (6 identical digits) — MUST come before binary vanity check
+	if maxRun == 6 {
+		return VIPTaxonomy{
+			Tier:         TierPlatinum,
+			PatternKey:   "HEXA_RUN",
+			TitleEn:      "Platinum Hexa Run",
+			TitleFa:      "رند پلاتین شش‌تایی",
+			Description:  "6 identical digits in contiguous sequence",
+			BetaTaxonomy: 2.80,
+		}
+	}
+
+	// 5. Platinum Tier (ABABABAB, Binary Vanity with 2 distinct digits)
 	if distinctDigits == 2 && n == 8 {
 		if suffix[0] == suffix[2] && suffix[2] == suffix[4] && suffix[4] == suffix[6] &&
 			suffix[1] == suffix[3] && suffix[3] == suffix[5] && suffix[5] == suffix[7] {
@@ -78,15 +102,15 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 		}
 	}
 
-	// 4. Gold Tier (ABCD ABCD periodic, AAAA XXXX, XXXX AAAA, 7 identical)
-	if maxRun == 7 {
+	// 6. Gold Tier (Periodic quads, Bookends, Penta runs)
+	if maxRun == 5 {
 		return VIPTaxonomy{
 			Tier:         TierGold,
-			PatternKey:   "SEPTA_RUN",
-			TitleEn:      "Gold Septa Run",
-			TitleFa:      "رند طلایی هفت‌تایی",
-			Description:  "7 identical digits in contiguous sequence",
-			BetaTaxonomy: 2.80,
+			PatternKey:   "PENTA_RUN",
+			TitleEn:      "Gold Penta Run",
+			TitleFa:      "رند طلایی پنج‌تایی",
+			Description:  "5 identical consecutive digits",
+			BetaTaxonomy: 2.40,
 		}
 	}
 
@@ -112,7 +136,7 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 		}
 	}
 
-	// 5. Silver Tier (Full 8-digit Ladder, 6 identical, Palindrome, Triple pairs)
+	// 7. Silver Tier (Full 8-digit Ladder, Palindrome, Quad runs)
 	if (isAsc || isDesc) && n >= 6 {
 		return VIPTaxonomy{
 			Tier:         TierSilver,
@@ -135,29 +159,7 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 		}
 	}
 
-	if maxRun == 6 {
-		return VIPTaxonomy{
-			Tier:         TierSilver,
-			PatternKey:   "HEXA_RUN",
-			TitleEn:      "Silver Hexa Run",
-			TitleFa:      "رند نقره‌ای شش‌تایی",
-			Description:  "6 identical digits in sequence",
-			BetaTaxonomy: 1.70,
-		}
-	}
-
-	// 6. Bronze Tier (Penta 5-run, Triple endings, Double pairs AABBCCDD)
-	if maxRun == 5 {
-		return VIPTaxonomy{
-			Tier:         TierBronze,
-			PatternKey:   "PENTA_RUN",
-			TitleEn:      "Bronze Penta Run",
-			TitleFa:      "رند برنزی پنج‌تایی",
-			Description:  "5 identical consecutive digits",
-			BetaTaxonomy: 1.20,
-		}
-	}
-
+	// 8. Bronze Tier (Quad run, Ternary vanity)
 	if maxRun == 4 {
 		return VIPTaxonomy{
 			Tier:         TierBronze,
@@ -180,7 +182,7 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 		}
 	}
 
-	// 7. Standard Baseline
+	// 9. Standard Baseline
 	return VIPTaxonomy{
 		Tier:         TierStandard,
 		PatternKey:   "STANDARD_BASELINE",

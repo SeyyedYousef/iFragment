@@ -266,14 +266,14 @@ export const GiftCollectionPage: Component = () => {
 					<div class="grid grid-cols-3 gap-2.5 mb-4">
 						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-2xl p-3 text-center">
 							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">کف قیمت</span>
-							<div class="text-base font-black text-white font-mono">⭐ {fmt(data()!.best_floor_gram)}</div>
+							<div class="text-base font-black text-white font-mono">{fmt(data()!.best_floor_gram)} TON</div>
 							<span class="text-[10px] text-white/40 font-mono block mt-0.5">{fmtUsd(data()!.best_floor_usd)}</span>
 						</div>
 
 						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-2xl p-3 text-center">
 							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">حجم ۲۴ ساعت</span>
 							<div class="text-base font-black text-white font-mono">{fmtUsd(data()!.volume_24h_usd)}</div>
-							<span class="text-[10px] text-white/40 font-mono block mt-0.5">⭐ {fmt(data()!.volume_24h_gram, 0)}</span>
+							<span class="text-[10px] text-white/40 font-mono block mt-0.5">{fmt(data()!.volume_24h_gram, 0)} TON</span>
 						</div>
 
 						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-2xl p-3 text-center">
@@ -404,7 +404,7 @@ export const GiftCollectionPage: Component = () => {
 
 												<div class="text-right rtl:text-left shrink-0">
 													<div class="text-xs font-black text-white font-mono">
-														⭐ {fmt(model.floor_gram)} TON
+														{fmt(model.floor_gram)} TON
 													</div>
 													<span class={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border inline-block mt-0.5 ${tier.bg}`}>
 														{tier.label}

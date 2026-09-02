@@ -38,8 +38,49 @@ export const ManagedBotsPage: Component = () => {
 		});
 	});
 
+	const openBotFather = () => {
+		haptic.impact('medium');
+		const link = 'https://t.me/BotFather';
+		try {
+			if ((window as any).Telegram?.WebApp?.openTelegramLink) {
+				(window as any).Telegram.WebApp.openTelegramLink(link);
+				return;
+			}
+		} catch {}
+		try {
+			openTelegramLink(link);
+			return;
+		} catch {}
+		window.open(link, '_blank');
+	};
+
+	const handlePasteToken = async () => {
+		haptic.impact('light');
+		try {
+			if (navigator.clipboard?.readText) {
+				const text = await navigator.clipboard.readText();
+				if (text) {
+					const match = text.match(/\d+:[A-Za-z0-9_-]+/);
+					setBotToken(match ? match[0] : text.trim());
+					setErrorMsg('');
+					haptic.notify('success');
+					return;
+				}
+			}
+		} catch {}
+	};
+
+	const setCleanToken = (val: string) => {
+		const match = val.match(/\d+:[A-Za-z0-9_-]+/);
+		setBotToken(match ? match[0] : val);
+		if (errorMsg()) setErrorMsg('');
+	};
+
 	const handleCreateBot = async () => {
-		const token = botToken().trim();
+		const raw = botToken().trim();
+		const match = raw.match(/\d+:[A-Za-z0-9_-]+/);
+		const token = match ? match[0] : raw;
+
 		if (!token) {
 			setErrorMsg(t('managedBots.tokenRequired'));
 			haptic.notify('warning');
@@ -93,23 +134,6 @@ export const ManagedBotsPage: Component = () => {
 			haptic.notify('error');
 		} finally {
 			setIsDeleting(false);
-		}
-	};
-
-	// ── Native Managed-Bot creation (Bot API 9.6) ──
-	// Opens Telegram's native "create managed bot" sheet via the manager bot's
-	// t.me/newbot deep link. The user confirms in one tap; the token is
-	// delivered server-side (never shown/copied). On clients without support
-	// we fall back to BotFather.
-	const handleRequestNativeBot = () => {
-		haptic.impact('medium');
-		const managerUsername = 'iFragmentManagerBot'; // manager bot handle
-		const suggested = `ifrag_bot_${Math.random().toString(36).slice(2, 8)}`;
-		const url = `https://t.me/newbot/${managerUsername}/${suggested}?name=iFragment%20Bot`;
-		try {
-			openTelegramLink(url);
-		} catch (_e) {
-			window.open(url, '_blank');
 		}
 	};
 
@@ -267,17 +291,7 @@ export const ManagedBotsPage: Component = () => {
 
 							<button
 								type="button"
-								onClick={() => {
-									haptic.impact('medium');
-									const link = 'https://t.me/BotFather';
-									try {
-										if ((window as any).Telegram?.WebApp?.openTelegramLink)
-											(window as any).Telegram.WebApp.openTelegramLink(link);
-										else window.open(link, '_blank');
-									} catch (_) {
-										window.open(link, '_blank');
-									}
-								}}
+								onClick={openBotFather}
 								class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7bc9] hover:from-[#2b7bc9] hover:to-[#3390ec] active:scale-95 text-white rounded-[16px] font-black text-[13px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_10px_25px_rgba(51,144,236,0.3)] relative z-10 border border-white/10"
 							>
 								<span class="material-symbols-outlined text-[20px]">open_in_new</span>
@@ -388,17 +402,29 @@ export const ManagedBotsPage: Component = () => {
 						</div>
 
 						<div class="flex flex-col gap-3.5 mb-6">
-							<div class="flex items-center gap-3.5 bg-[#08090D] p-3.5 rounded-[16px] border border-white/5 shadow-inner">
-								<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center shrink-0 border border-[#3390ec]/30 shadow-sm">
-									<span class="text-[13px] font-black text-[#3390ec]">1</span>
+							<button
+								type="button"
+								onClick={openBotFather}
+								class="w-full flex items-center justify-between bg-[#08090D] hover:bg-[#12141C] p-3.5 rounded-[16px] border border-white/10 hover:border-[#3390ec]/40 transition-all text-start group active:scale-[0.98] shadow-inner"
+							>
+								<div class="flex items-center gap-3.5">
+									<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 group-hover:bg-[#3390ec]/25 flex items-center justify-center shrink-0 border border-[#3390ec]/30 shadow-sm transition-colors">
+										<span class="text-[13px] font-black text-[#3390ec]">1</span>
+									</div>
+									<div class="flex flex-col gap-0.5">
+										<p class="text-[13px] text-white font-bold tracking-tight flex items-center gap-1.5">
+											{t('managedBots.step1Title')}
+											<span class="text-[10px] bg-[#3390ec]/20 text-[#3390ec] px-1.5 py-0.5 rounded font-mono font-medium">
+												/newbot
+											</span>
+										</p>
+										<p class="text-[11px] font-medium text-white/40">{t('managedBots.step1Desc')}</p>
+									</div>
 								</div>
-								<div class="flex flex-col gap-0.5">
-									<p class="text-[13px] text-white font-bold tracking-tight">
-										{t('managedBots.step1Title')}
-									</p>
-									<p class="text-[11px] font-medium text-white/40">{t('managedBots.step1Desc')}</p>
-								</div>
-							</div>
+								<span class="material-symbols-outlined text-white/40 group-hover:text-[#3390ec] text-[20px] transition-all">
+									open_in_new
+								</span>
+							</button>
 							<div class="flex items-center gap-3.5 bg-[#08090D] p-3.5 rounded-[16px] border border-white/5 shadow-inner">
 								<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center shrink-0 border border-[#3390ec]/30 shadow-sm">
 									<span class="text-[13px] font-black text-[#3390ec]">2</span>
@@ -438,14 +464,22 @@ export const ManagedBotsPage: Component = () => {
 							<input
 								type="password"
 								value={botToken()}
-								onInput={(e) => setBotToken(e.currentTarget.value)}
+								onInput={(e) => setCleanToken(e.currentTarget.value)}
 								placeholder={t('managedBots.pasteBotTokenPlaceholder')}
-								class="w-full h-14 bg-[#08090D] border border-white/10 text-white text-[14px] font-mono font-bold rounded-[16px] px-4 pl-12 focus:outline-none focus:border-[#3390ec]/50 transition-colors placeholder-white/20 shadow-inner"
+								class="w-full h-14 bg-[#08090D] border border-white/10 text-white text-[14px] font-mono font-bold rounded-[16px] px-4 pl-12 pr-24 focus:outline-none focus:border-[#3390ec]/50 transition-colors placeholder-white/20 shadow-inner"
 								dir="ltr"
 							/>
 							<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-[20px] pointer-events-none">
 								key
 							</span>
+							<button
+								type="button"
+								onClick={handlePasteToken}
+								class="absolute right-2 top-1/2 -translate-y-1/2 h-9 px-3 bg-white/10 hover:bg-white/15 active:scale-95 text-white/80 hover:text-white rounded-[10px] text-[11px] font-bold tracking-wider flex items-center gap-1 transition-all border border-white/5"
+							>
+								<span class="material-symbols-outlined text-[15px]">content_paste</span>
+								{t('managedBots.pasteBtn') || 'Paste'}
+							</button>
 						</div>
 
 						<button
@@ -474,14 +508,11 @@ export const ManagedBotsPage: Component = () => {
 							<div class="h-px flex-1 bg-white/10" />
 						</div>
 
-						{/* Native Managed-Bot creation (Bot API 9.6) — one tap in Telegram.
-						    The manager flow delivers the token to the backend without the
-						    user ever copying it. Falls back to BotFather link on older clients. */}
+						{/* BotFather Quick Open (One Tap) */}
 						<button
 							type="button"
-							onClick={handleRequestNativeBot}
-							data-hermes-send={undefined}
-							class="w-full h-14 bg-[#10b981]/15 hover:bg-[#10b981]/25 text-[#10b981] rounded-[16px] font-black text-[13px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-[#10b981]/40 active:scale-95"
+							onClick={openBotFather}
+							class="w-full h-14 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 rounded-[16px] font-black text-[13px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-emerald-500/30 active:scale-95 shadow-[0_4px_20px_rgba(16,185,129,0.15)]"
 						>
 							<span class="material-symbols-outlined text-[20px]">auto_awesome</span>{' '}
 							{t('managedBots.createNativeBtn') || 'CREATE BOT IN ONE TAP'}

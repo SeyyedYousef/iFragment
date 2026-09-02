@@ -59,10 +59,10 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 	const getGiftSupply = (gift: OfficialGiftItem): number => {
 		const clean = (gift.slug || '').toLowerCase().replace(/_/g, '-');
 		const live = liveMap().get(clean) || liveMap().get(gift.name.toLowerCase());
-		if (live && live.supply > 0) {
+		if (live && live.supply > 0 && live.supply !== 10000) {
 			return live.supply;
 		}
-		return gift.supply || 10000;
+		return gift.supply || (live ? live.supply : 5000);
 	};
 
 	const tags = () => [

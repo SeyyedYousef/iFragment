@@ -15,7 +15,7 @@ vi.mock('@/shared/i18n/index.js', () => ({
 // Mock the model
 vi.mock('@/entities/username/model/index.js', () => ({
 	useUsernameSearch: () => ({
-		searchQuery: () => 'test',
+		searchQuery: () => '',
 		setSearchQuery: vi.fn(),
 		searchError: () => null,
 		isCollectibleOnly: () => false,
@@ -40,5 +40,29 @@ describe('ActionArea Component', () => {
 		render(() => <ActionArea activeTab="username" />);
 		const input = screen.getByRole('textbox');
 		expect(input).toHaveAttribute('placeholder', 'action.username.inputPlaceholder');
+	});
+
+	it('renders gifts tab with valid link format chips and without durov portfolio', () => {
+		render(() => <ActionArea activeTab="gifts" />);
+		const input = screen.getByRole('textbox');
+		expect(input).toHaveAttribute('placeholder', 't.me/nft/PlushPepe-1');
+		
+		// Verify @durov is not present
+		expect(screen.queryByText('@durov (پورتفولیو)')).not.toBeInTheDocument();
+		expect(screen.queryByText(/durov.*پورتفولیو/i)).not.toBeInTheDocument();
+		
+		// Verify gifts format chips exist
+		expect(screen.getByText('t.me/nft/PlushPepe-1')).toBeInTheDocument();
+		expect(screen.getByText('DurovsCap-1')).toBeInTheDocument();
+		expect(screen.getByText('Signet Ring #7')).toBeInTheDocument();
+		expect(screen.getByText('fragment.com/gift/SantaHat-1')).toBeInTheDocument();
+	});
+
+	it('renders gifts trending categories', () => {
+		render(() => <ActionArea activeTab="gifts" />);
+		expect(screen.getByText('بلوچیپ و جنسیس')).toBeInTheDocument();
+		expect(screen.getByText('ستارگان و ترند')).toBeInTheDocument();
+		expect(screen.getByText('فصلی و جادو')).toBeInTheDocument();
+		expect(screen.getByText('لوکس و خاص')).toBeInTheDocument();
 	});
 });

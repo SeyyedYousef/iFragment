@@ -31,18 +31,15 @@ export const GiftThumbnail: Component<Props> = (props) => {
 		if (props.customImageUrl) {
 			return props.customImageUrl;
 		}
-		if (props.model) {
-			return getGiftCdnImageUrl(cleanSlug(), props.model);
-		}
 		if (useFallbackProxy()) {
-			return getGiftCdnImageUrl(cleanSlug(), giftItem()?.primaryModel);
+			return getGiftCdnImageUrl(cleanSlug(), props.model || giftItem()?.primaryModel);
 		}
 		// Primary: High-speed European VPS proxy with 7-day cache
-		return getGiftProxyImageUrl(cleanSlug());
+		return getGiftProxyImageUrl(cleanSlug(), props.model);
 	};
 
 	const handleImgError = () => {
-		if (!useFallbackProxy() && !props.customImageUrl && !props.model) {
+		if (!useFallbackProxy() && !props.customImageUrl) {
 			// Fallback to direct CDN if proxy fails
 			setUseFallbackProxy(true);
 		} else {

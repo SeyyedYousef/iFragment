@@ -651,11 +651,11 @@ func round2(v float64) float64 {
 	return math.Round(v*100.0) / 100.0
 }
 
-// GetGiftImageBytes returns cached PNG image bytes for a given gift
-func (s *GiftsService) GetGiftImageBytes(ctx context.Context, slug string) ([]byte, error) {
+// GetGiftImageBytes returns cached PNG image bytes for a given gift and optional model
+func (s *GiftsService) GetGiftImageBytes(ctx context.Context, slug, model string) ([]byte, error) {
 	if s.giftchangesClient == nil {
 		return nil, errors.New("giftchanges client not initialized")
 	}
-	return s.giftchangesClient.GetGiftImageBytes(ctx, slug, "")
+	return s.giftchangesClient.GetGiftImageBytes(ctx, slug, model)
 }
 

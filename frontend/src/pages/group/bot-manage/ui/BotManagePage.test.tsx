@@ -8,6 +8,20 @@ vi.mock('@solidjs/router', () => ({
 	useNavigate: () => vi.fn(),
 }));
 
+vi.mock('@/widgets/paywall/index.js', () => ({
+	useWallet: () => ({
+		balance: () => 10,
+		nextExpiry: () => null,
+		coins: () => 50000,
+		config: () => ({ coins_per_credit: 50000, packs: [] }),
+		configFailed: () => false,
+		isLoading: () => false,
+		refetch: vi.fn(),
+	}),
+	CreditStoreSheet: () => null,
+	UnifiedPaywallGate: () => null,
+}));
+
 vi.mock('@/entities/bot/index.js', () => ({
 	botApi: {
 		getBot: vi.fn(),

@@ -191,144 +191,176 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		features.CalculateExactPercentiles(&fv, histograms, registry.TotalSupply)
 	}
 
-	// 4. Hierarchical Bayesian Hedonic Regression Model v4.0 (Quantum-Bayes)
-	// log(P_hat) = beta0 + betaGenesis + betaVIP + betaMaxRun + betaDistinct + betaPalin + betaBlock + betaMonotonic + betaCultural + betaTail + betaSemantic + betaDialPad + betaEntropy + betaEcho + log(fngMult)
-	beta0 := math.Log(registry.InitialFloorTON) // ~7.6497 for 2,100 TON floor
+	// 4. Hierarchical Hedonic Model with Collinearity Suppression (Quantum-Bayes v4.5)
+	var beta0 float64
+	var minFloor float64
+	var maxCeiling float64
 
-	// 1. Genesis 4-Digit 7-Tier Micro-Segment Premium
+	if fv.IsGenesis4Digit {
+		beta0 = math.Log(registry.GenesisInitialFloorTON) // ~7.4955 for 1,800 TON floor
+		minFloor = registry.GenesisInitialFloorTON
+		if fv.Genesis.EstimatedFloorTON > minFloor {
+			minFloor = fv.Genesis.EstimatedFloorTON
+		}
+		maxCeiling = registry.RecordATHSaleTON // 350,000 TON
+	} else {
+		beta0 = math.Log(registry.StandardInitialFloorTON) // ~2.8904 for 18 TON floor
+		minFloor = registry.StandardInitialFloorTON
+		maxCeiling = registry.RecordATHSaleTON // 500,000 TON max for standard 8-digit (+888 8888 8888)
+	}
+
 	betaGenesis := 0.0
 	if fv.IsGenesis4Digit {
 		if fv.Genesis.BetaGenesis > 0 {
 			betaGenesis = fv.Genesis.BetaGenesis
 		} else {
-			betaGenesis = 3.50
+			betaGenesis = 0.15
 		}
 	}
 
-	// 2. VIP Standard Telephony Taxonomy
-	betaVIP := fv.VIP.BetaTaxonomy * 0.35
-
-	// 3. Dial-Pad Ergonomics & Geometry
-	betaDialPad := (fv.DialPad.DialPadEleganceScore - 20.0) / 100.0 * 0.40
-
-	// 4. Shannon Information Entropy (rewarding clean low-entropy vanity)
-	betaEntropy := math.Max(0.0, (2.80-fv.HarmonicEntropy)*0.15)
-
-	// 5. Echo Harmonics (Prefix +888 synergy)
-	betaEcho := 0.0
-	switch fv.EchoHarmonics {
-	case "ECHO_SANDWICH_888":
-		betaEcho = 0.40
-	case "PREFIX_SUFFIX_CLAMP_888":
-		betaEcho = 0.25
-	case "CLAMP_888_000":
-		betaEcho = 0.35
-	}
-
-	// Max run exponent (using EffectiveMaxRun for contiguous dial-string awareness, e.g. +888 8001 -> 4, +888 8888 -> 7)
+	// For Standard 8-digit numbers, determine primary structural pattern log-multiplier:
+	// Dominant patterns absorb collinear sub-features (palindromes, identical blocks, etc.)
+	// NOTE: Priority order matters! Longer runs must be checked BEFORE binary vanity / ternary vanity.
+	betaPrimaryPattern := 0.0
 	effectiveRun := fv.EffectiveMaxRun
 	if effectiveRun < fv.MaxRun {
 		effectiveRun = fv.MaxRun
 	}
-	betaMaxRun := 0.0
-	switch effectiveRun {
-	case 8, 9, 10, 11:
-		betaMaxRun = 5.95 // ~ATH level
-	case 7:
-		betaMaxRun = 4.20
-	case 6:
-		betaMaxRun = 2.80
-	case 5:
-		betaMaxRun = 1.70
-	case 4:
-		betaMaxRun = 0.85
-	case 3:
-		betaMaxRun = 0.35
-	case 2:
-		betaMaxRun = 0.10
+
+	// ═══════════════════════════════════════════════════════════════════════
+	// DOMINANT PATTERN CLASSIFICATION for 8-digit Telemint numbers
+	// With beta0 = ln(2000) ≈ 7.60, the formula is: price = exp(7.60 + beta)
+	// So beta=0 → ~2,000 TON (floor), beta=1 → ~5,440 TON, beta=2 → ~14,800 TON
+	// beta=3 → ~40,000 TON, beta=4 → ~109,000 TON, beta=5 → ~297,000 TON
+	// ═══════════════════════════════════════════════════════════════════════
+	if !fv.IsGenesis4Digit {
+		if fv.DistinctDigits == 1 {
+			// Octa Monodigit (8 identical digits, e.g. 00000000, 88888888, 77777777)
+			if strings.Contains(fv.Suffix, "8") {
+				// +888 8888 8888 has 11 eights total -> Top 8-digit in Telegram history
+				// Target: ~350,000-500,000 TON
+				betaPrimaryPattern = 5.25
+			} else if strings.Contains(fv.Suffix, "0") {
+				// +888 0000 0000 -> Pristine zero monodigit
+				// Target: ~200,000-280,000 TON
+				betaPrimaryPattern = 4.70
+			} else if strings.Contains(fv.Suffix, "7") || strings.Contains(fv.Suffix, "9") {
+				// +888 7777 7777 / 9999 9999 -> Lucky/Prestige digits
+				// Target: ~130,000-180,000 TON
+				betaPrimaryPattern = 4.25
+			} else {
+				// +888 1111 1111, 2222 2222, etc.
+				// Target: ~80,000-120,000 TON
+				betaPrimaryPattern = 3.80
+			}
+		} else if effectiveRun >= 7 {
+			// Septa+ Run (7+ identical digits but distinctDigits > 1)
+			// NOTE: uses >= because EffectiveMaxRun includes +888 prefix extension
+			// e.g. +888 8888 8880 has effectiveRun=10 (3 prefix + 7 suffix 8s)
+			// Graduated: higher effective run → closer to monodigit → higher beta
+			if effectiveRun >= 10 {
+				betaPrimaryPattern = 4.10 // Near-monodigit, ~120,000 TON
+			} else if effectiveRun >= 9 {
+				betaPrimaryPattern = 3.80 // ~88,000 TON
+			} else if effectiveRun >= 8 {
+				betaPrimaryPattern = 3.50 // ~66,000 TON
+			} else {
+				betaPrimaryPattern = 3.30 // Pure septa (exactly 7), ~54,000 TON
+			}
+		} else if fv.VIP.PatternKey == "HALF_BLOCK_QUAD" {
+			// AAAA BBBB (e.g. 8888 0000, 1111 2222)
+			// Target: ~25,000-40,000 TON
+			betaPrimaryPattern = 2.65
+		} else if effectiveRun >= 6 {
+			// Hexa Run (6 identical digits in a row)
+			// e.g. +888 8888 8800 has effectiveRun=9, caught by septa+ above
+			// This catches 6-runs of non-8 digits (e.g. +888 0000 0012)
+			// Target: ~18,000-30,000 TON
+			betaPrimaryPattern = 2.35
+		} else if fv.VIP.PatternKey == "FULL_LADDER_SEQUENCE" || (fv.HasMonotonicAsc && len(fv.Suffix) == 8) {
+			// 12345678, 87654321
+			// Target: ~12,000-20,000 TON
+			betaPrimaryPattern = 1.95
+		} else if effectiveRun >= 5 {
+			// Penta Run (5 identical digits in a row)
+			// Target: ~10,000-15,000 TON
+			betaPrimaryPattern = 1.70
+		} else if fv.VIP.PatternKey == "BINARY_ALTERNATING_ABAB" {
+			// ABAB ABAB (e.g. 8080 8080, 0101 0101)
+			// Target: ~8,000-12,000 TON
+			betaPrimaryPattern = 1.50
+		} else if fv.DistinctDigits == 2 {
+			// Binary Vanity (only 2 distinct digits total, non-alternating, non-run)
+			// e.g. 8800 8800, 1188 1188
+			// Target: ~5,000-8,000 TON
+			betaPrimaryPattern = 1.10
+		} else if fv.IsPalindrome {
+			// 8-digit Palindrome (e.g. 1234 4321)
+			// Target: ~6,000-10,000 TON
+			betaPrimaryPattern = 1.30
+		} else if effectiveRun >= 4 {
+			// Quad Run (4 identical digits in a row)
+			// Target: ~4,000-7,000 TON
+			betaPrimaryPattern = 0.85
+		} else if fv.TailClass == "QUAD_8888" || fv.TailClass == "QUAD_7777" || fv.TailClass == "QUAD_0000" {
+			// Premium quad tail
+			// Target: ~4,500-7,500 TON
+			betaPrimaryPattern = 0.95
+		} else if strings.HasPrefix(fv.TailClass, "TRIPLE_") {
+			// Triple tail (e.g. ending in 888, 000, 777)
+			// Target: ~3,000-5,000 TON
+			betaPrimaryPattern = 0.55
+		} else if fv.DistinctDigits == 3 {
+			// Ternary Vanity (3 distinct digits)
+			// Target: ~2,800-4,200 TON
+			betaPrimaryPattern = 0.40
+		} else if fv.RepeatedBlock == "AABB" || fv.RepeatedBlock == "ABAB" {
+			// Moderate vanity patterns
+			// Target: ~2,500-3,500 TON
+			betaPrimaryPattern = 0.25
+		}
 	}
 
-	// Distinct digits scarcity
-	betaDistinct := 0.0
-	switch fv.DistinctDigits {
-	case 1:
-		betaDistinct = 1.50
-	case 2:
-		betaDistinct = 0.90
-	case 3:
-		betaDistinct = 0.45
-	case 4:
-		betaDistinct = 0.15
-	}
-
-	// Palindrome & Symmetry
-	betaPalin := 0.0
-	if fv.IsPalindrome {
-		betaPalin = 0.80
-	} else if fv.MirrorScore >= 0.75 {
-		betaPalin = 0.35
-	}
-
-	// Repeated blocks
-	betaBlock := 0.0
-	switch fv.RepeatedBlock {
-	case "ALL_SAME":
-		betaBlock = 0.90
-	case "ABAB", "AAAABBBB":
-		betaBlock = 0.65
-	case "AABB", "PERIOD_HALF":
-		betaBlock = 0.35
-	}
-
-	// Monotonic sequences
-	betaMonotonic := 0.0
-	if fv.HasMonotonicAsc {
-		betaMonotonic = 0.60
-	} else if fv.HasMonotonicDesc {
-		betaMonotonic = 0.40
-	}
-
-	// Cultural lucky weights
+	// 2. Orthogonal Minor Adjustments (Cultural, DialPad, Entropy, Echo)
+	// These only provide small bounded refinements (+- 3% to 10%)
+	betaCultural := 0.0
 	netLucky := fv.LuckyWeight - fv.UnluckyWeight
-	betaCultural := netLucky * 0.04
-	if betaCultural > 0.60 {
-		betaCultural = 0.60
-	} else if betaCultural < -0.40 {
-		betaCultural = -0.40
+	if netLucky > 0 {
+		betaCultural = math.Min(0.10, netLucky*0.01)
+	} else if netLucky < 0 {
+		betaCultural = math.Max(-0.08, netLucky*0.015)
 	}
 
-	// Tail class
-	betaTail := 0.0
-	switch fv.TailClass {
-	case "QUAD_8888":
-		betaTail = 0.80
-	case "QUAD_7777", "QUAD_0000", "QUAD_AAAA":
-		betaTail = 0.60
-	case "TRIPLE_X888":
-		betaTail = 0.45
-	case "TRIPLE_X777", "TRIPLE_X000", "TRIPLE_X999", "TRIPLE_XAAA":
-		betaTail = 0.30
-	case "PAIR_ABAB", "PAIR_AABB", "MONOTONIC_4":
-		betaTail = 0.20
+	betaDialPad := math.Max(-0.05, math.Min(0.08, (fv.DialPad.DialPadEleganceScore-20.0)/100.0*0.10))
+	betaEntropy := 0.0
+	if fv.HarmonicEntropy < 2.0 {
+		betaEntropy = math.Min(0.08, (2.0-fv.HarmonicEntropy)*0.04)
 	}
 
-	// Semantic Lexicon Bonus
-	betaSemantic := fv.SemanticBonusLogP
+	betaEcho := 0.0
+	if fv.EchoHarmonics == "ECHO_SANDWICH_888" {
+		betaEcho = 0.08
+	} else if fv.EchoHarmonics == "CLAMP_888_000" {
+		betaEcho = 0.06
+	}
 
+	// In Genesis numbers, betaGenesis dominates, so secondary features are damped
 	if fv.IsGenesis4Digit {
-		// For 4-digit Genesis numbers, BetaGenesis strictly governs the baseline 7-tier hierarchy.
-		// Damping generic 8-digit heuristic features prevents double-counting.
-		betaPalin *= 0.15
-		betaVIP *= 0.15
-		betaBlock *= 0.15
-		betaTail *= 0.15
-		betaMonotonic *= 0.15
-		betaDialPad *= 0.15
-		betaSemantic *= 0.15
+		betaCultural *= 0.5
+		betaDialPad *= 0.5
+		betaEntropy = 0
+		betaEcho = 0
+		betaPrimaryPattern = 0
+	} else if fv.DistinctDigits == 1 {
+		// For Monodigit (e.g. 00000000), primary pattern fully captures value; remove secondary noise
+		betaCultural = 0
+		betaDialPad = 0
+		betaEntropy = 0
+		betaEcho = 0
 	}
 
-	// Sum log prior (Hedonic Quantum-Bayes)
-	hedonicLogP := beta0 + betaGenesis + betaVIP + betaMaxRun + betaDistinct + betaPalin + betaBlock + betaMonotonic + betaCultural + betaTail + betaSemantic + betaDialPad + betaEntropy + betaEcho + math.Log(fngMult)
+	// Sum log prior (Hedonic Quantum-Bayes v4.5)
+	hedonicLogP := beta0 + betaGenesis + betaPrimaryPattern + betaCultural + betaDialPad + betaEntropy + betaEcho + math.Log(fngMult)
 
 	// 5. Query Real Comps and execute Bayesian Shrinkage blending
 	var comps []ComparableSale
@@ -389,12 +421,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	}
 
 	rawEstimateTON := math.Exp(finalLogP) * colorInfo.Multiplier
-	minFloor := registry.InitialFloorTON
-	if fv.IsGenesis4Digit && fv.Genesis.EstimatedFloorTON > 0 {
-		minFloor = fv.Genesis.EstimatedFloorTON
-	}
 	if rawEstimateTON < minFloor {
 		rawEstimateTON = minFloor
+	}
+	if rawEstimateTON > maxCeiling {
+		rawEstimateTON = maxCeiling
 	}
 
 	expectedTON := roundPrice(rawEstimateTON)
@@ -534,31 +565,25 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	certificateID := "IFRG-NUM-" + strings.ToUpper(hex.EncodeToString(certHash[:])[:12])
 
 	reasoningLog := map[string]interface{}{
-		"model_version":      ModelVersion,
-		"beta0_floor":        beta0,
-		"beta_genesis":       betaGenesis,
-		"beta_vip":           betaVIP,
-		"beta_dialpad":       betaDialPad,
-		"beta_entropy":       betaEntropy,
-		"beta_echo":          betaEcho,
-		"beta_max_run":       betaMaxRun,
-		"beta_distinct":      betaDistinct,
-		"beta_palin":         betaPalin,
-		"beta_block":         betaBlock,
-		"beta_monotonic":     betaMonotonic,
-		"beta_cultural":      betaCultural,
-		"beta_tail":          betaTail,
-		"color_multiplier":   colorInfo.Multiplier,
-		"fng_multiplier":     fngMult,
-		"bayesian_k":         ShrinkageK,
-		"price_basis":        priceBasis,
-		"global_rank":        globalRank,
-		"category_club":      categoryClub,
-		"vip_tier":           fv.VIP.Tier,
-		"dialpad_geom":       fv.DialPad.GeometryClass,
-		"comps_count":        len(comps),
-		"is_sold_historical": history.IsSold,
-		"signals_count":      36,
+		"model_version":        ModelVersion,
+		"beta0_floor":          beta0,
+		"beta_genesis":         betaGenesis,
+		"beta_primary_pattern": betaPrimaryPattern,
+		"beta_dialpad":         betaDialPad,
+		"beta_entropy":         betaEntropy,
+		"beta_echo":            betaEcho,
+		"beta_cultural":        betaCultural,
+		"color_multiplier":     colorInfo.Multiplier,
+		"fng_multiplier":       fngMult,
+		"bayesian_k":           ShrinkageK,
+		"price_basis":          priceBasis,
+		"global_rank":          globalRank,
+		"category_club":        categoryClub,
+		"vip_tier":             fv.VIP.Tier,
+		"dialpad_geom":         fv.DialPad.GeometryClass,
+		"comps_count":          len(comps),
+		"is_sold_historical":   history.IsSold,
+		"signals_count":        36,
 	}
 
 	valuation := &NumberValuation{
@@ -765,13 +790,18 @@ func buildLiquidityMetrics(fv features.FeatureVector, expectedTON float64, comps
 	buyer := "General NFT Collector"
 	bidVelocity := 7.5
 
+	baselineFloor := registry.StandardInitialFloorTON
+	if fv.IsGenesis4Digit {
+		baselineFloor = registry.GenesisInitialFloorTON
+	}
+
 	if fv.MaxRun >= 5 || fv.IsPalindrome || expectedTON >= 10000 {
 		rating = "High"
 		days = "3 - 7 Days"
 		medianDays = 5
 		buyer = "East Asian Whale / VIP Investor"
 		bidVelocity = 9.2
-	} else if expectedTON <= registry.InitialFloorTON*1.2 {
+	} else if expectedTON <= baselineFloor*1.25 {
 		rating = "High"
 		days = "2 - 5 Days"
 		medianDays = 3
@@ -852,8 +882,6 @@ func computeGlobalRank(fv features.FeatureVector) int {
 		}
 
 		// Rank remaining 995 genesis numbers by their composite rarity and pattern
-		// Higher rarity score -> lower rank (closer to #1)
-		// RarityScore is in [60, 100], map to [6, 1000]
 		scarcityFraction := (100.0 - float64(fv.RarityScore)) / 40.0
 		if scarcityFraction < 0 {
 			scarcityFraction = 0
@@ -1075,8 +1103,8 @@ func buildActionablePlaybook(expectedTON, tonUsdRate float64) ActionablePlaybook
 	startBid := roundPrice(expectedTON * 0.72)
 	buyNow := roundPrice(expectedTON * 1.15)
 	bidStep := roundPrice(expectedTON * 0.05)
-	if bidStep < 5.0 {
-		bidStep = 5.0
+	if bidStep < 1.0 {
+		bidStep = 1.0
 	}
 	fee := roundPrice(expectedTON * registry.FragmentFeePercent)
 	netProceeds := expectedTON - fee
@@ -1107,9 +1135,13 @@ func buildRentalYield(expectedTON, tonUsdRate float64) RentalYield {
 }
 
 func buildMarketDepthInfo(fv features.FeatureVector, expectedTON, tonUsdRate float64) MarketDepthInfo {
+	baselineFloor := registry.StandardInitialFloorTON
+	if fv.IsGenesis4Digit {
+		baselineFloor = registry.GenesisInitialFloorTON
+	}
 	floorTON := roundPrice(expectedTON * 0.75)
-	if floorTON < registry.InitialFloorTON {
-		floorTON = registry.InitialFloorTON
+	if floorTON < baselineFloor {
+		floorTON = baselineFloor
 	}
 	speedEn := "1 - 3 Days (Instant Demand)"
 	speedFa := "۱ تا ۳ روز (تقاضای فوری)"
@@ -1135,13 +1167,18 @@ func buildOnChainAudit(normNumber string, history ValuationHistory) OnChainAudit
 	if txCount == 0 {
 		txCount = 1
 	}
-	appreciation := 0.0
-	if history.HighestPastSaleTON > registry.InitialFloorTON {
-		appreciation = roundPrice(((history.HighestPastSaleTON - registry.InitialFloorTON) / registry.InitialFloorTON) * 100.0)
-	}
-
 	cleanDigits := features.CleanNumber(normNumber)
 	isGenesis := len(cleanDigits) == 4 && cleanDigits >= "8000" && cleanDigits <= "8999"
+
+	baselineFloor := registry.StandardInitialFloorTON
+	if isGenesis {
+		baselineFloor = registry.GenesisInitialFloorTON
+	}
+
+	appreciation := 0.0
+	if history.HighestPastSaleTON > baselineFloor {
+		appreciation = roundPrice(((history.HighestPastSaleTON - baselineFloor) / baselineFloor) * 100.0)
+	}
 
 	statusFa := "تایید شده در قرارداد هوشمند تلمینت تلگرام"
 	statusEn := "Verified on-chain asset via Telegram Telemint"

@@ -20,10 +20,11 @@ export function getGiftCdnImageUrl(slugOrName: string, modelName?: string): stri
 	return `https://api.changes.tg/model/${realSlug}/${encodeURIComponent(model)}.png?size=256`;
 }
 
-export function getGiftProxyImageUrl(slugOrName: string): string {
+export function getGiftProxyImageUrl(slugOrName: string, modelName?: string): string {
 	if (!slugOrName) return '';
 	const cleanSlug = slugOrName.toLowerCase().replace(/_/g, '-').replace(/[^a-z0-9-]/g, '');
-	return `${API_CONFIG.BASE_URL}/gifts/image/${cleanSlug}`;
+	const query = modelName ? `?m=${encodeURIComponent(modelName)}` : '';
+	return `${API_CONFIG.BASE_URL}/gifts/image/${cleanSlug}${query}`;
 }
 
 export function getModelCdnImageUrl(giftSlug: string, modelNameOrId: string): string {

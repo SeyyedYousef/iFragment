@@ -218,7 +218,13 @@ func (dc *DynamicCatalog) Sync(ctx context.Context) error {
 
 				totalSupply := detail.Gift.TotalSupply
 				if totalSupply <= 0 {
-					totalSupply = 10000
+					if staticCol, ok := ResolveCollection(modelID); ok && staticCol.TotalSupply > 0 {
+						totalSupply = staticCol.TotalSupply
+					} else if staticCol, ok := ResolveCollection(cleanSlug); ok && staticCol.TotalSupply > 0 {
+						totalSupply = staticCol.TotalSupply
+					} else {
+						totalSupply = 10000
+					}
 				}
 
 				// Compute dynamic market floor price from real API attributes

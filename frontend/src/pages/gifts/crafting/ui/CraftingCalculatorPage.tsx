@@ -65,7 +65,12 @@ export const CraftingCalculatorPage: Component = () => {
 			try {
 				haptic.notify('error');
 			} catch {}
-			setErrorMsg(err?.response?.data?.message || 'Calculation failed. All items must belong to the same collection.');
+			setErrorMsg(
+				err?.response?.data?.error ||
+				err?.response?.data?.message ||
+				err?.message ||
+				'خطا در محاسبه ارزش انتظاری کرفتینگ. تمام آیتم‌ها باید متعلق به یک کالکشن باشند.',
+			);
 		},
 	}));
 
