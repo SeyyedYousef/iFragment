@@ -63,6 +63,11 @@ func (e *ValuationEngine) SetNFTResolver(resolver *telegramnft.Resolver) {
 	e.nftResolver = resolver
 }
 
+// GetNFTResolver returns the live Telegram NFT resolver
+func (e *ValuationEngine) GetNFTResolver() *telegramnft.Resolver {
+	return e.nftResolver
+}
+
 // ParsedGiftRef holds resolved model and serial details
 type ParsedGiftRef struct {
 	GiftID       string
@@ -95,36 +100,70 @@ func NormalizeGiftIdentifier(raw string) (*ParsedGiftRef, error) {
 	clean = strings.TrimRight(clean, "/")
 	clean = strings.ToLower(clean)
 
-	// Replace # and spaces with dash
+	// Strip apostrophes, replace # and spaces with dash
+	clean = strings.ReplaceAll(clean, "'", "")
+	clean = strings.ReplaceAll(clean, "’", "")
 	clean = strings.ReplaceAll(clean, "#", "-")
 	clean = strings.ReplaceAll(clean, " ", "-")
 
 	// Match pattern: collection_name - number
-	re := regexp.MustCompile(`^([a-z0-9_]+?)[-#_]?(\d+)$`)
+	// Match trailing serial number: greedy prefix captures full collection name (even with dashes/underscores)
+	re := regexp.MustCompile(`^(.*)[-#_]+(\d+)$`)
 	matches := re.FindStringSubmatch(clean)
 
 	if len(matches) >= 3 {
-		modelKey := matches[1]
+		modelKey := strings.Trim(matches[1], "-_ ")
 		serial, err := strconv.Atoi(matches[2])
 		if err != nil || serial <= 0 {
 			return nil, fmt.Errorf("invalid serial number: serial must be >= 1")
 		}
 
-		col, _ := traits.ResolveCollection(modelKey)
-		return &ParsedGiftRef{
-			GiftID:       fmt.Sprintf("%s-%d", col.ModelID, serial),
-			ModelID:      col.ModelID,
-			SerialNumber: serial,
-			RawInput:     raw,
-		}, nil
+		if modelKey != "" {
+			col, _ := traits.ResolveCollection(modelKey)
+			modelID := col.ModelID
+			if modelID == "" {
+				modelID = traits.NormalizeSlug(modelKey)
+			}
+			return &ParsedGiftRef{
+				GiftID:       fmt.Sprintf("%s-%d", modelID, serial),
+				ModelID:      modelID,
+				SerialNumber: serial,
+				RawInput:     raw,
+			}, nil
+		}
+	}
+
+	// Also check if no separator before trailing digits (e.g. PlushPepe1)
+	reNoSep := regexp.MustCompile(`^([a-z_]+)(\d+)$`)
+	if m := reNoSep.FindStringSubmatch(clean); len(m) >= 3 {
+		modelKey := m[1]
+		serial, err := strconv.Atoi(m[2])
+		if err == nil && serial > 0 {
+			col, _ := traits.ResolveCollection(modelKey)
+			modelID := col.ModelID
+			if modelID == "" {
+				modelID = traits.NormalizeSlug(modelKey)
+			}
+			return &ParsedGiftRef{
+				GiftID:       fmt.Sprintf("%s-%d", modelID, serial),
+				ModelID:      modelID,
+				SerialNumber: serial,
+				RawInput:     raw,
+			}, nil
+		}
 	}
 
 	if clean != "" {
-		col, ok := traits.ResolveCollection(clean)
-		if ok {
+		cleanModel := strings.Trim(clean, "-_ ")
+		col, _ := traits.ResolveCollection(cleanModel)
+		modelID := col.ModelID
+		if modelID == "" {
+			modelID = traits.NormalizeSlug(cleanModel)
+		}
+		if modelID != "" {
 			return &ParsedGiftRef{
-				GiftID:       fmt.Sprintf("%s-1", col.ModelID),
-				ModelID:      col.ModelID,
+				GiftID:       fmt.Sprintf("%s-1", modelID),
+				ModelID:      modelID,
 				SerialNumber: 1,
 				RawInput:     raw,
 			}, nil

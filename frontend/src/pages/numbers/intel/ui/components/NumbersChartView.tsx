@@ -99,7 +99,7 @@ export const NumbersChartView: Component<Props> = (props) => {
 			}
 		}
 		if (!rawTon || rawTon <= 0) {
-			rawTon = props.intel?.floor_price_ton || 2280;
+			rawTon = props.intel?.floor_price_ton || 2450;
 		}
 
 		// 3. Handle unrestricted floor filter (+5% or props.floorN)
@@ -776,7 +776,7 @@ export const NumbersChartView: Component<Props> = (props) => {
 							<span class="material-symbols-outlined text-[13px]">arrow_forward</span>
 						</div>
 						<div class="text-sm font-black text-white font-mono mt-0.5">
-							{props.intel?.ending_soon ? formatTon(props.intel.ending_soon.length) : 'Live'}
+							{props.intel?.ending_soon && props.intel.ending_soon.length > 0 ? formatTon(props.intel.ending_soon.length) : 'Live'}
 						</div>
 					</button>
 

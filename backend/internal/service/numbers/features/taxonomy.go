@@ -79,7 +79,7 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 		}
 	}
 
-	// 5. Platinum Tier (ABABABAB, Binary Vanity with 2 distinct digits)
+	// 5. Platinum Tier (ABABABAB, Binary Double Pair, Binary Vanity)
 	if distinctDigits == 2 && n == 8 {
 		if suffix[0] == suffix[2] && suffix[2] == suffix[4] && suffix[4] == suffix[6] &&
 			suffix[1] == suffix[3] && suffix[3] == suffix[5] && suffix[5] == suffix[7] {
@@ -92,6 +92,28 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 				BetaTaxonomy: 3.20,
 			}
 		}
+		// AABB AABB (e.g. 1188 1188, 8800 8800, 7788 7788, 1122 1122)
+		if suffix[0:4] == suffix[4:8] && suffix[0] == suffix[1] && suffix[2] == suffix[3] && suffix[0] != suffix[2] {
+			return VIPTaxonomy{
+				Tier:         TierPlatinumPlus,
+				PatternKey:   "BINARY_DOUBLE_PAIR",
+				TitleEn:      "Platinum Plus Binary Double Pair",
+				TitleFa:      "رند پلاتین پلاس جفت تکرار دو رقمی",
+				Description:  "Luxury repeating 2-digit pairs (AABB AABB)",
+				BetaTaxonomy: 3.50,
+			}
+		}
+		// Binary Periodic Quad (e.g. 8088 8088)
+		if suffix[0:4] == suffix[4:8] {
+			return VIPTaxonomy{
+				Tier:         TierPlatinum,
+				PatternKey:   "PERIODIC_QUAD_ABCD",
+				TitleEn:      "Platinum Periodic Quad",
+				TitleFa:      "رند پلاتین تکرار چهار رقم دو رقمی",
+				Description:  "Binary 2-digit periodic quad (ABCD ABCD)",
+				BetaTaxonomy: 3.10,
+			}
+		}
 		return VIPTaxonomy{
 			Tier:         TierPlatinum,
 			PatternKey:   "BINARY_VANITY",
@@ -102,7 +124,7 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 		}
 	}
 
-	// 6. Gold Tier (Periodic quads, Bookends, Penta runs)
+	// 6. Gold Tier (Periodic quads, Triplet repeats, Bookends, Penta runs)
 	if maxRun == 5 {
 		return VIPTaxonomy{
 			Tier:         TierGold,
@@ -121,6 +143,19 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 			TitleEn:      "Gold Repeating Quad",
 			TitleFa:      "رند طلایی تکرار چهار رقم",
 			Description:  "Two identical repeated 4-digit groups (ABCD ABCD)",
+			BetaTaxonomy: 2.60,
+		}
+	}
+
+	// Triplet repeat (e.g. 123 123 xx, 800 800 xx, xx 123 123)
+	if n == 8 && (suffix[0:3] == suffix[3:6] || suffix[2:5] == suffix[5:8]) &&
+		(suffix[0] != suffix[1] || suffix[1] != suffix[2]) {
+		return VIPTaxonomy{
+			Tier:         TierGold,
+			PatternKey:   "TRIPLET_REPEAT",
+			TitleEn:      "Gold Repeating Triplet",
+			TitleFa:      "رند طلایی تکرار سه‌رقمی",
+			Description:  "Repeated 3-digit group (e.g. 123 123 xx or 800 800 xx)",
 			BetaTaxonomy: 2.40,
 		}
 	}

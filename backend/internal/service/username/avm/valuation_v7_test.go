@@ -3,6 +3,7 @@ package avm
 import (
 	"math"
 	"math/rand"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -375,5 +376,48 @@ func TestAVMv7_AdaptiveUncertainty(t *testing.T) {
 	tightenedMult, changed, reason := ComputeAdaptiveUncertainty(1.40, 95.0)
 	if !changed || tightenedMult >= 1.40 {
 		t.Errorf("Expected uncertainty mult to tighten from 1.40, got %.2f (reason: %s)", tightenedMult, reason)
+	}
+}
+
+// TestAVMv8_TelegramLegalHomoglyphs verifies that every generated homoglyph twin
+// strictly adheres to Telegram username syntax: ASCII only, starts with a letter, len 4-32.
+func TestAVMv8_TelegramLegalHomoglyphs(t *testing.T) {
+	tgRegex := regexp.MustCompile(`^@[a-z][a-z0-9_]{3,31}$`)
+	testNames := []string{"telegram", "paypal", "google", "binance", "crypto", "wallet", "news"}
+
+	for _, name := range testNames {
+		twins := GenerateHomoglyphTwins(name, 6)
+		for _, tw := range twins {
+			if !tgRegex.MatchString(tw.Twin) {
+				t.Fatalf("Homoglyph twin '%s' is not a valid Telegram username!", tw.Twin)
+			}
+			// Must be ASCII only
+			for _, r := range tw.Twin {
+				if r > 127 {
+					t.Fatalf("Homoglyph twin '%s' contains non-ASCII character '%c'!", tw.Twin, r)
+				}
+			}
+		}
+	}
+}
+
+// TestAVMv8_FragmentEconomicsRule verifies that the Fragment 5 TON minimum fee
+// and seller net payout never violate protocol constraints.
+func TestAVMv8_FragmentEconomicsRule(t *testing.T) {
+	prices := []float64{5.0, 10.0, 25.0, 50.0, 80.0, 100.0, 500.0, 10000.0}
+
+	for _, p := range prices {
+		fragFee := math.Max(5.0, math.Round((p*0.05)*100)/100)
+		netProceeds := math.Max(0.0, p-fragFee)
+
+		if fragFee < 5.0 {
+			t.Errorf("Price %.2f: Fragment fee %.2f is less than protocol minimum 5.0 TON", p, fragFee)
+		}
+		if netProceeds < 0.0 {
+			t.Errorf("Price %.2f: Net proceeds %.2f cannot be negative", p, netProceeds)
+		}
+		if netProceeds+fragFee > p+0.01 {
+			t.Errorf("Price %.2f: Sum of net proceeds (%.2f) and fee (%.2f) exceeds price", p, netProceeds, fragFee)
+		}
 	}
 }

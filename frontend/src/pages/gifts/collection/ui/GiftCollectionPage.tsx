@@ -21,6 +21,7 @@ export const GiftCollectionPage: Component = () => {
 	const [showSearch, setShowSearch] = createSignal(false);
 	const [selectedTab, setSelectedTab] = createSignal<'models' | 'venues' | 'backdrops' | 'heatmap'>('models');
 	const [copiedContract, setCopiedContract] = createSignal(false);
+	const [heatmapTierFilter, setHeatmapTierFilter] = createSignal<string>('all');
 
 	const collectionsQuery = createQuery(() => ({
 		queryKey: ['giftCollectionsList'],
@@ -83,6 +84,23 @@ export const GiftCollectionPage: Component = () => {
 		if (permille <= 150) return { label: 'Uncommon', bg: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' };
 		return { label: 'Common', bg: 'bg-white/5 text-white/50 border-white/10' };
 	};
+
+	const rarityTierBadgeByName = (tier: string) => {
+		const t = (tier || '').toLowerCase();
+		if (t === 'mythic') return { label: 'Mythic', bg: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
+		if (t === 'legendary') return { label: 'Legendary', bg: 'bg-[#AF52DE]/20 text-[#AF52DE] border-[#AF52DE]/35' };
+		if (t === 'epic') return { label: 'Epic', bg: 'bg-sky-500/15 text-sky-300 border-sky-500/30' };
+		if (t === 'rare') return { label: 'Rare', bg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
+		if (t === 'uncommon') return { label: 'Uncommon', bg: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' };
+		return { label: 'Common', bg: 'bg-white/5 text-white/50 border-white/10' };
+	};
+
+	const filteredHeatmap = createMemo(() => {
+		const list = data()?.rarity_heatmap || [];
+		const f = heatmapTierFilter().toLowerCase();
+		if (f === 'all') return list;
+		return list.filter((c) => (c.rarity_tier || '').toLowerCase() === f);
+	});
 
 	return (
 		<div class="pb-36 bg-[#030303] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
@@ -154,7 +172,7 @@ export const GiftCollectionPage: Component = () => {
 										<div class="flex-1 text-left rtl:text-right min-w-0">
 											<div class="text-xs font-bold truncate text-white">{coll.name}</div>
 											<div class="text-[10px] text-white/40 font-medium">
-												{t('gifts.supplyPrefix')} {coll.total_supply.toLocaleString()} · ⭐ {fmt(coll.floor_gram)} TON
+												{t('gifts.supplyPrefix')} {coll.total_supply.toLocaleString()} · {fmt(coll.floor_gram)} TON
 											</div>
 										</div>
 										<span class="material-symbols-outlined text-white/30 text-base rtl:rotate-180">chevron_right</span>
@@ -450,7 +468,7 @@ export const GiftCollectionPage: Component = () => {
 
 											<div class="text-right rtl:text-left">
 												<div class="font-black text-white font-mono">
-													⭐ {fmt(venue.floor_gram)} TON
+													{fmt(venue.floor_gram)} TON
 												</div>
 												<span class="text-[10px] text-emerald-400 font-mono font-medium block">
 													{t('gifts.netPayoutPrefix')} {fmt(venue.net_payout_gram)} TON
@@ -507,25 +525,60 @@ export const GiftCollectionPage: Component = () => {
 									<span class="material-symbols-outlined text-[#0098EA] text-base">heat_pump</span>
 									<span>{t('gifts.rarityHeatmapTitle')}</span>
 								</h3>
+								<span class="text-[10px] text-white/40 font-mono">
+									{filteredHeatmap().length} {t('gifts.combosFound') || 'ترکیب'}
+								</span>
+							</div>
+
+							{/* Tier filter chips */}
+							<div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+								<For each={['all', 'Mythic', 'Legendary', 'Epic', 'Rare', 'Common']}>
+									{(tier) => (
+										<button
+											type="button"
+											onClick={() => {
+												setHeatmapTierFilter(tier);
+												try { haptic.selection(); } catch {}
+											}}
+											class={`px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all shrink-0 ${
+												heatmapTierFilter().toLowerCase() === tier.toLowerCase()
+													? 'bg-[#0098EA] text-white shadow'
+													: 'bg-white/[0.03] text-white/50 hover:text-white border border-white/5'
+											}`}
+										>
+											{tier === 'all' ? (t('common.all') || 'همه') : tier}
+										</button>
+									)}
+								</For>
 							</div>
 
 							<div class="space-y-2">
-								<For each={data()!.rarity_heatmap.slice(0, 15)}>
-									{(cell) => (
-										<div class="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-3 flex items-center justify-between text-xs">
-											<div>
-												<span class="font-bold text-white block truncate">{cell.model_name}</span>
-												<span class="text-[10px] text-white/40 block mt-0.5">{t('gifts.backdropPrefix')} {cell.backdrop_name}</span>
-											</div>
+								<For each={filteredHeatmap().slice(0, 30)}>
+									{(cell) => {
+										const tierBadge = rarityTierBadgeByName(cell.rarity_tier);
+										return (
+											<button
+												type="button"
+												onClick={() => {
+													navigate(`/gifts/report?g=${slug()}-1`);
+													try { haptic.impact('light'); } catch {}
+												}}
+												class="w-full bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] rounded-2xl p-3 flex items-center justify-between text-xs transition-all active:scale-[0.99] text-left rtl:text-right"
+											>
+												<div class="min-w-0 flex-1 pr-2 rtl:pr-0 rtl:pl-2">
+													<span class="font-bold text-white block truncate">{cell.model_name}</span>
+													<span class="text-[10px] text-white/40 block mt-0.5">{t('gifts.backdropPrefix')} {cell.backdrop_name}</span>
+												</div>
 
-											<div class="text-right rtl:text-left shrink-0">
-												<span class="font-mono font-black text-white block">⭐ {fmt(cell.floor_gram)} TON</span>
-												<span class="text-[9px] uppercase font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 inline-block mt-0.5">
-													{cell.rarity_tier}
-												</span>
-											</div>
-										</div>
-									)}
+												<div class="text-right rtl:text-left shrink-0">
+													<span class="font-mono font-black text-white block">{fmt(cell.floor_gram)} TON</span>
+													<span class={`text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded border inline-block mt-0.5 ${tierBadge.bg}`}>
+														{cell.rarity_tier}
+													</span>
+												</div>
+											</button>
+										);
+									}}
 								</For>
 							</div>
 						</div>
@@ -554,7 +607,7 @@ export const GiftCollectionPage: Component = () => {
 										}`}>
 											<span class="text-[9px] text-white/40 block font-bold">{t('gifts.stepPrefix', { step: step.step })}</span>
 											<span class="font-black text-white font-mono text-xs block mt-0.5">
-												{step.price_stars.toLocaleString()} ⭐
+												{step.price_stars.toLocaleString()} Stars
 											</span>
 											<span class="text-[10px] text-white/40 font-mono block">
 												(≈ {fmt(step.price_gram)} TON)

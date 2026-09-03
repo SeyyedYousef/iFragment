@@ -50,6 +50,13 @@ var (
 	backdropRe = regexp.MustCompile(`(?is)<th>Backdrop</th>\s*<td>([^<\n\r]+?)(?:\s*<mark>([\d\.]+)%?</mark>)?\s*</td>`)
 	symbolRe   = regexp.MustCompile(`(?is)<th>Symbol</th>\s*<td>([^<\n\r]+?)(?:\s*<mark>([\d\.]+)%?</mark>)?\s*</td>`)
 	qtyRe      = regexp.MustCompile(`(?i)<th>Quantity</th>\s*<td>\s*(\d+)\s*/\s*(\d+)\s*issued`)
+
+	// Official Telegram OpenGraph metadata parsers
+	ogImageRe      = regexp.MustCompile(`(?i)<meta\s+(?:property|name)=["'](?:og:image|twitter:image)["']\s+content=["']([^"']+)["']`)
+	ogDescRe       = regexp.MustCompile(`(?is)<meta\s+(?:property|name)=["'](?:og:description|twitter:description)["']\s+content=["'](.*?)["']`)
+	descModelRe    = regexp.MustCompile(`(?i)Model:\s*([^<\r\n&#]+)`)
+	descBackdropRe = regexp.MustCompile(`(?i)Backdrop:\s*([^<\r\n&#]+)`)
+	descSymbolRe   = regexp.MustCompile(`(?i)Symbol:\s*([^<\r\n&#]+)`)
 )
 
 func NewResolver() *Resolver {
@@ -147,12 +154,17 @@ func (r *Resolver) ResolveGiftNFT(ctx context.Context, modelID string, serial in
 		CheckedAt:      time.Now().UTC(),
 	}
 
-	// 1. Parse Owner
+	// 1. Parse Image URL directly from official Telegram OpenGraph CDN (telesco.pe)
+	if m := ogImageRe.FindStringSubmatch(html); len(m) >= 2 {
+		details.ImageURL = strings.TrimSpace(m[1])
+	}
+
+	// 2. Parse Owner
 	if m := ownerRe.FindStringSubmatch(html); len(m) >= 2 {
 		details.OwnerName = strings.TrimSpace(m[1])
 	}
 
-	// 2. Parse Model
+	// 3. Parse Model from table markup or og:description
 	if m := modelRe.FindStringSubmatch(html); len(m) >= 2 {
 		details.Model = strings.TrimSpace(m[1])
 		if len(m) >= 3 && m[2] != "" {
@@ -162,7 +174,7 @@ func (r *Resolver) ResolveGiftNFT(ctx context.Context, modelID string, serial in
 		}
 	}
 
-	// 3. Parse Backdrop
+	// 4. Parse Backdrop from table markup
 	if m := backdropRe.FindStringSubmatch(html); len(m) >= 2 {
 		details.Backdrop = strings.TrimSpace(m[1])
 		if len(m) >= 3 && m[2] != "" {
@@ -172,7 +184,7 @@ func (r *Resolver) ResolveGiftNFT(ctx context.Context, modelID string, serial in
 		}
 	}
 
-	// 4. Parse Symbol
+	// 5. Parse Symbol from table markup
 	if m := symbolRe.FindStringSubmatch(html); len(m) >= 2 {
 		details.Symbol = strings.TrimSpace(m[1])
 		if len(m) >= 3 && m[2] != "" {
@@ -182,7 +194,27 @@ func (r *Resolver) ResolveGiftNFT(ctx context.Context, modelID string, serial in
 		}
 	}
 
-	// 5. Parse Quantity
+	// 6. Fallback parse Model, Backdrop, Symbol from og:description if table was omitted
+	if m := ogDescRe.FindStringSubmatch(html); len(m) >= 2 {
+		desc := m[1]
+		if details.Model == "" {
+			if mm := descModelRe.FindStringSubmatch(desc); len(mm) >= 2 {
+				details.Model = strings.TrimSpace(mm[1])
+			}
+		}
+		if details.Backdrop == "" {
+			if mm := descBackdropRe.FindStringSubmatch(desc); len(mm) >= 2 {
+				details.Backdrop = strings.TrimSpace(mm[1])
+			}
+		}
+		if details.Symbol == "" {
+			if mm := descSymbolRe.FindStringSubmatch(desc); len(mm) >= 2 {
+				details.Symbol = strings.TrimSpace(mm[1])
+			}
+		}
+	}
+
+	// 7. Parse Quantity
 	if m := qtyRe.FindStringSubmatch(html); len(m) >= 3 {
 		if issued, err := strconv.Atoi(m[1]); err == nil {
 			details.IssuedCount = issued
@@ -192,7 +224,8 @@ func (r *Resolver) ResolveGiftNFT(ctx context.Context, modelID string, serial in
 		}
 	}
 
-	if details.Model != "" {
+	// Fallback to changes.tg only if Telegram og:image was not found
+	if details.ImageURL == "" && details.Model != "" {
 		slugParam := strings.ReplaceAll(cleanModel, "_", "-")
 		details.ImageURL = fmt.Sprintf("https://api.changes.tg/model/%s/%s.png?size=256", slugParam, details.Model)
 	}

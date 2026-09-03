@@ -192,3 +192,54 @@ func TestGVEngine_ConcurrentRaceSafety(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestGVEngine_NormalizeGiftIdentifier(t *testing.T) {
+	tests := []struct {
+		input       string
+		expectedCol string
+		expectedNum int
+		wantErr     bool
+	}{
+		{"plush-pepe-1", "plush_pepe", 1, false},
+		{"plush pepe 1", "plush_pepe", 1, false},
+		{"Plush Pepe #1", "plush_pepe", 1, false},
+		{"plush_pepe-1", "plush_pepe", 1, false},
+		{"plush_pepe-42", "plush_pepe", 42, false},
+		{"https://t.me/nft/PlushPepe-1", "plush_pepe", 1, false},
+		{"t.me/nft/PlushPepe-42", "plush_pepe", 42, false},
+		{"fragment.com/gift/PlushPepe-1", "plush_pepe", 1, false},
+		{"durov_cap-1", "durov_cap", 1, false},
+		{"durov-cap-100", "durov_cap", 100, false},
+		{"Durov's Cap #7", "durov_cap", 7, false},
+		{"plush-pepe", "plush_pepe", 1, false},
+		{"PlushPepe1", "plush_pepe", 1, false},
+		{"@someone", "", 0, true},
+		{"plush-pepe-0", "", 0, true},
+		{"EQBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			ref, err := NormalizeGiftIdentifier(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for %q, got nil", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error for %q: %v", tt.input, err)
+			}
+			if ref.ModelID != tt.expectedCol {
+				t.Errorf("expected ModelID %q, got %q", tt.expectedCol, ref.ModelID)
+			}
+			if ref.SerialNumber != tt.expectedNum {
+				t.Errorf("expected SerialNumber %d, got %d", tt.expectedNum, ref.SerialNumber)
+			}
+			expectedGiftID := fmt.Sprintf("%s-%d", tt.expectedCol, tt.expectedNum)
+			if ref.GiftID != expectedGiftID {
+				t.Errorf("expected GiftID %q, got %q", expectedGiftID, ref.GiftID)
+			}
+		})
+	}
+}

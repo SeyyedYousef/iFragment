@@ -344,6 +344,43 @@ export const UsernamePage: Component = () => {
 
 	const handleMouseLeave = () => setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
 
+	const handleTouchMove = (e: TouchEvent) => {
+		if (!cardRef || !e.touches || e.touches.length === 0) return;
+		const touch = e.touches[0];
+		const rect = cardRef.getBoundingClientRect();
+		const x = touch.clientX - rect.left;
+		const y = touch.clientY - rect.top;
+		const clampedX = Math.max(0, Math.min(rect.width, x));
+		const clampedY = Math.max(0, Math.min(rect.height, y));
+		setTilt({
+			x: (rect.height / 2 - clampedY) / 8,
+			y: (clampedX - rect.width / 2) / 8,
+			glossX: (clampedX / rect.width) * 100,
+			glossY: (clampedY / rect.height) * 100,
+		});
+	};
+
+	const handleTouchEnd = () => setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
+
+	const [activeNavTab, setActiveNavTab] = createSignal<
+		'overview' | 'valuation' | 'linguistics' | 'ownership' | 'certificate'
+	>('overview');
+
+	const scrollToSection = (id: string) => {
+		try {
+			haptic.selection();
+		} catch {}
+		const el = document.getElementById(id);
+		if (el) {
+			el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
+		if (id === 'sec-overview') setActiveNavTab('overview');
+		else if (id === 'sec-valuation') setActiveNavTab('valuation');
+		else if (id === 'sec-linguistics') setActiveNavTab('linguistics');
+		else if (id === 'sec-ownership') setActiveNavTab('ownership');
+		else if (id === 'sec-certificate') setActiveNavTab('certificate');
+	};
+
 	const getFontSize = (name: string) => {
 		const len = name.length;
 		if (len <= 5) return '44px';
@@ -941,11 +978,132 @@ export const UsernamePage: Component = () => {
 							</div>
 						</Show>
 
+						{/* ═══════ STICKY QUICK-NAV SEGMENTED BAR (WHEN UNLOCKED) ═══════ */}
+						<Show when={accessGranted() && data()}>
+							<div class="sticky top-2 z-40 w-full max-w-[420px] bg-[#0c0e14]/90 backdrop-blur-xl border border-white/10 p-1 rounded-[18px] shadow-2xl flex items-center justify-between gap-1 transition-all my-1">
+								<button
+									type="button"
+									onClick={() => scrollToSection('sec-overview')}
+									class={`flex-1 py-1.5 px-1 text-[11px] font-black rounded-[14px] transition-all flex flex-col items-center gap-0.5 ${
+										activeNavTab() === 'overview'
+											? 'bg-[#0098EA] text-white shadow-[0_0_15px_rgba(0,152,234,0.4)]'
+											: 'text-white/45 hover:text-white/80 active:scale-95'
+									}`}
+								>
+									<span class="text-[14px]">💎</span>
+									<span class="truncate max-w-full text-[10px]">{t('valuation.nav_overview') || 'Overview'}</span>
+								</button>
+								<button
+									type="button"
+									onClick={() => scrollToSection('sec-valuation')}
+									class={`flex-1 py-1.5 px-1 text-[11px] font-black rounded-[14px] transition-all flex flex-col items-center gap-0.5 ${
+										activeNavTab() === 'valuation'
+											? 'bg-[#0098EA] text-white shadow-[0_0_15px_rgba(0,152,234,0.4)]'
+											: 'text-white/45 hover:text-white/80 active:scale-95'
+									}`}
+								>
+									<span class="text-[14px]">📊</span>
+									<span class="truncate max-w-full text-[10px]">{t('valuation.nav_valuation') || 'Value'}</span>
+								</button>
+								<button
+									type="button"
+									onClick={() => scrollToSection('sec-linguistics')}
+									class={`flex-1 py-1.5 px-1 text-[11px] font-black rounded-[14px] transition-all flex flex-col items-center gap-0.5 ${
+										activeNavTab() === 'linguistics'
+											? 'bg-[#0098EA] text-white shadow-[0_0_15px_rgba(0,152,234,0.4)]'
+											: 'text-white/45 hover:text-white/80 active:scale-95'
+									}`}
+								>
+									<span class="text-[14px]">🧬</span>
+									<span class="truncate max-w-full text-[10px]">{t('valuation.nav_linguistics') || 'DNA'}</span>
+								</button>
+								<button
+									type="button"
+									onClick={() => scrollToSection('sec-ownership')}
+									class={`flex-1 py-1.5 px-1 text-[11px] font-black rounded-[14px] transition-all flex flex-col items-center gap-0.5 ${
+										activeNavTab() === 'ownership'
+											? 'bg-[#0098EA] text-white shadow-[0_0_15px_rgba(0,152,234,0.4)]'
+											: 'text-white/45 hover:text-white/80 active:scale-95'
+									}`}
+								>
+									<span class="text-[14px]">🐋</span>
+									<span class="truncate max-w-full text-[10px]">{t('valuation.nav_ownership') || 'Whale'}</span>
+								</button>
+								<button
+									type="button"
+									onClick={() => scrollToSection('sec-certificate')}
+									class={`flex-1 py-1.5 px-1 text-[11px] font-black rounded-[14px] transition-all flex flex-col items-center gap-0.5 ${
+										activeNavTab() === 'certificate'
+											? 'bg-[#0098EA] text-white shadow-[0_0_15px_rgba(0,152,234,0.4)]'
+											: 'text-white/45 hover:text-white/80 active:scale-95'
+									}`}
+								>
+									<span class="text-[14px]">📜</span>
+									<span class="truncate max-w-full text-[10px]">{t('valuation.nav_certificate') || 'Cert'}</span>
+								</button>
+							</div>
+						</Show>
+
 						{/* ═══════ HERO CARD: UNLOCKED (3D GYRO) vs MINIMALIST PAYWALL ═══════ */}
 						<Show
 							when={accessGranted() && data()}
 							fallback={
-								<div class="w-full max-w-[440px] mx-auto my-3 relative z-20">
+								<div class="w-full max-w-[440px] mx-auto my-2 flex flex-col gap-3 relative z-20">
+									{/* 🌟 CURIOSITY TEASER CARD BEFORE UNLOCK */}
+									<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 flex flex-col items-center text-center relative overflow-hidden shadow-2xl">
+										<div class="absolute inset-0 bg-gradient-to-br from-[#0098EA]/10 via-transparent to-emerald-500/10 pointer-events-none" />
+
+										<div class="flex items-center gap-2 mb-2 z-10">
+											<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
+											<span class="text-[11px] font-mono font-black uppercase tracking-widest text-emerald-400">
+												{t('valuation.report_ready') || 'APPRAISAL READY'}
+											</span>
+										</div>
+
+										<h3 class="text-[26px] font-black text-white font-mono tracking-tight drop-shadow-md z-10" dir="ltr">
+											@{username()}
+										</h3>
+
+										{/* Redacted Fair Value Pill */}
+										<div class="w-full bg-white/5 border border-white/10 rounded-[20px] p-4 flex flex-col items-center justify-center my-3 relative overflow-hidden backdrop-blur-md z-10 shadow-inner">
+											<span class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
+												{t('valuation.estimated_price') || 'ESTIMATED FAIR VALUE'}
+											</span>
+											<div class="flex items-center gap-2 filter blur-[6px] select-none opacity-80">
+												<span class="text-[26px] font-black text-white font-mono">
+													✦✦,✦✦✦
+												</span>
+												<span class="text-[16px] font-bold text-[#0098EA]">TON</span>
+											</div>
+											<span class="text-[10px] text-white/40 font-mono filter blur-[3px] mt-0.5">
+												≈ $✦✦✦,✦✦✦ USD
+											</span>
+
+											<div class="absolute inset-0 flex items-center justify-center bg-black/35 backdrop-blur-[1px]">
+												<span class="px-3.5 py-1.5 rounded-[12px] bg-[#0098EA]/20 border border-[#0098EA]/50 text-[#0098EA] text-[11px] font-mono font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
+													<span class="material-symbols-outlined text-[15px]">lock</span>
+													{t('valuation.locked_tap_to_decrypt') || 'DECRYPT REPORT'}
+												</span>
+											</div>
+										</div>
+
+										{/* 3 Core Value Signals */}
+										<div class="w-full flex flex-col gap-2 text-start pt-2 border-t border-white/5 text-[11px] z-10">
+											<div class="flex items-center gap-2 text-white/70 font-medium">
+												<span class="text-[#0098EA] font-black">✓</span>
+												<span>{t('valuation.teaser_signals') || '17-Point Quantitative Bayesian Pricing Matrix'}</span>
+											</div>
+											<div class="flex items-center gap-2 text-white/70 font-medium">
+												<span class="text-[#0098EA] font-black">✓</span>
+												<span>{t('valuation.teaser_whale') || 'Whale Wallet Radar & Complete On-chain Ownership Scan'}</span>
+											</div>
+											<div class="flex items-center gap-2 text-white/70 font-medium">
+												<span class="text-[#0098EA] font-black">✓</span>
+												<span>{t('valuation.teaser_cert') || 'Official Digital Appraisal Certificate with 1-Click Story Export'}</span>
+											</div>
+										</div>
+									</div>
+
 									<UnifiedPaywallGate
 										vertical="username"
 										targetTitle={`@${username()}`}
@@ -963,112 +1121,185 @@ export const UsernamePage: Component = () => {
 								</div>
 							}
 						>
-							{/* 💎 FULL UNLOCKED 3D HOLOGRAPHIC GYRO CARD */}
-							<div
-								class={`w-full aspect-square p-[3px] bg-gradient-to-br ${
-									getTierTheme(data()?.rarity?.tier || '').wrapper
-								} rounded-[48px] my-2 relative z-20 transition-all duration-300`}
-							>
+							{/* 💎 SECTION 1: OVERVIEW & 3D GYRO CARD */}
+							<div id="sec-overview" class="w-full scroll-mt-16 flex flex-col gap-3">
 								<div
-									ref={cardRef}
-									onMouseMove={handleMouseMove}
-									onMouseLeave={handleMouseLeave}
-									class="w-full h-full bg-[#08090D] rounded-[45px] p-8 relative overflow-hidden flex flex-col justify-between shadow-inner"
-									style={{
-										transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
-										'background-image':
-											'radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px)',
-										'background-size': '24px 24px',
-										transition: 'transform 0.1s ease-out',
-									}}
+									class={`w-full aspect-square p-[3px] bg-gradient-to-br ${
+										getTierTheme(data()?.rarity?.tier || '').wrapper
+									} rounded-[48px] my-2 relative z-20 transition-all duration-300`}
 								>
 									<div
-										class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-80"
+										ref={cardRef}
+										onMouseMove={handleMouseMove}
+										onMouseLeave={handleMouseLeave}
+										onTouchMove={handleTouchMove}
+										onTouchEnd={handleTouchEnd}
+										onTouchCancel={handleTouchEnd}
+										class="w-full h-full bg-[#08090D] rounded-[45px] p-8 relative overflow-hidden flex flex-col justify-between shadow-inner"
 										style={{
-											background: `radial-gradient(circle at ${tilt().glossX}% ${
-												tilt().glossY
-											}%, rgba(255,255,255,0.4) 0%, transparent 60%)`,
+											transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
+											'background-image':
+												'radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px)',
+											'background-size': '24px 24px',
+											transition: 'transform 0.1s ease-out',
 										}}
-									/>
-									<div class="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
-
-									<div class="flex justify-between items-center z-10">
-										<span
-											class={`px-4 py-2 border rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm ${
-												getTierTheme(data()?.rarity?.tier || '').badge
-											}`}
-										>
-											{data()?.rarity?.tier || 'STANDARD'}
-										</span>
-										<span class="text-[11px] font-mono font-black text-white/30 tracking-[5px] uppercase bg-white/5 border border-white/5 px-4 py-1.5 rounded-[12px] shadow-inner">
-											{'IFRAGMENT'}
-										</span>
-									</div>
-
-									<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-6 w-full">
+									>
 										<div
-											class="absolute w-full h-[160px] opacity-70 -z-10 pointer-events-none mix-blend-screen"
+											class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-80"
 											style={{
-												background: `radial-gradient(ellipse 60% 60% at 50% 50%, ${
-													getTierTheme(data()?.rarity?.tier || '').glow
-												}, transparent 70%)`,
+												background: `radial-gradient(circle at ${tilt().glossX}% ${
+													tilt().glossY
+												}%, rgba(255,255,255,0.4) 0%, transparent 60%)`,
 											}}
 										/>
-										<div class="flex items-center justify-center gap-2.5 w-full">
-											<span class="text-white/20 font-black text-[28px] select-none drop-shadow-md">
-												✦
-											</span>
+										<div class="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
+
+										<div class="flex justify-between items-center z-10">
 											<span
-												class="inline-block font-black tracking-tighter text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[75%] pb-2"
-												style={{ 'font-size': getFontSize(data()?.username || username()) }}
-												dir="ltr"
+												class={`px-4 py-2 border rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm ${
+													getTierTheme(data()?.rarity?.tier || '').badge
+												}`}
 											>
-												@{data()?.username || username()}
+												{data()?.rarity?.tier || 'STANDARD'}
 											</span>
-											<span class="text-white/20 font-black text-[28px] select-none drop-shadow-md">
-												✦
+											<span class="text-[11px] font-mono font-black text-white/30 tracking-[5px] uppercase bg-white/5 border border-white/5 px-4 py-1.5 rounded-[12px] shadow-inner">
+												{'IFRAGMENT'}
 											</span>
+										</div>
+
+										<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-6 w-full">
+											<div
+												class="absolute w-full h-[160px] opacity-70 -z-10 pointer-events-none mix-blend-screen"
+												style={{
+													background: `radial-gradient(ellipse 60% 60% at 50% 50%, ${
+														getTierTheme(data()?.rarity?.tier || '').glow
+													}, transparent 70%)`,
+												}}
+											/>
+											<div class="flex items-center justify-center gap-2.5 w-full">
+												<span class="text-white/20 font-black text-[28px] select-none drop-shadow-md">
+													✦
+												</span>
+												<span
+													class="inline-block font-black tracking-tighter text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[75%] pb-2"
+													style={{ 'font-size': getFontSize(data()?.username || username()) }}
+													dir="ltr"
+												>
+													@{data()?.username || username()}
+												</span>
+												<span class="text-white/20 font-black text-[28px] select-none drop-shadow-md">
+													✦
+												</span>
+											</div>
+										</div>
+
+										<div class="flex justify-between items-end border-t border-white/10 pt-5 z-10">
+											<div class="flex flex-col gap-1 text-left">
+												<span class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-0.5">
+													{t('valuation.estimated_price') || 'ESTIMATED VALUE'}
+												</span>
+												<div class="flex items-center gap-2.5">
+													<svg
+														class="w-8 h-8 filter drop-shadow-[0_0_15px_rgba(0,152,234,0.6)]"
+														viewBox="0 0 56 56"
+														fill="none"
+														xmlns="http://www.w3.org/2000/svg"
+														aria-hidden="true"
+													>
+														<path
+															d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z"
+															fill="#0098EA"
+														/>
+														<path
+															d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z"
+															fill="white"
+														/>
+													</svg>
+													<span class="text-[34px] font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] tracking-tight">
+														{fmtTon(expectedTon())}
+													</span>
+													<span class="text-[15px] font-black text-[#0098EA] leading-none mb-1">
+														{t('common.ton')}
+													</span>
+												</div>
+											</div>
+											<div class="flex flex-col items-end gap-2">
+												<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-3 py-1 rounded-[10px] border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-widest text-[9px] shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+													<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />{' '}
+													{t('valuation.verified')}
+												</div>
+												<span class="text-[14px] text-white/60 font-black leading-none font-mono">
+													≈ ${fmtUsd(parseFloat(data()?.expected_usd || '0'))}
+												</span>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								{/* ═══════ EXECUTIVE 4-PILLAR KPI SNAPSHOT ═══════ */}
+								<div class="w-full grid grid-cols-2 sm:grid-cols-4 gap-2 my-1">
+									{/* 1. Fair Value */}
+									<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-3 flex flex-col justify-between shadow-sm">
+										<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-widest flex items-center gap-1.5">
+											<span class="w-1.5 h-1.5 rounded-full bg-[#0098EA]" />
+											{t('valuation.fair_value') || 'FAIR VALUE'}
+										</span>
+										<div class="mt-2">
+											<div class="text-[16px] font-black text-white font-mono tracking-tight flex items-baseline gap-1">
+												{fmtTon(expectedTon())}
+												<span class="text-[10px] font-normal text-[#0098EA]">TON</span>
+											</div>
+											<div class="text-[10px] font-mono text-white/40 font-semibold mt-0.5">
+												≈ ${fmtUsd(parseFloat(data()?.expected_usd || '0'))}
+											</div>
 										</div>
 									</div>
 
-									<div class="flex justify-between items-end border-t border-white/10 pt-5 z-10">
-										<div class="flex flex-col gap-1 text-left">
-											<span class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-0.5">
-												{t('valuation.estimated_price') || 'ESTIMATED VALUE'}
-											</span>
-											<div class="flex items-center gap-2.5">
-												<svg
-													class="w-8 h-8 filter drop-shadow-[0_0_15px_rgba(0,152,234,0.6)]"
-													viewBox="0 0 56 56"
-													fill="none"
-													xmlns="http://www.w3.org/2000/svg"
-													aria-hidden="true"
-												>
-													<path
-														d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z"
-														fill="#0098EA"
-													/>
-													<path
-														d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z"
-														fill="white"
-													/>
-												</svg>
-												<span class="text-[34px] font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] tracking-tight">
-													{fmtTon(expectedTon())}
-												</span>
-												<span class="text-[15px] font-black text-[#0098EA] leading-none mb-1">
-													{t('common.ton')}
-												</span>
+									{/* 2. Confidence */}
+									<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-3 flex flex-col justify-between shadow-sm">
+										<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-widest flex items-center gap-1.5">
+											<span class="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+											{t('valuation.confidence_label') || 'CONFIDENCE'}
+										</span>
+										<div class="mt-2">
+											<div class="text-[16px] font-black text-[#10b981] font-mono tracking-tight flex items-baseline gap-1">
+												{data()?.confidence_score || 0}%
+											</div>
+											<div class="text-[10px] font-mono text-white/40 font-semibold mt-0.5">
+												{data()?.rarity?.tier || 'Grade A'}
 											</div>
 										</div>
-										<div class="flex flex-col items-end gap-2">
-											<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-3 py-1 rounded-[10px] border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-widest text-[9px] shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-												<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />{' '}
-												{t('valuation.verified')}
+									</div>
+
+									{/* 3. Liquidity */}
+									<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-3 flex flex-col justify-between shadow-sm">
+										<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-widest flex items-center gap-1.5">
+											<span class="w-1.5 h-1.5 rounded-full bg-amber-400" />
+											{t('valuation.liquidity') || 'LIQUIDITY'}
+										</span>
+										<div class="mt-2">
+											<div class="text-[13px] font-black text-amber-400 font-mono tracking-tight truncate">
+												{data()?.liquidity_rating || 'Moderate'}
 											</div>
-											<span class="text-[14px] text-white/60 font-black leading-none font-mono">
-												≈ ${fmtUsd(parseFloat(data()?.expected_usd || '0'))}
-											</span>
+											<div class="text-[10px] font-mono text-white/40 font-semibold mt-0.5 truncate">
+												{data()?.estimated_sell_time || '1–3 Weeks'}
+											</div>
+										</div>
+									</div>
+
+									{/* 4. Target Buyer */}
+									<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-3 flex flex-col justify-between shadow-sm">
+										<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-widest flex items-center gap-1.5">
+											<span class="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+											{t('valuation.target_profile') || 'BUYER CLASS'}
+										</span>
+										<div class="mt-2">
+											<div class="text-[13px] font-black text-cyan-300 font-mono tracking-tight truncate">
+												{data()?.target_buyer_profile || 'Brand & Investor'}
+											</div>
+											<div class="text-[10px] font-mono text-white/40 font-semibold mt-0.5 truncate">
+												{data()?.comparable_sales_count || 0} {t('valuation.comparables_title') || 'Comps'}
+											</div>
 										</div>
 									</div>
 								</div>
@@ -1078,7 +1309,7 @@ export const UsernamePage: Component = () => {
 						{/* ═══════ UNLOCKED REPORT CONTENT (PHASE 3 & 4) ═══════ */}
 						<Show when={accessGranted() && data()}>
 							{/* 📜 OFFICIAL DIGITAL APPRAISAL CERTIFICATE (Bug 5 Fix: No Fake 8942) */}
-							<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-amber-400/30 rounded-[28px] p-5 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(251,191,36,0.08)] relative overflow-hidden">
+							<div id="sec-certificate" class="scroll-mt-16 w-full bg-[#12141C]/90 backdrop-blur-2xl border border-amber-400/30 rounded-[28px] p-5 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(251,191,36,0.08)] relative overflow-hidden">
 								<div class="flex items-center justify-between border-b border-white/5 pb-3">
 									<div class="flex items-center gap-2.5">
 										<div class="w-9 h-9 rounded-[12px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shadow-inner shrink-0">
@@ -1190,7 +1421,7 @@ export const UsernamePage: Component = () => {
 							</div>
 
 							{/* 📈 PHASE 3: SPARKLINE PRICE TREND CHART */}
-							<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
+							<div id="sec-valuation" class="scroll-mt-16 w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
 								<SparklineChart
 									data={data()?.price_trend}
 									title={t('valuation.price_trend_title') || 'HISTORICAL VALUATION TREND'}
@@ -1374,7 +1605,7 @@ export const UsernamePage: Component = () => {
 							</div>
 
 							{/* 🌟 1. LINGUISTIC MEANING, DICTIONARY & WIKIPEDIA */}
-							<div class="w-full bg-gradient-to-br from-[#0098EA]/15 via-[#12141C]/90 to-[#08090D] backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-6 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(0,152,234,0.15)] relative overflow-hidden">
+							<div id="sec-linguistics" class="scroll-mt-16 w-full bg-gradient-to-br from-[#0098EA]/15 via-[#12141C]/90 to-[#08090D] backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-6 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(0,152,234,0.15)] relative overflow-hidden">
 								<div class="absolute -right-8 -top-8 w-32 h-32 bg-[#0098EA]/10 blur-3xl rounded-full pointer-events-none" />
 
 								<div class="flex items-center justify-between text-white/90 relative z-10 border-b border-[#0098EA]/20 pb-3">
@@ -1533,7 +1764,7 @@ export const UsernamePage: Component = () => {
 							</div>
 
 							{/* 🕮 3. HISTORY & OWNERSHIP */}
-							<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
+							<div id="sec-ownership" class="scroll-mt-16 w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
 								<div class="flex items-center justify-between text-white/90 border-b border-white/5 pb-3">
 									<div class="flex items-center gap-2">
 										<span class="material-symbols-outlined text-[20px] text-white">history</span>
@@ -1842,7 +2073,7 @@ export const UsernamePage: Component = () => {
 
 							{/* 🔥 5. SEMANTIC SIMILAR USERNAMES & BRAND EQUIVALENTS */}
 							<Show when={(data()?.similar?.length ?? 0) > 0}>
-								<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-6 flex flex-col gap-4 shadow-[0_10px_30px_rgba(0,152,234,0.15)] relative overflow-hidden">
+								<div id="sec-market" class="scroll-mt-16 w-full bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-6 flex flex-col gap-4 shadow-[0_10px_30px_rgba(0,152,234,0.15)] relative overflow-hidden">
 									<div class="absolute -right-8 -bottom-8 w-28 h-28 bg-[#0098EA]/10 blur-3xl rounded-full pointer-events-none" />
 
 									<div class="flex items-center justify-between text-white/90 relative z-10 border-b border-white/5 pb-3">

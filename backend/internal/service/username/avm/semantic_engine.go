@@ -192,7 +192,9 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		wikiDesc = wikiResult.Description
 	}
 
-	if geminiResult != nil {
+	aiAvailable := false
+	if geminiResult != nil && geminiResult.Available {
+		aiAvailable = true
 		aiScore = float64(geminiResult.Score)
 		aiReason = geminiResult.Reason
 		tags = geminiResult.Tags
@@ -305,14 +307,27 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	brandBonus := (float64(brandScore) / 100.0) * 15.0
 
 	var totalScore float64
-	if wikiResult != nil && wikiResult.FetchError {
-		// Wikipedia API failed due to network error. Re-allocate weight to Datamuse and AI.
-		baseScore := (wordFreqScore * 0.45) + (aiScore * 0.55)
-		totalScore = baseScore + brandBonus
-		slog.Warn("Wikipedia API failed, re-weighted semantic signals", "username", username)
-	} else {
+	wikiFailed := wikiResult != nil && wikiResult.FetchError
+
+	switch {
+	case !wikiFailed && aiAvailable:
+		// Full fidelity: all signals operational
 		baseScore := (wordFreqScore * 0.25) + (wikiScore * 0.30) + (aiScore * 0.30)
 		totalScore = baseScore + brandBonus
+	case wikiFailed && aiAvailable:
+		// Wikipedia offline: re-weight to frequency & AI (0.85 scale)
+		baseScore := (wordFreqScore * (0.85 * 25.0 / 55.0)) + (aiScore * (0.85 * 30.0 / 55.0))
+		totalScore = baseScore + brandBonus
+		slog.Warn("Wikipedia API unavailable — dynamically re-weighted semantic signals", "username", username)
+	case !wikiFailed && !aiAvailable:
+		// AI unavailable/rate-limited: re-weight to frequency & Wikipedia (0.85 scale)
+		baseScore := (wordFreqScore * (0.85 * 25.0 / 55.0)) + (wikiScore * (0.85 * 30.0 / 55.0))
+		totalScore = baseScore + brandBonus
+	default:
+		// Both external APIs offline: fall back to 100% in-memory frequency & lexicon
+		baseScore := wordFreqScore * 0.85
+		totalScore = baseScore + brandBonus
+		slog.Warn("External semantic APIs unavailable — using pure in-memory lexicon signal", "username", username)
 	}
 
 	// Dynamic floor safeguards for common dictionary words

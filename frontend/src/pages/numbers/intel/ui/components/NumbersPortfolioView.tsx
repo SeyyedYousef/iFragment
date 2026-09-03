@@ -38,7 +38,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 		}
 	});
 
-	const floorTon = (): number => Number(props.floorPriceTon) || 2280;
+	const floorTon = (): number => Number(props.floorPriceTon) || 2450;
 	const tonRate = (): number => Number(props.rate) || 5.5;
 
 	const handleScan = async (targetAddr?: string) => {

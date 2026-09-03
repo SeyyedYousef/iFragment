@@ -21,20 +21,17 @@ var confusableMap = map[rune][]struct {
 }{
 	'o': {
 		{'0', "digit '0' (looks like 'o')"},
-		{'о', "Cyrillic 'о'"},
 	},
 	'0': {
 		{'o', "letter 'o' (looks like '0')"},
 	},
 	'l': {
 		{'1', "digit '1' (looks like 'l')"},
-		{'i', "letter 'i'"},
-		{'і', "Cyrillic 'і'"},
+		{'i', "letter 'i' (looks like 'l')"},
 	},
 	'i': {
 		{'1', "digit '1' (looks like 'i')"},
-		{'l', "lowercase 'l'"},
-		{'і', "Cyrillic 'і'"},
+		{'l', "lowercase 'l' (looks like 'i')"},
 	},
 	'1': {
 		{'l', "letter 'l' (looks like '1')"},
@@ -42,29 +39,46 @@ var confusableMap = map[rune][]struct {
 	},
 	'e': {
 		{'3', "digit '3' (leet for 'e')"},
-		{'е', "Cyrillic 'е'"},
+	},
+	'3': {
+		{'e', "letter 'e' (looks like '3')"},
 	},
 	'a': {
 		{'4', "digit '4' (leet for 'a')"},
-		{'а', "Cyrillic 'а'"},
-		{'α', "Greek 'α'"},
+	},
+	'4': {
+		{'a', "letter 'a' (looks like '4')"},
 	},
 	's': {
 		{'5', "digit '5' (leet for 's')"},
-		{'с', "Cyrillic 'с'"},
 	},
-	'p': {
-		{'р', "Cyrillic 'р'"},
-		{'ρ', "Greek 'ρ'"},
+	'5': {
+		{'s', "letter 's' (looks like '5')"},
 	},
-	'c': {
-		{'с', "Cyrillic 'с'"},
+	't': {
+		{'7', "digit '7' (leet for 't')"},
 	},
-	'x': {
-		{'х', "Cyrillic 'х'"},
+	'7': {
+		{'t', "letter 't' (looks like '7')"},
 	},
-	'y': {
-		{'у', "Cyrillic 'у'"},
+	'b': {
+		{'8', "digit '8' (looks like 'b')"},
+	},
+	'8': {
+		{'b', "letter 'b' (looks like '8')"},
+	},
+	'g': {
+		{'9', "digit '9' (looks like 'g')"},
+		{'q', "letter 'q' (looks like 'g')"},
+	},
+	'9': {
+		{'g', "letter 'g' (looks like '9')"},
+	},
+	'z': {
+		{'2', "digit '2' (leet for 'z')"},
+	},
+	'2': {
+		{'z', "letter 'z' (looks like '2')"},
 	},
 }
 
@@ -73,8 +87,26 @@ var (
 	twinMu    sync.RWMutex
 )
 
+// isValidTelegramCandidate ensures generated twins are legally registrable on Telegram & Fragment:
+// length 4-32, must start with a letter [a-z], and only contain [a-z0-9_].
+func isValidTelegramCandidate(u string) bool {
+	if len(u) < 4 || len(u) > 32 {
+		return false
+	}
+	if u[0] < 'a' || u[0] > 'z' {
+		return false
+	}
+	for _, r := range u {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 // GenerateHomoglyphTwins creates a list of dangerous visual spoofing twins for a given username.
 // It enumerates single and multi-character confusable substitutions (e.g. paypa1, g00gle, vv/w).
+// Every generated twin is guaranteed to be a valid, legally registrable Telegram handle.
 func GenerateHomoglyphTwins(username string, maxCount int) []HomoglyphTwinDto {
 	raw := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(username)), "@")
 	if len(raw) < 3 {
@@ -104,7 +136,7 @@ func GenerateHomoglyphTwins(username string, maxCount int) []HomoglyphTwinDto {
 				copy(mutated, runes)
 				mutated[i] = alt.Replacement
 				candidate := string(mutated)
-				if !seen[candidate] {
+				if !seen[candidate] && isValidTelegramCandidate(candidate) {
 					seen[candidate] = true
 					twins = append(twins, buildTwinDto(candidate, alt.Desc))
 					if len(twins) >= maxCount {
@@ -122,28 +154,28 @@ func GenerateHomoglyphTwins(username string, maxCount int) []HomoglyphTwinDto {
 	if len(twins) < maxCount {
 		if strings.Contains(raw, "w") {
 			candidate := strings.ReplaceAll(raw, "w", "vv")
-			if !seen[candidate] && len(candidate) <= 32 {
+			if !seen[candidate] && isValidTelegramCandidate(candidate) {
 				seen[candidate] = true
 				twins = append(twins, buildTwinDto(candidate, "ligature 'vv' for 'w'"))
 			}
 		}
-		if strings.Contains(raw, "vv") {
+		if strings.Contains(raw, "vv") && len(twins) < maxCount {
 			candidate := strings.ReplaceAll(raw, "vv", "w")
-			if !seen[candidate] {
+			if !seen[candidate] && isValidTelegramCandidate(candidate) {
 				seen[candidate] = true
 				twins = append(twins, buildTwinDto(candidate, "ligature 'w' for 'vv'"))
 			}
 		}
 		if strings.Contains(raw, "m") && len(twins) < maxCount {
 			candidate := strings.ReplaceAll(raw, "m", "rn")
-			if !seen[candidate] && len(candidate) <= 32 {
+			if !seen[candidate] && isValidTelegramCandidate(candidate) {
 				seen[candidate] = true
 				twins = append(twins, buildTwinDto(candidate, "ligature 'rn' for 'm'"))
 			}
 		}
 		if strings.Contains(raw, "rn") && len(twins) < maxCount {
 			candidate := strings.ReplaceAll(raw, "rn", "m")
-			if !seen[candidate] {
+			if !seen[candidate] && isValidTelegramCandidate(candidate) {
 				seen[candidate] = true
 				twins = append(twins, buildTwinDto(candidate, "ligature 'm' for 'rn'"))
 			}
@@ -153,7 +185,7 @@ func GenerateHomoglyphTwins(username string, maxCount int) []HomoglyphTwinDto {
 	// 3. Multi-character digit substitution (e.g. google -> g00gle)
 	if len(twins) < maxCount && strings.Contains(raw, "o") {
 		candidate := strings.ReplaceAll(raw, "o", "0")
-		if !seen[candidate] {
+		if !seen[candidate] && isValidTelegramCandidate(candidate) {
 			seen[candidate] = true
 			twins = append(twins, buildTwinDto(candidate, "all 'o' replaced with '0'"))
 		}
@@ -183,20 +215,6 @@ func buildTwinDto(twinName string, reason string) HomoglyphTwinDto {
 	} else if p, ok := ValuationAnchors[clean]; ok && p > 0 {
 		pricePtr = &p
 		status = "taken"
-		risk = "critical"
-	}
-
-	// Non-ASCII confusables cannot be minted on Fragment, but represent Telegram client-side spoofing threats
-	isASCII := true
-	for _, r := range twinName {
-		if r > 127 {
-			isASCII = false
-			break
-		}
-	}
-
-	if !isASCII {
-		status = "non_nft_spoof"
 		risk = "critical"
 	}
 

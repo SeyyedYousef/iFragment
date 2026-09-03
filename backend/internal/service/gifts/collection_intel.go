@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -466,38 +467,121 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	// 3-Axis Rarity Heatmap (Model × Backdrop × Symbol)
 	var heatmap []RarityHeatmapCell
 	if liveDetail != nil && len(liveDetail.Models) > 0 && len(liveDetail.Backdrops) > 0 {
+		type candidateCell struct {
+			cell       RarityHeatmapCell
+			combRarity float64
+		}
+		var allCandidates []candidateCell
+
 		for _, m := range liveDetail.Models {
 			mPerm := m.GetRarityPermille()
 			if mPerm <= 0 {
 				mPerm = 20
 			}
+
+			// Model rarity multiplier
+			mMult := 1.0
+			if mPerm <= 5 {
+				mMult = 2.4
+			} else if mPerm <= 10 {
+				mMult = 1.7
+			} else if mPerm <= 15 {
+				mMult = 1.3
+			} else {
+				mMult = 1.0
+			}
+
 			for _, b := range liveDetail.Backdrops {
 				bPerm := b.GetRarityPermille()
 				if bPerm <= 0 {
 					bPerm = 15
 				}
+
+				// Backdrop rarity multiplier
+				bMult := 1.0
+				if bPerm <= 10 {
+					bMult = 1.25
+				} else if bPerm <= 15 {
+					bMult = 1.12
+				} else {
+					bMult = 1.0
+				}
+
 				combRarityPct := (float64(mPerm) / 1000.0) * (float64(bPerm) / 1000.0) * 100.0
-				tier := traits.ClassifyRarityTier(combRarityPct)
+
+				// Joint rarity tier classification
+				tier := "Common"
+				switch {
+				case combRarityPct <= 0.006:
+					tier = "Mythic"
+				case combRarityPct <= 0.012:
+					tier = "Legendary"
+				case combRarityPct <= 0.020:
+					tier = "Epic"
+				case combRarityPct <= 0.030:
+					tier = "Rare"
+				case combRarityPct <= 0.038:
+					tier = "Uncommon"
+				default:
+					tier = "Common"
+				}
 
 				cellFloor := 0.0
 				if bestFloorGRAM > 0 {
-					cellFloor = round2(bestFloorGRAM * (1.0 + (100.0-float64(bPerm))/100.0*0.2))
+					cellFloor = round2(bestFloorGRAM * mMult * bMult)
 				}
 
-				heatmap = append(heatmap, RarityHeatmapCell{
-					ModelID:        normSlug,
-					ModelName:      m.Name,
-					BackdropName:   b.Name,
-					CombinedRarity: round2(combRarityPct),
-					RarityTier:     tier,
-					FloorGRAM:      cellFloor,
+				allCandidates = append(allCandidates, candidateCell{
+					cell: RarityHeatmapCell{
+						ModelID:        normSlug,
+						ModelName:      m.Name,
+						BackdropName:   b.Name,
+						CombinedRarity: round2(combRarityPct),
+						RarityTier:     tier,
+						FloorGRAM:      cellFloor,
+					},
+					combRarity: combRarityPct,
 				})
+			}
+		}
+
+		// Sort by combRarity ascending (rarest combinations first)
+		sort.Slice(allCandidates, func(i, j int) bool {
+			if allCandidates[i].combRarity != allCandidates[j].combRarity {
+				return allCandidates[i].combRarity < allCandidates[j].combRarity
+			}
+			return allCandidates[i].cell.FloorGRAM > allCandidates[j].cell.FloorGRAM
+		})
+
+		// Select a well-balanced sample of top combinations ensuring model diversity
+		seenModelCombos := make(map[string]int)
+		for _, cand := range allCandidates {
+			// Limit any single model to at most 3 backdrops so multiple models get visibility
+			if seenModelCombos[cand.cell.ModelName] < 3 {
+				heatmap = append(heatmap, cand.cell)
+				seenModelCombos[cand.cell.ModelName]++
+			}
+			if len(heatmap) >= 40 {
+				break
+			}
+		}
+
+		// Backfill if needed
+		if len(heatmap) < 30 {
+			for _, cand := range allCandidates {
+				alreadyIn := false
+				for _, h := range heatmap {
+					if h.ModelName == cand.cell.ModelName && h.BackdropName == cand.cell.BackdropName {
+						alreadyIn = true
+						break
+					}
+				}
+				if !alreadyIn {
+					heatmap = append(heatmap, cand.cell)
+				}
 				if len(heatmap) >= 30 {
 					break
 				}
-			}
-			if len(heatmap) >= 30 {
-				break
 			}
 		}
 	}

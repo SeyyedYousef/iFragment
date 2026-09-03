@@ -1640,6 +1640,9 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 
 	// ── Step 5: Return DTO ──
 	now = time.Now()
+	fragFee := math.Max(5.0, math.Round((expectedTON*0.05)*100)/100)
+	netProceedsTON := math.Max(0.0, expectedTON-fragFee)
+
 	return &ValuationResult{
 		RunID:           runID,
 		Username:        username,
@@ -1654,8 +1657,9 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		ConfidenceScore: calibratedConfidence,
 		TONUSDRate:      tonRate,
 		ComparableSales: len(targetSales) + len(exactSales) + len(broadSales),
+
 		MaxRationalBidTON:    expectedDec.Mul(decimal.NewFromFloat(0.85)).Round(2),
-		NetSellerProceedsTON: expectedDec.Mul(decimal.NewFromFloat(0.95)).Round(2),
+		NetSellerProceedsTON: decimal.NewFromFloat(netProceedsTON).Round(2),
 		DataBadges: map[string]string{
 			"listing":   "Live - Fragment",
 			"sale_data": "On-chain - TON",
@@ -1669,7 +1673,12 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 			Tier:  GetTier(expectedTON),
 			Stars: GetStars(expectedTON),
 		},
-		Tags:      semResult.Tags,
+		Tags: func() []string {
+			if semResult != nil && semResult.Tags != nil {
+				return semResult.Tags
+			}
+			return []string{}
+		}(),
 		Length:    int(charLen),
 		Structure: structureResult,
 		SEO:       seoResult,
@@ -1735,14 +1744,23 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 				TonDnsSynergy:    "available",
 			}
 		}(),
-		TransactionEconomics: &TransactionEconomicsDto{
-			NetPayoutTON:   math.Round((expectedTON*0.95)*100) / 100,
-			NetPayoutUSD:   math.Round((ToFloat64(expectedUSD)*0.95)*100) / 100,
-			FragmentFeeTON: math.Round((expectedTON*0.05)*100) / 100,
-			FragmentFeePct: 5.0,
-			MinBidTON:      math.Max(5, math.Round(expectedTON*0.6)),
-			BidStepTON:     math.Max(5, math.Round(expectedTON*0.05)),
-		},
+		TransactionEconomics: func() *TransactionEconomicsDto {
+			fFee := math.Max(5.0, math.Round((expectedTON*0.05)*100)/100)
+			netPayTON := math.Max(0.0, expectedTON-fFee)
+			netPayUSD := math.Max(0.0, ToFloat64(expectedUSD)-(fFee*tonRate))
+			feePct := 5.0
+			if expectedTON > 0 {
+				feePct = math.Round((fFee/expectedTON*100)*10) / 10
+			}
+			return &TransactionEconomicsDto{
+				NetPayoutTON:   math.Round(netPayTON*100) / 100,
+				NetPayoutUSD:   math.Round(netPayUSD*100) / 100,
+				FragmentFeeTON: math.Round(fFee*100) / 100,
+				FragmentFeePct: feePct,
+				MinBidTON:      math.Max(5, math.Round(expectedTON*0.6)),
+				BidStepTON:     math.Max(5, math.Round(expectedTON*0.05)),
+			}
+		}(),
 		Comparables: func() []ComparableSaleDto {
 			var comps []ComparableSaleDto
 			for i, s := range targetSales {
@@ -2347,8 +2365,10 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 		// 5D Weighted Distance
 		dist := math.Sqrt(3.0*dLen*dLen + 2.0*dFreq*dFreq + 1.0*dWiki*dWiki + 1.0*dFlow*dFlow + 1.5*dTag*dTag)
 
-		// Appreciate anchor price to current date (3.7 yrs @ 20% CAGR)
-		appreciatedPrice := basePrice * math.Pow(1.20, 3.7)
+		// Appreciate anchor price to current date (dynamic from Genesis start Nov 2022)
+		genesisDate := time.Date(2022, 11, 15, 0, 0, 0, 0, time.UTC)
+		yearsAgo := math.Min(8.0, math.Max(1.0, time.Since(genesisDate).Hours()/(24.0*365.25)))
+		appreciatedPrice := basePrice * math.Pow(1.20, yearsAgo)
 
 		neighbors = append(neighbors, neighbor{
 			priceTON: appreciatedPrice,
@@ -2356,14 +2376,10 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 		})
 	}
 
-	// Sort neighbors by distance ascending
-	for i := 0; i < len(neighbors); i++ {
-		for j := i + 1; j < len(neighbors); j++ {
-			if neighbors[j].dist < neighbors[i].dist {
-				neighbors[i], neighbors[j] = neighbors[j], neighbors[i]
-			}
-		}
-	}
+	// Sort neighbors by distance ascending using O(N log N) sort.Slice
+	sort.Slice(neighbors, func(i, j int) bool {
+		return neighbors[i].dist < neighbors[j].dist
+	})
 
 	// Take top k=5 nearest neighbors
 	k := 5

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"sync"
 	"time"
 
@@ -80,6 +81,7 @@ func RunModelCalibration(ctx context.Context, db *repository.Database, modelVers
 
 	medianError := 20.0
 	if len(errors) > 0 {
+		sort.Float64s(errors)
 		medianError = errors[len(errors)/2]
 	}
 	withinBandPct := (float64(withinCount) / float64(len(points))) * 100.0

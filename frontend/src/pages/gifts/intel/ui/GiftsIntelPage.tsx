@@ -68,7 +68,7 @@ export const GiftsIntelPage: Component = () => {
 					<div class="text-right">
 						<div class="text-xs font-black text-white font-mono flex items-center justify-end gap-1">
 							<span class="text-[#0098EA] text-[10px]">💎</span>
-							<span>{intel()?.total_market_cap_usd ? `~$${(intel()!.total_market_cap_usd / 1e6).toFixed(1)}M Cap` : '~$128M Cap'}</span>
+							<span>{intel()?.total_market_cap_usd ? `~$${(intel()!.total_market_cap_usd / 1e6).toFixed(1)}M Cap` : 'Live Ecosystem'}</span>
 						</div>
 						<div class="text-[10px] text-emerald-400 font-mono font-bold">
 							149 Gifts · 120 NFTs
@@ -111,7 +111,7 @@ export const GiftsIntelPage: Component = () => {
 				</Show>
 
 				<Show when={activeTab() === 'heatmap'}>
-					<GiftsGlobalHeatmap />
+					<GiftsGlobalHeatmap intel={intel()} rate={effectiveRate()} />
 				</Show>
 
 				{/* Attribution Badge */}

@@ -168,9 +168,10 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 	if cursor != nil && cursorID != nil {
 		query = `SELECT c.id, c.bot_id, c.chat_id, COALESCE(NULLIF(f.project_name, ''), c.chat_title), c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.connected_by_user_id, c.created_at, c.updated_at
 			FROM managed_channels c
-			JOIN managed_bots b ON c.bot_id = b.id
+			LEFT JOIN managed_bots b ON c.bot_id = b.id
 			LEFT JOIN channel_funnels f ON f.output_chat_id = c.chat_id AND f.bot_id = c.bot_id
-			WHERE (c.connected_by_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1)) 
+			WHERE c.deleted_at IS NULL
+			AND (c.connected_by_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1)) 
 			AND c.chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE owner_user_id = $1)
 			AND (c.created_at < $2 OR (c.created_at = $2 AND c.id < $3)) 
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $4`
@@ -178,9 +179,10 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 	} else {
 		query = `SELECT c.id, c.bot_id, c.chat_id, COALESCE(NULLIF(f.project_name, ''), c.chat_title), c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.connected_by_user_id, c.created_at, c.updated_at
 			FROM managed_channels c
-			JOIN managed_bots b ON c.bot_id = b.id
+			LEFT JOIN managed_bots b ON c.bot_id = b.id
 			LEFT JOIN channel_funnels f ON f.output_chat_id = c.chat_id AND f.bot_id = c.bot_id
-			WHERE (c.connected_by_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1))
+			WHERE c.deleted_at IS NULL
+			AND (c.connected_by_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1))
 			AND c.chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE owner_user_id = $1)
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $2`
 		args = []interface{}{ownerUserID, limit}
@@ -2031,8 +2033,8 @@ func (r *ChannelRepo) GetProjectsByOwner(ctx context.Context, ownerUserID int64)
 		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
 		COALESCE(sc.chat_title, '') as source_title,
 		COALESCE(tc.chat_title, '') as target_title,
-		COALESCE(sc.chat_username, '') as source_username,
-		COALESCE(tc.chat_username, '') as target_username
+		COALESCE(p.pipeline_config->>'source_channel_identifier', '') as source_username,
+		COALESCE(p.pipeline_config->>'target_channel_identifier', '') as target_username
 	FROM projects p
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
@@ -2069,8 +2071,8 @@ func (r *ChannelRepo) GetProjectByID(ctx context.Context, id uuid.UUID) (*Projec
 		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
 		COALESCE(sc.chat_title, '') as source_title,
 		COALESCE(tc.chat_title, '') as target_title,
-		COALESCE(sc.chat_username, '') as source_username,
-		COALESCE(tc.chat_username, '') as target_username
+		COALESCE(p.pipeline_config->>'source_channel_identifier', '') as source_username,
+		COALESCE(p.pipeline_config->>'target_channel_identifier', '') as target_username
 	FROM projects p
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
@@ -2100,8 +2102,8 @@ func (r *ChannelRepo) GetProjectsBySourceChatID(ctx context.Context, sourceChatI
 		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
 		COALESCE(sc.chat_title, '') as source_title,
 		COALESCE(tc.chat_title, '') as target_title,
-		COALESCE(sc.chat_username, '') as source_username,
-		COALESCE(tc.chat_username, '') as target_username
+		COALESCE(p.pipeline_config->>'source_channel_identifier', '') as source_username,
+		COALESCE(p.pipeline_config->>'target_channel_identifier', '') as target_username
 	FROM projects p
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id

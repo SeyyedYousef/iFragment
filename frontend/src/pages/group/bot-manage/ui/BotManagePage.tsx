@@ -547,7 +547,12 @@ export const BotManagePage: Component = () => {
 									</div>
 									<button
 										type="button"
-										onClick={() => setIsStoreOpen(true)}
+										onClick={() => {
+											try {
+												haptic.impact('light');
+											} catch {}
+											setIsStoreOpen(true);
+										}}
 										class="px-3 py-1.5 rounded-[12px] bg-[#3390ec]/15 border border-[#3390ec]/30 text-[#3390ec] text-[11px] font-black active:scale-95 transition-all flex items-center gap-1 hover:bg-[#3390ec]/25"
 									>
 										<span>+</span>

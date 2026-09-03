@@ -1,7 +1,8 @@
 import { haptic } from '@/shared/lib/haptic.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { creditsApi } from '@/entities/intel/api/creditsApi.js';
 import { For, Show, createSignal, type Component } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import { useWallet } from './useWallet.js';
 import type { PaywallVertical } from './theme.js';
 import { verticalThemes } from './theme.js';
@@ -25,7 +26,7 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
     const [exchangeError, setExchangeError] = createSignal<string | null>(null);
     let pollTimer: ReturnType<typeof setInterval> | undefined;
 
-    const theme = () => verticalThemes[props.vertical];
+    const theme = () => verticalThemes[props.vertical] ?? verticalThemes.general;
 
     const startBalancePolling = (baseline: number) => {
         clearInterval(pollTimer);
@@ -104,7 +105,8 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 
     return (
         <Show when={props.open}>
-            <div class="fixed inset-0 z-[70]" role="dialog" aria-modal="true">
+            <Portal>
+                <div class="fixed inset-0 z-[140]" role="dialog" aria-modal="true" dir={isRtl() ? 'rtl' : 'ltr'}>
                 <button
                     type="button"
                     aria-label="close"
@@ -339,6 +341,7 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
                     </Show>
                 </div>
             </div>
-        </Show>
-    );
+        </Portal>
+    </Show>
+);
 };

@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	ModelVersion = "NV-Engine-v4.0-QuantumBayes"
+	ModelVersion = "NV-Engine-v5.0-QuantumBayes"
 	ShrinkageK   = 10.0
 	DecayLambda  = 0.005 // Half-life ~138 days
 )
@@ -197,14 +197,14 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	var maxCeiling float64
 
 	if fv.IsGenesis4Digit {
-		beta0 = math.Log(registry.GenesisInitialFloorTON) // ~7.4955 for 1,800 TON floor
+		beta0 = math.Log(registry.GenesisInitialFloorTON) // ~10.6454 for 42,000 TON floor
 		minFloor = registry.GenesisInitialFloorTON
 		if fv.Genesis.EstimatedFloorTON > minFloor {
 			minFloor = fv.Genesis.EstimatedFloorTON
 		}
-		maxCeiling = registry.RecordATHSaleTON // 350,000 TON
+		maxCeiling = registry.RecordATHSaleTON // 500,000 TON
 	} else {
-		beta0 = math.Log(registry.StandardInitialFloorTON) // ~2.8904 for 18 TON floor
+		beta0 = math.Log(registry.StandardInitialFloorTON) // ~7.8038 for 2,450 TON floor
 		minFloor = registry.StandardInitialFloorTON
 		maxCeiling = registry.RecordATHSaleTON // 500,000 TON max for standard 8-digit (+888 8888 8888)
 	}
@@ -214,13 +214,13 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		if fv.Genesis.BetaGenesis > 0 {
 			betaGenesis = fv.Genesis.BetaGenesis
 		} else {
-			betaGenesis = 0.15
+			betaGenesis = 0.0
 		}
 	}
 
 	// For Standard 8-digit numbers, determine primary structural pattern log-multiplier:
 	// Dominant patterns absorb collinear sub-features (palindromes, identical blocks, etc.)
-	// NOTE: Priority order matters! Longer runs must be checked BEFORE binary vanity / ternary vanity.
+	// NOTE: Priority order matters! Specific high-value tails (QUAD_8888) and periodic blocks must be checked before general runs.
 	betaPrimaryPattern := 0.0
 	effectiveRun := fv.EffectiveMaxRun
 	if effectiveRun < fv.MaxRun {
@@ -229,9 +229,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 
 	// ═══════════════════════════════════════════════════════════════════════
 	// DOMINANT PATTERN CLASSIFICATION for 8-digit Telemint numbers
-	// With beta0 = ln(2000) ≈ 7.60, the formula is: price = exp(7.60 + beta)
-	// So beta=0 → ~2,000 TON (floor), beta=1 → ~5,440 TON, beta=2 → ~14,800 TON
-	// beta=3 → ~40,000 TON, beta=4 → ~109,000 TON, beta=5 → ~297,000 TON
+	// With beta0 = ln(2450) ≈ 7.8038, the formula is: price = exp(7.80 + beta)
+	// So beta=0 → ~2,450 TON (floor), beta=1 → ~6,660 TON, beta=2 → ~18,100 TON
+	// beta=3 → ~49,200 TON, beta=4 → ~133,800 TON, beta=5 → ~363,500 TON
 	// ═══════════════════════════════════════════════════════════════════════
 	if !fv.IsGenesis4Digit {
 		if fv.DistinctDigits == 1 {
@@ -239,90 +239,127 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 			if strings.Contains(fv.Suffix, "8") {
 				// +888 8888 8888 has 11 eights total -> Top 8-digit in Telegram history
 				// Target: ~350,000-500,000 TON
-				betaPrimaryPattern = 5.25
+				betaPrimaryPattern = 5.05
 			} else if strings.Contains(fv.Suffix, "0") {
 				// +888 0000 0000 -> Pristine zero monodigit
 				// Target: ~200,000-280,000 TON
-				betaPrimaryPattern = 4.70
+				betaPrimaryPattern = 4.45
 			} else if strings.Contains(fv.Suffix, "7") || strings.Contains(fv.Suffix, "9") {
 				// +888 7777 7777 / 9999 9999 -> Lucky/Prestige digits
 				// Target: ~130,000-180,000 TON
-				betaPrimaryPattern = 4.25
+				betaPrimaryPattern = 4.05
 			} else {
 				// +888 1111 1111, 2222 2222, etc.
 				// Target: ~80,000-120,000 TON
-				betaPrimaryPattern = 3.80
+				betaPrimaryPattern = 3.60
 			}
 		} else if effectiveRun >= 7 {
 			// Septa+ Run (7+ identical digits but distinctDigits > 1)
 			// NOTE: uses >= because EffectiveMaxRun includes +888 prefix extension
 			// e.g. +888 8888 8880 has effectiveRun=10 (3 prefix + 7 suffix 8s)
-			// Graduated: higher effective run → closer to monodigit → higher beta
 			if effectiveRun >= 10 {
-				betaPrimaryPattern = 4.10 // Near-monodigit, ~120,000 TON
+				betaPrimaryPattern = 3.90 // Near-monodigit, ~120,000 TON
 			} else if effectiveRun >= 9 {
-				betaPrimaryPattern = 3.80 // ~88,000 TON
+				betaPrimaryPattern = 3.60 // ~90,000 TON
 			} else if effectiveRun >= 8 {
-				betaPrimaryPattern = 3.50 // ~66,000 TON
+				betaPrimaryPattern = 3.30 // ~66,000 TON
 			} else {
-				betaPrimaryPattern = 3.30 // Pure septa (exactly 7), ~54,000 TON
+				betaPrimaryPattern = 3.05 // Pure septa (exactly 7), ~52,000 TON
 			}
 		} else if fv.VIP.PatternKey == "HALF_BLOCK_QUAD" {
 			// AAAA BBBB (e.g. 8888 0000, 1111 2222)
-			// Target: ~25,000-40,000 TON
-			betaPrimaryPattern = 2.65
+			// Target: ~35,000-75,000 TON
+			if strings.Contains(fv.Suffix, "8888") {
+				betaPrimaryPattern = 3.30 // ~65,000 TON if contains 8888 block
+			} else {
+				betaPrimaryPattern = 2.75 // ~38,000 TON
+			}
+		} else if fv.VIP.PatternKey == "BINARY_DOUBLE_PAIR" || fv.RepeatedBlock == "AABB_AABB" {
+			// AABB AABB (e.g. 1188 1188, 8800 8800, 7788 7788, 1122 1122)
+			// Luxury 2-digit double pairs: Target ~25,000-35,000 TON
+			if strings.Contains(fv.Suffix, "88") {
+				betaPrimaryPattern = 2.45 // ~28,500 TON
+			} else {
+				betaPrimaryPattern = 2.30 // ~24,500 TON
+			}
 		} else if effectiveRun >= 6 {
 			// Hexa Run (6 identical digits in a row)
-			// e.g. +888 8888 8800 has effectiveRun=9, caught by septa+ above
-			// This catches 6-runs of non-8 digits (e.g. +888 0000 0012)
-			// Target: ~18,000-30,000 TON
-			betaPrimaryPattern = 2.35
+			// Target: ~25,000-35,000 TON
+			betaPrimaryPattern = 2.40
 		} else if fv.VIP.PatternKey == "FULL_LADDER_SEQUENCE" || (fv.HasMonotonicAsc && len(fv.Suffix) == 8) {
 			// 12345678, 87654321
-			// Target: ~12,000-20,000 TON
-			betaPrimaryPattern = 1.95
+			// Target: ~18,000-30,000 TON
+			betaPrimaryPattern = 2.10
 		} else if effectiveRun >= 5 {
 			// Penta Run (5 identical digits in a row)
-			// Target: ~10,000-15,000 TON
-			betaPrimaryPattern = 1.70
+			// Target: ~14,000-20,000 TON
+			betaPrimaryPattern = 1.75
 		} else if fv.VIP.PatternKey == "BINARY_ALTERNATING_ABAB" {
 			// ABAB ABAB (e.g. 8080 8080, 0101 0101)
-			// Target: ~8,000-12,000 TON
+			// Target: ~11,000-16,000 TON
+			betaPrimaryPattern = 1.55
+		} else if fv.VIP.PatternKey == "PERIODIC_QUAD_ABCD" || fv.RepeatedBlock == "PERIOD_HALF" {
+			// ABCD ABCD (e.g. 1234 1234, 5678 5678)
+			// Target: ~12,000-18,000 TON
 			betaPrimaryPattern = 1.50
-		} else if fv.DistinctDigits == 2 {
-			// Binary Vanity (only 2 distinct digits total, non-alternating, non-run)
-			// e.g. 8800 8800, 1188 1188
-			// Target: ~5,000-8,000 TON
-			betaPrimaryPattern = 1.10
+		} else if fv.VIP.PatternKey == "TRIPLET_REPEAT" || fv.RepeatedBlock == "PERIOD_TRIPLET" {
+			// ABC ABC xx or xx ABC ABC (e.g. 123 123 45, 800 800 12)
+			// Target: ~14,000-22,000 TON
+			if strings.Contains(fv.Suffix, "888") || strings.Contains(fv.Suffix, "800") || strings.Contains(fv.Suffix, "777") {
+				betaPrimaryPattern = 1.85 // ~15,500 TON
+			} else {
+				betaPrimaryPattern = 1.65 // ~12,800 TON
+			}
 		} else if fv.IsPalindrome {
 			// 8-digit Palindrome (e.g. 1234 4321)
-			// Target: ~6,000-10,000 TON
+			// Target: ~9,000-15,000 TON
+			betaPrimaryPattern = 1.35
+		} else if fv.TailClass == "QUAD_8888" {
+			// Premium quad 8888 tail (e.g. +888 1234 8888)
+			// Target: ~12,000-18,000 TON
+			betaPrimaryPattern = 1.50
+		} else if fv.TailClass == "QUAD_7777" || fv.TailClass == "QUAD_0000" {
+			// Premium quad 7777/0000 tail
+			// Target: ~9,000-14,000 TON
 			betaPrimaryPattern = 1.30
+		} else if fv.TailClass == "QUAD_AAAA" {
+			// General quad tail (e.g. 5555, 9999)
+			// Target: ~7,000-11,000 TON
+			betaPrimaryPattern = 1.10
 		} else if effectiveRun >= 4 {
-			// Quad Run (4 identical digits in a row)
-			// Target: ~4,000-7,000 TON
+			// Other Quad Run (4 identical digits inside)
+			// Target: ~5,500-8,500 TON
 			betaPrimaryPattern = 0.85
-		} else if fv.TailClass == "QUAD_8888" || fv.TailClass == "QUAD_7777" || fv.TailClass == "QUAD_0000" {
-			// Premium quad tail
-			// Target: ~4,500-7,500 TON
-			betaPrimaryPattern = 0.95
+		} else if fv.DistinctDigits == 2 {
+			// Binary Vanity (only 2 distinct digits total, non-alternating, non-run)
+			// Target: ~7,000-11,000 TON
+			betaPrimaryPattern = 1.15
 		} else if strings.HasPrefix(fv.TailClass, "TRIPLE_") {
 			// Triple tail (e.g. ending in 888, 000, 777)
-			// Target: ~3,000-5,000 TON
-			betaPrimaryPattern = 0.55
+			// Target: ~4,000-6,500 TON
+			betaPrimaryPattern = 0.60
 		} else if fv.DistinctDigits == 3 {
-			// Ternary Vanity (3 distinct digits)
-			// Target: ~2,800-4,200 TON
-			betaPrimaryPattern = 0.40
+			// Ternary Vanity (3 distinct digits across 8 digits)
+			// Target: ~4,700-11,000 TON
+			if fv.MaxRun >= 4 {
+				// e.g. 8888 0011 -> 4 identical digits plus 2 other digits
+				betaPrimaryPattern = 1.25 // ~8,500 TON
+			} else if fv.RunCount2Plus >= 3 {
+				// e.g. 11 22 33 11 or 88 00 11 88
+				betaPrimaryPattern = 1.10 // ~7,300 TON
+			} else if strings.HasPrefix(fv.TailClass, "QUAD_") || strings.HasPrefix(fv.TailClass, "TRIPLE_") {
+				betaPrimaryPattern = 1.00 // ~6,700 TON
+			} else {
+				betaPrimaryPattern = 0.65 // ~4,700 TON
+			}
 		} else if fv.RepeatedBlock == "AABB" || fv.RepeatedBlock == "ABAB" {
 			// Moderate vanity patterns
-			// Target: ~2,500-3,500 TON
-			betaPrimaryPattern = 0.25
+			// Target: ~3,400-4,800 TON
+			betaPrimaryPattern = 0.35
 		}
 	}
 
-	// 2. Orthogonal Minor Adjustments (Cultural, DialPad, Entropy, Echo)
-	// These only provide small bounded refinements (+- 3% to 10%)
+	// 2. Orthogonal Minor Adjustments (Cultural, DialPad, Entropy, Echo, Semantic, PrefixJoin)
 	betaCultural := 0.0
 	netLucky := fv.LuckyWeight - fv.UnluckyWeight
 	if netLucky > 0 {
@@ -331,7 +368,20 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		betaCultural = math.Max(-0.08, netLucky*0.015)
 	}
 
-	betaDialPad := math.Max(-0.05, math.Min(0.08, (fv.DialPad.DialPadEleganceScore-20.0)/100.0*0.10))
+	// DialPad physical ergonomics (Vertical columns, Diagonals, Rows)
+	betaDialPad := 0.0
+	if fv.DialPad.IsColPattern {
+		betaDialPad = 0.28 // Vertical columns: 147 258, 2580 2580 (+32%)
+	} else if fv.DialPad.IsDiagonalPattern {
+		betaDialPad = 0.24 // Diagonals: 159 357 (+27%)
+	} else if fv.DialPad.IsRowPattern {
+		betaDialPad = 0.20 // Linear rows: 123 456 (+22%)
+	} else if fv.DialPad.IsCornerVanity || fv.DialPad.IsCrossVanity {
+		betaDialPad = 0.16 // Keypad corners / center cross (+17%)
+	} else if fv.DialPad.DialPadEleganceScore > 50.0 {
+		betaDialPad = math.Min(0.12, (fv.DialPad.DialPadEleganceScore-50.0)/100.0*0.20)
+	}
+
 	betaEntropy := 0.0
 	if fv.HarmonicEntropy < 2.0 {
 		betaEntropy = math.Min(0.08, (2.0-fv.HarmonicEntropy)*0.04)
@@ -344,12 +394,35 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		betaEcho = 0.06
 	}
 
+	betaSemantic := 0.0
+	if fv.SemanticBonusLogP > 0 && !fv.IsGenesis4Digit && fv.DistinctDigits > 1 {
+		// Bounded semantic bonus (capped at 0.50 so it doesn't inflate beyond primary pattern)
+		betaSemantic = math.Min(0.50, fv.SemanticBonusLogP*0.35)
+	}
+
+	// Prefix-join continuity: When suffix begins with 8s, extending the Telegram +888 prefix
+	betaPrefixJoin := 0.0
+	if fv.LeadingEightCount >= 1 && !fv.IsGenesis4Digit && fv.DistinctDigits > 1 {
+		switch {
+		case fv.LeadingEightCount >= 4:
+			betaPrefixJoin = 0.35 // +888 8888... -> 7 consecutive 8s
+		case fv.LeadingEightCount == 3:
+			betaPrefixJoin = 0.25 // +888 888... -> 6 consecutive 8s
+		case fv.LeadingEightCount == 2:
+			betaPrefixJoin = 0.18 // +888 88... -> 5 consecutive 8s
+		case fv.LeadingEightCount == 1:
+			betaPrefixJoin = 0.10 // +888 8... -> 4 consecutive 8s
+		}
+	}
+
 	// In Genesis numbers, betaGenesis dominates, so secondary features are damped
 	if fv.IsGenesis4Digit {
 		betaCultural *= 0.5
 		betaDialPad *= 0.5
 		betaEntropy = 0
 		betaEcho = 0
+		betaSemantic = 0
+		betaPrefixJoin = 0
 		betaPrimaryPattern = 0
 	} else if fv.DistinctDigits == 1 {
 		// For Monodigit (e.g. 00000000), primary pattern fully captures value; remove secondary noise
@@ -357,10 +430,12 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		betaDialPad = 0
 		betaEntropy = 0
 		betaEcho = 0
+		betaSemantic = 0
+		betaPrefixJoin = 0
 	}
 
-	// Sum log prior (Hedonic Quantum-Bayes v4.5)
-	hedonicLogP := beta0 + betaGenesis + betaPrimaryPattern + betaCultural + betaDialPad + betaEntropy + betaEcho + math.Log(fngMult)
+	// Sum log prior (Hedonic Quantum-Bayes v5.0)
+	hedonicLogP := beta0 + betaGenesis + betaPrimaryPattern + betaCultural + betaDialPad + betaEntropy + betaEcho + betaSemantic + betaPrefixJoin + math.Log(fngMult)
 
 	// 5. Query Real Comps and execute Bayesian Shrinkage blending
 	var comps []ComparableSale
@@ -429,11 +504,19 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	}
 
 	expectedTON := roundPrice(rawEstimateTON)
+	if expectedTON < minFloor {
+		expectedTON = minFloor
+	}
 
 	// Dynamic adaptive uncertainty bounds using MAD and Bayesian scale
 	lowBound, highBound := core.ComputeUncertaintyBounds(expectedTON, mad, 1.25, 0.12, 0.40)
 	lowTON := roundPrice(lowBound)
 	highTON := roundPrice(highBound)
+
+	// Invariant: Floor clamp (no asset in a closed collection trades below secondary market floor)
+	if lowTON < minFloor {
+		lowTON = minFloor
+	}
 
 	// Ensure invariant Low <= Expected <= High
 	if lowTON > expectedTON {
@@ -515,12 +598,16 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	// 12. Transaction Economics (5% Fragment Fee)
 	feeTON := expectedTON * registry.FragmentFeePercent
 	netPayoutTON := expectedTON - feeTON
+	minBidTON := roundPrice(expectedTON * 0.85)
+	if minBidTON < minFloor {
+		minBidTON = minFloor
+	}
 	economics := TransactionEconomics{
 		FragmentFeePct: registry.FragmentFeePercent * 100.0,
 		FragmentFeeTON: roundPrice(feeTON),
 		NetPayoutTON:   roundPrice(netPayoutTON),
 		NetPayoutUSD:   netPayoutTON * tonUsdRate,
-		MinBidTON:      roundPrice(expectedTON * 0.85),
+		MinBidTON:      minBidTON,
 		BidStepTON:     roundPrice(expectedTON * 0.05),
 		BuyNowTON:      roundPrice(highTON * 1.10),
 		BuyNowUSD:      (highTON * 1.10) * tonUsdRate,
@@ -543,7 +630,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	globalRank := computeGlobalRank(fv)
 	categoryClub := determineCategoryClub(fv)
 	patternAnatomy := buildPatternAnatomy(fv)
-	playbook := buildActionablePlaybook(expectedTON, tonUsdRate)
+	playbook := buildActionablePlaybook(expectedTON, minFloor, tonUsdRate)
 	rentalYield := buildRentalYield(expectedTON, tonUsdRate)
 	rentalMetrics := CalculateRentalYield(expectedTON, tonUsdRate, fv)
 	collateralMetrics := CalculateDeFiCollateral(expectedTON, tonUsdRate, fv)
@@ -573,6 +660,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		"beta_entropy":         betaEntropy,
 		"beta_echo":            betaEcho,
 		"beta_cultural":        betaCultural,
+		"beta_semantic":        betaSemantic,
+		"beta_prefix_join":     betaPrefixJoin,
 		"color_multiplier":     colorInfo.Multiplier,
 		"fng_multiplier":       fngMult,
 		"bayesian_k":           ShrinkageK,
@@ -583,7 +672,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		"dialpad_geom":         fv.DialPad.GeometryClass,
 		"comps_count":          len(comps),
 		"is_sold_historical":   history.IsSold,
-		"signals_count":        36,
+		"signals_count":        38,
 	}
 
 	valuation := &NumberValuation{
@@ -1098,10 +1187,19 @@ func buildPatternAnatomy(fv features.FeatureVector) PatternAnatomy {
 	}
 }
 
-func buildActionablePlaybook(expectedTON, tonUsdRate float64) ActionablePlaybook {
-	fairBuy := roundPrice(expectedTON * 0.88)
-	startBid := roundPrice(expectedTON * 0.72)
+func buildActionablePlaybook(expectedTON, minFloor, tonUsdRate float64) ActionablePlaybook {
+	fairBuy := roundPrice(expectedTON * 0.90)
+	if fairBuy < minFloor {
+		fairBuy = minFloor
+	}
+	startBid := roundPrice(expectedTON * 0.78)
+	if startBid < minFloor {
+		startBid = minFloor
+	}
 	buyNow := roundPrice(expectedTON * 1.15)
+	if buyNow < minFloor*1.10 {
+		buyNow = roundPrice(minFloor * 1.10)
+	}
 	bidStep := roundPrice(expectedTON * 0.05)
 	if bidStep < 1.0 {
 		bidStep = 1.0

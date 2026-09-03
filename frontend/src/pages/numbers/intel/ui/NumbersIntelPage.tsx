@@ -69,7 +69,7 @@ export const NumbersIntelPage: Component = () => {
 			}
 		}
 		if (!ton || ton <= 0) {
-			ton = intel()?.floor_price_ton || 2280;
+			ton = intel()?.floor_price_ton || 2450;
 		}
 		const usd = chartQuery.data?.floor?.usd || Math.round(ton * rate);
 		return { ton, usd, rate };

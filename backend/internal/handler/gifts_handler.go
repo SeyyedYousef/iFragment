@@ -77,6 +77,25 @@ func (h *GiftsHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, val)
 }
 
+// GetEnrichedReport returns enriched valuation report with provenance and on-chain metadata
+func (h *GiftsHandler) GetEnrichedReport(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	giftID := r.URL.Query().Get("g")
+	if giftID == "" {
+		RespondError(w, r, http.StatusBadRequest, "gift parameter 'g' is required", nil)
+		return
+	}
+
+	userID, _ := middleware.GetUserID(ctx)
+
+	report, err := h.service.GetEnrichedReport(ctx, userID, giftID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to generate enriched report", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, report)
+}
+
 // UnlockWithCoins unlocks report with Airdrop Coins
 func (h *GiftsHandler) UnlockWithCoins(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -1125,7 +1125,12 @@ export const ManagedChannelsPage: Component = () => {
 									</div>
 									<button
 										type="button"
-										onClick={() => setIsStoreOpen(true)}
+										onClick={() => {
+											try {
+												haptic.impact('light');
+											} catch {}
+											setIsStoreOpen(true);
+										}}
 										class="px-3 py-1.5 rounded-[12px] bg-[#00C6FF]/15 border border-[#00C6FF]/30 text-[#00C6FF] text-[11px] font-black active:scale-95 transition-all flex items-center gap-1 hover:bg-[#00C6FF]/25"
 									>
 										<span>+</span>

@@ -118,8 +118,8 @@ func TestValuationEngine_Genesis7TierHierarchy(t *testing.T) {
 	// 2. Tier 1: Anchor King (+888 8000)
 	val8000, _ := engine.Valuate(ctx, "+888 8000")
 	exp8000, _ := val8000.ExpectedTON.Float64()
-	if exp8000 < 80000.0 {
-		t.Errorf("expected +888 8000 >= 80,000 TON, got %.2f", exp8000)
+	if exp8000 < 100000.0 {
+		t.Errorf("expected +888 8000 >= 100,000 TON, got %.2f", exp8000)
 	}
 	if exp8000 >= exp8888 {
 		t.Errorf("expected +888 8888 > +888 8000")
@@ -128,8 +128,8 @@ func TestValuationEngine_Genesis7TierHierarchy(t *testing.T) {
 	// 3. Tier 2: Symmetric Pair (+888 8118)
 	val8118, _ := engine.Valuate(ctx, "+888 8118")
 	exp8118, _ := val8118.ExpectedTON.Float64()
-	if exp8118 < 40000.0 {
-		t.Errorf("expected +888 8118 >= 40,000 TON, got %.2f", exp8118)
+	if exp8118 < 60000.0 {
+		t.Errorf("expected +888 8118 >= 60,000 TON, got %.2f", exp8118)
 	}
 	if exp8118 >= exp8000 {
 		t.Errorf("expected +888 8000 > +888 8118")
@@ -138,15 +138,15 @@ func TestValuationEngine_Genesis7TierHierarchy(t *testing.T) {
 	// 4. Tier 3: Ladder Sequence (+888 8123)
 	val8123, _ := engine.Valuate(ctx, "+888 8123")
 	exp8123, _ := val8123.ExpectedTON.Float64()
-	if exp8123 < 25000.0 {
-		t.Errorf("expected +888 8123 >= 25,000 TON, got %.2f", exp8123)
+	if exp8123 < 50000.0 {
+		t.Errorf("expected +888 8123 >= 50,000 TON, got %.2f", exp8123)
 	}
 
 	// 5. Tier 5: Single Offset (+888 8001)
 	val8001, _ := engine.Valuate(ctx, "+888 8001")
 	exp8001, _ := val8001.ExpectedTON.Float64()
-	if exp8001 < 14000.0 {
-		t.Errorf("expected +888 8001 >= 14,000 TON, got %.2f", exp8001)
+	if exp8001 < 44000.0 {
+		t.Errorf("expected +888 8001 >= 44,000 TON, got %.2f", exp8001)
 	}
 }
 
@@ -174,15 +174,15 @@ func TestValuationEngine_Standard8DigitRealism(t *testing.T) {
 	// 3. +888 1234 5678 (Ascending Ladder)
 	valLadder, _ := engine.Valuate(ctx, "+888 1234 5678")
 	expLadder, _ := valLadder.ExpectedTON.Float64()
-	if expLadder < 10000.0 || expLadder > 25000.0 {
-		t.Errorf("expected +888 1234 5678 in [10,000, 25,000] TON, got %.2f", expLadder)
+	if expLadder < 15000.0 || expLadder > 45000.0 {
+		t.Errorf("expected +888 1234 5678 in [15,000, 45,000] TON, got %.2f", expLadder)
 	}
 
 	// 4. +888 0139 7412 (Standard Baseline Random Number)
 	valBase, _ := engine.Valuate(ctx, "+888 0139 7412")
 	expBase, _ := valBase.ExpectedTON.Float64()
-	if expBase < 1500.0 || expBase > 3000.0 {
-		t.Errorf("expected random baseline +888 0139 7412 in [1,500, 3,000] TON, got %.2f", expBase)
+	if expBase < 2400.0 || expBase > 4000.0 {
+		t.Errorf("expected random baseline +888 0139 7412 in [2,400, 4,000] TON, got %.2f", expBase)
 	}
 }
 

@@ -25,8 +25,8 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Supreme Godhead (#1 ATH)",
 			TitleFa:           "شماره جنسیس سرور شماره‌های جهان (+888 8888)",
 			Description:       "Absolute #1 highest recorded valuation in Telegram history with 7 consecutive 8s",
-			BetaGenesis:       3.90, // exp(9.21 + 3.90) ≈ ~500,000 TON
-			EstimatedFloorTON: 400000.0,
+			BetaGenesis:       2.50, // exp(10.6454 + 2.50) ≈ ~510,000 TON
+			EstimatedFloorTON: 450000.0,
 		}, true
 	}
 
@@ -42,8 +42,8 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Anchor King",
 			TitleFa:           "پادشاه لنگرگاه جنسیس",
 			Description:       "Top-tier Genesis holy milestone with pristine zeroes or sevens/nines",
-			BetaGenesis:       2.30, // exp(9.21 + 2.30) ≈ ~100,000 TON
-			EstimatedFloorTON: 80000.0,
+			BetaGenesis:       1.15, // exp(10.6454 + 1.15) ≈ ~132,000 TON
+			EstimatedFloorTON: 100000.0,
 		}, true
 	}
 
@@ -60,8 +60,8 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Symmetric Pair",
 			TitleFa:           "جنسیس متقارن و جفت‌های آینه‌ای",
 			Description:       "Flawless 2-digit mirror or alternating symmetry inside 4-digit Genesis space",
-			BetaGenesis:       1.60, // exp(9.21 + 1.60) ≈ ~50,000 TON
-			EstimatedFloorTON: 40000.0,
+			BetaGenesis:       0.55, // exp(10.6454 + 0.55) ≈ ~72,000 TON
+			EstimatedFloorTON: 60000.0,
 		}, true
 	}
 
@@ -77,8 +77,8 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Ladder Sequence",
 			TitleFa:           "جنسیس پله‌ای متوالی",
 			Description:       "Contiguous ascending or descending ladder sequence within Genesis range",
-			BetaGenesis:       1.20, // exp(9.21 + 1.20) ≈ ~33,000 TON
-			EstimatedFloorTON: 25000.0,
+			BetaGenesis:       0.35, // exp(10.6454 + 0.35) ≈ ~60,000 TON
+			EstimatedFloorTON: 52000.0,
 		}, true
 	}
 
@@ -95,8 +95,8 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Cultural Lucky Code",
 			TitleFa:           "جنسیس نمادهای خوش‌یمن جهانی",
 			Description:       "High-demand Chinese/Global cultural fortune code in Genesis format",
-			BetaGenesis:       0.85, // exp(9.21 + 0.85) ≈ ~23,000 TON
-			EstimatedFloorTON: 18000.0,
+			BetaGenesis:       0.22, // exp(10.6454 + 0.22) ≈ ~52,000 TON
+			EstimatedFloorTON: 46000.0,
 		}, true
 	}
 
@@ -122,8 +122,8 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Single Offset Milestone",
 			TitleFa:           "جنسیس تک‌رقمی و مایلستون‌های نخستین",
 			Description:       "First-cohort Genesis ordinal milestone with minimum entropy (+888 8001..8009)",
-			BetaGenesis:       0.50, // exp(9.21 + 0.50) ≈ ~16,500 TON
-			EstimatedFloorTON: 14000.0,
+			BetaGenesis:       0.12, // exp(10.6454 + 0.12) ≈ ~47,300 TON
+			EstimatedFloorTON: 44000.0,
 		}, true
 	}
 
@@ -134,7 +134,7 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 		TitleEn:           "Genesis Standard Collectible",
 		TitleFa:           "جنسیس استاندارد ۴ رقمی",
 		Description:       "Authentic 4-digit Genesis collection scarcity (1 of 1,000 ever minted)",
-		BetaGenesis:       0.0, // exp(9.21 + 0.0) ≈ ~10,000 TON (Genesis floor)
-		EstimatedFloorTON: 10000.0,
+		BetaGenesis:       0.0, // exp(10.6454 + 0.0) ≈ ~42,000 TON (Genesis floor)
+		EstimatedFloorTON: 42000.0,
 	}, true
 }

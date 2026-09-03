@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from '@solidjs/router';
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
-import { type GiftValuationReport, giftsApi, getGiftCdnImageUrl, getModelCdnImageUrl, GiftThumbnail, OFFICIAL_GIFTS_120 } from '@/entities/gifts/index.js';
+import { type GiftValuationReport, giftsApi, getGiftCdnImageUrl, getGiftProxyImageUrl, getModelCdnImageUrl, GiftThumbnail, OFFICIAL_GIFTS_120 } from '@/entities/gifts/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
@@ -220,42 +220,58 @@ export const GiftReportPage: Component = () => {
 	const [offerSent, setOfferSent] = createSignal(false);
 	const [alertActive, setAlertActive] = createSignal(false);
 
-	const deterministicOwner = () => {
-		const seed = (giftID() || 'pepe-1').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-		const hexStr = ((seed * 2654435761) >>> 0).toString(16).padStart(8, '0');
-		const shortAddr = `UQBA${hexStr.slice(0, 4).toUpperCase()}...${hexStr.slice(4, 8).toUpperCase()}`;
-		const fullAddr = `0:${hexStr}${hexStr}88f12c49a37e890b12cd543210fe98ba4321`;
-		const holderTier = seed % 3 === 0 ? '💎 DIAMOND HANDS' : seed % 3 === 1 ? '🐋 WHALE VAULT' : '🏆 ELITE COLLECTOR';
-		const holdingDays = 45 + (seed % 290);
-		const rank = 2 + (seed % 18);
+	const ownerInfo = createMemo(() => {
+		const rep = currentReport();
+		const enriched = enrichedQuery.data;
+		const rawName = rep?.owner_name || gateQuery.data?.owner_name || '';
+		const onChainAddr = enriched?.on_chain?.owner_address || '';
 
-		const sampleOtherGifts = [
-			{ slug: 'plush_pepe', name: 'Plush Pepe', serial: 1 + (seed % 20), valTon: 5200, tier: 'MYTHIC', compDiff: '+42%' },
-			{ slug: 'durov_cap', name: "Durov's Cap", serial: 5 + (seed % 50), valTon: 2800, tier: 'LEGENDARY', compDiff: '+28%' },
-			{ slug: 'snoop_dogg', name: 'Snoop Dogg', serial: 420, valTon: 3200, tier: 'MYTHIC', compDiff: '+65%' },
-			{ slug: 'signet_ring', name: 'Signet Ring', serial: 77 + (seed % 150), valTon: 950, tier: 'EPIC', compDiff: '+12%' },
-			{ slug: 'precious_peach', name: 'Precious Peach', serial: 88 + (seed % 100), valTon: 1100, tier: 'EPIC', compDiff: '+19%' },
-			{ slug: 'santa_hat', name: 'Santa Hat', serial: 12 + (seed % 300), valTon: 650, tier: 'RARE', compDiff: '+8%' },
-		];
-		const otherGifts = sampleOtherGifts.slice(0, 3 + (seed % 3));
-		const currentVal = Number(currentReport()?.expected_gram) || 4500;
-		const totalVaultTon = otherGifts.reduce((acc, g) => acc + g.valTon, currentVal);
-		const totalVaultUsd = totalVaultTon * 4;
+		const isAddress = (str: string) =>
+			(str.startsWith('EQ') || str.startsWith('UQ') || str.startsWith('0:')) && str.length >= 40;
+
+		let fullAddr = '';
+		let shortAddr = '';
+		let username = '';
+		let displayName = '';
+		let isOnChain = false;
+
+		if (onChainAddr && isAddress(onChainAddr)) {
+			fullAddr = onChainAddr;
+			shortAddr = `${onChainAddr.slice(0, 6)}...${onChainAddr.slice(-4)}`;
+			isOnChain = true;
+		}
+
+		if (rawName) {
+			if (isAddress(rawName)) {
+				if (!fullAddr) {
+					fullAddr = rawName;
+					shortAddr = `${rawName.slice(0, 6)}...${rawName.slice(-4)}`;
+					isOnChain = true;
+				}
+			} else if (rawName.startsWith('@')) {
+				username = rawName;
+				displayName = rawName;
+			} else {
+				displayName = rawName;
+			}
+		}
+
+		if (!displayName && !fullAddr) {
+			displayName = t('gifts.inAppTelegramCustody') || 'کیف‌پول درون‌برنامه‌ای تلگرام';
+		}
+
+		const tonViewerUrl = enriched?.on_chain?.tonviewer_url || (fullAddr ? `https://tonviewer.com/${fullAddr}` : '');
 
 		return {
-			shortAddress: shortAddr,
-			fullAddress: fullAddr,
-			holderTier,
-			holdingDays,
-			totalGiftsCount: otherGifts.length + 1,
-			totalVaultTon,
-			totalVaultUsd,
-			whaleRank: `#${rank}`,
-			strategy: seed % 2 === 0 ? t('gifts.strategyLongTerm') : t('gifts.strategyCollector'),
-			otherGifts,
-			standard: t('gifts.standardTep62'),
+			displayName,
+			username,
+			fullAddr,
+			shortAddr: shortAddr || displayName,
+			isOnChain,
+			tonViewerUrl,
+			scanTarget: username || fullAddr || displayName,
 		};
-	};
+	});
 
 	const sellerNetProceeds = () => {
 		const gross = Number(currentReport()?.expected_gram) || 0;
@@ -305,6 +321,22 @@ export const GiftReportPage: Component = () => {
 			currentReport()?.trait_dna?.[0]?.rarity_tier || 'Rare',
 			gateQuery.data?.is_crafted,
 		);
+
+	const giftImageUrl = () => {
+		if (gateQuery.data?.image_url) return gateQuery.data.image_url;
+		if (currentReport()?.image_url) return currentReport()!.image_url;
+		const slug = resolvedModelSlug();
+		const model = gateQuery.data?.selected_model || currentReport()?.selected_model;
+		return getGiftProxyImageUrl(slug, model) || getGiftCdnImageUrl(slug, model);
+	};
+
+	const giftSubtitle = () => {
+		const model = gateQuery.data?.selected_model || currentReport()?.selected_model;
+		if (model) {
+			return `${t('gifts.model') || 'Model'}: ${model}`;
+		}
+		return undefined;
+	};
 
 	return (
 		<div class="pb-40 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
@@ -363,6 +395,8 @@ export const GiftReportPage: Component = () => {
 						<UnifiedPaywallGate
 							vertical="gift"
 							targetTitle={giftName()}
+							targetSubtitle={giftSubtitle()}
+							targetImage={giftImageUrl()}
 							targetIcon="featured_seasonal_and_gifts"
 							targetBadge={t('paywall.ready_for_appraisal')}
 							unlockCtaText={t('paywall.cta_unlock_specific', { target: giftName() })}
@@ -435,7 +469,7 @@ export const GiftReportPage: Component = () => {
 											slug={resolvedModelSlug()}
 											name={giftName()}
 											model={currentReport()?.selected_model || currentReport()?.trait_dna?.[0]?.value}
-											customImageUrl={currentReport()?.image_url}
+											customImageUrl={currentReport()?.image_url || gateQuery.data?.image_url}
 											class="w-full h-full object-contain p-2 drop-shadow-xl"
 										/>
 									</div>
@@ -538,122 +572,116 @@ export const GiftReportPage: Component = () => {
 									</span>
 									<span>{t('gifts.ownerVaultTitle')}</span>
 								</h3>
-								<span class="text-[9px] uppercase font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-									{deterministicOwner().holderTier}
+								<span class={`text-[9px] uppercase font-mono font-black px-2 py-0.5 rounded-full border ${
+									ownerInfo().isOnChain
+										? 'bg-sky-500/20 text-sky-400 border-sky-500/30'
+										: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+								}`}>
+									{ownerInfo().isOnChain ? 'TEP-62 ON-CHAIN' : 'TELEGRAM CUSTODY'}
 								</span>
 							</div>
 
-							{/* Owner Net Worth & Whale Rank Banner */}
+							{/* Owner Net Worth & Status Banner */}
 							<div class="bg-gradient-to-r from-[#0098EA]/15 via-emerald-500/10 to-[#AF52DE]/15 border border-[#0098EA]/30 rounded-2xl p-3.5">
 								<div class="flex items-center justify-between mb-1.5">
 									<span class="text-[10px] font-bold text-white/50 uppercase tracking-wider">
-										{t('gifts.totalVaultValue')}
+										{t('gifts.verifiedOwner')}
 									</span>
-									<span class="text-[10px] font-mono font-bold text-[#0098EA] bg-[#0098EA]/20 px-2 py-0.5 rounded-full">
-										{t('gifts.topHolder', { rank: deterministicOwner().whaleRank })}
-									</span>
-								</div>
-								<div class="flex items-baseline gap-2">
-									<span class="text-2xl font-black text-white font-mono">
-										💎 {deterministicOwner().totalVaultTon.toLocaleString()}
-									</span>
-									<span class="text-xs font-black text-[#0098EA]">TON</span>
-									<span class="text-xs font-bold text-white/40">
-										(≈ {formatUsd(deterministicOwner().totalVaultUsd)})
-									</span>
-									<span class="mr-auto text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
-										{t('gifts.giftsInWallet', { count: deterministicOwner().totalGiftsCount })}
+									<span class="text-[10px] font-mono font-bold text-[#0098EA] bg-[#0098EA]/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+										<span class="material-symbols-outlined text-[10px]">verified</span>
+										<span>{ownerInfo().isOnChain ? 'On-Chain' : 'Off-Chain'}</span>
 									</span>
 								</div>
-								<p class="text-[10px] text-white/50 mt-1.5">
-									{t('gifts.ownerStrategy')}: <strong class="text-white/80">{deterministicOwner().strategy}</strong>
-								</p>
-							</div>
-
-							{/* Owner Address & Action Buttons */}
-							<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3 flex items-center justify-between text-xs">
-								<div>
-									<span class="text-[10px] uppercase font-bold text-white/40 block">
-										{t('gifts.onChainWalletAddress')}
-									</span>
-									<span class="font-mono font-bold text-white text-xs mt-0.5 block">
-										{deterministicOwner().shortAddress}
-									</span>
-								</div>
-								<div class="flex items-center gap-1.5">
-									<button
-										type="button"
-										onClick={async () => {
-											await copyToClipboard(deterministicOwner().fullAddress);
-											try { haptic.notify('success'); } catch {}
-										}}
-										class="p-2 rounded-xl bg-white/[0.05] hover:bg-white/10 text-white/60 hover:text-white border border-white/10 transition-all"
-										title={t('gifts.copyFullWalletAddress')}
-									>
-										<span class="material-symbols-outlined text-sm">content_copy</span>
-									</button>
-									<a
-										href={`https://tonviewer.com/${deterministicOwner().fullAddress}`}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="p-2 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 transition-all flex items-center gap-1"
-										title={t('gifts.viewOnTonViewer')}
-									>
-										<span class="text-[10px] font-bold">TonViewer</span>
-										<span class="material-symbols-outlined text-xs">open_in_new</span>
-									</a>
+								<div class="flex items-center justify-between gap-2">
+									<div class="min-w-0">
+										<span class="text-base font-black text-white font-mono block truncate">
+											{ownerInfo().displayName}
+										</span>
+										<p class="text-[10px] text-white/50 mt-0.5">
+											{ownerInfo().isOnChain
+												? (t('gifts.onChainOwnerDesc') || 'مالکیت این آیتم بر روی بلاکچین TON ثبت گردیده است.')
+												: (t('gifts.telegramCustodyDesc') || 'هدیه در حال حاضر در کیف‌پول درون‌برنامه‌ای تلگرام نگهداری می‌شود.')}
+										</p>
+									</div>
+									<Show when={ownerInfo().username}>
+										<a
+											href={`https://t.me/${ownerInfo().username.replace('@', '')}`}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="p-2 rounded-xl bg-[#0098EA]/20 hover:bg-[#0098EA]/30 text-[#0098EA] border border-[#0098EA]/40 shrink-0 transition-all flex items-center gap-1 text-[11px] font-bold"
+										>
+											<span>{t('gifts.tgProfile') || 'پروفایل'}</span>
+											<span class="material-symbols-outlined text-xs">open_in_new</span>
+										</a>
+									</Show>
 								</div>
 							</div>
 
-							{/* Horizontal Gallery of Other Gifts in this Vault */}
-							<div>
-								<div class="flex items-center justify-between mb-2">
-									<span class="text-[11px] font-bold text-white/70">
-										{t('gifts.otherGiftsInVault')}
-									</span>
-									<button
-										type="button"
-										onClick={() => navigate(`/gifts/portfolio?u=${encodeURIComponent(deterministicOwner().fullAddress)}`)}
-										class="text-[10px] text-[#0098EA] font-bold hover:underline flex items-center gap-0.5"
-									>
-										<span>{t('gifts.fullPortfolioScanner')}</span>
-										<span class="material-symbols-outlined text-xs rtl:rotate-180">arrow_forward</span>
-									</button>
-								</div>
-
-								<div class="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none snap-x">
-									<For each={deterministicOwner().otherGifts}>
-										{(item) => (
-											<button
-												type="button"
-												onClick={() => {
-													navigate(`/gifts/report?g=${item.slug}-${item.serial}`);
-													try { haptic.impact('light'); } catch {}
-												}}
-												class="min-w-[130px] p-2.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.06] text-left shrink-0 transition-all active:scale-95 group text-xs snap-start"
+							{/* Owner Address & Action Buttons (Only when on-chain address exists) */}
+							<Show when={ownerInfo().fullAddr}>
+								<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3 flex items-center justify-between text-xs">
+									<div>
+										<span class="text-[10px] uppercase font-bold text-white/40 block">
+											{t('gifts.onChainWalletAddress')}
+										</span>
+										<span class="font-mono font-bold text-white text-xs mt-0.5 block">
+											{ownerInfo().shortAddr}
+										</span>
+									</div>
+									<div class="flex items-center gap-1.5">
+										<button
+											type="button"
+											onClick={async () => {
+												await copyToClipboard(ownerInfo().fullAddr);
+												try { haptic.notify('success'); } catch {}
+											}}
+											class="p-2 rounded-xl bg-white/[0.05] hover:bg-white/10 text-white/60 hover:text-white border border-white/10 transition-all"
+											title={t('gifts.copyFullWalletAddress')}
+										>
+											<span class="material-symbols-outlined text-sm">content_copy</span>
+										</button>
+										<Show when={ownerInfo().tonViewerUrl}>
+											<a
+												href={ownerInfo().tonViewerUrl}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="p-2 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 transition-all flex items-center gap-1"
+												title={t('gifts.viewOnTonViewer')}
 											>
-												<div class="w-full h-16 rounded-xl bg-black/40 flex items-center justify-center p-1.5 mb-2 overflow-hidden">
-													<GiftThumbnail
-														slug={item.slug}
-														name={item.name}
-														class="w-full h-full object-contain group-hover:scale-110 transition-transform"
-													/>
-												</div>
-												<span class="font-black text-white text-[11px] block truncate">
-													{item.name} #{item.serial}
-												</span>
-												<div class="flex items-center justify-between mt-1 text-[10px]">
-													<span class="font-mono font-bold text-emerald-400">
-														💎 {item.valTon.toLocaleString()} T
-													</span>
-													<span class="text-[8px] font-black uppercase px-1 rounded bg-white/10 text-white/70">
-														{item.tier}
-													</span>
-												</div>
-											</button>
-										)}
-									</For>
+												<span class="text-[10px] font-bold">TonViewer</span>
+												<span class="material-symbols-outlined text-xs">open_in_new</span>
+											</a>
+										</Show>
+									</div>
 								</div>
+							</Show>
+
+							{/* Real Owner Portfolio Scanner Action */}
+							<div class="bg-black/30 border border-white/5 rounded-2xl p-3 flex items-center justify-between">
+								<div class="min-w-0 pr-2 rtl:pr-0 rtl:pl-2">
+									<span class="text-xs font-bold text-white block">
+										{t('gifts.ownerPortfolioScan') || 'اسکن سبد دارایی‌های این مالک'}
+									</span>
+									<span class="text-[10px] text-white/40 block mt-0.5">
+										{t('gifts.ownerPortfolioScanDesc') || 'مشاهده تمام هدایا و آیتم‌های متعلق به این کاربر'}
+									</span>
+								</div>
+								<button
+									type="button"
+									onClick={() => {
+										const target = ownerInfo().scanTarget;
+										if (target) {
+											navigate(`/gifts/portfolio?u=${encodeURIComponent(target)}`);
+										} else {
+											navigate('/gifts/portfolio');
+										}
+										try { haptic.impact('light'); } catch {}
+									}}
+									class="px-3 py-2 rounded-xl bg-[#0098EA]/20 hover:bg-[#0098EA]/30 text-[#0098EA] border border-[#0098EA]/40 text-xs font-bold shrink-0 transition-all flex items-center gap-1"
+								>
+									<span>{t('gifts.scanVault') || 'اسکن پورتفولیو'}</span>
+									<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_forward</span>
+								</button>
 							</div>
 
 							{/* Direct Offer & Alert Quick Actions */}
@@ -1034,7 +1062,7 @@ export const GiftReportPage: Component = () => {
 									</h3>
 									<span class="text-xs font-black text-emerald-400">
 										{t('gifts.potentialSavings')}:{' '}
-										{currentReport()?.upgrade_advisor?.max_stars_savings.toLocaleString()} ⭐
+										{currentReport()?.upgrade_advisor?.max_stars_savings.toLocaleString()} Stars
 									</span>
 								</div>
 								<p class="text-xs font-bold text-white/90 mb-1">
@@ -1202,7 +1230,7 @@ export const GiftReportPage: Component = () => {
 													</div>
 													<Show when={ev.price_gram}>
 														<div class="text-[11px] text-emerald-400 font-bold font-mono mt-0.5">
-															⭐ {ev.price_gram} TON {ev.venue ? `(${ev.venue})` : ''}
+															{ev.price_gram} TON {ev.venue ? `(${ev.venue})` : ''}
 														</div>
 													</Show>
 													<p class="text-[11px] text-white/50 mt-1">
@@ -1253,7 +1281,7 @@ export const GiftReportPage: Component = () => {
 									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
 								</a>
 								<a
-									href={enrichedQuery.data?.on_chain?.tonviewer_url || `https://tonviewer.com/${deterministicOwner().fullAddress}`}
+									href={enrichedQuery.data?.on_chain?.tonviewer_url || (ownerInfo().fullAddr ? `https://tonviewer.com/${ownerInfo().fullAddr}` : 'https://tonviewer.com')}
 									target="_blank"
 									rel="noopener noreferrer"
 									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all"
@@ -1300,12 +1328,12 @@ export const GiftReportPage: Component = () => {
 								<div class="truncate">
 									<span class="text-[9px] text-white/40 block font-bold">{t('gifts.nftContractAddress')}</span>
 									<span class="font-mono text-white text-[11px] block mt-0.5 truncate">
-										{enrichedQuery.data?.on_chain?.nft_address || `${deterministicOwner().fullAddress.slice(0, 24)}...`}
+										{enrichedQuery.data?.on_chain?.nft_address || (ownerInfo().fullAddr ? `${ownerInfo().fullAddr.slice(0, 24)}...` : (t('gifts.offChainCustody') || 'حضانت آف‌چین تلگرام'))}
 									</span>
 								</div>
 								<div class="flex items-center gap-1.5 shrink-0">
 									<a
-										href={enrichedQuery.data?.on_chain?.tonviewer_url || `https://tonviewer.com/${deterministicOwner().fullAddress}`}
+										href={enrichedQuery.data?.on_chain?.tonviewer_url || (ownerInfo().fullAddr ? `https://tonviewer.com/${ownerInfo().fullAddr}` : 'https://tonviewer.com')}
 										target="_blank"
 										rel="noopener noreferrer"
 										class="px-2.5 py-1 rounded-lg bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 text-[10px] font-bold flex items-center gap-1"

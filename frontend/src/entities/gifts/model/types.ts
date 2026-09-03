@@ -3,6 +3,9 @@ export interface CuriosityGateData {
 	model_id: string;
 	model_name: string;
 	serial_number: number;
+	selected_model?: string;
+	owner_name?: string;
+	image_url?: string;
 	signals_analyzed: number;
 	risks_identified: number;
 	data_sources_count: number;

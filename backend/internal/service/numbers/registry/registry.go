@@ -5,9 +5,9 @@ const (
 	AnonymousNumbersCollectionAddr = "EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf"
 	TotalSupply                    = 136566
 	RecordATHSaleTON               = 500000.0 // Record ATH on Telegram Fragment (+888 8888 auctioned at 300K TON in Dec 2022, ~500K adjusted 2026)
-	StandardInitialFloorTON        = 2000.0   // 2026 secondary market floor for standard 8-digit numbers (~1,994 GRAM observed Aug 2026)
-	GenesisInitialFloorTON         = 10000.0  // 2026 secondary market floor for 4-digit Genesis numbers (+888 8000..8999)
-	InitialFloorTON                = 2000.0   // Standard baseline floor (2026 market)
+	StandardInitialFloorTON        = 2450.0   // 2026 live secondary market floor for standard 8-digit numbers (~2,400-2,500 TON)
+	GenesisInitialFloorTON         = 42000.0  // 2026 live secondary market floor for 4-digit Genesis numbers (+888 8000..8999, 1,000 total supply)
+	InitialFloorTON                = 2450.0   // Standard baseline floor (2026 market)
 	FragmentFeePercent             = 0.05
 )
 

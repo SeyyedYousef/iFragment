@@ -61,7 +61,7 @@ export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) =>
 						aria-hidden="true"
 					/>
 					<div
-						class="relative flex h-16 w-16 items-center justify-center rounded-[24px] border shadow-2xl backdrop-blur-xl"
+						class="relative flex h-20 w-20 items-center justify-center rounded-[28px] border shadow-2xl backdrop-blur-xl overflow-hidden"
 						style={{
 							background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)',
 							'border-color': theme().accentBorder,
@@ -71,7 +71,7 @@ export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) =>
 							when={props.targetImage}
 							fallback={
 								<span
-									class="material-symbols-outlined text-[32px] drop-shadow-md"
+									class="material-symbols-outlined text-[36px] drop-shadow-md"
 									style={{ color: theme().accent }}
 								>
 									{props.targetIcon || theme().glyph}
@@ -81,13 +81,14 @@ export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) =>
 							<img
 								src={props.targetImage}
 								alt={props.targetTitle || 'Asset'}
-								class="h-11 w-11 object-contain drop-shadow-lg"
+								referrerpolicy="no-referrer"
+								class="h-full w-full object-contain p-1.5 drop-shadow-lg transition-transform duration-300 hover:scale-105"
 							/>
 						</Show>
 
 						{/* Pulsing online status indicator */}
 						<div
-							class="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-[#06070B] animate-pulse"
+							class="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-[#06070B] animate-pulse z-10"
 							style={{ background: '#10b981' }}
 						/>
 					</div>

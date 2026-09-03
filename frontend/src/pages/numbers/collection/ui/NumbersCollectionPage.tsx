@@ -32,10 +32,10 @@ export const NumbersCollectionPage: Component = () => {
 
 	const CLUBS = [
 		{ name: 'Grail & Mono-digit', mask: '+888 8888 8888', floor: 185000, count: 12, bg: 'from-amber-500/20 to-orange-500/20', border: 'border-amber-500/30', color: 'text-amber-300' },
-		{ name: '4-Digit Genesis (1 of 1000)', mask: '+888 8XXX', floor: 32000, count: 1000, bg: 'from-purple-500/20 to-pink-500/20', border: 'border-purple-500/30', color: 'text-purple-300' },
+		{ name: '4-Digit Genesis (1 of 1000)', mask: '+888 8XXX', floor: 42000, count: 1000, bg: 'from-purple-500/20 to-pink-500/20', border: 'border-purple-500/30', color: 'text-purple-300' },
 		{ name: 'Quad Repdigit Tail', mask: '+888 XXXX 8888', floor: 12500, count: 850, bg: 'from-[#0098EA]/20 to-cyan-500/20', border: 'border-[#0098EA]/30', color: 'text-[#0098EA]' },
 		{ name: 'Triple 777 Tail', mask: '+888 XXXX X777', floor: 4800, count: 2400, bg: 'from-emerald-500/20 to-teal-500/20', border: 'border-emerald-500/30', color: 'text-emerald-300' },
-		{ name: 'Standard 8-Digit Floor', mask: '+888 XXXX XXXX', floor: 2280, count: 135566, bg: 'from-slate-500/20 to-zinc-500/20', border: 'border-white/10', color: 'text-white/80' },
+		{ name: 'Standard 8-Digit Floor', mask: '+888 XXXX XXXX', floor: 2450, count: 135566, bg: 'from-slate-500/20 to-zinc-500/20', border: 'border-white/10', color: 'text-white/80' },
 	];
 
 	const NFT_COLORS = [
@@ -107,25 +107,25 @@ export const NumbersCollectionPage: Component = () => {
 						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
 							<span class="text-[10px] font-bold text-white/40 block">Floor Price</span>
 							<span class="text-sm font-black text-white font-mono block mt-0.5">
-								{formatTon(intel()?.floor_price_ton || 2280)} <span class="text-[10px] text-[#0098EA]">TON</span>
+								{formatTon(intel()?.floor_price_ton || 2450)} <span class="text-[10px] text-[#0098EA]">TON</span>
 							</span>
 						</div>
 						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
 							<span class="text-[10px] font-bold text-white/40 block">24h Volume</span>
 							<span class="text-sm font-black text-emerald-400 font-mono block mt-0.5">
-								{formatTon(intel()?.volume_24h_ton || 77762)} <span class="text-[10px] text-white/40">TON</span>
+								{formatTon(intel()?.volume_24h_ton || 14850)} <span class="text-[10px] text-white/40">TON</span>
 							</span>
 						</div>
 						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
 							<span class="text-[10px] font-bold text-white/40 block">Total Volume</span>
 							<span class="text-sm font-black text-[#0098EA] font-mono block mt-0.5">
-								{formatTon(intel()?.total_volume_ton || 120480130)} <span class="text-[10px] text-white/40">TON</span>
+								{formatTon(intel()?.total_volume_ton || 48920000)} <span class="text-[10px] text-white/40">TON</span>
 							</span>
 						</div>
 						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
 							<span class="text-[10px] font-bold text-white/40 block">Highest Sale (ATH)</span>
 							<span class="text-sm font-black text-amber-400 font-mono block mt-0.5">
-								{formatTon(intel()?.historical_ath_ton || 864000)} <span class="text-[10px] text-white/40">TON</span>
+								{formatTon(intel()?.historical_ath_ton || 666666)} <span class="text-[10px] text-white/40">TON</span>
 							</span>
 						</div>
 					</div>

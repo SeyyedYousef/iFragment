@@ -45,15 +45,7 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 		if (gift.floorTon && gift.floorTon > 0) {
 			return gift.floorTon;
 		}
-		switch (gift.tag) {
-			case 'Bluechip': return 85;
-			case 'Luxury': return 65;
-			case 'Special': return 50;
-			case 'Talisman': return 45;
-			case 'Tech': return 40;
-			case 'Seasonal': return 35;
-			default: return 30;
-		}
+		return 0;
 	};
 
 	const getGiftSupply = (gift: OfficialGiftItem): number => {
@@ -234,13 +226,22 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 
 								{/* Floor */}
 								<div class="text-right rtl:text-left flex-shrink-0">
-									<div class="text-sm font-black text-white font-mono flex items-center justify-end rtl:justify-start gap-1">
-										<span class="text-[#0098EA] text-xs">💎</span>
-										<span>{getGiftFloor(gift).toLocaleString()} TON</span>
-									</div>
-									<div class="text-[10px] text-white/40 font-mono">
-										≈ ${(getGiftFloor(gift) * (props.rate || 5.5)).toFixed(0)}
-									</div>
+									<Show
+										when={getGiftFloor(gift) > 0}
+										fallback={
+											<div class="text-xs font-bold text-white/40 font-mono">
+												— TON
+											</div>
+										}
+									>
+										<div class="text-sm font-black text-white font-mono flex items-center justify-end rtl:justify-start gap-1">
+											<span class="text-[#0098EA] text-xs">💎</span>
+											<span>{getGiftFloor(gift).toLocaleString()} TON</span>
+										</div>
+										<div class="text-[10px] text-white/40 font-mono">
+											≈ ${(getGiftFloor(gift) * (props.rate || 5.5)).toFixed(0)}
+										</div>
+									</Show>
 								</div>
 							</button>
 						)}

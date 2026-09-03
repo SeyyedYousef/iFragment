@@ -53,10 +53,15 @@ func TestValuationEngine_ComprehensiveBenchmark(t *testing.T) {
 		{"+888 1234 5888", "Triple-888 Tail"},
 		{"+888 9876 5000", "Triple-000 Tail"},
 
-		// === TIER E: MID-RANGE VANITY ===
-		{"+888 8800 8800", "Ternary Vanity (3 digits)"},
-		{"+888 1188 1188", "Ternary Vanity Repeating"},
+		// === TIER E: MID-RANGE & NOVEL VANITY ===
+		{"+888 8800 8800", "Binary Double Pair 8800"},
+		{"+888 1188 1188", "Binary Double Pair 1188"},
 		{"+888 1122 3344", "AABB Pattern"},
+		{"+888 123 123 45", "Triplet Repeat (123 123)"},
+		{"+888 800 800 12", "Triplet Repeat (800 800)"},
+		{"+888 8888 0011", "Ternary Quad-8888 Block"},
+		{"+888 147 258 00", "DialPad Column Sequence"},
+		{"+888 2580 2580", "DialPad Column Periodic"},
 
 		// === TIER F: FLOOR-LEVEL (Random) ===
 		{"+888 0139 7412", "Random Baseline A"},
@@ -75,7 +80,7 @@ func TestValuationEngine_ComprehensiveBenchmark(t *testing.T) {
 	}
 
 	fmt.Println("\n╔═══════════════════════════════════════════════════════════════════════════════════╗")
-	fmt.Println("║              iFragment NV-Engine v4.5 — Comprehensive Valuation Benchmark         ║")
+	fmt.Println("║              iFragment NV-Engine v5.0 — Comprehensive Valuation Benchmark         ║")
 	fmt.Println("╠════════════════════════════╦═══════════════╦═══════════════╦═══════════════╦═══════╣")
 	fmt.Println("║ Number / Label             ║   Low (TON)   ║  Fair (TON)   ║  High (TON)   ║ Conf% ║")
 	fmt.Println("╠════════════════════════════╬═══════════════╬═══════════════╬═══════════════╬═══════╣")

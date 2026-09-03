@@ -100,6 +100,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Post("/crafting-ev", cfg.GiftsHandler.CalculateCraftingEV)
 				r.Get("/image/{slug}", cfg.GiftsHandler.GetGiftImage)
 				r.With(middleware.OptionalAuthMiddleware).Get("/valuate", cfg.GiftsHandler.Valuate)
+				r.With(middleware.OptionalAuthMiddleware).Get("/enriched-report", cfg.GiftsHandler.GetEnrichedReport)
 				r.With(middleware.AuthMiddleware).Post("/unlock-coins", cfg.GiftsHandler.UnlockWithCoins)
 				r.With(middleware.AuthMiddleware).Post("/unlock-credit", cfg.GiftsHandler.UnlockWithCredit)
 				r.With(middleware.AuthMiddleware).Post("/watchlist", cfg.GiftsHandler.ToggleWatchlist)

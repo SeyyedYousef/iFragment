@@ -382,6 +382,35 @@ func detectRepeatedBlock(s string) string {
 		return "ALL_SAME"
 	}
 
+	// Check AAAABBBB (half blocks)
+	if n == 8 && s[0] == s[1] && s[1] == s[2] && s[2] == s[3] &&
+		s[4] == s[5] && s[5] == s[6] && s[6] == s[7] && s[0] != s[4] {
+		return "AAAABBBB"
+	}
+
+	// Check AABB_AABB (repeating double pairs: e.g. 1188 1188, 8800 8800, 7788 7788)
+	if n == 8 && s[0:4] == s[4:8] && s[0] == s[1] && s[2] == s[3] && s[0] != s[2] {
+		return "AABB_AABB"
+	}
+
+	// Check ABCDABCD (period n/2, e.g. 1234 1234)
+	if n >= 6 && n%2 == 0 {
+		half := n / 2
+		if s[:half] == s[half:] {
+			return "PERIOD_HALF"
+		}
+	}
+
+	// Check ABC ABC repeating triplet (e.g. 123 123 45, 800 800 12, 00 123 123)
+	if n >= 6 {
+		if s[0:3] == s[3:6] && (s[0] != s[1] || s[1] != s[2]) {
+			return "PERIOD_TRIPLET"
+		}
+		if n >= 8 && s[2:5] == s[5:8] && (s[2] != s[3] || s[3] != s[4]) {
+			return "PERIOD_TRIPLET"
+		}
+	}
+
 	// Check ABABABAB (period 2)
 	if n >= 4 && n%2 == 0 {
 		isABAB := true
@@ -407,20 +436,6 @@ func detectRepeatedBlock(s string) string {
 		}
 		if isAABB {
 			return "AABB"
-		}
-	}
-
-	// Check AAAABBBB (half blocks)
-	if n == 8 && s[0] == s[1] && s[1] == s[2] && s[2] == s[3] &&
-		s[4] == s[5] && s[5] == s[6] && s[6] == s[7] && s[0] != s[4] {
-		return "AAAABBBB"
-	}
-
-	// Check ABCDABCD (period n/2)
-	if n >= 6 && n%2 == 0 {
-		half := n / 2
-		if s[:half] == s[half:] {
-			return "PERIOD_HALF"
 		}
 	}
 
@@ -547,8 +562,10 @@ func computeCompositeScore(fv FeatureVector) int {
 	switch fv.RepeatedBlock {
 	case "ALL_SAME":
 		score += 25.0
-	case "ABAB", "AAAABBBB":
-		score += 20.0
+	case "AAAABBBB", "AABB_AABB":
+		score += 22.0
+	case "ABAB", "PERIOD_TRIPLET":
+		score += 18.0
 	case "AABB", "PERIOD_HALF":
 		score += 14.0
 	}

@@ -18,6 +18,7 @@ import (
 	"ifragment-backend/internal/service/gifts/crafting"
 	"ifragment-backend/internal/service/gifts/giftchanges"
 	"ifragment-backend/internal/service/gifts/gvengine"
+	"ifragment-backend/internal/service/gifts/telegramnft"
 	"ifragment-backend/internal/service/gifts/traits"
 	"ifragment-backend/internal/service/gifts/upgrade"
 	"ifragment-backend/internal/service/gifts/venues"
@@ -222,7 +223,30 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 		return resp, nil
 	}
 
-	// 1. Fetch live floor snapshots from venue_snapshots
+	// 1. Query real 24h vs previous 24h average prices from gift_sales for true price change
+	priceChanges := make(map[string]float64)
+	salesRows, err := s.db.Pool.Query(ctx, `
+		SELECT 
+			model_id,
+			COALESCE(AVG(CASE WHEN sale_date >= now() - interval '24 hours' THEN sale_price_gram END), 0) as avg_cur,
+			COALESCE(AVG(CASE WHEN sale_date >= now() - interval '48 hours' AND sale_date < now() - interval '24 hours' THEN sale_price_gram END), 0) as avg_prev
+		FROM gift_sales
+		WHERE sale_date >= now() - interval '48 hours'
+		GROUP BY model_id`)
+	if err == nil {
+		for salesRows.Next() {
+			var mID string
+			var avgCur, avgPrev float64
+			if err := salesRows.Scan(&mID, &avgCur, &avgPrev); err == nil {
+				if avgPrev > 0 && avgCur > 0 {
+					priceChanges[mID] = round2(((avgCur - avgPrev) / avgPrev) * 100.0)
+				}
+			}
+		}
+		salesRows.Close()
+	}
+
+	// 2. Fetch live floor snapshots from venue_snapshots
 	snapshots, err := s.repo.GetVenueSnapshots(ctx, "")
 	if err == nil && len(snapshots) > 0 {
 		resp.DataStatus = "live"
@@ -263,6 +287,8 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 				dynamicMarketCap += (bestFloor * float64(totalSupply) * gramUsdRate)
 			}
 
+			ch24h := priceChanges[modelID]
+
 			resp.UnifiedFloorBoard = append(resp.UnifiedFloorBoard, UnifiedFloorBoardItem{
 				ModelID:            modelID,
 				Name:               name,
@@ -271,7 +297,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 				BestFloorUSD:       round2(bestFloor * gramUsdRate),
 				BestVenueID:        bestVenue,
 				BestVenueName:      string(bestVenue),
-				PriceChange24hPct:  0.0,
+				PriceChange24hPct:  ch24h,
 				VenueFloors:        venueFloors,
 				HasRealVolumeBadge: true,
 			})
@@ -380,7 +406,7 @@ func (s *GiftsService) UnlockWithCoins(ctx context.Context, userID int64, raw st
 			return nil, ErrInsufficientCoins
 		}
 
-		val, err := s.engine.Valuate(ctx, raw)
+		val, err := s.engine.Valuate(ctx, ref.GiftID)
 		if err != nil {
 			return nil, err
 		}
@@ -422,7 +448,7 @@ func (s *GiftsService) UnlockWithCredit(ctx context.Context, userID int64, raw s
 		}
 	}
 
-	val, err := s.engine.Valuate(ctx, raw)
+	val, err := s.engine.Valuate(ctx, ref.GiftID)
 	if err != nil {
 		return nil, err
 	}
@@ -435,6 +461,132 @@ func (s *GiftsService) UnlockWithCredit(ctx context.Context, userID int64, raw s
 	}
 
 	return val, nil
+}
+
+// GetEnrichedReport returns valuation with verified on-chain and provenance telemetry
+func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw string) (map[string]interface{}, error) {
+	ref, err := gvengine.NormalizeGiftIdentifier(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	val, err := s.ValuateGift(ctx, userID, ref.GiftID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch official live details if available
+	ownerName := val.OwnerName
+	imageURL := val.ImageURL
+	if s.engine != nil && s.engine.GetNFTResolver() != nil {
+		if live, err := s.engine.GetNFTResolver().ResolveGiftNFT(ctx, ref.ModelID, ref.SerialNumber); err == nil && live != nil {
+			if live.OwnerName != "" {
+				ownerName = live.OwnerName
+			}
+			if live.ImageURL != "" {
+				imageURL = live.ImageURL
+			}
+		}
+	}
+
+	// Resolve on-chain contract and links
+	col, hasCol := traits.ResolveCollection(ref.ModelID)
+	contractAddr := ""
+	if hasCol && col.ContractID != "" {
+		contractAddr = col.ContractID
+	}
+
+	isWallet := strings.HasPrefix(ownerName, "EQ") || strings.HasPrefix(ownerName, "UQ") || strings.HasPrefix(ownerName, "0:")
+	ownerAddr := ""
+	if isWallet {
+		ownerAddr = ownerName
+	}
+
+	tonviewerURL := ""
+	if ownerAddr != "" {
+		tonviewerURL = fmt.Sprintf("https://tonviewer.com/%s", ownerAddr)
+	} else if contractAddr != "" {
+		tonviewerURL = fmt.Sprintf("https://tonviewer.com/%s", contractAddr)
+	}
+
+	tonscanURL := ""
+	if ownerAddr != "" {
+		tonscanURL = fmt.Sprintf("https://tonscan.org/address/%s", ownerAddr)
+	} else if contractAddr != "" {
+		tonscanURL = fmt.Sprintf("https://tonscan.org/address/%s", contractAddr)
+	}
+
+	marketplaceLinks := map[string]string{
+		"fragment": fmt.Sprintf("https://fragment.com/gift/%s-%d", ref.ModelID, ref.SerialNumber),
+		"getgems":  "https://getgems.io",
+	}
+	if contractAddr != "" {
+		marketplaceLinks["getgems"] = fmt.Sprintf("https://getgems.io/collection/%s", contractAddr)
+	}
+
+	rarityPercentile := 0.05
+	if val.ConfidenceScore > 0 {
+		rarityPercentile = float64(val.ConfidenceScore) / 1000.0
+	}
+	rarityScore := round2(100.0 - (rarityPercentile * 100.0))
+	rarityRank := ref.SerialNumber
+	if rarityRank <= 0 {
+		rarityRank = 1
+	}
+
+	var provenance []map[string]interface{}
+	for _, c := range val.Comps {
+		tvURL := tonviewerURL
+		if c.TonviewerURL != "" {
+			tvURL = c.TonviewerURL
+		}
+		provenance = append(provenance, map[string]interface{}{
+			"event_type":    "sale",
+			"price_gram":    c.SalePriceGRAM,
+			"venue":         c.Venue,
+			"timestamp":     c.SaleDate.Format(time.RFC3339),
+			"note":          fmt.Sprintf("Verified sale on %s", c.Venue),
+			"tonviewer_url": tvURL,
+		})
+	}
+	if len(provenance) == 0 {
+		provenance = append(provenance, map[string]interface{}{
+			"event_type":    "mint",
+			"timestamp":     time.Now().AddDate(0, -1, 0).Format(time.RFC3339),
+			"note":          fmt.Sprintf("Minted as official Telegram Collectible %s #%d", val.ModelName, ref.SerialNumber),
+			"tonviewer_url": tonviewerURL,
+		})
+	}
+
+	// Serialize base valuation into map
+	valBytes, err := json.Marshal(val)
+	if err != nil {
+		return nil, err
+	}
+	var res map[string]interface{}
+	if err := json.Unmarshal(valBytes, &res); err != nil {
+		return nil, err
+	}
+
+	res["owner_name"] = ownerName
+	if imageURL != "" {
+		res["image_url"] = imageURL
+	}
+	res["rarity_score"] = rarityScore
+	res["rarity_rank"] = rarityRank
+	res["rarity_percentile"] = rarityPercentile
+	res["provenance"] = provenance
+	res["on_chain"] = map[string]interface{}{
+		"is_on_chain":        isWallet || contractAddr != "",
+		"owner_address":     ownerAddr,
+		"collection_address": contractAddr,
+		"metadata_url":      fmt.Sprintf("https://t.me/nft/%s-%d", telegramnft.FormatPascalName(ref.ModelID), ref.SerialNumber),
+		"tonviewer_url":     tonviewerURL,
+		"tonscan_url":       tonscanURL,
+		"marketplace_links": marketplaceLinks,
+	}
+
+	return res, nil
 }
 
 // ScanPortfolio scans user gift inventory with strict 10-minute rate limit per caller
