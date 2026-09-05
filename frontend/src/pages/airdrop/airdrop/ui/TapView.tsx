@@ -22,7 +22,7 @@ import {
 import { API_CONFIG } from '@/shared/api/config.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { triggerRewardCelebration } from '@/shared/ui/index.js';
+import { flyCoinsToBalance } from '@/shared/ui/index.js';
 import { ShopView } from './ShopView.js';
 
 interface CanvasParticle {
@@ -812,11 +812,12 @@ export const TapView: Component<{
 						<div class="flex flex-col gap-2 pt-2">
 							<button
 								type="button"
-								onClick={async () => {
+								onClick={async (e) => {
 									if (checkedInToday() || isClaimingStreak()) return;
+									const sx = e.clientX || window.innerWidth / 2;
+									const sy = e.clientY || window.innerHeight / 2;
 									setIsClaimingStreak(true);
 									try {
-										const prev = balance();
 										const reward = await claimDailyReward();
 										const rewardVal =
 											Number(reward) ||
@@ -824,13 +825,11 @@ export const TapView: Component<{
 												Math.min(DAILY_REWARDS.length - 1, Math.max(0, streakDay() - 1))
 											];
 										setShowStreakModal(false);
-										triggerRewardCelebration({
-											reward: rewardVal,
-											title: `DAY ${streakDay()} REWARD!`,
-											subtitle: t('tap.miningStreakDesc') || 'Daily streak check-in bonus',
-											category: 'streak',
-											previousBalance: prev,
-											newBalance: prev + rewardVal,
+										flyCoinsToBalance({
+											amount: rewardVal,
+											startX: sx,
+											startY: sy,
+											targetSelector: '#airdrop-balance-counter',
 										});
 									} catch (_) {
 										haptic.notify('error');

@@ -17,4 +17,3 @@ export * from './toast.js';
 export * from './UnsavedChangesSheet.js';
 export * from './AnimatedCounter.js';
 export * from './CoinCelebration.js';
-export * from './RewardCelebrationModal.js';

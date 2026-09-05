@@ -485,6 +485,16 @@ export const UsernamePage: Component = () => {
 				setError(t('valuation.err_meta') || 'Failed to fetch metadata');
 			}
 		} catch (err: any) {
+			if (err?.response?.status === 403 || err?.status === 403) {
+				try {
+					localStorage.removeItem(`val_access_${u}`);
+				} catch (_) {}
+				setAccessGranted(false);
+				setAccessMethod(null);
+				setShowPaymentGate(true);
+				setError(null);
+				return;
+			}
 			if (opts.force && data()) {
 				triggerAlert(err?.message || t('valuation.err_server') || 'Refresh failed');
 			} else {
@@ -673,41 +683,43 @@ export const UsernamePage: Component = () => {
 				});
 			}
 
-			if (cachedAccess) {
-				setAccessGranted(true);
-				setAccessMethod(cachedAccess as any);
-				fetchValuation(u);
-			} else {
-				try {
-					const res = await valuationApi.checkAccess(u);
-					if (res?.is_pro) {
-						setIsPro(true);
-						if (res.daily_used !== undefined) setDailyUsed(res.daily_used);
-					}
-					if (res?.free_quota_used) {
-						localStorage.setItem('val_free_used', 'true');
-						cloudStorage.setItem('val_free_used', 'true');
-					}
-					if (res?.is_monitored !== undefined) {
-						setIsMonitored(res.is_monitored);
-					}
-					if (res?.has_access) {
-						const method = res.method || (res.is_pro ? 'pro' : 'stars');
-						try {
-							localStorage.setItem(`val_access_${u}`, method);
-						} catch (_) {}
-						setAccessGranted(true);
-						setAccessMethod(method as any);
-						setShowPaymentGate(false);
-						fetchValuation(u);
-					} else {
-						setShowPaymentGate(true);
-						setLoading(false);
-					}
-				} catch (_) {
+			try {
+				const res = await valuationApi.checkAccess(u);
+				if (res?.is_pro) {
+					setIsPro(true);
+					if (res.daily_used !== undefined) setDailyUsed(res.daily_used);
+				}
+				if (res?.free_quota_used) {
+					localStorage.setItem('val_free_used', 'true');
+					cloudStorage.setItem('val_free_used', 'true');
+				}
+				if (res?.is_monitored !== undefined) {
+					setIsMonitored(res.is_monitored);
+				}
+				if (res?.has_access) {
+					const method = res.method || (res.is_pro ? 'pro' : 'stars');
+					try {
+						localStorage.setItem(`val_access_${u}`, method);
+					} catch (_) {}
+					setAccessGranted(true);
+					setAccessMethod(method as any);
+					setShowPaymentGate(false);
+					fetchValuation(u);
+				} else {
+					try {
+						localStorage.removeItem(`val_access_${u}`);
+					} catch (_) {}
+					setAccessGranted(false);
+					setAccessMethod(null);
 					setShowPaymentGate(true);
 					setLoading(false);
 				}
+			} catch (_) {
+				try {
+					localStorage.removeItem(`val_access_${u}`);
+				} catch (_) {}
+				setShowPaymentGate(true);
+				setLoading(false);
 			}
 		};
 		initValuation();

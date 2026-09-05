@@ -161,20 +161,20 @@ Airdrop coins are subject to expiration and FIFO usage to prevent stale token in
 
 ---
 
-## 7. Game-Fi UX: Visual Celebrations & Balance Transitions
+## 7. Game-Fi UX: In-Game Flying Coin Streams & Live Balance Growth
 
-To ensure maximum player feedback and an authentic AAA Telegram game experience:
+To ensure maximum player feedback and an authentic AAA Telegram game feel without disruptive extra modals:
 1. **Manual Coin Tapping (`TapView.tsx`):**
    - **Zero Latency Rendering:** The tap balance display uses direct tabular-num formatting without any tweening or component wrappers (`{balance().toLocaleString('en-US')}`).
    - **Rationale:** High-speed tapping (5-10 taps/sec) requires immediate visual response; any animation tweens during rapid tapping cause lag and ruin gameplay feel.
-2. **Reward Celebration Modal (`RewardCelebrationModal.tsx`):**
-   - **Rotating Golden Sunburst:** 360-degree rotating radiant light beams behind the hero reward token.
-   - **Canvas 2D Physics Engine:** Generates 45+ 3D gold coin discs and twinkling stars that explode outward with true velocity, rotation, bounce, and gravity at 60 FPS.
-   - **Before & After Balance Odometer:**
-     - Displays `Previous Balance` and `Reward Added`.
-     - An animated rolling counter smoothly interpolates from previous to new balance over 1.4 seconds with rhythmic haptic vibration ticks.
-     - Displays `New Balance` with a gleaming checkmark upon completion so the user clearly perceives the balance transformation.
+2. **In-Game Flying Coin Stream (`CoinCelebration.tsx` -> `flyCoinsToBalance`):**
+   - **Direct In-Page Feedback (No Separate Cards):** Clicking claim on offline earnings, streak check-ins, or tasks does NOT open a separate full-screen card or duplicate modal.
+   - **Dynamic Bezier Trajectory:** 10–18 gleaming 3D gold coins erupt directly from the clicked button or modal origin, fanning out in an initial burst before arcing in a parabolic curve across the screen towards the live balance counter (`#airdrop-balance-counter` or `#airdrop-tasks-balance`).
+   - **Live Balance Odometer & Impact Pulses:**
+     - Each coin arrival triggers a CSS scale punch (`scale(1.10)`) and amber glow flash on the target balance pill, accompanied by light haptic ticks.
+     - The displayed balance number rolls up in real time from previous balance to new balance as coins impact.
+     - A floating neon badge `+{amount} 🪙` ascends and fades away at the destination.
    - **Integration Points:**
-     - **Offline Mining Bot Claim (`AirdropPage.tsx`):** Triggered when collecting offline earnings.
-     - **Daily Streak Claim (`TapView.tsx`):** Triggered on daily calendar check-in.
-     - **Tasks, Daily Combo & Quiz Claims (`TasksView.tsx`):** Triggered on verifying quests and solving riddles.
+     - **Offline Mining Bot Claim (`AirdropPage.tsx`):** Triggered on clicking "AWESOME!".
+     - **Daily Streak Calendar Claim (`TapView.tsx`):** Triggered on clicking the day's check-in button.
+     - **Tasks, Daily Combo & Quiz Claims (`TasksView.tsx`):** Triggered on claiming quests and puzzles, landing in `#airdrop-tasks-balance`.

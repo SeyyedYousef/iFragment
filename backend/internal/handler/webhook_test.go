@@ -251,8 +251,8 @@ func TestRenderCategorySettingsMenu(t *testing.T) {
 		t.Errorf("Expected Persian content header, got: %s", textFa)
 	}
 	kbFa, ok := markupFa["inline_keyboard"].([][]map[string]interface{})
-	if !ok || len(kbFa) != 5 {
-		t.Fatalf("Expected 5 rows in content menu, got %v", markupFa)
+	if !ok || len(kbFa) != 7 {
+		t.Fatalf("Expected 7 rows in content menu, got %d rows: %v", len(kbFa), markupFa)
 	}
 	if !strings.Contains(kbFa[0][0]["text"].(string), "حذف لینک‌ها: ✅ فعال") {
 		t.Errorf("Expected 'حذف لینک‌ها: ✅ فعال', got %v", kbFa[0][0]["text"])
@@ -260,14 +260,75 @@ func TestRenderCategorySettingsMenu(t *testing.T) {
 
 	// Test limits category in English
 	textEn, markupEn := h.renderCategorySettingsMenu(ctx, group, settings, "limits", "en")
-	if !strings.Contains(textEn, "Limits & Flood Control") {
+	if !strings.Contains(textEn, "Limits, Flood Control") {
 		t.Errorf("Expected English limits header, got: %s", textEn)
 	}
 	kbEn, ok := markupEn["inline_keyboard"].([][]map[string]interface{})
-	if !ok || len(kbEn) != 2 {
-		t.Fatalf("Expected 2 rows in limits menu, got %v", markupEn)
+	if !ok || len(kbEn) != 4 {
+		t.Fatalf("Expected 4 rows in limits menu, got %d rows: %v", len(kbEn), markupEn)
 	}
 }
+
+func TestSettingsCallbackDataLength(t *testing.T) {
+	h := &WebhookHandler{}
+	ctx := context.Background()
+
+	gid := uuid.New()
+	group := &repository.ManagedGroup{
+		ID:        gid,
+		ChatTitle: "Test Group",
+	}
+
+	settings := &repository.GroupSettings{
+		General:              json.RawMessage(`{"casEnabled": true, "autoDeleteDelay": 30, "ephemeralAll": true, "ephemeralAdminCmd": true, "ephemeralMemberCmd": true, "welcomeMessage": true, "welcomeCleanOld": true, "welcomeDeleteAfter": 60, "ephemeralWelcome": true, "ephemeralWarn": true, "ephemeralError": true, "ephemeralAction": true}`),
+		ContentRestrictions: json.RawMessage(`{"removeLinks": {"enabled": true}, "removeUsernames": {"enabled": true}, "removeForwards": {"enabled": true}, "removePhoneNumbers": {"enabled": true}, "mediaFilter": {"enabled": true}}`),
+		QuietHours:           json.RawMessage(`{"emergencyLock": false, "enabled": true, "start": "23:00", "end": "07:00"}`),
+		MandatoryMembership:  json.RawMessage(`{"forceJoinEnabled": true, "requiredChannels": ["-100123456789"], "forcedAddEnabled": true, "forcedAddTarget": 5}`),
+		Limits:               json.RawMessage(`{"antiFlood": {"enabled": true}, "slowMode": {"enabled": true, "delaySeconds": 30}}`),
+	}
+
+	// 1. Verify main menu callback lengths
+	for _, lang := range []string{"fa", "en", "ar", "ru"} {
+		_, mainMarkup := h.renderMainSettingsMenu(ctx, group, settings, lang)
+		rows, ok := mainMarkup["inline_keyboard"].([][]map[string]interface{})
+		if !ok {
+			t.Fatalf("Invalid inline_keyboard in main menu for lang %s", lang)
+		}
+		for rIdx, row := range rows {
+			for cIdx, btn := range row {
+				cb, hasCb := btn["callback_data"].(string)
+				if hasCb {
+					if len(cb) > 64 {
+						t.Errorf("[Main Menu] Lang=%s Row=%d Col=%d: callback_data exceeds 64 bytes (%d bytes): %s", lang, rIdx, cIdx, len(cb), cb)
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Verify all category submenu callback lengths
+	categories := []string{"content", "limits", "quiet", "ephemeral", "mandatory", "welcome", "general"}
+	for _, cat := range categories {
+		for _, lang := range []string{"fa", "en"} {
+			_, catMarkup := h.renderCategorySettingsMenu(ctx, group, settings, cat, lang)
+			rows, ok := catMarkup["inline_keyboard"].([][]map[string]interface{})
+			if !ok {
+				t.Fatalf("Invalid inline_keyboard in cat=%s lang=%s", cat, lang)
+			}
+			for rIdx, row := range rows {
+				for cIdx, btn := range row {
+					cb, hasCb := btn["callback_data"].(string)
+					if hasCb {
+						if len(cb) > 64 {
+							t.Errorf("[Category %s] Lang=%s Row=%d Col=%d: callback_data exceeds 64 bytes (%d bytes): %s", cat, lang, rIdx, cIdx, len(cb), cb)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 
 func TestGroupMigrationLogic(t *testing.T) {
 	mainBotID := uuid.New()

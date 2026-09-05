@@ -13,7 +13,7 @@ import { balance, syncProfileStats } from '@/entities/airdrop/index.js';
 import { collectOfflineMining, startOfflineMining } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { triggerRewardCelebration } from '@/shared/ui/index.js';
+import { flyCoinsToBalance } from '@/shared/ui/index.js';
 import { BoostersView } from '@/widgets/airdrop-boosters/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { ClanView } from './ClanView.js';
@@ -275,20 +275,17 @@ export const AirdropPage: Component = () => {
 						{/* Claim Button */}
 						<button
 							type="button"
-							onClick={() => {
+							onClick={(e) => {
 								const earned = offlineEarnings();
-								const prev = balance();
+								const sx = e.clientX || window.innerWidth / 2;
+								const sy = e.clientY || window.innerHeight / 2;
 								setOfflineEarnings(0);
 								if (earned > 0) {
-									triggerRewardCelebration({
-										reward: earned,
-										title: t('airdropFinal.bot.collected' as any) || 'Bot Collected!',
-										subtitle:
-											t('airdropFinal.bot.description' as any) ||
-											'Your Tap-Bot has been mining while you were away!',
-										category: 'bot',
-										previousBalance: prev,
-										newBalance: prev + earned,
+									flyCoinsToBalance({
+										amount: earned,
+										startX: sx,
+										startY: sy,
+										targetSelector: '#airdrop-balance-counter',
 									});
 								}
 							}}

@@ -11,6 +11,7 @@ import {
 	Show,
 } from 'solid-js';
 import { channelApi } from '@/entities/channel/api/channelApi.js';
+import { subscriptionApi } from '@/entities/bot/api/botApi.js';
 import { ChannelContextBar, ChannelHamburgerMenu } from '@/entities/channel/index.js';
 import type { ManagedChannel, Project } from '@/entities/channel/model/types.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
@@ -113,20 +114,28 @@ export const ProjectsPage: Component = () => {
 		}
 	};
 
-	const handleToggleStatus = async (project: Project) => {
-		const newStatus = project.status === 'active' ? 'paused' : 'active';
-		haptic.impact('light');
+	const handlePayStars = async (project: Project) => {
+		haptic.impact('medium');
 		try {
-			await channelApi.toggleProject(project.id, newStatus);
-			showToast(
-				newStatus === 'active'
-					? t('channel.projects.resumed') || 'Project activated'
-					: t('channel.projects.paused') || 'Project paused',
-				'info',
-			);
-			refetchProjects();
+			const pkgs = await subscriptionApi.getPackages();
+			const pkgId = pkgs?.[0]?.id || '1_month';
+			const res = await subscriptionApi.createChannelSubscriptionStarsInvoice(project.id, pkgId, 0);
+			if (res.invoice_link) {
+				const tg = (window as any).Telegram?.WebApp;
+				if (tg?.openInvoice) {
+					tg.openInvoice(res.invoice_link, (status: string) => {
+						if (status === 'paid') {
+							haptic.notify('success');
+							showToast('Subscription activated successfully!', 'success');
+							refetchProjects();
+						}
+					});
+				} else {
+					window.open(res.invoice_link, '_blank');
+				}
+			}
 		} catch (err: any) {
-			showToast(err?.response?.data?.error || 'Failed to update project status', 'error');
+			showToast(err?.response?.data?.error || 'Failed to create invoice', 'error');
 		}
 	};
 
@@ -287,45 +296,45 @@ export const ProjectsPage: Component = () => {
 												</span>
 											</Show>
 										</h3>
-										<p class="text-[11px] flex items-center gap-2 mt-0.5">
-											<span class={`font-semibold ${
-												project.status === 'active'
-													? 'text-emerald-400'
-													: project.status === 'paused'
-														? 'text-neutral-400'
-														: 'text-rose-400'
-											}`}>
-												{project.status === 'active'
-													? '🟢 Active'
-													: project.status === 'paused'
-														? '⏸️ Paused'
-														: '🔴 Expired'}
-											</span>
-											<span class="text-neutral-500">•</span>
-											<span class="text-neutral-400 font-mono text-[10px]">
-												{project.stars_subscription_active
-													? 'Pro Plan'
-													: project.trial_ends_at
-														? 'Trial'
-														: '250 ⭐/mo required'}
-											</span>
-										</p>
+										{(() => {
+											const isPaid = project.stars_subscription_active && (!project.stars_expires_at || new Date(project.stars_expires_at) > new Date());
+											const isTrial = !isPaid && project.trial_ends_at && new Date(project.trial_ends_at) > new Date();
+
+											return (
+												<p class="text-[11px] flex items-center gap-2 mt-0.5">
+													<span class={`font-semibold ${isPaid ? 'text-emerald-400' : isTrial ? 'text-amber-400' : 'text-rose-400'}`}>
+														{isPaid ? '🟢 Pro Active' : isTrial ? '🎯 Trial Active' : '🔴 Subscription Required'}
+													</span>
+													<span class="text-neutral-500">•</span>
+													<span class="text-neutral-400 font-mono text-[10px]">
+														{isPaid
+															? 'Pro Plan'
+															: isTrial
+																? 'Free Trial'
+																: '250 ⭐/mo required'}
+													</span>
+												</p>
+											);
+										})()}
 									</div>
 								</div>
 
-								{/* Toggle & Action Buttons */}
+								{/* Action Buttons: Pay Stars & Delete */}
 								<div class="flex items-center gap-1.5">
 									<button
 										type="button"
-										onClick={() => handleToggleStatus(project)}
-										class={`p-2 rounded-xl text-xs font-semibold transition-all ${
-											project.status === 'active'
-												? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
-												: 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
-										}`}
-										title={project.status === 'active' ? 'Pause' : 'Activate'}
+										onClick={() => handlePayStars(project)}
+										class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+										title="Pay with Telegram Stars"
 									>
-										{project.status === 'active' ? '⏸️' : '▶️'}
+										<span>⭐</span>
+										<span>
+											{project.stars_subscription_active
+												? 'Extend'
+												: (project.trial_ends_at && new Date(project.trial_ends_at) > new Date())
+													? 'Upgrade'
+													: 'Subscribe (250 ⭐)'}
+										</span>
 									</button>
 
 									<button

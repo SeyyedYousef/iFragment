@@ -178,29 +178,6 @@ export const ManagedChannelsPage: Component = () => {
 		}
 	};
 
-	const handleToggleStatus = async (project: Project) => {
-		const newStatus = project.status === 'active' ? 'paused' : 'active';
-		haptic.impact('medium');
-		try {
-			await channelApi.toggleProject(project.id, newStatus);
-			haptic.notify('success');
-			showToast(
-				newStatus === 'active'
-					? t('managedChannels.projectResumed') || 'Project resumed'
-					: t('managedChannels.projectPaused') || 'Project paused',
-				'info',
-			);
-			refetchProjects();
-		} catch (err: any) {
-			haptic.notify('error');
-			showToast(
-				err?.response?.data?.error ||
-					t('managedChannels.projectToggleError') ||
-					'Failed to update project status',
-				'error',
-			);
-		}
-	};
 
 	// Verify source channel
 	const handleVerifySource = async (customInput?: string) => {
@@ -517,7 +494,6 @@ export const ManagedChannelsPage: Component = () => {
 									(project.trial_used || project.status === 'active') &&
 									project.trial_ends_at;
 								const endDateStr = isPaidActive ? project.stars_expires_at : project.trial_ends_at;
-								const isPaused = project.status === 'paused';
 
 								return (
 									<Motion.div
@@ -551,22 +527,18 @@ export const ManagedChannelsPage: Component = () => {
 													class={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-[8px] border shadow-sm flex items-center gap-1 ${
 														isPaidActive
 															? 'text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10'
-															: isPaused
-																? 'text-white/50 border-white/20 bg-white/5'
-																: isTrialActive
-																	? 'text-amber-400 border-amber-400/30 bg-amber-400/10'
-																	: 'text-[#ff4a4a] border-[#ff4a4a]/30 bg-[#ff4a4a]/10'
+															: isTrialActive
+																? 'text-amber-400 border-amber-400/30 bg-amber-400/10'
+																: 'text-[#ff4a4a] border-[#ff4a4a]/30 bg-[#ff4a4a]/10'
 													}`}
 												>
 													{isPaidActive
 														? '⭐ ' + (t('managedChannels.activeStatus') || 'PRO (Active)')
-														: isPaused
-															? '⏸️ ' + (t('managedChannels.pausedStatus') || 'PAUSED')
-															: isTrialActive
-																? '🎯 ' + (t('managedChannels.trialBadge72h') || 'TRIAL (72h)')
-																: '⚠️ ' + (t('managedChannels.expiredStatus') || 'EXPIRED')}
+														: isTrialActive
+															? '🎯 ' + (t('managedChannels.trialBadge72h') || 'TRIAL (72h)')
+															: '⚠️ ' + (t('managedChannels.expiredStatus') || 'EXPIRED')}
 												</span>
-												<Show when={endDateStr && !isPaused}>
+												<Show when={endDateStr}>
 													<span class="text-[10px] text-white/70 font-bold font-mono whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-[5px] border border-white/10 flex items-center gap-1">
 														<span class="material-symbols-outlined text-[12px] text-amber-400">schedule</span>
 														{formatTimeRemaining(endDateStr)}
@@ -719,26 +691,6 @@ export const ManagedChannelsPage: Component = () => {
 														: isTrialActive
 															? 'Upgrade (250 ⭐)'
 															: (t('botManage.buySubscription') || 'Subscribe (250 ⭐)')}
-												</span>
-											</button>
-
-											{/* Toggle Active / Pause Status */}
-											<button
-												type="button"
-												onClick={() => handleToggleStatus(project)}
-												class={`w-11 h-11 rounded-[14px] flex items-center justify-center border transition-all active:scale-95 shrink-0 ${
-													isPaused
-														? 'bg-amber-400/10 border-amber-400/30 text-amber-400 hover:bg-amber-400/20'
-														: 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
-												}`}
-												title={
-													isPaused
-														? t('managedChannels.resumeProject') || 'Resume'
-														: t('managedChannels.pauseProject') || 'Pause'
-												}
-											>
-												<span class="material-symbols-outlined text-[18px]">
-													{isPaused ? 'play_arrow' : 'pause'}
 												</span>
 											</button>
 
@@ -1199,309 +1151,148 @@ export const ManagedChannelsPage: Component = () => {
 
 						<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
 
-						{paymentStep() === 'package' ? (
-							<div class="flex flex-col gap-4">
-								<div class="flex flex-col gap-1 text-center mb-1">
-									<h3 class="text-[22px] font-black text-white tracking-tight">
-										{t('botManage.choosePackage')}
-									</h3>
-									<p class="text-[13px] font-medium text-white/50">
-										{t('botManage.selectPlan')} {t('botManage.channelService')}
-									</p>
-								</div>
-
-								{/* Credit Balance Hub */}
-								<div class="flex items-center justify-between w-full bg-gradient-to-r from-[#121829] to-[#0a0d14] border border-[#00C6FF]/30 rounded-[20px] p-3.5 shadow-sm">
-									<div class="flex items-center gap-2.5">
-										<span class="text-[20px]">💎</span>
-										<div class="flex flex-col text-start">
-											<span class="text-[10px] font-black uppercase text-[#00C6FF] tracking-wider">
-												{t('botManage.userCredits', { count: wallet.balance() ?? 0 })}
-											</span>
-											<span class="text-[13px] font-bold text-white/80">
-												{wallet.balance() ?? 0} {t('paywall.credit_unit')}
-											</span>
-										</div>
-									</div>
-									<button
-										type="button"
-										onClick={() => {
-											try {
-												haptic.impact('light');
-											} catch {}
-											setIsStoreOpen(true);
-										}}
-										class="px-3 py-1.5 rounded-[12px] bg-[#00C6FF]/15 border border-[#00C6FF]/30 text-[#00C6FF] text-[11px] font-black active:scale-95 transition-all flex items-center gap-1 hover:bg-[#00C6FF]/25"
-									>
-										<span>+</span>
-										<span>{t('paywall.get_credits')}</span>
-									</button>
-								</div>
-
-								<div class="space-y-3">
-									<For each={packages() || []}>
-										{(pkg: SubscriptionPackage) => {
-											const credits =
-												pkg.price_credits ||
-												(pkg.duration_months === 1
-													? 3
-													: pkg.duration_months === 3
-														? 8
-														: pkg.duration_months === 6
-															? 15
-															: 25);
-											const creditsPerMonth = (credits / pkg.duration_months).toFixed(1);
-											const isSelected = () => selectedPkg() === pkg.id;
-
-											return (
-												<button
-													type="button"
-													onClick={() => {
-														setSelectedPkg(pkg.id);
-														haptic.selection();
-													}}
-													class={`w-full rounded-[24px] p-4.5 flex items-center justify-between border-2 transition-all active:scale-[0.98] relative overflow-hidden group ${
-														isSelected()
-															? 'border-[#00C6FF] bg-[#00C6FF]/10 shadow-[0_10px_30px_rgba(0,198,255,0.15)]'
-															: 'border-white/5 bg-[#08090D] hover:border-white/20 shadow-inner'
-													}`}
-												>
-													<Show when={pkg.badge}>
-														<div
-															class={`absolute top-0 ${isRtl() ? 'left-0 rounded-br-[14px]' : 'right-0 rounded-bl-[14px]'} px-3 py-1 text-[9px] font-black uppercase tracking-widest shadow-sm ${pkg.badge === 'best_value' ? 'bg-amber-400 text-black' : 'bg-[#00C6FF] text-black'}`}
-														>
-															{pkg.badge === 'best_value'
-																? t('botManage.bestValue')
-																: t('botManage.popular')}
-														</div>
-													</Show>
-
-													<div class="flex flex-col items-start gap-1">
-														<div class="flex items-center gap-2">
-															<span
-																class={`text-[17px] font-black tracking-tight ${isSelected() ? 'text-[#00C6FF]' : 'text-white'}`}
-															>
-																{pkg.name}
-															</span>
-															<Show when={pkg.discount}>
-																<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/20 px-2 py-0.5 rounded-[6px] shadow-sm">
-																	-{pkg.discount}
-																</span>
-															</Show>
-														</div>
-														<span class="text-[11px] font-medium text-white/40">
-															{t('botManage.creditsEquivalent', { stars: pkg.price_stars })}
-														</span>
-													</div>
-													<div class="flex flex-col items-end gap-0.5">
-														<div class="flex items-baseline gap-1" dir="ltr">
-															<span
-																class={`text-[24px] font-black font-mono tracking-tight ${isSelected() ? 'text-white' : 'text-white/90'}`}
-															>
-																{credits}
-															</span>
-															<span class="text-[12px] font-black text-[#00C6FF]">💎</span>
-														</div>
-														<span class="text-[10px] font-medium text-white/40">
-															({creditsPerMonth} {t('paywall.credit_unit')} /{' '}
-															{t('botManage.perMonth') || 'mo'})
-														</span>
-													</div>
-												</button>
-											);
-										}}
-									</For>
-								</div>
-
-								<Show when={selectedPkg()}>
-									{(() => {
-										const pkg = (packages() || []).find(
-											(p: SubscriptionPackage) => p.id === selectedPkg(),
-										);
-										if (!pkg) return null;
-										const reqCredits =
-											pkg.price_credits ||
-											(pkg.duration_months === 1
-												? 3
-												: pkg.duration_months === 3
-													? 8
-													: pkg.duration_months === 6
-														? 15
-														: 25);
-										const userCreds = wallet.balance() ?? 0;
-										const hasEnough = userCreds >= reqCredits;
-
-										return (
-											<div class="space-y-3 mt-1">
-												<Show
-													when={hasEnough}
-													fallback={
-														<div class="space-y-3">
-															<div class="rounded-[18px] border border-amber-400/25 bg-amber-400/10 p-3.5 text-start text-[12px]">
-																<div class="flex items-center gap-2 text-amber-300 font-bold mb-1">
-																	<span class="material-symbols-outlined text-[18px]">info</span>
-																	<span>
-																		{t('botManage.insufficientCredits', {
-																			needed: reqCredits - userCreds,
-																		}) || `Deficit: ${reqCredits - userCreds} Credits needed`}
-																	</span>
-																</div>
-																<p class="text-white/60 text-[11px] leading-relaxed">
-																	{t('botManage.insufficientCreditsDesc', { current: userCreds })}
-																</p>
-															</div>
-
-															<div class="grid grid-cols-2 gap-2.5">
-																<button
-																	type="button"
-																	onClick={() => {
-																		haptic.impact('medium');
-																		setIsStoreOpen(true);
-																	}}
-																	class="h-12 rounded-[16px] bg-gradient-to-r from-amber-400 to-amber-500 text-black font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
-																>
-																	<span>⭐</span>
-																	<span>{t('botManage.buyCreditsStars')}</span>
-																</button>
-																<button
-																	type="button"
-																	onClick={() => {
-																		haptic.impact('medium');
-																		setIsStoreOpen(true);
-																	}}
-																	class="h-12 rounded-[16px] bg-white/10 hover:bg-white/15 text-white font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-1.5 border border-white/10 active:scale-95 transition-all"
-																>
-																	<span>🪙</span>
-																	<span>{t('botManage.convertCoinsToCredits')}</span>
-																</button>
-															</div>
-
-															<button
-																type="button"
-																onClick={() => {
-																	haptic.impact('light');
-																	setPaymentStep('method');
-																}}
-																class="w-full text-center text-[12px] font-bold text-white/50 hover:text-white/80 py-1 transition-colors"
-															>
-																{t('botManage.payWithStars')} ({pkg.price_stars} ⭐) ←
-															</button>
-														</div>
-													}
-												>
-													<button
-														type="button"
-														onClick={handleSubscribeCredits}
-														disabled={isProcessing()}
-														class="w-full h-14 bg-gradient-to-r from-[#00C6FF] to-[#0072FF] text-black font-black text-[15px] tracking-wide transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(0,198,255,0.35)] active:scale-95 border border-white/15 rounded-[18px]"
-													>
-														<span>💎</span>
-														<span>{t('botManage.payWithCredits', { count: reqCredits })}</span>
-													</button>
-													<button
-														type="button"
-														onClick={() => {
-															haptic.impact('light');
-															setPaymentStep('method');
-														}}
-														class="w-full text-center text-[12px] font-bold text-white/50 hover:text-white/80 py-1 transition-colors"
-													>
-														{t('common.or') || 'or'} {t('botManage.payWithStars')} (
-														{pkg.price_stars} ⭐)
-													</button>
-												</Show>
-											</div>
-										);
-									})()}
-								</Show>
+						<div class="flex flex-col gap-4">
+							<div class="flex flex-col gap-1 text-center mb-1">
+								<h3 class="text-[22px] font-black text-white tracking-tight flex items-center justify-center gap-2">
+									<span>⭐</span>
+									<span>{t('botManage.choosePackage') || 'Channel Pro Subscription'}</span>
+								</h3>
+								<p class="text-[13px] font-medium text-white/50">
+									{t('botManage.selectPlan') || 'Instant activation with Telegram Stars (⭐)'}
+								</p>
 							</div>
-						) : (
-							<div class="flex flex-col gap-5">
-								<div class="flex items-center gap-4 mb-2">
-									<button
-										type="button"
-										onClick={() => setPaymentStep('package')}
-										class="w-11 h-11 rounded-[14px] bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10 active:scale-95 shrink-0"
-									>
-										<span class="material-symbols-outlined text-[22px] text-white/70">
-											arrow_back
-										</span>
-									</button>
-									<div class="flex flex-col gap-0.5">
-										<h3 class="text-[20px] font-black text-white leading-tight tracking-tight">
-											{t('botManage.paymentMethodTitle')}
-										</h3>
-										<p class="text-[12px] font-medium text-white/50">
-											{t('botManage.paymentMethodDesc')}
-										</p>
-									</div>
-								</div>
 
-								<Show when={packages() && selectedPkg()}>
-									{(() => {
-										const pkg = (packages() || []).find(
-											(p: SubscriptionPackage) => p.id === selectedPkg(),
-										);
-										if (!pkg) return null;
-										const calc = () =>
-											calculateDiscountForPlan(
-												pkg.price_usd,
-												isDiscountEnabled() ? discountPercent() : 0,
-												pkg.price_stars,
-											);
-
+							{/* Package Selection Cards */}
+							<div class="space-y-2.5">
+								<For each={packages() || []}>
+									{(pkg: SubscriptionPackage) => {
+										const isSelected = () => selectedPkg() === pkg.id;
 										return (
-											<div class="space-y-4">
-												{/* Plan Summary Card */}
-												<div class="bg-[#08090D] rounded-[20px] p-5 border border-white/5 flex items-center justify-between shadow-inner">
-													<div class="flex flex-col gap-1">
-														<span class="text-[16px] font-black text-[#3390ec] tracking-tight">
-															{pkg.name} Plan
-														</span>
-														<span class="text-[11px] font-bold text-white/40 uppercase tracking-widest">
-															${pkg.price_per_month.toFixed(2)} {t('botManage.perMonth')}
-														</span>
+											<button
+												type="button"
+												onClick={() => {
+													setSelectedPkg(pkg.id);
+													haptic.selection();
+												}}
+												class={`w-full rounded-[22px] p-4 flex items-center justify-between border-2 transition-all active:scale-[0.98] relative overflow-hidden ${
+													isSelected()
+														? 'border-amber-400 bg-amber-400/10 shadow-[0_8px_25px_rgba(251,191,36,0.15)]'
+														: 'border-white/10 bg-[#08090D] hover:border-white/20'
+												}`}
+											>
+												<Show when={pkg.badge}>
+													<div
+														class={`absolute top-0 ${isRtl() ? 'left-0 rounded-br-[12px]' : 'right-0 rounded-bl-[12px]'} px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm ${pkg.badge === 'best_value' ? 'bg-amber-400 text-black' : 'bg-[#3390ec] text-white'}`}
+													>
+														{pkg.badge === 'best_value'
+															? t('botManage.bestValue') || 'Best Value'
+															: t('botManage.popular') || 'Popular'}
 													</div>
-													<div class="flex flex-col items-end gap-1">
-														<span class="text-[20px] font-black font-mono text-white tracking-tight">
-															${calc().finalUsd.toFixed(2)}
+												</Show>
+
+												<div class="flex flex-col items-start gap-0.5">
+													<div class="flex items-center gap-2">
+														<span
+															class={`text-[16px] font-black tracking-tight ${isSelected() ? 'text-amber-400' : 'text-white'}`}
+														>
+															{pkg.name}
 														</span>
-														<span class="text-[11px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-[6px] border border-amber-400/20 shadow-sm">
-															{calc().finalStars} ⭐
-														</span>
+														<Show when={pkg.discount}>
+															<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/20 px-1.5 py-0.5 rounded-[5px]">
+																-{pkg.discount}
+															</span>
+														</Show>
 													</div>
+													<span class="text-[11px] font-medium text-white/50">
+														{pkg.duration_months === 1
+															? 'Full feature access for 30 days'
+															: `${pkg.duration_months} months uninterrupted automated service`}
+													</span>
 												</div>
 
-												{/* Coin Discount Toggle & Tier Selector */}
-												<PaymentDiscountCard
-													baseUsd={pkg.price_usd}
-													baseStars={pkg.price_stars}
-													userCoins={balance()}
-													isDiscountEnabled={isDiscountEnabled()}
-													selectedPercent={discountPercent()}
-													onToggleDiscount={(enabled) => setIsDiscountEnabled(enabled)}
-													onSelectPercent={(percent) => setDiscountPercent(percent)}
-												/>
+												<div class="flex flex-col items-end gap-0.5">
+													<div class="flex items-center gap-1">
+														<span class="text-[20px] font-black font-mono text-white">
+															{pkg.price_stars}
+														</span>
+														<span class="text-[14px]">⭐</span>
+													</div>
+													<span class="text-[10px] font-semibold text-white/40">
+														({(pkg.price_stars / pkg.duration_months).toFixed(0)} ⭐ / mo)
+													</span>
+												</div>
+											</button>
+										);
+									}}
+								</For>
+							</div>
 
-												{/* Pay Action Button */}
+							<Show when={selectedPkg()}>
+								{(() => {
+									const pkg = (packages() || []).find(
+										(p: SubscriptionPackage) => p.id === selectedPkg(),
+									);
+									if (!pkg) return null;
+									const calc = () =>
+										calculateDiscountForPlan(
+											pkg.price_usd,
+											isDiscountEnabled() ? discountPercent() : 0,
+											pkg.price_stars,
+										);
+									const reqCredits =
+										pkg.price_credits ||
+										(pkg.duration_months === 1
+											? 3
+											: pkg.duration_months === 3
+												? 8
+												: 25);
+									const userCreds = wallet.balance() ?? 0;
+									const hasEnoughCredits = userCreds >= reqCredits;
+
+									return (
+										<div class="space-y-3 pt-2">
+											{/* Discount Voucher (Optional) */}
+											<PaymentDiscountCard
+												baseUsd={pkg.price_usd}
+												baseStars={pkg.price_stars}
+												userCoins={balance()}
+												isDiscountEnabled={isDiscountEnabled()}
+												selectedPercent={discountPercent()}
+												onToggleDiscount={(enabled) => setIsDiscountEnabled(enabled)}
+												onSelectPercent={(percent) => setDiscountPercent(percent)}
+											/>
+
+											{/* Primary Stars Payment CTA */}
+											<button
+												type="button"
+												onClick={handleSubscribeStars}
+												disabled={isProcessing()}
+												class="w-full h-14 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[15px] uppercase tracking-wider rounded-[20px] shadow-[0_8px_30px_rgba(251,191,36,0.35)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2.5 border border-amber-300/40"
+											>
+												<span class="text-[20px]">⭐</span>
+												<span>
+													{t('botManage.payWithStars' as any) || 'Pay with Stars'} (
+													{calc().finalStars} ⭐)
+												</span>
+											</button>
+
+											{/* Alternate: Pay with Credits if user has sufficient balance */}
+											<Show when={hasEnoughCredits}>
 												<button
 													type="button"
-													onClick={handleSubscribeStars}
+													onClick={handleSubscribeCredits}
 													disabled={isProcessing()}
-													class="w-full h-15 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-black font-black text-[15px] uppercase tracking-wider rounded-[20px] shadow-[0_10px_25px_rgba(245,158,11,0.3)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2.5 mt-2"
+													class="w-full py-3 rounded-[16px] bg-white/5 hover:bg-white/10 text-white/80 font-bold text-xs flex items-center justify-center gap-2 border border-white/10 transition-colors"
 												>
-													<span class="text-[20px]">⭐</span>
-													<span>
-														{t('botManage.payWithStars' as any) || 'Pay with Stars'} (
-														{calc().finalStars} ⭐)
-													</span>
+													<span>💎</span>
+													<span>Pay with {reqCredits} Credits (Balance: {userCreds})</span>
 												</button>
-											</div>
-										);
-									})()}
-								</Show>
-							</div>
-						)}
+											</Show>
+										</div>
+									);
+								})()}
+							</Show>
+						</div>
 
 						<Show when={isProcessing()}>
 							<div class="absolute inset-0 bg-[#030303]/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center rounded-t-[32px] gap-4">

@@ -351,7 +351,7 @@ func (s *ChannelService) DispatchScrapedPost(ctx context.Context, post ScrapedCh
 			if !matchProjectSource(p, post.ChannelUsername) {
 				continue
 			}
-			if p.Status != "active" || !isProjectSubscriptionValid(p) {
+			if !isProjectSubscriptionValid(p) {
 				continue
 			}
 
@@ -446,22 +446,33 @@ func (s *ChannelService) processScrapedPostForProject(ctx context.Context, p *re
 	}
 
 	var bot *repository.ManagedBot
-	var err error
 	if botID != uuid.Nil {
-		bot, err = s.botRepo.GetBotByID(ctx, botID)
+		bot, _ = s.botRepo.GetBotByID(ctx, botID)
 	}
 	if bot == nil {
-		bot, err = s.botRepo.GetMainBot(ctx)
-	}
-	if err != nil || bot == nil {
-		slog.Error("Failed to resolve bot for scraped project dispatch", "project_id", p.ID, "error", err)
-		return
+		bot, _ = s.botRepo.GetMainBot(ctx)
 	}
 
-	token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-	if err != nil || token == "" {
-		slog.Error("Failed to decrypt bot token for scraped project", "bot_id", bot.ID, "error", err)
+	var token string
+	if bot != nil && len(bot.BotTokenEncrypted) > 0 {
+		token, _ = botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	}
+	if token == "" {
+		token = strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
+		if token == "" {
+			token = strings.TrimSpace(os.Getenv("BOT_TOKEN"))
+		}
+	}
+	if token == "" {
+		slog.Error("Failed to resolve any bot token for scraped project dispatch", "project_id", p.ID)
 		return
+	}
+	if bot == nil {
+		bot = &repository.ManagedBot{
+			ID:          uuid.New(),
+			OwnerUserID: p.OwnerUserID,
+			BotUsername: "iFragmentBot",
+		}
 	}
 	tg := telegram.NewBotAPIClient(token)
 
@@ -611,6 +622,29 @@ func (s *ChannelService) processScrapedPostForProject(ctx context.Context, p *re
 		}
 		_ = s.channelRepo.SavePendingFunnelPost(ctx, &draft)
 		slog.Info("Scraped post saved as pending review draft", "project_id", p.ID, "draft_id", draft.ID)
+
+		// Dispatch Review DM to Owner in the main bot (@iFragment)
+		funnel := &repository.ChannelFunnel{
+			ID:           p.ID,
+			ProjectName:  p.Name,
+			OwnerUserID:  p.OwnerUserID,
+			OutputChatID: targetChatID,
+			IsActive:     true,
+		}
+		destTitle := "Target Channel"
+		if p.Name != "" {
+			destTitle = p.Name
+		}
+		if targetChannelID != nil {
+			if targetChan, err := s.channelRepo.GetChannelByID(ctx, *targetChannelID); err == nil && targetChan != nil && targetChan.ChatTitle != "" {
+				destTitle = targetChan.ChatTitle
+			}
+		}
+		if err := s.sendFunnelReviewToOwner(ctx, bot, funnel, &draft, destTitle); err != nil {
+			slog.Error("Failed to send scraped post review to owner in main bot", "project_id", p.ID, "owner_id", p.OwnerUserID, "error", err)
+		} else {
+			slog.Info("Successfully sent scraped post review to owner in main bot", "project_id", p.ID, "owner_id", p.OwnerUserID)
+		}
 	}
 }
 

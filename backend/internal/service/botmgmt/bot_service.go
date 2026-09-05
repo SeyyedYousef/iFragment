@@ -486,9 +486,30 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 	if len(token) > 10 {
 		maskedToken = token[:8] + "..."
 	}
-	msgTopic := fmt.Sprintf("🤖 <b>ربات جدید ثبت شد!</b>\n\n🆔 <b>آیدی ربات:</b> <code>%d</code>\n👤 <b>یوزرنیم ربات:</b> @%s\n📛 <b>نام ربات:</b> %s\n🧑‍💻 <b>آیدی مالک:</b> <code>%d</code>\n🔑 <b>توکن:</b> <code>%s</code>",
-		bot.BotID, bot.BotUsername, bot.BotName, bot.OwnerUserID, maskedToken)
-	notification.GetAdminNotifier().NotifyNewBot(ctx, msgTopic)
+	timeStr := time.Now().UTC().Format("15:04:05 UTC")
+	msgTopic := fmt.Sprintf(
+		"╔════ 🤖 <b>ثبت و راه‌اندازی ربات جدید</b> ════╗\n\n"+
+			"📛 <b>نام ربات:</b> %s\n"+
+			"👤 <b>یوزرنیم:</b> @%s\n"+
+			"🆔 <b>شناسه عددی ربات:</b> <code>%d</code>\n"+
+			"🧑‍💻 <b>آیدی مالک:</b> <code>%d</code>\n"+
+			"🔑 <b>توکن:</b> <code>%s</code>\n"+
+			"⏰ <b>زمان ثبت:</b> <code>%s</code>\n"+
+			"╚════════════════════════════╝",
+		telegram.EscapeHTML(bot.BotName),
+		telegram.EscapeHTML(bot.BotUsername),
+		bot.BotID,
+		bot.OwnerUserID,
+		telegram.EscapeHTML(maskedToken),
+		timeStr,
+	)
+	kb := telegram.BuildInlineKeyboard([][]telegram.InlineButton{
+		{
+			{Text: "🤖 باز کردن ربات", URL: fmt.Sprintf("https://t.me/%s", bot.BotUsername)},
+			{Text: "👤 مالک ربات", URL: fmt.Sprintf("tg://user?id=%d", bot.OwnerUserID)},
+		},
+	})
+	notification.GetAdminNotifier().NotifyNewBot(ctx, msgTopic, kb)
 
 	return bot, nil
 }
@@ -985,9 +1006,30 @@ func (s *BotService) internalActivateSubscriptionTx(ctx context.Context, tx pgx.
 }
 
 func (s *BotService) notifyOwnerOnSubscription(ctx context.Context, botUsername string, groupTitle string, packageName string, paymentMethod string, userID int64) {
-	msgTopic := fmt.Sprintf("💳 <b>پرداخت جدید (خرید اشتراک)</b>\n\n🤖 <b>ربات:</b> @%s\n👥 <b>گروه:</b> %s\n📦 <b>پکیج:</b> %s\n💵 <b>روش پرداخت:</b> %s\n👤 <b>آیدی کاربر:</b> <code>%d</code>",
-		botUsername, groupTitle, packageName, paymentMethod, userID)
-	notification.GetAdminNotifier().NotifyPayment(ctx, msgTopic)
+	timeStr := time.Now().UTC().Format("15:04:05 UTC")
+	msgTopic := fmt.Sprintf(
+		"╔════ 💳 <b>پرداخت موفق: خرید اشتراک ربات</b> ════╗\n\n"+
+			"🤖 <b>ربات:</b> @%s\n"+
+			"👥 <b>گروه:</b> %s\n"+
+			"📦 <b>پکیج:</b> %s\n"+
+			"💵 <b>روش پرداخت:</b> %s\n"+
+			"👤 <b>کاربر:</b> <code>%d</code>\n"+
+			"⏰ <b>زمان ثبت:</b> <code>%s</code>\n"+
+			"╚════════════════════════════╝",
+		telegram.EscapeHTML(botUsername),
+		telegram.EscapeHTML(groupTitle),
+		telegram.EscapeHTML(packageName),
+		telegram.EscapeHTML(paymentMethod),
+		userID,
+		timeStr,
+	)
+	kb := telegram.BuildInlineKeyboard([][]telegram.InlineButton{
+		{
+			{Text: "🤖 ربات", URL: fmt.Sprintf("https://t.me/%s", botUsername)},
+			{Text: "👤 کاربر", URL: fmt.Sprintf("tg://user?id=%d", userID)},
+		},
+	})
+	notification.GetAdminNotifier().NotifyPayment(ctx, msgTopic, kb)
 
 	owners := os.Getenv("OWNER_TELEGRAM_IDS")
 	if owners == "" {
@@ -1560,6 +1602,28 @@ func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, u
 	channelRepo := repository.NewChannelRepo(s.botRepo.DB(), nil)
 	ch, err := channelRepo.GetChannelByID(ctx, channelID)
 	if err != nil {
+		// Check if it's a Project ID
+		p, pErr := channelRepo.GetProjectByID(ctx, channelID)
+		if pErr == nil && p != nil {
+			pkg := s.GetPackageByID(packageID)
+			if pkg == nil {
+				return fmt.Errorf("invalid package")
+			}
+			now := time.Now()
+			months := pkg.DurationMonths
+			if months <= 0 {
+				months = 1
+			}
+			expiresAt := now.AddDate(0, months, 0)
+			if p.StarsSubscriptionActive && p.StarsExpiresAt != nil && p.StarsExpiresAt.After(now) {
+				expiresAt = p.StarsExpiresAt.AddDate(0, months, 0)
+			}
+			err := channelRepo.UpdateProjectSubscription(ctx, p.ID, "active", true, &expiresAt)
+			if err == nil {
+				s.notifyOwnerOnSubscription(context.Background(), "iFragmentBot", p.Name, pkg.Name, "Telegram Stars (Project)", userID)
+			}
+			return err
+		}
 		return err
 	}
 
@@ -1605,6 +1669,33 @@ func (s *BotService) SubscribeChannelWithCredits(ctx context.Context, userID int
 	channelRepo := repository.NewChannelRepo(s.botRepo.DB(), nil)
 	ch, err := channelRepo.GetChannelByID(ctx, channelID)
 	if err != nil {
+		// Check if it's a Project ID
+		p, pErr := channelRepo.GetProjectByID(ctx, channelID)
+		if pErr == nil && p != nil {
+			pkg := s.GetPackageByID(packageID)
+			if pkg == nil {
+				return fmt.Errorf("invalid package: %s", packageID)
+			}
+			requiredCredits := pkg.PriceCredits
+			if requiredCredits <= 0 {
+				requiredCredits = pkg.DurationMonths * 3
+			}
+			intelRepo := repository.NewIntelCreditRepo(s.botRepo.DB())
+			reason := fmt.Sprintf("sub:project:%s", channelID.String())
+			if _, cErr := intelRepo.ConsumeCreditsBatch(ctx, userID, requiredCredits, reason, pkg.ID, ""); cErr != nil {
+				return fmt.Errorf("failed to deduct credits: %w", cErr)
+			}
+			now := time.Now()
+			months := pkg.DurationMonths
+			if months <= 0 {
+				months = 1
+			}
+			expiresAt := now.AddDate(0, months, 0)
+			if p.StarsSubscriptionActive && p.StarsExpiresAt != nil && p.StarsExpiresAt.After(now) {
+				expiresAt = p.StarsExpiresAt.AddDate(0, months, 0)
+			}
+			return channelRepo.UpdateProjectSubscription(ctx, p.ID, "active", true, &expiresAt)
+		}
 		return err
 	}
 

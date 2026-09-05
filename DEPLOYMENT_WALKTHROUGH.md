@@ -228,12 +228,15 @@ BOT_TOKEN=<توکن ربات تلگرام از BotFather>
 OWNER_PASSWORD=<رمز عبور پنل ادمین>
 OWNER_TELEGRAM_IDS=<آیدی عددی تلگرام مالک>
 
-# تاپیک‌های گروه ادمین
+# تاپیک‌های گروه ادمین (Supergroup Forum Topics)
 ADMIN_GROUP_ID=<آیدی عددی گروه ادمین>
 ADMIN_TOPIC_AVM=50
+ADMIN_TOPIC_GIFTS=55
+ADMIN_TOPIC_NUMBERS=56
+ADMIN_TOPIC_PAYMENTS=52
 ADMIN_TOPIC_NEW_BOT=53
 ADMIN_TOPIC_NEW_CHANNEL=54
-ADMIN_TOPIC_PAYMENTS=52
+ADMIN_TOPIC_SYSTEM=99
 
 # سرویس‌های متصل
 TONAPI_KEY=<کلید TonAPI>

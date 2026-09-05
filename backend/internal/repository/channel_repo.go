@@ -2030,7 +2030,10 @@ func (r *ChannelRepo) GetProjectsByOwner(ctx context.Context, ownerUserID int64)
 	}
 	query := `SELECT 
 		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
-		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
+		p.source_channel_id, p.target_channel_id, 
+		COALESCE(p.source_chat_id, sc.chat_id) as source_chat_id, 
+		COALESCE(p.target_chat_id, tc.chat_id) as target_chat_id, 
+		p.pipeline_config, p.created_at, p.updated_at,
 		COALESCE(sc.chat_title, '') as source_title,
 		COALESCE(tc.chat_title, '') as target_title,
 		COALESCE(p.pipeline_config->>'source_channel_identifier', '') as source_username,
@@ -2038,7 +2041,7 @@ func (r *ChannelRepo) GetProjectsByOwner(ctx context.Context, ownerUserID int64)
 	FROM projects p
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
-	WHERE p.owner_user_id = $1
+	WHERE p.owner_user_id = $1 AND (p.status != 'deleted')
 	ORDER BY p.created_at DESC`
 
 	rows, err := r.db.Pool.Query(ctx, query, ownerUserID)
@@ -2068,7 +2071,10 @@ func (r *ChannelRepo) GetProjectByID(ctx context.Context, id uuid.UUID) (*Projec
 	}
 	query := `SELECT 
 		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
-		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
+		p.source_channel_id, p.target_channel_id, 
+		COALESCE(p.source_chat_id, sc.chat_id) as source_chat_id, 
+		COALESCE(p.target_chat_id, tc.chat_id) as target_chat_id, 
+		p.pipeline_config, p.created_at, p.updated_at,
 		COALESCE(sc.chat_title, '') as source_title,
 		COALESCE(tc.chat_title, '') as target_title,
 		COALESCE(p.pipeline_config->>'source_channel_identifier', '') as source_username,
@@ -2099,7 +2105,10 @@ func (r *ChannelRepo) GetProjectsBySourceChatID(ctx context.Context, sourceChatI
 	}
 	query := `SELECT 
 		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
-		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
+		p.source_channel_id, p.target_channel_id, 
+		COALESCE(p.source_chat_id, sc.chat_id) as source_chat_id, 
+		COALESCE(p.target_chat_id, tc.chat_id) as target_chat_id, 
+		p.pipeline_config, p.created_at, p.updated_at,
 		COALESCE(sc.chat_title, '') as source_title,
 		COALESCE(tc.chat_title, '') as target_title,
 		COALESCE(p.pipeline_config->>'source_channel_identifier', '') as source_username,
@@ -2107,7 +2116,7 @@ func (r *ChannelRepo) GetProjectsBySourceChatID(ctx context.Context, sourceChatI
 	FROM projects p
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
-	WHERE p.source_chat_id = $1 AND p.status = 'active'`
+	WHERE (p.source_chat_id = $1 OR sc.chat_id = $1) AND (p.status != 'deleted')`
 
 	rows, err := r.db.Pool.Query(ctx, query, sourceChatID)
 	if err != nil {
@@ -2136,7 +2145,10 @@ func (r *ChannelRepo) GetAllActiveProjects(ctx context.Context) ([]*Project, err
 	}
 	query := `SELECT 
 		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
-		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
+		p.source_channel_id, p.target_channel_id, 
+		COALESCE(p.source_chat_id, sc.chat_id) as source_chat_id, 
+		COALESCE(p.target_chat_id, tc.chat_id) as target_chat_id, 
+		p.pipeline_config, p.created_at, p.updated_at,
 		COALESCE(sc.chat_title, '') as source_title,
 		COALESCE(tc.chat_title, '') as target_title,
 		COALESCE(p.pipeline_config->>'source_channel_identifier', '') as source_username,
@@ -2144,7 +2156,7 @@ func (r *ChannelRepo) GetAllActiveProjects(ctx context.Context) ([]*Project, err
 	FROM projects p
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
-	WHERE p.status = 'active'`
+	WHERE (p.status != 'deleted')`
 
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {

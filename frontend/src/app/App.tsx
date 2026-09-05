@@ -4,7 +4,7 @@ import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { createEffect, ErrorBoundary, For } from 'solid-js';
 import { routes } from '@/app/router/routes.js';
 import { t } from '@/shared/i18n/index.js';
-import { CoinCelebrationOverlay, PageTransition, RewardCelebrationModal } from '@/shared/ui/index.js';
+import { CoinCelebrationOverlay, PageTransition } from '@/shared/ui/index.js';
 import { DemoBanner } from '@/widgets/demo-banner/index.js';
 import { ImpersonationBanner } from '@/widgets/owner/index.js';
 
@@ -101,7 +101,6 @@ const AppLayout = (props: { children?: any }) => {
 			<DeepLinkHandler />
 			{props.children}
 			<CoinCelebrationOverlay />
-			<RewardCelebrationModal />
 		</>
 	);
 };

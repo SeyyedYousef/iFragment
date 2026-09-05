@@ -940,23 +940,51 @@ func (h *UsernameHandler) sendValuationNotification(r *http.Request, u string, r
 		}
 	}
 
+	miniAppURL := os.Getenv("MINI_APP_URL")
+	if miniAppURL == "" {
+		miniAppURL = "https://t.me/iFragmentBot/iFragment"
+	}
+	appLink := fmt.Sprintf("%s?startapp=username_%s", miniAppURL, u)
+	fragmentLink := fmt.Sprintf("https://fragment.com/username/%s", u)
+
+	badgeEmoji := "💎"
+	if result.Rarity.Tier == "Exclusive" || result.Rarity.Tier == "Ultra Rare" {
+		badgeEmoji = "🔥"
+	}
+
+	timeStr := time.Now().UTC().Format("15:04:05 UTC")
+
 	msg := fmt.Sprintf(
-		"🔍 <b>درخواست ارزش‌گذاری یوزرنیم</b>\n\n"+
+		"╔════ 🔍 <b>ارزش‌گذاری هوشمند یوزرنیم (AVM)</b> ════╗\n\n"+
+			"🆔 <b>یوزرنیم:</b> @%s\n"+
 			"👤 <b>کاربر:</b> %s (<code>%s</code>)\n"+
-			"🆔 <b>یوزرنیم:</b> @%s\n\n"+
-			"💳 <b>روش پرداخت:</b> %s\n"+
-			"💰 <b>قیمت نهایی:</b> %s TON\n"+
-			"💵 <b>معادل دلاری:</b> $%s\n"+
-			"💎 <b>کمیابی:</b> %s",
-		telegram.EscapeHTML(userIdent), userIDStr,
+			"💳 <b>نحوه دسترسی:</b> %s\n\n"+
+			"📊 <b>تحلیل مالی AVM:</b>\n"+
+			"├ 💰 <b>قیمت تخمینی:</b> <code>%s TON</code>\n"+
+			"├ 💵 <b>معادل دلاری:</b> <code>$%s</code>\n"+
+			"├ %s <b>سطح کمیابی:</b> <b>%s</b>\n"+
+			"└ 🎯 <b>ضریب اطمینان:</b> <code>%d%%</code>\n\n"+
+			"⏰ <b>زمان ثبت:</b> <code>%s</code>\n"+
+			"╚════════════════════════════╝",
 		telegram.EscapeHTML(u),
+		telegram.EscapeHTML(userIdent), userIDStr,
 		telegram.EscapeHTML(paymentMethodLabel),
 		result.ExpectedTON.StringFixed(2),
 		result.ExpectedUSD.StringFixed(2),
-		result.Rarity.Tier,
+		badgeEmoji, telegram.EscapeHTML(result.Rarity.Tier),
+		result.ConfidenceScore,
+		timeStr,
 	)
 
-	notification.GetAdminNotifier().NotifyAVM(context.Background(), msg)
+	var row []telegram.InlineButton
+	row = append(row, telegram.InlineButton{Text: "🔎 مشاهده در مینی‌اپ", URL: appLink})
+	row = append(row, telegram.InlineButton{Text: "🌐 فرگمنت", URL: fragmentLink})
+	if parsedUserID > 0 {
+		row = append(row, telegram.InlineButton{Text: "👤 کاربر", URL: fmt.Sprintf("tg://user?id=%d", parsedUserID)})
+	}
+	markup := telegram.BuildInlineKeyboard([][]telegram.InlineButton{row})
+
+	notification.GetAdminNotifier().NotifyAVM(context.Background(), msg, markup)
 }
 
 func (h *UsernameHandler) Share(w http.ResponseWriter, r *http.Request) {

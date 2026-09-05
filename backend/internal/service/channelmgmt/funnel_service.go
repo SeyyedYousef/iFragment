@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -43,10 +44,14 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 		projects, pErr := s.channelRepo.GetProjectsBySourceChatID(ctx, chatID)
 		if pErr == nil && len(projects) > 0 {
 			for _, p := range projects {
-				if p.Status == "active" && isProjectSubscriptionValid(p) && p.TargetChatID != nil && *p.TargetChatID != 0 {
+				if isProjectSubscriptionValid(p) && p.TargetChatID != nil && *p.TargetChatID != 0 {
+					var botID uuid.UUID
+					if bot != nil {
+						botID = bot.ID
+					}
 					funnel = &repository.ChannelFunnel{
 						ID:           p.ID,
-						BotID:        bot.ID,
+						BotID:        botID,
 						ProjectName:  p.Name,
 						InputChatID:  chatID,
 						OutputChatID: *p.TargetChatID,
@@ -224,25 +229,23 @@ func (s *ChannelService) ProcessChannelPostForUserbot(ctx context.Context, e tg.
 }
 
 func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, inputMsgID int64, text string, media []repository.FunnelMediaItem, mediaGroupID string, authorID *int64, authorName string) error {
-	// 1. Load Input Channel settings to apply features (Project anchor)
-	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
-	if err != nil {
-		return fmt.Errorf("failed to load input channel details: %w", err)
-	}
-
-	settings, err := s.channelRepo.GetChannelSettings(ctx, sourceChan.ID)
-	if err != nil {
-		return fmt.Errorf("failed to load input channel settings: %w", err)
+	// 1. Load Input/Output Channel settings to apply features (Project anchor)
+	destTitle := "Target Channel"
+	sourceChan, _ := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+	var settings *repository.ChannelSettings
+	if sourceChan != nil {
+		destTitle = sourceChan.ChatTitle
+		settings, _ = s.channelRepo.GetChannelSettings(ctx, sourceChan.ID)
 	}
 
 	var posting PostingSettingsSchema
-	_ = json.Unmarshal(settings.Posting, &posting)
-
 	var general GeneralSettingsSchema
-	_ = json.Unmarshal(settings.General, &general)
-
 	var forwarding ForwardingSettingsSchema
-	_ = json.Unmarshal(settings.Forwarding, &forwarding)
+	if settings != nil {
+		_ = json.Unmarshal(settings.Posting, &posting)
+		_ = json.Unmarshal(settings.General, &general)
+		_ = json.Unmarshal(settings.Forwarding, &forwarding)
+	}
 
 	// Apply Mirror & Forward rules from Settings
 	removeAds := false
@@ -339,13 +342,28 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 	}
 
 	// 7. Send the Review Messages to the Bot Owner (DM)
-	return s.sendFunnelReviewToOwner(ctx, bot, funnel, &draft, sourceChan.ChatTitle)
+	return s.sendFunnelReviewToOwner(ctx, bot, funnel, &draft, destTitle)
 }
 
 func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, draft *repository.PendingFunnelPost, destTitle string) error {
-	token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-	if err != nil {
-		return err
+	// 1. Always prioritize main bot token (@iFragment) so owner receives the DM directly in the official Mini App bot
+	var token string
+	mainBotToken := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
+	if mainBotToken == "" {
+		mainBotToken = strings.TrimSpace(os.Getenv("BOT_TOKEN"))
+	}
+
+	if mainBotToken != "" {
+		token = mainBotToken
+	} else if bot != nil && len(bot.BotTokenEncrypted) > 0 {
+		token, _ = botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	} else if mainBot, err := s.botRepo.GetMainBot(ctx); err == nil && mainBot != nil && len(mainBot.BotTokenEncrypted) > 0 {
+		token, _ = botmgmt.DecryptToken(mainBot.BotTokenEncrypted)
+	}
+
+	if token == "" {
+		slog.Error("sendFunnelReviewToOwner: No valid bot token available to send review to owner")
+		return fmt.Errorf("no bot token available to send funnel review")
 	}
 	tg := telegram.NewBotAPIClient(token)
 
@@ -442,8 +460,12 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 	}
 
 	if sendErr != nil {
-		slog.Error("Failed to send funnel live preview to owner DM", "owner_id", funnel.OwnerUserID, "error", sendErr)
-		return sendErr
+		slog.Warn("Failed to send funnel live preview media to owner DM, falling back to text preview", "owner_id", funnel.OwnerUserID, "error", sendErr)
+		fallbackText := activeText
+		if strings.TrimSpace(fallbackText) == "" && len(draft.MediaPayload) > 0 {
+			fallbackText = fmt.Sprintf("📷 [Media Attachment: %s]", draft.MediaPayload[0].Type)
+		}
+		_, _ = tg.SendMessageWithMarkup(ctx, funnel.OwnerUserID, fallbackText, previewMarkup, nil, "HTML")
 	}
 
 	// Message 2: Advanced Interactive Inline Keyboard Editor Control Panel
@@ -573,9 +595,21 @@ func generateAIBVariations(ctx context.Context, text, provider, apiKey, model, s
 
 // HandleFunnelCallback processes click interactions on the Review DM Control Panel.
 func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCallbackData, bot *repository.ManagedBot) error {
-	token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-	if err != nil {
-		return err
+	var token string
+	mainBotToken := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
+	if mainBotToken == "" {
+		mainBotToken = strings.TrimSpace(os.Getenv("BOT_TOKEN"))
+	}
+	if mainBotToken != "" {
+		token = mainBotToken
+	} else if bot != nil && len(bot.BotTokenEncrypted) > 0 {
+		token, _ = botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	} else if mainBot, err := s.botRepo.GetMainBot(ctx); err == nil && mainBot != nil && len(mainBot.BotTokenEncrypted) > 0 {
+		token, _ = botmgmt.DecryptToken(mainBot.BotTokenEncrypted)
+	}
+
+	if token == "" {
+		return fmt.Errorf("no bot token available for callback query")
 	}
 	tg := telegram.NewBotAPIClient(token)
 
@@ -597,8 +631,28 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 	}
 
 	funnel, err := s.channelRepo.GetFunnelByID(ctx, draft.FunnelID)
-	if err != nil {
-		return err
+	if err != nil || funnel == nil {
+		// Fallback to projects table
+		p, pErr := s.channelRepo.GetProjectByID(ctx, draft.FunnelID)
+		if pErr == nil && p != nil {
+			var outChatID int64
+			if p.TargetChatID != nil && *p.TargetChatID != 0 {
+				outChatID = *p.TargetChatID
+			} else if p.TargetChannelID != nil {
+				if tc, tcErr := s.channelRepo.GetChannelByID(ctx, *p.TargetChannelID); tcErr == nil && tc != nil {
+					outChatID = tc.ChatID
+				}
+			}
+			funnel = &repository.ChannelFunnel{
+				ID:           p.ID,
+				ProjectName:  p.Name,
+				OutputChatID: outChatID,
+				OwnerUserID:  p.OwnerUserID,
+				IsActive:     isProjectSubscriptionValid(p),
+			}
+		} else {
+			return err
+		}
 	}
 
 	lang := "en"
@@ -984,38 +1038,42 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	draft.PublishedMessageID = &pubMsgID
 	_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
 	now := time.Now()
-	channelPost := repository.ChannelPost{
-		ChannelID:         sourceChan.ID, // Track against Project (Input)
-		TelegramMessageID: pubMsgID,
-		AuthorUserID:      draft.OriginalAuthorID,
-		Text:              activeText,
-		HasMedia:          len(draft.MediaPayload) > 0,
-		PostedAt:          &now,
-	}
-	_ = s.channelRepo.CreatePost(ctx, &channelPost)
+	if sourceChan != nil {
+		channelPost := repository.ChannelPost{
+			ChannelID:         sourceChan.ID, // Track against Project (Input)
+			TelegramMessageID: pubMsgID,
+			AuthorUserID:      draft.OriginalAuthorID,
+			Text:              activeText,
+			HasMedia:          len(draft.MediaPayload) > 0,
+			PostedAt:          &now,
+		}
+		_ = s.channelRepo.CreatePost(ctx, &channelPost)
 
-	// 8. Log Audit Trails
-	auditLog := repository.ChannelAuditLog{
-		ChannelID: sourceChan.ID, // Track against Project (Input)
-		ActorID:   funnel.OwnerUserID,
-		Action:    "funnel_post_publish",
+		// 8. Log Audit Trails
+		auditLog := repository.ChannelAuditLog{
+			ChannelID: sourceChan.ID, // Track against Project (Input)
+			ActorID:   funnel.OwnerUserID,
+			Action:    "funnel_post_publish",
+		}
+		meta, _ := json.Marshal(map[string]interface{}{
+			"original_author_id":   draft.OriginalAuthorID,
+			"original_author_name": draft.OriginalAuthorName,
+			"input_message_id":     draft.InputMessageID,
+			"funnel_id":            draft.FunnelID.String(),
+			"published_message_id": pubMsgID,
+		})
+		auditLog.Metadata = meta
+		_ = s.channelRepo.LogAudit(ctx, &auditLog)
 	}
-	meta, _ := json.Marshal(map[string]interface{}{
-		"original_author_id":   draft.OriginalAuthorID,
-		"original_author_name": draft.OriginalAuthorName,
-		"input_message_id":     draft.InputMessageID,
-		"funnel_id":            draft.FunnelID.String(),
-		"published_message_id": pubMsgID,
-	})
-	auditLog.Metadata = meta
-	_ = s.channelRepo.LogAudit(ctx, &auditLog)
 
 	lang := "en"
-	settings, err := s.channelRepo.GetChannelSettings(ctx, sourceChan.ID)
-	if err == nil && settings != nil {
-		var general GeneralSettingsSchema
-		if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
-			lang = general.Language
+	if sourceChan != nil {
+		settings, err := s.channelRepo.GetChannelSettings(ctx, sourceChan.ID)
+		if err == nil && settings != nil {
+			var general GeneralSettingsSchema
+			if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+				lang = general.Language
+			}
 		}
 	}
 	_, _ = tg.SendMessageWithResult(ctx, funnel.OwnerUserID, i18n.T(lang, "funnel.published", map[string]interface{}{"id": draft.ID.String()}), nil, nil, "HTML")

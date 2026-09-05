@@ -12,7 +12,7 @@ import {
 } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { triggerRewardCelebration } from '@/shared/ui/index.js';
+import { flyCoinsToBalance } from '@/shared/ui/index.js';
 
 export const TasksView: Component = () => {
 	const [taskErrors, setTaskErrors] = createSignal<Record<string, string>>({});
@@ -88,17 +88,16 @@ export const TasksView: Component = () => {
 		try {
 			const result = await completeTask(key);
 			if (result) {
-				const prev = balance();
 				tasksQuery.refetch();
 				await syncProfileStats();
 				const rewardAmount = task.reward_frg || 1000;
-				triggerRewardCelebration({
-					reward: rewardAmount,
-					title: task.title || 'TASK COMPLETED!',
-					subtitle: 'Task reward successfully added to your balance',
-					category: 'task',
-					previousBalance: prev,
-					newBalance: prev + rewardAmount,
+				const sx = event?.clientX ?? window.innerWidth / 2;
+				const sy = event?.clientY ?? window.innerHeight / 2;
+				flyCoinsToBalance({
+					amount: rewardAmount,
+					startX: sx,
+					startY: sy,
+					targetSelector: '#airdrop-tasks-balance',
 				});
 			} else {
 				throw new Error('empty_response');
@@ -171,18 +170,15 @@ export const TasksView: Component = () => {
 		try {
 			const result = await completeTask(key, answer);
 			if (result) {
-				const prev = balance();
 				haptic.notify('success');
 				tasksQuery.refetch();
 				await syncProfileStats();
 				const rewardAmount = task.reward_frg || 5000;
-				triggerRewardCelebration({
-					reward: rewardAmount,
-					title: 'QUIZ COMPLETED!',
-					subtitle: 'Knowledge puzzle solved successfully',
-					category: 'quiz',
-					previousBalance: prev,
-					newBalance: prev + rewardAmount,
+				flyCoinsToBalance({
+					amount: rewardAmount,
+					startX: window.innerWidth / 2,
+					startY: window.innerHeight / 2,
+					targetSelector: '#airdrop-tasks-balance',
 				});
 				setActiveQuizTask(null);
 			} else {
@@ -219,18 +215,15 @@ export const TasksView: Component = () => {
 		try {
 			const success = await claimDailyCombo(answer);
 			if (success) {
-				const prev = balance();
 				haptic.notify('success');
 				comboQuery.refetch();
 				await syncProfileStats();
 				const rewardAmount = comboQuery.data?.reward || 10000;
-				triggerRewardCelebration({
-					reward: rewardAmount,
-					title: 'DAILY COMBO CRACKED!',
-					subtitle: 'Daily secret cipher cracked successfully',
-					category: 'combo',
-					previousBalance: prev,
-					newBalance: prev + rewardAmount,
+				flyCoinsToBalance({
+					amount: rewardAmount,
+					startX: window.innerWidth / 2,
+					startY: window.innerHeight / 2,
+					targetSelector: '#airdrop-tasks-balance',
 				});
 				setComboInput('');
 			}
@@ -294,6 +287,24 @@ export const TasksView: Component = () => {
 			</div>
 
 			<div class="max-w-md mx-auto relative z-10 pt-3 flex flex-col gap-4">
+				{/* ═══════ TOP BALANCE PILL ═══════ */}
+				<div class="px-5 flex items-center justify-center">
+					<div
+						id="airdrop-tasks-balance"
+						class="flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#12141C]/90 border border-white/10 shadow-[0_6px_20px_rgba(0,0,0,0.6)] backdrop-blur-xl transition-all duration-200 group"
+					>
+						<div class="w-6 h-6 rounded-full bg-gradient-to-b from-[#FFD700] via-[#F7B733] to-[#FC4A1A] flex items-center justify-center shrink-0 border border-[#FFE885] shadow-inner">
+							<span class="text-[#4A2500] text-[13px] font-black leading-none select-none">¢</span>
+						</div>
+						<div class="flex items-center gap-2 font-mono">
+							<span class="text-white/50 text-[11px] font-bold uppercase tracking-wider">BALANCE</span>
+							<span class="text-white font-black text-[18px] tabular-nums tracking-tight">
+								{balance().toLocaleString('en-US')}
+							</span>
+						</div>
+					</div>
+				</div>
+
 				{/* ═══════ HEADER ═══════ */}
 				<div class="px-5 flex flex-col items-center text-center">
 					<div class="w-16 h-16 bg-gradient-to-br from-[#12141C] to-[#08090D] rounded-[20px] border-[1.5px] border-[#3390ec]/30 flex items-center justify-center mb-3 shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_30px_rgba(51,144,236,0.2)]">

@@ -314,9 +314,34 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		return nil, fmt.Errorf("failed to save channel to database: %w", err)
 	}
 
-	msgTopic := fmt.Sprintf("📢 <b>کانال جدید ثبت شد!</b>\n\n🆔 <b>آیدی کانال:</b> <code>%d</code>\n📌 <b>نام کانال:</b> %s\n👥 <b>تعداد اعضا:</b> %d\n👤 <b>توسط کاربر (آیدی):</b> <code>%d</code>\n🤖 <b>آیدی ربات:</b> <code>%s</code>",
-		ch.ChatID, ch.ChatTitle, ch.SubscribersCount, ownerUserID, bot.ID.String())
-	notification.GetAdminNotifier().NotifyNewChannel(ctx, msgTopic)
+	timeStr := time.Now().UTC().Format("15:04:05 UTC")
+	chanLink := ""
+	if chatDetail.Username != nil && *chatDetail.Username != "" {
+		chanLink = "https://t.me/" + *chatDetail.Username
+	}
+	msgTopic := fmt.Sprintf(
+		"╔════ 📢 <b>اتصال کانال جدید تلگرام</b> ════╗\n\n"+
+			"📌 <b>نام کانال:</b> %s\n"+
+			"🆔 <b>آیدی کانال:</b> <code>%d</code>\n"+
+			"👥 <b>تعداد اعضا:</b> <code>%d</code>\n"+
+			"👤 <b>مدیر متصل‌کننده:</b> <code>%d</code>\n"+
+			"🤖 <b>ربات مدیریت:</b> @%s\n"+
+			"⏰ <b>زمان اتصال:</b> <code>%s</code>\n"+
+			"╚════════════════════════════╝",
+		telegram.EscapeHTML(ch.ChatTitle),
+		ch.ChatID,
+		ch.SubscribersCount,
+		ownerUserID,
+		telegram.EscapeHTML(bot.BotUsername),
+		timeStr,
+	)
+	var row []telegram.InlineButton
+	if chanLink != "" {
+		row = append(row, telegram.InlineButton{Text: "📢 مشاهده کانال", URL: chanLink})
+	}
+	row = append(row, telegram.InlineButton{Text: "👤 مدیر کانال", URL: fmt.Sprintf("tg://user?id=%d", ownerUserID)})
+	kb := telegram.BuildInlineKeyboard([][]telegram.InlineButton{row})
+	notification.GetAdminNotifier().NotifyNewChannel(ctx, msgTopic, kb)
 
 	// 8. Log audit log
 	slog.Info("Channel connected successfully", "channel_id", ch.ID, "title", chatDetail.Title)
@@ -435,9 +460,29 @@ func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, ou
 		TargetID: &target,
 	})
 
-	msgTopic := fmt.Sprintf("🔀 <b>فانل (انتقال پیام) جدید ایجاد شد!</b>\n\n🆔 <b>آیدی فانل:</b> <code>%s</code>\n📁 <b>نام پروژه:</b> %s\n📥 <b>کانال مبدا:</b> %s (<code>%d</code>)\n📤 <b>کانال مقصد:</b> %s (<code>%d</code>)\n👤 <b>توسط کاربر:</b> <code>%d</code>\n🤖 <b>آیدی ربات:</b> <code>%s</code>",
-		f.ID.String(), f.ProjectName, inChan.ChatTitle, inChan.ChatID, outChan.ChatTitle, outChan.ChatID, ownerUserID, outChan.BotID.String())
-	notification.GetAdminNotifier().NotifyNewChannel(ctx, msgTopic)
+	timeStr := time.Now().UTC().Format("15:04:05 UTC")
+	msgTopic := fmt.Sprintf(
+		"╔════ 🔀 <b>ایجاد فانل انتقال پیام کانال</b> ════╗\n\n"+
+			"📁 <b>نام پروژه:</b> %s\n"+
+			"🆔 <b>آیدی فانل:</b> <code>%s</code>\n"+
+			"📥 <b>مبدا:</b> %s (<code>%d</code>)\n"+
+			"📤 <b>مقصد:</b> %s (<code>%d</code>)\n"+
+			"👤 <b>کاربر:</b> <code>%d</code>\n"+
+			"⏰ <b>زمان ایجاد:</b> <code>%s</code>\n"+
+			"╚════════════════════════════╝",
+		telegram.EscapeHTML(f.ProjectName),
+		f.ID.String(),
+		telegram.EscapeHTML(inChan.ChatTitle), inChan.ChatID,
+		telegram.EscapeHTML(outChan.ChatTitle), outChan.ChatID,
+		ownerUserID,
+		timeStr,
+	)
+	kb := telegram.BuildInlineKeyboard([][]telegram.InlineButton{
+		{
+			{Text: "👤 کاربر", URL: fmt.Sprintf("tg://user?id=%d", ownerUserID)},
+		},
+	})
+	notification.GetAdminNotifier().NotifyNewChannel(ctx, msgTopic, kb)
 
 	return f, nil
 }

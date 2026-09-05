@@ -1,13 +1,21 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/middleware"
+	"ifragment-backend/internal/service/notification"
 	"ifragment-backend/internal/service/numbers"
+	"ifragment-backend/internal/service/numbers/nvengine"
 )
 
 type NumbersHandler struct {
@@ -78,6 +86,7 @@ func (h *NumbersHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "valuation failed", err)
 		return
 	}
+	h.sendNumberNotification(r, val, "free")
 	RespondJSON(w, http.StatusOK, val)
 }
 
@@ -102,6 +111,7 @@ func (h *NumbersHandler) UnlockWithCoins(w http.ResponseWriter, r *http.Request)
 		RespondError(w, r, http.StatusBadRequest, "failed to unlock with coins", err)
 		return
 	}
+	h.sendNumberNotification(r, val, "coins")
 	RespondJSON(w, http.StatusOK, val)
 }
 
@@ -126,6 +136,7 @@ func (h *NumbersHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request
 		RespondError(w, r, http.StatusBadRequest, "failed to unlock with credit", err)
 		return
 	}
+	h.sendNumberNotification(r, val, "credit")
 	RespondJSON(w, http.StatusOK, val)
 }
 
@@ -326,5 +337,117 @@ func (h *NumbersHandler) GetNumbersList(w http.ResponseWriter, r *http.Request) 
 	RespondJSON(w, http.StatusOK, result)
 }
 
+func (h *NumbersHandler) sendNumberNotification(r *http.Request, val *nvengine.NumberValuation, paymentMethod string) {
+	if val == nil {
+		return
+	}
+	ctx := r.Context()
+	userIDStr := "ناشناس"
+	userIdent := "کاربر ناشناس"
+	var parsedUserID int64
 
+	if uid, err := middleware.GetUserID(ctx); err == nil && uid > 0 {
+		parsedUserID = uid
+		userIDStr = strconv.FormatInt(uid, 10)
+	}
 
+	initData := r.Header.Get("X-Telegram-Init-Data")
+	if initData != "" {
+		values, _ := url.ParseQuery(initData)
+		userData := values.Get("user")
+		if userData != "" {
+			var userObj map[string]interface{}
+			if err := json.Unmarshal([]byte(userData), &userObj); err == nil {
+				if idVal, ok := userObj["id"]; ok {
+					switch v := idVal.(type) {
+					case float64:
+						parsedUserID = int64(v)
+						userIDStr = strconv.FormatInt(int64(v), 10)
+					case int64:
+						parsedUserID = v
+						userIDStr = strconv.FormatInt(v, 10)
+					}
+				}
+				if uName, ok := userObj["username"].(string); ok && uName != "" {
+					userIdent = "@" + uName
+				} else if first, ok := userObj["first_name"].(string); ok && first != "" {
+					userIdent = first
+				}
+			}
+		}
+	}
+
+	paymentMethodLabel := "📱 استعلام اولیه"
+	switch paymentMethod {
+	case "coins":
+		paymentMethodLabel = "🪙 پرداخت با سکه (7,500 FRG)"
+	case "credit":
+		paymentMethodLabel = "⚡️ کردیت تحلیلی (1 Intel Credit)"
+	case "stars":
+		paymentMethodLabel = "⭐️ استارز تلگرام (Telegram Stars)"
+	case "cached":
+		paymentMethodLabel = "📑 گزارش فعال قبلی (24h)"
+	}
+
+	miniAppURL := os.Getenv("MINI_APP_URL")
+	if miniAppURL == "" {
+		miniAppURL = "https://t.me/iFragmentBot/iFragment"
+	}
+	cleanNum := strings.TrimPrefix(val.Number, "+")
+	appLink := fmt.Sprintf("%s?startapp=number_%s", miniAppURL, cleanNum)
+	fragmentNumLink := val.FragmentDirectURL
+	if fragmentNumLink == "" {
+		fragmentNumLink = fmt.Sprintf("https://fragment.com/number/%s", cleanNum)
+	}
+
+	clubLabel := val.CategoryClubFa
+	if clubLabel == "" {
+		clubLabel = val.CategoryClub
+	}
+	if clubLabel == "" {
+		clubLabel = "کلکسیونی عمومی"
+	}
+
+	badge := "📱"
+	if val.GlobalRank > 0 && val.GlobalRank <= 1000 {
+		badge = "🔥"
+	} else if val.ExpectedUSD >= 500 {
+		badge = "💎"
+	}
+
+	timeStr := time.Now().UTC().Format("15:04:05 UTC")
+
+	msg := fmt.Sprintf(
+		"╔════ 📱 <b>ارزش‌گذاری شماره کلکسیونی (+888)</b> ════╗\n\n"+
+			"📞 <b>شماره:</b> <code>%s</code>\n"+
+			"👤 <b>کاربر:</b> %s (<code>%s</code>)\n"+
+			"💳 <b>نحوه دسترسی:</b> %s\n\n"+
+			"📊 <b>ارزیابی ارزش الگوریتمی:</b>\n"+
+			"├ 💰 <b>قیمت تخمینی:</b> <code>%s TON</code>\n"+
+			"├ 💵 <code>معادل دلاری:</code> <code>$%.2f</code>\n"+
+			"├ %s <b>دسته/کلوب:</b> <b>%s</b>\n"+
+			"├ 🏆 <b>رتبه کمیابی جهانی:</b> <code>#%d</code>\n"+
+			"└ 🎯 <b>ضریب اطمینان:</b> <code>%d%%</code>\n\n"+
+			"⏰ <b>زمان ثبت:</b> <code>%s</code>\n"+
+			"╚════════════════════════════╝",
+		telegram.EscapeHTML(val.DisplayNumber),
+		telegram.EscapeHTML(userIdent), userIDStr,
+		telegram.EscapeHTML(paymentMethodLabel),
+		val.ExpectedTON.StringFixed(2),
+		val.ExpectedUSD,
+		badge, telegram.EscapeHTML(clubLabel),
+		val.GlobalRank,
+		val.ConfidenceScore,
+		timeStr,
+	)
+
+	var row []telegram.InlineButton
+	row = append(row, telegram.InlineButton{Text: "📱 مشاهده در مینی‌اپ", URL: appLink})
+	row = append(row, telegram.InlineButton{Text: "🌐 فرگمنت", URL: fragmentNumLink})
+	if parsedUserID > 0 {
+		row = append(row, telegram.InlineButton{Text: "👤 کاربر", URL: fmt.Sprintf("tg://user?id=%d", parsedUserID)})
+	}
+	markup := telegram.BuildInlineKeyboard([][]telegram.InlineButton{row})
+
+	notification.GetAdminNotifier().NotifyNumber(context.Background(), msg, markup)
+}
