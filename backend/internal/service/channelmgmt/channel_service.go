@@ -49,12 +49,16 @@ type ChannelService struct {
 
 	autoResponderService *AutoResponderService
 
-	lastBioUpdate sync.Map // map[uuid.UUID]time.Time
+	lastBioUpdate   sync.Map // map[uuid.UUID]time.Time
+	lastBioContent  sync.Map // map[uuid.UUID]string
+	lastTitleContent sync.Map // map[uuid.UUID]string
 
 	cryptoSvc *cryptoprice.CryptoPriceService
 
 	dnsLookup     func(host string) ([]net.IP, error)
 	userbotJoiner func(ctx context.Context, identifier string) error
+
+	publicScraper *PublicChannelScraper
 }
 
 func NewChannelService(
@@ -63,7 +67,7 @@ func NewChannelService(
 	auditRepo *repository.AuditRepo,
 	cryptoSvc *cryptoprice.CryptoPriceService,
 ) *ChannelService {
-	return &ChannelService{
+	svc := &ChannelService{
 		channelRepo:          channelRepo,
 		botRepo:              botRepo,
 		auditRepo:            auditRepo,
@@ -75,6 +79,8 @@ func NewChannelService(
 
 		dnsLookup: net.LookupIP,
 	}
+	svc.publicScraper = NewPublicChannelScraper(svc, channelRepo, botRepo)
+	return svc
 }
 
 // SetUserbotJoiner sets the callback for joining channels via the Userbot
@@ -1469,7 +1475,12 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 				signedText := s.ApplyWatermarkAndSignature(ctx, postText, ch.ID)
 				if signedText != postText && signedText != "" {
 					if errText := tg.EditMessageText(ctx, ch.ChatID, messageID, signedText); errText != nil {
-						slog.Error("Failed to edit channel post text with signature/watermark", "channel_id", ch.ID, "chat_id", ch.ChatID, "message_id", messageID, "error", errText)
+						// Fallback: Post may be a photo, video, or document with caption
+						if errCap := tg.EditMessageCaptionWithMarkup(ctx, ch.ChatID, messageID, signedText, nil); errCap != nil {
+							slog.Error("Failed to edit channel post text/caption with signature/watermark", "channel_id", ch.ID, "chat_id", ch.ChatID, "message_id", messageID, "error_text", errText, "error_caption", errCap)
+						} else {
+							slog.Info("Successfully applied signature/watermark to channel post caption", "channel_id", ch.ID, "message_id", messageID)
+						}
 					} else {
 						slog.Info("Successfully applied signature/watermark to channel post", "channel_id", ch.ID, "message_id", messageID)
 					}
@@ -1699,6 +1710,13 @@ func (s *ChannelService) StartBackgroundTasks(ctx context.Context) {
 	GoSafe(func() {
 		defer s.wg.Done()
 		s.expirationWorker(ctx)
+	})
+	s.wg.Add(1)
+	GoSafe(func() {
+		defer s.wg.Done()
+		if s.publicScraper != nil {
+			s.publicScraper.ScraperWorker(ctx)
+		}
 	})
 }
 

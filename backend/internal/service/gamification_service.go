@@ -302,13 +302,13 @@ var dailyRewards = map[int]struct {
 	Frg float64 // Labeled Frg for JSON compatibility, actually represents Coins
 	Xp  int
 }{
-	1: {Frg: 200, Xp: 10},
-	2: {Frg: 400, Xp: 20},
-	3: {Frg: 800, Xp: 50},
-	4: {Frg: 1500, Xp: 100},
-	5: {Frg: 3000, Xp: 200},
-	6: {Frg: 5000, Xp: 300},
-	7: {Frg: 8000, Xp: 500},
+	1: {Frg: 500, Xp: 10},
+	2: {Frg: 1000, Xp: 20},
+	3: {Frg: 2500, Xp: 50},
+	4: {Frg: 5000, Xp: 100},
+	5: {Frg: 10000, Xp: 200},
+	6: {Frg: 25000, Xp: 300},
+	7: {Frg: 50000, Xp: 500},
 }
 
 // GetDailyStatus returns status of daily calendar claims
@@ -1990,6 +1990,11 @@ func (s *GamificationService) ClaimDailyCombo(ctx context.Context, userID int64,
 			'{"source": "daily_combo"}'::jsonb, CURRENT_TIMESTAMP
 		)
 	`, userID, combo.RewardAmount, beforeCoins, afterCoins, combo.ID)
+
+	_, _ = tx.Exec(ctx, `
+		INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
+		VALUES ($1, $2, $2, 'daily_combo', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '15 days', FALSE)
+	`, userID, float64(combo.RewardAmount))
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("transaction commit failed: %w", err)

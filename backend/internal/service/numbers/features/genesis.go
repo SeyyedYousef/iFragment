@@ -25,15 +25,33 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Supreme Godhead (#1 ATH)",
 			TitleFa:           "شماره جنسیس سرور شماره‌های جهان (+888 8888)",
 			Description:       "Absolute #1 highest recorded valuation in Telegram history with 7 consecutive 8s",
-			BetaGenesis:       2.50, // exp(10.6454 + 2.50) ≈ ~510,000 TON
-			EstimatedFloorTON: 450000.0,
+			BetaGenesis:       2.95, // exp(10.6454 + 2.95) ≈ ~802,000 TON
+			EstimatedFloorTON: 750000.0,
 		}, true
 	}
 
-	// 2. Tier 1: Anchor Kings (+888 8000, 8777, 8999, 8008, 8800, 8880, 8080)
+	// 2. Tier 1A: Supreme Triple/Pristine Kings (+888 8777, 8666, 8999, 8000, 8222, 8588)
+	// These command verified ATH auction prices between 550,000 and 680,000+ TON
+	supremeKings := map[string]bool{
+		"8777": true, "8666": true, "8999": true, "8000": true,
+		"8222": true, "8588": true, "8111": true, "8333": true, "8555": true,
+	}
+	if supremeKings[suffix] {
+		return GenesisMeta{
+			IsGenesis:         true,
+			TierKey:           "GENESIS_SUPREME_KING",
+			TitleEn:           "Genesis Supreme Anchor King",
+			TitleFa:           "پادشاه لنگرگاه جنسیس (رده شاهکار)",
+			Description:       "Top-tier Genesis holy artifact with sacred triple repetition or origin milestone",
+			BetaGenesis:       2.75, // exp(10.6454 + 2.75) ≈ ~656,900 TON
+			EstimatedFloorTON: 600000.0,
+		}, true
+	}
+
+	// 3. Tier 1B: Anchor Kings (+888 8008, 8800, 8880, 8080, 8881, 8889)
 	anchorKings := map[string]bool{
-		"8000": true, "8777": true, "8999": true, "8008": true,
-		"8800": true, "8880": true, "8080": true, "8881": true, "8889": true,
+		"8008": true, "8800": true, "8880": true, "8080": true,
+		"8881": true, "8889": true, "8882": true, "8887": true,
 	}
 	if anchorKings[suffix] {
 		return GenesisMeta{
@@ -41,13 +59,13 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TierKey:           "GENESIS_ANCHOR_KING",
 			TitleEn:           "Genesis Anchor King",
 			TitleFa:           "پادشاه لنگرگاه جنسیس",
-			Description:       "Top-tier Genesis holy milestone with pristine zeroes or sevens/nines",
-			BetaGenesis:       1.15, // exp(10.6454 + 1.15) ≈ ~132,000 TON
-			EstimatedFloorTON: 100000.0,
+			Description:       "Top-tier Genesis holy milestone with pristine zeroes or double-pair bookends",
+			BetaGenesis:       2.20, // exp(10.6454 + 2.20) ≈ ~380,000 TON
+			EstimatedFloorTON: 350000.0,
 		}, true
 	}
 
-	// 3. Tier 2: Symmetric & Inversion Pairs (+888 8118, 8228, 8338, 8778, 8998, 8181, 8787, 8989)
+	// 4. Tier 2: Symmetric & Inversion Pairs (+888 8118, 8228, 8338, 8778, 8998, 8181, 8787, 8989)
 	symmetricPairs := map[string]bool{
 		"8118": true, "8228": true, "8338": true, "8448": true, "8558": true,
 		"8668": true, "8778": true, "8998": true, "8181": true, "8282": true,
@@ -60,12 +78,12 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Symmetric Pair",
 			TitleFa:           "جنسیس متقارن و جفت‌های آینه‌ای",
 			Description:       "Flawless 2-digit mirror or alternating symmetry inside 4-digit Genesis space",
-			BetaGenesis:       0.55, // exp(10.6454 + 0.55) ≈ ~72,000 TON
-			EstimatedFloorTON: 60000.0,
+			BetaGenesis:       1.65, // exp(10.6454 + 1.65) ≈ ~218,000 TON
+			EstimatedFloorTON: 180000.0,
 		}, true
 	}
 
-	// 4. Tier 3: Consecutive Ladders (+888 8123, 8765, 8901, 8012, 8567, 8678, 8456)
+	// 5. Tier 3: Consecutive Ladders (+888 8123, 8765, 8901, 8012, 8567, 8678, 8456)
 	ladders := map[string]bool{
 		"8123": true, "8765": true, "8901": true, "8012": true,
 		"8321": true, "8567": true, "8678": true, "8456": true,
@@ -77,16 +95,15 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Ladder Sequence",
 			TitleFa:           "جنسیس پله‌ای متوالی",
 			Description:       "Contiguous ascending or descending ladder sequence within Genesis range",
-			BetaGenesis:       0.35, // exp(10.6454 + 0.35) ≈ ~60,000 TON
-			EstimatedFloorTON: 52000.0,
+			BetaGenesis:       1.35, // exp(10.6454 + 1.35) ≈ ~162,000 TON
+			EstimatedFloorTON: 130000.0,
 		}, true
 	}
 
-	// 5. Tier 4: Cultural Lucky Genesis (+888 8168, 8520, 8314, 8688, 8868, 8988, 8788, 8518, 8666, 8111, 8222, 8333, 8555)
+	// 6. Tier 4: Cultural Lucky Genesis (+888 8168, 8520, 8314, 8688, 8868, 8988, 8788, 8518)
 	culturalLucky := map[string]bool{
 		"8168": true, "8520": true, "8314": true, "8688": true, "8868": true,
-		"8988": true, "8788": true, "8518": true, "8666": true, "8111": true,
-		"8222": true, "8333": true, "8555": true,
+		"8988": true, "8788": true, "8518": true,
 	}
 	if culturalLucky[suffix] {
 		return GenesisMeta{
@@ -95,12 +112,12 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Cultural Lucky Code",
 			TitleFa:           "جنسیس نمادهای خوش‌یمن جهانی",
 			Description:       "High-demand Chinese/Global cultural fortune code in Genesis format",
-			BetaGenesis:       0.22, // exp(10.6454 + 0.22) ≈ ~52,000 TON
-			EstimatedFloorTON: 46000.0,
+			BetaGenesis:       1.10, // exp(10.6454 + 1.10) ≈ ~126,000 TON
+			EstimatedFloorTON: 100000.0,
 		}, true
 	}
 
-	// 6. Tier 5: Single Non-8 Genesis (+888 8001 .. 8009, 8010, 8020, 8090, 8100..8900)
+	// 7. Tier 5: Single Non-8 Genesis (+888 8001 .. 8009, 8010, 8020, 8090, 8100..8900)
 	isSingleNonEight := false
 	nonEightCount := 0
 	for _, ch := range suffix[1:] {
@@ -122,12 +139,12 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TitleEn:           "Genesis Single Offset Milestone",
 			TitleFa:           "جنسیس تک‌رقمی و مایلستون‌های نخستین",
 			Description:       "First-cohort Genesis ordinal milestone with minimum entropy (+888 8001..8009)",
-			BetaGenesis:       0.12, // exp(10.6454 + 0.12) ≈ ~47,300 TON
-			EstimatedFloorTON: 44000.0,
+			BetaGenesis:       0.65, // exp(10.6454 + 0.65) ≈ ~80,000 TON
+			EstimatedFloorTON: 70000.0,
 		}, true
 	}
 
-	// 7. Tier 6: Baseline Genesis (Remaining standard 4-digit numbers)
+	// 8. Tier 6: Baseline Genesis (Remaining standard 4-digit numbers)
 	return GenesisMeta{
 		IsGenesis:         true,
 		TierKey:           "GENESIS_STANDARD_BASELINE",

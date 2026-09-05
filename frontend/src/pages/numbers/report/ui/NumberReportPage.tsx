@@ -132,6 +132,7 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 	let patternLabel = '';
 
 	if (
+		suffix.length === 4 ||
 		suffix.includes('8888') ||
 		suffix.includes('7777') ||
 		suffix.includes('0000') ||
@@ -141,7 +142,7 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		suffix === '8888'
 	) {
 		tier = 'GRAIL';
-		patternLabel = 'GRAIL TIER (Quad Repeat / Genesis)';
+		patternLabel = suffix.length === 4 ? 'GRAIL TIER (4-Digit Genesis)' : 'GRAIL TIER (Quad Repeat / Genesis)';
 	} else if (
 		suffix.includes('1234') ||
 		suffix.includes('5678') ||

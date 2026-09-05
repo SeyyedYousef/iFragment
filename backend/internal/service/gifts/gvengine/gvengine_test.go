@@ -243,3 +243,40 @@ func TestGVEngine_NormalizeGiftIdentifier(t *testing.T) {
 		})
 	}
 }
+
+func TestGVEngine_NeverBelowMarketFloor(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	engine.SetNFTResolver(nil)
+	ctx := context.Background()
+
+	samples := []string{
+		"plush_pepe-1200",
+		"durov_cap-2400",
+		"santa_hat-9500",
+		"diamond_ring-4500",
+		"spiced_wine-14000",
+	}
+
+	for _, s := range samples {
+		val, err := engine.Valuate(ctx, s)
+		if err != nil {
+			t.Fatalf("[%s] valuation failed: %v", s, err)
+		}
+
+		ref, _ := NormalizeGiftIdentifier(s)
+		col, _ := traits.ResolveCollection(ref.ModelID)
+		baseFloor := engine.resolveDynamicFloor(ctx, ref.ModelID, col, 5.50)
+
+		expGRAM, _ := val.ExpectedGRAM.Float64()
+		lowGRAM, _ := val.LowGRAM.Float64()
+
+		if expGRAM < baseFloor {
+			t.Errorf("[%s] Invariant Violated: expected price %.2f GRAM is below collection floor %.2f GRAM", s, expGRAM, baseFloor)
+		}
+
+		if lowGRAM < baseFloor {
+			t.Errorf("[%s] Invariant Violated: low bound price %.2f GRAM is below collection floor %.2f GRAM", s, lowGRAM, baseFloor)
+		}
+	}
+}
+

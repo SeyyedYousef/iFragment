@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	ModelVersion = "GV-Engine-v5.0-QuantumHedonic"
+	ModelVersion = "GV-Engine-v6.0-RealizedAnchored"
 	ShrinkageK   = 10.0
 	DecayLambda  = 0.005
 )
@@ -368,12 +368,13 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	betaModel := 0.0
 	if col.CraftedFlag {
 		betaModel = 0.85 // High prestige for crafted-only outputs
-	} else if modelPct <= 1.0 {
-		betaModel = 0.65
-	} else if modelPct <= 3.0 {
-		betaModel = 0.45
-	} else if col.TotalSupply <= 5000 {
-		betaModel = 0.35
+	} else {
+		// Continuous logarithmic rarity curve f(modelPct) across all 7,576 models
+		clampedModelPct := math.Max(modelPct, 0.05)
+		betaModel = 0.22 * math.Log(100.0/clampedModelPct)
+		if betaModel < 0 {
+			betaModel = 0
+		}
 	}
 
 	// Axis 2: Backdrop exact permille & resolution from DB or official catalog
@@ -467,25 +468,83 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// Axis 7: Multi-Dimensional Joint Statistical Rarity & Surprisal
 	jointRarity := traits.ComputeJointRarity(col.TotalSupply, ref.SerialNumber, backdropPermille, symbolPermille, col.CraftedFlag)
 
-	// Axis 8: In-App Telegram Stars Floor Parity
-	starsParity := starsrate.CalculateStarsParity(5000, gramUsdRate, baseFloor)
+	// Axis 8: In-App Telegram Stars Floor Parity with dynamic base stars price
+	baseStarsPrice := 1000
+	if col.BaseStarsPrice > 0 {
+		baseStarsPrice = col.BaseStarsPrice
+	} else if col.TotalSupply <= 2000 {
+		baseStarsPrice = 5000
+	} else if col.TotalSupply <= 5000 {
+		baseStarsPrice = 2500
+	}
+	starsParity := starsrate.CalculateStarsParity(baseStarsPrice, gramUsdRate, baseFloor)
 
-	// Sum Log prior (Hedonic Quantum-Hedonic v5.0)
+	// Sum Log prior (Hedonic Quantum-Hedonic v6.0)
 	hedonicLogP := beta0 + betaModel + betaBackdrop + betaSymbol + betaSerial + betaOriginal + aestheticHarmony.BetaAesthetic + jointRarity.BetaSynergy + math.Log(fngMult)
 
 	// 4. Fetch Real Comparable Sales from Database and blend with Bayesian Shrinkage
 	comps, finalLogP, mad, priceBasis := e.resolveComps(ctx, ref, backdropKey, gramUsdRate, hedonicLogP)
 
 	rawEstimateGRAM := math.Exp(finalLogP)
-	minFloor := math.Max(baseFloor*0.8, starsParity.IntrinsicFloorGRAM*0.75)
-	if rawEstimateGRAM < minFloor {
-		rawEstimateGRAM = minFloor
+
+	// Fetch exact last realized sale for this gift (model + serial)
+	var lastSaleRecord *repository.GiftSaleRecord
+	if e.giftsRepo != nil {
+		if s, err := e.giftsRepo.GetLastSaleForGift(ctx, ref.ModelID, ref.SerialNumber); err == nil && s != nil {
+			lastSaleRecord = s
+		}
+	}
+
+	// Strict Hard Floor & Realized Last-Sale Invariant
+	// User Directive: Under NO circumstance may valuation be lower than last realized sale price or collection floor!
+	effectiveFloor := baseFloor
+	isLastSaleAnchored := false
+	lastSalePriceGRAM := 0.0
+	var lastSaleDate time.Time
+	var lastSaleVenue string
+
+	if lastSaleRecord != nil {
+		p, _ := lastSaleRecord.SalePriceGRAM.Float64()
+		if p > 0 {
+			lastSalePriceGRAM = p
+			lastSaleDate = lastSaleRecord.SaleDate
+			lastSaleVenue = lastSaleRecord.Venue
+
+			// Incorporate historical appreciation since last sale (annual 15% rate baseline)
+			elapsedYears := time.Since(lastSaleDate).Hours() / (24.0 * 365.25)
+			appreciatedLastSale := lastSalePriceGRAM
+			if elapsedYears > 0 {
+				appreciatedLastSale = lastSalePriceGRAM * math.Pow(1.15, elapsedYears)
+			}
+			if appreciatedLastSale > effectiveFloor {
+				effectiveFloor = appreciatedLastSale
+			}
+			isLastSaleAnchored = true
+		}
+	}
+
+	if rawEstimateGRAM < effectiveFloor {
+		rawEstimateGRAM = effectiveFloor
+		if isLastSaleAnchored {
+			priceBasis = "direct_last_sale_anchored"
+		} else {
+			priceBasis = "market_floor_guaranteed"
+		}
 	}
 
 	expectedGRAM := roundPrice(rawEstimateGRAM)
 
 	// Dynamic adaptive uncertainty bounds using MAD and Bayesian scale
 	lowBound, highBound := core.ComputeUncertaintyBounds(expectedGRAM, mad, 1.20, 0.12, 0.38)
+
+	// Invariant: lowBound must never collapse below the baseline floor or 95% of last sale
+	if isLastSaleAnchored && lowBound < lastSalePriceGRAM*0.95 {
+		lowBound = lastSalePriceGRAM * 0.95
+	}
+	if lowBound < baseFloor {
+		lowBound = baseFloor
+	}
+
 	lowGRAM := roundPrice(lowBound)
 	highGRAM := roundPrice(highBound)
 
@@ -584,33 +643,41 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	configSnapshot := map[string]interface{}{
-		"base_floor_gram":   baseFloor,
-		"model_supply":      col.TotalSupply,
-		"beta_serial":       betaSerial,
-		"beta_backdrop":     betaBackdrop,
-		"beta_symbol":       betaSymbol,
-		"beta_aesthetic":    aestheticHarmony.BetaAesthetic,
-		"beta_synergy":      jointRarity.BetaSynergy,
-		"backdrop_permille": backdropPermille,
-		"symbol_permille":   symbolPermille,
+		"base_floor_gram":        baseFloor,
+		"effective_floor_gram":   effectiveFloor,
+		"last_sale_price_gram":   lastSalePriceGRAM,
+		"is_last_sale_anchored":  isLastSaleAnchored,
+		"model_supply":           col.TotalSupply,
+		"beta_serial":            betaSerial,
+		"beta_backdrop":          betaBackdrop,
+		"beta_symbol":            betaSymbol,
+		"beta_aesthetic":         aestheticHarmony.BetaAesthetic,
+		"beta_synergy":           jointRarity.BetaSynergy,
+		"backdrop_permille":      backdropPermille,
+		"symbol_permille":        symbolPermille,
 	}
 
 	reasoningLog := map[string]interface{}{
-		"model_version":      ModelVersion,
-		"beta0_floor":        beta0,
-		"beta_model":         betaModel,
-		"beta_backdrop":      betaBackdrop,
-		"beta_symbol":        betaSymbol,
-		"beta_serial":        betaSerial,
-		"beta_original":      betaOriginal,
-		"beta_aesthetic":     aestheticHarmony.BetaAesthetic,
-		"beta_synergy":       jointRarity.BetaSynergy,
-		"fng_multiplier":     fngMult,
-		"bayesian_k":         ShrinkageK,
-		"price_basis":        priceBasis,
-		"narrative_only":     true, // Sacred Rule 11
-		"signals_count":      42,
-		"comparables":        compSummaries,
+		"model_version":          ModelVersion,
+		"beta0_floor":            beta0,
+		"beta_model":             betaModel,
+		"beta_backdrop":          betaBackdrop,
+		"beta_symbol":            betaSymbol,
+		"beta_serial":            betaSerial,
+		"beta_original":          betaOriginal,
+		"beta_aesthetic":         aestheticHarmony.BetaAesthetic,
+		"beta_synergy":           jointRarity.BetaSynergy,
+		"fng_multiplier":         fngMult,
+		"bayesian_k":             ShrinkageK,
+		"price_basis":            priceBasis,
+		"effective_floor_gram":   effectiveFloor,
+		"last_sale_price_gram":   lastSalePriceGRAM,
+		"is_last_sale_anchored":  isLastSaleAnchored,
+		"last_sale_date":         lastSaleDate,
+		"last_sale_venue":        lastSaleVenue,
+		"narrative_only":         true, // Sacred Rule 11
+		"signals_count":          42,
+		"comparables":            compSummaries,
 	}
 
 	selectedModel := modelKey

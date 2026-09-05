@@ -416,12 +416,16 @@ func (r *NumbersRepo) SearchNumbersByMask(ctx context.Context, pattern string, l
 	cleanPattern = strings.ReplaceAll(cleanPattern, "%", "\\%")
 	cleanPattern = strings.ReplaceAll(cleanPattern, "_", "\\_")
 
-	// Convert user wildcard '*' to SQL single-character wildcard '_'
+	// Convert user wildcard '*' or '?' to SQL single-character wildcard '_'
 	sqlWildcard := strings.ReplaceAll(cleanPattern, "*", "_")
+	sqlWildcard = strings.ReplaceAll(sqlWildcard, "?", "_")
 	if len(sqlWildcard) > 8 {
 		sqlWildcard = sqlWildcard[:8]
 	}
 	sqlPattern := "+888" + sqlWildcard
+	if !strings.Contains(cleanPattern, "*") && !strings.Contains(cleanPattern, "?") && len(cleanPattern) < 8 {
+		sqlPattern = "+888" + sqlWildcard + "%"
+	}
 
 	if r.db == nil || r.db.Pool == nil {
 		return []MaskSearchResultItem{}, nil

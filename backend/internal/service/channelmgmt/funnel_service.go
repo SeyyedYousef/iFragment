@@ -36,10 +36,33 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 	funnel, err := s.channelRepo.GetFunnelByInputChatID(ctx, bot.ID, chatID)
 	if err != nil {
 		slog.Error("Failed to check if channel is a funnel input", "error", err)
-		return false, err
 	}
+
+	// Also check projects table (decoupled funnel architecture)
 	if funnel == nil || !funnel.IsActive {
-		return false, nil // Not a funnel or inactive
+		projects, pErr := s.channelRepo.GetProjectsBySourceChatID(ctx, chatID)
+		if pErr == nil && len(projects) > 0 {
+			for _, p := range projects {
+				if p.Status == "active" && isProjectSubscriptionValid(p) && p.TargetChatID != nil && *p.TargetChatID != 0 {
+					funnel = &repository.ChannelFunnel{
+						ID:           p.ID,
+						BotID:        bot.ID,
+						ProjectName:  p.Name,
+						InputChatID:  chatID,
+						OutputChatID: *p.TargetChatID,
+						OwnerUserID:  p.OwnerUserID,
+						IsActive:     true,
+						CreatedAt:    p.CreatedAt,
+						UpdatedAt:    p.UpdatedAt,
+					}
+					break
+				}
+			}
+		}
+	}
+
+	if funnel == nil || !funnel.IsActive {
+		return false, nil // Not a funnel or project input
 	}
 
 	slog.Info("Funnel post intercepted", "funnel_id", funnel.ID, "input_chat_id", chatID, "message_id", messageID, "media_group_id", mediaGroupID)
@@ -300,7 +323,22 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 		return fmt.Errorf("failed to save pending funnel draft: %w", err)
 	}
 
-	// 6. Send the Review Messages to the Bot Owner (DM)
+	// 6. If manual owner review is NOT required (AiConfirmBeforeEdit is false or auto-publishing),
+	// publish directly to the target output channel!
+	if !posting.AiConfirmBeforeEdit {
+		token, decErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		if decErr == nil {
+			tg := telegram.NewBotAPIClient(token)
+			pubErr := s.publishFunnelPostDirectly(ctx, tg, funnel, &draft)
+			if pubErr == nil {
+				slog.Info("Funnel post auto-published directly to target channel", "funnel_id", funnel.ID, "output_chat_id", funnel.OutputChatID)
+				return nil
+			}
+			slog.Warn("Direct auto-publish failed, falling back to owner DM review", "error", pubErr)
+		}
+	}
+
+	// 7. Send the Review Messages to the Bot Owner (DM)
 	return s.sendFunnelReviewToOwner(ctx, bot, funnel, &draft, sourceChan.ChatTitle)
 }
 
@@ -336,8 +374,8 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 	var sendErr error
 
 	if len(draft.MediaPayload) == 0 {
-		// Text only
-		_, sendErr = tg.SendMessageWithMarkup(ctx, funnel.OwnerUserID, activeText, previewMarkup, nil, "Markdown")
+		// Text only - SendMessageWithMarkup automatically falls back to plain text if parsing fails
+		_, sendErr = tg.SendMessageWithMarkup(ctx, funnel.OwnerUserID, activeText, previewMarkup, nil, "HTML")
 	} else if len(draft.MediaPayload) == 1 {
 		// Single Media
 		item := draft.MediaPayload[0]
@@ -366,9 +404,13 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 			method = "sendPhoto"
 			payload["photo"] = item.FileID
 		}
-		payload["parse_mode"] = "Markdown"
+		payload["parse_mode"] = "HTML"
 
 		_, sendErr = tg.Request(ctx, method, payload)
+		if sendErr != nil && strings.Contains(strings.ToLower(sendErr.Error()), "can't parse entities") {
+			delete(payload, "parse_mode")
+			_, sendErr = tg.Request(ctx, method, payload)
+		}
 	} else {
 		// Media Group (Album)
 		mediaItemsPayload := make([]map[string]interface{}, len(draft.MediaPayload))
@@ -379,7 +421,7 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 			}
 			if i == 0 {
 				mItem["caption"] = activeText
-				mItem["parse_mode"] = "Markdown"
+				mItem["parse_mode"] = "HTML"
 			}
 			mediaItemsPayload[i] = mItem
 		}
@@ -391,6 +433,12 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 
 		// Media group sends first
 		_, sendErr = tg.Request(ctx, "sendMediaGroup", groupPayload)
+		if sendErr != nil && strings.Contains(strings.ToLower(sendErr.Error()), "can't parse entities") {
+			if len(mediaItemsPayload) > 0 {
+				delete(mediaItemsPayload[0], "parse_mode")
+			}
+			_, sendErr = tg.Request(ctx, "sendMediaGroup", groupPayload)
+		}
 	}
 
 	if sendErr != nil {
@@ -409,11 +457,15 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 		if authorStr == "" {
 			authorStr = "System/Anonymous"
 		}
-		panelText = fmt.Sprintf("🎛️ **Channel Funnel Control Panel**\n\nDestination: **%s**\nOriginal Author: **%s**\nStatus: **%s**", destTitle, authorStr, strings.ToUpper(draft.Status))
+		panelText = fmt.Sprintf("🎛️ <b>Channel Funnel Control Panel</b>\n\nDestination: <b>%s</b>\nOriginal Author: <b>%s</b>\nStatus: <b>%s</b>",
+			telegram.EscapeHTML(destTitle),
+			telegram.EscapeHTML(authorStr),
+			telegram.EscapeHTML(strings.ToUpper(draft.Status)),
+		)
 	}
 
 	panelMarkup := buildFunnelPanelKeyboard(draft)
-	_, err = tg.SendMessageWithMarkup(ctx, funnel.OwnerUserID, panelText, panelMarkup, nil, "Markdown")
+	_, err = tg.SendMessageWithMarkup(ctx, funnel.OwnerUserID, panelText, panelMarkup, nil, "HTML")
 	return err
 }
 
@@ -840,7 +892,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	var pubMsgID int64
 
 	if len(draft.MediaPayload) == 0 {
-		res, err := tg.SendMessageWithMarkup(ctx, funnel.OutputChatID, activeText, previewMarkup, nil, "Markdown")
+		res, err := tg.SendMessageWithMarkup(ctx, funnel.OutputChatID, activeText, previewMarkup, nil, "HTML")
 		if err != nil {
 			return err
 		}
@@ -850,7 +902,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 		payload := map[string]interface{}{
 			"chat_id":    funnel.OutputChatID,
 			"caption":    activeText,
-			"parse_mode": "Markdown",
+			"parse_mode": "HTML",
 		}
 		if !telegram.IsNil(previewMarkup) {
 			payload["reply_markup"] = previewMarkup
@@ -875,6 +927,10 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 		}
 
 		rawResp, err := tg.Request(ctx, method, payload)
+		if err != nil && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
+			delete(payload, "parse_mode")
+			rawResp, err = tg.Request(ctx, method, payload)
+		}
 		if err != nil {
 			return err
 		}
@@ -892,7 +948,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 			}
 			if i == 0 {
 				mItem["caption"] = activeText
-				mItem["parse_mode"] = "Markdown"
+				mItem["parse_mode"] = "HTML"
 			}
 			mediaItemsPayload[i] = mItem
 		}
@@ -903,6 +959,12 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 		}
 
 		rawResp, err := tg.Request(ctx, "sendMediaGroup", groupPayload)
+		if err != nil && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
+			if len(mediaItemsPayload) > 0 {
+				delete(mediaItemsPayload[0], "parse_mode")
+			}
+			rawResp, err = tg.Request(ctx, "sendMediaGroup", groupPayload)
+		}
 		if err != nil {
 			return err
 		}

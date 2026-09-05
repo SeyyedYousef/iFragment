@@ -26,7 +26,7 @@ var llmProviders = map[string]LLMProvider{
 	"gemini": {
 		ID:           "gemini",
 		BaseURL:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-		DefaultModel: "gemini-2.5-flash",
+		DefaultModel: "gemini-3.8-flash",
 		AuthStyle:    "bearer",
 		KeyPrefixes:  []string{"AIza"},
 	},

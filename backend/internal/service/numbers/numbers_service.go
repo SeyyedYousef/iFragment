@@ -177,7 +177,7 @@ func (s *NumbersService) fetchLiveFragmentNumbers(ctx context.Context, tonUsdRat
 					if err != nil {
 						tEnd = time.Now().Add(24 * time.Hour)
 					}
-					rawSuffix := strings.TrimPrefix(numClean, "+888")
+					rawSuffix := strings.TrimPrefix(numClean, "+")
 					auctions = append(auctions, AuctionItem{
 						Number:        numClean,
 						DisplayNumber: features.FormatDisplayNumber(numClean),
@@ -221,7 +221,7 @@ func (s *NumbersService) fetchLiveFragmentNumbers(ctx context.Context, tonUsdRat
 						athNumber = numClean
 					}
 					if rank <= 5 {
-						rawSuffix := strings.TrimPrefix(numClean, "+888")
+						rawSuffix := strings.TrimPrefix(numClean, "+")
 						hallOfFame = append(hallOfFame, HallOfFameItem{
 							Rank:         rank,
 							Number:       numClean,
@@ -232,7 +232,7 @@ func (s *NumbersService) fetchLiveFragmentNumbers(ctx context.Context, tonUsdRat
 							Color:        "Blue",
 							TonviewerURL: fmt.Sprintf("https://fragment.com/number/%s", rawSuffix),
 							Verified:     true,
-							IsGenesis4D:  len(rawSuffix) == 4,
+							IsGenesis4D:  len(strings.TrimPrefix(numClean, "+888")) == 4,
 						})
 						rank++
 					}
@@ -443,8 +443,97 @@ func (s *NumbersService) ValuateNumber(ctx context.Context, userID int64, number
 		}
 	}
 
-	// 2. Execute NV Engine computation
+	// 2. On-Demand Realized Sale Sync: If local DB has no sales recorded, probe Fragment on-demand
+	s.syncLiveSaleIfMissing(ctx, norm)
+
+	// 3. Execute NV Engine computation
 	return s.engine.Valuate(ctx, norm)
+}
+
+// syncLiveSaleIfMissing checks if number has sales in DB; if not, performs a quick live lookup on Fragment
+func (s *NumbersService) syncLiveSaleIfMissing(ctx context.Context, normNumber string) {
+	if s.repo == nil {
+		return
+	}
+	// If already in DB, skip
+	existing, err := s.repo.GetHistoricalSalesForNumber(ctx, normNumber)
+	if err == nil && len(existing) > 0 {
+		return
+	}
+
+	// Fetch from Fragment on-demand (3s timeout)
+	liveCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	rawDigits := strings.TrimPrefix(normNumber, "+")
+	targetURL := fmt.Sprintf("https://fragment.com/number/%s", rawDigits)
+
+	req, err := http.NewRequestWithContext(liveCtx, "GET", targetURL, nil)
+	if err != nil {
+		return
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	htmlStr := string(body)
+
+	// Check if status is Sold and extract sale price
+	rePrice := regexp.MustCompile(`(?s)icon-before icon-ton">([\d,]+)</div>\s*<div class="table-cell-desc">Sale price</div>`)
+	pMatch := rePrice.FindStringSubmatch(htmlStr)
+	if len(pMatch) < 2 {
+		reAlt := regexp.MustCompile(`(?s)<div class="table-cell-value tm-value icon-before icon-ton">([\d,]+)</div>`)
+		pMatch = reAlt.FindStringSubmatch(htmlStr)
+	}
+
+	if len(pMatch) >= 2 {
+		priceClean := strings.ReplaceAll(pMatch[1], ",", "")
+		if salePrice, err := strconv.ParseFloat(priceClean, 64); err == nil && salePrice > 0 {
+			reDate := regexp.MustCompile(`datetime="([^"]+)"`)
+			dMatch := reDate.FindStringSubmatch(htmlStr)
+			saleDate := time.Now()
+			if len(dMatch) >= 2 {
+				if parsed, err := time.Parse(time.RFC3339, dMatch[1]); err == nil {
+					saleDate = parsed
+				}
+			}
+
+			reOwner := regexp.MustCompile(`tonviewer\.com/([a-zA-Z0-9_-]+)`)
+			oMatch := reOwner.FindStringSubmatch(htmlStr)
+			buyer := "fragment_contract"
+			if len(oMatch) >= 2 {
+				buyer = oMatch[1]
+			}
+
+			saleRec := repository.NumberSaleRecord{
+				Number:          normNumber,
+				SalePriceTON:    salePrice,
+				SaleType:        "auction",
+				SaleDate:        saleDate,
+				BuyerAddress:    buyer,
+				SellerAddress:   "telemint",
+				MarketAddress:   "fragment_telemint",
+				PriceConfidence: "exact",
+				TransactionHash: fmt.Sprintf("fragment_sale_%d", saleDate.Unix()),
+			}
+
+			_ = s.repo.InsertNumberSale(ctx, saleRec)
+		}
+	}
 }
 
 // UnlockWithCoins unlocks report using Airdrop coins strictly with atomic transaction isolation
@@ -601,7 +690,7 @@ func (s *NumbersService) GetDealsSniper(ctx context.Context) ([]nvengine.DealSni
 				if expTON > listingPrice {
 					discPct := ((expTON - listingPrice) / expTON) * 100.0
 					profit := expTON - listingPrice
-					rawNum := strings.TrimPrefix(num, "+888")
+					rawNum := strings.TrimPrefix(num, "+")
 					marketURL := fmt.Sprintf("https://fragment.com/number/%s", rawNum)
 					if strings.EqualFold(market, "Getgems") {
 						marketURL = fmt.Sprintf("https://getgems.io/nft/%s", val.Features.Number)
@@ -962,7 +1051,7 @@ func (s *NumbersService) GetLiveActivityTicker(ctx context.Context) ([]nvengine.
 				var price float64
 				var sDate time.Time
 				if err := rows.Scan(&num, &price, &sDate, &txHash); err == nil {
-					tvURL := fmt.Sprintf("https://fragment.com/number/%s", strings.TrimPrefix(num, "+888"))
+					tvURL := fmt.Sprintf("https://fragment.com/number/%s", strings.TrimPrefix(num, "+"))
 					if txHash != "" && txHash != "onchain_tx" {
 						tvURL = fmt.Sprintf("https://tonviewer.com/transaction/%s", txHash)
 					}
@@ -1426,7 +1515,7 @@ func parseNumbersHTML(htmlStr string, tonRate float64) ([]NumberTableItem, int) 
 			isRestricted = false
 		}
 
-		suffix := strings.TrimPrefix(cleanNum, "+888")
+		suffix := strings.TrimPrefix(cleanNum, "+")
 		marketURL := fmt.Sprintf("https://fragment.com/number/%s", suffix)
 		source := "fragment"
 		if mMatch := marketRe.FindStringSubmatch(chunk); len(mMatch) > 1 {
@@ -1560,7 +1649,7 @@ func generateSmartFallback(params NumbersListParams, tonRate float64) *NumbersLi
 			CurrentOwner:  fmt.Sprintf("EQ%s...Fragment", numSuffix),
 			IsRestricted:  isRestricted,
 			Source:        "fragment",
-			MarketURL:     fmt.Sprintf("https://fragment.com/number/%s", numSuffix),
+			MarketURL:     fmt.Sprintf("https://fragment.com/number/%s", strings.TrimPrefix(cleanNumStr, "+")),
 			IsEstimated:   true,
 			DataStatus:    "estimated",
 		})

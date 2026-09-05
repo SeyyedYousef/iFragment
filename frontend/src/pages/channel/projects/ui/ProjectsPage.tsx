@@ -277,22 +277,38 @@ export const ProjectsPage: Component = () => {
 										<h3 class="text-sm font-bold text-white flex items-center gap-2">
 											<span>{project.name}</span>
 											<Show when={project.stars_subscription_active}>
-												<span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-medium">
-													{t('channelProjects.starsActive')}
+												<span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-medium flex items-center gap-1">
+													<span>⭐ 250 Stars/mo</span>
 												</span>
 											</Show>
 											<Show when={!project.stars_subscription_active && project.trial_ends_at}>
-												<span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-medium">
-													{t('channelProjects.trial')}
+												<span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-medium flex items-center gap-1">
+													<span>🎯 Free Trial (72h)</span>
 												</span>
 											</Show>
 										</h3>
-										<p class="text-[11px] text-neutral-400">
-											{project.status === 'active'
-												? '🟢 Active'
-												: project.status === 'paused'
-													? '⏸️ Paused'
-													: '🔴 Expired'}
+										<p class="text-[11px] flex items-center gap-2 mt-0.5">
+											<span class={`font-semibold ${
+												project.status === 'active'
+													? 'text-emerald-400'
+													: project.status === 'paused'
+														? 'text-neutral-400'
+														: 'text-rose-400'
+											}`}>
+												{project.status === 'active'
+													? '🟢 Active'
+													: project.status === 'paused'
+														? '⏸️ Paused'
+														: '🔴 Expired'}
+											</span>
+											<span class="text-neutral-500">•</span>
+											<span class="text-neutral-400 font-mono text-[10px]">
+												{project.stars_subscription_active
+													? 'Pro Plan'
+													: project.trial_ends_at
+														? 'Trial'
+														: '250 ⭐/mo required'}
+											</span>
 										</p>
 									</div>
 								</div>

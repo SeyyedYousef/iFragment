@@ -187,15 +187,33 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 
 	if config.BioTemplate != "" {
 		newBio := replaceVars(config.BioTemplate)
-		if err := tg.SetChatDescription(ctx, ch.ChatID, newBio); err != nil {
-			slog.Error("Failed to update channel bio", "channelID", ch.ChatID, "error", err)
+		if len(newBio) > 255 {
+			newBio = newBio[:255]
+		}
+		lastBio, _ := s.lastBioContent.Load(ch.ID)
+		if lastBio != newBio {
+			if err := tg.SetChatDescription(ctx, ch.ChatID, newBio); err != nil {
+				slog.Error("Failed to update channel bio", "channelID", ch.ChatID, "error", err)
+			} else {
+				s.lastBioContent.Store(ch.ID, newBio)
+				slog.Info("Successfully updated channel dynamic bio", "channelID", ch.ChatID)
+			}
 		}
 	}
 
 	if config.DisplayInName && config.NameTemplate != "" {
 		newName := replaceVars(config.NameTemplate)
-		if err := tg.SetChatTitle(ctx, ch.ChatID, newName); err != nil {
-			slog.Error("Failed to update channel title", "channelID", ch.ChatID, "error", err)
+		if len(newName) > 128 {
+			newName = newName[:128]
+		}
+		lastTitle, _ := s.lastTitleContent.Load(ch.ID)
+		if lastTitle != newName {
+			if err := tg.SetChatTitle(ctx, ch.ChatID, newName); err != nil {
+				slog.Error("Failed to update channel title", "channelID", ch.ChatID, "error", err)
+			} else {
+				s.lastTitleContent.Store(ch.ID, newName)
+				slog.Info("Successfully updated channel dynamic title", "channelID", ch.ChatID)
+			}
 		}
 	}
 }

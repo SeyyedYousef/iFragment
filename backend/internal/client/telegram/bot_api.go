@@ -512,6 +512,11 @@ func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, 
 		payload["message_thread_id"] = *threadID
 	}
 	resp, err := c.Request(ctx, "sendMessage", payload)
+	if err != nil && mode != "" && (strings.Contains(strings.ToLower(err.Error()), "can't parse entities") || strings.Contains(strings.ToLower(err.Error()), "bad request")) {
+		// Fallback without parse_mode (plain text) to guarantee message delivery
+		delete(payload, "parse_mode")
+		resp, err = c.Request(ctx, "sendMessage", payload)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1099,6 +1104,45 @@ func (c *BotAPIClient) SendPhoto(ctx context.Context, chatID int64, photoURL str
 	}
 	return &msgResult.Result, nil
 }
+
+// SendPhotoWithMarkup sends a photo by URL or file_id along with inline keyboard markup
+func (c *BotAPIClient) SendPhotoWithMarkup(ctx context.Context, chatID int64, photoURL string, caption string, markup interface{}, parseMode ...string) (*MessageResult, error) {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
+	payload := map[string]interface{}{
+		"chat_id": chatID,
+		"photo":   photoURL,
+	}
+	if caption != "" {
+		payload["caption"] = caption
+	}
+	if !IsNil(markup) {
+		payload["reply_markup"] = markup
+	}
+	if mode != "" {
+		payload["parse_mode"] = mode
+	}
+
+	resp, err := c.doRequestWithRetry(ctx, "sendPhoto", payload)
+	if err != nil && mode != "" && (strings.Contains(strings.ToLower(err.Error()), "can't parse entities") || strings.Contains(strings.ToLower(err.Error()), "bad request")) {
+		delete(payload, "parse_mode")
+		resp, err = c.doRequestWithRetry(ctx, "sendPhoto", payload)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var msgResult struct {
+		Result MessageResult `json:"result"`
+	}
+	if err := json.Unmarshal(resp, &msgResult); err != nil {
+		return nil, err
+	}
+	return &msgResult.Result, nil
+}
+
 
 // FlexibleString handles unmarshaling JSON values that can be either numbers or strings.
 type FlexibleString string

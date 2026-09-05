@@ -495,7 +495,70 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		}
 	}
 
+	// 6. Query Real Historical Sales for this exact number (Historical Realized Truth)
+	var history ValuationHistory
+	latestExactSaleTON := 0.0
+	highestExactSaleTON := 0.0
+	var latestSaleDate time.Time
+
+	if e.repo != nil {
+		pastSales, err := e.repo.GetHistoricalSalesForNumber(ctx, normNumber)
+		if err == nil && len(pastSales) > 0 {
+			history.IsSold = true
+			txs := make([]HistoricalSaleEvent, 0, len(pastSales))
+			for i, ps := range pastSales {
+				if ps.SalePriceTON > highestExactSaleTON {
+					highestExactSaleTON = ps.SalePriceTON
+				}
+				if i == 0 || ps.SaleDate.After(latestSaleDate) {
+					latestExactSaleTON = ps.SalePriceTON
+					latestSaleDate = ps.SaleDate
+				}
+				txs = append(txs, HistoricalSaleEvent{
+					PriceTON:      ps.SalePriceTON,
+					PriceUSD:      ps.SalePriceTON * tonUsdRate,
+					SaleDate:      ps.SaleDate,
+					BuyerAddress:  ps.BuyerAddress,
+					SellerAddress: ps.SellerAddress,
+					Source:        ps.MarketAddress,
+				})
+			}
+			history.HighestPastSaleTON = highestExactSaleTON
+			history.Transactions = txs
+		} else {
+			history.IsSold = false
+			history.HighestPastSaleTON = 0
+			history.Transactions = []HistoricalSaleEvent{}
+		}
+	}
+
 	rawEstimateTON := math.Exp(finalLogP) * colorInfo.Multiplier
+
+	// Invariant 1: In a closed collection (136,566 fixed supply), a verified on-chain sale establishes
+	// a definitive historical value anchor. Under no circumstances should valuation be lower than its realized sale price.
+	if latestExactSaleTON > 0 {
+		priceBasis = "exact_asset_realized_sale_anchor"
+		if latestExactSaleTON > minFloor {
+			minFloor = latestExactSaleTON
+		}
+
+		// Factor in organic market appreciation since sale date (15% annual baseline)
+		appreciationFactor := 1.0
+		if !latestSaleDate.IsZero() {
+			years := time.Since(latestSaleDate).Hours() / (24 * 365.25)
+			if years > 0 {
+				appreciationFactor = math.Pow(1.15, years)
+			}
+		}
+		anchoredPrice := latestExactSaleTON * appreciationFactor
+		if rawEstimateTON < anchoredPrice {
+			rawEstimateTON = anchoredPrice
+		}
+		if rawEstimateTON > maxCeiling {
+			maxCeiling = rawEstimateTON * 1.25
+		}
+	}
+
 	if rawEstimateTON < minFloor {
 		rawEstimateTON = minFloor
 	}
@@ -513,8 +576,10 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	lowTON := roundPrice(lowBound)
 	highTON := roundPrice(highBound)
 
-	// Invariant: Floor clamp (no asset in a closed collection trades below secondary market floor)
-	if lowTON < minFloor {
+	// Invariant: Floor clamp (no asset in a closed collection trades below secondary market floor or realized sale anchor)
+	if latestExactSaleTON > 0 && lowTON < latestExactSaleTON {
+		lowTON = latestExactSaleTON
+	} else if lowTON < minFloor {
 		lowTON = minFloor
 	}
 
@@ -530,36 +595,6 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	expectedUSD := expectedTON * tonUsdRate
 	highUSD := highTON * tonUsdRate
 
-	// 6. Query Real Historical Sales for this exact number
-	var history ValuationHistory
-	if e.repo != nil {
-		pastSales, err := e.repo.GetHistoricalSalesForNumber(ctx, normNumber)
-		if err == nil && len(pastSales) > 0 {
-			history.IsSold = true
-			maxSale := 0.0
-			txs := make([]HistoricalSaleEvent, 0, len(pastSales))
-			for _, ps := range pastSales {
-				if ps.SalePriceTON > maxSale {
-					maxSale = ps.SalePriceTON
-				}
-				txs = append(txs, HistoricalSaleEvent{
-					PriceTON:      ps.SalePriceTON,
-					PriceUSD:      ps.SalePriceTON * tonUsdRate,
-					SaleDate:      ps.SaleDate,
-					BuyerAddress:  ps.BuyerAddress,
-					SellerAddress: ps.SellerAddress,
-					Source:        ps.MarketAddress,
-				})
-			}
-			history.HighestPastSaleTON = maxSale
-			history.Transactions = txs
-		} else {
-			history.IsSold = false
-			history.HighestPastSaleTON = 0
-			history.Transactions = []HistoricalSaleEvent{}
-		}
-	}
-
 	// 7. Dynamic Confidence Score based on evidence and empirical calibration
 	rawConfidence := int16(72)
 	if fv.IsGenesis4Digit {
@@ -574,10 +609,10 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		rawConfidence += 6
 	}
 	if history.IsSold {
-		rawConfidence += 6
+		rawConfidence += 12 // Direct on-chain sales proof provides massive empirical certainty
 	}
-	if rawConfidence > 98 {
-		rawConfidence = 98
+	if rawConfidence > 99 {
+		rawConfidence = 99
 	}
 
 	calibratedConfidence, calibNote := core.GetCalibratedConfidenceScore(rawConfidence, len(comps), ModelVersion)
@@ -636,14 +671,14 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	collateralMetrics := CalculateDeFiCollateral(expectedTON, tonUsdRate, fv)
 	survivalMetrics := CalculateLiquiditySurvival(expectedTON, len(comps), fv)
 	marketDepth := buildMarketDepthInfo(fv, expectedTON, tonUsdRate)
-	onChainAudit := buildOnChainAudit(normNumber, history)
+	onChainAudit := buildOnChainAudit(normNumber, history, fv.IsGenesis4Digit)
 
 	// 16. NFT Collateral & Lending Limit from CollateralMetrics
 	collateralTON := collateralMetrics.MaxLoanAmountTON
 	collateralUSD := collateralMetrics.MaxLoanAmountUSD
 
-	// 17. Fragment Direct Auction / Buy URL
-	rawSuffix := strings.TrimPrefix(normNumber, "+888")
+	// 17. Fragment Direct Auction / Buy URL (includes 888 without plus, e.g. fragment.com/number/8888777)
+	rawSuffix := strings.TrimPrefix(normNumber, "+")
 	fragmentURL := fmt.Sprintf("https://fragment.com/number/%s", rawSuffix)
 
 	// 18. Certificate Hash ID (Deterministic across same asset & model version)
@@ -1259,14 +1294,12 @@ func buildMarketDepthInfo(fv features.FeatureVector, expectedTON, tonUsdRate flo
 	}
 }
 
-func buildOnChainAudit(normNumber string, history ValuationHistory) OnChainAudit {
+func buildOnChainAudit(normNumber string, history ValuationHistory, isGenesis bool) OnChainAudit {
 	mintDate := "December 2022 (Genesis Telemint Batch)"
 	txCount := len(history.Transactions)
 	if txCount == 0 {
 		txCount = 1
 	}
-	cleanDigits := features.CleanNumber(normNumber)
-	isGenesis := len(cleanDigits) == 4 && cleanDigits >= "8000" && cleanDigits <= "8999"
 
 	baselineFloor := registry.StandardInitialFloorTON
 	if isGenesis {

@@ -519,6 +519,11 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 				'{"source": "referral_invite"}'::jsonb, CURRENT_TIMESTAMP
 			)
 		`, referrerID, ReferrerReward, refBeforeCoins, refAfterCoins, userID)
+
+		_, _ = tx.Exec(ctx, `
+			INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
+			VALUES ($1, $2, $2, 'referral_invite', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '30 days', FALSE)
+		`, referrerID, ReferrerReward)
 	}
 
 	var userBeforeCoins float64
@@ -547,6 +552,11 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 			'{"source": "referral_welcome"}'::jsonb, CURRENT_TIMESTAMP
 		)
 	`, userID, ReferredReward, userBeforeCoins, userAfterCoins, referrerID)
+
+	_, _ = tx.Exec(ctx, `
+		INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
+		VALUES ($1, $2, $2, 'referral_welcome', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '30 days', FALSE)
+	`, userID, ReferredReward)
 
 	if err := tx.Commit(ctx); err != nil {
 		return err
@@ -730,16 +740,10 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		_ = s.db.AddCreditBatch(ctx, userID, coinsEarned, "taps")
 	}
 
-	// Fetch updated stats to return to frontend
+	// Fetch updated stats to return to frontend (GetStats already reflects Redis batch & Postgres total_taps)
 	stats, err := s.GetStats(ctx, userID)
 	if err != nil {
 		return nil, err
-	}
-
-	if s.cache != nil && s.cache.Client != nil && !redisFailed {
-		stats.AirdropCoins += coinsEarned
-		stats.XP += int(coinsEarned)
-		stats.TotalTaps += taps
 	}
 
 	return stats, nil
@@ -835,9 +839,11 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 		if refErr == nil {
 			if t1 > 0 {
 				_, _ = s.db.AdjustAirdropCoins(bgCtx, t1, item.Cost*0.10)
+				_ = s.db.AddCreditBatch(bgCtx, t1, item.Cost*0.10, "referral_cosmetic_t1")
 			}
 			if t2 > 0 {
 				_, _ = s.db.AdjustAirdropCoins(bgCtx, t2, item.Cost*0.05)
+				_ = s.db.AddCreditBatch(bgCtx, t2, item.Cost*0.05, "referral_cosmetic_t2")
 			}
 		}
 

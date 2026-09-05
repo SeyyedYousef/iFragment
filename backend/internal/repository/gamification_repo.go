@@ -210,6 +210,13 @@ func (db *Database) CreditReferrerShareCoins(ctx context.Context, spenderID int6
 		if err != nil {
 			return fmt.Errorf("failed to credit t%d coins commission: %w", tier, err)
 		}
+
+		source := fmt.Sprintf("referral_booster_t%d", tier)
+		_, _ = tx.Exec(ctx, `
+			INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
+			VALUES ($1, $2, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '30 days', FALSE)
+		`, userID, commission, source)
+
 		return nil
 	}
 

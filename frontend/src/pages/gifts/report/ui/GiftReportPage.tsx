@@ -303,7 +303,8 @@ export const GiftReportPage: Component = () => {
 		const telegramRoyalty = gross * 0.05;
 		const gasFee = 0.05;
 		const net = Math.max(0, gross - fragFee - telegramRoyalty - gasFee);
-		const netUsd = net * 4;
+		const rate = Number(currentReport()?.gram_usd_rate) || 5.5;
+		const netUsd = net * rate;
 		const instantCashoutBid = Math.round(gross * 0.88);
 		return {
 			gross,
@@ -576,10 +577,24 @@ export const GiftReportPage: Component = () => {
 							</p>
 
 							<div class="flex items-center justify-between pt-3 mt-3 border-t border-white/[0.08] text-[11px] text-white/40">
-								<span>
-									{t('gifts.basis')}:{' '}
-									<strong class="text-white/70">{currentReport()?.price_basis}</strong>
-								</span>
+								<div class="flex items-center gap-1.5 flex-wrap">
+									<span>
+										{t('gifts.basis')}:{' '}
+										<strong class="text-white/70">{currentReport()?.price_basis}</strong>
+									</span>
+									<Show when={currentReport()?.price_basis === 'direct_last_sale_anchored'}>
+										<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-[9px] flex items-center gap-1">
+											<span class="material-symbols-outlined text-[11px]">verified</span>
+											<span>تضمین عدم افت از آخرین فروش</span>
+										</span>
+									</Show>
+									<Show when={currentReport()?.price_basis === 'market_floor_guaranteed'}>
+										<span class="px-2 py-0.5 rounded-full bg-[#0098EA]/20 border border-[#0098EA]/40 text-sky-300 font-bold text-[9px] flex items-center gap-1">
+											<span class="material-symbols-outlined text-[11px]">shield</span>
+											<span>تضمین کف بازار</span>
+										</span>
+									</Show>
+								</div>
 								<button
 									type="button"
 									onClick={handleShareStory}
@@ -778,9 +793,10 @@ export const GiftReportPage: Component = () => {
 							<div class="space-y-2.5">
 								<For each={currentReport()?.trait_dna}>
 									{(dna) => {
-										const baseFloor = resolvedCollectionItem()?.floorTon || 45;
-										const traitFloorTon = Math.round(baseFloor * (1 + (100 - dna.percentile) / 45));
-										const population = Math.max(1, Math.round((dna.percentile / 100) * 5000));
+										const colSupply = resolvedCollectionItem()?.totalSupply || 5000;
+										const repFloor = Number(currentReport()?.base_price_gram) || resolvedCollectionItem()?.floorTon || 45;
+										const traitFloorTon = Math.round(repFloor * (1 + (100 - dna.percentile) / 45));
+										const population = Math.max(1, Math.round((dna.percentile / 100) * colSupply));
 										return (
 											<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3">
 												<div class="flex items-center justify-between mb-1">
@@ -814,7 +830,7 @@ export const GiftReportPage: Component = () => {
 													<div class="p-2 rounded-lg bg-black/30 border border-white/5 flex items-center justify-between">
 														<span class="text-white/50 text-[10px]">{t('gifts.globalSupply')}</span>
 														<span class="font-mono font-bold text-sky-400">
-															{t('gifts.populationRatio', { count: population, total: '5,000' })}
+															{t('gifts.populationRatio', { count: population.toLocaleString(), total: colSupply.toLocaleString() })}
 														</span>
 													</div>
 												</div>

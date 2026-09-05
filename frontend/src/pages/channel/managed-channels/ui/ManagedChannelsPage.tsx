@@ -548,7 +548,7 @@ export const ManagedChannelsPage: Component = () => {
 
 											<div class="flex flex-col items-end shrink-0 gap-1">
 												<span
-													class={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-[8px] border shadow-sm ${
+													class={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-[8px] border shadow-sm flex items-center gap-1 ${
 														isPaidActive
 															? 'text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10'
 															: isPaused
@@ -559,15 +559,16 @@ export const ManagedChannelsPage: Component = () => {
 													}`}
 												>
 													{isPaidActive
-														? t('managedChannels.activeStatus') || 'ACTIVE'
+														? '⭐ ' + (t('managedChannels.activeStatus') || 'PRO (Active)')
 														: isPaused
-															? t('managedChannels.pausedStatus') || 'PAUSED'
+															? '⏸️ ' + (t('managedChannels.pausedStatus') || 'PAUSED')
 															: isTrialActive
-																? t('managedChannels.trialBadge72h') || 'TRIAL (72h)'
-																: t('managedChannels.expiredStatus') || 'EXPIRED'}
+																? '🎯 ' + (t('managedChannels.trialBadge72h') || 'TRIAL (72h)')
+																: '⚠️ ' + (t('managedChannels.expiredStatus') || 'EXPIRED')}
 												</span>
 												<Show when={endDateStr && !isPaused}>
-													<span class="text-[10px] text-white/60 font-bold font-mono whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-[5px] border border-white/5">
+													<span class="text-[10px] text-white/70 font-bold font-mono whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-[5px] border border-white/10 flex items-center gap-1">
+														<span class="material-symbols-outlined text-[12px] text-amber-400">schedule</span>
 														{formatTimeRemaining(endDateStr)}
 													</span>
 												</Show>
@@ -630,6 +631,56 @@ export const ManagedChannelsPage: Component = () => {
 											</div>
 										</div>
 
+										{/* Subscription & Pricing Information Bar */}
+										<div class="bg-gradient-to-r from-white/[0.04] to-white/[0.01] border border-white/10 rounded-[16px] p-3 flex items-center justify-between gap-2 relative z-10">
+											<div class="flex items-center gap-2.5 min-w-0">
+												<div class={`w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 border ${
+													isPaidActive
+														? 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/30'
+														: isTrialActive
+															? 'bg-amber-400/15 text-amber-400 border-amber-400/30'
+															: 'bg-[#ff4a4a]/15 text-[#ff4a4a] border-[#ff4a4a]/30'
+												}`}>
+													<span class="material-symbols-outlined text-[18px]">
+														{isPaidActive ? 'verified' : isTrialActive ? 'hourglass_top' : 'lock'}
+													</span>
+												</div>
+												<div class="flex flex-col min-w-0">
+													<div class="flex items-center gap-2">
+														<span class="text-[12px] font-black text-white truncate">
+															{isPaidActive
+																? 'Pro Channel Plan'
+																: isTrialActive
+																	? 'Free Trial (72h)'
+																	: 'Subscription Expired'}
+														</span>
+														<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400 border border-amber-400/20 font-mono">
+															{isPaidActive ? '250 ⭐ / mo' : isTrialActive ? '0 ⭐ (Trial)' : '250 ⭐ / mo'}
+														</span>
+													</div>
+													<span class="text-[10px] text-white/50 truncate">
+														{isPaidActive
+															? (endDateStr ? `${t('managedChannels.expiresIn') || 'Active until'}: ${new Date(endDateStr).toLocaleDateString()}` : 'Pro Active')
+															: isTrialActive
+																? (endDateStr ? `${t('managedChannels.trialRemaining') || 'Remaining'}: ${formatTimeRemaining(endDateStr)}` : '72 Hours Trial')
+																: (t('managedChannels.subExpiredHint') || 'Requires renewal to resume auto-forwarding & AI')}
+													</span>
+												</div>
+											</div>
+
+											<div class="shrink-0">
+												<span class={`text-[10px] font-bold px-2 py-1 rounded-[6px] border ${
+													isPaidActive
+														? 'text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10'
+														: isTrialActive
+															? 'text-amber-400 border-amber-400/30 bg-amber-400/10'
+															: 'text-[#ff4a4a] border-[#ff4a4a]/30 bg-[#ff4a4a]/10'
+												}`}>
+													{isPaidActive ? '⭐ Subscribed' : isTrialActive ? '🎯 Trial' : '⚠️ Inactive'}
+												</span>
+											</div>
+										</div>
+
 										{/* Bottom Row: Actions Bar */}
 										<div class="flex items-center gap-2 w-full relative z-10 pt-1">
 											{/* Manage Button */}
@@ -641,7 +692,7 @@ export const ManagedChannelsPage: Component = () => {
 														project.target_channel_id || project.source_channel_id || project.id;
 													navigate(`/channel/${targetId}`);
 												}}
-												class="flex-[1.5] h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all bg-[#08090D] text-white/90 border border-white/10 hover:border-[#3390ec]/40 hover:text-[#3390ec] shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+												class="flex-[1.2] h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all bg-[#08090D] text-white/90 border border-white/10 hover:border-[#3390ec]/40 hover:text-[#3390ec] shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
 											>
 												<span class="material-symbols-outlined text-[18px]">tune</span>
 												<span>{t('botManage.manage')}</span>
@@ -658,14 +709,16 @@ export const ManagedChannelsPage: Component = () => {
 												class={`h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all border active:scale-95 flex items-center justify-center gap-1.5 shadow-sm ${
 													isPaidActive
 														? 'flex-1 bg-white/5 text-white/70 border-white/5 hover:bg-white/10 hover:text-white'
-														: 'flex-[2] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white border-white/10 shadow-[0_4px_15px_rgba(51,144,236,0.3)]'
+														: 'flex-[1.8] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white border-white/10 shadow-[0_4px_15px_rgba(51,144,236,0.3)]'
 												}`}
 											>
-												<Show when={!isPaidActive}>
-													<span class="material-symbols-outlined text-[16px]">stars</span>
-												</Show>
+												<span class="material-symbols-outlined text-[16px] text-amber-400">stars</span>
 												<span>
-													{isPaidActive ? t('botManage.extendSub') : t('botManage.buySubscription')}
+													{isPaidActive
+														? (t('botManage.extendSub') || 'Extend (250 ⭐)')
+														: isTrialActive
+															? 'Upgrade (250 ⭐)'
+															: (t('botManage.buySubscription') || 'Subscribe (250 ⭐)')}
 												</span>
 											</button>
 

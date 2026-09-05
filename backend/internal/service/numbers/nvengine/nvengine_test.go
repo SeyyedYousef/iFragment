@@ -279,3 +279,41 @@ func TestValuationEngine_ConcurrentRaceSafety(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestValuationEngine_RealizedSalePriceAnchoring(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	ctx := context.Background()
+
+	// 1. Check +888 8777 calibrated valuation without DB repo (prior should reflect Supreme King Tier)
+	val8777, err := engine.Valuate(ctx, "+888 8777")
+	if err != nil {
+		t.Fatalf("valuation failed for +888 8777: %v", err)
+	}
+
+	exp8777, _ := val8777.ExpectedTON.Float64()
+	if exp8777 < 600000.0 {
+		t.Errorf("expected +888 8777 calibrated valuation >= 600,000 TON, got %.2f", exp8777)
+	}
+
+	// 2. Check Fragment direct URL generation (MUST include 888 prefix without +, e.g. /number/8888777)
+	expectedURL := "https://fragment.com/number/8888777"
+	if val8777.FragmentDirectURL != expectedURL {
+		t.Errorf("expected FragmentDirectURL %q, got %q", expectedURL, val8777.FragmentDirectURL)
+	}
+
+	// 3. Check OnChainAudit for Genesis numbers (must be correctly flagged as Genesis)
+	if val8777.OnChainAudit.RestrictionStatusEn != "Original 4-Digit Genesis — Clean & Verified" {
+		t.Errorf("expected Genesis restriction status, got %q", val8777.OnChainAudit.RestrictionStatusEn)
+	}
+
+	// 4. Standard 8-digit Fragment direct URL check (+888 8888 8888 -> /number/88888888888)
+	val8888, err := engine.Valuate(ctx, "+888 8888 8888")
+	if err != nil {
+		t.Fatalf("valuation failed: %v", err)
+	}
+	expected8888URL := "https://fragment.com/number/88888888888"
+	if val8888.FragmentDirectURL != expected8888URL {
+		t.Errorf("expected FragmentDirectURL %q, got %q", expected8888URL, val8888.FragmentDirectURL)
+	}
+}
+

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -258,6 +259,38 @@ func (r *GiftsRepo) SaveValuationAudit(ctx context.Context, giftID, modelID stri
 	).Scan(&id)
 
 	return id, err
+}
+
+// GetLastSaleForGift returns the most recent realized sale record for an exact gift item (model + serial)
+func (r *GiftsRepo) GetLastSaleForGift(ctx context.Context, modelID string, serialNumber int) (*GiftSaleRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, nil
+	}
+
+	altModel := strings.ReplaceAll(modelID, "_", "-")
+	if altModel == modelID {
+		altModel = strings.ReplaceAll(modelID, "-", "_")
+	}
+
+	query := `
+		SELECT id, gift_id, model_id, serial_number, venue, currency,
+		       sale_price_raw, sale_price_gram, sale_price_usd, venue_fee_pct,
+		       price_confidence, sale_date, buyer_address, seller_address, tx_hash
+		FROM gift_sales
+		WHERE (model_id = $1 OR model_id = $2) AND serial_number = $3
+		ORDER BY sale_date DESC
+		LIMIT 1`
+
+	var s GiftSaleRecord
+	err := r.db.Pool.QueryRow(ctx, query, modelID, altModel, serialNumber).Scan(
+		&s.ID, &s.GiftID, &s.ModelID, &s.SerialNumber, &s.Venue, &s.Currency,
+		&s.SalePriceRaw, &s.SalePriceGRAM, &s.SalePriceUSD, &s.VenueFeePct,
+		&s.PriceConfidence, &s.SaleDate, &s.BuyerAddress, &s.SellerAddress, &s.TxHash,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
 }
 
 // GetCompsForGift fetches closest comparable sales by model and serial proximity

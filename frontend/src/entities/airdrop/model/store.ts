@@ -88,6 +88,7 @@ export const [earliestExpiringCoins, setEarliestExpiringCoins] = createSignal(0)
 export const [earliestExpiringDays, setEarliestExpiringDays] = createSignal(30);
 export const [valuationCredits, setValuationCredits] = createSignal(0);
 export const [boosterResetAt, setBoosterResetAt] = createSignal(0);
+export const [isUserPremium, setIsUserPremium] = createSignal(false);
 
 export const spawnRocket = () => {
 	if (turboCount() > 0 && !isTurboActive() && !isRocketSpawned()) {
@@ -389,6 +390,7 @@ let isSyncing = false;
 let syncPromise: Promise<void> | null = null;
 
 const getOptimisticCoins = () => {
+	const proMultiplier = isUserPremium() ? 2.0 : 1.0;
 	const raw = pendingTapBuckets.reduce((acc, b) => {
 		const energyConsumed = b.multiplier === 5 ? 0 : b.count * tapPower();
 		const coinsEarned = b.multiplier === 5 ? b.count * tapPower() * 5 : energyConsumed;
@@ -403,7 +405,7 @@ const getOptimisticCoins = () => {
 	} else if (dailyTappedCoins() > 5000) {
 		fatigueMultiplier = 0.5;
 	}
-	return raw * fatigueMultiplier;
+	return raw * fatigueMultiplier * proMultiplier;
 };
 
 const getOptimisticEnergyCost = () =>
@@ -542,7 +544,8 @@ export const recordTaps = (count: number) => {
 		fatigueMultiplier = 0.5;
 	}
 
-	coinsEarned = coinsEarned * fatigueMultiplier;
+	const proMultiplier = isUserPremium() ? 2.0 : 1.0;
+	coinsEarned = coinsEarned * fatigueMultiplier * proMultiplier;
 
 	if (energyConsumed > 0) {
 		setEnergy((e) => Math.max(0, e - energyConsumed));
@@ -601,6 +604,9 @@ export const syncProfileStats = async () => {
 	try {
 		const stats = await getProfileStats();
 		if (stats) {
+			if (typeof stats.isPremium === 'boolean') {
+				setIsUserPremium(stats.isPremium);
+			}
 			setFrgBalance(
 				typeof (stats as any).frgBalance === 'number'
 					? (stats as any).frgBalance

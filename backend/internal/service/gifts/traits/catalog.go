@@ -14,13 +14,14 @@ var (
 // CollectionMeta holds official Telegram Gift collection supply & metadata.
 // Note: Floor prices are NEVER stored here statically; they are fetched dynamically from live venue adapters.
 type CollectionMeta struct {
-	ModelID       string `json:"model_id"`
-	Name          string `json:"name"`
-	TotalSupply   int    `json:"total_supply"`
-	CraftedFlag   bool   `json:"crafted_flag"`
-	LimitedFlag   bool   `json:"limited_flag"`
-	ContractID    string `json:"contract_id,omitempty"`
-	Description   string `json:"description"`
+	ModelID        string `json:"model_id"`
+	Name           string `json:"name"`
+	TotalSupply    int    `json:"total_supply"`
+	CraftedFlag    bool   `json:"crafted_flag"`
+	LimitedFlag    bool   `json:"limited_flag"`
+	ContractID     string `json:"contract_id,omitempty"`
+	BaseStarsPrice int    `json:"base_stars_price,omitempty"`
+	Description    string `json:"description"`
 }
 
 // BackdropColorSet holds the 4 on-chain color hexes

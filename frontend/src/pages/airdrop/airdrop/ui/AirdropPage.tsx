@@ -13,6 +13,7 @@ import { syncProfileStats } from '@/entities/airdrop/index.js';
 import { collectOfflineMining, startOfflineMining } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { triggerCoinCelebration } from '@/shared/ui/index.js';
 import { BoostersView } from '@/widgets/airdrop-boosters/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { ClanView } from './ClanView.js';
@@ -274,7 +275,19 @@ export const AirdropPage: Component = () => {
 						{/* Claim Button */}
 						<button
 							type="button"
-							onClick={() => setOfflineEarnings(0)}
+							onClick={(e) => {
+								const earned = offlineEarnings();
+								const rect = e.currentTarget.getBoundingClientRect();
+								setOfflineEarnings(0);
+								if (earned > 0) {
+									triggerCoinCelebration({
+										amount: earned,
+										startX: rect.left + rect.width / 2,
+										startY: rect.top + rect.height / 2,
+										targetSelector: '#airdrop-balance-counter',
+									});
+								}
+							}}
 							class="w-full h-14 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-[18px] text-black font-black text-[14px] uppercase tracking-widest active:scale-95 transition-all shadow-[0_8px_24px_rgba(245,158,11,0.3)] z-10 border border-white/10"
 						>
 							{t('airdropFinal.bot.claim' as any) || 'AWESOME!'}

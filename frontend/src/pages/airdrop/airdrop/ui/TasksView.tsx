@@ -12,6 +12,7 @@ import {
 } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { triggerCoinCelebration } from '@/shared/ui/index.js';
 
 export const TasksView: Component = () => {
 	const [taskErrors, setTaskErrors] = createSignal<Record<string, string>>({});
@@ -37,7 +38,7 @@ export const TasksView: Component = () => {
 		refetchOnWindowFocus: false,
 	}));
 
-	const handleTaskClick = async (task: TaskStatus) => {
+	const handleTaskClick = async (task: TaskStatus, event?: MouseEvent | PointerEvent) => {
 		if (task.completed) return;
 		const key = task.key;
 
@@ -87,9 +88,17 @@ export const TasksView: Component = () => {
 		try {
 			const result = await completeTask(key);
 			if (result) {
-				haptic.notify('success');
 				tasksQuery.refetch();
 				await syncProfileStats();
+				const rewardAmount = task.reward_frg || 1000;
+				const startX = event?.clientX ?? window.innerWidth / 2;
+				const startY = event?.clientY ?? window.innerHeight / 2;
+				triggerCoinCelebration({
+					amount: rewardAmount,
+					startX,
+					startY,
+					targetSelector: '#airdrop-balance-counter',
+				});
 			} else {
 				throw new Error('empty_response');
 			}
@@ -164,6 +173,13 @@ export const TasksView: Component = () => {
 				haptic.notify('success');
 				tasksQuery.refetch();
 				await syncProfileStats();
+				const rewardAmount = task.reward_frg || 5000;
+				triggerCoinCelebration({
+					amount: rewardAmount,
+					startX: window.innerWidth / 2,
+					startY: window.innerHeight / 2,
+					targetSelector: '#airdrop-balance-counter',
+				});
 				setActiveQuizTask(null);
 			} else {
 				throw new Error('empty_response');
@@ -202,6 +218,13 @@ export const TasksView: Component = () => {
 				haptic.notify('success');
 				comboQuery.refetch();
 				await syncProfileStats();
+				const rewardAmount = comboQuery.data?.reward || 10000;
+				triggerCoinCelebration({
+					amount: rewardAmount,
+					startX: window.innerWidth / 2,
+					startY: window.innerHeight / 2,
+					targetSelector: '#airdrop-balance-counter',
+				});
 				setComboInput('');
 			}
 		} catch (e: any) {
@@ -422,7 +445,7 @@ export const TasksView: Component = () => {
 													<div class="flex flex-col relative group">
 														<button
 															type="button"
-															onClick={() => handleTaskClick(task)}
+															onClick={(e) => handleTaskClick(task, e)}
 															disabled={task.completed || loadingKeys()[task.key]}
 															class={`w-full flex flex-col p-3 text-start transition-all duration-300 disabled:opacity-100 rounded-[20px] border 
 																${
@@ -662,7 +685,7 @@ export const TasksView: Component = () => {
 										<div class={`flex flex-col ${!isLast ? 'border-b border-white/5' : ''}`}>
 											<button
 												type="button"
-												onClick={() => handleTaskClick(task)}
+												onClick={(e) => handleTaskClick(task, e)}
 												disabled={task.completed || loadingKeys()[task.key]}
 												class="w-full flex items-center justify-between py-3.5 px-4 text-start hover:bg-white/5 active:bg-white/10 transition-colors disabled:opacity-100 group"
 											>
@@ -710,7 +733,7 @@ export const TasksView: Component = () => {
 
 						<button
 							type="button"
-							onClick={() => handleTaskClick(activeCampaign()!)}
+							onClick={(e) => handleTaskClick(activeCampaign()!, e)}
 							disabled={
 								activeCampaign()?.completed ||
 								loadingKeys()[activeCampaign()!.key] ||

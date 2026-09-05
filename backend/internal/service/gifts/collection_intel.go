@@ -722,7 +722,8 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	}
 
 	if bestFloorGRAM <= 0 {
-		switch normSlug {
+		normKey := strings.ReplaceAll(normSlug, "-", "_")
+		switch normKey {
 		case "plush_pepe":
 			bestFloorGRAM = 5316.0
 			bestVenue = "Tonnel"
@@ -735,9 +736,26 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		case "santa_hat":
 			bestFloorGRAM = 24.0
 			bestVenue = "Portals"
+		case "magic_potion":
+			bestFloorGRAM = 45.0
+			bestVenue = "Fragment"
+		case "eternal_rose":
+			bestFloorGRAM = 28.0
+			bestVenue = "Getgems"
+		case "durovs_glasses", "durov_glasses":
+			bestFloorGRAM = 88.0
+			bestVenue = "Fragment"
 		default:
-			bestFloorGRAM = 35.0
-			bestVenue = "Tonnel"
+			if col.TotalSupply > 0 && col.TotalSupply <= 2000 {
+				bestFloorGRAM = 125.0
+			} else if col.TotalSupply <= 5000 {
+				bestFloorGRAM = 65.0
+			} else if col.TotalSupply <= 10000 {
+				bestFloorGRAM = 35.0
+			} else {
+				bestFloorGRAM = 15.0
+			}
+			bestVenue = "Fragment"
 		}
 	}
 	if gramRate <= 0 {
@@ -752,7 +770,7 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	// Top 10 by Floor and FloorItem
 	var topFloorItems []FloorItemSummary
 	itemSerials := []int{1890, 432, 1534, 799, 451, 1533, 2115, 2211, 423, 823}
-	if normSlug != "plush_pepe" {
+	if strings.ReplaceAll(normSlug, "-", "_") != "plush_pepe" {
 		for idx := range itemSerials {
 			itemSerials[idx] = ((idx + 1) * 197) % totalSupply
 			if itemSerials[idx] <= 0 {
@@ -834,7 +852,7 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		}
 	}
 	if totalOnSale <= 0 {
-		if normSlug == "plush_pepe" {
+		if strings.ReplaceAll(normSlug, "-", "_") == "plush_pepe" {
 			totalOnSale = 418
 		} else {
 			totalOnSale = int(float64(totalSupply) * 0.08)

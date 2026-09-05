@@ -15,3 +15,5 @@ export * from './section-header.js';
 export * from './settings-controls.js';
 export * from './toast.js';
 export * from './UnsavedChangesSheet.js';
+export * from './AnimatedCounter.js';
+export * from './CoinCelebration.js';

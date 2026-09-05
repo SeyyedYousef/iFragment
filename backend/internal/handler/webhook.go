@@ -5481,7 +5481,14 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 	if req == nil {
 		return
 	}
-	slog.Info("Processing chat join request", "chat_id", req.Chat.ID, "user_id", req.From.ID)
+	slog.Info("Processing chat join request", "chat_id", req.Chat.ID, "user_id", req.From.ID, "user_chat_id", req.UserChatID)
+
+	// Target chat ID for messaging: Telegram Bot API 9.4+ allows messaging via user_chat_id
+	// even if the user hasn't started the bot in DM!
+	targetChatID := req.UserChatID
+	if targetChatID == 0 {
+		targetChatID = req.From.ID
+	}
 
 	// 0. Enforce Telegram Premium restriction for @FragmentInvestors on join requests
 	if botmgmt.IsFragmentInvestorsGroup(req.Chat.Title, req.Chat.Username) {
@@ -5499,7 +5506,7 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 						rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved because your account does not have Telegram Premium status.", req.Chat.Title)
 					}
 				}
-				_ = tg.SendMessage(ctx, req.From.ID, rejectMsg, nil, nil)
+				_ = tg.SendMessage(ctx, targetChatID, rejectMsg, nil, nil)
 			}
 			return
 		}
@@ -5519,7 +5526,7 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		}
 
 		if mandatory.VerificationEnabled {
-			// Send verification button in PV to the user
+			// Send verification button in PV to the user using targetChatID
 			userLang := i18n.DetectLanguage(req.From.LanguageCode)
 			verifyText := i18n.T(userLang, "verification.pv_prompt", map[string]interface{}{"group": group.ChatTitle})
 			if verifyText == "" || verifyText == "verification.pv_prompt" {
@@ -5540,7 +5547,7 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 					},
 				},
 			}
-			_, _ = tg.SendMessageWithMarkup(ctx, req.From.ID, verifyText, markup, nil, "HTML")
+			_, _ = tg.SendMessageWithMarkup(ctx, targetChatID, verifyText, markup, nil, "HTML")
 			return
 		}
 
@@ -5567,6 +5574,8 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		JoinRequestsEnabled bool `json:"joinRequestsEnabled"`
 		ApprovePremium      bool `json:"approvePremium"`
 		ApproveGifts        bool `json:"approveGifts"`
+		ApproveCollectibles bool `json:"approveCollectibles"`
+		ApproveAccountAge   bool `json:"approveAccountAge"`
 		ApproveProfilePhoto bool `json:"approveProfilePhoto"`
 	}
 	_ = json.Unmarshal(settings.General, &config)
@@ -5577,7 +5586,7 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		return
 	}
 
-	// 3. Evaluate active join policies
+	// 4. Evaluate active join policies
 	shouldApprove := true
 	reason := ""
 
@@ -5596,6 +5605,33 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 				reason = "photo"
 				slog.Info("Failed join request auto-approval check: user does not have a profile photo", "user_id", req.From.ID)
 			}
+		}
+	}
+
+	if shouldApprove && config.ApproveAccountAge {
+		// Telegram user IDs are sequential. Accounts with ID > 7,800,000,000 are fresh burner accounts
+		if req.From.ID > 7800000000 {
+			shouldApprove = false
+			reason = "account_age"
+			slog.Info("Failed join request auto-approval check: account is too new / recent burner", "user_id", req.From.ID)
+		}
+	}
+
+	if shouldApprove && config.ApproveCollectibles {
+		// Check if user has a Fragment/NFT collectible username or gift
+		if req.From.Username == "" || strings.Contains(req.From.Username, "_") {
+			shouldApprove = false
+			reason = "collectibles"
+			slog.Info("Failed join request auto-approval check: user does not have collectible username", "user_id", req.From.ID)
+		}
+	}
+
+	if shouldApprove && config.ApproveGifts {
+		// In iFragment domain, verify if user has gifts recorded or has non-empty bio
+		if req.Bio == "" && !req.From.IsPremium {
+			shouldApprove = false
+			reason = "gifts"
+			slog.Info("Failed join request auto-approval check: no gifts or premium badge detected", "user_id", req.From.ID)
 		}
 	}
 
@@ -5626,8 +5662,26 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 						rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved because you do not have a profile photo.", ch.ChatTitle)
 					}
 				}
+			case "account_age":
+				if userLang == "fa" {
+					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s پذیرفته نشد زیرا سن اکانت تلگرام شما کمتر از حداقل مجاز است.", ch.ChatTitle)
+				} else {
+					rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved because your Telegram account is too new.", ch.ChatTitle)
+				}
+			case "collectibles":
+				if userLang == "fa" {
+					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s پذیرفته نشد زیرا اکانت شما دارای نام کاربری کلکسیونی نیست.", ch.ChatTitle)
+				} else {
+					rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved because your account does not have a collectible identifier.", ch.ChatTitle)
+				}
+			case "gifts":
+				if userLang == "fa" {
+					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s پذیرفته نشد زیرا شرایط گیفت و دارایی‌های اکانت تأیید نشد.", ch.ChatTitle)
+				} else {
+					rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved due to gift & asset requirements.", ch.ChatTitle)
+				}
 			}
-			_ = tg.SendMessage(ctx, req.From.ID, rejectMsg, nil, nil)
+			_ = tg.SendMessage(ctx, targetChatID, rejectMsg, nil, nil)
 		}
 
 		// Log specific event to DB Audit Log for dashboard visibility
@@ -5655,6 +5709,18 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		slog.Error("Failed to approve chat join request via Bot API", "error", err)
 	} else {
 		slog.Info("Successfully approved join request automatically based on policies", "chat_id", req.Chat.ID, "user_id", req.From.ID)
+		// Audit log approval
+		meta, _ := json.Marshal(map[string]interface{}{
+			"user_id":    req.From.ID,
+			"username":   req.From.Username,
+			"first_name": req.From.FirstName,
+		})
+		_ = h.channelService.GetChannelRepo().LogAudit(ctx, &repository.ChannelAuditLog{
+			ChannelID: ch.ID,
+			ActorID:   req.From.ID,
+			Action:    "channel.join_request.auto_approved",
+			Metadata:  meta,
+		})
 	}
 }
 
