@@ -1,10 +1,10 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/index.js';
-import { type OwnerDashboardStats } from '@/entities/owner/model/types.js';
+import type { OwnerDashboardStats } from '@/entities/owner/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 import { TotpSetupModal } from '@/widgets/owner/TotpSetupModal.js';
-import { t } from '@/shared/i18n/index.js';
 
 export const OwnerDashboard: Component = () => {
 	const queryClient = useQueryClient();
@@ -127,7 +127,9 @@ export const OwnerDashboard: Component = () => {
 							? '...'
 							: (stats()?.coins_circulation ?? stats()?.frg_circulation ?? 0).toLocaleString()}
 					</div>
-					<div class="text-xs text-white/40 text-[11px]">{t('ownerDashboard.economyTotalMinted')}</div>
+					<div class="text-xs text-white/40 text-[11px]">
+						{t('ownerDashboard.economyTotalMinted')}
+					</div>
 				</div>
 
 				{/* Stars Volume */}
@@ -153,7 +155,9 @@ export const OwnerDashboard: Component = () => {
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-outlined text-amber-400">show_chart</span>
-							<span class="text-sm font-bold text-white">{t('ownerDashboard.dailySignupsTrend')}</span>
+							<span class="text-sm font-bold text-white">
+								{t('ownerDashboard.dailySignupsTrend')}
+							</span>
 						</div>
 						<div class="flex gap-1 rounded-xl bg-white/5 p-1 text-xs">
 							{(['7d', '30d', '90d'] as const).map((r) => (

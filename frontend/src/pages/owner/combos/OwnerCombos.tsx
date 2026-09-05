@@ -1,8 +1,8 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
-import { t } from '@/shared/i18n/index.js';
 import type { AdminDailyCombo } from '@/entities/owner/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 
 export const OwnerCombos: Component = () => {
 	const queryClient = useQueryClient();
@@ -48,9 +48,7 @@ export const OwnerCombos: Component = () => {
 			{/* Header */}
 			<div>
 				<h2 class="text-lg font-bold text-white">{t('ownerCombos.title')}</h2>
-				<p class="text-xs text-white/50">
-					{t('ownerCombos.subtitle')}
-				</p>
+				<p class="text-xs text-white/50">{t('ownerCombos.subtitle')}</p>
 			</div>
 
 			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -64,7 +62,9 @@ export const OwnerCombos: Component = () => {
 
 						<form onSubmit={handleSubmit} class="space-y-3">
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">{t('ownerCombos.activeDate')}</div>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerCombos.activeDate')}
+								</div>
 								<input
 									type="date"
 									value={dateInput()}

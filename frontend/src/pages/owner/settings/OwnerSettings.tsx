@@ -1,8 +1,8 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createEffect, createSignal, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
-import { t } from '@/shared/i18n/index.js';
 import type { SystemSettings } from '@/entities/owner/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerSettings: Component = () => {
@@ -125,15 +125,16 @@ export const OwnerSettings: Component = () => {
 								access
 							</div>
 						</div>
-						<div class="relative inline-flex items-center cursor-pointer">
+						<label class="relative inline-flex items-center cursor-pointer">
 							<input
 								type="checkbox"
+								aria-label={t('ownerSettings.maintenanceMode')}
 								checked={currentSettings()?.maintenance_mode ?? false}
 								onChange={(e) => handleMaintenanceToggle(e.currentTarget.checked)}
 								class="sr-only peer"
 							/>
 							<div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500" />
-						</div>
+						</label>
 					</div>
 
 					{/* Economic Engine Parameters */}
@@ -145,89 +146,103 @@ export const OwnerSettings: Component = () => {
 
 						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">{t('ownerSettings.tapMultiplier')}</div>
-								<input
-									type="number"
-									step="0.1"
-									value={currentSettings()?.tap_multiplier ?? 1}
-									onInput={(e) =>
-										updateField('tap_multiplier', parseFloat(e.currentTarget.value) || 1)
-									}
-									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
-								/>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerSettings.tapMultiplier')}
+									<input
+										type="number"
+										step="0.1"
+										aria-label={t('ownerSettings.tapMultiplier')}
+										value={currentSettings()?.tap_multiplier ?? 1}
+										onInput={(e) =>
+											updateField('tap_multiplier', parseFloat(e.currentTarget.value) || 1)
+										}
+										class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none mt-1"
+									/>
+								</label>
 							</div>
 
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
 									{t('ownerSettings.referralBonus')}
-								</div>
-								<input
-									type="number"
-									value={currentSettings()?.referral_bonus ?? 25000}
-									onInput={(e) =>
-										updateField('referral_bonus', parseInt(e.currentTarget.value, 10) || 0)
-									}
-									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
-								/>
+									<input
+										type="number"
+										aria-label={t('ownerSettings.referralBonus')}
+										value={currentSettings()?.referral_bonus ?? 25000}
+										onInput={(e) =>
+											updateField('referral_bonus', parseInt(e.currentTarget.value, 10) || 0)
+										}
+										class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none mt-1"
+									/>
+								</label>
 							</div>
 
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
 									{t('ownerSettings.dailyRewardBase')}
-								</div>
-								<input
-									type="number"
-									value={currentSettings()?.daily_reward_base ?? 5000}
-									onInput={(e) =>
-										updateField('daily_reward_base', parseInt(e.currentTarget.value, 10) || 0)
-									}
-									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
-								/>
+									<input
+										type="number"
+										aria-label={t('ownerSettings.dailyRewardBase')}
+										value={currentSettings()?.daily_reward_base ?? 5000}
+										onInput={(e) =>
+											updateField('daily_reward_base', parseInt(e.currentTarget.value, 10) || 0)
+										}
+										class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none mt-1"
+									/>
+								</label>
 							</div>
 						</div>
 
 						{/* Fatigue Thresholds */}
 						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
 									{t('ownerSettings.fatigueThreshold1')}
-								</div>
-								<input
-									type="number"
-									value={currentSettings()?.fatigue_threshold_1 ?? 500}
-									onInput={(e) =>
-										updateField('fatigue_threshold_1', parseInt(e.currentTarget.value, 10) || 500)
-									}
-									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
-								/>
+									<input
+										type="number"
+										aria-label={t('ownerSettings.fatigueThreshold1')}
+										value={currentSettings()?.fatigue_threshold_1 ?? 500}
+										onInput={(e) =>
+											updateField('fatigue_threshold_1', parseInt(e.currentTarget.value, 10) || 500)
+										}
+										class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none mt-1"
+									/>
+								</label>
 							</div>
 
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
 									{t('ownerSettings.fatigueThreshold2')}
-								</div>
-								<input
-									type="number"
-									value={currentSettings()?.fatigue_threshold_2 ?? 1500}
-									onInput={(e) =>
-										updateField('fatigue_threshold_2', parseInt(e.currentTarget.value, 10) || 1500)
-									}
-									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
-								/>
+									<input
+										type="number"
+										aria-label={t('ownerSettings.fatigueThreshold2')}
+										value={currentSettings()?.fatigue_threshold_2 ?? 1500}
+										onInput={(e) =>
+											updateField(
+												'fatigue_threshold_2',
+												parseInt(e.currentTarget.value, 10) || 1500,
+											)
+										}
+										class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none mt-1"
+									/>
+								</label>
 							</div>
 
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
 									{t('ownerSettings.fatigueThreshold3')}
-								</div>
-								<input
-									type="number"
-									value={currentSettings()?.fatigue_threshold_3 ?? 3000}
-									onInput={(e) =>
-										updateField('fatigue_threshold_3', parseInt(e.currentTarget.value, 10) || 3000)
-									}
-									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
-								/>
+									<input
+										type="number"
+										aria-label={t('ownerSettings.fatigueThreshold3')}
+										value={currentSettings()?.fatigue_threshold_3 ?? 3000}
+										onInput={(e) =>
+											updateField(
+												'fatigue_threshold_3',
+												parseInt(e.currentTarget.value, 10) || 3000,
+											)
+										}
+										class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none mt-1"
+									/>
+								</label>
 							</div>
 						</div>
 					</div>
@@ -241,46 +256,55 @@ export const OwnerSettings: Component = () => {
 
 						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
 									{t('ownerSettings.inactivityDecayRate')}
-								</div>
-								<input
-									type="number"
-									step="0.5"
-									value={currentSettings()?.coin_decay_pct ?? 5.0}
-									onInput={(e) =>
-										updateField('coin_decay_pct', parseFloat(e.currentTarget.value) || 0)
-									}
-									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
-								/>
+									<input
+										type="number"
+										step="0.5"
+										aria-label={t('ownerSettings.inactivityDecayRate')}
+										value={currentSettings()?.coin_decay_pct ?? 5.0}
+										onInput={(e) =>
+											updateField('coin_decay_pct', parseFloat(e.currentTarget.value) || 0)
+										}
+										class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none mt-1"
+									/>
+								</label>
 							</div>
 
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
 									{t('ownerSettings.referralRevSharePct')}
-								</div>
-								<input
-									type="number"
-									value={currentSettings()?.referral_rev_share_pct ?? 15}
-									onInput={(e) =>
-										updateField('referral_rev_share_pct', parseInt(e.currentTarget.value, 10) || 0)
-									}
-									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
-								/>
+									<input
+										type="number"
+										aria-label={t('ownerSettings.referralRevSharePct')}
+										value={currentSettings()?.referral_rev_share_pct ?? 15}
+										onInput={(e) =>
+											updateField(
+												'referral_rev_share_pct',
+												parseInt(e.currentTarget.value, 10) || 0,
+											)
+										}
+										class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none mt-1"
+									/>
+								</label>
 							</div>
 
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
 									{t('ownerSettings.turboDuration')}
-								</div>
-								<input
-									type="number"
-									value={currentSettings()?.turbo_duration_seconds ?? 20}
-									onInput={(e) =>
-										updateField('turbo_duration_seconds', parseInt(e.currentTarget.value, 10) || 20)
-									}
-									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
-								/>
+									<input
+										type="number"
+										aria-label={t('ownerSettings.turboDuration')}
+										value={currentSettings()?.turbo_duration_seconds ?? 20}
+										onInput={(e) =>
+											updateField(
+												'turbo_duration_seconds',
+												parseInt(e.currentTarget.value, 10) || 20,
+											)
+										}
+										class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none mt-1"
+									/>
+								</label>
 							</div>
 						</div>
 					</div>

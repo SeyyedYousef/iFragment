@@ -1,8 +1,8 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
-import { t } from '@/shared/i18n/index.js';
 import type { OwnerEntityItem } from '@/entities/owner/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 import {
 	type DangerActionDetail,
 	DangerActionDialog,
@@ -99,9 +99,7 @@ export const OwnerEntities: Component = () => {
 			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
 					<h2 class="text-lg font-bold text-white">{t('ownerEntities.title')}</h2>
-					<p class="text-xs text-white/50">
-						{t('ownerEntities.subtitle')}
-					</p>
+					<p class="text-xs text-white/50">{t('ownerEntities.subtitle')}</p>
 				</div>
 
 				<div class="flex gap-1.5 rounded-2xl bg-white/5 p-1 text-xs">

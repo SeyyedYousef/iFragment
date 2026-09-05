@@ -217,6 +217,9 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 		risksCount++
 	}
 
+	floorGRAM := e.resolveDynamicFloor(ctx, col.ModelID, col, gramUsdRate)
+	floorUSD := math.Round(floorGRAM*gramUsdRate*100.0) / 100.0
+
 	return &CuriosityGateResponse{
 		GiftID:           ref.GiftID,
 		ModelID:          col.ModelID,
@@ -229,10 +232,77 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 		RisksIdentified:  risksCount,
 		DataSourcesCount: 6, // Fragment, Getgems, Tonnel, Portals, MRKT, Telegram Stars
 		IsCrafted:        col.CraftedFlag,
-		FloorPriceGRAM:   15.0,
-		FloorPriceUSD:    math.Round(15.0*gramUsdRate*100.0) / 100.0,
+		FloorPriceGRAM:   floorGRAM,
+		FloorPriceUSD:    floorUSD,
 		CheckedAt:        time.Now().UTC().Format(time.RFC3339),
 	}, nil
+}
+
+// resolveDynamicFloor determines the realistic baseline floor price using live DB snapshots, market liquidity, or canonical supply economics.
+func (e *ValuationEngine) resolveDynamicFloor(ctx context.Context, modelID string, col traits.CollectionMeta, tonUsdRate float64) float64 {
+	// 1. Query database venue snapshots if available
+	if e.giftsRepo != nil {
+		if snaps, err := e.giftsRepo.GetVenueSnapshots(ctx, modelID); err == nil && len(snaps) > 0 {
+			bestFloor := 0.0
+			for _, snap := range snaps {
+				f, _ := snap.FloorPriceGRAM.Float64()
+				if f > 0 && (bestFloor == 0.0 || f < bestFloor) {
+					bestFloor = f
+				}
+			}
+			if bestFloor > 0 {
+				return bestFloor
+			}
+		}
+		if col.ModelID != "" && col.ModelID != modelID {
+			if snaps, err := e.giftsRepo.GetVenueSnapshots(ctx, col.ModelID); err == nil && len(snaps) > 0 {
+				bestFloor := 0.0
+				for _, snap := range snaps {
+					f, _ := snap.FloorPriceGRAM.Float64()
+					if f > 0 && (bestFloor == 0.0 || f < bestFloor) {
+						bestFloor = f
+					}
+				}
+				if bestFloor > 0 {
+					return bestFloor
+				}
+			}
+		}
+	}
+
+	// 2. Inverted supply scarcity baseline economics (from Canonical Telegram Gifts Registry)
+	supply := col.TotalSupply
+	if supply <= 0 {
+		supply = 10000
+	}
+
+	var baseTon float64
+	switch {
+	case supply <= 1000:
+		baseTon = 125.0
+	case supply <= 2500:
+		baseTon = 65.0
+	case supply <= 5000:
+		baseTon = 35.0
+	case supply <= 10000:
+		baseTon = 20.0
+	case supply <= 25000:
+		baseTon = 12.0
+	case supply <= 50000:
+		baseTon = 7.5
+	default:
+		baseTon = 4.5
+	}
+
+	if col.CraftedFlag {
+		baseTon *= 1.40 // 40% intrinsic burn/crafting premium
+	}
+
+	if tonUsdRate > 0 && tonUsdRate != 5.50 {
+		baseTon *= (5.50 / tonUsdRate)
+	}
+
+	return math.Round(baseTon*10.0) / 10.0
 }
 
 // Valuate computes the full mathematical valuation for a Telegram Gift
@@ -281,25 +351,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	// 3. 4-Axis Hedonic Pricing Model
-	// Resolve base floor dynamically from venue snapshots or conservative fallback
-	baseFloor := 15.0
-	if e.giftsRepo != nil {
-		if snaps, err := e.giftsRepo.GetVenueSnapshots(ctx, ref.ModelID); err == nil && len(snaps) > 0 {
-			for _, snap := range snaps {
-				f, _ := snap.FloorPriceGRAM.Float64()
-				if f > 0 && (baseFloor == 15.0 || f < baseFloor) {
-					baseFloor = f
-				}
-			}
-		} else if snaps, err := e.giftsRepo.GetVenueSnapshots(ctx, col.ModelID); err == nil && len(snaps) > 0 {
-			for _, snap := range snaps {
-				f, _ := snap.FloorPriceGRAM.Float64()
-				if f > 0 && (baseFloor == 15.0 || f < baseFloor) {
-					baseFloor = f
-				}
-			}
-		}
-	}
+	// Resolve base floor dynamically from live venue snapshots or scarcity baseline
+	baseFloor := e.resolveDynamicFloor(ctx, ref.ModelID, col, gramUsdRate)
 	beta0 := math.Log(baseFloor)
 
 	// Axis 1: Model scarcity & crafted multiplier

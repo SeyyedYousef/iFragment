@@ -344,7 +344,7 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 													<span>
 														{pj.daysLeft > 0
 															? `${pj.daysLeft} ${t('botManage.daysLeft') || 'days remaining'}`
-															: (t('botManage.expired') || 'Subscription Expired')}
+															: t('botManage.expired') || 'Subscription Expired'}
 													</span>
 													<button
 														type="button"
@@ -394,7 +394,9 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 											<span class="material-symbols-outlined text-[20px]">bolt</span>
 										</div>
 										<div class="flex flex-col">
-											<span class="text-[13px] font-black text-white">{t('profile.energyCapacity')}</span>
+											<span class="text-[13px] font-black text-white">
+												{t('profile.energyCapacity')}
+											</span>
 											<span class="text-[10px] text-white/40">
 												Level {assets()?.boosters.energyLimitLevel || 1} (
 												{500 + ((assets()?.boosters.energyLimitLevel || 1) - 1) * 250} max)
@@ -417,7 +419,9 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 											<span class="material-symbols-outlined text-[20px]">smart_toy</span>
 										</div>
 										<div class="flex flex-col">
-											<span class="text-[13px] font-black text-white">{t('profile.autoTapBot')}</span>
+											<span class="text-[13px] font-black text-white">
+												{t('profile.autoTapBot')}
+											</span>
 											<span class="text-[10px] text-white/40">
 												{assets()?.boosters.tapBotLevel
 													? 'Active (12h Offline Mining)'

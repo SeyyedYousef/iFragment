@@ -553,7 +553,9 @@ export const ChannelForwardingPage: Component = () => {
 							{/* Direction & Target Type */}
 							<div class="grid grid-cols-2 gap-2">
 								<div class="space-y-1">
-									<div class="text-[11px] font-semibold text-neutral-300">{t('channelForwarding.direction')}</div>
+									<div class="text-[11px] font-semibold text-neutral-300">
+										{t('channelForwarding.direction')}
+									</div>
 									<select
 										value={direction()}
 										onChange={(e) => setDirection(e.currentTarget.value as any)}
@@ -565,7 +567,9 @@ export const ChannelForwardingPage: Component = () => {
 								</div>
 
 								<div class="space-y-1">
-									<div class="text-[11px] font-semibold text-neutral-300">{t('channelForwarding.targetType')}</div>
+									<div class="text-[11px] font-semibold text-neutral-300">
+										{t('channelForwarding.targetType')}
+									</div>
 									<select
 										value={targetType()}
 										onChange={(e) => setTargetType(e.currentTarget.value as any)}
@@ -620,7 +624,9 @@ export const ChannelForwardingPage: Component = () => {
 
 							{/* Forwarding Mode */}
 							<div class="space-y-1">
-								<div class="text-[11px] font-semibold text-neutral-300">{t('channelForwarding.deliveryMode')}</div>
+								<div class="text-[11px] font-semibold text-neutral-300">
+									{t('channelForwarding.deliveryMode')}
+								</div>
 								<select
 									value={mode()}
 									onChange={(e) => setMode(e.currentTarget.value as any)}
@@ -634,7 +640,9 @@ export const ChannelForwardingPage: Component = () => {
 
 							{/* Filter Options */}
 							<div class="space-y-2 pt-2 border-t border-neutral-800">
-								<div class="text-[11px] font-semibold text-neutral-300">{t('channelForwarding.cleanupFilters')}</div>
+								<div class="text-[11px] font-semibold text-neutral-300">
+									{t('channelForwarding.cleanupFilters')}
+								</div>
 								<div class="grid grid-cols-3 gap-2">
 									<div class="flex items-center gap-1.5 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px] cursor-pointer">
 										<input

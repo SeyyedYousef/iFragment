@@ -282,6 +282,11 @@ export interface GiftsIntelResponse {
 	upgrade_price_clock: UpgradeClockItem[];
 	trending_models: TrendingModelItem[];
 	ending_soon_auctions: GiftAuctionItem[];
+	arbitrage_matrix?: ArbitrageOpportunity[];
+	macro_stats?: {
+		total_unique_models?: number;
+		total_patterns?: number;
+	};
 	updated_at: string;
 }
 
@@ -430,6 +435,94 @@ export interface CollectionBackdropSummary {
 	text_hex: string;
 }
 
+export interface SymbolSummary {
+	name: string;
+	rarity_permille: number;
+	total_supply: number;
+}
+
+export interface FloorItemSummary {
+	rank: number;
+	serial_number: number;
+	model_name: string;
+	symbol_name: string;
+	backdrop_name: string;
+	center_hex?: string;
+	edge_hex?: string;
+	price_gram: number;
+	price_usd: number;
+	venue_name: string;
+	buy_url?: string;
+}
+
+export interface MarketSalesSourceBreakdown {
+	venue_name: string;
+	volume_gram: number;
+	volume_usd: number;
+	deals_count: number;
+}
+
+export interface MarketSalesMetricPeriod {
+	volume_gram: number;
+	volume_usd: number;
+	min_gram: number;
+	min_usd: number;
+	avg_gram: number;
+	avg_usd: number;
+	max_gram: number;
+	max_usd: number;
+	deals_count: number;
+	by_source: MarketSalesSourceBreakdown[];
+}
+
+export interface MarketSalesStats {
+	period_24h: MarketSalesMetricPeriod;
+	period_7d: MarketSalesMetricPeriod;
+	period_30d: MarketSalesMetricPeriod;
+}
+
+export interface OnSaleMarketplaceBreakdown {
+	venue_name: string;
+	floor_gram: number;
+	floor_usd: number;
+	count: number;
+}
+
+export interface OnSaleStats {
+	total_count: number;
+	floor_gram: number;
+	floor_usd: number;
+	by_marketplace: OnSaleMarketplaceBreakdown[];
+}
+
+export interface SalesHistoryItem {
+	rank: number;
+	serial_number: number;
+	model_name: string;
+	symbol_name: string;
+	backdrop_name: string;
+	center_hex?: string;
+	price_gram: number;
+	price_usd: number;
+	exchange_rate: number;
+	venue_name: string;
+	sale_date: string;
+	tx_hash?: string;
+}
+
+export interface CatalogSearchItem {
+	serial_number: number;
+	model_name: string;
+	symbol_name: string;
+	backdrop_name: string;
+	center_hex?: string;
+	is_on_sale: boolean;
+	price_gram?: number;
+	price_usd?: number;
+	venue_name?: string;
+	rarity_score: number;
+}
+
 export interface CollectionIntelResponse {
 	collection_id: string;
 	collection_name: string;
@@ -449,6 +542,7 @@ export interface CollectionIntelResponse {
 	total_backdrops?: number;
 	total_symbols?: number;
 	backdrops_list?: CollectionBackdropSummary[];
+	symbols_list?: SymbolSummary[];
 
 	// Market Pulse
 	best_floor_gram: number;
@@ -464,7 +558,7 @@ export interface CollectionIntelResponse {
 	listed_count: number;
 	liquidity_ratio: number;
 
-	// Sections
+	// Sub-sections
 	model_floors: CollectionModelFloor[];
 	rarity_heatmap: RarityHeatmapCell[];
 	venue_floors: MarketVenueFloor[];
@@ -473,6 +567,14 @@ export interface CollectionIntelResponse {
 	recent_activity: MarketActivityItem[];
 	fear_greed: FearGreedData;
 	upgrade_ladder: UpgradeStepInfo[];
+
+	// Extended Screenshot-based Intelligence
+	floor_item?: FloorItemSummary;
+	top_floor_items?: FloorItemSummary[];
+	market_sales_stats?: MarketSalesStats;
+	on_sale_stats?: OnSaleStats;
+	sales_history?: SalesHistoryItem[];
+	search_items?: CatalogSearchItem[];
 
 	// Floor price history (for chart)
 	floor_history: Array<{
@@ -492,7 +594,15 @@ export interface CollectionIntelResponse {
 // ═══════════════════════════════════════════════════════════
 
 export interface ProvenanceEvent {
-	event_type: 'created' | 'sent' | 'upgraded' | 'sold' | 'transferred' | 'crafted' | 'listed' | 'delisted';
+	event_type:
+		| 'created'
+		| 'sent'
+		| 'upgraded'
+		| 'sold'
+		| 'transferred'
+		| 'crafted'
+		| 'listed'
+		| 'delisted';
 	timestamp: string;
 	from_address?: string;
 	from_username?: string;

@@ -56,7 +56,6 @@ export const DashboardPage: Component = () => {
 				<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-8" />
 
 				<div class="w-full max-w-[420px] flex flex-col gap-6">
-
 					{/* ── MANAGEMENT CARDS ── */}
 					<div class="flex flex-col gap-3.5 w-full">
 						{/* Card 1: Group Management */}

@@ -1,12 +1,10 @@
 import { apiClient } from '@/shared/api/axios.js';
-import type {
-	CuriosityGateData,
-	MaskItem,
-	NumbersIntelData,
-	NumberValuationResult,
-} from '../model/types.js';
+import type { CuriosityGateData, NumbersIntelData, NumberValuationResult } from '../model/types.js';
 
-export function parseNumbersFromHTML(html: string, rate: number = 5.5): {
+export function parseNumbersFromHTML(
+	html: string,
+	rate: number = 5.5,
+): {
 	items: import('../model/types.js').NumberTableItem[];
 	totalPages: number;
 } {
@@ -43,10 +41,12 @@ export function parseNumbersFromHTML(html: string, rate: number = 5.5): {
 		const marketMatch = chunk.match(/href="(https:\/\/(?:fragment\.com|getgems\.io)[^"]+)"/);
 		const marketUrl = marketMatch ? marketMatch[1] : `https://fragment.com/number/${suffix}`;
 
-		const tonPrices = [...chunk.matchAll(/class="ton[^"]*"[^>]*><strong[^>]*>([^<]+)<\/strong>/g)].map(
-			(m) => parseFloat(m[1].replace(/,/g, '')) || 0,
+		const tonPrices = [
+			...chunk.matchAll(/class="ton[^"]*"[^>]*><strong[^>]*>([^<]+)<\/strong>/g),
+		].map((m) => parseFloat(m[1].replace(/,/g, '')) || 0);
+		const txMatch = chunk.match(
+			/href="https:\/\/tonviewer\.com\/transaction\/([a-f0-9]+)"[^>]*>([^<]+)<\/a>/,
 		);
-		const txMatch = chunk.match(/href="https:\/\/tonviewer\.com\/transaction\/([a-f0-9]+)"[^>]*>([^<]+)<\/a>/);
 		const lastSaleDate = txMatch ? txMatch[2].trim() : 'On-Chain';
 
 		const lastSaleTon = tonPrices.length > 0 ? tonPrices[tonPrices.length - 1] : 0;
@@ -93,38 +93,43 @@ export const numbersApi = {
 	getIntel: async (): Promise<NumbersIntelData> => {
 		try {
 			const { data } = await apiClient.get<NumbersIntelData>('/numbers/intel');
-			if (data && (data.total_sales > 0 || data.floor_price_ton > 0)) {
+			if (data) {
 				return data;
 			}
-		} catch {}
+		} catch (err) {
+			console.error('Failed to load numbers intel from API:', err);
+		}
 
 		return {
 			total_supply: 136566,
 			supply_status: 'Closed Collection — Supply Frozen Forever',
-			total_owners: 29420,
-			total_sales: 68450,
-			total_volume_ton: 48920000,
-			floor_price_ton: 2450,
-			floor_price_usd: 13475,
-			volume_24h_ton: 14850,
-			volume_7d_ton: 112400,
+			total_owners: 0,
+			total_sales: 0,
+			total_volume_ton: 0,
+			floor_price_ton: 0,
+			floor_price_usd: 0,
+			volume_24h_ton: 0,
+			volume_7d_ton: 0,
 			fng_index: 50,
 			fng_label: 'Neutral',
-			historical_ath_ton: 666666,
-			ath_number: '+888 8 666',
+			historical_ath_ton: 0,
+			ath_number: '',
 			percentile_chart: [],
 			ending_soon: [],
 			trending_tail: [],
 			hall_of_fame: [],
-			data_status: 'live',
+			data_status: 'unavailable',
 			updated_at: new Date().toISOString(),
 		};
 	},
 
 	verifyNumber: async (number: string): Promise<import('../model/types.js').NumberVerifyResult> => {
-		const { data } = await apiClient.get<import('../model/types.js').NumberVerifyResult>('/numbers/verify', {
-			params: { n: number },
-		});
+		const { data } = await apiClient.get<import('../model/types.js').NumberVerifyResult>(
+			'/numbers/verify',
+			{
+				params: { n: number },
+			},
+		);
 		return data;
 	},
 
@@ -145,7 +150,7 @@ export const numbersApi = {
 		limit?: number,
 	): Promise<import('../model/types.js').MaskSearchResult[]> => {
 		const { data } = await apiClient.get<import('../model/types.js').MaskSearchResult[]>(
-			'/numbers/search-mask',
+			'/numbers/mask',
 			{
 				params: { pattern, limit: limit || 30 },
 			},
@@ -153,7 +158,9 @@ export const numbersApi = {
 		return data;
 	},
 
-	getPortfolio: async (address: string): Promise<import('../model/types.js').PortfolioScanResult> => {
+	getPortfolio: async (
+		address: string,
+	): Promise<import('../model/types.js').PortfolioScanResult> => {
 		const { data } = await apiClient.get<import('../model/types.js').PortfolioScanResult>(
 			'/numbers/portfolio',
 			{
@@ -211,20 +218,27 @@ export const numbersApi = {
 	},
 
 	getDeals: async (): Promise<import('../model/types.js').DealSniperItem[]> => {
-		const { data } = await apiClient.get<import('../model/types.js').DealSniperItem[]>('/numbers/deals');
+		const { data } =
+			await apiClient.get<import('../model/types.js').DealSniperItem[]>('/numbers/deals');
 		return data;
 	},
 
 	getClubs: async (): Promise<import('../model/types.js').CategoryClubItem[]> => {
-		const { data } = await apiClient.get<import('../model/types.js').CategoryClubItem[]>('/numbers/clubs');
+		const { data } =
+			await apiClient.get<import('../model/types.js').CategoryClubItem[]>('/numbers/clubs');
 		return data;
 	},
 
-	scanPortfolio: async (address: string): Promise<import('../model/types.js').WalletPortfolioResult> => {
+	scanPortfolio: async (
+		address: string,
+	): Promise<import('../model/types.js').WalletPortfolioResult> => {
 		const cleanAddress = address.trim();
-		const { data } = await apiClient.get<import('../model/types.js').WalletPortfolioResult>('/numbers/portfolio', {
-			params: { address: cleanAddress },
-		});
+		const { data } = await apiClient.get<import('../model/types.js').WalletPortfolioResult>(
+			'/numbers/portfolio',
+			{
+				params: { address: cleanAddress },
+			},
+		);
 		return (
 			data || {
 				owner_address: cleanAddress,
@@ -239,7 +253,8 @@ export const numbersApi = {
 	},
 
 	getActivity: async (): Promise<import('../model/types.js').LiveActivityItem[]> => {
-		const { data } = await apiClient.get<import('../model/types.js').LiveActivityItem[]>('/numbers/activity');
+		const { data } =
+			await apiClient.get<import('../model/types.js').LiveActivityItem[]>('/numbers/activity');
 		return data;
 	},
 
@@ -259,10 +274,13 @@ export const numbersApi = {
 
 		// 2. Fallback when backend cache is empty or offline
 		const intel = await numbersApi.getIntel().catch(() => null);
-		const rate = intel?.floor_price_usd && intel?.floor_price_ton ? Math.round((intel.floor_price_usd / intel.floor_price_ton) * 100) / 100 : 5.5;
-		const floorTon = intel?.floor_price_ton || 2450;
+		const rate =
+			intel?.floor_price_usd && intel?.floor_price_ton && intel.floor_price_ton > 0
+				? Math.round((intel.floor_price_usd / intel.floor_price_ton) * 100) / 100
+				: 5.5;
+		const floorTon = intel?.floor_price_ton || 0;
 		const floorUsd = Math.round(floorTon * rate);
-		const floorNTon = Math.round(floorTon * 1.05);
+		const floorNTon = floorTon > 0 ? Math.round(floorTon * 1.05) : 0;
 		const floorNUsd = Math.round(floorNTon * rate);
 
 		return {
@@ -273,7 +291,9 @@ export const numbersApi = {
 		};
 	},
 
-	getNumbersList: async (params: Partial<import('../model/types.js').NumbersFilterState>): Promise<{
+	getNumbersList: async (
+		params: Partial<import('../model/types.js').NumbersFilterState>,
+	): Promise<{
 		items: import('../model/types.js').NumberTableItem[];
 		total: number;
 		page: number;
@@ -382,7 +402,7 @@ export const numbersApi = {
 			// ONLY true if user actively filtered by banned and not a 4-digit genesis
 			const isRestricted = numberType === 'banned' && numSuffix.length !== 4;
 
-			let currentBid: number | undefined = undefined;
+			let currentBid: number | undefined;
 			if (saleType === 'auction' || (saleType === '' && i % 7 === 0)) {
 				currentBid = Math.round(price * 0.9);
 			}

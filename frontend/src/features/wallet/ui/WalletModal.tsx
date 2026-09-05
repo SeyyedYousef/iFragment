@@ -1,4 +1,5 @@
-import { type Component, For, Show } from 'solid-js';
+import { type Component, createEffect, createSignal, For, Show } from 'solid-js';
+import { getLedger } from '@/entities/user/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -20,31 +21,61 @@ interface WalletModalProps {
 }
 
 export const WalletModal: Component<WalletModalProps> = (props) => {
-	// Local or cached receipts
-	const mockTransactions: WalletTransaction[] = [
-		{
-			id: 'TX-7841',
-			title: 'Airdrop Daily Mining',
-			amountStr: '+1,500 Coins',
-			type: 'coin_in',
-			timestamp: 'Today, 10:30 AM',
-		},
-		{
-			id: 'TX-7629',
-			title: 'Intel Report Unlock',
-			amountStr: '-15,000 Coins',
-			type: 'coin_out',
-			timestamp: 'Yesterday',
-			targetUsername: '@crypto',
-		},
-		{
-			id: 'TX-7104',
-			title: 'Telegram Stars Intel Pack',
-			amountStr: '+10 Credits',
-			type: 'credit_in',
-			timestamp: '3 days ago',
-		},
-	];
+	const [transactions, setTransactions] = createSignal<WalletTransaction[]>([]);
+	const [isLoading, setIsLoading] = createSignal(false);
+
+	createEffect(() => {
+		if (props.isOpen) {
+			setIsLoading(true);
+			getLedger('all', undefined, 10)
+				.then((res) => {
+					if (res && res.events && res.events.length > 0) {
+						const mapped: WalletTransaction[] = res.events.map((ev) => {
+							const isPositive = ev.amount > 0;
+							const isCredit = ev.category === 'credits';
+							const unit = isCredit ? 'Credits' : 'Coins';
+							const sign = isPositive ? '+' : '';
+							const formattedAmount = `${sign}${ev.amount.toLocaleString()} ${unit}`;
+
+							let txType: WalletTransaction['type'] = 'coin_out';
+							if (isCredit) {
+								txType = isPositive ? 'credit_in' : 'credit_out';
+							} else {
+								txType = isPositive ? 'coin_in' : 'coin_out';
+							}
+
+							const dateObj = new Date(ev.createdAt);
+							const timeStr = !Number.isNaN(dateObj.getTime())
+								? dateObj.toLocaleDateString(undefined, {
+										month: 'short',
+										day: 'numeric',
+										hour: '2-digit',
+										minute: '2-digit',
+									})
+								: ev.createdAt;
+
+							return {
+								id: ev.id ? ev.id.slice(0, 8) : 'TX-LIVE',
+								title: ev.title || ev.eventType,
+								amountStr: formattedAmount,
+								type: txType,
+								timestamp: timeStr,
+								targetUsername: (ev.metadata?.target_username as string) || undefined,
+							};
+						});
+						setTransactions(mapped);
+					} else {
+						setTransactions([]);
+					}
+				})
+				.catch(() => {
+					setTransactions([]);
+				})
+				.finally(() => {
+					setIsLoading(false);
+				});
+		}
+	});
 
 	return (
 		<Show when={props.isOpen}>
@@ -151,46 +182,59 @@ export const WalletModal: Component<WalletModalProps> = (props) => {
 								<span class="text-[11px] font-black text-white/60 uppercase tracking-widest">
 									{t('wallet.recentActivity')}
 								</span>
-								<span class="text-[10px] font-mono text-white/30">{t('wallet.latestTransactions')}</span>
+								<span class="text-[10px] font-mono text-white/30">
+									{t('wallet.latestTransactions')}
+								</span>
 							</div>
 
 							<div class="bg-[#12141c]/80 border border-white/5 rounded-[20px] divide-y divide-white/5 overflow-hidden">
-								<For each={mockTransactions}>
-									{(tx) => (
-										<div class="p-3.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
-											<div class="flex items-center gap-3">
-												<div
-													class={`w-8 h-8 rounded-full flex items-center justify-center ${
-														tx.type.includes('in')
-															? 'bg-emerald-500/15 text-emerald-400'
-															: 'bg-white/5 text-white/60'
-													}`}
-												>
-													<span class="material-symbols-outlined text-[16px]">
-														{tx.type.includes('in') ? 'arrow_downward' : 'receipt_long'}
-													</span>
-												</div>
-												<div class="flex flex-col text-start">
-													<span class="text-[12px] font-bold text-white leading-tight">
-														{tx.title}
-													</span>
-													<span class="text-[10px] font-mono text-white/40">{tx.timestamp}</span>
-												</div>
-											</div>
-
-											<div class="flex flex-col items-end">
-												<span
-													class={`text-[12px] font-mono font-black ${
-														tx.type.includes('in') ? 'text-emerald-400' : 'text-white/80'
-													}`}
-												>
-													{tx.amountStr}
-												</span>
-												<span class="text-[9px] font-mono text-white/30">{tx.id}</span>
-											</div>
+								<Show
+									when={transactions().length > 0}
+									fallback={
+										<div class="p-6 text-center text-white/40 text-[11px] font-mono">
+											{isLoading()
+												? 'Loading activity...'
+												: (t('wallet.noTransactions' as any) || 'No recent transaction records')}
 										</div>
-									)}
-								</For>
+									}
+								>
+									<For each={transactions()}>
+										{(tx) => (
+											<div class="p-3.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
+												<div class="flex items-center gap-3">
+													<div
+														class={`w-8 h-8 rounded-full flex items-center justify-center ${
+															tx.type.includes('in')
+																? 'bg-emerald-500/15 text-emerald-400'
+																: 'bg-white/5 text-white/60'
+														}`}
+													>
+														<span class="material-symbols-outlined text-[16px]">
+															{tx.type.includes('in') ? 'arrow_downward' : 'receipt_long'}
+														</span>
+													</div>
+													<div class="flex flex-col text-start">
+														<span class="text-[12px] font-bold text-white leading-tight">
+															{tx.title}
+														</span>
+														<span class="text-[10px] font-mono text-white/40">{tx.timestamp}</span>
+													</div>
+												</div>
+
+												<div class="flex flex-col items-end">
+													<span
+														class={`text-[12px] font-mono font-black ${
+															tx.type.includes('in') ? 'text-emerald-400' : 'text-white/80'
+														}`}
+													>
+														{tx.amountStr}
+													</span>
+													<span class="text-[9px] font-mono text-white/30">{tx.id}</span>
+												</div>
+											</div>
+										)}
+									</For>
+								</Show>
 							</div>
 						</div>
 					</div>

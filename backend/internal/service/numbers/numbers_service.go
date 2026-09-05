@@ -116,12 +116,15 @@ type PriceChartPoint struct {
 }
 
 type AuctionItem struct {
-	Number     string    `json:"number"`
-	PriceTON   float64   `json:"price_ton"`
-	EndsAt     time.Time `json:"ends_at"`
-	Source     string    `json:"source"`
-	MarketURL  string    `json:"market_url"`
-	DataStatus string    `json:"data_status"`
+	Number        string    `json:"number"`
+	DisplayNumber string    `json:"display_number,omitempty"`
+	PriceTON      float64   `json:"price_ton"`
+	CurrentBidTON float64   `json:"current_bid_ton"`
+	EndsAt        time.Time `json:"ends_at"`
+	Color         string    `json:"color,omitempty"`
+	Source        string    `json:"source"`
+	MarketURL     string    `json:"market_url"`
+	DataStatus    string    `json:"data_status"`
 }
 
 type TrendingTailItem struct {
@@ -176,12 +179,14 @@ func (s *NumbersService) fetchLiveFragmentNumbers(ctx context.Context, tonUsdRat
 					}
 					rawSuffix := strings.TrimPrefix(numClean, "+888")
 					auctions = append(auctions, AuctionItem{
-						Number:     numClean,
-						PriceTON:   price,
-						EndsAt:     tEnd,
-						Source:     "Fragment",
-						MarketURL:  fmt.Sprintf("https://fragment.com/number/%s", rawSuffix),
-						DataStatus: "live",
+						Number:        numClean,
+						DisplayNumber: features.FormatDisplayNumber(numClean),
+						PriceTON:      price,
+						CurrentBidTON: price,
+						EndsAt:        tEnd,
+						Source:        "Fragment",
+						MarketURL:     fmt.Sprintf("https://fragment.com/number/%s", rawSuffix),
+						DataStatus:    "live",
 					})
 				}
 			}
@@ -276,27 +281,27 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 	_, fngLabel, fngIndex := avm.GetFearAndGreedMultiplier()
 	now := time.Now().UTC()
 
-	// Real on-chain authoritative baseline metrics for Telegram Anonymous Numbers (+888)
+	// Authoritative baseline metrics for Telegram Anonymous Numbers (+888)
 	baseFloor := registry.InitialFloorTON
 	resp := &NumbersIntelResponse{
 		TotalSupply:     registry.TotalSupply,
 		SupplyStatus:    "Closed Collection — Supply Frozen Forever",
-		TotalOwners:     29420,
-		TotalSales:      68450,
-		TotalVolumeTON:  48920000.0,
+		TotalOwners:     0,
+		TotalSales:      0,
+		TotalVolumeTON:  0.0,
 		FloorPriceTON:   baseFloor,
 		FloorPriceUSD:   baseFloor * tonUsdRate,
-		Volume24hTON:    14850.0,
-		Volume7dTON:     112400.0,
+		Volume24hTON:    0.0,
+		Volume7dTON:     0.0,
 		FnGIndex:        fngIndex,
 		FnGLabel:        fngLabel,
-		HistoricalATH:   666666.0,
-		ATHNumber:       "+8888666",
+		HistoricalATH:   0.0,
+		ATHNumber:       "",
 		PercentileChart: []PriceChartPoint{},
 		EndingSoon:      []AuctionItem{},
 		TrendingTail:    []TrendingTailItem{},
 		HallOfFame:      []HallOfFameItem{},
-		DataStatus:      "live",
+		DataStatus:      "syncing",
 		UpdatedAt:       now.Format(time.RFC3339),
 	}
 
@@ -304,13 +309,16 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 	liveAuctions, liveHallOfFame, liveFloor, liveATH, liveATHNum := s.fetchLiveFragmentNumbers(ctx, tonUsdRate)
 	if len(liveAuctions) > 0 {
 		resp.EndingSoon = liveAuctions
+		resp.DataStatus = "live"
 	}
 	if len(liveHallOfFame) > 0 {
 		resp.HallOfFame = liveHallOfFame
+		resp.DataStatus = "live"
 	}
 	if liveFloor > 0 {
 		resp.FloorPriceTON = liveFloor
 		resp.FloorPriceUSD = liveFloor * tonUsdRate
+		resp.DataStatus = "live"
 	}
 	if liveATH > 0 {
 		resp.HistoricalATH = liveATH
@@ -380,6 +388,11 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 			{Rank: 4, Number: "+8888222", Display: "+888 8 222", PriceTON: 520000.0, PriceUSD: 520000.0 * tonUsdRate, SaleDate: "Apr 2026", Color: "Blue", Verified: true, IsGenesis4D: true, TonviewerURL: "https://fragment.com/number/8888222"},
 			{Rank: 5, Number: "+88800888888", Display: "+888 0088 8888", PriceTON: 490000.0, PriceUSD: 490000.0 * tonUsdRate, SaleDate: "Mar 2026", Color: "Blue", Verified: true, IsGenesis4D: false, TonviewerURL: "https://fragment.com/number/88800888888"},
 		}
+	}
+
+	if resp.HistoricalATH == 0 && len(resp.HallOfFame) > 0 {
+		resp.HistoricalATH = resp.HallOfFame[0].PriceTON
+		resp.ATHNumber = resp.HallOfFame[0].Number
 	}
 
 	// 4. Dynamic Percentile Chart Points

@@ -1,5 +1,14 @@
 import { useSearchParams } from '@solidjs/router';
-import { type Component, createEffect, createSignal, Match, onCleanup, onMount, Show, Switch } from 'solid-js';
+import {
+	type Component,
+	createEffect,
+	createSignal,
+	Match,
+	onCleanup,
+	onMount,
+	Show,
+	Switch,
+} from 'solid-js';
 import { syncProfileStats } from '@/entities/airdrop/index.js';
 import { collectOfflineMining, startOfflineMining } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
@@ -82,8 +91,7 @@ export const AirdropPage: Component = () => {
 			const tg = (window as any).Telegram?.WebApp;
 			const searchParamsUrl = new URLSearchParams(window.location.search);
 			const startParam =
-				tg?.initDataUnsafe?.start_param ||
-				searchParamsUrl.get('tgWebAppStartParam');
+				tg?.initDataUnsafe?.start_param || searchParamsUrl.get('tgWebAppStartParam');
 			if (startParam?.startsWith('clan_')) {
 				const clanUsername = startParam.replace(/^clan_/, '');
 				sessionStorage.setItem('pending_clan_join', clanUsername);

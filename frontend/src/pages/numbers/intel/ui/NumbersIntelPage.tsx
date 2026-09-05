@@ -1,13 +1,13 @@
-import { createQuery } from '@tanstack/solid-query';
 import { useNavigate, useSearchParams } from '@solidjs/router';
+import { createQuery } from '@tanstack/solid-query';
 import { type Component, createEffect, createMemo, createSignal, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { NumbersChartView } from './components/NumbersChartView.js';
-import { NumbersTableView } from './components/NumbersTableView.js';
 import { NumbersPortfolioView } from './components/NumbersPortfolioView.js';
+import { NumbersTableView } from './components/NumbersTableView.js';
 
 export const NumbersIntelPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -145,9 +145,7 @@ export const NumbersIntelPage: Component = () => {
 							<span class="w-1.5 h-1.5 rounded-full bg-[#0098EA]" />
 							<span>{formatTon(liveFloor().ton)} TON</span>
 						</div>
-						<div class="text-[10px] text-white/40 font-mono">
-							≈ {formatUsd(liveFloor().usd)}
-						</div>
+						<div class="text-[10px] text-white/40 font-mono">≈ {formatUsd(liveFloor().usd)}</div>
 					</div>
 				</div>
 

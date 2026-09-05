@@ -283,7 +283,9 @@ export const MaskBuilderPage: Component = () => {
 					<Show when={genesisWarning()}>
 						<div class="mb-3 px-3 py-2 rounded-xl bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs flex items-center gap-2 animate-pulse">
 							<span class="material-symbols-outlined text-sm">info</span>
-							<span>{t('numbers.genesisWarning') || 'Genesis numbers always start with 8 (+888 8XXX)'}</span>
+							<span>
+								{t('numbers.genesisWarning') || 'Genesis numbers always start with 8 (+888 8XXX)'}
+							</span>
 						</div>
 					</Show>
 
@@ -329,7 +331,9 @@ export const MaskBuilderPage: Component = () => {
 								setFilterStatus('for_sale');
 							}}
 							class={`px-3 py-1 rounded-xl transition-all flex items-center gap-1.5 ${
-								filterStatus() === 'for_sale' ? 'bg-amber-500 text-white font-black' : 'text-white/50'
+								filterStatus() === 'for_sale'
+									? 'bg-amber-500 text-white font-black'
+									: 'text-white/50'
 							}`}
 						>
 							<span class="w-2 h-2 rounded-full bg-amber-400" />
@@ -353,7 +357,8 @@ export const MaskBuilderPage: Component = () => {
 					</div>
 
 					<div class="text-[11px] font-mono text-white/40">
-						{filteredResults().length} {t('numbers.allResults')?.toLowerCase() || 'matches'} (&lt;150ms)
+						{filteredResults().length} {t('numbers.allResults')?.toLowerCase() || 'matches'}{' '}
+						(&lt;150ms)
 					</div>
 				</div>
 
@@ -391,7 +396,9 @@ export const MaskBuilderPage: Component = () => {
 										<div class="text-xs font-black text-amber-400 font-mono">
 											{formatTon(item.listing_price_ton)} {t('common.ton')}
 										</div>
-										<div class="text-[9px] text-white/40 uppercase font-bold">{t('numbers.askPrice')}</div>
+										<div class="text-[9px] text-white/40 uppercase font-bold">
+											{t('numbers.askPrice')}
+										</div>
 									</Show>
 									<Show when={item.status !== 'for_sale'}>
 										<span class="text-[10px] font-bold text-white/50 bg-white/[0.06] px-2 py-0.5 rounded-lg">

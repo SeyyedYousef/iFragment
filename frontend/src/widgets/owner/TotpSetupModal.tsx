@@ -111,9 +111,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 					{/* Step 1: QR & Secret */}
 					<Show when={step() === 'qr'}>
 						<div class="space-y-4 text-center">
-							<p class="text-xs text-white/70">
-								{t('ownerTotp.scanQr')}
-							</p>
+							<p class="text-xs text-white/70">{t('ownerTotp.scanQr')}</p>
 
 							<Show
 								when={qrDataUrl()}
@@ -124,7 +122,11 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 								}
 							>
 								<div class="mx-auto flex h-52 w-52 items-center justify-center rounded-2xl bg-white p-3 shadow-inner">
-									<img src={qrDataUrl()} alt={t('ownerTotp.qrAlt')} class="h-full w-full object-contain" />
+									<img
+										src={qrDataUrl()}
+										alt={t('ownerTotp.qrAlt')}
+										class="h-full w-full object-contain"
+									/>
 								</div>
 							</Show>
 
@@ -216,9 +218,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 					{/* Step 3: Verify & Activate */}
 					<Show when={step() === 'verify'}>
 						<form onSubmit={handleVerifyAndEnable} class="space-y-4">
-							<p class="text-xs text-white/70">
-								{t('ownerTotp.enter6Digit')}
-							</p>
+							<p class="text-xs text-white/70">{t('ownerTotp.enter6Digit')}</p>
 
 							<div>
 								<input

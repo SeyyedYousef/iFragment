@@ -216,7 +216,9 @@ export const MandatoryPage: Component = () => {
 
 							<div class="flex items-center justify-between gap-3">
 								<div class="flex flex-col">
-									<span class="text-[13px] font-bold text-white">{t('groupMandatory.verifyBeforeJoin')}</span>
+									<span class="text-[13px] font-bold text-white">
+										{t('groupMandatory.verifyBeforeJoin')}
+									</span>
 									<span class="text-[11px] text-white/50 leading-relaxed mt-0.5">
 										{t('groupMandatory.pvCaptchaDesc')}
 									</span>

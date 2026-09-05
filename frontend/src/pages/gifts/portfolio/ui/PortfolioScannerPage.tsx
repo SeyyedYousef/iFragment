@@ -39,9 +39,9 @@ export const PortfolioScannerPage: Component = () => {
 			} catch {}
 			setErrorMsg(
 				err?.response?.data?.error ||
-				err?.response?.data?.message ||
-				err?.message ||
-				'خطا در اسکن پرتفوی. لطفاً یوزرنیم را بررسی کنید.',
+					err?.response?.data?.message ||
+					err?.message ||
+					'خطا در اسکن پرتفوی. لطفاً یوزرنیم را بررسی کنید.',
 			);
 		},
 	}));
@@ -128,9 +128,7 @@ export const PortfolioScannerPage: Component = () => {
 						</div>
 					</div>
 					<h1 class="text-xl font-black text-white">{t('gifts.scanPortfolio')}</h1>
-					<p class="text-xs text-white/50 font-medium mt-1">
-						{t('gifts.scanPortfolioDesc')}
-					</p>
+					<p class="text-xs text-white/50 font-medium mt-1">{t('gifts.scanPortfolioDesc')}</p>
 				</div>
 
 				{/* Search Input */}
@@ -196,13 +194,17 @@ export const PortfolioScannerPage: Component = () => {
 
 								<div class="grid grid-cols-3 gap-2 pt-3 border-t border-white/[0.08] text-xs">
 									<div>
-										<span class="text-[9px] uppercase font-bold text-white/40 block">{t('gifts.items')}</span>
+										<span class="text-[9px] uppercase font-bold text-white/40 block">
+											{t('gifts.items')}
+										</span>
 										<span class="font-black text-white">
 											{res().total_gifts_count} Collectibles
 										</span>
 									</div>
 									<div>
-										<span class="text-[9px] uppercase font-bold text-white/40 block">{t('gifts.invested')}</span>
+										<span class="text-[9px] uppercase font-bold text-white/40 block">
+											{t('gifts.invested')}
+										</span>
 										<span class="font-black text-white font-mono">
 											{formatGram(res().historical_invested_gram)} {t('common.ton')}
 										</span>

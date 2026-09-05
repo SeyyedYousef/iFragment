@@ -6,8 +6,22 @@ interface Props {
 	data?: GiftsIntelResponse;
 }
 
+interface MacroItem {
+	label: string;
+	value: string | number;
+	sub: string;
+	icon: string;
+	highlight?: boolean;
+}
+
+interface MacroSection {
+	title: string;
+	badge: string;
+	items: MacroItem[];
+}
+
 export const GiftsMacroStats: Component<Props> = (props) => {
-	const macroSections = () => [
+	const macroSections = (): MacroSection[] => [
 		{
 			title: 'دارایی‌ها و متادیتا (Supply & Assets)',
 			badge: 'api.changes.tg',
@@ -91,16 +105,16 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					<div class="bg-[#0b0e17]/90 border border-white/[0.07] rounded-[22px] p-3.5 backdrop-blur-2xl shadow-xl space-y-2.5">
 						{/* Group Header */}
 						<div class="flex items-center justify-between px-1 pb-1 border-b border-white/[0.05]">
-							<span class="text-[11px] font-bold text-white/70 tracking-wide">
-								{section.title}
-							</span>
+							<span class="text-[11px] font-bold text-white/70 tracking-wide">{section.title}</span>
 							<span class="text-[9px] font-mono text-[#0098EA] bg-[#0098EA]/10 border border-[#0098EA]/20 px-2 py-0.5 rounded-full font-bold">
 								{section.badge}
 							</span>
 						</div>
 
 						{/* Metric Cells */}
-						<div class={`grid gap-2 ${section.items.length === 6 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'}`}>
+						<div
+							class={`grid gap-2 ${section.items.length === 6 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'}`}
+						>
 							<For each={section.items}>
 								{(item) => (
 									<div

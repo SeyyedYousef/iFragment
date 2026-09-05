@@ -298,7 +298,7 @@ export const GiftsGlobalHeatmap: Component<Props> = (props) => {
 	};
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// ELITE FINANCIAL COLOR PALETTE (Bloomberg / TradingView grade - No Purple)
+	// ELITE FINANCIAL COLOR PALETTE (Bloomberg / TradingView grade)
 	// ═════════════════════════════════════════════════════════════════════════
 	const getCellTheme = (change: number) => {
 		if (change > 0) {

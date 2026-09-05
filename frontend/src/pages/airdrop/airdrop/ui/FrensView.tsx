@@ -194,13 +194,21 @@ export const FrensView: Component = () => {
 
 					<div class="grid grid-cols-2 gap-2 text-start">
 						<div class="bg-[#161b28]/60 p-3 rounded-[16px] border border-white/5 flex flex-col">
-							<span class="text-white/40 text-[10px] font-bold uppercase">{t('frens.tier1Direct')}</span>
-							<span class="text-emerald-400 font-mono font-black text-[16px]">{t('frens.tier1Commission')}</span>
+							<span class="text-white/40 text-[10px] font-bold uppercase">
+								{t('frens.tier1Direct')}
+							</span>
+							<span class="text-emerald-400 font-mono font-black text-[16px]">
+								{t('frens.tier1Commission')}
+							</span>
 							<span class="text-white/50 text-[10px] mt-0.5">{t('frens.tier1Desc')}</span>
 						</div>
 						<div class="bg-[#161b28]/60 p-3 rounded-[16px] border border-white/5 flex flex-col">
-							<span class="text-white/40 text-[10px] font-bold uppercase">{t('frens.tier2Network')}</span>
-							<span class="text-[#0098EA] font-mono font-black text-[16px]">{t('frens.tier2Commission')}</span>
+							<span class="text-white/40 text-[10px] font-bold uppercase">
+								{t('frens.tier2Network')}
+							</span>
+							<span class="text-[#0098EA] font-mono font-black text-[16px]">
+								{t('frens.tier2Commission')}
+							</span>
 							<span class="text-white/50 text-[10px] mt-0.5">{t('frens.tier2Desc')}</span>
 						</div>
 					</div>

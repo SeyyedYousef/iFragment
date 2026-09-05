@@ -89,8 +89,14 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 	if (suffix.length !== 4 && suffix.length !== 8) {
 		return {
 			isValid: false,
-			error: suffix.length < 4 ? t('numbers.errorTooShort') : (suffix.length > 8 ? t('numbers.errorTooLong') : (t('numbers.errorInvalidLength') || 'Anonymous numbers must be either 4 or 8 digits')),
-			formatted: suffix.length > 4 ? `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}` : `+888 ${suffix}`,
+			error:
+				suffix.length < 4
+					? t('numbers.errorTooShort')
+					: suffix.length > 8
+						? t('numbers.errorTooLong')
+						: t('numbers.errorInvalidLength') || 'Anonymous numbers must be either 4 or 8 digits',
+			formatted:
+				suffix.length > 4 ? `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}` : `+888 ${suffix}`,
 			cleanDigits: clean,
 			suffix,
 			tier: 'STANDARD',
@@ -103,7 +109,9 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		if (isNaN(val) || val < 8000 || val > 8999) {
 			return {
 				isValid: false,
-				error: t('numbers.errorGenesisRange') || '4-digit genesis numbers must be between +888 8000 and +888 8999',
+				error:
+					t('numbers.errorGenesisRange') ||
+					'4-digit genesis numbers must be between +888 8000 and +888 8999',
 				formatted: `+888 ${suffix}`,
 				cleanDigits: clean,
 				suffix,
@@ -472,7 +480,9 @@ export const NumberReportPage: Component = () => {
 								+888
 							</span>
 						</h1>
-						<p class="text-[11px] font-medium text-white/50">{t('numbers.intelSubtitle') || 'AI Valuation & Provenance'}</p>
+						<p class="text-[11px] font-medium text-white/50">
+							{t('numbers.intelSubtitle') || 'AI Valuation & Provenance'}
+						</p>
 					</div>
 
 					<div class="w-10 h-10" />
@@ -607,14 +617,23 @@ export const NumberReportPage: Component = () => {
 												reportData()?.category_club ||
 												`${getNumberTheme().name} TIER`}
 										</span>
-										<Show when={validation().suffix.length === 4 || (reportData()?.number && reportData()!.number.replace(/\D/g, '').length === 7)}>
+										<Show
+											when={
+												validation().suffix.length === 4 ||
+												(reportData()?.number &&
+													reportData()!.number.replace(/\D/g, '').length === 7)
+											}
+										>
 											<span class="px-2 py-0.5 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[9px] font-extrabold uppercase tracking-wider shrink-0">
 												GENESIS ⛧ 1 of 1000
 											</span>
 										</Show>
 									</div>
 
-									<span class="text-[11px] font-mono font-black text-white/50 tracking-wider uppercase bg-white/5 border border-white/10 px-3 py-1 rounded-xl shadow-inner flex items-center gap-1.5 flex-shrink-0" dir="ltr">
+									<span
+										class="text-[11px] font-mono font-black text-white/50 tracking-wider uppercase bg-white/5 border border-white/10 px-3 py-1 rounded-xl shadow-inner flex items-center gap-1.5 flex-shrink-0"
+										dir="ltr"
+									>
 										<span>👑</span>
 										<span>#{reportData()?.global_rank || 1}</span>
 										<span class="text-white/30">/</span>
@@ -696,7 +715,9 @@ export const NumberReportPage: Component = () => {
 													fill="white"
 												/>
 											</svg>
-											<span class={`font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] tracking-tight font-mono truncate ${getTonPriceFontSize(reportData()?.expected_ton)}`}>
+											<span
+												class={`font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] tracking-tight font-mono truncate ${getTonPriceFontSize(reportData()?.expected_ton)}`}
+											>
 												{formatTon(reportData()?.expected_ton)}
 											</span>
 											<span class="text-xs font-black text-[#0098EA] leading-none mb-0.5 flex-shrink-0">
@@ -710,10 +731,7 @@ export const NumberReportPage: Component = () => {
 											<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />{' '}
 											<span>{t('valuation.verified') || 'VERIFIED'}</span>
 										</div>
-										<span
-											class="text-xs text-white/60 font-black leading-none font-mono"
-											dir="ltr"
-										>
+										<span class="text-xs text-white/60 font-black leading-none font-mono" dir="ltr">
 											≈ {formatUsd(reportData()?.expected_usd)}
 										</span>
 									</div>
@@ -778,12 +796,13 @@ export const NumberReportPage: Component = () => {
 						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
 							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 								<h3 class="text-xs font-black text-white flex items-center gap-2">
-									<span class="material-symbols-outlined text-[#0098EA] text-base">
-										monitoring
-									</span>
+									<span class="material-symbols-outlined text-[#0098EA] text-base">monitoring</span>
 									<span>{t('numbers.priceRangeTitle')}</span>
 								</h3>
-								<span class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20" dir="ltr">
+								<span
+									class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20"
+									dir="ltr"
+								>
 									{reportData()?.confidence_score}% Confidence
 								</span>
 							</div>
@@ -793,8 +812,12 @@ export const NumberReportPage: Component = () => {
 									<span class="text-[9px] uppercase font-bold text-white/40 block mb-1 truncate">
 										{t('valuation.floor')}
 									</span>
-									<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
-										{formatTon(reportData()?.low_ton)} <span class="text-[10px] text-[#0098EA]">TON</span>
+									<span
+										class="font-mono font-black text-white text-xs sm:text-sm block truncate"
+										dir="ltr"
+									>
+										{formatTon(reportData()?.low_ton)}{' '}
+										<span class="text-[10px] text-[#0098EA]">TON</span>
 									</span>
 								</div>
 
@@ -802,8 +825,12 @@ export const NumberReportPage: Component = () => {
 									<span class="text-[9px] uppercase font-bold text-[#0098EA] block mb-1 truncate">
 										{t('numbers.fairValue')}
 									</span>
-									<span class="font-mono font-black text-[#0098EA] text-xs sm:text-sm block truncate" dir="ltr">
-										{formatTon(reportData()?.expected_ton)} <span class="text-[10px] text-[#0098EA]">TON</span>
+									<span
+										class="font-mono font-black text-[#0098EA] text-xs sm:text-sm block truncate"
+										dir="ltr"
+									>
+										{formatTon(reportData()?.expected_ton)}{' '}
+										<span class="text-[10px] text-[#0098EA]">TON</span>
 									</span>
 								</div>
 
@@ -811,8 +838,12 @@ export const NumberReportPage: Component = () => {
 									<span class="text-[9px] uppercase font-bold text-white/40 block mb-1 truncate">
 										{t('valuation.ceiling')}
 									</span>
-									<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
-										{formatTon(reportData()?.high_ton)} <span class="text-[10px] text-[#0098EA]">TON</span>
+									<span
+										class="font-mono font-black text-white text-xs sm:text-sm block truncate"
+										dir="ltr"
+									>
+										{formatTon(reportData()?.high_ton)}{' '}
+										<span class="text-[10px] text-[#0098EA]">TON</span>
 									</span>
 								</div>
 							</div>
@@ -828,7 +859,9 @@ export const NumberReportPage: Component = () => {
 						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
 							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 								<h3 class="text-xs font-black text-white flex items-center gap-2">
-									<span class="material-symbols-outlined text-[#0098EA] text-base">account_tree</span>
+									<span class="material-symbols-outlined text-[#0098EA] text-base">
+										account_tree
+									</span>
 									<span>{t('numbers.priceDerivationTitle') || 'Price Derivation Waterfall'}</span>
 								</h3>
 								<span class="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
@@ -838,25 +871,36 @@ export const NumberReportPage: Component = () => {
 
 							<div class="space-y-2">
 								<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
-									<span class="text-white/60">{t('numbers.baseFloorClass') || 'Base Collection Floor'}</span>
+									<span class="text-white/60">
+										{t('numbers.baseFloorClass') || 'Base Collection Floor'}
+									</span>
 									<span class="font-mono font-black text-white">2,280 TON</span>
 								</div>
 								<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
-									<span class="text-white/60">{t('numbers.rarityDeltaLabel') || 'Pattern Scarcity & Rarity Delta'}</span>
+									<span class="text-white/60">
+										{t('numbers.rarityDeltaLabel') || 'Pattern Scarcity & Rarity Delta'}
+									</span>
 									<span class="font-mono font-black text-[#0098EA]" dir="ltr">
-										+{formatTon(Math.max(0, Math.round(Number(reportData()?.expected_ton || 0) * 0.45)))} TON
+										+
+										{formatTon(
+											Math.max(0, Math.round(Number(reportData()?.expected_ton || 0) * 0.45)),
+										)}{' '}
+										TON
 									</span>
 								</div>
 								<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
 									<span class="text-white/60">
-										{t('numbers.nftColorMultiplier') || 'NFT Color Multiplier'} ({reportData()?.color?.name || 'Blue'})
+										{t('numbers.nftColorMultiplier') || 'NFT Color Multiplier'} (
+										{reportData()?.color?.name || 'Blue'})
 									</span>
 									<span class="font-mono font-black text-amber-400" dir="ltr">
 										x{reportData()?.color?.multiplier || 1.0}
 									</span>
 								</div>
 								<div class="p-2.5 rounded-xl bg-[#0098EA]/10 border border-[#0098EA]/30 flex items-center justify-between text-xs font-black">
-									<span class="text-[#0098EA]">{t('numbers.finalFairValue') || 'Final Calibrated Fair Value'}</span>
+									<span class="text-[#0098EA]">
+										{t('numbers.finalFairValue') || 'Final Calibrated Fair Value'}
+									</span>
 									<span class="font-mono text-white text-sm" dir="ltr">
 										{formatTon(reportData()?.expected_ton)} TON
 									</span>
@@ -868,10 +912,10 @@ export const NumberReportPage: Component = () => {
 						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
 							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 								<h3 class="text-xs font-black text-white flex items-center gap-2">
-									<span class="material-symbols-outlined text-purple-400 text-base">query_stats</span>
+									<span class="material-symbols-outlined text-cyan-400 text-base">query_stats</span>
 									<span>{t('numbers.projectionTitle') || '12-Month Market Forecast'}</span>
 								</h3>
-								<span class="text-[9px] font-mono font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
+								<span class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20">
 									SCENARIO MATRIX
 								</span>
 							</div>
@@ -882,11 +926,22 @@ export const NumberReportPage: Component = () => {
 									<span class="text-[9px] uppercase font-black text-emerald-400 block mb-1 truncate">
 										Bull (+40%)
 									</span>
-									<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
-										{formatTon(reportData()?.projection?.bull_ton || Math.round(Number(reportData()?.expected_ton || 0) * 1.4))} <span class="text-[9px] text-emerald-400">TON</span>
+									<span
+										class="font-mono font-black text-white text-xs sm:text-sm block truncate"
+										dir="ltr"
+									>
+										{formatTon(
+											reportData()?.projection?.bull_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 1.4),
+										)}{' '}
+										<span class="text-[9px] text-emerald-400">TON</span>
 									</span>
 									<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
-										≈ {formatUsd(reportData()?.projection?.bull_usd || Math.round(Number(reportData()?.expected_usd || 0) * 1.4))}
+										≈{' '}
+										{formatUsd(
+											reportData()?.projection?.bull_usd ||
+												Math.round(Number(reportData()?.expected_usd || 0) * 1.4),
+										)}
 									</span>
 								</div>
 
@@ -895,11 +950,22 @@ export const NumberReportPage: Component = () => {
 									<span class="text-[9px] uppercase font-black text-[#0098EA] block mb-1 truncate">
 										Base (+15%)
 									</span>
-									<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
-										{formatTon(reportData()?.projection?.base_ton || Math.round(Number(reportData()?.expected_ton || 0) * 1.15))} <span class="text-[9px] text-[#0098EA]">TON</span>
+									<span
+										class="font-mono font-black text-white text-xs sm:text-sm block truncate"
+										dir="ltr"
+									>
+										{formatTon(
+											reportData()?.projection?.base_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 1.15),
+										)}{' '}
+										<span class="text-[9px] text-[#0098EA]">TON</span>
 									</span>
 									<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
-										≈ {formatUsd(reportData()?.projection?.base_usd || Math.round(Number(reportData()?.expected_usd || 0) * 1.15))}
+										≈{' '}
+										{formatUsd(
+											reportData()?.projection?.base_usd ||
+												Math.round(Number(reportData()?.expected_usd || 0) * 1.15),
+										)}
 									</span>
 								</div>
 
@@ -908,11 +974,22 @@ export const NumberReportPage: Component = () => {
 									<span class="text-[9px] uppercase font-black text-rose-400 block mb-1 truncate">
 										Bear (-12%)
 									</span>
-									<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
-										{formatTon(reportData()?.projection?.bear_ton || Math.round(Number(reportData()?.expected_ton || 0) * 0.88))} <span class="text-[9px] text-rose-400">TON</span>
+									<span
+										class="font-mono font-black text-white text-xs sm:text-sm block truncate"
+										dir="ltr"
+									>
+										{formatTon(
+											reportData()?.projection?.bear_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 0.88),
+										)}{' '}
+										<span class="text-[9px] text-rose-400">TON</span>
 									</span>
 									<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
-										≈ {formatUsd(reportData()?.projection?.bear_usd || Math.round(Number(reportData()?.expected_usd || 0) * 0.88))}
+										≈{' '}
+										{formatUsd(
+											reportData()?.projection?.bear_usd ||
+												Math.round(Number(reportData()?.expected_usd || 0) * 0.88),
+										)}
 									</span>
 								</div>
 							</div>
@@ -925,7 +1002,10 @@ export const NumberReportPage: Component = () => {
 									<span class="material-symbols-outlined text-amber-400 text-base">gavel</span>
 									<span>{t('numbers.actionPlaybookTitle')}</span>
 								</h3>
-								<span class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md" dir="ltr">
+								<span
+									class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md"
+									dir="ltr"
+								>
 									ACTION PLAYBOOK
 								</span>
 							</div>
@@ -982,7 +1062,7 @@ export const NumberReportPage: Component = () => {
 								</div>
 
 								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start min-w-0">
-									<span class="text-[9px] font-black text-purple-300 uppercase block mb-1 truncate">
+									<span class="text-[9px] font-black text-cyan-300 uppercase block mb-1 truncate">
 										{t('numbers.bidStepLabel')}
 									</span>
 									<span class="text-sm font-mono font-black text-white block truncate" dir="ltr">
@@ -1004,7 +1084,10 @@ export const NumberReportPage: Component = () => {
 									<span class="text-[9px] font-bold text-white/50 block truncate">
 										{t('numbers.netProceedsTitle')}
 									</span>
-									<span class="text-base font-mono font-black text-emerald-400 block truncate" dir="ltr">
+									<span
+										class="text-base font-mono font-black text-emerald-400 block truncate"
+										dir="ltr"
+									>
 										{formatTon(
 											reportData()?.playbook?.net_proceeds_ton ||
 												reportData()?.economics?.net_payout_ton,
@@ -1019,7 +1102,10 @@ export const NumberReportPage: Component = () => {
 										)}
 									</span>
 								</div>
-								<span class="text-[10px] font-mono font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-lg flex-shrink-0" dir="ltr">
+								<span
+									class="text-[10px] font-mono font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-lg flex-shrink-0"
+									dir="ltr"
+								>
 									-5.0% Fee
 								</span>
 							</div>
@@ -1032,7 +1118,10 @@ export const NumberReportPage: Component = () => {
 									<span class="material-symbols-outlined text-amber-400 text-base">dna</span>
 									<span>{t('numbers.patternAnatomyTitle')}</span>
 								</h3>
-								<span class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md" dir="ltr">
+								<span
+									class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md"
+									dir="ltr"
+								>
 									{reportData()?.pattern_anatomy?.exact_supply_count || 10} IN EXISTENCE
 								</span>
 							</div>
@@ -1041,7 +1130,8 @@ export const NumberReportPage: Component = () => {
 								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between gap-2">
 									<span class="text-white/60 truncate">{t('numbers.exactSupplyLabel')}:</span>
 									<span class="font-mono font-black text-amber-300 flex-shrink-0" dir="ltr">
-										{reportData()?.pattern_anatomy?.exact_supply_count || 10} / 136,566 ({reportData()?.pattern_anatomy?.supply_percentage || 0.007}%)
+										{reportData()?.pattern_anatomy?.exact_supply_count || 10} / 136,566 (
+										{reportData()?.pattern_anatomy?.supply_percentage || 0.007}%)
 									</span>
 								</div>
 
@@ -1059,7 +1149,10 @@ export const NumberReportPage: Component = () => {
 										<span class="text-[9px] text-white/40 block mb-0.5 truncate">
 											{t('numbers.symmetryLabel')}
 										</span>
-										<span class="font-mono font-black text-emerald-400 text-xs block truncate" dir="ltr">
+										<span
+											class="font-mono font-black text-emerald-400 text-xs block truncate"
+											dir="ltr"
+										>
 											{reportData()?.pattern_anatomy?.symmetry_score || 100}%
 										</span>
 									</div>
@@ -1068,7 +1161,10 @@ export const NumberReportPage: Component = () => {
 										<span class="text-[9px] text-white/40 block mb-0.5 truncate">
 											{t('numbers.memorabilityLabel')}
 										</span>
-										<span class="font-mono font-black text-[#0098EA] text-xs block truncate" dir="ltr">
+										<span
+											class="font-mono font-black text-[#0098EA] text-xs block truncate"
+											dir="ltr"
+										>
 											{reportData()?.pattern_anatomy?.memorability_score || 99} / 100
 										</span>
 									</div>
@@ -1200,8 +1296,13 @@ export const NumberReportPage: Component = () => {
 									when={(reportData()?.comps || []).length > 0}
 									fallback={
 										<div class="p-6 text-center text-white/40 text-xs bg-white/[0.02] border border-white/5 rounded-2xl">
-											<span class="material-symbols-outlined text-2xl text-white/20 mb-1 block">receipt_long</span>
-											<span>{t('numbers.noCompsFound') || 'No comparable sales in the past 90 days for this tier'}</span>
+											<span class="material-symbols-outlined text-2xl text-white/20 mb-1 block">
+												receipt_long
+											</span>
+											<span>
+												{t('numbers.noCompsFound') ||
+													'No comparable sales in the past 90 days for this tier'}
+											</span>
 										</div>
 									}
 								>
@@ -1228,9 +1329,7 @@ export const NumberReportPage: Component = () => {
 															class="text-[9px] text-[#0098EA] hover:underline font-bold flex items-center justify-end gap-0.5"
 														>
 															<span>{t('numbers.txProof')}</span>
-															<span class="material-symbols-outlined text-[10px]">
-																open_in_new
-															</span>
+															<span class="material-symbols-outlined text-[10px]">open_in_new</span>
 														</a>
 													</Show>
 												</div>
@@ -1245,9 +1344,7 @@ export const NumberReportPage: Component = () => {
 						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
 							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 								<h3 class="text-xs font-black text-white flex items-center gap-2">
-									<span class="material-symbols-outlined text-[#0098EA] text-base">
-										verified
-									</span>
+									<span class="material-symbols-outlined text-[#0098EA] text-base">verified</span>
 									<span>{t('numbers.onChainAuditTitle')}</span>
 								</h3>
 								<span class="text-[9px] uppercase font-mono font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
@@ -1264,8 +1361,7 @@ export const NumberReportPage: Component = () => {
 											{isRtl()
 												? reportData()?.on_chain_audit?.restriction_status_fa ||
 													'تایید شده و بدون محدودیت'
-												: reportData()?.on_chain_audit?.restriction_status_en ||
-													'Clean & Verified'}
+												: reportData()?.on_chain_audit?.restriction_status_en || 'Clean & Verified'}
 										</span>
 									</span>
 								</div>
@@ -1302,12 +1398,8 @@ export const NumberReportPage: Component = () => {
 										workspace_premium
 									</span>
 									<div>
-										<h4 class="text-xs font-black text-white">
-											{t('numbers.certificateTitle')}
-										</h4>
-										<span class="text-[9px] text-white/40">
-											{t('numbers.certificateIssuer')}
-										</span>
+										<h4 class="text-xs font-black text-white">{t('numbers.certificateTitle')}</h4>
+										<span class="text-[9px] text-white/40">{t('numbers.certificateIssuer')}</span>
 									</div>
 								</div>
 								<span class="text-[9px] font-mono font-bold bg-amber-400/10 border border-amber-400/30 text-amber-400 px-2 py-0.5 rounded-md">
@@ -1337,9 +1429,7 @@ export const NumberReportPage: Component = () => {
 									<span class="material-symbols-outlined text-base">
 										{copiedCert() ? 'check' : 'content_copy'}
 									</span>
-									<span>
-										{copiedCert() ? t('numbers.certCopied') : t('numbers.copyCertLink')}
-									</span>
+									<span>{copiedCert() ? t('numbers.certCopied') : t('numbers.copyCertLink')}</span>
 								</button>
 							</div>
 						</div>

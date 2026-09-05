@@ -227,8 +227,6 @@ export const ProjectsPage: Component = () => {
 				</button>
 			</div>
 
-
-
 			{/* Projects List */}
 			<div class="space-y-4">
 				<Show when={projects.loading}>

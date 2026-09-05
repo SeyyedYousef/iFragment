@@ -1,5 +1,5 @@
 import { type Component, createSignal, For, Show } from 'solid-js';
-import { creditsApi, type CreditPack } from '@/entities/intel/api/creditsApi.js';
+import { type CreditPack, creditsApi } from '@/entities/intel/api/creditsApi.js';
 import { formatNumber, isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { showToast } from '@/shared/ui/index.js';
@@ -9,7 +9,13 @@ type ShopTab = 'stars' | 'exchange';
 
 const tg = () =>
 	typeof window !== 'undefined'
-		? (window as unknown as { Telegram?: { WebApp?: { openInvoice?: (l: string, callback?: (status: string) => void) => void } } }).Telegram?.WebApp
+		? (
+				window as unknown as {
+					Telegram?: {
+						WebApp?: { openInvoice?: (l: string, callback?: (status: string) => void) => void };
+					};
+				}
+			).Telegram?.WebApp
 		: undefined;
 
 export const ShopView: Component = () => {
@@ -282,19 +288,21 @@ export const ShopView: Component = () => {
 												</div>
 												<div class="flex flex-col text-start">
 													<div class="flex items-center gap-1.5">
-														<span class="text-[17px] font-black text-white font-mono">
-															{total}
-														</span>
+														<span class="text-[17px] font-black text-white font-mono">{total}</span>
 														<span class="text-[13px] font-black text-white/80">
 															{t('paywall.credit_unit')}
 														</span>
 														<Show when={pack.bonus_credits > 0}>
 															<span class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[9.5px] font-black text-emerald-300">
-																{t('shop.bonusGift', { count: pack.bonus_credits }) || `+${pack.bonus_credits}`}
+																{t('shop.bonusGift', { count: pack.bonus_credits }) ||
+																	`+${pack.bonus_credits}`}
 															</span>
 														</Show>
 													</div>
-													<div class="flex items-center gap-1 text-[11px] font-medium text-white/50 mt-0.5" dir="ltr">
+													<div
+														class="flex items-center gap-1 text-[11px] font-medium text-white/50 mt-0.5"
+														dir="ltr"
+													>
 														<span>(⭐ {unitPrice} / credit)</span>
 													</div>
 												</div>
@@ -351,7 +359,9 @@ export const ShopView: Component = () => {
 							<div class="flex flex-col gap-1.5">
 								<div class="flex justify-between text-[11px] font-bold text-white/70">
 									<span>{t('shop.coinProgressLabel') || 'پیشرفت به سمت ۱ کریدت بعدی:'}</span>
-									<span class="font-mono text-emerald-400">{Math.round(coinProgress() * 100)}%</span>
+									<span class="font-mono text-emerald-400">
+										{Math.round(coinProgress() * 100)}%
+									</span>
 								</div>
 								<div class="h-2.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5 p-0.5">
 									<div
@@ -360,8 +370,12 @@ export const ShopView: Component = () => {
 									/>
 								</div>
 								<div class="flex justify-between text-[10px] font-mono text-white/40 mt-0.5">
-									<span>{formatNumber(userCoins())} {t('airdrop.coins') || 'Coins'}</span>
-									<span>{formatNumber(coinsCost())} {t('airdrop.coins') || 'Coins'}</span>
+									<span>
+										{formatNumber(userCoins())} {t('airdrop.coins') || 'Coins'}
+									</span>
+									<span>
+										{formatNumber(coinsCost())} {t('airdrop.coins') || 'Coins'}
+									</span>
 								</div>
 							</div>
 
@@ -461,8 +475,7 @@ export const ShopView: Component = () => {
 									{t('shop.utility3Title') || 'هوش بازار و رادار آربیتراژ'}
 								</span>
 								<span class="text-white/60 text-[11px] mt-0.5 leading-relaxed">
-									{t('shop.utility3Desc') ||
-										'سیگنال‌های خرید آنی و تحلیل آن‌چین فرگمنت بدون تاخیر'}
+									{t('shop.utility3Desc') || 'سیگنال‌های خرید آنی و تحلیل آن‌چین فرگمنت بدون تاخیر'}
 								</span>
 							</div>
 						</div>

@@ -57,4 +57,3 @@ describe('ManagedBotsPage', () => {
 		openSpy.mockRestore();
 	});
 });
-

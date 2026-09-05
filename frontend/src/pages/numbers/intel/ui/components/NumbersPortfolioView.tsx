@@ -1,11 +1,4 @@
-import {
-	createEffect,
-	createSignal,
-	For,
-	onMount,
-	Show,
-	type Component,
-} from 'solid-js';
+import { type Component, createEffect, createSignal, For, onMount, Show } from 'solid-js';
 import { numbersApi, splitNumberPrefix } from '@/entities/numbers/index.js';
 import type { WalletPortfolioResult } from '@/entities/numbers/model/types.js';
 import { t } from '@/shared/i18n/index.js';
@@ -129,7 +122,9 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 					<div class="flex gap-2">
 						<input
 							type="text"
-							placeholder={t('numbers.walletInputPlaceholder') || 'Enter TON wallet address (EQ... / UQ...)'}
+							placeholder={
+								t('numbers.walletInputPlaceholder') || 'Enter TON wallet address (EQ... / UQ...)'
+							}
 							value={address()}
 							onInput={(e) => setAddress(e.currentTarget.value)}
 							class="flex-1 bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#0098EA] font-mono transition-all"
@@ -199,7 +194,9 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 					{/* Summary KPIs */}
 					<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
 						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-3.5 backdrop-blur-xl">
-							<div class="text-[10px] font-bold text-white/40 uppercase">{t('numbers.totalNumbers') || 'Total Numbers'}</div>
+							<div class="text-[10px] font-bold text-white/40 uppercase">
+								{t('numbers.totalNumbers') || 'Total Numbers'}
+							</div>
 							<div class="text-xl font-black text-white font-mono mt-1">
 								{portfolioMetrics().totalAssets}{' '}
 								<span class="text-xs font-medium text-white/40">NFTs</span>
@@ -208,7 +205,9 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 
 						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-3.5 backdrop-blur-xl">
 							<div class="text-[10px] font-bold text-white/40 uppercase">
-								{deductFee() ? (t('numbers.netPortfolioFee') || 'Net Portfolio (5% Fee)') : (t('numbers.floorPortfolioValue') || 'Floor Portfolio Value')}
+								{deductFee()
+									? t('numbers.netPortfolioFee') || 'Net Portfolio (5% Fee)'
+									: t('numbers.floorPortfolioValue') || 'Floor Portfolio Value'}
 							</div>
 							<div class="text-xl font-black text-[#0098EA] font-mono mt-1 flex items-center gap-1">
 								<span>{formatTon(portfolioMetrics().netTon)}</span>
@@ -220,7 +219,9 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 						</div>
 
 						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-3.5 backdrop-blur-xl col-span-2 sm:col-span-1">
-							<div class="text-[10px] font-bold text-white/40 uppercase">{t('numbers.bestGlobalRank') || 'Best Global Rank'}</div>
+							<div class="text-[10px] font-bold text-white/40 uppercase">
+								{t('numbers.bestGlobalRank') || 'Best Global Rank'}
+							</div>
 							<div class="text-xl font-black text-amber-400 font-mono mt-1">
 								#{result()?.best_global_rank || '-'}
 							</div>

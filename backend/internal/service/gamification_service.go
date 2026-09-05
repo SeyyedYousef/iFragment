@@ -1722,7 +1722,7 @@ func (s *GamificationService) notifyFullTapBots(ctx context.Context) {
 	query := `
 		SELECT b.user_id, COALESCE(u.language_code, 'en') as lang
 		FROM user_boosts b
-		LEFT JOIN users u ON u.id = b.user_id
+		LEFT JOIN users u ON u.telegram_id = b.user_id
 		WHERE b.tap_bot_level >= 1
 		  AND b.tap_bot_last_collected_at IS NOT NULL
 		  AND b.tap_bot_last_collected_at <= NOW() - (COALESCE(b.tap_bot_cap_seconds, 43200) * INTERVAL '1 second')
@@ -1965,6 +1965,10 @@ func (s *GamificationService) ClaimDailyCombo(ctx context.Context, userID int64,
 		return fmt.Errorf("failed to record claim: %w", err)
 	}
 
+	var beforeCoins float64
+	_ = tx.QueryRow(ctx, "SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1", userID).Scan(&beforeCoins)
+	afterCoins := beforeCoins + float64(combo.RewardAmount)
+
 	_, err = tx.Exec(ctx, `
 		UPDATE user_stats 
 		SET airdrop_coins = COALESCE(airdrop_coins, 0) + $2,
@@ -1975,6 +1979,17 @@ func (s *GamificationService) ClaimDailyCombo(ctx context.Context, userID int64,
 	if err != nil {
 		return fmt.Errorf("failed to grant reward: %w", err)
 	}
+
+	_, _ = tx.Exec(ctx, `
+		INSERT INTO user_ledger_events (
+			user_id, category, event_type, amount, balance_before, balance_after,
+			title, reference_id, metadata, created_at
+		) VALUES (
+			$1, 'coins', 'earn_daily_combo', $2, $3, $4,
+			'Daily Secret Combo Bonus', 'daily_combo_' || $5::text,
+			'{"source": "daily_combo"}'::jsonb, CURRENT_TIMESTAMP
+		)
+	`, userID, combo.RewardAmount, beforeCoins, afterCoins, combo.ID)
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("transaction commit failed: %w", err)

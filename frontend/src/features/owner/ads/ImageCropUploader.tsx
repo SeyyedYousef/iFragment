@@ -47,7 +47,10 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 
 	const loadFile = (file: File) => {
 		setErrorMessage(null);
-		if (!file.type.startsWith('image/') && !/\.(jpe?g|png|webp|gif|bmp|avif|heic|svg)$/i.test(file.name)) {
+		if (
+			!file.type.startsWith('image/') &&
+			!/\.(jpe?g|png|webp|gif|bmp|avif|heic|svg)$/i.test(file.name)
+		) {
 			setErrorMessage(t('imageCrop.invalidFormat') || 'Only image files are supported');
 			return;
 		}
@@ -123,30 +126,27 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 		setErrorMessage(null);
 
 		try {
-			canvas.toBlob(
-				async (blob) => {
-					if (!blob) {
-						setErrorMessage('Failed to generate image from canvas');
-						setIsUploading(false);
-						return;
-					}
+			canvas.toBlob(async (blob) => {
+				if (!blob) {
+					setErrorMessage('Failed to generate image from canvas');
+					setIsUploading(false);
+					return;
+				}
 
-					setUploadProgress(50);
-					try {
-						const result = await ownerApi.uploadAdImage(blob, slot());
-						setUploadProgress(100);
-						setUploadedUrl(result.url);
-						props.onUploaded(result.url, result.width, result.height, result.size_bytes);
-						setImageSrc(null);
-						setImageEl(null);
-					} catch (err: any) {
-						setErrorMessage(err.response?.data?.error || err.message || 'Upload failed');
-					} finally {
-						setIsUploading(false);
-					}
-				},
-				'image/png',
-			);
+				setUploadProgress(50);
+				try {
+					const result = await ownerApi.uploadAdImage(blob, slot());
+					setUploadProgress(100);
+					setUploadedUrl(result.url);
+					props.onUploaded(result.url, result.width, result.height, result.size_bytes);
+					setImageSrc(null);
+					setImageEl(null);
+				} catch (err: any) {
+					setErrorMessage(err.response?.data?.error || err.message || 'Upload failed');
+				} finally {
+					setIsUploading(false);
+				}
+			}, 'image/png');
 		} catch (err: any) {
 			setErrorMessage(err.message || 'Error processing crop');
 			setIsUploading(false);
@@ -163,7 +163,11 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 						<span class="text-emerald-400 font-mono">{t('imageCrop.ready')}</span>
 					</div>
 					<div class="relative overflow-hidden rounded-lg border border-white/10 aspect-[25/9] bg-white/5">
-						<img src={buildMediaUrl(uploadedUrl()!)} alt={t('imageCrop.bannerPreviewAlt')} class="h-full w-full object-cover" />
+						<img
+							src={buildMediaUrl(uploadedUrl()!)}
+							alt={t('imageCrop.bannerPreviewAlt')}
+							class="h-full w-full object-cover"
+						/>
 					</div>
 				</div>
 			</Show>
@@ -186,9 +190,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 						<span class="material-symbols-outlined text-2xl">cloud_upload</span>
 					</div>
 					<div class="text-sm font-medium text-white">{t('imageCrop.dragDrop')}</div>
-					<div class="text-xs text-white/50 mt-1">
-						{t('imageCrop.formats')}
-					</div>
+					<div class="text-xs text-white/50 mt-1">{t('imageCrop.formats')}</div>
 				</div>
 			</Show>
 
@@ -198,9 +200,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-outlined text-amber-400 text-lg">crop</span>
-							<span class="text-sm font-semibold text-white">
-								{t('imageCrop.adjustCrop')}
-							</span>
+							<span class="text-sm font-semibold text-white">{t('imageCrop.adjustCrop')}</span>
 						</div>
 						<button
 							type="button"

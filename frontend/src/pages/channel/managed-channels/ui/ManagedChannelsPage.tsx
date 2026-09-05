@@ -172,10 +172,7 @@ export const ManagedChannelsPage: Component = () => {
 			refetchAll();
 		} catch (_e: any) {
 			haptic.notify('error');
-			showToast(
-				t('managedChannels.projectDeleteError') || 'Failed to delete project',
-				'error',
-			);
+			showToast(t('managedChannels.projectDeleteError') || 'Failed to delete project', 'error');
 		} finally {
 			setIsDeletingProject(false);
 		}
@@ -284,15 +281,13 @@ export const ManagedChannelsPage: Component = () => {
 
 		if (!src) {
 			setSourceError(
-				t('managedChannels.verifySourceFirst') ||
-					'Please verify a valid source channel first.',
+				t('managedChannels.verifySourceFirst') || 'Please verify a valid source channel first.',
 			);
 			return;
 		}
 		if (!tgt) {
 			setTargetError(
-				t('managedChannels.verifyTargetFirst') ||
-					'Please verify a valid target channel first.',
+				t('managedChannels.verifyTargetFirst') || 'Please verify a valid target channel first.',
 			);
 			return;
 		}
@@ -460,7 +455,10 @@ export const ManagedChannelsPage: Component = () => {
 									class="mt-4 w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] flex items-center justify-center gap-2 hover:from-[#2b7ec9] hover:to-[#3390ec] transition-all active:scale-95 shadow-[0_10px_25px_rgba(51,144,236,0.3)] relative z-10 border border-white/10"
 								>
 									<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
-									<span>{t('managedChannels.createProjectTrial') || 'Create New Project (72h Free Trial)'}</span>
+									<span>
+										{t('managedChannels.createProjectTrial') ||
+											'Create New Project (72h Free Trial)'}
+									</span>
 								</button>
 
 								<button
@@ -514,7 +512,10 @@ export const ManagedChannelsPage: Component = () => {
 						<For each={projects()}>
 							{(project, i) => {
 								const isPaidActive = project.stars_subscription_active;
-								const isTrialActive = !isPaidActive && (project.trial_used || project.status === 'active') && project.trial_ends_at;
+								const isTrialActive =
+									!isPaidActive &&
+									(project.trial_used || project.status === 'active') &&
+									project.trial_ends_at;
 								const endDateStr = isPaidActive ? project.stars_expires_at : project.trial_ends_at;
 								const isPaused = project.status === 'paused';
 
@@ -539,7 +540,8 @@ export const ManagedChannelsPage: Component = () => {
 														{project.name}
 													</h3>
 													<span class="text-[11px] font-bold text-white/40 tracking-wider">
-														{t('managedChannels.projectId') || 'Project ID'}: {project.id.slice(0, 8)}
+														{t('managedChannels.projectId') || 'Project ID'}:{' '}
+														{project.id.slice(0, 8)}
 													</span>
 												</div>
 											</div>
@@ -557,12 +559,12 @@ export const ManagedChannelsPage: Component = () => {
 													}`}
 												>
 													{isPaidActive
-														? (t('managedChannels.activeStatus') || 'ACTIVE')
+														? t('managedChannels.activeStatus') || 'ACTIVE'
 														: isPaused
-															? (t('managedChannels.pausedStatus') || 'PAUSED')
+															? t('managedChannels.pausedStatus') || 'PAUSED'
 															: isTrialActive
-																? (t('managedChannels.trialBadge72h') || 'TRIAL (72h)')
-																: (t('managedChannels.expiredStatus') || 'EXPIRED')}
+																? t('managedChannels.trialBadge72h') || 'TRIAL (72h)'
+																: t('managedChannels.expiredStatus') || 'EXPIRED'}
 												</span>
 												<Show when={endDateStr && !isPaused}>
 													<span class="text-[10px] text-white/60 font-bold font-mono whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-[5px] border border-white/5">
@@ -583,14 +585,16 @@ export const ManagedChannelsPage: Component = () => {
 													</span>
 												</div>
 												<span class="text-[13px] font-black text-white truncate">
-													{project.source_title || t('managedChannels.defaultSourceTitle') || 'Source Channel'}
+													{project.source_title ||
+														t('managedChannels.defaultSourceTitle') ||
+														'Source Channel'}
 												</span>
 												<span class="text-[10px] text-white/40 font-mono truncate" dir="ltr">
 													{project.source_username
 														? `@${project.source_username}`
 														: project.source_chat_id
 															? `ID: ${project.source_chat_id}`
-															: (t('managedChannels.connected') || 'Connected')}
+															: t('managedChannels.connected') || 'Connected'}
 												</span>
 											</div>
 
@@ -612,14 +616,16 @@ export const ManagedChannelsPage: Component = () => {
 													</span>
 												</div>
 												<span class="text-[13px] font-black text-white truncate">
-													{project.target_title || t('managedChannels.defaultTargetTitle') || 'Target Channel'}
+													{project.target_title ||
+														t('managedChannels.defaultTargetTitle') ||
+														'Target Channel'}
 												</span>
 												<span class="text-[10px] text-white/40 font-mono truncate" dir="ltr">
 													{project.target_username
 														? `@${project.target_username}`
 														: project.target_chat_id
 															? `ID: ${project.target_chat_id}`
-															: (t('managedChannels.connected') || 'Connected')}
+															: t('managedChannels.connected') || 'Connected'}
 												</span>
 											</div>
 										</div>
@@ -631,7 +637,8 @@ export const ManagedChannelsPage: Component = () => {
 												type="button"
 												onClick={() => {
 													haptic.impact('light');
-													const targetId = project.target_channel_id || project.source_channel_id || project.id;
+													const targetId =
+														project.target_channel_id || project.source_channel_id || project.id;
 													navigate(`/channel/${targetId}`);
 												}}
 												class="flex-[1.5] h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all bg-[#08090D] text-white/90 border border-white/10 hover:border-[#3390ec]/40 hover:text-[#3390ec] shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
@@ -644,7 +651,8 @@ export const ManagedChannelsPage: Component = () => {
 											<button
 												type="button"
 												onClick={() => {
-													const targetId = project.target_channel_id || project.source_channel_id || project.id;
+													const targetId =
+														project.target_channel_id || project.source_channel_id || project.id;
 													openSubscription(targetId);
 												}}
 												class={`h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all border active:scale-95 flex items-center justify-center gap-1.5 shadow-sm ${
@@ -657,9 +665,7 @@ export const ManagedChannelsPage: Component = () => {
 													<span class="material-symbols-outlined text-[16px]">stars</span>
 												</Show>
 												<span>
-													{isPaidActive
-														? t('botManage.extendSub')
-														: t('botManage.buySubscription')}
+													{isPaidActive ? t('botManage.extendSub') : t('botManage.buySubscription')}
 												</span>
 											</button>
 
@@ -672,7 +678,11 @@ export const ManagedChannelsPage: Component = () => {
 														? 'bg-amber-400/10 border-amber-400/30 text-amber-400 hover:bg-amber-400/20'
 														: 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
 												}`}
-												title={isPaused ? (t('managedChannels.resumeProject') || 'Resume') : (t('managedChannels.pauseProject') || 'Pause')}
+												title={
+													isPaused
+														? t('managedChannels.resumeProject') || 'Resume'
+														: t('managedChannels.pauseProject') || 'Pause'
+												}
 											>
 												<span class="material-symbols-outlined text-[18px]">
 													{isPaused ? 'play_arrow' : 'pause'}
@@ -732,7 +742,8 @@ export const ManagedChannelsPage: Component = () => {
 										{t('managedChannels.createProjectModalTitle') || 'Create New Project'}
 									</h3>
 									<span class="text-[11px] font-bold text-amber-400 flex items-center gap-1">
-										<span>⭐</span> {t('managedChannels.freeTrial72hBadge') || '72 Hours 100% Free Trial'}
+										<span>⭐</span>{' '}
+										{t('managedChannels.freeTrial72hBadge') || '72 Hours 100% Free Trial'}
 									</span>
 								</div>
 							</div>
@@ -768,7 +779,8 @@ export const ManagedChannelsPage: Component = () => {
 							<div class="flex flex-col gap-2">
 								<div class="flex items-center justify-between">
 									<label class="text-[12px] font-bold text-white/80 flex items-center gap-1.5">
-										<span class="text-[#3390ec]">●</span> {t('managedChannels.sourceChannel') || 'Source Channel (Input)'}
+										<span class="text-[#3390ec]">●</span>{' '}
+										{t('managedChannels.sourceChannel') || 'Source Channel (Input)'}
 									</label>
 									<Show when={sourceChannel()}>
 										<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/15 px-2 py-0.5 rounded-[6px] border border-[#10b981]/30">
@@ -784,17 +796,28 @@ export const ManagedChannelsPage: Component = () => {
 											const chosen = channels()!.find((c: any) => c.id === e.currentTarget.value);
 											if (chosen) {
 												setSourceChannel(chosen);
-												setSourceInput(chosen.chat_username ? `@${chosen.chat_username}` : (chosen.chat_title || chosen.title || ''));
+												setSourceInput(
+													chosen.chat_username
+														? `@${chosen.chat_username}`
+														: chosen.chat_title || chosen.title || '',
+												);
 												setSourceError('');
 											}
 										}}
 										class="w-full h-11 bg-[#08090D] border border-white/10 rounded-[14px] px-3 text-[12px] text-white/80 outline-none"
 									>
-										<option value="">{t('managedChannels.selectFromConnected') || '-- Select from your connected channels --'}</option>
+										<option value="">
+											{t('managedChannels.selectFromConnected') ||
+												'-- Select from your connected channels --'}
+										</option>
 										<For each={channels()}>
 											{(ch: any) => (
 												<option value={ch.id}>
-													{ch.chat_title || ch.title} ({ch.chat_username ? `@${ch.chat_username}` : (ch.subscribers_count ?? ch.members ?? 0)})
+													{ch.chat_title || ch.title} (
+													{ch.chat_username
+														? `@${ch.chat_username}`
+														: (ch.subscribers_count ?? ch.members ?? 0)}
+													)
 												</option>
 											)}
 										</For>
@@ -839,7 +862,10 @@ export const ManagedChannelsPage: Component = () => {
 												<span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 											}
 										>
-											<Show when={sourceChannel()} fallback={<span>{t('managedChannels.check') || 'Check'}</span>}>
+											<Show
+												when={sourceChannel()}
+												fallback={<span>{t('managedChannels.check') || 'Check'}</span>}
+											>
 												<span class="material-symbols-outlined text-[18px]">done</span>
 												<span>{t('managedChannels.verified') || 'Verified'}</span>
 											</Show>
@@ -859,7 +885,9 @@ export const ManagedChannelsPage: Component = () => {
 													{sourceChannel()?.chat_title}
 												</span>
 												<span class="text-[11px] font-medium text-[#10b981]">
-													{t('managedChannels.botIsAdmin') || 'Bot is admin & member 🟢'} ({sourceChannel()?.subscribers_count || 0} {t('managedChannels.subscribers') || 'subscribers'})
+													{t('managedChannels.botIsAdmin') || 'Bot is admin & member 🟢'} (
+													{sourceChannel()?.subscribers_count || 0}{' '}
+													{t('managedChannels.subscribers') || 'subscribers'})
 												</span>
 											</div>
 										</div>
@@ -879,7 +907,8 @@ export const ManagedChannelsPage: Component = () => {
 							<div class="flex flex-col gap-2">
 								<div class="flex items-center justify-between">
 									<label class="text-[12px] font-bold text-white/80 flex items-center gap-1.5">
-										<span class="text-[#10b981]">●</span> {t('managedChannels.targetChannel') || 'Target Channel (Output)'}
+										<span class="text-[#10b981]">●</span>{' '}
+										{t('managedChannels.targetChannel') || 'Target Channel (Output)'}
 									</label>
 									<Show when={targetChannel()}>
 										<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/15 px-2 py-0.5 rounded-[6px] border border-[#10b981]/30">
@@ -895,17 +924,28 @@ export const ManagedChannelsPage: Component = () => {
 											const chosen = channels()!.find((c: any) => c.id === e.currentTarget.value);
 											if (chosen) {
 												setTargetChannel(chosen);
-												setTargetInput(chosen.chat_username ? `@${chosen.chat_username}` : (chosen.chat_title || chosen.title || ''));
+												setTargetInput(
+													chosen.chat_username
+														? `@${chosen.chat_username}`
+														: chosen.chat_title || chosen.title || '',
+												);
 												setTargetError('');
 											}
 										}}
 										class="w-full h-11 bg-[#08090D] border border-white/10 rounded-[14px] px-3 text-[12px] text-white/80 outline-none"
 									>
-										<option value="">{t('managedChannels.selectFromConnected') || '-- Select from your connected channels --'}</option>
+										<option value="">
+											{t('managedChannels.selectFromConnected') ||
+												'-- Select from your connected channels --'}
+										</option>
 										<For each={channels()}>
 											{(ch: any) => (
 												<option value={ch.id}>
-													{ch.chat_title || ch.title} ({ch.chat_username ? `@${ch.chat_username}` : (ch.subscribers_count ?? ch.members ?? 0)})
+													{ch.chat_title || ch.title} (
+													{ch.chat_username
+														? `@${ch.chat_username}`
+														: (ch.subscribers_count ?? ch.members ?? 0)}
+													)
 												</option>
 											)}
 										</For>
@@ -950,7 +990,10 @@ export const ManagedChannelsPage: Component = () => {
 												<span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 											}
 										>
-											<Show when={targetChannel()} fallback={<span>{t('managedChannels.check') || 'Check'}</span>}>
+											<Show
+												when={targetChannel()}
+												fallback={<span>{t('managedChannels.check') || 'Check'}</span>}
+											>
 												<span class="material-symbols-outlined text-[18px]">done</span>
 												<span>{t('managedChannels.verified') || 'Verified'}</span>
 											</Show>
@@ -970,7 +1013,9 @@ export const ManagedChannelsPage: Component = () => {
 													{targetChannel()?.chat_title}
 												</span>
 												<span class="text-[11px] font-medium text-[#10b981]">
-													{t('managedChannels.botIsAdmin') || 'Bot is admin & member 🟢'} ({targetChannel()?.subscribers_count || 0} {t('managedChannels.subscribers') || 'subscribers'})
+													{t('managedChannels.botIsAdmin') || 'Bot is admin & member 🟢'} (
+													{targetChannel()?.subscribers_count || 0}{' '}
+													{t('managedChannels.subscribers') || 'subscribers'})
 												</span>
 											</div>
 										</div>
@@ -999,7 +1044,9 @@ export const ManagedChannelsPage: Component = () => {
 									}
 								>
 									<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
-									<span>{t('managedChannels.createProjectBtn') || 'Create Project (72h Free Trial)'}</span>
+									<span>
+										{t('managedChannels.createProjectBtn') || 'Create Project (72h Free Trial)'}
+									</span>
 								</Show>
 							</button>
 						</form>
@@ -1141,7 +1188,15 @@ export const ManagedChannelsPage: Component = () => {
 								<div class="space-y-3">
 									<For each={packages() || []}>
 										{(pkg: SubscriptionPackage) => {
-											const credits = pkg.price_credits || (pkg.duration_months === 1 ? 3 : pkg.duration_months === 3 ? 8 : pkg.duration_months === 6 ? 15 : 25);
+											const credits =
+												pkg.price_credits ||
+												(pkg.duration_months === 1
+													? 3
+													: pkg.duration_months === 3
+														? 8
+														: pkg.duration_months === 6
+															? 15
+															: 25);
 											const creditsPerMonth = (credits / pkg.duration_months).toFixed(1);
 											const isSelected = () => selectedPkg() === pkg.id;
 
@@ -1195,7 +1250,8 @@ export const ManagedChannelsPage: Component = () => {
 															<span class="text-[12px] font-black text-[#00C6FF]">💎</span>
 														</div>
 														<span class="text-[10px] font-medium text-white/40">
-															({creditsPerMonth} {t('paywall.credit_unit')} / {t('botManage.perMonth') || 'mo'})
+															({creditsPerMonth} {t('paywall.credit_unit')} /{' '}
+															{t('botManage.perMonth') || 'mo'})
 														</span>
 													</div>
 												</button>
@@ -1206,9 +1262,19 @@ export const ManagedChannelsPage: Component = () => {
 
 								<Show when={selectedPkg()}>
 									{(() => {
-										const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+										const pkg = (packages() || []).find(
+											(p: SubscriptionPackage) => p.id === selectedPkg(),
+										);
 										if (!pkg) return null;
-										const reqCredits = pkg.price_credits || (pkg.duration_months === 1 ? 3 : pkg.duration_months === 3 ? 8 : pkg.duration_months === 6 ? 15 : 25);
+										const reqCredits =
+											pkg.price_credits ||
+											(pkg.duration_months === 1
+												? 3
+												: pkg.duration_months === 3
+													? 8
+													: pkg.duration_months === 6
+														? 15
+														: 25);
 										const userCreds = wallet.balance() ?? 0;
 										const hasEnough = userCreds >= reqCredits;
 
@@ -1287,7 +1353,8 @@ export const ManagedChannelsPage: Component = () => {
 														}}
 														class="w-full text-center text-[12px] font-bold text-white/50 hover:text-white/80 py-1 transition-colors"
 													>
-														{t('common.or') || 'or'} {t('botManage.payWithStars')} ({pkg.price_stars} ⭐)
+														{t('common.or') || 'or'} {t('botManage.payWithStars')} (
+														{pkg.price_stars} ⭐)
 													</button>
 												</Show>
 											</div>

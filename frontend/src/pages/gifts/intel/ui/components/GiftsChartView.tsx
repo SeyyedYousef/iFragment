@@ -17,7 +17,7 @@ import {
 	onMount,
 	Show,
 } from 'solid-js';
-import { type GiftsIntelResponse } from '@/entities/gifts/index.js';
+import type { GiftsIntelResponse } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { GiftsMacroStats } from './GiftsMacroStats.js';
@@ -29,7 +29,15 @@ interface Props {
 
 // Deterministic historical market cap series based on ecosystem telemetry (Dropstab / On-chain)
 function generateGiftsMarketCapHistory() {
-	const data: { time: string; open: number; high: number; low: number; close: number; value: number; volume: number }[] = [];
+	const data: {
+		time: string;
+		open: number;
+		high: number;
+		low: number;
+		close: number;
+		value: number;
+		volume: number;
+	}[] = [];
 	const startDate = new Date(2024, 9, 1); // Oct 2024 launch
 	const now = new Date(2026, 7, 31);
 	let currentCap = 25000000; // $25M start
@@ -37,8 +45,8 @@ function generateGiftsMarketCapHistory() {
 	for (let d = new Date(startDate); d <= now; d.setDate(d.getDate() + 1)) {
 		const dateStr = d.toISOString().split('T')[0];
 		const growthFactor = 1 + (Math.sin(d.getTime() / (86400000 * 20)) * 0.02 + 0.0035);
-		const noise = (Math.sin(d.getTime() / (86400000 * 3)) * 0.015);
-		
+		const noise = Math.sin(d.getTime() / (86400000 * 3)) * 0.015;
+
 		const open = currentCap;
 		currentCap = Math.max(20000000, currentCap * (growthFactor + noise));
 		const close = currentCap;
@@ -261,7 +269,11 @@ export const GiftsChartView: Component<Props> = (props) => {
 				const seriesData = param.seriesData.get(areaSeries || candleSeries!) as any;
 				const volData = param.seriesData.get(volumeSeries!) as any;
 
-				const val = seriesData ? (seriesData.close !== undefined ? seriesData.close : seriesData.value) : 0;
+				const val = seriesData
+					? seriesData.close !== undefined
+						? seriesData.close
+						: seriesData.value
+					: 0;
 				const vol = volData ? volData.value : 0;
 
 				setTooltipData({
@@ -291,7 +303,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 						time: d.time,
 						value: d.volume,
 						color: d.close >= d.open ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)',
-					}))
+					})),
 				);
 			} else {
 				volumeSeries.setData([]);
@@ -317,7 +329,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 						high: d.high,
 						low: d.low,
 						close: d.close,
-					}))
+					})),
 				);
 			}
 			if (areaSeries) {
@@ -389,7 +401,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 								type="button"
 								onClick={() => {
 									setChartCurrency('usd');
-									try { haptic.selection(); } catch {}
+									try {
+										haptic.selection();
+									} catch {}
 								}}
 								class={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
 									chartCurrency() === 'usd'
@@ -403,7 +417,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 								type="button"
 								onClick={() => {
 									setChartCurrency('ton');
-									try { haptic.selection(); } catch {}
+									try {
+										haptic.selection();
+									} catch {}
 								}}
 								class={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
 									chartCurrency() === 'ton'
@@ -420,7 +436,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 								type="button"
 								onClick={() => {
 									setChartType(chartType() === 'area' ? 'candles' : 'area');
-									try { haptic.selection(); } catch {}
+									try {
+										haptic.selection();
+									} catch {}
 								}}
 								class="p-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-white/60 hover:text-white transition-all border border-white/5"
 								title={chartType() === 'area' ? 'Switch to Candlesticks' : 'Switch to Line'}
@@ -434,7 +452,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 								type="button"
 								onClick={() => {
 									setVolumeEnabled(!volumeEnabled());
-									try { haptic.selection(); } catch {}
+									try {
+										haptic.selection();
+									} catch {}
 								}}
 								class={`p-1 rounded-lg transition-all border ${
 									volumeEnabled()
@@ -480,7 +500,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 								type="button"
 								onClick={() => {
 									setChartRange(r);
-									try { haptic.selection(); } catch {}
+									try {
+										haptic.selection();
+									} catch {}
 								}}
 								class={`px-2.5 py-1 text-[10px] font-black rounded-lg transition-all ${
 									chartRange() === r
@@ -502,16 +524,28 @@ export const GiftsChartView: Component<Props> = (props) => {
 				{/* Bollinger Bands Technical Indicator Readout */}
 				<div class="grid grid-cols-3 gap-2 pt-2 border-t border-white/[0.06] text-center">
 					<div class="bg-white/[0.02] border border-white/[0.04] rounded-xl p-2">
-						<span class="text-[9px] uppercase font-bold text-red-400 block">{t('gifts.upperBand')}</span>
-						<span class="text-xs font-mono font-bold text-white mt-0.5 block">{formatVal(latestMcap() * 1.08)}</span>
+						<span class="text-[9px] uppercase font-bold text-red-400 block">
+							{t('gifts.upperBand')}
+						</span>
+						<span class="text-xs font-mono font-bold text-white mt-0.5 block">
+							{formatVal(latestMcap() * 1.08)}
+						</span>
 					</div>
 					<div class="bg-white/[0.02] border border-white/[0.04] rounded-xl p-2">
-						<span class="text-[9px] uppercase font-bold text-[#0098EA] block">{t('gifts.sma')}</span>
-						<span class="text-xs font-mono font-bold text-white mt-0.5 block">{formatVal(latestMcap() * 0.98)}</span>
+						<span class="text-[9px] uppercase font-bold text-[#0098EA] block">
+							{t('gifts.sma')}
+						</span>
+						<span class="text-xs font-mono font-bold text-white mt-0.5 block">
+							{formatVal(latestMcap() * 0.98)}
+						</span>
 					</div>
 					<div class="bg-white/[0.02] border border-white/[0.04] rounded-xl p-2">
-						<span class="text-[9px] uppercase font-bold text-emerald-400 block">{t('gifts.lowerBand')}</span>
-						<span class="text-xs font-mono font-bold text-white mt-0.5 block">{formatVal(latestMcap() * 0.88)}</span>
+						<span class="text-[9px] uppercase font-bold text-emerald-400 block">
+							{t('gifts.lowerBand')}
+						</span>
+						<span class="text-xs font-mono font-bold text-white mt-0.5 block">
+							{formatVal(latestMcap() * 0.88)}
+						</span>
 					</div>
 				</div>
 			</div>

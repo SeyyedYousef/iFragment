@@ -33,11 +33,12 @@ export const GiftsIntelPage: Component = () => {
 		return 5.5;
 	});
 
-	const tabsList = () => [
-		{ id: 'chart', label: t('gifts.tabChart') || 'نمودار و بولینگر', icon: 'show_chart' },
-		{ id: 'collections', label: t('gifts.tabCollections') || 'کالکشن‌ها', icon: 'category' },
-		{ id: 'heatmap', label: t('gifts.tabHeatmap') || 'نقشه حرارتی', icon: 'grid_view' },
-	] as const;
+	const tabsList = () =>
+		[
+			{ id: 'chart', label: t('gifts.tabChart') || 'نمودار و بولینگر', icon: 'show_chart' },
+			{ id: 'collections', label: t('gifts.tabCollections') || 'کالکشن‌ها', icon: 'category' },
+			{ id: 'heatmap', label: t('gifts.tabHeatmap') || 'نقشه حرارتی', icon: 'grid_view' },
+		] as const;
 
 	return (
 		<div class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
@@ -60,7 +61,9 @@ export const GiftsIntelPage: Component = () => {
 									NFT
 								</span>
 							</h1>
-							<p class="text-[10px] font-semibold text-white/40">Telegram Gifts & NFT Marketplace</p>
+							<p class="text-[10px] font-semibold text-white/40">
+								Telegram Gifts & NFT Marketplace
+							</p>
 						</div>
 					</div>
 
@@ -68,11 +71,13 @@ export const GiftsIntelPage: Component = () => {
 					<div class="text-right">
 						<div class="text-xs font-black text-white font-mono flex items-center justify-end gap-1">
 							<span class="text-[#0098EA] text-[10px]">💎</span>
-							<span>{intel()?.total_market_cap_usd ? `~$${(intel()!.total_market_cap_usd / 1e6).toFixed(1)}M Cap` : 'Live Ecosystem'}</span>
+							<span>
+								{intel()?.total_market_cap_usd
+									? `~$${(intel()!.total_market_cap_usd / 1e6).toFixed(1)}M Cap`
+									: 'Live Ecosystem'}
+							</span>
 						</div>
-						<div class="text-[10px] text-emerald-400 font-mono font-bold">
-							149 Gifts · 120 NFTs
-						</div>
+						<div class="text-[10px] text-emerald-400 font-mono font-bold">149 Gifts · 120 NFTs</div>
 					</div>
 				</div>
 

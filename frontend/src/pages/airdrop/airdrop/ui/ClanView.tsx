@@ -473,9 +473,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 								<p class="text-[13px] text-white/60 font-mono">
 									@{clanUsername().replace(/^@+/, '')}
 								</p>
-								<p class="text-[12px] text-white/50 mt-1">
-									{t('clan.joinSquadDesc')}
-								</p>
+								<p class="text-[12px] text-white/50 mt-1">{t('clan.joinSquadDesc')}</p>
 							</div>
 
 							<div class="flex flex-col gap-2.5 pt-2">

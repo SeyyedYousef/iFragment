@@ -49,4 +49,3 @@ export const buildMediaUrl = (rawUrl: string | undefined): string => {
 		return `${base}${cleanPath}`;
 	}
 };
-

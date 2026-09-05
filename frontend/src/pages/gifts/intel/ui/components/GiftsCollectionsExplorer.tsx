@@ -1,7 +1,12 @@
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
-import { OFFICIAL_GIFTS_120, type OfficialGiftItem, giftsApi, GiftThumbnail } from '@/entities/gifts/index.js';
+import {
+	GiftThumbnail,
+	giftsApi,
+	OFFICIAL_GIFTS_120,
+	type OfficialGiftItem,
+} from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -135,7 +140,9 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 							type="button"
 							onClick={() => {
 								setSelectedTag(tag.id);
-								try { haptic.selection(); } catch {}
+								try {
+									haptic.selection();
+								} catch {}
 							}}
 							class={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
 								selectedTag() === tag.id
@@ -177,7 +184,12 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 								onClick={() => handleChipClick(gift)}
 								class="flex items-center gap-1.5 px-2 py-1 bg-white/[0.02] hover:bg-[#0098EA]/20 border border-white/[0.05] hover:border-[#0098EA]/40 rounded-xl text-[11px] font-semibold text-white/80 hover:text-white transition-all active:scale-95 flex-shrink-0"
 							>
-								<GiftThumbnail slug={gift.slug} name={gift.name} size="sm" class="w-4 h-4 rounded-md border-0 bg-transparent" />
+								<GiftThumbnail
+									slug={gift.slug}
+									name={gift.name}
+									size="sm"
+									class="w-4 h-4 rounded-md border-0 bg-transparent"
+								/>
 								<span>{gift.name}</span>
 							</button>
 						)}
@@ -219,8 +231,12 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 										</span>
 									</div>
 									<div class="text-[11px] text-white/50 font-mono mt-0.5 flex items-center gap-1">
-										<span class="text-white/70 font-semibold">{getGiftSupply(gift).toLocaleString()}</span>
-										<span class="text-white/30 text-[10px]">{t('numbers.statItems') || 'آیتم'}</span>
+										<span class="text-white/70 font-semibold">
+											{getGiftSupply(gift).toLocaleString()}
+										</span>
+										<span class="text-white/30 text-[10px]">
+											{t('numbers.statItems') || 'آیتم'}
+										</span>
 									</div>
 								</div>
 
@@ -228,11 +244,7 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 								<div class="text-right rtl:text-left flex-shrink-0">
 									<Show
 										when={getGiftFloor(gift) > 0}
-										fallback={
-											<div class="text-xs font-bold text-white/40 font-mono">
-												— TON
-											</div>
-										}
+										fallback={<div class="text-xs font-bold text-white/40 font-mono">— TON</div>}
 									>
 										<div class="text-sm font-black text-white font-mono flex items-center justify-end rtl:justify-start gap-1">
 											<span class="text-[#0098EA] text-xs">💎</span>

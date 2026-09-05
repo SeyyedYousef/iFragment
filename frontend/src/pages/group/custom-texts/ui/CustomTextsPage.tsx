@@ -193,7 +193,9 @@ export const CustomTextsPage: Component = () => {
 									{t('customTextsSettings.welcomeTitle')}
 								</h2>
 							</div>
-							<span class="text-[10px] text-white/40 font-mono font-bold">{t('ownerBroadcast.htmlTags')}</span>
+							<span class="text-[10px] text-white/40 font-mono font-bold">
+								{t('ownerBroadcast.htmlTags')}
+							</span>
 						</div>
 
 						<textarea

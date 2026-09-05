@@ -3,8 +3,8 @@ import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { AdCampaign } from '@/entities/owner/model/types.js';
 import { ImageCropUploader } from '@/features/owner/ads/ImageCropUploader.jsx';
-import { t } from '@/shared/i18n/index.js';
 import { buildMediaUrl } from '@/shared/api/config.js';
+import { t } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerAds: Component = () => {

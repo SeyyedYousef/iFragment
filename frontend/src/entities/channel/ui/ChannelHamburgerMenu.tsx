@@ -33,8 +33,7 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 		t('channel.defaultTitle' as any) ||
 		'کانال من';
 
-	const channelUsername = () =>
-		channel()?.chat_username || (channel() as any)?.username;
+	const channelUsername = () => channel()?.chat_username || (channel() as any)?.username;
 
 	const menuItems = () => [
 		{

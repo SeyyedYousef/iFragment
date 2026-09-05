@@ -60,7 +60,11 @@ export const GroupDashboardPage: Component = () => {
 			icon: 'edit_note',
 			path: `/group/${params.id}/settings/custom-texts`,
 		},
-		{ name: t('groupDashboard.membersAndWarnings'), icon: 'group', path: `/group/${params.id}/members` },
+		{
+			name: t('groupDashboard.membersAndWarnings'),
+			icon: 'group',
+			path: `/group/${params.id}/members`,
+		},
 		{
 			name: t('search.features.groupAnalytics'),
 			icon: 'analytics',
@@ -425,7 +429,8 @@ export const GroupDashboardPage: Component = () => {
 								{t('groupLessons.heroTitle')}
 							</h2>
 							<p class="text-[11px] text-white/50 font-bold mt-1 leading-relaxed">
-								{academyProgressData().completedCount} / {academyProgressData().totalCount} {t('ownerCommon.active')}
+								{academyProgressData().completedCount} / {academyProgressData().totalCount}{' '}
+								{t('ownerCommon.active')}
 							</p>
 						</div>
 					</div>
@@ -462,7 +467,9 @@ export const GroupDashboardPage: Component = () => {
 						</div>
 						<div class="flex flex-col">
 							<div class="flex items-center gap-2">
-								<span class="text-[13px] font-black text-white">{t('groupDashboard.zeroAdsGuarantee')}</span>
+								<span class="text-[13px] font-black text-white">
+									{t('groupDashboard.zeroAdsGuarantee')}
+								</span>
 								<span class="bg-[#10b981]/20 text-[#10b981] text-[9px] font-black uppercase px-2 py-0.5 rounded-full border border-[#10b981]/40">
 									{t('ownerCommon.active')}
 								</span>

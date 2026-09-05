@@ -1,8 +1,8 @@
 import { Motion } from '@motionone/solid';
-import { t } from '@/shared/i18n/index.js';
 import { useQueryClient } from '@tanstack/solid-query';
 import { backButton, viewport } from '@tma.js/sdk-solid';
 import { type Component, createEffect, createSignal, Show } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 import { PullToRefresh } from '@/shared/ui/PullToRefresh.js';
 import { ActionArea } from '@/widgets/action-area/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';

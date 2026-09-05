@@ -7,8 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
+	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,8 +17,6 @@ import (
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
-
-	"net/http"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
@@ -45,12 +44,30 @@ func NewClanService(db *repository.Database, cache *repository.Cache, mtprotoCli
 	return &ClanService{db: db, cache: cache, mtprotoClient: mtprotoClient, botClient: botClient}
 }
 
+// toBotAPIChannelID converts raw positive MTProto channel ID to Bot API format (-100...)
+func toBotAPIChannelID(id int64) int64 {
+	if id < 0 {
+		return id
+	}
+	val, err := strconv.ParseInt(fmt.Sprintf("-100%d", id), 10, 64)
+	if err == nil {
+		return val
+	}
+	return -1000000000000 - id
+}
+
 // scrapeChannelPhoto tries to get the photo URL from public telegram web preview
 func scrapeChannelPhoto(username string) string {
 	defaultPhoto := fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", username)
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get("https://t.me/" + username)
+	req, err := http.NewRequest("GET", "https://t.me/"+username, nil)
+	if err != nil {
+		return defaultPhoto
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 TelegramBot (like TwitterBot)")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return defaultPhoto
 	}
@@ -209,7 +226,7 @@ func (s *ClanService) resolveChannelHybrid(ctx context.Context, username string)
 	}
 
 	photoURL := scrapeChannelPhoto(username)
-	return channel.ID, channel.Title, photoURL, nil
+	return toBotAPIChannelID(channel.ID), channel.Title, photoURL, nil
 }
 
 var telegramUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]{3,32}$`)
@@ -258,24 +275,10 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	clanExists := (err == nil)
 
 	if !clanExists {
-		isProd := os.Getenv("APP_ENV") == "production"
-
-		// In development, mock known usernames immediately without calling API to avoid errors
-		if !isProd && (strings.EqualFold(normalized, "durov") || strings.EqualFold(normalized, "telegram") || strings.EqualFold(normalized, "ifragment")) {
-			channelID = 123456789
-			chatTitle = "Durov's Clan"
-			photoURL = "https://telegram.org/img/t_logo.png"
-			if strings.EqualFold(normalized, "telegram") {
-				chatTitle = "Telegram Official Clan"
-			} else if strings.EqualFold(normalized, "ifragment") {
-				chatTitle = "iFragment Clan"
-			}
-		} else {
-			var err error
-			channelID, chatTitle, photoURL, err = s.resolveChannelHybrid(ctx, normalized)
-			if err != nil {
-				return nil, err
-			}
+		var err error
+		channelID, chatTitle, photoURL, err = s.resolveChannelHybrid(ctx, normalized)
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		channelID = existingClan.TelegramChannelID

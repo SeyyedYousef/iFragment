@@ -54,7 +54,15 @@ export const AchievementSchema = v.object({
 	id: v.string(),
 	category: v.optional(
 		v.nullable(
-			v.picklist(['onboarding', 'mining', 'analysis', 'social', 'management', 'streaks', 'special']),
+			v.picklist([
+				'onboarding',
+				'mining',
+				'analysis',
+				'social',
+				'management',
+				'streaks',
+				'special',
+			]),
 		),
 	),
 	icon: v.optional(v.nullable(v.string())),

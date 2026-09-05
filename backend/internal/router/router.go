@@ -78,6 +78,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/chart-data", cfg.NumbersHandler.GetChartData)
 			r.Get("/gate", cfg.NumbersHandler.GetCuriosityGate)
 			r.Get("/mask", cfg.NumbersHandler.SearchMask)
+			r.Get("/search-mask", cfg.NumbersHandler.SearchMask)
 			r.Get("/deals", cfg.NumbersHandler.GetDeals)
 			r.Get("/clubs", cfg.NumbersHandler.GetClubs)
 			r.With(middleware.NewStrictRateLimiter(cfg.Cache, 15, time.Minute)).Get("/portfolio", cfg.NumbersHandler.ScanPortfolio)

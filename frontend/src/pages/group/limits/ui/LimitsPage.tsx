@@ -5,7 +5,6 @@ import {
 	type Component,
 	createResource,
 	createSignal,
-	For,
 	onCleanup,
 	onMount,
 	Show,

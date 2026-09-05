@@ -137,7 +137,8 @@ export const ChannelHealthPage: Component = () => {
 										<span class="text-xs text-neutral-500 font-normal">/ 100</span>
 									</div>
 									<div class="text-xs font-medium text-neutral-400 mt-1">
-										{t('channelHealth.status')} <span class="capitalize text-white font-semibold">{data().status}</span>
+										{t('channelHealth.status')}{' '}
+										<span class="capitalize text-white font-semibold">{data().status}</span>
 									</div>
 								</div>
 

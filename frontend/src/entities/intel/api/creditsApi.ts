@@ -67,7 +67,10 @@ export const creditsApi = {
 	},
 
 	exchangeCoins: async (): Promise<ConsumeCreditResponse> => {
-		const { data } = await apiClient.post<ConsumeCreditResponse>('/intel/credits/exchange-coins', {});
+		const { data } = await apiClient.post<ConsumeCreditResponse>(
+			'/intel/credits/exchange-coins',
+			{},
+		);
 		return data;
 	},
 

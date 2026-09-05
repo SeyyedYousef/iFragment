@@ -316,10 +316,10 @@ export const CollectionInfoPage: Component = () => {
 											{fearGreedNotice().index < 30
 												? 'EXTREME FEAR'
 												: fearGreedNotice().index < 50
-												? 'FEAR'
-												: fearGreedNotice().index < 75
-												? 'GREED'
-												: 'EXTREME GREED'}
+													? 'FEAR'
+													: fearGreedNotice().index < 75
+														? 'GREED'
+														: 'EXTREME GREED'}
 										</span>
 									</div>
 								</div>
@@ -401,8 +401,7 @@ export const CollectionInfoPage: Component = () => {
 									</span>
 									<div class="flex items-baseline gap-1" dir="ltr">
 										<span class="text-[22px] font-black font-mono text-white tracking-tight">
-											{usernameQuery.data?.stats?.total_volume?.replace('TON', '').trim() ||
-												'5.2M'}
+											{usernameQuery.data?.stats?.total_volume?.replace('TON', '').trim() || '5.2M'}
 										</span>
 										<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
 									</div>
@@ -438,9 +437,7 @@ export const CollectionInfoPage: Component = () => {
 							<div class="flex flex-col gap-2.5 mt-1">
 								<div class="flex items-center justify-between px-1">
 									<div class="flex items-center gap-2">
-										<span class="material-symbols-outlined text-amber-400 text-[18px]">
-											gavel
-										</span>
+										<span class="material-symbols-outlined text-amber-400 text-[18px]">gavel</span>
 										<h3 class="text-[11px] font-black tracking-widest text-white/60 uppercase">
 											{t('collectionInfo.liveFragmentAuctions')}
 										</h3>
@@ -598,7 +595,12 @@ export const CollectionInfoPage: Component = () => {
 													</span>
 												</div>
 												<span class="text-[10px] font-mono text-white/40">
-													≈ ${((item.priceUsd ?? item.priceTon * (usernameQuery.data?.ton_usd_rate || 5.5)) / 1000).toFixed(0)}K
+													≈ $
+													{(
+														(item.priceUsd ??
+															item.priceTon * (usernameQuery.data?.ton_usd_rate || 5.5)) / 1000
+													).toFixed(0)}
+													K
 												</span>
 											</div>
 										</div>

@@ -765,7 +765,16 @@ func (s *OwnerService) SetUserBan(ctx context.Context, ownerID int64, targetUser
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("user:ban:%d", targetUserID))
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", targetUserID))
+	}
+
+	return nil
 }
 
 func (s *OwnerService) RemoveUserBan(ctx context.Context, ownerID int64, targetUserID int64, ip string, ua string) error {
@@ -790,7 +799,16 @@ func (s *OwnerService) RemoveUserBan(ctx context.Context, ownerID int64, targetU
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("user:ban:%d", targetUserID))
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", targetUserID))
+	}
+
+	return nil
 }
 
 type AdjustAirdropCoinsRequest struct {

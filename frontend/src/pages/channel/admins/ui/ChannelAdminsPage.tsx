@@ -471,8 +471,8 @@ export const ChannelAdminsPage: Component = () => {
 								/>
 								<span class="text-[11px] text-white/40 leading-relaxed px-1">
 									💡 Tip: Setting Custom Title to{' '}
-									<code class="text-[#3390ec] font-mono font-bold">{'viewer'}</code> grants read-only
-									access in iFragment without write permissions.
+									<code class="text-[#3390ec] font-mono font-bold">{'viewer'}</code> grants
+									read-only access in iFragment without write permissions.
 								</span>
 							</div>
 

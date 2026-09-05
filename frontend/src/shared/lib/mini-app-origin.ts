@@ -21,7 +21,8 @@ const ALLOWED_MINI_APP_HOSTS = new Set<string>([
 ]);
 
 export const isTelegramWebApp = (): boolean =>
-	typeof window !== 'undefined' && !!(window as any).Telegram?.WebApp?.initData !== undefined &&
+	typeof window !== 'undefined' &&
+	!!(window as any).Telegram?.WebApp?.initData !== undefined &&
 	!!(window as any).Telegram?.WebApp;
 
 export const isAllowedMiniAppOrigin = (): boolean => {

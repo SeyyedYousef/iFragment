@@ -101,13 +101,15 @@ export const giftsApi = {
 		return res.data;
 	},
 
-	listCollections: async (): Promise<Array<{
-		slug: string;
-		name: string;
-		image_url?: string;
-		total_supply: number;
-		floor_gram: number;
-	}>> => {
+	listCollections: async (): Promise<
+		Array<{
+			slug: string;
+			name: string;
+			image_url?: string;
+			total_supply: number;
+			floor_gram: number;
+		}>
+	> => {
 		const res = await apiClient.get('/gifts/collections');
 		return res.data;
 	},

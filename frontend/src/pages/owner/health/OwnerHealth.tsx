@@ -1,8 +1,8 @@
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createSignal, For, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
-import { t } from '@/shared/i18n/index.js';
 import type { SystemErrorLog, SystemHealthMetrics } from '@/entities/owner/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 
 export const OwnerHealth: Component = () => {
 	const [isTabVisible, setIsTabVisible] = createSignal(!document.hidden);
@@ -44,9 +44,7 @@ export const OwnerHealth: Component = () => {
 			<div class="flex items-center justify-between">
 				<div>
 					<h2 class="text-lg font-bold text-white">{t('ownerHealth.title')}</h2>
-					<p class="text-xs text-white/50">
-						{t('ownerHealth.subtitle')}
-					</p>
+					<p class="text-xs text-white/50">{t('ownerHealth.subtitle')}</p>
 				</div>
 				<div class="flex items-center gap-2 text-xs">
 					<span
@@ -72,7 +70,8 @@ export const OwnerHealth: Component = () => {
 						{health()?.db_status?.toUpperCase() || 'OK'}
 					</div>
 					<div class="text-xs text-white/50 font-mono">
-						{t('ownerHealth.latency')} <span class="text-white font-bold">{health()?.db_latency_ms ?? 1.2} ms</span>
+						{t('ownerHealth.latency')}{' '}
+						<span class="text-white font-bold">{health()?.db_latency_ms ?? 1.2} ms</span>
 					</div>
 				</div>
 

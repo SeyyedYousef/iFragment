@@ -464,9 +464,9 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 		ReferrerReward          = 10000.0
 		ReferredReward          = 10000.0
 	)
-	var totalEarned float64
-	// FRG transactions completely removed.
-	totalEarned = 0
+	var totalReferrals int
+	_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", referrerID).Scan(&totalReferrals)
+	totalEarned := float64(totalReferrals) * ReferrerReward
 
 	rewardReferrer := totalEarned < MaxReferralRewardTotal
 	if rewardReferrer {
@@ -492,8 +492,11 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	}
 
 	// 4) Issue rewards INSIDE tx via shared connection
-	// 4) Issue rewards INSIDE tx via shared connection
 	if rewardReferrer {
+		var refBeforeCoins float64
+		_ = tx.QueryRow(ctx, "SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1", referrerID).Scan(&refBeforeCoins)
+		refAfterCoins := refBeforeCoins + ReferrerReward
+
 		_, err = tx.Exec(ctx, `
 			INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins, total_coins_earned)
 			VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2, $2)
@@ -505,7 +508,23 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 		if err != nil {
 			return err
 		}
+
+		_, _ = tx.Exec(ctx, `
+			INSERT INTO user_ledger_events (
+				user_id, category, event_type, amount, balance_before, balance_after,
+				title, reference_id, metadata, created_at
+			) VALUES (
+				$1, 'coins', 'earn_referral_reward', $2, $3, $4,
+				'Referral Bonus (Friend Joined)', 'ref_invite_' || $5::text,
+				'{"source": "referral_invite"}'::jsonb, CURRENT_TIMESTAMP
+			)
+		`, referrerID, ReferrerReward, refBeforeCoins, refAfterCoins, userID)
 	}
+
+	var userBeforeCoins float64
+	_ = tx.QueryRow(ctx, "SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1", userID).Scan(&userBeforeCoins)
+	userAfterCoins := userBeforeCoins + ReferredReward
+
 	_, err = tx.Exec(ctx, `
 		INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins, total_coins_earned)
 		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2, $2)
@@ -517,6 +536,17 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	if err != nil {
 		return err
 	}
+
+	_, _ = tx.Exec(ctx, `
+		INSERT INTO user_ledger_events (
+			user_id, category, event_type, amount, balance_before, balance_after,
+			title, reference_id, metadata, created_at
+		) VALUES (
+			$1, 'coins', 'earn_referred_welcome', $2, $3, $4,
+			'Welcome Referral Bonus', 'ref_welcome_' || $5::text,
+			'{"source": "referral_welcome"}'::jsonb, CURRENT_TIMESTAMP
+		)
+	`, userID, ReferredReward, userBeforeCoins, userAfterCoins, referrerID)
 
 	if err := tx.Commit(ctx); err != nil {
 		return err

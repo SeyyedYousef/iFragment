@@ -37,12 +37,7 @@ const defaultSetting = (): RestrictionSetting => ({
 
 const settingKeys = {
 	links: ['removeLinks', 'blockBots', 'removeBotInviters', 'blockDomains', 'blockUsernames'],
-	text: [
-		'blockHashtags',
-		'blockEmojis',
-		'blockEmojiOnly',
-		'blockPhoneNumbers',
-	],
+	text: ['blockHashtags', 'blockEmojis', 'blockEmojiOnly', 'blockPhoneNumbers'],
 	media: [
 		'blockPhotos',
 		'blockStickers',

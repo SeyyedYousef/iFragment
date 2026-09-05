@@ -2,8 +2,8 @@ import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-que
 import { type Component, createEffect, createSignal, For, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { SearchedUser } from '@/entities/owner/model/types.js';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 import { t } from '@/shared/i18n/index.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerUsers: Component = () => {
 	const queryClient = useQueryClient();
@@ -136,8 +136,8 @@ export const OwnerUsers: Component = () => {
 			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 				<div class="flex items-center justify-between">
 					<div class="text-xs text-white/50">
-						{t('ownerCommon.found')} <span class="font-mono text-white font-bold">{total().toLocaleString()}</span>{' '}
-						users
+						{t('ownerCommon.found')}{' '}
+						<span class="font-mono text-white font-bold">{total().toLocaleString()}</span> users
 					</div>
 				</div>
 
@@ -322,7 +322,8 @@ export const OwnerUsers: Component = () => {
 					<div class="w-full max-w-sm rounded-3xl border border-white/15 bg-neutral-900 p-6 space-y-4 text-white">
 						<h3 class="text-sm font-bold">{t('ownerCommon.adjustCoinsBalance')}</h3>
 						<p class="text-xs text-white/60">
-							{t('ownerCommon.targetUser')} <span class="font-bold text-white">{selectedUser()?.first_name}</span> (
+							{t('ownerCommon.targetUser')}{' '}
+							<span class="font-bold text-white">{selectedUser()?.first_name}</span> (
 							{selectedUser()?.telegram_id})
 						</p>
 

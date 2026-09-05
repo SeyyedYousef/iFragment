@@ -418,7 +418,9 @@ export const ManagedBotsPage: Component = () => {
 												/newbot
 											</span>
 										</p>
-										<p class="text-[11px] font-medium text-white/40">{t('managedBots.step1Desc')}</p>
+										<p class="text-[11px] font-medium text-white/40">
+											{t('managedBots.step1Desc')}
+										</p>
 									</div>
 								</div>
 								<span class="material-symbols-outlined text-white/40 group-hover:text-[#3390ec] text-[20px] transition-all">

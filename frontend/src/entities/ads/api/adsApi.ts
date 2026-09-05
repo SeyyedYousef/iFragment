@@ -1,5 +1,5 @@
-import { apiClient } from '@/shared/api/axios.js';
 import type { AdCampaign } from '@/entities/owner/model/types.js';
+import { apiClient } from '@/shared/api/axios.js';
 
 export const adsApi = {
 	getActiveAds: async (slot = 'dashboard_banner'): Promise<AdCampaign[]> => {

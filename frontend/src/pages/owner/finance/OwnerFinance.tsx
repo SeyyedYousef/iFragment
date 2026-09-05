@@ -67,7 +67,9 @@ export const OwnerFinance: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerFinance.volume30d')}</span>
-						<span class="material-symbols-outlined text-base text-sky-400">calendar_view_month</span>
+						<span class="material-symbols-outlined text-base text-sky-400">
+							calendar_view_month
+						</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono flex items-center gap-1.5">
 						<span>⭐</span>

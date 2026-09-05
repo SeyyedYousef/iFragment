@@ -1,8 +1,8 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi, type PromoCode } from '@/entities/owner/index.js';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 import { t } from '@/shared/i18n/index.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 
 export const OwnerPromos: Component = () => {
 	const queryClient = useQueryClient();
@@ -71,9 +71,7 @@ export const OwnerPromos: Component = () => {
 			{/* Header */}
 			<div>
 				<h2 class="text-lg font-bold text-white">{t('ownerPromos.title')}</h2>
-				<p class="text-xs text-white/50">
-					{t('ownerPromos.subtitle')}
-				</p>
+				<p class="text-xs text-white/50">{t('ownerPromos.subtitle')}</p>
 			</div>
 
 			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -97,7 +95,9 @@ export const OwnerPromos: Component = () => {
 
 						<form onSubmit={handleSubmit} class="space-y-3">
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">{t('ownerPromos.promoCode')}</div>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerPromos.promoCode')}
+								</div>
 								<input
 									type="text"
 									placeholder={t('ownerPromos.placeholderCode')}

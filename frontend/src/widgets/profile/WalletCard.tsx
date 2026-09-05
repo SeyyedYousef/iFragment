@@ -135,7 +135,9 @@ export const WalletCard: Component<Props> = (props) => {
 								</div>
 								<button
 									type="button"
-									onClick={() => (props.onBuyStars ? props.onBuyStars() : navigate('/airdrop?tab=shop'))}
+									onClick={() =>
+										props.onBuyStars ? props.onBuyStars() : navigate('/airdrop?tab=shop')
+									}
 									class="w-full py-1 rounded-[8px] bg-[#0098EA]/15 hover:bg-[#0098EA]/25 active:scale-95 border border-[#0098EA]/30 text-[#0098EA] text-[9px] font-black tracking-wide uppercase transition-all"
 								>
 									{t('wallet.buyStars' as any) || '+ Stars'}

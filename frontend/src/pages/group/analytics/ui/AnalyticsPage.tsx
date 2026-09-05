@@ -432,7 +432,9 @@ export const AnalyticsPage: Component = () => {
 										{t('groupDashboard.topUsers')}
 									</h3>
 								</div>
-								<span class="text-[11px] font-mono text-white/40 font-bold">{t('groupAnalytics.topChatters')}</span>
+								<span class="text-[11px] font-mono text-white/40 font-bold">
+									{t('groupAnalytics.topChatters')}
+								</span>
 							</div>
 
 							<div class="flex flex-col gap-2.5">

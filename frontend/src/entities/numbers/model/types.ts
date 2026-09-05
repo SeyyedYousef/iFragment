@@ -371,3 +371,42 @@ export interface ChartHistoricalPoint {
 	close_usd: number;
 }
 
+export interface MaskSearchResult {
+	number: string;
+	display_number: string;
+	status: 'for_sale' | 'on_auction' | 'taken' | string;
+	listing_price_ton?: number;
+	color: string;
+	rarity_score: number;
+}
+
+export interface PortfolioAssetItem {
+	number: string;
+	display_number: string;
+	expected_ton: number;
+	expected_usd: number;
+	rarity_score: number;
+	global_rank: number;
+	category_club: string;
+	color: string;
+}
+
+export interface PortfolioScanResult {
+	owner_address: string;
+	total_assets: number;
+	total_value_ton: number;
+	total_value_usd: number;
+	average_rarity_score: number;
+	best_global_rank: number;
+	assets: PortfolioAssetItem[];
+}
+
+export interface NumbersCollectionOverview {
+	total_supply: number;
+	floor_price_ton: number;
+	floor_price_usd: number;
+	volume_24h_ton: number;
+	total_volume_ton: number;
+	total_owners: number;
+	clubs_count?: number;
+}

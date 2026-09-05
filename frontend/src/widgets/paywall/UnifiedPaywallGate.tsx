@@ -1,10 +1,10 @@
-import { haptic } from '@/shared/lib/haptic.js';
+import { type Component, createSignal, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
-import { Show, createSignal, type Component } from 'solid-js';
+import { haptic } from '@/shared/lib/haptic.js';
 import { CreditStoreSheet } from './CreditStoreSheet.js';
 import { CreditWalletBar } from './CreditWalletBar.js';
+import { type PaywallVertical, verticalThemes } from './theme.js';
 import { useWallet } from './useWallet.js';
-import { verticalThemes, type PaywallVertical } from './theme.js';
 
 interface UnifiedPaywallGateProps {
 	vertical: PaywallVertical;
@@ -41,7 +41,7 @@ export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) =>
 	const handlePrimary = async () => {
 		try {
 			haptic.impact('medium');
-		} catch { }
+		} catch {}
 		if (!canAfford()) {
 			setStoreOpen(true);
 			return;
@@ -63,7 +63,8 @@ export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) =>
 					<div
 						class="relative flex h-20 w-20 items-center justify-center rounded-[28px] border shadow-2xl backdrop-blur-xl overflow-hidden"
 						style={{
-							background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)',
+							background:
+								'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)',
 							'border-color': theme().accentBorder,
 						}}
 					>
@@ -111,10 +112,7 @@ export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) =>
 
 				{/* Ready Status Badge */}
 				<div class="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1 text-[11px] font-bold text-white/70 backdrop-blur-md shadow-sm">
-					<span
-						class="h-2 w-2 rounded-full animate-ping"
-						style={{ background: theme().accent }}
-					/>
+					<span class="h-2 w-2 rounded-full animate-ping" style={{ background: theme().accent }} />
 					<span>{props.targetBadge || t('paywall.ready_for_appraisal')}</span>
 				</div>
 			</div>
@@ -195,16 +193,14 @@ export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) =>
 							</span>
 						}
 					>
-						<span class="material-symbols-outlined text-[20px]">
-							lock_open
-						</span>
+						<span class="material-symbols-outlined text-[20px]">lock_open</span>
 					</Show>
 					<span class="tracking-wide">
 						{props.unlocking
 							? t('paywall.working')
-							: (props.unlockCtaText ||
+							: props.unlockCtaText ||
 								t('paywall.cta_unlock_specific', { target: props.targetTitle || '' }) ||
-								t('paywall.cta_unlock'))}
+								t('paywall.cta_unlock')}
 					</span>
 				</button>
 

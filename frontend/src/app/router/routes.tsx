@@ -212,7 +212,10 @@ const withOwnerGuard = (PageComponent: Component, activeTab: any, titleKey?: str
 		const { t } = useI18n();
 		return (
 			<OwnerRouteGuard>
-				<OwnerLayout activeTab={activeTab} title={titleKey ? (t(titleKey as any) || titleKey) : undefined}>
+				<OwnerLayout
+					activeTab={activeTab}
+					title={titleKey ? t(titleKey as any) || titleKey : undefined}
+				>
 					<PageComponent />
 				</OwnerLayout>
 			</OwnerRouteGuard>
@@ -300,18 +303,30 @@ export const routes: Route[] = [
 	},
 	{ path: '/owner/quests', Component: withOwnerGuard(OwnerQuests, 'quests', 'ownerQuests.title') },
 	{ path: '/owner/combos', Component: withOwnerGuard(OwnerCombos, 'combos', 'ownerCombos.title') },
-	{ path: '/owner/userbot', Component: withOwnerGuard(OwnerUserbot, 'userbot', 'ownerUserbot.title') },
+	{
+		path: '/owner/userbot',
+		Component: withOwnerGuard(OwnerUserbot, 'userbot', 'ownerUserbot.title'),
+	},
 	{
 		path: '/owner/settings',
 		Component: withOwnerGuard(OwnerSettingsPage, 'settings', 'ownerSettings.title'),
 	},
-	{ path: '/owner/promos', Component: withOwnerGuard(OwnerPromosPage, 'promos', 'ownerPromos.title') },
+	{
+		path: '/owner/promos',
+		Component: withOwnerGuard(OwnerPromosPage, 'promos', 'ownerPromos.title'),
+	},
 	{
 		path: '/owner/broadcast',
 		Component: withOwnerGuard(OwnerBroadcastPage, 'broadcast', 'ownerBroadcast.title'),
 	},
-	{ path: '/owner/finance', Component: withOwnerGuard(OwnerFinancePage, 'finance', 'ownerFinance.title') },
-	{ path: '/owner/health', Component: withOwnerGuard(OwnerHealthPage, 'health', 'ownerHealth.title') },
+	{
+		path: '/owner/finance',
+		Component: withOwnerGuard(OwnerFinancePage, 'finance', 'ownerFinance.title'),
+	},
+	{
+		path: '/owner/health',
+		Component: withOwnerGuard(OwnerHealthPage, 'health', 'ownerHealth.title'),
+	},
 	{
 		path: '/owner/entities',
 		Component: withOwnerGuard(OwnerEntitiesPage, 'entities', 'ownerEntities.title'),

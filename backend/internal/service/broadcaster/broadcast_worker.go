@@ -176,10 +176,17 @@ func (w *BroadcastWorker) executeBroadcast(ctx context.Context, b model.Broadcas
 	sentCount := b.SentCount
 	failedCount := b.FailedCount
 
+	if w.tgClient == nil {
+		slog.Error("Cannot execute broadcast: Telegram Bot API client is not configured (missing bot token)")
+		_ = w.repo.UpdateBroadcastProgress(context.Background(), b.ID, "failed", sentCount, total, total)
+		return
+	}
+
 	for i := sentCount + failedCount; i < total; i++ {
 		select {
 		case <-ctx.Done():
 			slog.Info("Broadcast run paused or cancelled", "id", b.ID)
+			_ = w.repo.UpdateBroadcastProgress(context.Background(), b.ID, "paused", sentCount, total, failedCount)
 			return
 		default:
 		}
@@ -191,35 +198,30 @@ func (w *BroadcastWorker) executeBroadcast(ctx context.Context, b model.Broadcas
 			return
 		}
 
-		if w.tgClient != nil {
-			payload := map[string]interface{}{
-				"chat_id":    targetUserID,
-				"text":       b.Message,
-				"parse_mode": "HTML",
-			}
-			_, reqErr := w.tgClient.Request(ctx, "sendMessage", payload)
-			if reqErr != nil {
-				// Check for Telegram 429 rate limit
-				if strings.Contains(reqErr.Error(), "429") || strings.Contains(reqErr.Error(), "Too Many Requests") {
-					retrySec := 5
-					if parts := strings.Split(reqErr.Error(), "retry after "); len(parts) > 1 {
-						if num, err := strconv.Atoi(strings.Fields(parts[1])[0]); err == nil && num > 0 {
-							retrySec = num
-						}
+		payload := map[string]interface{}{
+			"chat_id":    targetUserID,
+			"text":       b.Message,
+			"parse_mode": "HTML",
+		}
+		_, reqErr := w.tgClient.Request(ctx, "sendMessage", payload)
+		if reqErr != nil {
+			// Check for Telegram 429 rate limit
+			if strings.Contains(reqErr.Error(), "429") || strings.Contains(reqErr.Error(), "Too Many Requests") {
+				retrySec := 5
+				if parts := strings.Split(reqErr.Error(), "retry after "); len(parts) > 1 {
+					if num, err := strconv.Atoi(strings.Fields(parts[1])[0]); err == nil && num > 0 {
+						retrySec = num
 					}
-					slog.Warn("Telegram 429 hit during broadcast; cooling down", "retry_seconds", retrySec, "id", b.ID)
-					time.Sleep(time.Duration(retrySec) * time.Second)
-					i-- // retry this user
-					continue
 				}
-
-				failedCount++
-				slog.Warn("Failed to send broadcast message to user", "user_id", targetUserID, "err", reqErr)
-			} else {
-				sentCount++
+				slog.Warn("Telegram 429 hit during broadcast; cooling down", "retry_seconds", retrySec, "id", b.ID)
+				time.Sleep(time.Duration(retrySec) * time.Second)
+				i-- // retry this user
+				continue
 			}
+
+			failedCount++
+			slog.Warn("Failed to send broadcast message to user", "user_id", targetUserID, "err", reqErr)
 		} else {
-			// Simulation / Mock client for tests
 			sentCount++
 		}
 

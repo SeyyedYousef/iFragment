@@ -563,7 +563,15 @@ export const BotManagePage: Component = () => {
 								<div class="space-y-3 mb-6">
 									<For each={packages() || []}>
 										{(pkg: SubscriptionPackage) => {
-											const credits = pkg.price_credits || (pkg.duration_months === 1 ? 3 : pkg.duration_months === 3 ? 8 : pkg.duration_months === 6 ? 15 : 25);
+											const credits =
+												pkg.price_credits ||
+												(pkg.duration_months === 1
+													? 3
+													: pkg.duration_months === 3
+														? 8
+														: pkg.duration_months === 6
+															? 15
+															: 25);
 											const creditsPerMonth = (credits / pkg.duration_months).toFixed(1);
 											const isSelected = () => selectedPkg() === pkg.id;
 
@@ -623,7 +631,8 @@ export const BotManagePage: Component = () => {
 															<span class="text-[12px] font-black text-[#3390ec]">💎</span>
 														</div>
 														<span class="text-[10px] font-medium text-white/40">
-															({creditsPerMonth} {t('paywall.credit_unit')} / {t('botManage.perMonth') || 'mo'})
+															({creditsPerMonth} {t('paywall.credit_unit')} /{' '}
+															{t('botManage.perMonth') || 'mo'})
 														</span>
 													</div>
 												</button>
@@ -634,9 +643,19 @@ export const BotManagePage: Component = () => {
 
 								<Show when={selectedPkg()}>
 									{(() => {
-										const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+										const pkg = (packages() || []).find(
+											(p: SubscriptionPackage) => p.id === selectedPkg(),
+										);
 										if (!pkg) return null;
-										const reqCredits = pkg.price_credits || (pkg.duration_months === 1 ? 3 : pkg.duration_months === 3 ? 8 : pkg.duration_months === 6 ? 15 : 25);
+										const reqCredits =
+											pkg.price_credits ||
+											(pkg.duration_months === 1
+												? 3
+												: pkg.duration_months === 3
+													? 8
+													: pkg.duration_months === 6
+														? 15
+														: 25);
 										const userCreds = wallet.balance() ?? 0;
 										const hasEnough = userCreds >= reqCredits;
 
@@ -715,7 +734,8 @@ export const BotManagePage: Component = () => {
 														}}
 														class="w-full text-center text-[12px] font-bold text-white/50 hover:text-white/80 py-1 transition-colors"
 													>
-														{t('common.or') || 'or'} {t('botManage.payWithStars')} ({pkg.price_stars} ⭐)
+														{t('common.or') || 'or'} {t('botManage.payWithStars')} (
+														{pkg.price_stars} ⭐)
 													</button>
 												</Show>
 											</div>

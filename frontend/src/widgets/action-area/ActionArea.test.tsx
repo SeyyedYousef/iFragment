@@ -46,11 +46,11 @@ describe('ActionArea Component', () => {
 		render(() => <ActionArea activeTab="gifts" />);
 		const input = screen.getByRole('textbox');
 		expect(input).toHaveAttribute('placeholder', 't.me/nft/PlushPepe-1');
-		
+
 		// Verify @durov is not present
 		expect(screen.queryByText('@durov (پورتفولیو)')).not.toBeInTheDocument();
 		expect(screen.queryByText(/durov.*پورتفولیو/i)).not.toBeInTheDocument();
-		
+
 		// Verify gifts format chips exist
 		expect(screen.getByText('t.me/nft/PlushPepe-1')).toBeInTheDocument();
 		expect(screen.getByText('DurovsCap-1')).toBeInTheDocument();

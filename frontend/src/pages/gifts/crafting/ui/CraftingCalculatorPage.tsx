@@ -67,9 +67,9 @@ export const CraftingCalculatorPage: Component = () => {
 			} catch {}
 			setErrorMsg(
 				err?.response?.data?.error ||
-				err?.response?.data?.message ||
-				err?.message ||
-				'خطا در محاسبه ارزش انتظاری کرفتینگ. تمام آیتم‌ها باید متعلق به یک کالکشن باشند.',
+					err?.response?.data?.message ||
+					err?.message ||
+					'خطا در محاسبه ارزش انتظاری کرفتینگ. تمام آیتم‌ها باید متعلق به یک کالکشن باشند.',
 			);
 		},
 	}));
@@ -144,9 +144,7 @@ export const CraftingCalculatorPage: Component = () => {
 						</div>
 					</div>
 					<h1 class="text-xl font-black text-white">{t('gifts.crafting')}</h1>
-					<p class="text-xs text-white/50 font-medium mt-1">
-						{t('gifts.combineGiftsDesc')}
-					</p>
+					<p class="text-xs text-white/50 font-medium mt-1">{t('gifts.combineGiftsDesc')}</p>
 				</div>
 
 				<Show when={errorMsg()}>
@@ -211,7 +209,9 @@ export const CraftingCalculatorPage: Component = () => {
 						class="w-full mt-4 h-13 rounded-2xl bg-gradient-to-r from-[#FF9500] via-[#FF5E3A] to-[#FF2A6D] text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#FF9500]/25 active:scale-[0.98] transition-all hover:brightness-110"
 					>
 						<span class="material-symbols-outlined text-lg">science</span>
-						<span>{evMutation.isPending ? 'Simulating 10,000 runs...' : 'Simulate Crafting EV'}</span>
+						<span>
+							{evMutation.isPending ? 'Simulating 10,000 runs...' : 'Simulate Crafting EV'}
+						</span>
 					</button>
 				</div>
 
@@ -238,7 +238,9 @@ export const CraftingCalculatorPage: Component = () => {
 								</div>
 
 								<h3 class="text-base font-black text-white mb-1">
-									{isRtl() ? res().verdict_summary_fa || res().verdict_summary_en : res().verdict_summary_en}
+									{isRtl()
+										? res().verdict_summary_fa || res().verdict_summary_en
+										: res().verdict_summary_en}
 								</h3>
 
 								<div class="grid grid-cols-2 gap-2 text-xs my-4">
@@ -249,7 +251,9 @@ export const CraftingCalculatorPage: Component = () => {
 										<span class="text-base font-black text-white font-mono">
 											{res().expected_output_gram} {t('common.ton')}
 										</span>
-										<span class="text-[10px] text-white/40 block">(${res().expected_output_usd})</span>
+										<span class="text-[10px] text-white/40 block">
+											(${res().expected_output_usd})
+										</span>
 									</div>
 									<div class="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.05]">
 										<span class="text-[10px] uppercase font-bold text-white/40 block">

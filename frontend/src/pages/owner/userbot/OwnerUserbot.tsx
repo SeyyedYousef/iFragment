@@ -2,8 +2,8 @@ import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-que
 import { type Component, createSignal, For, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { ManagedUserbot } from '@/entities/owner/model/types.js';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 import { t } from '@/shared/i18n/index.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerUserbot: Component = () => {
 	const queryClient = useQueryClient();
@@ -87,9 +87,7 @@ export const OwnerUserbot: Component = () => {
 			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
 					<h2 class="text-lg font-bold text-white">{t('ownerUserbot.title')}</h2>
-					<p class="text-xs text-white/50">
-						{t('ownerUserbot.subtitle')}
-					</p>
+					<p class="text-xs text-white/50">{t('ownerUserbot.subtitle')}</p>
 				</div>
 				<button
 					type="button"

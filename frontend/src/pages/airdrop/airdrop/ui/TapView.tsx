@@ -773,9 +773,7 @@ export const TapView: Component<{
 
 						<div class="flex flex-col gap-1">
 							<h3 class="text-[20px] font-black text-white">{t('tap.miningStreak7Days')}</h3>
-							<p class="text-[12px] text-white/60">
-								{t('tap.miningStreakDesc')}
-							</p>
+							<p class="text-[12px] text-white/60">{t('tap.miningStreakDesc')}</p>
 						</div>
 
 						{/* 7-Day Grid */}
@@ -874,7 +872,10 @@ export const TapView: Component<{
 						</div>
 
 						{/* Current Status Pill Box */}
-						<div class="bg-white/5 border border-white/10 rounded-[18px] p-3.5 flex items-center justify-between" dir="ltr">
+						<div
+							class="bg-white/5 border border-white/10 rounded-[18px] p-3.5 flex items-center justify-between"
+							dir="ltr"
+						>
 							<div class="flex items-center gap-2">
 								<span
 									class="w-3 h-3 rounded-full animate-pulse"
@@ -939,9 +940,7 @@ export const TapView: Component<{
 								<span>🚀</span>
 								<span>{t('tap.rateTurboTipTitle')}</span>
 							</div>
-							<p>
-								{t('tap.rateTurboTipDesc')}
-							</p>
+							<p>{t('tap.rateTurboTipDesc')}</p>
 							<div class="text-[10px] text-white/50 pt-1 border-t border-white/5 font-mono">
 								🔄 {t('tap.rateResetInfo')}
 							</div>

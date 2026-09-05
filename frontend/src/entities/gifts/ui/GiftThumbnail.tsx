@@ -18,7 +18,10 @@ export const GiftThumbnail: Component<Props> = (props) => {
 	const [useFallbackProxy, setUseFallbackProxy] = createSignal(false);
 
 	const cleanSlug = () =>
-		(props.slug || '').toLowerCase().replace(/_/g, '-').replace(/[^a-z0-9-]/g, '');
+		(props.slug || '')
+			.toLowerCase()
+			.replace(/_/g, '-')
+			.replace(/[^a-z0-9-]/g, '');
 
 	const giftItem = () =>
 		OFFICIAL_GIFTS_120.find(

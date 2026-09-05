@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,17 +72,17 @@ func (a *FragmentAdapter) Currency() string { return "GRAM" }
 func (a *FragmentAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(5.0) }
 
 func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
-	// Query Fragment gifts API endpoint
 	cleanSlug := strings.ToLower(strings.TrimSpace(giftSlug))
 	cleanSlug = strings.ReplaceAll(cleanSlug, "_", "-")
 
-	apiURL := fmt.Sprintf("https://fragment.com/api/gifts?query=%s", url.QueryEscape(cleanSlug))
+	// Query Fragment real gifts catalog listing page
+	apiURL := fmt.Sprintf("https://fragment.com/gifts/%s", url.PathEscape(cleanSlug))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "iFragment/1.0 (Fragment Telegram Mini App)")
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
@@ -87,42 +90,27 @@ func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ven
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fragment HTTP %d", resp.StatusCode)
-	}
-
-	var payload struct {
-		Ok     bool `json:"ok"`
-		Floors []struct {
-			Slug      string  `json:"slug"`
-			FloorTON  float64 `json:"floor_ton"`
-			FloorGRAM float64 `json:"floor_gram"`
-			Listings  int     `json:"listings"`
-		} `json:"floors"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return nil, err
-	}
-
-	for _, item := range payload.Floors {
-		if strings.EqualFold(strings.ReplaceAll(item.Slug, "_", "-"), cleanSlug) && (item.FloorTON > 0 || item.FloorGRAM > 0) {
-			fl := item.FloorTON
-			if fl <= 0 {
-				fl = item.FloorGRAM
+	if resp.StatusCode == http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		// Extract lowest price from Fragment table icon-ton element
+		rePrice := regexp.MustCompile(`(?s)<div class="table-cell-value tm-value icon-before icon-ton">([\d,]+(?:\.\d+)?)</div>`)
+		matches := rePrice.FindAllStringSubmatch(string(body), 10)
+		if len(matches) > 0 {
+			rawP := strings.ReplaceAll(matches[0][1], ",", "")
+			if p, err := strconv.ParseFloat(rawP, 64); err == nil && p > 0 {
+				decFloor := decimal.NewFromFloat(p)
+				return &VenueFloorResult{
+					VenueID:        VenueFragment,
+					VenueName:      "Fragment",
+					FloorPriceRaw:  decFloor,
+					FloorPriceGRAM: decFloor,
+					Currency:       "GRAM",
+					ActiveListings: len(matches),
+					DataStatus:     "live",
+					DeepLink:       apiURL,
+					FetchedAt:      time.Now().UTC(),
+				}, nil
 			}
-			decFloor := decimal.NewFromFloat(fl)
-			return &VenueFloorResult{
-				VenueID:        VenueFragment,
-				VenueName:      "Fragment",
-				FloorPriceRaw:  decFloor,
-				FloorPriceGRAM: decFloor,
-				Currency:       "GRAM",
-				ActiveListings: item.Listings,
-				DataStatus:     "live",
-				DeepLink:       fmt.Sprintf("https://fragment.com/gifts/%s", cleanSlug),
-				FetchedAt:      time.Now().UTC(),
-			}, nil
 		}
 	}
 

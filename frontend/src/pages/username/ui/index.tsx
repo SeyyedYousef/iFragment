@@ -1,5 +1,5 @@
 import { useNavigate, useSearchParams } from '@solidjs/router';
-import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { toPng } from 'html-to-image';
 import {
 	type Component,
@@ -10,11 +10,10 @@ import {
 	onMount,
 	Show,
 } from 'solid-js';
-import { balance } from '@/entities/airdrop/index.js';
+import { creditsApi } from '@/entities/intel/api/creditsApi.js';
 import { valuationApi } from '@/entities/username/index.js';
 import { apiFetch } from '@/shared/api/base.js';
-import { ECONOMY_CONFIG } from '@/shared/config/economy.js';
-import { formatNumber, isRtl, t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { cloudStorage } from '@/shared/lib/cloud-storage.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import {
@@ -25,7 +24,6 @@ import {
 	saveReport,
 } from '@/shared/lib/report-cache.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
-import { creditsApi } from '@/entities/intel/api/creditsApi.js';
 import { SparklineChart } from '@/shared/ui/index.js';
 import { UnifiedPaywallGate } from '@/widgets/paywall/index.js';
 
@@ -201,16 +199,12 @@ export const UsernamePage: Component = () => {
 	const [dailyUsed, setDailyUsed] = createSignal<number>(0);
 	const [copiedCert, setCopiedCert] = createSignal<boolean>(false);
 	const [_showPaymentGate, setShowPaymentGate] = createSignal<boolean>(false);
-	const [freeQuotaUsed, setFreeQuotaUsed] = createSignal<boolean>(false);
-	const [firstReportDiscountEligible, setFirstReportDiscountEligible] = createSignal<boolean>(true);
-	const [inChannel, setInChannel] = createSignal<boolean>(false);
-	const [inGroup, setInGroup] = createSignal<boolean>(false);
+	const [_freeQuotaUsed, setFreeQuotaUsed] = createSignal<boolean>(false);
+	const [lastOrderPayload, _setLastOrderPayload] = createSignal<string>('');
 	const [isProcessingPayment, setIsProcessingPayment] = createSignal<boolean>(false);
 	const [paymentPending, setPaymentPending] = createSignal<boolean>(false);
 	const [pollingStatus, setPollingStatus] = createSignal<string>('');
 	const [paymentError, setPaymentError] = createSignal<string>('');
-	const [lastOrderPayload, setLastOrderPayload] = createSignal<string>('');
-	const [activeStarsPack, setActiveStarsPack] = createSignal<string>('pack_starter_3');
 	const [showMethodologyModal, setShowMethodologyModal] = createSignal<boolean>(false);
 	const [isMonitored, setIsMonitored] = createSignal<boolean>(false);
 	const [isTogglingMonitor, setIsTogglingMonitor] = createSignal<boolean>(false);
@@ -564,108 +558,6 @@ export const UsernamePage: Component = () => {
 		}
 	};
 
-	const handlePayStars = async (packId?: string) => {
-		const u = username();
-		if (!u || isProcessingPayment() || paymentPending()) return;
-		setIsProcessingPayment(true);
-		setPaymentError('');
-		const chosenPack = packId || activeStarsPack();
-		try {
-			const res = await valuationApi.createStarsInvoice(u, chosenPack);
-			if (res?.payload) setLastOrderPayload(res.payload);
-			if (res?.invoice_link) {
-				const tg = (window as any).Telegram?.WebApp;
-				if (tg?.openInvoice) {
-					tg.openInvoice(res.invoice_link, (status: string) => {
-						if (status === 'paid') {
-							pollPaymentAccess(u, res.payload);
-						} else if (status === 'cancelled') {
-							setPaymentError(t('valuation.payment_cancelled') || 'Payment was cancelled.');
-							haptic.impact('light');
-						} else if (status === 'failed') {
-							setPaymentError(t('valuation.payment_failed') || 'Payment failed. Please try again.');
-							haptic.notify('error');
-						} else if (status === 'pending') {
-							pollPaymentAccess(u, res.payload);
-						}
-					});
-				} else {
-					openTelegramLink(res.invoice_link);
-					pollPaymentAccess(u, res.payload);
-				}
-			}
-		} catch (e: any) {
-			setPaymentError(
-				e?.response?.data?.error || e?.message || t('valuation.payment_failed') || 'Payment failed',
-			);
-			haptic.notify('error');
-		} finally {
-			setIsProcessingPayment(false);
-		}
-	};
-
-	const handlePayCoins = async () => {
-		const u = username();
-		if (!u || isProcessingPayment()) return;
-		setIsProcessingPayment(true);
-		setPaymentError('');
-		try {
-			const res = await valuationApi.payWithAirdrop(u);
-			if (res?.success === true) {
-				haptic.notify('success');
-				grantAccess('coins', u);
-			} else {
-				setPaymentError(t('shopInfo.insufficientCoins') || 'Insufficient coin balance.');
-				haptic.notify('error');
-			}
-		} catch (e: any) {
-			setPaymentError(
-				e?.response?.data?.error ||
-					e?.message ||
-					t('shopInfo.insufficientCoins') ||
-					'Insufficient coin balance',
-			);
-			haptic.notify('error');
-		} finally {
-			setIsProcessingPayment(false);
-		}
-	};
-
-	const handleVerifyFreeAccess = async () => {
-		const u = username();
-		if (!u || isProcessingPayment()) return;
-		if (freeQuotaUsed()) {
-			setPaymentError(t('valuation.free_quota_used') || 'Free quota used.');
-			haptic.notify('error');
-			return;
-		}
-		setIsProcessingPayment(true);
-		setPaymentError('');
-		try {
-			const res = await valuationApi.verifyFreeAccess(u);
-			if (res?.has_access) {
-				haptic.notify('success');
-				localStorage.setItem('val_free_used', 'true');
-				cloudStorage.setItem('val_free_used', 'true');
-				setFreeQuotaUsed(true);
-				grantAccess('free', u);
-			} else {
-				setPaymentError(t('valuation.free_quota_used') || 'Verification failed.');
-				haptic.notify('error');
-			}
-		} catch (e: any) {
-			const accessCheck = await valuationApi.checkAccess(u).catch(() => null);
-			if (accessCheck) {
-				if (accessCheck.in_channel !== undefined) setInChannel(accessCheck.in_channel);
-				if (accessCheck.in_group !== undefined) setInGroup(accessCheck.in_group);
-			}
-			setPaymentError(e?.response?.data?.error || e?.message || 'Verification failed');
-			haptic.notify('error');
-		} finally {
-			setIsProcessingPayment(false);
-		}
-	};
-
 	const handleToggleMonitoring = async () => {
 		const u = username();
 		if (!u || isTogglingMonitor()) return;
@@ -788,19 +680,13 @@ export const UsernamePage: Component = () => {
 			} else {
 				try {
 					const res = await valuationApi.checkAccess(u);
-					if (res?.in_channel !== undefined) setInChannel(res.in_channel);
-					if (res?.in_group !== undefined) setInGroup(res.in_group);
 					if (res?.is_pro) {
 						setIsPro(true);
 						if (res.daily_used !== undefined) setDailyUsed(res.daily_used);
 					}
 					if (res?.free_quota_used) {
-						setFreeQuotaUsed(true);
 						localStorage.setItem('val_free_used', 'true');
 						cloudStorage.setItem('val_free_used', 'true');
-					}
-					if (res?.first_report_discount_eligible !== undefined) {
-						setFirstReportDiscountEligible(res.first_report_discount_eligible);
 					}
 					if (res?.is_monitored !== undefined) {
 						setIsMonitored(res.is_monitored);
@@ -854,11 +740,6 @@ export const UsernamePage: Component = () => {
 		(value ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
 	const fmtUsd = (value?: number | null) =>
 		(value ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
-
-	const coinRequiredAmount = () =>
-		firstReportDiscountEligible()
-			? ECONOMY_CONFIG.FIRST_REPORT_COIN_PRICE
-			: ECONOMY_CONFIG.REPORT_COIN_PRICE;
 
 	return (
 		<Show
@@ -991,7 +872,9 @@ export const UsernamePage: Component = () => {
 									}`}
 								>
 									<span class="text-[14px]">💎</span>
-									<span class="truncate max-w-full text-[10px]">{t('valuation.nav_overview') || 'Overview'}</span>
+									<span class="truncate max-w-full text-[10px]">
+										{t('valuation.nav_overview') || 'Overview'}
+									</span>
 								</button>
 								<button
 									type="button"
@@ -1003,7 +886,9 @@ export const UsernamePage: Component = () => {
 									}`}
 								>
 									<span class="text-[14px]">📊</span>
-									<span class="truncate max-w-full text-[10px]">{t('valuation.nav_valuation') || 'Value'}</span>
+									<span class="truncate max-w-full text-[10px]">
+										{t('valuation.nav_valuation') || 'Value'}
+									</span>
 								</button>
 								<button
 									type="button"
@@ -1015,7 +900,9 @@ export const UsernamePage: Component = () => {
 									}`}
 								>
 									<span class="text-[14px]">🧬</span>
-									<span class="truncate max-w-full text-[10px]">{t('valuation.nav_linguistics') || 'DNA'}</span>
+									<span class="truncate max-w-full text-[10px]">
+										{t('valuation.nav_linguistics') || 'DNA'}
+									</span>
 								</button>
 								<button
 									type="button"
@@ -1027,7 +914,9 @@ export const UsernamePage: Component = () => {
 									}`}
 								>
 									<span class="text-[14px]">🐋</span>
-									<span class="truncate max-w-full text-[10px]">{t('valuation.nav_ownership') || 'Whale'}</span>
+									<span class="truncate max-w-full text-[10px]">
+										{t('valuation.nav_ownership') || 'Whale'}
+									</span>
 								</button>
 								<button
 									type="button"
@@ -1039,7 +928,9 @@ export const UsernamePage: Component = () => {
 									}`}
 								>
 									<span class="text-[14px]">📜</span>
-									<span class="truncate max-w-full text-[10px]">{t('valuation.nav_certificate') || 'Cert'}</span>
+									<span class="truncate max-w-full text-[10px]">
+										{t('valuation.nav_certificate') || 'Cert'}
+									</span>
 								</button>
 							</div>
 						</Show>
@@ -1060,7 +951,10 @@ export const UsernamePage: Component = () => {
 											</span>
 										</div>
 
-										<h3 class="text-[26px] font-black text-white font-mono tracking-tight drop-shadow-md z-10" dir="ltr">
+										<h3
+											class="text-[26px] font-black text-white font-mono tracking-tight drop-shadow-md z-10"
+											dir="ltr"
+										>
 											@{username()}
 										</h3>
 
@@ -1070,9 +964,7 @@ export const UsernamePage: Component = () => {
 												{t('valuation.estimated_price') || 'ESTIMATED FAIR VALUE'}
 											</span>
 											<div class="flex items-center gap-2 filter blur-[6px] select-none opacity-80">
-												<span class="text-[26px] font-black text-white font-mono">
-													✦✦,✦✦✦
-												</span>
+												<span class="text-[26px] font-black text-white font-mono">✦✦,✦✦✦</span>
 												<span class="text-[16px] font-bold text-[#0098EA]">TON</span>
 											</div>
 											<span class="text-[10px] text-white/40 font-mono filter blur-[3px] mt-0.5">
@@ -1091,15 +983,24 @@ export const UsernamePage: Component = () => {
 										<div class="w-full flex flex-col gap-2 text-start pt-2 border-t border-white/5 text-[11px] z-10">
 											<div class="flex items-center gap-2 text-white/70 font-medium">
 												<span class="text-[#0098EA] font-black">✓</span>
-												<span>{t('valuation.teaser_signals') || '17-Point Quantitative Bayesian Pricing Matrix'}</span>
+												<span>
+													{t('valuation.teaser_signals') ||
+														'17-Point Quantitative Bayesian Pricing Matrix'}
+												</span>
 											</div>
 											<div class="flex items-center gap-2 text-white/70 font-medium">
 												<span class="text-[#0098EA] font-black">✓</span>
-												<span>{t('valuation.teaser_whale') || 'Whale Wallet Radar & Complete On-chain Ownership Scan'}</span>
+												<span>
+													{t('valuation.teaser_whale') ||
+														'Whale Wallet Radar & Complete On-chain Ownership Scan'}
+												</span>
 											</div>
 											<div class="flex items-center gap-2 text-white/70 font-medium">
 												<span class="text-[#0098EA] font-black">✓</span>
-												<span>{t('valuation.teaser_cert') || 'Official Digital Appraisal Certificate with 1-Click Story Export'}</span>
+												<span>
+													{t('valuation.teaser_cert') ||
+														'Official Digital Appraisal Certificate with 1-Click Story Export'}
+												</span>
 											</div>
 										</div>
 									</div>
@@ -1116,7 +1017,9 @@ export const UsernamePage: Component = () => {
 										lastOrderPayload={lastOrderPayload()}
 										paymentPending={paymentPending()}
 										pollingStatus={pollingStatus()}
-										onCheckPaymentStatus={() => pollPaymentAccess(username(), lastOrderPayload(), 5)}
+										onCheckPaymentStatus={() =>
+											pollPaymentAccess(username(), lastOrderPayload(), 5)
+										}
 									/>
 								</div>
 							}
@@ -1298,7 +1201,8 @@ export const UsernamePage: Component = () => {
 												{data()?.target_buyer_profile || 'Brand & Investor'}
 											</div>
 											<div class="text-[10px] font-mono text-white/40 font-semibold mt-0.5 truncate">
-												{data()?.comparable_sales_count || 0} {t('valuation.comparables_title') || 'Comps'}
+												{data()?.comparable_sales_count || 0}{' '}
+												{t('valuation.comparables_title') || 'Comps'}
 											</div>
 										</div>
 									</div>
@@ -1309,7 +1213,10 @@ export const UsernamePage: Component = () => {
 						{/* ═══════ UNLOCKED REPORT CONTENT (PHASE 3 & 4) ═══════ */}
 						<Show when={accessGranted() && data()}>
 							{/* 📜 OFFICIAL DIGITAL APPRAISAL CERTIFICATE (Bug 5 Fix: No Fake 8942) */}
-							<div id="sec-certificate" class="scroll-mt-16 w-full bg-[#12141C]/90 backdrop-blur-2xl border border-amber-400/30 rounded-[28px] p-5 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(251,191,36,0.08)] relative overflow-hidden">
+							<div
+								id="sec-certificate"
+								class="scroll-mt-16 w-full bg-[#12141C]/90 backdrop-blur-2xl border border-amber-400/30 rounded-[28px] p-5 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(251,191,36,0.08)] relative overflow-hidden"
+							>
 								<div class="flex items-center justify-between border-b border-white/5 pb-3">
 									<div class="flex items-center gap-2.5">
 										<div class="w-9 h-9 rounded-[12px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shadow-inner shrink-0">
@@ -1421,7 +1328,10 @@ export const UsernamePage: Component = () => {
 							</div>
 
 							{/* 📈 PHASE 3: SPARKLINE PRICE TREND CHART */}
-							<div id="sec-valuation" class="scroll-mt-16 w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
+							<div
+								id="sec-valuation"
+								class="scroll-mt-16 w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm"
+							>
 								<SparklineChart
 									data={data()?.price_trend}
 									title={t('valuation.price_trend_title') || 'HISTORICAL VALUATION TREND'}
@@ -1605,7 +1515,10 @@ export const UsernamePage: Component = () => {
 							</div>
 
 							{/* 🌟 1. LINGUISTIC MEANING, DICTIONARY & WIKIPEDIA */}
-							<div id="sec-linguistics" class="scroll-mt-16 w-full bg-gradient-to-br from-[#0098EA]/15 via-[#12141C]/90 to-[#08090D] backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-6 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(0,152,234,0.15)] relative overflow-hidden">
+							<div
+								id="sec-linguistics"
+								class="scroll-mt-16 w-full bg-gradient-to-br from-[#0098EA]/15 via-[#12141C]/90 to-[#08090D] backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-6 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(0,152,234,0.15)] relative overflow-hidden"
+							>
 								<div class="absolute -right-8 -top-8 w-32 h-32 bg-[#0098EA]/10 blur-3xl rounded-full pointer-events-none" />
 
 								<div class="flex items-center justify-between text-white/90 relative z-10 border-b border-[#0098EA]/20 pb-3">
@@ -1764,7 +1677,10 @@ export const UsernamePage: Component = () => {
 							</div>
 
 							{/* 🕮 3. HISTORY & OWNERSHIP */}
-							<div id="sec-ownership" class="scroll-mt-16 w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
+							<div
+								id="sec-ownership"
+								class="scroll-mt-16 w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm"
+							>
 								<div class="flex items-center justify-between text-white/90 border-b border-white/5 pb-3">
 									<div class="flex items-center gap-2">
 										<span class="material-symbols-outlined text-[20px] text-white">history</span>
@@ -2073,7 +1989,10 @@ export const UsernamePage: Component = () => {
 
 							{/* 🔥 5. SEMANTIC SIMILAR USERNAMES & BRAND EQUIVALENTS */}
 							<Show when={(data()?.similar?.length ?? 0) > 0}>
-								<div id="sec-market" class="scroll-mt-16 w-full bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-6 flex flex-col gap-4 shadow-[0_10px_30px_rgba(0,152,234,0.15)] relative overflow-hidden">
+								<div
+									id="sec-market"
+									class="scroll-mt-16 w-full bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-6 flex flex-col gap-4 shadow-[0_10px_30px_rgba(0,152,234,0.15)] relative overflow-hidden"
+								>
 									<div class="absolute -right-8 -bottom-8 w-28 h-28 bg-[#0098EA]/10 blur-3xl rounded-full pointer-events-none" />
 
 									<div class="flex items-center justify-between text-white/90 relative z-10 border-b border-white/5 pb-3">

@@ -71,16 +71,18 @@ vi.mock('@/shared/ui/settings-controls.js', () => ({
 		</button>
 	),
 	SelectField: (props: any) => (
-		<select data-testid="select">
-			<option>{props.value}</option>
-		</select>
+		<label>
+			<select data-testid="select" aria-label="Select field">
+				<option>{props.value}</option>
+			</select>
+		</label>
 	),
 	NumberInputField: (props: any) => (
 		<div data-testid="number-input">
-			<div>
+			<label>
 				<span>{props.label}</span>
-				<input type="number" value={props.value} />
-			</div>
+				<input type="number" value={props.value} aria-label={props.label || 'Number input'} />
+			</label>
 		</div>
 	),
 	InlineButtonField: (props: any) => <div data-testid="inline-button">{props.title}</div>,
