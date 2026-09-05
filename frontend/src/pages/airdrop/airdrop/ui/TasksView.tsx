@@ -1,7 +1,7 @@
 import { createQuery } from '@tanstack/solid-query';
 import { openTelegramLink } from '@tma.js/sdk-solid';
 import { type Component, createSignal, For, Show } from 'solid-js';
-import { syncProfileStats } from '@/entities/airdrop/index.js';
+import { balance, syncProfileStats } from '@/entities/airdrop/index.js';
 import {
 	claimDailyCombo,
 	completeTask,
@@ -12,7 +12,7 @@ import {
 } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { triggerCoinCelebration } from '@/shared/ui/index.js';
+import { triggerRewardCelebration } from '@/shared/ui/index.js';
 
 export const TasksView: Component = () => {
 	const [taskErrors, setTaskErrors] = createSignal<Record<string, string>>({});
@@ -88,16 +88,17 @@ export const TasksView: Component = () => {
 		try {
 			const result = await completeTask(key);
 			if (result) {
+				const prev = balance();
 				tasksQuery.refetch();
 				await syncProfileStats();
 				const rewardAmount = task.reward_frg || 1000;
-				const startX = event?.clientX ?? window.innerWidth / 2;
-				const startY = event?.clientY ?? window.innerHeight / 2;
-				triggerCoinCelebration({
-					amount: rewardAmount,
-					startX,
-					startY,
-					targetSelector: '#airdrop-balance-counter',
+				triggerRewardCelebration({
+					reward: rewardAmount,
+					title: task.title || 'TASK COMPLETED!',
+					subtitle: 'Task reward successfully added to your balance',
+					category: 'task',
+					previousBalance: prev,
+					newBalance: prev + rewardAmount,
 				});
 			} else {
 				throw new Error('empty_response');
@@ -170,15 +171,18 @@ export const TasksView: Component = () => {
 		try {
 			const result = await completeTask(key, answer);
 			if (result) {
+				const prev = balance();
 				haptic.notify('success');
 				tasksQuery.refetch();
 				await syncProfileStats();
 				const rewardAmount = task.reward_frg || 5000;
-				triggerCoinCelebration({
-					amount: rewardAmount,
-					startX: window.innerWidth / 2,
-					startY: window.innerHeight / 2,
-					targetSelector: '#airdrop-balance-counter',
+				triggerRewardCelebration({
+					reward: rewardAmount,
+					title: 'QUIZ COMPLETED!',
+					subtitle: 'Knowledge puzzle solved successfully',
+					category: 'quiz',
+					previousBalance: prev,
+					newBalance: prev + rewardAmount,
 				});
 				setActiveQuizTask(null);
 			} else {
@@ -215,15 +219,18 @@ export const TasksView: Component = () => {
 		try {
 			const success = await claimDailyCombo(answer);
 			if (success) {
+				const prev = balance();
 				haptic.notify('success');
 				comboQuery.refetch();
 				await syncProfileStats();
 				const rewardAmount = comboQuery.data?.reward || 10000;
-				triggerCoinCelebration({
-					amount: rewardAmount,
-					startX: window.innerWidth / 2,
-					startY: window.innerHeight / 2,
-					targetSelector: '#airdrop-balance-counter',
+				triggerRewardCelebration({
+					reward: rewardAmount,
+					title: 'DAILY COMBO CRACKED!',
+					subtitle: 'Daily secret cipher cracked successfully',
+					category: 'combo',
+					previousBalance: prev,
+					newBalance: prev + rewardAmount,
 				});
 				setComboInput('');
 			}

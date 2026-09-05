@@ -161,18 +161,20 @@ Airdrop coins are subject to expiration and FIFO usage to prevent stale token in
 
 ---
 
-## 7. Game-Fi UX: Visual Celebrations & Rolling Counter
+## 7. Game-Fi UX: Visual Celebrations & Balance Transitions
 
-To ensure maximum player feedback (satisfying "Game Feel"):
-1. **CoinCelebration Particle Engine (`CoinCelebration.tsx`):**
-   - Emitters generate 14-18 shiny 3D gold coin sprites from the interaction origin.
-   - Follows quadratic bezier trajectory curves towards the top balance indicator with random jitter and scale transitions.
-   - Coordinates synchronized with Telegram Haptic Feedback (`haptic.impact('medium')` and `haptic.notify('success')`).
-2. **AnimatedCounter Component (`AnimatedCounter.tsx`):**
-   - Smoothly tweens balance numbers from `startValue` to `endValue` over ~1200ms using `easeOutExpo`.
-   - Triggers an elastic scale punch (`scale(1.15)`) and golden halo pulse on the balance badge on each coin arrival.
-3. **Integration Points:**
-   - Bot Offline Mining Collect.
-   - Daily Streak Calendar Claim.
-   - Tasks / Quests Complete & Claim.
-   - Daily Secret Combo Word Bonus.
+To ensure maximum player feedback and an authentic AAA Telegram game experience:
+1. **Manual Coin Tapping (`TapView.tsx`):**
+   - **Zero Latency Rendering:** The tap balance display uses direct tabular-num formatting without any tweening or component wrappers (`{balance().toLocaleString('en-US')}`).
+   - **Rationale:** High-speed tapping (5-10 taps/sec) requires immediate visual response; any animation tweens during rapid tapping cause lag and ruin gameplay feel.
+2. **Reward Celebration Modal (`RewardCelebrationModal.tsx`):**
+   - **Rotating Golden Sunburst:** 360-degree rotating radiant light beams behind the hero reward token.
+   - **Canvas 2D Physics Engine:** Generates 45+ 3D gold coin discs and twinkling stars that explode outward with true velocity, rotation, bounce, and gravity at 60 FPS.
+   - **Before & After Balance Odometer:**
+     - Displays `Previous Balance` and `Reward Added`.
+     - An animated rolling counter smoothly interpolates from previous to new balance over 1.4 seconds with rhythmic haptic vibration ticks.
+     - Displays `New Balance` with a gleaming checkmark upon completion so the user clearly perceives the balance transformation.
+   - **Integration Points:**
+     - **Offline Mining Bot Claim (`AirdropPage.tsx`):** Triggered when collecting offline earnings.
+     - **Daily Streak Claim (`TapView.tsx`):** Triggered on daily calendar check-in.
+     - **Tasks, Daily Combo & Quiz Claims (`TasksView.tsx`):** Triggered on verifying quests and solving riddles.

@@ -22,7 +22,7 @@ import {
 import { API_CONFIG } from '@/shared/api/config.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { AnimatedCounter, triggerCoinCelebration } from '@/shared/ui/index.js';
+import { triggerRewardCelebration } from '@/shared/ui/index.js';
 import { ShopView } from './ShopView.js';
 
 interface CanvasParticle {
@@ -431,11 +431,10 @@ export const TapView: Component<{
 						¢
 					</span>
 				</div>
-				{/* Massive Balance Text with Animated Rolling Counter */}
-				<AnimatedCounter
-					value={balance()}
-					class="text-white font-black text-[48px] sm:text-[54px] leading-[1.1] tracking-tighter tab-num drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
-				/>
+				{/* Massive Balance Text */}
+				<span class="text-white font-black text-[48px] sm:text-[54px] leading-[1.1] tracking-tighter tab-num drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]">
+					{balance().toLocaleString('en-US')}
+				</span>
 			</button>
 
 			{/* 3. Rank & League (Z-20) */}
@@ -813,19 +812,25 @@ export const TapView: Component<{
 						<div class="flex flex-col gap-2 pt-2">
 							<button
 								type="button"
-								onClick={async (e) => {
+								onClick={async () => {
 									if (checkedInToday() || isClaimingStreak()) return;
-									const rect = e.currentTarget.getBoundingClientRect();
 									setIsClaimingStreak(true);
 									try {
+										const prev = balance();
 										const reward = await claimDailyReward();
-										const rewardVal = Number(reward) || DAILY_REWARDS[Math.min(DAILY_REWARDS.length - 1, Math.max(0, streakDay() - 1))];
+										const rewardVal =
+											Number(reward) ||
+											DAILY_REWARDS[
+												Math.min(DAILY_REWARDS.length - 1, Math.max(0, streakDay() - 1))
+											];
 										setShowStreakModal(false);
-										triggerCoinCelebration({
-											amount: rewardVal,
-											startX: rect.left + rect.width / 2,
-											startY: rect.top + rect.height / 2,
-											targetSelector: '#airdrop-balance-counter',
+										triggerRewardCelebration({
+											reward: rewardVal,
+											title: `DAY ${streakDay()} REWARD!`,
+											subtitle: t('tap.miningStreakDesc') || 'Daily streak check-in bonus',
+											category: 'streak',
+											previousBalance: prev,
+											newBalance: prev + rewardVal,
 										});
 									} catch (_) {
 										haptic.notify('error');

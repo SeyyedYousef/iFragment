@@ -740,10 +740,16 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		_ = s.db.AddCreditBatch(ctx, userID, coinsEarned, "taps")
 	}
 
-	// Fetch updated stats to return to frontend (GetStats already reflects Redis batch & Postgres total_taps)
+	// Fetch updated stats to return to frontend
 	stats, err := s.GetStats(ctx, userID)
 	if err != nil {
 		return nil, err
+	}
+
+	if s.cache != nil && s.cache.Client != nil && !redisFailed {
+		stats.AirdropCoins += coinsEarned
+		stats.XP += int(coinsEarned)
+		stats.TotalTaps += taps
 	}
 
 	return stats, nil

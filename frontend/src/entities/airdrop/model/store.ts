@@ -390,7 +390,6 @@ let isSyncing = false;
 let syncPromise: Promise<void> | null = null;
 
 const getOptimisticCoins = () => {
-	const proMultiplier = isUserPremium() ? 2.0 : 1.0;
 	const raw = pendingTapBuckets.reduce((acc, b) => {
 		const energyConsumed = b.multiplier === 5 ? 0 : b.count * tapPower();
 		const coinsEarned = b.multiplier === 5 ? b.count * tapPower() * 5 : energyConsumed;
@@ -405,7 +404,7 @@ const getOptimisticCoins = () => {
 	} else if (dailyTappedCoins() > 5000) {
 		fatigueMultiplier = 0.5;
 	}
-	return raw * fatigueMultiplier * proMultiplier;
+	return raw * fatigueMultiplier;
 };
 
 const getOptimisticEnergyCost = () =>
@@ -544,8 +543,7 @@ export const recordTaps = (count: number) => {
 		fatigueMultiplier = 0.5;
 	}
 
-	const proMultiplier = isUserPremium() ? 2.0 : 1.0;
-	coinsEarned = coinsEarned * fatigueMultiplier * proMultiplier;
+	coinsEarned = coinsEarned * fatigueMultiplier;
 
 	if (energyConsumed > 0) {
 		setEnergy((e) => Math.max(0, e - energyConsumed));
