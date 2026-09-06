@@ -49,6 +49,12 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 			path: `/channel/${props.channelId}/projects`,
 		},
 		{
+			id: 'funnel',
+			icon: 'filter_alt',
+			label: t('channel.menu.funnel' as any) || 'قیف ورودی / خروجی',
+			path: `/channel/${props.channelId}/funnel`,
+		},
+		{
 			id: 'general',
 			icon: 'settings',
 			label: t('channel.menu.generalSettings' as any) || 'تنظیمات عمومی',

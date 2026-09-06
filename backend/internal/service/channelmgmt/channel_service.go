@@ -883,6 +883,15 @@ func (s *ChannelService) VerifyChannel(ctx context.Context, ownerUserID int64, c
 
 func (s *ChannelService) GetChannel(ctx context.Context, ownerUserID int64, channelID uuid.UUID) (*repository.ManagedChannel, error) {
 	if err := s.verifyAccess(ctx, ownerUserID, channelID, RoleOwner, RoleAdmin, RoleViewer); err != nil {
+		// Fallback: check if channelID is a project ID
+		if proj, pErr := s.channelRepo.GetProjectByID(ctx, channelID); pErr == nil && proj != nil && proj.OwnerUserID == ownerUserID {
+			if proj.TargetChannelID != nil && *proj.TargetChannelID != uuid.Nil {
+				return s.channelRepo.GetChannelByID(ctx, *proj.TargetChannelID)
+			}
+			if proj.SourceChannelID != nil && *proj.SourceChannelID != uuid.Nil {
+				return s.channelRepo.GetChannelByID(ctx, *proj.SourceChannelID)
+			}
+		}
 		return nil, err
 	}
 	return s.channelRepo.GetChannelByID(ctx, channelID)
@@ -939,7 +948,7 @@ func (s *ChannelService) GetSettings(ctx context.Context, ownerUserID int64, cha
 		return nil, err
 	}
 
-	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
+	settings, err := s.channelRepo.GetChannelSettings(ctx, ch.ID)
 	if err != nil {
 		return nil, err
 	}

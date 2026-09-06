@@ -197,19 +197,27 @@ export const ProjectsPage: Component = () => {
 		setWatermark('');
 	};
 
+	const effectiveChannelId = () =>
+		params.id ||
+		(projects() && (projects()![0]?.target_channel_id || projects()![0]?.source_channel_id)) ||
+		(userChannels() && userChannels()![0]?.id) ||
+		'';
+
 	return (
 		<div
 			class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
 			{/* Context Bar */}
-			<ChannelContextBar channelId={params.id} />
+			<Show when={effectiveChannelId()}>
+				<ChannelContextBar channelId={effectiveChannelId()} />
+			</Show>
 
 			{/* Hamburger Drawer */}
 			<ChannelHamburgerMenu
 				isOpen={isMenuOpen()}
 				onClose={() => setIsMenuOpen(false)}
-				channelId={params.id}
+				channelId={effectiveChannelId()}
 				activeTab="projects"
 			/>
 
@@ -226,17 +234,32 @@ export const ProjectsPage: Component = () => {
 					</p>
 				</div>
 
-				<button
-					type="button"
-					onClick={() => {
-						haptic.impact('medium');
-						setIsCreateModalOpen(true);
-					}}
-					class="py-2 px-3.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#0081C8] text-white text-xs font-semibold shadow-lg shadow-[#0098EA]/20 hover:opacity-95 active:scale-95 transition-all flex items-center gap-1.5"
-				>
-					<span>➕</span>
-					<span>{t('channel.projects.new_project') || 'New Project'}</span>
-				</button>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => {
+							haptic.impact('medium');
+							setIsCreateModalOpen(true);
+						}}
+						class="py-2 px-3.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#0081C8] text-white text-xs font-semibold shadow-lg shadow-[#0098EA]/20 hover:opacity-95 active:scale-95 transition-all flex items-center gap-1.5"
+					>
+						<span>➕</span>
+						<span>{t('channel.projects.new_project') || 'New Project'}</span>
+					</button>
+
+					<button
+						type="button"
+						onClick={() => {
+							haptic.impact('light');
+							setIsMenuOpen(true);
+						}}
+						class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
+						aria-label={t('common.toggle') || 'Menu'}
+						title={t('channel.menu.title') || 'Menu'}
+					>
+						<span class="material-symbols-outlined text-[20px]">menu</span>
+					</button>
+				</div>
 			</div>
 
 			{/* Projects List */}

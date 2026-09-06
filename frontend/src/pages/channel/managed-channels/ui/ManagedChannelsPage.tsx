@@ -655,17 +655,34 @@ export const ManagedChannelsPage: Component = () => {
 
 										{/* Bottom Row: Actions Bar */}
 										<div class="flex items-center gap-2 w-full relative z-10 pt-1">
-											{/* Manage Button */}
+											{/* Manage Channel Dashboard */}
+											<button
+												type="button"
+												onClick={() => {
+													haptic.impact('light');
+													const targetId =
+														project.target_channel_id || project.source_channel_id || project.id;
+													navigate(`/channel/${targetId}/dashboard`);
+												}}
+												class="flex-[1.4] h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all bg-[#08090D] text-white/90 border border-white/10 hover:border-[#3390ec]/40 hover:text-[#3390ec] shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+												title={t('channel.menu.dashboard') || 'Channel Dashboard & General Settings'}
+											>
+												<span class="material-symbols-outlined text-[18px]">dashboard</span>
+												<span>{t('channel.menu.dashboard') || 'داشبورد'}</span>
+											</button>
+
+											{/* Edit Project Funnel */}
 											<button
 												type="button"
 												onClick={() => {
 													haptic.impact('light');
 													navigate(`/channel/${project.id}/edit-project`);
 												}}
-												class="flex-[1.2] h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all bg-[#08090D] text-white/90 border border-white/10 hover:border-[#3390ec]/40 hover:text-[#3390ec] shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+												class="h-11 px-3 rounded-[14px] bg-[#08090D] text-white/70 hover:text-white border border-white/10 hover:border-cyan-500/40 flex items-center justify-center gap-1 transition-all active:scale-95 shrink-0 shadow-sm text-[11px] font-bold"
+												title={t('channel.menu.funnel') || 'تنظیمات قیف پروژه'}
 											>
-												<span class="material-symbols-outlined text-[18px]">tune</span>
-												<span>{t('botManage.manage')}</span>
+												<span class="material-symbols-outlined text-[16px]">tune</span>
+												<span>قیف</span>
 											</button>
 
 											{/* Subscription Button */}
@@ -677,7 +694,7 @@ export const ManagedChannelsPage: Component = () => {
 												class={`h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all border active:scale-95 flex items-center justify-center gap-1.5 shadow-sm ${
 													isPaidActive
 														? 'flex-1 bg-white/5 text-white/70 border-white/5 hover:bg-white/10 hover:text-white'
-														: 'flex-[1.8] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white border-white/10 shadow-[0_4px_15px_rgba(51,144,236,0.3)]'
+														: 'flex-[1.5] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white border-white/10 shadow-[0_4px_15px_rgba(51,144,236,0.3)]'
 												}`}
 											>
 												<span class="material-symbols-outlined text-[16px] text-amber-400">stars</span>
@@ -707,6 +724,55 @@ export const ManagedChannelsPage: Component = () => {
 									</Motion.div>
 								);
 							}}
+						</For>
+					</div>
+				</Show>
+
+				{/* ═══════ CONNECTED CHANNELS SECTION ═══════ */}
+				<Show when={channels() && channels()!.length > 0}>
+					<div class="flex flex-col gap-4 mt-2">
+						<div class="flex items-center justify-between mb-1 px-1 border-b border-white/5 pb-2">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-[#10b981] text-[20px]">tv</span>
+								<h2 class="text-[12px] font-black text-white/50 uppercase tracking-widest">
+									{t('managedChannels.connectedChannels') || 'کانال‌های متصل شما'}
+								</h2>
+							</div>
+							<span class="text-[11px] font-black text-[#10b981] bg-[#10b981]/10 px-2 py-0.5 rounded-[6px] border border-[#10b981]/20">
+								{channels()!.length} {t('managedChannels.channelsCountSuffix') || 'کانال'}
+							</span>
+						</div>
+
+						<For each={channels()}>
+							{(ch: ManagedChannel) => (
+								<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[22px] p-4 border border-white/10 flex items-center justify-between gap-3 shadow-md hover:border-white/20 transition-all">
+									<div class="flex items-center gap-3 min-w-0">
+										<div class="w-11 h-11 rounded-[14px] bg-[#3390ec]/15 border border-[#3390ec]/30 flex items-center justify-center text-[#3390ec] font-black text-base shrink-0">
+											{(ch.chat_title || 'C').charAt(0).toUpperCase()}
+										</div>
+										<div class="flex flex-col min-w-0">
+											<h3 class="text-white font-black text-[14px] truncate">
+												{ch.chat_title}
+											</h3>
+											<span class="text-[11px] text-white/40 font-mono truncate" dir="ltr">
+												{ch.chat_username ? `@${ch.chat_username}` : `ID: ${ch.chat_id}`}
+											</span>
+										</div>
+									</div>
+
+									<button
+										type="button"
+										onClick={() => {
+											haptic.impact('light');
+											navigate(`/channel/${ch.id}/dashboard`);
+										}}
+										class="px-3.5 h-10 rounded-[12px] bg-[#3390ec]/15 hover:bg-[#3390ec]/25 border border-[#3390ec]/30 text-[#3390ec] font-black text-xs flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
+									>
+										<span class="material-symbols-outlined text-[16px]">dashboard</span>
+										<span>{t('channel.menu.dashboard') || 'داشبورد'}</span>
+									</button>
+								</div>
+							)}
 						</For>
 					</div>
 				</Show>

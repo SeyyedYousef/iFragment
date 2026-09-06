@@ -11,7 +11,7 @@ import {
 	onMount,
 	Show,
 } from 'solid-js';
-import { channelApi } from '@/entities/channel/index.js';
+import { channelApi, ChannelHamburgerMenu } from '@/entities/channel/index.js';
 import type { ManagedChannel, Project } from '@/entities/channel/model/types.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -21,11 +21,14 @@ export const EditProjectPage: Component = () => {
 	const params = useParams();
 	const navigate = useNavigate();
 
+	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [projectName, setProjectName] = createSignal('');
 	const [sourceChannelId, setSourceChannelId] = createSignal('');
 	const [sourceCustomInput, setSourceCustomInput] = createSignal('');
 	const [targetChannelId, setTargetChannelId] = createSignal('');
 	const [targetCustomInput, setTargetCustomInput] = createSignal('');
+	const [isVerifyingSource, setIsVerifyingSource] = createSignal(false);
+	const [isVerifyingTarget, setIsVerifyingTarget] = createSignal(false);
 
 	// Pipeline filters & AI config
 	const [removeAds, setRemoveAds] = createSignal(true);
@@ -36,6 +39,8 @@ export const EditProjectPage: Component = () => {
 	const [watermark, setWatermark] = createSignal('');
 
 	const [isSaving, setIsSaving] = createSignal(false);
+
+	const channelIdForMenu = () => targetChannelId() || sourceChannelId() || params.id;
 
 	// Fetch project data (with fallback to funnel)
 	const [projectData] = createResource(
@@ -126,6 +131,48 @@ export const EditProjectPage: Component = () => {
 		}
 	});
 
+	const handleVerifySource = async () => {
+		const val = sourceCustomInput().trim();
+		if (!val) return;
+		setIsVerifyingSource(true);
+		try {
+			const res = await channelApi.connectChannel('auto', val);
+			if (res && res.id) {
+				setSourceChannelId(res.id);
+				setSourceCustomInput(res.chat_username ? `@${res.chat_username}` : res.chat_title || '');
+				haptic.notify('success');
+				showToast(t('managedChannels.verified') || 'Source channel verified!', 'success');
+			}
+		} catch (err: any) {
+			const msg = err?.response?.data?.error || err?.message || 'Bot must be admin in source channel';
+			showToast(msg, 'error');
+			haptic.notify('error');
+		} finally {
+			setIsVerifyingSource(false);
+		}
+	};
+
+	const handleVerifyTarget = async () => {
+		const val = targetCustomInput().trim();
+		if (!val) return;
+		setIsVerifyingTarget(true);
+		try {
+			const res = await channelApi.connectChannel('auto', val);
+			if (res && res.id) {
+				setTargetChannelId(res.id);
+				setTargetCustomInput(res.chat_username ? `@${res.chat_username}` : res.chat_title || '');
+				haptic.notify('success');
+				showToast(t('managedChannels.verified') || 'Target channel verified!', 'success');
+			}
+		} catch (err: any) {
+			const msg = err?.response?.data?.error || err?.message || 'Bot must be admin in target channel';
+			showToast(msg, 'error');
+			haptic.notify('error');
+		} finally {
+			setIsVerifyingTarget(false);
+		}
+	};
+
 	const handleSave = async () => {
 		if (!projectName().trim()) {
 			showToast(t('channel.projects.name_required') || 'Project name is required', 'error');
@@ -147,6 +194,37 @@ export const EditProjectPage: Component = () => {
 
 		haptic.impact('medium');
 		setIsSaving(true);
+
+		// If user typed custom input, connect channel automatically
+		if (!sourceChannelId() && sourceCustomInput().trim()) {
+			try {
+				showToast(t('connectChannel.verifyingInput') || 'Verifying input channel...', 'info');
+				const inChan = await channelApi.connectChannel('auto', sourceCustomInput().trim());
+				if (inChan && inChan.id) {
+					setSourceChannelId(inChan.id);
+				}
+			} catch (e: any) {
+				const msg = e?.response?.data?.error || e?.message || 'Failed to verify input channel';
+				showToast(msg, 'error');
+				setIsSaving(false);
+				return;
+			}
+		}
+
+		if (!targetChannelId() && targetCustomInput().trim()) {
+			try {
+				showToast(t('connectChannel.verifyingOutput') || 'Verifying target channel...', 'info');
+				const outChan = await channelApi.connectChannel('auto', targetCustomInput().trim());
+				if (outChan && outChan.id) {
+					setTargetChannelId(outChan.id);
+				}
+			} catch (e: any) {
+				const msg = e?.response?.data?.error || e?.message || 'Failed to verify target channel';
+				showToast(msg, 'error');
+				setIsSaving(false);
+				return;
+			}
+		}
 
 		try {
 			const pipelineConfig = {
@@ -239,11 +317,33 @@ export const EditProjectPage: Component = () => {
 					</div>
 				</div>
 
-				<div class="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[#3390ec] text-[11px] font-black flex items-center gap-1">
-					<span class="w-1.5 h-1.5 rounded-full bg-[#3390ec] animate-pulse" />
-					<span>Funnel</span>
+				<div class="flex items-center gap-2">
+					<div class="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[#3390ec] text-[11px] font-black flex items-center gap-1">
+						<span class="w-1.5 h-1.5 rounded-full bg-[#3390ec] animate-pulse" />
+						<span>Funnel</span>
+					</div>
+					<button
+						type="button"
+						onClick={() => {
+							haptic.impact('light');
+							setIsMenuOpen(true);
+						}}
+						class="w-10 h-10 rounded-[12px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+						aria-label={t('common.toggle') || 'Menu'}
+						title={t('channel.menu.title') || 'Menu'}
+					>
+						<span class="material-symbols-outlined text-[20px]">menu</span>
+					</button>
 				</div>
 			</div>
+
+			{/* Channel Hamburger Drawer */}
+			<ChannelHamburgerMenu
+				isOpen={isMenuOpen()}
+				onClose={() => setIsMenuOpen(false)}
+				channelId={channelIdForMenu()}
+				activeTab="projects"
+			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6 max-w-lg mx-auto relative z-10 w-full">
 				<Show
@@ -335,15 +435,30 @@ export const EditProjectPage: Component = () => {
 							</select>
 
 							<Show when={!sourceChannelId()}>
-								<div class="mt-1">
+								<div class="mt-1 flex gap-2">
 									<input
 										type="text"
 										value={sourceCustomInput()}
 										onInput={(e) => setSourceCustomInput(e.currentTarget.value)}
 										placeholder="Or enter @channel_username or Chat ID"
-										class="w-full h-11 bg-[#12141C] border border-white/5 text-white text-[12px] font-mono rounded-[12px] px-3 focus:outline-none focus:border-cyan-500/50 placeholder-white/20"
+										class="flex-1 h-11 bg-[#12141C] border border-white/5 text-white text-[12px] font-mono rounded-[12px] px-3 focus:outline-none focus:border-cyan-500/50 placeholder-white/20"
 										dir="ltr"
 									/>
+									<button
+										type="button"
+										onClick={handleVerifySource}
+										disabled={isVerifyingSource() || !sourceCustomInput().trim()}
+										class="px-3 h-11 rounded-[12px] bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 font-bold text-xs flex items-center gap-1 border border-cyan-500/30 transition-all disabled:opacity-40 shrink-0 active:scale-95"
+									>
+										<Show
+											when={!isVerifyingSource()}
+											fallback={
+												<span class="w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+											}
+										>
+											<span>{t('managedChannels.check') || 'Check'}</span>
+										</Show>
+									</button>
 								</div>
 							</Show>
 						</div>
@@ -384,15 +499,30 @@ export const EditProjectPage: Component = () => {
 							</select>
 
 							<Show when={!targetChannelId()}>
-								<div class="mt-1">
+								<div class="mt-1 flex gap-2">
 									<input
 										type="text"
 										value={targetCustomInput()}
 										onInput={(e) => setTargetCustomInput(e.currentTarget.value)}
 										placeholder="Or enter @channel_username or Chat ID"
-										class="w-full h-11 bg-[#12141C] border border-white/5 text-white text-[12px] font-mono rounded-[12px] px-3 focus:outline-none focus:border-emerald-500/50 placeholder-white/20"
+										class="flex-1 h-11 bg-[#12141C] border border-white/5 text-white text-[12px] font-mono rounded-[12px] px-3 focus:outline-none focus:border-emerald-500/50 placeholder-white/20"
 										dir="ltr"
 									/>
+									<button
+										type="button"
+										onClick={handleVerifyTarget}
+										disabled={isVerifyingTarget() || !targetCustomInput().trim()}
+										class="px-3 h-11 rounded-[12px] bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold text-xs flex items-center gap-1 border border-emerald-500/30 transition-all disabled:opacity-40 shrink-0 active:scale-95"
+									>
+										<Show
+											when={!isVerifyingTarget()}
+											fallback={
+												<span class="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+											}
+										>
+											<span>{t('managedChannels.check') || 'Check'}</span>
+										</Show>
+									</button>
 								</div>
 							</Show>
 						</div>

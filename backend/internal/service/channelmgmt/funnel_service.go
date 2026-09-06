@@ -501,6 +501,20 @@ func (s *ChannelService) resolveBotClientForChat(ctx context.Context, chatID int
 			}
 		}
 	}
+	// Check if chatID is associated with a project's source or target channel
+	if projs, pErr := s.channelRepo.GetProjectsBySourceChatOrUsername(ctx, chatID, ""); pErr == nil && len(projs) > 0 {
+		for _, p := range projs {
+			if p.TargetChannelID != nil {
+				if tc, tcErr := s.channelRepo.GetChannelByID(ctx, *p.TargetChannelID); tcErr == nil && tc != nil && tc.BotID != uuid.Nil {
+					if b, bErr := s.botRepo.GetBotByID(ctx, tc.BotID); bErr == nil && b != nil && len(b.BotTokenEncrypted) > 0 {
+						if tok, decErr := botmgmt.DecryptToken(b.BotTokenEncrypted); decErr == nil && tok != "" {
+							return tok, telegram.NewBotAPIClient(tok)
+						}
+					}
+				}
+			}
+		}
+	}
 	if fallbackBot != nil && len(fallbackBot.BotTokenEncrypted) > 0 {
 		if tok, decErr := botmgmt.DecryptToken(fallbackBot.BotTokenEncrypted); decErr == nil && tok != "" {
 			return tok, telegram.NewBotAPIClient(tok)
@@ -599,6 +613,11 @@ func (s *ChannelService) sendFunnelPreviewToInputChannel(ctx context.Context, bo
 			payload["reply_markup"] = previewMarkup
 		}
 		_, sendErr = tg.Request(ctx, "sendMessage", payload)
+		// Fallback: If replying failed (e.g. channel doesn't allow replies or post deleted), retry without reply_to_message_id
+		if sendErr != nil && payload["reply_to_message_id"] != nil {
+			delete(payload, "reply_to_message_id")
+			_, sendErr = tg.Request(ctx, "sendMessage", payload)
+		}
 		if sendErr != nil && strings.Contains(strings.ToLower(sendErr.Error()), "can't parse entities") {
 			delete(payload, "parse_mode")
 			_, sendErr = tg.Request(ctx, "sendMessage", payload)
@@ -631,6 +650,10 @@ func (s *ChannelService) sendFunnelPreviewToInputChannel(ctx context.Context, bo
 			payload["photo"] = item.FileID
 		}
 		_, sendErr = tg.Request(ctx, method, payload)
+		if sendErr != nil && payload["reply_to_message_id"] != nil {
+			delete(payload, "reply_to_message_id")
+			_, sendErr = tg.Request(ctx, method, payload)
+		}
 		if sendErr != nil && strings.Contains(strings.ToLower(sendErr.Error()), "can't parse entities") {
 			delete(payload, "parse_mode")
 			_, sendErr = tg.Request(ctx, method, payload)
@@ -647,6 +670,10 @@ func (s *ChannelService) sendFunnelPreviewToInputChannel(ctx context.Context, bo
 			payload["reply_markup"] = previewMarkup
 		}
 		_, sendErr = tg.Request(ctx, "sendMessage", payload)
+		if sendErr != nil && payload["reply_to_message_id"] != nil {
+			delete(payload, "reply_to_message_id")
+			_, sendErr = tg.Request(ctx, "sendMessage", payload)
+		}
 		if sendErr != nil && strings.Contains(strings.ToLower(sendErr.Error()), "can't parse entities") {
 			delete(payload, "parse_mode")
 			_, sendErr = tg.Request(ctx, "sendMessage", payload)
