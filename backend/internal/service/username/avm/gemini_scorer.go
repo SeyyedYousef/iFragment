@@ -193,7 +193,11 @@ func (g *GeminiScorer) callGroqDirect(ctx context.Context, prompt, apiKey string
 }
 
 func (g *GeminiScorer) callGeminiDirect(ctx context.Context, prompt, apiKey string) (*GeminiResult, error) {
-	apiURL := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=%s", apiKey)
+	model := os.Getenv("GEMINI_MODEL")
+	if model == "" {
+		model = "gemini-2.5-flash"
+	}
+	apiURL := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
 
 	reqBody := map[string]any{
 		"contents": []map[string]any{

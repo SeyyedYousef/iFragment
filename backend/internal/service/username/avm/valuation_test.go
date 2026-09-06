@@ -1,6 +1,7 @@
 package avm
 
 import (
+	"context"
 	"math"
 	"testing"
 )
@@ -303,6 +304,32 @@ func TestCheckTrademarkRisk(t *testing.T) {
 	cleanTM, _ := CheckTrademarkRisk("mystic_forest")
 	if cleanTM {
 		t.Error("Expected no trademark risk for 'mystic_forest'")
+	}
+}
+
+func TestRareUsernameFullPipeline(t *testing.T) {
+	svc := NewValuationService(nil, nil, nil)
+	ctx := context.Background()
+	res, err := svc.Valuate(ctx, "rare", 7.25)
+	if err != nil {
+		t.Fatalf("Valuate('rare') failed: %v", err)
+	}
+
+	expTON, _ := res.ExpectedTON.Float64()
+	lowTON, _ := res.LowTON.Float64()
+	highTON, _ := res.HighTON.Float64()
+
+	if expTON < 100000 || expTON > 160000 {
+		t.Errorf("ExpectedTON for 'rare' was %f, expected between 100,000 and 160,000 TON", expTON)
+	}
+	if lowTON > expTON || expTON > highTON {
+		t.Errorf("Invariants violated for 'rare': low=%f <= exp=%f <= high=%f", lowTON, expTON, highTON)
+	}
+	if len(res.Similar) == 0 {
+		t.Errorf("Expected Similar usernames to be populated for 'rare', got empty")
+	}
+	if res.ModelVersion != ModelVersion {
+		t.Errorf("Expected ModelVersion=%s, got %s", ModelVersion, res.ModelVersion)
 	}
 }
 

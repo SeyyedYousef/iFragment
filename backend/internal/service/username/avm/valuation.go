@@ -717,10 +717,6 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 // valuateInternal executes the mathematical evaluation DAG for AVM v7.0.
 func (s *ValuationService) valuateInternal(ctx context.Context, username string, tonRate float64) (*ValuationResult, error) {
-	if s.db == nil {
-		return nil, fmt.Errorf("database not available for valuation")
-	}
-
 	username = strings.ToLower(strings.TrimSpace(username))
 	username = strings.TrimPrefix(username, "@")
 
@@ -753,29 +749,31 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	g.Go(func() error {
-		var err error
-		exactSales, err = s.db.GetExactComparables(gCtx, segment, charLen, now, 200)
-		return err
-	})
+	if s.db != nil {
+		g.Go(func() error {
+			var err error
+			exactSales, err = s.db.GetExactComparables(gCtx, segment, charLen, now, 200)
+			return err
+		})
 
-	g.Go(func() error {
-		var err error
-		broadSales, err = s.db.GetBroadComparables(gCtx, segment, now, 500)
-		return err
-	})
+		g.Go(func() error {
+			var err error
+			broadSales, err = s.db.GetBroadComparables(gCtx, segment, now, 500)
+			return err
+		})
 
-	g.Go(func() error {
-		var err error
-		count30, count31_90, err = s.db.GetMomentumCounts(gCtx, segment, charLen, now)
-		return err
-	})
+		g.Go(func() error {
+			var err error
+			count30, count31_90, err = s.db.GetMomentumCounts(gCtx, segment, charLen, now)
+			return err
+		})
 
-	g.Go(func() error {
-		var err error
-		targetSales, err = s.db.GetSalesByUsername(gCtx, username)
-		return err
-	})
+		g.Go(func() error {
+			var err error
+			targetSales, err = s.db.GetSalesByUsername(gCtx, username)
+			return err
+		})
+	}
 
 	var (
 		marketappPrice float64
@@ -878,22 +876,24 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 			}
 		}
 		if !duplicate {
-			// Save to database so we don't have to scrape it again
-			_, dbErr := s.db.InsertSale(ctx, repository.Sale{
-				Username:      username,
-				SalePriceTON:  decimal.NewFromFloat(ss.PriceTON),
-				SaleType:      "auction",
-				SaleDate:      ss.SaleDate,
-				BuyerAddress:  nil,
-				CharLength:    int16(charLen),
-				Segment:       segment,
-				HasNumbers:    features.HasNumbers,
-				HasUnderscore: features.HasUnderscore,
-				IsDictionary:  features.IsDictionary,
-				Source:        "fragment_scrape",
-			})
-			if dbErr != nil {
-				slog.Warn("Failed to persist scraped sale to database", "username", username, "error", dbErr)
+			// Save to database if available so we don't have to scrape it again
+			if s.db != nil {
+				_, dbErr := s.db.InsertSale(ctx, repository.Sale{
+					Username:      username,
+					SalePriceTON:  decimal.NewFromFloat(ss.PriceTON),
+					SaleType:      "auction",
+					SaleDate:      ss.SaleDate,
+					BuyerAddress:  nil,
+					CharLength:    int16(charLen),
+					Segment:       segment,
+					HasNumbers:    features.HasNumbers,
+					HasUnderscore: features.HasUnderscore,
+					IsDictionary:  features.IsDictionary,
+					Source:        "fragment_scrape",
+				})
+				if dbErr != nil {
+					slog.Warn("Failed to persist scraped sale to database", "username", username, "error", dbErr)
+				}
 			}
 
 			targetComps = append(targetComps, ComparableSale{
@@ -1155,17 +1155,19 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	}
 
 	// 2. Live Bid Floor
-	activeBid, err := s.db.GetActiveBid(ctx, username)
-	if err == nil && activeBid != nil {
-		maxBidFloat := ToFloat64(activeBid.HighestBidTON)
-		if expectedTONRaw < maxBidFloat {
-			expectedTONRaw = maxBidFloat
-			lowTONRaw = maxBidFloat
-			if highTONRaw < maxBidFloat {
-				highTONRaw = maxBidFloat * 1.5
+	if s.db != nil {
+		activeBid, err := s.db.GetActiveBid(ctx, username)
+		if err == nil && activeBid != nil {
+			maxBidFloat := ToFloat64(activeBid.HighestBidTON)
+			if expectedTONRaw < maxBidFloat {
+				expectedTONRaw = maxBidFloat
+				lowTONRaw = maxBidFloat
+				if highTONRaw < maxBidFloat {
+					highTONRaw = maxBidFloat * 1.5
+				}
+				reasoning["live_bid_floor_applied"] = true
+				reasoning["live_bid_ton"] = maxBidFloat
 			}
-			reasoning["live_bid_floor_applied"] = true
-			reasoning["live_bid_ton"] = maxBidFloat
 		}
 	}
 
@@ -1462,10 +1464,16 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		ReasoningLog:      reasoningJSON,
 	}
 
-	runID, err := s.db.InsertValuationRun(ctx, run)
-	if err != nil {
-		slog.Warn("AVM audit write encountered non-fatal error — continuing with synthetic runID",
-			"username", username, "error", err)
+	var runID int64
+	if s.db != nil {
+		var err error
+		runID, err = s.db.InsertValuationRun(ctx, run)
+		if err != nil {
+			slog.Warn("AVM audit write encountered non-fatal error — continuing with synthetic runID",
+				"username", username, "error", err)
+			runID = time.Now().UnixNano()
+		}
+	} else {
 		runID = time.Now().UnixNano()
 	}
 
@@ -1479,10 +1487,12 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		TargetSales: len(targetSales),
 		ExactSales:  len(exactSales),
 		BroadSales:  len(broadSales),
-		AnchorUsed:  len(scrapedSales) > 0 || highestPastSale > 0,
+		AnchorUsed:  anchorInjected || len(scrapedSales) > 0 || highestPastSale > 0,
 		LiveAskUsed: marketappPrice > 0,
 		Method: func() string {
 			switch {
+			case anchorInjected:
+				return "historical_or_benchmark_anchor"
 			case len(targetSales) > 0:
 				return "prior_sales_of_this_username"
 			case len(exactSales) >= 5:
@@ -1495,7 +1505,7 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		}(),
 	}
 
-	var similarNames []ValuationSimilar
+	similarNames := s.GenerateSemanticSimilarUsernames(ctx, username, tonRate)
 
 	hasPastSale := false
 	if highestPastSale > 0 {
@@ -1763,17 +1773,71 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		}(),
 		Comparables: func() []ComparableSaleDto {
 			var comps []ComparableSaleDto
-			for i, s := range targetSales {
-				if i >= 5 {
+			seen := make(map[string]bool)
+
+			// 1. Add target sales of this handle if available
+			for _, s := range targetSales {
+				if len(comps) >= 5 {
 					break
 				}
-				comps = append(comps, ComparableSaleDto{
-					Username:     s.Username,
-					Price:        ToFloat64(s.SalePriceTON),
-					Date:         s.SaleDate.Format(time.RFC3339),
-					TonviewerUrl: fmt.Sprintf("https://tonviewer.com/nft/%s", strings.TrimPrefix(s.Username, "@")),
-				})
+				p := ToFloat64(s.SalePriceTON)
+				if p <= 0 {
+					continue
+				}
+				key := fmt.Sprintf("%s_%.0f", strings.ToLower(s.Username), p)
+				if !seen[key] {
+					seen[key] = true
+					comps = append(comps, ComparableSaleDto{
+						Username:     s.Username,
+						Price:        p,
+						Date:         s.SaleDate.Format(time.RFC3339),
+						TonviewerUrl: fmt.Sprintf("https://tonviewer.com/nft/%s", strings.TrimPrefix(s.Username, "@")),
+					})
+				}
 			}
+
+			// 2. Add exact length and segment comparable sales
+			for _, s := range exactSales {
+				if len(comps) >= 5 {
+					break
+				}
+				p := ToFloat64(s.SalePriceTON)
+				if p <= 0 {
+					continue
+				}
+				key := fmt.Sprintf("%s_%.0f", strings.ToLower(s.Username), p)
+				if !seen[key] {
+					seen[key] = true
+					comps = append(comps, ComparableSaleDto{
+						Username:     s.Username,
+						Price:        p,
+						Date:         s.SaleDate.Format(time.RFC3339),
+						TonviewerUrl: fmt.Sprintf("https://tonviewer.com/nft/%s", strings.TrimPrefix(s.Username, "@")),
+					})
+				}
+			}
+
+			// 3. If still needed, fill up to 5 with broad segment sales
+			for _, s := range broadSales {
+				if len(comps) >= 5 {
+					break
+				}
+				p := ToFloat64(s.SalePriceTON)
+				if p <= 0 {
+					continue
+				}
+				key := fmt.Sprintf("%s_%.0f", strings.ToLower(s.Username), p)
+				if !seen[key] {
+					seen[key] = true
+					comps = append(comps, ComparableSaleDto{
+						Username:     s.Username,
+						Price:        p,
+						Date:         s.SaleDate.Format(time.RFC3339),
+						TonviewerUrl: fmt.Sprintf("https://tonviewer.com/nft/%s", strings.TrimPrefix(s.Username, "@")),
+					})
+				}
+			}
+
 			return comps
 		}(),
 		PriceTrend: func() []PriceTrendDto {
@@ -2341,10 +2405,9 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 		dist     float64
 	}
 
-	neighbors := make([]neighbor, 0, len(HistoricalSales))
+	neighbors := make([]neighbor, 0, len(HistoricalSales)+len(ValuationAnchors))
 
-	// Iterate over all anchors in HistoricalSales to compute 5D Euclidean distance
-	for anchorName, basePrice := range HistoricalSales {
+	addNeighbor := func(anchorName string, basePrice float64) {
 		aLen := len(anchorName)
 		aLenNorm := float64(aLen) / 10.0
 		targetLenNorm := float64(charLen) / 10.0
@@ -2367,6 +2430,9 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 
 		// Appreciate anchor price to current date (dynamic from Genesis start Nov 2022)
 		genesisDate := time.Date(2022, 11, 15, 0, 0, 0, 0, time.UTC)
+		if dt, hasExact := knownGenesisAuctionDates[anchorName]; hasExact {
+			genesisDate = dt
+		}
 		yearsAgo := math.Min(8.0, math.Max(1.0, time.Since(genesisDate).Hours()/(24.0*365.25)))
 		appreciatedPrice := basePrice * math.Pow(1.20, yearsAgo)
 
@@ -2374,6 +2440,18 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 			priceTON: appreciatedPrice,
 			dist:     dist,
 		})
+	}
+
+	seenAnchors := make(map[string]bool)
+	for anchorName, basePrice := range HistoricalSales {
+		seenAnchors[anchorName] = true
+		addNeighbor(anchorName, basePrice)
+	}
+	for anchorName, basePrice := range ValuationAnchors {
+		if !seenAnchors[anchorName] {
+			seenAnchors[anchorName] = true
+			addNeighbor(anchorName, basePrice)
+		}
 	}
 
 	// Sort neighbors by distance ascending using O(N log N) sort.Slice
@@ -2417,130 +2495,17 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 func (s *ValuationService) GenerateSemanticSimilarUsernames(ctx context.Context, targetUsername string, tonRate float64) []ValuationSimilar {
 	u := strings.ToLower(strings.TrimPrefix(targetUsername, "@"))
 
-	semanticMap := map[string][]struct{ Name, Reason string }{
-		"cars": {
-			{"auto", "Automotive Category Benchmark"},
-			{"vehicle", "Transport Category"},
-			{"motors", "Motor Brand Concept"},
-			{"wheels", "Automotive Concept"},
-			{"drive", "Action & Transport"},
-		},
-		"car": {
-			{"auto", "Automotive Category Benchmark"},
-			{"vehicle", "Transport Category"},
-			{"motors", "Motor Brand Concept"},
-			{"drive", "Action & Transport"},
-		},
-		"rare": {
-			{"unique", "Rarity & Exclusivity Concept"},
-			{"scarce", "Rarity Concept"},
-			{"limited", "Status Benchmark"},
-			{"exclusive", "Exclusivity Tier"},
-			{"grail", "Legendary Tier"},
-		},
-		"pubg": {
-			{"clashofclans", "Top Mobile Game Benchmark"},
-			{"fortnite", "Esports & Gaming Legend"},
-			{"roblox", "Gaming Platform"},
-			{"apex", "Esports Category"},
-			{"dota", "Gaming Legend"},
-		},
-		"tiktok": {
-			{"instagram", "Social Media Giant"},
-			{"youtube", "Video Platform Giant"},
-			{"reels", "Short Video Brand"},
-			{"shorts", "Video Concept"},
-			{"social", "Media Category"},
-		},
-		"chatgpt": {
-			{"gemini", "AI Model Competitor"},
-			{"claude", "AI Model Competitor"},
-			{"copilot", "AI Assistant Brand"},
-			{"openai", "Parent AI Organization"},
-			{"ai", "Core Tech Category"},
-		},
-		"bitcoin": {
-			{"ethereum", "Tier-1 Crypto Benchmark"},
-			{"solana", "Top Blockchain Handle"},
-			{"crypto", "Category Name"},
-			{"btc", "Ticker Equivalent"},
-			{"usdt", "Stablecoin Benchmark"},
-		},
-		"btc": {
-			{"bitcoin", "Full Name Equivalent"},
-			{"eth", "Ticker Equivalent"},
-			{"crypto", "Category Name"},
-			{"sol", "Ticker Equivalent"},
-		},
-		"ton": {
-			{"wallet", "Official System Handle"},
-			{"stars", "Ecosystem Currency"},
-			{"notcoin", "Ecosystem Legend"},
-			{"gram", "Legacy Ecosystem Name"},
-		},
-	}
-
-	var candidates []struct{ Name, Reason string }
-	if list, ok := semanticMap[u]; ok {
-		candidates = list
-	} else {
-		if strings.Contains(u, "car") || strings.Contains(u, "auto") || strings.Contains(u, "drive") || strings.Contains(u, "moto") {
-			candidates = []struct{ Name, Reason string }{
-				{"auto", "Automotive Category Benchmark"},
-				{"vehicle", "Transport Category"},
-				{"motors", "Motor Brand Concept"},
-				{"drive", "Action & Transport"},
-			}
-		} else if strings.Contains(u, "game") || strings.Contains(u, "play") {
-			candidates = []struct{ Name, Reason string }{
-				{"game", "Gaming Category Benchmark"},
-				{"play", "Gaming Action Concept"},
-				{"clashofclans", "Mobile Gaming Legend"},
-				{"fortnite", "Esports Legend"},
-			}
-		} else if strings.Contains(u, "bot") || strings.Contains(u, "ai") || strings.Contains(u, "gpt") {
-			candidates = []struct{ Name, Reason string }{
-				{"chatgpt", "AI Revolution Benchmark"},
-				{"gemini", "AI Competitor Concept"},
-				{"claude", "AI Model Concept"},
-				{"copilot", "AI Assistant Brand"},
-			}
-		} else if strings.Contains(u, "coin") || strings.Contains(u, "pay") || strings.Contains(u, "bank") || strings.Contains(u, "cash") {
-			candidates = []struct{ Name, Reason string }{
-				{"bank", "Financial Giant Benchmark"},
-				{"cash", "Currency Category"},
-				{"coin", "Crypto & Cash Category"},
-				{"trade", "Official Trading Service"},
-			}
-		} else {
-			if len(u) <= 4 {
-				candidates = []struct{ Name, Reason string }{
-					{"vip", "3-Letter Premium Category"},
-					{"gem", "Short Premium Word"},
-					{"king", "Short Status Handle"},
-					{"gold", "Precious Category"},
-				}
-			} else {
-				candidates = []struct{ Name, Reason string }{
-					{"premium", "Commercial Category"},
-					{"unique", "High-Rarity Synonym"},
-					{"limited", "Exclusivity Benchmark"},
-					{"developer", "Tech Industry Category"},
-				}
-			}
-		}
-	}
-
+	candidates := GetSemanticSynonyms(u)
 	result := make([]ValuationSimilar, 0, len(candidates))
 	for _, cand := range candidates {
-		if cand.Name == u {
+		if cand.Username == u {
 			continue
 		}
 		// Status is intentionally left empty: this generator knows nothing about
 		// occupancy, and defaulting to "available" advertised handles like "auto"
 		// or "bitcoin" as free to register. The handler resolves it for real.
 		result = append(result, ValuationSimilar{
-			Username: cand.Name,
+			Username: cand.Username,
 			Reason:   cand.Reason,
 		})
 	}

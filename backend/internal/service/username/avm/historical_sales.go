@@ -113,47 +113,60 @@ var knownGenesisAuctionDates = map[string]time.Time{
 // GetHistoricalSaleRecord returns the enriched historical sale record including date and provenance.
 func GetHistoricalSaleRecord(username string) (HistoricalSaleRecord, bool) {
 	u := strings.TrimPrefix(strings.ToLower(username), "@")
-	price, exists := HistoricalSales[u]
-	if !exists || price <= 0 {
-		return HistoricalSaleRecord{}, false
-	}
+	if price, exists := HistoricalSales[u]; exists && price > 0 {
+		if dt, hasExactDate := knownGenesisAuctionDates[u]; hasExactDate {
+			return HistoricalSaleRecord{
+				Price:         price,
+				Date:          dt,
+				Source:        "fragment_auction_verified",
+				EstimatedDate: false,
+			}, true
+		}
 
-	if dt, hasExactDate := knownGenesisAuctionDates[u]; hasExactDate {
+		// Deterministic estimation based on character hash distributed across Fragment auction waves (2022-11 to 2024-06)
+		var hash uint32 = 2166136261
+		for i := 0; i < len(u); i++ {
+			hash ^= uint32(u[i])
+			hash *= 16777619
+		}
+		// Total days between 2022-11-01 and 2024-06-01 is ~578 days
+		dayOffset := int(hash % 578)
+		baseDate := time.Date(2022, 11, 1, 12, 0, 0, 0, time.UTC)
+		estimatedDate := baseDate.AddDate(0, 0, dayOffset)
+
 		return HistoricalSaleRecord{
 			Price:         price,
-			Date:          dt,
-			Source:        "fragment_auction_verified",
-			EstimatedDate: false,
+			Date:          estimatedDate,
+			Source:        "fragment_archive_calibrated",
+			EstimatedDate: true,
 		}, true
 	}
 
-	// Deterministic estimation based on character hash distributed across Fragment auction waves (2022-11 to 2024-06)
-	var hash uint32 = 2166136261
-	for i := 0; i < len(u); i++ {
-		hash ^= uint32(u[i])
-		hash *= 16777619
+	// Check model benchmark anchors for untransacted or benchmark status handles (e.g., @rare, @wallet, @trade, @durov)
+	if price, isAnchor := ValuationAnchors[u]; isAnchor && price > 0 {
+		anchorDate := time.Date(2022, 11, 15, 12, 0, 0, 0, time.UTC)
+		if dt, hasExactDate := knownGenesisAuctionDates[u]; hasExactDate {
+			anchorDate = dt
+		}
+		return HistoricalSaleRecord{
+			Price:         price,
+			Date:          anchorDate,
+			Source:        "model_benchmark_anchor",
+			EstimatedDate: true,
+		}, true
 	}
-	// Total days between 2022-11-01 and 2024-06-01 is ~578 days
-	dayOffset := int(hash % 578)
-	baseDate := time.Date(2022, 11, 1, 12, 0, 0, 0, time.UTC)
-	estimatedDate := baseDate.AddDate(0, 0, dayOffset)
 
-	return HistoricalSaleRecord{
-		Price:         price,
-		Date:          estimatedDate,
-		Source:        "fragment_archive_calibrated",
-		EstimatedDate: true,
-	}, true
+	return HistoricalSaleRecord{}, false
 }
 
 // GetPriceSource returns whether a price anchor is a verified on-chain sale or a model estimate
 func GetPriceSource(username string) string {
 	u := strings.TrimPrefix(strings.ToLower(username), "@")
-	if _, isAnchor := ValuationAnchors[u]; isAnchor {
-		return "model_estimate"
-	}
 	if _, isSold := HistoricalSales[u]; isSold {
 		return "onchain_sale"
+	}
+	if _, isAnchor := ValuationAnchors[u]; isAnchor {
+		return "model_estimate"
 	}
 	return "unknown"
 }

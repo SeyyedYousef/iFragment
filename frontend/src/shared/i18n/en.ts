@@ -4403,7 +4403,7 @@ export const dict = {
 		comp_title: 'Comparables',
 		comparables_subtitle: 'Real sales this estimate is built on',
 		comparables_title: 'Comparable Sales',
-		concept_similar_title: 'Concept Similar & Brand Equivalents',
+		concept_similar_title: 'Similar Items',
 		conf_high: 'HIGH CONFIDENCE',
 		conf_low: 'LOW CONFIDENCE',
 		conf_medium: 'MODERATE CONFIDENCE',

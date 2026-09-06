@@ -29,6 +29,7 @@ export const ProjectsPage: Component = () => {
 	const [sourceChannelId, setSourceChannelId] = createSignal('');
 	const [sourceIdentifier, setSourceIdentifier] = createSignal('');
 	const [targetChannelId, setTargetChannelId] = createSignal('');
+	const [targetIdentifier, setTargetIdentifier] = createSignal('');
 	const [dropMedia, setDropMedia] = createSignal(false);
 	const [removeAds, setRemoveAds] = createSignal(true);
 	const [removeLinks, setRemoveLinks] = createSignal(false);
@@ -86,6 +87,7 @@ export const ProjectsPage: Component = () => {
 				source_channel_id: sourceChannelId() || null,
 				source_channel_identifier: sourceIdentifier().trim() || undefined,
 				target_channel_id: targetChannelId() || null,
+				target_channel_identifier: targetIdentifier().trim() || undefined,
 				pipeline_config: {
 					drop_media: dropMedia(),
 					remove_ads: removeAds(),
@@ -186,6 +188,7 @@ export const ProjectsPage: Component = () => {
 		setSourceChannelId('');
 		setSourceIdentifier('');
 		setTargetChannelId('');
+		setTargetIdentifier('');
 		setDropMedia(false);
 		setRemoveAds(true);
 		setRemoveLinks(false);
@@ -562,6 +565,16 @@ export const ProjectsPage: Component = () => {
 										)}
 									</For>
 								</select>
+								<input
+									type="text"
+									value={targetIdentifier()}
+									onInput={(e) => setTargetIdentifier(e.currentTarget.value)}
+									placeholder={
+										t('channel.projects.or_target_identifier') ||
+										'Or enter target @channel (e.g. @myoutput)'
+									}
+									class="w-full py-2 px-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-xs focus:border-[#0098EA] focus:outline-none mt-1"
+								/>
 							</div>
 
 							{/* Pipeline Toggles */}

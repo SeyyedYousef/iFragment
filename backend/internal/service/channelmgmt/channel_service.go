@@ -1293,8 +1293,21 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 	return nil
 }
 
+// IsOutputChannel checks whether a chat or username is configured as the output/target destination of a project or funnel.
+func (s *ChannelService) IsOutputChannel(ctx context.Context, chatID int64, username string) (bool, error) {
+	return s.channelRepo.IsOutputChannel(ctx, chatID, username)
+}
+
 func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int64, messageID int, postText string, replyMarkup json.RawMessage, isEdit bool) error {
 	_ = replyMarkup // Silence unused parameter warning
+
+	// HARD RULE: If the message was sent in an OUTPUT / TARGET channel, NEVER edit, forward, or alter it!
+	// The channel administrator/owner intended it to be sent exactly as is.
+	if isOut, err := s.channelRepo.IsOutputChannel(ctx, chatID, ""); err == nil && isOut {
+		slog.Info("processChannelPostAsync: chat is a designated output channel, skipping in-place edits and processing", "chat_id", chatID, "message_id", messageID)
+		return nil
+	}
+
 	// 1. Forwarding Rules Processing (Copy/forward from source channel into target channel)
 	if s.featureForwarding && !isEdit {
 		activeRules, err := s.channelRepo.GetAllActiveForwardingRules(ctx)

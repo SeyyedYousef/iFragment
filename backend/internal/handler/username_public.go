@@ -664,20 +664,8 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		// Rank so that entries carrying real market evidence lead the list, then
-		// trim: an unranked wall of ten mostly-empty rows was the main reason this
-		// section read as noise.
-		sort.SliceStable(merged, func(i, j int) bool {
-			return similarEvidenceRank(merged[i]) > similarEvidenceRank(merged[j])
-		})
-		if len(merged) > maxSimilarResults {
-			merged = merged[:maxSimilarResults]
-		}
-
-		// Resolve occupancy for the rows we are actually going to render. The
-		// concept generator has no idea whether "auto" or "bitcoin" is registered,
-		// and an unchecked default of "available" was the most visible wrong claim
-		// on the card.
+		// Resolve occupancy for candidates BEFORE trimming and ranking so that
+		// high-value semantic entries don't unfairly get rank 0 and get dropped before resolution.
 		var unresolved []string
 		for _, sim := range merged {
 			if sim.Status == "" {
@@ -694,6 +682,14 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 					merged[i].Status = st
 				}
 			}
+		}
+
+		// Rank so that entries carrying real market evidence lead the list, then trim
+		sort.SliceStable(merged, func(i, j int) bool {
+			return similarEvidenceRank(merged[i]) > similarEvidenceRank(merged[j])
+		})
+		if len(merged) > maxSimilarResults {
+			merged = merged[:maxSimilarResults]
 		}
 
 		result.Similar = merged

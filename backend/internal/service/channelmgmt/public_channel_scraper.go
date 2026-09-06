@@ -303,15 +303,16 @@ func (s *PublicChannelScraper) pollChannel(ctx context.Context, username string)
 		return
 	}
 
-	// If first run, initialize to newest message ID so we don't spam historical backlog
+	// If first run, set checkpoint to newestID - 1 so the latest current post is captured and processed
+	// while older historical backlog is not spammed
 	if lastID == 0 {
 		newestID := posts[len(posts)-1].MessageID
-		s.lastScrapedIDs.Store(username, newestID)
+		lastID = newestID - 1
+		s.lastScrapedIDs.Store(username, lastID)
 		if cache != nil && cache.Client != nil {
-			cache.Client.Set(ctx, lastIDKey, strconv.FormatInt(newestID, 10), 30*24*time.Hour)
+			cache.Client.Set(ctx, lastIDKey, strconv.FormatInt(lastID, 10), 30*24*time.Hour)
 		}
-		slog.Info("Initialized scraper checkpoint for channel", "username", username, "checkpoint_msg_id", newestID)
-		return
+		slog.Info("Initialized scraper checkpoint for channel, capturing latest post", "username", username, "checkpoint_msg_id", lastID)
 	}
 
 	var maxID = lastID
@@ -541,7 +542,7 @@ func (s *ChannelService) processScrapedPostForProject(ctx context.Context, p *re
 		}
 	}
 
-	autoPublish := true
+	autoPublish := false
 	if pCfg.AutoPublish != nil {
 		autoPublish = *pCfg.AutoPublish
 	}

@@ -4321,7 +4321,7 @@ export const dict = {
 		comp_title: '类似销售',
 		comparables_subtitle: '本次估值所依据的真实成交',
 		comparables_title: '可比成交',
-		concept_similar_title: '概念相似及品牌替代建议',
+		concept_similar_title: '相似推荐',
 		conf_high: '高置信度',
 		conf_low: '低置信度',
 		conf_medium: '中等置信度',

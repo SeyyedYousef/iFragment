@@ -32,35 +32,51 @@ type FunnelCallbackData struct {
 
 // ProcessChannelPostForFunnel intercepts posts and checks if they belong to a registered funnel.
 // Returns true if the message was handled by the funnel system (and should be stopped from normal publishing).
-func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *repository.ManagedBot, chatID int64, messageID int, text string, media []repository.FunnelMediaItem, mediaGroupID string, replyMarkup json.RawMessage, authorID *int64, authorName string) (bool, error) {
+func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *repository.ManagedBot, chatID int64, chatUsername string, messageID int, text string, media []repository.FunnelMediaItem, mediaGroupID string, replyMarkup json.RawMessage, authorID *int64, authorName string) (bool, error) {
 	// 1. Check if this is an input channel for an active funnel
-	funnel, err := s.channelRepo.GetFunnelByInputChatID(ctx, bot.ID, chatID)
+	var botID uuid.UUID
+	if bot != nil {
+		botID = bot.ID
+	}
+	funnel, err := s.channelRepo.GetFunnelByInputChatID(ctx, botID, chatID)
 	if err != nil {
 		slog.Error("Failed to check if channel is a funnel input", "error", err)
 	}
 
 	// Also check projects table (decoupled funnel architecture)
 	if funnel == nil || !funnel.IsActive {
-		projects, pErr := s.channelRepo.GetProjectsBySourceChatID(ctx, chatID)
+		projects, pErr := s.channelRepo.GetProjectsBySourceChatOrUsername(ctx, chatID, chatUsername)
 		if pErr == nil && len(projects) > 0 {
 			for _, p := range projects {
-				if isProjectSubscriptionValid(p) && p.TargetChatID != nil && *p.TargetChatID != 0 {
-					var botID uuid.UUID
-					if bot != nil {
-						botID = bot.ID
+				if isProjectSubscriptionValid(p) {
+					// Backfill source_chat_id if not set yet
+					if p.SourceChatID == nil || *p.SourceChatID == 0 {
+						_ = s.channelRepo.UpdateProjectSourceChatID(ctx, p.ID, chatID)
 					}
-					funnel = &repository.ChannelFunnel{
-						ID:           p.ID,
-						BotID:        botID,
-						ProjectName:  p.Name,
-						InputChatID:  chatID,
-						OutputChatID: *p.TargetChatID,
-						OwnerUserID:  p.OwnerUserID,
-						IsActive:     true,
-						CreatedAt:    p.CreatedAt,
-						UpdatedAt:    p.UpdatedAt,
+
+					var outChatID int64
+					if p.TargetChatID != nil && *p.TargetChatID != 0 {
+						outChatID = *p.TargetChatID
+					} else if p.TargetChannelID != nil {
+						if tc, tcErr := s.channelRepo.GetChannelByID(ctx, *p.TargetChannelID); tcErr == nil && tc != nil {
+							outChatID = tc.ChatID
+						}
 					}
-					break
+
+					if outChatID != 0 {
+						funnel = &repository.ChannelFunnel{
+							ID:           p.ID,
+							BotID:        botID,
+							ProjectName:  p.Name,
+							InputChatID:  chatID,
+							OutputChatID: outChatID,
+							OwnerUserID:  p.OwnerUserID,
+							IsActive:     true,
+							CreatedAt:    p.CreatedAt,
+							UpdatedAt:    p.UpdatedAt,
+						}
+						break
+					}
 				}
 			}
 		}
@@ -212,7 +228,7 @@ func (s *ChannelService) ProcessChannelPostForUserbot(ctx context.Context, e tg.
 		authorName := ""
 
 		// If it's a single post or album, we pass it to the existing pipeline
-		_, _ = s.ProcessChannelPostForFunnel(ctx, bot, chatID, msg.ID, text, media, mediaGroupID, replyMarkup, authorID, authorName)
+		_, _ = s.ProcessChannelPostForFunnel(ctx, bot, chatID, "", msg.ID, text, media, mediaGroupID, replyMarkup, authorID, authorName)
 	}
 
 	// 4. Trigger Forwarding Rules pipeline if there are any rules
@@ -229,13 +245,56 @@ func (s *ChannelService) ProcessChannelPostForUserbot(ctx context.Context, e tg.
 }
 
 func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, inputMsgID int64, text string, media []repository.FunnelMediaItem, mediaGroupID string, authorID *int64, authorName string) error {
-	// 1. Load Input/Output Channel settings to apply features (Project anchor)
+	// 1. Load Input/Output Channel and Project settings
 	destTitle := "Target Channel"
 	sourceChan, _ := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
 	var settings *repository.ChannelSettings
 	if sourceChan != nil {
 		destTitle = sourceChan.ChatTitle
 		settings, _ = s.channelRepo.GetChannelSettings(ctx, sourceChan.ID)
+	}
+
+	var pCfg map[string]interface{}
+	project, _ := s.channelRepo.GetProjectByID(ctx, funnel.ID)
+	if project != nil {
+		if project.Name != "" {
+			destTitle = project.Name
+		}
+		if len(project.PipelineConfig) > 0 {
+			_ = json.Unmarshal(project.PipelineConfig, &pCfg)
+		}
+	}
+
+	removeAds := false
+	removeLinks := false
+	removeHashtags := false
+	aiRewrite := false
+	dropMedia := false
+	watermark := ""
+	autoPublish := false
+
+	if pCfg != nil {
+		if val, ok := pCfg["remove_ads"].(bool); ok && val {
+			removeAds = true
+		}
+		if val, ok := pCfg["remove_links"].(bool); ok && val {
+			removeLinks = true
+		}
+		if val, ok := pCfg["remove_hashtags"].(bool); ok && val {
+			removeHashtags = true
+		}
+		if val, ok := pCfg["ai_rewrite"].(bool); ok && val {
+			aiRewrite = true
+		}
+		if val, ok := pCfg["drop_media"].(bool); ok && val {
+			dropMedia = true
+		}
+		if val, ok := pCfg["watermark"].(string); ok {
+			watermark = strings.TrimSpace(val)
+		}
+		if val, ok := pCfg["auto_publish"].(bool); ok {
+			autoPublish = val
+		}
 	}
 
 	var posting PostingSettingsSchema
@@ -245,17 +304,17 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 		_ = json.Unmarshal(settings.Posting, &posting)
 		_ = json.Unmarshal(settings.General, &general)
 		_ = json.Unmarshal(settings.Forwarding, &forwarding)
-	}
 
-	// Apply Mirror & Forward rules from Settings
-	removeAds := false
-	removeLinks := false
-	for _, rule := range forwarding.Rules {
-		if rule.RemoveAds {
-			removeAds = true
+		for _, rule := range forwarding.Rules {
+			if rule.RemoveAds {
+				removeAds = true
+			}
+			if rule.RemoveLinks {
+				removeLinks = true
+			}
 		}
-		if rule.RemoveLinks {
-			removeLinks = true
+		if posting.AiComposerEnabled {
+			aiRewrite = true
 		}
 	}
 
@@ -264,43 +323,93 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 	if removeAds {
 		processedText = strings.ReplaceAll(processedText, "#ad", "")
 		processedText = strings.ReplaceAll(processedText, "#spon", "")
+		processedText = strings.ReplaceAll(processedText, "تبلیغ", "")
 	}
 	if removeLinks {
 		processedText = removeLinksHelper(processedText)
 	}
-
-	removeHashtags := false
-	for _, rule := range forwarding.Rules {
-		if rule.RemoveAds { // Actually rules should have RemoveHashtags but we check it if it exists or use general logic
-			// Using rule.RemoveAds as a placeholder or maybe rule.RemoveHashtags doesn't exist in struct yet.
-			// Let's assume forwarding rules could be extended, but for now we skip global removal
-			// We only remove hashtags if a rule specifically says so.
-		}
-	}
 	if removeHashtags {
 		processedText = removeHashtagsHelper(processedText)
 	}
+	if dropMedia {
+		media = nil
+	}
 
-	// 3. AI Post Composer A/B Testing generation
+	// 3. AI Post Composer A/B Testing generation (gemini-3.8-flash default)
 	var aiVariations []string
-	if posting.AiComposerEnabled && posting.ApiKey != "" && len(strings.TrimSpace(processedText)) > 0 {
-		variations, err := generateAIBVariations(ctx, processedText, posting.AiProvider, posting.ApiKey, posting.AiModel, posting.SelectedSkill, posting.CustomSkillPrompt)
-		if err == nil && len(variations) > 0 {
-			aiVariations = variations
+	if aiRewrite && len(strings.TrimSpace(processedText)) > 0 {
+		var apiKey, provider, model, skill, customPrompt string
+		if pCfg != nil {
+			if p, ok := pCfg["ai_provider"].(string); ok {
+				provider = p
+			}
+			if m, ok := pCfg["ai_model"].(string); ok {
+				model = m
+			}
+			if pr, ok := pCfg["custom_prompt"].(string); ok {
+				customPrompt = pr
+			}
+		}
+		if provider == "" {
+			provider = posting.AiProvider
+		}
+		if provider == "" {
+			provider = "gemini"
+		}
+		if model == "" {
+			model = posting.AiModel
+		}
+		if model == "" {
+			model = "gemini-3.8-flash"
+		}
+		skill = posting.SelectedSkill
+		if customPrompt == "" {
+			customPrompt = posting.CustomSkillPrompt
+		}
+
+		apiKey = posting.ApiKey
+		if apiKey == "" {
+			var targetChanID *uuid.UUID
+			if sourceChan != nil {
+				targetChanID = &sourceChan.ID
+			}
+			apiKey = s.resolveChannelAPIKey(ctx, targetChanID, provider)
+		}
+
+		if apiKey != "" {
+			variations, err := generateAIBVariations(ctx, processedText, provider, apiKey, model, skill, customPrompt)
+			if err == nil && len(variations) > 0 {
+				aiVariations = variations
+			} else {
+				slog.Error("Failed to generate AI variations, falling back to single text", "error", err)
+				aiVariations = []string{processedText}
+			}
 		} else {
-			slog.Error("Failed to generate AI variations, falling back to single text", "error", err)
 			aiVariations = []string{processedText}
 		}
 	} else {
 		aiVariations = []string{processedText}
 	}
 
-	// 4. Load Predefined Inline Buttons
-	buttons, err := s.channelRepo.GetChannelButtons(ctx, sourceChan.ID)
-	if err != nil {
-		buttons = []repository.ChannelInlineButton{}
+	// Watermark & signature
+	if watermark != "" && !strings.Contains(aiVariations[0], watermark) {
+		for i := range aiVariations {
+			aiVariations[i] = aiVariations[i] + "\n\n" + watermark
+		}
+	}
+	if sourceChan != nil {
+		for i := range aiVariations {
+			aiVariations[i] = s.ApplyWatermarkAndSignature(ctx, aiVariations[i], sourceChan.ID)
+		}
 	}
 
+	// 4. Load Predefined Inline Buttons
+	var buttons []repository.ChannelInlineButton
+	if sourceChan != nil {
+		if btns, err := s.channelRepo.GetChannelButtons(ctx, sourceChan.ID); err == nil {
+			buttons = btns
+		}
+	}
 	buttonsRaw, _ := json.Marshal(buttons)
 
 	// 5. Create Draft Post in DB
@@ -321,16 +430,25 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 		draft.MediaGroupID = nil
 	}
 
-	err = s.channelRepo.SavePendingFunnelPost(ctx, &draft)
+	err := s.channelRepo.SavePendingFunnelPost(ctx, &draft)
 	if err != nil {
 		return fmt.Errorf("failed to save pending funnel draft: %w", err)
 	}
 
-	// 6. If manual owner review is NOT required (AiConfirmBeforeEdit is false or auto-publishing),
-	// publish directly to the target output channel!
-	if !posting.AiConfirmBeforeEdit {
-		token, decErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-		if decErr == nil {
+	// 6. Funnel Rule: Owner approval is REQUIRED by default!
+	// Only if autoPublish is explicitly true does it bypass owner review!
+	if autoPublish {
+		var token string
+		if bot != nil && len(bot.BotTokenEncrypted) > 0 {
+			token, _ = botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		}
+		if token == "" {
+			token = strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
+			if token == "" {
+				token = strings.TrimSpace(os.Getenv("BOT_TOKEN"))
+			}
+		}
+		if token != "" {
 			tg := telegram.NewBotAPIClient(token)
 			pubErr := s.publishFunnelPostDirectly(ctx, tg, funnel, &draft)
 			if pubErr == nil {
@@ -341,7 +459,7 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 		}
 	}
 
-	// 7. Send the Review Messages to the Bot Owner (DM)
+	// 7. ALWAYS send the Review Messages to the Bot Owner (DM in @iFragment)!
 	return s.sendFunnelReviewToOwner(ctx, bot, funnel, &draft, destTitle)
 }
 
@@ -921,12 +1039,21 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	_ = json.Unmarshal(draft.DraftButtons, &buttonsList)
 
 	activeText := draft.DraftText
+	publishClient := tg
 	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
 	slog.Info("publishFunnelPostDirectly: fetching output channel", "outputChatID", funnel.OutputChatID, "sourceChan_err", err, "sourceChan_is_nil", sourceChan == nil)
 	if err == nil && sourceChan != nil {
 		slog.Info("publishFunnelPostDirectly: applying watermark/signature", "sourceChan_id", sourceChan.ID, "text_before", activeText)
 		activeText = s.ApplyWatermarkAndSignature(ctx, activeText, sourceChan.ID)
 		slog.Info("publishFunnelPostDirectly: applied", "text_after", activeText)
+
+		if sourceChan.BotID != uuid.Nil {
+			if outBot, bErr := s.botRepo.GetBotByID(ctx, sourceChan.BotID); bErr == nil && outBot != nil {
+				if outTok, decErr := botmgmt.DecryptToken(outBot.BotTokenEncrypted); decErr == nil && outTok != "" {
+					publishClient = telegram.NewBotAPIClient(outTok)
+				}
+			}
+		}
 	}
 	var previewMarkup interface{}
 	if len(draft.MediaPayload) > 1 && len(buttonsList) > 0 {
@@ -946,7 +1073,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	var pubMsgID int64
 
 	if len(draft.MediaPayload) == 0 {
-		res, err := tg.SendMessageWithMarkup(ctx, funnel.OutputChatID, activeText, previewMarkup, nil, "HTML")
+		res, err := publishClient.SendMessageWithMarkup(ctx, funnel.OutputChatID, activeText, previewMarkup, nil, "HTML")
 		if err != nil {
 			return err
 		}
@@ -980,10 +1107,10 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 			payload["photo"] = item.FileID
 		}
 
-		rawResp, err := tg.Request(ctx, method, payload)
+		rawResp, err := publishClient.Request(ctx, method, payload)
 		if err != nil && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
 			delete(payload, "parse_mode")
-			rawResp, err = tg.Request(ctx, method, payload)
+			rawResp, err = publishClient.Request(ctx, method, payload)
 		}
 		if err != nil {
 			return err
@@ -1012,12 +1139,12 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 			"media":   mediaItemsPayload,
 		}
 
-		rawResp, err := tg.Request(ctx, "sendMediaGroup", groupPayload)
+		rawResp, err := publishClient.Request(ctx, "sendMediaGroup", groupPayload)
 		if err != nil && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
 			if len(mediaItemsPayload) > 0 {
 				delete(mediaItemsPayload[0], "parse_mode")
 			}
-			rawResp, err = tg.Request(ctx, "sendMediaGroup", groupPayload)
+			rawResp, err = publishClient.Request(ctx, "sendMediaGroup", groupPayload)
 		}
 		if err != nil {
 			return err

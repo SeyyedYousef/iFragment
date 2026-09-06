@@ -461,8 +461,19 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 		multiplier *= 1.2
 	}
 
-	// Cap maximum single multiplier
-	return math.Min(multiplier, 250.0)
+	// Cap maximum single multiplier based on character length category
+	maxCap := 120.0
+	switch {
+	case length <= 3:
+		maxCap = 650.0
+	case length == 4:
+		maxCap = 500.0
+	case length == 5:
+		maxCap = 250.0
+	default:
+		maxCap = 120.0
+	}
+	return math.Min(multiplier, maxCap)
 }
 
 // splitCamelCase splits a string into words based on CamelCase.

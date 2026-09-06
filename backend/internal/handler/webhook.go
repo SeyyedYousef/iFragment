@@ -6322,9 +6322,17 @@ func (h *WebhookHandler) handleChannelPost(ctx context.Context, bot *repository.
 			authorName = m.AuthorSignature
 		}
 
-		handled, funnelErr := h.channelService.ProcessChannelPostForFunnel(ctx, bot, m.Chat.ID, m.MessageID, text, mediaItems, m.MediaGroupID, m.ReplyMarkup, authorID, authorName)
+		handled, funnelErr := h.channelService.ProcessChannelPostForFunnel(ctx, bot, m.Chat.ID, m.Chat.Username, m.MessageID, text, mediaItems, m.MediaGroupID, m.ReplyMarkup, authorID, authorName)
 		if funnelErr == nil && handled {
 			slog.Info("Post handled by Funnel System; stopping normal pipeline execution", "chat_id", m.Chat.ID, "message_id", m.MessageID)
+			return
+		}
+
+		// HARD RULE: If this channel is a designated Output Channel for any project or funnel,
+		// NEVER edit, forward, watermark, or modify it! The channel administrator posted it intentionally as-is.
+		isOutput, outErr := h.channelService.IsOutputChannel(ctx, m.Chat.ID, m.Chat.Username)
+		if outErr == nil && isOutput {
+			slog.Info("Post is in an Output Channel; preserving admin post as-is and skipping all edits", "chat_id", m.Chat.ID, "username", m.Chat.Username, "message_id", m.MessageID)
 			return
 		}
 	}

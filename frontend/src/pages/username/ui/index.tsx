@@ -24,7 +24,6 @@ import {
 	saveReport,
 } from '@/shared/lib/report-cache.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
-import { SparklineChart } from '@/shared/ui/index.js';
 import { UnifiedPaywallGate } from '@/widgets/paywall/index.js';
 
 interface ValuationResult {
@@ -192,11 +191,11 @@ export const UsernamePage: Component = () => {
 	const [sendCount, setSendCount] = createSignal<number>(0);
 
 	const [accessGranted, setAccessGranted] = createSignal<boolean>(false);
-	const [accessMethod, setAccessMethod] = createSignal<
+	const [_accessMethod, setAccessMethod] = createSignal<
 		'free' | 'stars' | 'coins' | 'pro' | 'credit' | null
 	>(null);
-	const [isPro, setIsPro] = createSignal<boolean>(false);
-	const [dailyUsed, setDailyUsed] = createSignal<number>(0);
+	const [_isPro, setIsPro] = createSignal<boolean>(false);
+	const [_dailyUsed, setDailyUsed] = createSignal<number>(0);
 	const [copiedCert, setCopiedCert] = createSignal<boolean>(false);
 	const [_showPaymentGate, setShowPaymentGate] = createSignal<boolean>(false);
 	const [_freeQuotaUsed, setFreeQuotaUsed] = createSignal<boolean>(false);
@@ -206,8 +205,6 @@ export const UsernamePage: Component = () => {
 	const [pollingStatus, setPollingStatus] = createSignal<string>('');
 	const [paymentError, setPaymentError] = createSignal<string>('');
 	const [showMethodologyModal, setShowMethodologyModal] = createSignal<boolean>(false);
-	const [isMonitored, setIsMonitored] = createSignal<boolean>(false);
-	const [isTogglingMonitor, setIsTogglingMonitor] = createSignal<boolean>(false);
 
 	// Cached-report state: a paid report stays readable for 24h
 	const [_fromCache, setFromCache] = createSignal<boolean>(false);
@@ -355,25 +352,6 @@ export const UsernamePage: Component = () => {
 	};
 
 	const handleTouchEnd = () => setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
-
-	const [activeNavTab, setActiveNavTab] = createSignal<
-		'overview' | 'valuation' | 'linguistics' | 'ownership' | 'certificate'
-	>('overview');
-
-	const scrollToSection = (id: string) => {
-		try {
-			haptic.selection();
-		} catch {}
-		const el = document.getElementById(id);
-		if (el) {
-			el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-		}
-		if (id === 'sec-overview') setActiveNavTab('overview');
-		else if (id === 'sec-valuation') setActiveNavTab('valuation');
-		else if (id === 'sec-linguistics') setActiveNavTab('linguistics');
-		else if (id === 'sec-ownership') setActiveNavTab('ownership');
-		else if (id === 'sec-certificate') setActiveNavTab('certificate');
-	};
 
 	const getFontSize = (name: string) => {
 		const len = name.length;
@@ -568,25 +546,6 @@ export const UsernamePage: Component = () => {
 		}
 	};
 
-	const handleToggleMonitoring = async () => {
-		const u = username();
-		if (!u || isTogglingMonitor()) return;
-		setIsTogglingMonitor(true);
-		try {
-			haptic.selection();
-			const nextState = !isMonitored();
-			const res = await valuationApi.toggleMonitoring(u, nextState);
-			if (res?.success) {
-				setIsMonitored(res.is_monitored);
-				haptic.notify('success');
-			}
-		} catch (err: any) {
-			triggerAlert(err?.message || 'Failed to update alert monitor');
-		} finally {
-			setIsTogglingMonitor(false);
-		}
-	};
-
 	const handleSendToChat = async () => {
 		if (!hiddenCardRef || downloading()) return;
 		if (sendCount() >= 2) return triggerAlert(t('valuation.err_server') || 'Send limit reached.');
@@ -692,9 +651,6 @@ export const UsernamePage: Component = () => {
 				if (res?.free_quota_used) {
 					localStorage.setItem('val_free_used', 'true');
 					cloudStorage.setItem('val_free_used', 'true');
-				}
-				if (res?.is_monitored !== undefined) {
-					setIsMonitored(res.is_monitored);
 				}
 				if (res?.has_access) {
 					const method = res.method || (res.is_pro ? 'pro' : 'stars');
@@ -820,133 +776,6 @@ export const UsernamePage: Component = () => {
 					/>
 
 					<div class="w-full max-w-[420px] flex flex-col items-center gap-4 relative z-10">
-						{/* ═══════ UNLOCKED ACCESS BADGE ═══════ */}
-						<Show when={accessGranted() && accessMethod()}>
-							<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[20px] p-3.5 flex items-center justify-between shadow-sm relative z-10">
-								<div class="flex items-center gap-3.5">
-									<div
-										class={`w-11 h-11 rounded-[14px] flex items-center justify-center text-[22px] shrink-0 border shadow-inner ${
-											accessMethod() === 'pro' || accessMethod() === 'stars'
-												? 'bg-amber-400/10 text-amber-400 border-amber-400/30'
-												: accessMethod() === 'coins'
-													? 'bg-[#0098EA]/10 text-[#0098EA] border-[#0098EA]/30'
-													: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30'
-										}`}
-									>
-										{accessMethod() === 'pro'
-											? '👑'
-											: accessMethod() === 'stars'
-												? '⭐'
-												: accessMethod() === 'coins'
-													? '🪙'
-													: '🎁'}
-									</div>
-									<div class="flex flex-col text-start">
-										<span class="text-[9px] text-white/40 uppercase font-black tracking-widest">
-											{t('valuation.payment_method_badge') || 'ACCESS PROTOCOL'}
-										</span>
-										<span class="text-[13px] font-black text-white">
-											{accessMethod() === 'pro'
-												? 'PRO ANALYST PASS'
-												: accessMethod() === 'stars'
-													? t('valuation.method_stars')
-													: accessMethod() === 'coins'
-														? t('valuation.method_coins')
-														: t('valuation.method_free')}
-										</span>
-									</div>
-								</div>
-								<div class="flex flex-col items-end gap-1">
-									<span class="text-[10px] font-mono px-3 py-1 rounded-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-widest shadow-sm flex items-center gap-1">
-										<div class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_#34d399]" />
-										{t('valuation.verified')}
-									</span>
-									<Show when={isPro()}>
-										<span class="text-[9px] font-mono text-white/40 font-bold">
-											{t('valuation.daily_quota_counter', { used: dailyUsed() }) ||
-												`Today: ${dailyUsed()}/3 used`}
-										</span>
-									</Show>
-								</div>
-							</div>
-						</Show>
-
-						{/* ═══════ STICKY QUICK-NAV SEGMENTED BAR (WHEN UNLOCKED) ═══════ */}
-						<Show when={accessGranted() && data()}>
-							<div class="sticky top-2 z-40 w-full max-w-[420px] bg-[#0c0e14]/90 backdrop-blur-xl border border-white/10 p-1 rounded-[18px] shadow-2xl flex items-center justify-between gap-1 transition-all my-1">
-								<button
-									type="button"
-									onClick={() => scrollToSection('sec-overview')}
-									class={`flex-1 py-1.5 px-1 text-[11px] font-black rounded-[14px] transition-all flex flex-col items-center gap-0.5 ${
-										activeNavTab() === 'overview'
-											? 'bg-[#0098EA] text-white shadow-[0_0_15px_rgba(0,152,234,0.4)]'
-											: 'text-white/45 hover:text-white/80 active:scale-95'
-									}`}
-								>
-									<span class="text-[14px]">💎</span>
-									<span class="truncate max-w-full text-[10px]">
-										{t('valuation.nav_overview') || 'Overview'}
-									</span>
-								</button>
-								<button
-									type="button"
-									onClick={() => scrollToSection('sec-valuation')}
-									class={`flex-1 py-1.5 px-1 text-[11px] font-black rounded-[14px] transition-all flex flex-col items-center gap-0.5 ${
-										activeNavTab() === 'valuation'
-											? 'bg-[#0098EA] text-white shadow-[0_0_15px_rgba(0,152,234,0.4)]'
-											: 'text-white/45 hover:text-white/80 active:scale-95'
-									}`}
-								>
-									<span class="text-[14px]">📊</span>
-									<span class="truncate max-w-full text-[10px]">
-										{t('valuation.nav_valuation') || 'Value'}
-									</span>
-								</button>
-								<button
-									type="button"
-									onClick={() => scrollToSection('sec-linguistics')}
-									class={`flex-1 py-1.5 px-1 text-[11px] font-black rounded-[14px] transition-all flex flex-col items-center gap-0.5 ${
-										activeNavTab() === 'linguistics'
-											? 'bg-[#0098EA] text-white shadow-[0_0_15px_rgba(0,152,234,0.4)]'
-											: 'text-white/45 hover:text-white/80 active:scale-95'
-									}`}
-								>
-									<span class="text-[14px]">🧬</span>
-									<span class="truncate max-w-full text-[10px]">
-										{t('valuation.nav_linguistics') || 'DNA'}
-									</span>
-								</button>
-								<button
-									type="button"
-									onClick={() => scrollToSection('sec-ownership')}
-									class={`flex-1 py-1.5 px-1 text-[11px] font-black rounded-[14px] transition-all flex flex-col items-center gap-0.5 ${
-										activeNavTab() === 'ownership'
-											? 'bg-[#0098EA] text-white shadow-[0_0_15px_rgba(0,152,234,0.4)]'
-											: 'text-white/45 hover:text-white/80 active:scale-95'
-									}`}
-								>
-									<span class="text-[14px]">🐋</span>
-									<span class="truncate max-w-full text-[10px]">
-										{t('valuation.nav_ownership') || 'Whale'}
-									</span>
-								</button>
-								<button
-									type="button"
-									onClick={() => scrollToSection('sec-certificate')}
-									class={`flex-1 py-1.5 px-1 text-[11px] font-black rounded-[14px] transition-all flex flex-col items-center gap-0.5 ${
-										activeNavTab() === 'certificate'
-											? 'bg-[#0098EA] text-white shadow-[0_0_15px_rgba(0,152,234,0.4)]'
-											: 'text-white/45 hover:text-white/80 active:scale-95'
-									}`}
-								>
-									<span class="text-[14px]">📜</span>
-									<span class="truncate max-w-full text-[10px]">
-										{t('valuation.nav_certificate') || 'Cert'}
-									</span>
-								</button>
-							</div>
-						</Show>
-
 						{/* ═══════ HERO CARD: UNLOCKED (3D GYRO) vs MINIMALIST PAYWALL ═══════ */}
 						<Show
 							when={accessGranted() && data()}
@@ -1298,58 +1127,6 @@ export const UsernamePage: Component = () => {
 											: t('valuation.certificate_copy_link') || 'COPY CERTIFICATE LINK'}
 									</span>
 								</button>
-							</div>
-
-							{/* 🔔 PHASE 4: TARGETED USERNAME MONITOR TOGGLE */}
-							<div class="w-full bg-[#12141C]/80 border border-white/10 rounded-[24px] p-4 flex items-center justify-between gap-3 shadow-sm">
-								<div class="flex items-center gap-3 min-w-0">
-									<div
-										class={`w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0 border ${
-											isMonitored()
-												? 'bg-amber-400/15 border-amber-400/40 text-amber-400'
-												: 'bg-white/5 border-white/10 text-white/40'
-										}`}
-									>
-										<span class="material-symbols-outlined text-[20px]">
-											{isMonitored() ? 'notifications_active' : 'notifications'}
-										</span>
-									</div>
-									<div class="flex flex-col text-start min-w-0">
-										<span class="text-white font-black text-[13px] truncate">
-											{t('valuation.monitor_username_toggle') || 'Monitor this Username'}
-										</span>
-										<span class="text-white/40 text-[10px] font-medium truncate">
-											{t('valuation.monitor_username_desc') ||
-												'Instant alerts on auction start, sale, or price swings'}
-										</span>
-									</div>
-								</div>
-
-								<button
-									type="button"
-									onClick={handleToggleMonitoring}
-									disabled={isTogglingMonitor()}
-									class={`px-3.5 py-1.5 rounded-[12px] font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 shrink-0 border ${
-										isMonitored()
-											? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.3)]'
-											: 'bg-white/5 text-white/70 hover:text-white border-white/10'
-									}`}
-								>
-									{isMonitored() ? 'ACTIVE' : 'MONITOR'}
-								</button>
-							</div>
-
-							{/* 📈 PHASE 3: SPARKLINE PRICE TREND CHART */}
-							<div
-								id="sec-valuation"
-								class="scroll-mt-16 w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm"
-							>
-								<SparklineChart
-									data={data()?.price_trend}
-									title={t('valuation.price_trend_title') || 'HISTORICAL VALUATION TREND'}
-									unit="TON"
-									color="#0098EA"
-								/>
 							</div>
 
 							{/* 🏢 PHASE 3: RENT YIELD CARD (GLOBAL UNIQUE FEATURE) */}
@@ -2011,7 +1788,7 @@ export const UsernamePage: Component = () => {
 										<div class="flex items-center gap-2.5">
 											<span class="material-symbols-outlined text-[22px] text-[#0098EA]">hub</span>
 											<span class="text-[13px] font-black uppercase tracking-widest text-white">
-												{t('valuation.concept_similar_title') || 'CONCEPT SIMILAR USERNAMES'}
+												{t('valuation.concept_similar_title') || 'موارد مشابه'}
 											</span>
 										</div>
 										<span class="text-[10px] font-black text-[#0098EA] bg-[#0098EA]/10 border border-[#0098EA]/30 px-2.5 py-1 rounded-[8px] shadow-sm">

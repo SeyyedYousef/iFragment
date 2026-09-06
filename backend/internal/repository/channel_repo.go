@@ -2100,9 +2100,16 @@ func (r *ChannelRepo) GetProjectByID(ctx context.Context, id uuid.UUID) (*Projec
 }
 
 func (r *ChannelRepo) GetProjectsBySourceChatID(ctx context.Context, sourceChatID int64) ([]*Project, error) {
+	return r.GetProjectsBySourceChatOrUsername(ctx, sourceChatID, "")
+}
+
+func (r *ChannelRepo) GetProjectsBySourceChatOrUsername(ctx context.Context, sourceChatID int64, username string) ([]*Project, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
+
+	cleanUser := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(username), "@"))
+
 	query := `SELECT 
 		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
 		p.source_channel_id, p.target_channel_id, 
@@ -2116,9 +2123,15 @@ func (r *ChannelRepo) GetProjectsBySourceChatID(ctx context.Context, sourceChatI
 	FROM projects p
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
-	WHERE (p.source_chat_id = $1 OR sc.chat_id = $1) AND (p.status != 'deleted')`
+	WHERE (
+		($1 != 0 AND (p.source_chat_id = $1 OR sc.chat_id = $1))
+		OR ($2 != '' AND (
+			LOWER(REPLACE(COALESCE(p.pipeline_config->>'source_channel_identifier', ''), '@', '')) = $2
+			OR LOWER(REPLACE(COALESCE(sc.chat_title, ''), '@', '')) = $2
+		))
+	) AND (p.status != 'deleted')`
 
-	rows, err := r.db.Pool.Query(ctx, query, sourceChatID)
+	rows, err := r.db.Pool.Query(ctx, query, sourceChatID, cleanUser)
 	if err != nil {
 		return nil, err
 	}
@@ -2137,6 +2150,45 @@ func (r *ChannelRepo) GetProjectsBySourceChatID(ctx context.Context, sourceChatI
 		list = append(list, &p)
 	}
 	return list, nil
+}
+
+func (r *ChannelRepo) UpdateProjectSourceChatID(ctx context.Context, projectID uuid.UUID, sourceChatID int64) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	query := `UPDATE projects SET source_chat_id = $1, updated_at = now() WHERE id = $2 AND (source_chat_id IS NULL OR source_chat_id = 0)`
+	_, err := r.db.Pool.Exec(ctx, query, sourceChatID, projectID)
+	return err
+}
+
+func (r *ChannelRepo) IsOutputChannel(ctx context.Context, chatID int64, username string) (bool, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return false, fmt.Errorf("database pool is not initialized")
+	}
+
+	cleanUser := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(username), "@"))
+
+	query := `SELECT EXISTS (
+		SELECT 1 FROM projects p
+		LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
+		WHERE (
+			($1 != 0 AND (p.target_chat_id = $1 OR tc.chat_id = $1))
+			OR ($2 != '' AND (
+				LOWER(REPLACE(COALESCE(p.pipeline_config->>'target_channel_identifier', ''), '@', '')) = $2
+				OR LOWER(REPLACE(COALESCE(tc.chat_title, ''), '@', '')) = $2
+			))
+		) AND p.status != 'deleted'
+	) OR EXISTS (
+		SELECT 1 FROM channel_funnels cf
+		WHERE $1 != 0 AND cf.output_chat_id = $1 AND cf.is_active = true
+	)`
+
+	var exists bool
+	err := r.db.Pool.QueryRow(ctx, query, chatID, cleanUser).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 func (r *ChannelRepo) GetAllActiveProjects(ctx context.Context) ([]*Project, error) {

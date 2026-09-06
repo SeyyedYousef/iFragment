@@ -166,9 +166,11 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 			continue
 		}
 		if isAI {
-			// Keep AI picks on top while preserving their relative ordering.
-			score = math.Max(score, 0.90)
-			reason = "Semantic AI alternative"
+			// Keep semantic/AI picks on top while preserving their relative ordering.
+			score = math.Max(score, 0.92)
+			if reason == "Close spelling match" || reason == "" {
+				reason = "Semantic Concept Peer"
+			}
 		}
 
 		results = append(results, SimilarUsername{
@@ -323,7 +325,7 @@ type candidatePool struct {
 func getCandidatePool(ctx context.Context, db *repository.Database, username string) candidatePool {
 	pool := candidatePool{
 		names: make([]string, 0, 32),
-		ai:    make(map[string]bool, 10),
+		ai:    make(map[string]bool, 16),
 	}
 	seen := map[string]bool{username: true}
 
@@ -339,52 +341,36 @@ func getCandidatePool(ctx context.Context, db *repository.Database, username str
 		pool.names = append(pool.names, name)
 	}
 
-	// 1. Semantic alternatives from the LLM (may be empty when the key is missing
-	//    or the call times out — in that case we simply fall back to morphology).
+	// 1. Curated Semantic Synonyms & Peers from Thesaurus (Primary high-value source)
+	for _, item := range avm.GetSemanticSynonyms(username) {
+		add(item.Username, true)
+	}
+
+	// 2. Fresh AI suggestions from Gemini / Groq (if available)
 	for _, suggestion := range avm.GetAISuggestions(ctx, db, username) {
 		add(suggestion, true)
 	}
 
-	// 2. Morphological variants derived from the queried username itself. Unlike a
-	//    static keyword list these are always genuinely related to the input.
-	appendSafe := func(base, ext string) string {
-		if len(base)+len(ext) <= 32 {
-			return base + ext
-		}
-		return base[:32-len(ext)] + ext
-	}
-
-	for _, suffix := range []string{"app", "bot", "pro", "hq", "vip", "s", "x", "ai", "official"} {
-		add(appendSafe(username, suffix), false)
-	}
-	for _, prefix := range []string{"the", "my", "get", "go", "real", "its"} {
-		cand := prefix + username
-		if len(cand) > 32 {
-			cand = prefix + username[:32-len(prefix)]
-		}
-		add(cand, false)
-	}
-
-	// 3. Shorter root forms — the most valuable neighbours of a long handle are
-	//    usually its truncations, not its extensions.
-	if len(username) > 4 {
-		trunc := username[:len(username)-1]
-		add(trunc, false)
-		add(appendSafe(trunc, "x"), false)
-		add(appendSafe(trunc, "pro"), false)
-	}
-	if len(username) > 5 {
-		add(username[:len(username)-2], false)
-	}
-	// Singular <-> plural pivot
+	// 3. Natural linguistic inflection (only strip trailing 's' to find singular roots like 'cars' -> 'car')
 	if strings.HasSuffix(username, "s") && len(username) > 4 {
 		add(strings.TrimSuffix(username, "s"), false)
+	}
+
+	// 4. Shorter root forms ONLY for long words (> 6 chars) and ONLY if pool is still small
+	if len(pool.names) < 4 && len(username) > 6 {
+		trunc := username[:len(username)-1]
+		add(trunc, false)
 	}
 
 	return pool
 }
 
 func similarityScore(base, candidate string) (float64, string) {
+	// 1. Exact semantic synonym or concept benchmark match from Thesaurus
+	if isSyn, synReason := avm.IsSemanticSynonym(base, candidate); isSyn {
+		return 0.96, synReason
+	}
+
 	baseRunes := []rune(base)
 	candidateRunes := []rune(candidate)
 	maxLen := math.Max(float64(len(baseRunes)), float64(len(candidateRunes)))
@@ -395,8 +381,6 @@ func similarityScore(base, candidate string) (float64, string) {
 	distanceScore := 1 - float64(levenshtein(baseRunes, candidateRunes))/maxLen
 	prefixScore := commonPrefixScore(baseRunes, candidateRunes)
 	keywordScore := 0.0
-	// Reasons are rendered verbatim in the valuation card, so they are written as
-	// human-readable labels rather than internal snake_case codes.
 	reason := "Close spelling match"
 
 	switch {
@@ -415,9 +399,6 @@ func similarityScore(base, candidate string) (float64, string) {
 	case strings.HasSuffix(candidate, base):
 		keywordScore = 0.20
 		reason = "Same root, prefixed handle"
-	case strings.HasSuffix(candidate, "ai") || strings.HasSuffix(candidate, "bot") || strings.HasSuffix(candidate, "pro"):
-		keywordScore = 0.25
-		reason = "Premium suffix pattern"
 	case strings.Contains(candidate, base) || strings.Contains(base, candidate):
 		keywordScore = 0.2
 		reason = "Shares the same root"

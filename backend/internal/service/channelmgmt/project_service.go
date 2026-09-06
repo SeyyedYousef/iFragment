@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,17 +36,21 @@ func NewProjectService(
 }
 
 type CreateProjectInput struct {
-	Name            string          `json:"name"`
-	SourceChannelID *uuid.UUID      `json:"source_channel_id,omitempty"`
-	TargetChannelID *uuid.UUID      `json:"target_channel_id,omitempty"`
-	PipelineConfig  json.RawMessage `json:"pipeline_config,omitempty"`
+	Name                    string          `json:"name"`
+	SourceChannelID         *uuid.UUID      `json:"source_channel_id,omitempty"`
+	SourceChannelIdentifier string          `json:"source_channel_identifier,omitempty"`
+	TargetChannelID         *uuid.UUID      `json:"target_channel_id,omitempty"`
+	TargetChannelIdentifier string          `json:"target_channel_identifier,omitempty"`
+	PipelineConfig          json.RawMessage `json:"pipeline_config,omitempty"`
 }
 
 type UpdateProjectInput struct {
-	Name            string          `json:"name"`
-	SourceChannelID *uuid.UUID      `json:"source_channel_id,omitempty"`
-	TargetChannelID *uuid.UUID      `json:"target_channel_id,omitempty"`
-	PipelineConfig  json.RawMessage `json:"pipeline_config,omitempty"`
+	Name                    string          `json:"name"`
+	SourceChannelID         *uuid.UUID      `json:"source_channel_id,omitempty"`
+	SourceChannelIdentifier string          `json:"source_channel_identifier,omitempty"`
+	TargetChannelID         *uuid.UUID      `json:"target_channel_id,omitempty"`
+	TargetChannelIdentifier string          `json:"target_channel_identifier,omitempty"`
+	PipelineConfig          json.RawMessage `json:"pipeline_config,omitempty"`
 }
 
 // CreateProject creates a new decoupled project with 72h trial or active subscription
@@ -92,10 +97,51 @@ func (s *ProjectService) CreateProject(ctx context.Context, ownerUserID int64, i
 		trialEndsAt = &t
 	}
 
-	config := input.PipelineConfig
-	if len(config) == 0 {
-		config = json.RawMessage("{}")
+	var cfgMap map[string]interface{}
+	if len(input.PipelineConfig) > 0 {
+		_ = json.Unmarshal(input.PipelineConfig, &cfgMap)
 	}
+	if cfgMap == nil {
+		cfgMap = make(map[string]interface{})
+	}
+
+	cleanSrcIdent := CleanChannelUsername(input.SourceChannelIdentifier)
+	if cleanSrcIdent == "" {
+		if src, ok := cfgMap["source_channel_identifier"].(string); ok {
+			cleanSrcIdent = CleanChannelUsername(src)
+		}
+	}
+	if cleanSrcIdent != "" {
+		cfgMap["source_channel_identifier"] = cleanSrcIdent
+		if sourceChatID == nil {
+			if parsedID, err := strconv.ParseInt(cleanSrcIdent, 10, 64); err == nil {
+				sourceChatID = &parsedID
+			}
+		}
+	}
+
+	cleanTgtIdent := CleanChannelUsername(input.TargetChannelIdentifier)
+	if cleanTgtIdent == "" {
+		if tgt, ok := cfgMap["target_channel_identifier"].(string); ok {
+			cleanTgtIdent = CleanChannelUsername(tgt)
+		}
+	}
+	if cleanTgtIdent != "" {
+		cfgMap["target_channel_identifier"] = cleanTgtIdent
+		if targetChatID == nil {
+			if parsedID, err := strconv.ParseInt(cleanTgtIdent, 10, 64); err == nil {
+				targetChatID = &parsedID
+			}
+		}
+	}
+
+	// Funnel architecture: auto_publish is false by default so post goes to bot for confirmation!
+	if _, exists := cfgMap["auto_publish"]; !exists {
+		cfgMap["auto_publish"] = false
+	}
+
+	configBytes, _ := json.Marshal(cfgMap)
+	config := json.RawMessage(configBytes)
 
 	p := &repository.Project{
 		OwnerUserID:             ownerUserID,
@@ -191,9 +237,45 @@ func (s *ProjectService) UpdateProjectChannels(ctx context.Context, ownerUserID 
 		}
 	}
 
-	if len(input.PipelineConfig) > 0 {
-		p.PipelineConfig = input.PipelineConfig
+	var cfgMap map[string]interface{}
+	if len(p.PipelineConfig) > 0 {
+		_ = json.Unmarshal(p.PipelineConfig, &cfgMap)
 	}
+	if cfgMap == nil {
+		cfgMap = make(map[string]interface{})
+	}
+
+	if len(input.PipelineConfig) > 0 {
+		var inputMap map[string]interface{}
+		if err := json.Unmarshal(input.PipelineConfig, &inputMap); err == nil {
+			for k, v := range inputMap {
+				cfgMap[k] = v
+			}
+		}
+	}
+
+	if input.SourceChannelIdentifier != "" {
+		cleanSrc := CleanChannelUsername(input.SourceChannelIdentifier)
+		cfgMap["source_channel_identifier"] = cleanSrc
+		if p.SourceChatID == nil {
+			if parsedID, err := strconv.ParseInt(cleanSrc, 10, 64); err == nil {
+				p.SourceChatID = &parsedID
+			}
+		}
+	}
+
+	if input.TargetChannelIdentifier != "" {
+		cleanTgt := CleanChannelUsername(input.TargetChannelIdentifier)
+		cfgMap["target_channel_identifier"] = cleanTgt
+		if p.TargetChatID == nil {
+			if parsedID, err := strconv.ParseInt(cleanTgt, 10, 64); err == nil {
+				p.TargetChatID = &parsedID
+			}
+		}
+	}
+
+	configBytes, _ := json.Marshal(cfgMap)
+	p.PipelineConfig = json.RawMessage(configBytes)
 
 	if err := s.channelRepo.UpdateProject(ctx, p); err != nil {
 		return nil, fmt.Errorf("failed to update project: %w", err)

@@ -133,8 +133,8 @@ func TestAVMv7_GoldenHandles(t *testing.T) {
 		{"vip", 5000, 500000, false, false, false},
 
 		// English Dictionary
-		{"wallet", 50, 500000, false, false, false},
-		{"silver", 50, 100000, false, false, false},
+		{"wallet", 500000, 2000000, false, false, false},
+		{"silver", 100000, 500000, false, false, false},
 		{"cloud", 50, 100000, false, false, false},
 		{"prime", 50, 100000, false, false, false},
 		{"dragon", 50, 100000, false, false, false},

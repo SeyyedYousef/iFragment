@@ -4417,7 +4417,7 @@ export const dict = {
 		comp_title: 'Сравнения',
 		comparables_subtitle: 'Реальные сделки, на которых построена оценка',
 		comparables_title: 'Сопоставимые продажи',
-		concept_similar_title: 'Концептуально похожие и аналоги брендов',
+		concept_similar_title: 'Похожие варианты',
 		conf_high: 'ВЫСОКАЯ УВЕРЕННОСТЬ',
 		conf_low: 'НИЗКАЯ УВЕРЕННОСТЬ',
 		conf_medium: 'СРЕДНЯЯ УВЕРЕННОСТЬ',
