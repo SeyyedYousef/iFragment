@@ -21,14 +21,24 @@ func RespondError(w http.ResponseWriter, r *http.Request, code int, publicMsg st
 func RespondErrorCode(w http.ResponseWriter, r *http.Request, code int, publicMsg string, errCode string, internalErr error) {
 	reqID := r.Header.Get("X-Request-ID")
 
-	// Structured logging for the internal error
-	slog.Error("handler error",
-		"request_id", reqID,
-		"path", r.URL.Path,
-		"code", code,
-		"err_code", errCode,
-		"err", internalErr,
-	)
+	// Structured logging for the internal error: 4xx (client errors) as Warn, 5xx as Error
+	if code >= 500 {
+		slog.Error("handler error",
+			"request_id", reqID,
+			"path", r.URL.Path,
+			"code", code,
+			"err_code", errCode,
+			"err", internalErr,
+		)
+	} else {
+		slog.Warn("handler client error",
+			"request_id", reqID,
+			"path", r.URL.Path,
+			"code", code,
+			"err_code", errCode,
+			"err", internalErr,
+		)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)

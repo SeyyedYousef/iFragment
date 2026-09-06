@@ -477,12 +477,12 @@ export const ManagedChannelsPage: Component = () => {
 						<div class="flex items-center justify-between mb-1 px-1 border-b border-white/5 pb-2">
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">hub</span>
-								<h2 class="text-[12px] font-black text-white/50 uppercase tracking-widest">
-									{t('managedChannels.yourProjects') || 'Your Projects'}
+								<h2 class="text-[13px] font-black text-white/70 uppercase tracking-wider">
+									{t('managedChannels.yourProjects') || 'پروژه‌های فعال شما'}
 								</h2>
 							</div>
-							<span class="text-[11px] font-black text-[#3390ec] bg-[#3390ec]/10 px-2 py-0.5 rounded-[6px] border border-[#3390ec]/20">
-								{projects()!.length} {t('managedChannels.projectsCountSuffix') || 'Projects'}
+							<span class="text-[11px] font-black text-[#3390ec] bg-[#3390ec]/10 px-2.5 py-0.5 rounded-full border border-[#3390ec]/20">
+								{projects()!.length} {t('managedChannels.projectsCountSuffix') || 'پروژه'}
 							</span>
 						</div>
 
@@ -497,164 +497,152 @@ export const ManagedChannelsPage: Component = () => {
 
 								return (
 									<Motion.div
-										initial={{ opacity: 0, y: 10 }}
+										initial={{ opacity: 0, y: 12 }}
 										animate={{ opacity: 1, y: 0 }}
 										transition={{ delay: i() * 0.05 }}
-										class="bg-[#12141C]/90 backdrop-blur-xl rounded-[26px] p-5 border border-white/10 hover:border-white/20 flex flex-col gap-4 shadow-lg transition-all relative overflow-hidden group"
+										class="bg-gradient-to-b from-[#141722]/95 to-[#0d0f17]/95 backdrop-blur-2xl rounded-[28px] p-5 border border-white/10 hover:border-[#3390ec]/30 flex flex-col gap-4 shadow-[0_12px_40px_rgba(0,0,0,0.5)] transition-all relative overflow-hidden group"
 									>
-										{/* Ambient Card Glow */}
-										<div class="absolute -right-8 -top-8 w-32 h-32 bg-[#3390ec]/10 blur-2xl rounded-full pointer-events-none" />
+										{/* Ambient Glow */}
+										<div class="absolute -right-10 -top-10 w-36 h-36 bg-[#3390ec]/10 blur-3xl rounded-full pointer-events-none" />
 
-										{/* Top Row: Project Info & Status */}
-										<div class="flex items-center justify-between relative z-10">
-											<div class="flex items-center gap-3.5 overflow-hidden">
-												<div class="w-12 h-12 rounded-[16px] bg-gradient-to-br from-[#3390ec]/25 to-[#3390ec]/5 border border-[#3390ec]/40 flex items-center justify-center text-[#3390ec] shadow-inner shrink-0 group-hover:scale-105 transition-transform">
+										{/* ── Top Row: Project Info & Badges ── */}
+										<div class="flex items-start justify-between gap-3 relative z-10">
+											<div class="flex items-center gap-3 min-w-0">
+												<div class="w-12 h-12 rounded-[16px] bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5 border border-[#3390ec]/30 flex items-center justify-center text-[#3390ec] shadow-inner shrink-0">
 													<span class="material-symbols-outlined text-[24px]">rocket_launch</span>
 												</div>
-												<div class="flex flex-col overflow-hidden gap-0.5">
-													<h3 class="text-white font-black text-[16px] truncate tracking-tight">
+												<div class="flex flex-col min-w-0">
+													<h3 class="text-white font-black text-[16px] leading-snug truncate tracking-tight">
 														{project.name}
 													</h3>
-													<span class="text-[11px] font-bold text-white/40 tracking-wider">
-														{t('managedChannels.projectId') || 'Project ID'}:{' '}
-														{project.id.slice(0, 8)}
-													</span>
+													<div class="flex items-center gap-1.5 text-[11px] font-mono text-white/40">
+														<span>{t('managedChannels.projectId') || 'شناسه'}:</span>
+														<span class="text-white/60 font-semibold">{project.id.slice(0, 8)}</span>
+													</div>
 												</div>
 											</div>
 
-											<div class="flex flex-col items-end shrink-0 gap-1">
+											{/* Status Badges */}
+											<div class="flex flex-col items-end shrink-0 gap-1.5">
 												<span
-													class={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-[8px] border shadow-sm flex items-center gap-1 ${
+													class={`text-[11px] font-black px-3 py-1 rounded-full border shadow-sm flex items-center gap-1.5 ${
 														isPaidActive
-															? 'text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10'
+															? 'text-[#10b981] border-[#10b981]/30 bg-[#10b981]/15'
 															: isTrialActive
-																? 'text-amber-400 border-amber-400/30 bg-amber-400/10'
-																: 'text-[#ff4a4a] border-[#ff4a4a]/30 bg-[#ff4a4a]/10'
+																? 'text-amber-400 border-amber-400/30 bg-amber-400/15'
+																: 'text-[#ff4a4a] border-[#ff4a4a]/30 bg-[#ff4a4a]/15'
 													}`}
 												>
-													{isPaidActive
-														? '⭐ ' + (t('managedChannels.activeStatus') || 'PRO (Active)')
-														: isTrialActive
-															? '🎯 ' + (t('managedChannels.trialBadge72h') || 'TRIAL (72h)')
-															: '⚠️ ' + (t('managedChannels.expiredStatus') || 'EXPIRED')}
+													<span class="w-1.5 h-1.5 rounded-full animate-pulse bg-current" />
+													<span>
+														{isPaidActive
+															? 'نسخه پرو'
+															: isTrialActive
+																? 'آزمایشی (۷۲ ساعته)'
+																: 'منقضی شده'}
+													</span>
 												</span>
 												<Show when={endDateStr}>
-													<span class="text-[10px] text-white/70 font-bold font-mono whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-[5px] border border-white/10 flex items-center gap-1">
-														<span class="material-symbols-outlined text-[12px] text-amber-400">schedule</span>
-														{formatTimeRemaining(endDateStr)}
-													</span>
+													<div class="flex items-center gap-1 text-[10px] text-white/70 font-mono bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">
+														<span class="material-symbols-outlined text-[13px] text-amber-400">schedule</span>
+														<span>{formatTimeRemaining(endDateStr)}</span>
+													</div>
 												</Show>
 											</div>
 										</div>
 
-										{/* Middle Row: Visual Source ➔ Target Flow Card */}
-										<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex items-center justify-between gap-2.5 relative z-10 shadow-inner">
+										{/* ── Middle Row: Visual Input (Source) ➔ Output (Target) Flow ── */}
+										<div class="bg-[#090a0f]/90 border border-white/5 rounded-[22px] p-3.5 flex items-center justify-between gap-2.5 relative z-10 shadow-inner">
 											{/* Source Channel Box */}
-											<div class="flex-1 flex flex-col gap-1 min-w-0 bg-white/[0.02] p-2.5 rounded-[14px] border border-white/5">
-												<div class="flex items-center gap-1.5">
-													<span class="w-2 h-2 rounded-full bg-[#3390ec]" />
-													<span class="text-[10px] font-bold text-[#3390ec] uppercase tracking-wider">
-														{t('managedChannels.sourceBadge') || 'Input (Source)'}
+											<div class="flex-1 flex flex-col gap-1 min-w-0 bg-white/[0.03] p-3 rounded-[16px] border border-[#3390ec]/20 hover:border-[#3390ec]/40 transition-colors">
+												<div class="flex items-center justify-between">
+													<span class="text-[10px] font-black text-[#3390ec] uppercase tracking-wider flex items-center gap-1">
+														<span class="w-2 h-2 rounded-full bg-[#3390ec]" />
+														<span>ورودی (SOURCE)</span>
 													</span>
 												</div>
-												<span class="text-[13px] font-black text-white truncate">
-													{project.source_title ||
-														t('managedChannels.defaultSourceTitle') ||
-														'Source Channel'}
+												<span class="text-[13px] font-black text-white truncate mt-0.5">
+													{project.source_title || 'کانال ورودی'}
 												</span>
-												<span class="text-[10px] text-white/40 font-mono truncate" dir="ltr">
+												<span class="text-[10px] text-white/50 font-mono truncate" dir="ltr">
 													{project.source_username
 														? `@${project.source_username}`
 														: project.source_chat_id
 															? `ID: ${project.source_chat_id}`
-															: t('managedChannels.connected') || 'Connected'}
+															: 'متصل'}
 												</span>
 											</div>
 
-											{/* Flow Arrow */}
-											<div class="flex flex-col items-center justify-center shrink-0 px-1">
-												<div class="w-8 h-8 rounded-full bg-[#3390ec]/15 border border-[#3390ec]/30 flex items-center justify-center text-[#3390ec] shadow-sm">
-													<span class="material-symbols-outlined text-[18px] rtl:-scale-x-100">
+											{/* Flow Arrow Indicator */}
+											<div class="flex flex-col items-center justify-center shrink-0">
+												<div class="w-9 h-9 rounded-full bg-[#3390ec]/20 border border-[#3390ec]/40 flex items-center justify-center text-[#3390ec] shadow-sm">
+													<span class="material-symbols-outlined text-[20px] rtl:-scale-x-100">
 														arrow_forward
 													</span>
 												</div>
 											</div>
 
 											{/* Target Channel Box */}
-											<div class="flex-1 flex flex-col gap-1 min-w-0 bg-white/[0.02] p-2.5 rounded-[14px] border border-white/5">
-												<div class="flex items-center gap-1.5">
-													<span class="w-2 h-2 rounded-full bg-[#10b981]" />
-													<span class="text-[10px] font-bold text-[#10b981] uppercase tracking-wider">
-														{t('managedChannels.targetBadge') || 'Output (Target)'}
+											<div class="flex-1 flex flex-col gap-1 min-w-0 bg-white/[0.03] p-3 rounded-[16px] border border-emerald-500/20 hover:border-emerald-500/40 transition-colors">
+												<div class="flex items-center justify-between">
+													<span class="text-[10px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+														<span class="w-2 h-2 rounded-full bg-emerald-400" />
+														<span>خروجی (TARGET)</span>
 													</span>
 												</div>
-												<span class="text-[13px] font-black text-white truncate">
-													{project.target_title ||
-														t('managedChannels.defaultTargetTitle') ||
-														'Target Channel'}
+												<span class="text-[13px] font-black text-white truncate mt-0.5">
+													{project.target_title || 'کانال خروجی'}
 												</span>
-												<span class="text-[10px] text-white/40 font-mono truncate" dir="ltr">
+												<span class="text-[10px] text-white/50 font-mono truncate" dir="ltr">
 													{project.target_username
 														? `@${project.target_username}`
 														: project.target_chat_id
 															? `ID: ${project.target_chat_id}`
-															: t('managedChannels.connected') || 'Connected'}
+															: 'متصل'}
 												</span>
 											</div>
 										</div>
 
-										{/* Subscription & Pricing Information Bar */}
-										<div class="bg-gradient-to-r from-white/[0.04] to-white/[0.01] border border-white/10 rounded-[16px] p-3 flex items-center justify-between gap-2 relative z-10">
-											<div class="flex items-center gap-2.5 min-w-0">
-												<div class={`w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 border ${
+										{/* ── Subscription Plan Ribbon (Clean & Uncut) ── */}
+										<div class="bg-gradient-to-r from-amber-500/10 via-white/[0.02] to-transparent border border-amber-500/20 rounded-[18px] p-3 flex items-center justify-between gap-3 relative z-10">
+											<div class="flex items-center gap-3 min-w-0">
+												<div class={`w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0 border ${
 													isPaidActive
-														? 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/30'
+														? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
 														: isTrialActive
-															? 'bg-amber-400/15 text-amber-400 border-amber-400/30'
-															: 'bg-[#ff4a4a]/15 text-[#ff4a4a] border-[#ff4a4a]/30'
+															? 'bg-amber-400/20 text-amber-400 border-amber-400/30'
+															: 'bg-rose-500/20 text-rose-400 border-rose-500/30'
 												}`}>
-													<span class="material-symbols-outlined text-[18px]">
-														{isPaidActive ? 'verified' : isTrialActive ? 'hourglass_top' : 'lock'}
+													<span class="material-symbols-outlined text-[20px]">
+														{isPaidActive ? 'verified' : isTrialActive ? 'military_tech' : 'lock_clock'}
 													</span>
 												</div>
 												<div class="flex flex-col min-w-0">
 													<div class="flex items-center gap-2">
-														<span class="text-[12px] font-black text-white truncate">
+														<span class="text-[13px] font-black text-white truncate">
 															{isPaidActive
-																? 'Pro Channel Plan'
+																? 'اشتراک پرمیوم فعال'
 																: isTrialActive
-																	? 'Free Trial (72h)'
-																	: 'Subscription Expired'}
+																	? 'پلن آزمایشی ۷۲ ساعته'
+																	: 'اشتراک منقضی شده'}
 														</span>
-														<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400 border border-amber-400/20 font-mono">
-															{isPaidActive ? '250 ⭐ / mo' : isTrialActive ? '0 ⭐ (Trial)' : '250 ⭐ / mo'}
+														<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-400 border border-amber-400/30 font-mono shrink-0">
+															{isPaidActive ? '۳ 💎 ماهانه' : isTrialActive ? '۰ 💎 (رایگان)' : '۳ 💎 ماهانه'}
 														</span>
 													</div>
-													<span class="text-[10px] text-white/50 truncate">
+													<span class="text-[11px] text-white/50 truncate mt-0.5">
 														{isPaidActive
-															? (endDateStr ? `${t('managedChannels.expiresIn') || 'Active until'}: ${new Date(endDateStr).toLocaleDateString()}` : 'Pro Active')
+															? (endDateStr ? `فعال تا: ${new Date(endDateStr).toLocaleDateString('fa-IR')}` : 'پلن پرو فعال است')
 															: isTrialActive
-																? (endDateStr ? `${t('managedChannels.trialRemaining') || 'Remaining'}: ${formatTimeRemaining(endDateStr)}` : '72 Hours Trial')
-																: (t('managedChannels.subExpiredHint') || 'Requires renewal to resume auto-forwarding & AI')}
+																? (endDateStr ? `زمان باقی‌مانده: ${formatTimeRemaining(endDateStr)}` : '۷۲ ساعت مهلت تست رایگان')
+																: 'برای ادامه ارسال خودکار و قابلیت‌های هوش مصنوعی تمدید کنید'}
 													</span>
 												</div>
 											</div>
-
-											<div class="shrink-0">
-												<span class={`text-[10px] font-bold px-2 py-1 rounded-[6px] border ${
-													isPaidActive
-														? 'text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10'
-														: isTrialActive
-															? 'text-amber-400 border-amber-400/30 bg-amber-400/10'
-															: 'text-[#ff4a4a] border-[#ff4a4a]/30 bg-[#ff4a4a]/10'
-												}`}>
-													{isPaidActive ? '⭐ Subscribed' : isTrialActive ? '🎯 Trial' : '⚠️ Inactive'}
-												</span>
-											</div>
 										</div>
 
-										{/* Bottom Row: Actions Bar */}
-										<div class="flex items-center gap-2 w-full relative z-10 pt-1">
+										{/* ── Bottom Row: Unified Persian Action Buttons ── */}
+										<div class="flex items-center gap-2.5 w-full relative z-10 pt-1">
 											{/* Manage Channel Dashboard */}
 											<button
 												type="button"
@@ -664,25 +652,11 @@ export const ManagedChannelsPage: Component = () => {
 														project.target_channel_id || project.source_channel_id || project.id;
 													navigate(`/channel/${targetId}/dashboard`);
 												}}
-												class="flex-[1.4] h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all bg-[#08090D] text-white/90 border border-white/10 hover:border-[#3390ec]/40 hover:text-[#3390ec] shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
-												title={t('channel.menu.dashboard') || 'Channel Dashboard & General Settings'}
+												class="flex-1 h-12 rounded-[18px] text-[13px] font-black transition-all bg-[#090a0f] text-white/90 border border-white/10 hover:border-[#3390ec]/40 hover:text-[#3390ec] shadow-sm active:scale-95 flex items-center justify-center gap-2"
+												title="ورود به داشبورد کانال و تنظیمات"
 											>
-												<span class="material-symbols-outlined text-[18px]">dashboard</span>
-												<span>{t('channel.menu.dashboard') || 'داشبورد'}</span>
-											</button>
-
-											{/* Edit Project Funnel */}
-											<button
-												type="button"
-												onClick={() => {
-													haptic.impact('light');
-													navigate(`/channel/${project.id}/edit-project`);
-												}}
-												class="h-11 px-3 rounded-[14px] bg-[#08090D] text-white/70 hover:text-white border border-white/10 hover:border-cyan-500/40 flex items-center justify-center gap-1 transition-all active:scale-95 shrink-0 shadow-sm text-[11px] font-bold"
-												title={t('channel.menu.funnel') || 'تنظیمات قیف پروژه'}
-											>
-												<span class="material-symbols-outlined text-[16px]">tune</span>
-												<span>قیف</span>
+												<span class="material-symbols-outlined text-[19px]">dashboard</span>
+												<span>داشبورد کانال</span>
 											</button>
 
 											{/* Subscription Button */}
@@ -691,20 +665,14 @@ export const ManagedChannelsPage: Component = () => {
 												onClick={() => {
 													openSubscription(project.id);
 												}}
-												class={`h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all border active:scale-95 flex items-center justify-center gap-1.5 shadow-sm ${
+												class={`flex-[1.2] h-12 rounded-[18px] text-[13px] font-black transition-all border active:scale-95 flex items-center justify-center gap-2 shadow-sm ${
 													isPaidActive
-														? 'flex-1 bg-white/5 text-white/70 border-white/5 hover:bg-white/10 hover:text-white'
-														: 'flex-[1.5] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white border-white/10 shadow-[0_4px_15px_rgba(51,144,236,0.3)]'
+														? 'bg-white/5 text-white/80 border-white/10 hover:bg-white/10'
+														: 'bg-gradient-to-r from-[#3390ec] via-[#2b7ec9] to-[#1e60a3] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white border-white/15 shadow-[0_4px_18px_rgba(51,144,236,0.35)]'
 												}`}
 											>
-												<span class="material-symbols-outlined text-[16px] text-amber-400">stars</span>
-												<span>
-													{isPaidActive
-														? (t('botManage.extendSub') || 'Extend Plan')
-														: isTrialActive
-															? 'Upgrade Plan'
-															: (t('botManage.buySubscription') || 'Subscribe')}
-												</span>
+												<span class="text-[16px]">💎</span>
+												<span>{isPaidActive ? 'تمدید پلن' : 'ارتقا پلن (کریدیت)'}</span>
 											</button>
 
 											{/* Delete Project Button */}
@@ -715,8 +683,8 @@ export const ManagedChannelsPage: Component = () => {
 													haptic.impact('medium');
 													setProjectToDelete(project);
 												}}
-												class="w-11 h-11 rounded-[14px] bg-transparent flex items-center justify-center border border-transparent hover:bg-[#ff4a4a]/10 hover:border-[#ff4a4a]/30 text-white/30 hover:text-[#ff4a4a] transition-all active:scale-95 shrink-0"
-												aria-label={t('managedChannels.delete')}
+												class="w-12 h-12 rounded-[18px] bg-[#090a0f] flex items-center justify-center border border-white/10 hover:bg-rose-500/10 hover:border-rose-500/30 text-white/40 hover:text-rose-400 transition-all active:scale-95 shrink-0"
+												title="حذف پروژه"
 											>
 												<span class="material-symbols-outlined text-[20px]">delete</span>
 											</button>
@@ -724,55 +692,6 @@ export const ManagedChannelsPage: Component = () => {
 									</Motion.div>
 								);
 							}}
-						</For>
-					</div>
-				</Show>
-
-				{/* ═══════ CONNECTED CHANNELS SECTION ═══════ */}
-				<Show when={channels() && channels()!.length > 0}>
-					<div class="flex flex-col gap-4 mt-2">
-						<div class="flex items-center justify-between mb-1 px-1 border-b border-white/5 pb-2">
-							<div class="flex items-center gap-2">
-								<span class="material-symbols-outlined text-[#10b981] text-[20px]">tv</span>
-								<h2 class="text-[12px] font-black text-white/50 uppercase tracking-widest">
-									{t('managedChannels.connectedChannels') || 'کانال‌های متصل شما'}
-								</h2>
-							</div>
-							<span class="text-[11px] font-black text-[#10b981] bg-[#10b981]/10 px-2 py-0.5 rounded-[6px] border border-[#10b981]/20">
-								{channels()!.length} {t('managedChannels.channelsCountSuffix') || 'کانال'}
-							</span>
-						</div>
-
-						<For each={channels()}>
-							{(ch: ManagedChannel) => (
-								<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[22px] p-4 border border-white/10 flex items-center justify-between gap-3 shadow-md hover:border-white/20 transition-all">
-									<div class="flex items-center gap-3 min-w-0">
-										<div class="w-11 h-11 rounded-[14px] bg-[#3390ec]/15 border border-[#3390ec]/30 flex items-center justify-center text-[#3390ec] font-black text-base shrink-0">
-											{(ch.chat_title || 'C').charAt(0).toUpperCase()}
-										</div>
-										<div class="flex flex-col min-w-0">
-											<h3 class="text-white font-black text-[14px] truncate">
-												{ch.chat_title}
-											</h3>
-											<span class="text-[11px] text-white/40 font-mono truncate" dir="ltr">
-												{ch.chat_username ? `@${ch.chat_username}` : `ID: ${ch.chat_id}`}
-											</span>
-										</div>
-									</div>
-
-									<button
-										type="button"
-										onClick={() => {
-											haptic.impact('light');
-											navigate(`/channel/${ch.id}/dashboard`);
-										}}
-										class="px-3.5 h-10 rounded-[12px] bg-[#3390ec]/15 hover:bg-[#3390ec]/25 border border-[#3390ec]/30 text-[#3390ec] font-black text-xs flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
-									>
-										<span class="material-symbols-outlined text-[16px]">dashboard</span>
-										<span>{t('channel.menu.dashboard') || 'داشبورد'}</span>
-									</button>
-								</div>
-							)}
 						</For>
 					</div>
 				</Show>
@@ -1216,19 +1135,58 @@ export const ManagedChannelsPage: Component = () => {
 						<div class="flex flex-col gap-4">
 							<div class="flex flex-col gap-1 text-center mb-1">
 								<h3 class="text-[22px] font-black text-white tracking-tight flex items-center justify-center gap-2">
-									<span>⭐</span>
-									<span>{t('botManage.choosePackage') || 'Channel Pro Subscription'}</span>
+									<span>💎</span>
+									<span>{t('botManage.choosePackage') || 'ارتقای پلن پروژه هوشمند'}</span>
 								</h3>
 								<p class="text-[13px] font-medium text-white/50">
-									{t('botManage.selectPlan') || 'Instant activation with Telegram Stars (⭐)'}
+									{t('botManage.selectPlan') || 'فعال‌سازی آنی با کریدیت یا ستاره‌های تلگرام'}
 								</p>
 							</div>
 
+							{/* ── Credit Balance Hub (Identical to BotManagePage) ── */}
+							<div class="flex items-center justify-between w-full bg-gradient-to-r from-[#121829] to-[#0a0d14] border border-[#3390ec]/30 rounded-[22px] p-4 shadow-sm">
+								<div class="flex items-center gap-3">
+									<span class="text-[24px]">💎</span>
+									<div class="flex flex-col text-start">
+										<span class="text-[11px] font-black uppercase text-[#3390ec] tracking-wider">
+											موجودی کریدیت شما
+										</span>
+										<span class="text-[14px] font-bold text-white/90 font-mono">
+											{wallet.balance() ?? 0} {t('paywall.credit_unit') || 'کریدیت'}
+										</span>
+									</div>
+								</div>
+								<button
+									type="button"
+									onClick={() => {
+										try {
+											haptic.impact('light');
+										} catch {}
+										setIsStoreOpen(true);
+									}}
+									class="px-3.5 py-2 rounded-[14px] bg-[#3390ec]/15 border border-[#3390ec]/30 text-[#3390ec] text-[12px] font-black active:scale-95 transition-all flex items-center gap-1.5 hover:bg-[#3390ec]/25"
+								>
+									<span>+</span>
+									<span>{t('paywall.get_credits') || 'دریافت کریدیت'}</span>
+								</button>
+							</div>
+
 							{/* Package Selection Cards */}
-							<div class="space-y-2.5">
+							<div class="space-y-3">
 								<For each={packages() || []}>
 									{(pkg: SubscriptionPackage) => {
+										const credits =
+											pkg.price_credits ||
+											(pkg.duration_months === 1
+												? 3
+												: pkg.duration_months === 3
+													? 8
+													: pkg.duration_months === 6
+														? 15
+														: 25);
+										const creditsPerMonth = (credits / pkg.duration_months).toFixed(1);
 										const isSelected = () => selectedPkg() === pkg.id;
+
 										return (
 											<button
 												type="button"
@@ -1236,51 +1194,53 @@ export const ManagedChannelsPage: Component = () => {
 													setSelectedPkg(pkg.id);
 													haptic.selection();
 												}}
-												class={`w-full rounded-[22px] p-4 flex items-center justify-between border-2 transition-all active:scale-[0.98] relative overflow-hidden ${
+												class={`w-full rounded-[24px] p-4 flex items-center justify-between border-[1.5px] transition-all active:scale-[0.98] relative overflow-hidden text-start ${
 													isSelected()
-														? 'border-amber-400 bg-amber-400/10 shadow-[0_8px_25px_rgba(251,191,36,0.15)]'
-														: 'border-white/10 bg-[#08090D] hover:border-white/20'
+														? 'border-[#3390ec] bg-[#3390ec]/10 shadow-[0_8px_25px_rgba(51,144,236,0.15)]'
+														: 'border-white/10 bg-[#08090D] hover:border-white/20 hover:bg-[#161b28]'
 												}`}
 											>
 												<Show when={pkg.badge}>
 													<div
-														class={`absolute top-0 ${isRtl() ? 'left-0 rounded-br-[12px]' : 'right-0 rounded-bl-[12px]'} px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm ${pkg.badge === 'best_value' ? 'bg-amber-400 text-black' : 'bg-[#3390ec] text-white'}`}
+														class={`absolute top-0 ${isRtl() ? 'left-0 rounded-br-[12px]' : 'right-0 rounded-bl-[12px]'} px-3 py-1 text-[9px] font-black uppercase tracking-widest shadow-sm ${
+															pkg.badge === 'best_value'
+																? 'bg-amber-400 text-black'
+																: 'bg-[#3390ec] text-white'
+														}`}
 													>
 														{pkg.badge === 'best_value'
-															? t('botManage.bestValue') || 'Best Value'
-															: t('botManage.popular') || 'Popular'}
+															? t('botManage.bestValue' as any) || 'بهترین انتخاب'
+															: t('botManage.popular' as any) || 'محبوب'}
 													</div>
 												</Show>
 
-												<div class="flex flex-col items-start gap-0.5">
+												<div class="flex flex-col items-start gap-1 z-10 relative">
 													<div class="flex items-center gap-2">
 														<span
-															class={`text-[16px] font-black tracking-tight ${isSelected() ? 'text-amber-400' : 'text-white'}`}
+															class={`text-[16px] font-black ${isSelected() ? 'text-white' : 'text-white/90'}`}
 														>
 															{pkg.name}
 														</span>
 														<Show when={pkg.discount}>
-															<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/20 px-1.5 py-0.5 rounded-[5px]">
-																-{pkg.discount}
+															<span class="text-[10px] font-black text-[#00ff88] bg-[#00ff88]/10 px-2 py-0.5 rounded-[6px] border border-[#00ff88]/20 uppercase tracking-widest shadow-sm">
+																تخفیف {pkg.discount}
 															</span>
 														</Show>
 													</div>
-													<span class="text-[11px] font-medium text-white/50">
-														{pkg.duration_months === 1
-															? 'Full feature access for 30 days'
-															: `${pkg.duration_months} months uninterrupted automated service`}
+													<span class="text-[12px] font-medium text-white/50">
+														معادل {pkg.price_stars} ستاره تلگرام (⭐)
 													</span>
 												</div>
 
-												<div class="flex flex-col items-end gap-0.5">
-													<div class="flex items-center gap-1">
-														<span class="text-[20px] font-black font-mono text-white">
-															{pkg.price_stars}
+												<div class="flex flex-col items-end gap-0.5 z-10 relative">
+													<div class="flex items-baseline gap-1" dir="ltr">
+														<span class="text-[22px] font-black font-mono tracking-tight text-white">
+															{credits}
 														</span>
-														<span class="text-[14px]">⭐</span>
+														<span class="text-[13px] font-black text-[#3390ec]">💎</span>
 													</div>
-													<span class="text-[10px] font-semibold text-white/40">
-														({(pkg.price_stars / pkg.duration_months).toFixed(0)} ⭐ / mo)
+													<span class="text-[10px] font-medium text-white/40">
+														({creditsPerMonth} کریدیت / ماه)
 													</span>
 												</div>
 											</button>
@@ -1307,48 +1267,89 @@ export const ManagedChannelsPage: Component = () => {
 											? 3
 											: pkg.duration_months === 3
 												? 8
-												: 25);
+												: pkg.duration_months === 6
+													? 15
+													: 25);
 									const userCreds = wallet.balance() ?? 0;
 									const hasEnoughCredits = userCreds >= reqCredits;
 
 									return (
-										<div class="space-y-3 pt-2">
-											{/* Discount Voucher (Optional) */}
-											<PaymentDiscountCard
-												baseUsd={pkg.price_usd}
-												baseStars={pkg.price_stars}
-												userCoins={balance()}
-												isDiscountEnabled={isDiscountEnabled()}
-												selectedPercent={discountPercent()}
-												onToggleDiscount={(enabled) => setIsDiscountEnabled(enabled)}
-												onSelectPercent={(percent) => setDiscountPercent(percent)}
-											/>
+										<div class="space-y-3.5 pt-2">
+											<Show
+												when={hasEnoughCredits}
+												fallback={
+													<div class="space-y-3">
+														<div class="rounded-[20px] border border-amber-400/25 bg-amber-400/10 p-4 text-start text-[12px]">
+															<div class="flex items-center gap-2 text-amber-300 font-bold mb-1">
+																<span class="material-symbols-outlined text-[18px]">info</span>
+																<span>
+																	کسری موجودی: {reqCredits - userCreds} کریدیت نیاز دارید
+																</span>
+															</div>
+															<p class="text-white/60 text-[11px] leading-relaxed">
+																موجودی فعلی شما {userCreds} کریدیت است. می‌توانید با سکه/ستاره کریدیت تهیه کنید یا مستقیماً با ستاره پرداخت کنید.
+															</p>
+														</div>
 
-											{/* Primary Stars Payment CTA */}
-											<button
-												type="button"
-												onClick={handleSubscribeStars}
-												disabled={isProcessing()}
-												class="w-full h-14 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[15px] uppercase tracking-wider rounded-[20px] shadow-[0_8px_30px_rgba(251,191,36,0.35)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2.5 border border-amber-300/40"
+														<div class="grid grid-cols-2 gap-2.5">
+															<button
+																type="button"
+																onClick={() => {
+																	haptic.impact('medium');
+																	setIsStoreOpen(true);
+																}}
+																class="h-13 rounded-[16px] bg-gradient-to-r from-amber-400 to-amber-500 text-black font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+															>
+																<span>⭐</span>
+																<span>خرید کریدیت با سکه/ستاره</span>
+															</button>
+															<button
+																type="button"
+																onClick={handleSubscribeStars}
+																disabled={isProcessing()}
+																class="h-13 rounded-[16px] bg-white/10 hover:bg-white/15 text-white font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-1.5 border border-white/10 active:scale-95 transition-all"
+															>
+																<span>⭐</span>
+																<span>پرداخت مستقیم ({calc().finalStars} ⭐)</span>
+															</button>
+														</div>
+													</div>
+												}
 											>
-												<span class="text-[20px]">⭐</span>
-												<span>
-													{t('botManage.payWithStars' as any) || 'Pay with Stars'} (
-													{calc().finalStars} ⭐)
-												</span>
-											</button>
-
-											{/* Alternate: Pay with Credits if user has sufficient balance */}
-											<Show when={hasEnoughCredits}>
+												{/* Primary: Pay with Credits */}
 												<button
 													type="button"
 													onClick={handleSubscribeCredits}
 													disabled={isProcessing()}
-													class="w-full py-3 rounded-[16px] bg-white/5 hover:bg-white/10 text-white/80 font-bold text-xs flex items-center justify-center gap-2 border border-white/10 transition-colors"
+													class="w-full h-14 bg-gradient-to-r from-[#3390ec] via-[#2b7ec9] to-[#1e60a3] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white font-black text-[15px] uppercase tracking-wider rounded-[20px] shadow-[0_8px_30px_rgba(51,144,236,0.35)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2.5 border border-white/15"
 												>
-													<span>💎</span>
-													<span>Pay with {reqCredits} Credits (Balance: {userCreds})</span>
+													<span class="text-[20px]">💎</span>
+													<span>
+														پرداخت و فعال‌سازی با {reqCredits} کریدیت
+													</span>
 												</button>
+
+												{/* Alternate: Pay with Stars with Voucher */}
+												<div class="pt-2">
+													<PaymentDiscountCard
+														baseUsd={pkg.price_usd}
+														baseStars={pkg.price_stars}
+														userCoins={balance()}
+														isDiscountEnabled={isDiscountEnabled()}
+														selectedPercent={discountPercent()}
+														onToggleDiscount={(enabled) => setIsDiscountEnabled(enabled)}
+														onSelectPercent={(percent) => setDiscountPercent(percent)}
+													/>
+													<button
+														type="button"
+														onClick={handleSubscribeStars}
+														disabled={isProcessing()}
+														class="mt-2 w-full h-11 rounded-[16px] bg-white/5 hover:bg-white/10 text-white/80 font-bold text-xs flex items-center justify-center gap-2 border border-white/10 transition-colors"
+													>
+														<span>⭐</span>
+														<span>یا پرداخت با {calc().finalStars} ستاره تلگرام</span>
+													</button>
+												</div>
 											</Show>
 										</div>
 									);

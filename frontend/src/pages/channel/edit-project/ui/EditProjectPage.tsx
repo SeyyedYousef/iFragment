@@ -36,6 +36,7 @@ export const EditProjectPage: Component = () => {
 	const [removeHashtags, setRemoveHashtags] = createSignal(false);
 	const [dropMedia, setDropMedia] = createSignal(false);
 	const [aiRewrite, setAiRewrite] = createSignal(false);
+	const [autoPublish, setAutoPublish] = createSignal(false);
 	const [watermark, setWatermark] = createSignal('');
 
 	const [isSaving, setIsSaving] = createSignal(false);
@@ -126,6 +127,7 @@ export const EditProjectPage: Component = () => {
 				setRemoveHashtags(!!p.pipeline_config.remove_hashtags);
 				setDropMedia(!!p.pipeline_config.drop_media);
 				setAiRewrite(!!p.pipeline_config.ai_rewrite);
+				setAutoPublish(!!p.pipeline_config.auto_publish);
 				setWatermark(p.pipeline_config.watermark || '');
 			}
 		}
@@ -233,8 +235,11 @@ export const EditProjectPage: Component = () => {
 				remove_hashtags: removeHashtags(),
 				drop_media: dropMedia(),
 				ai_rewrite: aiRewrite(),
+				auto_publish: autoPublish(),
 				ai_model: 'gemini-3.8-flash',
 				watermark: watermark().trim(),
+				source_channel_identifier: sourceChannelId() || sourceCustomInput().trim(),
+				target_channel_identifier: targetChannelId() || targetCustomInput().trim(),
 			};
 
 			const payload: any = {
@@ -631,6 +636,27 @@ export const EditProjectPage: Component = () => {
 								checked={aiRewrite()}
 								onChange={(e) => setAiRewrite(e.currentTarget.checked)}
 								class="w-5 h-5 rounded accent-purple-500 cursor-pointer"
+							/>
+						</div>
+
+						{/* Toggle: Auto-Publish Directly */}
+						<div class="flex items-center justify-between p-3 rounded-[16px] bg-gradient-to-r from-emerald-950/20 to-[#08090D] border border-emerald-500/20">
+							<div class="flex flex-col">
+								<span class="text-[13px] font-bold text-emerald-300 flex items-center gap-2">
+									<span>⚡</span>
+									<span>{t('channelProjects.autoPublish') || 'ارسال خودکار مستقیم به مقصد'}</span>
+								</span>
+								<span class="text-[11px] text-white/40">
+									{autoPublish()
+										? 'پست‌ها بلافاصله پس از پردازش به کانال خروجی ارسال می‌شوند'
+										: 'ارسال پیش‌نمایش به کانال ورودی همراه با دکمه‌های تایید اینلاین'}
+								</span>
+							</div>
+							<input
+								type="checkbox"
+								checked={autoPublish()}
+								onChange={(e) => setAutoPublish(e.currentTarget.checked)}
+								class="w-5 h-5 rounded accent-emerald-500 cursor-pointer"
 							/>
 						</div>
 

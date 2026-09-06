@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
 
 DB_URL = os.getenv("DATABASE_URL")
-COLLECTION_URL = "https://getgems.io/collection/EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf"
+COLLECTION_URL = "https://getgems.io/collection/EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N"
 
 def connect_db():
     try:

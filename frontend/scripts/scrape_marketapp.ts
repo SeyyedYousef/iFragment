@@ -26,7 +26,7 @@ async function run() {
     });
     const page = await context.newPage();
 
-    const collectionAddr = process.env.COLLECTION_ADDR || 'EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf';
+    const collectionAddr = process.env.COLLECTION_ADDR || 'EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N';
     console.log(`Navigating to MarketApp sales page for collection ${collectionAddr}...`);
     await page.goto(`https://marketapp.org/collection/${collectionAddr}/sales/`, { timeout: 60000 });
 

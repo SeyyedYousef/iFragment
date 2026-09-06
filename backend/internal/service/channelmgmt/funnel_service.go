@@ -83,6 +83,25 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 						if p.TargetChatID == nil || *p.TargetChatID == 0 {
 							_ = s.channelRepo.UpdateProjectTargetChatID(ctx, p.ID, outChatID)
 						}
+						// If bot is nil or unassigned, resolve from target or source channel
+						if bot == nil || botID == uuid.Nil {
+							if p.TargetChannelID != nil {
+								if tc, tcErr := s.channelRepo.GetChannelByID(ctx, *p.TargetChannelID); tcErr == nil && tc != nil && tc.BotID != uuid.Nil {
+									if b, bErr := s.botRepo.GetBotByID(ctx, tc.BotID); bErr == nil && b != nil {
+										bot = b
+										botID = b.ID
+									}
+								}
+							}
+							if (bot == nil || botID == uuid.Nil) && p.SourceChannelID != nil {
+								if sc, scErr := s.channelRepo.GetChannelByID(ctx, *p.SourceChannelID); scErr == nil && sc != nil && sc.BotID != uuid.Nil {
+									if b, bErr := s.botRepo.GetBotByID(ctx, sc.BotID); bErr == nil && b != nil {
+										bot = b
+										botID = b.ID
+									}
+								}
+							}
+						}
 						funnel = &repository.ChannelFunnel{
 							ID:           p.ID,
 							BotID:        botID,
@@ -453,12 +472,14 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 
 	err := s.channelRepo.SavePendingFunnelPost(ctx, &draft)
 	if err != nil {
-		return fmt.Errorf("failed to save pending funnel draft: %w", err)
+		slog.Error("Failed to save pending funnel draft into database", "error", err, "funnel_id", funnel.ID, "input_message_id", draft.InputMessageID)
+	} else {
+		slog.Info("Successfully saved pending funnel draft", "draft_id", draft.ID, "funnel_id", funnel.ID, "input_message_id", draft.InputMessageID)
 	}
 
-	// 6. Funnel Rule: Owner approval is REQUIRED by default!
-	// Only if autoPublish is explicitly true does it bypass owner review!
+	// 6. Auto-publish check: If autoPublish is enabled, publish directly to the destination channel!
 	if autoPublish {
+		slog.Info("Auto-publish enabled for funnel/project, dispatching to destination", "funnel_id", funnel.ID, "output_chat_id", funnel.OutputChatID)
 		var token string
 		if bot != nil && len(bot.BotTokenEncrypted) > 0 {
 			token, _ = botmgmt.DecryptToken(bot.BotTokenEncrypted)
@@ -476,15 +497,20 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 				slog.Info("Funnel post auto-published directly to target channel", "funnel_id", funnel.ID, "output_chat_id", funnel.OutputChatID)
 				return nil
 			}
-			slog.Warn("Direct auto-publish failed, falling back to input channel preview", "error", pubErr)
+			slog.Warn("Direct auto-publish failed, falling back to preview delivery", "error", pubErr)
+		} else {
+			slog.Warn("No bot token available for direct auto-publish, proceeding to live preview")
 		}
 	}
 
 	// 7. Send the Interactive Preview with Action Buttons directly into the INPUT CHANNEL!
 	// Anchors to the admin's post so the admin can review, switch AI style, or approve directly in the input channel.
 	if funnel.InputChatID != 0 {
+		slog.Info("Sending live preview to input channel", "input_chat_id", funnel.InputChatID, "draft_id", draft.ID)
 		if previewErr := s.sendFunnelPreviewToInputChannel(ctx, bot, funnel, &draft, destTitle); previewErr != nil {
 			slog.Warn("Failed to send funnel live preview to input channel", "error", previewErr, "input_chat_id", funnel.InputChatID)
+		} else {
+			slog.Info("Successfully delivered funnel live preview to input channel", "input_chat_id", funnel.InputChatID)
 		}
 	}
 

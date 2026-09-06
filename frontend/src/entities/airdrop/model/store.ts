@@ -420,6 +420,11 @@ export const syncPendingTaps = async () => {
 		try {
 			while (pendingTapBuckets.length > 0) {
 				const bucket = pendingTapBuckets[0];
+				// Ensure fresh timestamp right before signing and dispatching so offline/cached buckets never suffer from clock skew
+				bucket.ts = Date.now();
+				if (!bucket.nonce) {
+					bucket.nonce = Math.random().toString(36).substring(2, 15);
+				}
 
 				let sig = `dummy_signature_for_${bucket.nonce}`;
 				try {

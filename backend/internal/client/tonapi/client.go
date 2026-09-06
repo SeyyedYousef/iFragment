@@ -115,7 +115,7 @@ func (c *Client) getAPIKeyAndLimit(ctx context.Context) (string, error) {
 
 const (
 	UsernamesCollectionAddr        = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
-	AnonymousNumbersCollectionAddr = "EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf"
+	AnonymousNumbersCollectionAddr = "EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N"
 )
 
 type NFTCollection struct {

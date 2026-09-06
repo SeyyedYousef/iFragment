@@ -51,7 +51,7 @@ author: "Antigravity AI / Seyyed Yousef"
 
 تمام شماره‌های تلگرام بر بستر فریم‌ورک اختصاصی تلگرام به نام **تلمینت (Telemint)** پیاده‌سازی شده‌اند.
 - **آدرس کالکشن اصلی در بلاکچین TON:**
-  `EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf`
+  `EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N`
 - **استاندارد قرارداد:** قرارداد تلمینت نسخه‌ای بهینه‌شده از NFT استاندارد (مشابه TEP-62 با منطق حراج درونی و رزرو نام کاربری/شماره تلگرام).
 - **کارمزد حاکمیتی فرگمنت:** در هر معامله حراج یا فروش مستقیم، **۵٪ کارمزد پروتکل** کسر می‌شود و ۹۵٪ به فروشنده پرداخت می‌گردد:
   $$\text{NetPayoutTON} = \text{PriceTON} \times 0.95$$

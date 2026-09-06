@@ -93,7 +93,11 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		})
 
 		if err != nil || !token.Valid {
-			slog.Warn("JWT validation failed", "error", err)
+			if errors.Is(err, jwt.ErrTokenExpired) || (err != nil && strings.Contains(err.Error(), "token is expired")) {
+				slog.Debug("JWT validation failed: token expired", "error", err)
+			} else {
+				slog.Warn("JWT validation failed", "error", err)
+			}
 			http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 			return
 		}

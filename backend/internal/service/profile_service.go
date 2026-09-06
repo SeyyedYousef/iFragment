@@ -591,12 +591,16 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		}
 	}
 
-	// 2. Client Timestamp Freshness Verification (max 30s skew)
+	// 2. Client Timestamp Freshness Verification (max 120s skew, supports seconds & milliseconds)
 	if clientTS > 0 {
+		// If client sent timestamp in milliseconds (> 100 billion), convert to seconds
+		if clientTS > 100000000000 {
+			clientTS = clientTS / 1000
+		}
 		nowUnix := time.Now().Unix()
 		diff := nowUnix - clientTS
-		if diff < -30 || diff > 30 {
-			return nil, fmt.Errorf("clock_skew: timestamp is outside the valid 30s freshness window")
+		if diff < -120 || diff > 120 {
+			return nil, fmt.Errorf("clock_skew: timestamp is outside the valid 120s freshness window")
 		}
 	}
 
