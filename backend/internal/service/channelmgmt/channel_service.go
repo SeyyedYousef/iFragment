@@ -296,11 +296,18 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		_ = s.botRepo.RecordTrial(ctx, chatDetail.ID)
 	}
 
+	var chatUsername *string
+	if chatDetail.Username != nil && *chatDetail.Username != "" {
+		u := strings.TrimPrefix(strings.TrimSpace(*chatDetail.Username), "@")
+		chatUsername = &u
+	}
+
 	// 7. Save channel to DB
 	ch := &repository.ManagedChannel{
 		BotID:              bot.ID,
 		ChatID:             chatDetail.ID,
 		ChatTitle:          chatDetail.Title,
+		ChatUsername:       chatUsername,
 		SubscribersCount:   count,
 		SubscriptionStatus: status,
 		TrialEndsAt:        time.Now().Add(72 * time.Hour),

@@ -348,7 +348,7 @@ func main() {
 	channelHandler := handler.NewChannelHandler(channelService)
 	projectService := channelmgmt.NewProjectService(channelRepo, botRepo, auditRepo)
 	go projectService.StartProjectExpirationWorker(ctx)
-	projectHandler := handler.NewProjectHandler(projectService)
+	projectHandler := handler.NewProjectHandler(projectService, botService, paymentService)
 
 	avmService := avm.NewValuationService(db, cache, tonClient)
 

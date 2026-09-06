@@ -63,7 +63,26 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 						}
 					}
 
+					if outChatID == 0 && len(p.PipelineConfig) > 0 {
+						var cfg map[string]interface{}
+						if json.Unmarshal(p.PipelineConfig, &cfg) == nil {
+							if tgt, ok := cfg["target_channel_identifier"].(string); ok && tgt != "" {
+								cleanTgt := CleanChannelUsername(tgt)
+								if numID, err := strconv.ParseInt(cleanTgt, 10, 64); err == nil {
+									outChatID = numID
+								} else {
+									if tc, err := s.channelRepo.GetManagedChannelByChatIDOrUsername(ctx, cleanTgt); err == nil && tc != nil {
+										outChatID = tc.ChatID
+									}
+								}
+							}
+						}
+					}
+
 					if outChatID != 0 {
+						if p.TargetChatID == nil || *p.TargetChatID == 0 {
+							_ = s.channelRepo.UpdateProjectTargetChatID(ctx, p.ID, outChatID)
+						}
 						funnel = &repository.ChannelFunnel{
 							ID:           p.ID,
 							BotID:        botID,
@@ -323,7 +342,9 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 	if removeAds {
 		processedText = strings.ReplaceAll(processedText, "#ad", "")
 		processedText = strings.ReplaceAll(processedText, "#spon", "")
-		processedText = strings.ReplaceAll(processedText, "تبلیغ", "")
+		processedText = strings.ReplaceAll(processedText, "#تبلیغ", "")
+		processedText = strings.ReplaceAll(processedText, "#تبلیغات", "")
+		processedText = strings.ReplaceAll(processedText, "#ads", "")
 	}
 	if removeLinks {
 		processedText = removeLinksHelper(processedText)
@@ -455,12 +476,189 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 				slog.Info("Funnel post auto-published directly to target channel", "funnel_id", funnel.ID, "output_chat_id", funnel.OutputChatID)
 				return nil
 			}
-			slog.Warn("Direct auto-publish failed, falling back to owner DM review", "error", pubErr)
+			slog.Warn("Direct auto-publish failed, falling back to input channel preview", "error", pubErr)
 		}
 	}
 
-	// 7. ALWAYS send the Review Messages to the Bot Owner (DM in @iFragment)!
-	return s.sendFunnelReviewToOwner(ctx, bot, funnel, &draft, destTitle)
+	// 7. Send the Interactive Preview with Action Buttons directly into the INPUT CHANNEL!
+	// Anchors to the admin's post so the admin can review, switch AI style, or approve directly in the input channel.
+	if funnel.InputChatID != 0 {
+		if previewErr := s.sendFunnelPreviewToInputChannel(ctx, bot, funnel, &draft, destTitle); previewErr != nil {
+			slog.Warn("Failed to send funnel live preview to input channel", "error", previewErr, "input_chat_id", funnel.InputChatID)
+		}
+	}
+
+	// 8. Also send the Review Messages to the Bot Owner (DM in @iFragment) if possible
+	_ = s.sendFunnelReviewToOwner(ctx, bot, funnel, &draft, destTitle)
+	return nil
+}
+
+func (s *ChannelService) resolveBotClientForChat(ctx context.Context, chatID int64, fallbackBot *repository.ManagedBot) (string, *telegram.BotAPIClient) {
+	if inChan, err := s.channelRepo.GetChannelByChatID(ctx, chatID); err == nil && inChan != nil && inChan.BotID != uuid.Nil {
+		if b, bErr := s.botRepo.GetBotByID(ctx, inChan.BotID); bErr == nil && b != nil && len(b.BotTokenEncrypted) > 0 {
+			if tok, decErr := botmgmt.DecryptToken(b.BotTokenEncrypted); decErr == nil && tok != "" {
+				return tok, telegram.NewBotAPIClient(tok)
+			}
+		}
+	}
+	if fallbackBot != nil && len(fallbackBot.BotTokenEncrypted) > 0 {
+		if tok, decErr := botmgmt.DecryptToken(fallbackBot.BotTokenEncrypted); decErr == nil && tok != "" {
+			return tok, telegram.NewBotAPIClient(tok)
+		}
+	}
+	mainBotToken := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
+	if mainBotToken == "" {
+		mainBotToken = strings.TrimSpace(os.Getenv("BOT_TOKEN"))
+	}
+	if mainBotToken != "" {
+		return mainBotToken, telegram.NewBotAPIClient(mainBotToken)
+	}
+	if mainBot, err := s.botRepo.GetMainBot(ctx); err == nil && mainBot != nil && len(mainBot.BotTokenEncrypted) > 0 {
+		if tok, decErr := botmgmt.DecryptToken(mainBot.BotTokenEncrypted); decErr == nil && tok != "" {
+			return tok, telegram.NewBotAPIClient(tok)
+		}
+	}
+	return "", nil
+}
+
+func editMessageTextOrCaption(ctx context.Context, tg *telegram.BotAPIClient, chatID interface{}, messageID int, text string, markup interface{}) error {
+	err := tg.EditMessageTextWithMarkup(ctx, chatID, messageID, text, markup, "HTML")
+	if err != nil {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "there is no text in the message to edit") {
+			captionErr := tg.EditMessageCaptionWithMarkup(ctx, chatID, messageID, text, markup)
+			if captionErr == nil {
+				return nil
+			}
+		} else if strings.Contains(errLower, "can't parse entities") {
+			_ = tg.EditMessageTextWithMarkup(ctx, chatID, messageID, text, markup, "")
+			return nil
+		}
+	}
+	return err
+}
+
+func buildInputChannelPreviewKeyboard(draft *repository.PendingFunnelPost) map[string]interface{} {
+	totalVars := len(draft.AiVariations)
+	if totalVars == 0 {
+		totalVars = 1
+	}
+	varBtnText := fmt.Sprintf("🔄 تغییر استایل هوش مصنوعی (%d/%d)", draft.SelectedVariationIndex+1, totalVars)
+
+	return map[string]interface{}{
+		"inline_keyboard": [][]map[string]interface{}{
+			{
+				{
+					"text":          "🚀 تایید و ارسال به کانال خروجی",
+					"callback_data": fmt.Sprintf("f_app:%s", draft.ID.String()),
+				},
+				{
+					"text":          "❌ رد و لغو",
+					"callback_data": fmt.Sprintf("f_rej:%s", draft.ID.String()),
+				},
+			},
+			{
+				{
+					"text":          varBtnText,
+					"callback_data": fmt.Sprintf("f_var:%s", draft.ID.String()),
+				},
+				{
+					"text":          "🤖 بازتولید متن",
+					"callback_data": fmt.Sprintf("f_reg:%s", draft.ID.String()),
+				},
+			},
+		},
+	}
+}
+
+func formatFunnelPreviewText(destTitle string, contentText string) string {
+	return fmt.Sprintf("🎛️ <b>پیش‌نمایش پست پردازش‌شده (iFragment Funnel)</b>\n📤 کانال مقصد: <b>%s</b>\n━━━━━━━━━━━━━━━━\n%s",
+		telegram.EscapeHTML(destTitle),
+		contentText,
+	)
+}
+
+func (s *ChannelService) sendFunnelPreviewToInputChannel(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, draft *repository.PendingFunnelPost, destTitle string) error {
+	_, tg := s.resolveBotClientForChat(ctx, funnel.InputChatID, bot)
+	if tg == nil {
+		return fmt.Errorf("no bot token available to send preview to input channel")
+	}
+
+	previewMarkup := buildInputChannelPreviewKeyboard(draft)
+	previewText := formatFunnelPreviewText(destTitle, draft.DraftText)
+
+	var sendErr error
+	if len(draft.MediaPayload) == 0 {
+		payload := map[string]interface{}{
+			"chat_id":             funnel.InputChatID,
+			"text":                previewText,
+			"parse_mode":          "HTML",
+			"reply_to_message_id": draft.InputMessageID,
+		}
+		if !telegram.IsNil(previewMarkup) {
+			payload["reply_markup"] = previewMarkup
+		}
+		_, sendErr = tg.Request(ctx, "sendMessage", payload)
+		if sendErr != nil && strings.Contains(strings.ToLower(sendErr.Error()), "can't parse entities") {
+			delete(payload, "parse_mode")
+			_, sendErr = tg.Request(ctx, "sendMessage", payload)
+		}
+	} else if len(draft.MediaPayload) == 1 {
+		item := draft.MediaPayload[0]
+		payload := map[string]interface{}{
+			"chat_id":             funnel.InputChatID,
+			"caption":             previewText,
+			"parse_mode":          "HTML",
+			"reply_to_message_id": draft.InputMessageID,
+			"reply_markup":        previewMarkup,
+		}
+		var method string
+		switch item.Type {
+		case "photo":
+			method = "sendPhoto"
+			payload["photo"] = item.FileID
+		case "video":
+			method = "sendVideo"
+			payload["video"] = item.FileID
+		case "document":
+			method = "sendDocument"
+			payload["document"] = item.FileID
+		case "audio":
+			method = "sendAudio"
+			payload["audio"] = item.FileID
+		default:
+			method = "sendPhoto"
+			payload["photo"] = item.FileID
+		}
+		_, sendErr = tg.Request(ctx, method, payload)
+		if sendErr != nil && strings.Contains(strings.ToLower(sendErr.Error()), "can't parse entities") {
+			delete(payload, "parse_mode")
+			_, sendErr = tg.Request(ctx, method, payload)
+		}
+	} else {
+		albumPreview := fmt.Sprintf("%s\n\n<i>📷 [آلبوم شامل %d رسانه است]</i>", previewText, len(draft.MediaPayload))
+		payload := map[string]interface{}{
+			"chat_id":             funnel.InputChatID,
+			"text":                albumPreview,
+			"parse_mode":          "HTML",
+			"reply_to_message_id": draft.InputMessageID,
+		}
+		if !telegram.IsNil(previewMarkup) {
+			payload["reply_markup"] = previewMarkup
+		}
+		_, sendErr = tg.Request(ctx, "sendMessage", payload)
+		if sendErr != nil && strings.Contains(strings.ToLower(sendErr.Error()), "can't parse entities") {
+			delete(payload, "parse_mode")
+			_, sendErr = tg.Request(ctx, "sendMessage", payload)
+		}
+	}
+
+	if sendErr != nil {
+		slog.Error("Failed to send preview to input channel", "chat_id", funnel.InputChatID, "error", sendErr)
+		return sendErr
+	}
+	slog.Info("Successfully sent funnel post preview to input channel", "chat_id", funnel.InputChatID, "draft_id", draft.ID)
+	return nil
 }
 
 func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, draft *repository.PendingFunnelPost, destTitle string) error {
@@ -761,9 +959,18 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 					outChatID = tc.ChatID
 				}
 			}
+			var inChatID int64
+			if p.SourceChatID != nil && *p.SourceChatID != 0 {
+				inChatID = *p.SourceChatID
+			} else if p.SourceChannelID != nil {
+				if sc, scErr := s.channelRepo.GetChannelByID(ctx, *p.SourceChannelID); scErr == nil && sc != nil {
+					inChatID = sc.ChatID
+				}
+			}
 			funnel = &repository.ChannelFunnel{
 				ID:           p.ID,
 				ProjectName:  p.Name,
+				InputChatID:  inChatID,
 				OutputChatID: outChatID,
 				OwnerUserID:  p.OwnerUserID,
 				IsActive:     isProjectSubscriptionValid(p),
@@ -785,38 +992,56 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 		}
 	}
 
-	// Verify permissions: only owner or dynamic funnel admins
-	if cq.FromID != funnel.OwnerUserID {
-		isAdmin := false
-		memberStatus, err := tg.GetChatMember(ctx, funnel.OutputChatID, cq.FromID)
-		if err == nil && (memberStatus == "creator" || memberStatus == "administrator") {
-			isAdmin = true
-		} else {
-			// Fallback to DB check
-			destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
-			if err == nil {
-				admins, err := s.channelRepo.GetChannelAdmins(ctx, destChan.ID)
-				if err == nil {
-					for _, adm := range admins {
-						if adm.TelegramID == cq.FromID {
-							isAdmin = true
-							break
+	// Verify permissions: owner OR admin of input channel OR admin of output channel
+	isAuthorized := false
+	if cq.FromID == funnel.OwnerUserID {
+		isAuthorized = true
+	} else {
+		// Check member status in Input Channel
+		if funnel.InputChatID != 0 {
+			if st, err := tg.GetChatMember(ctx, funnel.InputChatID, cq.FromID); err == nil && (st == "creator" || st == "administrator") {
+				isAuthorized = true
+			}
+		}
+		// Check member status in Output Channel
+		if !isAuthorized && funnel.OutputChatID != 0 {
+			if st, err := tg.GetChatMember(ctx, funnel.OutputChatID, cq.FromID); err == nil && (st == "creator" || st == "administrator") {
+				isAuthorized = true
+			}
+		}
+		// Fallback check in DB channel admins
+		if !isAuthorized {
+			for _, chatID := range []int64{funnel.InputChatID, funnel.OutputChatID} {
+				if chatID == 0 {
+					continue
+				}
+				if ch, err := s.channelRepo.GetChannelByChatID(ctx, chatID); err == nil && ch != nil {
+					if admins, aErr := s.channelRepo.GetChannelAdmins(ctx, ch.ID); aErr == nil {
+						for _, adm := range admins {
+							if adm.TelegramID == cq.FromID {
+								isAuthorized = true
+								break
+							}
 						}
 					}
 				}
+				if isAuthorized {
+					break
+				}
 			}
 		}
-		if !isAdmin {
-			_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Unauthorized: Owner or authorized admins only", true)
-			return nil
-		}
+	}
+
+	if !isAuthorized {
+		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "⚠️ فقط مدیران کانال ورودی/خروجی یا مالک پروژه مجاز به اقدام هستند.", true)
+		return nil
 	}
 
 	switch cmd {
 	case "f_app":
 		// Approve & Publish (Async to prevent UI freeze)
-		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Publishing post...", false)
-		_ = tg.EditMessageText(ctx, cq.ChatID, cq.MessageID, "⏳ **Publishing post, please wait...**", "Markdown")
+		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "🚀 در حال انتشار در کانال خروجی...", false)
+		_ = editMessageTextOrCaption(ctx, tg, cq.ChatID, cq.MessageID, "⏳ <b>در حال انتشار پست در کانال مقصد...</b>", nil)
 
 		s.wg.Add(1)
 		GoSafe(func() {
@@ -826,38 +1051,59 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 
 			err := s.publishFunnelPostDirectly(bgCtx, tg, funnel, draft)
 			if err != nil {
-				_ = tg.SendMessage(bgCtx, cq.ChatID, i18n.T(lang, "funnel.failed", map[string]interface{}{"err": err}), nil, nil)
-				_ = tg.EditMessageText(bgCtx, cq.ChatID, cq.MessageID, "❌ **Failed to publish post.**", "Markdown")
+				slog.Error("Failed to publish funnel post", "error", err, "draft_id", draft.ID)
+				_ = editMessageTextOrCaption(bgCtx, tg, cq.ChatID, cq.MessageID, fmt.Sprintf("❌ <b>خطا در انتشار پست:</b> %s", telegram.EscapeHTML(err.Error())), nil)
 				return
 			}
 
-			_ = tg.EditMessageText(bgCtx, cq.ChatID, cq.MessageID, "✅ **Post Approved & Published successfully!**", "Markdown")
+			destName := funnel.ProjectName
+			if destName == "" && destChan != nil {
+				destName = destChan.ChatTitle
+			}
+			if destName == "" {
+				destName = "کانال خروجی"
+			}
+			successMsg := fmt.Sprintf("✅ <b>این پست تایید شد و با موفقیت در کانال خروجی منتشر گردید.</b>\n\n🎯 کانال مقصد: <b>%s</b>", telegram.EscapeHTML(destName))
+			_ = editMessageTextOrCaption(bgCtx, tg, cq.ChatID, cq.MessageID, successMsg, nil)
 		})
 
 	case "f_rej":
 		// Reject
 		draft.Status = "rejected"
 		_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
-		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Post Draft Rejected", false)
-		_ = tg.EditMessageText(ctx, cq.ChatID, cq.MessageID, "🗑️ **Post Draft Rejected & Deleted.**", "Markdown")
+		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "❌ پیش‌نویس رد و لغو شد.", false)
+		_ = editMessageTextOrCaption(ctx, tg, cq.ChatID, cq.MessageID, "❌ <b>این پیش‌نویس توسط مدیر رد شد و ارسال نخواهد شد.</b>", nil)
 
 	case "f_var":
 		// Cycle styles (0 -> 1 -> 2 -> 0)
 		if len(draft.AiVariations) == 0 {
-			_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "No AI variations available", true)
+			_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "تنوع هوش مصنوعی برای این پست موجود نیست.", true)
 			return nil
 		}
 		draft.SelectedVariationIndex = (draft.SelectedVariationIndex + 1) % len(draft.AiVariations)
 		draft.DraftText = draft.AiVariations[draft.SelectedVariationIndex]
 		_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
-		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Style variation updated", false)
+		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, fmt.Sprintf("استایل شماره %d فعال شد", draft.SelectedVariationIndex+1), false)
 
-		panelMarkup := buildFunnelPanelKeyboard(draft)
-		panelText := fmt.Sprintf("🎛️ **Channel Funnel Control Panel**\n\nDestination Funnel ID: %s\nActive Caption Style: %d\nAuthor: %s\nStatus: %s",
-			draft.FunnelID, draft.SelectedVariationIndex, draft.OriginalAuthorName, strings.ToUpper(draft.Status))
-		_ = tg.EditMessageTextWithMarkup(ctx, cq.ChatID, cq.MessageID, panelText, panelMarkup, "Markdown")
+		destName := funnel.ProjectName
+		if destName == "" && destChan != nil {
+			destName = destChan.ChatTitle
+		}
+		if destName == "" {
+			destName = "کانال مقصد"
+		}
 
-		_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, i18n.T(lang, "funnel.switched_style", map[string]interface{}{"index": draft.SelectedVariationIndex, "text": draft.DraftText}), nil, nil, "HTML")
+		if cq.ChatID == funnel.InputChatID {
+			updatedPreview := formatFunnelPreviewText(destName, draft.DraftText)
+			updatedMarkup := buildInputChannelPreviewKeyboard(draft)
+			_ = editMessageTextOrCaption(ctx, tg, cq.ChatID, cq.MessageID, updatedPreview, updatedMarkup)
+		} else {
+			panelMarkup := buildFunnelPanelKeyboard(draft)
+			panelText := fmt.Sprintf("🎛️ **Channel Funnel Control Panel**\n\nDestination Funnel ID: %s\nActive Caption Style: %d\nAuthor: %s\nStatus: %s",
+				draft.FunnelID, draft.SelectedVariationIndex, draft.OriginalAuthorName, strings.ToUpper(draft.Status))
+			_ = tg.EditMessageTextWithMarkup(ctx, cq.ChatID, cq.MessageID, panelText, panelMarkup, "Markdown")
+			_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, i18n.T(lang, "funnel.switched_style", map[string]interface{}{"index": draft.SelectedVariationIndex, "text": draft.DraftText}), nil, nil, "HTML")
+		}
 
 	case "f_reg":
 		// Regenerate AI
@@ -865,27 +1111,62 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 		if cache != nil && cache.Client != nil {
 			rlKey := fmt.Sprintf("funnel_ai_rl:%s", draft.ID.String())
 			if val, _ := cache.Client.Get(ctx, rlKey).Result(); val != "" {
-				_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Please wait 30s before regenerating again.", true)
+				_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "لطفاً ۲۰ ثانیه قبل از بازتولید مجدد صبر کنید.", true)
 				return nil
 			}
-			cache.Client.Set(ctx, rlKey, "1", 30*time.Second)
+			cache.Client.Set(ctx, rlKey, "1", 20*time.Second)
 		}
-		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Regenerating AI variations...", false)
-		destChan, _ := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
-		settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
-		if err == nil {
-			var posting PostingSettingsSchema
-			_ = json.Unmarshal(settings.Posting, &posting)
-			if posting.ApiKey != "" {
-				vars, err := generateAIBVariations(ctx, draft.DraftText, posting.AiProvider, posting.ApiKey, posting.AiModel, posting.SelectedSkill, posting.CustomSkillPrompt)
-				if err == nil {
-					draft.AiVariations = vars
-					draft.SelectedVariationIndex = 0
-					draft.DraftText = vars[0]
-					_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
-					_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, i18n.T(lang, "funnel.regenerated", map[string]interface{}{"text": draft.DraftText}), nil, nil, "HTML")
-				}
+		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "🤖 در حال بازتولید متن با هوش مصنوعی Gemini 3.8 Flash...", false)
+
+		var posting PostingSettingsSchema
+		if destChan != nil {
+			settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
+			if err == nil && settings != nil {
+				_ = json.Unmarshal(settings.Posting, &posting)
 			}
+		}
+
+		provider := posting.AiProvider
+		if provider == "" {
+			provider = "gemini"
+		}
+		model := posting.AiModel
+		if model == "" {
+			model = "gemini-3.8-flash"
+		}
+		apiKey := posting.ApiKey
+		if apiKey == "" {
+			var chanID *uuid.UUID
+			if destChan != nil {
+				chanID = &destChan.ID
+			}
+			apiKey = s.resolveChannelAPIKey(ctx, chanID, provider)
+		}
+
+		vars, err := generateAIBVariations(ctx, draft.DraftText, provider, apiKey, model, posting.SelectedSkill, posting.CustomSkillPrompt)
+		if err == nil && len(vars) > 0 {
+			draft.AiVariations = vars
+			draft.SelectedVariationIndex = 0
+			draft.DraftText = vars[0]
+			_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
+
+			destName := funnel.ProjectName
+			if destName == "" && destChan != nil {
+				destName = destChan.ChatTitle
+			}
+			if destName == "" {
+				destName = "کانال مقصد"
+			}
+
+			if cq.ChatID == funnel.InputChatID {
+				updatedPreview := formatFunnelPreviewText(destName, draft.DraftText)
+				updatedMarkup := buildInputChannelPreviewKeyboard(draft)
+				_ = editMessageTextOrCaption(ctx, tg, cq.ChatID, cq.MessageID, updatedPreview, updatedMarkup)
+			} else {
+				_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, i18n.T(lang, "funnel.regenerated", map[string]interface{}{"text": draft.DraftText}), nil, nil, "HTML")
+			}
+		} else {
+			_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "خطا در برقراری ارتباط با مدل هوش مصنوعی", true)
 		}
 
 	case "f_edt":

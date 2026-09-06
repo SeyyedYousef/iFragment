@@ -660,9 +660,7 @@ export const ManagedChannelsPage: Component = () => {
 												type="button"
 												onClick={() => {
 													haptic.impact('light');
-													const targetId =
-														project.target_channel_id || project.source_channel_id || project.id;
-													navigate(`/channel/${targetId}`);
+													navigate(`/channel/${project.id}/edit-project`);
 												}}
 												class="flex-[1.2] h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all bg-[#08090D] text-white/90 border border-white/10 hover:border-[#3390ec]/40 hover:text-[#3390ec] shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
 											>
@@ -674,9 +672,7 @@ export const ManagedChannelsPage: Component = () => {
 											<button
 												type="button"
 												onClick={() => {
-													const targetId =
-														project.target_channel_id || project.source_channel_id || project.id;
-													openSubscription(targetId);
+													openSubscription(project.id);
 												}}
 												class={`h-11 rounded-[14px] text-[12px] uppercase tracking-wider font-black transition-all border active:scale-95 flex items-center justify-center gap-1.5 shadow-sm ${
 													isPaidActive
@@ -687,10 +683,10 @@ export const ManagedChannelsPage: Component = () => {
 												<span class="material-symbols-outlined text-[16px] text-amber-400">stars</span>
 												<span>
 													{isPaidActive
-														? (t('botManage.extendSub') || 'Extend (250 ⭐)')
+														? (t('botManage.extendSub') || 'Extend Plan')
 														: isTrialActive
-															? 'Upgrade (250 ⭐)'
-															: (t('botManage.buySubscription') || 'Subscribe (250 ⭐)')}
+															? 'Upgrade Plan'
+															: (t('botManage.buySubscription') || 'Subscribe')}
 												</span>
 											</button>
 

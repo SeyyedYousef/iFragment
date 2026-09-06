@@ -116,6 +116,11 @@ func (s *ProjectService) CreateProject(ctx context.Context, ownerUserID int64, i
 		if sourceChatID == nil {
 			if parsedID, err := strconv.ParseInt(cleanSrcIdent, 10, 64); err == nil {
 				sourceChatID = &parsedID
+			} else {
+				if ch, err := s.channelRepo.GetManagedChannelByChatIDOrUsername(ctx, cleanSrcIdent); err == nil && ch != nil {
+					input.SourceChannelID = &ch.ID
+					sourceChatID = &ch.ChatID
+				}
 			}
 		}
 	}
@@ -131,6 +136,11 @@ func (s *ProjectService) CreateProject(ctx context.Context, ownerUserID int64, i
 		if targetChatID == nil {
 			if parsedID, err := strconv.ParseInt(cleanTgtIdent, 10, 64); err == nil {
 				targetChatID = &parsedID
+			} else {
+				if ch, err := s.channelRepo.GetManagedChannelByChatIDOrUsername(ctx, cleanTgtIdent); err == nil && ch != nil {
+					input.TargetChannelID = &ch.ID
+					targetChatID = &ch.ChatID
+				}
 			}
 		}
 	}
@@ -257,9 +267,12 @@ func (s *ProjectService) UpdateProjectChannels(ctx context.Context, ownerUserID 
 	if input.SourceChannelIdentifier != "" {
 		cleanSrc := CleanChannelUsername(input.SourceChannelIdentifier)
 		cfgMap["source_channel_identifier"] = cleanSrc
-		if p.SourceChatID == nil {
-			if parsedID, err := strconv.ParseInt(cleanSrc, 10, 64); err == nil {
-				p.SourceChatID = &parsedID
+		if parsedID, err := strconv.ParseInt(cleanSrc, 10, 64); err == nil {
+			p.SourceChatID = &parsedID
+		} else {
+			if ch, err := s.channelRepo.GetManagedChannelByChatIDOrUsername(ctx, cleanSrc); err == nil && ch != nil {
+				p.SourceChannelID = &ch.ID
+				p.SourceChatID = &ch.ChatID
 			}
 		}
 	}
@@ -267,9 +280,12 @@ func (s *ProjectService) UpdateProjectChannels(ctx context.Context, ownerUserID 
 	if input.TargetChannelIdentifier != "" {
 		cleanTgt := CleanChannelUsername(input.TargetChannelIdentifier)
 		cfgMap["target_channel_identifier"] = cleanTgt
-		if p.TargetChatID == nil {
-			if parsedID, err := strconv.ParseInt(cleanTgt, 10, 64); err == nil {
-				p.TargetChatID = &parsedID
+		if parsedID, err := strconv.ParseInt(cleanTgt, 10, 64); err == nil {
+			p.TargetChatID = &parsedID
+		} else {
+			if ch, err := s.channelRepo.GetManagedChannelByChatIDOrUsername(ctx, cleanTgt); err == nil && ch != nil {
+				p.TargetChannelID = &ch.ID
+				p.TargetChatID = &ch.ChatID
 			}
 		}
 	}
@@ -368,7 +384,20 @@ func (s *ProjectService) verifyBotAdmin(ctx context.Context, ch *repository.Mana
 	}
 
 	tg := telegram.NewBotAPIClient(token)
-	status, err := tg.GetChatMember(ctx, ch.ChatID, bot.BotID)
+	botID := bot.BotID
+	if botID == 0 {
+		parts := strings.Split(token, ":")
+		if len(parts) > 0 {
+			if id, pErr := strconv.ParseInt(parts[0], 10, 64); pErr == nil {
+				botID = id
+			}
+		}
+	}
+	if botID == 0 {
+		return nil
+	}
+
+	status, err := tg.GetChatMember(ctx, ch.ChatID, botID)
 	if err != nil {
 		// If check fails due to network, do not block strictly
 		slog.Warn("Could not check bot status in chat", "chat_id", ch.ChatID, "error", err)

@@ -272,6 +272,23 @@ export const channelApi = {
 	deleteProject: (projectId: string) =>
 		apiClient.delete(`/projects/${projectId}`).then((r: any) => unwrapApiData(r)),
 
+	subscribeProjectWithCredits: (projectId: string, packageId: string) =>
+		apiClient
+			.post(`/projects/${projectId}/subscribe-credits`, { package_id: packageId })
+			.then((r: any) => unwrapApiData(r)),
+
+	createProjectSubscriptionStarsInvoice: (
+		projectId: string,
+		packageId: string,
+		discountPercent: number = 0,
+	): Promise<{ invoice_link: string; final_stars: number }> =>
+		apiClient
+			.post(`/projects/${projectId}/subscribe-stars`, {
+				package_id: packageId,
+				discount_percent: discountPercent,
+			})
+			.then((r: any) => unwrapApiData(r)),
+
 	// Legacy backward compatibility aliases
 	getFunnel: (channelId: string) =>
 		apiClient.get<any>(`/channels/${channelId}/funnel`).then((r: any) => {

@@ -5061,14 +5061,22 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 	}
 
 	if strings.HasPrefix(cq.Data, "f_") {
+		var chatID int64
+		var chatTitle string
+		var messageID int
+		if cq.Message != nil {
+			chatID = cq.Message.Chat.ID
+			chatTitle = cq.Message.Chat.Title
+			messageID = cq.Message.MessageID
+		}
 		err := h.channelService.HandleFunnelCallback(ctx, channelmgmt.FunnelCallbackData{
 			QueryID:          cq.ID,
 			Data:             cq.Data,
 			FromID:           cq.From.ID,
 			FromLanguageCode: cq.From.LanguageCode,
-			ChatID:           cq.Message.Chat.ID,
-			ChatTitle:        cq.Message.Chat.Title,
-			MessageID:        cq.Message.MessageID,
+			ChatID:           chatID,
+			ChatTitle:        chatTitle,
+			MessageID:        messageID,
 		}, bot)
 		if err != nil {
 			slog.Error("Failed to handle channel funnel callback query", "error", err)

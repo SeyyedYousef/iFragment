@@ -193,6 +193,8 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Put("/{projectID}", cfg.ProjectHandler.UpdateProject)
 				r.Post("/{projectID}/toggle", cfg.ProjectHandler.ToggleProject)
 				r.Post("/{projectID}/renew", cfg.ProjectHandler.RenewProject)
+				r.Post("/{projectID}/subscribe-credits", cfg.ProjectHandler.SubscribeCredits)
+				r.Post("/{projectID}/subscribe-stars", cfg.ProjectHandler.SubscribeStars)
 				r.Delete("/{projectID}", cfg.ProjectHandler.DeleteProject)
 			}
 		})

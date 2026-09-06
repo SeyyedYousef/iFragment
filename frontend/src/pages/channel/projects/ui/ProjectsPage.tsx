@@ -121,7 +121,7 @@ export const ProjectsPage: Component = () => {
 		try {
 			const pkgs = await subscriptionApi.getPackages();
 			const pkgId = pkgs?.[0]?.id || '1_month';
-			const res = await subscriptionApi.createChannelSubscriptionStarsInvoice(project.id, pkgId, 0);
+			const res = await channelApi.createProjectSubscriptionStarsInvoice(project.id, pkgId, 0);
 			if (res.invoice_link) {
 				const tg = (window as any).Telegram?.WebApp;
 				if (tg?.openInvoice) {
@@ -322,8 +322,21 @@ export const ProjectsPage: Component = () => {
 									</div>
 								</div>
 
-								{/* Action Buttons: Pay Stars & Delete */}
+								{/* Action Buttons: Manage, Pay Stars & Delete */}
 								<div class="flex items-center gap-1.5">
+									<button
+										type="button"
+										onClick={() => {
+											haptic.impact('light');
+											navigate(`/channel/${project.id}/edit-project`);
+										}}
+										class="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs flex items-center gap-1.5 border border-white/10 shadow-sm active:scale-95 transition-all"
+										title="Manage Funnel & Settings"
+									>
+										<span class="material-symbols-outlined text-[15px]">tune</span>
+										<span>{t('botManage.manage') || 'Manage'}</span>
+									</button>
+
 									<button
 										type="button"
 										onClick={() => handlePayStars(project)}
