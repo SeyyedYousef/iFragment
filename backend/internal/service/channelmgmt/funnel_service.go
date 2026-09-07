@@ -477,7 +477,29 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 		slog.Info("Successfully saved pending funnel draft", "draft_id", draft.ID, "funnel_id", funnel.ID, "input_message_id", draft.InputMessageID)
 	}
 
-	// 6. Auto-publish check: If autoPublish is enabled, publish directly to the destination channel!
+	// 6. Direct In-Place Edit in the INPUT CHANNEL!
+	// Update the post in the input channel directly with processed text, watermark, signature and buttons
+	if funnel.InputChatID != 0 && inputMsgID != 0 {
+		_, inTG := s.resolveBotClientForChat(ctx, funnel.InputChatID, bot)
+		if inTG != nil {
+			var inMarkup interface{}
+			if len(buttons) > 0 {
+				inMarkup = buildReplyMarkupFromButtons(buttons)
+			}
+			if editErr := inTG.EditMessageTextWithMarkup(ctx, funnel.InputChatID, int(inputMsgID), draft.DraftText, inMarkup, "HTML"); editErr != nil {
+				// Fallback: Post may have photo/video caption rather than plain text
+				if capErr := inTG.EditMessageCaptionWithMarkup(ctx, funnel.InputChatID, int(inputMsgID), draft.DraftText, inMarkup); capErr != nil {
+					slog.Warn("Failed to edit input channel post in-place", "input_chat_id", funnel.InputChatID, "msg_id", inputMsgID, "err_text", editErr, "err_cap", capErr)
+				} else {
+					slog.Info("Successfully edited input channel post caption in-place", "input_chat_id", funnel.InputChatID, "msg_id", inputMsgID)
+				}
+			} else {
+				slog.Info("Successfully edited input channel post text in-place", "input_chat_id", funnel.InputChatID, "msg_id", inputMsgID)
+			}
+		}
+	}
+
+	// 7. Auto-publish check: If autoPublish is enabled, publish directly to the destination channel!
 	if autoPublish {
 		slog.Info("Auto-publish enabled for funnel/project, dispatching to destination", "funnel_id", funnel.ID, "output_chat_id", funnel.OutputChatID)
 		var token string
@@ -500,17 +522,6 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 			slog.Warn("Direct auto-publish failed, falling back to preview delivery", "error", pubErr)
 		} else {
 			slog.Warn("No bot token available for direct auto-publish, proceeding to live preview")
-		}
-	}
-
-	// 7. Send the Interactive Preview with Action Buttons directly into the INPUT CHANNEL!
-	// Anchors to the admin's post so the admin can review, switch AI style, or approve directly in the input channel.
-	if funnel.InputChatID != 0 {
-		slog.Info("Sending live preview to input channel", "input_chat_id", funnel.InputChatID, "draft_id", draft.ID)
-		if previewErr := s.sendFunnelPreviewToInputChannel(ctx, bot, funnel, &draft, destTitle); previewErr != nil {
-			slog.Warn("Failed to send funnel live preview to input channel", "error", previewErr, "input_chat_id", funnel.InputChatID)
-		} else {
-			slog.Info("Successfully delivered funnel live preview to input channel", "input_chat_id", funnel.InputChatID)
 		}
 	}
 

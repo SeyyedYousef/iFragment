@@ -38,15 +38,8 @@ export const ChannelFunnelPage: Component = () => {
 	);
 
 	onMount(() => {
-		backButton.show();
-		const off = backButton.onClick(() => {
-			haptic.impact('light');
-			navigate(`/channel/${params.id}`);
-		});
-		onCleanup(() => {
-			off();
-			backButton.hide();
-		});
+		// Funnel has been unified into ProjectsPage
+		navigate(`/channel/${params.id}/projects`, { replace: true });
 	});
 
 	const handleCreateFunnel = async () => {

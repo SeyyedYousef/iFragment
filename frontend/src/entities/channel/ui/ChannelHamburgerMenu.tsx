@@ -44,15 +44,9 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 		},
 		{
 			id: 'projects',
-			icon: 'bolt',
-			label: t('channel.menu.projects' as any) || 'پروژه‌ها',
+			icon: 'rocket_launch',
+			label: t('channel.menu.projects' as any) || 'پروژه‌های انتقال هوشمند',
 			path: `/channel/${props.channelId}/projects`,
-		},
-		{
-			id: 'funnel',
-			icon: 'filter_alt',
-			label: t('channel.menu.funnel' as any) || 'قیف ورودی / خروجی',
-			path: `/channel/${props.channelId}/funnel`,
 		},
 		{
 			id: 'general',

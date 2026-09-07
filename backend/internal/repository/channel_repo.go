@@ -2218,12 +2218,18 @@ func (r *ChannelRepo) IsOutputChannel(ctx context.Context, chatID int64, usernam
 	}
 
 	cleanUser := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(username), "@"))
+	chatIDStr := strconv.FormatInt(chatID, 10)
 
 	query := `SELECT EXISTS (
 		SELECT 1 FROM projects p
 		LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
 		WHERE (
-			($1 != 0 AND (p.target_chat_id = $1 OR tc.chat_id = $1))
+			($1 != 0 AND (
+				p.target_chat_id = $1 
+				OR tc.chat_id = $1 
+				OR COALESCE(p.pipeline_config->>'target_channel_identifier', '') = $3
+				OR REPLACE(COALESCE(p.pipeline_config->>'target_channel_identifier', ''), '-100', '-') = REPLACE($3, '-100', '-')
+			))
 			OR ($2 != '' AND (
 				LOWER(REPLACE(COALESCE(p.pipeline_config->>'target_channel_identifier', ''), '@', '')) = $2
 				OR LOWER(REPLACE(COALESCE(tc.chat_username, ''), '@', '')) = $2
@@ -2236,7 +2242,7 @@ func (r *ChannelRepo) IsOutputChannel(ctx context.Context, chatID int64, usernam
 	)`
 
 	var exists bool
-	err := r.db.Pool.QueryRow(ctx, query, chatID, cleanUser).Scan(&exists)
+	err := r.db.Pool.QueryRow(ctx, query, chatID, cleanUser, chatIDStr).Scan(&exists)
 	if err != nil {
 		return false, err
 	}

@@ -6266,6 +6266,13 @@ func (h *WebhookHandler) handleChannelPost(ctx context.Context, bot *repository.
 	}
 	slog.Info("Processing channel post", "chat_id", m.Chat.ID, "message_id", m.MessageID, "is_edit", isEdit)
 
+	// HARD RULE: If this channel is an Output/Target channel for any project,
+	// NEVER modify, edit, or touch it! The administrator posted it intentionally as final content.
+	if isOutput, outErr := h.channelService.IsOutputChannel(ctx, m.Chat.ID, m.Chat.Username); outErr == nil && isOutput {
+		slog.Info("Post is in an Output Channel; preserving admin post as-is and skipping all processing", "chat_id", m.Chat.ID, "username", m.Chat.Username, "message_id", m.MessageID)
+		return
+	}
+
 	text := m.Text
 	if text == "" {
 		text = m.Caption

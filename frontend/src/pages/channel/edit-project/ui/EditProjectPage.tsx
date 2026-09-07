@@ -313,11 +313,11 @@ export const EditProjectPage: Component = () => {
 					</button>
 					<div class="flex flex-col overflow-hidden">
 						<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight flex items-center gap-2">
-							<span>⚡</span>
-							<span>{t('connectChannel.editProjectTitle') || 'Project Settings & Funnel'}</span>
+							<span class="text-[#3390ec]">⚡</span>
+							<span>{t('connectChannel.editProjectTitle') || 'تنظیمات خط انتقال هوشمند'}</span>
 						</h1>
-						<span class="text-[11px] text-white/50 font-bold uppercase tracking-wider truncate mt-0.5">
-							{t('connectChannel.editProjectSubtitle') || 'Configure AI rewriting, filters & channels'}
+						<span class="text-[11px] text-white/50 font-bold tracking-wider truncate mt-0.5">
+							{t('connectChannel.editProjectSubtitle') || 'پیکربندی هوش مصنوعی، فیلترها و مسیر کانال‌ها'}
 						</span>
 					</div>
 				</div>
@@ -325,7 +325,7 @@ export const EditProjectPage: Component = () => {
 				<div class="flex items-center gap-2">
 					<div class="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[#3390ec] text-[11px] font-black flex items-center gap-1">
 						<span class="w-1.5 h-1.5 rounded-full bg-[#3390ec] animate-pulse" />
-						<span>Funnel</span>
+						<span>پروژه فعال</span>
 					</div>
 					<button
 						type="button"

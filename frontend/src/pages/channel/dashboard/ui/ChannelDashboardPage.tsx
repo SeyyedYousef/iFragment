@@ -355,7 +355,7 @@ export const ChannelDashboardPage: Component = () => {
 				<div class="flex flex-col gap-4">
 					<FunnelLessonCard
 						isDone={isFeatureDone('funnel')}
-						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/funnel`)}
+						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/projects`)}
 					/>
 
 					<PostingLessonCard
