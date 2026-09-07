@@ -36,7 +36,7 @@ export const EditProjectPage: Component = () => {
 	const [removeHashtags, setRemoveHashtags] = createSignal(false);
 	const [dropMedia, setDropMedia] = createSignal(false);
 	const [aiRewrite, setAiRewrite] = createSignal(false);
-	const [autoPublish, setAutoPublish] = createSignal(false);
+	const [autoPublish, setAutoPublish] = createSignal(true);
 	const [watermark, setWatermark] = createSignal('');
 
 	const [isSaving, setIsSaving] = createSignal(false);
@@ -127,7 +127,7 @@ export const EditProjectPage: Component = () => {
 				setRemoveHashtags(!!p.pipeline_config.remove_hashtags);
 				setDropMedia(!!p.pipeline_config.drop_media);
 				setAiRewrite(!!p.pipeline_config.ai_rewrite);
-				setAutoPublish(!!p.pipeline_config.auto_publish);
+				setAutoPublish(p.pipeline_config.auto_publish !== false);
 				setWatermark(p.pipeline_config.watermark || '');
 			}
 		}
@@ -314,10 +314,10 @@ export const EditProjectPage: Component = () => {
 					<div class="flex flex-col overflow-hidden">
 						<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight flex items-center gap-2">
 							<span class="text-[#3390ec]">⚡</span>
-							<span>{t('connectChannel.editProjectTitle') || 'تنظیمات خط انتقال هوشمند'}</span>
+							<span>{t('connectChannel.editProjectTitle') || 'Edit Project'}</span>
 						</h1>
 						<span class="text-[11px] text-white/50 font-bold tracking-wider truncate mt-0.5">
-							{t('connectChannel.editProjectSubtitle') || 'پیکربندی هوش مصنوعی، فیلترها و مسیر کانال‌ها'}
+							{t('connectChannel.editProjectSubtitle') || 'Update project name and channels'}
 						</span>
 					</div>
 				</div>
@@ -325,7 +325,7 @@ export const EditProjectPage: Component = () => {
 				<div class="flex items-center gap-2">
 					<div class="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[#3390ec] text-[11px] font-black flex items-center gap-1">
 						<span class="w-1.5 h-1.5 rounded-full bg-[#3390ec] animate-pulse" />
-						<span>پروژه فعال</span>
+						<span>{t('channelProjects.activeProject') || 'Active Project'}</span>
 					</div>
 					<button
 						type="button"
@@ -644,12 +644,12 @@ export const EditProjectPage: Component = () => {
 							<div class="flex flex-col">
 								<span class="text-[13px] font-bold text-emerald-300 flex items-center gap-2">
 									<span>⚡</span>
-									<span>{t('channelProjects.autoPublish') || 'ارسال خودکار مستقیم به مقصد'}</span>
+									<span>{t('channelProjects.autoPublish') || 'Auto-Publish Direct to Target'}</span>
 								</span>
 								<span class="text-[11px] text-white/40">
 									{autoPublish()
-										? 'پست‌ها بلافاصله پس از پردازش به کانال خروجی ارسال می‌شوند'
-										: 'ارسال پیش‌نمایش به کانال ورودی همراه با دکمه‌های تایید اینلاین'}
+										? (t('channelProjects.autoPublishOn') || 'Posts are dispatched directly to target output channel after processing')
+										: (t('channelProjects.autoPublishOff') || 'Send preview to input channel with inline confirmation buttons')}
 								</span>
 							</div>
 							<input

@@ -31,7 +31,7 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 		channel()?.chat_title ||
 		(channel() as any)?.title ||
 		t('channel.defaultTitle' as any) ||
-		'کانال من';
+		'My Channel';
 
 	const channelUsername = () => channel()?.chat_username || (channel() as any)?.username;
 
@@ -39,67 +39,67 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 		{
 			id: 'dashboard',
 			icon: 'dashboard',
-			label: t('channel.menu.dashboard' as any) || 'داشبورد',
+			label: t('channel.menu.dashboard' as any) || 'Dashboard',
 			path: `/channel/${props.channelId}/dashboard`,
 		},
 		{
 			id: 'projects',
 			icon: 'rocket_launch',
-			label: t('channel.menu.projects' as any) || 'پروژه‌های انتقال هوشمند',
+			label: t('channel.menu.projects' as any) || t('channelProjects.title') || 'Smart Forwarding Projects',
 			path: `/channel/${props.channelId}/projects`,
 		},
 		{
 			id: 'general',
 			icon: 'settings',
-			label: t('channel.menu.generalSettings' as any) || 'تنظیمات عمومی',
+			label: t('channel.menu.generalSettings' as any) || 'General Settings',
 			path: `/channel/${props.channelId}/general`,
 		},
 		{
 			id: 'posting',
 			icon: 'smart_toy',
-			label: t('channel.menu.posting' as any) || 'ارسال هوشمند و AI',
+			label: t('channel.menu.posting' as any) || 'Smart Posting & AI',
 			path: `/channel/${props.channelId}/posting`,
 		},
 		{
 			id: 'forwarding',
 			icon: 'sync_alt',
-			label: t('channel.menu.forwarding' as any) || 'فوروارد خودکار و وبهوک',
+			label: t('channel.menu.forwarding' as any) || 'Forwarding & Webhooks',
 			path: `/channel/${props.channelId}/forwarding`,
 		},
 		{
 			id: 'inline-buttons',
 			icon: 'smart_button',
-			label: t('channel.menu.inlineButtons' as any) || 'دکمه‌های شیشه‌ای',
+			label: t('channel.menu.inlineButtons' as any) || 'Inline Buttons',
 			path: `/channel/${props.channelId}/inline-buttons`,
 		},
 		{
 			id: 'auto-responder',
 			icon: 'chat',
-			label: t('channel.menu.autoResponder' as any) || 'پاسخگوی خودکار',
+			label: t('channel.menu.autoResponder' as any) || 'Auto Responder',
 			path: `/channel/${props.channelId}/auto-responder`,
 		},
 		{
 			id: 'dynamic-bio',
 			icon: 'badge',
-			label: t('channel.menu.dynamicBio' as any) || 'بیوی پویا',
+			label: t('channel.menu.dynamicBio' as any) || 'Dynamic Bio',
 			path: `/channel/${props.channelId}/dynamic-bio`,
 		},
 		{
 			id: 'members',
 			icon: 'shield_person',
-			label: t('channel.menu.members' as any) || 'مدیریت اعضا',
+			label: t('channel.menu.members' as any) || 'Members',
 			path: `/channel/${props.channelId}/members`,
 		},
 		{
 			id: 'admins',
 			icon: 'admin_panel_settings',
-			label: t('channel.menu.admins' as any) || 'مدیران',
+			label: t('channel.menu.admins' as any) || 'Admins',
 			path: `/channel/${props.channelId}/admins`,
 		},
 		{
 			id: 'analytics',
 			icon: 'analytics',
-			label: t('channel.menu.analytics' as any) || 'آمار و تحلیل',
+			label: t('channel.menu.analytics' as any) || 'Analytics',
 			path: `/channel/${props.channelId}/analytics`,
 		},
 	];
@@ -198,7 +198,7 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 								class="w-full flex items-center justify-center gap-2 p-3 rounded-2xl bg-[#2a2a2a]/60 hover:bg-[#2a2a2a] text-[13px] font-bold text-[#8e8e93] hover:text-white transition-colors"
 							>
 								<span class="material-symbols-outlined text-[18px] rtl:rotate-180">arrow_back</span>
-								<span>{t('channel.backToChannels' as any) || 'بازگشت به کانال‌ها'}</span>
+								<span>{t('channel.backToChannels' as any) || 'Back to Channels'}</span>
 							</button>
 						</div>
 					</div>

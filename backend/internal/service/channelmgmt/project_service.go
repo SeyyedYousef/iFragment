@@ -145,9 +145,9 @@ func (s *ProjectService) CreateProject(ctx context.Context, ownerUserID int64, i
 		}
 	}
 
-	// Funnel architecture: auto_publish is false by default so post goes to bot for confirmation!
+	// Auto-publish defaults to true for smart forwarding projects so posts automatically transfer to target channel
 	if _, exists := cfgMap["auto_publish"]; !exists {
-		cfgMap["auto_publish"] = false
+		cfgMap["auto_publish"] = true
 	}
 
 	configBytes, _ := json.Marshal(cfgMap)

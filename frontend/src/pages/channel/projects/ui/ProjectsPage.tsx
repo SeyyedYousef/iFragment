@@ -50,9 +50,24 @@ export const ProjectsPage: Component = () => {
 	const [removeLinks, setRemoveLinks] = createSignal(false);
 	const [removeHashtags, setRemoveHashtags] = createSignal(false);
 	const [aiRewrite, setAiRewrite] = createSignal(false);
-	const [autoPublish, setAutoPublish] = createSignal(false);
+	const [autoPublish, setAutoPublish] = createSignal(true);
 	const [watermark, setWatermark] = createSignal('');
 	const [isSubmitting, setIsSubmitting] = createSignal(false);
+
+	const resetForm = () => {
+		setProjectName('');
+		setSourceChannelId('');
+		setSourceIdentifier('');
+		setTargetChannelId('');
+		setTargetIdentifier('');
+		setDropMedia(false);
+		setRemoveAds(true);
+		setRemoveLinks(false);
+		setRemoveHashtags(false);
+		setAiRewrite(false);
+		setAutoPublish(true);
+		setWatermark('');
+	};
 
 	// Fast Switcher Signals for existing projects
 	const [switchingProjectId, setSwitchingProjectId] = createSignal<string | null>(null);
@@ -91,7 +106,7 @@ export const ProjectsPage: Component = () => {
 	const handleCreateProject = async (e: Event) => {
 		e.preventDefault();
 		if (!projectName().trim()) {
-			showToast(t('channel.projects.name_required') || 'Project name is required', 'error');
+			showToast(t('channelProjects.nameRequired') || 'Project name is required', 'error');
 			return;
 		}
 
@@ -112,12 +127,13 @@ export const ProjectsPage: Component = () => {
 					remove_hashtags: removeHashtags(),
 					ai_rewrite: aiRewrite(),
 					watermark: watermark().trim(),
+					auto_publish: autoPublish(),
 				},
 			});
 
 			haptic.notify('success');
 			showToast(
-				t('channel.projects.created_success') ||
+				t('channelProjects.createdSuccess') ||
 					'Project created successfully with 72h free trial!',
 				'success',
 			);
@@ -138,12 +154,14 @@ export const ProjectsPage: Component = () => {
 		const date = new Date(dateStr);
 		const now = new Date();
 		const diff = date.getTime() - now.getTime();
-		if (diff <= 0) return t('botManage.expired') || 'منقضی شده';
+		if (diff <= 0) return t('channelProjects.expired') || 'Expired';
 
 		const days = Math.floor(diff / (1000 * 3600 * 24));
 		const hours = Math.floor((diff % (1000 * 3600 * 24)) / (1000 * 3600));
-		if (days > 0) return `${days} روز مانده`;
-		return `${hours} ساعت مانده`;
+		if (days > 0) {
+			return t('channelProjects.daysRemainingText', { days }) || `${days} ${t('channelProjects.daysRemaining')}`;
+		}
+		return t('channelProjects.hoursRemainingText', { hours }) || `${hours} ${t('channelProjects.hoursRemaining')}`;
 	};
 
 	const openSubscription = (project: Project) => {
@@ -161,14 +179,14 @@ export const ProjectsPage: Component = () => {
 			haptic.impact('heavy');
 			await subscriptionApi.subscribeChannelWithCredits(proj.id, selectedPkg());
 			haptic.notify('success');
-			showToast(t('botManage.subscriptionSuccess') || 'اشتراک با موفقیت فعال شد!', 'success');
+			showToast(t('botManage.subscriptionSuccess') || 'Subscription activated successfully!', 'success');
 			wallet.refetch();
 			refetchProjects();
 			setTimeout(() => {
 				setShowSubscription(false);
 			}, 1000);
 		} catch (e: any) {
-			const msg = e?.response?.data?.error || e?.message || 'خطا در فعال‌سازی با کریدیت';
+			const msg = e?.response?.data?.error || e?.message || 'Error activating with credits';
 			showToast(msg, 'error');
 			haptic.notify('error');
 		} finally {
@@ -189,7 +207,7 @@ export const ProjectsPage: Component = () => {
 					tg.openInvoice(res.invoice_link, (status: string) => {
 						if (status === 'paid') {
 							haptic.notify('success');
-							showToast('اشتراک با موفقیت فعال شد!', 'success');
+							showToast(t('botManage.subscriptionSuccess') || 'Subscription activated successfully!', 'success');
 							setShowSubscription(false);
 							refetchProjects();
 						}
@@ -199,7 +217,7 @@ export const ProjectsPage: Component = () => {
 				}
 			}
 		} catch (err: any) {
-			showToast(err?.response?.data?.error || 'خطا در ایجاد فاکتور ستاره', 'error');
+			showToast(err?.response?.data?.error || 'Error creating Stars invoice', 'error');
 			haptic.notify('error');
 		} finally {
 			setIsProcessing(false);
@@ -233,7 +251,7 @@ export const ProjectsPage: Component = () => {
 	const handleDeleteProject = async (projectId: string) => {
 		if (
 			!confirm(
-				t('channel.projects.confirm_delete') || 'Are you sure you want to delete this project?',
+				t('channelProjects.deleteConfirm') || 'Are you sure you want to delete this project?',
 			)
 		) {
 			return;
@@ -241,25 +259,11 @@ export const ProjectsPage: Component = () => {
 		haptic.notify('warning');
 		try {
 			await channelApi.deleteProject(projectId);
-			showToast(t('channel.projects.deleted') || 'Project deleted', 'info');
+			showToast(t('channelProjects.deletedSuccess') || 'Project deleted successfully', 'info');
 			refetchProjects();
 		} catch (err: any) {
 			showToast(err?.response?.data?.error || 'Failed to delete project', 'error');
 		}
-	};
-
-	const resetForm = () => {
-		setProjectName('');
-		setSourceChannelId('');
-		setSourceIdentifier('');
-		setTargetChannelId('');
-		setTargetIdentifier('');
-		setDropMedia(false);
-		setRemoveAds(true);
-		setRemoveLinks(false);
-		setRemoveHashtags(false);
-		setAiRewrite(false);
-		setWatermark('');
 	};
 
 	const effectiveChannelId = () =>
@@ -294,10 +298,10 @@ export const ProjectsPage: Component = () => {
 					</div>
 					<div class="flex flex-col min-w-0">
 						<h1 class="text-[17px] font-black tracking-tight text-white truncate">
-							{t('channel.projects.title') || 'پروژه‌های انتقال هوشمند'}
+							{t('channelProjects.title') || 'Smart Forwarding Projects'}
 						</h1>
 						<p class="text-[11px] text-white/50 font-medium truncate mt-0.5">
-							{t('channel.projects.subtitle') || 'اتصال کانال ورودی به خروجی با هوش مصنوعی و فیلترها'}
+							{t('channelProjects.subtitle') || 'Connect input channel to output with AI & smart filters'}
 						</p>
 					</div>
 				</div>
@@ -312,7 +316,7 @@ export const ProjectsPage: Component = () => {
 						class="h-10 px-3.5 rounded-[13px] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white text-[11px] font-black uppercase tracking-wider shadow-[0_4px_14px_rgba(51,144,236,0.3)] hover:opacity-95 active:scale-95 transition-all flex items-center gap-1.5 border border-white/10"
 					>
 						<span class="material-symbols-outlined text-[16px]">add</span>
-						<span>{t('channel.projects.new_project') || 'پروژه جدید'}</span>
+						<span>{t('channelProjects.newProject') || 'New Project'}</span>
 					</button>
 
 					<button
@@ -346,11 +350,11 @@ export const ProjectsPage: Component = () => {
 						</div>
 						<div class="space-y-1">
 							<h3 class="text-[17px] font-black text-white">
-								{t('channel.projects.empty_title') || 'هنوز پروژه‌ای ثبت نشده است'}
+								{t('channelProjects.emptyTitle') || 'No projects created yet'}
 							</h3>
 							<p class="text-xs text-white/50 max-w-sm mx-auto leading-relaxed">
-								{t('channel.projects.empty_desc') ||
-									'اولین پروژه انتقال هوشمند خود را با تست رایگان ۷۲ ساعته ایجاد کنید.'}
+								{t('channelProjects.emptyDesc') ||
+									'Create your first smart forwarding pipeline with a 72-hour free trial.'}
 							</p>
 						</div>
 						<button
@@ -362,7 +366,7 @@ export const ProjectsPage: Component = () => {
 							class="py-3 px-5 rounded-[16px] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-[#3390ec]/25 hover:opacity-95 active:scale-95 transition-all inline-flex items-center gap-2 border border-white/10"
 						>
 							<span class="material-symbols-outlined text-[18px]">add</span>
-							<span>{t('channel.projects.create_first') || 'ایجاد پروژه (تست رایگان ۷۲ ساعته)'}</span>
+							<span>{t('channelProjects.createFirst') || 'Create Project (72h Free Trial)'}</span>
 						</button>
 					</div>
 				</Show>
@@ -389,7 +393,7 @@ export const ProjectsPage: Component = () => {
 												{project.name}
 											</h3>
 											<div class="flex items-center gap-1.5 text-[11px] font-mono text-white/40">
-												<span>{t('managedChannels.projectId') || 'شناسه'}:</span>
+												<span>{t('managedChannels.projectId') || 'ID'}:</span>
 												<span class="text-white/60 font-semibold">{project.id.slice(0, 8)}</span>
 											</div>
 										</div>
@@ -409,10 +413,10 @@ export const ProjectsPage: Component = () => {
 											<span class="w-1.5 h-1.5 rounded-full animate-pulse bg-current" />
 											<span>
 												{isPaid
-													? 'نسخه پرو'
+													? t('channelProjects.proBadge')
 													: isTrial
-														? 'آزمایشی (۷۲ ساعته)'
-														: 'منقضی شده'}
+														? t('channelProjects.trialBadge')
+														: t('channelProjects.expiredBadge')}
 											</span>
 										</span>
 										<Show when={endDateStr}>
@@ -431,7 +435,7 @@ export const ProjectsPage: Component = () => {
 										<div class="flex items-center justify-between">
 											<span class="text-[10px] font-black text-[#3390ec] uppercase tracking-wider flex items-center gap-1">
 												<span class="w-2 h-2 rounded-full bg-[#3390ec]" />
-												<span>ورودی (SOURCE)</span>
+												<span>{t('channelProjects.sourceBadge')}</span>
 											</span>
 											<button
 												type="button"
@@ -441,18 +445,18 @@ export const ProjectsPage: Component = () => {
 												}}
 												class="text-[10px] text-[#3390ec] hover:underline font-bold"
 											>
-												تعویض
+												{t('channelProjects.switchChannel')}
 											</button>
 										</div>
 										<span class="text-[13px] font-black text-white truncate mt-0.5">
-											{project.source_title || 'کانال ورودی'}
+											{project.source_title || t('channelProjects.sourceChannel')}
 										</span>
 										<span class="text-[10px] text-white/50 font-mono truncate" dir="ltr">
 											{project.source_username
 												? `@${project.source_username}`
 												: project.source_chat_id
 													? `ID: ${project.source_chat_id}`
-													: 'متصل'}
+													: t('channelProjects.connected')}
 										</span>
 									</div>
 
@@ -470,7 +474,7 @@ export const ProjectsPage: Component = () => {
 										<div class="flex items-center justify-between">
 											<span class="text-[10px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1">
 												<span class="w-2 h-2 rounded-full bg-emerald-400" />
-												<span>خروجی (TARGET)</span>
+												<span>{t('channelProjects.targetBadge')}</span>
 											</span>
 											<button
 												type="button"
@@ -480,18 +484,18 @@ export const ProjectsPage: Component = () => {
 												}}
 												class="text-[10px] text-emerald-400 hover:underline font-bold"
 											>
-												تعویض
+												{t('channelProjects.switchChannel')}
 											</button>
 										</div>
 										<span class="text-[13px] font-black text-white truncate mt-0.5">
-											{project.target_title || 'کانال خروجی'}
+											{project.target_title || t('channelProjects.targetChannel')}
 										</span>
 										<span class="text-[10px] text-white/50 font-mono truncate" dir="ltr">
 											{project.target_username
 												? `@${project.target_username}`
 												: project.target_chat_id
 													? `ID: ${project.target_chat_id}`
-													: 'متصل'}
+													: t('channelProjects.connected')}
 										</span>
 									</div>
 								</div>
@@ -514,21 +518,21 @@ export const ProjectsPage: Component = () => {
 											<div class="flex items-center gap-2">
 												<span class="text-[13px] font-black text-white truncate">
 													{isPaid
-														? 'اشتراک پرمیوم فعال'
+														? t('channelProjects.activePremium')
 														: isTrial
-															? 'پلن آزمایشی ۷۲ ساعته'
-															: 'اشتراک منقضی شده'}
+															? t('channelProjects.trialActive')
+															: t('channelProjects.expiredPlan')}
 												</span>
 												<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-400 border border-amber-400/30 font-mono shrink-0">
-													{isPaid ? '۳ 💎 ماهانه' : isTrial ? '۰ 💎 (رایگان)' : '۳ 💎 ماهانه'}
+													{isPaid ? t('channelProjects.monthlyPrice') : isTrial ? t('channelProjects.freePrice') : t('channelProjects.monthlyPrice')}
 												</span>
 											</div>
 											<span class="text-[11px] text-white/50 truncate mt-0.5">
 												{isPaid
-													? (endDateStr ? `فعال تا: ${new Date(endDateStr).toLocaleDateString('fa-IR')}` : 'پلن پرو فعال است')
+													? (endDateStr ? `${t('channelProjects.trialRemainingPrefix')}${new Date(endDateStr).toLocaleDateString(isRtl() ? 'fa-IR' : undefined)}` : t('channelProjects.activePremium'))
 													: isTrial
-														? (endDateStr ? `زمان باقی‌مانده: ${formatTimeRemaining(endDateStr)}` : '۷۲ ساعت مهلت تست رایگان')
-														: 'برای ادامه ارسال خودکار و قابلیت‌های هوش مصنوعی تمدید کنید'}
+														? (endDateStr ? `${t('channelProjects.trialRemainingPrefix')}${formatTimeRemaining(endDateStr)}` : t('channelProjects.trialNotice'))
+														: t('channelProjects.renewPrompt')}
 											</span>
 										</div>
 									</div>
@@ -544,10 +548,10 @@ export const ProjectsPage: Component = () => {
 											navigate(`/channel/${project.id}/edit-project`);
 										}}
 										class="flex-1 h-12 rounded-[18px] text-[13px] font-black transition-all bg-[#090a0f] text-white/90 border border-white/10 hover:border-[#3390ec]/40 hover:text-[#3390ec] shadow-sm active:scale-95 flex items-center justify-center gap-2"
-										title="تنظیمات پیشرفته فیلترها و هوش مصنوعی"
+										title={t('channelProjects.projectSettings')}
 									>
 										<span class="material-symbols-outlined text-[19px]">tune</span>
-										<span>تنظیمات پروژه</span>
+										<span>{t('channelProjects.projectSettings')}</span>
 									</button>
 
 									{/* Subscription Button */}
@@ -561,7 +565,7 @@ export const ProjectsPage: Component = () => {
 										}`}
 									>
 										<span class="text-[16px]">💎</span>
-										<span>{isPaid ? 'تمدید پلن' : 'ارتقا پلن (کریدیت)'}</span>
+										<span>{isPaid ? t('channelProjects.renewPlan') : t('channelProjects.upgradePlan')}</span>
 									</button>
 
 									{/* Delete Button */}
@@ -569,7 +573,7 @@ export const ProjectsPage: Component = () => {
 										type="button"
 										onClick={() => handleDeleteProject(project.id)}
 										class="w-12 h-12 rounded-[18px] bg-[#090a0f] flex items-center justify-center border border-white/10 hover:bg-rose-500/10 hover:border-rose-500/30 text-white/40 hover:text-rose-400 transition-all active:scale-95 shrink-0"
-										title="حذف پروژه"
+										title={t('channelProjects.deleteProject') || 'Delete Project'}
 									>
 										<span class="material-symbols-outlined text-[20px]">delete</span>
 									</button>
@@ -583,8 +587,8 @@ export const ProjectsPage: Component = () => {
 												<span class="material-symbols-outlined text-[16px] text-[#3390ec]">swap_horiz</span>
 												<span>
 													{switchingType() === 'source'
-														? (t('channel.projects.select_new_source') || 'انتخاب کانال ورودی جدید')
-														: (t('channel.projects.select_new_target') || 'انتخاب کانال خروجی جدید')}
+														? (t('channelProjects.selectNewSource') || 'Select New Input Channel')
+														: (t('channelProjects.selectNewTarget') || 'Select New Output Channel')}
 												</span>
 											</span>
 											<button
@@ -607,7 +611,7 @@ export const ProjectsPage: Component = () => {
 											class="w-full py-2.5 px-3 rounded-[12px] bg-[#141722] border border-white/10 text-white text-xs focus:border-[#3390ec] outline-none"
 										>
 											<option value="">
-												{t('channel.projects.select_channel_placeholder') || '-- انتخاب کانال مورد نظر --'}
+												{t('channelProjects.selectChannelPlaceholder') || '-- Select Channel --'}
 											</option>
 											<For each={userChannels()}>
 												{(ch: ManagedChannel) => (
@@ -625,31 +629,31 @@ export const ProjectsPage: Component = () => {
 									<Show when={project.pipeline_config?.remove_ads}>
 										<span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold flex items-center gap-1">
 											<span>🛡️</span>
-											<span>{t('channelForwarding.noAds') || 'بدون تبلیغات'}</span>
+											<span>{t('channelForwarding.noAds') || 'No Ads'}</span>
 										</span>
 									</Show>
 									<Show when={project.pipeline_config?.remove_links}>
 										<span class="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold flex items-center gap-1">
 											<span>🔗</span>
-											<span>{t('channelForwarding.noLinks') || 'حذف لینک‌ها'}</span>
+											<span>{t('channelForwarding.noLinks') || 'No Links'}</span>
 										</span>
 									</Show>
 									<Show when={project.pipeline_config?.remove_hashtags}>
 										<span class="px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold flex items-center gap-1">
 											<span>#</span>
-											<span>{t('channelForwarding.noTags') || 'حذف هشتگ‌ها'}</span>
+											<span>{t('channelForwarding.noTags') || 'No Hashtags'}</span>
 										</span>
 									</Show>
 									<Show when={project.pipeline_config?.drop_media}>
 										<span class="px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-bold flex items-center gap-1">
 											<span>📄</span>
-											<span>{t('channelProjects.textOnly') || 'فقط متن'}</span>
+											<span>{t('channelProjects.textOnly') || 'Text Only'}</span>
 										</span>
 									</Show>
 									<Show when={project.pipeline_config?.ai_rewrite}>
 										<span class="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold flex items-center gap-1">
 											<span>✨</span>
-											<span>{t('channelProjects.aiRewrite') || 'بازنویسی هوش مصنوعی'}</span>
+											<span>{t('channelProjects.aiRewrite') || 'AI Rewrite'}</span>
 										</span>
 									</Show>
 								</div>
@@ -673,7 +677,7 @@ export const ProjectsPage: Component = () => {
 									<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
 								</div>
 								<h3 class="text-base font-black text-white">
-									{t('channel.projects.create_modal_title') || 'ایجاد پروژه انتقال هوشمند'}
+									{t('channelProjects.createModalTitle') || 'Create Smart Forwarding Project'}
 								</h3>
 							</div>
 							<button
@@ -689,13 +693,13 @@ export const ProjectsPage: Component = () => {
 							{/* Project Name */}
 							<div class="space-y-1.5">
 								<label class="text-[11px] font-black uppercase text-white/70 tracking-wider">
-									{t('channel.projects.form_name') || 'نام پروژه'}
+									{t('channelProjects.formName') || 'Project Name'}
 								</label>
 								<input
 									type="text"
 									value={projectName()}
 									onInput={(e) => setProjectName(e.currentTarget.value)}
-									placeholder="مثال: کانال اصلی به آرشیو VIP"
+									placeholder={t('channelProjects.projectNamePlaceholder') || 'e.g. Main Channel to VIP Archive'}
 									class="w-full h-11 px-3.5 rounded-[14px] bg-[#090a0f] border border-white/10 text-white text-xs focus:border-[#3390ec] focus:outline-none transition-colors"
 									required
 								/>
@@ -705,7 +709,7 @@ export const ProjectsPage: Component = () => {
 							<div class="space-y-1.5">
 								<label class="text-[11px] font-black uppercase text-[#3390ec] tracking-wider flex items-center gap-1.5">
 									<span class="w-1.5 h-1.5 rounded-full bg-[#3390ec]" />
-									<span>{t('channel.projects.form_source') || 'کانال مبدا (ورودی)'}</span>
+									<span>{t('channelProjects.formSource') || 'Source Channel (Input)'}</span>
 								</label>
 								<select
 									value={sourceChannelId()}
@@ -713,7 +717,7 @@ export const ProjectsPage: Component = () => {
 									class="w-full h-11 px-3.5 rounded-[14px] bg-[#090a0f] border border-white/10 text-white text-xs focus:border-[#3390ec] focus:outline-none transition-colors"
 								>
 									<option value="">
-										{t('channel.projects.choose_or_type') || '-- انتخاب از کانال‌های متصل --'}
+										{t('channelProjects.chooseOrType') || '-- Choose from connected channels --'}
 									</option>
 									<For each={userChannels()}>
 										{(ch: ManagedChannel) => (
@@ -728,8 +732,8 @@ export const ProjectsPage: Component = () => {
 									value={sourceIdentifier()}
 									onInput={(e) => setSourceIdentifier(e.currentTarget.value)}
 									placeholder={
-										t('channel.projects.or_public_username') ||
-										'یا شناسه عمومی کانال ورودی (مثال: @username)'
+										t('channelProjects.orPublicUsername') ||
+										'Or public username of input channel (e.g. @username)'
 									}
 									class="w-full h-11 px-3.5 rounded-[14px] bg-[#090a0f] border border-white/10 text-white text-xs focus:border-[#3390ec] focus:outline-none transition-colors mt-1 font-mono"
 									dir="ltr"
@@ -740,7 +744,7 @@ export const ProjectsPage: Component = () => {
 							<div class="space-y-1.5">
 								<label class="text-[11px] font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
 									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-									<span>{t('channel.projects.form_target') || 'کانال مقصد (خروجی)'}</span>
+									<span>{t('channelProjects.formTarget') || 'Target Channel (Output)'}</span>
 								</label>
 								<select
 									value={targetChannelId()}
@@ -748,8 +752,8 @@ export const ProjectsPage: Component = () => {
 									class="w-full h-11 px-3.5 rounded-[14px] bg-[#090a0f] border border-white/10 text-white text-xs focus:border-emerald-500 focus:outline-none transition-colors"
 								>
 									<option value="">
-										{t('channel.projects.select_target_placeholder') ||
-											'-- انتخاب کانال متصل مقصد --'}
+										{t('channelProjects.selectTargetPlaceholder') ||
+											'-- Select connected output channel --'}
 									</option>
 									<For each={userChannels()}>
 										{(ch: ManagedChannel) => (
@@ -764,8 +768,8 @@ export const ProjectsPage: Component = () => {
 									value={targetIdentifier()}
 									onInput={(e) => setTargetIdentifier(e.currentTarget.value)}
 									placeholder={
-										t('channel.projects.or_target_identifier') ||
-										'یا شناسه عمومی کانال خروجی (مثال: @myoutput)'
+										t('channelProjects.orTargetIdentifier') ||
+										'Or public username of output channel (e.g. @myoutput)'
 									}
 									class="w-full h-11 px-3.5 rounded-[14px] bg-[#090a0f] border border-white/10 text-white text-xs focus:border-emerald-500 focus:outline-none transition-colors mt-1 font-mono"
 									dir="ltr"
@@ -775,7 +779,7 @@ export const ProjectsPage: Component = () => {
 							{/* Pipeline Toggles */}
 							<div class="space-y-2 pt-2 border-t border-white/10">
 								<div class="text-[11px] font-black uppercase text-white/60 tracking-wider">
-									{t('channel.projects.pipeline_options') || 'قوانین و فیلترهای هوشمند'}
+									{t('channelProjects.pipelineOptions') || 'Smart Rules & Pipeline Filters'}
 								</div>
 
 								<div class="grid grid-cols-2 gap-2">
@@ -786,7 +790,7 @@ export const ProjectsPage: Component = () => {
 											onChange={(e) => setRemoveAds(e.currentTarget.checked)}
 											class="rounded text-[#3390ec]"
 										/>
-										<span>🛡️ حذف تبلیغات</span>
+										<span>{t('channelForwarding.noAds') || 'No Ads'}</span>
 									</label>
 
 									<label class="flex items-center gap-2 p-2.5 rounded-[14px] bg-[#090a0f] border border-white/5 hover:border-white/15 text-xs cursor-pointer transition-colors">
@@ -796,7 +800,7 @@ export const ProjectsPage: Component = () => {
 											onChange={(e) => setRemoveLinks(e.currentTarget.checked)}
 											class="rounded text-[#3390ec]"
 										/>
-										<span>🔗 حذف لینک‌ها</span>
+										<span>{t('channelForwarding.noLinks') || 'No Links'}</span>
 									</label>
 
 									<label class="flex items-center gap-2 p-2.5 rounded-[14px] bg-[#090a0f] border border-white/5 hover:border-white/15 text-xs cursor-pointer transition-colors">
@@ -806,7 +810,7 @@ export const ProjectsPage: Component = () => {
 											onChange={(e) => setRemoveHashtags(e.currentTarget.checked)}
 											class="rounded text-[#3390ec]"
 										/>
-										<span># حذف هشتگ‌ها</span>
+										<span>{t('channelForwarding.noTags') || 'No Hashtags'}</span>
 									</label>
 
 									<label class="flex items-center gap-2 p-2.5 rounded-[14px] bg-[#090a0f] border border-white/5 hover:border-white/15 text-xs cursor-pointer transition-colors">
@@ -816,8 +820,55 @@ export const ProjectsPage: Component = () => {
 											onChange={(e) => setDropMedia(e.currentTarget.checked)}
 											class="rounded text-[#3390ec]"
 										/>
-										<span>📄 فقط متن</span>
+										<span>{t('channelProjects.textOnly') || 'Text Only'}</span>
 									</label>
+
+									<label class="col-span-2 flex items-center justify-between p-3 rounded-[14px] bg-[#3390ec]/10 border border-[#3390ec]/30 text-xs cursor-pointer transition-colors">
+										<div class="flex items-center gap-2">
+											<span class="material-symbols-outlined text-[18px] text-[#3390ec]">send</span>
+											<div class="flex flex-col text-start">
+												<span class="font-bold text-white">{t('channelProjects.autoPublish')}</span>
+												<span class="text-[10px] text-white/50">{t('channelProjects.autoPublishDesc')}</span>
+											</div>
+										</div>
+										<input
+											type="checkbox"
+											checked={autoPublish()}
+											onChange={(e) => setAutoPublish(e.currentTarget.checked)}
+											class="w-4 h-4 rounded accent-[#3390ec]"
+										/>
+									</label>
+
+									<label class="col-span-2 flex items-center justify-between p-3 rounded-[14px] bg-[#090a0f] border border-white/5 hover:border-white/15 text-xs cursor-pointer transition-colors">
+										<div class="flex items-center gap-2">
+											<span class="text-[16px]">✨</span>
+											<div class="flex flex-col text-start">
+												<span class="font-bold text-white">{t('channelProjects.aiRewrite')}</span>
+												<span class="text-[10px] text-white/50">{t('channelProjects.aiRewriteDesc')}</span>
+											</div>
+										</div>
+										<input
+											type="checkbox"
+											checked={aiRewrite()}
+											onChange={(e) => setAiRewrite(e.currentTarget.checked)}
+											class="w-4 h-4 rounded accent-[#3390ec]"
+										/>
+									</label>
+								</div>
+
+								{/* Watermark input */}
+								<div class="space-y-1 pt-1">
+									<label class="text-[11px] font-black uppercase text-white/70 tracking-wider">
+										{t('channelProjects.watermarkLabel')}
+									</label>
+									<input
+										type="text"
+										value={watermark()}
+										onInput={(e) => setWatermark(e.currentTarget.value)}
+										placeholder={t('channelProjects.watermarkPlaceholder')}
+										class="w-full h-11 px-3.5 rounded-[14px] bg-[#090a0f] border border-white/10 text-white text-xs focus:border-[#3390ec] focus:outline-none transition-colors font-mono"
+										dir="ltr"
+									/>
 								</div>
 							</div>
 
@@ -831,7 +882,7 @@ export const ProjectsPage: Component = () => {
 									<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 								</Show>
 								<span>
-									{t('channel.projects.start_trial_btn') || 'ایجاد پروژه (۷۲ ساعت تست رایگان)'}
+									{t('channelProjects.startTrialBtn') || 'Create Project (72h Free Trial)'}
 								</span>
 							</button>
 						</form>
@@ -861,10 +912,10 @@ export const ProjectsPage: Component = () => {
 							<div class="flex flex-col gap-1 text-center mb-1">
 								<h3 class="text-[22px] font-black text-white tracking-tight flex items-center justify-center gap-2">
 									<span>💎</span>
-									<span>{t('botManage.choosePackage') || 'ارتقای پلن پروژه هوشمند'}</span>
+									<span>{t('botManage.choosePackage')}</span>
 								</h3>
 								<p class="text-[13px] font-medium text-white/50">
-									{t('botManage.selectPlan') || 'فعال‌سازی آنی با کریدیت یا ستاره‌های تلگرام'}
+									{t('botManage.selectPlan')}
 								</p>
 							</div>
 
@@ -874,10 +925,10 @@ export const ProjectsPage: Component = () => {
 									<span class="text-[24px]">💎</span>
 									<div class="flex flex-col text-start">
 										<span class="text-[11px] font-black uppercase text-[#3390ec] tracking-wider">
-											موجودی کریدیت شما
+											{t('paywall.credits_title') || 'CREDITS'}
 										</span>
 										<span class="text-[14px] font-bold text-white/90 font-mono">
-											{wallet.balance() ?? 0} {t('paywall.credit_unit') || 'کریدیت'}
+											{wallet.balance() ?? 0} {t('paywall.credit_unit') || 'Credits'}
 										</span>
 									</div>
 								</div>
@@ -892,7 +943,7 @@ export const ProjectsPage: Component = () => {
 									class="px-3.5 py-2 rounded-[14px] bg-[#3390ec]/15 border border-[#3390ec]/30 text-[#3390ec] text-[12px] font-black active:scale-95 transition-all flex items-center gap-1.5 hover:bg-[#3390ec]/25"
 								>
 									<span>+</span>
-									<span>{t('paywall.get_credits') || 'دریافت کریدیت'}</span>
+									<span>{t('paywall.get_credits') || t('botManage.buyCreditsStars') || 'Get Credits'}</span>
 								</button>
 							</div>
 
@@ -934,8 +985,8 @@ export const ProjectsPage: Component = () => {
 														}`}
 													>
 														{pkg.badge === 'best_value'
-															? t('botManage.bestValue' as any) || 'بهترین انتخاب'
-															: t('botManage.popular' as any) || 'محبوب'}
+															? (t('botManage.bestValue' as any) || 'Best Value')
+															: (t('botManage.popular' as any) || 'Popular')}
 													</div>
 												</Show>
 
@@ -948,12 +999,12 @@ export const ProjectsPage: Component = () => {
 														</span>
 														<Show when={pkg.discount}>
 															<span class="text-[10px] font-black text-[#00ff88] bg-[#00ff88]/10 px-2 py-0.5 rounded-[6px] border border-[#00ff88]/20 uppercase tracking-widest shadow-sm">
-																تخفیف {pkg.discount}
+																{t('channelProjects.discountPrefix') || 'Discount'} {pkg.discount}
 															</span>
 														</Show>
 													</div>
 													<span class="text-[12px] font-medium text-white/50">
-														معادل {pkg.price_stars} ستاره تلگرام (⭐)
+														{t('botManage.creditsEquivalent', { stars: pkg.price_stars }) || t('channelProjects.equivalentStars', { count: pkg.price_stars }) || `Equivalent to ${pkg.price_stars} Stars (⭐)`}
 													</span>
 												</div>
 
@@ -965,7 +1016,7 @@ export const ProjectsPage: Component = () => {
 														<span class="text-[13px] font-black text-[#3390ec]">💎</span>
 													</div>
 													<span class="text-[10px] font-medium text-white/40">
-														({creditsPerMonth} کریدیت / ماه)
+														({creditsPerMonth} {t('channelProjects.creditsPerMonth') || 'credits / mo'})
 													</span>
 												</div>
 											</button>
@@ -1008,11 +1059,11 @@ export const ProjectsPage: Component = () => {
 															<div class="flex items-center gap-2 text-amber-300 font-bold mb-1">
 																<span class="material-symbols-outlined text-[18px]">info</span>
 																<span>
-																	کسری موجودی: {reqCredits - userCreds} کریدیت نیاز دارید
+																	{t('botManage.insufficientCredits', { needed: reqCredits - userCreds }) || `(${reqCredits - userCreds} credits needed)`}
 																</span>
 															</div>
 															<p class="text-white/60 text-[11px] leading-relaxed">
-																موجودی فعلی شما {userCreds} کریدیت است. می‌توانید با سکه/ستاره کریدیت تهیه کنید یا مستقیماً با ستاره پرداخت کنید.
+																{t('botManage.insufficientCreditsDesc', { current: userCreds }) || ''}
 															</p>
 														</div>
 
@@ -1026,7 +1077,7 @@ export const ProjectsPage: Component = () => {
 																class="h-13 rounded-[16px] bg-gradient-to-r from-amber-400 to-amber-500 text-black font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
 															>
 																<span>⭐</span>
-																<span>خرید کریدیت با سکه/ستاره</span>
+																<span>{t('botManage.buyCreditsStars') || 'Get Credits'}</span>
 															</button>
 															<button
 																type="button"
@@ -1035,7 +1086,7 @@ export const ProjectsPage: Component = () => {
 																class="h-13 rounded-[16px] bg-white/10 hover:bg-white/15 text-white font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-1.5 border border-white/10 active:scale-95 transition-all"
 															>
 																<span>⭐</span>
-																<span>پرداخت مستقیم ({calc().finalStars} ⭐)</span>
+																<span>{t('botManage.payWithStars') || 'Pay with Stars'} ({calc().finalStars} ⭐)</span>
 															</button>
 														</div>
 													</div>
@@ -1050,7 +1101,7 @@ export const ProjectsPage: Component = () => {
 												>
 													<span class="text-[20px]">💎</span>
 													<span>
-														پرداخت و فعال‌سازی با {reqCredits} کریدیت
+														{t('botManage.payWithCredits', { count: reqCredits }) || `Pay with ${reqCredits} Credits`}
 													</span>
 												</button>
 
@@ -1072,7 +1123,7 @@ export const ProjectsPage: Component = () => {
 														class="mt-2 w-full h-11 rounded-[16px] bg-white/5 hover:bg-white/10 text-white/80 font-bold text-xs flex items-center justify-center gap-2 border border-white/10 transition-colors"
 													>
 														<span>⭐</span>
-														<span>یا پرداخت با {calc().finalStars} ستاره تلگرام</span>
+														<span>{t('botManage.orPayWith') || 'Or'} {calc().finalStars} ⭐</span>
 													</button>
 												</div>
 											</Show>
@@ -1086,7 +1137,7 @@ export const ProjectsPage: Component = () => {
 							<div class="absolute inset-0 bg-[#030303]/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center rounded-t-[32px] gap-4">
 								<span class="w-12 h-12 border-4 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" />
 								<span class="text-[14px] font-black uppercase tracking-widest text-[#3390ec] animate-pulse">
-									{t('managedChannels.processing') || 'در حال پردازش...'}
+									{t('managedChannels.processing') || t('botManage.processing') || 'Processing...'}
 								</span>
 							</div>
 						</Show>

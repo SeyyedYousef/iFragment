@@ -276,6 +276,11 @@ func (r *ChannelRepo) GetManagedChannelByChatIDOrUsername(ctx context.Context, i
 	}
 
 	clean := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(identifier), "@"))
+	if strings.Contains(clean, "/") {
+		parts := strings.Split(clean, "/")
+		clean = parts[len(parts)-1]
+	}
+	clean = strings.TrimPrefix(clean, "@")
 	if clean == "" {
 		return nil, fmt.Errorf("empty identifier")
 	}
@@ -2150,6 +2155,11 @@ func (r *ChannelRepo) GetProjectsBySourceChatOrUsername(ctx context.Context, sou
 	}
 
 	cleanUser := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(username), "@"))
+	if strings.Contains(cleanUser, "/") {
+		parts := strings.Split(cleanUser, "/")
+		cleanUser = parts[len(parts)-1]
+	}
+	chatIDStr := strconv.FormatInt(sourceChatID, 10)
 
 	query := `SELECT 
 		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
@@ -2165,15 +2175,28 @@ func (r *ChannelRepo) GetProjectsBySourceChatOrUsername(ctx context.Context, sou
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
 	WHERE (
-		($1 != 0 AND (p.source_chat_id = $1 OR sc.chat_id = $1))
+		($1 != 0 AND (
+			p.source_chat_id = $1 
+			OR sc.chat_id = $1
+			OR COALESCE(p.pipeline_config->>'source_channel_identifier', '') = $3
+			OR REPLACE(COALESCE(p.pipeline_config->>'source_channel_identifier', ''), '-100', '-') = REPLACE($3, '-100', '-')
+			OR EXISTS (
+				SELECT 1 FROM managed_channels mc 
+				WHERE mc.chat_id = $1 
+				AND (
+					LOWER(REGEXP_REPLACE(COALESCE(p.pipeline_config->>'source_channel_identifier', ''), '^(https?://)?(t\.me/s/|t\.me/)?@?', '')) = LOWER(TRIM(LEADING '@' FROM mc.chat_username))
+					OR LOWER(COALESCE(mc.chat_title, '')) = LOWER(REGEXP_REPLACE(COALESCE(p.pipeline_config->>'source_channel_identifier', ''), '^(https?://)?(t\.me/s/|t\.me/)?@?', ''))
+				)
+			)
+		))
 		OR ($2 != '' AND (
-			LOWER(REPLACE(COALESCE(p.pipeline_config->>'source_channel_identifier', ''), '@', '')) = $2
-			OR LOWER(REPLACE(COALESCE(sc.chat_username, ''), '@', '')) = $2
-			OR LOWER(REPLACE(COALESCE(sc.chat_title, ''), '@', '')) = $2
+			LOWER(REGEXP_REPLACE(COALESCE(p.pipeline_config->>'source_channel_identifier', ''), '^(https?://)?(t\.me/s/|t\.me/)?@?', '')) = $2
+			OR LOWER(TRIM(LEADING '@' FROM COALESCE(sc.chat_username, ''))) = $2
+			OR LOWER(COALESCE(sc.chat_title, '')) = $2
 		))
 	) AND (p.status != 'deleted')`
 
-	rows, err := r.db.Pool.Query(ctx, query, sourceChatID, cleanUser)
+	rows, err := r.db.Pool.Query(ctx, query, sourceChatID, cleanUser, chatIDStr)
 	if err != nil {
 		return nil, err
 	}
@@ -2218,6 +2241,10 @@ func (r *ChannelRepo) IsOutputChannel(ctx context.Context, chatID int64, usernam
 	}
 
 	cleanUser := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(username), "@"))
+	if strings.Contains(cleanUser, "/") {
+		parts := strings.Split(cleanUser, "/")
+		cleanUser = parts[len(parts)-1]
+	}
 	chatIDStr := strconv.FormatInt(chatID, 10)
 
 	query := `SELECT EXISTS (
@@ -2229,11 +2256,19 @@ func (r *ChannelRepo) IsOutputChannel(ctx context.Context, chatID int64, usernam
 				OR tc.chat_id = $1 
 				OR COALESCE(p.pipeline_config->>'target_channel_identifier', '') = $3
 				OR REPLACE(COALESCE(p.pipeline_config->>'target_channel_identifier', ''), '-100', '-') = REPLACE($3, '-100', '-')
+				OR EXISTS (
+					SELECT 1 FROM managed_channels mc 
+					WHERE mc.chat_id = $1 
+					AND (
+						LOWER(REGEXP_REPLACE(COALESCE(p.pipeline_config->>'target_channel_identifier', ''), '^(https?://)?(t\.me/s/|t\.me/)?@?', '')) = LOWER(TRIM(LEADING '@' FROM mc.chat_username))
+						OR LOWER(COALESCE(mc.chat_title, '')) = LOWER(REGEXP_REPLACE(COALESCE(p.pipeline_config->>'target_channel_identifier', ''), '^(https?://)?(t\.me/s/|t\.me/)?@?', ''))
+					)
+				)
 			))
 			OR ($2 != '' AND (
-				LOWER(REPLACE(COALESCE(p.pipeline_config->>'target_channel_identifier', ''), '@', '')) = $2
-				OR LOWER(REPLACE(COALESCE(tc.chat_username, ''), '@', '')) = $2
-				OR LOWER(REPLACE(COALESCE(tc.chat_title, ''), '@', '')) = $2
+				LOWER(REGEXP_REPLACE(COALESCE(p.pipeline_config->>'target_channel_identifier', ''), '^(https?://)?(t\.me/s/|t\.me/)?@?', '')) = $2
+				OR LOWER(TRIM(LEADING '@' FROM COALESCE(tc.chat_username, ''))) = $2
+				OR LOWER(COALESCE(tc.chat_title, '')) = $2
 			))
 		) AND p.status != 'deleted'
 	) OR EXISTS (

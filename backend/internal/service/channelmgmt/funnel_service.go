@@ -486,25 +486,23 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 			if len(buttons) > 0 {
 				inMarkup = buildReplyMarkupFromButtons(buttons)
 			}
-			if editErr := inTG.EditMessageTextWithMarkup(ctx, funnel.InputChatID, int(inputMsgID), draft.DraftText, inMarkup, "HTML"); editErr != nil {
-				// Fallback: Post may have photo/video caption rather than plain text
-				if capErr := inTG.EditMessageCaptionWithMarkup(ctx, funnel.InputChatID, int(inputMsgID), draft.DraftText, inMarkup); capErr != nil {
-					slog.Warn("Failed to edit input channel post in-place", "input_chat_id", funnel.InputChatID, "msg_id", inputMsgID, "err_text", editErr, "err_cap", capErr)
-				} else {
-					slog.Info("Successfully edited input channel post caption in-place", "input_chat_id", funnel.InputChatID, "msg_id", inputMsgID)
-				}
+			if editErr := editMessageTextOrCaption(ctx, inTG, funnel.InputChatID, int(inputMsgID), draft.DraftText, inMarkup); editErr != nil {
+				slog.Warn("Failed to edit input channel post in-place", "input_chat_id", funnel.InputChatID, "msg_id", inputMsgID, "error", editErr)
 			} else {
-				slog.Info("Successfully edited input channel post text in-place", "input_chat_id", funnel.InputChatID, "msg_id", inputMsgID)
+				slog.Info("Successfully edited input channel post in-place", "input_chat_id", funnel.InputChatID, "msg_id", inputMsgID)
 			}
 		}
 	}
 
-	// 7. Auto-publish check: If autoPublish is enabled, publish directly to the destination channel!
-	if autoPublish {
-		slog.Info("Auto-publish enabled for funnel/project, dispatching to destination", "funnel_id", funnel.ID, "output_chat_id", funnel.OutputChatID)
+	// 7. Auto-publish check: If autoPublish is enabled and output channel is defined, dispatch directly to destination
+	if autoPublish && funnel.OutputChatID != 0 && funnel.OutputChatID != funnel.InputChatID {
+		slog.Info("Auto-publish triggered for funnel/project, dispatching to destination", "funnel_id", funnel.ID, "output_chat_id", funnel.OutputChatID)
 		var token string
 		if bot != nil && len(bot.BotTokenEncrypted) > 0 {
 			token, _ = botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		}
+		if token == "" {
+			token, _ = s.resolveBotClientForChat(ctx, funnel.OutputChatID, bot)
 		}
 		if token == "" {
 			token = strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
@@ -519,9 +517,9 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 				slog.Info("Funnel post auto-published directly to target channel", "funnel_id", funnel.ID, "output_chat_id", funnel.OutputChatID)
 				return nil
 			}
-			slog.Warn("Direct auto-publish failed, falling back to preview delivery", "error", pubErr)
+			slog.Warn("Direct auto-publish failed, falling back to review delivery", "error", pubErr)
 		} else {
-			slog.Warn("No bot token available for direct auto-publish, proceeding to live preview")
+			slog.Warn("No bot token available for direct auto-publish, proceeding to review delivery")
 		}
 	}
 

@@ -17,7 +17,6 @@ import { AdminsLessonCard } from './lessons/AdminsLessonCard.js';
 import { AutoResponderLessonCard } from './lessons/AutoResponderLessonCard.js';
 import { DynamicBioLessonCard } from './lessons/DynamicBioLessonCard.js';
 import { ForwardingLessonCard } from './lessons/ForwardingLessonCard.js';
-import { FunnelLessonCard } from './lessons/FunnelLessonCard.js';
 import { InlineButtonsLessonCard } from './lessons/InlineButtonsLessonCard.js';
 import { PostingLessonCard } from './lessons/PostingLessonCard.js';
 
@@ -31,52 +30,52 @@ export const ChannelDashboardPage: Component = () => {
 
 	const channelFeatures = () => [
 		{
-			name: t('search.features.channelProjects') || 'پروژه‌ها',
+			name: t('search.features.channelProjects') || 'Projects',
 			icon: 'bolt',
 			path: `/channel/${params.id}/projects`,
 		},
 		{
-			name: t('search.features.channelPosting') || 'ارسال هوشمند و AI',
+			name: t('search.features.channelPosting') || 'Smart Posting & AI',
 			icon: 'smart_toy',
 			path: `/channel/${params.id}/posting`,
 		},
 		{
-			name: t('search.features.channelSettings') || 'تنظیمات عمومی',
+			name: t('search.features.channelSettings') || 'General Settings',
 			icon: 'settings',
 			path: `/channel/${params.id}/general`,
 		},
 		{
-			name: t('search.features.channelForwarding') || 'فوروارد خودکار و وبهوک',
+			name: t('search.features.channelForwarding') || 'Forwarding & Webhooks',
 			icon: 'sync_alt',
 			path: `/channel/${params.id}/forwarding`,
 		},
 		{
-			name: t('search.features.channelInlineButtons') || 'دکمه‌های شیشه‌ای',
+			name: t('search.features.channelInlineButtons') || 'Inline Buttons',
 			icon: 'smart_button',
 			path: `/channel/${params.id}/inline-buttons`,
 		},
 		{
-			name: t('search.features.channelAutoResponder') || 'پاسخگوی خودکار',
+			name: t('search.features.channelAutoResponder') || 'Auto Responder',
 			icon: 'chat',
 			path: `/channel/${params.id}/auto-responder`,
 		},
 		{
-			name: t('search.features.channelDynamicBio') || 'بیوی پویا',
+			name: t('search.features.channelDynamicBio') || 'Dynamic Bio',
 			icon: 'badge',
 			path: `/channel/${params.id}/dynamic-bio`,
 		},
 		{
-			name: t('search.features.channelMembers') || 'مدیریت اعضا',
+			name: t('search.features.channelMembers') || 'Members',
 			icon: 'shield_person',
 			path: `/channel/${params.id}/members`,
 		},
 		{
-			name: t('search.features.channelAdmins') || 'مدیران',
+			name: t('search.features.channelAdmins') || 'Admins',
 			icon: 'admin_panel_settings',
 			path: `/channel/${params.id}/admins`,
 		},
 		{
-			name: t('search.features.channelAnalytics') || 'آمار و تحلیل',
+			name: t('search.features.channelAnalytics') || 'Analytics',
 			icon: 'analytics',
 			path: `/channel/${params.id}/analytics`,
 		},
@@ -353,11 +352,6 @@ export const ChannelDashboardPage: Component = () => {
 
 				{/* ═══════ 0 TO 100 INTERACTIVE LESSON CARDS ═══════ */}
 				<div class="flex flex-col gap-4">
-					<FunnelLessonCard
-						isDone={isFeatureDone('funnel')}
-						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/projects`)}
-					/>
-
 					<PostingLessonCard
 						isDone={isFeatureDone('posting')}
 						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/posting`)}
