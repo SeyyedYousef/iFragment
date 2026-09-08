@@ -21,6 +21,11 @@ interface MacroSection {
 }
 
 export const GiftsMacroStats: Component<Props> = (props) => {
+	const formatCurrencyVal = (val?: number) => {
+		if (!val || val <= 0) return '—';
+		return `$${(val / 1_000_000).toFixed(1)}M`;
+	};
+
 	const macroSections = (): MacroSection[] => [
 		{
 			title: 'دارایی‌ها و متادیتا (Supply & Assets)',
@@ -28,19 +33,21 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 			items: [
 				{
 					label: t('gifts.totalGiftsCount') || 'Total Gifts',
-					value: '149',
-					sub: '138 Limited · 11 Store',
+					value: props.data?.total_gifts_minted && props.data.total_gifts_minted > 0 ? props.data.total_gifts_minted : 151,
+					sub: 'Official Catalog Registry',
 					icon: 'inventory_2',
 				},
 				{
 					label: t('gifts.upgradableGiftsCount') || 'Upgradable to NFT',
-					value: '120',
+					value: 120,
 					sub: 'TEP-62 Standard',
 					icon: 'auto_awesome',
 				},
 				{
 					label: t('gifts.uniqueModelsCount') || 'Unique 3D Models',
-					value: (props.data?.macro_stats?.total_unique_models || 7576).toLocaleString(),
+					value: props.data?.macro_stats?.total_unique_models
+						? props.data.macro_stats.total_unique_models.toLocaleString()
+						: '—',
 					sub: 'High-Poly Renderings',
 					icon: 'view_in_ar',
 				},
@@ -52,46 +59,50 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 				},
 				{
 					label: t('gifts.patternsCount') || 'Symbols & Textures',
-					value: (props.data?.macro_stats?.total_patterns || 25373).toLocaleString(),
+					value: props.data?.macro_stats?.total_patterns
+						? props.data.macro_stats.total_patterns.toLocaleString()
+						: '—',
 					sub: 'Pattern DNA',
 					icon: 'texture',
 				},
 				{
 					label: t('gifts.circulatingGifts') || 'Circulating Supply',
-					value: '~9,000,000',
-					sub: 'Total Minted Items',
+					value: '—',
+					sub: 'Awaiting On-Chain Indexer',
 					icon: 'layers',
 				},
 			],
 		},
 		{
 			title: 'اقتصاد و بازار (Market Economics)',
-			badge: 'Dropstab · On-Chain',
+			badge: 'Market Telemetry',
 			items: [
 				{
 					label: t('gifts.marketCap') || 'Market Cap',
-					value: '$128M+',
-					sub: '≈ 32,000,000 TON',
+					value: formatCurrencyVal(props.data?.total_market_cap_usd),
+					sub: 'Live Venue Floor Aggregation',
 					icon: 'account_balance',
 					highlight: true,
 				},
 				{
 					label: t('gifts.cumulativeVolume') || 'All-Time Volume',
-					value: '$300M+',
-					sub: '7 Major Venues',
+					value: formatCurrencyVal(props.data?.total_cumulative_volume_usd),
+					sub: 'Verified Marketplace Trades',
 					icon: 'query_stats',
 					highlight: true,
 				},
 				{
 					label: t('gifts.activeWallets') || 'Active Wallets',
-					value: '500,000+',
+					value: props.data?.total_active_wallets && props.data.total_active_wallets > 0
+						? props.data.total_active_wallets.toLocaleString()
+						: '—',
 					sub: 'Monthly Active',
 					icon: 'wallet',
 				},
 				{
 					label: t('gifts.holderUsers') || 'Unique Holders',
-					value: '~2,000,000',
-					sub: 'Telegram Profiles',
+					value: '—',
+					sub: 'Pending On-Chain Indexing',
 					icon: 'group',
 				},
 			],

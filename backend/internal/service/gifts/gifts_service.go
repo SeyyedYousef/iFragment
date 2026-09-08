@@ -76,6 +76,11 @@ func (s *GiftsService) GetSnapshotWorker() *venues.VenueSnapshotWorker {
 	return s.snapshotWorker
 }
 
+type GiftsMacroStatsPayload struct {
+	TotalUniqueModels int `json:"total_unique_models"`
+	TotalPatterns     int `json:"total_patterns"`
+}
+
 // GiftsIntelResponse holds the public market intelligence overview
 type GiftsIntelResponse struct {
 	TotalCumulativeVolumeUSD float64                 `json:"total_cumulative_volume_usd"`
@@ -89,6 +94,7 @@ type GiftsIntelResponse struct {
 	UpgradePriceClock        []UpgradeClockItem      `json:"upgrade_price_clock"`
 	TrendingModels           []TrendingModelItem     `json:"trending_models"`
 	EndingSoonAuctions       []GiftAuctionItem       `json:"ending_soon_auctions"`
+	MacroStats               *GiftsMacroStatsPayload `json:"macro_stats,omitempty"`
 	DataStatus               string                  `json:"data_status"` // "live", "estimated", "unavailable"
 	UpdatedAt                string                  `json:"updated_at"`
 }
@@ -179,7 +185,7 @@ type CollectionShareItem struct {
 
 // GetGiftsIntel generates the free market intelligence board from real database snapshots and sales
 func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, error) {
-	gramUsdRate := 5.50
+	gramUsdRate := 1.42
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
 			gramUsdRate = r
@@ -193,12 +199,17 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 	activeWallets := 0
 	totalVolume := 0.0
 	totalMarketCap := 0.0
+	var macroStats *GiftsMacroStatsPayload
 
 	// Query live aggregate stats from api.changes.tg if available
 	if s.giftchangesClient != nil {
 		if stats, err := s.giftchangesClient.GetTotal(ctx); err == nil && stats != nil {
 			if stats.Gifts.Total > 0 {
 				totalMinted = stats.Gifts.Total
+			}
+			macroStats = &GiftsMacroStatsPayload{
+				TotalUniqueModels: stats.Models,
+				TotalPatterns:     stats.Patterns,
 			}
 		}
 	}
@@ -215,6 +226,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 		UpgradePriceClock:        []UpgradeClockItem{},
 		TrendingModels:           []TrendingModelItem{},
 		EndingSoonAuctions:       []GiftAuctionItem{},
+		MacroStats:               macroStats,
 		DataStatus:               "unavailable",
 		UpdatedAt:                now.Format(time.RFC3339),
 	}
@@ -608,7 +620,7 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 		}
 	}
 
-	gramUsdRate := 5.50
+	gramUsdRate := 1.42
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
 			gramUsdRate = r
@@ -773,7 +785,7 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 
 // CalculateCraftingEV runs public crafting EV simulation
 func (s *GiftsService) CalculateCraftingEV(ctx context.Context, inputs []crafting.CraftInputItem) (*crafting.CraftingEVResult, error) {
-	gramUsdRate := 5.50
+	gramUsdRate := 1.42
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
 			gramUsdRate = r
@@ -795,7 +807,7 @@ func (s *GiftsService) GetUpgradeAdvice(ctx context.Context, raw string) (*upgra
 		supply = 5000
 	}
 
-	gramUsdRate := 5.50
+	gramUsdRate := 1.42
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
 			gramUsdRate = r

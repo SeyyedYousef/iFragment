@@ -57,7 +57,7 @@ var CanonicalCollections = map[string]CollectionMeta{
 	"plush_pepe": {
 		ModelID:     "plush_pepe",
 		Name:        "Plush Pepe",
-		TotalSupply: 1500,
+		TotalSupply: 2450,
 		CraftedFlag: false,
 		LimitedFlag: true,
 		ContractID:  "5936013938331222567",

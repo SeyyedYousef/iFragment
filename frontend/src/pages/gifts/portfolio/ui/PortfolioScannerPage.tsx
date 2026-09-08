@@ -65,7 +65,7 @@ export const PortfolioScannerPage: Component = () => {
 				'Gift ID',
 				'Model',
 				'Serial Number',
-				'Estimated Value (TON)',
+				'Estimated Value (GRAM)',
 				'Estimated Value (USD)',
 				'Rarity Tier',
 			],
@@ -185,7 +185,7 @@ export const PortfolioScannerPage: Component = () => {
 								<div class="my-3">
 									<span class="text-3xl font-black text-white font-mono">
 										{formatGram(res().total_portfolio_value_gram)}{' '}
-										<span class="text-sm font-bold text-[#0098EA]">{t('common.ton')}</span>
+										<span class="text-sm font-bold text-[#0098EA]">GRAM</span>
 									</span>
 									<span class="text-sm font-bold text-white/40 block mt-0.5 font-mono">
 										({formatUsd(res().total_portfolio_value_usd)})
@@ -206,15 +206,15 @@ export const PortfolioScannerPage: Component = () => {
 											{t('gifts.invested')}
 										</span>
 										<span class="font-black text-white font-mono">
-											{formatGram(res().historical_invested_gram)} {t('common.ton')}
+											{formatGram(res().historical_invested_gram)} GRAM
 										</span>
 									</div>
 									<div>
 										<span class="text-[9px] uppercase font-bold text-white/40 block">
 											{t('gifts.pnl')}
 										</span>
-										<span class="font-black text-emerald-400 font-mono">
-											+{res().total_pnl_percent}%
+										<span class={`font-black font-mono ${res().total_pnl_percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+											{res().total_pnl_percent >= 0 ? `+${res().total_pnl_percent}` : res().total_pnl_percent}%
 										</span>
 									</div>
 								</div>
@@ -239,7 +239,7 @@ export const PortfolioScannerPage: Component = () => {
 												</div>
 												<div class="text-right">
 													<span class="font-black text-white text-xs block font-mono">
-														{formatGram(gift.estimated_val_gram)} {t('common.ton')}
+														{formatGram(gift.estimated_val_gram)} GRAM
 													</span>
 													<button
 														type="button"
@@ -253,6 +253,17 @@ export const PortfolioScannerPage: Component = () => {
 										)}
 									</For>
 								</div>
+							</div>
+
+							{/* Financial Disclaimer Banner */}
+							<div class="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.08] text-[11px] text-white/40 leading-relaxed text-center space-y-1">
+								<div class="flex items-center justify-center gap-1.5 text-amber-400/80 font-bold text-[11px]">
+									<span class="material-symbols-outlined text-sm">info</span>
+									<span>سلب مسئولیت مالی و سرمایه‌گذاری</span>
+								</div>
+								<p>
+									تمام ارقام تخمینی، رریتی و ارزش‌گذاری‌ها صرفاً بر پایه متادیتای عمومی و الگوریتم‌های محاسباتی است و به هیچ وجه توصیه مالی، سرمایه‌گذاری یا پیشنهاد خرید/فروش تلقی نمی‌شود.
+								</p>
 							</div>
 						</div>
 					)}

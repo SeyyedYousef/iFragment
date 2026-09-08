@@ -799,6 +799,203 @@ paths:
       responses:
         "200":
           description: Toggle result
+  /gifts/intel:
+    get:
+      tags: [Gifts]
+      summary: Market intelligence overview and unified floor board
+      responses:
+        "200":
+          description: Public market intelligence telemetry
+  /gifts/collections:
+    get:
+      tags: [Gifts]
+      summary: List all official Telegram gift collections
+      responses:
+        "200":
+          description: Collections metadata list
+  /gifts/collection-intel:
+    get:
+      tags: [Gifts]
+      summary: Detailed intelligence for a specific gift collection
+      parameters:
+        - name: slug
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Collection intelligence details
+  /gifts/gate:
+    get:
+      tags: [Gifts]
+      summary: Curiosity gate summary without price leakage
+      parameters:
+        - name: g
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Curiosity gate response
+  /gifts/upgrade-advice:
+    get:
+      tags: [Gifts]
+      summary: Dutch auction falling-stairs upgrade timing advisor
+      parameters:
+        - name: g
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Upgrade price advice report
+  /gifts/portfolio:
+    get:
+      tags: [Gifts]
+      summary: Scan Telegram user profile for gifted items and net worth
+      parameters:
+        - name: u
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Portfolio scan report
+        "429":
+          description: Rate limited (10 min per caller)
+  /gifts/crafting-ev:
+    post:
+      tags: [Gifts]
+      summary: Crafting expected value and Monte Carlo simulation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inputs]
+              properties:
+                inputs:
+                  type: array
+                  items:
+                    type: object
+                    required: [gift_id, estimated_value_gram]
+                    properties:
+                      gift_id: { type: string }
+                      model_id: { type: string }
+                      name: { type: string }
+                      estimated_value_gram: { type: number }
+      responses:
+        "200":
+          description: Crafting EV result
+  /gifts/image/{slug}:
+    get:
+      tags: [Gifts]
+      summary: Cached gift PNG image proxy
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+        - name: model
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: PNG image bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+  /gifts/valuate:
+    get:
+      tags: [Gifts]
+      summary: Full mathematical quantitative valuation for a Telegram Gift
+      parameters:
+        - name: g
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Complete valuation report
+  /gifts/enriched-report:
+    get:
+      tags: [Gifts]
+      summary: Enriched report with on-chain metadata and provenance
+      parameters:
+        - name: g
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Enriched provenance report
+  /gifts/unlock-coins:
+    post:
+      tags: [Gifts]
+      summary: Unlock gift report using Airdrop Coins
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gift_id]
+              properties:
+                gift_id: { type: string }
+      responses:
+        "200":
+          description: Unlocked valuation report
+  /gifts/unlock-credit:
+    post:
+      tags: [Gifts]
+      summary: Unlock gift report using Paid Credits
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gift_id]
+              properties:
+                gift_id: { type: string }
+      responses:
+        "200":
+          description: Unlocked valuation report
+  /gifts/watchlist:
+    get:
+      tags: [Gifts]
+      summary: Get user watchlisted gifts
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Watchlisted gifts list
+    post:
+      tags: [Gifts]
+      summary: Add or remove gift from user watchlist
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gift_id, enable]
+              properties:
+                gift_id: { type: string }
+                enable: { type: boolean }
+      responses:
+        "200":
+          description: Toggle result
 components:
   securitySchemes:
     BearerAuth:

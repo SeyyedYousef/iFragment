@@ -82,7 +82,7 @@ func CalculateCraftingEV(ctx context.Context, inputs []CraftInputItem, gramUsdRa
 	}
 
 	if gramUsdRate <= 0 {
-		gramUsdRate = 5.50
+		gramUsdRate = 1.42
 	}
 
 	// 1. Calculate input burn cost & aggregate success chance
@@ -97,7 +97,8 @@ func CalculateCraftingEV(ctx context.Context, inputs []CraftInputItem, gramUsdRa
 		}
 	}
 
-	// Telegram official server odds matrix: 1 gift = 25%, 2 gifts = 45%, 3 gifts = 65%, 4 gifts = 85%
+	// Estimated empirical odds model: Telegram has not published an official server odds table;
+	// estimates based on observed community craft curves: 1=25%, 2=45%, 3=65%, 4=85%
 	oddsMatrix := map[int]int{
 		1: 250,
 		2: 450,
@@ -178,7 +179,7 @@ func CalculateCraftingEV(ctx context.Context, inputs []CraftInputItem, gramUsdRa
 		{
 			TermName:    "Success Probability (P_success)",
 			Value:       fmt.Sprintf("%.1f%% (%d/1000 permille)", pSuccess*100.0, totalChancePermille),
-			Description: "Aggregated roll probability from official craft_chance_permille attributes",
+			Description: "Empirical success probability estimate (Telegram has not published official server probabilities)",
 		},
 		{
 			TermName:    "Expected Output (E[V_output])",

@@ -1477,6 +1477,17 @@ export const GiftReportPage: Component = () => {
 							</button>
 						</div>
 
+						{/* Financial Disclaimer Banner */}
+						<div class="bg-white/[0.02] border border-white/[0.08] rounded-[24px] p-4 text-center space-y-1.5">
+							<div class="flex items-center justify-center gap-1.5 text-amber-400 text-xs font-bold">
+								<span class="material-symbols-outlined text-sm">info</span>
+								<span>سلب مسئولیت مالی و سرمایه‌گذاری (Financial Disclaimer)</span>
+							</div>
+							<p class="text-[11px] text-white/40 leading-relaxed max-w-md mx-auto">
+								این گزارش و تحلیل‌های ارزش‌گذاری صرفاً حاصل پردازش‌های الگوریتمی متادیتای عمومی اکوسیستم تلگرام بوده و به هیچ وجه به عنوان مشاوره مالی، تعهد بازدهی، یا پیشنهاد خرید و فروش تلقی نمی‌شود. مسئولیت تصمیمات معاملاتی تماماً بر عهده کاربر است.
+							</p>
+						</div>
+
 						{/* Attribution Footer */}
 						<div class="mt-4 mb-2 text-center text-[10px] text-white/30 font-medium flex items-center justify-center gap-2">
 							<span>Powered by @iFragmentBot</span>

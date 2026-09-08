@@ -20,9 +20,13 @@ const (
 
 // Client provides access to official GiftChanges live API
 type Client struct {
-	httpClient *http.Client
-	mu         sync.RWMutex
-	cache      map[string]*cacheItem
+	httpClient    *http.Client
+	mu            sync.RWMutex
+	cache         map[string]*cacheItem
+	imgMu         sync.Mutex
+	imageCache    map[string]*imageCacheItem
+	totalImgBytes int
+	maxImgBytes   int
 }
 
 type cacheItem struct {
@@ -30,12 +34,20 @@ type cacheItem struct {
 	expiresAt time.Time
 }
 
+type imageCacheItem struct {
+	data       []byte
+	sizeBytes  int
+	accessedAt time.Time
+}
+
 func NewClient() *Client {
 	return &Client{
 		httpClient: &http.Client{
 			Timeout: 8 * time.Second,
 		},
-		cache: make(map[string]*cacheItem),
+		cache:       make(map[string]*cacheItem),
+		imageCache:  make(map[string]*imageCacheItem),
+		maxImgBytes: 20 * 1024 * 1024, // 20 MB bounded cache
 	}
 }
 
@@ -340,12 +352,14 @@ func (c *Client) GetGiftImageBytes(ctx context.Context, slug, model string) ([]b
 	}
 
 	cacheKey := fmt.Sprintf("gift_img:%s:%s", slug, model)
-	c.mu.RLock()
-	if item, ok := c.cache[cacheKey]; ok && time.Now().Before(item.expiresAt) {
-		c.mu.RUnlock()
-		return item.data.([]byte), nil
+	c.imgMu.Lock()
+	if item, ok := c.imageCache[cacheKey]; ok {
+		item.accessedAt = time.Now()
+		data := item.data
+		c.imgMu.Unlock()
+		return data, nil
 	}
-	c.mu.RUnlock()
+	c.imgMu.Unlock()
 
 	reqURL := fmt.Sprintf("%s/model/%s/%s.png?size=256", BaseAPIURL, url.PathEscape(slug), url.PathEscape(model))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
@@ -369,21 +383,35 @@ func (c *Client) GetGiftImageBytes(ctx context.Context, slug, model string) ([]b
 		return nil, err
 	}
 
-	c.mu.Lock()
-	// Bounded cache eviction: if cache exceeds 1000 items, clear expired entries
-	if len(c.cache) > 1000 {
-		now := time.Now()
-		for k, v := range c.cache {
-			if now.After(v.expiresAt) {
-				delete(c.cache, k)
+	c.imgMu.Lock()
+	// Byte-bounded LRU eviction: if adding this image exceeds maxImgBytes, evict oldest
+	imgSize := len(imgBytes)
+	for len(c.imageCache) > 0 && (c.totalImgBytes+imgSize > c.maxImgBytes || len(c.imageCache) >= 500) {
+		var oldestKey string
+		var oldestTime time.Time
+		first := true
+		for k, v := range c.imageCache {
+			if first || v.accessedAt.Before(oldestTime) {
+				oldestKey = k
+				oldestTime = v.accessedAt
+				first = false
 			}
 		}
+		if oldestKey != "" {
+			c.totalImgBytes -= c.imageCache[oldestKey].sizeBytes
+			delete(c.imageCache, oldestKey)
+		} else {
+			break
+		}
 	}
-	c.cache[cacheKey] = &cacheItem{
-		data:      imgBytes,
-		expiresAt: time.Now().Add(7 * 24 * time.Hour), // 7 days TTL
+
+	c.imageCache[cacheKey] = &imageCacheItem{
+		data:       imgBytes,
+		sizeBytes:  imgSize,
+		accessedAt: time.Now(),
 	}
-	c.mu.Unlock()
+	c.totalImgBytes += imgSize
+	c.imgMu.Unlock()
 
 	return imgBytes, nil
 }

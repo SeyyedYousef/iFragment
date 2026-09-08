@@ -53,7 +53,7 @@ func AuditGiftRisk(ctx context.Context, modelID string, serialNumber int, resale
 
 	// Verify model authenticity against live official registry
 	_, isOfficial := traits.ResolveCollection(modelID)
-	authStatus := "Verified Official Telegram Mint (Cryptographically Validated)"
+	authStatus := "Verified Official Telegram Collection (Catalog Registry)"
 	if !isOfficial {
 		authStatus = "⚠️ Unofficial Collection (Possible Copycat / Spoofed Metadata)"
 	}
@@ -97,9 +97,9 @@ func AuditGiftRisk(ctx context.Context, modelID string, serialNumber int, resale
 		{
 			Key:     "smart_contract",
 			TitleEn: "Smart Contract State",
-			TitleFa: "سلامت قرارداد هوشمند",
+			TitleFa: "وضعیت قرارداد هوشمند و حضانت",
 			Passed:  true,
-			Detail:  "Direct Telemint / TON Smart Contract Integration (Clean Record)",
+			Detail:  "Telegram In-App Custody / Off-Chain Metadata (TEP-62 On-Chain Verification Pending)",
 		},
 	}
 
@@ -113,8 +113,8 @@ func AuditGiftRisk(ctx context.Context, modelID string, serialNumber int, resale
 		CommissionWarning:   commWarn,
 		IsCopycatCollection: !isOfficial,
 		AuthenticityStatus:  authStatus,
-		OwnershipChurnTier:  "Healthy (2 Historical Holder Transitions)",
-		VenueLiquidityTier:  "Instant (<24h across 6 Venues)",
+		OwnershipChurnTier:  "Pending On-Chain Holder Indexer",
+		VenueLiquidityTier:  "Measured Dynamically per Active Venue",
 		RiskChecklist:       checklist,
 		AuditedAt:           now,
 	}

@@ -93,9 +93,9 @@ var Registry = map[VenueID]VenueInfo{
 		RequiresKYC:        false,
 		EscrowType:         "smart_contract",
 		DeepLinkBase:       "https://getgems.io/collection",
-		HasRealVolumeBadge: true,
+		HasRealVolumeBadge: false,
 		EstimatedSlippage:  0.8,
-		DataStatus:         "live",
+		DataStatus:         "unavailable",
 	},
 	VenueMarketApp: {
 		ID:                 VenueMarketApp,
@@ -106,9 +106,9 @@ var Registry = map[VenueID]VenueInfo{
 		RequiresKYC:        false,
 		EscrowType:         "smart_contract",
 		DeepLinkBase:       "https://marketapp.ws/gifts",
-		HasRealVolumeBadge: true,
+		HasRealVolumeBadge: false,
 		EstimatedSlippage:  1.1,
-		DataStatus:         "live",
+		DataStatus:         "unavailable",
 	},
 	VenueMRKT: {
 		ID:                 VenueMRKT,
@@ -119,9 +119,9 @@ var Registry = map[VenueID]VenueInfo{
 		RequiresKYC:        false,
 		EscrowType:         "smart_contract",
 		DeepLinkBase:       "https://mrkt.tg",
-		HasRealVolumeBadge: true,
+		HasRealVolumeBadge: false,
 		EstimatedSlippage:  1.2,
-		DataStatus:         "live",
+		DataStatus:         "unavailable",
 	},
 	VenuePortals: {
 		ID:                 VenuePortals,
@@ -132,9 +132,9 @@ var Registry = map[VenueID]VenueInfo{
 		RequiresKYC:        false,
 		EscrowType:         "smart_contract",
 		DeepLinkBase:       "https://portals.market",
-		HasRealVolumeBadge: true,
+		HasRealVolumeBadge: false,
 		EstimatedSlippage:  1.5,
-		DataStatus:         "live",
+		DataStatus:         "unavailable",
 	},
 	VenueTonnel: {
 		ID:                 VenueTonnel,
@@ -147,7 +147,7 @@ var Registry = map[VenueID]VenueInfo{
 		DeepLinkBase:       "https://t.me/tonnel_gift_bot",
 		HasRealVolumeBadge: false, // Low liquidity warning
 		EstimatedSlippage:  2.5,
-		DataStatus:         "estimated",
+		DataStatus:         "unavailable",
 	},
 	VenueTelegramStars: {
 		ID:                 VenueTelegramStars,
@@ -158,19 +158,19 @@ var Registry = map[VenueID]VenueInfo{
 		RequiresKYC:        false,
 		EscrowType:         "telegram_escrow",
 		DeepLinkBase:       "https://t.me/nft",
-		HasRealVolumeBadge: true,
+		HasRealVolumeBadge: false,
 		EstimatedSlippage:  1.0,
-		DataStatus:         "live",
+		DataStatus:         "estimated",
 	},
 }
 
 // ComputeExitPlan evaluates venue choices using real baseline price and fee schedules
 func ComputeExitPlan(ctx context.Context, targetGRAM, gramUsdRate float64, customResalePermille int) *ExitPlannerPlan {
 	if gramUsdRate <= 0 {
-		gramUsdRate = 5.50
+		gramUsdRate = 1.42
 	}
 	if targetGRAM <= 0 {
-		targetGRAM = 10.0
+		targetGRAM = 1.0
 	}
 
 	options := make([]ExitOption, 0, len(Registry))

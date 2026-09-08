@@ -2,7 +2,6 @@ package venues
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -73,10 +72,11 @@ func (a *FragmentAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewF
 
 func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
 	cleanSlug := strings.ToLower(strings.TrimSpace(giftSlug))
-	cleanSlug = strings.ReplaceAll(cleanSlug, "_", "-")
+	cleanSlug = strings.ReplaceAll(cleanSlug, "_", "")
+	cleanSlug = strings.ReplaceAll(cleanSlug, "-", "")
 
-	// Query Fragment real gifts catalog listing page
-	apiURL := fmt.Sprintf("https://fragment.com/gifts/%s", url.PathEscape(cleanSlug))
+	// Query Fragment real gifts catalog listing page with lowest price sort
+	apiURL := fmt.Sprintf("https://fragment.com/gifts/%s?sort=price_asc", url.PathEscape(cleanSlug))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return nil, err
@@ -142,53 +142,8 @@ func (a *GetgemsAdapter) Currency() string { return "GRAM" }
 func (a *GetgemsAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(5.0) }
 
 func (a *GetgemsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
-	cleanSlug := strings.ToLower(strings.TrimSpace(giftSlug))
-	cleanSlug = strings.ReplaceAll(cleanSlug, "_", "-")
-
-	apiURL := fmt.Sprintf("https://api.getgems.io/public-api/v1/nfts/floor-price/%s", url.PathEscape(cleanSlug))
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "iFragment/1.0")
-
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUnreachableHost, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("getgems HTTP %d", resp.StatusCode)
-	}
-
-	var payload struct {
-		Success bool `json:"success"`
-		Data    struct {
-			FloorPriceTON  float64 `json:"floorPrice"`
-			ActiveListings int     `json:"itemsCount"`
-		} `json:"data"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return nil, err
-	}
-
-	if payload.Data.FloorPriceTON > 0 {
-		decFloor := decimal.NewFromFloat(payload.Data.FloorPriceTON)
-		return &VenueFloorResult{
-			VenueID:        VenueGetgems,
-			VenueName:      "Getgems",
-			FloorPriceRaw:  decFloor,
-			FloorPriceGRAM: decFloor,
-			Currency:       "GRAM",
-			ActiveListings: payload.Data.ActiveListings,
-			DataStatus:     "live",
-			DeepLink:       fmt.Sprintf("https://getgems.io/collection/%s", cleanSlug),
-			FetchedAt:      time.Now().UTC(),
-		}, nil
-	}
-
+	// Note: Getgems public v1 NFT floor API (/v1/nfts/floor-price/) is discontinued for Telegram gifts.
+	// Returning ErrNoFloorData cleanly to avoid 404 network errors until official MTProto / v2 API is integrated.
 	return nil, ErrNoFloorData
 }
 
@@ -217,48 +172,8 @@ func (a *MarketAppAdapter) Currency() string { return "GRAM" }
 func (a *MarketAppAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(2.5) }
 
 func (a *MarketAppAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
-	cleanSlug := strings.ToLower(strings.TrimSpace(giftSlug))
-	cleanSlug = strings.ReplaceAll(cleanSlug, "_", "-")
-
-	apiURL := fmt.Sprintf("https://marketapp.ws/api/v1/gifts/floor/%s", url.PathEscape(cleanSlug))
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUnreachableHost, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("marketapp HTTP %d", resp.StatusCode)
-	}
-
-	var payload struct {
-		FloorTON float64 `json:"floor_ton"`
-		Listings int     `json:"listings"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return nil, err
-	}
-
-	if payload.FloorTON > 0 {
-		decFloor := decimal.NewFromFloat(payload.FloorTON)
-		return &VenueFloorResult{
-			VenueID:        VenueMarketApp,
-			VenueName:      "MarketApp.ws",
-			FloorPriceRaw:  decFloor,
-			FloorPriceGRAM: decFloor,
-			Currency:       "GRAM",
-			ActiveListings: payload.Listings,
-			DataStatus:     "live",
-			DeepLink:       fmt.Sprintf("https://marketapp.ws/gifts/%s", cleanSlug),
-			FetchedAt:      time.Now().UTC(),
-		}, nil
-	}
-
+	// Note: MarketApp public endpoint currently serves HTML landing pages instead of JSON REST API.
+	// Returning ErrNoFloorData cleanly to avoid HTML decode errors until API contract is available.
 	return nil, ErrNoFloorData
 }
 
@@ -299,7 +214,7 @@ func (a *TelegramStarsAdapter) FetchVolume(ctx context.Context, giftSlug string)
 
 // Helper: ConvertStarsToGRAM converts Telegram Stars integer to exact decimal TON
 func (a *TelegramStarsAdapter) ConvertStarsToDecimalGRAM(stars int64) decimal.Decimal {
-	tonUsd := 5.50
+	tonUsd := 1.42
 	if a.cryptoPrice != nil {
 		if rate, ok := a.cryptoPrice.GetFloatPrice("the-open-network"); ok && rate > 0 {
 			tonUsd = rate

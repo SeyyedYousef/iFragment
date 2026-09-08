@@ -23,7 +23,7 @@ func CalculateStarsParity(baseStars int, gramUsdRate float64, currentMarketGRAM 
 		baseStars = 1000
 	}
 	if gramUsdRate <= 0 {
-		gramUsdRate = 5.50
+		gramUsdRate = 1.42
 	}
 
 	// 1. Fixed Telegram upgrade fee in Stars (standard 1,000 to 2,000 Stars)

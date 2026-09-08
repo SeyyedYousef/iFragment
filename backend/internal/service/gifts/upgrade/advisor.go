@@ -47,7 +47,7 @@ type UpgradeAdviceReport struct {
 // GenerateUpgradeAdvice analyzes live falling stairs and computes optimal upgrade timing
 func GenerateUpgradeAdvice(ctx context.Context, giftID, modelID string, baseStarsPrice int, gramUsdRate float64) *UpgradeAdviceReport {
 	if gramUsdRate <= 0 {
-		gramUsdRate = 5.50
+		gramUsdRate = 1.42
 	}
 	if baseStarsPrice <= 0 {
 		baseStarsPrice = 15000 // default initial high anchor
@@ -122,11 +122,11 @@ func GenerateUpgradeAdvice(ctx context.Context, giftID, modelID string, baseStar
 		recommendation = "UPGRADE_NOW"
 	}
 
-	headlineEn := fmt.Sprintf("Wait to Save %d Stars (%.2f TON / $%.2f)", maxSavingsStars, maxSavingsGRAM, maxSavingsUSD)
-	headlineFa := fmt.Sprintf("صبر کنید تا %s استارز (%.2f تن‌کوین / $%.2f) صرفه‌جویی کنید", formatInt(maxSavingsStars), maxSavingsGRAM, maxSavingsUSD)
+	headlineEn := fmt.Sprintf("Wait to Save %d Stars (%.2f GRAM / $%.2f)", maxSavingsStars, maxSavingsGRAM, maxSavingsUSD)
+	headlineFa := fmt.Sprintf("صبر کنید تا %s استارز (%.2f گرام / $%.2f) صرفه‌جویی کنید", formatInt(maxSavingsStars), maxSavingsGRAM, maxSavingsUSD)
 
-	tradeOffEn := "Honest Trade-off: While waiting for lower stairs saves on upgrade fees, top-tier backdrop attribute availability may experience minor trait supply drift (~3.5% estimated)."
-	tradeOffFa := "موازنه صادقانه: با وجود صرفه‌جویی چشمگیر در کارمزد آپگرید در پله‌های پایینی، شانس ثبت بک‌دراپ‌های کمیاب به دلیل رقابت سایر کاربران ممکن است دچار افت گردد."
+	tradeOffEn := "Trade-off Notice: While waiting for lower stairs saves on upgrade fees, top-tier backdrop attribute availability may decrease due to competing upgrades."
+	tradeOffFa := "موازنه هزینه و رریتی: با وجود صرفه‌جویی در کارمزد استارز در پله‌های پایینی، شانس تصاحب بک‌دراپ‌های کمیاب به دلیل ارتقای سایر کاربران ممکن است کاهش یابد."
 
 	deepLink := fmt.Sprintf("https://t.me/nft/%s?upgrade=preview", giftID)
 

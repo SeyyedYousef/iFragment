@@ -198,15 +198,15 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 		}
 	}
 
-	gramUsdRate := 5.50
+	gramUsdRate := 1.42
 	if e.cryptoPriceSvc != nil {
 		if rate, ok := e.cryptoPriceSvc.GetFloatPrice("the-open-network"); ok && rate > 0 {
 			gramUsdRate = rate
 		}
 	}
 
-	// 34 Analyzed signals count
-	signalsCount := 34
+	// 8 Analyzed core signals count
+	signalsCount := 8
 
 	// Preliminary risk count without leaking details
 	risksCount := 0
@@ -230,7 +230,7 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 		ImageURL:         imageURL,
 		SignalsAnalyzed:  signalsCount,
 		RisksIdentified:  risksCount,
-		DataSourcesCount: 6, // Fragment, Getgems, Tonnel, Portals, MRKT, Telegram Stars
+		DataSourcesCount: 2, // Fragment, Telegram Official API
 		IsCrafted:        col.CraftedFlag,
 		FloorPriceGRAM:   floorGRAM,
 		FloorPriceUSD:    floorUSD,
@@ -298,10 +298,6 @@ func (e *ValuationEngine) resolveDynamicFloor(ctx context.Context, modelID strin
 		baseTon *= 1.40 // 40% intrinsic burn/crafting premium
 	}
 
-	if tonUsdRate > 0 && tonUsdRate != 5.50 {
-		baseTon *= (5.50 / tonUsdRate)
-	}
-
 	return math.Round(baseTon*10.0) / 10.0
 }
 
@@ -324,6 +320,7 @@ func (e *ValuationEngine) Valuate(ctx context.Context, raw string) (*GiftValuati
 
 func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftRef) (*GiftValuation, error) {
 	col, isKnownCol := traits.ResolveCollection(ref.ModelID)
+	_ = isKnownCol
 
 	// Live on-chain resolver for real model, backdrop, symbol, and owner
 	var liveNFT *telegramnft.LiveNFTDetails
@@ -337,7 +334,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	// 1. Fetch live GRAM/USD rate (CryptoPrice TON equivalent)
-	gramUsdRate := 5.50
+	gramUsdRate := 1.42
 	if e.cryptoPriceSvc != nil {
 		if rate, ok := e.cryptoPriceSvc.GetFloatPrice("the-open-network"); ok && rate > 0 {
 			gramUsdRate = rate

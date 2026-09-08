@@ -208,12 +208,9 @@ export const GiftsGlobalHeatmap: Component<Props> = (props) => {
 	const [showCategoryDropdown, setShowCategoryDropdown] = createSignal<boolean>(false);
 	const [selectedNode, setSelectedNode] = createSignal<HeatmapNode | null>(null);
 
-	const tonRate = () => props.rate || 5.5;
+	const tonRate = () => props.rate || 1.42;
 
-	// ═════════════════════════════════════════════════════════════════════════
-	// 100% REAL DATA MAPPING (NO HARDCODED / MOCK ARRAYS)
-	// Combines verified catalog with live backend market intelligence
-	// ═════════════════════════════════════════════════════════════════════════
+	// Real floor and market mapping from backend floor board
 	const ecosystemGifts = createMemo(() => {
 		const board = props.intel?.unified_floor_board || [];
 		const boardMap = new Map<string, (typeof board)[0]>();
@@ -227,12 +224,12 @@ export const GiftsGlobalHeatmap: Component<Props> = (props) => {
 			const slug = g.slug.toLowerCase();
 			const b = boardMap.get(slug) || boardMap.get(slug.replace(/-/g, '_'));
 
-			const floorTon = b && b.best_floor_gram > 0 ? b.best_floor_gram : g.floorTon || 0;
+			const floorTon = b && b.best_floor_gram > 0 ? b.best_floor_gram : 0;
 			const supply = b && b.total_supply > 0 ? b.total_supply : g.supply || 5000;
 			const change24h = b ? b.price_change_24h_pct : 0.0;
 			const venue = b?.best_venue_name || 'Fragment';
 			const mcapTon = floorTon * supply;
-			const volumeTon = b && b.best_floor_gram > 0 ? b.best_floor_gram * 12 : 0;
+			const volumeTon = 0; // Volume requires on-chain trade indexer
 
 			return {
 				id: g.id,
