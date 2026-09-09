@@ -189,13 +189,30 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			if cfg.ProjectHandler != nil {
 				r.Get("/", cfg.ProjectHandler.ListProjects)
 				r.Post("/", cfg.ProjectHandler.CreateProject)
+				r.Post("/preflight", cfg.ProjectHandler.CheckPreflight)
 				r.Get("/{projectID}", cfg.ProjectHandler.GetProject)
 				r.Put("/{projectID}", cfg.ProjectHandler.UpdateProject)
 				r.Post("/{projectID}/toggle", cfg.ProjectHandler.ToggleProject)
+				r.Post("/{projectID}/pause", cfg.ProjectHandler.PauseProject)
+				r.Post("/{projectID}/resume", cfg.ProjectHandler.ResumeProject)
 				r.Post("/{projectID}/renew", cfg.ProjectHandler.RenewProject)
 				r.Post("/{projectID}/subscribe-credits", cfg.ProjectHandler.SubscribeCredits)
 				r.Post("/{projectID}/subscribe-stars", cfg.ProjectHandler.SubscribeStars)
 				r.Delete("/{projectID}", cfg.ProjectHandler.DeleteProject)
+
+				// Editorial & Content Lifecycle Routes
+				r.Get("/{projectID}/inbox", cfg.ProjectHandler.GetInbox)
+				r.Get("/{projectID}/content/{contentID}", cfg.ProjectHandler.GetContentItem)
+				r.Post("/{projectID}/content/{contentID}/approve", cfg.ProjectHandler.ApproveContentItem)
+				r.Post("/{projectID}/content/{contentID}/reject", cfg.ProjectHandler.RejectContentItem)
+				r.Post("/{projectID}/content/{contentID}/edit", cfg.ProjectHandler.EditContentItem)
+				r.Post("/{projectID}/content/{contentID}/publish", cfg.ProjectHandler.PublishContentItem)
+				r.Get("/{projectID}/deliveries", cfg.ProjectHandler.GetDeliveries)
+
+				// Team & Permissions
+				r.Get("/{projectID}/team", cfg.ProjectHandler.GetMembers)
+				r.Post("/{projectID}/team", cfg.ProjectHandler.AddMember)
+				r.Delete("/{projectID}/team/{userID}", cfg.ProjectHandler.RemoveMember)
 			}
 		})
 

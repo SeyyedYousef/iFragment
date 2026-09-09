@@ -111,13 +111,13 @@ export const DashboardPage: Component = () => {
 							tabIndex={0}
 							onClick={() => {
 								haptic.impact('medium');
-								navigate('/managed-channels');
+								navigate('/projects');
 							}}
 							onKeyDown={(e) => {
 								if (e.key === 'Enter' || e.key === ' ') {
 									e.preventDefault();
 									haptic.impact('medium');
-									navigate('/managed-channels');
+									navigate('/projects');
 								}
 							}}
 							class="w-full bg-[#08090D] rounded-[24px] p-4.5 border border-white/5 hover:border-sky-400/40 shadow-sm hover:shadow-[0_8px_30px_rgba(14,165,233,0.15)] flex flex-col gap-4 relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50"

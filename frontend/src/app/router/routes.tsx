@@ -43,6 +43,27 @@ const ChannelFunnelPage = lazy(() =>
 const ProjectsPage = lazy(() =>
 	import('@/pages/channel/projects/index.js').then((m) => ({ default: m.ProjectsPage })),
 );
+const ProjectsHubPage = lazy(() =>
+	import('@/pages/project/hub/index.js').then((m) => ({ default: m.ProjectsHubPage })),
+);
+const ProjectDashboardPage = lazy(() =>
+	import('@/pages/project/dashboard/index.js').then((m) => ({ default: m.ProjectDashboardPage })),
+);
+const ProjectInboxPage = lazy(() =>
+	import('@/pages/project/inbox/index.js').then((m) => ({ default: m.ProjectInboxPage })),
+);
+const ProjectPipelinePage = lazy(() =>
+	import('@/pages/project/pipeline/index.js').then((m) => ({ default: m.ProjectPipelinePage })),
+);
+const ProjectDeliveriesPage = lazy(() =>
+	import('@/pages/project/deliveries/index.js').then((m) => ({ default: m.ProjectDeliveriesPage })),
+);
+const ProjectTeamPage = lazy(() =>
+	import('@/pages/project/team/index.js').then((m) => ({ default: m.ProjectTeamPage })),
+);
+const ProjectSettingsPage = lazy(() =>
+	import('@/pages/project/settings/index.js').then((m) => ({ default: m.ProjectSettingsPage })),
+);
 const ChannelHealthPage = lazy(() =>
 	import('@/pages/channel/health/index.js').then((m) => ({ default: m.ChannelHealthPage })),
 );
@@ -57,11 +78,6 @@ const ChannelGeneralSettingsPage = lazy(() =>
 const ChannelInlineButtonsPage = lazy(() =>
 	import('@/pages/channel/inline-buttons/index.js').then((m) => ({
 		default: m.ChannelInlineButtonsPage,
-	})),
-);
-const ManagedChannelsPage = lazy(() =>
-	import('@/pages/channel/managed-channels/index.js').then((m) => ({
-		default: m.ManagedChannelsPage,
 	})),
 );
 const ChannelPostingPage = lazy(() =>
@@ -244,6 +260,12 @@ const ShopRedirect: Component = () => {
 	return null;
 };
 
+const ProjectsRedirect: Component = () => {
+	const nav = useNavigate();
+	onMount(() => nav('/projects', { replace: true }));
+	return null;
+};
+
 export const routes: Route[] = [
 	{ path: '/', Component: IndexPage },
 
@@ -272,9 +294,22 @@ export const routes: Route[] = [
 	{ path: '/group/:id/members', Component: MembersPage },
 	{ path: '/group/:id/analytics', Component: AnalyticsPage },
 	{ path: '/group/:id/dynamic-bio', Component: GroupDynamicBioPage },
-	{ path: '/managed-channels', Component: ManagedChannelsPage },
-	{ path: '/channel/connect', Component: ProjectsPage },
-	{ path: '/channel/projects', Component: ProjectsPage },
+	// Project-Centric Routes
+	{ path: '/projects', Component: ProjectsHubPage },
+	{ path: '/projects/:projectId', Component: ProjectDashboardPage },
+	{ path: '/projects/:projectId/dashboard', Component: ProjectDashboardPage },
+	{ path: '/projects/:projectId/inbox', Component: ProjectInboxPage },
+	{ path: '/projects/:projectId/approvals', Component: ProjectInboxPage },
+	{ path: '/projects/:projectId/pipeline', Component: ProjectPipelinePage },
+	{ path: '/projects/:projectId/deliveries', Component: ProjectDeliveriesPage },
+	{ path: '/projects/:projectId/schedules', Component: ProjectDeliveriesPage },
+	{ path: '/projects/:projectId/team', Component: ProjectTeamPage },
+	{ path: '/projects/:projectId/settings', Component: ProjectSettingsPage },
+
+	// Deprecated channel routes redirected to /projects
+	{ path: '/managed-channels', Component: ProjectsRedirect },
+	{ path: '/channel/connect', Component: ProjectsRedirect },
+	{ path: '/channel/projects', Component: ProjectsRedirect },
 	{ path: '/channel/:id', Component: ChannelDashboardPage },
 	{ path: '/channel/:id/dashboard', Component: ChannelDashboardPage },
 	{ path: '/channel/:id/projects', Component: ProjectsPage },

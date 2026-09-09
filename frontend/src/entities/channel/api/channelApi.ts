@@ -9,6 +9,11 @@ import type {
 	ForwardingRule,
 	ManagedChannel,
 	Project,
+	ContentItem,
+	ContentRevision,
+	Delivery,
+	ProjectMember,
+	PreflightResult,
 } from '../model/types.js';
 
 const unwrapApiData = (payload: any) => payload?.data?.data || payload?.data || payload;
@@ -287,6 +292,92 @@ export const channelApi = {
 				package_id: packageId,
 				discount_percent: discountPercent,
 			})
+			.then((r: any) => unwrapApiData(r)),
+
+	checkPreflight: (sourceIdentifier: string, targetIdentifier: string): Promise<PreflightResult> =>
+		apiClient
+			.post<PreflightResult>('/projects/preflight', {
+				source_identifier: sourceIdentifier,
+				target_identifier: targetIdentifier,
+			})
+			.then((r: any) => unwrapApiData(r)),
+
+	pauseProject: (projectId: string): Promise<Project> =>
+		apiClient.post(`/projects/${projectId}/pause`).then((r: any) => unwrapApiData(r)),
+
+	resumeProject: (projectId: string): Promise<Project> =>
+		apiClient.post(`/projects/${projectId}/resume`).then((r: any) => unwrapApiData(r)),
+
+	getProjectInbox: (
+		projectId: string,
+		status?: string,
+		limit: number = 50,
+		offset: number = 0,
+	): Promise<ContentItem[]> =>
+		apiClient
+			.get(`/projects/${projectId}/inbox`, { params: { status, limit, offset } })
+			.then((r: any) => {
+				const data = unwrapApiData(r);
+				return Array.isArray(data) ? data : data?.items || [];
+			}),
+
+	getContentItem: (projectId: string, contentId: string): Promise<ContentItem> =>
+		apiClient
+			.get(`/projects/${projectId}/content/${contentId}`)
+			.then((r: any) => unwrapApiData(r)),
+
+	approveContent: (projectId: string, contentId: string): Promise<{ status: string }> =>
+		apiClient
+			.post(`/projects/${projectId}/content/${contentId}/approve`)
+			.then((r: any) => unwrapApiData(r)),
+
+	rejectContent: (projectId: string, contentId: string, reason?: string): Promise<{ status: string }> =>
+		apiClient
+			.post(`/projects/${projectId}/content/${contentId}/reject`, { reason })
+			.then((r: any) => unwrapApiData(r)),
+
+	editContent: (
+		projectId: string,
+		contentId: string,
+		payload: { text?: string; caption?: string; buttons?: any[] },
+	): Promise<ContentRevision> =>
+		apiClient
+			.post(`/projects/${projectId}/content/${contentId}/edit`, payload)
+			.then((r: any) => unwrapApiData(r)),
+
+	publishContent: (projectId: string, contentId: string): Promise<Delivery> =>
+		apiClient
+			.post(`/projects/${projectId}/content/${contentId}/publish`)
+			.then((r: any) => unwrapApiData(r)),
+
+	getProjectDeliveries: (
+		projectId: string,
+		limit: number = 50,
+		offset: number = 0,
+	): Promise<Delivery[]> =>
+		apiClient
+			.get(`/projects/${projectId}/deliveries`, { params: { limit, offset } })
+			.then((r: any) => {
+				const data = unwrapApiData(r);
+				return Array.isArray(data) ? data : data?.deliveries || [];
+			}),
+
+	getProjectMembers: (projectId: string): Promise<ProjectMember[]> =>
+		apiClient
+			.get(`/projects/${projectId}/team`)
+			.then((r: any) => {
+				const data = unwrapApiData(r);
+				return Array.isArray(data) ? data : data?.members || [];
+			}),
+
+	addProjectMember: (projectId: string, userId: number, role: string): Promise<{ status: string }> =>
+		apiClient
+			.post(`/projects/${projectId}/team`, { user_id: userId, role })
+			.then((r: any) => unwrapApiData(r)),
+
+	removeProjectMember: (projectId: string, userId: number): Promise<{ status: string }> =>
+		apiClient
+			.delete(`/projects/${projectId}/team/${userId}`)
 			.then((r: any) => unwrapApiData(r)),
 
 	// Legacy backward compatibility aliases

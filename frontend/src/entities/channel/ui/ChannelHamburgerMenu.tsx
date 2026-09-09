@@ -187,18 +187,18 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 							</For>
 						</div>
 
-						{/* Footer: Back to Managed Channels */}
+						{/* Footer: Back to Projects */}
 						<div class="p-3 border-t border-[#2a2a2a] bg-[#1c1c1c] sticky bottom-0">
 							<button
 								type="button"
 								onClick={() => {
 									props.onClose();
-									navigate('/managed-channels');
+									navigate('/projects');
 								}}
 								class="w-full flex items-center justify-center gap-2 p-3 rounded-2xl bg-[#2a2a2a]/60 hover:bg-[#2a2a2a] text-[13px] font-bold text-[#8e8e93] hover:text-white transition-colors"
 							>
 								<span class="material-symbols-outlined text-[18px] rtl:rotate-180">arrow_back</span>
-								<span>{t('channel.backToChannels' as any) || 'Back to Channels'}</span>
+								<span>{t('channel.backToProjects' as any) || 'Back to Projects'}</span>
 							</button>
 						</div>
 					</div>

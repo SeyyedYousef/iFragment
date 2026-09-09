@@ -735,6 +735,347 @@ paths:
       responses:
         "200":
           description: Success confirmation
+  /projects:
+    get:
+      tags: [Projects]
+      summary: List all projects owned by the user
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of projects
+    post:
+      tags: [Projects]
+      summary: Create a new editorial smart forwarding project
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                source_channel_id: { type: string, format: uuid }
+                source_channel_identifier: { type: string }
+                target_channel_id: { type: string, format: uuid }
+                target_channel_identifier: { type: string }
+                pipeline_config: { type: object }
+      responses:
+        "201":
+          description: Project created successfully
+  /projects/preflight:
+    post:
+      tags: [Projects]
+      summary: Verify bot administrator permissions in source and target channels
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_identifier, target_identifier]
+              properties:
+                source_identifier: { type: string }
+                target_identifier: { type: string }
+      responses:
+        "200":
+          description: Preflight validation results
+  /projects/{projectID}:
+    get:
+      tags: [Projects]
+      summary: Get project details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Project details
+    put:
+      tags: [Projects]
+      summary: Update project name, channels or pipeline configuration
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                source_channel_id: { type: string, format: uuid }
+                source_channel_identifier: { type: string }
+                target_channel_id: { type: string, format: uuid }
+                target_channel_identifier: { type: string }
+                pipeline_config: { type: object }
+      responses:
+        "200":
+          description: Updated project
+    delete:
+      tags: [Projects]
+      summary: Delete project safely
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Project deleted confirmation
+  /projects/{projectID}/pause:
+    post:
+      tags: [Projects]
+      summary: Pause project pipeline processing
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Project paused
+  /projects/{projectID}/resume:
+    post:
+      tags: [Projects]
+      summary: Resume project pipeline processing
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Project resumed
+  /projects/{projectID}/inbox:
+    get:
+      tags: [Projects]
+      summary: Get content items in project review inbox
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          required: false
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of content items with current revision
+  /projects/{projectID}/content/{contentID}:
+    get:
+      tags: [Projects]
+      summary: Get content item details and current revision
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: contentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Content item details
+  /projects/{projectID}/content/{contentID}/approve:
+    post:
+      tags: [Projects]
+      summary: Approve content item for publication
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: contentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Content approved and queued/published
+  /projects/{projectID}/content/{contentID}/reject:
+    post:
+      tags: [Projects]
+      summary: Reject content item
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: contentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: Content rejected
+  /projects/{projectID}/content/{contentID}/edit:
+    post:
+      tags: [Projects]
+      summary: Create new edited revision for content item
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: contentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string }
+                caption: { type: string }
+                buttons: { type: array, items: { type: object } }
+      responses:
+        "200":
+          description: New revision created
+  /projects/{projectID}/content/{contentID}/publish:
+    post:
+      tags: [Projects]
+      summary: Publish content item immediately to destination channel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: contentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Delivery receipt
+  /projects/{projectID}/deliveries:
+    get:
+      tags: [Projects]
+      summary: Get delivery receipts and publication history
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          required: false
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of deliveries
+  /projects/{projectID}/team:
+    get:
+      tags: [Projects]
+      summary: Get project team members and roles
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Team members
+    post:
+      tags: [Projects]
+      summary: Add or update project team member
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, role]
+              properties:
+                user_id: { type: integer }
+                role: { type: string, enum: [owner, admin, editor, approver, viewer] }
+      responses:
+        "200":
+          description: Member added or updated
+  /projects/{projectID}/team/{userID}:
+    delete:
+      tags: [Projects]
+      summary: Remove team member from project
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: userID
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Member removed
   /gifts/intel:
     get:
       tags: [Gifts]

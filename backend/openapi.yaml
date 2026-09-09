@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: iFragment API
   description: Telegram username analytics, premium reports, bot management, profile and marketplace APIs.
@@ -15,8 +15,8 @@ tags:
   - name: Premium Reports
   - name: Bots
   - name: Groups
+  - name: Channels
   - name: Profile
-  - name: Marketplace
   - name: Gifts
   - name: Numbers
 paths:
@@ -174,8 +174,50 @@ paths:
           description: Rate limit exceeded
         "500":
           description: Valuation pipeline failed
+  /usernames/report/request:
 
-
+    post:
+      tags: [Premium Reports]
+      summary: Create Telegram Stars invoice for a premium username report
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportRequest"
+      responses:
+        "200":
+          description: Invoice link
+        "402":
+          description: Payment required
+  /usernames/report/view:
+    get:
+      tags: [Premium Reports]
+      summary: View or generate a paid premium username report
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UsernameQuery"
+      responses:
+        "200":
+          description: Premium report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FullReport"
+        "402":
+          description: Payment required
+  /usernames/report/history:
+    get:
+      tags: [Premium Reports]
+      summary: List current user's generated reports
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Report history
   /bots:
     get:
       tags: [Bots]
@@ -363,33 +405,677 @@ paths:
   /marketplace/options:
     get:
       tags: [Marketplace]
-      deprecated: true
-      summary: Get purchase options (Deprecated - returns 410 Gone)
+      summary: Get purchase options
       security:
         - BearerAuth: []
       responses:
-        "410":
-          description: Marketplace deprecated in favor of Airdrop Shop
+        "200":
+          description: Purchase options
   /marketplace/purchase/stars:
     post:
       tags: [Marketplace]
-      deprecated: true
-      summary: Purchase with Telegram Stars (Deprecated - returns 410 Gone)
+      summary: Purchase with Telegram Stars
       security:
         - BearerAuth: []
       responses:
-        "410":
-          description: Marketplace deprecated in favor of Airdrop Shop
+        "200":
+          description: Purchase result
   /marketplace/purchase/toncoin:
     post:
       tags: [Marketplace]
-      deprecated: true
-      summary: Purchase with Toncoin (Deprecated - returns 410 Gone)
+      summary: Purchase with Toncoin
       security:
         - BearerAuth: []
       responses:
-        "410":
-          description: Marketplace deprecated in favor of Airdrop Shop
+        "200":
+          description: Purchase result
+  /healthz/live:
+    get:
+      tags: [Health]
+      summary: Liveness health check
+      responses:
+        "200":
+          description: Service is alive
+  /healthz/ready:
+    get:
+      tags: [Health]
+      summary: Readiness health check
+      responses:
+        "200":
+          description: Service is ready
+        "503":
+          description: Service is not ready
+  /profile/gdpr:
+    delete:
+      tags: [Profile]
+      summary: GDPR Data Deletion Request
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Data successfully wiped
+  /channels:
+    get:
+      tags: [Channels]
+      summary: List managed channels with cursor pagination
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: bot_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated channels list
+    post:
+      tags: [Channels]
+      summary: Connect a new channel
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bot_id, username]
+              properties:
+                bot_id:
+                  type: string
+                username:
+                  type: string
+      responses:
+        "200":
+          description: Connected channel details
+  /channels/{channelID}:
+    get:
+      tags: [Channels]
+      summary: Get channel details
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: Channel details
+    delete:
+      tags: [Channels]
+      summary: Disconnect a channel
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: Channel disconnected
+  /channels/{channelID}/settings:
+    get:
+      tags: [Channels]
+      summary: Get channel settings
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: Channel settings details
+    put:
+      tags: [Channels]
+      summary: Update channel settings
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category, data, version]
+              properties:
+                category:
+                  type: string
+                data:
+                  type: object
+                version:
+                  type: integer
+      responses:
+        "200":
+          description: Updated channel settings
+  /channels/{channelID}/audit:
+    get:
+      tags: [Channels]
+      summary: Get channel audit logs
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Paginated audit logs
+  /channels/{channelID}/analytics:
+    get:
+      tags: [Channels]
+      summary: Get channel daily analytics snapshots
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 7
+      responses:
+        "200":
+          description: Channel analytics timeline
+  /channels/{channelID}/posts:
+    post:
+      tags: [Channels]
+      summary: Schedule or post a new message to channel
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                scheduled_at:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Created/Scheduled post details
+  /channels/{channelID}/forwarding/rules:
+    get:
+      tags: [Channels]
+      summary: Get channel forwarding rules
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: List of forwarding rules
+    post:
+      tags: [Channels]
+      summary: Create a forwarding rule
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForwardingRuleInput"
+      responses:
+        "200":
+          description: Created forwarding rule
+  /channels/{channelID}/forwarding/rules/{ruleID}:
+    put:
+      tags: [Channels]
+      summary: Update a forwarding rule
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+        - name: ruleID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForwardingRuleInput"
+      responses:
+        "200":
+          description: Updated forwarding rule
+    delete:
+      tags: [Channels]
+      summary: Delete a forwarding rule
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+        - name: ruleID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Rule deleted
+  /channels/{channelID}/admins/sync:
+    post:
+      tags: [Channels]
+      summary: Sync channel administrators from Telegram
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: Success confirmation
+  /channels/{channelID}/admins:
+    get:
+      tags: [Channels]
+      summary: Get channel administrators
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: List of channel admins
+  /channels/{channelID}/buttons:
+    get:
+      tags: [Channels]
+      summary: Get channel custom inline buttons
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: List of inline buttons
+    post:
+      tags: [Channels]
+      summary: Save channel custom inline buttons
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/InlineButtonInput"
+      responses:
+        "200":
+          description: Success confirmation
+  /projects:
+    get:
+      tags: [Projects]
+      summary: List all projects owned by the user
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of projects
+    post:
+      tags: [Projects]
+      summary: Create a new editorial smart forwarding project
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                source_channel_id: { type: string, format: uuid }
+                source_channel_identifier: { type: string }
+                target_channel_id: { type: string, format: uuid }
+                target_channel_identifier: { type: string }
+                pipeline_config: { type: object }
+      responses:
+        "201":
+          description: Project created successfully
+  /projects/preflight:
+    post:
+      tags: [Projects]
+      summary: Verify bot administrator permissions in source and target channels
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_identifier, target_identifier]
+              properties:
+                source_identifier: { type: string }
+                target_identifier: { type: string }
+      responses:
+        "200":
+          description: Preflight validation results
+  /projects/{projectID}:
+    get:
+      tags: [Projects]
+      summary: Get project details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Project details
+    put:
+      tags: [Projects]
+      summary: Update project name, channels or pipeline configuration
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                source_channel_id: { type: string, format: uuid }
+                source_channel_identifier: { type: string }
+                target_channel_id: { type: string, format: uuid }
+                target_channel_identifier: { type: string }
+                pipeline_config: { type: object }
+      responses:
+        "200":
+          description: Updated project
+    delete:
+      tags: [Projects]
+      summary: Delete project safely
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Project deleted confirmation
+  /projects/{projectID}/pause:
+    post:
+      tags: [Projects]
+      summary: Pause project pipeline processing
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Project paused
+  /projects/{projectID}/resume:
+    post:
+      tags: [Projects]
+      summary: Resume project pipeline processing
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Project resumed
+  /projects/{projectID}/inbox:
+    get:
+      tags: [Projects]
+      summary: Get content items in project review inbox
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          required: false
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of content items with current revision
+  /projects/{projectID}/content/{contentID}:
+    get:
+      tags: [Projects]
+      summary: Get content item details and current revision
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: contentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Content item details
+  /projects/{projectID}/content/{contentID}/approve:
+    post:
+      tags: [Projects]
+      summary: Approve content item for publication
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: contentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Content approved and queued/published
+  /projects/{projectID}/content/{contentID}/reject:
+    post:
+      tags: [Projects]
+      summary: Reject content item
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: contentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: Content rejected
+  /projects/{projectID}/content/{contentID}/edit:
+    post:
+      tags: [Projects]
+      summary: Create new edited revision for content item
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: contentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string }
+                caption: { type: string }
+                buttons: { type: array, items: { type: object } }
+      responses:
+        "200":
+          description: New revision created
+  /projects/{projectID}/content/{contentID}/publish:
+    post:
+      tags: [Projects]
+      summary: Publish content item immediately to destination channel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: contentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Delivery receipt
+  /projects/{projectID}/deliveries:
+    get:
+      tags: [Projects]
+      summary: Get delivery receipts and publication history
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          required: false
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of deliveries
+  /projects/{projectID}/team:
+    get:
+      tags: [Projects]
+      summary: Get project team members and roles
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Team members
+    post:
+      tags: [Projects]
+      summary: Add or update project team member
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, role]
+              properties:
+                user_id: { type: integer }
+                role: { type: string, enum: [owner, admin, editor, approver, viewer] }
+      responses:
+        "200":
+          description: Member added or updated
+  /projects/{projectID}/team/{userID}:
+    delete:
+      tags: [Projects]
+      summary: Remove team member from project
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: userID
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Member removed
   /gifts/intel:
     get:
       tags: [Gifts]
@@ -799,203 +1485,6 @@ paths:
       responses:
         "200":
           description: Toggle result
-  /gifts/intel:
-    get:
-      tags: [Gifts]
-      summary: Market intelligence overview and unified floor board
-      responses:
-        "200":
-          description: Public market intelligence telemetry
-  /gifts/collections:
-    get:
-      tags: [Gifts]
-      summary: List all official Telegram gift collections
-      responses:
-        "200":
-          description: Collections metadata list
-  /gifts/collection-intel:
-    get:
-      tags: [Gifts]
-      summary: Detailed intelligence for a specific gift collection
-      parameters:
-        - name: slug
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Collection intelligence details
-  /gifts/gate:
-    get:
-      tags: [Gifts]
-      summary: Curiosity gate summary without price leakage
-      parameters:
-        - name: g
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Curiosity gate response
-  /gifts/upgrade-advice:
-    get:
-      tags: [Gifts]
-      summary: Dutch auction falling-stairs upgrade timing advisor
-      parameters:
-        - name: g
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Upgrade price advice report
-  /gifts/portfolio:
-    get:
-      tags: [Gifts]
-      summary: Scan Telegram user profile for gifted items and net worth
-      parameters:
-        - name: u
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Portfolio scan report
-        "429":
-          description: Rate limited (10 min per caller)
-  /gifts/crafting-ev:
-    post:
-      tags: [Gifts]
-      summary: Crafting expected value and Monte Carlo simulation
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [inputs]
-              properties:
-                inputs:
-                  type: array
-                  items:
-                    type: object
-                    required: [gift_id, estimated_value_gram]
-                    properties:
-                      gift_id: { type: string }
-                      model_id: { type: string }
-                      name: { type: string }
-                      estimated_value_gram: { type: number }
-      responses:
-        "200":
-          description: Crafting EV result
-  /gifts/image/{slug}:
-    get:
-      tags: [Gifts]
-      summary: Cached gift PNG image proxy
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema: { type: string }
-        - name: model
-          in: query
-          required: false
-          schema: { type: string }
-      responses:
-        "200":
-          description: PNG image bytes
-          content:
-            image/png:
-              schema:
-                type: string
-                format: binary
-  /gifts/valuate:
-    get:
-      tags: [Gifts]
-      summary: Full mathematical quantitative valuation for a Telegram Gift
-      parameters:
-        - name: g
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Complete valuation report
-  /gifts/enriched-report:
-    get:
-      tags: [Gifts]
-      summary: Enriched report with on-chain metadata and provenance
-      parameters:
-        - name: g
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Enriched provenance report
-  /gifts/unlock-coins:
-    post:
-      tags: [Gifts]
-      summary: Unlock gift report using Airdrop Coins
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [gift_id]
-              properties:
-                gift_id: { type: string }
-      responses:
-        "200":
-          description: Unlocked valuation report
-  /gifts/unlock-credit:
-    post:
-      tags: [Gifts]
-      summary: Unlock gift report using Paid Credits
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [gift_id]
-              properties:
-                gift_id: { type: string }
-      responses:
-        "200":
-          description: Unlocked valuation report
-  /gifts/watchlist:
-    get:
-      tags: [Gifts]
-      summary: Get user watchlisted gifts
-      security:
-        - BearerAuth: []
-      responses:
-        "200":
-          description: Watchlisted gifts list
-    post:
-      tags: [Gifts]
-      summary: Add or remove gift from user watchlist
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [gift_id, enable]
-              properties:
-                gift_id: { type: string }
-                enable: { type: boolean }
-      responses:
-        "200":
-          description: Toggle result
 components:
   securitySchemes:
     BearerAuth:
@@ -1025,6 +1514,12 @@ components:
         type: string
     GroupID:
       name: groupID
+      in: path
+      required: true
+      schema:
+        type: string
+    ChannelID:
+      name: channelID
       in: path
       required: true
       schema:
@@ -1172,6 +1667,30 @@ components:
           type: array
           items:
             type: object
+    ForwardingRuleInput:
+      type: object
+      required: [source_channel_id, target_channel_id, active]
+      properties:
+        source_channel_id:
+          type: string
+        target_channel_id:
+          type: string
+        active:
+          type: boolean
+        filter_keywords:
+          type: array
+          items:
+            type: string
+    InlineButtonInput:
+      type: object
+      required: [text, url, row]
+      properties:
+        text:
+          type: string
+        url:
+          type: string
+        row:
+          type: integer
     ModelCalibrationSummary:
       type: object
       properties:

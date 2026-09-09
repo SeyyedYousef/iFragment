@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -339,4 +340,394 @@ func (h *ProjectHandler) SubscribeStars(w http.ResponseWriter, r *http.Request) 
 		"final_stars":  finalStars,
 	})
 }
+
+// CheckPreflight checks channel permissions before creating a project
+func (h *ProjectHandler) CheckPreflight(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	var req channelmgmt.PreflightInput
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	res, err := h.svc.CheckPreflight(r.Context(), userID, req)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, res)
+}
+
+// PauseProject pauses project pipeline
+func (h *ProjectHandler) PauseProject(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	project, err := h.svc.ToggleProjectStatus(r.Context(), userID, projectID, false)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, project)
+}
+
+// ResumeProject resumes project pipeline
+func (h *ProjectHandler) ResumeProject(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	project, err := h.svc.ToggleProjectStatus(r.Context(), userID, projectID, true)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, project)
+}
+
+// GetInbox lists content items in the project's inbox
+func (h *ProjectHandler) GetInbox(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	status := r.URL.Query().Get("status")
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	items, err := h.svc.GetProjectInbox(r.Context(), userID, projectID, status, limit, offset)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, items)
+}
+
+// GetContentItem retrieves a single content item with current revision
+func (h *ProjectHandler) GetContentItem(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	contentIDStr := chi.URLParam(r, "contentID")
+	contentID, err := uuid.Parse(contentIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid content ID", err)
+		return
+	}
+
+	item, err := h.svc.GetContentItem(r.Context(), userID, projectID, contentID)
+	if err != nil {
+		RespondError(w, r, http.StatusNotFound, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, item)
+}
+
+// ApproveContentItem approves a content item and initiates publishing
+func (h *ProjectHandler) ApproveContentItem(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	contentIDStr := chi.URLParam(r, "contentID")
+	contentID, err := uuid.Parse(contentIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid content ID", err)
+		return
+	}
+
+	if err := h.svc.ApproveContentItem(r.Context(), userID, projectID, contentID); err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "approved"})
+}
+
+type RejectContentInput struct {
+	Reason string `json:"reason"`
+}
+
+// RejectContentItem marks a content item as rejected
+func (h *ProjectHandler) RejectContentItem(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	contentIDStr := chi.URLParam(r, "contentID")
+	contentID, err := uuid.Parse(contentIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid content ID", err)
+		return
+	}
+
+	var req RejectContentInput
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	if err := h.svc.RejectContentItem(r.Context(), userID, projectID, contentID, req.Reason); err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "rejected"})
+}
+
+type EditContentInput struct {
+	Text    string          `json:"text"`
+	Caption string          `json:"caption"`
+	Buttons json.RawMessage `json:"buttons,omitempty"`
+}
+
+// EditContentItem creates a new revision with edits
+func (h *ProjectHandler) EditContentItem(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	contentIDStr := chi.URLParam(r, "contentID")
+	contentID, err := uuid.Parse(contentIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid content ID", err)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	var req EditContentInput
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	rev, err := h.svc.EditContentItem(r.Context(), userID, projectID, contentID, req.Text, req.Caption, req.Buttons)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, rev)
+}
+
+// PublishContentItem publishes the content item immediately
+func (h *ProjectHandler) PublishContentItem(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	contentIDStr := chi.URLParam(r, "contentID")
+	contentID, err := uuid.Parse(contentIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid content ID", err)
+		return
+	}
+
+	delivery, err := h.svc.PublishContentItem(r.Context(), userID, projectID, contentID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, delivery)
+}
+
+// GetDeliveries returns delivery history
+func (h *ProjectHandler) GetDeliveries(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	deliveries, err := h.svc.GetProjectDeliveries(r.Context(), userID, projectID, limit, offset)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, deliveries)
+}
+
+// GetMembers lists project team members
+func (h *ProjectHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	members, err := h.svc.GetProjectMembers(r.Context(), userID, projectID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, members)
+}
+
+type AddMemberInput struct {
+	UserID int64  `json:"user_id"`
+	Role   string `json:"role"`
+}
+
+// AddMember adds or updates member in project
+func (h *ProjectHandler) AddMember(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	var req AddMemberInput
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.UserID == 0 {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	if err := h.svc.AddProjectMember(r.Context(), userID, projectID, req.UserID, req.Role); err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "success"})
+}
+
+// RemoveMember removes a member from project
+func (h *ProjectHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid project ID", err)
+		return
+	}
+
+	targetUserIDStr := chi.URLParam(r, "userID")
+	targetUserID, err := strconv.ParseInt(targetUserIDStr, 10, 64)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid target user ID", err)
+		return
+	}
+
+	if err := h.svc.RemoveProjectMember(r.Context(), userID, projectID, targetUserID); err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "removed"})
+}
+
 

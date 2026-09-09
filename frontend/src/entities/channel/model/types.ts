@@ -106,6 +106,92 @@ export interface Project {
 	updated_at: string;
 }
 
+export interface ContentRevision {
+	id: string;
+	content_item_id: string;
+	version: number;
+	text?: string;
+	caption?: string;
+	entities?: any[];
+	caption_entities?: any[];
+	media_manifest?: { file_id: string; type: string }[];
+	buttons?: any[];
+	transformations?: { type: string; details?: string; actor?: string }[];
+	created_by?: number;
+	created_at: string;
+}
+
+export interface ContentItem {
+	id: string;
+	project_id: string;
+	source_chat_id: number;
+	source_message_id: number;
+	source_media_group_id?: string | null;
+	status:
+		| 'received'
+		| 'processing'
+		| 'awaiting_review'
+		| 'editing'
+		| 'approved'
+		| 'scheduled'
+		| 'publishing'
+		| 'published'
+		| 'rejected'
+		| 'failed';
+	current_revision_id?: string | null;
+	received_at: string;
+	created_at: string;
+	updated_at: string;
+	revision?: ContentRevision;
+}
+
+export interface Delivery {
+	id: string;
+	project_id: string;
+	content_item_id?: string;
+	destination_chat_id: number;
+	telegram_message_id?: number;
+	revision_id?: string;
+	created_by_bot: boolean;
+	status: 'publishing' | 'published' | 'failed';
+	idempotency_key: string;
+	error_message?: string;
+	created_at: string;
+	published_at?: string;
+}
+
+export interface ProjectMember {
+	id: string;
+	project_id: string;
+	user_id: number;
+	role: 'owner' | 'admin' | 'editor' | 'approver' | 'viewer';
+	created_at: string;
+}
+
+export interface PreflightResult {
+	valid: boolean;
+	source_channel?: {
+		chat_id: number;
+		title: string;
+		username: string;
+		is_bot_admin: boolean;
+		can_post: boolean;
+		can_edit: boolean;
+		error?: string;
+	};
+	target_channel?: {
+		chat_id: number;
+		title: string;
+		username: string;
+		is_bot_admin: boolean;
+		can_post: boolean;
+		can_edit: boolean;
+		error?: string;
+	};
+	errors?: string[];
+	warnings?: string[];
+}
+
 // Deprecated: Alias for legacy compatibility
 export type ChannelFunnel = Project;
 

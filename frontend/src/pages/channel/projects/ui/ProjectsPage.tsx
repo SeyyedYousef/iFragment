@@ -37,7 +37,6 @@ export const ProjectsPage: Component = () => {
 	const [discountPercent, setDiscountPercent] = createSignal<25 | 50 | 75>(50);
 	const [isProcessing, setIsProcessing] = createSignal(false);
 	const [isStoreOpen, setIsStoreOpen] = createSignal(false);
-	const [projectToDelete, setProjectToDelete] = createSignal<string | null>(null);
 
 	// New Project Form Signals
 	const [projectName, setProjectName] = createSignal('');
@@ -88,7 +87,7 @@ export const ProjectsPage: Component = () => {
 					if (params.id) {
 						navigate(`/channel/${params.id}/dashboard`);
 					} else {
-						navigate('/managed-channels');
+						navigate('/projects');
 					}
 				});
 			}
@@ -327,7 +326,7 @@ export const ProjectsPage: Component = () => {
 						}}
 						class="w-10 h-10 rounded-[13px] bg-[#090a0f] hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label={t('common.toggle') || 'Menu'}
-						title={t('channel.menu.title') || 'Menu'}
+						title={t('channel.menu.title' as any) || 'Menu'}
 					>
 						<span class="material-symbols-outlined text-[20px]">menu</span>
 					</button>
@@ -925,7 +924,7 @@ export const ProjectsPage: Component = () => {
 									<span class="text-[24px]">💎</span>
 									<div class="flex flex-col text-start">
 										<span class="text-[11px] font-black uppercase text-[#3390ec] tracking-wider">
-											{t('paywall.credits_title') || 'CREDITS'}
+											{t('paywall.credits_title' as any) || 'CREDITS'}
 										</span>
 										<span class="text-[14px] font-bold text-white/90 font-mono">
 											{wallet.balance() ?? 0} {t('paywall.credit_unit') || 'Credits'}

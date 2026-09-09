@@ -1314,6 +1314,17 @@ func (s *ChannelService) IsOutputChannel(ctx context.Context, chatID int64, user
 	return s.channelRepo.IsOutputChannel(ctx, chatID, username)
 }
 
+func (s *ChannelService) ChannelRepo() *repository.ChannelRepo {
+	return s.channelRepo
+}
+
+func (s *ChannelService) IsBotDeliveryMessage(ctx context.Context, destinationChatID int64, telegramMsgID int64) (bool, error) {
+	if s.channelRepo == nil {
+		return false, nil
+	}
+	return s.channelRepo.IsBotDeliveryMessage(ctx, destinationChatID, telegramMsgID)
+}
+
 func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int64, messageID int, postText string, replyMarkup json.RawMessage, isEdit bool) error {
 	_ = replyMarkup // Silence unused parameter warning
 

@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, Show } from 'solid-js';
+import { createSignal, onCleanup, For } from 'solid-js';
 import { balance, setBalance } from '@/entities/airdrop/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
