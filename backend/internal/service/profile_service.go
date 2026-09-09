@@ -1035,13 +1035,21 @@ func (s *ProfileService) GetLedger(ctx context.Context, userID int64, category s
 
 func (s *ProfileService) getLiveTonRate(ctx context.Context) float64 {
 	if s.cache != nil && s.cache.Client != nil {
+		if val, err := s.cache.Client.Get(ctx, "crypto:prices").Result(); err == nil && val != "" {
+			var prices map[string]float64
+			if err := json.Unmarshal([]byte(val), &prices); err == nil {
+				if r, ok := prices["the-open-network"]; ok && r > 0 {
+					return r
+				}
+			}
+		}
 		if val, err := s.cache.Client.Get(ctx, "cryptoprice:the-open-network").Result(); err == nil && val != "" {
 			if r, err := strconv.ParseFloat(val, 64); err == nil && r > 0 {
 				return r
 			}
 		}
 	}
-	return 5.50
+	return 0.0
 }
 
 func (s *ProfileService) GetMyAssets(ctx context.Context, userID int64) (*model.MyAssetsResponse, error) {
@@ -1051,8 +1059,10 @@ func (s *ProfileService) GetMyAssets(ctx context.Context, userID int64) (*model.
 	}
 	tonRate := s.getLiveTonRate(ctx)
 	for i := range resp.Gifts {
-		if resp.Gifts[i].EstimatedValGRAM > 0 {
+		if resp.Gifts[i].EstimatedValGRAM > 0 && tonRate > 0 {
 			resp.Gifts[i].EstimatedValUSD = math.Round(resp.Gifts[i].EstimatedValGRAM*tonRate*100) / 100
+		} else {
+			resp.Gifts[i].EstimatedValUSD = 0
 		}
 	}
 	return resp, nil

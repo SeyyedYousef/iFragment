@@ -49,6 +49,8 @@ type NumberValuation struct {
 	SurvivalMetrics      LiquiditySurvivalMetrics `json:"survival_metrics"`
 	MarketDepth          MarketDepthInfo          `json:"market_depth"`
 	OnChainAudit         OnChainAudit             `json:"on_chain_audit"`
+	SecurityAdvisory     SecurityAdvisory         `json:"security_advisory"`
+	TelemintProvenance   TelemintProvenance       `json:"telemint_provenance"`
 	CertificateID        string                   `json:"certificate_id"`
 	EvaluatedAt          time.Time                `json:"evaluated_at"`
 	ReasoningLog         map[string]interface{}   `json:"reasoning_log"`
@@ -282,6 +284,37 @@ type OnChainAudit struct {
 	TransferCount       int     `json:"transfer_count"`
 	HighestPastSaleTON  float64 `json:"highest_past_sale_ton"`
 	AppreciationPct     float64 `json:"appreciation_pct"`
+	CollectionVerified  bool    `json:"collection_verified"`
+	RealOwnerAddress    string  `json:"real_owner_address,omitempty"`
+	EscrowContract      string  `json:"escrow_contract,omitempty"`
+	IsEscrow            bool    `json:"is_escrow"`
+	TransactionHash     string  `json:"transaction_hash,omitempty"`
+	TonviewerURL        string  `json:"tonviewer_url,omitempty"`
+	DataStatus          string  `json:"data_status"` // "live" | "stale" | "unavailable"
+}
+
+// SecurityAdvisory details Telegram login credential risks & account takeover warnings
+type SecurityAdvisory struct {
+	AccountTakeoverRisk      string   `json:"account_takeover_risk"`      // "HIGH" | "MEDIUM" | "LOW"
+	IsActiveLoginCredential  bool     `json:"is_active_login_credential"`  // true for all +888 numbers
+	RegistrationUtilityScore int      `json:"registration_utility_score"` // 0-100 (98 for standard 888)
+	SessionResetRequired     bool     `json:"session_reset_required"`     // true on secondary market sale
+	TwoFactorWarning         string   `json:"two_factor_warning"`
+	TakeoverMitigationSteps  []string `json:"takeover_mitigation_steps"`
+}
+
+// TelemintProvenance details on-chain smart contract verification
+type TelemintProvenance struct {
+	CollectionAddress     string    `json:"collection_address"`
+	CollectionVerified    bool      `json:"collection_verified"`
+	ItemAddress           string    `json:"item_address,omitempty"`
+	RealOwnerAddress      string    `json:"real_owner_address,omitempty"`
+	EscrowContractAddress string    `json:"escrow_contract_address,omitempty"`
+	IsEscrow              bool      `json:"is_escrow"`
+	TransactionHash       string    `json:"transaction_hash,omitempty"`
+	TonviewerURL          string    `json:"tonviewer_url,omitempty"`
+	BlockTime             time.Time `json:"block_time,omitempty"`
+	DataStatus            string    `json:"data_status"` // "live" | "stale" | "unavailable"
 }
 
 // CuriosityGateResponse is the strictly locked pre-paywall payload (Sacred Rule 3)
@@ -299,16 +332,18 @@ type CuriosityGateResponse struct {
 
 // NumberVerificationResult returns on-chain & collection validity for live checks
 type NumberVerificationResult struct {
-	Number             string   `json:"number"`
-	DisplayNumber      string   `json:"display_number"`
-	IsMinted           bool     `json:"is_minted"`
-	Exists             bool     `json:"exists"`
-	Tier               string   `json:"tier"`
-	CategoryClub       string   `json:"category_club"`
-	GlobalRank         int      `json:"global_rank"`
-	TeaserChips        []string `json:"teaser_chips"`
-	OwnerAddress       string   `json:"owner_address,omitempty"`
-	NFTAddress         string   `json:"nft_address,omitempty"`
-	Color              string   `json:"color,omitempty"`
-	Error              string   `json:"error,omitempty"`
+	Number             string             `json:"number"`
+	DisplayNumber      string             `json:"display_number"`
+	IsMinted           bool               `json:"is_minted"`
+	Exists             bool               `json:"exists"`
+	Tier               string             `json:"tier"`
+	CategoryClub       string             `json:"category_club"`
+	GlobalRank         int                `json:"global_rank"`
+	TeaserChips        []string           `json:"teaser_chips"`
+	OwnerAddress       string             `json:"owner_address,omitempty"`
+	NFTAddress         string             `json:"nft_address,omitempty"`
+	Color              string             `json:"color,omitempty"`
+	SecurityAdvisory   SecurityAdvisory   `json:"security_advisory"`
+	TelemintProvenance TelemintProvenance `json:"telemint_provenance"`
+	Error              string             `json:"error,omitempty"`
 }

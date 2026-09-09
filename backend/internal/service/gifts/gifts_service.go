@@ -580,6 +580,65 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 		return nil, err
 	}
 
+	isOnChain := isWallet || contractAddr != ""
+	custodyType := "in_app_stars"
+	if isOnChain {
+		custodyType = "on_chain_nft"
+	}
+
+	hostName := ""
+	if !isWallet && ownerName != "" {
+		hostName = ownerName
+	}
+
+	isEscrow := false
+	ownerLower := strings.ToLower(ownerAddr)
+	escrowName := ""
+	if strings.Contains(ownerLower, "escrow") || strings.Contains(ownerLower, "getgems") || strings.Contains(ownerLower, "fragment") {
+		isEscrow = true
+		if strings.Contains(ownerLower, "getgems") {
+			escrowName = "Getgems Escrow Contract"
+		} else {
+			escrowName = "Fragment Escrow Contract"
+		}
+	}
+
+	expectedTON := val.ExpectedGRAM.InexactFloat64()
+	if expectedTON <= 0 {
+		expectedTON = val.BasePriceGRAM.InexactFloat64()
+	}
+	tonRate := 0.0
+	if s.cryptoPrice != nil {
+		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
+			tonRate = r
+		}
+	}
+
+	calcVenue := func(name string, feePct float64, gasTON float64) map[string]interface{} {
+		feeTON := math.Round((expectedTON * (feePct / 100.0)) * 100) / 100
+		netTON := math.Max(0.0, math.Round((expectedTON - feeTON - gasTON) * 100) / 100)
+		netUSD := 0.0
+		if tonRate > 0 {
+			netUSD = math.Round(netTON * tonRate * 100) / 100
+		}
+		return map[string]interface{}{
+			"venue":            name,
+			"fee_pct":          feePct,
+			"fee_ton":          feeTON,
+			"gas_ton":          gasTON,
+			"net_proceeds_ton": netTON,
+			"net_proceeds_usd": netUSD,
+		}
+	}
+
+	venueFeeMatrix := []map[string]interface{}{
+		calcVenue("Fragment", 5.0, 0.05),
+		calcVenue("Getgems", 5.0, 0.08),
+		calcVenue("Portals", 2.5, 0.05),
+		calcVenue("Tonnel", 3.0, 0.05),
+		calcVenue("MRKT", 2.0, 0.05),
+	}
+
 	res["owner_name"] = ownerName
 	if imageURL != "" {
 		res["image_url"] = imageURL
@@ -588,8 +647,26 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 	res["rarity_rank"] = rarityRank
 	res["rarity_percentile"] = rarityPercentile
 	res["provenance"] = provenance
+	res["custody_type"] = custodyType
+	res["host_profile"] = map[string]interface{}{
+		"host_name":    hostName,
+		"is_showcased": hostName != "",
+		"note":         "کاربری که گیفت را در ویترین پروفایل تلگرام نمایش می‌دهد.",
+	}
+	res["owner_wallet"] = map[string]interface{}{
+		"wallet_address": ownerAddr,
+		"is_escrow":      isEscrow,
+		"escrow_name":    escrowName,
+		"note":           "والت دارنده کلید خصوصی NFT در شبکه بلاکچین TON.",
+	}
+	res["venue_fee_matrix"] = venueFeeMatrix
+	res["upgrade_info"] = map[string]interface{}{
+		"is_upgraded":       isOnChain,
+		"upgrade_fee_stars": 25,
+		"custody_notice":    "گیفت‌های ارتقایافته (TEP-62) در والت غیرامانی قرار داشته و قابلیت فروش در فرگمنت و گت‌جمز دارند.",
+	}
 	res["on_chain"] = map[string]interface{}{
-		"is_on_chain":        isWallet || contractAddr != "",
+		"is_on_chain":        isOnChain,
 		"owner_address":     ownerAddr,
 		"collection_address": contractAddr,
 		"metadata_url":      fmt.Sprintf("https://t.me/nft/%s-%d", telegramnft.FormatPascalName(ref.ModelID), ref.SerialNumber),

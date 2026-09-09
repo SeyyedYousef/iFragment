@@ -32,7 +32,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 	});
 
 	const floorTon = (): number => Number(props.floorPriceTon) || 2450;
-	const tonRate = (): number => Number(props.rate) || 5.5;
+	const tonRate = (): number => Number(props.rate) || 0;
 
 	const handleScan = async (targetAddr?: string) => {
 		const query = (targetAddr !== undefined ? targetAddr : address()).trim();
@@ -43,7 +43,9 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 
 		try {
 			haptic.impact('medium');
-		} catch {}
+		} catch (e) {
+			// Ignore haptic errors on unsupported web platforms
+		}
 
 		setIsScanning(true);
 		setError(null);
@@ -52,7 +54,8 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 			const res = await numbersApi.scanPortfolio(query);
 			setResult(res);
 		} catch (err: any) {
-			setError(err?.message || 'Failed to scan wallet portfolio');
+			console.error('Portfolio scan failed:', err);
+			setError(err?.response?.data?.error || t('common.unknownError') || 'Failed to scan wallet');
 		} finally {
 			setIsScanning(false);
 		}
@@ -74,11 +77,12 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 
 		const totalAssets = data.total_assets;
 		const rawTon = data.total_value_ton || totalAssets * floorTon();
-		const rawUsd = Math.round(rawTon * tonRate());
+		const rate = tonRate();
+		const rawUsd = rate > 0 ? Math.round(rawTon * rate) : 0;
 		const feeFactor = deductFee() ? 0.05 : 0;
 		const feeTon = Math.round(rawTon * feeFactor);
 		const netTon = rawTon - feeTon;
-		const netUsd = Math.round(netTon * tonRate());
+		const netUsd = rate > 0 ? Math.round(netTon * rate) : 0;
 
 		return {
 			totalAssets,
@@ -96,7 +100,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 	};
 
 	const formatUsd = (val?: number) => {
-		if (val === undefined || val === null) return '$0';
+		if (val === undefined || val === null || val <= 0) return 'N/A';
 		return `$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 	};
 

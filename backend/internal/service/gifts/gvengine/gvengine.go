@@ -557,19 +557,19 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	expectedUSD := roundPrice(expectedGRAM * gramUsdRate)
 	highUSD := roundPrice(highGRAM * gramUsdRate)
 
-	// 5. 4-Component Confidence Score with Real Calibration
-	confidence := int16(74)
+	// 5. Confidence Score grounded in market evidence (no arbitrary 74 starting score)
+	confidence := int16(30) // Base exploratory confidence
 	if isKnownCol {
-		confidence += 6
+		confidence += 20
 	}
 	if foundDBBackdrop || foundDBSymbol || (liveNFT != nil) {
-		confidence += 8
+		confidence += 20
 	}
 	if len(comps) > 0 {
-		confidence += 8
+		confidence += int16(math.Min(25, float64(len(comps)*5)))
 	}
-	if confidence > 98 {
-		confidence = 98
+	if confidence > 95 {
+		confidence = 95
 	}
 	calibratedConfidence, _ := core.GetCalibratedConfidenceScore(confidence, len(comps), ModelVersion)
 
@@ -582,7 +582,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// 8. Crafting EV & Monte Carlo Stochastic Forge Simulation
 	var craftingEV *crafting.CraftingEVResult
 	var monteCarloCrafting *crafting.MonteCarloForgeResult
-	if col.CraftedFlag || ref.SerialNumber%3 == 0 {
+	if col.CraftedFlag {
 		craftInputs := []crafting.CraftInputItem{
 			{
 				GiftID:              ref.GiftID,

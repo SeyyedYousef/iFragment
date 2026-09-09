@@ -208,7 +208,7 @@ export const GiftsGlobalHeatmap: Component<Props> = (props) => {
 	const [showCategoryDropdown, setShowCategoryDropdown] = createSignal<boolean>(false);
 	const [selectedNode, setSelectedNode] = createSignal<HeatmapNode | null>(null);
 
-	const tonRate = () => props.rate || 1.42;
+	const tonRate = () => props.rate || 0;
 
 	// Real floor and market mapping from backend floor board
 	const ecosystemGifts = createMemo(() => {

@@ -177,6 +177,35 @@ export interface OnChainAuditData {
 	transfer_count: number;
 	highest_past_sale_ton: number;
 	appreciation_pct: number;
+	collection_verified?: boolean;
+	real_owner_address?: string;
+	escrow_contract?: string;
+	is_escrow?: boolean;
+	transaction_hash?: string;
+	tonviewer_url?: string;
+	data_status?: string;
+}
+
+export interface SecurityAdvisoryData {
+	account_takeover_risk: string;
+	is_active_login_credential: boolean;
+	registration_utility_score: number;
+	session_reset_required: boolean;
+	two_factor_warning: string;
+	takeover_mitigation_steps: string[];
+}
+
+export interface TelemintProvenanceData {
+	collection_address: string;
+	collection_verified: boolean;
+	item_address?: string;
+	real_owner_address?: string;
+	escrow_contract_address?: string;
+	is_escrow: boolean;
+	transaction_hash?: string;
+	tonviewer_url?: string;
+	block_time?: string;
+	data_status: string;
 }
 
 export interface NumberValuationResult {
@@ -255,6 +284,8 @@ export interface NumberValuationResult {
 	rental_yield?: RentalYieldData;
 	market_depth?: MarketDepthData;
 	on_chain_audit?: OnChainAuditData;
+	security_advisory?: SecurityAdvisoryData;
+	telemint_provenance?: TelemintProvenanceData;
 	certificate_id: string;
 	evaluated_at: string;
 }

@@ -303,8 +303,8 @@ export const GiftReportPage: Component = () => {
 		const telegramRoyalty = gross * 0.05;
 		const gasFee = 0.05;
 		const net = Math.max(0, gross - fragFee - telegramRoyalty - gasFee);
-		const rate = Number(currentReport()?.gram_usd_rate) || 5.5;
-		const netUsd = net * rate;
+		const rate = Number(currentReport()?.gram_usd_rate) || 0;
+		const netUsd = rate > 0 ? net * rate : 0;
 		const instantCashoutBid = Math.round(gross * 0.88);
 		return {
 			gross,
@@ -541,6 +541,147 @@ export const GiftReportPage: Component = () => {
 										<span>{currentReport()?.confidence_score}%</span>
 									</div>
 								</div>
+							</div>
+						</div>
+
+						{/* 🌐 DUAL-WORLD ARCHITECTURE: IN-APP STARS vs ON-CHAIN TEP-62 */}
+						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex flex-col gap-2.5 shadow-xl text-start">
+							<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-purple-400 text-base">token</span>
+									<h4 class="text-xs font-black text-white">
+										{isRtl() ? 'معماری دوجهانه گیفت تلگرام' : 'Dual-World Architecture'}
+									</h4>
+								</div>
+								<span class="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
+									{enrichedQuery.data?.custody_type === 'on_chain_nft' || currentReport()?.on_chain?.is_on_chain
+										? 'ON-CHAIN (TEP-62)'
+										: 'IN-APP (STARS)'}
+								</span>
+							</div>
+
+							<div class="grid grid-cols-2 gap-2 text-[10px]">
+								<div class={`p-3 rounded-2xl border transition-all ${
+									enrichedQuery.data?.custody_type === 'on_chain_nft' || currentReport()?.on_chain?.is_on_chain
+										? 'bg-purple-500/10 border-purple-500/30 text-white'
+										: 'bg-black/40 border-white/5 text-white/50'
+								}`}>
+									<div class="flex items-center justify-between mb-1">
+										<span class="font-black">{isRtl() ? 'بلاکچین TON (TEP-62)' : 'On-Chain TEP-62'}</span>
+										<span class="text-[9px] text-purple-400 font-bold">Non-Custodial</span>
+									</div>
+									<p class="text-[9px] text-white/60 leading-tight">
+										{isRtl() ? 'دارایی مستقل در والت با قابلیت انتقال و فروش در مارکت‌ها' : 'Decentralized asset in private wallet'}
+									</p>
+								</div>
+
+								<div class={`p-3 rounded-2xl border transition-all ${
+									enrichedQuery.data?.custody_type !== 'on_chain_nft' && !currentReport()?.on_chain?.is_on_chain
+										? 'bg-amber-500/10 border-amber-500/30 text-white'
+										: 'bg-black/40 border-white/5 text-white/50'
+								}`}>
+									<div class="flex items-center justify-between mb-1">
+										<span class="font-black">{isRtl() ? 'درون‌برنامه‌ای (Stars)' : 'In-App Stars'}</span>
+										<span class="text-[9px] text-amber-400 font-bold">Custodial</span>
+									</div>
+									<p class="text-[9px] text-white/60 leading-tight">
+										{isRtl() ? 'ثبت در سرور تلگرام، قابل ارتقا به NFT با پرداخت استارز' : 'Held on Telegram servers, upgradable to NFT'}
+									</p>
+								</div>
+							</div>
+						</div>
+
+						{/* 👤 HOST PROFILE vs WALLET OWNER CARD */}
+						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex flex-col gap-2.5 shadow-xl text-start">
+							<div class="flex items-center justify-between border-b border-white/5 pb-2">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-cyan-400 text-base">badge</span>
+									<h4 class="text-xs font-black text-white">
+										{isRtl() ? 'تفکیک نمایش‌دهنده پروفایل از مالک والت' : 'Showcaser vs Wallet Owner'}
+									</h4>
+								</div>
+								<span class="text-[9px] font-mono text-white/40">PROVENANCE</span>
+							</div>
+
+							<div class="grid grid-cols-2 gap-2 text-[10px]">
+								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
+									<span class="text-white/40 block text-[9px] mb-0.5">
+										{isRtl() ? 'نمایش‌دهنده در پروفایل (Host)' : 'Profile Showcaser'}
+									</span>
+									<span class="font-black text-white truncate block">
+										{enrichedQuery.data?.host_profile?.host_name || currentReport()?.owner_name || 'Anonymous User'}
+									</span>
+								</div>
+
+								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
+									<span class="text-white/40 block text-[9px] mb-0.5">
+										{isRtl() ? 'والت مالک حقیقی بلاکچین' : 'On-Chain Owner Wallet'}
+									</span>
+									<span class={`font-mono font-black truncate block ${
+										enrichedQuery.data?.owner_wallet?.is_escrow ? 'text-amber-400' : 'text-emerald-400'
+									}`} dir="ltr">
+										{enrichedQuery.data?.owner_wallet?.is_escrow
+											? (enrichedQuery.data?.owner_wallet?.escrow_name || 'Market Escrow')
+											: (ownerInfo().shortAddr || 'Non-Custodial Wallet')}
+									</span>
+								</div>
+							</div>
+
+							<p class="text-[9px] text-white/50 leading-normal">
+								{isRtl()
+									? 'نکته: نمایش گیفت در ویترین پروفایل لزوماً به معنای مالکیت والت نیست؛ ممکن است گیفت در امانت مارکت‌پلیس (اسکرو) باشد.'
+									: 'Notice: Displaying a gift on a profile does not prove direct wallet custody; it may be locked in escrow.'}
+							</p>
+						</div>
+
+						{/* 💸 MULTI-VENUE FEE & NET PROCEEDS MATRIX */}
+						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex flex-col gap-3 shadow-xl text-start">
+							<div class="flex items-center justify-between border-b border-white/5 pb-2">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-emerald-400 text-base">payments</span>
+									<h4 class="text-xs font-black text-white">
+										{isRtl() ? 'ماتریس کارمزد و عایدی خالص در بازارهای مختلف' : 'Cross-Venue Net Proceeds Matrix'}
+									</h4>
+								</div>
+								<span class="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+									5 VENUES
+								</span>
+							</div>
+
+							<div class="overflow-x-auto">
+								<table class="w-full text-[10px] text-center">
+									<thead>
+										<tr class="text-white/40 border-b border-white/5">
+											<th class="pb-1.5 text-start font-bold">{isRtl() ? 'مارکت‌پلیس' : 'Venue'}</th>
+											<th class="pb-1.5 font-bold">{isRtl() ? 'کارمزد' : 'Fee %'}</th>
+											<th class="pb-1.5 font-bold">{isRtl() ? 'گس' : 'Gas'}</th>
+											<th class="pb-1.5 text-end font-bold text-emerald-400">{isRtl() ? 'عایدی خالص (TON)' : 'Net Proceeds'}</th>
+										</tr>
+									</thead>
+									<tbody class="divide-y divide-white/5 font-mono">
+										<For each={enrichedQuery.data?.venue_fee_matrix || [
+											{ venue: 'Fragment', fee_pct: 5.0, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.95 - 0.05) * 100) / 100) },
+											{ venue: 'Getgems', fee_pct: 5.0, gas_ton: 0.08, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.95 - 0.08) * 100) / 100) },
+											{ venue: 'Portals', fee_pct: 2.5, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.975 - 0.05) * 100) / 100) },
+											{ venue: 'Tonnel', fee_pct: 3.0, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.97 - 0.05) * 100) / 100) },
+											{ venue: 'MRKT', fee_pct: 2.0, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.98 - 0.05) * 100) / 100) },
+										]}>
+											{(v: any) => (
+												<tr>
+													<td class="py-2 text-start font-sans font-bold text-white flex items-center gap-1">
+														<span class="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+														<span>{v.venue}</span>
+													</td>
+													<td class="py-2 text-white/60">{v.fee_pct}%</td>
+													<td class="py-2 text-white/40">{v.gas_ton} TON</td>
+													<td class="py-2 text-end text-emerald-400 font-bold">
+														{v.net_proceeds_ton} TON
+													</td>
+												</tr>
+											)}
+										</For>
+									</tbody>
+								</table>
 							</div>
 						</div>
 

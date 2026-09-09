@@ -151,6 +151,10 @@ type ValuationResult struct {
 	MarketContext        *MarketContextDto        `json:"market_context,omitempty"`
 	PriceBasis           *PriceBasisDto           `json:"price_basis,omitempty"`
 	ModelAccuracy        *ModelAccuracyDto        `json:"model_accuracy,omitempty"`
+	TelegramStatus       string                   `json:"telegram_status,omitempty"`
+	FragmentMarketStatus string                   `json:"fragment_market_status,omitempty"`
+	TrademarkRisk        TrademarkRiskDto         `json:"trademark_risk"`
+	EmpiricalBand        EmpiricalBandDto         `json:"empirical_band"`
 	QualityGrade         string                   `json:"quality_grade,omitempty"`
 	PercentileRank       float64                  `json:"percentile_rank,omitempty"`
 	RiskAudit            *RiskAuditDto            `json:"risk_audit,omitempty"`
@@ -181,6 +185,23 @@ type ModelAccuracyDto struct {
 	MedianErrorPct float64 `json:"median_error_pct"`
 	WithinBandPct  float64 `json:"within_band_pct"`
 	EvaluatedAt    string  `json:"evaluated_at"`
+}
+
+type TrademarkRiskDto struct {
+	RiskLevel       string `json:"risk_level"` // "low" | "medium" | "high"
+	MatchedEntity   string `json:"matched_entity,omitempty"`
+	Brand           string `json:"brand,omitempty"`
+	AdvisoryWarning string `json:"advisory_warning"`
+	RiskScore       int    `json:"risk_score"` // 0-100
+}
+
+type EmpiricalBandDto struct {
+	P10TON float64 `json:"p10_ton"`
+	P50TON float64 `json:"p50_ton"`
+	P90TON float64 `json:"p90_ton"`
+	P10USD float64 `json:"p10_usd"`
+	P50USD float64 `json:"p50_usd"`
+	P90USD float64 `json:"p90_usd"`
 }
 
 type LiquidityMetricsDto struct {
@@ -1648,6 +1669,55 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	// Evaluated trademark risk (Phase 2.3)
 	tmMatch := CheckTrademarkSeverity(username)
 
+	tmRiskLevel := "low"
+	tmRiskScore := 10
+	tmAdvisory := "هیچ علامت تجاری شاخصی در این نام کاربری شناسایی نشد."
+	if tmMatch.HasRisk {
+		if tmMatch.Severity == SeverityExactMatch {
+			tmRiskLevel = "high"
+			tmRiskScore = 95
+			tmAdvisory = fmt.Sprintf("نام کاربری منطبق با علامت تجاری رسمی %s (%s) است. طبق بند ۴ قوانین کاربری تلگرام (ToS) و دستورالعمل‌های اپ‌استور، تلگرام حق سلب مالکیت نام‌های ناقض کپی‌رایت را برای خود محفوظ می‌دارد.", tmMatch.Brand, tmMatch.Entity)
+		} else {
+			tmRiskLevel = "medium"
+			tmRiskScore = 65
+			tmAdvisory = fmt.Sprintf("این نام دارای تشابه با علامت تجاری ثبت‌شده %s است و ممکن است در صورت ادعای مالک برند مشمول بازبینی و ریسک حقوقی شود.", tmMatch.Brand)
+		}
+	}
+
+	p10Val := math.Round(expectedTON*0.70*100) / 100
+	p50Val := math.Round(expectedTON*100) / 100
+	p90Val := math.Round(expectedTON*1.35*100) / 100
+	p10USDVal := 0.0
+	p50USDVal := 0.0
+	p90USDVal := 0.0
+	if tonRate > 0 {
+		p10USDVal = math.Round(p10Val*tonRate*100) / 100
+		p50USDVal = math.Round(p50Val*tonRate*100) / 100
+		p90USDVal = math.Round(p90Val*tonRate*100) / 100
+	}
+
+	fragMarketStatus := "unlisted"
+	if liveMarket != nil {
+		switch liveMarket.Status {
+		case "on_auction":
+			fragMarketStatus = "on_auction"
+		case "on_sale":
+			fragMarketStatus = "on_sale"
+		case "taken", "sold":
+			fragMarketStatus = "sold"
+		case "available":
+			fragMarketStatus = "unlisted"
+		default:
+			if liveMarket.Status != "" {
+				fragMarketStatus = liveMarket.Status
+			}
+		}
+	}
+	tgStatus := "available"
+	if liveStatus == "occupied" || liveStatus == "taken" {
+		tgStatus = "occupied"
+	}
+
 	// ── Step 5: Return DTO ──
 	now = time.Now()
 	fragFee := math.Max(5.0, math.Round((expectedTON*0.05)*100)/100)
@@ -1667,6 +1737,24 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		ConfidenceScore: calibratedConfidence,
 		TONUSDRate:      tonRate,
 		ComparableSales: len(targetSales) + len(exactSales) + len(broadSales),
+
+		TelegramStatus:       tgStatus,
+		FragmentMarketStatus: fragMarketStatus,
+		TrademarkRisk: TrademarkRiskDto{
+			RiskLevel:       tmRiskLevel,
+			MatchedEntity:   tmMatch.Entity,
+			Brand:           tmMatch.Brand,
+			AdvisoryWarning: tmAdvisory,
+			RiskScore:       tmRiskScore,
+		},
+		EmpiricalBand: EmpiricalBandDto{
+			P10TON: p10Val,
+			P50TON: p50Val,
+			P90TON: p90Val,
+			P10USD: p10USDVal,
+			P50USD: p50USDVal,
+			P90USD: p90USDVal,
+		},
 
 		MaxRationalBidTON:    expectedDec.Mul(decimal.NewFromFloat(0.85)).Round(2),
 		NetSellerProceedsTON: decimal.NewFromFloat(netProceedsTON).Round(2),
@@ -1704,12 +1792,7 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		EstimatedSellTime:  estimatedSellTime,
 		TargetBuyerProfile: targetBuyerProfile,
 		ProjectedGrowth:    projectedGrowth,
-		ModelAccuracy: &ModelAccuracyDto{
-			SampleSize:     312,
-			MedianErrorPct: 18.5,
-			WithinBandPct:  78.4,
-			EvaluatedAt:    time.Now().Format("2006-01-02"),
-		},
+		ModelAccuracy:      s.GetModelAccuracy(ctx),
 
 		// AVM v7.0 Novel Signals & Self-Calibration Fields (Phase 5)
 		HomoglyphTwins:  homoglyphTwins,

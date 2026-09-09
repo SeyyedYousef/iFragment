@@ -17,11 +17,10 @@ type ModelCalibrationSummary struct {
 	CalibrationNote string    `json:"calibration_note"`
 }
 
-// GetCalibratedConfidenceScore maps raw heuristic confidence (0-100) into an empirically calibrated probability.
-// Generates an auditable calibration note summarizing post-valuation evaluation accuracy.
 func GetCalibratedConfidenceScore(rawScore int16, sampleSize int, modelVersion string) (int16, string) {
 	if sampleSize <= 0 {
-		sampleSize = 312 // Standard holdout baseline sample size
+		note := fmt.Sprintf("Heuristic score (uncalibrated; no empirical backtest sample for %s)", modelVersion)
+		return rawScore, note
 	}
 
 	// Empirical monotonic mapping from heuristic score bins to actual within-band containment rates

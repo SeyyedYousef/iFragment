@@ -203,6 +203,7 @@ export const NumberReportPage: Component = () => {
 
 	// Certificate copy state
 	const [copiedCert, setCopiedCert] = createSignal(false);
+	const [viewTier, setViewTier] = createSignal<'newcomer' | 'trader' | 'audit'>('newcomer');
 
 	// Reactive validation
 	const validation = createMemo(() => validateAndFormatAnonymousNumber(inputNumber()));
@@ -737,6 +738,156 @@ export const NumberReportPage: Component = () => {
 										</span>
 									</div>
 								</div>
+							</div>
+						</div>
+
+						{/* 🎯 3-TIER VIEW MODE SELECTOR (Newcomer / Trader Terminal / Auditor Proof) */}
+						<div class="flex items-center p-1 rounded-2xl bg-[#12141C]/90 border border-white/10 backdrop-blur-xl">
+							<button
+								type="button"
+								onClick={() => setViewTier('newcomer')}
+								class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+									viewTier() === 'newcomer'
+										? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg'
+										: 'text-white/60 hover:text-white'
+								}`}
+							>
+								<span class="material-symbols-outlined text-sm">school</span>
+								<span>{isRtl() ? 'نمای ساده' : 'Newcomer'}</span>
+							</button>
+							<button
+								type="button"
+								onClick={() => setViewTier('trader')}
+								class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+									viewTier() === 'trader'
+										? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg'
+										: 'text-white/60 hover:text-white'
+								}`}
+							>
+								<span class="material-symbols-outlined text-sm">candlestick_chart</span>
+								<span>{isRtl() ? 'پایانه تریدر' : 'Trader Terminal'}</span>
+							</button>
+							<button
+								type="button"
+								onClick={() => setViewTier('audit')}
+								class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+									viewTier() === 'audit'
+										? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg'
+										: 'text-white/60 hover:text-white'
+								}`}
+							>
+								<span class="material-symbols-outlined text-sm">verified_user</span>
+								<span>{isRtl() ? 'اثبات آنچین' : 'On-Chain Proof'}</span>
+							</button>
+						</div>
+
+						{/* 🚨 CRITICAL MODULE: TELEGRAM LOGIN & ACCOUNT TAKEOVER SECURITY ADVISORY */}
+						<div class="p-5 rounded-[28px] bg-gradient-to-br from-rose-950/40 via-[#12141C] to-amber-950/30 border border-rose-500/40 shadow-2xl relative overflow-hidden text-start">
+							<div class="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-rose-500/20">
+								<div class="flex items-center gap-2">
+									<div class="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+										<span class="material-symbols-outlined text-lg animate-pulse">security</span>
+									</div>
+									<div>
+										<h4 class="text-xs font-black text-white">
+											{isRtl() ? 'هشدار امنیتی تصاحب حساب (Account Takeover)' : 'Account Takeover & Login Advisory'}
+										</h4>
+										<span class="text-[9px] font-bold text-rose-400 block">
+											{isRtl() ? 'شماره +888 یک اعتبارنامه ورود به تلگرام است' : '+888 is an active Telegram login credential'}
+										</span>
+									</div>
+								</div>
+								<span class="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30">
+									RISK: HIGH
+								</span>
+							</div>
+
+							<p class="text-[11px] text-white/80 leading-relaxed mb-3">
+								{isRtl()
+									? 'برخلاف آرت‌های NFT معمولی، شماره‌های ناشناس دسترسی مستقیم به حساب کاربری تلگرام دارند. در صورت خرید در بازار ثانویه، خریدار باید فوراً نشست‌های قبلی را خاتمه دهد.'
+									: 'Unlike ordinary NFTs, anonymous numbers grant direct Telegram account access. Upon secondary market acquisition, immediately terminate prior sessions.'}
+							</p>
+
+							{/* Security Checklist */}
+							<div class="space-y-1.5 mb-3.5">
+								<div class="flex items-center gap-2 text-[10px] text-white/90 bg-black/40 p-2 rounded-xl border border-white/5">
+									<span class="text-emerald-400 font-black">✓</span>
+									<span>{isRtl() ? '۱. انتقال NFT شماره به والت غیرامانی شخصی' : '1. Transfer NFT to non-custodial wallet'}</span>
+								</div>
+								<div class="flex items-center gap-2 text-[10px] text-white/90 bg-black/40 p-2 rounded-xl border border-white/5">
+									<span class="text-emerald-400 font-black">✓</span>
+									<span>{isRtl() ? '۲. ورود به تلگرام و دریافت کد از طریق ربات رسمی Fragment' : '2. Sign in via official Fragment verification bot'}</span>
+								</div>
+								<div class="flex items-center gap-2 text-[10px] text-amber-300 bg-amber-500/10 p-2 rounded-xl border border-amber-500/20">
+									<span class="material-symbols-outlined text-sm">warning</span>
+									<span>{isRtl() ? '۳. مراجعه به Settings > Devices و فشردن Terminate All Sessions' : '3. Settings > Devices > Terminate All Other Sessions'}</span>
+								</div>
+								<div class="flex items-center gap-2 text-[10px] text-white/90 bg-black/40 p-2 rounded-xl border border-white/5">
+									<span class="text-emerald-400 font-black">✓</span>
+									<span>{isRtl() ? '۴. فعال‌سازی رمز تایید دومرحله‌ای (Two-Step Verification)' : '4. Enable 2-Step Verification with rescue email'}</span>
+								</div>
+							</div>
+
+							{/* Registration Utility Meter */}
+							<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
+								<div class="text-start">
+									<span class="text-[9px] font-bold text-white/50 block">
+										{isRtl() ? 'امتیاز ارزش کاربردی ثبت‌نام (بدون سیم‌کارت)' : 'SIM-less Utility Value'}
+									</span>
+									<span class="text-xs font-black text-cyan-400">
+										{isRtl() ? 'حریم خصوصی کامل بدون هویت واقعی' : '100% Zero-KYC Telegram Registration'}
+									</span>
+								</div>
+								<span class="text-sm font-mono font-black text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-xl">
+									98 / 100
+								</span>
+							</div>
+						</div>
+
+						{/* ⛓️ TELEMINT ON-CHAIN PROVENANCE BADGE */}
+						<div class="p-4 rounded-[28px] bg-[#12141C]/90 backdrop-blur-2xl border border-cyan-500/30 shadow-xl text-start">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-cyan-400 text-base">link</span>
+									<h4 class="text-xs font-black text-white">
+										{isRtl() ? 'شناسنامه و اصالت زنجیره‌ای تل‌مینت' : 'Telemint On-Chain Provenance'}
+									</h4>
+								</div>
+								<div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black">
+									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+									<span>TELEMINT VERIFIED</span>
+								</div>
+							</div>
+
+							<div class="grid grid-cols-2 gap-2 text-[10px]">
+								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
+									<span class="text-white/40 block text-[9px] mb-0.5">{isRtl() ? 'قرارداد مرجع تل‌مینت' : 'Official Collection'}</span>
+									<span class="font-mono text-cyan-300 truncate block" dir="ltr" title="EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf">
+										EQAO...jpSf
+									</span>
+								</div>
+								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
+									<span class="text-white/40 block text-[9px] mb-0.5">{isRtl() ? 'نوع مالکیت' : 'Ownership State'}</span>
+									<span class={`font-black truncate block ${reportData()?.on_chain_audit?.is_escrow ? 'text-amber-400' : 'text-emerald-400'}`}>
+										{reportData()?.on_chain_audit?.is_escrow ? (isRtl() ? 'اسکرو در مارکت' : 'Market Escrow') : (isRtl() ? 'والت مالک حقیقی' : 'Real Owner Wallet')}
+									</span>
+								</div>
+							</div>
+
+							<div class="mt-2.5 flex items-center justify-between pt-2.5 border-t border-white/5 text-[10px]">
+								<span class="text-white/40 font-mono">
+									{isRtl() ? 'کاوشگر بلاکچین:' : 'Block Explorer:'}
+								</span>
+								<a
+									href={reportData()?.on_chain_audit?.tonviewer_url || `https://tonviewer.com/EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf`}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="text-cyan-400 hover:underline flex items-center gap-1 font-mono font-bold"
+									dir="ltr"
+								>
+									<span>Tonviewer Proof</span>
+									<span class="material-symbols-outlined text-xs">open_in_new</span>
+								</a>
 							</div>
 						</div>
 

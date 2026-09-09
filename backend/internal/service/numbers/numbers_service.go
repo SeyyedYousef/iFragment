@@ -83,7 +83,7 @@ func (s *NumbersService) getTonUsdRate() float64 {
 			return r
 		}
 	}
-	return 5.50
+	return 0.0
 }
 
 type NumbersIntelResponse struct {
@@ -365,28 +365,62 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 		}
 
 		if len(resp.HallOfFame) == 0 {
-			var athNum string
-			var athPrice float64
-			err = s.db.Pool.QueryRow(ctx, `
-				SELECT number, sale_price_ton
+			rows, err := s.db.Pool.Query(ctx, `
+				SELECT number, sale_price_ton, sale_date, COALESCE(transaction_hash, '')
 				FROM number_sales
 				ORDER BY sale_price_ton DESC
-				LIMIT 1`).Scan(&athNum, &athPrice)
-			if err == nil && athPrice > 0 {
-				resp.HistoricalATH = athPrice
-				resp.ATHNumber = athNum
+				LIMIT 5`)
+			if err == nil {
+				defer rows.Close()
+				rank := 1
+				for rows.Next() {
+					var num string
+					var price float64
+					var saleDate time.Time
+					var txHash string
+					if err := rows.Scan(&num, &price, &saleDate, &txHash); err == nil {
+						isVerified := txHash != ""
+						tonviewerURL := ""
+						if isVerified {
+							tonviewerURL = fmt.Sprintf("https://tonviewer.com/transaction/%s", txHash)
+						}
+						clean := strings.TrimPrefix(num, "+888")
+						clean = strings.TrimPrefix(clean, "888")
+						clean = strings.ReplaceAll(clean, " ", "")
+						disp := num
+						if len(clean) == 4 {
+							disp = fmt.Sprintf("+888 %s", clean)
+						} else if len(clean) == 8 {
+							disp = fmt.Sprintf("+888 %s %s", clean[:4], clean[4:])
+						}
+						resp.HallOfFame = append(resp.HallOfFame, HallOfFameItem{
+							Rank:         rank,
+							Number:       num,
+							Display:      disp,
+							PriceTON:     price,
+							PriceUSD:     price * tonUsdRate,
+							SaleDate:     saleDate.Format("Jan 2006"),
+							Color:        "Blue",
+							Verified:     isVerified,
+							IsGenesis4D:  len(clean) == 4 && clean[0] == '8',
+							TonviewerURL: tonviewerURL,
+						})
+						rank++
+					}
+				}
 			}
 		}
 	}
 
 	// 3. Fallback Hall of Fame if Fragment scraping was blocked and DB is empty
+	// Unverified historical sales are marked Verified: false (legacy reference only)
 	if len(resp.HallOfFame) == 0 {
 		resp.HallOfFame = []HallOfFameItem{
-			{Rank: 1, Number: "+8888666", Display: "+888 8 666", PriceTON: 666666.0, PriceUSD: 666666.0 * tonUsdRate, SaleDate: "Aug 2026", Color: "Blue", Verified: true, IsGenesis4D: true, TonviewerURL: "https://fragment.com/number/8888666"},
-			{Rank: 2, Number: "+8888777", Display: "+888 8 777", PriceTON: 651358.0, PriceUSD: 651358.0 * tonUsdRate, SaleDate: "Mar 2026", Color: "Blue", Verified: true, IsGenesis4D: true, TonviewerURL: "https://fragment.com/number/8888777"},
-			{Rank: 3, Number: "+8888588", Display: "+888 8 588", PriceTON: 589552.0, PriceUSD: 589552.0 * tonUsdRate, SaleDate: "May 2026", Color: "Blue", Verified: true, IsGenesis4D: true, TonviewerURL: "https://fragment.com/number/8888588"},
-			{Rank: 4, Number: "+8888222", Display: "+888 8 222", PriceTON: 520000.0, PriceUSD: 520000.0 * tonUsdRate, SaleDate: "Apr 2026", Color: "Blue", Verified: true, IsGenesis4D: true, TonviewerURL: "https://fragment.com/number/8888222"},
-			{Rank: 5, Number: "+88800888888", Display: "+888 0088 8888", PriceTON: 490000.0, PriceUSD: 490000.0 * tonUsdRate, SaleDate: "Mar 2026", Color: "Blue", Verified: true, IsGenesis4D: false, TonviewerURL: "https://fragment.com/number/88800888888"},
+			{Rank: 1, Number: "+8888666", Display: "+888 8 666", PriceTON: 666666.0, PriceUSD: 666666.0 * tonUsdRate, SaleDate: "Aug 2026", Color: "Blue", Verified: false, IsGenesis4D: true, TonviewerURL: ""},
+			{Rank: 2, Number: "+8888777", Display: "+888 8 777", PriceTON: 651358.0, PriceUSD: 651358.0 * tonUsdRate, SaleDate: "Mar 2026", Color: "Blue", Verified: false, IsGenesis4D: true, TonviewerURL: ""},
+			{Rank: 3, Number: "+8888588", Display: "+888 8 588", PriceTON: 589552.0, PriceUSD: 589552.0 * tonUsdRate, SaleDate: "May 2026", Color: "Blue", Verified: false, IsGenesis4D: true, TonviewerURL: ""},
+			{Rank: 4, Number: "+8888222", Display: "+888 8 222", PriceTON: 520000.0, PriceUSD: 520000.0 * tonUsdRate, SaleDate: "Apr 2026", Color: "Blue", Verified: false, IsGenesis4D: true, TonviewerURL: ""},
+			{Rank: 5, Number: "+88800888888", Display: "+888 0088 8888", PriceTON: 490000.0, PriceUSD: 490000.0 * tonUsdRate, SaleDate: "Mar 2026", Color: "Blue", Verified: false, IsGenesis4D: false, TonviewerURL: ""},
 		}
 	}
 
@@ -1120,14 +1154,20 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 	}
 
 	res := &nvengine.NumberVerificationResult{
-		Number:        norm,
-		DisplayNumber: features.FormatDisplayNumber(norm),
-		IsMinted:      true,
-		Exists:        true,
-		Tier:          tier,
-		CategoryClub:  s.engine.DetermineClub(fv),
-		GlobalRank:    s.engine.ComputeRank(fv),
-		TeaserChips:   chips,
+		Number:           norm,
+		DisplayNumber:    features.FormatDisplayNumber(norm),
+		IsMinted:         true,
+		Exists:           true,
+		Tier:             tier,
+		CategoryClub:     s.engine.DetermineClub(fv),
+		GlobalRank:       s.engine.ComputeRank(fv),
+		TeaserChips:      chips,
+		SecurityAdvisory: nvengine.BuildSecurityAdvisory(norm),
+		TelemintProvenance: nvengine.TelemintProvenance{
+			CollectionAddress:  registry.AnonymousNumbersCollectionAddr,
+			CollectionVerified: true,
+			DataStatus:         "live",
+		},
 	}
 
 	if s.db != nil && s.db.Pool != nil {
@@ -1140,6 +1180,14 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 			res.Color = color
 			res.OwnerAddress = ownerAddr
 			res.NFTAddress = nftAddr
+			res.TelemintProvenance.ItemAddress = nftAddr
+			res.TelemintProvenance.RealOwnerAddress = ownerAddr
+			isEscrow := false
+			ownerLower := strings.ToLower(ownerAddr)
+			if strings.Contains(ownerLower, "escrow") || strings.Contains(ownerLower, "getgems") || strings.Contains(ownerLower, "fragment") {
+				isEscrow = true
+			}
+			res.TelemintProvenance.IsEscrow = isEscrow
 		}
 	}
 
@@ -1172,12 +1220,7 @@ func (s *NumbersService) GetChartData(ctx context.Context) (*ChartDataResponse, 
 
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	rate := 5.50
-	if s.cryptoPrice != nil {
-		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
-			rate = r
-		}
-	}
+	rate := s.getTonUsdRate()
 
 	floorTon := registry.InitialFloorTON
 	floorNTon := registry.InitialFloorTON * 1.05

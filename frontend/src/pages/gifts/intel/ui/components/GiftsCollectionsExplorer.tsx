@@ -250,9 +250,11 @@ export const GiftsCollectionsExplorer: Component<Props> = (props) => {
 											<span class="text-[#0098EA] text-xs">💎</span>
 											<span>{getGiftFloor(gift).toLocaleString()} TON</span>
 										</div>
-										<div class="text-[10px] text-white/40 font-mono">
-											≈ ${(getGiftFloor(gift) * (props.rate || 5.5)).toFixed(0)}
-										</div>
+										<Show when={props.rate && props.rate > 0}>
+											<div class="text-[10px] text-white/40 font-mono">
+												≈ ${(getGiftFloor(gift) * (props.rate || 0)).toFixed(0)}
+											</div>
+										</Show>
 									</Show>
 								</div>
 							</button>

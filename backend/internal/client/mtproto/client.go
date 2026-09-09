@@ -252,6 +252,9 @@ func (m *MockClient) GetFullChannel(ctx context.Context, inputChannel tg.InputCh
 
 // InitClient returns either a real or mock MTProto client based on env
 func InitClient(ctx context.Context) (Client, error) {
+	appEnv := os.Getenv("APP_ENV")
+	isProd := appEnv == "production"
+
 	appID := os.Getenv("TG_APP_ID")
 	botToken := os.Getenv("BOT_TOKEN")
 	if botToken == "" {
@@ -265,9 +268,22 @@ func InitClient(ctx context.Context) (Client, error) {
 			slog.Info("Real MTProto client initialized successfully")
 			return c, nil
 		}
-		slog.Error("Failed to initialize real MTProto client, falling back to MockClient", "error", err)
+		slog.Error("Failed to initialize real MTProto client", "error", err)
+		if isProd {
+			return nil, fmt.Errorf("FATAL: real MTProto client failed to initialize in production environment: %w", err)
+		}
 	} else {
-		slog.Warn("MTProto credentials (TG_APP_ID, TG_APP_HASH, BOT_TOKEN) are missing or incomplete. Falling back to MockClient")
+		if isProd {
+			return nil, fmt.Errorf("FATAL: MTProto credentials (TG_APP_ID, TG_APP_HASH, BOT_TOKEN) are missing in production environment. Refusing to start with MockClient")
+		}
+		slog.Warn("MTProto credentials (TG_APP_ID, TG_APP_HASH, BOT_TOKEN) are missing or incomplete. Using MockClient in non-production mode")
 	}
+
+	allowMock := os.Getenv("ALLOW_MOCK_CLIENT") == "true" || appEnv == "development" || appEnv == "test" || appEnv == ""
+	if !allowMock {
+		return nil, fmt.Errorf("MockClient is prohibited unless APP_ENV is development/test or ALLOW_MOCK_CLIENT=true")
+	}
+
+	slog.Warn("⚠️ [DEMO / MOCK] Using MockClient for MTProto. Real on-chain/Telegram calls are simulated.")
 	return NewMockClient(), nil
 }

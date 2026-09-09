@@ -124,15 +124,19 @@ type NFTCollection struct {
 }
 
 type NFTItem struct {
-	Address  string `json:"address"`
-	Index    int    `json:"index"`
-	Verified bool   `json:"verified"`
-	Owner    struct {
+	Address    string `json:"address"`
+	Index      int    `json:"index"`
+	Verified   bool   `json:"verified"`
+	Collection struct {
+		Address string `json:"address"`
+		Name    string `json:"name"`
+	} `json:"collection"`
+	Owner struct {
 		Address string `json:"address"`
 	} `json:"owner"`
-	Sale     *NFTSale     `json:"sale"`
-	DNS      string       `json:"dns"`
-	Metadata NFTMetadata  `json:"metadata"`
+	Sale     *NFTSale    `json:"sale"`
+	DNS      string      `json:"dns"`
+	Metadata NFTMetadata `json:"metadata"`
 }
 
 type NFTMetadata struct {

@@ -173,6 +173,23 @@ interface ValuationResult {
 	wallet_info?: { balance: number; nft_count: number; is_whale: boolean };
 	entity_info?: { type: string; members: number; verified: boolean };
 	status?: string;
+	telegram_status?: string;
+	fragment_market_status?: string;
+	trademark_risk?: {
+		risk_level: string;
+		matched_entity?: string;
+		brand?: string;
+		advisory_warning: string;
+		risk_score: number;
+	};
+	empirical_band?: {
+		p10_ton: number;
+		p50_ton: number;
+		p90_ton: number;
+		p10_usd: number;
+		p50_usd: number;
+		p90_usd: number;
+	};
 	brandability: number;
 	fear_greed_index: number;
 	fear_greed_label: string;
@@ -1053,6 +1070,161 @@ export const UsernamePage: Component = () => {
 
 						{/* ═══════ UNLOCKED REPORT CONTENT (PHASE 3 & 4) ═══════ */}
 						<Show when={accessGranted() && data()}>
+							{/* 🌐 CANONICAL DUAL-STATUS: TELEGRAM LIFECYCLE vs FRAGMENT MARKETPLACE */}
+							<div class="w-full grid grid-cols-2 gap-2.5">
+								{/* 1. Telegram App State */}
+								<div class="p-3.5 rounded-[20px] bg-[#12141C]/90 backdrop-blur-xl border border-white/10 flex flex-col justify-between text-start shadow-sm">
+									<div class="flex items-center justify-between gap-1 mb-1.5">
+										<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
+											{isRtl() ? 'وضعیت در تلگرام' : 'Telegram State'}
+										</span>
+										<span class="material-symbols-outlined text-xs text-cyan-400">person</span>
+									</div>
+									<div class="flex items-center gap-1.5">
+										<span
+											class={`w-2 h-2 rounded-full ${
+												data()?.telegram_status === 'occupied' || data()?.status === 'taken'
+													? 'bg-amber-400 animate-pulse'
+													: 'bg-emerald-400'
+											}`}
+										/>
+										<span class="text-xs font-black text-white">
+											{data()?.telegram_status === 'occupied' || data()?.status === 'taken'
+												? (isRtl() ? 'تخصیص‌یافته (مشغول)' : 'Occupied / In Use')
+												: (isRtl() ? 'آزاد در شبکه' : 'Available on Telegram')}
+										</span>
+									</div>
+								</div>
+
+								{/* 2. Fragment Marketplace State */}
+								<div class="p-3.5 rounded-[20px] bg-[#12141C]/90 backdrop-blur-xl border border-white/10 flex flex-col justify-between text-start shadow-sm">
+									<div class="flex items-center justify-between gap-1 mb-1.5">
+										<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
+											{isRtl() ? 'وضعیت در فرگمنت' : 'Fragment Market'}
+										</span>
+										<span class="material-symbols-outlined text-xs text-[#0098EA]">storefront</span>
+									</div>
+									<div class="flex items-center gap-1.5">
+										<span
+											class={`w-2 h-2 rounded-full ${
+												data()?.fragment_market_status === 'on_auction'
+													? 'bg-cyan-400 animate-ping'
+													: data()?.fragment_market_status === 'on_sale'
+														? 'bg-emerald-400'
+														: data()?.fragment_market_status === 'sold'
+															? 'bg-indigo-400'
+															: 'bg-white/30'
+											}`}
+										/>
+										<span class="text-xs font-black text-white capitalize">
+											{data()?.fragment_market_status === 'on_auction'
+												? (isRtl() ? 'در حال حراج' : 'Live Auction')
+												: data()?.fragment_market_status === 'on_sale'
+													? (isRtl() ? 'فروش مقطوع' : 'Fixed Sale')
+													: data()?.fragment_market_status === 'sold'
+														? (isRtl() ? 'فروخته‌شده (در والت)' : 'Minted / In Wallet')
+														: (isRtl() ? 'لیست‌نشده' : 'Unlisted')}
+										</span>
+									</div>
+								</div>
+							</div>
+
+							{/* ⚖️ TRADEMARK & LEGAL RISK ADVISORY CARD */}
+							<Show when={data()?.trademark_risk && data()!.trademark_risk!.risk_level !== 'low'}>
+								<div class={`w-full p-4 rounded-[24px] border backdrop-blur-xl text-start shadow-xl relative overflow-hidden ${
+									data()!.trademark_risk!.risk_level === 'high'
+										? 'bg-gradient-to-br from-rose-950/40 via-[#12141C] to-rose-900/20 border-rose-500/40'
+										: 'bg-gradient-to-br from-amber-950/40 via-[#12141C] to-amber-900/20 border-amber-500/40'
+								}`}>
+									<div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-white/5">
+										<div class="flex items-center gap-2">
+											<span class={`material-symbols-outlined text-base ${
+												data()!.trademark_risk!.risk_level === 'high' ? 'text-rose-400' : 'text-amber-400'
+											}`}>
+												gavel
+											</span>
+											<h4 class="text-xs font-black text-white">
+												{isRtl() ? 'هشدار حقوقی و ریسک علامت تجاری (Trademark)' : 'Trademark & Legal Risk Advisory'}
+											</h4>
+										</div>
+										<span class={`text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-md border ${
+											data()!.trademark_risk!.risk_level === 'high'
+												? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+												: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+										}`}>
+											{data()!.trademark_risk!.risk_level === 'high' ? 'RISK: HIGH' : 'RISK: MEDIUM'}
+										</span>
+									</div>
+
+									<p class="text-[11px] text-white/80 leading-relaxed mb-2.5">
+										{data()!.trademark_risk!.advisory_warning}
+									</p>
+
+									<div class="flex items-center justify-between text-[10px] text-white/50 pt-2 border-t border-white/5 font-mono">
+										<span>{isRtl() ? 'مرجع حقوقی:' : 'Legal Ref:'} Telegram ToS §4 & App Stores Policy</span>
+										<Show when={data()!.trademark_risk!.matched_entity}>
+											<span class="text-white/70 font-bold truncate max-w-[50%]">{data()!.trademark_risk!.matched_entity}</span>
+										</Show>
+									</div>
+								</div>
+							</Show>
+
+							{/* 📊 EMPIRICAL CONFIDENCE BAND (P10 / P50 / P90) */}
+							<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+									<div class="flex items-center gap-2">
+										<span class="material-symbols-outlined text-emerald-400 text-base">monitoring</span>
+										<h4 class="text-xs font-black text-white">
+											{isRtl() ? 'بازه اطمینان قیمت‌گذاری تجربی' : 'Empirical Valuation Band'}
+										</h4>
+									</div>
+									<span class="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+										P10 — P50 — P90
+									</span>
+								</div>
+
+								<div class="grid grid-cols-3 gap-2 text-center">
+									{/* P10 Floor */}
+									<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 min-w-0">
+										<span class="text-[9px] uppercase font-black text-rose-400 block mb-1 truncate">
+											{isRtl() ? 'P10 (کف نقدشوندگی)' : 'P10 (Floor)'}
+										</span>
+										<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
+											{fmtTon(data()?.empirical_band?.p10_ton || Math.round(expectedTon() * 0.7))} <span class="text-[9px] text-[#0098EA]">TON</span>
+										</span>
+										<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
+											≈ ${fmtUsd(data()?.empirical_band?.p10_usd || Math.round((data()?.empirical_band?.p10_ton || expectedTon() * 0.7) * (data()?.ton_usd_rate || 0)))}
+										</span>
+									</div>
+
+									{/* P50 Fair */}
+									<div class="p-3 rounded-2xl bg-[#0098EA]/10 border border-[#0098EA]/30 min-w-0 shadow-sm">
+										<span class="text-[9px] uppercase font-black text-[#0098EA] block mb-1 truncate">
+											{isRtl() ? 'P50 (ارزش منصفانه)' : 'P50 (Fair Value)'}
+										</span>
+										<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
+											{fmtTon(data()?.empirical_band?.p50_ton || Math.round(expectedTon()))} <span class="text-[9px] text-[#0098EA]">TON</span>
+										</span>
+										<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
+											≈ ${fmtUsd(data()?.empirical_band?.p50_usd || Math.round((data()?.empirical_band?.p50_ton || expectedTon()) * (data()?.ton_usd_rate || 0)))}
+										</span>
+									</div>
+
+									{/* P90 Premium */}
+									<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 min-w-0">
+										<span class="text-[9px] uppercase font-black text-emerald-400 block mb-1 truncate">
+											{isRtl() ? 'P90 (خریدار برند)' : 'P90 (Brand Premium)'}
+										</span>
+										<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
+											{fmtTon(data()?.empirical_band?.p90_ton || Math.round(expectedTon() * 1.35))} <span class="text-[9px] text-[#0098EA]">TON</span>
+										</span>
+										<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
+											≈ ${fmtUsd(data()?.empirical_band?.p90_usd || Math.round((data()?.empirical_band?.p90_ton || expectedTon() * 1.35) * (data()?.ton_usd_rate || 0)))}
+										</span>
+									</div>
+								</div>
+							</div>
+
 							{/* 📜 OFFICIAL DIGITAL APPRAISAL CERTIFICATE (Bug 5 Fix: No Fake 8942) */}
 							<div
 								id="sec-certificate"

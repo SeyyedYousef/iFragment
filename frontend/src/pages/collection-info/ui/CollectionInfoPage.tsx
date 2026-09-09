@@ -384,12 +384,13 @@ export const CollectionInfoPage: Component = () => {
 									</div>
 								</div>
 								<div class="text-[10px] text-white/40 font-mono mt-2 pt-2 border-t border-white/5">
-									≈ $
-									{(
-										parseFloat(
-											usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10',
-										) * (usernameQuery.data?.ton_usd_rate || 5.5)
-									).toFixed(1)}
+									{usernameQuery.data?.ton_usd_rate && usernameQuery.data.ton_usd_rate > 0
+										? `≈ $${(
+												parseFloat(
+													usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '0',
+												) * usernameQuery.data.ton_usd_rate
+											).toFixed(1)}`
+										: 'Rate unavailable'}
 								</div>
 							</div>
 
@@ -595,12 +596,11 @@ export const CollectionInfoPage: Component = () => {
 													</span>
 												</div>
 												<span class="text-[10px] font-mono text-white/40">
-													≈ $
-													{(
-														(item.priceUsd ??
-															item.priceTon * (usernameQuery.data?.ton_usd_rate || 5.5)) / 1000
-													).toFixed(0)}
-													K
+													{item.priceUsd !== undefined
+														? `≈ $${(item.priceUsd / 1000).toFixed(0)}K`
+														: usernameQuery.data?.ton_usd_rate && usernameQuery.data.ton_usd_rate > 0
+															? `≈ $${((item.priceTon * usernameQuery.data.ton_usd_rate) / 1000).toFixed(0)}K`
+															: ''}
 												</span>
 											</div>
 										</div>

@@ -59,8 +59,8 @@ func CalculateRentalYield(expectedTON, tonUsdRate float64, fv features.FeatureVe
 	annualNetUSD := annualGrossUSD * 0.90 // 10% management fee
 
 	payback := 0.0
-	if annualNetUSD > 0 {
-		payback = math.Round((expectedUSD/annualNetUSD)*10.0) / 10.0
+	if capRate > 0 {
+		payback = math.Round((1.0/(capRate*0.90))*10.0) / 10.0
 	}
 
 	rating := "STANDARD"

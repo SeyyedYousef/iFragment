@@ -47,24 +47,23 @@ func RunModelCalibration(ctx context.Context, db *repository.Database, modelVers
 			ModelVersion:    modelVersion,
 			EvaluatedAt:     time.Now(),
 			SampleSize:      0,
-			MedianErrorPct:  18.5,
-			WithinBandPct:   78.4,
+			MedianErrorPct:  0,
+			WithinBandPct:   0,
 			UncertaintyMult: 1.5,
-			CalibrationNote: "Calibrated on default empirical baseline",
+			CalibrationNote: "Database unavailable; model uncalibrated",
 		}, nil
 	}
 
 	points, err := db.GetBacktestPoints(ctx, modelVersion, 1000)
 	if err != nil || len(points) == 0 {
-		// Fallback to all sales backtest points if version specific runs are fresh
 		return &ModelCalibrationSummary{
 			ModelVersion:    modelVersion,
 			EvaluatedAt:     time.Now(),
-			SampleSize:      len(points),
-			MedianErrorPct:  19.2,
-			WithinBandPct:   77.8,
+			SampleSize:      0,
+			MedianErrorPct:  0,
+			WithinBandPct:   0,
 			UncertaintyMult: 1.5,
-			CalibrationNote: fmt.Sprintf("Calibrated on %d baseline backtest evaluations", int(math.Max(50, float64(len(points))))),
+			CalibrationNote: "Insufficient backtest data; model uncalibrated",
 		}, nil
 	}
 

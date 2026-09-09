@@ -19,13 +19,9 @@ type MonteCarloForgeResult struct {
 	RecommendationFa     string  `json:"recommendation_fa"`
 }
 
-// RunMonteCarloCraftingSimulation simulates 5,000 stochastic forging iterations
 func RunMonteCarloCraftingSimulation(inputTotalCostGRAM float64, baseOutputFloorGRAM float64, craftPersistencePermille int) MonteCarloForgeResult {
-	if inputTotalCostGRAM <= 0 {
-		inputTotalCostGRAM = 100.0
-	}
-	if baseOutputFloorGRAM <= 0 {
-		baseOutputFloorGRAM = 120.0
+	if inputTotalCostGRAM <= 0 || baseOutputFloorGRAM <= 0 {
+		return MonteCarloForgeResult{}
 	}
 
 	trials := 5000

@@ -62,26 +62,54 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 		}
 	}()
 
-	// Use TonAPI to fetch the official TON price, utilizing our authenticated client keys
-	tonClient := tonapi.NewClient()
-	usdPrice, err := tonClient.GetTONRates(ctx)
+	var usdPrice float64
+	var fetchErr error
 
-	if err != nil {
-		slog.Error("failed to fetch crypto price from tonapi", "error", err)
+	// 1. Primary: Use TonAPI to fetch official TON rate
+	tonClient := tonapi.NewClient()
+	usdPrice, fetchErr = tonClient.GetTONRates(ctx)
+
+	// 2. Secondary: If TonAPI fails, fallback to CoinGecko
+	if fetchErr != nil || usdPrice <= 0 {
+		slog.Warn("TonAPI rate fetch failed, trying CoinGecko fallback...", "error", fetchErr)
+		req, err := http.NewRequestWithContext(ctx, "GET", "https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd", nil)
+		if err == nil {
+			req.Header.Set("User-Agent", "iFragment/1.0")
+			resp, httpErr := s.httpClient.Do(req)
+			if httpErr == nil && resp.StatusCode == http.StatusOK {
+				var cgResp struct {
+					TheOpenNetwork struct {
+						USD float64 `json:"usd"`
+					} `json:"the-open-network"`
+				}
+				if json.NewDecoder(resp.Body).Decode(&cgResp) == nil && cgResp.TheOpenNetwork.USD > 0 {
+					usdPrice = cgResp.TheOpenNetwork.USD
+					fetchErr = nil
+					slog.Info("Successfully fetched TON rate from CoinGecko fallback", "price", usdPrice)
+				}
+				resp.Body.Close()
+			}
+		}
+	}
+
+	if fetchErr != nil || usdPrice <= 0 {
+		slog.Error("Failed to fetch crypto price from all providers", "error", fetchErr)
 		return
 	}
 
+	now := time.Now()
 	s.mu.Lock()
 	s.prices["the-open-network"] = usdPrice
-	s.lastFetch = time.Now()
+	s.lastFetch = now
 	s.mu.Unlock()
 
-	// Try to cache to Redis
+	// Cache to Redis with timestamp
 	if s.cache != nil && s.cache.Client != nil {
 		s.mu.RLock()
 		cachedData, _ := json.Marshal(s.prices)
 		s.mu.RUnlock()
-		_ = s.cache.Client.Set(ctx, "crypto:prices", cachedData, 6*time.Minute).Err()
+		_ = s.cache.Client.Set(ctx, "crypto:prices", cachedData, 24*time.Hour).Err()
+		_ = s.cache.Client.Set(ctx, "crypto:prices:ts", now.Unix(), 24*time.Hour).Err()
 	}
 }
 
@@ -93,30 +121,58 @@ func (s *CryptoPriceService) loadFromRedis() {
 			if json.Unmarshal([]byte(val), &cachedPrices) == nil {
 				s.mu.Lock()
 				s.prices = cachedPrices
+				if tsStr, tsErr := s.cache.Client.Get(context.Background(), "crypto:prices:ts").Result(); tsErr == nil {
+					var tsSec int64
+					if n, _ := fmt.Sscanf(tsStr, "%d", &tsSec); n > 0 {
+						s.lastFetch = time.Unix(tsSec, 0)
+					}
+				}
 				s.mu.Unlock()
 			}
 		}
 	}
 }
 
-// GetPrice returns the price formatted as a string
-func (s *CryptoPriceService) GetPrice(symbol string) string {
+// GetPriceWithFreshness returns price, existence, staleness (> 15m), and fetch timestamp
+func (s *CryptoPriceService) GetPriceWithFreshness(symbol string) (price float64, ok bool, isStale bool, fetchedAt time.Time) {
 	s.mu.RLock()
-	price, ok := s.prices[symbol]
+	price, ok = s.prices[symbol]
+	last := s.lastFetch
 	s.mu.RUnlock()
 
+	if !ok || price <= 0 {
+		return 0, false, true, time.Time{}
+	}
+	isStale = time.Since(last) > 15*time.Minute
+	return price, true, isStale, last
+}
+
+// GetPrice returns the price formatted as a string
+func (s *CryptoPriceService) GetPrice(symbol string) string {
+	price, ok, isStale, _ := s.GetPriceWithFreshness(symbol)
 	if !ok {
 		return "N/A"
 	}
-	return formatPrice(price)
+	formatted := formatPrice(price)
+	if isStale {
+		return formatted + " (stale)"
+	}
+	return formatted
 }
 
-// GetFloatPrice returns raw price float64 and existence bool
+// GetFloatPrice returns raw price float64 and existence bool.
+// Rejects severely stale prices (> 2 hours) to prevent corrupt financial calculations.
 func (s *CryptoPriceService) GetFloatPrice(symbol string) (float64, bool) {
-	s.mu.RLock()
-	price, ok := s.prices[symbol]
-	s.mu.RUnlock()
-	return price, ok
+	price, ok, _, last := s.GetPriceWithFreshness(symbol)
+	if !ok {
+		return 0, false
+	}
+	// Fail closed if price is older than 2 hours without successful update
+	if time.Since(last) > 2*time.Hour {
+		slog.Warn("Rejecting crypto price due to extreme staleness (>2h)", "symbol", symbol, "age", time.Since(last).String())
+		return 0, false
+	}
+	return price, true
 }
 
 func formatPrice(price float64) string {

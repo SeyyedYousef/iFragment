@@ -191,7 +191,7 @@ func (s *NumbersSalesIndexer) processNFTSales(ctx context.Context, normNumber st
 		return 0, err
 	}
 
-	tonUsdRate := 5.50
+	var tonUsdRate float64
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
 			tonUsdRate = r

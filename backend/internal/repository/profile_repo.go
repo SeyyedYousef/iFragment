@@ -1296,8 +1296,8 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 			var fairNano int64
 			if err := giftRows.Scan(&g.GiftID, &g.ModelName, &g.SerialNumber, &fairNano, &g.PurchasedAt); err == nil {
 				g.EstimatedValGRAM = float64(fairNano) / 1e9
-				g.EstimatedValUSD = g.EstimatedValGRAM * 5.50
-				g.RarityTier = "Legendary"
+				g.EstimatedValUSD = 0 // Calculated dynamically by ProfileService using live exchange rate
+				g.RarityTier = "Verified"
 				g.CertificateURL = fmt.Sprintf("/gifts/report?g=%s", g.GiftID)
 				resp.Gifts = append(resp.Gifts, g)
 			}

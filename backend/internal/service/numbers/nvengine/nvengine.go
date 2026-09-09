@@ -161,7 +161,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	}
 
 	// 1. Fetch TON/USD live rate
-	tonUsdRate := 5.50
+	var tonUsdRate float64
 	if e.cryptoPriceSvc != nil {
 		if rate, ok := e.cryptoPriceSvc.GetFloatPrice("the-open-network"); ok && rate > 0 {
 			tonUsdRate = rate
@@ -750,6 +750,16 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		SurvivalMetrics:    survivalMetrics,
 		MarketDepth:        marketDepth,
 		OnChainAudit:       onChainAudit,
+		SecurityAdvisory:   BuildSecurityAdvisory(normNumber),
+		TelemintProvenance: TelemintProvenance{
+			CollectionAddress:  registry.AnonymousNumbersCollectionAddr,
+			CollectionVerified: true,
+			RealOwnerAddress:   history.OwnerAddress,
+			IsEscrow:           onChainAudit.IsEscrow,
+			TransactionHash:    onChainAudit.TransactionHash,
+			TonviewerURL:       onChainAudit.TonviewerURL,
+			DataStatus:         "live",
+		},
 		CertificateID:      certificateID,
 		EvaluatedAt:        time.Now().UTC(),
 		ReasoningLog:       reasoningLog,
@@ -1294,6 +1304,23 @@ func buildMarketDepthInfo(fv features.FeatureVector, expectedTON, tonUsdRate flo
 	}
 }
 
+// BuildSecurityAdvisory details Telegram login credential risks & account takeover warnings
+func BuildSecurityAdvisory(normNumber string) SecurityAdvisory {
+	return SecurityAdvisory{
+		AccountTakeoverRisk:      "HIGH",
+		IsActiveLoginCredential:  true,
+		RegistrationUtilityScore: 98,
+		SessionResetRequired:     true,
+		TwoFactorWarning:         "به محض خرید و انتقال شماره، کلیه نشست‌های فعال قبلی را در تنظیمات تلگرام (Settings > Devices) لغو و تایید دو مرحله‌ای (2FA) اختصاصی خود را فعال کنید.",
+		TakeoverMitigationSteps: []string{
+			"انتقال امن NFT شماره به والت شخصی غیرامانی (Non-Custodial)",
+			"درخواست کد ورود به تلگرام از طریق ربات رسمی Fragment یا دستگاه‌های متصل",
+			"مراجعه فوری به Settings > Privacy and Security > Devices و انتخاب Terminate All Other Sessions",
+			"تنظیم رمز عبور دومرحله‌ای (Two-Step Verification) با ایمیل ریکاوری معتبر",
+		},
+	}
+}
+
 func buildOnChainAudit(normNumber string, history ValuationHistory, isGenesis bool) OnChainAudit {
 	mintDate := "December 2022 (Genesis Telemint Batch)"
 	txCount := len(history.Transactions)
@@ -1318,6 +1345,19 @@ func buildOnChainAudit(normNumber string, history ValuationHistory, isGenesis bo
 		statusEn = "Original 4-Digit Genesis — Clean & Verified"
 	}
 
+	txHash := ""
+	tonviewerURL := ""
+	if len(history.Transactions) > 0 && history.Transactions[0].TransactionHash != "" {
+		txHash = history.Transactions[0].TransactionHash
+		tonviewerURL = fmt.Sprintf("https://tonviewer.com/transaction/%s", txHash)
+	}
+
+	isEscrow := false
+	ownerLower := strings.ToLower(history.OwnerAddress)
+	if strings.Contains(ownerLower, "escrow") || strings.Contains(ownerLower, "getgems") || strings.Contains(ownerLower, "fragment") {
+		isEscrow = true
+	}
+
 	return OnChainAudit{
 		IsRestricted:        false,
 		RestrictionStatusFa: statusFa,
@@ -1327,6 +1367,13 @@ func buildOnChainAudit(normNumber string, history ValuationHistory, isGenesis bo
 		TransferCount:       txCount,
 		HighestPastSaleTON:  history.HighestPastSaleTON,
 		AppreciationPct:     appreciation,
+		CollectionVerified:  true,
+		RealOwnerAddress:    history.OwnerAddress,
+		IsEscrow:            isEscrow,
+		TransactionHash:     txHash,
+		TonviewerURL:        tonviewerURL,
+		DataStatus:          "live",
 	}
 }
+
 

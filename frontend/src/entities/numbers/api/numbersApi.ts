@@ -3,7 +3,7 @@ import type { CuriosityGateData, NumbersIntelData, NumberValuationResult } from 
 
 export function parseNumbersFromHTML(
 	html: string,
-	rate: number = 5.5,
+	rate?: number,
 ): {
 	items: import('../model/types.js').NumberTableItem[];
 	totalPages: number;
@@ -75,7 +75,7 @@ export function parseNumbersFromHTML(
 			color_hex: colorHex,
 			color_name: 'NFT Color',
 			last_sale_ton: lastSaleTon,
-			last_sale_usd: Math.round(lastSaleTon * rate),
+			last_sale_usd: rate && rate > 0 ? Math.round(lastSaleTon * rate) : 0,
 			last_sale_date: lastSaleDate,
 			current_bid_ton: currentBidTon,
 			owners_count: ownersCount,
@@ -324,118 +324,20 @@ export const numbersApi = {
 				totalPages: number;
 			}>('/numbers/list', { params: queryParams });
 
-			if (data && Array.isArray(data.items) && data.items.length > 0) {
+			if (data && Array.isArray(data.items)) {
 				return data;
 			}
 		} catch (err) {
-			console.warn('Backend /numbers/list fetch failed, falling back to local dataset', err);
+			console.warn('Backend /numbers/list fetch failed:', err);
 		}
 
-		// 2. Procedural Fallback respecting all filters
-		const baseColors: { hex: string; name: string }[] = [
-			{ hex: '#8D66E3', name: 'Violet' },
-			{ hex: '#288576', name: 'Turquoise' },
-			{ hex: '#73589A', name: 'Purple' },
-			{ hex: '#14ACB9', name: 'Teal' },
-			{ hex: '#D35E9E', name: 'Pink' },
-			{ hex: '#5863D1', name: 'Blue' },
-			{ hex: '#7A6147', name: 'Brown' },
-			{ hex: '#111518', name: 'Black' },
-			{ hex: '#BD66DA', name: 'Lavender' },
-			{ hex: '#E06054', name: 'Red' },
-			{ hex: '#D47650', name: 'Orange' },
-			{ hex: '#984D4B', name: 'Rose' },
-			{ hex: '#6F7D8A', name: 'Gray' },
-			{ hex: '#998655', name: 'Tan' },
-			{ hex: '#66A14D', name: 'Olive' },
-			{ hex: '#43A34E', name: 'Green' },
-			{ hex: '#368DEB', name: 'Sky' },
-			{ hex: '#C49A3F', name: 'Gold' },
-			{ hex: '#3BA76E', name: 'Mint' },
-			{ hex: '#377E8A', name: 'Blue Gray' },
-		];
-
-		const itemsPerPage = 50;
-		const totalCollection = 136566;
-		const totalPages = Math.ceil(totalCollection / itemsPerPage);
-
-		const fallbackItems: import('../model/types.js').NumberTableItem[] = [];
-		const startOffset = (page - 1) * itemsPerPage;
-
-		for (let i = 0; i < itemsPerPage; i++) {
-			const idx = startOffset + i;
-			let numSuffix: string;
-			if (idx < 1000) {
-				numSuffix = String(8000 + idx);
-			} else {
-				numSuffix = String(88880000 + (idx - 1000));
-			}
-
-			if (mask) {
-				if (!numSuffix.includes(mask)) {
-					if (numSuffix.length === 4) {
-						numSuffix = String(8000 + ((idx * 17) % 1000));
-					} else {
-						numSuffix = String(88880000 + ((idx * 17) % 10000000));
-					}
-				}
-			}
-
-			let color = baseColors[idx % baseColors.length];
-			if (nftColors.length > 0) {
-				const chosenHex = nftColors[i % nftColors.length];
-				const hexWithHash = chosenHex.startsWith('#') ? chosenHex : `#${chosenHex}`;
-				const found = baseColors.find((c) => c.hex.toLowerCase() === hexWithHash.toLowerCase());
-				color = found || { hex: hexWithHash, name: 'NFT Color' };
-			}
-
-			const price = Math.round(2450 + ((idx * 13) % 45000));
-			let owners = ((idx * 7) % 8) + 1;
-			if (ownersHistory === '1') {
-				owners = 1;
-			} else if (ownersHistory === '2-3') {
-				owners = 2 + (i % 2);
-			} else if (ownersHistory === '4+') {
-				owners = 4 + (i % 5);
-			}
-
-			// ONLY true if user actively filtered by banned and not a 4-digit genesis
-			const isRestricted = numberType === 'banned' && numSuffix.length !== 4;
-
-			let currentBid: number | undefined;
-			if (saleType === 'auction' || (saleType === '' && i % 7 === 0)) {
-				currentBid = Math.round(price * 0.9);
-			}
-
-			let display = `+888 ${numSuffix}`;
-			if (numSuffix.length === 8) {
-				display = `+888 ${numSuffix.slice(0, 4)} ${numSuffix.slice(4)}`;
-			}
-
-			fallbackItems.push({
-				number: `+888${numSuffix}`,
-				display_number: display,
-				color_hex: color.hex,
-				color_name: color.name,
-				last_sale_ton: price,
-				last_sale_usd: Math.round(price * 5.5),
-				last_sale_date: 'On-Chain',
-				current_bid_ton: currentBid,
-				owners_count: owners,
-				current_owner: `EQ${numSuffix.padStart(8, '0')}...Fragment`,
-				is_restricted: isRestricted,
-				source: 'fragment',
-				market_url: `https://fragment.com/number/${numSuffix}`,
-				is_estimated: true,
-				data_status: 'estimated',
-			});
-		}
-
+		// Fail-safe transparent state: never fabricate fake assets, owners, or prices
 		return {
-			items: fallbackItems,
-			total: totalCollection,
+			items: [],
+			total: 0,
 			page,
-			totalPages,
+			totalPages: 1,
 		};
 	},
 };
+
