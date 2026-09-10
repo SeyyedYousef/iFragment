@@ -177,9 +177,10 @@ type CollectionIntelResponse struct {
 	SearchItems      []CatalogSearchItem  `json:"search_items"`
 
 	// Attribution & metadata
-	DataStatus  string   `json:"data_status"` // "live", "estimated", "unavailable"
-	DataSources []string `json:"data_sources"`
-	UpdatedAt   string   `json:"updated_at"`
+	DataSourceAttribution string   `json:"data_source_attribution"`
+	DataStatus            string   `json:"data_status"` // "live", "estimated", "unavailable"
+	DataSources           []string `json:"data_sources"`
+	UpdatedAt             string   `json:"updated_at"`
 }
 
 type CollectionModelFloor struct {
@@ -336,7 +337,7 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 
 	// 1. Fetch live metadata from api.changes.tg if available
 	var liveDetail *giftchanges.GiftDetail
-	dataSources := []string{"@GiftChanges"}
+	dataSources := []string{"@GiftChanges (api.changes.tg)", "Fragment (fragment.com)"}
 	if s.giftchangesClient != nil {
 		if detail, err := s.giftchangesClient.GetGiftDetail(ctx, normSlug); err == nil && detail != nil {
 			liveDetail = detail
@@ -1126,9 +1127,10 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		SymbolsList:        symbolsList,
 		SalesHistory:       salesHistory,
 		SearchItems:        searchItems,
-		DataStatus:         dataStatus,
-		DataSources:        dataSources,
-		UpdatedAt:          time.Now().UTC().Format(time.RFC3339),
+		DataStatus:            dataStatus,
+		DataSourceAttribution: "Data powered by @GiftChanges (api.changes.tg)",
+		DataSources:           dataSources,
+		UpdatedAt:             time.Now().UTC().Format(time.RFC3339),
 	}
 
 	if s.cache != nil && dataStatus != "unavailable" {

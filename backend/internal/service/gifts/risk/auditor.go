@@ -52,16 +52,22 @@ func AuditGiftRisk(ctx context.Context, modelID string, serialNumber int, resale
 	}
 
 	// Verify model authenticity against live official registry
-	_, isOfficial := traits.ResolveCollection(modelID)
+	col, isOfficial := traits.ResolveCollection(modelID)
+	hasContract := isOfficial && col.ContractID != ""
 	authStatus := "Verified Official Telegram Collection (Catalog Registry)"
 	if !isOfficial {
 		authStatus = "⚠️ Unofficial Collection (Possible Copycat / Spoofed Metadata)"
 	}
 
+	contractDetail := "Telegram In-App Custody / Off-Chain Metadata (TEP-62 On-Chain Verification Pending)"
+	if hasContract {
+		contractDetail = fmt.Sprintf("TEP-62 Smart Contract Verified (%s)", col.ContractID)
+	}
+
 	riskLevel := "LOW"
 	if !isOfficial {
 		riskLevel = "HIGH"
-	} else if isResellLocked || commPct > 12.0 {
+	} else if isResellLocked || commPct > 12.0 || !hasContract {
 		riskLevel = "MEDIUM"
 	}
 
@@ -98,8 +104,8 @@ func AuditGiftRisk(ctx context.Context, modelID string, serialNumber int, resale
 			Key:     "smart_contract",
 			TitleEn: "Smart Contract State",
 			TitleFa: "وضعیت قرارداد هوشمند و حضانت",
-			Passed:  true,
-			Detail:  "Telegram In-App Custody / Off-Chain Metadata (TEP-62 On-Chain Verification Pending)",
+			Passed:  hasContract,
+			Detail:  contractDetail,
 		},
 	}
 

@@ -14,7 +14,7 @@ The **iFragment Airdrop System** is a Telegram-native Game-Fi and engagement ver
 ### Historical Evolution & Deprecations:
 - **FRG Token & Marketplace Deprecation:** The platform previously had a legacy token called "FRG" and a `/marketplace` route. As of 2026, **FRG and the old marketplace have been completely deprecated** (endpoints return HTTP 410 Gone).
 - **Canonical Currency:** The sole gamified currency is **Airdrop Coins** (stored in `user_stats.airdrop_coins`). In legacy code and JSON schemas, fields named `frg_reward` or `price_frg` now strictly represent Airdrop Coins for backward compatibility.
-- **Intel Credits:** A high-tier utility currency (1 Intel Credit = 50,000 Airdrop Coins or purchaseable with Telegram Stars) used to unlock deep valuation reports.
+- **Intel Credits:** A high-tier utility currency (1 Intel Credit = 150,000 Airdrop Coins or purchaseable with Telegram Stars) used to unlock deep valuation reports. Purchasing with Coins is anchored at 150,000 to eliminate arbitrage against direct Stars purchases and bot subscriptions.
 
 ---
 
@@ -113,8 +113,8 @@ To deter automation and bots while rewarding humans, tap earnings scale down pro
   - Day 3: +2,500 Coins, 50 XP
   - Day 4: +5,000 Coins, 100 XP
   - Day 5: +10,000 Coins, 200 XP
-  - Day 6: +25,000 Coins, 300 XP
-  - Day 7: +50,000 Coins, 500 XP
+  - Day 6: +15,000 Coins, 300 XP
+  - Day 7: +25,000 Coins, 500 XP + Streak Master Badge
 
 ### 3.5. Daily Secret Word Combo
 

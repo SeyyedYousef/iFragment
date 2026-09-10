@@ -4,10 +4,12 @@ import (
 	"math"
 )
 
-// JointRarityAnalysis models multi-dimensional trait synergy and statistical surprisal
+// JointRarityAnalysis models multi-dimensional trait synergy, covariance coupling, and statistical surprisal entropy
 type JointRarityAnalysis struct {
-	JointProbability    float64 `json:"joint_probability"`     // P(Model) * P(Backdrop) * P(Symbol) * P(Serial)
+	JointProbability    float64 `json:"joint_probability"`     // P(Model) * P(Backdrop) * P(Symbol) * P(Serial) with covariance
 	SurprisalBits       float64 `json:"surprisal_bits"`        // Information entropy: -log2(P_joint)
+	SurprisalEntropy    float64 `json:"surprisal_entropy"`     // Normalized Shannon information entropy (0 to 1)
+	CovarianceCoupling  float64 `json:"covariance_coupling"`   // Cross-trait correlation coupling factor (0 to 0.25)
 	HarmonicRarityScore float64 `json:"harmonic_rarity_score"` // 0 to 100 scale
 	RarityClass         string  `json:"rarity_class"`          // "TRIPLE_GOD_TIER", "DOUBLE_GOD_TIER", "LEGENDARY_GRAIL", "EPIC_COLLECTIBLE", "RARE_CURATED", "STANDARD_FLOOR"
 	BetaSynergy         float64 `json:"beta_synergy"`          // Combinatorial super-additive hedonic bonus
@@ -15,7 +17,7 @@ type JointRarityAnalysis struct {
 	DescriptionFa       string  `json:"description_fa"`
 }
 
-// ComputeJointRarity calculates joint probability, information content (bits), and combinatorial synergy
+// ComputeJointRarity calculates joint probability, information content (bits), covariance coupling, and combinatorial synergy
 func ComputeJointRarity(totalSupply, serial, backdropPermille, symbolPermille int, craftedFlag bool) JointRarityAnalysis {
 	if totalSupply <= 0 {
 		totalSupply = 10000
@@ -32,18 +34,33 @@ func ComputeJointRarity(totalSupply, serial, backdropPermille, symbolPermille in
 
 	pBackdrop := math.Max(1.0, float64(backdropPermille)) / 1000.0
 	pSymbol := math.Max(1.0, float64(symbolPermille)) / 1000.0
-	pSerial := math.Min(1.0, math.Max(1.0, float64(serial))/float64(totalSupply))
 
-	// 2. Joint Probability: P(Joint)
-	pJoint := pModel * pBackdrop * pSymbol * pSerial
-	if pJoint < 1e-12 {
-		pJoint = 1e-12
+	// 2. Conditioned Serial Scarcity (Power-law tail concentration for prestige low serials)
+	serialExponent := 1.15
+	if serial <= 100 {
+		serialExponent = 1.30
+	}
+	pSerial := math.Pow(math.Min(1.0, math.Max(1.0, float64(serial))/float64(totalSupply)), serialExponent)
+
+	// 3. Covariance Coupling Matrix between Traits
+	// When multiple traits are in top percentiles, mutual information increases surprisal
+	traitCorrelation := 0.0
+	if backdropPermille <= 50 && symbolPermille <= 50 {
+		traitCorrelation = 0.20 * math.Sqrt((1.0-pBackdrop)*(1.0-pSymbol))
 	}
 
-	// 3. Information Surprisal: I = -log2(P_joint)
-	surprisal := -math.Log2(pJoint)
+	// 4. Joint Probability with Covariance Adjustment: P(Joint)
+	pJoint := pModel * pBackdrop * pSymbol * pSerial * (1.0 - traitCorrelation)
+	if pJoint < 1e-15 {
+		pJoint = 1e-15
+	}
 
-	// 4. Count Ultra-Rare Traits (Top 2% or 5%)
+	// 5. Information Surprisal Entropy: I = -log2(P_joint)
+	surprisal := -math.Log2(pJoint)
+	// Normalized entropy across practical max bounds (50 bits)
+	normalizedEntropy := math.Min(1.0, surprisal/50.0)
+
+	// 6. Count Ultra-Rare Traits (Top 2% or 5%)
 	rareCount := 0
 	if backdropPermille <= 20 {
 		rareCount++
@@ -58,7 +75,7 @@ func ComputeJointRarity(totalSupply, serial, backdropPermille, symbolPermille in
 		rareCount++
 	}
 
-	// 5. Combinatorial Synergy Multiplier (Super-Additive Value)
+	// 7. Combinatorial Synergy Multiplier (Super-Additive Value)
 	betaSynergy := 0.0
 	rarityClass := "STANDARD_FLOOR"
 	harmonicScore := math.Min(99.9, surprisal*3.0)
@@ -101,6 +118,8 @@ func ComputeJointRarity(totalSupply, serial, backdropPermille, symbolPermille in
 	return JointRarityAnalysis{
 		JointProbability:    pJoint,
 		SurprisalBits:       math.Round(surprisal*100.0) / 100.0,
+		SurprisalEntropy:    math.Round(normalizedEntropy*1000.0) / 1000.0,
+		CovarianceCoupling:  math.Round(traitCorrelation*1000.0) / 1000.0,
 		HarmonicRarityScore: math.Round(harmonicScore*10.0) / 10.0,
 		RarityClass:         rarityClass,
 		BetaSynergy:         math.Round(betaSynergy*100.0) / 100.0,

@@ -191,6 +191,21 @@ func GenerateHomoglyphTwins(username string, maxCount int) []HomoglyphTwinDto {
 		}
 	}
 
+	// 4. Impersonation spoofing suffixes (e.g. name_support, name_official, name_admin)
+	if len(twins) < maxCount && len(raw) <= 24 {
+		impersonationSuffixes := []string{"_support", "_official", "_admin", "_help"}
+		for _, sfx := range impersonationSuffixes {
+			candidate := raw + sfx
+			if !seen[candidate] && isValidTelegramCandidate(candidate) {
+				seen[candidate] = true
+				twins = append(twins, buildTwinDto(candidate, fmt.Sprintf("impersonation suffix '%s'", sfx)))
+				if len(twins) >= maxCount {
+					break
+				}
+			}
+		}
+	}
+
 	twinMu.Lock()
 	if len(twinCache) >= 5000 {
 		twinCache = make(map[string][]HomoglyphTwinDto)

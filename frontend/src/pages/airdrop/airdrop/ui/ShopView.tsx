@@ -89,7 +89,7 @@ export const ShopView: Component = () => {
 
 	const handleExchangeCoins = async () => {
 		const coins = wallet.coins() ?? 0;
-		const cost = wallet.config()?.coins_per_credit || 50000;
+		const cost = wallet.config()?.coins_per_credit || 150000;
 		if (coins < cost) {
 			showToast(
 				t('shop.coinsNeededMore', { count: formatNumber(cost - coins) }) ||
@@ -127,7 +127,7 @@ export const ShopView: Component = () => {
 		}
 	};
 
-	const coinsCost = () => wallet.config()?.coins_per_credit || 50000;
+	const coinsCost = () => wallet.config()?.coins_per_credit || 150000;
 	const userCoins = () => wallet.coins() ?? 0;
 	const userCredits = () => wallet.balance() ?? 0;
 	const coinProgress = () => {
@@ -346,12 +346,12 @@ export const ShopView: Component = () => {
 											{t('shop.coinExchangeTitle') || 'تبدیل سکه ایردراپ به کریدت'}
 										</h3>
 										<span class="text-[12px] font-medium text-emerald-300/80">
-											{t('shop.coinExchangeRate') || 'هر ۵۰,۰۰۰ سکه = ۱ کریدت'}
+											{t('shop.coinExchangeRate', { count: formatNumber(coinsCost()) }) || `هر ${formatNumber(coinsCost())} سکه = ۱ کریدت`}
 										</span>
 									</div>
 								</div>
 								<div class="flex items-center gap-1 bg-emerald-400/10 border border-emerald-400/20 px-2.5 py-1 rounded-full text-[11px] font-black text-emerald-300">
-									<span>۱ 💎</span>
+									<span>1 💎</span>
 								</div>
 							</div>
 
@@ -405,7 +405,7 @@ export const ShopView: Component = () => {
 										}
 									>
 										<span class="text-[18px]">⚡</span>
-										<span>{t('shop.convertBtn') || 'تبدیل ۵۰,۰۰۰ سکه به ۱ کریدت'}</span>
+										<span>{t('shop.convertBtn', { count: formatNumber(coinsCost()) }) || `تبدیل ${formatNumber(coinsCost())} سکه به ۱ کریدت`}</span>
 									</Show>
 								</Show>
 							</button>
@@ -436,7 +436,7 @@ export const ShopView: Component = () => {
 						{/* Item 1 */}
 						<div class="flex items-start gap-3 bg-white/[0.03] p-3 rounded-[16px] border border-white/5">
 							<div class="w-8 h-8 rounded-[10px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center shrink-0 text-[#0098EA] font-black text-[13px]">
-								۱
+								1
 							</div>
 							<div class="flex flex-col">
 								<span class="font-bold text-white text-[12.5px]">
@@ -452,7 +452,7 @@ export const ShopView: Component = () => {
 						{/* Item 2 */}
 						<div class="flex items-start gap-3 bg-white/[0.03] p-3 rounded-[16px] border border-white/5">
 							<div class="w-8 h-8 rounded-[10px] bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center shrink-0 text-emerald-300 font-black text-[13px]">
-								۳
+								3
 							</div>
 							<div class="flex flex-col">
 								<span class="font-bold text-white text-[12.5px]">

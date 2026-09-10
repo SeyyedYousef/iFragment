@@ -45,14 +45,17 @@ export interface ReferralLadderStep {
 }
 
 export const ECONOMY_CONFIG = {
-	// Average daily active earnings parameter E (estimated from mining + tasks)
-	BASE_DAILY_EARNING_E: 1500,
-	E_DAILY_ACTIVE_EARNINGS: 1500,
+	// Canonical Exchange Rate: 1 Intel Credit = 150,000 Airdrop Coins
+	COINS_PER_CREDIT: 150000,
 
-	// Coin price for full report purchase
-	REPORT_COIN_PRICE: 15000,
-	FIRST_REPORT_COIN_PRICE: 7500,
-	REFRESH_STALE_COIN_PRICE: 7500,
+	// Average daily active earnings parameter E
+	BASE_DAILY_EARNING_E: 15000,
+	E_DAILY_ACTIVE_EARNINGS: 15000,
+
+	// Coin price for full report purchase (equivalent to 1 Intel Credit)
+	REPORT_COIN_PRICE: 150000,
+	FIRST_REPORT_COIN_PRICE: 75000,
+	REFRESH_STALE_COIN_PRICE: 75000,
 	STALE_REPORT_DAYS_THRESHOLD: 7,
 
 	// Stars Credit Packs
@@ -107,11 +110,11 @@ export const ECONOMY_CONFIG = {
 	COIN_EXPIRY_DAYS: 30,
 	COIN_EXPIRY_WARNING_DAY: 25,
 
-	// Referral Ladder
+	// Referral Ladder (aligned with backend 10,000 Coins per invite)
 	REFERRAL_LADDER: [
-		{ invites: 1, rewardCoins: 2500, bonusCredits: 0 },
-		{ invites: 3, rewardCoins: 7500, bonusCredits: 1 },
-		{ invites: 10, rewardCoins: 30000, bonusCredits: 3 },
+		{ invites: 1, rewardCoins: 10000, bonusCredits: 0 },
+		{ invites: 3, rewardCoins: 30000, bonusCredits: 1 },
+		{ invites: 10, rewardCoins: 100000, bonusCredits: 3 },
 	] as ReferralLadderStep[],
 };
 

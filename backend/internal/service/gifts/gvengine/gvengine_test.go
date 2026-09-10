@@ -211,7 +211,7 @@ func TestGVEngine_NormalizeGiftIdentifier(t *testing.T) {
 		{"durov_cap-1", "durov_cap", 1, false},
 		{"durov-cap-100", "durov_cap", 100, false},
 		{"Durov's Cap #7", "durov_cap", 7, false},
-		{"plush-pepe", "plush_pepe", 1, false},
+		{"plush-pepe", "", 0, true},
 		{"PlushPepe1", "plush_pepe", 1, false},
 		{"@someone", "", 0, true},
 		{"plush-pepe-0", "", 0, true},

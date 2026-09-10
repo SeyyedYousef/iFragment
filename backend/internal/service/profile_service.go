@@ -582,29 +582,46 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		return nil, fmt.Errorf("tap count exceeds maximum limit per request")
 	}
 
-	// 1. Replay Prevention via single-use Nonce (Redis SETNX with 5-minute TTL)
-	if s.cache != nil && s.cache.Client != nil && nonce != "" {
+	// 1. Replay Prevention via single-use Nonce (minimum 16 chars / 128-bit entropy, Redis SETNX with 5-min TTL)
+	if strings.TrimSpace(nonce) == "" || len(strings.TrimSpace(nonce)) < 16 {
+		return nil, fmt.Errorf("invalid_nonce: nonce is required with minimum 16 characters")
+	}
+	if s.cache != nil && s.cache.Client != nil {
 		nonceKey := fmt.Sprintf("tap:nonce:%d:%s", userID, nonce)
 		set, err := s.cache.Client.SetNX(ctx, nonceKey, "1", 5*time.Minute).Result()
-		if err == nil && !set {
+		if err != nil {
+			slog.Error("Redis SetNX error in AddTaps nonce check", "user", userID, "err", err)
+			if os.Getenv("ENV") == "production" {
+				return nil, fmt.Errorf("replay_check_unavailable: cache error in production")
+			}
+		} else if !set {
 			return nil, fmt.Errorf("replay_detected: duplicate request nonce")
 		}
+	} else if os.Getenv("ENV") == "production" {
+		return nil, fmt.Errorf("replay_check_unavailable: cache is unavailable in production")
 	}
 
-	// 2. Client Timestamp Freshness Verification (max 120s skew, supports seconds & milliseconds)
-	if clientTS > 0 {
-		// If client sent timestamp in milliseconds (> 100 billion), convert to seconds
-		if clientTS > 100000000000 {
-			clientTS = clientTS / 1000
-		}
-		nowUnix := time.Now().Unix()
-		diff := nowUnix - clientTS
-		if diff < -120 || diff > 120 {
-			return nil, fmt.Errorf("clock_skew: timestamp is outside the valid 120s freshness window")
-		}
+	// 2. Client Timestamp Freshness Verification (strict ±30s window, supports seconds & milliseconds)
+	if clientTS <= 0 {
+		return nil, fmt.Errorf("invalid_timestamp: timestamp is required")
+	}
+	clientSec := clientTS
+	if clientSec > 100000000000 {
+		clientSec = clientSec / 1000
+	}
+	nowUnix := time.Now().Unix()
+	diff := nowUnix - clientSec
+	if diff < -30 || diff > 30 {
+		return nil, fmt.Errorf("clock_skew: timestamp is outside the valid 30s freshness window")
 	}
 
-	// 3. Fetch user boosts, energy status, turbo status, and premium flag
+	// 3. Begin atomic database transaction with row-level locking (FOR UPDATE)
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start tap transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
 	var multitapLevel, energyLimitLevel int
 	var storedEnergy int
 	var energyUpdatedAt time.Time
@@ -612,7 +629,7 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 	var dailyTappedCoins float64
 	var isPremium bool
 
-	err := s.db.Pool.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT 
 			COALESCE(b.multitap_level, 1), 
 			COALESCE(b.energy_limit_level, 1),
@@ -626,12 +643,10 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		LEFT JOIN user_boosts b ON s.user_id = b.user_id
 		LEFT JOIN user_daily_boosts udb ON udb.user_id = s.user_id AND udb.day = CURRENT_DATE
 		WHERE s.user_id = $1
+		FOR UPDATE OF s
 	`, userID).Scan(&multitapLevel, &energyLimitLevel, &storedEnergy, &energyUpdatedAt, &turboExpiresAt, &dailyTappedCoins, &isPremium)
 	if err != nil {
-		multitapLevel = 1
-		energyLimitLevel = 1
-		storedEnergy = 500
-		energyUpdatedAt = time.Now()
+		return nil, fmt.Errorf("failed to lock and fetch user stats: %w", err)
 	}
 
 	// 4. Server-authoritative Turbo Verification
@@ -684,9 +699,9 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		}
 	}
 
-	// Save decremented energy and increment total taps
+	// Save decremented energy and increment total taps atomically
 	newEnergy := currentEnergy - energyConsumed
-	_, err = s.db.Pool.Exec(ctx, `
+	_, err = tx.Exec(ctx, `
 		UPDATE user_stats
 		SET energy = $1,
 		    energy_updated_at = now(),
@@ -701,13 +716,17 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 	// Exact coins earned with authoritative fatigue & pro multiplier
 	coinsEarned := float64(taps*multitapLevel*effectiveMultiplier) * fatigueMultiplier * proMultiplier
 
-	// Update daily tapped coins in user_daily_boosts
-	_, _ = s.db.Pool.Exec(ctx, `
+	// Update daily tapped coins in user_daily_boosts atomically
+	_, _ = tx.Exec(ctx, `
 		INSERT INTO user_daily_boosts (user_id, day, tapped_coins)
 		VALUES ($1, CURRENT_DATE, $2)
 		ON CONFLICT (user_id, day) DO UPDATE
 		SET tapped_coins = user_daily_boosts.tapped_coins + $2
 	`, userID, coinsEarned)
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit tap transaction: %w", err)
+	}
 
 	redisFailed := false
 	if s.cache != nil && s.cache.Client != nil {
@@ -725,15 +744,15 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 	}
 
 	if s.cache == nil || s.cache.Client == nil || redisFailed {
-		// Fallback to direct DB update if Redis is unavailable or failed
+		// Fallback to direct DB update if Redis is unavailable or failed.
+		// Note: total_taps was already updated in the atomic tx above, do NOT increment again!
 		_, err = s.db.Pool.Exec(ctx, `
 			UPDATE user_stats
-			SET total_taps = COALESCE(total_taps, 0) + $1,
-			    xp = COALESCE(xp, 0) + $2,
-			    airdrop_coins = COALESCE(airdrop_coins, 0) + $3,
-			    total_coins_earned = COALESCE(total_coins_earned, 0) + $3
-			WHERE user_id = $4`,
-			taps, int(coinsEarned), coinsEarned, userID,
+			SET xp = COALESCE(xp, 0) + $1,
+			    airdrop_coins = COALESCE(airdrop_coins, 0) + $2,
+			    total_coins_earned = COALESCE(total_coins_earned, 0) + $2
+			WHERE user_id = $3`,
+			int(coinsEarned), coinsEarned, userID,
 		)
 		if err != nil {
 			slog.Error("Direct DB update fallback failed in AddTaps", "user", userID, "err", err)
@@ -1024,6 +1043,23 @@ func (s *ProfileService) DeleteUserDataGDPR(ctx context.Context, userID int64) e
 		pipe.Del(ctx, fmt.Sprintf("boosts:%d", userID))
 		pipe.Del(ctx, fmt.Sprintf("profile:assets:%d", userID))
 		_, _ = pipe.Exec(ctx)
+
+		// Purge all user refresh sessions from Redis via SCAN
+		pattern := fmt.Sprintf("user_refresh:%d:*", userID)
+		var cursor uint64
+		for {
+			batch, nextCursor, err := s.cache.Client.Scan(ctx, cursor, pattern, 50).Result()
+			if err != nil {
+				break
+			}
+			if len(batch) > 0 {
+				s.cache.Client.Del(ctx, batch...)
+			}
+			cursor = nextCursor
+			if cursor == 0 {
+				break
+			}
+		}
 	}
 
 	return nil

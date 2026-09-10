@@ -79,6 +79,10 @@ func (h *GiftsHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 
 	val, err := h.service.ValuateGift(ctx, userID, giftID)
 	if err != nil {
+		if errors.Is(err, gifts.ErrReportLocked) {
+			RespondError(w, r, http.StatusPaymentRequired, "report is locked; unlock with credit or coins", err)
+			return
+		}
 		RespondError(w, r, http.StatusInternalServerError, "gift valuation failed", err)
 		return
 	}

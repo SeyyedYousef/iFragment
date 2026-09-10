@@ -331,25 +331,16 @@ func TestSettingsCallbackDataLength(t *testing.T) {
 
 
 func TestGroupMigrationLogic(t *testing.T) {
-	mainBotID := uuid.New()
-	userBotID := uuid.New()
 	adminUserID := int64(999999999)
 	userAID := int64(123456789)
 
 	mainBot := &repository.ManagedBot{
-		ID:          mainBotID,
-		BotID:       777000111,
 		BotUsername: "iFragmentBot",
 		OwnerUserID: adminUserID,
-		Status:      "active",
 	}
 
 	userBot := &repository.ManagedBot{
-		ID:          userBotID,
-		BotID:       888000222,
-		BotUsername: "UserCustomBot",
 		OwnerUserID: userAID,
-		Status:      "active",
 	}
 
 	// 1. Verify that replacing iFragmentBot with userBot is identified as a valid migration

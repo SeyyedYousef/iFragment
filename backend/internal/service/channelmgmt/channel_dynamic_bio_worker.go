@@ -11,19 +11,26 @@ import (
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
+
+	"github.com/google/uuid"
 )
 
 type DynamicBioConfig struct {
 	Enabled           bool        `json:"enabled"`
-	BioTemplate       string      `json:"bioTemplate"`
+	Target            string      `json:"target,omitempty"` // "input" or "output"
+	BioTemplate       string      `json:"bioTemplate,omitempty"`
+	BioTemplateSnake string      `json:"bio_template,omitempty"`
 	DisplayInName     bool        `json:"displayInName"`
-	NameTemplate      string      `json:"nameTemplate"`
+	DisplayInNameS    bool        `json:"display_in_name,omitempty"`
+	NameTemplate      string      `json:"nameTemplate,omitempty"`
+	NameTemplateSnake string     `json:"name_template,omitempty"`
 	Interval          interface{} `json:"interval"` // "10m", "30m", "1h", "24h" or minutes integer
 	EnableCountdown   bool        `json:"enableCountdown"`
-	EventName         string      `json:"eventName"`
-	TargetDate        string      `json:"targetDate"`
-	CountdownLocation string      `json:"countdownLocation"`
-	PostExpiryText    string      `json:"postExpiryText"`
+	EnableCountdownS  bool        `json:"enable_countdown,omitempty"`
+	EventName         string      `json:"eventName,omitempty"`
+	TargetDate        string      `json:"targetDate,omitempty"`
+	CountdownLocation string      `json:"countdownLocation,omitempty"`
+	PostExpiryText    string      `json:"postExpiryText,omitempty"`
 }
 
 func (s *ChannelService) dynamicBioWorker(ctx context.Context) {
@@ -57,7 +64,95 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 		}
 	}()
 
-	// Fetch all connected channels
+	// 1. Process Dynamic Bio for Projects (Controlled exclusively at the Project level)
+	projects, pErr := s.channelRepo.GetAllActiveProjects(ctx)
+	if pErr == nil && len(projects) > 0 {
+		for _, p := range projects {
+			if !isProjectSubscriptionValid(p) || len(p.PipelineConfig) == 0 {
+				continue
+			}
+
+			var pCfg map[string]interface{}
+			if err := json.Unmarshal(p.PipelineConfig, &pCfg); err != nil {
+				continue
+			}
+
+			bioRaw, hasBio := pCfg["dynamic_bio"]
+			if !hasBio || bioRaw == nil {
+				continue
+			}
+
+			bioBytes, _ := json.Marshal(bioRaw)
+			var config DynamicBioConfig
+			if err := json.Unmarshal(bioBytes, &config); err != nil || !config.Enabled {
+				continue
+			}
+
+			// Resolve target channel: Input vs Output
+			var targetChatID int64
+			var targetChannelID *uuid.UUID
+			targetType := strings.ToLower(strings.TrimSpace(config.Target))
+			if targetType == "input" {
+				if p.SourceChatID != nil && *p.SourceChatID != 0 {
+					targetChatID = *p.SourceChatID
+				}
+				targetChannelID = p.SourceChannelID
+			} else {
+				// Default to output channel
+				if p.TargetChatID != nil && *p.TargetChatID != 0 {
+					targetChatID = *p.TargetChatID
+				}
+				targetChannelID = p.TargetChannelID
+			}
+
+			if targetChatID == 0 && targetChannelID != nil {
+				if ch, chErr := s.channelRepo.GetChannelByID(ctx, *targetChannelID); chErr == nil && ch != nil {
+					targetChatID = ch.ChatID
+				}
+			}
+
+			if targetChatID == 0 {
+				continue
+			}
+
+			// Interval check
+			cacheKey := fmt.Sprintf("proj_bio:%s:%s", p.ID.String(), targetType)
+			lastUpdateVal, ok := s.lastBioUpdate.Load(cacheKey)
+			intervalMinutes, err := normalizeDynamicBioInterval(config.Interval)
+			if err != nil || intervalMinutes < 10 {
+				intervalMinutes = 10
+			}
+			intervalDuration := time.Duration(intervalMinutes) * time.Minute
+
+			if ok {
+				lastUpdate := lastUpdateVal.(time.Time)
+				if time.Since(lastUpdate) < intervalDuration {
+					continue
+				}
+			}
+
+			// Resolve bot client for target channel
+			_, tg := s.resolveBotClientForChat(ctx, targetChatID, nil)
+			if tg == nil {
+				continue
+			}
+
+			s.wg.Add(1)
+			configCopy := config
+			targetChatIDCopy := targetChatID
+			cacheKeyCopy := cacheKey
+			GoSafe(func() {
+				defer s.wg.Done()
+				bgCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+				defer cancel()
+				s.updateChatDynamicBio(bgCtx, targetChatIDCopy, cacheKeyCopy, configCopy, tg)
+			})
+
+			s.lastBioUpdate.Store(cacheKey, time.Now())
+		}
+	}
+
+	// 2. Fetch all connected channels (Legacy Channel Settings fallback)
 	channels, err := s.channelRepo.GetAllChannels(ctx)
 	if err != nil {
 		slog.Error("Failed to list channels for dynamic bio", "error", err)
@@ -66,7 +161,7 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 
 	for _, ch := range channels {
 		// Quick local cache check to skip DB query if updated very recently
-		lastUpdateVal, ok := s.lastBioUpdate.Load(ch.ID)
+		lastUpdateVal, ok := s.lastBioUpdate.Load(ch.ID.String())
 		if ok {
 			lastUpdate := lastUpdateVal.(time.Time)
 			if time.Since(lastUpdate) < 9*time.Minute {
@@ -113,7 +208,7 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 			s.updateChannelDynamicBio(bgCtx, &chCopy, configCopy)
 		})
 
-		s.lastBioUpdate.Store(ch.ID, time.Now())
+		s.lastBioUpdate.Store(ch.ID.String(), time.Now())
 	}
 }
 
@@ -129,10 +224,13 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 	}
 
 	tg := telegram.NewBotAPIClient(token)
+	s.updateChatDynamicBio(ctx, ch.ChatID, ch.ID.String(), config, tg)
+}
 
+func (s *ChannelService) updateChatDynamicBio(ctx context.Context, chatID int64, entityKey string, config DynamicBioConfig, tg *telegram.BotAPIClient) {
 	// Fetch variables
 	memberCount := "0"
-	if count, err := tg.GetChatMemberCount(ctx, ch.ChatID); err == nil {
+	if count, err := tg.GetChatMemberCount(ctx, chatID); err == nil {
 		memberCount = fmt.Sprintf("%d", count)
 	}
 
@@ -142,7 +240,7 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 	dayStr := now.Format("Monday")
 
 	countdownStr := ""
-	if config.EnableCountdown && config.TargetDate != "" {
+	if (config.EnableCountdown || config.EnableCountdownS) && config.TargetDate != "" {
 		targetTime, err := time.Parse("2006-01-02", config.TargetDate)
 		if err == nil {
 			nowZero := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
@@ -165,6 +263,16 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 		}
 	}
 
+	bioTmpl := config.BioTemplate
+	if bioTmpl == "" {
+		bioTmpl = config.BioTemplateSnake
+	}
+	nameTmpl := config.NameTemplate
+	if nameTmpl == "" {
+		nameTmpl = config.NameTemplateSnake
+	}
+	displayInName := config.DisplayInName || config.DisplayInNameS
+
 	replaceVars := func(template string) string {
 		res := template
 		res = strings.ReplaceAll(res, "$members", memberCount)
@@ -185,34 +293,34 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 		return res
 	}
 
-	if config.BioTemplate != "" {
-		newBio := replaceVars(config.BioTemplate)
+	if bioTmpl != "" {
+		newBio := replaceVars(bioTmpl)
 		if len(newBio) > 255 {
 			newBio = newBio[:255]
 		}
-		lastBio, _ := s.lastBioContent.Load(ch.ID)
+		lastBio, _ := s.lastBioContent.Load(entityKey)
 		if lastBio != newBio {
-			if err := tg.SetChatDescription(ctx, ch.ChatID, newBio); err != nil {
-				slog.Error("Failed to update channel bio", "channelID", ch.ChatID, "error", err)
+			if err := tg.SetChatDescription(ctx, chatID, newBio); err != nil {
+				slog.Error("Failed to update chat bio", "chatID", chatID, "error", err)
 			} else {
-				s.lastBioContent.Store(ch.ID, newBio)
-				slog.Info("Successfully updated channel dynamic bio", "channelID", ch.ChatID)
+				s.lastBioContent.Store(entityKey, newBio)
+				slog.Info("Successfully updated chat dynamic bio", "chatID", chatID)
 			}
 		}
 	}
 
-	if config.DisplayInName && config.NameTemplate != "" {
-		newName := replaceVars(config.NameTemplate)
+	if displayInName && nameTmpl != "" {
+		newName := replaceVars(nameTmpl)
 		if len(newName) > 128 {
 			newName = newName[:128]
 		}
-		lastTitle, _ := s.lastTitleContent.Load(ch.ID)
+		lastTitle, _ := s.lastTitleContent.Load(entityKey)
 		if lastTitle != newName {
-			if err := tg.SetChatTitle(ctx, ch.ChatID, newName); err != nil {
-				slog.Error("Failed to update channel title", "channelID", ch.ChatID, "error", err)
+			if err := tg.SetChatTitle(ctx, chatID, newName); err != nil {
+				slog.Error("Failed to update chat title", "chatID", chatID, "error", err)
 			} else {
-				s.lastTitleContent.Store(ch.ID, newName)
-				slog.Info("Successfully updated channel dynamic title", "channelID", ch.ChatID)
+				s.lastTitleContent.Store(entityKey, newName)
+				slog.Info("Successfully updated chat dynamic title", "chatID", chatID)
 			}
 		}
 	}

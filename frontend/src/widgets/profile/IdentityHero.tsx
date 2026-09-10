@@ -128,7 +128,7 @@ export const IdentityHero = (props: Props) => {
 									src={avatarUrl()}
 									alt={displayName()}
 									class="w-full h-full object-cover transition-opacity duration-300"
-									loading="lazy"
+									loading="eager"
 									referrerPolicy="no-referrer"
 									onError={() => {
 										if (!imgError()) {
@@ -148,8 +148,18 @@ export const IdentityHero = (props: Props) => {
 						onClick={handleOpenEmojiModal}
 						class="absolute -bottom-1 -right-1 w-7 h-7 bg-[#12141C] hover:bg-[#1A1D27] active:scale-90 border border-white/20 rounded-full flex items-center justify-center text-[14px] shadow-lg transition-all"
 						title={t('emoji.setStatus' as any) || 'Set Telegram Emoji Status'}
+						aria-label={t('emoji.setStatus' as any) || 'Set Telegram Emoji Status'}
 					>
-						<span>{props.stats?.emojiStatus || '⭐️'}</span>
+						<Show
+							when={props.stats?.emojiStatus}
+							fallback={
+								<span class="material-symbols-outlined text-[14px] text-white/60">
+									add_reaction
+								</span>
+							}
+						>
+							<span>{props.stats?.emojiStatus}</span>
+						</Show>
 					</button>
 				</div>
 

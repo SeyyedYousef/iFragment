@@ -119,13 +119,53 @@ func (s *AutoResponderService) getAutoResponderMarkup(ctx context.Context, chann
 	return nil
 }
 
-// ProcessMessage evaluates a message against the auto-responder rules for a channel.
+// ProcessMessage evaluates a message against the auto-responder rules for a project or channel.
 // Returns true if an auto-response was triggered and sent.
 func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, messageID int, text string) (bool, error) {
 	if text == "" {
 		return false, nil
 	}
 
+	// 1. Check Project-level auto-responder rules first
+	if projects, pErr := s.channelRepo.GetAllActiveProjects(ctx); pErr == nil && len(projects) > 0 {
+		for _, p := range projects {
+			if !isProjectSubscriptionValid(p) || len(p.PipelineConfig) == 0 {
+				continue
+			}
+			var pCfg map[string]interface{}
+			if err := json.Unmarshal(p.PipelineConfig, &pCfg); err != nil {
+				continue
+			}
+			arRaw, ok := pCfg["auto_responder"]
+			if !ok || arRaw == nil {
+				continue
+			}
+			arBytes, _ := json.Marshal(arRaw)
+			var schema AutoResponderSchema
+			if err := json.Unmarshal(arBytes, &schema); err != nil || !schema.Enabled {
+				continue
+			}
+
+			targetType := strings.ToLower(strings.TrimSpace(schema.Target))
+			isMatch := false
+			if targetType == "input" {
+				if p.SourceChatID != nil && *p.SourceChatID == chatID {
+					isMatch = true
+				}
+			} else {
+				// default to output channel
+				if p.TargetChatID != nil && *p.TargetChatID == chatID {
+					isMatch = true
+				}
+			}
+
+			if isMatch {
+				return s.executeRules(ctx, tg, p.ID, chatID, messageID, text, schema, nil)
+			}
+		}
+	}
+
+	// 2. Fallback to channel-level settings
 	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
 	if err != nil || settings == nil {
 		return false, err
@@ -144,6 +184,10 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 		return false, nil
 	}
 
+	return s.executeRules(ctx, tg, channelID, chatID, messageID, text, schema, settings.General)
+}
+
+func (s *AutoResponderService) executeRules(ctx context.Context, tg *telegram.BotAPIClient, entityID uuid.UUID, chatID int64, messageID int, text string, schema AutoResponderSchema, generalRaw json.RawMessage) (bool, error) {
 	textLower := strings.ToLower(text)
 
 	for _, rule := range schema.Rules {
@@ -153,24 +197,37 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 
 		matched := false
 
-		switch rule.Match {
+		keys := rule.Keys
+		if keys == "" {
+			keys = rule.Trigger
+		}
+
+		matchType := rule.Match
+		if matchType == "" {
+			matchType = rule.Type
+		}
+		if matchType == "" {
+			matchType = "contains"
+		}
+
+		switch matchType {
 		case "exact":
-			matched = strings.ToLower(rule.Keys) == textLower
+			matched = strings.ToLower(keys) == textLower
 		case "contains":
-			keys := strings.Split(rule.Keys, ",")
-			for _, key := range keys {
+			parts := strings.Split(keys, ",")
+			for _, key := range parts {
 				if strings.Contains(textLower, strings.ToLower(strings.TrimSpace(key))) {
 					matched = true
 					break
 				}
 			}
 		case "regex":
-			re, err := regexp.Compile("(?i)" + rule.Keys)
+			re, err := regexp.Compile("(?i)" + keys)
 			if err == nil && re.MatchString(text) {
 				matched = true
 			}
 		case "keyword":
-			pattern := `(?i)(^|[\s\p{P}])` + regexp.QuoteMeta(rule.Keys) + `([\s\p{P}]|$)`
+			pattern := `(?i)(^|[\s\p{P}])` + regexp.QuoteMeta(keys) + `([\s\p{P}]|$)`
 			if re, err := regexp.Compile(pattern); err == nil {
 				if re.MatchString(text) {
 					matched = true
@@ -183,11 +240,11 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 		if matched {
 			replyText := rule.ReplyText
 			if replyText == "" {
-				replyText = rule.Response // fallback if schema has 'response' instead of 'replyText'
+				replyText = rule.Response
 			}
 
-			if rule.UseAI || rule.Match == "ai" {
-				aiReply, err := s.generateAIResponse(ctx, channelID, text, replyText)
+			if rule.UseAI || matchType == "ai" {
+				aiReply, err := s.generateAIResponse(ctx, entityID, text, replyText)
 				if err == nil && strings.TrimSpace(aiReply) != "" {
 					replyText = aiReply
 				}
@@ -202,7 +259,7 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 						cache.Client.Expire(ctx, rlKey, 1*time.Minute)
 					}
 					if count > 5 {
-						dropKey := fmt.Sprintf("ar_stats:drops:%s:%s", channelID.String(), time.Now().Format("2006-01-02"))
+						dropKey := fmt.Sprintf("ar_stats:drops:%s:%s", entityID.String(), time.Now().Format("2006-01-02"))
 						_ = cache.Client.Incr(ctx, dropKey)
 						_ = cache.Client.Expire(ctx, dropKey, 48*time.Hour)
 						slog.Warn("Auto-Responder rate limit exceeded", "chat_id", chatID)
@@ -211,30 +268,31 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 				}
 
 				// Send the reply with inline keyboard markup if configured
-				markup := s.getAutoResponderMarkup(ctx, channelID, schema.AttachButton)
+				markup := s.getAutoResponderMarkup(ctx, entityID, schema.AttachButton)
 				res, err := tg.SendMessageWithReplyAndMarkup(ctx, chatID, replyText, &messageID, markup, nil)
 				if err != nil {
 					slog.Error("failed to send auto response", "error", err, "chat_id", chatID, "message_id", messageID)
 				} else if res != nil {
 					if cache := s.channelRepo.GetCache(); cache != nil && cache.Client != nil {
-						respKey := fmt.Sprintf("ar_stats:responses:%s:%s", channelID.String(), time.Now().Format("2006-01-02"))
+						respKey := fmt.Sprintf("ar_stats:responses:%s:%s", entityID.String(), time.Now().Format("2006-01-02"))
 						_ = cache.Client.Incr(ctx, respKey)
 						_ = cache.Client.Expire(ctx, respKey, 48*time.Hour)
 					}
 					// Handle Auto Delete
-					var general map[string]interface{}
-					if json.Unmarshal(settings.General, &general) == nil {
-						// Frontend sends 'autoDelete' as the timer in seconds (0 means disabled)
-						if autoDeleteTimer, ok := general["autoDelete"].(float64); ok && autoDeleteTimer > 0 {
-							time.AfterFunc(time.Duration(autoDeleteTimer)*time.Second, func() {
-								_ = tg.DeleteMessage(context.Background(), chatID, res.MessageID)
-							})
-						} else if autoDeleteStr, ok := general["autoDeleteTimer"].(string); ok && autoDeleteStr != "0" && autoDeleteStr != "" {
-							var timerSecs float64
-							if _, err := fmt.Sscanf(autoDeleteStr, "%f", &timerSecs); err == nil && timerSecs > 0 {
-								time.AfterFunc(time.Duration(timerSecs)*time.Second, func() {
+					if len(generalRaw) > 0 {
+						var general map[string]interface{}
+						if json.Unmarshal(generalRaw, &general) == nil {
+							if autoDeleteTimer, ok := general["autoDelete"].(float64); ok && autoDeleteTimer > 0 {
+								time.AfterFunc(time.Duration(autoDeleteTimer)*time.Second, func() {
 									_ = tg.DeleteMessage(context.Background(), chatID, res.MessageID)
 								})
+							} else if autoDeleteStr, ok := general["autoDeleteTimer"].(string); ok && autoDeleteStr != "0" && autoDeleteStr != "" {
+								var timerSecs float64
+								if _, err := fmt.Sscanf(autoDeleteStr, "%f", &timerSecs); err == nil && timerSecs > 0 {
+									time.AfterFunc(time.Duration(timerSecs)*time.Second, func() {
+										_ = tg.DeleteMessage(context.Background(), chatID, res.MessageID)
+									})
+								}
 							}
 						}
 					}
@@ -296,8 +354,46 @@ func (s *AutoResponderService) ProcessNewMember(ctx context.Context, tg *telegra
 	return true, nil
 }
 
-// ProcessAutoFirstComment leaves an automatic first comment on a linked discussion group
 func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, messageID int, postText ...string) (bool, error) {
+	// 1. Check Project-level first comment configuration first
+	if projects, pErr := s.channelRepo.GetAllActiveProjects(ctx); pErr == nil && len(projects) > 0 {
+		for _, p := range projects {
+			if !isProjectSubscriptionValid(p) || len(p.PipelineConfig) == 0 {
+				continue
+			}
+			var pCfg map[string]interface{}
+			if err := json.Unmarshal(p.PipelineConfig, &pCfg); err != nil {
+				continue
+			}
+			arRaw, ok := pCfg["auto_responder"]
+			if !ok || arRaw == nil {
+				continue
+			}
+			arBytes, _ := json.Marshal(arRaw)
+			var schema AutoResponderSchema
+			if err := json.Unmarshal(arBytes, &schema); err != nil || !schema.Enabled || !schema.AutoFirstComment {
+				continue
+			}
+
+			targetType := strings.ToLower(strings.TrimSpace(schema.Target))
+			isMatch := false
+			if targetType == "input" {
+				if (p.SourceChatID != nil && *p.SourceChatID == chatID) || (p.SourceChannelID != nil && *p.SourceChannelID == channelID) {
+					isMatch = true
+				}
+			} else {
+				if (p.TargetChatID != nil && *p.TargetChatID == chatID) || (p.TargetChannelID != nil && *p.TargetChannelID == channelID) {
+					isMatch = true
+				}
+			}
+
+			if isMatch {
+				return s.executeFirstComment(ctx, tg, p.ID, chatID, messageID, schema, postText...)
+			}
+		}
+	}
+
+	// 2. Fallback to channel-level settings
 	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
 	if err != nil || settings == nil || len(settings.AutoResponder) == 0 {
 		return false, err
@@ -312,6 +408,10 @@ func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *
 		return false, nil
 	}
 
+	return s.executeFirstComment(ctx, tg, channelID, chatID, messageID, schema, postText...)
+}
+
+func (s *AutoResponderService) executeFirstComment(ctx context.Context, tg *telegram.BotAPIClient, entityID uuid.UUID, chatID int64, messageID int, schema AutoResponderSchema, postText ...string) (bool, error) {
 	var replyText string
 	switch schema.CommentMode {
 	case "fixed":
@@ -326,7 +426,7 @@ func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *
 			textContext = postText[0]
 		}
 		if textContext != "" {
-			aiText, err := s.generateAIComment(ctx, channelID, textContext)
+			aiText, err := s.generateAIComment(ctx, entityID, textContext)
 			if err == nil && strings.TrimSpace(aiText) != "" {
 				replyText = aiText
 			}
@@ -343,8 +443,8 @@ func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *
 		return false, nil
 	}
 
-	markup := s.getAutoResponderMarkup(ctx, channelID, schema.AttachButton)
-	_, err = tg.SendMessageWithReplyAndMarkup(ctx, chatID, replyText, &messageID, markup, nil)
+	markup := s.getAutoResponderMarkup(ctx, entityID, schema.AttachButton)
+	_, err := tg.SendMessageWithReplyAndMarkup(ctx, chatID, replyText, &messageID, markup, nil)
 	if err != nil {
 		slog.Error("failed to send auto first comment", "error", err, "chat_id", chatID, "message_id", messageID)
 		return false, err

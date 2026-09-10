@@ -441,9 +441,21 @@ func (s *ChannelService) processScrapedPostForProject(ctx context.Context, p *re
 		}
 	}
 
-	if targetChatID == 0 {
-		slog.Warn("Scraped post has no valid target chat ID for project", "project_id", p.ID)
-		return
+	if targetChatID == 0 && len(p.PipelineConfig) > 0 {
+		var cfg map[string]interface{}
+		if json.Unmarshal(p.PipelineConfig, &cfg) == nil {
+			if tgt, ok := cfg["target_channel_identifier"].(string); ok && tgt != "" {
+				cleanTgt := CleanChannelUsername(tgt)
+				if numID, err := strconv.ParseInt(cleanTgt, 10, 64); err == nil {
+					targetChatID = numID
+				} else {
+					if tc, err := s.channelRepo.GetManagedChannelByChatIDOrUsername(ctx, cleanTgt); err == nil && tc != nil {
+						targetChatID = tc.ChatID
+						botID = tc.BotID
+					}
+				}
+			}
+		}
 	}
 
 	var bot *repository.ManagedBot
@@ -547,6 +559,40 @@ func (s *ChannelService) processScrapedPostForProject(ctx context.Context, p *re
 		autoPublish = *pCfg.AutoPublish
 	}
 
+	var srcChatID int64
+	if p.SourceChatID != nil {
+		srcChatID = *p.SourceChatID
+	}
+	contentItem := repository.ContentItem{
+		ProjectID:       p.ID,
+		SourceChatID:    srcChatID,
+		SourceMessageID: post.MessageID,
+		Status:          "awaiting_review",
+		ReceivedAt:      time.Now(),
+	}
+	if autoPublish && targetChatID != 0 {
+		contentItem.Status = "publishing"
+	}
+	_ = s.channelRepo.CreateContentItem(ctx, &contentItem)
+
+	var mediaList []repository.FunnelMediaItem
+	if post.PhotoURL != "" && !pCfg.DropMedia {
+		mediaList = append(mediaList, repository.FunnelMediaItem{FileID: post.PhotoURL, Type: "photo"})
+	}
+	mediaBytes, _ := json.Marshal(mediaList)
+	buttonsBytes, _ := json.Marshal(buttonsMarkup)
+	transfBytes, _ := json.Marshal(pCfg)
+
+	contentRev := repository.ContentRevision{
+		ContentItemID:   contentItem.ID,
+		Version:         1,
+		Text:            processedText,
+		MediaManifest:   mediaBytes,
+		Buttons:         buttonsBytes,
+		Transformations: transfBytes,
+	}
+	_ = s.channelRepo.CreateContentRevision(ctx, &contentRev)
+
 	if autoPublish {
 		var pubMsgID int64
 		var sendErr error
@@ -577,6 +623,21 @@ func (s *ChannelService) processScrapedPostForProject(ctx context.Context, p *re
 			slog.Error("Failed to publish scraped post to target channel", "project_id", p.ID, "target_chat", targetChatID, "error", sendErr)
 			return
 		}
+
+		now := time.Now()
+		del := repository.Delivery{
+			ProjectID:         p.ID,
+			ContentItemID:     &contentItem.ID,
+			DestinationChatID: targetChatID,
+			TelegramMessageID: &pubMsgID,
+			RevisionID:        &contentRev.ID,
+			CreatedByBot:      true,
+			Status:            "delivered",
+			IdempotencyKey:    fmt.Sprintf("%s:%d", p.ID, post.MessageID),
+			PublishedAt:       &now,
+		}
+		_ = s.channelRepo.CreateDelivery(ctx, &del)
+		_ = s.channelRepo.UpdateContentItemStatus(ctx, contentItem.ID, "published")
 
 		slog.Info("Successfully published scraped post to target channel", "project_id", p.ID, "target_chat", targetChatID, "msg_id", pubMsgID)
 

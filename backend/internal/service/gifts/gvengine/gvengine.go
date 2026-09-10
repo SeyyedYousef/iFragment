@@ -161,12 +161,7 @@ func NormalizeGiftIdentifier(raw string) (*ParsedGiftRef, error) {
 			modelID = traits.NormalizeSlug(cleanModel)
 		}
 		if modelID != "" {
-			return &ParsedGiftRef{
-				GiftID:       fmt.Sprintf("%s-1", modelID),
-				ModelID:      modelID,
-				SerialNumber: 1,
-				RawInput:     raw,
-			}, nil
+			return nil, fmt.Errorf("collection name '%s' provided without serial number; please specify serial number (e.g. %s-1)", cleanModel, modelID)
 		}
 	}
 
@@ -380,26 +375,31 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	var backdropColors traits.BackdropColorSet
 	var backdropPermille int
 
-	// Check if traits exist in database
+	// Check if traits exist in database to calculate model baseline averages
 	dbTraits, _ := e.giftsRepo.GetGiftTraits(ctx, ref.ModelID)
-	foundDBBackdrop := false
-	foundDBSymbol := false
 	symbolKey := "Aero Crest"
 	symbolPermille := 50
-	symbolCertainty := "measured"
+	symbolCertainty := "estimated"
+
+	// Calculate average permille from model catalog traits as fallback baseline
+	var sumBackdropPermille, countBackdrop int
+	var sumSymbolPermille, countSymbol int
+	var defaultBackdropName, defaultSymbolName string
 
 	for _, tr := range dbTraits {
-		if tr.TraitType == "backdrop" && !foundDBBackdrop {
-			backdropKey = tr.TraitName
-			backdropPermille = tr.Permille
-			backdropCertainty = "exact"
-			foundDBBackdrop = true
+		if tr.TraitType == "backdrop" {
+			sumBackdropPermille += tr.Permille
+			countBackdrop++
+			if defaultBackdropName == "" {
+				defaultBackdropName = tr.TraitName
+			}
 		}
-		if tr.TraitType == "symbol" && !foundDBSymbol {
-			symbolKey = tr.TraitName
-			symbolPermille = tr.Permille
-			symbolCertainty = "exact"
-			foundDBSymbol = true
+		if tr.TraitType == "symbol" {
+			sumSymbolPermille += tr.Permille
+			countSymbol++
+			if defaultSymbolName == "" {
+				defaultSymbolName = tr.TraitName
+			}
 		}
 	}
 
@@ -411,15 +411,19 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		}
 		_, _, bColors, _ := traits.ResolveBackdrop(backdropKey)
 		backdropColors = bColors
-	} else if !foundDBBackdrop {
-		bName, bPerm, bColors, isExact := traits.ResolveBackdrop(backdropKey)
-		backdropKey = bName
-		backdropPermille = bPerm
-		backdropColors = bColors
-		if !isExact {
-			backdropCertainty = "estimated"
-		}
 	} else {
+		// No live NFT metadata: instance backdrop is NOT exact; mark as estimated baseline
+		backdropCertainty = "estimated"
+		if defaultBackdropName != "" {
+			backdropKey = defaultBackdropName
+		}
+		if countBackdrop > 0 {
+			backdropPermille = sumBackdropPermille / countBackdrop
+		} else {
+			_, bPerm, bColors, _ := traits.ResolveBackdrop(backdropKey)
+			backdropPermille = bPerm
+			backdropColors = bColors
+		}
 		_, _, bColors, _ := traits.ResolveBackdrop(backdropKey)
 		backdropColors = bColors
 	}
@@ -430,12 +434,18 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		if liveNFT.SymbolRarityPct > 0 {
 			symbolPermille = int(liveNFT.SymbolRarityPct * 10)
 		}
-	} else if !foundDBSymbol {
-		sName, sPerm, _, isExact := traits.ResolveSymbol(symbolKey)
-		symbolKey = sName
-		symbolPermille = sPerm
-		if !isExact {
-			symbolCertainty = "estimated"
+	} else {
+		// No live NFT metadata: instance symbol is estimated
+		symbolCertainty = "estimated"
+		if defaultSymbolName != "" {
+			symbolKey = defaultSymbolName
+		}
+		if countSymbol > 0 {
+			symbolPermille = sumSymbolPermille / countSymbol
+		} else {
+			sName, sPerm, _, _ := traits.ResolveSymbol(symbolKey)
+			symbolKey = sName
+			symbolPermille = sPerm
 		}
 	}
 
@@ -562,8 +572,10 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	if isKnownCol {
 		confidence += 20
 	}
-	if foundDBBackdrop || foundDBSymbol || (liveNFT != nil) {
+	if liveNFT != nil && (liveNFT.Backdrop != "" || liveNFT.Symbol != "") {
 		confidence += 20
+	} else if len(dbTraits) > 0 {
+		confidence += 10
 	}
 	if len(comps) > 0 {
 		confidence += int16(math.Min(25, float64(len(comps)*5)))
@@ -623,8 +635,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// 13. Recommendation
 	recommendation := buildGiftRecommendation(expectedGRAM, exitPlanner, craftingEV)
 
-	// 14. Certificate Hash ID
-	certPayload := fmt.Sprintf("%s:%s:%.2f:%d", ref.GiftID, ModelVersion, expectedGRAM, time.Now().Unix())
+	// 14. Deterministic Certificate Hash ID
+	certPayload := fmt.Sprintf("%s:%s:%.2f:%.2f:%.2f", ref.GiftID, ModelVersion, expectedGRAM, lowGRAM, highGRAM)
 	certHash := sha256.Sum256([]byte(certPayload))
 	certificateID := "IFRG-GFT-" + hex.EncodeToString(certHash[:])[:12]
 
@@ -685,6 +697,45 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		imageURL = liveNFT.ImageURL
 	}
 
+	// 15. Valuation Pillars (Fair Value, Liquidation Value, Suggested Ask, Observed Floor)
+	observedFloorGRAM := roundPrice(baseFloor)
+	observedFloorUSD := roundPrice(baseFloor * gramUsdRate)
+
+	fairValueGRAM := expectedGRAM
+	fairValueUSD := expectedUSD
+
+	// Liquidation Value: Haircut based on supply liquidity and floor baseline
+	liqFactor := 0.82
+	if col.TotalSupply > 0 && col.TotalSupply <= 2500 {
+		liqFactor = 0.86 // Low supply grails retain liquidation value
+	}
+	liquidationGRAM := roundPrice(fairValueGRAM * liqFactor)
+	if liquidationGRAM < observedFloorGRAM*0.85 {
+		liquidationGRAM = roundPrice(observedFloorGRAM * 0.85)
+	}
+	liquidationUSD := roundPrice(liquidationGRAM * gramUsdRate)
+
+	// Suggested Ask: List price optimizing yield and negotiation room
+	askFactor := 1.15
+	if jointRarity.RarityClass == "TRIPLE_GOD_TIER" || jointRarity.RarityClass == "DOUBLE_GOD_TIER" {
+		askFactor = 1.25
+	} else if jointRarity.RarityClass == "LEGENDARY_GRAIL" {
+		askFactor = 1.20
+	}
+	suggestedAskGRAM := roundPrice(math.Max(fairValueGRAM*askFactor, highGRAM))
+	suggestedAskUSD := roundPrice(suggestedAskGRAM * gramUsdRate)
+
+	pillars := ValuationPillars{
+		FairValueGRAM:        fairValueGRAM,
+		FairValueUSD:         fairValueUSD,
+		LiquidationValueGRAM: liquidationGRAM,
+		LiquidationValueUSD:  liquidationUSD,
+		SuggestedAskGRAM:     suggestedAskGRAM,
+		SuggestedAskUSD:      suggestedAskUSD,
+		ObservedFloorGRAM:    observedFloorGRAM,
+		ObservedFloorUSD:     observedFloorUSD,
+	}
+
 	valuation := &GiftValuation{
 		RunID:              time.Now().UnixNano(),
 		GiftID:             ref.GiftID,
@@ -706,6 +757,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		GRAMUSDRate:        gramUsdRate,
 		ConfidenceScore:    calibratedConfidence,
 		PriceBasis:         priceBasis,
+		Pillars:            pillars,
 		TraitDNA:           traitDNA,
 		AestheticHarmony:   aestheticHarmony,
 		JointRarity:        jointRarity,
@@ -851,7 +903,7 @@ func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, 
 					diffPct = roundPrice(((pGram - tempEstGRAM) / tempEstGRAM) * 100.0)
 				}
 
-				tonviewer := "https://tonviewer.com"
+				tonviewer := ""
 				if s.TxHash != "" {
 					tonviewer = "https://tonviewer.com/transaction/" + s.TxHash
 				}

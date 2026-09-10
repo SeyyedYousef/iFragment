@@ -75,6 +75,20 @@ func (r *IntelCreditRepo) ConsumeCreditFIFO(ctx context.Context, userID int64, r
 	}
 	defer tx.Rollback(ctx)
 
+	bal, err := r.ConsumeCreditFIFOTx(ctx, tx, userID, reason, entity, idemKey)
+	if err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return bal, nil
+}
+
+// ConsumeCreditFIFOTx performs FIFO credit deduction within an existing transaction
+func (r *IntelCreditRepo) ConsumeCreditFIFOTx(ctx context.Context, tx pgx.Tx, userID int64, reason, entity, idemKey string) (int, error) {
 	// 1. Check idempotency key if provided
 	if idemKey != "" {
 		var existingID int64
@@ -86,7 +100,6 @@ func (r *IntelCreditRepo) ConsumeCreditFIFO(ctx context.Context, userID int64, r
 				SELECT COALESCE(SUM(remaining), 0) FROM intel_credit_batches
 				WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
 			`, userID).Scan(&bal)
-			_ = tx.Commit(ctx)
 			return bal, nil
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return 0, fmt.Errorf("idempotency check error: %w", err)
@@ -109,7 +122,7 @@ func (r *IntelCreditRepo) ConsumeCreditFIFO(ctx context.Context, userID int64, r
 
 	var batchID uuid.UUID
 	var batchRemaining int
-	err = tx.QueryRow(ctx, querySelect, userID).Scan(&batchID, &batchRemaining)
+	err := tx.QueryRow(ctx, querySelect, userID).Scan(&batchID, &batchRemaining)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, ErrInsufficientIntelCredits
@@ -142,27 +155,14 @@ func (r *IntelCreditRepo) ConsumeCreditFIFO(ctx context.Context, userID int64, r
 		return 0, fmt.Errorf("failed to fetch updated balance: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("failed to commit credit deduction: %w", err)
-	}
-
 	return totalRemaining, nil
 }
 
-// ConsumeCreditsBatch performs an atomic FIFO multi-credit deduction with row locking and idempotency protection.
-func (r *IntelCreditRepo) ConsumeCreditsBatch(ctx context.Context, userID int64, amount int, reason, entity, idemKey string) (int, error) {
-	if r.db == nil || r.db.Pool == nil {
-		return 0, fmt.Errorf("database unavailable")
-	}
+// ConsumeCreditsBatchTx performs an atomic FIFO multi-credit deduction on an existing transaction.
+func (r *IntelCreditRepo) ConsumeCreditsBatchTx(ctx context.Context, tx pgx.Tx, userID int64, amount int, reason, entity, idemKey string) (int, error) {
 	if amount <= 0 {
 		return 0, fmt.Errorf("credit amount must be positive")
 	}
-
-	tx, err := r.db.Pool.Begin(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("failed to start transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
 
 	// 1. Check idempotency key if provided
 	if idemKey != "" {
@@ -174,7 +174,6 @@ func (r *IntelCreditRepo) ConsumeCreditsBatch(ctx context.Context, userID int64,
 				SELECT COALESCE(SUM(remaining), 0) FROM intel_credit_batches
 				WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
 			`, userID).Scan(&bal)
-			_ = tx.Commit(ctx)
 			return bal, nil
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return 0, fmt.Errorf("idempotency check error: %w", err)
@@ -183,7 +182,7 @@ func (r *IntelCreditRepo) ConsumeCreditsBatch(ctx context.Context, userID int64,
 
 	// 2. Check total available balance first
 	var totalAvailable int
-	err = tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		SELECT COALESCE(SUM(remaining), 0) FROM intel_credit_batches
 		WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
 	`, userID).Scan(&totalAvailable)
@@ -263,6 +262,26 @@ func (r *IntelCreditRepo) ConsumeCreditsBatch(ctx context.Context, userID int64,
 	`, userID).Scan(&totalRemaining)
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch updated credit balance: %w", err)
+	}
+
+	return totalRemaining, nil
+}
+
+// ConsumeCreditsBatch performs an atomic FIFO multi-credit deduction with row locking and idempotency protection.
+func (r *IntelCreditRepo) ConsumeCreditsBatch(ctx context.Context, userID int64, amount int, reason, entity, idemKey string) (int, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return 0, fmt.Errorf("database unavailable")
+	}
+
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	totalRemaining, err := r.ConsumeCreditsBatchTx(ctx, tx, userID, amount, reason, entity, idemKey)
+	if err != nil {
+		return 0, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {

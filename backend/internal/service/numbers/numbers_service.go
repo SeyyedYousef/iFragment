@@ -460,6 +460,18 @@ func (s *NumbersService) GetCuriosityGate(ctx context.Context, number string) (*
 	return s.engine.GenerateCuriosityGate(ctx, number)
 }
 
+// IsNumberReportPurchased checks if user has unlocked this report within the 24h caching window
+func (s *NumbersService) IsNumberReportPurchased(ctx context.Context, userID int64, number string) (bool, error) {
+	if userID <= 0 || s.repo == nil {
+		return false, nil
+	}
+	norm, err := features.NormalizeNumber(number)
+	if err != nil {
+		return false, err
+	}
+	return s.repo.IsNumberReportPurchased(ctx, userID, norm)
+}
+
 // ValuateNumber executes the full valuation and enforces 24h caching
 func (s *NumbersService) ValuateNumber(ctx context.Context, userID int64, number string) (*nvengine.NumberValuation, error) {
 	norm, err := features.NormalizeNumber(number)
@@ -526,47 +538,54 @@ func (s *NumbersService) syncLiveSaleIfMissing(ctx context.Context, normNumber s
 	}
 	htmlStr := string(body)
 
-	// Check if status is Sold and extract sale price
+	// Check if status is explicitly Sold (must have "Sale price" descriptor to prevent capturing auction listings)
 	rePrice := regexp.MustCompile(`(?s)icon-before icon-ton">([\d,]+)</div>\s*<div class="table-cell-desc">Sale price</div>`)
 	pMatch := rePrice.FindStringSubmatch(htmlStr)
 	if len(pMatch) < 2 {
-		reAlt := regexp.MustCompile(`(?s)<div class="table-cell-value tm-value icon-before icon-ton">([\d,]+)</div>`)
-		pMatch = reAlt.FindStringSubmatch(htmlStr)
+		return
 	}
 
-	if len(pMatch) >= 2 {
-		priceClean := strings.ReplaceAll(pMatch[1], ",", "")
-		if salePrice, err := strconv.ParseFloat(priceClean, 64); err == nil && salePrice > 0 {
-			reDate := regexp.MustCompile(`datetime="([^"]+)"`)
-			dMatch := reDate.FindStringSubmatch(htmlStr)
-			saleDate := time.Now()
-			if len(dMatch) >= 2 {
-				if parsed, err := time.Parse(time.RFC3339, dMatch[1]); err == nil {
-					saleDate = parsed
-				}
-			}
+	// Do NOT manufacture artificial transaction hashes (e.g. fragment_sale_12345).
+	// Only persist if verified on-chain transaction hash is present in Tonviewer link.
+	reTx := regexp.MustCompile(`tonviewer\.com/transaction/([a-fA-F0-9]{64})`)
+	txMatch := reTx.FindStringSubmatch(htmlStr)
+	if len(txMatch) < 2 {
+		// Without genuine transaction hash, do not pollute verified on-chain sales database
+		return
+	}
+	realTxHash := txMatch[1]
 
-			reOwner := regexp.MustCompile(`tonviewer\.com/([a-zA-Z0-9_-]+)`)
-			oMatch := reOwner.FindStringSubmatch(htmlStr)
-			buyer := "fragment_contract"
-			if len(oMatch) >= 2 {
-				buyer = oMatch[1]
+	priceClean := strings.ReplaceAll(pMatch[1], ",", "")
+	if salePrice, err := strconv.ParseFloat(priceClean, 64); err == nil && salePrice > 0 {
+		reDate := regexp.MustCompile(`datetime="([^"]+)"`)
+		dMatch := reDate.FindStringSubmatch(htmlStr)
+		saleDate := time.Now()
+		if len(dMatch) >= 2 {
+			if parsed, err := time.Parse(time.RFC3339, dMatch[1]); err == nil {
+				saleDate = parsed
 			}
-
-			saleRec := repository.NumberSaleRecord{
-				Number:          normNumber,
-				SalePriceTON:    salePrice,
-				SaleType:        "auction",
-				SaleDate:        saleDate,
-				BuyerAddress:    buyer,
-				SellerAddress:   "telemint",
-				MarketAddress:   "fragment_telemint",
-				PriceConfidence: "exact",
-				TransactionHash: fmt.Sprintf("fragment_sale_%d", saleDate.Unix()),
-			}
-
-			_ = s.repo.InsertNumberSale(ctx, saleRec)
 		}
+
+		reOwner := regexp.MustCompile(`tonviewer\.com/([a-zA-Z0-9_-]+)`)
+		oMatch := reOwner.FindStringSubmatch(htmlStr)
+		buyer := "fragment_contract"
+		if len(oMatch) >= 2 {
+			buyer = oMatch[1]
+		}
+
+		saleRec := repository.NumberSaleRecord{
+			Number:          normNumber,
+			SalePriceTON:    salePrice,
+			SaleType:        "auction",
+			SaleDate:        saleDate,
+			BuyerAddress:    buyer,
+			SellerAddress:   "telemint",
+			MarketAddress:   "fragment_telemint",
+			PriceConfidence: "exact",
+			TransactionHash: realTxHash,
+		}
+
+		_ = s.repo.InsertNumberSale(ctx, saleRec)
 	}
 }
 
@@ -586,7 +605,13 @@ func (s *NumbersService) UnlockWithCoins(ctx context.Context, userID int64, numb
 		return s.ValuateNumber(ctx, userID, norm)
 	}
 
-	// 2. Open atomic transaction to prevent concurrent double spend
+	// 2. Precompute valuation to avoid long lock durations inside transaction
+	val, err := s.engine.Valuate(ctx, norm)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Open atomic transaction to prevent concurrent double spend
 	tx, err := s.db.Pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -600,7 +625,7 @@ func (s *NumbersService) UnlockWithCoins(ctx context.Context, userID int64, numb
 	}
 	if purchasedInTx {
 		_ = tx.Rollback(ctx)
-		return s.ValuateNumber(ctx, userID, norm)
+		return val, nil
 	}
 
 	requiredCoins := 7500.0
@@ -609,18 +634,15 @@ func (s *NumbersService) UnlockWithCoins(ctx context.Context, userID int64, numb
 		return nil, ErrInsufficientCoins
 	}
 
-	// Compute valuation
-	val, err := s.engine.Valuate(ctx, norm)
-	if err != nil {
-		return nil, err
-	}
-
 	// Persist report inside the same transaction
-	snapJSON, _ := json.Marshal(val)
+	snapJSON, err := json.Marshal(val)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal report snapshot: %w", err)
+	}
 	fairNano := val.ExpectedTON.Mul(decimal.NewFromInt(1e9)).IntPart()
 	_, err = s.repo.SaveNumberReportTx(ctx, tx, userID, norm, fairNano, int(val.ConfidenceScore), snapJSON)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to persist report: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -637,28 +659,60 @@ func (s *NumbersService) UnlockWithCredit(ctx context.Context, userID int64, num
 		return nil, err
 	}
 
-	purchased, _ := s.repo.IsNumberReportPurchased(ctx, userID, norm)
-	if !purchased {
-		if s.creditRepo == nil {
-			return nil, ErrInsufficientCredit
-		}
-		idemKey := fmt.Sprintf("report:number:%d:%s", userID, norm)
-		_, err := s.creditRepo.ConsumeCreditFIFO(ctx, userID, "report:number", norm, idemKey)
-		if err != nil {
-			return nil, ErrInsufficientCredit
-		}
+	if s.db == nil || s.db.Pool == nil {
+		return nil, fmt.Errorf("database unavailable")
 	}
 
+	// 1. Fast check if already purchased within 24h
+	if purchased, _ := s.repo.IsNumberReportPurchased(ctx, userID, norm); purchased {
+		return s.ValuateNumber(ctx, userID, norm)
+	}
+
+	// 2. Precompute valuation: if mathematical evaluation fails, zero credits are consumed
 	val, err := s.engine.Valuate(ctx, norm)
 	if err != nil {
 		return nil, err
 	}
 
-	// Persist purchased report
-	if userID > 0 {
-		snapJSON, _ := json.Marshal(val)
-		fairNano := val.ExpectedTON.Mul(decimal.NewFromInt(1e9)).IntPart()
-		_, _ = s.repo.SaveNumberReport(ctx, userID, norm, fairNano, int(val.ConfidenceScore), snapJSON)
+	// 3. Open atomic transaction for credit deduction and report save
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Check inside tx to prevent race conditions
+	purchasedInTx, err := s.repo.IsNumberReportPurchasedTx(ctx, tx, userID, norm)
+	if err != nil {
+		return nil, err
+	}
+	if purchasedInTx {
+		_ = tx.Rollback(ctx)
+		return val, nil
+	}
+
+	if s.creditRepo == nil {
+		return nil, ErrInsufficientCredit
+	}
+	idemKey := fmt.Sprintf("report:number:%d:%s", userID, norm)
+	_, err = s.creditRepo.ConsumeCreditFIFOTx(ctx, tx, userID, "report:number", norm, idemKey)
+	if err != nil {
+		return nil, ErrInsufficientCredit
+	}
+
+	// Persist report inside the exact same database transaction
+	snapJSON, err := json.Marshal(val)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal report snapshot: %w", err)
+	}
+	fairNano := val.ExpectedTON.Mul(decimal.NewFromInt(1e9)).IntPart()
+	_, err = s.repo.SaveNumberReportTx(ctx, tx, userID, norm, fairNano, int(val.ConfidenceScore), snapJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to persist report snapshot: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit unlock transaction: %w", err)
 	}
 
 	return val, nil
@@ -1113,22 +1167,30 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 	norm, err := features.NormalizeNumber(raw)
 	if err != nil {
 		return &nvengine.NumberVerificationResult{
-			Number:        raw,
-			DisplayNumber: raw,
-			IsMinted:      false,
-			Exists:        false,
-			Error:         "این شماره در کالکشن ۱۳۶,۵۶۶ عددی تلگرام وجود ندارد یا مینت نشده است",
+			Number:             raw,
+			DisplayNumber:      raw,
+			FormatValid:        false,
+			CollectionVerified: false,
+			VerificationState:  "invalid_format",
+			RestrictionStatus:  "unknown",
+			IsMinted:           false,
+			Exists:             false,
+			Error:              "این شماره در کالکشن ۱۳۶,۵۶۶ عددی تلگرام وجود ندارد یا فرمت آن نامعتبر است",
 		}, nil
 	}
 
 	fv, err := features.ExtractFeatures(norm)
 	if err != nil {
 		return &nvengine.NumberVerificationResult{
-			Number:        norm,
-			DisplayNumber: features.FormatDisplayNumber(norm),
-			IsMinted:      false,
-			Exists:        false,
-			Error:         "فرمت شماره نامعتبر است",
+			Number:             norm,
+			DisplayNumber:      features.FormatDisplayNumber(norm),
+			FormatValid:        false,
+			CollectionVerified: false,
+			VerificationState:  "invalid_format",
+			RestrictionStatus:  "unknown",
+			IsMinted:           false,
+			Exists:             false,
+			Error:              "فرمت شماره نامعتبر است",
 		}, nil
 	}
 
@@ -1153,41 +1215,81 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 		chips = append([]string{"⚡ ترکیب نادر دو رقمی (Binary)"}, chips...)
 	}
 
+	collectionVerified := false
+	verificationState := "unverified_inventory"
+	restrictionStatus := "unknown"
+	var color, ownerAddr, nftAddr string
+
+	if len(fv.Suffix) == 4 {
+		// All 1,000 Genesis numbers (8000..8999) are guaranteed minted Telemint Genesis assets
+		collectionVerified = true
+		verificationState = "verified_telemint_genesis"
+		restrictionStatus = "clean"
+	}
+
+	if s.db != nil && s.db.Pool != nil {
+		var isRestricted bool
+		err := s.db.Pool.QueryRow(ctx, `
+			SELECT color, owner_address, nft_address, COALESCE(is_restricted, false)
+			FROM number_features
+			WHERE number = $1`, norm).Scan(&color, &ownerAddr, &nftAddr, &isRestricted)
+		if err == nil {
+			collectionVerified = true
+			verificationState = "verified_telemint"
+			if isRestricted {
+				restrictionStatus = "restricted"
+			} else {
+				restrictionStatus = "clean"
+			}
+		} else {
+			var saleExists bool
+			_ = s.db.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM number_sales WHERE number = $1)`, norm).Scan(&saleExists)
+			if saleExists {
+				collectionVerified = true
+				verificationState = "verified_telemint_sales"
+				restrictionStatus = "clean"
+			}
+		}
+	} else if len(fv.Suffix) != 4 {
+		// In standalone in-memory mode without DB for standard 8-digit numbers
+		collectionVerified = true
+		verificationState = "format_verified"
+		restrictionStatus = "clean"
+	}
+
+	isMinted := collectionVerified
+	exists := collectionVerified
+
 	res := &nvengine.NumberVerificationResult{
-		Number:           norm,
-		DisplayNumber:    features.FormatDisplayNumber(norm),
-		IsMinted:         true,
-		Exists:           true,
-		Tier:             tier,
-		CategoryClub:     s.engine.DetermineClub(fv),
-		GlobalRank:       s.engine.ComputeRank(fv),
-		TeaserChips:      chips,
-		SecurityAdvisory: nvengine.BuildSecurityAdvisory(norm),
+		Number:             norm,
+		DisplayNumber:      features.FormatDisplayNumber(norm),
+		FormatValid:        true,
+		CollectionVerified: collectionVerified,
+		VerificationState:  verificationState,
+		RestrictionStatus:  restrictionStatus,
+		IsMinted:           isMinted,
+		Exists:             exists,
+		Tier:               tier,
+		CategoryClub:       s.engine.DetermineClub(fv),
+		GlobalRank:         s.engine.ComputeRank(fv),
+		TeaserChips:        chips,
+		SecurityAdvisory:   nvengine.BuildSecurityAdvisory(norm),
+		Color:              color,
+		OwnerAddress:       ownerAddr,
+		NFTAddress:         nftAddr,
 		TelemintProvenance: nvengine.TelemintProvenance{
 			CollectionAddress:  registry.AnonymousNumbersCollectionAddr,
-			CollectionVerified: true,
+			CollectionVerified: collectionVerified,
+			ItemAddress:        nftAddr,
+			RealOwnerAddress:   ownerAddr,
 			DataStatus:         "live",
 		},
 	}
 
-	if s.db != nil && s.db.Pool != nil {
-		var color, ownerAddr, nftAddr string
-		err := s.db.Pool.QueryRow(ctx, `
-			SELECT color, owner_address, nft_address
-			FROM number_features
-			WHERE number = $1`, norm).Scan(&color, &ownerAddr, &nftAddr)
-		if err == nil {
-			res.Color = color
-			res.OwnerAddress = ownerAddr
-			res.NFTAddress = nftAddr
-			res.TelemintProvenance.ItemAddress = nftAddr
-			res.TelemintProvenance.RealOwnerAddress = ownerAddr
-			isEscrow := false
-			ownerLower := strings.ToLower(ownerAddr)
-			if strings.Contains(ownerLower, "escrow") || strings.Contains(ownerLower, "getgems") || strings.Contains(ownerLower, "fragment") {
-				isEscrow = true
-			}
-			res.TelemintProvenance.IsEscrow = isEscrow
+	if ownerAddr != "" {
+		ownerLower := strings.ToLower(ownerAddr)
+		if strings.Contains(ownerLower, "escrow") || strings.Contains(ownerLower, "getgems") || strings.Contains(ownerLower, "fragment") {
+			res.TelemintProvenance.IsEscrow = true
 		}
 	}
 
@@ -1343,10 +1445,14 @@ type NumberTableItem struct {
 }
 
 type NumbersListResponse struct {
-	Items      []NumberTableItem `json:"items"`
-	Total      int               `json:"total"`
-	Page       int               `json:"page"`
-	TotalPages int               `json:"totalPages"`
+	Items        []NumberTableItem `json:"items"`
+	Total        int               `json:"total"`
+	Page         int               `json:"page"`
+	TotalPages   int               `json:"totalPages"`
+	DataStatus   string            `json:"data_status,omitempty"`   // "live", "stale", "unavailable"
+	SourceStatus string            `json:"source_status,omitempty"` // "upstream_live", "upstream_degraded", "upstream_outage"
+	ObservedAt   string            `json:"observed_at,omitempty"`
+	Message      string            `json:"message,omitempty"`
 }
 
 func (s *NumbersService) GetNumbersList(ctx context.Context, params NumbersListParams) (*NumbersListResponse, error) {
@@ -1436,15 +1542,35 @@ func (s *NumbersService) GetNumbersList(ctx context.Context, params NumbersListP
 		}
 	}
 
-	// 3. Fallback generator respecting all filter parameters
+	// 3. Upstream outage handling: query genuine database records instead of generating synthetic fake records
 	rate := s.getTonUsdRate()
-	fallback := generateSmartFallback(params, rate)
-	if s.cache != nil && s.cache.Client != nil {
-		if bytes, err := json.Marshal(fallback); err == nil {
-			_ = s.cache.Client.Set(ctx, cacheKey, string(bytes), 15*time.Second).Err()
+	dbItems, dbTotal := s.fetchCachedNumbersFromDB(ctx, params, rate)
+	if len(dbItems) > 0 {
+		totalPages := (dbTotal + 49) / 50
+		res := &NumbersListResponse{
+			Items:        dbItems,
+			Total:        dbTotal,
+			Page:         params.Page,
+			TotalPages:   totalPages,
+			DataStatus:   "stale",
+			SourceStatus: "upstream_degraded",
+			ObservedAt:   time.Now().UTC().Format(time.RFC3339),
+			Message:      "Marketplace data served from local cache snapshot due to upstream latency",
 		}
+		return res, nil
 	}
-	return fallback, nil
+
+	// 4. Return honest unavailable response instead of synthetic fake data
+	return &NumbersListResponse{
+		Items:        []NumberTableItem{},
+		Total:        0,
+		Page:         params.Page,
+		TotalPages:   0,
+		DataStatus:   "unavailable",
+		SourceStatus: "upstream_outage",
+		ObservedAt:   time.Now().UTC().Format(time.RFC3339),
+		Message:      "Upstream marketplace data is temporarily unreachable. No synthetic records generated.",
+	}, nil
 }
 
 func parseNumbersHTML(htmlStr string, tonRate float64) ([]NumberTableItem, int) {
@@ -1592,118 +1718,55 @@ func parseNumbersHTML(htmlStr string, tonRate float64) ([]NumberTableItem, int) 
 	return items, totalPages
 }
 
-func generateSmartFallback(params NumbersListParams, tonRate float64) *NumbersListResponse {
-	baseColors := []struct {
-		Hex  string
-		Name string
-	}{
-		{Hex: "#8D66E3", Name: "Violet"},
-		{Hex: "#288576", Name: "Turquoise"},
-		{Hex: "#73589A", Name: "Purple"},
-		{Hex: "#14ACB9", Name: "Teal"},
-		{Hex: "#D35E9E", Name: "Pink"},
-		{Hex: "#5863D1", Name: "Blue"},
-		{Hex: "#7A6147", Name: "Brown"},
-		{Hex: "#111518", Name: "Black"},
-		{Hex: "#BD66DA", Name: "Lavender"},
-		{Hex: "#E06054", Name: "Red"},
-		{Hex: "#D47650", Name: "Orange"},
-		{Hex: "#984D4B", Name: "Rose"},
-		{Hex: "#6F7D8A", Name: "Gray"},
-		{Hex: "#998655", Name: "Tan"},
-		{Hex: "#66A14D", Name: "Olive"},
-		{Hex: "#43A34E", Name: "Green"},
-		{Hex: "#368DEB", Name: "Sky"},
-		{Hex: "#C49A3F", Name: "Gold"},
-		{Hex: "#3BA76E", Name: "Mint"},
+func (s *NumbersService) fetchCachedNumbersFromDB(ctx context.Context, params NumbersListParams, tonRate float64) ([]NumberTableItem, int) {
+	if s.db == nil || s.db.Pool == nil {
+		return nil, 0
+	}
+	limit := 50
+	offset := (params.Page - 1) * limit
+	if offset < 0 {
+		offset = 0
 	}
 
-	itemsPerPage := 50
-	totalCollection := 136566
-	totalPages := (totalCollection + itemsPerPage - 1) / itemsPerPage
+	var total int
+	_ = s.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM number_features`).Scan(&total)
+	if total == 0 {
+		return nil, 0
+	}
+
+	rows, err := s.db.Pool.Query(ctx, `
+		SELECT number, COALESCE(color, '#3498DB'), COALESCE(owner_address, ''), COALESCE(is_restricted, false)
+		FROM number_features
+		ORDER BY id ASC
+		LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0
+	}
+	defer rows.Close()
 
 	var items []NumberTableItem
-	startOffset := (params.Page - 1) * itemsPerPage
-
-	cleanMask := strings.TrimPrefix(strings.ReplaceAll(params.Mask, " ", ""), "+888")
-	cleanMask = strings.TrimPrefix(cleanMask, "888")
-
-	for i := 0; i < itemsPerPage; i++ {
-		idx := startOffset + i
-		var numSuffix string
-		if idx < 1000 {
-			numSuffix = fmt.Sprintf("%04d", 8000+idx)
-		} else {
-			numSuffix = fmt.Sprintf("%08d", 88880000+(idx-1000))
+	for rows.Next() {
+		var num, color, owner string
+		var restricted bool
+		if err := rows.Scan(&num, &color, &owner, &restricted); err == nil {
+			suffix := strings.TrimPrefix(num, "+")
+			display := features.FormatDisplayNumber(num)
+			items = append(items, NumberTableItem{
+				Number:        num,
+				DisplayNumber: display,
+				ColorHex:      color,
+				ColorName:     "NFT Color",
+				OwnersCount:   1,
+				CurrentOwner:  owner,
+				IsRestricted:  restricted,
+				Source:        "local_cache",
+				MarketURL:     fmt.Sprintf("https://fragment.com/number/%s", suffix),
+				IsEstimated:   false,
+				DataStatus:    "stale",
+			})
 		}
-
-		if cleanMask != "" {
-			if !strings.Contains(numSuffix, cleanMask) {
-				if len(numSuffix) == 4 {
-					numSuffix = fmt.Sprintf("%04d", 8000+((idx*17)%1000))
-				} else {
-					numSuffix = fmt.Sprintf("%08d", 88880000+((idx*17)%10000000))
-				}
-			}
-		}
-
-		color := baseColors[(idx)%len(baseColors)]
-		if len(params.NFTColors) > 0 {
-			chosenHex := params.NFTColors[i%len(params.NFTColors)]
-			if !strings.HasPrefix(chosenHex, "#") {
-				chosenHex = "#" + chosenHex
-			}
-			color.Hex = chosenHex
-		}
-
-		price := float64(int(registry.InitialFloorTON) + ((idx * 13) % 45000))
-		owners := ((idx * 7) % 8) + 1
-		switch params.OwnersHistory {
-		case "1":
-			owners = 1
-		case "2-3":
-			owners = 2 + (i % 2)
-		case "4+":
-			owners = 4 + (i % 5)
-		}
-
-		// Restricted is ONLY true if user explicitly filters for banned numbers AND it is not a 4-digit genesis
-		isRestricted := params.NumberType == "banned" && len(numSuffix) != 4
-
-		var currentBid *float64
-		if params.SaleType == "auction" || (params.SaleType == "" && i%7 == 0) {
-			bidVal := math.Round(price * 0.9)
-			currentBid = &bidVal
-		}
-
-		cleanNumStr := "+888" + numSuffix
-		displayStr := features.FormatDisplayNumber(cleanNumStr)
-
-		items = append(items, NumberTableItem{
-			Number:        cleanNumStr,
-			DisplayNumber: displayStr,
-			ColorHex:      color.Hex,
-			ColorName:     color.Name,
-			LastSaleTON:   price,
-			LastSaleUSD:   math.Round(price * tonRate),
-			LastSaleDate:  "On-Chain",
-			CurrentBidTON: currentBid,
-			OwnersCount:   owners,
-			CurrentOwner:  fmt.Sprintf("EQ%s...Fragment", numSuffix),
-			IsRestricted:  isRestricted,
-			Source:        "fragment",
-			MarketURL:     fmt.Sprintf("https://fragment.com/number/%s", strings.TrimPrefix(cleanNumStr, "+")),
-			IsEstimated:   true,
-			DataStatus:    "estimated",
-		})
 	}
-
-	return &NumbersListResponse{
-		Items:      items,
-		Total:      totalCollection,
-		Page:       params.Page,
-		TotalPages: totalPages,
-	}
+	return items, total
 }
 
 

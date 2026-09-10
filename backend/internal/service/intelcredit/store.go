@@ -86,6 +86,9 @@ func NewStoreService(db *repository.Database) *StoreService {
 }
 
 func purchasedCreditsExpiry() *time.Time {
+	if config.Economics.CreditBatchExpiryDays <= 0 {
+		return nil // Purchased credits never expire
+	}
 	exp := time.Now().Add(time.Duration(config.Economics.CreditBatchExpiryDays) * 24 * time.Hour)
 	return &exp
 }

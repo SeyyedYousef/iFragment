@@ -288,24 +288,40 @@ func (h *AuthHandler) GetSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	activeCount := 1
 	var sessions []map[string]interface{}
 
 	if h.cache != nil && h.cache.Client != nil {
 		pattern := fmt.Sprintf("user_refresh:%d:*", userID)
-		keys, err := h.cache.Client.Keys(r.Context(), pattern).Result()
-		if err == nil {
-			activeCount = len(keys)
-			for _, k := range keys {
-				val, err := h.cache.Client.Get(r.Context(), k).Result()
-				if err == nil && val != "" {
-					var item map[string]interface{}
-					if json.Unmarshal([]byte(val), &item) == nil {
-						sessions = append(sessions, item)
-					}
+		var cursor uint64
+		var keys []string
+
+		for {
+			var batch []string
+			var err error
+			batch, cursor, err = h.cache.Client.Scan(r.Context(), cursor, pattern, 50).Result()
+			if err != nil {
+				break
+			}
+			keys = append(keys, batch...)
+			if cursor == 0 {
+				break
+			}
+		}
+
+		for _, k := range keys {
+			val, err := h.cache.Client.Get(r.Context(), k).Result()
+			if err == nil && val != "" {
+				var item map[string]interface{}
+				if json.Unmarshal([]byte(val), &item) == nil {
+					sessions = append(sessions, item)
 				}
 			}
 		}
+	}
+
+	activeCount := len(sessions)
+	if activeCount == 0 {
+		activeCount = 1
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]interface{}{
@@ -314,7 +330,7 @@ func (h *AuthHandler) GetSessions(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// RevokeAllSessions invalidates all refresh tokens for the authenticated user
+// RevokeAllSessions invalidates other refresh tokens for the authenticated user, preserving current session if provided
 func (h *AuthHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Request) {
 	userID, err := middleware.GetUserID(r.Context())
 	if err != nil || userID == 0 {
@@ -322,11 +338,42 @@ func (h *AuthHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	var req struct {
+		CurrentRefreshToken string `json:"current_refresh_token"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	var currentHash string
+	if strings.TrimSpace(req.CurrentRefreshToken) != "" {
+		currentHash = hashToken(req.CurrentRefreshToken)
+	}
+
 	if h.cache != nil && h.cache.Client != nil {
 		pattern := fmt.Sprintf("user_refresh:%d:*", userID)
-		keys, err := h.cache.Client.Keys(r.Context(), pattern).Result()
-		if err == nil && len(keys) > 0 {
-			h.cache.Client.Del(r.Context(), keys...)
+		var cursor uint64
+		var keysToDel []string
+
+		for {
+			var batch []string
+			var err error
+			batch, cursor, err = h.cache.Client.Scan(r.Context(), cursor, pattern, 50).Result()
+			if err != nil {
+				break
+			}
+			for _, k := range batch {
+				if currentHash != "" && strings.HasSuffix(k, ":"+currentHash) {
+					// Preserve current session key
+					continue
+				}
+				keysToDel = append(keysToDel, k)
+			}
+			if cursor == 0 {
+				break
+			}
+		}
+
+		if len(keysToDel) > 0 {
+			h.cache.Client.Del(r.Context(), keysToDel...)
 		}
 	}
 

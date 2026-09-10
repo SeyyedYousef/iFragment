@@ -3,6 +3,7 @@ package avm
 import (
 	"context"
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -332,5 +333,72 @@ func TestRareUsernameFullPipeline(t *testing.T) {
 		t.Errorf("Expected ModelVersion=%s, got %s", ModelVersion, res.ModelVersion)
 	}
 }
+
+func TestDigitalValuationCertificate(t *testing.T) {
+	svc := NewValuationService(nil, nil, nil)
+	ctx := context.Background()
+	res, err := svc.Valuate(ctx, "bank", 7.25)
+	if err != nil {
+		t.Fatalf("Valuate('bank') failed: %v", err)
+	}
+
+	if !strings.HasPrefix(res.CertificateID, "IFRG-USR-") {
+		t.Errorf("Expected CertificateID to have prefix 'IFRG-USR-', got %s", res.CertificateID)
+	}
+	if len(res.CertificateSignature) != 64 {
+		t.Errorf("Expected 64-character hex signature, got len=%d (%s)", len(res.CertificateSignature), res.CertificateSignature)
+	}
+
+	// Verify cryptographic signature check function
+	isValid := VerifyValuationCertificate(
+		res.Username,
+		res.ModelVersion,
+		res.ExpectedTON.String(),
+		res.ConfidenceScore,
+		res.FetchedAt.Unix(),
+		res.CertificateSignature,
+	)
+	if !isValid {
+		t.Errorf("VerifyValuationCertificate returned false for valid certificate signature")
+	}
+
+	// Tampered payload must fail
+	isInvalid := VerifyValuationCertificate(
+		"tampered_user",
+		res.ModelVersion,
+		res.ExpectedTON.String(),
+		res.ConfidenceScore,
+		res.FetchedAt.Unix(),
+		res.CertificateSignature,
+	)
+	if isInvalid {
+		t.Errorf("VerifyValuationCertificate returned true for tampered certificate")
+	}
+
+	if res.DataBadges["certificate"] != res.CertificateID {
+		t.Errorf("Expected DataBadges['certificate'] to equal CertificateID, got %s", res.DataBadges["certificate"])
+	}
+	if res.DataBadges["certificate_status"] != "Cryptographically Verified" {
+		t.Errorf("Expected Cryptographically Verified status, got %s", res.DataBadges["certificate_status"])
+	}
+}
+
+func TestModelCalibrationRun(t *testing.T) {
+	ctx := context.Background()
+	summary, err := RunModelCalibration(ctx, nil, ModelVersion)
+	if err != nil {
+		t.Fatalf("RunModelCalibration failed: %v", err)
+	}
+	if summary == nil {
+		t.Fatal("Expected non-nil ModelCalibrationSummary")
+	}
+	if summary.ModelVersion != ModelVersion {
+		t.Errorf("Expected model version %s, got %s", ModelVersion, summary.ModelVersion)
+	}
+	if summary.UncertaintyMult != 1.5 {
+		t.Errorf("Expected default uncertainty multiplier 1.5, got %f", summary.UncertaintyMult)
+	}
+}
+
 
 

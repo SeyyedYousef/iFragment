@@ -1,7 +1,7 @@
 import { useNavigate } from '@solidjs/router';
 import createFocusTrap from 'solid-focus-trap';
 import { type Component, createResource, For, Show } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { channelApi } from '@/entities/channel/index.js';
 
 interface ProjectHamburgerMenuProps {
@@ -29,43 +29,43 @@ export const ProjectHamburgerMenu: Component<ProjectHamburgerMenuProps> = (props
 		{
 			id: 'dashboard',
 			icon: 'dashboard',
-			label: 'داشبورد کلی پروژه',
+			label: t('channelProjects.nav.dashboard'),
 			path: `/projects/${props.projectId}`,
 		},
 		{
 			id: 'inbox',
 			icon: 'inbox',
-			label: 'صندوق بررسی محتوا (Inbox)',
+			label: t('channelProjects.nav.inbox'),
 			path: `/projects/${props.projectId}/inbox`,
 		},
 		{
 			id: 'pipeline',
 			icon: 'tune',
-			label: 'فیلترها و پایپ‌لاین هوش مصنوعی',
+			label: t('channelProjects.nav.pipeline'),
 			path: `/projects/${props.projectId}/pipeline`,
 		},
 		{
 			id: 'deliveries',
 			icon: 'local_shipping',
-			label: 'رسیدها و تاریخچه انتشار',
+			label: t('channelProjects.nav.deliveries'),
 			path: `/projects/${props.projectId}/deliveries`,
 		},
 		{
 			id: 'team',
 			icon: 'groups',
-			label: 'اعضای تیم و سطوح دسترسی',
+			label: t('channelProjects.nav.team'),
 			path: `/projects/${props.projectId}/team`,
 		},
 		{
 			id: 'settings',
 			icon: 'settings',
-			label: 'تنظیمات اتصال و عمومی',
+			label: t('channelProjects.nav.settings'),
 			path: `/projects/${props.projectId}/settings`,
 		},
 		{
 			id: 'all_projects',
 			icon: 'hub',
-			label: 'همه پروژه‌ها',
+			label: t('channelProjects.nav.allProjects'),
 			path: `/projects`,
 		},
 	];
@@ -93,7 +93,7 @@ export const ProjectHamburgerMenu: Component<ProjectHamburgerMenuProps> = (props
 							</div>
 							<div class="flex flex-col min-w-0">
 								<span class="text-[14px] font-black text-white truncate">
-									{project()?.name || 'پروژه محتوا'}
+									{project()?.name || t('channelProjects.context.defaultName')}
 								</span>
 								<span class="text-[10px] text-white/40 font-mono">
 									ID: {props.projectId.slice(0, 8)}
@@ -146,7 +146,7 @@ export const ProjectHamburgerMenu: Component<ProjectHamburgerMenuProps> = (props
 						class="w-full h-10 rounded-[12px] bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[12px] font-bold flex items-center justify-center gap-2"
 					>
 						<span class="material-symbols-outlined text-[18px]">arrow_back</span>
-						<span>بازگشت به منوی اصلی</span>
+						<span>{t('channelProjects.nav.backToMain')}</span>
 					</button>
 				</div>
 			</div>

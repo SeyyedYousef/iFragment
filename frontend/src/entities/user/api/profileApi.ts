@@ -274,10 +274,14 @@ export const claimEmojiStatusReward = (): Promise<EmojiRewardResponse> =>
 export const sessionsApi = {
 	getSessions: () =>
 		apiFetch<{ active_sessions_count: number; sessions?: any[] }>('/profile/sessions'),
-	revokeAllSessions: () =>
-		apiFetch<{ success: boolean; message: string }>('/profile/sessions/revoke-all', {
+	revokeAllSessions: () => {
+		const rt = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') || '' : '';
+		return apiFetch<{ success: boolean; message: string }>('/profile/sessions/revoke-all', {
 			method: 'POST',
-		}),
+			body: JSON.stringify({ current_refresh_token: rt }),
+			headers: { 'Content-Type': 'application/json' },
+		});
+	},
 };
 
 export const clanApi = {

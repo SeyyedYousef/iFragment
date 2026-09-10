@@ -62,24 +62,24 @@ export const ProjectDashboardPage: Component = () => {
 			haptic.impact('heavy');
 			await channelApi.approveContent(params.projectId, contentId);
 			haptic.notify('success');
-			showToast('محتوا با موفقیت تایید و منتشر شد', 'success');
+			showToast(t('channelProjects.dashboard.approvedSuccess'), 'success');
 			refetchInbox();
 		} catch (err: any) {
 			haptic.notify('error');
-			showToast(err?.response?.data?.error || err?.message || 'خطا در انتشار', 'error');
+			showToast(err?.response?.data?.error || err?.message || t('channelProjects.dashboard.actionError'), 'error');
 		}
 	};
 
 	const handleQuickReject = async (contentId: string) => {
 		try {
 			haptic.impact('medium');
-			await channelApi.rejectContent(params.projectId, contentId, 'رد سریع از داشبورد');
+			await channelApi.rejectContent(params.projectId, contentId, t('channelProjects.dashboard.quickRejectReason'));
 			haptic.notify('success');
-			showToast('محتوا رد شد', 'success');
+			showToast(t('channelProjects.dashboard.rejectedSuccess'), 'success');
 			refetchInbox();
 		} catch (err: any) {
 			haptic.notify('error');
-			showToast('خطا در رد محتوا', 'error');
+			showToast(t('channelProjects.dashboard.actionError'), 'error');
 		}
 	};
 
@@ -107,10 +107,10 @@ export const ProjectDashboardPage: Component = () => {
 					</button>
 					<div class="flex flex-col min-w-0">
 						<h1 class="text-[17px] font-black text-white leading-tight truncate tracking-tight">
-							{project()?.name || 'داشبورد پروژه'}
+							{project()?.name || t('channelProjects.dashboard.title')}
 						</h1>
 						<span class="text-[10px] font-bold text-white/50 uppercase tracking-wider">
-							مدیریت تحریریه و انتقال
+							{t('channelProjects.dashboard.subtitle')}
 						</span>
 					</div>
 				</div>
@@ -141,12 +141,12 @@ export const ProjectDashboardPage: Component = () => {
 					>
 						<div class="flex items-center justify-between text-[#3390ec]">
 							<span class="material-symbols-outlined text-[20px]">inbox</span>
-							<span class="text-[10px] font-black uppercase">اینباکس</span>
+							<span class="text-[10px] font-black uppercase">{t('channelProjects.dashboard.inboxMetric')}</span>
 						</div>
 						<span class="text-[20px] font-black text-white mt-1">
 							{inboxItems() ? inboxItems()!.length : 0}
 						</span>
-						<span class="text-[10px] text-white/40">در انتظار بررسی</span>
+						<span class="text-[10px] text-white/40">{t('channelProjects.dashboard.inboxDesc')}</span>
 					</div>
 
 					<div
@@ -155,12 +155,12 @@ export const ProjectDashboardPage: Component = () => {
 					>
 						<div class="flex items-center justify-between text-emerald-400">
 							<span class="material-symbols-outlined text-[20px]">local_shipping</span>
-							<span class="text-[10px] font-black uppercase">انتشار</span>
+							<span class="text-[10px] font-black uppercase">{t('channelProjects.dashboard.deliveriesMetric')}</span>
 						</div>
 						<span class="text-[20px] font-black text-white mt-1">
 							{deliveries() ? deliveries()!.length : 0}
 						</span>
-						<span class="text-[10px] text-white/40">پست تحویل‌شده</span>
+						<span class="text-[10px] text-white/40">{t('channelProjects.dashboard.deliveriesDesc')}</span>
 					</div>
 
 					<div
@@ -169,12 +169,12 @@ export const ProjectDashboardPage: Component = () => {
 					>
 						<div class="flex items-center justify-between text-amber-400">
 							<span class="material-symbols-outlined text-[20px]">tune</span>
-							<span class="text-[10px] font-black uppercase">پایپ‌لاین</span>
+							<span class="text-[10px] font-black uppercase">{t('channelProjects.dashboard.pipelineMetric')}</span>
 						</div>
 						<span class="text-[14px] font-black text-white mt-2">
-							{project()?.status === 'active' ? 'فعال' : 'متوقف'}
+							{project()?.status === 'active' ? t('channelProjects.common.active') : t('channelProjects.common.paused')}
 						</span>
-						<span class="text-[10px] text-white/40">وضعیت ربات</span>
+						<span class="text-[10px] text-white/40">{t('channelProjects.dashboard.botStatus')}</span>
 					</div>
 				</div>
 
@@ -191,8 +191,8 @@ export const ProjectDashboardPage: Component = () => {
 						<div class="w-10 h-10 rounded-[12px] bg-[#3390ec]/15 text-[#3390ec] flex items-center justify-center">
 							<span class="material-symbols-outlined text-[22px]">inbox</span>
 						</div>
-						<span class="text-[14px] font-black text-white">صندوق بررسی</span>
-						<span class="text-[11px] text-white/50">بررسی و تایید پیش از انتشار</span>
+						<span class="text-[14px] font-black text-white">{t('channelProjects.dashboard.inboxCardTitle')}</span>
+						<span class="text-[11px] text-white/50">{t('channelProjects.dashboard.inboxCardDesc')}</span>
 					</button>
 
 					<button
@@ -206,8 +206,8 @@ export const ProjectDashboardPage: Component = () => {
 						<div class="w-10 h-10 rounded-[12px] bg-purple-500/15 text-purple-400 flex items-center justify-center">
 							<span class="material-symbols-outlined text-[22px]">tune</span>
 						</div>
-						<span class="text-[14px] font-black text-white">قوانین و هوش مصنوعی</span>
-						<span class="text-[11px] text-white/50">فیلتر لینک، بازنویسی و دکمه</span>
+						<span class="text-[14px] font-black text-white">{t('channelProjects.dashboard.rulesCardTitle')}</span>
+						<span class="text-[11px] text-white/50">{t('channelProjects.dashboard.rulesCardDesc')}</span>
 					</button>
 
 					<button
@@ -221,8 +221,8 @@ export const ProjectDashboardPage: Component = () => {
 						<div class="w-10 h-10 rounded-[12px] bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
 							<span class="material-symbols-outlined text-[22px]">local_shipping</span>
 						</div>
-						<span class="text-[14px] font-black text-white">رسیدهای تحویل</span>
-						<span class="text-[11px] text-white/50">تاریخچه پیام‌های ارسالی بات</span>
+						<span class="text-[14px] font-black text-white">{t('channelProjects.dashboard.deliveriesCardTitle')}</span>
+						<span class="text-[11px] text-white/50">{t('channelProjects.dashboard.deliveriesCardDesc')}</span>
 					</button>
 
 					<button
@@ -236,8 +236,8 @@ export const ProjectDashboardPage: Component = () => {
 						<div class="w-10 h-10 rounded-[12px] bg-white/10 text-white/80 flex items-center justify-center">
 							<span class="material-symbols-outlined text-[22px]">settings</span>
 						</div>
-						<span class="text-[14px] font-black text-white">تنظیمات پروژه</span>
-						<span class="text-[11px] text-white/50">تعویض کانال‌ها و اشتراک</span>
+						<span class="text-[14px] font-black text-white">{t('channelProjects.dashboard.settingsCardTitle')}</span>
+						<span class="text-[11px] text-white/50">{t('channelProjects.dashboard.settingsCardDesc')}</span>
 					</button>
 				</div>
 
@@ -246,14 +246,14 @@ export const ProjectDashboardPage: Component = () => {
 					<div class="flex items-center justify-between px-1">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-outlined text-[#3390ec] text-[20px]">mark_email_unread</span>
-							<h3 class="text-[14px] font-black text-white">پست‌های آماده بررسی</h3>
+							<h3 class="text-[14px] font-black text-white">{t('channelProjects.dashboard.readyForReview')}</h3>
 						</div>
 						<button
 							type="button"
 							onClick={() => navigate(`/projects/${params.projectId}/inbox`)}
 							class="text-[11px] text-[#3390ec] font-bold hover:underline"
 						>
-							مشاهده همه ({inboxItems() ? inboxItems()!.length : 0})
+							{t('channelProjects.dashboard.viewAll')} ({inboxItems() ? inboxItems()!.length : 0})
 						</button>
 					</div>
 
@@ -261,7 +261,7 @@ export const ProjectDashboardPage: Component = () => {
 						when={inboxItems() && inboxItems()!.length > 0}
 						fallback={
 							<div class="bg-[#12141C]/60 border border-white/5 rounded-[22px] p-6 text-center text-white/40 text-[12px]">
-								هیچ محتوایی در صف انتظار نیست. پیام‌های جدید کانال ورودی در اینجا نمایش داده می‌شوند.
+								{t('channelProjects.dashboard.emptyInboxDesc')}
 							</div>
 						}
 					>
@@ -269,12 +269,12 @@ export const ProjectDashboardPage: Component = () => {
 							{(item) => (
 								<div class="bg-[#12141C] border border-white/10 rounded-[20px] p-4 flex flex-col gap-3">
 									<div class="flex items-center justify-between text-[11px] text-white/40">
-										<span>پیام #{item.source_message_id}</span>
-										<span>{new Date(item.received_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}</span>
+										<span>#{item.source_message_id}</span>
+										<span>{new Date(item.received_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
 									</div>
 
 									<p class="text-[13px] text-white/90 line-clamp-3 leading-relaxed">
-										{item.revision?.text || item.revision?.caption || 'محتوای بدون متن (رسانه)'}
+										{item.revision?.text || item.revision?.caption || '...'}
 									</p>
 
 									<div class="flex items-center gap-2 pt-1">
@@ -284,12 +284,13 @@ export const ProjectDashboardPage: Component = () => {
 											class="flex-1 h-9 rounded-[12px] bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 text-[11px] font-black flex items-center justify-center gap-1 active:scale-95"
 										>
 											<span class="material-symbols-outlined text-[16px]">check</span>
-											<span>تایید و انتشار</span>
+											<span>{t('channelProjects.dashboard.approvePublish')}</span>
 										</button>
 										<button
 											type="button"
 											onClick={() => handleQuickReject(item.id)}
 											class="w-9 h-9 rounded-[12px] bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-400 flex items-center justify-center active:scale-95"
+											aria-label={t('channelProjects.dashboard.reject')}
 										>
 											<span class="material-symbols-outlined text-[16px]">close</span>
 										</button>

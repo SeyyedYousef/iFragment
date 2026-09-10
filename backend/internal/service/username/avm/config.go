@@ -175,3 +175,23 @@ func (c EngineConfig) NormFactor(saleType string) float64 {
 	}
 }
 
+// CohortAppreciationRate returns regime-aware dynamic annual appreciation rate based on username cohort.
+func (c EngineConfig) CohortAppreciationRate(charLen int, isDict bool, hasNumbers bool, hasUnderscore bool) float64 {
+	switch {
+	case charLen == 4:
+		return 0.20 // 20% annual appreciation for scarce 4-char handles (matches golden baseline)
+	case isDict && !hasNumbers && !hasUnderscore:
+		return 0.18 // 18% for clean dictionary handles
+	case charLen == 5 && !hasNumbers && !hasUnderscore:
+		return 0.15 // 15% for clean 5-char handles
+	case hasNumbers || hasUnderscore:
+		return 0.06 // 6% for mixed handles containing digits or underscores
+	default:
+		if c.AppreciationRate > 0 {
+			return c.AppreciationRate
+		}
+		return 0.12
+	}
+}
+
+

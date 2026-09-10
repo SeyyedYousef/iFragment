@@ -1,72 +1,125 @@
 import { Motion } from '@motionone/solid';
-import { type Component, createSignal, Show } from 'solid-js';
-import { profileSettings, updateNotification, updateSetting } from '@/entities/user/index.js';
+import { type Component, createEffect, onCleanup, onMount, Show } from 'solid-js';
+import {
+	commitDraftSettings,
+	discardDraftSettings,
+	draftProfileSettings,
+	initDraftSettings,
+	isSettingsDirty,
+	updateDraftNotification,
+	updateDraftSetting,
+} from '@/entities/user/index.js';
 import { isRtl, locale, setLocale, t } from '@/shared/i18n/index.js';
+import { audio } from '@/shared/lib/audio.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { requestWriteAccess } from '@/shared/lib/telegram-native.js';
+import {
+	disableClosingConfirmation,
+	enableClosingConfirmation,
+	requestWriteAccess,
+	showAlert,
+} from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { SettingsGuard, ToggleSwitch } from '@/shared/ui/index.js';
 
 export const SettingsPage: Component = () => {
 	useTelegramBackButton(-1);
-	const [isDirty, setIsDirty] = createSignal(false);
+
+	onMount(() => {
+		initDraftSettings();
+	});
+
+	onCleanup(() => {
+		try {
+			disableClosingConfirmation();
+		} catch {}
+	});
+
+	// Sync Telegram closing confirmation with dirty state
+	createEffect(() => {
+		if (isSettingsDirty()) {
+			enableClosingConfirmation();
+		} else {
+			disableClosingConfirmation();
+		}
+	});
 
 	const handleToggleNotification = async (
 		key: 'mining' | 'referral' | 'community' | 'promotions',
 	) => {
-		const currentVal = profileSettings().notifications[key];
+		const currentVal = draftProfileSettings().notifications[key];
 		const targetVal = !currentVal;
 
 		if (targetVal) {
-			await requestWriteAccess();
+			const granted = await requestWriteAccess();
+			if (!granted) {
+				try {
+					haptic.notify('error');
+				} catch {}
+				audio.playError();
+				await showAlert(
+					t('settings.writeAccessDenied' as any) ||
+						'Telegram notifications permission was denied. Please allow bot write access in Telegram to enable notifications.',
+				);
+				return;
+			}
 		}
 
-		updateNotification(key, targetVal);
-		setIsDirty(true);
+		updateDraftNotification(key, targetVal);
 		try {
 			haptic.impact('light');
 		} catch {}
+		audio.playToggle(targetVal);
 	};
 
 	const handleToggleHaptic = (checked: boolean) => {
-		updateSetting('hapticEnabled', checked);
-		setIsDirty(true);
+		updateDraftSetting('hapticEnabled', checked);
 		if (checked) {
 			try {
 				haptic.impact('medium');
 			} catch {}
 		}
+		audio.playToggle(checked);
 	};
 
 	const handleToggleSound = (checked: boolean) => {
-		updateSetting('soundEnabled', checked);
-		setIsDirty(true);
+		updateDraftSetting('soundEnabled', checked);
 		try {
 			haptic.impact('light');
 		} catch {}
+		audio.playToggle(checked);
 	};
 
 	const handleToggleAnimations = (checked: boolean) => {
-		updateSetting('autoPlayAnimations', checked);
-		setIsDirty(true);
+		updateDraftSetting('autoPlayAnimations', checked);
 		try {
 			haptic.impact('light');
 		} catch {}
+		audio.playToggle(checked);
 	};
 
 	const handleSave = () => {
-		setIsDirty(false);
+		commitDraftSettings();
+		disableClosingConfirmation();
+		try {
+			haptic.notify('success');
+		} catch {}
+		audio.playSuccess();
 	};
 
 	const handleDiscard = () => {
-		setIsDirty(false);
+		discardDraftSettings();
+		disableClosingConfirmation();
+		try {
+			haptic.impact('light');
+		} catch {}
+		audio.playClick();
 	};
 
 	return (
-		<SettingsGuard isDirty={isDirty()} onSave={handleSave} onDiscard={handleDiscard}>
+		<SettingsGuard isDirty={isSettingsDirty()} onSave={handleSave} onDiscard={handleDiscard}>
 			{({ requestLeave }) => (
 				<div
-					class="min-h-screen bg-[#030303] pb-28 text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#0098EA]/30"
+					class="min-h-screen bg-[#030303] pb-32 text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#0098EA]/30"
 					dir={isRtl() ? 'rtl' : 'ltr'}
 				>
 					{/* Ambient Top Glow */}
@@ -124,7 +177,7 @@ export const SettingsPage: Component = () => {
 										</div>
 									</div>
 									<ToggleSwitch
-										checked={profileSettings().hapticEnabled}
+										checked={draftProfileSettings().hapticEnabled}
 										onChange={handleToggleHaptic}
 									/>
 								</div>
@@ -147,7 +200,7 @@ export const SettingsPage: Component = () => {
 										</div>
 									</div>
 									<ToggleSwitch
-										checked={profileSettings().soundEnabled}
+										checked={draftProfileSettings().soundEnabled}
 										onChange={handleToggleSound}
 									/>
 								</div>
@@ -170,7 +223,7 @@ export const SettingsPage: Component = () => {
 										</div>
 									</div>
 									<ToggleSwitch
-										checked={profileSettings().autoPlayAnimations}
+										checked={draftProfileSettings().autoPlayAnimations}
 										onChange={handleToggleAnimations}
 									/>
 								</div>
@@ -205,7 +258,7 @@ export const SettingsPage: Component = () => {
 										</span>
 									</div>
 									<ToggleSwitch
-										checked={profileSettings().notifications.mining}
+										checked={draftProfileSettings().notifications.mining}
 										onChange={() => handleToggleNotification('mining')}
 									/>
 								</div>
@@ -223,7 +276,7 @@ export const SettingsPage: Component = () => {
 										</span>
 									</div>
 									<ToggleSwitch
-										checked={profileSettings().notifications.referral}
+										checked={draftProfileSettings().notifications.referral}
 										onChange={() => handleToggleNotification('referral')}
 									/>
 								</div>
@@ -241,7 +294,7 @@ export const SettingsPage: Component = () => {
 										</span>
 									</div>
 									<ToggleSwitch
-										checked={profileSettings().notifications.community}
+										checked={draftProfileSettings().notifications.community}
 										onChange={() => handleToggleNotification('community')}
 									/>
 								</div>
@@ -259,7 +312,7 @@ export const SettingsPage: Component = () => {
 										</span>
 									</div>
 									<ToggleSwitch
-										checked={profileSettings().notifications.promotions}
+										checked={draftProfileSettings().notifications.promotions}
 										onChange={() => handleToggleNotification('promotions')}
 									/>
 								</div>
@@ -419,6 +472,37 @@ export const SettingsPage: Component = () => {
 							</div>
 						</Motion.div>
 					</div>
+
+					{/* ═══════ FLOATING SAVE / DISCARD BAR ═══════ */}
+					<Show when={isSettingsDirty()}>
+						<Motion.div
+							initial={{ opacity: 0, y: 30 }}
+							animate={{ opacity: 1, y: 0 }}
+							class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#030303] via-[#030303]/95 to-transparent z-50 pointer-events-none"
+						>
+							<div
+								class="max-w-md mx-auto flex gap-3 pointer-events-auto items-center"
+								dir={isRtl() ? 'rtl' : 'ltr'}
+							>
+								<button
+									type="button"
+									onClick={handleDiscard}
+									class="px-5 h-12 bg-[#12141C]/90 text-rose-400 border border-rose-500/20 rounded-[16px] font-black text-[13px] flex items-center justify-center gap-1.5 hover:bg-rose-500/10 active:scale-95 transition-all shadow-lg"
+								>
+									<span class="material-symbols-outlined text-[20px]">close</span>
+									<span>{t('common.cancel')}</span>
+								</button>
+								<button
+									type="button"
+									onClick={handleSave}
+									class="flex-1 h-12 bg-gradient-to-r from-[#0098EA] to-[#0077B5] hover:from-[#0077B5] hover:to-[#0098EA] text-white rounded-[16px] font-black text-[13px] uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_4px_20px_rgba(0,152,234,0.35)]"
+								>
+									<span class="material-symbols-outlined text-[20px]">check</span>
+									<span>{t('common.save')}</span>
+								</button>
+							</div>
+						</Motion.div>
+					</Show>
 				</div>
 			)}
 		</SettingsGuard>

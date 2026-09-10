@@ -81,12 +81,30 @@ func (h *NumbersHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID, _ := middleware.GetUserID(ctx) // 0 for guests, >0 for authenticated users
+
+	// Security Paywall Enforcement: Server-side entitlement check
+	// Unauthenticated guests or users who haven't unlocked the report cannot access full financial valuations
+	purchased, _ := h.service.IsNumberReportPurchased(ctx, userID, number)
+	if !purchased {
+		gate, err := h.service.GetCuriosityGate(ctx, number)
+		if err != nil {
+			RespondError(w, r, http.StatusBadRequest, "invalid number format", err)
+			return
+		}
+		RespondJSON(w, http.StatusForbidden, map[string]interface{}{
+			"error":          "report_not_unlocked",
+			"message":        "Full valuation report requires purchase with 1 Intel Credit or Coins",
+			"curiosity_gate": gate,
+		})
+		return
+	}
+
 	val, err := h.service.ValuateNumber(ctx, userID, number)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "valuation failed", err)
 		return
 	}
-	h.sendNumberNotification(r, val, "free")
+	h.sendNumberNotification(r, val, "purchased")
 	RespondJSON(w, http.StatusOK, val)
 }
 

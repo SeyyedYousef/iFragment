@@ -26,6 +26,7 @@ import (
 )
 
 var (
+	ErrReportLocked         = errors.New("report is locked; unlock required via credit or coins")
 	ErrReportNotPurchased   = errors.New("report must be unlocked before adding gift to watchlist")
 	ErrInsufficientCoins    = errors.New("insufficient Airdrop coins balance")
 	ErrInsufficientCredit   = errors.New("insufficient Intel Credit balance")
@@ -95,6 +96,7 @@ type GiftsIntelResponse struct {
 	TrendingModels           []TrendingModelItem     `json:"trending_models"`
 	EndingSoonAuctions       []GiftAuctionItem       `json:"ending_soon_auctions"`
 	MacroStats               *GiftsMacroStatsPayload `json:"macro_stats,omitempty"`
+	DataSourceAttribution    string                  `json:"data_source_attribution"`
 	DataStatus               string                  `json:"data_status"` // "live", "estimated", "unavailable"
 	UpdatedAt                string                  `json:"updated_at"`
 }
@@ -135,11 +137,13 @@ type UpgradeClockItem struct {
 }
 
 type TrendingModelItem struct {
-	ModelID      string  `json:"model_id"`
-	Name         string  `json:"name"`
-	VolumeGrowth float64 `json:"volume_growth_24h_pct"`
-	FloorGRAM    float64 `json:"floor_gram"`
-	IsCrafted    bool    `json:"is_crafted"`
+	ModelID          string  `json:"model_id"`
+	Name             string  `json:"name"`
+	VolumeGrowth     float64 `json:"volume_growth_24h_pct"`
+	FloorGRAM        float64 `json:"floor_gram"`
+	AveragePriceGRAM float64 `json:"average_price_gram"`
+	SalesCount       int     `json:"sales_count"`
+	IsCrafted        bool    `json:"is_crafted"`
 }
 
 type GiftAuctionItem struct {
@@ -227,6 +231,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 		TrendingModels:           []TrendingModelItem{},
 		EndingSoonAuctions:       []GiftAuctionItem{},
 		MacroStats:               macroStats,
+		DataSourceAttribution:    "Data powered by @GiftChanges (api.changes.tg)",
 		DataStatus:               "unavailable",
 		UpdatedAt:                now.Format(time.RFC3339),
 	}
@@ -259,17 +264,30 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 	}
 
 	// 2. Fetch live floor snapshots from venue_snapshots
+	modelMap := make(map[string]map[venues.VenueID]float64)
 	snapshots, err := s.repo.GetVenueSnapshots(ctx, "")
 	if err == nil && len(snapshots) > 0 {
 		resp.DataStatus = "live"
 		// Group by model_id
-		modelMap := make(map[string]map[venues.VenueID]float64)
 		for _, snap := range snapshots {
 			if _, exists := modelMap[snap.ModelID]; !exists {
 				modelMap[snap.ModelID] = make(map[venues.VenueID]float64)
 			}
 			fGram, _ := snap.FloorPriceGRAM.Float64()
 			modelMap[snap.ModelID][venues.VenueID(snap.Venue)] = fGram
+		}
+
+		// Check models with verified sales in last 7d for accurate volume badge
+		model7dSales := make(map[string]bool)
+		volRows, vErr := s.db.Pool.Query(ctx, `SELECT model_id FROM gift_sales WHERE sale_date >= now() - interval '7 days' GROUP BY model_id HAVING COUNT(*) > 0`)
+		if vErr == nil {
+			defer volRows.Close()
+			for volRows.Next() {
+				var m string
+				if err := volRows.Scan(&m); err == nil {
+					model7dSales[m] = true
+				}
+			}
 		}
 
 		var dynamicMarketCap float64
@@ -311,7 +329,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 				BestVenueName:      string(bestVenue),
 				PriceChange24hPct:  ch24h,
 				VenueFloors:        venueFloors,
-				HasRealVolumeBadge: true,
+				HasRealVolumeBadge: model7dSales[modelID],
 			})
 		}
 		if dynamicMarketCap > 0 {
@@ -329,36 +347,80 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 	if totalSalesCount > 0 {
 		resp.DataStatus = "live"
 		resp.TotalCumulativeVolumeUSD = round2(totalVolumeGRAM * gramUsdRate)
-		resp.TotalGiftsMinted = totalSalesCount
 	}
 
-	// 3. Trending Models from sales
+	// Fix Bug 1: Calculate TotalGiftsMinted from official catalog supply (or live stats), never from sales count
+	if resp.TotalGiftsMinted == 0 {
+		catalogMinted := 0
+		for _, col := range traits.GetGlobalCatalog().GetAllCollections() {
+			if col.TotalSupply > 0 {
+				catalogMinted += col.TotalSupply
+			}
+		}
+		resp.TotalGiftsMinted = catalogMinted
+	}
+
+	// 3. Trending Models from real 7d vs prior 7d sales (Fix Bug 2 and Bug 3)
 	trendingRows, err := s.db.Pool.Query(ctx, `
-		SELECT model_id, COUNT(*) as sales_count, COALESCE(AVG(sale_price_gram), 0) as avg_price
-		FROM gift_sales
-		WHERE sale_date >= now() - interval '7 days'
-		GROUP BY model_id
-		ORDER BY sales_count DESC
+		WITH cur_7d AS (
+			SELECT model_id, COUNT(*) as sales_count, COALESCE(SUM(sale_price_gram), 0) as vol_cur, COALESCE(AVG(sale_price_gram), 0) as avg_price
+			FROM gift_sales
+			WHERE sale_date >= now() - interval '7 days'
+			GROUP BY model_id
+		),
+		prev_7d AS (
+			SELECT model_id, COALESCE(SUM(sale_price_gram), 0) as vol_prev
+			FROM gift_sales
+			WHERE sale_date >= now() - interval '14 days' AND sale_date < now() - interval '7 days'
+			GROUP BY model_id
+		)
+		SELECT c.model_id, c.sales_count, c.avg_price, c.vol_cur, COALESCE(p.vol_prev, 0) as vol_prev
+		FROM cur_7d c
+		LEFT JOIN prev_7d p ON c.model_id = p.model_id
+		ORDER BY c.sales_count DESC
 		LIMIT 5`)
 	if err == nil {
 		defer trendingRows.Close()
 		for trendingRows.Next() {
 			var mID string
 			var count int
-			var avgPrice float64
-			if err := trendingRows.Scan(&mID, &count, &avgPrice); err == nil {
+			var avgPrice, volCur, volPrev float64
+			if err := trendingRows.Scan(&mID, &count, &avgPrice, &volCur, &volPrev); err == nil {
 				colName := mID
 				isCrafted := false
 				if col, ok := traits.ResolveCollection(mID); ok {
 					colName = col.Name
 					isCrafted = col.CraftedFlag
 				}
+				growthPct := 0.0
+				if volPrev > 0 {
+					growthPct = round2(((volCur - volPrev) / volPrev) * 100.0)
+				} else if volCur > 0 {
+					growthPct = 100.0
+				}
+
+				// Resolve true floor from venue snapshots / modelMap
+				modelFloor := 0.0
+				if vFloors, ok := modelMap[mID]; ok {
+					bestF := math.MaxFloat64
+					for _, f := range vFloors {
+						if f > 0 && f < bestF {
+							bestF = f
+						}
+					}
+					if bestF < math.MaxFloat64 {
+						modelFloor = bestF
+					}
+				}
+
 				resp.TrendingModels = append(resp.TrendingModels, TrendingModelItem{
-					ModelID:      mID,
-					Name:         colName,
-					VolumeGrowth: float64(count * 5),
-					FloorGRAM:    round2(avgPrice),
-					IsCrafted:    isCrafted,
+					ModelID:          mID,
+					Name:             colName,
+					VolumeGrowth:     growthPct,
+					FloorGRAM:        round2(modelFloor),
+					AveragePriceGRAM: round2(avgPrice),
+					SalesCount:       count,
+					IsCrafted:        isCrafted,
 				})
 			}
 		}
@@ -372,7 +434,7 @@ func (s *GiftsService) GetCuriosityGate(ctx context.Context, raw string) (*gveng
 	return s.engine.GenerateCuriosityGate(ctx, raw)
 }
 
-// ValuateGift executes valuation computation (respects purchased cache, does NOT auto-grant purchase)
+// ValuateGift fetches cached 24h report if user has purchased it; otherwise returns ErrReportLocked (Sacred Rule 3)
 func (s *GiftsService) ValuateGift(ctx context.Context, userID int64, raw string) (*gvengine.GiftValuation, error) {
 	ref, err := gvengine.NormalizeGiftIdentifier(raw)
 	if err != nil {
@@ -389,8 +451,8 @@ func (s *GiftsService) ValuateGift(ctx context.Context, userID int64, raw string
 		}
 	}
 
-	// 2. Execute GV Engine computation
-	return s.engine.Valuate(ctx, raw)
+	// 2. User has not purchased this report; enforce Sacred Rule 3
+	return nil, ErrReportLocked
 }
 
 // UnlockWithCoins unlocks report using Airdrop coins strictly and persists purchase record with idempotency
@@ -482,7 +544,62 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 		return nil, err
 	}
 
-	val, err := s.ValuateGift(ctx, userID, ref.GiftID)
+	// Fix Bug 7: Enforce entitlement (Paywall). If user has not purchased report, return curiosity gate + public metadata only
+	purchased := false
+	if userID > 0 {
+		purchased, _ = s.repo.IsGiftReportPurchased(ctx, userID, ref.GiftID)
+	}
+
+	col, hasCol := traits.ResolveCollection(ref.ModelID)
+	name := ref.ModelID
+	contractAddr := ""
+	if hasCol {
+		name = col.Name
+		contractAddr = col.ContractID
+	}
+
+	if !purchased {
+		var gate *gvengine.CuriosityGateResponse
+		if s.engine != nil {
+			gate, err = s.engine.GenerateCuriosityGate(ctx, ref.GiftID)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		imageURL := ""
+		if s.engine != nil && s.engine.GetNFTResolver() != nil {
+			if live, err := s.engine.GetNFTResolver().ResolveGiftNFT(ctx, ref.ModelID, ref.SerialNumber); err == nil && live != nil {
+				imageURL = live.ImageURL
+			}
+		}
+
+		marketplaceLinks := map[string]string{
+			"fragment": fmt.Sprintf("https://fragment.com/gift/%s-%d", ref.ModelID, ref.SerialNumber),
+			"getgems":  "https://getgems.io",
+		}
+		if contractAddr != "" {
+			marketplaceLinks["getgems"] = fmt.Sprintf("https://getgems.io/collection/%s", contractAddr)
+		}
+
+		return map[string]interface{}{
+			"is_unlocked":        false,
+			"requires_unlock":    true,
+			"gift_id":            ref.GiftID,
+			"model_id":           ref.ModelID,
+			"serial_number":      ref.SerialNumber,
+			"name":               name,
+			"image_url":          imageURL,
+			"contract_address":   contractAddr,
+			"marketplace_links":  marketplaceLinks,
+			"curiosity_gate":     gate,
+			"unlock_cost_coins":  15000,
+			"unlock_cost_credit": 1,
+			"message":            "Full valuation report is locked. Unlock with 15,000 Coins or 1 Intel Credit.",
+		}, nil
+	}
+
+	val, err := s.engine.Valuate(ctx, ref.GiftID)
 	if err != nil {
 		return nil, err
 	}
@@ -501,10 +618,7 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 		}
 	}
 
-	// Resolve on-chain contract and links
-	col, hasCol := traits.ResolveCollection(ref.ModelID)
-	contractAddr := ""
-	if hasCol && col.ContractID != "" {
+	if contractAddr == "" && hasCol && col.ContractID != "" {
 		contractAddr = col.ContractID
 	}
 
@@ -548,17 +662,20 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 
 	var provenance []map[string]interface{}
 	for _, c := range val.Comps {
-		tvURL := tonviewerURL
-		if c.TonviewerURL != "" {
+		tvURL := ""
+		evidenceStatus := "unavailable"
+		if c.TonviewerURL != "" && !strings.HasSuffix(c.TonviewerURL, "tonviewer.com") && !strings.HasSuffix(c.TonviewerURL, "tonviewer.com/") {
 			tvURL = c.TonviewerURL
+			evidenceStatus = "verified_tx"
 		}
 		provenance = append(provenance, map[string]interface{}{
-			"event_type":    "sale",
-			"price_gram":    c.SalePriceGRAM,
-			"venue":         c.Venue,
-			"timestamp":     c.SaleDate.Format(time.RFC3339),
-			"note":          fmt.Sprintf("Verified sale on %s", c.Venue),
-			"tonviewer_url": tvURL,
+			"event_type":      "sale",
+			"price_gram":      c.SalePriceGRAM,
+			"venue":           c.Venue,
+			"timestamp":       c.SaleDate.Format(time.RFC3339),
+			"note":            fmt.Sprintf("Verified sale on %s", c.Venue),
+			"tonviewer_url":   tvURL,
+			"evidence_status": evidenceStatus,
 		})
 	}
 	if len(provenance) == 0 {
@@ -639,6 +756,8 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 		calcVenue("MRKT", 2.0, 0.05),
 	}
 
+	res["is_unlocked"] = true
+	res["requires_unlock"] = false
 	res["owner_name"] = ownerName
 	if imageURL != "" {
 		res["image_url"] = imageURL
@@ -868,7 +987,33 @@ func (s *GiftsService) CalculateCraftingEV(ctx context.Context, inputs []craftin
 			gramUsdRate = r
 		}
 	}
-	return crafting.CalculateCraftingEV(ctx, inputs, gramUsdRate, 0)
+
+	// Fix Bug 6: Re-valuate inputs server-side rather than trusting client-provided prices
+	verifiedInputs := make([]crafting.CraftInputItem, len(inputs))
+	for i, in := range inputs {
+		verified := in
+		if in.GiftID != "" {
+			if ref, err := gvengine.NormalizeGiftIdentifier(in.GiftID); err == nil {
+				verified.ModelID = ref.ModelID
+				verified.SerialNumber = ref.SerialNumber
+				if val, err := s.engine.Valuate(ctx, ref.GiftID); err == nil && val != nil {
+					fGram, _ := val.ExpectedGRAM.Float64()
+					if fGram > 0 {
+						verified.EstimatedValueGRAM = fGram
+					}
+				}
+			}
+		}
+		if verified.EstimatedValueGRAM <= 0 {
+			if col, ok := traits.ResolveCollection(verified.ModelID); ok {
+				verified.Name = col.Name
+				verified.EstimatedValueGRAM = 10.0
+			}
+		}
+		verifiedInputs[i] = verified
+	}
+
+	return crafting.CalculateCraftingEV(ctx, verifiedInputs, gramUsdRate, 0)
 }
 
 // GetUpgradeAdvice generates recommendations based on decay curve

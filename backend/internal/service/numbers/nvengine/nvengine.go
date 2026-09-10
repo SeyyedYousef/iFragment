@@ -457,8 +457,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 				})
 			}
 
-			// Apply compounded market appreciation (20% annual CAGR) & Winsorization
-			core.ApplyMarketAppreciation(compsForMath, 0.20, now)
+			// Apply market-aware dynamic appreciation & Winsorization
+			compAppreciationRate := 0.05 * fngMult
+			core.ApplyMarketAppreciation(compsForMath, compAppreciationRate, now)
 			compsForMath = core.WinsorizeComparables(compsForMath, 0.05, 0.95)
 			decayWeights := core.CalcTimeDecayWeights(compsForMath, DecayLambda, now)
 			nEff := core.CalcEffectiveSampleSize(decayWeights)
@@ -534,23 +535,19 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 
 	rawEstimateTON := math.Exp(finalLogP) * colorInfo.Multiplier
 
-	// Invariant 1: In a closed collection (136,566 fixed supply), a verified on-chain sale establishes
-	// a definitive historical value anchor. Under no circumstances should valuation be lower than its realized sale price.
+	// Realized on-chain sale anchoring with empirical time-decay and sentiment adjustment
 	if latestExactSaleTON > 0 {
 		priceBasis = "exact_asset_realized_sale_anchor"
-		if latestExactSaleTON > minFloor {
-			minFloor = latestExactSaleTON
-		}
 
-		// Factor in organic market appreciation since sale date (15% annual baseline)
-		appreciationFactor := 1.0
+		years := 0.0
 		if !latestSaleDate.IsZero() {
-			years := time.Since(latestSaleDate).Hours() / (24 * 365.25)
-			if years > 0 {
-				appreciationFactor = math.Pow(1.15, years)
-			}
+			years = time.Since(latestSaleDate).Hours() / (24 * 365.25)
 		}
-		anchoredPrice := latestExactSaleTON * appreciationFactor
+		// Time-decayed anchor: recent sales strongly anchor; older sales decay smoothly towards hedonic estimate
+		decayWeight := math.Exp(-0.12 * math.Max(0, years))
+		marketAdjustedSale := latestExactSaleTON * (1.0 + (fngMult-1.0)*0.3)
+		anchoredPrice := marketAdjustedSale*decayWeight + rawEstimateTON*(1.0-decayWeight)
+
 		if rawEstimateTON < anchoredPrice {
 			rawEstimateTON = anchoredPrice
 		}
@@ -687,27 +684,31 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	certificateID := "IFRG-NUM-" + strings.ToUpper(hex.EncodeToString(certHash[:])[:12])
 
 	reasoningLog := map[string]interface{}{
-		"model_version":        ModelVersion,
-		"beta0_floor":          beta0,
-		"beta_genesis":         betaGenesis,
-		"beta_primary_pattern": betaPrimaryPattern,
-		"beta_dialpad":         betaDialPad,
-		"beta_entropy":         betaEntropy,
-		"beta_echo":            betaEcho,
-		"beta_cultural":        betaCultural,
-		"beta_semantic":        betaSemantic,
-		"beta_prefix_join":     betaPrefixJoin,
-		"color_multiplier":     colorInfo.Multiplier,
-		"fng_multiplier":       fngMult,
-		"bayesian_k":           ShrinkageK,
-		"price_basis":          priceBasis,
-		"global_rank":          globalRank,
-		"category_club":        categoryClub,
-		"vip_tier":             fv.VIP.Tier,
-		"dialpad_geom":         fv.DialPad.GeometryClass,
-		"comps_count":          len(comps),
-		"is_sold_historical":   history.IsSold,
-		"signals_count":        38,
+		"model_version":          ModelVersion,
+		"beta0_floor":            beta0,
+		"beta_genesis":           betaGenesis,
+		"beta_primary_pattern":   betaPrimaryPattern,
+		"beta_dialpad":           betaDialPad,
+		"beta_entropy":           betaEntropy,
+		"beta_echo":              betaEcho,
+		"beta_cultural":          betaCultural,
+		"beta_semantic":          betaSemantic,
+		"beta_prefix_join":       betaPrefixJoin,
+		"color_multiplier":       colorInfo.Multiplier,
+		"color_multiplier_basis": "expert_hedonic_prior",
+		"fng_multiplier":         fngMult,
+		"bayesian_k":             ShrinkageK,
+		"price_basis":            priceBasis,
+		"global_rank":            globalRank,
+		"estimated_rank_note":    "relative_feature_matrix_estimate",
+		"category_club":          categoryClub,
+		"vip_tier":               fv.VIP.Tier,
+		"dialpad_geom":           fv.DialPad.GeometryClass,
+		"comps_count":            len(comps),
+		"is_sold_historical":     history.IsSold,
+		"rental_yield_status":    "experimental_simulation",
+		"defi_collateral_status": "experimental_simulation",
+		"signals_count":          38,
 	}
 
 	valuation := &NumberValuation{

@@ -12,7 +12,7 @@ import {
 } from 'solid-js';
 import { channelApi } from '@/entities/channel/index.js';
 import type { ContentItem } from '@/entities/channel/model/types.js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { showToast } from '@/shared/ui/index.js';
 import { ProjectContextBar, ProjectHamburgerMenu } from '@/widgets/project/index.js';
@@ -65,11 +65,11 @@ export const ProjectInboxPage: Component = () => {
 			haptic.impact('heavy');
 			await channelApi.approveContent(params.projectId, contentId);
 			haptic.notify('success');
-			showToast('محتوا تایید شد و با موفقیت به کانال مقصد ارسال گردید!', 'success');
+			showToast(t('channelProjects.inbox.approvedToast'), 'success');
 			refetch();
 		} catch (err: any) {
 			haptic.notify('error');
-			showToast(err?.response?.data?.error || err?.message || 'خطا در تایید و انتشار محتوا', 'error');
+			showToast(err?.response?.data?.error || err?.message || t('channelProjects.dashboard.actionError'), 'error');
 		} finally {
 			setActionId(null);
 		}
@@ -79,13 +79,13 @@ export const ProjectInboxPage: Component = () => {
 		setActionId(contentId);
 		try {
 			haptic.impact('medium');
-			await channelApi.rejectContent(params.projectId, contentId, 'رد شده توسط اپراتور');
+			await channelApi.rejectContent(params.projectId, contentId, t('channelProjects.inbox.operatorRejectReason'));
 			haptic.notify('success');
-			showToast('محتوا رد شد', 'success');
+			showToast(t('channelProjects.inbox.rejectedToast'), 'success');
 			refetch();
 		} catch (err: any) {
 			haptic.notify('error');
-			showToast('خطا در رد محتوا', 'error');
+			showToast(t('channelProjects.dashboard.actionError'), 'error');
 		} finally {
 			setActionId(null);
 		}
@@ -109,12 +109,12 @@ export const ProjectInboxPage: Component = () => {
 				caption: editText(),
 			});
 			haptic.notify('success');
-			showToast('تغییرات با نسخه جدید ثبت شد', 'success');
+			showToast(t('channelProjects.inbox.editedToast'), 'success');
 			setEditingItem(null);
 			refetch();
 		} catch (err: any) {
 			haptic.notify('error');
-			showToast('خطا در ذخیره ویرایش', 'error');
+			showToast(t('channelProjects.common.saveError'), 'error');
 		} finally {
 			setIsSavingEdit(false);
 		}
@@ -123,13 +123,13 @@ export const ProjectInboxPage: Component = () => {
 	const getStatusBadge = (status: string) => {
 		switch (status) {
 			case 'awaiting_review':
-				return { label: 'در انتظار بررسی', class: 'text-amber-400 border-amber-400/30 bg-amber-400/10' };
+				return { label: t('channelProjects.inbox.filterAwaiting'), class: 'text-amber-400 border-amber-400/30 bg-amber-400/10' };
 			case 'approved':
-				return { label: 'تایید شده', class: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' };
+				return { label: t('channelProjects.inbox.filterApproved'), class: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' };
 			case 'published':
-				return { label: 'منتشر شده', class: 'text-[#3390ec] border-[#3390ec]/30 bg-[#3390ec]/10' };
+				return { label: t('channelProjects.inbox.filterPublished'), class: 'text-[#3390ec] border-[#3390ec]/30 bg-[#3390ec]/10' };
 			case 'rejected':
-				return { label: 'رد شده', class: 'text-rose-400 border-rose-500/30 bg-rose-500/10' };
+				return { label: t('channelProjects.inbox.filterRejected'), class: 'text-rose-400 border-rose-500/30 bg-rose-500/10' };
 			default:
 				return { label: status, class: 'text-white/60 border-white/10 bg-white/5' };
 		}
@@ -155,10 +155,10 @@ export const ProjectInboxPage: Component = () => {
 					</button>
 					<div class="flex flex-col min-w-0">
 						<h1 class="text-[17px] font-black text-white leading-tight truncate">
-							صندوق بررسی محتوا
+							{t('channelProjects.inbox.title')}
 						</h1>
 						<span class="text-[10px] font-bold text-white/50 uppercase tracking-wider">
-							Review Inbox & Editorial Queue
+							{t('channelProjects.inbox.subtitle')}
 						</span>
 					</div>
 				</div>
@@ -186,7 +186,7 @@ export const ProjectInboxPage: Component = () => {
 								: 'bg-white/5 text-white/60 hover:bg-white/10'
 						}`}
 					>
-						آماده بررسی
+						{t('channelProjects.inbox.filterAwaiting')}
 					</button>
 					<button
 						type="button"
@@ -197,7 +197,7 @@ export const ProjectInboxPage: Component = () => {
 								: 'bg-white/5 text-white/60 hover:bg-white/10'
 						}`}
 					>
-						منتشر شده
+						{t('channelProjects.inbox.filterPublished')}
 					</button>
 					<button
 						type="button"
@@ -208,7 +208,7 @@ export const ProjectInboxPage: Component = () => {
 								: 'bg-white/5 text-white/60 hover:bg-white/10'
 						}`}
 					>
-						رد شده
+						{t('channelProjects.inbox.filterRejected')}
 					</button>
 					<button
 						type="button"
@@ -219,7 +219,7 @@ export const ProjectInboxPage: Component = () => {
 								: 'bg-white/5 text-white/60 hover:bg-white/10'
 						}`}
 					>
-						همه پیام‌ها
+						{t('channelProjects.inbox.filterAll')}
 					</button>
 				</div>
 
@@ -232,9 +232,9 @@ export const ProjectInboxPage: Component = () => {
 								<div class="w-14 h-14 rounded-[18px] bg-white/5 flex items-center justify-center text-white/40">
 									<span class="material-symbols-outlined text-[32px]">inbox</span>
 								</div>
-								<span class="text-[14px] font-bold text-white/70">محتوایی در این بخش یافت نشد</span>
+								<span class="text-[14px] font-bold text-white/70">{t('channelProjects.inbox.emptyTitle')}</span>
 								<span class="text-[11px] text-white/40 max-w-[240px]">
-									پست‌های جدید به صورت خودکار از کانال مبدا خوانده شده و در اینجا قرار می‌گیرند.
+									{t('channelProjects.inbox.emptyDesc')}
 								</span>
 							</div>
 						) : (
@@ -265,11 +265,11 @@ export const ProjectInboxPage: Component = () => {
 										<div class="flex items-center justify-between">
 											<div class="flex items-center gap-2">
 												<span class="text-[11px] font-mono font-bold text-white/60">
-													پیام #{item.source_message_id}
+													#{item.source_message_id}
 												</span>
 												<Show when={item.source_media_group_id}>
 													<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-														آلبوم رسانه
+														{t('channelProjects.inbox.mediaAlbum')}
 													</span>
 												</Show>
 											</div>
@@ -282,16 +282,16 @@ export const ProjectInboxPage: Component = () => {
 										{/* Post Content Preview */}
 										<div class="bg-[#08090e] border border-white/5 rounded-[16px] p-3 text-[13px] text-white/90 leading-relaxed font-sans select-text whitespace-pre-wrap">
 											{item.revision?.text || item.revision?.caption || (
-												<span class="text-white/40 italic">محتوای رسانه‌ای بدون متن</span>
+												<span class="text-white/40 italic">{t('channelProjects.inbox.mediaNoText')}</span>
 											)}
 										</div>
 
 										{/* Transformations Pill */}
 										<div class="flex items-center gap-2 text-[10px] text-white/40 font-mono">
-											<span>نسخه: {item.revision?.version || 1}</span>
+											<span>{t('channelProjects.inbox.version')}: {item.revision?.version || 1}</span>
 											<span>•</span>
 											<span>
-												دریافت: {new Date(item.received_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}
+												{t('channelProjects.inbox.receivedAt')}: {new Date(item.received_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
 											</span>
 										</div>
 
@@ -305,7 +305,7 @@ export const ProjectInboxPage: Component = () => {
 													class="flex-1 h-11 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 rounded-[14px] text-[12px] font-black flex items-center justify-center gap-1.5 active:scale-95 transition-all"
 												>
 													<span class="material-symbols-outlined text-[18px]">publish</span>
-													<span>{isOperating() ? 'در حال ارسال...' : 'تایید و انتشار'}</span>
+													<span>{isOperating() ? t('channelProjects.inbox.dispatching') : t('channelProjects.inbox.approveBtn')}</span>
 												</button>
 
 												<button
@@ -314,7 +314,7 @@ export const ProjectInboxPage: Component = () => {
 													class="h-11 px-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-[14px] text-[12px] font-bold flex items-center justify-center gap-1 active:scale-95"
 												>
 													<span class="material-symbols-outlined text-[18px]">edit</span>
-													<span>ویرایش</span>
+													<span>{t('channelProjects.inbox.editBtn')}</span>
 												</button>
 
 												<button
@@ -322,7 +322,7 @@ export const ProjectInboxPage: Component = () => {
 													disabled={isOperating()}
 													onClick={() => handleReject(item.id)}
 													class="w-11 h-11 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-400 rounded-[14px] flex items-center justify-center active:scale-95"
-													title="رد کردن پست"
+													title={t('channelProjects.inbox.rejectTooltip')}
 												>
 													<span class="material-symbols-outlined text-[20px]">close</span>
 												</button>
@@ -346,7 +346,7 @@ export const ProjectInboxPage: Component = () => {
 				>
 					<div class="w-full max-w-lg bg-[#12141C] rounded-t-[32px] sm:rounded-[32px] border border-white/10 p-6 flex flex-col gap-4 shadow-2xl">
 						<div class="flex items-center justify-between pb-3 border-b border-white/10">
-							<h3 class="text-[16px] font-black text-white">ویرایش محتوای پست</h3>
+							<h3 class="text-[16px] font-black text-white">{t('channelProjects.inbox.editModalTitle')}</h3>
 							<button
 								type="button"
 								onClick={() => setEditingItem(null)}
@@ -369,7 +369,7 @@ export const ProjectInboxPage: Component = () => {
 								onClick={() => setEditingItem(null)}
 								class="flex-1 h-12 rounded-[16px] bg-white/5 text-white/60 text-[12px] font-bold"
 							>
-								انصراف
+								{t('channelProjects.inbox.cancelBtn')}
 							</button>
 							<button
 								type="button"
@@ -378,7 +378,7 @@ export const ProjectInboxPage: Component = () => {
 								class="flex-[2] h-12 rounded-[16px] bg-[#3390ec] text-white text-[12px] font-black flex items-center justify-center gap-1.5 active:scale-95 shadow-md"
 							>
 								<span class="material-symbols-outlined text-[18px]">save</span>
-								<span>{isSavingEdit() ? 'در حال ذخیره...' : 'ذخیره نسخه جدید'}</span>
+								<span>{isSavingEdit() ? t('channelProjects.common.saving') : t('channelProjects.inbox.saveNewVersion')}</span>
 							</button>
 						</div>
 					</div>

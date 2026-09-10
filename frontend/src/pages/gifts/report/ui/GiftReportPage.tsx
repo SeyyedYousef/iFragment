@@ -114,7 +114,11 @@ export const GiftReportPage: Component = () => {
 		},
 	}));
 
-	const currentReport = () => enrichedQuery.data || unlockedReport() || valuateQuery.data;
+	const currentReport = () => {
+		const r = (enrichedQuery.data as any) || unlockedReport() || valuateQuery.data;
+		if (!r || r.requires_unlock || !r.expected_gram) return null;
+		return r;
+	};
 
 	const handleWatchlistToggle = async () => {
 		const nextState = !isWatching();

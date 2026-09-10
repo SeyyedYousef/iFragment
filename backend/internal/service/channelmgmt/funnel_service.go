@@ -83,38 +83,46 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 						if p.TargetChatID == nil || *p.TargetChatID == 0 {
 							_ = s.channelRepo.UpdateProjectTargetChatID(ctx, p.ID, outChatID)
 						}
-						// If bot is nil or unassigned, resolve from target or source channel
-						if bot == nil || botID == uuid.Nil {
-							if p.TargetChannelID != nil {
-								if tc, tcErr := s.channelRepo.GetChannelByID(ctx, *p.TargetChannelID); tcErr == nil && tc != nil && tc.BotID != uuid.Nil {
-									if b, bErr := s.botRepo.GetBotByID(ctx, tc.BotID); bErr == nil && b != nil {
-										bot = b
-										botID = b.ID
-									}
-								}
-							}
-							if (bot == nil || botID == uuid.Nil) && p.SourceChannelID != nil {
-								if sc, scErr := s.channelRepo.GetChannelByID(ctx, *p.SourceChannelID); scErr == nil && sc != nil && sc.BotID != uuid.Nil {
-									if b, bErr := s.botRepo.GetBotByID(ctx, sc.BotID); bErr == nil && b != nil {
-										bot = b
-										botID = b.ID
-									}
-								}
-							}
-						}
-						funnel = &repository.ChannelFunnel{
-							ID:           p.ID,
-							BotID:        botID,
-							ProjectName:  p.Name,
-							InputChatID:  chatID,
-							OutputChatID: outChatID,
-							OwnerUserID:  p.OwnerUserID,
-							IsActive:     true,
-							CreatedAt:    p.CreatedAt,
-							UpdatedAt:    p.UpdatedAt,
-						}
-						break
 					}
+
+					// If bot is nil or unassigned, resolve from target or source channel
+					if bot == nil || botID == uuid.Nil {
+						if p.TargetChannelID != nil {
+							if tc, tcErr := s.channelRepo.GetChannelByID(ctx, *p.TargetChannelID); tcErr == nil && tc != nil && tc.BotID != uuid.Nil {
+								if b, bErr := s.botRepo.GetBotByID(ctx, tc.BotID); bErr == nil && b != nil {
+									bot = b
+									botID = b.ID
+								}
+							}
+						}
+						if (bot == nil || botID == uuid.Nil) && p.SourceChannelID != nil {
+							if sc, scErr := s.channelRepo.GetChannelByID(ctx, *p.SourceChannelID); scErr == nil && sc != nil && sc.BotID != uuid.Nil {
+								if b, bErr := s.botRepo.GetBotByID(ctx, sc.BotID); bErr == nil && b != nil {
+									bot = b
+									botID = b.ID
+								}
+							}
+						}
+						if bot == nil || botID == uuid.Nil {
+							if mainBot, bErr := s.botRepo.GetMainBot(ctx); bErr == nil && mainBot != nil {
+								bot = mainBot
+								botID = mainBot.ID
+							}
+						}
+					}
+
+					funnel = &repository.ChannelFunnel{
+						ID:           p.ID,
+						BotID:        botID,
+						ProjectName:  p.Name,
+						InputChatID:  chatID,
+						OutputChatID: outChatID,
+						OwnerUserID:  p.OwnerUserID,
+						IsActive:     true,
+						CreatedAt:    p.CreatedAt,
+						UpdatedAt:    p.UpdatedAt,
+					}
+					break
 				}
 			}
 		}
@@ -443,9 +451,21 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 		}
 	}
 
-	// 4. Load Predefined Inline Buttons
+	// 4. Load Predefined Inline Buttons (Priority: Project Pipeline Config, fallback: Channel)
 	var buttons []repository.ChannelInlineButton
-	if sourceChan != nil {
+	if pCfg != nil {
+		if btnCfg, ok := pCfg["inline_buttons"].(map[string]interface{}); ok {
+			if enabled, _ := btnCfg["enabled"].(bool); enabled {
+				if btnListRaw, err := json.Marshal(btnCfg["buttons"]); err == nil {
+					var pBtns []repository.ChannelInlineButton
+					if json.Unmarshal(btnListRaw, &pBtns) == nil && len(pBtns) > 0 {
+						buttons = pBtns
+					}
+				}
+			}
+		}
+	}
+	if len(buttons) == 0 && sourceChan != nil {
 		if btns, err := s.channelRepo.GetChannelButtons(ctx, sourceChan.ID); err == nil {
 			buttons = btns
 		}
@@ -475,6 +495,50 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 		slog.Error("Failed to save pending funnel draft into database", "error", err, "funnel_id", funnel.ID, "input_message_id", draft.InputMessageID)
 	} else {
 		slog.Info("Successfully saved pending funnel draft", "draft_id", draft.ID, "funnel_id", funnel.ID, "input_message_id", draft.InputMessageID)
+	}
+
+	// 5b. Persist to ContentItem & ContentRevision for Project Editorial Hub (Review Inbox)
+	var mediaGroupIDPtr *string
+	if mediaGroupID != "" {
+		mediaGroupIDPtr = &mediaGroupID
+	}
+
+	contentItem := repository.ContentItem{
+		ProjectID:          funnel.ID,
+		SourceChatID:       funnel.InputChatID,
+		SourceMessageID:    inputMsgID,
+		SourceMediaGroupID: mediaGroupIDPtr,
+		Status:             "awaiting_review",
+		ReceivedAt:         time.Now(),
+	}
+	if autoPublish && funnel.OutputChatID != 0 && funnel.OutputChatID != funnel.InputChatID {
+		contentItem.Status = "publishing"
+	}
+
+	if ciErr := s.channelRepo.CreateContentItem(ctx, &contentItem); ciErr != nil {
+		slog.Error("Failed to create content item in editorial repo", "error", ciErr, "project_id", funnel.ID)
+	}
+
+	mediaManifestBytes, _ := json.Marshal(media)
+	transfBytes, _ := json.Marshal(map[string]interface{}{
+		"remove_ads":      removeAds,
+		"remove_links":    removeLinks,
+		"remove_hashtags": removeHashtags,
+		"drop_media":      dropMedia,
+		"ai_rewrite":      aiRewrite,
+		"watermark":       watermark,
+	})
+
+	contentRev := repository.ContentRevision{
+		ContentItemID:   contentItem.ID,
+		Version:         1,
+		Text:            draft.DraftText,
+		MediaManifest:   mediaManifestBytes,
+		Buttons:         buttonsRaw,
+		Transformations: transfBytes,
+	}
+	if errRev := s.channelRepo.CreateContentRevision(ctx, &contentRev); errRev != nil {
+		slog.Error("Failed to create content revision in editorial repo", "error", errRev, "content_item_id", contentItem.ID)
 	}
 
 	// 6. Direct In-Place Edit in the INPUT CHANNEL!
@@ -514,6 +578,24 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 			tg := telegram.NewBotAPIClient(token)
 			pubErr := s.publishFunnelPostDirectly(ctx, tg, funnel, &draft)
 			if pubErr == nil {
+				now := time.Now()
+				var pubMsgIDPtr *int64
+				if draft.PublishedMessageID != nil {
+					pubMsgIDPtr = draft.PublishedMessageID
+				}
+				delivery := repository.Delivery{
+					ProjectID:         funnel.ID,
+					ContentItemID:     &contentItem.ID,
+					DestinationChatID: funnel.OutputChatID,
+					TelegramMessageID: pubMsgIDPtr,
+					RevisionID:        &contentRev.ID,
+					CreatedByBot:      true,
+					Status:            "delivered",
+					IdempotencyKey:    fmt.Sprintf("%s:%d", funnel.ID, inputMsgID),
+					PublishedAt:       &now,
+				}
+				_ = s.channelRepo.CreateDelivery(ctx, &delivery)
+				_ = s.channelRepo.UpdateContentItemStatus(ctx, contentItem.ID, "published")
 				slog.Info("Funnel post auto-published directly to target channel", "funnel_id", funnel.ID, "output_chat_id", funnel.OutputChatID)
 				return nil
 			}
@@ -1503,10 +1585,32 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 		}
 	}
 
-	// 7. Save output post trace to Database
 	draft.Status = "approved"
 	draft.PublishedMessageID = &pubMsgID
 	_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
+
+	// Sync with project content items and deliveries
+	if cItems, ciErr := s.channelRepo.GetContentItemsByProject(ctx, funnel.ID, "", 20, 0); ciErr == nil {
+		for _, ci := range cItems {
+			if ci.SourceMessageID == draft.InputMessageID {
+				_ = s.channelRepo.UpdateContentItemStatus(ctx, ci.ID, "published")
+				nowDel := time.Now()
+				del := repository.Delivery{
+					ProjectID:         funnel.ID,
+					ContentItemID:     &ci.ID,
+					DestinationChatID: funnel.OutputChatID,
+					TelegramMessageID: &pubMsgID,
+					RevisionID:        ci.CurrentRevisionID,
+					CreatedByBot:      true,
+					Status:            "delivered",
+					IdempotencyKey:    fmt.Sprintf("%s:%d", funnel.ID, draft.InputMessageID),
+					PublishedAt:       &nowDel,
+				}
+				_ = s.channelRepo.CreateDelivery(ctx, &del)
+				break
+			}
+		}
+	}
 	now := time.Now()
 	if sourceChan != nil {
 		channelPost := repository.ChannelPost{

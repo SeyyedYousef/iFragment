@@ -29,6 +29,47 @@ type Sale struct {
 	CreatedAt     time.Time       `json:"created_at"`
 }
 
+// ProvenanceLevel defines the data integrity level of a sale record
+const (
+	ProvenanceLevelRawObservation = 0 // raw HTML scraping, unverified
+	ProvenanceLevelReported       = 1 // reported by Fragment/marketplace, no on-chain tx proof
+	ProvenanceLevelOnChain        = 2 // on-chain transaction hash & block seqno verified
+	ProvenanceLevelReconciled     = 3 // independently reconciled between marketplace and blockchain
+)
+
+// VerifiedSale represents an on-chain verified or reconciled sale from username_verified_sales
+type VerifiedSale struct {
+	ID                 int64           `json:"id"`
+	UsernameNormalized string          `json:"username_normalized"`
+	NFTAddress         *string         `json:"nft_address,omitempty"`
+	CollectionAddress  *string         `json:"collection_address,omitempty"`
+	SaleContract       *string         `json:"sale_contract,omitempty"`
+	TransactionHash    string          `json:"transaction_hash"`
+	EventIndex         int             `json:"event_index"`
+	BlockSeqno         *int64          `json:"block_seqno,omitempty"`
+	SaleType           string          `json:"sale_type"`
+	PriceNanoTON       int64           `json:"price_nano_ton"`
+	PriceTON           decimal.Decimal `json:"price_ton"`
+	SoldAt             time.Time       `json:"sold_at"`
+	BuyerAddress       *string         `json:"buyer_address,omitempty"`
+	SellerAddress      *string         `json:"seller_address,omitempty"`
+	Marketplace        string          `json:"marketplace"`
+	SourceURL          *string         `json:"source_url,omitempty"`
+	VerificationStatus string          `json:"verification_status"` // verified, reconciled, reported
+	ProvenanceLevel    int             `json:"provenance_level"`
+	IngestedAt         time.Time       `json:"ingested_at"`
+}
+
+// ReportSourceLog represents a source provenance entry in username_report_sources
+type ReportSourceLog struct {
+	ID         int64     `json:"id"`
+	ReportID   string    `json:"report_id"`
+	SourceName string    `json:"source_name"`
+	Status     string    `json:"status"` // ok, stale, fallback, error
+	LatencyMS  int       `json:"latency_ms"`
+	FetchedAt  time.Time `json:"fetched_at"`
+}
+
 // ValuationRun represents a persisted audit record for a single valuation execution.
 type ValuationRun struct {
 	ID                int64           `json:"id"`
@@ -398,4 +439,202 @@ func (db *Database) GetLatestModelCalibration(ctx context.Context, modelVersion 
 	}
 	return &r, nil
 }
+
+// InsertVerifiedSale persists an on-chain verified sale into username_verified_sales.
+func (db *Database) InsertVerifiedSale(ctx context.Context, s VerifiedSale) (int64, error) {
+	query := `
+		INSERT INTO username_verified_sales (
+			username_normalized, nft_address, collection_address, sale_contract,
+			transaction_hash, event_index, block_seqno, sale_type,
+			price_nano_ton, sold_at, buyer_address, seller_address,
+			marketplace, source_url, verification_status
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+		ON CONFLICT (transaction_hash, event_index) DO UPDATE
+		SET verification_status = EXCLUDED.verification_status,
+		    price_nano_ton = EXCLUDED.price_nano_ton
+		RETURNING id`
+
+	var id int64
+	err := db.Pool.QueryRow(ctx, query,
+		s.UsernameNormalized, s.NFTAddress, s.CollectionAddress, s.SaleContract,
+		s.TransactionHash, s.EventIndex, s.BlockSeqno, s.SaleType,
+		s.PriceNanoTON, s.SoldAt, s.BuyerAddress, s.SellerAddress,
+		s.Marketplace, s.SourceURL, s.VerificationStatus,
+	).Scan(&id)
+	return id, err
+}
+
+// GetVerifiedSalesByUsername fetches proven on-chain sales for a specific username.
+func (db *Database) GetVerifiedSalesByUsername(ctx context.Context, usernameNorm string) ([]VerifiedSale, error) {
+	query := `
+		SELECT id, username_normalized, nft_address, collection_address, sale_contract,
+		       transaction_hash, event_index, block_seqno, sale_type,
+		       price_nano_ton, sold_at, buyer_address, seller_address,
+		       marketplace, source_url, verification_status, ingested_at
+		FROM username_verified_sales
+		WHERE username_normalized = $1
+		ORDER BY sold_at DESC`
+
+	rows, err := db.Pool.Query(ctx, query, usernameNorm)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sales []VerifiedSale
+	for rows.Next() {
+		var s VerifiedSale
+		if err := rows.Scan(
+			&s.ID, &s.UsernameNormalized, &s.NFTAddress, &s.CollectionAddress, &s.SaleContract,
+			&s.TransactionHash, &s.EventIndex, &s.BlockSeqno, &s.SaleType,
+			&s.PriceNanoTON, &s.SoldAt, &s.BuyerAddress, &s.SellerAddress,
+			&s.Marketplace, &s.SourceURL, &s.VerificationStatus, &s.IngestedAt,
+		); err != nil {
+			return nil, err
+		}
+		// Convert nanoTON (10^9) to decimal TON
+		s.PriceTON = decimal.NewFromInt(s.PriceNanoTON).Div(decimal.NewFromInt(1e9))
+		s.ProvenanceLevel = ProvenanceLevelOnChain
+		if s.VerificationStatus == "reconciled" {
+			s.ProvenanceLevel = ProvenanceLevelReconciled
+		}
+		sales = append(sales, s)
+	}
+	return sales, rows.Err()
+}
+
+// GetVerifiedComparables fetches verified on-chain sales matching character length.
+func (db *Database) GetVerifiedComparables(ctx context.Context, charLen int, before time.Time, limit int) ([]VerifiedSale, error) {
+	query := `
+		SELECT id, username_normalized, nft_address, collection_address, sale_contract,
+		       transaction_hash, event_index, block_seqno, sale_type,
+		       price_nano_ton, sold_at, buyer_address, seller_address,
+		       marketplace, source_url, verification_status, ingested_at
+		FROM username_verified_sales
+		WHERE LENGTH(username_normalized) = $1
+		  AND sold_at < $2
+		ORDER BY sold_at DESC
+		LIMIT $3`
+
+	rows, err := db.Pool.Query(ctx, query, charLen, before, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sales []VerifiedSale
+	for rows.Next() {
+		var s VerifiedSale
+		if err := rows.Scan(
+			&s.ID, &s.UsernameNormalized, &s.NFTAddress, &s.CollectionAddress, &s.SaleContract,
+			&s.TransactionHash, &s.EventIndex, &s.BlockSeqno, &s.SaleType,
+			&s.PriceNanoTON, &s.SoldAt, &s.BuyerAddress, &s.SellerAddress,
+			&s.Marketplace, &s.SourceURL, &s.VerificationStatus, &s.IngestedAt,
+		); err != nil {
+			return nil, err
+		}
+		s.PriceTON = decimal.NewFromInt(s.PriceNanoTON).Div(decimal.NewFromInt(1e9))
+		s.ProvenanceLevel = ProvenanceLevelOnChain
+		if s.VerificationStatus == "reconciled" {
+			s.ProvenanceLevel = ProvenanceLevelReconciled
+		}
+		sales = append(sales, s)
+	}
+	return sales, rows.Err()
+}
+
+// InsertReportSource records provenance and latency for external sources used in an analysis report.
+func (db *Database) InsertReportSource(ctx context.Context, log ReportSourceLog) error {
+	query := `
+		INSERT INTO username_report_sources (
+			report_id, source_name, status, latency_ms, fetched_at
+		) VALUES ($1,$2,$3,$4,$5)`
+
+	_, err := db.Pool.Exec(ctx, query, log.ReportID, log.SourceName, log.Status, log.LatencyMS, log.FetchedAt)
+	return err
+}
+
+// ValuationBacktestRecord represents an empirical holdout backtest calibration snapshot.
+type ValuationBacktestRecord struct {
+	ID                  int64           `json:"id"`
+	ModelVersion        string          `json:"model_version"`
+	HoldoutSampleSize   int             `json:"holdout_sample_size"`
+	MeanAbsoluteError   decimal.Decimal `json:"mean_absolute_error"`
+	MedianAbsoluteError decimal.Decimal `json:"median_absolute_error"`
+	EvaluatedAt         time.Time       `json:"evaluated_at"`
+}
+
+// EnsureModelVersion registers or updates an AVM model version in valuation_model_versions.
+func (db *Database) EnsureModelVersion(ctx context.Context, versionTag string, description string, hyperparams json.RawMessage) error {
+	if db == nil || db.Pool == nil {
+		return nil
+	}
+	if len(hyperparams) == 0 {
+		hyperparams = json.RawMessage(`{}`)
+	}
+	query := `
+		INSERT INTO valuation_model_versions (version_tag, description, hyperparameters, is_active)
+		VALUES ($1, $2, $3, TRUE)
+		ON CONFLICT (version_tag) DO UPDATE
+		SET description = EXCLUDED.description,
+		    hyperparameters = EXCLUDED.hyperparameters,
+		    is_active = EXCLUDED.is_active`
+	_, err := db.Pool.Exec(ctx, query, versionTag, description, hyperparams)
+	return err
+}
+
+// InsertValuationBacktest persists holdout calibration metrics into valuation_backtests.
+func (db *Database) InsertValuationBacktest(ctx context.Context, b ValuationBacktestRecord) (int64, error) {
+	if db == nil || db.Pool == nil {
+		return 0, nil
+	}
+	// Ensure parent model version exists to satisfy foreign key constraint
+	_ = db.EnsureModelVersion(ctx, b.ModelVersion, "Automated AVM Model Version", json.RawMessage(`{}`))
+
+	query := `
+		INSERT INTO valuation_backtests (
+			model_version, holdout_sample_size, mean_absolute_error, median_absolute_error, evaluated_at
+		) VALUES ($1, $2, $3, $4, $5)
+		RETURNING id`
+
+	var id int64
+	err := db.Pool.QueryRow(ctx, query,
+		b.ModelVersion, b.HoldoutSampleSize, b.MeanAbsoluteError, b.MedianAbsoluteError, b.EvaluatedAt,
+	).Scan(&id)
+	return id, err
+}
+
+// GetLatestValuationBacktests retrieves the most recent backtests for a model version.
+func (db *Database) GetLatestValuationBacktests(ctx context.Context, modelVersion string, limit int) ([]ValuationBacktestRecord, error) {
+	if db == nil || db.Pool == nil {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	query := `
+		SELECT id, model_version, holdout_sample_size, mean_absolute_error, median_absolute_error, evaluated_at
+		FROM valuation_backtests
+		WHERE model_version = $1
+		ORDER BY evaluated_at DESC
+		LIMIT $2`
+
+	rows, err := db.Pool.Query(ctx, query, modelVersion, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []ValuationBacktestRecord
+	for rows.Next() {
+		var r ValuationBacktestRecord
+		if err := rows.Scan(&r.ID, &r.ModelVersion, &r.HoldoutSampleSize, &r.MeanAbsoluteError, &r.MedianAbsoluteError, &r.EvaluatedAt); err != nil {
+			return nil, err
+		}
+		records = append(records, r)
+	}
+	return records, rows.Err()
+}
+
+
 

@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/config"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/cryptoprice"
@@ -477,8 +478,26 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 		body, _ := json.Marshal(payload)
 
 		client := &http.Client{Timeout: 10 * time.Second}
-		if resp, err := client.Post(tgWebhookURL, "application/json", bytes.NewBuffer(body)); err == nil {
-			resp.Body.Close()
+		resp, err := client.Post(tgWebhookURL, "application/json", bytes.NewBuffer(body))
+		var webhookOk bool
+		if err != nil {
+			slog.Error("Telegram setWebhook network error", "error", err, "bot_username", bot.BotUsername)
+		} else {
+			defer resp.Body.Close()
+			var tgRes struct {
+				Ok          bool   `json:"ok"`
+				Description string `json:"description"`
+			}
+			if decErr := json.NewDecoder(resp.Body).Decode(&tgRes); decErr == nil && tgRes.Ok {
+				webhookOk = true
+			} else {
+				slog.Warn("Telegram setWebhook rejected", "desc", tgRes.Description, "status", resp.StatusCode, "bot_username", bot.BotUsername)
+			}
+		}
+
+		if !webhookOk {
+			bot.Status = "inactive"
+			_ = s.botRepo.UpdateBotStatus(ctx, bot.ID, "inactive")
 		}
 	}
 
@@ -511,6 +530,79 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 	})
 	notification.GetAdminNotifier().NotifyNewBot(ctx, msgTopic, kb)
 
+	return bot, nil
+}
+
+func (s *BotService) ReconnectWebhook(ctx context.Context, botID uuid.UUID, ownerID int64) (*repository.ManagedBot, error) {
+	bot, err := s.GetBot(ctx, botID, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	token, err := DecryptToken(bot.BotTokenEncrypted)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt bot token: %w", err)
+	}
+
+	backendURL := os.Getenv("BACKEND_URL")
+	if backendURL == "" {
+		backendURL = os.Getenv("API_URL")
+	}
+	if backendURL == "" {
+		backendURL = os.Getenv("APP_URL")
+	}
+	if backendURL == "" {
+		return nil, fmt.Errorf("backend URL is not configured")
+	}
+
+	secretHex := bot.WebhookSecretToken
+	if secretHex == "" {
+		secretBytes := make([]byte, 32)
+		_, _ = rand.Read(secretBytes)
+		secretHex = hex.EncodeToString(secretBytes)
+	}
+
+	webhookURL := fmt.Sprintf("%s/api/v1/webhook/telegram/%s", strings.TrimSuffix(backendURL, "/"), bot.ID.String())
+	tgWebhookURL := fmt.Sprintf("https://api.telegram.org/bot%s/setWebhook", token)
+	payload := map[string]interface{}{
+		"url":                  webhookURL,
+		"secret_token":         secretHex,
+		"drop_pending_updates": true,
+		"allowed_updates": []string{
+			"message",
+			"edited_message",
+			"callback_query",
+			"channel_post",
+			"edited_channel_post",
+			"my_chat_member",
+			"chat_member",
+			"chat_join_request",
+			"pre_checkout_query",
+		},
+	}
+	body, _ := json.Marshal(payload)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Post(tgWebhookURL, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		_ = s.botRepo.UpdateBotStatus(ctx, bot.ID, "inactive")
+		return nil, fmt.Errorf("telegram network error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var tgRes struct {
+		Ok          bool   `json:"ok"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tgRes); err != nil || !tgRes.Ok {
+		_ = s.botRepo.UpdateBotStatus(ctx, bot.ID, "inactive")
+		desc := tgRes.Description
+		if desc == "" {
+			desc = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("telegram rejected webhook: %s", desc)
+	}
+
+	_ = s.botRepo.UpdateBotStatus(ctx, bot.ID, "active")
+	bot.Status = "active"
 	return bot, nil
 }
 
@@ -1086,8 +1178,10 @@ func (s *BotService) ActivateSubscriptionFromStars(ctx context.Context, userID i
 			discountPercent = 75
 		}
 		savedStars := (pkg.PriceStars * discountPercent) / 100
-		requiredCoins := float64(savedStars * 1032)
-		_ = s.botRepo.DB().DeductCreditsFIFO(ctx, tx, userID, requiredCoins)
+		requiredCoins := float64(savedStars * config.Economics.CoinsPerStar)
+		if err := s.botRepo.DB().DeductCreditsFIFO(ctx, tx, userID, requiredCoins); err != nil {
+			return fmt.Errorf("insufficient coins for discount: %w", err)
+		}
 	}
 
 	if err := s.internalActivateSubscriptionTx(ctx, tx, userID, groupID, packageID, group, pkg); err != nil {
@@ -1173,17 +1267,17 @@ func (s *BotService) SubscribeWithCredits(ctx context.Context, userID int64, gro
 		requiredCredits = pkg.DurationMonths * 3
 	}
 
-	intelRepo := repository.NewIntelCreditRepo(s.botRepo.DB())
-	reason := fmt.Sprintf("sub:group:%s", groupID.String())
-	if _, err := intelRepo.ConsumeCreditsBatch(ctx, userID, requiredCredits, reason, pkg.ID, ""); err != nil {
-		return fmt.Errorf("failed to deduct credits: %w", err)
-	}
-
 	tx, err := s.botRepo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
+
+	intelRepo := repository.NewIntelCreditRepo(s.botRepo.DB())
+	reason := fmt.Sprintf("sub:group:%s", groupID.String())
+	if _, err := intelRepo.ConsumeCreditsBatchTx(ctx, tx, userID, requiredCredits, reason, pkg.ID, ""); err != nil {
+		return fmt.Errorf("failed to deduct credits: %w", err)
+	}
 
 	if err := s.internalActivateSubscriptionTx(ctx, tx, userID, groupID, packageID, group, pkg); err != nil {
 		return err
@@ -1261,8 +1355,8 @@ func getCryptoKey() []byte {
 			if os.Getenv("APP_ENV") != "production" {
 				keyStr = "dev_bot_token_key_32_characters_"
 			} else {
-				slog.Warn("BOT_TOKEN_KEY and secrets not set. Using fallback encryption key.")
-				keyStr = "ifragment_prod_fallback_token_32"
+				slog.Error("CRITICAL SECURITY VULNERABILITY: BOT_TOKEN_KEY environment variable is missing in production!")
+				panic("CRITICAL SECURITY CONFIGURATION ERROR: BOT_TOKEN_KEY must be set in production")
 			}
 		}
 		key := []byte(keyStr)
@@ -1648,8 +1742,10 @@ func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, u
 			discountPercent = 75
 		}
 		savedStars := (pkg.PriceStars * discountPercent) / 100
-		requiredCoins := float64(savedStars * 1032)
-		_ = s.botRepo.DB().DeductCreditsFIFO(ctx, tx, userID, requiredCoins)
+		requiredCoins := float64(savedStars * config.Economics.CoinsPerStar)
+		if err := s.botRepo.DB().DeductCreditsFIFO(ctx, tx, userID, requiredCoins); err != nil {
+			return fmt.Errorf("insufficient coins for discount: %w", err)
+		}
 	}
 
 	if err := s.internalActivateChannelSubscriptionTx(ctx, tx, userID, channelID, packageID, ch, pkg); err != nil {
@@ -1714,17 +1810,17 @@ func (s *BotService) SubscribeChannelWithCredits(ctx context.Context, userID int
 		requiredCredits = pkg.DurationMonths * 3
 	}
 
-	intelRepo := repository.NewIntelCreditRepo(s.botRepo.DB())
-	reason := fmt.Sprintf("sub:channel:%s", channelID.String())
-	if _, err := intelRepo.ConsumeCreditsBatch(ctx, userID, requiredCredits, reason, pkg.ID, ""); err != nil {
-		return fmt.Errorf("failed to deduct credits: %w", err)
-	}
-
 	tx, err := s.botRepo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
+
+	intelRepo := repository.NewIntelCreditRepo(s.botRepo.DB())
+	reason := fmt.Sprintf("sub:channel:%s", channelID.String())
+	if _, err := intelRepo.ConsumeCreditsBatchTx(ctx, tx, userID, requiredCredits, reason, pkg.ID, ""); err != nil {
+		return fmt.Errorf("failed to deduct credits: %w", err)
+	}
 
 	if err := s.internalActivateChannelSubscriptionTx(ctx, tx, userID, channelID, packageID, ch, pkg); err != nil {
 		return err
@@ -1951,7 +2047,7 @@ func (s *BotService) RestrictGroupMember(ctx context.Context, groupID uuid.UUID,
 	}
 
 	tg := telegram.NewBotAPIClient(token)
-	err = tg.RestrictChatMember(ctx, group.ChatID, targetUserID, untilDate)
+	err = tg.RestrictChatMemberWithPermissions(ctx, group.ChatID, targetUserID, perms, untilDate)
 	if err != nil {
 		return err
 	}

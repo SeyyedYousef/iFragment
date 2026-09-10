@@ -966,7 +966,7 @@ export const TapView: Component<{
 							onClick={() => setShowRateInfoModal(false)}
 							class="w-full h-12 bg-white/10 hover:bg-white/15 text-white font-bold rounded-[16px] text-[13px] active:scale-95 transition-all"
 						>
-							متوجه شدم
+							{t('tap.rateGotIt') || 'متوجه شدم'}
 						</button>
 					</div>
 				</div>

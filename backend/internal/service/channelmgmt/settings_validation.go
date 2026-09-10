@@ -99,6 +99,7 @@ type AutoResponderRuleSchema struct {
 
 type AutoResponderSchema struct {
 	Enabled          bool                      `json:"enabled"`
+	Target           string                    `json:"target,omitempty"` // "input" or "output"
 	AutoFirstComment bool                      `json:"autoFirstComment,omitempty"`
 	CommentMode      string                    `json:"commentMode,omitempty"` // "fixed", "rotating", "ai"
 	FixedComment     string                    `json:"fixedComment,omitempty"`

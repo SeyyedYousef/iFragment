@@ -334,6 +334,10 @@ type CuriosityGateResponse struct {
 type NumberVerificationResult struct {
 	Number             string             `json:"number"`
 	DisplayNumber      string             `json:"display_number"`
+	FormatValid        bool               `json:"format_valid"`
+	CollectionVerified bool               `json:"collection_verified"`
+	VerificationState  string             `json:"verification_state"` // "verified_telemint", "unverified_inventory", "invalid_format"
+	RestrictionStatus  string             `json:"restriction_status"`  // "clean", "restricted", "banned", "login_unavailable", "unknown"
 	IsMinted           bool               `json:"is_minted"`
 	Exists             bool               `json:"exists"`
 	Tier               string             `json:"tier"`

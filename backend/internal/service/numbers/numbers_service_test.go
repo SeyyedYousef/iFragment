@@ -131,3 +131,54 @@ func TestNumbersService_VerifyNumber(t *testing.T) {
 	}
 }
 
+func TestNumbersService_VerificationStatusesSeparation(t *testing.T) {
+	svc := NewNumbersService(nil, nil, nil, nil)
+	ctx := context.Background()
+
+	// 1. Genesis number must be verified telemint genesis with clean status
+	resGen, err := svc.VerifyNumber(ctx, "+888 8000")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !resGen.FormatValid || !resGen.CollectionVerified || resGen.VerificationState != "verified_telemint_genesis" {
+		t.Errorf("expected verified_telemint_genesis, got %+v", resGen)
+	}
+	if resGen.RestrictionStatus != "clean" {
+		t.Errorf("expected clean restriction status for Genesis, got %s", resGen.RestrictionStatus)
+	}
+
+	// 2. Invalid format number
+	resInv, err := svc.VerifyNumber(ctx, "+888 123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resInv.FormatValid || resInv.CollectionVerified || resInv.VerificationState != "invalid_format" {
+		t.Errorf("expected invalid_format, got %+v", resInv)
+	}
+}
+
+func TestNumbersService_OutageHandling_NoSyntheticData(t *testing.T) {
+	svc := NewNumbersService(nil, nil, nil, nil)
+	ctx := context.Background()
+
+	// Without upstream and with nil DB, GetNumbersList must never generate fake mock numbers or fake wallets
+	resp, err := svc.GetNumbersList(ctx, NumbersListParams{
+		Page: 1,
+		Mask: "+888 9999 9999",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.DataStatus != "unavailable" && resp.DataStatus != "stale" {
+		t.Errorf("expected data_status unavailable or stale, got %s", resp.DataStatus)
+	}
+
+	// Verify no synthetic items exist with fake EQ...Fragment owners
+	for _, item := range resp.Items {
+		if item.CurrentOwner == "EQ...Fragment" {
+			t.Errorf("forbidden fake synthetic owner detected: %s", item.CurrentOwner)
+		}
+	}
+}
+

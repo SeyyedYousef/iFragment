@@ -40,6 +40,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		r.Use(middleware.UserBanCheckMiddleware(cfg.OwnerRepo))
 
 		r.Get("/config", cfg.ProfileHandler.GetPublicConfig)
+		r.Get("/economy/config", cfg.ProfileHandler.GetEconomyConfig)
 
 		r.Post("/webhook/telegram/{botID}", cfg.WebhookHandler.HandleTelegramWebhook)
 		r.Post("/webhook/tonapi", cfg.WebhookHandler.HandleTonAPIWebhook)
@@ -48,6 +49,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 
 		r.Route("/usernames", func(r chi.Router) {
 			r.Get("/check", cfg.UsernameHandler.CheckAvailability)
+			r.Get("/verify", cfg.UsernameHandler.Verify)
 			r.With(middleware.OptionalAuthMiddleware).Get("/quick", cfg.UsernameHandler.QuickAnalysis)
 			r.With(middleware.OptionalAuthMiddleware).Get("/quick/stream", cfg.UsernameHandler.StreamQuickAnalysis)
 			r.Get("/rates", cfg.UsernameHandler.GetRates)
@@ -120,6 +122,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Post("/", cfg.BotMgmtHandler.RegisterBot)
 			r.Get("/{botID}", cfg.BotMgmtHandler.GetBot)
 			r.Delete("/{botID}", cfg.BotMgmtHandler.RevokeBot)
+			r.Post("/{botID}/reconnect-webhook", cfg.BotMgmtHandler.ReconnectWebhook)
 			r.Get("/{botID}/groups", cfg.BotMgmtHandler.ListGroups)
 		})
 

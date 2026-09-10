@@ -65,6 +65,24 @@ func NewUsernameHandler(
 	}
 }
 
+// Verify checks on-chain Telemint smart contract provenance, collection match, and Telegram registration.
+func (h *UsernameHandler) Verify(w http.ResponseWriter, r *http.Request) {
+	u := r.URL.Query().Get("u")
+	if u == "" {
+		RespondError(w, r, http.StatusBadRequest, "username parameter 'u' is required", nil)
+		return
+	}
+
+	ctx := r.Context()
+	result, err := h.reportService.VerifyUsername(ctx, u)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "verification failed", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, result)
+}
+
 func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Request) {
 	u := r.URL.Query().Get("u")
 	if u == "" {
@@ -535,9 +553,11 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	needsQuotaCommit := false
+	var dailyKey string
 	if isPro {
 		todayStr := time.Now().UTC().Format("2006-01-02")
-		dailyKey := fmt.Sprintf("val_daily_used:%d:%s", userID, todayStr)
+		dailyKey = fmt.Sprintf("val_daily_used:%d:%s", userID, todayStr)
 		dailyUsed := 0
 		if h.cache != nil {
 			if cntStr, err := h.cache.Client.Get(ctx, dailyKey).Result(); err == nil {
@@ -546,12 +566,7 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		}
 		if dailyUsed < 3 {
 			hasAccess = true
-			if h.cache != nil {
-				cnt, _ := h.cache.Client.Incr(ctx, dailyKey).Result()
-				if cnt == 1 {
-					h.cache.Client.Expire(ctx, dailyKey, 24*time.Hour)
-				}
-			}
+			needsQuotaCommit = true
 		}
 	}
 
@@ -577,9 +592,9 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Redis Cache hit check (centralized version-bound key format)
+	// Redis Cache hit check (centralized version-bound public key format)
 	nocache := r.URL.Query().Get("nocache") == "true" || r.URL.Query().Get("refresh") == "true" || r.URL.Query().Get("force") == "true"
-	valCacheKey := fmt.Sprintf("valuation:%s:%s", avm.ModelVersion, cleanU)
+	valCacheKey := fmt.Sprintf("valuation:public:%s:%s", avm.ModelVersion, cleanU)
 	if h.cache != nil && !nocache {
 		if cachedData, err := h.cache.Client.Get(ctx, valCacheKey).Result(); err == nil && cachedData != "" {
 			w.Header().Set("Content-Type", "application/json")
@@ -603,9 +618,10 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch TON/USD rate
-	tonRate, err := h.reportService.GetTONRate(ctx)
-	if err != nil {
+	// Fetch TON/USD rate with full provenance
+	rateInfo, err := h.reportService.GetTONRateInfo(ctx)
+	tonRate := rateInfo.Rate
+	if err != nil || tonRate <= 0 {
 		slog.Warn("AVM: TON rate fetch failed, using fallback", "error", err)
 		tonRate = 7.25
 	}
@@ -615,6 +631,14 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		slog.Error("AVM valuation failed", "username", u, "error", err)
 		RespondError(w, r, http.StatusInternalServerError, "valuation failed", err)
 		return
+	}
+
+	if rateInfo.IsStale {
+		result.IsFallbackUsed = true
+		if result.DataBadges == nil {
+			result.DataBadges = make(map[string]string)
+		}
+		result.DataBadges["rate_provenance"] = "Stale Fallback Rate"
 	}
 	h.sendValuationNotification(r, u, result)
 
@@ -835,6 +859,14 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	})
 
 	_ = gVal.Wait()
+
+	// Commit Pro daily quota consumption only after successful calculation
+	if needsQuotaCommit && h.cache != nil && dailyKey != "" {
+		cnt, _ := h.cache.Client.Incr(ctx, dailyKey).Result()
+		if cnt == 1 {
+			h.cache.Client.Expire(ctx, dailyKey, 24*time.Hour)
+		}
+	}
 
 	// Reconcile the wallet summary with what the on-chain lookup actually returned.
 	// WalletInfo used to ship hardcoded counts ("12 NFTs" for any short handle),

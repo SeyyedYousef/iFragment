@@ -30,7 +30,7 @@ vi.mock('./useWallet.js', () => ({
 		nextExpiry: () => null,
 		coins: () => 100000,
 		config: () => ({
-			coins_per_credit: 50000,
+			coins_per_credit: 150000,
 			packs: [
 				{
 					id: 'pack_1',

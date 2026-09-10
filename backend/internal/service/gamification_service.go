@@ -211,6 +211,42 @@ func (s *GamificationService) applyCoinDecay(ctx context.Context) {
 		return
 	}
 
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		slog.Error("Failed to start transaction for coin decay", "err", err)
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Log decay events in user_ledger_events before modifying balances
+	_, _ = tx.Exec(ctx, `
+		INSERT INTO user_ledger_events (
+			user_id, category, event_type, amount, balance_before, balance_after,
+			title, reference_id, metadata, created_at
+		)
+		SELECT 
+			user_id, 'coins', 'decay', -(airdrop_coins * 0.02), airdrop_coins, airdrop_coins * 0.98,
+			'Inactivity Coin Decay (2%)', 'decay_' || CURRENT_DATE::text || '_' || user_id::text,
+			'{"reason": "inactive_5_days"}'::jsonb, CURRENT_TIMESTAMP
+		FROM user_stats
+		WHERE last_active_at < NOW() - INTERVAL '5 days'
+		  AND (last_decay_at IS NULL OR last_decay_at < CURRENT_DATE)
+		  AND airdrop_coins > 0;
+	`)
+
+	// 2. Proportionately reduce active batches in user_credit_batches to keep FIFO reconciliation consistent
+	_, _ = tx.Exec(ctx, `
+		UPDATE user_credit_batches ucb
+		SET remaining_amount = remaining_amount * 0.98
+		FROM user_stats us
+		WHERE ucb.user_id = us.user_id
+		  AND us.last_active_at < NOW() - INTERVAL '5 days'
+		  AND (us.last_decay_at IS NULL OR us.last_decay_at < CURRENT_DATE)
+		  AND ucb.is_expired = FALSE
+		  AND ucb.remaining_amount > 0;
+	`)
+
+	// 3. Apply 2% decay to user_stats balance
 	query := `
 		UPDATE user_stats 
 		SET airdrop_coins = airdrop_coins * 0.98,
@@ -219,11 +255,19 @@ func (s *GamificationService) applyCoinDecay(ctx context.Context) {
 		  AND (last_decay_at IS NULL OR last_decay_at < CURRENT_DATE) 
 		  AND airdrop_coins > 0;
 	`
-	tag, err := s.db.Pool.Exec(ctx, query)
+	tag, err := tx.Exec(ctx, query)
 	if err != nil {
 		slog.Error("Failed to apply coin decay", "err", err)
-	} else if tag.RowsAffected() > 0 {
-		slog.Info("Applied coin decay", "affected_users", tag.RowsAffected())
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		slog.Error("Failed to commit coin decay transaction", "err", err)
+		return
+	}
+
+	if tag.RowsAffected() > 0 {
+		slog.Info("Applied coin decay with ledger and batch reconciliation", "affected_users", tag.RowsAffected())
 	}
 }
 
@@ -307,8 +351,8 @@ var dailyRewards = map[int]struct {
 	3: {Frg: 2500, Xp: 50},
 	4: {Frg: 5000, Xp: 100},
 	5: {Frg: 10000, Xp: 200},
-	6: {Frg: 25000, Xp: 300},
-	7: {Frg: 50000, Xp: 500},
+	6: {Frg: 15000, Xp: 300},
+	7: {Frg: 25000, Xp: 500},
 }
 
 // GetDailyStatus returns status of daily calendar claims

@@ -149,6 +149,7 @@ type Message struct {
 	CaptionEntities    []MessageEntity         `json:"caption_entities,omitempty"`
 	ReplyToMessage     *Message                `json:"reply_to_message"`
 	ExternalReply      *ExternalReplyInfo      `json:"external_reply,omitempty"`
+	ForwardOrigin      *MessageOrigin          `json:"forward_origin,omitempty"`
 	ForwardFrom        *User                   `json:"forward_from,omitempty"`
 	ForwardFromChat    *Chat                   `json:"forward_from_chat"`
 	ViaBot             *User                   `json:"via_bot"`
@@ -216,4 +217,15 @@ type InlineKeyboardButton struct {
 
 type InlineKeyboardMarkup struct {
 	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
+}
+
+// MessageOrigin represents the origin of a message (Telegram Bot API 7.0+)
+type MessageOrigin struct {
+	Type            string `json:"type"` // "user", "hidden_user", "chat", "channel"
+	Date            int    `json:"date"`
+	SenderUser      *User  `json:"sender_user,omitempty"`
+	SenderUserName  string `json:"sender_user_name,omitempty"`
+	SenderChat      *Chat  `json:"sender_chat,omitempty"`
+	AuthorSignature string `json:"author_signature,omitempty"`
+	MessageID       int    `json:"message_id,omitempty"`
 }

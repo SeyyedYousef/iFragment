@@ -3,10 +3,13 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"ifragment-backend/internal/config"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service"
+	"ifragment-backend/internal/service/botmgmt"
+	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/payment"
 	"io"
 	"net/http"
@@ -33,20 +36,22 @@ func NewProfileHandler(s *service.ProfileService, p *payment.StarsService, r *re
 }
 
 func (h *ProfileHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request) {
-	config := map[string]interface{}{
-		"airdrop_to_frg_rate": 100000.0,
+	configMap := map[string]interface{}{
+		"coins_per_credit":    config.Economics.CreditsCoinsPerCredit,
+		"coins_per_star":      config.Economics.CoinsPerStar,
+		"airdrop_to_frg_rate": float64(config.Economics.CreditsCoinsPerCredit),
 		"boosters": map[string]interface{}{
 			"tapPower": map[string]interface{}{
 				"maxLevel": 10,
-				"baseCost": 2000.0,
+				"baseCost": 3000.0,
 			},
 			"energyCap": map[string]interface{}{
 				"maxLevel": 10,
-				"baseCost": 1500.0,
+				"baseCost": 2500.0,
 			},
 			"tapBot": map[string]interface{}{
 				"maxLevel": 1,
-				"baseCost": 20000.0,
+				"baseCost": 50000.0,
 			},
 		},
 		"leagues": []map[string]interface{}{
@@ -57,7 +62,7 @@ func (h *ProfileHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request)
 			{"name": "Diamond", "minScore": 1000000},
 			{"name": "Legendary", "minScore": 5000000},
 		},
-		"daily_rewards": []int{500, 1000, 2500, 5000, 10000, 25000, 50000},
+		"daily_rewards": []int{500, 1000, 2500, 5000, 10000, 15000, 25000},
 	}
 
 	activeAds := []model.DashboardAd{}
@@ -89,11 +94,52 @@ func (h *ProfileHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request)
 			}
 		}
 	}
-	config["dashboard_ads"] = activeAds
+	configMap["dashboard_ads"] = activeAds
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "public, max-age=60")
-	json.NewEncoder(w).Encode(config)
+	json.NewEncoder(w).Encode(configMap)
+}
+
+// GetEconomyConfig returns the unified, server-authoritative economy registry.
+func (h *ProfileHandler) GetEconomyConfig(w http.ResponseWriter, r *http.Request) {
+	resp := map[string]interface{}{
+		"coins_per_credit":         config.Economics.CreditsCoinsPerCredit,
+		"coins_per_star":           config.Economics.CoinsPerStar,
+		"credits_per_report":       1,
+		"coin_expiry_days":         30,
+		"credit_batch_expiry_days": config.Economics.CreditBatchExpiryDays,
+		"daily_rewards":            []int{500, 1000, 2500, 5000, 10000, 15000, 25000},
+		"referral_rewards": map[string]interface{}{
+			"referrer_reward":             10000,
+			"referred_reward":             10000,
+			"max_referral_reward_per_day": 20000,
+			"max_referral_reward_total":   1000000,
+		},
+		"booster_costs": map[string]interface{}{
+			"multitap": map[string]interface{}{
+				"base_cost": 3000,
+				"formula":   "level * 3000",
+				"max_level": 10,
+			},
+			"energy_limit": map[string]interface{}{
+				"base_cost": 2500,
+				"formula":   "level * 2500",
+				"max_level": 10,
+			},
+			"tap_bot": map[string]interface{}{
+				"cost":      50000,
+				"max_level": 1,
+			},
+		},
+		"subscription_packages": botmgmt.Packages,
+		"discount_tiers":        botmgmt.DiscountTiers,
+		"credit_packs":          intelcredit.Packs(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "public, max-age=60")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (h *ProfileHandler) getUserID(r *http.Request) (int64, bool) {
@@ -250,8 +296,15 @@ func (h *ProfileHandler) AddTaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Signature == "" {
-		RespondError(w, r, http.StatusBadRequest, "missing signature", nil)
+	// SEC-P0: Mandatory Nonce with minimum 16 characters (128-bit entropy)
+	if strings.TrimSpace(req.Nonce) == "" || len(strings.TrimSpace(req.Nonce)) < 16 {
+		RespondError(w, r, http.StatusBadRequest, "ERR_INVALID_NONCE", fmt.Errorf("nonce is required with minimum 16 characters"))
+		return
+	}
+
+	// SEC-P0: Mandatory Client Timestamp
+	if req.ClientTS <= 0 {
+		RespondError(w, r, http.StatusBadRequest, "ERR_INVALID_TIMESTAMP", fmt.Errorf("client timestamp is required"))
 		return
 	}
 

@@ -13,6 +13,9 @@ export const botApi = {
 
 	listGroups: (botId: string) =>
 		apiClient.get<any[]>(`/bots/${botId}/groups`).then((r: any) => r.data),
+
+	reconnectWebhook: (botId: string) =>
+		apiClient.post<{ status: string; message?: string }>(`/bots/${botId}/reconnect-webhook`).then((r: any) => r.data),
 };
 
 export const subscriptionApi = {

@@ -175,6 +175,17 @@ export interface ValuationActionVerdict {
 	summary_fa: string;
 }
 
+export interface ValuationPillars {
+	fair_value_gram: number;
+	fair_value_usd: number;
+	liquidation_value_gram: number;
+	liquidation_value_usd: number;
+	suggested_ask_gram: number;
+	suggested_ask_usd: number;
+	observed_floor_gram: number;
+	observed_floor_usd: number;
+}
+
 export interface GiftValuationReport {
 	run_id: number;
 	gift_id: string;
@@ -197,11 +208,15 @@ export interface GiftValuationReport {
 	gram_usd_rate: number;
 	confidence_score: number;
 	price_basis: string;
+	pillars?: ValuationPillars;
 	trait_dna: TraitDNABar[];
 	joint_rarity?: {
 		harmonic_rarity_score: number;
 		surprisal_bits: number;
+		surprisal_entropy?: number;
+		covariance_coupling?: number;
 		beta_synergy: number;
+		rarity_class?: string;
 	};
 	aesthetic_harmony?: any;
 	stars_parity?: any;
@@ -287,6 +302,7 @@ export interface GiftsIntelResponse {
 		total_unique_models?: number;
 		total_patterns?: number;
 	};
+	data_source_attribution?: string;
 	updated_at: string;
 }
 

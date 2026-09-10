@@ -2,23 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { calculateReportCoinPrice, ECONOMY_CONFIG } from './economy.js';
 
 describe('Economy Config & Formula Engine', () => {
-	it('should maintain standard baseline daily mining emission E = 1500', () => {
-		expect(ECONOMY_CONFIG.BASE_DAILY_EARNING_E).toBe(1500);
+	it('should maintain standard baseline daily mining emission E = 15000', () => {
+		expect(ECONOMY_CONFIG.BASE_DAILY_EARNING_E).toBe(15000);
 	});
 
-	it('should calculate report price as exactly 10 * E = 15,000 coins for regular reports', () => {
-		expect(ECONOMY_CONFIG.REPORT_COIN_PRICE).toBe(15000);
-		expect(calculateReportCoinPrice(false, 0)).toBe(15000);
+	it('should calculate report price as exactly 10 * E = 150,000 coins for regular reports', () => {
+		expect(ECONOMY_CONFIG.REPORT_COIN_PRICE).toBe(150000);
+		expect(calculateReportCoinPrice(false, 0)).toBe(150000);
 	});
 
-	it('should apply 50% discount (7,500 coins) for first reports', () => {
-		expect(ECONOMY_CONFIG.FIRST_REPORT_COIN_PRICE).toBe(7500);
-		expect(calculateReportCoinPrice(true, 0)).toBe(7500);
+	it('should apply 50% discount (75,000 coins) for first reports', () => {
+		expect(ECONOMY_CONFIG.FIRST_REPORT_COIN_PRICE).toBe(75000);
+		expect(calculateReportCoinPrice(true, 0)).toBe(75000);
 	});
 
 	it('should apply 50% discount for stale reports older than 7 days', () => {
-		expect(calculateReportCoinPrice(false, 8)).toBe(7500);
-		expect(calculateReportCoinPrice(false, 6)).toBe(15000);
+		expect(calculateReportCoinPrice(false, 8)).toBe(75000);
+		expect(calculateReportCoinPrice(false, 6)).toBe(150000);
 	});
 
 	it('should provide correct Telegram Stars Intel packs with proper credit quantities', () => {
@@ -37,14 +37,14 @@ describe('Economy Config & Formula Engine', () => {
 		const ladder = ECONOMY_CONFIG.REFERRAL_LADDER;
 		expect(ladder.length).toBeGreaterThanOrEqual(3);
 		expect(ladder[0].invites).toBe(1);
-		expect(ladder[0].rewardCoins).toBe(2500);
+		expect(ladder[0].rewardCoins).toBe(10000);
 
 		expect(ladder[1].invites).toBe(3);
-		expect(ladder[1].rewardCoins).toBe(7500);
+		expect(ladder[1].rewardCoins).toBe(30000);
 		expect(ladder[1].bonusCredits).toBe(1);
 
 		expect(ladder[2].invites).toBe(10);
-		expect(ladder[2].rewardCoins).toBe(30000);
+		expect(ladder[2].rewardCoins).toBe(100000);
 		expect(ladder[2].bonusCredits).toBe(3);
 	});
 });

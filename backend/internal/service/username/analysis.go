@@ -311,6 +311,9 @@ type FullReport struct {
 	// ─ Ownership ─
 	OwnerAddress string `json:"owner_address,omitempty"`
 
+	// ─ On-Chain Telemint Verification ─
+	TelemintProvenance *UsernameTelemintDetails `json:"telemint_provenance,omitempty"`
+
 	// ─ Sale Info ─
 	SaleStatus  string  `json:"sale_status"` // not_for_sale, on_auction, on_sale
 	HighestBid  float64 `json:"highest_bid,omitempty"`
@@ -341,6 +344,39 @@ type FullReport struct {
 	// ─ Meta ─
 	ExchangeRate float64   `json:"exchange_rate,omitempty"`
 	GeneratedAt  time.Time `json:"generated_at"`
+}
+
+// UsernameTelemintDetails details on-chain smart contract provenance and collection verification.
+type UsernameTelemintDetails struct {
+	ItemAddress        string    `json:"item_address,omitempty"`
+	CollectionAddress  string    `json:"collection_address,omitempty"`
+	CollectionMatch    bool      `json:"collection_match"`
+	IsAuthentic        bool      `json:"is_authentic"`
+	OwnerAddress       string    `json:"owner_address,omitempty"`
+	RealOwnerAddress   string    `json:"real_owner_address,omitempty"`
+	IsEscrow           bool      `json:"is_escrow"`
+	EscrowMarketplace  string    `json:"escrow_marketplace,omitempty"`
+	SalePriceTON       float64   `json:"sale_price_ton,omitempty"`
+	VerificationStatus string    `json:"verification_status"`
+	VerifiedAt         time.Time `json:"verified_at"`
+	Details            string    `json:"details"`
+}
+
+// UsernameVerificationResult represents the complete verification verdict for a username.
+type UsernameVerificationResult struct {
+	Username            string                  `json:"username"`
+	FormatValid         bool                    `json:"format_valid"`
+	IsCollectibleLength bool                    `json:"is_collectible_length"`
+	IsBasicEligible     bool                    `json:"is_basic_eligible"`
+	TelegramStatus      string                  `json:"telegram_status"`
+	PeerType            string                  `json:"peer_type,omitempty"`
+	LinkedTelegramUser  string                  `json:"linked_telegram_user,omitempty"`
+	IsMintedNFT         bool                    `json:"is_minted_nft"`
+	CollectionVerified  bool                    `json:"collection_verified"`
+	VerificationState   string                  `json:"verification_state"`
+	TelemintProvenance  UsernameTelemintDetails `json:"telemint_provenance"`
+	DataBadges          map[string]string       `json:"data_badges"`
+	VerifiedAt          time.Time               `json:"verified_at"`
 }
 
 // ── Quick Check (Free - used by ActionArea) ──
@@ -752,6 +788,50 @@ func (s *AnalysisService) generateDeepReport(ctx context.Context, userID int64, 
 						report.BuyNowPrice = priceTON
 					}
 				}
+			}
+		}
+
+		if nft.Address != "" {
+			isMatch := strings.EqualFold(strings.TrimSpace(nft.Collection.Address), strings.TrimSpace(tonapi.UsernamesCollectionAddr))
+			isEscrow := false
+			escrowMarket := ""
+			var salePrice float64
+			if nft.Sale != nil {
+				isEscrow = true
+				escrowMarket = nft.Sale.Market.Name
+				if nft.Sale.Price.Value != "" {
+					var val float64
+					if _, sErr := fmt.Sscanf(nft.Sale.Price.Value, "%f", &val); sErr == nil {
+						tokenName := strings.ToLower(nft.Sale.Price.TokenName)
+						if tokenName == "ton" || tokenName == "nanoton" || tokenName == "" {
+							salePrice = val / 1e9
+						} else {
+							salePrice = val
+						}
+					}
+				}
+			}
+
+			status := "verified_telemint"
+			details := "Verified official Telegram username NFT contract on TON"
+			if !isMatch && nft.Collection.Address != "" {
+				status = "counterfeit_collection_mismatch"
+				details = fmt.Sprintf("Collection mismatch: item collection %s does not match canonical %s", nft.Collection.Address, tonapi.UsernamesCollectionAddr)
+			}
+
+			report.TelemintProvenance = &UsernameTelemintDetails{
+				ItemAddress:        nft.Address,
+				CollectionAddress:  nft.Collection.Address,
+				CollectionMatch:    isMatch,
+				IsAuthentic:        isMatch,
+				OwnerAddress:       nft.Owner.Address,
+				RealOwnerAddress:   nft.Owner.Address,
+				IsEscrow:           isEscrow,
+				EscrowMarketplace:  escrowMarket,
+				SalePriceTON:       salePrice,
+				VerificationStatus: status,
+				VerifiedAt:         time.Now().UTC(),
+				Details:            details,
 			}
 		}
 		mu.Unlock()
@@ -1471,34 +1551,62 @@ func roundConfidence(v float64) float64 {
 	return math.Round(v*100) / 100
 }
 
-// GetTONRate fetches the current TON to USD exchange rate from TonAPI with caching
-func (s *AnalysisService) GetTONRate(ctx context.Context) (float64, error) {
+// CurrencyRate encapsulates rate information with full provenance and staleness tracking.
+type CurrencyRate struct {
+	Rate       float64   `json:"rate"`
+	Source     string    `json:"source"` // tonapi, cache, fallback
+	IsStale    bool      `json:"is_stale"`
+	ObservedAt time.Time `json:"observed_at"`
+}
+
+// GetTONRateInfo fetches the current TON to USD exchange rate with provenance metadata.
+func (s *AnalysisService) GetTONRateInfo(ctx context.Context) (CurrencyRate, error) {
 	cacheKey := "ton_rate_usd"
+	now := time.Now().UTC()
+
 	if s.cache != nil {
 		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
 		if err == nil {
 			var price float64
-			if _, err := fmt.Sscanf(val, "%f", &price); err == nil {
-				return price, nil
+			if _, err := fmt.Sscanf(val, "%f", &price); err == nil && price > 0 {
+				return CurrencyRate{
+					Rate:       price,
+					Source:     "cache",
+					IsStale:    false,
+					ObservedAt: now,
+				}, nil
 			}
 		}
 	}
 
-	if s.tonClient == nil {
-		return 7.25, nil
+	if s.tonClient != nil {
+		price, err := s.tonClient.GetTONRates(ctx)
+		if err == nil && price > 0 {
+			if s.cache != nil {
+				s.cache.Client.Set(ctx, cacheKey, fmt.Sprintf("%f", price), 5*time.Minute)
+			}
+			return CurrencyRate{
+				Rate:       price,
+				Source:     "tonapi",
+				IsStale:    false,
+				ObservedAt: now,
+			}, nil
+		}
 	}
 
-	price, err := s.tonClient.GetTONRates(ctx)
-	if err != nil {
-		// Return a fallback price
-		return 7.25, nil
-	}
+	// Fallback rate with explicit staleness provenance
+	return CurrencyRate{
+		Rate:       7.25,
+		Source:     "fallback",
+		IsStale:    true,
+		ObservedAt: now,
+	}, nil
+}
 
-	if s.cache != nil {
-		s.cache.Client.Set(ctx, cacheKey, fmt.Sprintf("%f", price), 5*time.Minute)
-	}
-
-	return price, nil
+// GetTONRate fetches the current TON to USD exchange rate from TonAPI with caching (returns scalar)
+func (s *AnalysisService) GetTONRate(ctx context.Context) (float64, error) {
+	info, err := s.GetTONRateInfo(ctx)
+	return info.Rate, err
 }
 
 func (s *AnalysisService) CalculateChannelEmpire(ctx context.Context, usernames []string) (totalParticipants int, err error) {
@@ -1556,3 +1664,153 @@ func (s *AnalysisService) CalculateChannelEmpire(ctx context.Context, usernames 
 	}
 	return totalParticipants, nil
 }
+
+// VerifyUsername performs comprehensive on-chain provenance and Telegram handle verification.
+func (s *AnalysisService) VerifyUsername(ctx context.Context, rawUsername string) (*UsernameVerificationResult, error) {
+	norm := CanonicalizeUsername(rawUsername)
+	valid, reason := ValidateUsernameFormat(norm)
+	now := time.Now().UTC()
+
+	res := &UsernameVerificationResult{
+		Username:            norm,
+		FormatValid:         valid,
+		IsCollectibleLength: IsCollectibleOnlyLength(norm),
+		IsBasicEligible:     IsBasicEligible(norm),
+		VerifiedAt:          now,
+		DataBadges: map[string]string{
+			"network":  "TON Mainnet",
+			"standard": "TEP-62 (Telemint)",
+		},
+	}
+
+	if !valid {
+		res.VerificationState = "invalid_format"
+		res.TelegramStatus = "invalid"
+		res.TelemintProvenance = UsernameTelemintDetails{
+			VerificationStatus: "invalid_format",
+			VerifiedAt:         now,
+			Details:            reason,
+		}
+		res.DataBadges["onchain_status"] = "Invalid Format"
+		return res, nil
+	}
+
+	// Check on-chain via TonAPI
+	var nft *tonapi.NFTItem
+	if s.tonClient != nil {
+		tonCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
+		defer cancel()
+		var err error
+		nft, err = s.tonClient.GetNFTByDNS(tonCtx, norm)
+		if err != nil {
+			nft = nil
+		}
+	}
+
+	if nft != nil && nft.Address != "" {
+		isMatch := strings.EqualFold(strings.TrimSpace(nft.Collection.Address), strings.TrimSpace(tonapi.UsernamesCollectionAddr))
+		isEscrow := false
+		escrowMarket := ""
+		var salePrice float64
+		if nft.Sale != nil {
+			isEscrow = true
+			escrowMarket = nft.Sale.Market.Name
+			if nft.Sale.Price.Value != "" {
+				var val float64
+				if _, sErr := fmt.Sscanf(nft.Sale.Price.Value, "%f", &val); sErr == nil {
+					tokenName := strings.ToLower(nft.Sale.Price.TokenName)
+					if tokenName == "ton" || tokenName == "nanoton" || tokenName == "" {
+						salePrice = val / 1e9
+					} else {
+						salePrice = val
+					}
+				}
+			}
+		}
+
+		res.IsMintedNFT = true
+		res.CollectionVerified = isMatch
+		if isMatch {
+			res.VerificationState = "verified_telemint"
+			res.TelemintProvenance = UsernameTelemintDetails{
+				ItemAddress:        nft.Address,
+				CollectionAddress:  nft.Collection.Address,
+				CollectionMatch:    true,
+				IsAuthentic:        true,
+				OwnerAddress:       nft.Owner.Address,
+				RealOwnerAddress:   nft.Owner.Address,
+				IsEscrow:           isEscrow,
+				EscrowMarketplace:  escrowMarket,
+				SalePriceTON:       salePrice,
+				VerificationStatus: "verified_telemint",
+				VerifiedAt:         now,
+				Details:            "Cryptographically verified on-chain Telegram Telemint NFT item",
+			}
+			res.DataBadges["onchain_status"] = "Verified Telemint"
+		} else {
+			res.VerificationState = "counterfeit_collection_mismatch"
+			res.TelemintProvenance = UsernameTelemintDetails{
+				ItemAddress:        nft.Address,
+				CollectionAddress:  nft.Collection.Address,
+				CollectionMatch:    false,
+				IsAuthentic:        false,
+				OwnerAddress:       nft.Owner.Address,
+				RealOwnerAddress:   nft.Owner.Address,
+				IsEscrow:           isEscrow,
+				EscrowMarketplace:  escrowMarket,
+				SalePriceTON:       salePrice,
+				VerificationStatus: "counterfeit_collection_mismatch",
+				VerifiedAt:         now,
+				Details:            fmt.Sprintf("CRITICAL: NFT collection address (%s) does NOT match canonical Telegram collection (%s)", nft.Collection.Address, tonapi.UsernamesCollectionAddr),
+			}
+			res.DataBadges["onchain_status"] = "Counterfeit Mismatch"
+		}
+	} else {
+		res.IsMintedNFT = false
+		res.CollectionVerified = false
+		res.VerificationState = "unminted_standard_handle"
+		res.TelemintProvenance = UsernameTelemintDetails{
+			VerificationStatus: "unminted_standard_handle",
+			VerifiedAt:         now,
+			Details:            "Username is not tokenized as an on-chain Telemint NFT on TON",
+		}
+		res.DataBadges["onchain_status"] = "Unminted"
+	}
+
+	// Resolve Telegram MTProto status
+	if s.mtprotoClient != nil {
+		mtpCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		status, err := s.mtprotoClient.CheckUsername(mtpCtx, norm)
+		if err == nil {
+			switch status {
+			case mtproto.StatusAvailable:
+				res.TelegramStatus = "available"
+			case mtproto.StatusOccupied:
+				res.TelegramStatus = "occupied"
+				peer, pErr := s.mtprotoClient.ResolveUsername(mtpCtx, norm)
+				if pErr == nil && peer != nil {
+					if len(peer.Users) > 0 {
+						res.PeerType = "user"
+						res.LinkedTelegramUser = fmt.Sprintf("user:%d", peer.Users[0].GetID())
+					} else if len(peer.Chats) > 0 {
+						if _, isChannel := peer.Chats[0].(*tg.Channel); isChannel {
+							res.PeerType = "channel"
+							res.LinkedTelegramUser = fmt.Sprintf("channel:%d", peer.Chats[0].GetID())
+						} else {
+							res.PeerType = "group"
+							res.LinkedTelegramUser = fmt.Sprintf("chat:%d", peer.Chats[0].GetID())
+						}
+					}
+				}
+			case mtproto.StatusPurchase:
+				res.TelegramStatus = "purchase_available"
+			default:
+				res.TelegramStatus = "unknown"
+			}
+		}
+	}
+
+	return res, nil
+}
+

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"sync"
 	"time"
 
@@ -101,10 +102,14 @@ func (r *AnalyticsRepo) LogEventAsync(event *GroupEvent) {
 	}
 }
 
-// GetSummary retrieves analytics summary for a group.
-// Optimization: Ensure composite index on (group_id, event_type, created_at) exists in DB.
+// GetSummary retrieves analytics summary for a group with accurate member totals and change percentages.
 func (r *AnalyticsRepo) GetSummary(ctx context.Context, groupID uuid.UUID, days int) (*AnalyticsSummary, error) {
-	since := time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -days)
+	if days <= 0 {
+		days = 7
+	}
+	now := time.Now().UTC()
+	since := now.Truncate(24 * time.Hour).AddDate(0, 0, -days)
+	prevSince := since.AddDate(0, 0, -days)
 	summary := &AnalyticsSummary{}
 
 	query := `
@@ -127,6 +132,28 @@ func (r *AnalyticsRepo) GetSummary(ctx context.Context, groupID uuid.UUID, days 
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	// 1. Fetch total_members directly from managed_groups table
+	var membersCount int
+	_ = r.db.Pool.QueryRow(ctx, `SELECT COALESCE(members_count, 0) FROM managed_groups WHERE id = $1`, groupID).Scan(&membersCount)
+	summary.TotalMembers = membersCount
+	if summary.TotalMembers == 0 && summary.ActiveUsers > 0 {
+		summary.TotalMembers = summary.ActiveUsers
+	}
+
+	// 2. Accurately calculate messages_change_pct by comparing with the preceding period
+	var prevMessages int
+	prevQuery := `SELECT COALESCE(COUNT(*), 0) FROM group_events WHERE group_id = $1 AND event_type = 'message' AND created_at >= $2 AND created_at < $3`
+	_ = r.db.Pool.QueryRow(ctx, prevQuery, groupID, prevSince, since).Scan(&prevMessages)
+
+	if prevMessages > 0 {
+		changePct := float64(summary.TotalMessages-prevMessages) / float64(prevMessages) * 100.0
+		summary.MessagesChange = math.Round(changePct*10) / 10
+	} else if summary.TotalMessages > 0 {
+		summary.MessagesChange = 100.0
+	} else {
+		summary.MessagesChange = 0.0
 	}
 
 	summary.MembersChange = summary.NewMembers - summary.MembersLeft

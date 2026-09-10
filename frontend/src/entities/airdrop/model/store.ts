@@ -314,7 +314,7 @@ export const syncDailyRewardStatus = async () => {
 	}
 };
 
-export const DAILY_REWARDS = [500, 1000, 2500, 5000, 10000, 25000, 50000];
+export const DAILY_REWARDS = [500, 1000, 2500, 5000, 10000, 15000, 25000];
 
 export const claimDailyReward = async () => {
 	try {
@@ -423,7 +423,9 @@ export const syncPendingTaps = async () => {
 				// Ensure fresh timestamp right before signing and dispatching so offline/cached buckets never suffer from clock skew
 				bucket.ts = Date.now();
 				if (!bucket.nonce) {
-					bucket.nonce = Math.random().toString(36).substring(2, 15);
+					bucket.nonce = typeof crypto.randomUUID === 'function'
+						? crypto.randomUUID().replace(/-/g, '')
+						: (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
 				}
 
 				let sig = `dummy_signature_for_${bucket.nonce}`;

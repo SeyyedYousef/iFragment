@@ -272,6 +272,17 @@ export const NumberReportPage: Component = () => {
 			setAnalysisStep(2);
 			setGateData(gate);
 			setAnalysisStep(3);
+
+			// Check if report was already unlocked by user (24h cache)
+			try {
+				const unlocked = await numbersApi.getValuation(val.cleanDigits);
+				if (unlocked && unlocked.estimated_value_ton > 0) {
+					setReportData(unlocked);
+					setIsUnlocked(true);
+				}
+			} catch {
+				// Expected 403 when report has not been unlocked yet
+			}
 		} catch (err: any) {
 			setError(err?.message || 'Failed to connect to Telegram Telemint registry');
 		} finally {

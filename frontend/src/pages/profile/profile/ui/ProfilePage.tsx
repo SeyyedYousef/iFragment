@@ -1,7 +1,7 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
-import { backButton } from '@tma.js/sdk-solid';
+import { backButton, initData } from '@tma.js/sdk-solid';
 import { type Component, createSignal, ErrorBoundary, For, onMount, Show } from 'solid-js';
 import {
 	getProfileAchievements,
@@ -27,14 +27,20 @@ export const ProfilePage: Component = () => {
 	const navigate = useNavigate();
 	const [showLangMenu, setShowLangMenu] = createSignal(false);
 
+	const currentUserId = () => {
+		const tgId = initData.user()?.id;
+		return tgId ? String(tgId) : localStorage.getItem('tg_user_id') || '';
+	};
+
 	const getCachedStats = () => {
 		try {
-			const storedUserId = localStorage.getItem('tg_user_id');
-			const key = storedUserId ? `cached_profile_stats_${storedUserId}` : 'cached_profile_stats';
-			const raw = localStorage.getItem(key) || localStorage.getItem('cached_profile_stats');
+			const uid = currentUserId();
+			if (!uid) return undefined;
+			const key = `cached_profile_stats_${uid}`;
+			const raw = localStorage.getItem(key);
 			if (!raw) return undefined;
 			const parsed = JSON.parse(raw);
-			if (storedUserId && parsed?.telegramId && String(parsed.telegramId) !== storedUserId) {
+			if (parsed?.telegramId && String(parsed.telegramId) !== uid) {
 				return undefined;
 			}
 			return parsed;
@@ -44,17 +50,16 @@ export const ProfilePage: Component = () => {
 	};
 
 	const statsQuery = createQuery(() => ({
-		queryKey: ['profile', 'stats'],
+		queryKey: ['profile', 'stats', currentUserId()],
 		queryFn: async () => {
 			const res = await getProfileStats();
 			if (res) {
 				try {
-					const userId = res.telegramId || localStorage.getItem('tg_user_id');
+					const userId = res.telegramId || currentUserId();
 					if (userId) {
 						localStorage.setItem(`cached_profile_stats_${userId}`, JSON.stringify(res));
 						localStorage.setItem('tg_user_id', String(userId));
 					}
-					localStorage.setItem('cached_profile_stats', JSON.stringify(res));
 					if (res.photoUrl) {
 						setProfilePhotoUrl(res.photoUrl);
 					}
@@ -68,19 +73,18 @@ export const ProfilePage: Component = () => {
 	}));
 
 	const achievementsQuery = createQuery(() => ({
-		queryKey: ['profile', 'achievements'],
+		queryKey: ['profile', 'achievements', currentUserId()],
 		queryFn: async () => {
 			const res = await getProfileAchievements();
 			if (res) {
 				try {
-					const storedUserId = localStorage.getItem('tg_user_id');
-					if (storedUserId) {
+					const uid = currentUserId();
+					if (uid) {
 						localStorage.setItem(
-							`cached_profile_achievements_${storedUserId}`,
+							`cached_profile_achievements_${uid}`,
 							JSON.stringify(res),
 						);
 					}
-					localStorage.setItem('cached_profile_achievements', JSON.stringify(res));
 				} catch {}
 			}
 			return res;
@@ -90,7 +94,7 @@ export const ProfilePage: Component = () => {
 	}));
 
 	const referralQuery = createQuery(() => ({
-		queryKey: ['profile', 'referral'],
+		queryKey: ['profile', 'referral', currentUserId()],
 		queryFn: getReferralInfo,
 		staleTime: 30000,
 	}));
@@ -166,7 +170,7 @@ export const ProfilePage: Component = () => {
 											{t('progress.title')}
 										</span>
 										<span class="text-[9px] text-white/40 font-bold uppercase tracking-wider">
-											{t('progress.streak', { days: stats()?.currentStreak || 1 })}
+											{t('progress.streak', { days: stats()?.currentStreak ?? 0 })}
 										</span>
 									</div>
 								</div>
@@ -184,9 +188,10 @@ export const ProfilePage: Component = () => {
 
 							{/* Streak and Boost Quick Pill */}
 							<div class="grid grid-cols-2 gap-2 pt-1">
-								<div
+								<button
+									type="button"
 									onClick={() => handleNavigate('/airdrop?tab=boost')}
-									class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+									class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between cursor-pointer active:scale-95 transition-all text-start w-full"
 								>
 									<div class="flex items-center gap-2">
 										<span class="text-[20px]">🚀</span>
@@ -202,17 +207,20 @@ export const ProfilePage: Component = () => {
 									<span class="material-symbols-outlined text-[16px] text-white/40">
 										chevron_right
 									</span>
-								</div>
+								</button>
 
-								<div
+								<button
+									type="button"
 									onClick={() => handleNavigate('/profile/leaderboard')}
-									class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+									class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between cursor-pointer active:scale-95 transition-all text-start w-full"
 								>
 									<div class="flex items-center gap-2">
 										<span class="text-[20px]">🏆</span>
 										<div class="flex flex-col">
 											<span class="text-[11px] font-black text-white">
-												{t('profilePg.rankLabel' as any, { rank: stats()?.globalRank || 1 })}
+												{stats()?.globalRank
+													? t('profilePg.rankLabel' as any, { rank: stats()?.globalRank })
+													: (t('profilePg.unranked' as any) || '—')}
 											</span>
 											<span class="text-[9px] text-amber-400 font-bold">
 												{t('profilePg.globalBoard' as any)}
@@ -222,7 +230,7 @@ export const ProfilePage: Component = () => {
 									<span class="material-symbols-outlined text-[16px] text-white/40">
 										chevron_right
 									</span>
-								</div>
+								</button>
 							</div>
 						</Motion.div>
 
@@ -331,12 +339,13 @@ export const ProfilePage: Component = () => {
 
 						{/* ═══════ ACHIEVEMENTS PREVIEW (5-min sync) ═══════ */}
 						<Show when={!achievementsQuery.isLoading}>
-							<div
+							<button
+								type="button"
 								onClick={() => handleNavigate('/profile/achievements')}
-								class="cursor-pointer active:scale-[0.99] transition-transform"
+								class="w-full text-start cursor-pointer active:scale-[0.99] transition-transform"
 							>
 								<AchievementPreview achievements={achievements()} />
-							</div>
+							</button>
 						</Show>
 
 						{/* ═══════ 7. ACCESSIBLE ACTION CONTROLS ═══════ */}

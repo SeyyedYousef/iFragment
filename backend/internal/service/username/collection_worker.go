@@ -441,15 +441,24 @@ func (w *CollectionWorker) fetchRealRecentActivityFromFragment(ctx context.Conte
 }
 
 func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.Time) error {
-	// Try fetching real live stats from GetGems
 	itemsStr, ownersStr, floorStr, volumeStr, err := w.fetchRealStatsFromGetGems(ctx)
 	if err != nil {
-		slog.Warn("[CollectionWorker] Failed to fetch live stats from GetGems, using fallbacks", "error", err)
-		// Fallbacks
-		itemsStr = "582.8K"
-		ownersStr = "164.6K"
-		floorStr = "5.49 TON"
-		volumeStr = "124.0M TON"
+		slog.Warn("[CollectionWorker] Failed to fetch live stats from GetGems, preserving latest valid snapshot", "error", err)
+		// Attempt to preserve the latest authentic recorded snapshot
+		var lastItems, lastOwners, lastFloor, lastVolume string
+		queryLatest := `SELECT items_count, owners_count, floor_price, total_volume FROM nft_collection_stats ORDER BY stat_date DESC LIMIT 1`
+		if scanErr := w.db.Pool.QueryRow(ctx, queryLatest).Scan(&lastItems, &lastOwners, &lastFloor, &lastVolume); scanErr == nil && lastItems != "" {
+			itemsStr = lastItems
+			ownersStr = lastOwners
+			floorStr = lastFloor
+			volumeStr = lastVolume
+		} else {
+			// Emergency initial seed if DB has zero rows
+			itemsStr = "582.8K"
+			ownersStr = "164.6K"
+			floorStr = "5.49 TON"
+			volumeStr = "124.0M TON"
+		}
 	}
 
 	// Save the updated stats for today

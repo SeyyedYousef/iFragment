@@ -254,35 +254,34 @@ func (s *ModeratorService) SyncNativeChatPermissions(ctx context.Context, bot *r
 	canSendAudios := !(content.BlockAudio.Enabled && content.BlockAudio.Window == "Always")
 	canSendDocs := !(content.BlockFiles.Enabled && content.BlockFiles.Window == "Always")
 	canSendPhotos := !(content.BlockPhotos.Enabled && content.BlockPhotos.Window == "Always")
-	canSendVideos := !(content.BlockGifs.Enabled && content.BlockGifs.Window == "Always")
 	canSendVoice := !(content.BlockVoiceMessages.Enabled && content.BlockVoiceMessages.Window == "Always")
 	canSendPolls := !(content.BlockPolls.Enabled && content.BlockPolls.Window == "Always")
 	canSendOther := !(content.BlockStickers.Enabled && content.BlockStickers.Window == "Always")
 	canAddPreviews := !(content.RemoveLinks.Enabled && content.RemoveLinks.Window == "Always")
 	bTrue := true
 
+	// Note: BlockGifs is handled strictly in message content inspection because Telegram
+	// does not have a native ChatPermissions flag specifically for GIFs; setting CanSendVideos
+	// would unintentionally block all member videos and video notes.
+	// Also: CanChangeInfo, CanInviteUsers, CanPinMessages, and CanManageTopics are left nil
+	// so Telegram's use_independent_chat_permissions preserves whatever the admin already set.
 	perms := telegram.ChatPermissions{
 		CanSendMessages:       &bTrue,
 		CanSendAudios:         &canSendAudios,
 		CanSendDocuments:      &canSendDocs,
 		CanSendPhotos:         &canSendPhotos,
-		CanSendVideos:         &canSendVideos,
-		CanSendVideoNotes:     &canSendVideos,
 		CanSendVoiceNotes:     &canSendVoice,
 		CanSendPolls:          &canSendPolls,
 		CanSendOtherMessages:  &canSendOther,
 		CanAddWebPagePreviews: &canAddPreviews,
-		CanChangeInfo:         &bTrue,
-		CanInviteUsers:        &bTrue,
-		CanPinMessages:        &bTrue,
-		CanManageTopics:       &bTrue,
 	}
 
 	err = tgClient.SetChatPermissions(ctx, group.ChatID, perms, true)
 	if err != nil {
-	} else {
-		slog.Info("Successfully synced native chat permissions with Telegram", "chat_id", group.ChatID)
+		slog.Error("Failed to sync native chat permissions with Telegram", "chat_id", group.ChatID, "error", err)
+		return fmt.Errorf("telegram setChatPermissions failed: %w", err)
 	}
+	slog.Info("Successfully synced native chat permissions with Telegram", "chat_id", group.ChatID)
 	return nil
 }
 
@@ -1059,7 +1058,7 @@ func (s *ModeratorService) checkAllLimits(ctx context.Context, l repository.Sett
 		count := incr.Val()
 
 		if err == nil && (count == 1 || ttl.Val() == -1) {
-			s.cache.Client.Expire(ctx, floodKey, time.Duration(l.FloodWin)*time.Minute)
+			s.cache.Client.Expire(ctx, floodKey, time.Duration(l.FloodWin)*time.Second)
 		}
 
 		if int(count) > l.FloodMsgs {
@@ -1069,7 +1068,7 @@ func (s *ModeratorService) checkAllLimits(ctx context.Context, l repository.Sett
 			} else if int(count) >= l.FloodMsgs+2 {
 				action = "mute"
 			}
-			return &Violation{Type: "flood", Message: fmt.Sprintf("Flood detected (%d msgs in %d min)", l.FloodMsgs, l.FloodWin), Action: action}
+			return &Violation{Type: "flood", Message: fmt.Sprintf("Flood detected (%d msgs in %d sec)", l.FloodMsgs, l.FloodWin), Action: action}
 		}
 	}
 
@@ -1084,7 +1083,7 @@ func (s *ModeratorService) checkAllLimits(ctx context.Context, l repository.Sett
 		count := incr.Val()
 
 		if err == nil && (count == 1 || ttl.Val() == -1) {
-			s.cache.Client.Expire(ctx, dupKey, time.Duration(l.DupWin)*time.Minute)
+			s.cache.Client.Expire(ctx, dupKey, time.Duration(l.DupWin)*time.Second)
 		}
 
 		if int(count) > l.DupCount {
@@ -1134,13 +1133,71 @@ func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.U
 					s.cache.Client.IncrBy(ctx, warnKey, int64(dbCount-1))
 					c += int64(dbCount - 1)
 				}
-				s.cache.Client.Expire(ctx, warnKey, time.Duration(gen.WarningRetention)*time.Minute)
+				s.cache.Client.Expire(ctx, warnKey, time.Duration(gen.WarningRetention)*24*time.Hour)
 			}
 			count = int(c)
 		} else {
 			count, _ = s.analyticsRepo.GetUserWarningsCount(ctx, groupID, userID, gen.WarningRetention)
 		}
 	} else {
+		count, _ = s.analyticsRepo.GetUserWarningsCount(ctx, groupID, userID, gen.WarningRetention)
+	}
+
+	v.CurrentWarnings = count
+	v.WarningThreshold = gen.WarningThreshold
+
+	if count >= gen.WarningThreshold {
+		v.Action = s.ResolveAction(gen.WarningFinalPenalty)
+	}
+
+	return v, nil
+}
+
+// RecordAdminWarning records a manual admin warning, updates cache and DB counters,
+// and resolves the final penalty if the warning count reaches the group's threshold.
+func (s *ModeratorService) RecordAdminWarning(ctx context.Context, groupID uuid.UUID, userID int64, v *Violation) (*Violation, error) {
+	settings, _ := s.GetSettings(ctx, groupID)
+	var gen repository.SettingsGeneral
+	if settings != nil {
+		_ = json.Unmarshal(settings.General, &gen)
+	}
+	if gen.WarningThreshold <= 0 {
+		gen.WarningThreshold = 3
+	}
+	if gen.WarningRetention <= 0 {
+		gen.WarningRetention = 7
+	}
+	if gen.WarningFinalPenalty == "" {
+		gen.WarningFinalPenalty = "mute_24h"
+	}
+
+	// Log warning event to group_events
+	s.logEventWithPayload(ctx, groupID, "member_warned", &userID, map[string]interface{}{
+		"reason": v.Message,
+		"type":   v.Type,
+		"action": v.Action,
+	})
+
+	var count int
+	if s.cache != nil && s.cache.Client != nil {
+		warnKey := fmt.Sprintf("warn_count:%s:%d", groupID, userID)
+		c, err := s.cache.Client.Incr(ctx, warnKey).Result()
+		if err == nil {
+			if c == 1 {
+				if s.analyticsRepo != nil {
+					dbCount, _ := s.analyticsRepo.GetUserWarningsCount(ctx, groupID, userID, gen.WarningRetention)
+					if dbCount > 1 {
+						s.cache.Client.IncrBy(ctx, warnKey, int64(dbCount-1))
+						c += int64(dbCount - 1)
+					}
+				}
+				s.cache.Client.Expire(ctx, warnKey, time.Duration(gen.WarningRetention)*24*time.Hour)
+			}
+			count = int(c)
+		} else if s.analyticsRepo != nil {
+			count, _ = s.analyticsRepo.GetUserWarningsCount(ctx, groupID, userID, gen.WarningRetention)
+		}
+	} else if s.analyticsRepo != nil {
 		count, _ = s.analyticsRepo.GetUserWarningsCount(ctx, groupID, userID, gen.WarningRetention)
 	}
 
@@ -1230,15 +1287,6 @@ func isEmojiOnly(text string) bool {
 		}
 	}
 	return true
-}
-
-func isEmojiRune(r rune) bool {
-	return (r >= 0x1F600 && r <= 0x1F64F) ||
-		(r >= 0x1F300 && r <= 0x1F5FF) ||
-		(r >= 0x1F680 && r <= 0x1F6FF) ||
-		(r >= 0x1F900 && r <= 0x1F9FF) ||
-		(r >= 0x2600 && r <= 0x26FF) ||
-		(r >= 0x2700 && r <= 0x27BF)
 }
 
 func (s *ModeratorService) isSpamPattern(text string) bool {

@@ -1,31 +1,47 @@
 import { Motion } from '@motionone/solid';
 import { backButton } from '@tma.js/sdk-solid';
-import { type Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import {
 	deleteAccountGDPR,
 	profileSettings,
+	purgeAllUserCache,
 	sessionsApi,
 	updateSetting,
 } from '@/entities/user/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { audio } from '@/shared/lib/audio.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import {
 	biometric,
+	closeMiniApp,
 	disableClosingConfirmation,
 	showAlert,
 	showConfirm,
 } from '@/shared/lib/telegram-native.js';
 
+interface SessionItem {
+	ip?: string;
+	ua?: string;
+	created_at?: string;
+	user_id?: number;
+	username?: string;
+}
+
 export const SecurityPage: Component = () => {
 	const [biometricsAvailable, setBiometricsAvailable] = createSignal(false);
 	const [activeSessionsCount, setActiveSessionsCount] = createSignal<number>(1);
+	const [sessionsList, setSessionsList] = createSignal<SessionItem[]>([]);
 	const [revokingSessions, setRevokingSessions] = createSignal(false);
+	const [isAccountDeleted, setIsAccountDeleted] = createSignal(false);
 
 	const fetchSessions = async () => {
 		try {
 			const res = await sessionsApi.getSessions();
 			if (res && typeof res.active_sessions_count === 'number') {
 				setActiveSessionsCount(res.active_sessions_count);
+				if (Array.isArray(res.sessions)) {
+					setSessionsList(res.sessions);
+				}
 			}
 		} catch {
 			// keep default 1
@@ -76,18 +92,28 @@ export const SecurityPage: Component = () => {
 		const currentVal = profileSettings().biometricEnabled;
 		if (!currentVal) {
 			const accessGranted = await biometric.requestAccess(
-				t('securityPg.biometricAccessReason' as any),
+				t('securityPg.biometricAccessReason' as any) || 'Authenticate to enable biometric protection',
 			);
 			if (accessGranted) {
-				updateSetting('biometricEnabled', true);
-				try {
-					haptic.notify('success');
-				} catch {}
+				const verified = await biometric.authenticate(
+					t('securityPg.biometricVerifyReason' as any) || 'Verify biometric sensor',
+				);
+				if (verified) {
+					updateSetting('biometricEnabled', true);
+					audio.playSuccess();
+					try {
+						haptic.notify('success');
+					} catch {}
+				} else {
+					updateSetting('biometricEnabled', false);
+					audio.playError();
+				}
 			} else {
 				updateSetting('biometricEnabled', false);
 			}
 		} else {
 			updateSetting('biometricEnabled', false);
+			audio.playToggle(false);
 		}
 	};
 
@@ -99,15 +125,28 @@ export const SecurityPage: Component = () => {
 		const confirmed = await showConfirm(t('securityPg.revokeConfirm' as any));
 		if (!confirmed) return;
 
+		// Step-up biometric authentication if enabled
+		if (profileSettings().biometricEnabled && biometricsAvailable()) {
+			const authOk = await biometric.authenticate(
+				t('securityPg.biometricChallenge' as any) || 'Confirm session revocation',
+			);
+			if (!authOk) {
+				audio.playError();
+				return;
+			}
+		}
+
 		setRevokingSessions(true);
 		try {
 			await sessionsApi.revokeAllSessions();
+			audio.playSuccess();
 			try {
 				haptic.notify('success');
 			} catch {}
 			await showAlert(t('securityPg.revokeSuccess' as any));
-			setActiveSessionsCount(1);
+			await fetchSessions();
 		} catch (e: any) {
+			audio.playError();
 			try {
 				haptic.notify('error');
 			} catch {}
@@ -128,27 +167,33 @@ export const SecurityPage: Component = () => {
 		const confirmed = await showConfirm(t('security.deleteConfirm'));
 		if (!confirmed) return;
 
+		// Step-up biometric challenge if enabled
+		if (profileSettings().biometricEnabled && biometricsAvailable()) {
+			const authenticated = await biometric.authenticate(
+				t('security.deleteBiometricPrompt' as any) || 'Confirm permanent account deletion',
+			);
+			if (!authenticated) {
+				audio.playError();
+				return;
+			}
+		}
+
 		try {
 			// 1. Server-side wipe
 			await deleteAccountGDPR();
 
-			// 2. Local cleanup
+			// 2. Comprehensive local and user cache purge
+			purgeAllUserCache();
+
+			audio.playSuccess();
 			try {
 				haptic.notify('success');
 			} catch {}
-			const profileKeys = [
-				'profile-settings',
-				'kyc_verified',
-				'profile-cache',
-				'access_token',
-				'refresh_token',
-			];
-			profileKeys.forEach((k) => {
-				localStorage.removeItem(k);
-			});
-			await showAlert(t('security.deleteSuccess'));
-			window.location.reload();
+
+			// 3. Show Tombstone state
+			setIsAccountDeleted(true);
 		} catch (e: any) {
+			audio.playError();
 			try {
 				haptic.notify('error');
 			} catch {}
@@ -163,6 +208,30 @@ export const SecurityPage: Component = () => {
 		>
 			{/* Ambient Glow: Security (Green) & Danger (Red) Mix */}
 			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#10b981]/10 via-[#ff4a4a]/5 to-transparent blur-[80px] pointer-events-none z-0" />
+
+			{/* ═══════ PERMANENT DELETION TOMBSTONE ═══════ */}
+			<Show when={isAccountDeleted()}>
+				<div class="fixed inset-0 bg-[#030303] z-50 flex flex-col items-center justify-center p-6 text-center">
+					<div class="w-20 h-20 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 flex items-center justify-center text-[#10b981] mb-5 shadow-2xl">
+						<span class="material-symbols-outlined text-[40px]">check_circle</span>
+					</div>
+					<h2 class="text-[22px] font-black text-white mb-2 tracking-tight">
+						{t('security.deleteSuccessTitle' as any) || 'Account Permanently Deleted'}
+					</h2>
+					<p class="text-[13px] text-white/60 max-w-sm mb-8 leading-relaxed">
+						{t('security.deleteSuccessDesc' as any) ||
+							'All your user records, database entries, watchlists, and local caches have been permanently purged.'}
+					</p>
+					<button
+						type="button"
+						onClick={closeMiniApp}
+						class="w-full max-w-xs h-12 bg-white text-black font-black text-[14px] rounded-[16px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg"
+					>
+						<span>{t('common.close' as any) || 'Close Telegram App'}</span>
+						<span class="material-symbols-outlined text-[18px]">close</span>
+					</button>
+				</div>
+			</Show>
 
 			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
@@ -220,6 +289,35 @@ export const SecurityPage: Component = () => {
 							</span>
 						</div>
 
+						{/* Sessions Detail List */}
+						<Show when={sessionsList().length > 0}>
+							<div class="flex flex-col gap-2 pt-2 border-t border-white/5">
+								<span class="text-[10px] font-bold text-white/40 uppercase tracking-wider">
+									{t('securityPg.activeDevices' as any) || 'Connected Sessions'}
+								</span>
+								<For each={sessionsList()}>
+									{(session) => (
+										<div class="p-2.5 rounded-[14px] bg-[#08090D] border border-white/5 flex items-center justify-between text-[11px]">
+											<div class="flex flex-col gap-0.5">
+												<span class="font-bold text-white truncate max-w-[200px]">
+													{session.ua || 'Telegram Client'}
+												</span>
+												<span class="text-[10px] text-white/40 font-mono">
+													{session.ip || 'Unknown IP'} ·{' '}
+													{session.created_at
+														? new Date(session.created_at).toLocaleDateString()
+														: 'Active'}
+												</span>
+											</div>
+											<span class="text-[10px] px-2 py-0.5 rounded-[6px] bg-white/5 text-white/60">
+												{t('securityPg.online' as any) || 'Online'}
+											</span>
+										</div>
+									)}
+								</For>
+							</div>
+						</Show>
+
 						<div class="pt-2 border-t border-white/5 flex items-center justify-between">
 							<span class="text-[11px] text-white/60 font-bold">
 								{t('securityPg.totalSessions' as any)}{' '}
@@ -228,7 +326,7 @@ export const SecurityPage: Component = () => {
 							<button
 								type="button"
 								onClick={handleRevokeOtherSessions}
-								disabled={revokingSessions()}
+								disabled={revokingSessions() || activeSessionsCount() <= 1}
 								class="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-[10px] font-black transition-all cursor-pointer disabled:opacity-40"
 							>
 								{revokingSessions()
@@ -266,10 +364,14 @@ export const SecurityPage: Component = () => {
 
 							<button
 								type="button"
+								role="switch"
+								aria-checked={profileSettings().biometricEnabled}
+								aria-label={t('security.biometricLock')}
+								disabled={!biometricsAvailable()}
 								onClick={handleToggleBiometrics}
 								class={`w-12 h-7 rounded-full relative transition-colors duration-300 shadow-inner shrink-0 ${
 									profileSettings().biometricEnabled ? 'bg-[#10b981]' : 'bg-white/10'
-								} ${!biometricsAvailable() ? 'opacity-50 cursor-not-allowed' : ''}`}
+								} ${!biometricsAvailable() ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
 							>
 								<div
 									class={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${profileSettings().biometricEnabled ? 'translate-x-5' : 'translate-x-0'}`}
@@ -322,7 +424,7 @@ export const SecurityPage: Component = () => {
 						<button
 							type="button"
 							onClick={handleDeleteAccount}
-							class="w-full h-14 bg-[#ff4a4a]/10 hover:bg-[#ff4a4a] border border-[#ff4a4a]/30 text-[#ff4a4a] hover:text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm relative z-10"
+							class="w-full h-14 bg-[#ff4a4a]/10 hover:bg-[#ff4a4a] border border-[#ff4a4a]/30 text-[#ff4a4a] hover:text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm relative z-10 cursor-pointer"
 						>
 							<span class="material-symbols-outlined text-[20px]">warning</span>
 							{t('security.deleteAccount')}

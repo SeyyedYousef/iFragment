@@ -1,5 +1,6 @@
 import { type Component, createResource, Show } from 'solid-js';
 import { channelApi } from '@/entities/channel/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface ProjectContextBarProps {
 	projectId: string;
@@ -32,7 +33,9 @@ export const ProjectContextBar: Component<ProjectContextBarProps> = (props) => {
 				</div>
 				<div class="flex flex-col min-w-0">
 					<span class="text-[14px] font-black text-white truncate">
-						{project.loading ? 'در حال بارگذاری پروژه...' : project()?.name || 'پروژه محتوا'}
+						{project.loading
+							? t('channelProjects.context.loading')
+							: project()?.name || t('channelProjects.context.defaultName')}
 					</span>
 					<Show when={!project.loading && project()}>
 						<div class="flex items-center gap-1.5 text-[10px] text-white/50 font-mono truncate" dir="ltr">
@@ -59,7 +62,11 @@ export const ProjectContextBar: Component<ProjectContextBarProps> = (props) => {
 									: 'text-rose-400 border-rose-500/30 bg-rose-500/15'
 						}`}
 					>
-						{isPaid() ? 'پرمیوم' : isTrial() ? 'تست رایگان' : 'منقضی'}
+						{isPaid()
+							? t('channelProjects.context.premium')
+							: isTrial()
+								? t('channelProjects.context.trial')
+								: t('channelProjects.context.expired')}
 					</span>
 				</div>
 			</Show>

@@ -148,3 +148,61 @@ func TestValuateAccessControl(t *testing.T) {
 	}
 }
 
+func TestUsernameHandler_VerifyEndpoint(t *testing.T) {
+	mockMTProto := mtproto.NewMockClient()
+	aggService := username.NewAggregatorService(nil, nil)
+	reportService := username.NewAnalysisService(context.Background(), nil, nil, nil, mockMTProto)
+	h := NewUsernameHandler(aggService, reportService, mockMTProto, nil, nil, nil, nil)
+
+	// 1. Missing username
+	req := httptest.NewRequest("GET", "/api/v1/usernames/verify", nil)
+	w := httptest.NewRecorder()
+	h.Verify(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request for missing param, got %d", w.Code)
+	}
+
+	// 2. Invalid username format
+	req = httptest.NewRequest("GET", "/api/v1/usernames/verify?u=bad!char", nil)
+	w = httptest.NewRecorder()
+	h.Verify(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for verdict response, got %d", w.Code)
+	}
+	var resInvalid username.UsernameVerificationResult
+	if err := json.NewDecoder(w.Body).Decode(&resInvalid); err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+	if resInvalid.FormatValid {
+		t.Errorf("expected format_valid false, got true")
+	}
+	if resInvalid.VerificationState != "invalid_format" {
+		t.Errorf("expected verification_state invalid_format, got %s", resInvalid.VerificationState)
+	}
+
+	// 3. Valid 4-character collectible username
+	req = httptest.NewRequest("GET", "/api/v1/usernames/verify?u=@rare", nil)
+	w = httptest.NewRecorder()
+	h.Verify(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for valid username, got %d", w.Code)
+	}
+	var resRare username.UsernameVerificationResult
+	if err := json.NewDecoder(w.Body).Decode(&resRare); err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+	if !resRare.FormatValid {
+		t.Errorf("expected format_valid true, got false")
+	}
+	if !resRare.IsCollectibleLength {
+		t.Errorf("expected is_collectible_length true for 4-char handle, got false")
+	}
+	if resRare.Username != "rare" {
+		t.Errorf("expected canonical username rare, got %s", resRare.Username)
+	}
+	if resRare.DataBadges == nil || resRare.DataBadges["standard"] != "TEP-62 (Telemint)" {
+		t.Errorf("expected TEP-62 standard badge, got %v", resRare.DataBadges)
+	}
+}
+
+

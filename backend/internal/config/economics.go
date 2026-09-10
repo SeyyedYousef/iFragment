@@ -72,11 +72,11 @@ func loadEconomics() EconomicsConfig {
 		DailyProValuationQuota:  getEnvInt("DAILY_PRO_VALUATION_QUOTA", 3),
 		ReportPriceStars:        getEnvInt("REPORT_PRICE_STARS", 100),
 		CreditsPer100Stars:      getEnvInt("CREDITS_PER_100_STARS", 3),
-		CreditsCoinsPerCredit:   getEnvInt("COINS_PER_CREDIT", 50000),
+		CreditsCoinsPerCredit:   getEnvInt("COINS_PER_CREDIT", 150000),
 		CreditPack1Stars:        getEnvInt("CREDIT_PACK_1_STARS", 100),
 		CreditPack3P1Stars:      getEnvInt("CREDIT_PACK_3P1_STARS", 250),
 		CreditPack10P3Stars:     getEnvInt("CREDIT_PACK_10P3_STARS", 800),
-		CreditBatchExpiryDays:   getEnvInt("CREDIT_BATCH_EXPIRY_DAYS", 90),
+		CreditBatchExpiryDays:   getEnvInt("CREDIT_BATCH_EXPIRY_DAYS", 0), // 0 = never expire
 	}
 }
 

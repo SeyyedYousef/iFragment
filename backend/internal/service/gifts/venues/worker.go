@@ -39,6 +39,9 @@ func NewVenueSnapshotWorker(
 			NewGetgemsAdapter(),
 			NewMarketAppAdapter(),
 			NewTelegramStarsAdapter(cryptoPrice),
+			NewTonnelAdapter(),
+			NewPortalsAdapter(),
+			NewMRKTAdapter(),
 		},
 		interval: interval,
 	}
@@ -138,7 +141,7 @@ func (w *VenueSnapshotWorker) syncOneCollection(ctx context.Context, modelID str
 			Volume7dGRAM:       decimal.Zero,
 			ActiveListings:     r.res.ActiveListings,
 			VenueFeePct:        r.fees,
-			HasRealVolumeBadge: true,
+			HasRealVolumeBadge: false, // only true if adapter returns verified non-zero volume
 			UpdatedAt:          time.Now().UTC(),
 		}
 

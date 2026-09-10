@@ -56,7 +56,7 @@ export const ProjectsHubPage: Component = () => {
 		const src = sourceInput().trim();
 		const tgt = targetInput().trim();
 		if (!src || !tgt) {
-			showToast(t('projects.enterBothChannels' as any) || 'لطفاً آیدی یا یوزرنیم هر دو کانال را وارد کنید', 'error');
+			showToast(t('channelProjects.hub.enterBothChannels'), 'error');
 			return;
 		}
 
@@ -73,7 +73,7 @@ export const ProjectsHubPage: Component = () => {
 			}
 		} catch (err: any) {
 			haptic.notify('error');
-			showToast(err?.response?.data?.error || err?.message || 'خطا در اعتبارسنجی کانال‌ها', 'error');
+			showToast(err?.response?.data?.error || err?.message || t('channelProjects.hub.preflightFailed'), 'error');
 		} finally {
 			setIsPreflightChecking(false);
 		}
@@ -81,12 +81,12 @@ export const ProjectsHubPage: Component = () => {
 
 	const handleCreateProject = async (e: Event) => {
 		e.preventDefault();
-		const name = projectName().trim() || 'پروژه انتقال هوشمند';
+		const name = projectName().trim() || t('channelProjects.context.defaultName');
 		const src = sourceInput().trim();
 		const tgt = targetInput().trim();
 
 		if (!src || !tgt) {
-			showToast('لطفاً مشخصات کانال‌ها را تکمیل کنید', 'error');
+			showToast(t('channelProjects.hub.fillChannels'), 'error');
 			return;
 		}
 
@@ -106,7 +106,7 @@ export const ProjectsHubPage: Component = () => {
 			});
 
 			haptic.notify('success');
-			showToast(t('projects.createdSuccess' as any) || 'پروژه با موفقیت ایجاد شد!', 'success');
+			showToast(t('channelProjects.createdSuccess'), 'success');
 			setShowCreateModal(false);
 			setProjectName('');
 			setSourceInput('');
@@ -118,7 +118,7 @@ export const ProjectsHubPage: Component = () => {
 			navigate(`/projects/${newProject.id}`);
 		} catch (err: any) {
 			haptic.notify('error');
-			showToast(err?.response?.data?.error || err?.message || 'خطا در ایجاد پروژه', 'error');
+			showToast(err?.response?.data?.error || err?.message || t('channelProjects.common.saveError'), 'error');
 		} finally {
 			setIsCreating(false);
 		}
@@ -127,11 +127,11 @@ export const ProjectsHubPage: Component = () => {
 	const formatTimeRemaining = (dateStr?: string | null) => {
 		if (!dateStr) return '';
 		const diff = new Date(dateStr).getTime() - Date.now();
-		if (diff <= 0) return 'منقضی شده';
+		if (diff <= 0) return t('channelProjects.context.expired');
 		const hours = Math.floor(diff / (1000 * 60 * 60));
 		const days = Math.floor(hours / 24);
-		if (days > 0) return `${days} روز باقی‌مانده`;
-		return `${hours} ساعت باقی‌مانده`;
+		if (days > 0) return `${days} ${t('channelProjects.daysRemaining')}`;
+		return `${hours} ${t('channelProjects.hoursRemaining')}`;
 	};
 
 	return (
@@ -152,16 +152,16 @@ export const ProjectsHubPage: Component = () => {
 							navigate('/dashboard');
 						}}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
-						aria-label={t('common.back') || 'Back'}
+						aria-label={t('common.back')}
 					>
 						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col gap-0.5 min-w-0">
 						<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
-							{t('projects.title' as any) || 'پروژه‌های محتوا'}
+							{t('channelProjects.hub.title')}
 						</h1>
 						<span class="text-[11px] font-bold text-white/50 uppercase tracking-wider truncate">
-							Editorial Operating System
+							{t('channelProjects.hub.subtitle')}
 						</span>
 					</div>
 				</div>
@@ -175,7 +175,7 @@ export const ProjectsHubPage: Component = () => {
 					class="h-10 px-3.5 rounded-[12px] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white text-[12px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-[0_4px_14px_rgba(51,144,236,0.35)] active:scale-95 transition-all shrink-0"
 				>
 					<span class="material-symbols-outlined text-[18px]">add</span>
-					<span>{t('projects.newProject' as any) || 'پروژه جدید'}</span>
+					<span>{t('channelProjects.hub.newProject')}</span>
 				</button>
 			</div>
 
@@ -194,10 +194,10 @@ export const ProjectsHubPage: Component = () => {
 								</div>
 								<div class="flex flex-col gap-2">
 									<h3 class="text-white font-black text-[20px] tracking-tight">
-										هنوز پروژه‌ای ثبت نشده است
+										{t('channelProjects.hub.emptyTitle')}
 									</h3>
 									<p class="text-[12px] text-white/50 leading-relaxed font-medium max-w-[280px]">
-										یک پروژه محتوایی بسازید تا کانال ورودی و خروجی متصل شده و پست‌ها پس از تایید و پالایش خودکار منتشر شوند.
+										{t('channelProjects.hub.emptyDesc')}
 									</p>
 								</div>
 								<button
@@ -206,7 +206,7 @@ export const ProjectsHubPage: Component = () => {
 									class="mt-3 w-full h-13 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[13px] rounded-[16px] flex items-center justify-center gap-2 active:scale-95 shadow-lg"
 								>
 									<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
-									<span>ایجاد اولین پروژه (۷۲ ساعت تست رایگان)</span>
+									<span>{t('channelProjects.hub.createFirst')}</span>
 								</button>
 							</Motion.div>
 						) : (
@@ -265,7 +265,7 @@ export const ProjectsHubPage: Component = () => {
 													}`}
 												>
 													<span class="w-1.5 h-1.5 rounded-full animate-pulse bg-current" />
-													<span>{isPaid ? 'پلن پرمیوم' : isTrial ? 'تست ۷۲ ساعته' : 'منقضی شده'}</span>
+													<span>{isPaid ? t('channelProjects.context.premium') : isTrial ? t('channelProjects.context.trial') : t('channelProjects.context.expired')}</span>
 												</span>
 												<Show when={expiresDate}>
 													<span class="text-[10px] font-mono text-white/60">
@@ -278,9 +278,11 @@ export const ProjectsHubPage: Component = () => {
 										{/* Source ➔ Target Flow */}
 										<div class="bg-[#090a0f]/90 border border-white/5 rounded-[20px] p-3 flex items-center justify-between gap-2 shadow-inner">
 											<div class="flex-1 min-w-0 bg-white/[0.03] p-2.5 rounded-[14px] border border-[#3390ec]/20">
-												<span class="text-[9px] font-black text-[#3390ec] uppercase block">ورودی (IN)</span>
+												<span class="text-[9px] font-black text-[#3390ec] uppercase block">
+													{t('channelProjects.settingsPage.sourceChannel')}
+												</span>
 												<span class="text-[12px] font-bold text-white truncate block mt-0.5">
-													{project.source_title || project.source_username || 'کانال ورودی'}
+													{project.source_title || project.source_username || t('channelProjects.sourceChannel')}
 												</span>
 											</div>
 
@@ -289,9 +291,11 @@ export const ProjectsHubPage: Component = () => {
 											</div>
 
 											<div class="flex-1 min-w-0 bg-white/[0.03] p-2.5 rounded-[14px] border border-emerald-500/20">
-												<span class="text-[9px] font-black text-emerald-400 uppercase block">خروجی (OUT)</span>
+												<span class="text-[9px] font-black text-emerald-400 uppercase block">
+													{t('channelProjects.settingsPage.targetChannel')}
+												</span>
 												<span class="text-[12px] font-bold text-white truncate block mt-0.5">
-													{project.target_title || project.target_username || 'کانال خروجی'}
+													{project.target_title || project.target_username || t('channelProjects.targetChannel')}
 												</span>
 											</div>
 										</div>
@@ -308,7 +312,7 @@ export const ProjectsHubPage: Component = () => {
 												class="flex-1 h-10 rounded-[14px] bg-[#3390ec]/10 border border-[#3390ec]/30 text-[#3390ec] text-[12px] font-black flex items-center justify-center gap-1.5 hover:bg-[#3390ec]/20 active:scale-95 transition-all"
 											>
 												<span class="material-symbols-outlined text-[17px]">inbox</span>
-												<span>صندوق بررسی</span>
+												<span>{t('channelProjects.dashboard.inboxCardTitle')}</span>
 											</button>
 
 											<button
@@ -321,7 +325,7 @@ export const ProjectsHubPage: Component = () => {
 												class="flex-1 h-10 rounded-[14px] bg-white/5 border border-white/10 text-white/80 text-[12px] font-bold flex items-center justify-center gap-1.5 hover:bg-white/10 active:scale-95 transition-all"
 											>
 												<span class="material-symbols-outlined text-[17px]">dashboard</span>
-												<span>داشبورد پروژه</span>
+												<span>{t('channelProjects.dashboard.title')}</span>
 											</button>
 										</div>
 									</Motion.div>
@@ -350,7 +354,7 @@ export const ProjectsHubPage: Component = () => {
 						<div class="flex items-center justify-between pb-4 border-b border-white/10 mb-5">
 							<div class="flex items-center gap-2.5">
 								<span class="material-symbols-outlined text-[#3390ec] text-[24px]">rocket_launch</span>
-								<h2 class="text-[17px] font-black text-white">ایجاد پروژه جدید</h2>
+								<h2 class="text-[17px] font-black text-white">{t('channelProjects.hub.newProject')}</h2>
 							</div>
 							<button
 								type="button"
@@ -363,10 +367,12 @@ export const ProjectsHubPage: Component = () => {
 
 						<form onSubmit={handleCreateProject} class="flex flex-col gap-4">
 							<div>
-								<label class="block text-[12px] font-bold text-white/70 mb-1.5">نام پروژه</label>
+								<label class="block text-[12px] font-bold text-white/70 mb-1.5">
+									{t('channelProjects.settingsPage.projectName')}
+								</label>
 								<input
 									type="text"
-									placeholder="مثال: کانال خبری به کانال وی‌آی‌پی"
+									placeholder={t('channelProjects.namePlaceholder')}
 									value={projectName()}
 									onInput={(e) => setProjectName(e.currentTarget.value)}
 									class="w-full h-12 bg-[#090a0f] rounded-[16px] px-4 text-[13px] text-white border border-white/10 focus:border-[#3390ec] outline-none"
@@ -375,11 +381,11 @@ export const ProjectsHubPage: Component = () => {
 
 							<div>
 								<label class="block text-[12px] font-bold text-white/70 mb-1.5">
-									کانال ورودی (Source Channel)
+									{t('channelProjects.hub.sourceLabel')}
 								</label>
 								<input
 									type="text"
-									placeholder="@source_channel یا آیدی عددی"
+									placeholder={t('channelProjects.hub.sourcePlaceholder')}
 									value={sourceInput()}
 									onInput={(e) => setSourceInput(e.currentTarget.value)}
 									dir="ltr"
@@ -389,18 +395,18 @@ export const ProjectsHubPage: Component = () => {
 
 							<div>
 								<label class="block text-[12px] font-bold text-white/70 mb-1.5">
-									کانال خروجی (Target Channel)
+									{t('channelProjects.hub.targetLabel')}
 								</label>
 								<input
 									type="text"
-									placeholder="@target_channel یا آیدی عددی"
+									placeholder={t('channelProjects.hub.targetPlaceholder')}
 									value={targetInput()}
 									onInput={(e) => setTargetInput(e.currentTarget.value)}
 									dir="ltr"
 									class="w-full h-12 bg-[#090a0f] rounded-[16px] px-4 text-[13px] text-white border border-white/10 focus:border-[#3390ec] outline-none font-mono"
 								/>
 								<span class="text-[10px] text-white/40 mt-1 block">
-									بات باید در کانال خروجی ادمین با دسترسی ارسال پیام باشد.
+									{t('channelProjects.hub.botAdminNotice')}
 								</span>
 							</div>
 
@@ -412,7 +418,7 @@ export const ProjectsHubPage: Component = () => {
 								class="h-11 bg-white/5 hover:bg-white/10 border border-white/15 rounded-[14px] text-[12px] font-bold text-white flex items-center justify-center gap-2 active:scale-95 transition-all"
 							>
 								<span class="material-symbols-outlined text-[18px]">verified_user</span>
-								<span>{isPreflightChecking() ? 'در حال بررسی دسترسی‌ها...' : 'بررسی دسترسی بات (Preflight)'}</span>
+								<span>{isPreflightChecking() ? t('channelProjects.hub.preflightChecking') : t('channelProjects.hub.preflightBtn')}</span>
 							</button>
 
 							{/* Preflight Result Card */}
@@ -427,7 +433,7 @@ export const ProjectsHubPage: Component = () => {
 											<span class="material-symbols-outlined text-[18px]">
 												{res().valid ? 'check_circle' : 'error'}
 											</span>
-											<span>{res().valid ? 'دسترسی‌ها تایید شد' : 'اشکال در دسترسی'}</span>
+											<span>{res().valid ? t('channelProjects.hub.preflightValid') : t('channelProjects.hub.preflightErrors')}</span>
 										</div>
 										<Show when={res().errors && res().errors!.length > 0}>
 											<ul class="list-disc pr-5 text-[11px] text-rose-400">
@@ -441,8 +447,8 @@ export const ProjectsHubPage: Component = () => {
 							{/* Editorial Workflow Switch */}
 							<div class="bg-[#090a0f] p-3.5 rounded-[18px] border border-white/10 flex items-center justify-between gap-3">
 								<div class="flex flex-col">
-									<span class="text-[12px] font-bold text-white">صندوق بررسی و تایید دستی</span>
-									<span class="text-[10px] text-white/50">پست‌ها قبل از انتشار وارد اینباکس بررسی می‌شوند</span>
+									<span class="text-[12px] font-bold text-white">{t('channelProjects.hub.manualApprovalTitle')}</span>
+									<span class="text-[10px] text-white/50">{t('channelProjects.hub.manualApprovalDesc')}</span>
 								</div>
 								<button
 									type="button"
@@ -465,7 +471,7 @@ export const ProjectsHubPage: Component = () => {
 								class="h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[13px] rounded-[18px] flex items-center justify-center gap-2 active:scale-95 shadow-lg mt-2"
 							>
 								<span class="material-symbols-outlined text-[20px]">done</span>
-								<span>{isCreating() ? 'در حال ایجاد پروژه...' : 'ثبت نهایی و ورود به پروژه'}</span>
+								<span>{isCreating() ? t('channelProjects.hub.creating') : t('channelProjects.hub.createFinalBtn')}</span>
 							</button>
 						</form>
 					</Motion.div>

@@ -132,3 +132,26 @@ func TestCalculateSerialPercentileAndElite(t *testing.T) {
 		t.Errorf("Random serial 482 should not be elite")
 	}
 }
+
+func TestComputeJointRarity_SurprisalEntropyAndCovariance(t *testing.T) {
+	// 1. Dual high-rarity traits should activate positive covariance coupling
+	resRare := ComputeJointRarity(2500, 1, 10, 15, true)
+	if resRare.CovarianceCoupling <= 0.0 {
+		t.Errorf("expected positive CovarianceCoupling for top traits, got %.4f", resRare.CovarianceCoupling)
+	}
+	if resRare.SurprisalEntropy <= 0.5 {
+		t.Errorf("expected high normalized SurprisalEntropy > 0.5, got %.4f", resRare.SurprisalEntropy)
+	}
+	if resRare.SurprisalBits < 25.0 {
+		t.Errorf("expected SurprisalBits >= 25.0, got %.2f", resRare.SurprisalBits)
+	}
+
+	// 2. Common traits should have zero covariance coupling and low entropy
+	resCommon := ComputeJointRarity(100000, 50000, 500, 500, false)
+	if resCommon.CovarianceCoupling != 0.0 {
+		t.Errorf("expected zero CovarianceCoupling for common traits, got %.4f", resCommon.CovarianceCoupling)
+	}
+	if resCommon.SurprisalEntropy >= 0.5 {
+		t.Errorf("expected low SurprisalEntropy < 0.5 for common traits, got %.4f", resCommon.SurprisalEntropy)
+	}
+}

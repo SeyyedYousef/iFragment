@@ -127,6 +127,27 @@ func (h *BotMgmtHandler) RevokeBot(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
 }
 
+func (h *BotMgmtHandler) ReconnectWebhook(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	botID, err := uuid.Parse(chi.URLParam(r, "botID"))
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid bot ID", err)
+		return
+	}
+
+	bot, err := h.svc.ReconnectWebhook(r.Context(), botID, userID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, bot)
+}
+
 // ─── Groups ───────────────────────────────────────────────
 
 func (h *BotMgmtHandler) ListGroups(w http.ResponseWriter, r *http.Request) {

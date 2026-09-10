@@ -223,3 +223,92 @@ func (a *TelegramStarsAdapter) ConvertStarsToDecimalGRAM(stars int64) decimal.De
 	gramVal := starsrate.ConvertStarsToGRAM(int(stars), tonUsd)
 	return decimal.NewFromFloat(gramVal)
 }
+
+// TonnelAdapter connects to Tonnel Network bot/orderbook
+type TonnelAdapter struct {
+	httpClient *http.Client
+}
+
+func NewTonnelAdapter() *TonnelAdapter {
+	return &TonnelAdapter{
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+	}
+}
+
+func (a *TonnelAdapter) ID() VenueID { return VenueTonnel }
+func (a *TonnelAdapter) Name() string { return "Tonnel Network" }
+func (a *TonnelAdapter) Currency() string { return "GRAM" }
+func (a *TonnelAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(3.0) }
+
+func (a *TonnelAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
+	// Tonnel operates primarily as a Telegram bot orderbook (@tonnel_gift_bot)
+	// Returns ErrNoFloorData safely until real-time bot webhook bridge is connected
+	return nil, ErrNoFloorData
+}
+
+func (a *TonnelAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	return &VenueVolumeResult{
+		VenueID:    VenueTonnel,
+		DataStatus: "unavailable",
+		FetchedAt:  time.Now().UTC(),
+	}, nil
+}
+
+// PortalsAdapter connects to Portals.market
+type PortalsAdapter struct {
+	httpClient *http.Client
+}
+
+func NewPortalsAdapter() *PortalsAdapter {
+	return &PortalsAdapter{
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+	}
+}
+
+func (a *PortalsAdapter) ID() VenueID { return VenuePortals }
+func (a *PortalsAdapter) Name() string { return "Portals" }
+func (a *PortalsAdapter) Currency() string { return "GRAM" }
+func (a *PortalsAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(2.5) }
+
+func (a *PortalsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
+	// Portals marketplace integration endpoint
+	return nil, ErrNoFloorData
+}
+
+func (a *PortalsAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	return &VenueVolumeResult{
+		VenueID:    VenuePortals,
+		DataStatus: "unavailable",
+		FetchedAt:  time.Now().UTC(),
+	}, nil
+}
+
+// MRKTAdapter connects to MRKT (mrkt.tg)
+type MRKTAdapter struct {
+	httpClient *http.Client
+}
+
+func NewMRKTAdapter() *MRKTAdapter {
+	return &MRKTAdapter{
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+	}
+}
+
+func (a *MRKTAdapter) ID() VenueID { return VenueMRKT }
+func (a *MRKTAdapter) Name() string { return "MRKT" }
+func (a *MRKTAdapter) Currency() string { return "GRAM" }
+func (a *MRKTAdapter) ProtocolFeePct() decimal.Decimal { return decimal.Zero } // 0% protocol fee
+
+func (a *MRKTAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
+	// MRKT zero-fee marketplace integration endpoint
+	return nil, ErrNoFloorData
+}
+
+func (a *MRKTAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	return &VenueVolumeResult{
+		VenueID:    VenueMRKT,
+		DataStatus: "unavailable",
+		FetchedAt:  time.Now().UTC(),
+	}, nil
+}
+

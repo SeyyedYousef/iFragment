@@ -11,11 +11,11 @@ const (
 	FragmentFeePercent             = 0.05
 )
 
-// Official 19 NFT Colors in Telegram Anonymous Numbers
+// Official 20 NFT Colors in Telegram Anonymous Numbers (including Blue Gray)
 type ColorInfo struct {
 	Name        string  `json:"name"`
 	Hex         string  `json:"hex"`
-	Multiplier  float64 `json:"multiplier"` // Hedonic color premium estimate
+	Multiplier  float64 `json:"multiplier"` // Expert hedonic color multiplier prior
 	Description string  `json:"description"`
 }
 

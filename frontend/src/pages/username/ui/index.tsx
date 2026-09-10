@@ -183,6 +183,13 @@ interface ValuationResult {
 		risk_score: number;
 	};
 	empirical_band?: {
+		model_low_ton?: number;
+		model_mid_ton?: number;
+		model_high_ton?: number;
+		model_low_usd?: number;
+		model_mid_usd?: number;
+		model_high_usd?: number;
+		band_type?: string;
 		p10_ton: number;
 		p50_ton: number;
 		p90_ton: number;
@@ -190,6 +197,8 @@ interface ValuationResult {
 		p50_usd: number;
 		p90_usd: number;
 	};
+	data_badges?: Record<string, string>;
+	is_fallback_used?: boolean;
 	brandability: number;
 	fear_greed_index: number;
 	fear_greed_label: string;
@@ -1070,6 +1079,18 @@ export const UsernamePage: Component = () => {
 
 						{/* ═══════ UNLOCKED REPORT CONTENT (PHASE 3 & 4) ═══════ */}
 						<Show when={accessGranted() && data()}>
+							{/* ⚠️ STALE FALLBACK RATE WARNING */}
+							<Show when={data()?.is_fallback_used}>
+								<div class="w-full p-3.5 rounded-[20px] bg-amber-500/10 border border-amber-500/30 flex items-center gap-2.5 text-amber-300 text-xs font-medium shadow-sm">
+									<span class="material-symbols-outlined text-lg text-amber-400 shrink-0">warning</span>
+									<span>
+										{isRtl()
+											? 'توجه: نرخ برابری TON به USD به دلیل اختلال موقت شبکه بر مبنای آخرین نرخ آفلاین (Stale Fallback) محاسبه شده است.'
+											: 'Notice: TON/USD exchange rate is calculated based on an offline fallback rate due to upstream provider latency.'}
+									</span>
+								</div>
+							</Show>
+
 							{/* 🌐 CANONICAL DUAL-STATUS: TELEGRAM LIFECYCLE vs FRAGMENT MARKETPLACE */}
 							<div class="w-full grid grid-cols-2 gap-2.5">
 								{/* 1. Telegram App State */}
@@ -1169,57 +1190,57 @@ export const UsernamePage: Component = () => {
 								</div>
 							</Show>
 
-							{/* 📊 EMPIRICAL CONFIDENCE BAND (P10 / P50 / P90) */}
+							{/* 📊 MODEL VALUATION BAND */}
 							<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
 								<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 									<div class="flex items-center gap-2">
 										<span class="material-symbols-outlined text-emerald-400 text-base">monitoring</span>
 										<h4 class="text-xs font-black text-white">
-											{isRtl() ? 'بازه اطمینان قیمت‌گذاری تجربی' : 'Empirical Valuation Band'}
+											{isRtl() ? 'بازه مدل ارزش‌گذاری (Model Band)' : 'Econometric Model Band'}
 										</h4>
 									</div>
 									<span class="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-										P10 — P50 — P90
+										{data()?.empirical_band?.band_type || 'PARAMETRIC'}
 									</span>
 								</div>
 
 								<div class="grid grid-cols-3 gap-2 text-center">
-									{/* P10 Floor */}
+									{/* Model Low / Floor */}
 									<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 min-w-0">
 										<span class="text-[9px] uppercase font-black text-rose-400 block mb-1 truncate">
-											{isRtl() ? 'P10 (کف نقدشوندگی)' : 'P10 (Floor)'}
+											{isRtl() ? 'کف تحلیلی (Low)' : 'Model Low'}
 										</span>
 										<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
-											{fmtTon(data()?.empirical_band?.p10_ton || Math.round(expectedTon() * 0.7))} <span class="text-[9px] text-[#0098EA]">TON</span>
+											{fmtTon(data()?.empirical_band?.model_low_ton || data()?.empirical_band?.p10_ton || Math.round(expectedTon() * 0.7))} <span class="text-[9px] text-[#0098EA]">TON</span>
 										</span>
 										<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
-											≈ ${fmtUsd(data()?.empirical_band?.p10_usd || Math.round((data()?.empirical_band?.p10_ton || expectedTon() * 0.7) * (data()?.ton_usd_rate || 0)))}
+											≈ ${fmtUsd(data()?.empirical_band?.model_low_usd || data()?.empirical_band?.p10_usd || Math.round((data()?.empirical_band?.p10_ton || expectedTon() * 0.7) * (data()?.ton_usd_rate || 0)))}
 										</span>
 									</div>
 
-									{/* P50 Fair */}
+									{/* Model Mid / Fair */}
 									<div class="p-3 rounded-2xl bg-[#0098EA]/10 border border-[#0098EA]/30 min-w-0 shadow-sm">
 										<span class="text-[9px] uppercase font-black text-[#0098EA] block mb-1 truncate">
-											{isRtl() ? 'P50 (ارزش منصفانه)' : 'P50 (Fair Value)'}
+											{isRtl() ? 'برآورد پایه (Mid)' : 'Model Mid'}
 										</span>
 										<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
-											{fmtTon(data()?.empirical_band?.p50_ton || Math.round(expectedTon()))} <span class="text-[9px] text-[#0098EA]">TON</span>
+											{fmtTon(data()?.empirical_band?.model_mid_ton || data()?.empirical_band?.p50_ton || Math.round(expectedTon()))} <span class="text-[9px] text-[#0098EA]">TON</span>
 										</span>
 										<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
-											≈ ${fmtUsd(data()?.empirical_band?.p50_usd || Math.round((data()?.empirical_band?.p50_ton || expectedTon()) * (data()?.ton_usd_rate || 0)))}
+											≈ ${fmtUsd(data()?.empirical_band?.model_mid_usd || data()?.empirical_band?.p50_usd || Math.round((data()?.empirical_band?.p50_ton || expectedTon()) * (data()?.ton_usd_rate || 0)))}
 										</span>
 									</div>
 
-									{/* P90 Premium */}
+									{/* Model High / Premium */}
 									<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 min-w-0">
 										<span class="text-[9px] uppercase font-black text-emerald-400 block mb-1 truncate">
-											{isRtl() ? 'P90 (خریدار برند)' : 'P90 (Brand Premium)'}
+											{isRtl() ? 'سقف تقاضا (High)' : 'Model High'}
 										</span>
 										<span class="font-mono font-black text-white text-xs sm:text-sm block truncate" dir="ltr">
-											{fmtTon(data()?.empirical_band?.p90_ton || Math.round(expectedTon() * 1.35))} <span class="text-[9px] text-[#0098EA]">TON</span>
+											{fmtTon(data()?.empirical_band?.model_high_ton || data()?.empirical_band?.p90_ton || Math.round(expectedTon() * 1.35))} <span class="text-[9px] text-[#0098EA]">TON</span>
 										</span>
 										<span class="text-[9px] text-white/40 font-mono block mt-0.5 truncate" dir="ltr">
-											≈ ${fmtUsd(data()?.empirical_band?.p90_usd || Math.round((data()?.empirical_band?.p90_ton || expectedTon() * 1.35) * (data()?.ton_usd_rate || 0)))}
+											≈ ${fmtUsd(data()?.empirical_band?.model_high_usd || data()?.empirical_band?.p90_usd || Math.round((data()?.empirical_band?.p90_ton || expectedTon() * 1.35) * (data()?.ton_usd_rate || 0)))}
 										</span>
 									</div>
 								</div>

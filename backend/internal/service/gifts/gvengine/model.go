@@ -77,6 +77,18 @@ type ValuationActionVerdict struct {
 	SummaryFa      string  `json:"summary_fa"`
 }
 
+// ValuationPillars decomposes the valuation into 4 core analytical pillars
+type ValuationPillars struct {
+	FairValueGRAM        float64 `json:"fair_value_gram"`
+	FairValueUSD         float64 `json:"fair_value_usd"`
+	LiquidationValueGRAM float64 `json:"liquidation_value_gram"`
+	LiquidationValueUSD  float64 `json:"liquidation_value_usd"`
+	SuggestedAskGRAM     float64 `json:"suggested_ask_gram"`
+	SuggestedAskUSD      float64 `json:"suggested_ask_usd"`
+	ObservedFloorGRAM    float64 `json:"observed_floor_gram"`
+	ObservedFloorUSD     float64 `json:"observed_floor_usd"`
+}
+
 // GiftValuation is the complete quantitative valuation artifact for a Telegram Gift
 type GiftValuation struct {
 	RunID              int64                          `json:"run_id"`
@@ -99,6 +111,7 @@ type GiftValuation struct {
 	GRAMUSDRate        float64                        `json:"gram_usd_rate"`
 	ConfidenceScore    int16                          `json:"confidence_score"`
 	PriceBasis         string                         `json:"price_basis"` // direct_sales_of_this_item, trait_comps_shrunk_to_class, class_median_only
+	Pillars            ValuationPillars               `json:"pillars"`
 	TraitDNA           []TraitDNABar                  `json:"trait_dna"`
 	AestheticHarmony   traits.AestheticHarmonyResult  `json:"aesthetic_harmony"`
 	JointRarity        traits.JointRarityAnalysis     `json:"joint_rarity"`

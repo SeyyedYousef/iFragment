@@ -34,6 +34,7 @@ type SimilarUsername struct {
 	SalePriceUSD float64 `json:"sale_price_usd,omitempty"` // Last sale price in USD
 	SaleDate     string  `json:"sale_date,omitempty"`      // Date of last sale
 	PriceSource  string  `json:"price_source,omitempty"`   // "archive_anchor", "db_sale", "onchain_listing"
+	Category     string  `json:"category,omitempty"`       // "semantic", "structural", "market_price", "brand"
 }
 
 func checkTelegramWebStatus(ctx context.Context, username string) string {
@@ -173,12 +174,23 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 			}
 		}
 
+		category := "structural"
+		lowerReason := strings.ToLower(reason)
+		if isAI || strings.Contains(lowerReason, "concept") || strings.Contains(lowerReason, "semantic") {
+			category = "semantic"
+		} else if strings.Contains(lowerReason, "market") || strings.Contains(lowerReason, "price") {
+			category = "market_price"
+		} else if strings.Contains(lowerReason, "brand") {
+			category = "brand"
+		}
+
 		results = append(results, SimilarUsername{
 			Username:    candidate,
 			Score:       roundFeature(score),
 			Reason:      reason,
 			RarityScore: s.CalculateRarity(candidate),
 			FragmentURL: "https://fragment.com/username/" + candidate,
+			Category:    category,
 		})
 	}
 
@@ -192,7 +204,8 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 		results = results[:limit]
 	}
 
-	tonRate, _ := s.GetTONRate(ctx)
+	rateInfo, _ := s.GetTONRateInfo(ctx)
+	tonRate := rateInfo.Rate
 	if tonRate <= 0 {
 		tonRate = 7.25
 	}

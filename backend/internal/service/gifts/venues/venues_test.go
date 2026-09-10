@@ -68,4 +68,39 @@ func TestVenues_AdaptersRegistry(t *testing.T) {
 	if marketApp.ID() != VenueMarketApp {
 		t.Errorf("MarketApp adapter ID incorrect")
 	}
+
+	tonnel := NewTonnelAdapter()
+	if tonnel.ID() != VenueTonnel || tonnel.Name() != "Tonnel Network" {
+		t.Errorf("Tonnel adapter ID or Name incorrect")
+	}
+	if tonnel.ProtocolFeePct().InexactFloat64() != 3.0 {
+		t.Errorf("Tonnel fee must be 3.0%%")
+	}
+
+	portals := NewPortalsAdapter()
+	if portals.ID() != VenuePortals || portals.Name() != "Portals" {
+		t.Errorf("Portals adapter ID or Name incorrect")
+	}
+	if portals.ProtocolFeePct().InexactFloat64() != 2.5 {
+		t.Errorf("Portals fee must be 2.5%%")
+	}
+
+	mrkt := NewMRKTAdapter()
+	if mrkt.ID() != VenueMRKT || mrkt.Name() != "MRKT" {
+		t.Errorf("MRKT adapter ID or Name incorrect")
+	}
+	if !mrkt.ProtocolFeePct().IsZero() {
+		t.Errorf("MRKT fee must be 0%%")
+	}
+
+	stars := NewTelegramStarsAdapter(nil)
+	if stars.ID() != VenueTelegramStars || stars.Name() != "Telegram Stars" {
+		t.Errorf("Stars adapter ID or Name incorrect")
+	}
+
+	// Test Snapshot worker initializes all 7 adapters
+	worker := NewVenueSnapshotWorker(nil, nil, 0)
+	if len(worker.adapters) != 7 {
+		t.Errorf("Expected snapshot worker to have 7 adapters, got %d", len(worker.adapters))
+	}
 }

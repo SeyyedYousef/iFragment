@@ -38,9 +38,42 @@ export const ManagedBotsPage: Component = () => {
 		});
 	});
 
+	const [reconnectingBotId, setReconnectingBotId] = createSignal<string | null>(null);
+	const [copiedField, setCopiedField] = createSignal<string | null>(null);
+
+	const suggestedBotName = 'iFragment Guard Bot';
+	const suggestedBotUsername = `ifrag_${Math.random().toString(36).substring(2, 6)}_bot`;
+
+	const copyToClipboard = async (text: string, fieldName: string) => {
+		haptic.impact('light');
+		try {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(text);
+				setCopiedField(fieldName);
+				haptic.notify('success');
+				setTimeout(() => setCopiedField(null), 2500);
+			}
+		} catch {}
+	};
+
+	const handleReconnectWebhook = async (botId: string, e: MouseEvent) => {
+		e.stopPropagation();
+		haptic.impact('medium');
+		setReconnectingBotId(botId);
+		try {
+			await botApi.reconnectWebhook(botId);
+			haptic.notify('success');
+			refetch();
+		} catch (err: any) {
+			haptic.notify('error');
+		} finally {
+			setReconnectingBotId(null);
+		}
+	};
+
 	const openBotFather = () => {
 		haptic.impact('medium');
-		const link = 'https://t.me/BotFather';
+		const link = 'https://t.me/BotFather?start=newbot';
 		try {
 			if ((window as any).Telegram?.WebApp?.openTelegramLink) {
 				(window as any).Telegram.WebApp.openTelegramLink(link);
@@ -336,14 +369,29 @@ export const ManagedBotsPage: Component = () => {
 										</span>
 									</div>
 
-									<div class="flex flex-col flex-1 min-w-0 gap-0.5">
-										<div class="flex items-center gap-2">
+									<div class="flex flex-col flex-1 min-w-0 gap-1">
+										<div class="flex items-center gap-2 flex-wrap">
 											<span class="text-[15px] font-black text-white truncate tracking-tight">
 												{bot.bot_name}
 											</span>
-											<div
-												class={`w-2 h-2 rounded-full shrink-0 shadow-sm ${bot.status === 'active' ? 'bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse' : 'bg-[#ff4a4a]'}`}
-											/>
+											<span
+												class={`text-[10px] font-bold px-2 py-0.5 rounded-[6px] uppercase tracking-wider flex items-center gap-1 ${
+													bot.status === 'active'
+														? 'bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30'
+														: 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+												}`}
+											>
+												<div
+													class={`w-1.5 h-1.5 rounded-full ${
+														bot.status === 'active'
+															? 'bg-[#10b981] animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]'
+															: 'bg-amber-400'
+													}`}
+												/>
+												{bot.status === 'active'
+													? t('managedBots.statusActive')
+													: t('managedBots.statusIssue')}
+											</span>
 										</div>
 										<span class="text-[12px] font-bold text-white/40 font-mono truncate">
 											@{bot.bot_username}
@@ -353,20 +401,40 @@ export const ManagedBotsPage: Component = () => {
 									<div class="flex items-center gap-1.5 shrink-0">
 										<button
 											type="button"
+											onClick={(e) => handleReconnectWebhook(bot.id, e)}
+											disabled={reconnectingBotId() === bot.id}
+											class="h-9 px-2.5 rounded-[10px] bg-white/5 hover:bg-[#3390ec]/20 text-white/60 hover:text-[#3390ec] text-[11px] font-bold border border-white/10 hover:border-[#3390ec]/30 transition-all flex items-center gap-1.5"
+											title={t('managedBots.reconnectWebhook')}
+										>
+											<span
+												class={`material-symbols-outlined text-[16px] ${
+													reconnectingBotId() === bot.id ? 'animate-spin text-[#3390ec]' : ''
+												}`}
+											>
+												sync
+											</span>
+											<span class="hidden sm:inline">
+												{reconnectingBotId() === bot.id
+													? t('managedBots.reconnecting')
+													: t('managedBots.reconnectWebhook')}
+											</span>
+										</button>
+										<button
+											type="button"
 											onClick={(e) => {
 												e.stopPropagation();
 												haptic.impact('medium');
 												setBotToDelete(bot);
 											}}
-											class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-transparent hover:bg-[#ff4a4a]/10 text-white/20 hover:text-[#ff4a4a] transition-colors border border-transparent hover:border-[#ff4a4a]/20"
+											class="w-9 h-9 rounded-[10px] flex items-center justify-center bg-transparent hover:bg-[#ff4a4a]/10 text-white/20 hover:text-[#ff4a4a] transition-colors border border-transparent hover:border-[#ff4a4a]/20"
 											aria-label={t('managedBots.delete')}
 										>
-											<span class="material-symbols-outlined text-[20px]">delete</span>
+											<span class="material-symbols-outlined text-[18px]">delete</span>
 										</button>
 										<div
-											class={`w-10 h-10 rounded-[12px] flex items-center justify-center transition-transform ${isRtl() ? 'rotate-180' : ''} group-hover:translate-x-1 text-white/20 group-hover:text-[#3390ec]`}
+											class={`w-8 h-8 rounded-[8px] flex items-center justify-center transition-transform ${isRtl() ? 'rotate-180' : ''} group-hover:translate-x-1 text-white/20 group-hover:text-[#3390ec]`}
 										>
-											<span class="material-symbols-outlined text-[24px]">chevron_right</span>
+											<span class="material-symbols-outlined text-[20px]">chevron_right</span>
 										</div>
 									</div>
 								</Motion.div>
@@ -394,11 +462,65 @@ export const ManagedBotsPage: Component = () => {
 					>
 						<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
 
-						<div class="flex flex-col gap-1.5 mb-6">
+						<div class="flex flex-col gap-1.5 mb-5">
 							<h3 class="text-[20px] font-black text-white tracking-tight">
 								{t('managedBots.connectYourBot')}
 							</h3>
 							<p class="text-[12px] font-medium text-white/50">{t('managedBots.pasteBotToken')}</p>
+						</div>
+
+						{/* ═══════ ONE-CLICK WIZARD & SUGGESTIONS ═══════ */}
+						<div class="mb-5 p-4 rounded-[18px] bg-gradient-to-br from-[#3390ec]/15 to-transparent border border-[#3390ec]/30 flex flex-col gap-3 shadow-inner">
+							<div class="flex items-center justify-between">
+								<span class="text-[12px] font-black text-[#3390ec] uppercase tracking-wider flex items-center gap-1.5">
+									<span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+									{t('managedBots.oneClickWizardTitle')}
+								</span>
+							</div>
+
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+								{/* Suggested Name */}
+								<div class="bg-[#08090D] p-3 rounded-[14px] border border-white/5 flex items-center justify-between gap-2 shadow-inner">
+									<div class="flex flex-col min-w-0">
+										<span class="text-[10px] text-white/40 font-medium">
+											{t('managedBots.suggestedNameLabel')}
+										</span>
+										<span class="text-[12px] font-bold text-white truncate font-mono">
+											{suggestedBotName}
+										</span>
+									</div>
+									<button
+										type="button"
+										onClick={() => copyToClipboard(suggestedBotName, 'name')}
+										class="px-3 py-1.5 rounded-[8px] bg-white/10 hover:bg-[#3390ec]/20 text-[11px] font-bold text-white/80 hover:text-[#3390ec] transition-all shrink-0 active:scale-95"
+									>
+										{copiedField() === 'name'
+											? t('managedBots.copiedSuccess')
+											: t('managedBots.copySuggested')}
+									</button>
+								</div>
+
+								{/* Suggested Username */}
+								<div class="bg-[#08090D] p-3 rounded-[14px] border border-white/5 flex items-center justify-between gap-2 shadow-inner">
+									<div class="flex flex-col min-w-0">
+										<span class="text-[10px] text-white/40 font-medium">
+											{t('managedBots.suggestedUsernameLabel')}
+										</span>
+										<span class="text-[12px] font-bold text-[#3390ec] truncate font-mono">
+											@{suggestedBotUsername}
+										</span>
+									</div>
+									<button
+										type="button"
+										onClick={() => copyToClipboard(suggestedBotUsername, 'username')}
+										class="px-3 py-1.5 rounded-[8px] bg-white/10 hover:bg-[#3390ec]/20 text-[11px] font-bold text-white/80 hover:text-[#3390ec] transition-all shrink-0 active:scale-95"
+									>
+										{copiedField() === 'username'
+											? t('managedBots.copiedSuccess')
+											: t('managedBots.copySuggested')}
+									</button>
+								</div>
+							</div>
 						</div>
 
 						<div class="flex flex-col gap-3.5 mb-6">

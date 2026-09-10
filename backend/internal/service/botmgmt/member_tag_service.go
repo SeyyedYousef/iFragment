@@ -31,12 +31,28 @@ import (
 // ============================================================================
 
 const (
-	// Telegram-side limit for member tags is short; clamp defensively.
-	defaultMaxTagLength = 32
+	// Telegram-side limit for member tags is 16 characters (Bot API 9.5).
+	defaultMaxTagLength = 16
 	tagCooldownSeconds  = 30 // per-user anti-abuse cooldown between self-tag changes
 )
 
 var tagSanitizer = regexp.MustCompile(`[\x00-\x1f<>]`)
+
+func isEmojiRune(r rune) bool {
+	return (r >= 0x1F600 && r <= 0x1F64F) || // Emoticons
+		(r >= 0x1F300 && r <= 0x1F5FF) || // Misc Symbols and Pictographs
+		(r >= 0x1F680 && r <= 0x1F6FF) || // Transport and Map
+		(r >= 0x1F700 && r <= 0x1F77F) || // Alchemical Symbols
+		(r >= 0x1F780 && r <= 0x1F7FF) || // Geometric Shapes Extended
+		(r >= 0x1F800 && r <= 0x1F8FF) || // Supplemental Arrows-C
+		(r >= 0x1F900 && r <= 0x1F9FF) || // Supplemental Symbols and Pictographs
+		(r >= 0x1FA00 && r <= 0x1FA6F) || // Chess Symbols
+		(r >= 0x1FA70 && r <= 0x1FAFF) || // Symbols and Pictographs Extended-A
+		(r >= 0x2600 && r <= 0x26FF) || // Misc symbols
+		(r >= 0x2700 && r <= 0x27BF) || // Dingbats
+		(r >= 0xFE00 && r <= 0xFE0F) || // Variation Selectors
+		(r >= 0x1F1E6 && r <= 0x1F1FF) // Regional indicator flags
+}
 
 type MemberTagService struct {
 	botRepo      *repository.BotRepo
@@ -48,9 +64,16 @@ func NewMemberTagService(botRepo *repository.BotRepo, settingsRepo *repository.S
 	return &MemberTagService{botRepo: botRepo, settingsRepo: settingsRepo, cache: cache}
 }
 
-// sanitizeTag strips control chars/markup brackets and clamps to maxLen runes.
+// sanitizeTag strips control chars/markup brackets/emojis and clamps to maxLen runes.
 func sanitizeTag(raw string, maxLen int) string {
 	clean := strings.TrimSpace(tagSanitizer.ReplaceAllString(raw, ""))
+	var noEmoji strings.Builder
+	for _, r := range clean {
+		if !isEmojiRune(r) {
+			noEmoji.WriteRune(r)
+		}
+	}
+	clean = strings.TrimSpace(noEmoji.String())
 	if maxLen <= 0 || maxLen > defaultMaxTagLength {
 		maxLen = defaultMaxTagLength
 	}
@@ -102,7 +125,7 @@ func (s *MemberTagService) HandleTagCommand(ctx context.Context, tg *telegram.Bo
 		return
 	}
 
-	_, general, err := s.loadGroupAndGeneral(ctx, group.ID, mc.ChatID)
+	_, general, err := s.loadGroupAndGeneral(ctx, botID, mc.ChatID)
 	if err != nil {
 		slog.Warn("/tag: failed to resolve group", "chat", mc.ChatID, "error", err)
 		return
@@ -201,21 +224,20 @@ func (s *MemberTagService) memberStatus(ctx context.Context, tg *telegram.BotAPI
 }
 
 func (s *MemberTagService) resolveUsernameToID(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, username string) (int64, error) {
-	// getChatMember accepts @username as user_id per Bot API.
-	payload := map[string]interface{}{"chat_id": chatID, "user_id": "@" + username}
-	raw, err := tg.Request(ctx, "getChatMember", payload)
-	if err != nil {
-		return 0, err
+	cleanUser := strings.ToLower(strings.TrimPrefix(username, "@"))
+	if s.cache != nil && s.cache.Client != nil {
+		if val, err := s.cache.Client.Get(ctx, "uname:"+cleanUser).Int64(); err == nil && val > 0 {
+			return val, nil
+		}
 	}
-	var m struct {
-		User struct {
-			ID int64 `json:"id"`
-		} `json:"user"`
+	if s.botRepo != nil && s.botRepo.DB() != nil && s.botRepo.DB().Pool != nil {
+		var uid int64
+		err := s.botRepo.DB().Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE LOWER(username) = $1 LIMIT 1", cleanUser).Scan(&uid)
+		if err == nil && uid > 0 {
+			return uid, nil
+		}
 	}
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return 0, err
-	}
-	return m.User.ID, nil
+	return 0, fmt.Errorf("user not found by username; please reply to their message with /tag <text>")
 }
 
 const tagCooldownKey = "tagcd:%d:%d"
@@ -254,7 +276,7 @@ Admins:
 • Reply to a message + /tag &lt;text&gt;`
 	i18nTagDisabled      = "🏷️ Member tags are currently disabled in this group."
 	i18nTagAdminOnly     = "🚫 Only admins can set other members' tags."
-	i18nTagUserNotFound  = "❌ That user was not found in this group."
+	i18nTagUserNotFound  = "❌ User not found by @username. Please reply to that member's message with <code>/tag &lt;text&gt;</code>."
 	i18nTagCooldown      = "⏳ Please wait before changing your tag again."
 	i18nTagEmpty         = "❌ The tag text is empty or contains unsupported characters."
 	i18nTagBotPermission = "⚠️ I could not set the tag.\nMake sure I am an admin with the <b>Manage Tags</b> permission, then try again."

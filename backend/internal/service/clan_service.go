@@ -427,7 +427,11 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int, period string)
 
 	query := fmt.Sprintf(`
 		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count,
-		       COALESCE(SUM(us.xp), c.total_score, 0)::BIGINT as period_score, c.created_at
+		       COALESCE(
+		           (SUM(LEAST(us.xp, 100000)) + COUNT(DISTINCT us.user_id) * 500),
+		           c.total_score,
+		           0
+		       )::BIGINT as period_score, c.created_at
 		FROM clans c
 		LEFT JOIN clan_members cm ON cm.clan_id = c.id
 		LEFT JOIN user_stats us ON us.user_id = cm.user_id AND us.last_active_at >= NOW() - INTERVAL '%s'
