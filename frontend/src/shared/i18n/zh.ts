@@ -307,6 +307,9 @@ export const dict = {
 		copy: '复制',
 		supplyPrefix: '发行量：',
 		rarityPrefix: '稀有度：',
+		floorPriceHistory: '地板价历史',
+		high24h: '24小时最高',
+		low24h: '24小时最低',
 	},
 	paywall: {
 		wallet_balance: '你的积分',

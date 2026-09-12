@@ -1,6 +1,6 @@
 import { type Component, createMemo, createSignal, Show } from 'solid-js';
 import type { GiftValuationReport } from '@/entities/gifts/index.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { isRtl } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {

@@ -292,7 +292,8 @@ func (h *GiftsHandler) ListCollections(w http.ResponseWriter, r *http.Request) {
 // GetCollectionIntel returns deep analytics for a gift collection
 func (h *GiftsHandler) GetCollectionIntel(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	slug := r.URL.Query().Get("c")
+	slug := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("c")))
+	slug = strings.ReplaceAll(slug, " ", "-")
 	if slug == "" {
 		RespondError(w, r, http.StatusBadRequest, "collection parameter 'c' is required", nil)
 		return
@@ -317,6 +318,8 @@ func (h *GiftsHandler) GetGiftImage(w http.ResponseWriter, r *http.Request) {
 	if slug == "" {
 		slug = r.URL.Query().Get("slug")
 	}
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	slug = strings.ReplaceAll(slug, " ", "-")
 	if slug == "" {
 		http.Error(w, "slug required", http.StatusBadRequest)
 		return

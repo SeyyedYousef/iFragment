@@ -6,7 +6,7 @@ import {
 	Show,
 } from 'solid-js';
 import type { GiftsIntelResponse } from '@/entities/gifts/index.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { GiftsMacroStats } from './GiftsMacroStats.js';
 
@@ -478,7 +478,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 					<div class="absolute bottom-1 left-3 right-3 flex justify-between text-[9px] font-mono text-white/30 pointer-events-none">
 						<span>{chartData()[0]?.label || ''}</span>
 						<span>{chartData()[Math.floor(chartData().length / 2)]?.label || ''}</span>
-						<span class="text-[#0098EA] font-semibold">{t('common.now') || 'Now'}</span>
+						<span class="text-[#0098EA] font-semibold">{t('gifts.now') || 'Now'}</span>
 					</div>
 				</div>
 			</div>

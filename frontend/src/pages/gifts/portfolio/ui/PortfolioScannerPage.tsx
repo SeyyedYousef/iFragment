@@ -69,7 +69,7 @@ export const PortfolioScannerPage: Component = () => {
 				'Estimated Value (USD)',
 				'Rarity Tier',
 			],
-			...scanResult()!.top_valued_gifts.map((g) => [
+			...(scanResult()?.top_valued_gifts || []).map((g) => [
 				g.gift_id,
 				g.model_name,
 				g.serial_number,

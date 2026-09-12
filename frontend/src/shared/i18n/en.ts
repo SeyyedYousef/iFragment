@@ -310,6 +310,9 @@ export const dict = {
 		copy: 'Copy',
 		supplyPrefix: 'Supply:',
 		rarityPrefix: 'Rarity:',
+		floorPriceHistory: 'Floor Price History',
+		high24h: '24h High',
+		low24h: '24h Low',
 	},
 	paywall: {
 		wallet_balance: 'Your credits',

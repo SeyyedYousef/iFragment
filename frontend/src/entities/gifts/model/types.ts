@@ -349,27 +349,32 @@ export interface CollectionModelFloor {
 	upgraded_count: number;
 	floor_gram: number;
 	floor_usd: number;
-	best_venue: string;
-	change_24h_pct: number;
-	change_7d_pct: number;
-	volume_24h_gram: number;
-	is_trending: boolean;
+	/** Backend may not send these — they come from live enrichment only */
+	best_venue?: string;
+	change_24h_pct?: number;
+	change_7d_pct?: number;
+	volume_24h_gram?: number;
+	is_trending?: boolean;
 	custom_emoji_id?: string;
 }
 
 export interface RarityHeatmapCell {
 	model_id: string;
 	model_name: string;
-	backdrop_id: string;
+	backdrop_id?: string;
 	backdrop_name: string;
 	symbol_id?: string;
 	symbol_name?: string;
-	count: number;
-	total_in_collection: number;
-	rarity_permille: number;
-	rarity_tier: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic';
+	/** Backend sends as combined_rarity_pct */
+	combined_rarity_pct: number;
+	/** Computed alias for convenience */
+	combined_rarity?: number;
+	count?: number;
+	total_in_collection?: number;
+	rarity_permille?: number;
+	rarity_tier: string;
 	floor_gram: number;
-	floor_usd: number;
+	floor_usd?: number;
 }
 
 export interface MarketVenueFloor {
@@ -403,7 +408,7 @@ export interface WhaleProfile {
 	holdings_count: number;
 	total_value_gram: number;
 	total_value_usd: number;
-	classification: 'diamond_hands' | 'flipper' | 'accumulator';
+	classification: string;
 	change_24h_count: number;
 	avg_hold_days: number;
 }
@@ -429,7 +434,7 @@ export interface FearGreedData {
 	listing_ratio_component: number;
 	on_chain_component: number;
 	previous_index: number;
-	trend: 'rising' | 'falling' | 'stable';
+	trend: string;
 }
 
 export interface UpgradeStepInfo {
@@ -593,13 +598,14 @@ export interface CollectionIntelResponse {
 	search_items?: CatalogSearchItem[];
 
 	// Floor price history (for chart)
-	floor_history: Array<{
+	floor_history?: Array<{
 		timestamp: string;
 		floor_gram: number;
 		venue_breakdown: Record<string, number>;
 	}>;
 
 	// Attribution & metadata
+	data_source_attribution?: string;
 	data_status?: 'live' | 'estimated' | 'unavailable';
 	data_sources: string[];
 	updated_at: string;
@@ -636,12 +642,41 @@ export interface OnChainMetadata {
 	nft_address?: string;
 	collection_address: string;
 	owner_address?: string;
-	mint_number: number;
-	attributes: Array<{ trait_type: string; value: string; rarity?: string }>;
+	mint_number?: number;
+	attributes?: Array<{ trait_type: string; value: string; rarity?: string }>;
 	metadata_url: string;
 	tonviewer_url: string;
 	tonscan_url: string;
 	marketplace_links: Record<string, string>;
+	is_on_chain?: boolean;
+}
+
+export interface VenueFeeMatrixItem {
+	venue: string;
+	fee_pct: number;
+	fee_ton?: number;
+	gas_ton: number;
+	net_proceeds_ton: number;
+	net_proceeds_usd?: number;
+}
+
+export interface HostProfileInfo {
+	host_name: string;
+	is_showcased: boolean;
+	note?: string;
+}
+
+export interface OwnerWalletInfo {
+	wallet_address: string;
+	is_escrow: boolean;
+	escrow_name?: string;
+	note?: string;
+}
+
+export interface GiftUpgradeInfo {
+	is_upgraded: boolean;
+	upgrade_fee_stars?: number;
+	custody_notice?: string;
 }
 
 export interface EnrichedGiftReport extends GiftValuationReport {
@@ -650,4 +685,9 @@ export interface EnrichedGiftReport extends GiftValuationReport {
 	rarity_percentile: number;
 	provenance: ProvenanceEvent[];
 	on_chain: OnChainMetadata | null;
+	custody_type?: 'on_chain_nft' | 'in_app_stars' | string;
+	host_profile?: HostProfileInfo;
+	owner_wallet?: OwnerWalletInfo;
+	venue_fee_matrix?: VenueFeeMatrixItem[];
+	upgrade_info?: GiftUpgradeInfo;
 }

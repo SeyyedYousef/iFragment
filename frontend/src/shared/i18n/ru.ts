@@ -311,6 +311,9 @@ export const dict = {
 		copy: 'Копировать',
 		supplyPrefix: 'Тираж:',
 		rarityPrefix: 'Редкость:',
+		floorPriceHistory: 'История минимальной цены',
+		high24h: 'Макс 24ч',
+		low24h: 'Мин 24ч',
 	},
 	paywall: {
 		wallet_balance: 'Ваши кредиты',

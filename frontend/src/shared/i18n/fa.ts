@@ -307,6 +307,9 @@ export const dict = {
 		copy: 'کپی',
 		supplyPrefix: 'تیراژ:',
 		rarityPrefix: 'نایابی:',
+		floorPriceHistory: 'روند قیمت کف کالکشن',
+		high24h: 'سقف ۲۴ ساعت',
+		low24h: 'کف ۲۴ ساعت',
 	},
 	paywall: {
 		wallet_balance: 'کریدت شما',

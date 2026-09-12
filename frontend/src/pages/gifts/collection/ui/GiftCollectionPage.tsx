@@ -3,6 +3,7 @@ import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { GiftThumbnail, giftsApi } from '@/entities/gifts/index.js';
 import { GiftFloorChart } from './GiftFloorChart.js';
+import { CollectionRarityHeatmap } from './CollectionRarityHeatmap.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
@@ -22,7 +23,8 @@ export const GiftCollectionPage: Component = () => {
 
 	const getCollectionSlug = () => {
 		const params = new URLSearchParams(location.search);
-		return params.get('c') || 'plush_pepe';
+		const raw = params.get('c') || 'plush_pepe';
+		return raw.toLowerCase().trim().replace(/[\s_]+/g, '-');
 	};
 
 	const slug = () => getCollectionSlug();
@@ -30,7 +32,6 @@ export const GiftCollectionPage: Component = () => {
 	const [showSearch, setShowSearch] = createSignal(false);
 	const [selectedTab, setSelectedTab] = createSignal<CollectionTabKey>('market');
 	const [copiedContract, setCopiedContract] = createSignal(false);
-	const [heatmapTierFilter, setHeatmapTierFilter] = createSignal<string>('all');
 
 	// Extended state for 5 capabilities
 	const [marketTimeframe, setMarketTimeframe] = createSignal<'24h' | '7d' | '30d'>('24h');
@@ -128,27 +129,6 @@ export const GiftCollectionPage: Component = () => {
 			return { label: 'Uncommon', bg: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' };
 		return { label: 'Common', bg: 'bg-white/5 text-white/50 border-white/10' };
 	};
-
-	const rarityTierBadgeByName = (tier: string) => {
-		const tStr = (tier || '').toLowerCase();
-		if (tStr === 'mythic')
-			return { label: 'Mythic', bg: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
-		if (tStr === 'legendary')
-			return { label: 'Legendary', bg: 'bg-[#AF52DE]/20 text-[#AF52DE] border-[#AF52DE]/35' };
-		if (tStr === 'epic') return { label: 'Epic', bg: 'bg-sky-500/15 text-sky-300 border-sky-500/30' };
-		if (tStr === 'rare')
-			return { label: 'Rare', bg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
-		if (tStr === 'uncommon')
-			return { label: 'Uncommon', bg: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' };
-		return { label: 'Common', bg: 'bg-white/5 text-white/50 border-white/10' };
-	};
-
-	const filteredHeatmap = createMemo(() => {
-		const list = data()?.rarity_heatmap || [];
-		const f = heatmapTierFilter().toLowerCase();
-		if (f === 'all') return list;
-		return list.filter((c) => (c.rarity_tier || '').toLowerCase() === f);
-	});
 
 	// Sales analytics period data
 	const currentMarketPeriod = createMemo(() => {
@@ -374,6 +354,22 @@ export const GiftCollectionPage: Component = () => {
 					</div>
 				</Show>
 
+				{/* ═══ Error State ═══ */}
+				<Show when={intelQuery.isError && !intelQuery.isLoading}>
+					<div class="bg-rose-500/10 border border-rose-500/20 rounded-3xl p-6 text-center space-y-3 mb-4">
+						<span class="material-symbols-outlined text-rose-400 text-3xl">error</span>
+						<h3 class="text-sm font-bold text-white">{t('common.error') || 'خطا در دریافت اطلاعات کالکشن'}</h3>
+						<p class="text-xs text-white/50">{t('common.errors.generic') || 'لطفاً دوباره تلاش کنید'}</p>
+						<button
+							type="button"
+							onClick={() => intelQuery.refetch()}
+							class="px-4 py-2 rounded-xl bg-[#0098EA] text-white font-bold text-xs hover:bg-[#0086d1] transition-all"
+						>
+							{t('common.retry') || 'تلاش مجدد'}
+						</button>
+					</div>
+				</Show>
+
 				<Show when={data() && !intelQuery.isLoading}>
 					{/* ═══ Collection Profile Card ═══ */}
 					<div class="bg-gradient-to-br from-[#12141C] to-[#0A0D14] border border-white/[0.08] rounded-3xl p-5 mb-3.5 shadow-xl relative overflow-hidden space-y-4">
@@ -427,7 +423,7 @@ export const GiftCollectionPage: Component = () => {
 									{t('gifts.uniqueModels')}
 								</span>
 								<span class="font-mono font-black text-white text-sm">
-									{data()!.total_models || data()!.model_floors.length}
+									{data()?.total_models || data()?.model_floors?.length || 0}
 								</span>
 							</div>
 							<div class="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-2.5 text-center">
@@ -1684,86 +1680,22 @@ export const GiftCollectionPage: Component = () => {
 					</Show>
 
 					{/* ═══════════════════════════════════════════════════════════ */}
-					{/* TAB 6: HEATMAP (Existing)                                   */}
+					{/* TAB 6: HEATMAP (2D Matrix & Density Grid)                   */}
 					{/* ═══════════════════════════════════════════════════════════ */}
 					<Show when={selectedTab() === 'heatmap'}>
-						<div class="bg-[#12141C]/80 border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
-							<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
-								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[#0098EA] text-base">heat_pump</span>
-									<span>{t('gifts.rarityHeatmapTitle')}</span>
-								</h3>
-								<span class="text-[10px] text-white/40 font-mono">
-									{filteredHeatmap().length} {t('gifts.combosFound') || 'ترکیب'}
-								</span>
-							</div>
-
-							{/* Tier filter chips */}
-							<div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-								<For each={['all', 'Mythic', 'Legendary', 'Epic', 'Rare', 'Common']}>
-									{(tier) => (
-										<button
-											type="button"
-											onClick={() => {
-												setHeatmapTierFilter(tier);
-												try {
-													haptic.selection();
-												} catch {}
-											}}
-											class={`px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all shrink-0 ${
-												heatmapTierFilter().toLowerCase() === tier.toLowerCase()
-													? 'bg-[#0098EA] text-white shadow'
-													: 'bg-white/[0.03] text-white/50 hover:text-white border border-white/5'
-											}`}
-										>
-											{tier === 'all' ? t('common.all') || 'همه' : tier}
-										</button>
-									)}
-								</For>
-							</div>
-
-							<div class="space-y-2">
-								<For each={filteredHeatmap().slice(0, 30)}>
-									{(cell) => {
-										const tierBadge = rarityTierBadgeByName(cell.rarity_tier);
-										return (
-											<button
-												type="button"
-												onClick={() => {
-													navigate(`/gifts/report?g=${slug()}-1`);
-													try {
-														haptic.impact('light');
-													} catch {}
-												}}
-												class="w-full bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] rounded-2xl p-3 flex items-center justify-between text-xs transition-all active:scale-[0.99] text-left rtl:text-right"
-											>
-												<div class="min-w-0 flex-1 pr-2 rtl:pr-0 rtl:pl-2">
-													<span class="font-bold text-white block truncate">{cell.model_name}</span>
-													<span class="text-[10px] text-white/40 block mt-0.5">
-														{t('gifts.backdropPrefix')} {cell.backdrop_name}
-													</span>
-												</div>
-
-												<div class="text-right rtl:text-left shrink-0">
-													<span class="font-mono font-black text-white block">
-														{fmt(cell.floor_gram)} TON
-													</span>
-													<span
-														class={`text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded border inline-block mt-0.5 ${tierBadge.bg}`}
-													>
-														{cell.rarity_tier}
-													</span>
-												</div>
-											</button>
-										);
-									}}
-								</For>
-							</div>
+						<div class="mb-4">
+							<CollectionRarityHeatmap
+								cells={data()?.rarity_heatmap || []}
+								collectionSlug={slug()}
+								collectionName={data()?.collection_name || ''}
+								bestFloorGram={data()?.best_floor_gram || 0}
+								gramUsdRate={data()?.best_floor_usd && data()?.best_floor_gram ? data()!.best_floor_usd / data()!.best_floor_gram : 1.335}
+							/>
 						</div>
 					</Show>
 
 					{/* ═══ Dutch Upgrade Auction Clock ═══ */}
-					<Show when={data()!.upgrade_ladder && data()!.upgrade_ladder.length > 0}>
+					<Show when={data()?.upgrade_ladder && (data()?.upgrade_ladder?.length || 0) > 0}>
 						<div class="bg-gradient-to-br from-[#12141C] to-[#0D111A] border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
 							<div class="flex items-center justify-between">
 								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
@@ -1776,7 +1708,7 @@ export const GiftCollectionPage: Component = () => {
 							</div>
 
 							<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-								<For each={data()!.upgrade_ladder.slice(0, 4)}>
+								<For each={(data()?.upgrade_ladder || []).slice(0, 4)}>
 									{(step) => (
 										<div
 											class={`p-2.5 rounded-2xl border text-center transition-all ${

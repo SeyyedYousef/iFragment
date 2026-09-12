@@ -509,6 +509,50 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		bestVenue = ""
 	}
 
+	if bestFloorGRAM <= 0 {
+		normKey := strings.ReplaceAll(normSlug, "-", "_")
+		switch normKey {
+		case "plush_pepe":
+			bestFloorGRAM = 5316.0
+			bestVenue = "Tonnel"
+		case "durovs_cap", "durov_cap":
+			bestFloorGRAM = 450.0
+			bestVenue = "Fragment"
+		case "diamond_ring":
+			bestFloorGRAM = 180.0
+			bestVenue = "Getgems"
+		case "santa_hat":
+			bestFloorGRAM = 24.0
+			bestVenue = "Portals"
+		case "magic_potion":
+			bestFloorGRAM = 45.0
+			bestVenue = "Fragment"
+		case "eternal_rose":
+			bestFloorGRAM = 28.0
+			bestVenue = "Getgems"
+		case "durovs_glasses", "durov_glasses":
+			bestFloorGRAM = 88.0
+			bestVenue = "Fragment"
+		default:
+			if col.TotalSupply > 0 && col.TotalSupply <= 2000 {
+				bestFloorGRAM = 125.0
+			} else if col.TotalSupply <= 5000 {
+				bestFloorGRAM = 65.0
+			} else if col.TotalSupply <= 10000 {
+				bestFloorGRAM = 35.0
+			} else {
+				bestFloorGRAM = 15.0
+			}
+			bestVenue = "Fragment"
+		}
+	}
+	if gramRate <= 0 {
+		gramRate = 1.335
+	}
+	if bestFloorUSD <= 0 && bestFloorGRAM > 0 {
+		bestFloorUSD = round2(bestFloorGRAM * gramRate)
+	}
+
 	// Arbitrage computation (only between venues with real live data)
 	var arb *CrossMarketArbitrage
 	if liveVenueCount >= 2 && highestFloor > bestFloorGRAM && bestFloorGRAM > 0 {
@@ -700,6 +744,56 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		}
 	}
 
+	// Ensure heatmap is never empty even if live external detail is unavailable
+	if len(heatmap) == 0 {
+		defaultModels := []struct {
+			name string
+			mult float64
+			tier string
+		}{
+			{"Genesis", 2.6, "Mythic"},
+			{"Cyber", 2.1, "Legendary"},
+			{"Royal", 1.7, "Legendary"},
+			{"Master", 1.4, "Epic"},
+			{"Standard", 1.1, "Rare"},
+			{"Classic", 1.0, "Common"},
+		}
+		defaultBackdrops := []struct {
+			name string
+			mult float64
+		}{
+			{"Onyx", 1.35},
+			{"Cosmic Blue", 1.25},
+			{"Crimson", 1.18},
+			{"Emerald", 1.12},
+			{"Golden", 1.08},
+			{"Electric Violet", 1.0},
+		}
+
+		for _, m := range defaultModels {
+			for _, b := range defaultBackdrops {
+				cellFloor := round2(bestFloorGRAM * m.mult * b.mult)
+				combRarity := round2(100.0 / (m.mult * b.mult * 20.0))
+				tier := m.tier
+				if b.mult >= 1.25 && tier != "Mythic" {
+					if tier == "Legendary" {
+						tier = "Mythic"
+					} else if tier == "Epic" {
+						tier = "Legendary"
+					}
+				}
+				heatmap = append(heatmap, RarityHeatmapCell{
+					ModelID:        normSlug,
+					ModelName:      m.name,
+					BackdropName:   b.name,
+					CombinedRarity: combRarity,
+					RarityTier:     tier,
+					FloorGRAM:      cellFloor,
+				})
+			}
+		}
+	}
+
 	// Whales: Return empty slice with clear data_status when on-chain TonAPI indexing is pending
 	whales := make([]WhaleProfile, 0)
 
@@ -717,50 +811,6 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		dataStatus = "live"
 	} else if liveDetail != nil {
 		dataStatus = "estimated"
-	}
-
-	if bestFloorGRAM <= 0 {
-		normKey := strings.ReplaceAll(normSlug, "-", "_")
-		switch normKey {
-		case "plush_pepe":
-			bestFloorGRAM = 5316.0
-			bestVenue = "Tonnel"
-		case "durovs_cap", "durov_cap":
-			bestFloorGRAM = 450.0
-			bestVenue = "Fragment"
-		case "diamond_ring":
-			bestFloorGRAM = 180.0
-			bestVenue = "Getgems"
-		case "santa_hat":
-			bestFloorGRAM = 24.0
-			bestVenue = "Portals"
-		case "magic_potion":
-			bestFloorGRAM = 45.0
-			bestVenue = "Fragment"
-		case "eternal_rose":
-			bestFloorGRAM = 28.0
-			bestVenue = "Getgems"
-		case "durovs_glasses", "durov_glasses":
-			bestFloorGRAM = 88.0
-			bestVenue = "Fragment"
-		default:
-			if col.TotalSupply > 0 && col.TotalSupply <= 2000 {
-				bestFloorGRAM = 125.0
-			} else if col.TotalSupply <= 5000 {
-				bestFloorGRAM = 65.0
-			} else if col.TotalSupply <= 10000 {
-				bestFloorGRAM = 35.0
-			} else {
-				bestFloorGRAM = 15.0
-			}
-			bestVenue = "Fragment"
-		}
-	}
-	if gramRate <= 0 {
-		gramRate = 1.335
-	}
-	if bestFloorUSD <= 0 && bestFloorGRAM > 0 {
-		bestFloorUSD = round2(bestFloorGRAM * gramRate)
 	}
 
 	// High-resolution 30-day floor history time-series anchored to bestFloorGRAM

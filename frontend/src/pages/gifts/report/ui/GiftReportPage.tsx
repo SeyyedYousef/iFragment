@@ -942,7 +942,7 @@ export const GiftReportPage: Component = () => {
 							<div class="space-y-2.5">
 								<For each={currentReport()?.trait_dna}>
 									{(dna) => {
-										const colSupply = resolvedCollectionItem()?.totalSupply || 5000;
+										const colSupply = resolvedCollectionItem()?.supply || 5000;
 										const repFloor = Number(currentReport()?.base_price_gram) || resolvedCollectionItem()?.floorTon || 45;
 										const traitFloorTon = Math.round(repFloor * (1 + (100 - dna.percentile) / 45));
 										const population = Math.max(1, Math.round((dna.percentile / 100) * colSupply));

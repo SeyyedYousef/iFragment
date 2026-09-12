@@ -5,7 +5,7 @@ import {
 	For,
 	Show,
 } from 'solid-js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export interface FloorHistoryPoint {
@@ -409,7 +409,7 @@ export const GiftFloorChart: Component<Props> = (props) => {
 									<Show when={cp.venue_breakdown}>
 										<div class="mt-1 pt-1 border-t border-white/10 space-y-0.5 text-[8.5px]">
 											<For each={Object.entries(cp.venue_breakdown!)}>
-												{([vName, vFloor]) => (
+												{([vName, vFloor]: [string, number]) => (
 													<div class="flex items-center justify-between gap-2 text-white/60">
 														<span>{vName}:</span>
 														<span class="text-sky-300 font-bold">{vFloor} TON</span>
@@ -427,7 +427,7 @@ export const GiftFloorChart: Component<Props> = (props) => {
 				{/* Timeline Date Bounds */}
 				<div class="absolute bottom-1 left-3 right-3 flex justify-between text-[9px] font-mono text-white/30 pointer-events-none">
 					<span>{activePoints()[0] ? fmtDate(activePoints()[0].timestamp) : ''}</span>
-					<span class="text-[#0098EA] font-semibold">{t('common.now') || 'Now'}</span>
+					<span class="text-[#0098EA] font-semibold">{t('gifts.now') || 'Now'}</span>
 				</div>
 			</div>
 		</div>
