@@ -271,7 +271,7 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 		}
 
 		shouldLog := true
-		if strings.Contains(bodyPreview, "not resolved") || strings.Contains(bodyPreview, "entity not found") {
+		if strings.Contains(bodyPreview, "not resolved") || strings.Contains(bodyPreview, "entity not found") || strings.Contains(bodyPreview, "can't decode address") {
 			shouldLog = false
 		}
 

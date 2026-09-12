@@ -5,6 +5,7 @@ import { apiClient as api } from '@/shared/api/axios.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import { UsernameCollectionChart } from './UsernameCollectionChart.js';
 
 interface CollectionStats {
 	stat_date: string;
@@ -432,6 +433,13 @@ export const CollectionInfoPage: Component = () => {
 								</span>
 							</div>
 						</div>
+
+						{/* ═══════ ON-CHAIN FLOOR & VOLUME HISTORY CHART ═══════ */}
+						<UsernameCollectionChart
+							currentFloorTon={parseFloat(usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10')}
+							totalVolumeTon={usernameQuery.data?.stats?.total_volume}
+							tonUsdRate={usernameQuery.data?.ton_usd_rate}
+						/>
 
 						{/* Live Fragment Auctions */}
 						<Show when={(usernameQuery.data?.auctions?.length ?? 0) > 0}>

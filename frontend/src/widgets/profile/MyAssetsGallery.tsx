@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
-import { getMyAssets, type MyAssetsResponse } from '@/entities/user/index.js';
+import { getMyAssets, type MyAssetsResponse, type MyReportsAsset } from '@/entities/user/index.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -11,10 +11,12 @@ interface Props {
 }
 
 type AssetTab = 'reports' | 'properties' | 'projects' | 'boosters';
+type ReportFilter = 'all' | 'username' | 'number' | 'gift';
 
 export const MyAssetsGallery: Component<Props> = (props) => {
 	const navigate = useNavigate();
 	const [activeTab, setActiveTab] = createSignal<AssetTab>('reports');
+	const [reportFilter, setReportFilter] = createSignal<ReportFilter>('all');
 	const [reportNotifs, setReportNotifs] = createSignal<Record<string, boolean>>({});
 
 	const assetsQuery = createQuery(() => ({
@@ -26,6 +28,24 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 	const assets = () => assetsQuery.data as MyAssetsResponse | undefined;
 	const loading = () => assetsQuery.isLoading;
 
+	const totalReports = () => assets()?.reports || [];
+	const usernameReports = () => totalReports().filter((r) => (r.type || 'username') === 'username');
+	const numberReports = () => totalReports().filter((r) => r.type === 'number');
+	const giftReports = () => totalReports().filter((r) => r.type === 'gift');
+
+	const filteredReports = () => {
+		switch (reportFilter()) {
+			case 'username':
+				return usernameReports();
+			case 'number':
+				return numberReports();
+			case 'gift':
+				return giftReports();
+			default:
+				return totalReports();
+		}
+	};
+
 	const handleTabChange = (tab: AssetTab) => {
 		try {
 			haptic.selection();
@@ -33,15 +53,28 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 		setActiveTab(tab);
 	};
 
-	const handleToggleReportNotif = (username: string, e: Event) => {
+	const handleToggleReportNotif = (key: string, e: Event) => {
 		e.stopPropagation();
 		try {
 			haptic.impact('light');
 		} catch {}
 		setReportNotifs((prev) => ({
 			...prev,
-			[username]: prev[username] === undefined ? false : !prev[username],
+			[key]: prev[key] === undefined ? false : !prev[key],
 		}));
+	};
+
+	const getReportUrl = (r: MyReportsAsset) => {
+		if (r.certificateUrl) return r.certificateUrl;
+		const type = r.type || 'username';
+		const id = r.identifier || r.username;
+		if (type === 'number') {
+			return `/numbers/report?n=${encodeURIComponent(id)}`;
+		}
+		if (type === 'gift') {
+			return `/gifts/report?g=${encodeURIComponent(id)}`;
+		}
+		return `/username/report?u=${encodeURIComponent(id.replace(/^@/, ''))}`;
 	};
 
 	return (
@@ -139,81 +172,200 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 					>
 						{/* ═══════ TAB 1: REPORTS ═══════ */}
 						<Show when={activeTab() === 'reports'}>
-							<div class="flex flex-col gap-2">
+							<div class="flex flex-col gap-3">
+								{/* Sub-tabs: Vertical Filter Pills */}
+								<Show when={totalReports().length > 0}>
+									<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+										<For
+											each={[
+												{ id: 'all', label: 'All', count: totalReports().length, icon: 'apps' },
+												{ id: 'username', label: 'Usernames', count: usernameReports().length, icon: 'alternate_email' },
+												{ id: 'number', label: 'Numbers +888', count: numberReports().length, icon: 'dialpad' },
+												{ id: 'gift', label: 'Gifts', count: giftReports().length, icon: 'featured_seasonal_and_gifts' },
+											] as const}
+										>
+											{(f) => (
+												<button
+													type="button"
+													onClick={() => {
+														try {
+															haptic.selection();
+														} catch {}
+														setReportFilter(f.id as ReportFilter);
+													}}
+													class={`px-2.5 py-1 rounded-[10px] text-[11px] font-bold flex items-center gap-1.5 transition-all shrink-0 border ${
+														reportFilter() === f.id
+															? 'bg-white/15 border-white/30 text-white shadow-sm'
+															: 'bg-white/5 border-white/5 text-white/50 hover:text-white/80'
+													}`}
+												>
+													<span class="material-symbols-outlined text-[13px]">{f.icon}</span>
+													<span>{f.label}</span>
+													<span
+														class={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${
+															reportFilter() === f.id
+																? 'bg-white/20 text-white font-black'
+																: 'bg-white/5 text-white/40'
+														}`}
+													>
+														{f.count}
+													</span>
+												</button>
+											)}
+										</For>
+									</div>
+								</Show>
+
+								{/* Reports List */}
 								<Show
-									when={(assets()?.reports || []).length > 0}
+									when={filteredReports().length > 0}
 									fallback={
 										<div class="py-8 text-center flex flex-col items-center gap-2">
 											<span class="material-symbols-outlined text-[32px] text-white/20">
-												search
+												{reportFilter() === 'username'
+													? 'alternate_email'
+													: reportFilter() === 'number'
+														? 'dialpad'
+														: reportFilter() === 'gift'
+															? 'featured_seasonal_and_gifts'
+															: 'search'}
 											</span>
 											<span class="text-white/40 text-[11px] font-bold">
-												{t('assets.noReports' as any) || 'No valuation reports purchased yet.'}
+												{reportFilter() === 'username'
+													? (t('assets.noUsernameReports' as any) || 'No username valuation reports registered yet.')
+													: reportFilter() === 'number'
+														? (t('assets.noNumberReports' as any) || 'No collectible number reports registered yet.')
+														: reportFilter() === 'gift'
+															? (t('assets.noGiftReports' as any) || 'No Telegram gift valuation reports registered yet.')
+															: (t('assets.noReports' as any) || 'No valuation reports registered yet across any vertical.')}
 											</span>
-											<button
-												type="button"
-												onClick={() => navigate('/')}
-												class="px-4 py-1.5 rounded-[10px] bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] text-[10px] font-black uppercase tracking-wider"
-											>
-												{t('assets.searchUsername' as any) || 'Analyze Username'}
-											</button>
+											<div class="flex items-center gap-2 mt-1 flex-wrap justify-center">
+												<Show when={reportFilter() === 'all' || reportFilter() === 'username'}>
+													<button
+														type="button"
+														onClick={() => navigate('/')}
+														class="px-3 py-1.5 rounded-[10px] bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] text-[10px] font-black uppercase tracking-wider active:scale-95"
+													>
+														{t('assets.searchUsername' as any) || 'Analyze Username'}
+													</button>
+												</Show>
+												<Show when={reportFilter() === 'all' || reportFilter() === 'number'}>
+													<button
+														type="button"
+														onClick={() => navigate('/numbers')}
+														class="px-3 py-1.5 rounded-[10px] bg-amber-400/20 border border-amber-400/40 text-amber-400 text-[10px] font-black uppercase tracking-wider active:scale-95"
+													>
+														{t('numbers.title' as any) || 'Valuate Number (+888)'}
+													</button>
+												</Show>
+												<Show when={reportFilter() === 'all' || reportFilter() === 'gift'}>
+													<button
+														type="button"
+														onClick={() => navigate('/gifts')}
+														class="px-3 py-1.5 rounded-[10px] bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-black uppercase tracking-wider active:scale-95"
+													>
+														{t('gifts.intel' as any) || 'Inspect Gifts'}
+													</button>
+												</Show>
+											</div>
 										</div>
 									}
 								>
-									<For each={assets()?.reports || []}>
-										{(r) => (
-											<div
-												role="button"
-												tabIndex={0}
-												onKeyDown={(e) => {
-													if (e.key === 'Enter') navigate(r.certificateUrl);
-												}}
-												onClick={() => navigate(r.certificateUrl)}
-												class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between gap-3 active:scale-[0.99] transition-all cursor-pointer group"
-											>
-												<div class="flex items-center gap-3 min-w-0">
-													<div class="w-10 h-10 rounded-[12px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA] font-black text-[13px] shrink-0 font-mono">
-														@{r.username.slice(0, 2).toUpperCase()}
-													</div>
-													<div class="flex flex-col min-w-0">
-														<span class="text-[13px] font-black text-white truncate font-mono">
-															@{r.username}
-														</span>
-														<div class="flex items-center gap-1.5 text-[10px] text-white/40">
-															<span class="text-emerald-400 font-bold">
-																Score {r.rarityScore}/100
-															</span>
-															<span>•</span>
-															<span>{t('profile.certified')}</span>
+									<For each={filteredReports()}>
+										{(r) => {
+											const type = () => r.type || 'username';
+											const key = () => r.identifier || r.username;
+											const targetUrl = () => getReportUrl(r);
+											return (
+												<div
+													role="button"
+													tabIndex={0}
+													onKeyDown={(e) => {
+														if (e.key === 'Enter') navigate(targetUrl());
+													}}
+													onClick={() => navigate(targetUrl())}
+													class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between gap-3 active:scale-[0.99] transition-all cursor-pointer group"
+												>
+													<div class="flex items-center gap-3 min-w-0">
+														{/* Icon / Avatar per Vertical */}
+														<Show when={type() === 'username'}>
+															<div class="w-10 h-10 rounded-[12px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA] font-black text-[13px] shrink-0 font-mono">
+																@{r.username.replace(/^@/, '').slice(0, 2).toUpperCase()}
+															</div>
+														</Show>
+														<Show when={type() === 'number'}>
+															<div class="w-10 h-10 rounded-[12px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shrink-0">
+																<span class="material-symbols-outlined text-[20px]">dialpad</span>
+															</div>
+														</Show>
+														<Show when={type() === 'gift'}>
+															<div class="w-10 h-10 rounded-[12px] bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+																<span class="material-symbols-outlined text-[20px]">
+																	featured_seasonal_and_gifts
+																</span>
+															</div>
+														</Show>
+
+														<div class="flex flex-col min-w-0">
+															<div class="flex items-center gap-1.5 min-w-0">
+																<span class="text-[13px] font-black text-white truncate font-mono">
+																	{r.title || (type() === 'username' ? `@${r.username.replace(/^@/, '')}` : (r.identifier || r.username))}
+																</span>
+																<span
+																	class={`text-[9px] font-black px-1.5 py-0.5 rounded-[6px] shrink-0 uppercase tracking-wider ${
+																		type() === 'username'
+																			? 'bg-[#0098EA]/15 text-[#0098EA] border border-[#0098EA]/30'
+																			: type() === 'number'
+																				? 'bg-amber-400/15 text-amber-400 border border-amber-400/30'
+																				: 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+																	}`}
+																>
+																	{type() === 'username' ? 'Username' : type() === 'number' ? '+888' : 'Gift'}
+																</span>
+															</div>
+
+															<div class="flex items-center gap-1.5 text-[10px] text-white/40">
+																<span class="text-emerald-400 font-bold">
+																	{type() === 'username'
+																		? `Score ${r.rarityScore}/100`
+																		: `Confidence ${r.rarityScore}%`}
+																</span>
+																<Show when={r.valueEstimate}>
+																	<span>•</span>
+																	<span class="text-cyan-400 font-bold">{r.valueEstimate}</span>
+																</Show>
+																<span>•</span>
+																<span>{t('profile.certified')}</span>
+															</div>
 														</div>
 													</div>
-												</div>
 
-												<div class="flex items-center gap-2">
-													{/* Notification Toggle (Strictly permitted on purchased reports!) */}
-													<button
-														type="button"
-														onClick={(e) => handleToggleReportNotif(r.username, e)}
-														class={`p-2 rounded-[10px] border transition-all ${
-															reportNotifs()[r.username] !== false
-																? 'bg-amber-400/15 border-amber-400/30 text-amber-400'
-																: 'bg-white/5 border-white/10 text-white/40'
-														}`}
-														title={t('profile.priceAlertNotifications')}
-													>
-														<span class="material-symbols-outlined text-[16px]">
-															{reportNotifs()[r.username] !== false
-																? 'notifications_active'
-																: 'notifications_off'}
+													<div class="flex items-center gap-2 shrink-0">
+														{/* Notification Toggle (Strictly permitted on purchased reports!) */}
+														<button
+															type="button"
+															onClick={(e) => handleToggleReportNotif(key(), e)}
+															class={`p-2 rounded-[10px] border transition-all ${
+																reportNotifs()[key()] !== false
+																	? 'bg-amber-400/15 border-amber-400/30 text-amber-400'
+																	: 'bg-white/5 border-white/10 text-white/40'
+															}`}
+															title={t('profile.priceAlertNotifications')}
+														>
+															<span class="material-symbols-outlined text-[16px]">
+																{reportNotifs()[key()] !== false
+																	? 'notifications_active'
+																	: 'notifications_off'}
+															</span>
+														</button>
+
+														<span class="material-symbols-outlined text-[18px] text-white/40 group-hover:text-white group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-all">
+															chevron_right
 														</span>
-													</button>
-
-													<span class="material-symbols-outlined text-[18px] text-white/40 group-hover:text-white group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-all">
-														chevron_right
-													</span>
+													</div>
 												</div>
-											</div>
-										)}
+											);
+										}}
 									</For>
 								</Show>
 							</div>

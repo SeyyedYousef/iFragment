@@ -14,14 +14,25 @@ import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { showToast } from '@/shared/ui/index.js';
 import { ProjectContextBar, ProjectHamburgerMenu } from '@/widgets/project/index.js';
+import {
+	ProjectAutoResponderCard,
+	ProjectContentPipelineCard,
+	ProjectDynamicBioCard,
+	ProjectInlineButtonsCard,
+	ProjectJoinRequestsCard,
+	ProjectSmartPostingCard,
+} from './cards/index.js';
 
 export const ProjectDashboardPage: Component = () => {
 	const params = useParams<{ projectId: string }>();
 	const navigate = useNavigate();
 
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
+	const [activeCategory, setActiveCategory] = createSignal<
+		'all' | 'automation' | 'content' | 'security'
+	>('all');
 
-	const [project] = createResource(
+	const [project, { refetch: refetchProject }] = createResource(
 		() => params.projectId,
 		(id) => channelApi.getProject(id),
 	);
@@ -83,13 +94,94 @@ export const ProjectDashboardPage: Component = () => {
 		}
 	};
 
+	const config = () => (project()?.pipeline_config as any) || {};
+
+	const isSingleChannel = () => {
+		const p = project();
+		if (!p) return false;
+		const cfg = (p.pipeline_config as any) || {};
+		if (cfg.single_channel_mode) return true;
+		const hasSource = !!(p.source_title || p.source_username || p.source_chat_id);
+		const hasTarget = !!(p.target_title || p.target_username || p.target_chat_id);
+		return (hasSource && !hasTarget) || (!hasSource && hasTarget);
+	};
+
+	const isBioActive = () => !!config()?.dynamic_bio?.enabled;
+	const bioTarget = () => (config()?.dynamic_bio?.target || 'output') as 'input' | 'output' | 'both';
+
+	const isResponderActive = () => !!config()?.auto_responder?.enabled;
+	const responderTarget = () => (config()?.auto_responder?.target || 'output') as 'input' | 'output' | 'both';
+
+	const isButtonsActive = () => !!config()?.inline_buttons?.enabled;
+	const buttonsTarget = () => (config()?.inline_buttons?.target || 'output') as 'input' | 'output' | 'both';
+	const buttonsCount = () =>
+		Array.isArray(config()?.inline_buttons?.buttons) ? config()?.inline_buttons?.buttons.length : 0;
+
+	const isAiActive = () => !!config()?.ai_rewrite;
+	const aiModel = () => config()?.ai_model || 'Gemini 3.8 Flash';
+
+	const isPipelineAuto = () => !!config()?.auto_publish;
+
+	const isJoinActive = () => !!config()?.join_requests?.enabled;
+	const joinTarget = () => (config()?.join_requests?.target || 'input') as 'input' | 'output' | 'both';
+
+	const handleUpdateConfig = async (patch: (cfg: any) => any, featureLabel?: string) => {
+		try {
+			const currentCfg = config();
+			const updatedCfg = patch({ ...currentCfg });
+			await channelApi.updateProject(params.projectId, { pipeline_config: updatedCfg });
+			haptic.notify('success');
+			if (featureLabel) {
+				showToast(t('channelProjects.dashboard.statusToggleToast', { feature: featureLabel }), 'success');
+			}
+			refetchProject();
+		} catch (err: any) {
+			haptic.notify('error');
+			showToast(err?.response?.data?.error || err?.message || t('channelProjects.dashboard.actionError'), 'error');
+		}
+	};
+
+	const handleCycleTarget = async (featureKey: string, nextTarget: 'input' | 'output' | 'both') => {
+		const targetLabel =
+			nextTarget === 'input'
+				? t('channelProjects.dashboard.targetInput')
+				: nextTarget === 'both'
+					? t('channelProjects.dashboard.targetBoth')
+					: t('channelProjects.dashboard.targetOutput');
+
+		await handleUpdateConfig((cfg) => {
+			cfg[featureKey] = { ...(cfg[featureKey] || {}), target: nextTarget };
+			return cfg;
+		});
+		showToast(t('channelProjects.dashboard.targetCycleToast', { target: targetLabel }), 'info');
+	};
+
+	const handleToggleFeature = async (featureKey: string, enabled: boolean, featureLabel?: string) => {
+		if (featureKey === 'ai_rewrite') {
+			await handleUpdateConfig((cfg) => {
+				cfg.ai_rewrite = enabled;
+				return cfg;
+			}, featureLabel || t('channelProjects.dashboard.featureAi'));
+		} else if (featureKey === 'auto_publish') {
+			await handleUpdateConfig((cfg) => {
+				cfg.auto_publish = enabled;
+				return cfg;
+			}, featureLabel || t('channelProjects.dashboard.featurePipeline'));
+		} else {
+			await handleUpdateConfig((cfg) => {
+				cfg[featureKey] = { ...(cfg[featureKey] || {}), enabled };
+				return cfg;
+			}, featureLabel);
+		}
+	};
+
 	return (
 		<div
 			class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Top Glow */}
-			<div class="absolute top-0 left-0 right-0 h-[320px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
+			<div class="absolute top-0 left-0 right-0 h-[360px] bg-gradient-to-b from-[#3390ec]/20 via-[#06b6d4]/10 to-transparent blur-[90px] pointer-events-none z-0" />
 
 			{/* ═══════ STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-30 border-b border-white/5 flex items-center justify-between shadow-sm">
@@ -136,8 +228,11 @@ export const ProjectDashboardPage: Component = () => {
 				{/* ═══════ METRICS ROW ═══════ */}
 				<div class="grid grid-cols-3 gap-2.5">
 					<div
-						onClick={() => navigate(`/projects/${params.projectId}/inbox`)}
-						class="bg-[#12141C]/90 border border-white/10 rounded-[20px] p-3.5 flex flex-col gap-1 cursor-pointer hover:border-[#3390ec]/40 active:scale-95 transition-all"
+						onClick={() => {
+							haptic.impact('light');
+							navigate(`/projects/${params.projectId}/inbox`);
+						}}
+						class="bg-[#12141C]/90 border border-white/10 rounded-[20px] p-3.5 flex flex-col gap-1 cursor-pointer hover:border-[#3390ec]/40 active:scale-95 transition-all shadow-sm"
 					>
 						<div class="flex items-center justify-between text-[#3390ec]">
 							<span class="material-symbols-outlined text-[20px]">inbox</span>
@@ -150,8 +245,11 @@ export const ProjectDashboardPage: Component = () => {
 					</div>
 
 					<div
-						onClick={() => navigate(`/projects/${params.projectId}/deliveries`)}
-						class="bg-[#12141C]/90 border border-white/10 rounded-[20px] p-3.5 flex flex-col gap-1 cursor-pointer hover:border-emerald-500/40 active:scale-95 transition-all"
+						onClick={() => {
+							haptic.impact('light');
+							navigate(`/projects/${params.projectId}/deliveries`);
+						}}
+						class="bg-[#12141C]/90 border border-white/10 rounded-[20px] p-3.5 flex flex-col gap-1 cursor-pointer hover:border-emerald-500/40 active:scale-95 transition-all shadow-sm"
 					>
 						<div class="flex items-center justify-between text-emerald-400">
 							<span class="material-symbols-outlined text-[20px]">local_shipping</span>
@@ -164,8 +262,11 @@ export const ProjectDashboardPage: Component = () => {
 					</div>
 
 					<div
-						onClick={() => navigate(`/projects/${params.projectId}/pipeline`)}
-						class="bg-[#12141C]/90 border border-white/10 rounded-[20px] p-3.5 flex flex-col gap-1 cursor-pointer hover:border-amber-400/40 active:scale-95 transition-all"
+						onClick={() => {
+							haptic.impact('light');
+							navigate(`/projects/${params.projectId}/pipeline?tab=pipeline`);
+						}}
+						class="bg-[#12141C]/90 border border-white/10 rounded-[20px] p-3.5 flex flex-col gap-1 cursor-pointer hover:border-amber-400/40 active:scale-95 transition-all shadow-sm"
 					>
 						<div class="flex items-center justify-between text-amber-400">
 							<span class="material-symbols-outlined text-[20px]">tune</span>
@@ -178,36 +279,169 @@ export const ProjectDashboardPage: Component = () => {
 					</div>
 				</div>
 
-				{/* ═══════ FEATURE NAVIGATION GRID ═══════ */}
-				<div class="grid grid-cols-2 gap-3">
+				{/* ═══════ CATEGORY FILTER TABS ═══════ */}
+				<div class="flex items-center gap-1.5 p-1 bg-[#12141C]/80 border border-white/10 rounded-[18px] backdrop-blur-md overflow-x-auto no-scrollbar shadow-inner">
+					{[
+						{ id: 'all', label: t('channelProjects.dashboard.filterAll'), icon: 'stars' },
+						{ id: 'automation', label: t('channelProjects.dashboard.filterAutomation'), icon: 'smart_toy' },
+						{ id: 'content', label: t('channelProjects.dashboard.filterContent'), icon: 'psychology' },
+						{ id: 'security', label: t('channelProjects.dashboard.filterSecurity'), icon: 'shield' },
+					].map((tab) => (
+						<button
+							type="button"
+							onClick={() => {
+								haptic.impact('light');
+								setActiveCategory(tab.id as any);
+							}}
+							class={`flex items-center gap-1.5 px-3 py-2 rounded-[14px] text-[11px] font-black whitespace-nowrap transition-all flex-1 justify-center ${
+								activeCategory() === tab.id
+									? 'bg-[#3390ec] text-white shadow-[0_4px_12px_rgba(51,144,236,0.35)]'
+									: 'text-white/50 hover:text-white hover:bg-white/5'
+							}`}
+						>
+							<span class="material-symbols-outlined text-[16px]">{tab.icon}</span>
+							<span>{tab.label}</span>
+						</button>
+					))}
+				</div>
+
+				{/* ═══════ 🌟 INTERACTIVE LIVE STUDIO CARDS ═══════ */}
+				<div class="flex flex-col gap-4">
+					{/* Studio 1: Dynamic Bio & Title */}
+					<Show when={activeCategory() === 'all' || activeCategory() === 'automation'}>
+						<ProjectDynamicBioCard
+							projectId={params.projectId}
+							isActive={isBioActive()}
+							target={bioTarget()}
+							isSingleChannel={isSingleChannel()}
+							onToggleActive={(active) =>
+								handleToggleFeature('dynamic_bio', active, t('channelProjects.dashboard.featureBio'))
+							}
+							onCycleTarget={(next) => handleCycleTarget('dynamic_bio', next)}
+							onNavigate={() => {
+								haptic.impact('light');
+								navigate(`/projects/${params.projectId}/pipeline?tab=bio`);
+							}}
+						/>
+					</Show>
+
+					{/* Studio 2: Auto-Responder & First Comment */}
+					<Show when={activeCategory() === 'all' || activeCategory() === 'automation'}>
+						<ProjectAutoResponderCard
+							projectId={params.projectId}
+							isActive={isResponderActive()}
+							target={responderTarget()}
+							isSingleChannel={isSingleChannel()}
+							onToggleActive={(active) =>
+								handleToggleFeature('auto_responder', active, t('channelProjects.dashboard.featureResponder'))
+							}
+							onCycleTarget={(next) => handleCycleTarget('auto_responder', next)}
+							onNavigate={() => {
+								haptic.impact('light');
+								navigate(`/projects/${params.projectId}/pipeline?tab=responder`);
+							}}
+						/>
+					</Show>
+
+					{/* Studio 3: Inline Glass Buttons */}
+					<Show when={activeCategory() === 'all' || activeCategory() === 'automation'}>
+						<ProjectInlineButtonsCard
+							projectId={params.projectId}
+							isActive={isButtonsActive()}
+							target={buttonsTarget()}
+							buttonCount={buttonsCount()}
+							isSingleChannel={isSingleChannel()}
+							onToggleActive={(active) =>
+								handleToggleFeature('inline_buttons', active, t('channelProjects.dashboard.featureButtons'))
+							}
+							onCycleTarget={(next) => handleCycleTarget('inline_buttons', next)}
+							onNavigate={() => {
+								haptic.impact('light');
+								navigate(`/projects/${params.projectId}/pipeline?tab=buttons`);
+							}}
+						/>
+					</Show>
+
+					{/* Studio 4: Smart Posting & AI Assistant */}
+					<Show when={activeCategory() === 'all' || activeCategory() === 'content'}>
+						<ProjectSmartPostingCard
+							projectId={params.projectId}
+							isActive={isAiActive()}
+							aiModel={aiModel()}
+							onToggleActive={(active) =>
+								handleToggleFeature('ai_rewrite', active, t('channelProjects.dashboard.featureAi'))
+							}
+							onNavigate={() => {
+								haptic.impact('light');
+								navigate(`/projects/${params.projectId}/pipeline?tab=ai`);
+							}}
+						/>
+					</Show>
+
+					{/* Studio 5: Content Pipeline & Forwarding Flow */}
+					<Show when={activeCategory() === 'all' || activeCategory() === 'content'}>
+						<ProjectContentPipelineCard
+							projectId={params.projectId}
+							isAutoPublish={isPipelineAuto()}
+							sourceName={
+								project()?.source_title ||
+								project()?.source_username ||
+								(config()?.source_channel_identifier as string)
+							}
+							targetName={
+								project()?.target_title ||
+								project()?.target_username ||
+								(config()?.target_channel_identifier as string)
+							}
+							onToggleAutoPublish={(auto) =>
+								handleToggleFeature('auto_publish', auto, t('channelProjects.dashboard.featurePipeline'))
+							}
+							onNavigate={() => {
+								haptic.impact('light');
+								navigate(`/projects/${params.projectId}/pipeline?tab=pipeline`);
+							}}
+						/>
+					</Show>
+
+					{/* Studio 6: Join Requests & Gatekeeper Guard */}
+					<Show when={activeCategory() === 'all' || activeCategory() === 'security'}>
+						<ProjectJoinRequestsCard
+							projectId={params.projectId}
+							isActive={isJoinActive()}
+							target={joinTarget()}
+							isSingleChannel={isSingleChannel()}
+							onToggleActive={(active) =>
+								handleToggleFeature('join_requests', active, t('channelProjects.dashboard.featureJoin'))
+							}
+							onCycleTarget={(next) => handleCycleTarget('join_requests', next)}
+							onNavigate={() => {
+								haptic.impact('light');
+								navigate(`/projects/${params.projectId}/pipeline?tab=join`);
+							}}
+						/>
+					</Show>
+				</div>
+
+				{/* ═══════ OPERATIONS & SETTINGS GRID ═══════ */}
+				<div class="grid grid-cols-2 gap-3 pt-1">
 					<button
 						type="button"
 						onClick={() => {
 							haptic.impact('light');
 							navigate(`/projects/${params.projectId}/inbox`);
 						}}
-						class="bg-gradient-to-br from-[#141722] to-[#0c0e15] border border-white/10 hover:border-[#3390ec]/40 rounded-[22px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start"
+						class="bg-[#12141C] border border-white/10 hover:border-[#3390ec]/40 rounded-[20px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start shadow-sm"
 					>
-						<div class="w-10 h-10 rounded-[12px] bg-[#3390ec]/15 text-[#3390ec] flex items-center justify-center">
-							<span class="material-symbols-outlined text-[22px]">inbox</span>
+						<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 text-[#3390ec] flex items-center justify-center">
+							<span class="material-symbols-outlined text-[20px]">inbox</span>
 						</div>
-						<span class="text-[14px] font-black text-white">{t('channelProjects.dashboard.inboxCardTitle')}</span>
-						<span class="text-[11px] text-white/50">{t('channelProjects.dashboard.inboxCardDesc')}</span>
-					</button>
-
-					<button
-						type="button"
-						onClick={() => {
-							haptic.impact('light');
-							navigate(`/projects/${params.projectId}/pipeline`);
-						}}
-						class="bg-gradient-to-br from-[#141722] to-[#0c0e15] border border-white/10 hover:border-[#3390ec]/40 rounded-[22px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start"
-					>
-						<div class="w-10 h-10 rounded-[12px] bg-purple-500/15 text-purple-400 flex items-center justify-center">
-							<span class="material-symbols-outlined text-[22px]">tune</span>
+						<div class="flex items-center justify-between w-full">
+							<span class="text-[13px] font-black text-white">{t('channelProjects.dashboard.inboxCardTitle')}</span>
+							<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3390ec]/15 text-[#3390ec]">
+								{inboxItems() ? inboxItems()!.length : 0}
+							</span>
 						</div>
-						<span class="text-[14px] font-black text-white">{t('channelProjects.dashboard.rulesCardTitle')}</span>
-						<span class="text-[11px] text-white/50">{t('channelProjects.dashboard.rulesCardDesc')}</span>
+						<span class="text-[10px] text-white/40">{t('channelProjects.dashboard.inboxCardDesc')}</span>
 					</button>
 
 					<button
@@ -216,13 +450,33 @@ export const ProjectDashboardPage: Component = () => {
 							haptic.impact('light');
 							navigate(`/projects/${params.projectId}/deliveries`);
 						}}
-						class="bg-gradient-to-br from-[#141722] to-[#0c0e15] border border-white/10 hover:border-[#3390ec]/40 rounded-[22px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start"
+						class="bg-[#12141C] border border-white/10 hover:border-emerald-500/40 rounded-[20px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start shadow-sm"
 					>
-						<div class="w-10 h-10 rounded-[12px] bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
-							<span class="material-symbols-outlined text-[22px]">local_shipping</span>
+						<div class="w-9 h-9 rounded-[12px] bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+							<span class="material-symbols-outlined text-[20px]">local_shipping</span>
 						</div>
-						<span class="text-[14px] font-black text-white">{t('channelProjects.dashboard.deliveriesCardTitle')}</span>
-						<span class="text-[11px] text-white/50">{t('channelProjects.dashboard.deliveriesCardDesc')}</span>
+						<div class="flex items-center justify-between w-full">
+							<span class="text-[13px] font-black text-white">{t('channelProjects.dashboard.deliveriesCardTitle')}</span>
+							<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
+								{deliveries() ? deliveries()!.length : 0}
+							</span>
+						</div>
+						<span class="text-[10px] text-white/40">{t('channelProjects.dashboard.deliveriesCardDesc')}</span>
+					</button>
+
+					<button
+						type="button"
+						onClick={() => {
+							haptic.impact('light');
+							navigate(`/projects/${params.projectId}/team`);
+						}}
+						class="bg-[#12141C] border border-white/10 hover:border-sky-400/40 rounded-[20px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start shadow-sm"
+					>
+						<div class="w-9 h-9 rounded-[12px] bg-sky-500/15 text-sky-400 flex items-center justify-center">
+							<span class="material-symbols-outlined text-[20px]">group</span>
+						</div>
+						<span class="text-[13px] font-black text-white">{t('channelProjects.dashboard.featureTeam')}</span>
+						<span class="text-[10px] text-white/40">{t('channelProjects.dashboard.featureTeamDesc')}</span>
 					</button>
 
 					<button
@@ -231,13 +485,13 @@ export const ProjectDashboardPage: Component = () => {
 							haptic.impact('light');
 							navigate(`/projects/${params.projectId}/settings`);
 						}}
-						class="bg-gradient-to-br from-[#141722] to-[#0c0e15] border border-white/10 hover:border-[#3390ec]/40 rounded-[22px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start"
+						class="bg-[#12141C] border border-white/10 hover:border-white/30 rounded-[20px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start shadow-sm"
 					>
-						<div class="w-10 h-10 rounded-[12px] bg-white/10 text-white/80 flex items-center justify-center">
-							<span class="material-symbols-outlined text-[22px]">settings</span>
+						<div class="w-9 h-9 rounded-[12px] bg-white/10 text-white/80 flex items-center justify-center">
+							<span class="material-symbols-outlined text-[20px]">settings</span>
 						</div>
-						<span class="text-[14px] font-black text-white">{t('channelProjects.dashboard.settingsCardTitle')}</span>
-						<span class="text-[11px] text-white/50">{t('channelProjects.dashboard.settingsCardDesc')}</span>
+						<span class="text-[13px] font-black text-white">{t('channelProjects.dashboard.settingsCardTitle')}</span>
+						<span class="text-[10px] text-white/40">{t('channelProjects.dashboard.settingsCardDesc')}</span>
 					</button>
 				</div>
 

@@ -238,12 +238,16 @@ export interface LedgerResponse {
 
 // ─── My Assets Types ───
 export interface MyReportsAsset {
+	type?: 'username' | 'number' | 'gift';
+	identifier?: string;
+	title?: string;
 	username: string;
 	rarityScore: number;
 	status: string;
 	generatedAt: string;
 	certificateUrl: string;
 	notificationEnabled: boolean;
+	valueEstimate?: string;
 }
 
 export interface MyConnectedProperty {

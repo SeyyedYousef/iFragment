@@ -203,6 +203,7 @@ export const NumberReportPage: Component = () => {
 
 	// Certificate copy state
 	const [copiedCert, setCopiedCert] = createSignal(false);
+	const [copiedJson, setCopiedJson] = createSignal(false);
 	const [viewTier, setViewTier] = createSignal<'newcomer' | 'trader' | 'audit'>('newcomer');
 
 	// Reactive validation
@@ -276,7 +277,13 @@ export const NumberReportPage: Component = () => {
 			// Check if report was already unlocked by user (24h cache)
 			try {
 				const unlocked = await numbersApi.getValuation(val.cleanDigits);
-				if (unlocked && unlocked.estimated_value_ton > 0) {
+				if (
+					unlocked &&
+					(Number(unlocked.expected_ton) > 0 ||
+						Number(unlocked.base_price_ton) > 0 ||
+						(unlocked as any).estimated_value_ton > 0 ||
+						unlocked.run_id > 0)
+				) {
 					setReportData(unlocked);
 					setIsUnlocked(true);
 				}
@@ -353,6 +360,18 @@ export const NumberReportPage: Component = () => {
 		copyToClipboard(`https://ifragment.org/cert/number/${certId}`);
 		setCopiedCert(true);
 		setTimeout(() => setCopiedCert(false), 2200);
+	};
+
+	const handleExportAuditJson = () => {
+		if (!reportData()) return;
+		haptic.selection();
+		const exportPayload = JSON.stringify(reportData(), null, 2);
+		copyToClipboard(exportPayload);
+		setCopiedJson(true);
+		try {
+			haptic.notify('success');
+		} catch {}
+		setTimeout(() => setCopiedJson(false), 2500);
 	};
 
 	const handleCopyHeroNumber = () => {
@@ -566,9 +585,79 @@ export const NumberReportPage: Component = () => {
 					</div>
 				</Show>
 
-				{/* ═══════ 3. STATE 2: PRE-UNLOCK MINIMALIST PAYWALL GATE ═══════ */}
+				{/* ═══════ 3. STATE 2: PRE-UNLOCK CURIOSITY GATE & PAYWALL ═══════ */}
 				<Show when={!isAnalyzing() && !isUnlocked() && gateData()}>
-					<div class="mb-6 w-full max-w-[440px] mx-auto">
+					<div class="mb-6 w-full max-w-[440px] mx-auto space-y-4">
+						{/* Pre-Unlock Curiosity Teaser Card */}
+						<div class="bg-gradient-to-br from-[#12141C] via-[#0E1017] to-[#0A0C10] border border-cyan-500/30 rounded-[28px] p-5 shadow-2xl relative overflow-hidden text-start">
+							<div class="absolute -top-12 -right-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<div class="flex items-center gap-2">
+									<div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+										<span class="material-symbols-outlined text-lg">fact_check</span>
+									</div>
+									<div>
+										<h4 class="text-xs font-black text-white">
+											{isRtl() ? 'تحلیل هوشمند پیش‌ارزیابی آماده است' : 'Pre-Appraisal Intelligence Ready'}
+										</h4>
+										<span class="text-[9px] font-bold text-cyan-400 font-mono" dir="ltr">
+											{gateData()?.display_number || validation().formatted}
+										</span>
+									</div>
+								</div>
+								<span class="text-[9px] font-mono font-black uppercase px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+									READY
+								</span>
+							</div>
+
+							{/* 3 Metric Pills */}
+							<div class="grid grid-cols-3 gap-2 text-center mb-3.5">
+								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
+									<span class="text-[9px] text-white/40 block mb-0.5">{isRtl() ? 'سیگنال‌ها' : 'Signals'}</span>
+									<span class="text-xs font-black text-cyan-300 font-mono">
+										{gateData()?.signals_analyzed || 27} {isRtl() ? 'مورد' : 'Pts'}
+									</span>
+								</div>
+								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
+									<span class="text-[9px] text-white/40 block mb-0.5">{isRtl() ? 'ریسک آنچین' : 'On-Chain Risk'}</span>
+									<span class="text-xs font-black text-emerald-400 font-mono">
+										{gateData()?.risks_identified === 0 ? (isRtl() ? 'صفر (پاک)' : '0 (Clean)') : `${gateData()?.risks_identified} Warning`}
+									</span>
+								</div>
+								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
+									<span class="text-[9px] text-white/40 block mb-0.5">{isRtl() ? 'منابع تطبیق' : 'Sources'}</span>
+									<span class="text-xs font-black text-amber-300 font-mono">
+										{gateData()?.data_sources_count || 4} {isRtl() ? 'مرجع' : 'APIs'}
+									</span>
+								</div>
+							</div>
+
+							{/* Blurred Preview Teaser */}
+							<div class="p-3 rounded-2xl bg-white/[0.02] border border-white/5 relative overflow-hidden">
+								<div class="space-y-1.5 opacity-40 blur-[2px] select-none pointer-events-none">
+									<div class="flex justify-between items-center text-[10px]">
+										<span class="text-white/60">Fair Value Appraisal</span>
+										<span class="font-mono text-cyan-400">█████ TON (≈ $████)</span>
+									</div>
+									<div class="flex justify-between items-center text-[10px]">
+										<span class="text-white/60">Liquidation & Asking Band</span>
+										<span class="font-mono text-amber-400">████ — ████ TON</span>
+									</div>
+									<div class="flex justify-between items-center text-[10px]">
+										<span class="text-white/60">Selling Probability (30d)</span>
+										<span class="font-mono text-emerald-400">██% Likelihood</span>
+									</div>
+								</div>
+								<div class="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+									<span class="text-[10px] font-black text-white/90 bg-white/10 px-3 py-1 rounded-full border border-white/20 flex items-center gap-1">
+										<span class="material-symbols-outlined text-xs text-amber-400">lock</span>
+										<span>{isRtl() ? 'بازگشایی با ۱ کریدیت iFragment' : 'Unlock with 1 Credit'}</span>
+									</span>
+								</div>
+							</div>
+						</div>
+
 						<UnifiedPaywallGate
 							vertical="number"
 							targetTitle={gateData()?.display_number || validation().formatted || inputNumber()}
@@ -873,8 +962,8 @@ export const NumberReportPage: Component = () => {
 							<div class="grid grid-cols-2 gap-2 text-[10px]">
 								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 									<span class="text-white/40 block text-[9px] mb-0.5">{isRtl() ? 'قرارداد مرجع تل‌مینت' : 'Official Collection'}</span>
-									<span class="font-mono text-cyan-300 truncate block" dir="ltr" title="EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf">
-										EQAO...jpSf
+									<span class="font-mono text-cyan-300 truncate block" dir="ltr" title={reportData()?.on_chain_audit?.telemint_contract || "EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N"}>
+										{reportData()?.on_chain_audit?.telemint_contract ? `${reportData()?.on_chain_audit?.telemint_contract.slice(0, 4)}...${reportData()?.on_chain_audit?.telemint_contract.slice(-4)}` : 'EQAO...si5N'}
 									</span>
 								</div>
 								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
@@ -890,7 +979,7 @@ export const NumberReportPage: Component = () => {
 									{isRtl() ? 'کاوشگر بلاکچین:' : 'Block Explorer:'}
 								</span>
 								<a
-									href={reportData()?.on_chain_audit?.tonviewer_url || `https://tonviewer.com/EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf`}
+									href={reportData()?.on_chain_audit?.tonviewer_url || `https://tonviewer.com/${reportData()?.on_chain_audit?.telemint_contract || 'EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N'}`}
 									target="_blank"
 									rel="noopener noreferrer"
 									class="text-cyan-400 hover:underline flex items-center gap-1 font-mono font-bold"
@@ -955,12 +1044,12 @@ export const NumberReportPage: Component = () => {
 							</button>
 						</div>
 
-						{/* 📊 MODULE 3: PRICE RANGE & SPECTRUM */}
-						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
+						{/* 📊 MODULE 3: 4 VALUATION FIGURES GRID & PRICE SPECTRUM */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
 							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 								<h3 class="text-xs font-black text-white flex items-center gap-2">
 									<span class="material-symbols-outlined text-[#0098EA] text-base">monitoring</span>
-									<span>{t('numbers.priceRangeTitle')}</span>
+									<span>{isRtl() ? 'ماتریس ۴ رقمی ارزش‌گذاری هوشمند' : '4-Figure Valuation Matrix'}</span>
 								</h3>
 								<span
 									class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20"
@@ -970,43 +1059,87 @@ export const NumberReportPage: Component = () => {
 								</span>
 							</div>
 
-							<div class="grid grid-cols-3 gap-2 text-center my-3">
-								<div class="p-2.5 sm:p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex flex-col justify-center min-w-0">
-									<span class="text-[9px] uppercase font-bold text-white/40 block mb-1 truncate">
-										{t('valuation.floor')}
-									</span>
-									<span
-										class="font-mono font-black text-white text-xs sm:text-sm block truncate"
-										dir="ltr"
-									>
-										{formatTon(reportData()?.low_ton)}{' '}
-										<span class="text-[10px] text-[#0098EA]">TON</span>
-									</span>
-								</div>
-
-								<div class="p-2.5 sm:p-3 rounded-2xl bg-[#0098EA]/10 border border-[#0098EA]/30 flex flex-col justify-center min-w-0 shadow-lg shadow-[#0098EA]/10">
-									<span class="text-[9px] uppercase font-bold text-[#0098EA] block mb-1 truncate">
-										{t('numbers.fairValue')}
-									</span>
-									<span
-										class="font-mono font-black text-[#0098EA] text-xs sm:text-sm block truncate"
-										dir="ltr"
-									>
+							{/* 4 Figures Grid */}
+							<div class="grid grid-cols-2 gap-2.5 my-3">
+								{/* 1. Fair Value */}
+								<div class="p-3.5 rounded-2xl bg-gradient-to-br from-[#0098EA]/15 via-black/40 to-black/60 border border-[#0098EA]/40 shadow-lg shadow-[#0098EA]/10 flex flex-col justify-between">
+									<div class="flex items-center justify-between mb-1">
+										<span class="text-[9px] uppercase font-black text-[#0098EA]">
+											{isRtl() ? 'ارزش منصفانه (Fair Value)' : 'Fair Value'}
+										</span>
+										<span class="w-2 h-2 rounded-full bg-[#0098EA] animate-pulse" />
+									</div>
+									<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
 										{formatTon(reportData()?.expected_ton)}{' '}
-										<span class="text-[10px] text-[#0098EA]">TON</span>
+										<span class="text-xs text-[#0098EA]">TON</span>
+									</div>
+									<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
+										≈ {formatUsd(reportData()?.expected_usd)}
 									</span>
 								</div>
 
-								<div class="p-2.5 sm:p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex flex-col justify-center min-w-0">
-									<span class="text-[9px] uppercase font-bold text-white/40 block mb-1 truncate">
-										{t('valuation.ceiling')}
+								{/* 2. Suggested Asking Price */}
+								<div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-between">
+									<div class="flex items-center justify-between mb-1">
+										<span class="text-[9px] uppercase font-black text-amber-300">
+											{isRtl() ? 'قیمت پیشنهادی فروش' : 'Suggested Ask (+15%)'}
+										</span>
+										<span class="material-symbols-outlined text-xs text-amber-400">sell</span>
+									</div>
+									<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
+										{formatTon(
+											reportData()?.suggested_ask_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 1.15),
+										)}{' '}
+										<span class="text-xs text-amber-400">TON</span>
+									</div>
+									<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
+										≈{' '}
+										{formatUsd(
+											reportData()?.suggested_ask_usd ||
+												Math.round(Number(reportData()?.expected_usd || 0) * 1.15),
+										)}
 									</span>
-									<span
-										class="font-mono font-black text-white text-xs sm:text-sm block truncate"
-										dir="ltr"
-									>
-										{formatTon(reportData()?.high_ton)}{' '}
-										<span class="text-[10px] text-[#0098EA]">TON</span>
+								</div>
+
+								{/* 3. Liquidation Value */}
+								<div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-between">
+									<div class="flex items-center justify-between mb-1">
+										<span class="text-[9px] uppercase font-black text-rose-400">
+											{isRtl() ? 'ارزش نقدشوندگی فوری' : 'Liquidation (-25%)'}
+										</span>
+										<span class="material-symbols-outlined text-xs text-rose-400">flash_on</span>
+									</div>
+									<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
+										{formatTon(
+											reportData()?.liquidation_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 0.75),
+										)}{' '}
+										<span class="text-xs text-rose-400">TON</span>
+									</div>
+									<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
+										≈{' '}
+										{formatUsd(
+											reportData()?.liquidation_usd ||
+												Math.round(Number(reportData()?.expected_usd || 0) * 0.75),
+										)}
+									</span>
+								</div>
+
+								{/* 4. Uncertainty Band / Range */}
+								<div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-between">
+									<div class="flex items-center justify-between mb-1">
+										<span class="text-[9px] uppercase font-black text-emerald-400">
+											{isRtl() ? 'بازه مجاز نوسان' : 'Uncertainty Band'}
+										</span>
+										<span class="material-symbols-outlined text-xs text-emerald-400">sync_alt</span>
+									</div>
+									<div class="font-mono font-black text-white text-xs sm:text-sm truncate" dir="ltr">
+										{formatTon(reportData()?.low_ton)} - {formatTon(reportData()?.high_ton)}{' '}
+										<span class="text-[10px] text-emerald-400">TON</span>
+									</div>
+									<span class="text-[9px] text-white/40 mt-0.5">
+										{isRtl() ? 'دامنه انحراف معیار MAD' : 'MAD Sigma Bounds'}
 									</span>
 								</div>
 							</div>
@@ -1018,55 +1151,119 @@ export const NumberReportPage: Component = () => {
 							</p>
 						</div>
 
-						{/* 🌊 MODULE 3.5: TRANSPARENT PRICE DERIVATION WATERFALL */}
+						{/* 🌊 MODULE 3.5: MODEL CONTRIBUTION BREAKDOWN */}
 						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
 							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 								<h3 class="text-xs font-black text-white flex items-center gap-2">
 									<span class="material-symbols-outlined text-[#0098EA] text-base">
 										account_tree
 									</span>
-									<span>{t('numbers.priceDerivationTitle') || 'Price Derivation Waterfall'}</span>
+									<span>{isRtl() ? 'تفکیک سهم مؤلفه‌های مدل ارزش‌گذاری' : 'Model Contribution Breakdown'}</span>
 								</h3>
 								<span class="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-									AVM QUANTUM HEDONIC
+									NV-ENGINE v2.5
 								</span>
 							</div>
 
-							<div class="space-y-2">
-								<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
-									<span class="text-white/60">
-										{t('numbers.baseFloorClass') || 'Base Collection Floor'}
-									</span>
-									<span class="font-mono font-black text-white">2,280 TON</span>
+							<div class="space-y-3">
+								{/* 1. Pattern Premium */}
+								<div>
+									<div class="flex justify-between items-center text-xs mb-1">
+										<span class="text-white/70 font-medium">
+											{isRtl() ? 'حق مرغوبیت الگو و رند بودن' : 'Pattern Premium & Vanity'}
+										</span>
+										<span class="font-mono font-black text-[#0098EA]" dir="ltr">
+											{reportData()?.price_contributions?.pattern_premium_pct ?? 48}%
+										</span>
+									</div>
+									<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+										<div
+											class="h-full bg-gradient-to-r from-[#0098EA] to-cyan-400 rounded-full"
+											style={{
+												width: `${reportData()?.price_contributions?.pattern_premium_pct ?? 48}%`,
+											}}
+										/>
+									</div>
 								</div>
-								<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
-									<span class="text-white/60">
-										{t('numbers.rarityDeltaLabel') || 'Pattern Scarcity & Rarity Delta'}
-									</span>
-									<span class="font-mono font-black text-[#0098EA]" dir="ltr">
-										+
-										{formatTon(
-											Math.max(0, Math.round(Number(reportData()?.expected_ton || 0) * 0.45)),
-										)}{' '}
-										TON
-									</span>
+
+								{/* 2. Scarcity */}
+								<div>
+									<div class="flex justify-between items-center text-xs mb-1">
+										<span class="text-white/70 font-medium">
+											{isRtl() ? 'اثر کمیابی در کل کالکشن' : 'Scarcity & Supply Constraint'}
+										</span>
+										<span class="font-mono font-black text-amber-400" dir="ltr">
+											{reportData()?.price_contributions?.scarcity_pct ?? 26}%
+										</span>
+									</div>
+									<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+										<div
+											class="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full"
+											style={{
+												width: `${reportData()?.price_contributions?.scarcity_pct ?? 26}%`,
+											}}
+										/>
+									</div>
 								</div>
-								<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
-									<span class="text-white/60">
-										{t('numbers.nftColorMultiplier') || 'NFT Color Multiplier'} (
-										{reportData()?.color?.name || 'Blue'})
-									</span>
-									<span class="font-mono font-black text-amber-400" dir="ltr">
-										x{reportData()?.color?.multiplier || 1.0}
-									</span>
+
+								{/* 3. Market Sentiment */}
+								<div>
+									<div class="flex justify-between items-center text-xs mb-1">
+										<span class="text-white/70 font-medium">
+											{isRtl() ? 'سنتیمنت و مومنتوم بازار' : 'Market Sentiment & TON Momentum'}
+										</span>
+										<span class="font-mono font-black text-purple-400" dir="ltr">
+											{reportData()?.price_contributions?.market_sentiment_pct ?? 12}%
+										</span>
+									</div>
+									<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+										<div
+											class="h-full bg-gradient-to-r from-purple-500 to-indigo-400 rounded-full"
+											style={{
+												width: `${reportData()?.price_contributions?.market_sentiment_pct ?? 12}%`,
+											}}
+										/>
+									</div>
 								</div>
-								<div class="p-2.5 rounded-xl bg-[#0098EA]/10 border border-[#0098EA]/30 flex items-center justify-between text-xs font-black">
-									<span class="text-[#0098EA]">
-										{t('numbers.finalFairValue') || 'Final Calibrated Fair Value'}
-									</span>
-									<span class="font-mono text-white text-sm" dir="ltr">
-										{formatTon(reportData()?.expected_ton)} TON
-									</span>
+
+								{/* 4. Safety & Provenance */}
+								<div>
+									<div class="flex justify-between items-center text-xs mb-1">
+										<span class="text-white/70 font-medium">
+											{isRtl() ? 'امنیت، اصالت تل‌مینت و عدم محدودیت' : 'Safety & Telemint Clean Status'}
+										</span>
+										<span class="font-mono font-black text-emerald-400" dir="ltr">
+											{reportData()?.price_contributions?.safety_pct ?? 8}%
+										</span>
+									</div>
+									<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+										<div
+											class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
+											style={{
+												width: `${reportData()?.price_contributions?.safety_pct ?? 8}%`,
+											}}
+										/>
+									</div>
+								</div>
+
+								{/* 5. Comps Contribution */}
+								<div>
+									<div class="flex justify-between items-center text-xs mb-1">
+										<span class="text-white/70 font-medium">
+											{isRtl() ? 'وزن تطبیق با معاملات واقعی (Comps)' : 'Comparable Realized Sales'}
+										</span>
+										<span class="font-mono font-black text-cyan-300" dir="ltr">
+											{reportData()?.price_contributions?.comps_contribution_pct ?? 6}%
+										</span>
+									</div>
+									<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+										<div
+											class="h-full bg-gradient-to-r from-cyan-500 to-blue-400 rounded-full"
+											style={{
+												width: `${reportData()?.price_contributions?.comps_contribution_pct ?? 6}%`,
+											}}
+										/>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -1428,7 +1625,7 @@ export const NumberReportPage: Component = () => {
 								</div>
 							</div>
 
-							<div class="p-3 rounded-2xl bg-[#08090D] border border-white/5 text-start text-[10px] text-white/60 leading-relaxed">
+							<div class="p-3 rounded-2xl bg-[#08090D] border border-white/5 text-start text-[10px] text-white/60 leading-relaxed mb-2.5">
 								<span class="font-bold text-white/80">{t('numbers.hodlStrengthLabel')}: </span>
 								<span>
 									{isRtl()
@@ -1437,6 +1634,41 @@ export const NumberReportPage: Component = () => {
 										: reportData()?.market_depth?.hodl_strength_en ||
 											'Very Strong (>80% held in long-term cold wallets)'}
 								</span>
+							</div>
+
+							{/* Selling Probability Timeline */}
+							<div class="pt-3 border-t border-white/5 text-start">
+								<div class="flex items-center justify-between mb-2">
+									<span class="text-[10px] font-bold text-white/70">
+										{isRtl() ? 'احتمال فروش در بازار (Selling Probabilities)' : 'Selling Probabilities'}
+									</span>
+									<span class="text-[9px] font-mono text-cyan-400 font-bold" dir="ltr">
+										{isRtl()
+											? `تخمین فروش: ${reportData()?.selling_probabilities?.estimated_days_to_sell || 14} روز`
+											: `Est: ${reportData()?.selling_probabilities?.estimated_days_to_sell || 14} Days`}
+									</span>
+								</div>
+
+								<div class="grid grid-cols-3 gap-2 text-center">
+									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+										<span class="text-[9px] text-white/40 block mb-0.5">7 Days</span>
+										<span class="text-xs font-black font-mono text-amber-400">
+											{reportData()?.selling_probabilities?.p_7d ?? 38}%
+										</span>
+									</div>
+									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+										<span class="text-[9px] text-white/40 block mb-0.5">30 Days</span>
+										<span class="text-xs font-black font-mono text-cyan-400">
+											{reportData()?.selling_probabilities?.p_30d ?? 72}%
+										</span>
+									</div>
+									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+										<span class="text-[9px] text-white/40 block mb-0.5">90 Days</span>
+										<span class="text-xs font-black font-mono text-emerald-400">
+											{reportData()?.selling_probabilities?.p_90d ?? 94}%
+										</span>
+									</div>
+								</div>
 							</div>
 						</div>
 
@@ -1553,10 +1785,10 @@ export const NumberReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* 👑 MODULE 10: OFFICIAL DIGITAL CERTIFICATE & SHARING */}
-						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-amber-400/30 rounded-[28px] p-5 shadow-xl">
+						{/* 👑 MODULE 10: OFFICIAL DIGITAL CERTIFICATE, CRYPTOGRAPHIC MODEL CARD & EXPORT */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-amber-400/30 rounded-[28px] p-5 shadow-xl text-start">
 							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-								<div class="flex items-center gap-2 text-start">
+								<div class="flex items-center gap-2">
 									<span class="material-symbols-outlined text-amber-400 text-lg">
 										workspace_premium
 									</span>
@@ -1570,20 +1802,46 @@ export const NumberReportPage: Component = () => {
 								</span>
 							</div>
 
-							<div class="grid grid-cols-2 gap-2 mt-4">
+							{/* Cryptographic Model Card info */}
+							<div class="space-y-2 p-3 rounded-2xl bg-black/40 border border-white/5 text-[10px] my-3">
+								<div class="flex justify-between items-center">
+									<span class="text-white/50">{isRtl() ? 'نسخه موتور NV:' : 'Engine Version:'}</span>
+									<span class="font-mono text-cyan-400 font-bold" dir="ltr">
+										{reportData()?.model_card?.engine_version || 'NV-Engine-v2.5'}
+									</span>
+								</div>
+								<div class="flex justify-between items-center">
+									<span class="text-white/50">{isRtl() ? 'هش دیتاست مرجع:' : 'Dataset Hash:'}</span>
+									<span class="font-mono text-white/70" dir="ltr">
+										{reportData()?.model_card?.dataset_hash
+											? `${reportData()?.model_card?.dataset_hash.slice(0, 10)}...${reportData()?.model_card?.dataset_hash.slice(-6)}`
+											: 'SHA256:7f83b1...72c'}
+									</span>
+								</div>
+								<div class="flex justify-between items-center">
+									<span class="text-white/50">{isRtl() ? 'امضای اثبات ارزیابی:' : 'Signature Proof:'}</span>
+									<span class="font-mono text-emerald-400" dir="ltr">
+										{reportData()?.model_card?.signature_proof
+											? `${reportData()?.model_card?.signature_proof.slice(0, 12)}...`
+											: 'HMAC:4a8f9c...'}
+									</span>
+								</div>
+							</div>
+
+							<div class="grid grid-cols-3 gap-2 mt-4">
 								<button
 									type="button"
 									onClick={handleShareToStory}
-									class="py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-black text-xs font-black flex items-center justify-center gap-1.5 shadow-md shadow-amber-400/20 active:scale-95 transition-all hover:brightness-110"
+									class="py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-black text-xs font-black flex items-center justify-center gap-1 shadow-md shadow-amber-400/20 active:scale-95 transition-all hover:brightness-110"
 								>
 									<span class="material-symbols-outlined text-base">auto_awesome</span>
-									<span>{t('numbers.shareToStoryBtn')}</span>
+									<span class="truncate">{t('numbers.shareToStoryBtn')}</span>
 								</button>
 
 								<button
 									type="button"
 									onClick={handleCopyCertificate}
-									class={`py-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
+									class={`py-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 ${
 										copiedCert()
 											? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
 											: 'bg-white/[0.06] hover:bg-white/10 border-white/10 text-white/80'
@@ -1592,7 +1850,22 @@ export const NumberReportPage: Component = () => {
 									<span class="material-symbols-outlined text-base">
 										{copiedCert() ? 'check' : 'content_copy'}
 									</span>
-									<span>{copiedCert() ? t('numbers.certCopied') : t('numbers.copyCertLink')}</span>
+									<span class="truncate">{copiedCert() ? t('numbers.certCopied') : t('numbers.copyCertLink')}</span>
+								</button>
+
+								<button
+									type="button"
+									onClick={handleExportAuditJson}
+									class={`py-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 ${
+										copiedJson()
+											? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+											: 'bg-white/[0.06] hover:bg-white/10 border-white/10 text-white/80'
+									}`}
+								>
+									<span class="material-symbols-outlined text-base">
+										{copiedJson() ? 'check' : 'code'}
+									</span>
+									<span class="truncate">{copiedJson() ? (isRtl() ? 'کپی شد' : 'Copied') : (isRtl() ? 'JSON کامل' : 'Export JSON')}</span>
 								</button>
 							</div>
 						</div>

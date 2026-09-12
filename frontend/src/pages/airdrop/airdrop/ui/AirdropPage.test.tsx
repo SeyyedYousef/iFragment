@@ -45,7 +45,9 @@ vi.mock('@/entities/airdrop/index.js', () => ({
 	tapPower: () => 1,
 	globalRank: () => 1,
 	recordTaps: vi.fn(),
-	syncProfileStats: vi.fn(),
+	syncProfileStats: vi.fn().mockResolvedValue(undefined),
+	syncDailyRewardStatus: vi.fn().mockResolvedValue(undefined),
+	syncBoostersStatus: vi.fn().mockResolvedValue(undefined),
 	isRocketSpawned: () => false,
 	isTurboActive: () => false,
 	activateTurbo: vi.fn(),
@@ -57,6 +59,13 @@ vi.mock('@/entities/airdrop/index.js', () => ({
 	batches: () => [],
 	dailyFatigueMultiplier: () => 1,
 	dailyFatigueLimitRemaining: () => 0,
+}));
+
+vi.mock('@/entities/user/index.js', () => ({
+	collectOfflineMining: vi.fn().mockResolvedValue({ earned: 0 }),
+	startOfflineMining: vi.fn().mockResolvedValue({ success: true }),
+	getClan: vi.fn().mockResolvedValue(null),
+	profilePhotoUrl: () => null,
 }));
 
 describe('AirdropPage', () => {

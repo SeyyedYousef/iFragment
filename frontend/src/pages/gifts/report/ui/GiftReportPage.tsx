@@ -15,6 +15,7 @@ import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { UnifiedPaywallGate } from '@/widgets/paywall/index.js';
+import { GiftValuationPillarsCard } from './GiftValuationPillarsCard.js';
 
 export const GiftReportPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -547,6 +548,9 @@ export const GiftReportPage: Component = () => {
 								</div>
 							</div>
 						</div>
+
+						{/* 🏛️ 4 CORE VALUATION PILLARS & RARITY ENTROPY */}
+						<GiftValuationPillarsCard report={currentReport()!} />
 
 						{/* 🌐 DUAL-WORLD ARCHITECTURE: IN-APP STARS vs ON-CHAIN TEP-62 */}
 						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex flex-col gap-2.5 shadow-xl text-start">

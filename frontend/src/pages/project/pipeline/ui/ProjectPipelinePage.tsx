@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from '@solidjs/router';
+import { useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import {
 	type Component,
@@ -31,15 +31,41 @@ interface InlineButtonItem {
 	type: 'url' | 'webapp' | 'copy';
 }
 
+const VALID_TABS = ['pipeline', 'ai', 'bio', 'responder', 'buttons', 'join'] as const;
+type TabSection = (typeof VALID_TABS)[number];
+
 export const ProjectPipelinePage: Component = () => {
 	const params = useParams<{ projectId: string }>();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const navigate = useNavigate();
 
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [isSaving, setIsSaving] = createSignal(false);
-	const [activeSection, setActiveSection] = createSignal<
-		'pipeline' | 'ai' | 'bio' | 'responder' | 'buttons' | 'join'
-	>('pipeline');
+
+	const getInitialTab = (): TabSection => {
+		const t = searchParams.tab;
+		if (typeof t === 'string' && (VALID_TABS as readonly string[]).includes(t)) {
+			return t as TabSection;
+		}
+		return 'pipeline';
+	};
+
+	const [activeSection, setActiveSection] = createSignal<TabSection>(getInitialTab());
+
+	createEffect(() => {
+		const t = searchParams.tab;
+		if (typeof t === 'string' && (VALID_TABS as readonly string[]).includes(t)) {
+			if (activeSection() !== t) {
+				setActiveSection(t as TabSection);
+			}
+		}
+	});
+
+	const switchSection = (section: TabSection) => {
+		haptic.impact('light');
+		setActiveSection(section);
+		setSearchParams({ tab: section });
+	};
 
 	const [project, { refetch }] = createResource(
 		() => params.projectId,
@@ -349,10 +375,7 @@ export const ProjectPipelinePage: Component = () => {
 				<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 pt-1 -mx-1 px-1">
 					<button
 						type="button"
-						onClick={() => {
-							haptic.impact('light');
-							setActiveSection('pipeline');
-						}}
+						onClick={() => switchSection('pipeline')}
 						class={`px-3.5 py-2 rounded-[14px] text-[11px] font-black whitespace-nowrap flex items-center gap-1.5 transition-all ${
 							activeSection() === 'pipeline'
 								? 'bg-[#3390ec] text-white shadow-md'
@@ -365,10 +388,7 @@ export const ProjectPipelinePage: Component = () => {
 
 					<button
 						type="button"
-						onClick={() => {
-							haptic.impact('light');
-							setActiveSection('bio');
-						}}
+						onClick={() => switchSection('bio')}
 						class={`px-3.5 py-2 rounded-[14px] text-[11px] font-black whitespace-nowrap flex items-center gap-1.5 transition-all ${
 							activeSection() === 'bio'
 								? 'bg-[#3390ec] text-white shadow-md'
@@ -384,10 +404,7 @@ export const ProjectPipelinePage: Component = () => {
 
 					<button
 						type="button"
-						onClick={() => {
-							haptic.impact('light');
-							setActiveSection('responder');
-						}}
+						onClick={() => switchSection('responder')}
 						class={`px-3.5 py-2 rounded-[14px] text-[11px] font-black whitespace-nowrap flex items-center gap-1.5 transition-all ${
 							activeSection() === 'responder'
 								? 'bg-[#3390ec] text-white shadow-md'
@@ -403,10 +420,7 @@ export const ProjectPipelinePage: Component = () => {
 
 					<button
 						type="button"
-						onClick={() => {
-							haptic.impact('light');
-							setActiveSection('buttons');
-						}}
+						onClick={() => switchSection('buttons')}
 						class={`px-3.5 py-2 rounded-[14px] text-[11px] font-black whitespace-nowrap flex items-center gap-1.5 transition-all ${
 							activeSection() === 'buttons'
 								? 'bg-[#3390ec] text-white shadow-md'
@@ -422,10 +436,7 @@ export const ProjectPipelinePage: Component = () => {
 
 					<button
 						type="button"
-						onClick={() => {
-							haptic.impact('light');
-							setActiveSection('join');
-						}}
+						onClick={() => switchSection('join')}
 						class={`px-3.5 py-2 rounded-[14px] text-[11px] font-black whitespace-nowrap flex items-center gap-1.5 transition-all ${
 							activeSection() === 'join'
 								? 'bg-[#3390ec] text-white shadow-md'
@@ -441,10 +452,7 @@ export const ProjectPipelinePage: Component = () => {
 
 					<button
 						type="button"
-						onClick={() => {
-							haptic.impact('light');
-							setActiveSection('ai');
-						}}
+						onClick={() => switchSection('ai')}
 						class={`px-3.5 py-2 rounded-[14px] text-[11px] font-black whitespace-nowrap flex items-center gap-1.5 transition-all ${
 							activeSection() === 'ai'
 								? 'bg-[#3390ec] text-white shadow-md'
@@ -454,7 +462,7 @@ export const ProjectPipelinePage: Component = () => {
 						<span class="material-symbols-outlined text-[16px]">psychology</span>
 						<span>{t('channelProjects.tabs.ai')}</span>
 						<Show when={aiRewrite()}>
-							<span class="w-2 h-2 rounded-full bg-purple-400"></span>
+							<span class="w-2 h-2 rounded-full bg-emerald-400"></span>
 						</Show>
 					</button>
 				</div>

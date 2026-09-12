@@ -238,12 +238,16 @@ export const LedgerResponseSchema = v.object({
 
 // ─── My Assets Schemas ───
 export const MyReportsAssetSchema = v.object({
+	type: v.optional(v.picklist(['username', 'number', 'gift']), 'username'),
+	identifier: v.optional(v.string()),
+	title: v.optional(v.string()),
 	username: v.string(),
 	rarityScore: v.number(),
 	status: v.string(),
 	generatedAt: v.string(),
 	certificateUrl: v.string(),
 	notificationEnabled: v.boolean(),
+	valueEstimate: v.optional(v.string()),
 });
 
 export const MyConnectedPropertySchema = v.object({

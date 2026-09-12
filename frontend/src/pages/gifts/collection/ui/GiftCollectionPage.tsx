@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { GiftThumbnail, giftsApi } from '@/entities/gifts/index.js';
+import { GiftFloorChart } from './GiftFloorChart.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
@@ -723,6 +724,14 @@ export const GiftCollectionPage: Component = () => {
 					{/* ═══════════════════════════════════════════════════════════ */}
 					<Show when={selectedTab() === 'market'}>
 						<div class="space-y-4 mb-4">
+							{/* ═══ Floor Price & Market Dynamics Chart ═══ */}
+							<GiftFloorChart
+								history={data()?.floor_history}
+								currentFloorGram={data()?.best_floor_gram}
+								currentFloorUsd={data()?.best_floor_usd}
+								collectionName={data()?.collection_name}
+							/>
+
 							{/* Section 1: Top 10 by Floor */}
 							<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
 								<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">

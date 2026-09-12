@@ -163,10 +163,10 @@ export const ShopView: Component = () => {
 						<span class="text-[28px] drop-shadow-[0_2px_8px_rgba(245,158,11,0.5)]">💎</span>
 					</div>
 					<h2 class="text-[20px] font-black text-white tracking-tight drop-shadow-md mb-0.5">
-						{t('shop.title') || 'فروشگاه کریدت و هوش بازار'}
+						{t('shop.title')}
 					</h2>
 					<p class="text-white/60 text-[12px] leading-relaxed font-medium max-w-[320px]">
-						{t('shop.subtitle') || 'واحد مرجع پرداخت در کل اکوسیستم iFragment'}
+						{t('shop.subtitle')}
 					</p>
 				</div>
 
@@ -177,7 +177,7 @@ export const ShopView: Component = () => {
 						<div class="absolute -right-4 -bottom-4 w-16 h-16 bg-[#0098EA]/10 rounded-full blur-xl pointer-events-none" />
 						<div class="flex items-center justify-between mb-2">
 							<span class="text-[10px] font-black uppercase tracking-wider text-[#0098EA]">
-								{t('shop.creditsBalance') || 'کریدت شما'}
+								{t('shop.creditsBalance')}
 							</span>
 							<span class="text-[16px]">💎</span>
 						</div>
@@ -194,7 +194,7 @@ export const ShopView: Component = () => {
 						<div class="absolute -right-4 -bottom-4 w-16 h-16 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
 						<div class="flex items-center justify-between mb-2">
 							<span class="text-[10px] font-black uppercase tracking-wider text-amber-400">
-								{t('shop.coinsBalance') || 'سکه‌های ایردراپ'}
+								{t('shop.coinsBalance')}
 							</span>
 							<span class="text-[16px]">🪙</span>
 						</div>
@@ -221,7 +221,7 @@ export const ShopView: Component = () => {
 						}`}
 					>
 						<span>⭐</span>
-						<span>{t('shop.tabStars') || 'خرید با ستاره تلگرام'}</span>
+						<span>{t('shop.tabStars')}</span>
 					</button>
 					<button
 						type="button"
@@ -236,7 +236,7 @@ export const ShopView: Component = () => {
 						}`}
 					>
 						<span>🪙</span>
-						<span>{t('shop.tabCoins') || 'تبدیل سکه ایردراپ'}</span>
+						<span>{t('shop.tabCoins')}</span>
 					</button>
 				</div>
 
@@ -245,10 +245,10 @@ export const ShopView: Component = () => {
 					<div class="flex flex-col gap-3">
 						<div class="flex items-center justify-between px-1">
 							<span class="text-white/50 text-[11px] font-black uppercase tracking-widest">
-								{t('shop.intelPacksStars') || 'پک‌های کریدت (TELEGRAM STARS)'}
+								{t('shop.intelPacksStars')}
 							</span>
 							<span class="text-amber-400 text-[10px] font-black uppercase tracking-wider">
-								{t('shop.noKyc') || 'بدون احراز هویت · آنی'}
+								{t('shop.noKyc')}
 							</span>
 						</div>
 
@@ -343,10 +343,10 @@ export const ShopView: Component = () => {
 									</div>
 									<div class="flex flex-col text-start">
 										<h3 class="text-[15px] font-black text-white">
-											{t('shop.coinExchangeTitle') || 'تبدیل سکه ایردراپ به کریدت'}
+											{t('shop.coinExchangeTitle')}
 										</h3>
 										<span class="text-[12px] font-medium text-emerald-300/80">
-											{t('shop.coinExchangeRate', { count: formatNumber(coinsCost()) }) || `هر ${formatNumber(coinsCost())} سکه = ۱ کریدت`}
+											{t('shop.coinExchangeRate', { count: formatNumber(coinsCost()) })}
 										</span>
 									</div>
 								</div>
@@ -358,7 +358,7 @@ export const ShopView: Component = () => {
 							{/* Progress Bar */}
 							<div class="flex flex-col gap-1.5">
 								<div class="flex justify-between text-[11px] font-bold text-white/70">
-									<span>{t('shop.coinProgressLabel') || 'پیشرفت به سمت ۱ کریدت بعدی:'}</span>
+									<span>{t('shop.coinProgressLabel')}</span>
 									<span class="font-mono text-emerald-400">
 										{Math.round(coinProgress() * 100)}%
 									</span>
@@ -371,10 +371,10 @@ export const ShopView: Component = () => {
 								</div>
 								<div class="flex justify-between text-[10px] font-mono text-white/40 mt-0.5">
 									<span>
-										{formatNumber(userCoins())} {t('airdrop.coins') || 'Coins'}
+										{formatNumber(userCoins())} {t('airdrop.coins')}
 									</span>
 									<span>
-										{formatNumber(coinsCost())} {t('airdrop.coins') || 'Coins'}
+										{formatNumber(coinsCost())} {t('airdrop.coins')}
 									</span>
 								</div>
 							</div>
@@ -391,7 +391,7 @@ export const ShopView: Component = () => {
 									fallback={
 										<div class="flex items-center gap-2">
 											<div class="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-											<span>{t('shop.converting') || 'در حال تبدیل...'}</span>
+											<span>{t('shop.converting')}</span>
 										</div>
 									}
 								>
@@ -400,12 +400,12 @@ export const ShopView: Component = () => {
 										fallback={
 											<div class="flex items-center gap-1.5 text-black font-black">
 												<span>✓</span>
-												<span>{t('shop.convertSuccess') || 'تبدیل انجام شد!'}</span>
+												<span>{t('shop.convertSuccess')}</span>
 											</div>
 										}
 									>
 										<span class="text-[18px]">⚡</span>
-										<span>{t('shop.convertBtn', { count: formatNumber(coinsCost()) }) || `تبدیل ${formatNumber(coinsCost())} سکه به ۱ کریدت`}</span>
+										<span>{t('shop.convertBtn', { count: formatNumber(coinsCost()) })}</span>
 									</Show>
 								</Show>
 							</button>
@@ -415,8 +415,7 @@ export const ShopView: Component = () => {
 									💡{' '}
 									{t('shop.coinsNeededMore', {
 										count: formatNumber(coinsCost() - userCoins()),
-									}) ||
-										`با ماینینگ روزانه و انجام تسک‌ها ${formatNumber(coinsCost() - userCoins())} سکه دیگر جمع‌آوری کنید.`}
+									})}
 								</p>
 							</Show>
 						</div>
@@ -428,7 +427,7 @@ export const ShopView: Component = () => {
 					<div class="flex items-center gap-2 text-amber-400">
 						<span class="material-symbols-outlined text-[20px]">verified</span>
 						<h4 class="text-white font-black text-[13.5px] uppercase tracking-wider">
-							{t('shop.howEconomyWorks') || 'کاربردهای کریدت در کل اکوسیستم'}
+							{t('shop.howEconomyWorks')}
 						</h4>
 					</div>
 
@@ -440,11 +439,10 @@ export const ShopView: Component = () => {
 							</div>
 							<div class="flex flex-col">
 								<span class="font-bold text-white text-[12.5px]">
-									{t('shop.utility1Title') || 'تحلیل عمیق هوش مصنوعی'}
+									{t('shop.utility1Title')}
 								</span>
 								<span class="text-white/60 text-[11px] mt-0.5 leading-relaxed">
-									{t('shop.utility1Desc') ||
-										'ارزش‌گذاری نام‌های کاربری، شماره‌های کلکسیونی و گیفت‌های تلگرام (۱ کریدت برای هر تحلیل)'}
+									{t('shop.utility1Desc')}
 								</span>
 							</div>
 						</div>
@@ -456,11 +454,10 @@ export const ShopView: Component = () => {
 							</div>
 							<div class="flex flex-col">
 								<span class="font-bold text-white text-[12.5px]">
-									{t('shop.utility2Title') || 'مدیریت حرفه‌ای گروه و کانال'}
+									{t('shop.utility2Title')}
 								</span>
 								<span class="text-white/60 text-[11px] mt-0.5 leading-relaxed">
-									{t('shop.utility2Desc') ||
-										'دستیار هوشمند، ضداسپم، زمان‌بندی پست و آمار پیشرفته (۳ کریدت برای هر ماه)'}
+									{t('shop.utility2Desc')}
 								</span>
 							</div>
 						</div>
@@ -472,10 +469,10 @@ export const ShopView: Component = () => {
 							</div>
 							<div class="flex flex-col">
 								<span class="font-bold text-white text-[12.5px]">
-									{t('shop.utility3Title') || 'هوش بازار و رادار آربیتراژ'}
+									{t('shop.utility3Title')}
 								</span>
 								<span class="text-white/60 text-[11px] mt-0.5 leading-relaxed">
-									{t('shop.utility3Desc') || 'سیگنال‌های خرید آنی و تحلیل آن‌چین فرگمنت بدون تاخیر'}
+									{t('shop.utility3Desc')}
 								</span>
 							</div>
 						</div>
@@ -488,8 +485,7 @@ export const ShopView: Component = () => {
 						info
 					</span>
 					<p class="text-amber-300/90 text-[11px] font-medium leading-relaxed">
-						{t('economy.coins_disclaimer') ||
-							'سکه‌ها امتیاز داخلی اپلیکیشن هستند، در صرافی‌ها لیست نمی‌شوند، غیرقابل انتقال بوده و ارزش نقدی ندارند.'}
+						{t('economy.coins_disclaimer')}
 					</p>
 				</div>
 			</div>

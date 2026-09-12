@@ -1,0 +1,598 @@
+<USER_REQUEST>
+این گزارش شماره کلکسیونی رو ببین و انجامش بده : 
+
+گزارش کامل ممیزی بخش شمارههای کلکسیونی +888 پروژه iFragment
+تاریخ ارزیابی: ۱۰ سپتامبر ۲۰۲۶
+دامنه بررسی: فقط بخش شمارههای کلکسیونی تلگرام، شامل بکاند، دیتابیس، ایندکسر، NV Engine، گزارش یککریدتی، داشبورد کالکشن، Portfolio، Mask Builder، API، امنیت، UX و مستند داخلی.
+من ۱۲٬۵۸۱ خط از ۲۹ فایل مستقیم این بخش را بررسی کردم، migrationها و OpenAPI را خواندم و ساختار را با مستندات رسمی Telegram، TON و Fragment، قابلیتهای nums888 و Marketapp، پروژههای GitHub و پژوهشهای ارزشگذاری NFT مقایسه کردم.
+نتیجه نهایی
+امتیاز فعلی: ۴۶ از ۱۰۰
+ایده محصول عالی و متمایز است. iFragment برخلاف یک بازار خریدوفروش ساده، میخواهد مرجع اطلاعات، تحلیل و ارزشگذاری شمارههای +888 باشد و ساختار فعلی هم ظرفیت رسیدن به این هدف را دارد.
+اما نسخه فعلی هنوز یک «مرجع قابل اعتماد جهانی» نیست. ظاهر، تعداد قابلیتها و پیچیدگی گزارش از صحت داده، امنیت paywall و اعتبار علمی الگوریتم جلوتر رفتهاند.
+بخش
+امتیاز
+ایده و تمایز محصول
+۸۸
+معماری قابلیتها
+۷۴
+طراحی ظاهری از روی کد
+۷۶
+گزارش تکشماره
+۶۳
+داشبورد کالکشن
+۵۸
+صحت و منشأ داده
+۲۷
+اعتبار علمی ارزشگذاری
+۳۴
+امنیت پرداخت و کریدت
+۲۴
+پایداری و مدیریت خطا
+۳۹
+تست و آمادگی انتشار
+۴۱
+امتیاز نهایی وزندار
+۴۶
+پنج مشکل بحرانی
+۱. گزارش پولی از API رایگان قابل دریافت است
+مسیر عمومی:
+GET /numbers/valuate?n=...
+حتی برای کاربر مهمان، گزارش کامل ارزشگذاری را محاسبه و برمیگرداند. یعنی هرکس میتواند UI را کنار بگذارد و بدون پرداخت یک کریدت این موارد را بگیرد:
+قیمت تخمینی
+بازه پایین و بالا
+comparable sales
+رتبه
+ریسک
+projection
+recommendation
+اطلاعات مالی و وثیقه
+در نتیجه paywall فعلی بیشتر ظاهری است تا امنیتی.
+اقدام لازم: endpoint عمومی فقط Curiosity Gate را برگرداند. گزارش کامل تنها پس از کنترل entitlement در سرور قابل دریافت باشد.
+۲. هر عدد هشترقمی به اشتباه «شماره مینتشده» شناخته میشود
+تابع NormalizeNumber هر پسوند هشترقمی را معتبر میپذیرد. این فقط format را ثابت میکند، نه عضویت در کالکشن.
+تمام فضای هشترقمی شامل ۱۰۰ میلیون ترکیب است، ولی فقط ۱۳۵٬۵۶۶ شماره استاندارد به همراه ۱٬۰۰۰ شماره Genesis وجود دارد.
+بنابراین این ادعا که «شماره در کالکشن ۱۳۶٬۵۶۶تایی وجود دارد» با کنترل طول قابل اثبات نیست.
+راه درست طبق TON:
+item address شماره پیدا شود.
+get_nft_data() خوانده شود.
+index و collection address استخراج شود.
+از collection، تابع get_nft_address_by_index(index) فراخوانی شود.
+آدرس برگشتی دقیقاً با item address برابر باشد.
+وضعیت NFT باید initialized باشد.
+نتیجه با block و زمان مشاهده ذخیره شود.
+سه وضعیت باید جدا شوند:
+format_valid collection_verified telegram_restriction_status
+۳. سیستم هنگام قطع منبع، داده ساختگی تولید میکند
+تابع generateSmartFallback میتواند شماره، قیمت، مالک، وضعیت فروش و لینک ظاهراً واقعی تولید کند. نمونه مالکهایی شبیه این ساخته میشوند:
+EQ...Fragment
+برای یک محصول سرگرمی شاید قابل تحمل باشد، اما برای مرجع اطلاعات مالی کاملاً ممنوع است.
+کاربر نمیتواند بفهمد داده واقعی است یا fallback. این مسئله میتواند قیمت، Portfolio و تصمیم خرید را منحرف کند.
+رفتار درست در outage:
+آخرین snapshot معتبر با برچسب stale
+زمان دقیق snapshot
+وضعیت هر منبع
+پاسخ partial
+یا پیام unavailable
+هیچ داده تخمینی یا ساختگی نباید در جدول بازار به شکل واقعیت نمایش داده شود.
+۴. ingest فروش میتواند listing را بهعنوان فروش قطعی ثبت کند
+در sync زنده صفحه Fragment با regex خوانده میشود. اگر ساختار HTML تغییر کند یا قیمت listing قبل از sale price پیدا شود، همان مقدار ممکن است فروش تشخیص داده شود.
+سپس این رکورد با مشخصات زیر ذخیره میشود:
+price_confidence = exact transaction_hash = fragment_sale_<timestamp>
+این transaction hash واقعی نیست. خطر اصلی این است که NV Engine همین داده را بهعنوان فروش قطعی استفاده کرده و قیمت را anchor کند.
+نتیجه: یک parsing اشتباه ممکن است قیمت یک شماره را برای همیشه بالا نگه دارد.
+اقدام لازم: فقط event نهاییشده زنجیره با tx hash واقعی، item address، buyer، seller، amount، action index، block و قرارداد بازار وارد جدول verified sales شود.
+۵. مصرف Intel Credit و ذخیره گزارش اتمیک نیست
+در مسیر پرداخت با coin، کسر موجودی و ذخیره گزارش در یک transaction انجام میشود که خوب است.
+اما در مسیر Intel Credit:
+کریدت در یک transaction مستقل کم میشود.
+الگوریتم اجرا میشود.
+ذخیره گزارش بهصورت best effort انجام میشود.
+خطای ذخیره گزارش نادیده گرفته میشود.
+پس ممکن است کریدت کاربر کم شود، اما entitlement یا گزارش ذخیره نشود.
+اقدام لازم: یا همه مراحل در یک transaction قرار بگیرند، یا saga داشته باشید:
+reserve credit create pending entitlement compute save report commit entitlement
+در هر failure باید refund خودکار و قابل حسابرسی انجام شود.
+نقاط قوت واقعی پروژه
+این پروژه فقط یک mock یا UI توخالی نیست. بخشهای ارزشمند آن عبارتاند از:
+vertical مجزای شمارههای کلکسیونی
+صفحات مستقل Intel، Collection، Report و Mask
+schema برای features، sales، valuations، reports و watchlist
+ایندکسر پسزمینه و checkpoint
+پشتیبانی از ارقام فارسی و عربی
+تشخیص palindrome، repetition، entropy و الگوهای dial pad
+taxonomy مخصوص Genesis
+comparable sales و time decay
+استفاده از median، MAD و Bayesian shrinkage
+گزارش چندبخشی و visually rich
+Portfolio، watchlist و notification
+مسیر پرداخت coin اتمیک
+لینک صحیح Fragment در بخش اصلی NV Engine
+پشتیبانی فارسی، انگلیسی، روسی و چینی
+تلاش برای توضیحپذیری قیمت بهجای نمایش یک عدد خام
+اینها پایه خیلی خوبی هستند. پیشنهاد من بازطراحی کلی نیست، بلکه اصلاح منبع داده و اعتبار مدل زیر همین ظاهر فعلی است.
+بررسی الگوریتم NV Engine
+ماهیت واقعی مدل
+مدل فعلی بیشتر یک Expert Heuristic Engine است تا مدل ارزشگذاری آماری آموزشدیده.
+ضرایب الگوها بهصورت دستی تعیین شدهاند. مثلاً برای monodigit، palindrome، quad tail، prefix join و الگوهای فرهنگی betaهای از پیش تعیینشده وجود دارد.
+این کار برای نسخه اولیه بد نیست، ولی نباید با عنوانهایی مثل این عرضه شود:
+قیمت واقعی
+دقت ۹۹ درصد
+رتبه جهانی قطعی
+Quantum-Bayes
+confidence آماری
+تا وقتی ضرایب روی داده تاریخی fit و خارج از نمونه backtest نشدهاند، اینها فرض کارشناسی هستند.
+مشکلات اصلی مدل
+Floor ثابت
+مقادیر زیر hardcoded هستند:
+Standard floor = 2450 TON Genesis floor = 42000 TON
+درحالیکه floor باید از listingهای فعال، وضعیت restriction، venue و زمان ساخته شود.
+حداقل چهار floor لازم است:
+کل کالکشن
+شمارههای سالم
+شمارههای restricted
+Genesis
+آخرین فروش بهعنوان کف ابدی
+مدل میگوید ارزش فعلی نباید کمتر از آخرین فروش همان شماره باشد. این قانون از نظر مالی غلط است.
+قیمت میتواند کاهش یابد، چون:
+بازار سقوط کرده
+فروش قبلی wash trade بوده
+شماره restricted شده
+liquidity کاهش یافته
+قیمت TON تغییر کرده
+فروش در اوج هیجان انجام شده
+خریدار اشتباه کرده است
+آخرین فروش باید feature مهم با decay باشد، نه کف همیشگی قیمت.
+رشد ثابت ۱۵ و ۲۰ درصدی
+Comparableها سالانه ۲۰ درصد و آخرین فروش سالانه ۱۵ درصد افزایش داده میشوند. این فرض میتواند بازار نزولی را هم صعودی جلوه دهد.
+بهجای آن باید repeat-sales index واقعی ساخته شود.
+ضریب رنگ دستی
+برای رنگها ضرایب ۰.۹ تا ۱.۴۵ تعریف شده، ولی مدرکی وجود ندارد که این ضرایب از معاملات واقعی استخراج شده باشند.
+ضمن اینکه مستند میگوید «۱۹ رنگ»، اما جدول و registry عملاً ۲۰ ورودی دارند.
+confidence غیرکالیبره
+confidence از ۷۲ شروع میشود و با Genesis، تعداد comps و فروش تاریخی بالا میرود. این یک امتیاز heuristic است، نه احتمال آماری.
+confidence واقعی باید مثلاً معنی مشخصی داشته باشد:
+در backtest خارج از نمونه، ۸۰ درصد قیمتهای فروش داخل این بازه قرار گرفتهاند.
+رتبه جهانی غیرواقعی
+computeGlobalRank یک تخمین بر اساس ویژگیهاست، ولی خروجی مانند رتبه دقیق بین ۱۳۶٬۵۶۶ شماره نمایش داده میشود.
+تا زمانی که تمام inventory با یک نسخه مدل و snapshot یکسان score نشده، رتبه باید با عنوان Estimated Rank نمایش داده شود.
+projection ساختگی
+سناریوهای زیر ثابتاند:
+Bull: +35% Base: +12% Bear: -10%
+اینها پیشبینی مبتنی بر داده نیستند. بهتر است حذف یا به scenario calculator تبدیل شوند.
+Rental Yield و LTV
+اجاره، درآمد، cap rate و LTV فعلی بیشتر فرضیاند. Marketapp اجاره شماره دارد، اما نرخهای واقعی و history باید ingest شوند.
+تا قبل از آن، این خروجیها باید experimental باشند، نه معیار قطعی سرمایهگذاری.
+مدل پیشنهادی بدون تغییر کلی محصول
+ساختار فعلی NV Engine حفظ شود، اما pipeline آن چنین شود:
+Verified on-chain events → event classification → wash-trade filter → daily market index → feature matrix → time-aware hedonic model → nearest comparable model → conformal uncertainty → explanation layer
+مدل قیمت
+قیمت در فضای logarithmic مدل شود:
+log(price_ton) = time effect + market regime + number pattern features + color + restriction + liquidity + venue + owner history + error
+validation لازم
+دادهها نباید random split شوند. باید بر اساس زمان تقسیم شوند:
+آموزش تا پایان ماه N
+پیشبینی ماه N+1
+حرکت پنجره به جلو
+تکرار روی چند ماه
+متریکهای عمومی:
+Median Absolute Percentage Error
+MAE در log price
+خطا به تفکیک Genesis و Standard
+خطا به تفکیک liquidity
+خطا برای restricted و clean
+coverage بازه ۸۰ و ۹۵ درصد
+calibration curve
+خطای مدل در بازار صعودی و نزولی
+comparable sales
+comps نباید فقط با tail class و max run انتخاب شوند. similarity باید این موارد را وزن دهد:
+طول شماره
+تعداد رقم متمایز
+max run
+prefix join
+palindrome
+repeated block
+ending pattern
+cultural signature
+color
+restricted status
+زمان فروش
+venue
+liquidity
+owner count
+برای هر comp باید دلیل شباهت و تعدیل قیمت نمایش داده شود.
+کشف wash trade
+حداقل این سیگنالها لازماند:
+buyer و seller یک entity
+چرخه A → B → A
+چند wallet با funding مشترک
+خریدوفروش سریع زیر ۱۲ ساعت
+برگشت NFT بدون تغییر ریسک واقعی
+قیمت بسیار بالاتر از cohort
+قیمتهای غیرعادی گرد
+حجم بالا بین walletهای مرتبط
+repeated transfers قبل و بعد از sale
+قرارداد بازار ناشناخته
+فروش مشکوک حذف نشود، بلکه با وزن کم و برچسب suspected نگهداری شود.
+گزارش تکشمارهای که واقعاً ارزش یک کریدت دارد
+گزارش فعلی از نظر تعداد کارتها غنی است، ولی بخشی از دادهها محاسبات نمایشیاند. نسخه ایدهآل باید ده بخش زیر را داشته باشد:
+۱. Identity & Safety
+شماره استاندارد
+Genesis یا Standard
+item contract
+collection contract
+item index
+initialized status
+verification block
+restriction status
+زمان آخرین بررسی
+لینک Fragment و explorer
+۲. ارزش فعلی
+چهار عدد جدا نمایش داده شود:
+Fair Value Estimate
+Uncertainty Range
+Liquidation Value
+Suggested Asking Price
+این چهار عدد یکی نیستند. کاربر باید بداند قیمت فروش سریع با قیمت listing تفاوت دارد.
+۳. دلیل قیمت
+بهجای متن عمومی، contribution واقعی مدل:
+Pattern premium: +21% Scarcity percentile: +8% Restricted history: -32% Low liquidity: -14% Recent comparable sales: +11%
+۴. وضعیت بازار زنده
+بهترین ask
+بالاترین bid
+اختلاف bid و ask
+listingها در Fragment
+listingها در Marketapp
+fee هر venue
+مبلغ خالص فروشنده
+زمان پایان auction
+مدت listing
+۵. تاریخچه کامل
+در یک timeline واحد:
+mint
+transfer
+sale
+auction
+listing
+delisting
+restriction
+رفع restriction
+تغییر مالک
+login availability در صورت قابل مشاهده بودن
+هر event باید tx یا evidence link داشته باشد.
+۶. Comparable Sales
+برای هر comp:
+شماره
+قیمت
+تاریخ
+venue
+similarity score
+تفاوت ویژگی
+قیمت تعدیلشده
+wash risk
+دلیل ورود به مدل
+۷. مالکیت
+مالک فعلی
+تعداد مالکان تاریخی
+متوسط holding period
+مدت نگهداری مالک فعلی
+cost basis احتمالی
+realized و unrealized PnL
+wallet concentration
+wallet labels، فقط با منبع معتبر
+۸. نقدشوندگی
+احتمال فروش در ۷ روز
+احتمال فروش در ۳۰ روز
+احتمال فروش در ۹۰ روز
+متوسط زمان فروش cohort
+discount لازم برای فروش سریع
+تعداد خریداران فعال cohort
+depth نزدیک floor
+۹. ریسک
+restriction
+سابقه spam
+wash trade probability
+stale data
+کمبود comps
+تمرکز مالکیت
+volatility
+contract verification
+custody risk
+KYC و on-chain privacy warning
+۱۰. قابلیت بازتولید
+data as-of
+model version
+dataset hash
+feature version
+source status
+confidence methodology
+export JSON
+PDF certificate امضاشده
+certificate فعلی فقط از شماره، نسخه مدل و قیمت hash میسازد. برای اعتبار واقعی باید dataset hash و signature سرور نیز داشته باشد.
+داشبورد اطلاعات کالکشن
+nums888 در حال حاضر این نقاط قوت را دارد:
+floor زنده
+تغییرات ۲۴ ساعت، ۷ روز و ۳۰ روز
+تعداد item، sales، volume و owners
+چارت historical
+فیلتر restricted
+mask
+رنگ NFT
+owner history
+Portfolio و PnL
+floor به تفکیک نوع
+تفاوت floor بازارها
+iFragment برای جلو زدن نباید فقط کارتهای بیشتری بسازد. باید داده شفافتر و علمیتر ارائه دهد.
+قابلیتهای پیشنهادی:
+شاخصهای قیمت
+Clean Number Index
+Restricted Number Index
+Genesis Index
+Standard Index
+Pattern Index
+Repeat-Sales Index
+Hedonic Index
+TON و USD toggle
+چارتها
+OHLC
+volume
+unique buyers
+unique sellers
+listings
+sales velocity
+average holding period
+restricted supply
+realized cap
+market depth
+drawdown
+volatility
+floor dispersion
+مالکیت
+تعداد مالکان
+Top 1 / 10 / 100 concentration
+HHI
+Gini coefficient
+holder cohorts
+new holders
+returning holders
+dormant holders
+diamond hands
+average assets per wallet
+سلامت بازار
+wash-adjusted volume
+organic sales ratio
+restricted percentage
+stale listings
+active buyers
+bid-ask spread
+liquidity score
+number of venues
+venue share
+شفافیت
+public methodology
+API
+CSV و JSON export
+data dictionary
+source status
+changelog
+model card
+historical snapshots
+citation-ready links
+این بخش دقیقاً همان چیزی است که پروژه را از «مارکت» به «مرجع جهانی» تبدیل میکند.
+ممیزی از ۱۰۰ زاویه
+هویت و اصالت کالکشن
+آدرس رسمی کالکشن ثبت شده است: خوب.
+عرضه ۱۳۶٬۵۶۶ نمایش داده میشود: خوب، ولی منبع و timestamp لازم است.
+عضویت دوطرفه item و collection کنترل نمیشود: بحرانی.
+هر هشت رقم معتبر فرض میشود: غلط.
+item address ذخیره میشود، ولی verification state ناقص است.
+metadata طبق TEP-64 کامل و hash نمیشود.
+badge اصالت باید لینک explorer و block داشته باشد.
+Genesis فعلاً با بازه ثابت تعیین میشود، نه inventory واقعی.
+initialized بودن NFT باید بررسی شود.
+مالک فعلی باید همراه finality، block و observed_at ذخیره شود.
+داده بازار
+Fragment استفاده میشود، اما parser آن شکننده است.
+TonAPI وجود دارد، ولی coverage کامل فروشها ثابت نشده است.
+Marketapp برای شمارهها کامل وارد pipeline نشده است.
+سایر venueها adapter استاندارد ندارند.
+listing، bid، transfer و sale باید کاملاً جدا شوند.
+fee نباید برای تمام بازارها ۵ درصد ثابت باشد.
+نرخ تاریخی TON/USD ذخیره نمیشود.
+transaction hash مصنوعی در sync ساخته میشود.
+مدیریت reorg و finality وجود ندارد.
+freshness باید برای هر منبع جدا نمایش داده شود.
+محدودیتهای تلگرام
+وضعیت restricted بهصورت جامع جمعآوری نمیشود.
+تاریخ اولین و آخرین restriction وجود ندارد.
+restricted، banned و login unavailable تفکیک نشدهاند.
+ارتباط restriction با owner history تحلیل نمیشود.
+عدم پشتیبانی SMS و تماس باید برجستهتر باشد.
+نباید عبارت «ناشناس کامل» استفاده شود.
+راهنمای 2FA و حفاظت seed phrase لازم است.
+سابقه مالک قبلی میتواند باعث محدودیت شود و باید توضیح داده شود.
+restricted numbers باید از floor سالم قابل حذف باشند.
+وضعیت نامعلوم نباید سالم فرض شود.
+ارزشگذاری
+feature extraction گسترده و توضیحپذیر است: نقطه قوت.
+ضرایب از داده آموزش ندیدهاند.
+time-based validation وجود ندارد.
+MAE، MdAPE و coverage گزارش نمیشوند.
+repeat-sales index واقعی وجود ندارد.
+market regime مدل نشده است.
+selection bias فروشها اصلاح نشده است.
+wash trade detector وجود ندارد.
+listing و sale میتوانند آلوده شوند.
+similarity comps بهاندازه کافی دقیق نیست.
+آخرین فروش بهعنوان کف قیمت اشتباه است.
+floorها hardcoded هستند.
+premium رنگها اثبات آماری ندارد.
+رتبه جهانی heuristic است.
+confidence آماری نیست.
+uncertainty coverage تأیید نشده است.
+bull/base/bear دادهمحور نیست.
+sell-time از survival model واقعی نمیآید.
+rental yield فرضی است.
+LTV بدون بازار وام واقعی ارائه میشود.
+گزارش تکشماره
+قیمت، بازه و confidence نمایش داده میشوند: خوب.
+مالک و قرارداد باید منبع مستقیم داشته باشند.
+history فعلی کامل و کاملاً verified نیست.
+restriction باید بالاتر از قیمت نمایش داده شود.
+comps باید similarity breakdown داشته باشند.
+owner timeline کامل لازم است.
+cross-market spread وجود ندارد.
+cost basis و PnL به داده تاریخی دقیق نیاز دارند.
+certificate باید signed و dataset-aware باشد.
+fact، estimate و hypothesis باید جدا شوند.
+اطلاعات کالکشن
+floor، sales و volume وجود دارند، ولی گاهی صفر یا fallback هستند.
+chart غنی است، اما lineage داده کافی نیست.
+methodology percentile نسخهبندی نشده است.
+clean و restricted floor جدا نیستند.
+floor الگو، رنگ و venue باید live باشد.
+holder concentration وجود ندارد.
+holder cohorts وجود ندارند.
+depth و slippage وجود ندارند.
+realized cap و turnover وجود ندارند.
+export و data glossary وجود ندارند.
+UX
+معماری چهار صفحهای خوب است.
+پشتیبانی فارسی و RTL نقطه قوت است.
+loading، empty و outage باید جدا شوند.
+Telegram WebView باید روی دستگاه واقعی تست شود.
+keyboard navigation و focus نیازمند audit است.
+contrast و color-blind palette باید تست شوند.
+فرمت TON، USD و تاریخ باید locale-aware شود.
+لینک Fragment باید در تمام مسیرها contract test داشته باشد.
+share report نباید paywall را دور بزند.
+پنل Methodology و Why This Price لازم است.
+پرداخت و امنیت
+پرداخت coin اتمیک است: خوب.
+پرداخت Intel Credit اتمیک نیست: بحرانی.
+گزارش کامل از endpoint عمومی نشت میکند: بحرانی.
+idempotency key وجود دارد: خوب.
+refund خودکار failure وجود ندارد.
+endpointهای سنگین rate limit کافی ندارند.
+TON wallet address فقط با empty check بررسی میشود.
+محدودیت اندازه body و content type باید اضافه شود.
+retention و حذف اطلاعات wallet باید مستند شود.
+notificationهای مدیریتی نیازمند permission review هستند.
+پایداری و تست
+scraper fixture test ندارد.
+fallback ساختگی باید حذف شود.
+source outage صریح نمایش داده نمیشود.
+cache source-level freshness ندارد.
+checkpoint وجود دارد، ولی SLO و alert کافی نیست.
+bootstrap چند خطا را نادیده میگیرد.
+constraintهای sale کامل نیستند.
+migration naming و CI migration نیازمند اصلاحاند.
+E2E اختصاصی شمارهها، concurrency و load test کافی نیست.
+هیچ مدرکی برای ادعای «بدون باگ» وجود ندارد.
+برنامه اصلاح اولویتبندیشده
+در ۷۲ ساعت اول
+مسیر عمومی full valuation را ببندید.
+fallback ساختگی را خاموش کنید.
+ساخت transaction hash مصنوعی را متوقف کنید.
+تمام دادههای بدون منبع را estimate یا unknown کنید.
+restricted status نامعلوم را سالم نمایش ندهید.
+endpointهای valuate، chart، mask، list و portfolio را rate-limit کنید.
+پیام outage و stale snapshot اضافه کنید.
+ذخیره گزارش Intel Credit را fail-safe کنید.
+طی دو هفته
+inventory کامل کالکشن را ingest کنید.
+تمام itemها را دوطرفه verify کنید.
+جدول event نهاییشده بسازید.
+فروش و transfer و listing را جدا کنید.
+Marketapp و Fragment و TON را source-tagged کنید.
+restriction scanner بسازید.
+data freshness هر منبع را نمایش دهید.
+fixture test برای Fragment بنویسید.
+E2E کامل paywall و refund اضافه کنید.
+simulated outage و stale-data test اضافه کنید.
+طی چهار تا شش هفته
+repeat-sales index بسازید.
+wash trade detector اجرا کنید.
+مدل hedonic را با داده واقعی fit کنید.
+time-based backtest بسازید.
+confidence را کالیبره کنید.
+comparable distance model اضافه کنید.
+گزارش تکشماره را source-aware کنید.
+liquidity model واقعی بسازید.
+restricted-adjusted floor اضافه کنید.
+model card عمومی منتشر کنید.
+طی هشت هفته
+API عمومی read-only
+CSV و JSON export
+daily signed snapshots
+methodology عمومی
+status page
+data changelog
+SLO برای indexer
+مانیتور lag
+benchmark ماهانه در برابر nums888
+گزارش accuracy مدل
+اصلاحات لازم در مستند داخلی پروژه
+مستند telegram_anonymous_numbers_encyclopedia.md دامنه خوبی دارد، اما بین چهار نوع اطلاعات تمایز کافی نمیگذارد:
+واقعیت رسمی
+مشاهده بازار
+فرض الگوریتم
+سیاست محصول
+موارد زیر باید اصلاح شوند:
+عبارت «هیچ شمارهای زیر floor نمیرود» حذف شود.
+floor ثابت ۲۴۵۰ و ۴۲۰۰۰ به snapshot زماندار تبدیل شود.
+ATH ثابت ۱.۵ میلیون بهعنوان ceiling مدل معرفی شود، نه واقعیت بازار.
+قیمتهای تاریخی فقط با tx یا Fragment evidence ثبت شوند.
+ضریب رنگها با عنوان فرض مدل معرفی شود.
+LTV و rental yield experimental شوند.
+«۱۹ رنگ» با registry تطبیق داده شود.
+ادعای ۳۸ سیگنال با لیست دقیق featureها و version نگهداری شود.
+هر عدد مالی منبع، تاریخ و واحد داشته باشد.
+مدل و dataset باید جدا version شوند.
+وضعیت تست
+فایلهای unit test برای normalization، feature extraction، Genesis hierarchy، invariants، concurrency و valuation وجود دارند که نکته مثبتی است.
+اما در محیط بررسی، ابزار Go و Corepack موجود نبود و اجرای کامل تستهای Go و frontend ممکن نشد. بنابراین نمیتوانم تأیید کنم build سبز است یا پروژه بدون باگ اجرا میشود.
+تستهای ضروری باقیمانده:
+PostgreSQL integration
+Redis integration
+Fragment HTML fixtures
+Marketapp adapter
+on-chain event fixtures
+migration up/down
+concurrent credit unlock
+entitlement bypass
+automatic refund
+source outage
+stale cache
+Telegram WebView Android/iOS/Desktop
+RTL visual regression
+accessibility
+indexer soak test حداقل ۳۰روزه
+valuation walk-forward backtest
+حکم نهایی صریح
+آیا بخش شمارههای کلکسیونی در تاریخ ۱۰ سپتامبر ۲۰۲۶ به عالیترین شکل ممکن انجام شده؟ خیر.
+از نظر ایده، معماری صفحات، تنوع امکانات و ظاهر احتمالی، پروژه قوی است. از نظر داده قابل اثبات، paywall، restriction intelligence و اعتبار علمی قیمتگذاری هنوز فاصله جدی دارد.
+بدترین تصمیم این است که الان فقط UI را زیباتر یا کارتهای بیشتری اضافه کنید. اول این پنج مورد را درست کنید:
+بستن نشت گزارش پولی
+تأیید واقعی عضویت شماره در کالکشن
+حذف کامل داده ساختگی
+ingest فروش فقط از event معتبر
+آموزش و backtest واقعی NV Engine
+بعد از این اصلاحات، همین ساختار فعلی بدون بازطراحی کلی میتواند از یک ابزار جذاب به یک مرجع جهانی قابل استناد برای شمارههای +888 تبدیل شود.
+منابع اصلی: [Telegram Collectibles](https://core.telegram.org/api/fragment)، [Telegram Authorization](https://core.telegram.org/api/auth)، [TON NFT Verification](https://docs.ton.org/contracts/standard/tokens/nft/how-it-works)، [TON Metadata](https://docs.ton.org/contracts/standard/tokens/metadata)، [Fragment Numbers](https://fragment.com/numbers)، [nums888](https://nums888.io/)، [Marketapp API](https://pypi.org/project/marketapp-api/)، [پژوهش قیمتگذاری NFT](https://doi.org/10.1111/eufm.12506) و [پژوهش Wash Trading](https://doi.org/10.48550/arxiv.2202.03866).
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-10T10:00:43+04:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\DEll\Desktop\iFragment\frontend\src\pages\project\pipeline\ui\ProjectPipelinePage.tsx (LANGUAGE_TSX)
+Cursor is on line: 1
+Other open documents:
+- c:\Users\DEll\Desktop\iFragment\frontend\src\shared\i18n\fa.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\DEll\Desktop\iFragment\frontend\src\shared\i18n\ru.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\DEll\Desktop\iFragment\backend\internal\service\botmgmt\moderator_service.go (LANGUAGE_GO)
+- c:\Users\DEll\Desktop\iFragment\frontend\src\pages\project\deliveries\ui\ProjectDeliveriesPage.tsx (LANGUAGE_TSX)
+- c:\Users\DEll\Desktop\iFragment\frontend\src\pages\project\team\ui\ProjectTeamPage.tsx (LANGUAGE_TSX)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.8 Flash (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

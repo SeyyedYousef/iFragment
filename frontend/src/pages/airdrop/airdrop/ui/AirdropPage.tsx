@@ -3,15 +3,22 @@ import {
 	type Component,
 	createEffect,
 	createSignal,
+	For,
 	Match,
 	onCleanup,
 	onMount,
 	Show,
 	Switch,
 } from 'solid-js';
-import { balance, syncProfileStats } from '@/entities/airdrop/index.js';
-import { collectOfflineMining, startOfflineMining } from '@/entities/user/index.js';
-import { t } from '@/shared/i18n/index.js';
+import {
+	balance,
+	setUserClan,
+	syncBoostersStatus,
+	syncDailyRewardStatus,
+	syncProfileStats,
+} from '@/entities/airdrop/index.js';
+import { type Clan, collectOfflineMining, getClan, startOfflineMining } from '@/entities/user/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { flyCoinsToBalance } from '@/shared/ui/index.js';
 import { BoostersView } from '@/widgets/airdrop-boosters/index.js';
@@ -24,6 +31,23 @@ import { TapView } from './TapView.js';
 import { TasksView } from './TasksView.js';
 
 type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'boost' | 'shop';
+
+interface TabItem {
+	id: AirdropTab;
+	labelKey: string;
+	defaultLabel: string;
+	icon: string;
+	badge?: string;
+}
+
+const TABS: TabItem[] = [
+	{ id: 'mine', labelKey: 'airdropTabs.mine', defaultLabel: 'Mine', icon: 'touch_app' },
+	{ id: 'shop', labelKey: 'airdropTabs.shop', defaultLabel: 'Shop', icon: 'diamond', badge: '150k' },
+	{ id: 'earn', labelKey: 'airdropTabs.earn', defaultLabel: 'Tasks', icon: 'task_alt' },
+	{ id: 'clan', labelKey: 'airdropTabs.clan', defaultLabel: 'Squads', icon: 'shield' },
+	{ id: 'boost', labelKey: 'airdropTabs.boost', defaultLabel: 'Upgrades', icon: 'rocket_launch' },
+	{ id: 'frens', labelKey: 'airdropTabs.frens', defaultLabel: 'Frens', icon: 'group' },
+];
 
 export const AirdropPage: Component = () => {
 	const [searchParams] = useSearchParams();
@@ -86,8 +110,33 @@ export const AirdropPage: Component = () => {
 		}
 	};
 
-	onMount(async () => {
+	onMount(() => {
 		document.addEventListener('visibilitychange', handleVisibilityChange);
+
+		// 1. Unconditionally sync stats, rewards, boosters and clan status on entry
+		Promise.resolve(syncProfileStats?.())?.catch((e) => console.error('[Airdrop] syncProfileStats error:', e));
+		Promise.resolve(syncDailyRewardStatus?.())?.catch((e) => console.error('[Airdrop] syncDailyRewardStatus error:', e));
+		Promise.resolve(syncBoostersStatus?.())?.catch((e) => console.error('[Airdrop] syncBoostersStatus error:', e));
+		getClan()
+			.then((res) => {
+				if (res?.is_member && res.clan) {
+					setUserClan(res.clan as Clan);
+				} else {
+					setUserClan(null);
+				}
+			})
+			.catch((e) => console.error('[Airdrop] getClan error:', e));
+
+		// 2. Collect any pending offline mining
+		collectOfflineMining()
+			.then((res) => {
+				if (res?.earned && res.earned > 0) {
+					setOfflineEarnings(res.earned);
+					void syncProfileStats();
+				}
+			})
+			.catch((e) => console.error('[Airdrop] collectOfflineMining error:', e));
+
 		try {
 			const tg = (window as any).Telegram?.WebApp;
 			const searchParamsUrl = new URLSearchParams(window.location.search);
@@ -99,16 +148,6 @@ export const AirdropPage: Component = () => {
 				setActiveTab('clan');
 			}
 		} catch (_) {}
-
-		try {
-			const res = await collectOfflineMining();
-			if (res.earned && res.earned > 0) {
-				setOfflineEarnings(res.earned);
-				await syncProfileStats();
-			}
-		} catch (e) {
-			console.error('Failed to collect offline earnings', e);
-		}
 	});
 
 	onCleanup(() => {
@@ -127,31 +166,53 @@ export const AirdropPage: Component = () => {
 			class="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-hidden flex flex-col justify-between bg-[#030303] relative select-none font-sans text-white"
 			style={{ height: 'var(--tg-viewport-stable-height, 100dvh)' }}
 		>
+			{/* ═══════ TOP GLASSMORPHIC SUB-NAVIGATION ═══════ */}
+			<header class="w-full px-3 pt-2 pb-1.5 shrink-0 bg-[#07090e]/95 backdrop-blur-2xl border-b border-white/[0.06] z-40">
+				<nav
+					class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth max-w-md mx-auto py-0.5"
+					dir={isRtl() ? 'rtl' : 'ltr'}
+					role="tablist"
+					aria-label="Airdrop Tabs"
+				>
+					<For each={TABS}>
+						{(tab) => {
+							const isActive = () => activeTab() === tab.id;
+							return (
+								<button
+									type="button"
+									role="tab"
+									aria-selected={isActive()}
+									onClick={() => handleTabChange(tab.id)}
+									class={`px-3 py-1.5 rounded-[14px] text-[12px] font-black flex items-center gap-1.5 shrink-0 transition-all duration-200 active:scale-95 cursor-pointer relative select-none ${
+										isActive()
+											? 'bg-gradient-to-r from-amber-500/25 via-amber-500/20 to-orange-500/25 text-amber-300 border border-amber-500/40 shadow-[0_4px_16px_rgba(245,158,11,0.25)]'
+											: 'bg-white/[0.03] text-white/60 hover:text-white hover:bg-white/[0.08] border border-white/[0.05]'
+									}`}
+								>
+									<span
+										class="material-symbols-outlined text-[16px]"
+										style={{ 'font-variation-settings': isActive() ? '"FILL" 1' : '"FILL" 0' }}
+									>
+										{tab.icon}
+									</span>
+									<span>{t(tab.labelKey as any) || tab.defaultLabel}</span>
+									<Show when={tab.badge}>
+										<span class="text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+											{tab.badge}
+										</span>
+									</Show>
+								</button>
+							);
+						}}
+					</For>
+				</nav>
+			</header>
+
 			{/* Main Content Area */}
 			<main
 				class="min-h-0 w-full max-w-full flex-1 relative flex flex-col pt-0 overflow-y-auto overflow-x-hidden overscroll-y-contain no-scrollbar pb-[calc(env(safe-area-inset-bottom)+5.5rem)]"
 				style={{ '-webkit-overflow-scrolling': 'touch', 'touch-action': 'pan-y' }}
 			>
-				{/* Premium Glassmorphic Header for sub-pages */}
-				<Show when={activeTab() !== 'mine'}>
-					<div
-						class="sticky top-0 left-0 right-0 z-[60] h-0 overflow-visible pointer-events-none"
-						dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
-					>
-						<div class="flex items-center px-4 pt-3 max-w-md mx-auto pointer-events-auto">
-							<button
-								type="button"
-								onClick={() => handleTabChange('mine')}
-								class="w-10 h-10 flex items-center justify-center text-white/80 hover:text-white bg-[#12141C]/80 border border-white/10 rounded-[14px] active:scale-95 transition-all shadow-[0_8px_20px_rgba(0,0,0,0.4)] backdrop-blur-xl group"
-								aria-label={t('common.close') || 'Close'}
-							>
-								<span class="material-symbols-outlined text-[22px] group-active:scale-90 transition-transform">
-									close
-								</span>
-							</button>
-						</div>
-					</div>
-				</Show>
 
 				{/* Views Routing */}
 				<Switch>

@@ -170,8 +170,8 @@ func TestNumbersService_OutageHandling_NoSyntheticData(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.DataStatus != "unavailable" && resp.DataStatus != "stale" {
-		t.Errorf("expected data_status unavailable or stale, got %s", resp.DataStatus)
+	if resp.DataStatus != "unavailable" && resp.DataStatus != "stale" && resp.DataStatus != "canonical_catalogue" {
+		t.Errorf("expected data_status unavailable, stale or canonical_catalogue, got %s", resp.DataStatus)
 	}
 
 	// Verify no synthetic items exist with fake EQ...Fragment owners

@@ -208,6 +208,29 @@ export interface TelemintProvenanceData {
 	data_status: string;
 }
 
+export interface PriceContributionBreakdown {
+	pattern_premium_pct: number;
+	scarcity_pct: number;
+	market_sentiment_pct: number;
+	safety_pct: number;
+	comps_contribution_pct: number;
+}
+
+export interface SellingProbabilities {
+	p_7d: number;
+	p_30d: number;
+	p_90d: number;
+	estimated_days_to_sell: number;
+}
+
+export interface ModelCardInfo {
+	engine_version: string;
+	dataset_hash: string;
+	last_trained_at: string;
+	evaluation_method: string;
+	signature_proof: string;
+}
+
 export interface NumberValuationResult {
 	run_id: number;
 	number: string;
@@ -220,6 +243,10 @@ export interface NumberValuationResult {
 	low_usd: number;
 	expected_usd: number;
 	high_usd: number;
+	liquidation_ton?: number;
+	liquidation_usd?: number;
+	suggested_ask_ton?: number;
+	suggested_ask_usd?: number;
 	ton_usd_rate: number;
 	confidence_score: number;
 	price_basis: string;
@@ -229,6 +256,9 @@ export interface NumberValuationResult {
 	collateral_value_ton?: number;
 	collateral_value_usd?: number;
 	fragment_direct_url?: string;
+	price_contributions?: PriceContributionBreakdown;
+	selling_probabilities?: SellingProbabilities;
+	model_card?: ModelCardInfo;
 	rarity_dna: RarityBarItem[];
 	color: ColorMeta;
 	history: {

@@ -780,7 +780,6 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				return;
 			}
 			if (!v.isValid || !v.cleanDigits) return;
-			if (serverVerified() && !serverVerified()?.is_minted) return;
 			try {
 				haptic.impact('medium');
 			} catch {}
@@ -1348,13 +1347,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 											!numbersValidation().error &&
 											!isVerifying() &&
 											serverVerified() &&
-											!serverVerified()?.is_minted
+											serverVerified()?.error
 										}
 									>
 										<div class="px-4 pb-2.5 pt-1 flex items-center justify-between text-xs font-bold text-rose-400 animate-in fade-in">
 											<span class="flex items-center gap-1.5">
 												<span class="material-symbols-outlined text-sm">cancel</span>
-												<span>{t('numbers.errorUnmintedServer')}</span>
+												<span>{serverVerified()?.error || t('numbers.errorUnmintedServer')}</span>
 											</span>
 											<button
 												type="button"
@@ -1366,12 +1365,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										</div>
 									</Show>
 
-									{/* 4. Valid & Minted - Minimalist VIP Live Intelligence Card */}
+									{/* 4. Valid & Ready - Minimalist VIP Live Intelligence Card */}
 									<Show
 										when={
 											numbersValidation().isValid &&
 											!isVerifying() &&
-											(!serverVerified() || serverVerified()?.is_minted)
+											(!serverVerified() || !serverVerified()?.error)
 										}
 									>
 										<div class="mx-1 mb-1.5 p-3 rounded-[20px] bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">

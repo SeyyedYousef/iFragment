@@ -16,6 +16,30 @@ export const ProjectContextBar: Component<ProjectContextBarProps> = (props) => {
 	const isPaid = () => project()?.stars_subscription_active;
 	const isTrial = () => !isPaid() && project()?.status === 'active' && project()?.trial_ends_at;
 
+	const isSingleChannel = () => {
+		const p = project();
+		if (!p) return false;
+		const cfg = p.pipeline_config as any;
+		if (cfg?.single_channel_mode) return true;
+		const hasSource = !!(p.source_title || p.source_username || p.source_chat_id);
+		const hasTarget = !!(p.target_title || p.target_username || p.target_chat_id);
+		return (hasSource && !hasTarget) || (!hasSource && hasTarget);
+	};
+
+	const singleChannelName = () => {
+		const p = project();
+		if (!p) return '';
+		return (
+			p.source_title ||
+			p.source_username ||
+			p.target_title ||
+			p.target_username ||
+			(p.pipeline_config as any)?.source_channel_identifier ||
+			(p.pipeline_config as any)?.target_channel_identifier ||
+			''
+		);
+	};
+
 	return (
 		<div
 			class={`rounded-[22px] border border-white/10 bg-gradient-to-r from-[#141722]/95 to-[#0e1017]/95 backdrop-blur-xl flex items-center justify-between gap-3 shadow-md ${
@@ -38,15 +62,29 @@ export const ProjectContextBar: Component<ProjectContextBarProps> = (props) => {
 							: project()?.name || t('channelProjects.context.defaultName')}
 					</span>
 					<Show when={!project.loading && project()}>
-						<div class="flex items-center gap-1.5 text-[10px] text-white/50 font-mono truncate" dir="ltr">
-							<span class="text-[#3390ec] font-bold">
-								{project()?.source_title || project()?.source_username || project()?.source_chat_id || 'Source'}
-							</span>
-							<span>➔</span>
-							<span class="text-emerald-400 font-bold">
-								{project()?.target_title || project()?.target_username || project()?.target_chat_id || 'Target'}
-							</span>
-						</div>
+						<Show
+							when={!isSingleChannel()}
+							fallback={
+								<div class="flex items-center gap-1.5 text-[10px] text-white/50 font-mono truncate" dir="ltr">
+									<span class="px-1.5 py-0.2 rounded-[6px] bg-[#3390ec]/15 text-[#3390ec] font-bold text-[9px]">
+										{t('channelProjects.context.singleChannel')}
+									</span>
+									<span class="text-white/80 font-bold truncate">
+										{singleChannelName()}
+									</span>
+								</div>
+							}
+						>
+							<div class="flex items-center gap-1.5 text-[10px] text-white/50 font-mono truncate" dir="ltr">
+								<span class="text-[#3390ec] font-bold truncate">
+									{project()?.source_title || project()?.source_username || project()?.source_chat_id || 'Source'}
+								</span>
+								<span>➔</span>
+								<span class="text-emerald-400 font-bold truncate">
+									{project()?.target_title || project()?.target_username || project()?.target_chat_id || 'Target'}
+								</span>
+							</div>
+						</Show>
 					</Show>
 				</div>
 			</div>

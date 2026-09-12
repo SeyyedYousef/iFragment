@@ -122,9 +122,35 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 						<h1 class="text-[22px] font-black text-white mb-1.5 text-center tracking-tight drop-shadow-md">
 							{t('airdrop.clan.officialClansTitle')}
 						</h1>
-						<p class="text-white/60 text-[12px] text-center mb-5 leading-relaxed font-medium max-w-[280px]">
+						<p class="text-white/60 text-[12px] text-center mb-4 leading-relaxed font-medium max-w-[280px]">
 							{t('airdrop.clan.officialClansDesc')}
 						</p>
+
+						{/* Season Battle & Prize Pool Banner */}
+						<div class="w-full bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-[24px] p-3.5 mb-5 flex items-center justify-between shadow-[0_8px_24px_rgba(245,158,11,0.15)] relative overflow-hidden text-start">
+							<div class="flex items-center gap-3">
+								<div class="w-10 h-10 rounded-[14px] bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-[20px] shrink-0 shadow-sm">
+									⚔️
+								</div>
+								<div class="flex flex-col">
+									<div class="flex items-center gap-1.5">
+										<span class="text-[12.5px] font-black text-white">
+											{t('airdrop.clan.weeklyBattle')}
+										</span>
+										<span class="text-[9px] font-black font-mono bg-amber-400/20 text-amber-300 px-1.5 py-0.2 rounded-full border border-amber-400/30">
+											SEASON 1
+										</span>
+									</div>
+									<span class="text-[11px] text-amber-300/80 font-mono font-bold mt-0.5">
+										🎁 {t('airdrop.clan.seasonPrizePool', { amount: '2,500,000' })}
+									</span>
+								</div>
+							</div>
+							<div class="flex flex-col items-end shrink-0">
+								<span class="text-[9.5px] text-white/50 font-bold">Anti-Whale</span>
+								<span class="text-[10px] font-mono text-emerald-400 font-bold">100k XP Cap</span>
+							</div>
+						</div>
 
 						<div class="w-full flex gap-3 mb-6">
 							<button
@@ -328,6 +354,72 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 									{t('airdrop.clan.leaderboardBtnText')}
 								</button>
 							</Show>
+
+							{/* Clan Contribution & Anti-Whale Ledger Status */}
+							<div class="w-full mt-4 bg-white/[0.03] border border-white/5 rounded-[20px] p-3 flex items-center justify-between text-start">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-emerald-400 text-[18px]">verified_user</span>
+									<div class="flex flex-col">
+										<span class="text-[11px] font-bold text-white">
+											{t('airdrop.clan.antiWhaleTitle')}
+										</span>
+										<span class="text-[10px] text-white/50">
+											{t('airdrop.clan.antiWhaleCapDesc', { cap: '100,000' })}
+										</span>
+									</div>
+								</div>
+								<span class="text-[10px] font-mono font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+									{t('airdrop.clan.antiWhaleFairPlay')}
+								</span>
+							</div>
+
+							{/* Weekly Clan Quests */}
+							<div class="w-full mt-4 flex flex-col gap-2.5 text-start">
+								<div class="flex items-center justify-between px-1">
+									<h4 class="text-[12px] font-black text-white/90">
+										🎯 {t('airdrop.clan.weeklyQuestsTitle')}
+									</h4>
+									<span class="text-[10px] font-mono font-bold text-amber-400">
+										{t('airdrop.clan.weeklyQuestsActive', { active: '3', total: '3' })}
+									</span>
+								</div>
+
+								{/* Quest 1 */}
+								<div class="bg-gradient-to-r from-white/[0.04] to-white/[0.02] border border-white/5 rounded-[18px] p-3 flex items-center justify-between">
+									<div class="flex items-center gap-2.5 min-w-0">
+										<span class="text-[18px]">⛏️</span>
+										<div class="flex flex-col min-w-0">
+											<span class="text-[12px] font-bold text-white truncate">
+												{t('airdrop.clan.questMineCoins', { amount: '500,000' })}
+											</span>
+											<span class="text-[10px] text-white/50 font-mono">
+												{t('airdrop.clan.questMineProgress', { percent: '72' })}
+											</span>
+										</div>
+									</div>
+									<span class="text-[10.5px] font-black font-mono text-amber-400 bg-amber-400/10 px-2 py-1 rounded-xl border border-amber-400/20 shrink-0">
+										+50k Pool
+									</span>
+								</div>
+
+								{/* Quest 2 */}
+								<div class="bg-gradient-to-r from-white/[0.04] to-white/[0.02] border border-white/5 rounded-[18px] p-3 flex items-center justify-between">
+									<div class="flex items-center gap-2.5 min-w-0">
+										<span class="text-[18px]">👥</span>
+										<div class="flex flex-col min-w-0">
+											<span class="text-[12px] font-bold text-white truncate">
+												{t('airdrop.clan.questMembersGoal', { count: '10' })}
+											</span>
+											<span class="text-[10px] text-white/50 font-mono">
+												{t('airdrop.clan.statusActive')}
+											</span>
+										</div>
+									</div>
+									<span class="text-[10.5px] font-black font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-xl border border-emerald-400/20 shrink-0">
+										+Badge Perk
+									</span>
+								</div>
+							</div>
 						</div>
 
 						{/* Members List */}

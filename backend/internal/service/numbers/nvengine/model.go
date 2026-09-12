@@ -18,9 +18,13 @@ type NumberValuation struct {
 	LowTON               decimal.Decimal          `json:"low_ton"`
 	ExpectedTON          decimal.Decimal          `json:"expected_ton"`
 	HighTON              decimal.Decimal          `json:"high_ton"`
+	LiquidationTON       decimal.Decimal          `json:"liquidation_ton"`
+	SuggestedAskTON      decimal.Decimal          `json:"suggested_ask_ton"`
 	LowUSD               float64                  `json:"low_usd"`
 	ExpectedUSD          float64                  `json:"expected_usd"`
 	HighUSD              float64                  `json:"high_usd"`
+	LiquidationUSD       float64                  `json:"liquidation_usd"`
+	SuggestedAskUSD      float64                  `json:"suggested_ask_usd"`
 	TONUSDRate           float64                  `json:"ton_usd_rate"`
 	ConfidenceScore      int16                    `json:"confidence_score"` // 0 - 100
 	PriceBasis           string                   `json:"price_basis"`      // direct_sales_of_this_number | pattern_comps_shrunk_to_class | class_median_only
@@ -51,6 +55,9 @@ type NumberValuation struct {
 	OnChainAudit         OnChainAudit             `json:"on_chain_audit"`
 	SecurityAdvisory     SecurityAdvisory         `json:"security_advisory"`
 	TelemintProvenance   TelemintProvenance       `json:"telemint_provenance"`
+	PriceContributions   PriceContributionBreakdown `json:"price_contributions"`
+	SellingProbability   SellingProbabilities     `json:"selling_probabilities"`
+	ModelCard            ModelCardInfo            `json:"model_card"`
 	CertificateID        string                   `json:"certificate_id"`
 	EvaluatedAt          time.Time                `json:"evaluated_at"`
 	ReasoningLog         map[string]interface{}   `json:"reasoning_log"`
@@ -350,4 +357,30 @@ type NumberVerificationResult struct {
 	SecurityAdvisory   SecurityAdvisory   `json:"security_advisory"`
 	TelemintProvenance TelemintProvenance `json:"telemint_provenance"`
 	Error              string             `json:"error,omitempty"`
+}
+
+// PriceContributionBreakdown shows real model contribution percentages (Audit Requirement)
+type PriceContributionBreakdown struct {
+	PatternPremiumPct    float64 `json:"pattern_premium_pct"`
+	ScarcityPercentile   float64 `json:"scarcity_percentile"`
+	MarketSentimentPct   float64 `json:"market_sentiment_pct"`
+	RestrictionEffectPct float64 `json:"restriction_effect_pct"`
+	CompsContributionPct float64 `json:"comps_contribution_pct"`
+}
+
+// SellingProbabilities details the empirical liquidity timeline (Audit Requirement)
+type SellingProbabilities struct {
+	Days7Pct      float64 `json:"days_7_pct"`
+	Days30Pct     float64 `json:"days_30_pct"`
+	Days90Pct     float64 `json:"days_90_pct"`
+	EstimatedDays int     `json:"estimated_days"`
+}
+
+// ModelCardInfo provides cryptographic and methodology reproducibility (Audit Requirement)
+type ModelCardInfo struct {
+	EngineName     string `json:"engine_name"`
+	Methodology    string `json:"methodology"`
+	DatasetHash    string `json:"dataset_hash"`
+	DataAsOf       string `json:"data_as_of"`
+	SignatureProof string `json:"signature_proof"`
 }

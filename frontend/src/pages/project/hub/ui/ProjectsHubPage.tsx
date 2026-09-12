@@ -23,9 +23,11 @@ export const ProjectsHubPage: Component = () => {
 
 	// Create Project Modal & Preflight State
 	const [showCreateModal, setShowCreateModal] = createSignal(false);
+	const [projectMode, setProjectMode] = createSignal<'dual' | 'single'>('dual');
 	const [projectName, setProjectName] = createSignal('');
 	const [sourceInput, setSourceInput] = createSignal('');
 	const [targetInput, setTargetInput] = createSignal('');
+	const [singleChannelInput, setSingleChannelInput] = createSignal('');
 	const [autoPublish, setAutoPublish] = createSignal(false); // Default to review inbox for editorial control
 	const [isPreflightChecking, setIsPreflightChecking] = createSignal(false);
 	const [preflightResult, setPreflightResult] = createSignal<PreflightResult | null>(null);
@@ -82,6 +84,48 @@ export const ProjectsHubPage: Component = () => {
 	const handleCreateProject = async (e: Event) => {
 		e.preventDefault();
 		const name = projectName().trim() || t('channelProjects.context.defaultName');
+
+		if (projectMode() === 'single') {
+			const ch = singleChannelInput().trim();
+			if (!ch) {
+				showToast(t('channelProjects.hub.fillSingleChannel'), 'error');
+				return;
+			}
+
+			setIsCreating(true);
+			try {
+				haptic.impact('heavy');
+				const newProject = await channelApi.createProject({
+					name,
+					source_channel_identifier: ch,
+					pipeline_config: {
+						single_channel_mode: true,
+						auto_publish: false,
+						remove_ads: false,
+						remove_links: false,
+						ai_rewrite: false,
+					},
+				});
+
+				haptic.notify('success');
+				showToast(t('channelProjects.createdSuccess'), 'success');
+				setShowCreateModal(false);
+				setProjectName('');
+				setSingleChannelInput('');
+				setSourceInput('');
+				setTargetInput('');
+				refetchProjects();
+
+				navigate(`/projects/${newProject.id}`);
+			} catch (err: any) {
+				haptic.notify('error');
+				showToast(err?.response?.data?.error || err?.message || t('channelProjects.common.saveError'), 'error');
+			} finally {
+				setIsCreating(false);
+			}
+			return;
+		}
+
 		const src = sourceInput().trim();
 		const tgt = targetInput().trim();
 
@@ -98,6 +142,7 @@ export const ProjectsHubPage: Component = () => {
 				source_channel_identifier: src,
 				target_channel_identifier: tgt,
 				pipeline_config: {
+					single_channel_mode: false,
 					auto_publish: autoPublish(),
 					remove_ads: true,
 					remove_links: false,
@@ -366,6 +411,45 @@ export const ProjectsHubPage: Component = () => {
 						</div>
 
 						<form onSubmit={handleCreateProject} class="flex flex-col gap-4">
+							{/* Project Mode Selector */}
+							<div>
+								<label class="block text-[12px] font-bold text-white/70 mb-2">
+									{t('channelProjects.hub.projectMode')}
+								</label>
+								<div class="grid grid-cols-2 gap-2 bg-[#090a0f] p-1.5 rounded-[18px] border border-white/10">
+									<button
+										type="button"
+										onClick={() => {
+											haptic.impact('light');
+											setProjectMode('dual');
+										}}
+										class={`py-2 px-2.5 rounded-[13px] text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
+											projectMode() === 'dual'
+												? 'bg-[#3390ec] text-white shadow-md shadow-[#3390ec]/25'
+												: 'text-white/50 hover:text-white hover:bg-white/5'
+										}`}
+									>
+										<span class="material-symbols-outlined text-[18px]">sync_alt</span>
+										<span class="text-center">{t('channelProjects.hub.modeDual')}</span>
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											haptic.impact('light');
+											setProjectMode('single');
+										}}
+										class={`py-2 px-2.5 rounded-[13px] text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
+											projectMode() === 'single'
+												? 'bg-[#3390ec] text-white shadow-md shadow-[#3390ec]/25'
+												: 'text-white/50 hover:text-white hover:bg-white/5'
+										}`}
+									>
+										<span class="material-symbols-outlined text-[18px]">campaign</span>
+										<span class="text-center">{t('channelProjects.hub.modeSingle')}</span>
+									</button>
+								</div>
+							</div>
+
 							<div>
 								<label class="block text-[12px] font-bold text-white/70 mb-1.5">
 									{t('channelProjects.settingsPage.projectName')}
@@ -379,50 +463,72 @@ export const ProjectsHubPage: Component = () => {
 								/>
 							</div>
 
-							<div>
-								<label class="block text-[12px] font-bold text-white/70 mb-1.5">
-									{t('channelProjects.hub.sourceLabel')}
-								</label>
-								<input
-									type="text"
-									placeholder={t('channelProjects.hub.sourcePlaceholder')}
-									value={sourceInput()}
-									onInput={(e) => setSourceInput(e.currentTarget.value)}
-									dir="ltr"
-									class="w-full h-12 bg-[#090a0f] rounded-[16px] px-4 text-[13px] text-white border border-white/10 focus:border-[#3390ec] outline-none font-mono"
-								/>
-							</div>
-
-							<div>
-								<label class="block text-[12px] font-bold text-white/70 mb-1.5">
-									{t('channelProjects.hub.targetLabel')}
-								</label>
-								<input
-									type="text"
-									placeholder={t('channelProjects.hub.targetPlaceholder')}
-									value={targetInput()}
-									onInput={(e) => setTargetInput(e.currentTarget.value)}
-									dir="ltr"
-									class="w-full h-12 bg-[#090a0f] rounded-[16px] px-4 text-[13px] text-white border border-white/10 focus:border-[#3390ec] outline-none font-mono"
-								/>
-								<span class="text-[10px] text-white/40 mt-1 block">
-									{t('channelProjects.hub.botAdminNotice')}
-								</span>
-							</div>
-
-							{/* Preflight Button */}
-							<button
-								type="button"
-								onClick={handlePreflightCheck}
-								disabled={isPreflightChecking()}
-								class="h-11 bg-white/5 hover:bg-white/10 border border-white/15 rounded-[14px] text-[12px] font-bold text-white flex items-center justify-center gap-2 active:scale-95 transition-all"
+							<Show
+								when={projectMode() === 'dual'}
+								fallback={
+									<div>
+										<label class="block text-[12px] font-bold text-white/70 mb-1.5">
+											{t('channelProjects.hub.singleChannelLabel')}
+										</label>
+										<input
+											type="text"
+											placeholder={t('channelProjects.hub.singleChannelPlaceholder')}
+											value={singleChannelInput()}
+											onInput={(e) => setSingleChannelInput(e.currentTarget.value)}
+											dir="ltr"
+											class="w-full h-12 bg-[#090a0f] rounded-[16px] px-4 text-[13px] text-white border border-white/10 focus:border-[#3390ec] outline-none font-mono"
+										/>
+										<span class="text-[10px] text-white/40 mt-1 block">
+											{t('channelProjects.hub.modeSingleDesc')}
+										</span>
+									</div>
+								}
 							>
-								<span class="material-symbols-outlined text-[18px]">verified_user</span>
-								<span>{isPreflightChecking() ? t('channelProjects.hub.preflightChecking') : t('channelProjects.hub.preflightBtn')}</span>
-							</button>
+								<div>
+									<label class="block text-[12px] font-bold text-white/70 mb-1.5">
+										{t('channelProjects.hub.sourceLabel')}
+									</label>
+									<input
+										type="text"
+										placeholder={t('channelProjects.hub.sourcePlaceholder')}
+										value={sourceInput()}
+										onInput={(e) => setSourceInput(e.currentTarget.value)}
+										dir="ltr"
+										class="w-full h-12 bg-[#090a0f] rounded-[16px] px-4 text-[13px] text-white border border-white/10 focus:border-[#3390ec] outline-none font-mono"
+									/>
+								</div>
+
+								<div>
+									<label class="block text-[12px] font-bold text-white/70 mb-1.5">
+										{t('channelProjects.hub.targetLabel')}
+									</label>
+									<input
+										type="text"
+										placeholder={t('channelProjects.hub.targetPlaceholder')}
+										value={targetInput()}
+										onInput={(e) => setTargetInput(e.currentTarget.value)}
+										dir="ltr"
+										class="w-full h-12 bg-[#090a0f] rounded-[16px] px-4 text-[13px] text-white border border-white/10 focus:border-[#3390ec] outline-none font-mono"
+									/>
+									<span class="text-[10px] text-white/40 mt-1 block">
+										{t('channelProjects.hub.botAdminNotice')}
+									</span>
+								</div>
+
+								{/* Preflight Button */}
+								<button
+									type="button"
+									onClick={handlePreflightCheck}
+									disabled={isPreflightChecking()}
+									class="h-11 bg-white/5 hover:bg-white/10 border border-white/15 rounded-[14px] text-[12px] font-bold text-white flex items-center justify-center gap-2 active:scale-95 transition-all"
+								>
+									<span class="material-symbols-outlined text-[18px]">verified_user</span>
+									<span>{isPreflightChecking() ? t('channelProjects.hub.preflightChecking') : t('channelProjects.hub.preflightBtn')}</span>
+								</button>
+							</Show>
 
 							{/* Preflight Result Card */}
-							<Show when={preflightResult()}>
+							<Show when={projectMode() === 'dual' && preflightResult()}>
 								{(res) => (
 									<div class={`p-3.5 rounded-[16px] border text-[12px] flex flex-col gap-2 ${
 										res().valid

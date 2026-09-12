@@ -130,12 +130,16 @@ type LedgerResponse struct {
 
 // ─── My Assets Types ───
 type MyReportsAsset struct {
-	Username            string    `json:"username"`
+	Type                string    `json:"type"`                          // "username" | "number" | "gift"
+	Identifier          string    `json:"identifier"`                    // e.g. "durov", "+888 0123 4567", "plush_pepe-42"
+	Title               string    `json:"title"`                         // "@durov", "+888 8888 8888", "Plush Pepe #42"
+	Username            string    `json:"username"`                      // backward compatibility
 	RarityScore         int       `json:"rarityScore"`
 	Status              string    `json:"status"`
 	GeneratedAt         time.Time `json:"generatedAt"`
 	CertificateURL      string    `json:"certificateUrl"`
 	NotificationEnabled bool      `json:"notificationEnabled"`
+	ValueEstimate       string    `json:"valueEstimate,omitempty"`       // e.g. "12.5 TON", "450 GRAM"
 }
 
 type MyConnectedProperty struct {

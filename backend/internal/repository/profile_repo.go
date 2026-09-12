@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -1157,7 +1158,7 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 		Projects:   []model.MyProjectAsset{},
 	}
 
-	// 1. Fetch purchased reports from username_reports table
+	// 1a. Fetch purchased reports from username_reports table
 	reportRows, err := db.Pool.Query(ctx, `
 		SELECT username, rarity_score, status, generated_at
 		FROM username_reports
@@ -1170,6 +1171,9 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 		for reportRows.Next() {
 			var r model.MyReportsAsset
 			if err := reportRows.Scan(&r.Username, &r.RarityScore, &r.Status, &r.GeneratedAt); err == nil {
+				r.Type = "username"
+				r.Identifier = r.Username
+				r.Title = "@" + r.Username
 				r.CertificateURL = fmt.Sprintf("/username/report?u=%s", r.Username)
 				r.NotificationEnabled = true // purchased reports are enabled for tracking
 				resp.Reports = append(resp.Reports, r)
@@ -1193,6 +1197,9 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 				var genAt time.Time
 				if logRows.Scan(&u, &genAt) == nil {
 					resp.Reports = append(resp.Reports, model.MyReportsAsset{
+						Type:                "username",
+						Identifier:          u,
+						Title:               "@" + u,
 						Username:            u,
 						RarityScore:         85,
 						Status:              "completed",
@@ -1203,6 +1210,81 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 				}
 			}
 		}
+	}
+
+	// 1b. Fetch purchased reports from number_reports table
+	numRows, numErr := db.Pool.Query(ctx, `
+		SELECT number, fair_value_nano_ton, confidence_score, purchased_at
+		FROM number_reports
+		WHERE user_id = $1
+		ORDER BY purchased_at DESC
+		LIMIT 50
+	`, userID)
+	if numErr == nil {
+		defer numRows.Close()
+		for numRows.Next() {
+			var num string
+			var fairNano int64
+			var confidence int
+			var purchasedAt time.Time
+			if err := numRows.Scan(&num, &fairNano, &confidence, &purchasedAt); err == nil {
+				tonVal := float64(fairNano) / 1e9
+				resp.Reports = append(resp.Reports, model.MyReportsAsset{
+					Type:                "number",
+					Identifier:          num,
+					Title:               num,
+					Username:            num,
+					RarityScore:         confidence,
+					Status:              "completed",
+					GeneratedAt:         purchasedAt,
+					CertificateURL:      fmt.Sprintf("/numbers/report?n=%s", url.QueryEscape(num)),
+					NotificationEnabled: true,
+					ValueEstimate:       fmt.Sprintf("%.1f TON", tonVal),
+				})
+			}
+		}
+	}
+
+	// 1c. Fetch purchased reports from gift_reports table
+	giftRepRows, giftRepErr := db.Pool.Query(ctx, `
+		SELECT gift_id, model_id, serial_number, fair_value_nano_gram, confidence_score, purchased_at
+		FROM gift_reports
+		WHERE user_id = $1
+		ORDER BY purchased_at DESC
+		LIMIT 50
+	`, userID)
+	if giftRepErr == nil {
+		defer giftRepRows.Close()
+		for giftRepRows.Next() {
+			var giftID, modelID string
+			var serialNum int
+			var fairNano int64
+			var confidence int
+			var purchasedAt time.Time
+			if err := giftRepRows.Scan(&giftID, &modelID, &serialNum, &fairNano, &confidence, &purchasedAt); err == nil {
+				gramVal := float64(fairNano) / 1e9
+				title := fmt.Sprintf("%s #%d", modelID, serialNum)
+				resp.Reports = append(resp.Reports, model.MyReportsAsset{
+					Type:                "gift",
+					Identifier:          giftID,
+					Title:               title,
+					Username:            title,
+					RarityScore:         confidence,
+					Status:              "completed",
+					GeneratedAt:         purchasedAt,
+					CertificateURL:      fmt.Sprintf("/gifts/report?g=%s", giftID),
+					NotificationEnabled: true,
+					ValueEstimate:       fmt.Sprintf("%.1f GRAM", gramVal),
+				})
+			}
+		}
+	}
+
+	// Sort combined reports by GeneratedAt DESC
+	if len(resp.Reports) > 1 {
+		sort.SliceStable(resp.Reports, func(i, j int) bool {
+			return resp.Reports[i].GeneratedAt.After(resp.Reports[j].GeneratedAt)
+		})
 	}
 
 	// 2. Fetch Connected Properties (Managed Channels & Groups)

@@ -1,0 +1,16 @@
+# Resuming from a compaction
+
+You are continuing work on the task described above, but you have lost access to the full conversation history, and need to resume work efficiently using the progress summary below:
+
+# User Requests
+The following were user requests from the truncated conversation in chronological order:
+1. این گزارش شماره کلکسیونی رو ببین و انجامش بده : 
+
+گزارش کامل ممیزی بخش شماره‌های کلکسیونی +888 پروژه iFragment
+تاریخ ارزیابی: ۱۰ سپتامبر ۲۰۲۶
+دامنه بررسی: فقط بخش شماره‌های کلکسیونی تلگرام، شامل بک‌اند، دیتابیس، ایندکسر، NV Engine، گزارش یک‌کریدتی، داشبورد کالکشن، Portfolio، Mask Builder، API، امنیت، UX و مستند داخلی.
+من ۱۲٬۵۸۱ خط از ۲۹ فایل مستقیم این بخش را بررسی کردم، migrationها و OpenAPI را خواندم و ساختار را با مستندات رسمی Telegram، TON و Fragment، قابلیت‌های nums888 و Marketapp، پروژه‌های GitHub و پژوهش‌های ارزش‌گذاری NFT مقایسه کردم.
+نتیجه نهایی
+امتیاز فعلی: ۴۶ از ۱۰۰
+ایده محصول عالی و متمایز است. iF
+<truncated 30078 bytes>

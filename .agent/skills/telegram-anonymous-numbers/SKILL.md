@@ -12,7 +12,7 @@ description: 19-chapter comprehensive encyclopedia, architecture reference, and 
 ## 1. Quick Reference & Core Architecture
 
 - **Total Closed Supply:** Exactly **136,566** numbers minted in December 2022. No new numbers can ever be minted.
-- **Telemint Collection Address:** `EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf`
+- **Telemint Collection Address:** `EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N`
 - **Genesis 4-Digit Club:** Only 1,000 numbers minted (`+888 8000` to `+888 8999`). Top rarity class in the world.
   - Floor: ~42,000 TON
   - All-Time High: +888 8888 (~800K+ TON), +888 8666 (666,666 TON), +888 8777 (651,358 TON).
