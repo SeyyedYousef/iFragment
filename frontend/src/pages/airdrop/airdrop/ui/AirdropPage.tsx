@@ -156,18 +156,18 @@ export const AirdropPage: Component = () => {
 			haptic.selection();
 		} catch (_) {}
 		setActiveTab(tab);
+		if (typeof window !== 'undefined') {
+			window.scrollTo({ top: 0, behavior: 'instant' as any });
+		}
 	};
 
 	return (
 		<div
-			class="min-h-screen w-full max-w-full flex flex-col justify-between bg-[#030303] relative select-none font-sans text-white"
+			class="min-h-screen w-full max-w-full flex flex-col justify-between bg-[#030303] relative font-sans text-white"
 			style={{ 'min-height': 'max(100dvh, var(--tg-viewport-stable-height, 100dvh))' }}
 		>
 			{/* Main Content Area */}
-			<main
-				class="min-h-0 w-full max-w-full flex-1 relative flex flex-col pt-0 overflow-y-auto overflow-x-hidden overscroll-y-contain no-scrollbar pb-[calc(env(safe-area-inset-bottom)+5.5rem)]"
-				style={{ '-webkit-overflow-scrolling': 'touch', 'touch-action': 'pan-y' }}
-			>
+			<main class="w-full max-w-full flex-1 relative flex flex-col pt-0 pb-[calc(env(safe-area-inset-bottom)+5.5rem)]">
 				{/* Premium Glassmorphic Header for sub-pages */}
 				<Show when={activeTab() !== 'mine'}>
 					<div
@@ -255,7 +255,7 @@ export const AirdropPage: Component = () => {
 							<span class="material-symbols-outlined text-white/70 text-[22px]">close</span>
 						</button>
 					</div>
-					<div class="flex-1 flex flex-col overflow-hidden relative">
+					<div class="flex-1 min-h-0 flex flex-col overflow-hidden relative">
 						<LeaderboardView initialTab={leaderboardInitialTab()} />
 					</div>
 				</div>

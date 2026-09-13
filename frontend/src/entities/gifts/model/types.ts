@@ -679,6 +679,20 @@ export interface GiftUpgradeInfo {
 	custody_notice?: string;
 }
 
+export interface SerialIntel {
+	serial_number: number;
+	tier: string;
+	multiplier: number;
+	description: string;
+}
+
+export interface BackdropColors {
+	center_hex: string;
+	edge_hex: string;
+	pattern_hex: string;
+	text_hex: string;
+}
+
 export interface EnrichedGiftReport extends GiftValuationReport {
 	rarity_score: number;
 	rarity_rank: number;
@@ -690,4 +704,6 @@ export interface EnrichedGiftReport extends GiftValuationReport {
 	owner_wallet?: OwnerWalletInfo;
 	venue_fee_matrix?: VenueFeeMatrixItem[];
 	upgrade_info?: GiftUpgradeInfo;
+	serial_intel?: SerialIntel;
+	backdrop_colors?: BackdropColors;
 }

@@ -24,6 +24,8 @@ type TelegramUpdate struct {
 	ChannelPost       *Message           `json:"channel_post"`
 	EditedChannelPost *Message           `json:"edited_channel_post"`
 	ChatJoinRequest   *ChatJoinRequest   `json:"chat_join_request"`
+	InlineQuery       *InlineQuery       `json:"inline_query,omitempty"`
+	ChosenInlineResult *ChosenInlineResult `json:"chosen_inline_result,omitempty"`
 
 	// ── Bot API 9.4+ / 10.x new-era updates (added 2026-08-25) ──
 	// Managed bot lifecycle (Bot API 9.6): fired on this manager bot when a
@@ -104,6 +106,23 @@ type GuestMessageUpdate struct {
 	GuestQueryID string  `json:"guest_query_id"`
 	From         User    `json:"from"`
 	Message      Message `json:"message"`
+}
+
+// InlineQuery represents an incoming inline query (Bot API)
+type InlineQuery struct {
+	ID       string `json:"id"`
+	From     User   `json:"from"`
+	Query    string `json:"query"`
+	Offset   string `json:"offset"`
+	ChatType string `json:"chat_type,omitempty"`
+}
+
+// ChosenInlineResult represents the result of an inline query that was chosen by the user
+type ChosenInlineResult struct {
+	ResultID        string `json:"result_id"`
+	From            User   `json:"from"`
+	InlineMessageID string `json:"inline_message_id,omitempty"`
+	Query           string `json:"query"`
 }
 
 type ChatInviteLink struct {

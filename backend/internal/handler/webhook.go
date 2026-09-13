@@ -10,12 +10,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/config"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
 	"ifragment-backend/internal/service/channelmgmt"
+	"ifragment-backend/internal/service/gifts"
 	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/notification"
 	"io"
@@ -47,7 +49,17 @@ type WebhookHandler struct {
 	premiumGroupSvc *botmgmt.PremiumGroupService
 	memberTagSvc    *botmgmt.MemberTagService
 	analyticsRepo   *repository.AnalyticsRepo
+	giftsService    *gifts.GiftsService
+	mtprotoClient   mtproto.Client
 	processedJoins  sync.Map
+}
+
+func (h *WebhookHandler) SetGiftsService(s *gifts.GiftsService) {
+	h.giftsService = s
+}
+
+func (h *WebhookHandler) SetMTProtoClient(c mtproto.Client) {
+	h.mtprotoClient = c
 }
 
 func NewWebhookHandler(db *repository.Database, moderator *botmgmt.ModeratorService, botRepo *repository.BotRepo, channelService *channelmgmt.ChannelService) *WebhookHandler {
@@ -140,6 +152,8 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 	// Delegate processing to respective sub-handlers in the background worker thread
 	if update.CallbackQuery != nil {
 		h.handleCallbackQuery(ctx, bot, update.CallbackQuery)
+	} else if update.InlineQuery != nil {
+		h.handleInlineQuery(ctx, bot, update.InlineQuery)
 	} else if update.MyChatMember != nil {
 		h.handleMyChatMemberUpdate(ctx, bot, update.MyChatMember)
 	} else if update.ChatMember != nil {
@@ -849,7 +863,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				timeStr := time.Now().UTC().Format("15:04:05 UTC")
 				msgTopic := fmt.Sprintf(
 					"╔════ 💳 <b>پرداخت موفق: اشتراک ویژه (Pro Pass)</b> ════╗\n\n"+
-						"👑 <b>پکیج:</b> iFragment Pro Pass (۳۰ روزه)\n"+
+						"👑 <b>پکیج:</b> iFragment Pro Pass (30 روزه)\n"+
 						"👤 <b>کاربر:</b> <code>%d</code>\n"+
 						"⭐️ <b>مبلغ استارز:</b> <code>%d Stars</code>\n"+
 						"🔖 <b>شناسه پرداخت تلگرام:</b> <code>%s</code>\n"+
@@ -1010,7 +1024,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 
 						timeStr := time.Now().UTC().Format("15:04:05 UTC")
 						msgTopic := fmt.Sprintf(
-							"╔════ 💳 <b>پرداخت موفق: دسترسی ۲۴ ساعته AVM</b> ════╗\n\n"+
+							"╔════ 💳 <b>پرداخت موفق: دسترسی 24 ساعته AVM</b> ════╗\n\n"+
 								"🆔 <b>یوزرنیم:</b> @%s\n"+
 								"👤 <b>کاربر:</b> <code>%d</code>\n"+
 								"⭐️ <b>مبلغ استارز:</b> <code>%d Stars</code>\n"+
@@ -1453,10 +1467,29 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			h.handlePrivateCommand(ctx, bot, msg)
 			return
 		} else {
+			if strings.HasPrefix(msg.Text, "/gift ") || msg.Text == "/gift" || strings.HasPrefix(msg.Text, "/gift@") {
+				h.handleGiftCommand(ctx, bot, msg)
+				return
+			} else if strings.HasPrefix(msg.Text, "/gifts") {
+				h.handleGiftsCommand(ctx, bot, msg)
+				return
+			}
 			handled := h.handleGroupAdminCommand(ctx, bot, msg)
 			if handled {
 				return
 			}
+		}
+	}
+
+	// Auto-detect Telegram Gift links (t.me/nft/... or fragment.com/gift/...) in private or group chats
+	rawText := msg.Text
+	if rawText == "" {
+		rawText = msg.Caption
+	}
+	if rawText != "" && giftLinkRegex.MatchString(rawText) {
+		matches := giftLinkRegex.FindStringSubmatch(rawText)
+		if len(matches) >= 2 && matches[1] != "" {
+			h.handleGiftLinkSniff(ctx, bot, msg, matches[1])
 		}
 	}
 
@@ -2200,7 +2233,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 		tg := telegram.NewBotAPIClient(token)
 
-		msgText := "Please select your preferred language:\nلطفا زبان مورد نظر خود را انتخاب کنید:\nПожалуйста, выберите предпочитаемый язык:"
+		msgText := i18n.T("en", "language.prompt")
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
 				{
@@ -2231,7 +2264,16 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		lang := i18n.DetectLanguage(langCode)
 
 		helpText := i18n.T(lang, "help.admin_help")
+		if lang == "fa" {
+			helpText += "\n\n🎁 <b>دستورات تلگرام گیفت (Day-0):</b>\n• /gift &lt;نام یا شناسه&gt; [شماره] — کارشناسی هوشمند ارزش منصفانه و کمیابی\n• /gifts — نبض زنده بازار گیفت‌ها و حجم نقدینگی\n• ارسال مستقیم لینک <code>t.me/nft/...</code> یا <code>fragment.com/gift/...</code> برای ارزیابی آنی"
+		} else {
+			helpText += "\n\n🎁 <b>Telegram Gifts Commands (Day-0):</b>\n• /gift &lt;name/slug&gt; [num] — 4-Pillar Fair Valuation & Rarity Appraisal\n• /gifts — Telegram Gifts Market Pulse & Macro Stats\n• Send any <code>t.me/nft/...</code> or <code>fragment.com/gift/...</code> link for instant appraisal"
+		}
 		_ = tg.SendMessage(ctx, m.Chat.ID, helpText, &m.MessageID, m.MessageThreadID)
+	} else if strings.HasPrefix(m.Text, "/gift ") || m.Text == "/gift" {
+		h.handleGiftCommand(ctx, bot, m)
+	} else if strings.HasPrefix(m.Text, "/gifts") {
+		h.handleGiftsCommand(ctx, bot, m)
 	} else if strings.HasPrefix(m.Text, "/ping") {
 		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 		tg := telegram.NewBotAPIClient(token)
@@ -2261,7 +2303,6 @@ func (h *WebhookHandler) handlePrivateSettingsCommand(ctx context.Context, bot *
 		langCode = userLangFromDB
 	}
 	lang := i18n.DetectLanguage(langCode)
-	isFa := (lang == "fa")
 
 	// Query groups managed by this bot where user is the owner or connected user
 	groups, _ := h.botRepo.GetGroupsByBot(ctx, bot.ID)
@@ -2282,11 +2323,7 @@ func (h *WebhookHandler) handlePrivateSettingsCommand(ctx context.Context, bot *
 	var keyboard [][]map[string]interface{}
 
 	if len(userGroups) > 0 {
-		if isFa {
-			msgText = fmt.Sprintf("⚙️ <b>مدیریت اختصاصی گروه‌ها (پنل محرمانه پیوی):</b>\n\nشما مدیریت <b>%d</b> گروه را بر عهده دارید. جهت مشاهده و پیکربندی تنظیمات امنیتی هر گروه به صورت محرمانه (بدون ارسال پیام در گروه)، گروه مورد نظر را انتخاب نمایید:", len(userGroups))
-		} else {
-			msgText = fmt.Sprintf("⚙️ <b>Private Group Management Panel:</b>\n\nYou manage <b>%d</b> groups. Select a group below to configure its security and moderation settings privately without cluttering the chat:", len(userGroups))
-		}
+		msgText = i18n.T(lang, "settings.private_panel_title", map[string]interface{}{"count": len(userGroups)})
 
 		for i, g := range userGroups {
 			if i >= 10 {
@@ -2301,12 +2338,8 @@ func (h *WebhookHandler) handlePrivateSettingsCommand(ctx context.Context, bot *
 			})
 		}
 
-		btnTextAdd := "➕ افزودن ربات به گروه جدید"
-		btnTextWeb := "🚀 پنل مدیریت وب (Web App)"
-		if !isFa {
-			btnTextAdd = "➕ Add Bot to New Group"
-			btnTextWeb = "🚀 Web App Dashboard"
-		}
+		btnTextAdd := i18n.T(lang, "settings.btn_add_bot")
+		btnTextWeb := i18n.T(lang, "settings.btn_webapp")
 
 		keyboard = append(keyboard,
 			[]map[string]interface{}{
@@ -2317,18 +2350,10 @@ func (h *WebhookHandler) handlePrivateSettingsCommand(ctx context.Context, bot *
 			},
 		)
 	} else {
-		if isFa {
-			msgText = "⚙️ <b>تنظیمات و امنیت ربات محافظ:</b>\n\nشما هنوز گروه فعالی به این ربات متصل نکرده‌اید.\n\nبرای فعال‌سازی سیستم امنیتی، ضداسپم و مدیریت پیشرفته، ربات را به عنوان مدیر به گروه خود اضافه کرده و سپس دستور <code>/settings</code> را ارسال فرمایید:"
-		} else {
-			msgText = "⚙️ <b>Bot Security & Settings:</b>\n\nYou have not connected any groups to this bot yet.\n\nTo activate anti-spam, moderation, and advanced protection, add the bot as an Administrator to your group and type <code>/settings</code>:"
-		}
+		msgText = i18n.T(lang, "settings.private_no_groups")
 
-		btnTextAdd := "➕ افزودن ربات به گروه با دسترسی کامل"
-		btnTextWeb := "🌐 پنل مدیریت وب (Web App)"
-		if !isFa {
-			btnTextAdd = "➕ Add Bot to Group with Full Admin"
-			btnTextWeb = "🌐 Web App Dashboard"
-		}
+		btnTextAdd := i18n.T(lang, "settings.btn_add_bot")
+		btnTextWeb := i18n.T(lang, "settings.btn_webapp")
 
 		keyboard = [][]map[string]interface{}{
 			{
@@ -2405,11 +2430,6 @@ func (h *WebhookHandler) renderMainSettingsMenu(_ context.Context, group *reposi
 		_ = json.Unmarshal(settings.Limits, &limits)
 	}
 
-	isFa := (lang == "fa")
-	isRu := (lang == "ru")
-	isAr := (lang == "ar")
-	isZh := (lang == "zh")
-
 	linkStatus := "❌"
 	if cont.RemoveLinks.Enabled {
 		linkStatus = "✅"
@@ -2425,147 +2445,50 @@ func (h *WebhookHandler) renderMainSettingsMenu(_ context.Context, group *reposi
 
 	var floodStatus string
 	if limits.FloodMsgs > 0 {
-		if isFa {
-			floodStatus = fmt.Sprintf("✅ (%d پیام/%dث)", limits.FloodMsgs, limits.FloodWin)
-		} else if isZh {
-			floodStatus = fmt.Sprintf("✅ (%d 条/%d秒)", limits.FloodMsgs, limits.FloodWin)
-		} else {
-			floodStatus = fmt.Sprintf("✅ (%d msgs/%ds)", limits.FloodMsgs, limits.FloodWin)
-		}
+		floodStatus = fmt.Sprintf("✅ (%d/%ds)", limits.FloodMsgs, limits.FloodWin)
 	} else {
-		if isFa {
-			floodStatus = "❌ غیرفعال"
-		} else if isZh {
-			floodStatus = "❌ 关闭"
-		} else {
-			floodStatus = "❌ Off"
-		}
+		floodStatus = i18n.T(lang, "settings.status_off")
 	}
 
 	var slowStatus string
 	if limits.SlowMode > 0 {
-		if isFa {
-			slowStatus = fmt.Sprintf("✅ (%d ثانیه)", limits.SlowMode)
-		} else if isZh {
-			slowStatus = fmt.Sprintf("✅ (%d秒)", limits.SlowMode)
-		} else {
-			slowStatus = fmt.Sprintf("✅ (%ds)", limits.SlowMode)
-		}
+		slowStatus = fmt.Sprintf("✅ (%ds)", limits.SlowMode)
 	} else {
-		if isFa {
-			slowStatus = "❌ خاموش"
-		} else if isZh {
-			slowStatus = "❌ 关闭"
-		} else {
-			slowStatus = "❌ Off"
-		}
+		slowStatus = i18n.T(lang, "settings.status_off")
 	}
 
 	var quietStatus string
 	if quiet.EmergencyLock {
-		if isFa {
-			quietStatus = "🔒 قفل اضطراری"
-		} else if isAr {
-			quietStatus = "🔒 قفل طوارئ"
-		} else if isRu {
-			quietStatus = "🔒 Заблокирован"
-		} else if isZh {
-			quietStatus = "🔒 紧急锁定"
-		} else {
-			quietStatus = "🔒 Locked"
-		}
+		quietStatus = i18n.T(lang, "settings.status_locked")
 	} else if len(quiet.Periods) > 0 {
-		if isFa {
-			quietStatus = "✅ زمان‌بندی فعال"
-		} else if isAr {
-			quietStatus = "✅ مجدول نشط"
-		} else if isRu {
-			quietStatus = "✅ Активно"
-		} else if isZh {
-			quietStatus = "✅ 定时激活"
-		} else {
-			quietStatus = "✅ Active Schedule"
-		}
+		quietStatus = i18n.T(lang, "settings.status_active")
 	} else {
-		if isFa {
-			quietStatus = "❌ غیرفعال"
-		} else if isAr {
-			quietStatus = "❌ غير مفعل"
-		} else if isRu {
-			quietStatus = "❌ Выкл"
-		} else if isZh {
-			quietStatus = "❌ 关闭"
-		} else {
-			quietStatus = "❌ Off"
-		}
+		quietStatus = i18n.T(lang, "settings.status_off")
 	}
 
 	var ephemeralStatus string
-	if gen.EphemeralAll || gen.EphemeralAdminCmd || gen.EphemeralWarnings {
+	if gen.EphemeralAll || gen.EphemeralAdminCmd || gen.EphemeralWarnings || gen.EphemeralWelcome || gen.EphemeralCaptcha {
 		delay := gen.AutoDeleteDelay
 		if delay <= 0 {
 			delay = 15
 		}
-		if isFa {
-			ephemeralStatus = fmt.Sprintf("✅ (%d ثانیه)", delay)
-		} else if isZh {
-			ephemeralStatus = fmt.Sprintf("✅ (%d秒)", delay)
-		} else {
-			ephemeralStatus = fmt.Sprintf("✅ (%ds)", delay)
-		}
+		ephemeralStatus = fmt.Sprintf("✅ (%ds)", delay)
 	} else {
-		if isFa {
-			ephemeralStatus = "❌ خاموش"
-		} else if isZh {
-			ephemeralStatus = "❌ 关闭"
-		} else {
-			ephemeralStatus = "❌ Off"
-		}
+		ephemeralStatus = i18n.T(lang, "settings.status_off")
 	}
 
 	var mandatoryStatus string
-	if mand.ForceJoinEnabled && len(mand.RequiredChannels) > 0 {
-		if mand.ForcedAddEnabled && mand.ForcedAddCount > 0 {
-			if isFa {
-				mandatoryStatus = fmt.Sprintf("✅ کانال (%d) + اد (%d)", len(mand.RequiredChannels), mand.ForcedAddCount)
-			} else if isZh {
-				mandatoryStatus = fmt.Sprintf("✅ 频道 (%d) + 加人 (%d)", len(mand.RequiredChannels), mand.ForcedAddCount)
-			} else {
-				mandatoryStatus = fmt.Sprintf("✅ Ch (%d) + Add (%d)", len(mand.RequiredChannels), mand.ForcedAddCount)
-			}
-		} else {
-			if isFa {
-				mandatoryStatus = fmt.Sprintf("✅ (%d کانال)", len(mand.RequiredChannels))
-			} else if isZh {
-				mandatoryStatus = fmt.Sprintf("✅ (%d 个频道)", len(mand.RequiredChannels))
-			} else {
-				mandatoryStatus = fmt.Sprintf("✅ (%d channels)", len(mand.RequiredChannels))
-			}
-		}
-	} else if mand.ForceJoinEnabled && len(mand.RequiredChannels) == 0 {
-		if isFa {
-			mandatoryStatus = "⚠️ بدون کانال"
-		} else if isZh {
-			mandatoryStatus = "⚠️ 无频道"
-		} else {
-			mandatoryStatus = "⚠️ No Channels"
-		}
-	} else if mand.ForcedAddEnabled && mand.ForcedAddCount > 0 {
-		if isFa {
-			mandatoryStatus = fmt.Sprintf("✅ اد اجباری (%d)", mand.ForcedAddCount)
-		} else if isZh {
-			mandatoryStatus = fmt.Sprintf("✅ 强制加人 (%d)", mand.ForcedAddCount)
-		} else {
-			mandatoryStatus = fmt.Sprintf("✅ Force Add (%d)", mand.ForcedAddCount)
-		}
+	numCh := len(mand.RequiredChannels)
+	hasCh := numCh > 0
+	hasAdd := mand.ForcedAddEnabled && mand.ForcedAddCount > 0
+	if hasCh && hasAdd {
+		mandatoryStatus = i18n.T(lang, "settings.val_ch_add", map[string]interface{}{"channels": numCh, "members": mand.ForcedAddCount})
+	} else if hasCh {
+		mandatoryStatus = i18n.T(lang, "settings.val_channels_only", map[string]interface{}{"count": numCh})
+	} else if hasAdd {
+		mandatoryStatus = i18n.T(lang, "settings.force_add_set", map[string]interface{}{"count": mand.ForcedAddCount})
 	} else {
-		if isFa {
-			mandatoryStatus = "❌ غیرفعال"
-		} else if isZh {
-			mandatoryStatus = "❌ 关闭"
-		} else {
-			mandatoryStatus = "❌ Off"
-		}
+		mandatoryStatus = i18n.T(lang, "settings.status_off")
 	}
 
 	welcomeStatus := "❌"
@@ -2577,83 +2500,19 @@ func (h *WebhookHandler) renderMainSettingsMenu(_ context.Context, group *reposi
 		captchaStatus = "✅"
 	}
 
-	var text string
-	if isFa {
-		text = fmt.Sprintf(`⚙️ <b>تنظیمات و امنیت گروه:</b> <b>%s</b>
-──────────────────────
-• 🛡️ <b>فیلتر محتوا:</b> لینک %s | فوروارد %s | سیستم CAS %s
-• ⚡ <b>فلود و محدودیت:</b> %s | اسلومود %s
-• 🌙 <b>ساعات سکوت / قفل:</b> %s
-• 👻 <b>پیام‌های خودحذف‌شونده:</b> %s
-• 📢 <b>عضویت اجباری:</b> %s
-• 🧩 <b>خوش‌آمد و اعتبارسنجی:</b> خوش‌آمد %s | کپچا %s
-──────────────────────
-✨ <b>ضمانت ۱۰۰٪ بدون تبلیغات (Zero-Ads)</b>
-👇 <i>جهت مدیریت هر بخش، دکمه مورد نظر را لمس کنید:</i>`,
-			telegram.EscapeHTML(group.ChatTitle), linkStatus, fwdStatus, casStatus,
-			floodStatus, slowStatus, quietStatus, ephemeralStatus,
-			mandatoryStatus, welcomeStatus, captchaStatus)
-	} else if isAr {
-		text = fmt.Sprintf(`⚙️ <b>إعدادات وأمان المجموعة:</b> <b>%s</b>
-──────────────────────
-• 🛡️ <b>تصفية المحتوى:</b> الروابط %s | التوجيه %s | نظام CAS %s
-• ⚡ <b>الحدود ومكافحة التكرار:</b> %s | الوضع البطيء %s
-• 🌙 <b>ساعات الهدوء / القفل:</b> %s
-• 👻 <b>الرسائل ذاتية الحذف:</b> %s
-• 📢 <b>الاشتراك الإجباري:</b> %s
-• 🧩 <b>الترحيب والتحقق:</b> الترحيب %s | كابتشا %s
-──────────────────────
-✨ <b>ضمان ۱۰۰٪ بدون إعلانات (Zero-Ads)</b>
-👇 <i>اضغط على الزر أدناه لإدارة القسم المطلوب:</i>`,
-			telegram.EscapeHTML(group.ChatTitle), linkStatus, fwdStatus, casStatus,
-			floodStatus, slowStatus, quietStatus, ephemeralStatus,
-			mandatoryStatus, welcomeStatus, captchaStatus)
-	} else if isRu {
-		text = fmt.Sprintf(`⚙️ <b>Безопасность и настройки группы:</b> <b>%s</b>
-──────────────────────
-• 🛡️ <b>Фильтр контента:</b> Ссылки %s | Пересылки %s | CAS %s
-• ⚡ <b>Флуд и лимиты:</b> %s | Слоумод %s
-• 🌙 <b>Тихий режим / Блокировка:</b> %s
-• 👻 <b>Самоудаляющиеся сообщения:</b> %s
-• 📢 <b>Обязательная подписка:</b> %s
-• 🧩 <b>Приветствие и верификация:</b> Приветствие %s | Капча %s
-──────────────────────
-✨ <b>Гарантия 100%% без рекламы (Zero-Ads)</b>
-👇 <i>Выберите раздел ниже для настройки:</i>`,
-			telegram.EscapeHTML(group.ChatTitle), linkStatus, fwdStatus, casStatus,
-			floodStatus, slowStatus, quietStatus, ephemeralStatus,
-			mandatoryStatus, welcomeStatus, captchaStatus)
-	} else if isZh {
-		text = fmt.Sprintf(`⚙️ <b>群组安全与设置：</b> <b>%s</b>
-──────────────────────
-• 🛡️ <b>内容过滤：</b> 链接 %s | 转发 %s | CAS系统 %s
-• ⚡ <b>防洪与限制：</b> %s | 发言限制 %s
-• 🌙 <b>静音时段 / 锁定：</b> %s
-• 👻 <b>自毁/短暂消息：</b> %s
-• 📢 <b>强制关注：</b> %s
-• 🧩 <b>欢迎语与验证码：</b> 欢迎语 %s | 验证码 %s
-──────────────────────
-✨ <b>100%% 无广告保证 (Zero-Ads)</b>
-👇 <i>请点击下方按钮管理对应模块：</i>`,
-			telegram.EscapeHTML(group.ChatTitle), linkStatus, fwdStatus, casStatus,
-			floodStatus, slowStatus, quietStatus, ephemeralStatus,
-			mandatoryStatus, welcomeStatus, captchaStatus)
-	} else {
-		text = fmt.Sprintf(`⚙️ <b>Group Security & Settings:</b> <b>%s</b>
-──────────────────────
-• 🛡️ <b>Content Filter:</b> Links %s | Forwards %s | CAS %s
-• ⚡ <b>Flood & Limits:</b> %s | Slowmode %s
-• 🌙 <b>Quiet / Lock:</b> %s
-• 👻 <b>Ephemeral Messages:</b> %s
-• 📢 <b>Mandatory Membership:</b> %s
-• 🧩 <b>Welcome & Captcha:</b> Welcome %s | Captcha %s
-──────────────────────
-✨ <b>Zero-Ads Guarantee:</b> 100%% Ad-Free
-👇 <i>Select a section below to configure:</i>`,
-			telegram.EscapeHTML(group.ChatTitle), linkStatus, fwdStatus, casStatus,
-			floodStatus, slowStatus, quietStatus, ephemeralStatus,
-			mandatoryStatus, welcomeStatus, captchaStatus)
-	}
+	text := i18n.T(lang, "settings.menu_title", map[string]interface{}{
+		"group":     telegram.EscapeHTML(group.ChatTitle),
+		"links":     linkStatus,
+		"forwards":  fwdStatus,
+		"cas":       casStatus,
+		"flood":     floodStatus,
+		"slowmode":  slowStatus,
+		"quiet":     quietStatus,
+		"ephemeral": ephemeralStatus,
+		"mandatory": mandatoryStatus,
+		"welcome":   welcomeStatus,
+		"captcha":   captchaStatus,
+	})
 
 	miniAppURL := os.Getenv("MINI_APP_URL")
 	if miniAppURL == "" {
@@ -2661,122 +2520,27 @@ func (h *WebhookHandler) renderMainSettingsMenu(_ context.Context, group *reposi
 	}
 	dashboardURL := fmt.Sprintf("%s?startapp=group_%s", miniAppURL, group.ID)
 
-	var keyboard [][]map[string]interface{}
-	if isFa {
-		keyboard = [][]map[string]interface{}{
-			{
-				{"text": "🛡 فیلتر محتوا", "callback_data": fmt.Sprintf("gs:c:content:%s", group.ID)},
-				{"text": "⚡ ضداسپم و فلود", "callback_data": fmt.Sprintf("gs:c:limits:%s", group.ID)},
-			},
-			{
-				{"text": "🌙 سکوت و قفل", "callback_data": fmt.Sprintf("gs:c:quiet:%s", group.ID)},
-				{"text": "👻 پیام موقت", "callback_data": fmt.Sprintf("gs:c:ephemeral:%s", group.ID)},
-			},
-			{
-				{"text": "📢 جوین اجباری", "callback_data": fmt.Sprintf("gs:c:mandatory:%s", group.ID)},
-				{"text": "🧩 خوش‌آمد و کپچا", "callback_data": fmt.Sprintf("gs:c:welcome:%s", group.ID)},
-			},
-			{
-				{"text": "🌐 تنظیمات عمومی", "callback_data": fmt.Sprintf("gs:c:general:%s", group.ID)},
-				{"text": "🚀 پنل مدیریت وب (Web App)", "url": dashboardURL},
-			},
-			{
-				{"text": "🔄 بروزرسانی", "callback_data": fmt.Sprintf("gs:r:%s", group.ID)},
-				{"text": "❌ بستن منو", "callback_data": fmt.Sprintf("gs:x:%s", group.ID)},
-			},
-		}
-	} else if isAr {
-		keyboard = [][]map[string]interface{}{
-			{
-				{"text": "🛡 تصفية المحتوى", "callback_data": fmt.Sprintf("gs:c:content:%s", group.ID)},
-				{"text": "⚡ مكافحة الفلود", "callback_data": fmt.Sprintf("gs:c:limits:%s", group.ID)},
-			},
-			{
-				{"text": "🌙 الهدوء والقفل", "callback_data": fmt.Sprintf("gs:c:quiet:%s", group.ID)},
-				{"text": "👻 الرسائل المؤقتة", "callback_data": fmt.Sprintf("gs:c:ephemeral:%s", group.ID)},
-			},
-			{
-				{"text": "📢 الاشتراك الإجباري", "callback_data": fmt.Sprintf("gs:c:mandatory:%s", group.ID)},
-				{"text": "🧩 الترحيب والكابتشا", "callback_data": fmt.Sprintf("gs:c:welcome:%s", group.ID)},
-			},
-			{
-				{"text": "🌐 إعدادات عامة", "callback_data": fmt.Sprintf("gs:c:general:%s", group.ID)},
-				{"text": "🚀 لوحة الويب (Web App)", "url": dashboardURL},
-			},
-			{
-				{"text": "🔄 تحديث", "callback_data": fmt.Sprintf("gs:r:%s", group.ID)},
-				{"text": "❌ إغلاق القائمة", "callback_data": fmt.Sprintf("gs:x:%s", group.ID)},
-			},
-		}
-	} else if isRu {
-		keyboard = [][]map[string]interface{}{
-			{
-				{"text": "🛡 Фильтр контента", "callback_data": fmt.Sprintf("gs:c:content:%s", group.ID)},
-				{"text": "⚡ Флуд и лимиты", "callback_data": fmt.Sprintf("gs:c:limits:%s", group.ID)},
-			},
-			{
-				{"text": "🌙 Тихий режим", "callback_data": fmt.Sprintf("gs:c:quiet:%s", group.ID)},
-				{"text": "👻 Удаление сообщений", "callback_data": fmt.Sprintf("gs:c:ephemeral:%s", group.ID)},
-			},
-			{
-				{"text": "📢 Обязательная подписка", "callback_data": fmt.Sprintf("gs:c:mandatory:%s", group.ID)},
-				{"text": "🧩 Приветствие и капча", "callback_data": fmt.Sprintf("gs:c:welcome:%s", group.ID)},
-			},
-			{
-				{"text": "🌐 Общие настройки", "callback_data": fmt.Sprintf("gs:c:general:%s", group.ID)},
-				{"text": "🚀 Веб-панель (Web App)", "url": dashboardURL},
-			},
-			{
-				{"text": "🔄 Обновить", "callback_data": fmt.Sprintf("gs:r:%s", group.ID)},
-				{"text": "❌ Закрыть", "callback_data": fmt.Sprintf("gs:x:%s", group.ID)},
-			},
-		}
-	} else if isZh {
-		keyboard = [][]map[string]interface{}{
-			{
-				{"text": "🛡 内容过滤", "callback_data": fmt.Sprintf("gs:c:content:%s", group.ID)},
-				{"text": "⚡ 防洪防刷", "callback_data": fmt.Sprintf("gs:c:limits:%s", group.ID)},
-			},
-			{
-				{"text": "🌙 静音与锁定", "callback_data": fmt.Sprintf("gs:c:quiet:%s", group.ID)},
-				{"text": "👻 短暂消息", "callback_data": fmt.Sprintf("gs:c:ephemeral:%s", group.ID)},
-			},
-			{
-				{"text": "📢 强制关注", "callback_data": fmt.Sprintf("gs:c:mandatory:%s", group.ID)},
-				{"text": "🧩 欢迎语与验证", "callback_data": fmt.Sprintf("gs:c:welcome:%s", group.ID)},
-			},
-			{
-				{"text": "🌐 通用设置", "callback_data": fmt.Sprintf("gs:c:general:%s", group.ID)},
-				{"text": "🚀 Web 仪表板", "url": dashboardURL},
-			},
-			{
-				{"text": "🔄 刷新", "callback_data": fmt.Sprintf("gs:r:%s", group.ID)},
-				{"text": "❌ 关闭", "callback_data": fmt.Sprintf("gs:x:%s", group.ID)},
-			},
-		}
-	} else {
-		keyboard = [][]map[string]interface{}{
-			{
-				{"text": "🛡 Content Filter", "callback_data": fmt.Sprintf("gs:c:content:%s", group.ID)},
-				{"text": "⚡ Flood & Limits", "callback_data": fmt.Sprintf("gs:c:limits:%s", group.ID)},
-			},
-			{
-				{"text": "🌙 Quiet & Lock", "callback_data": fmt.Sprintf("gs:c:quiet:%s", group.ID)},
-				{"text": "👻 Ephemeral Msg", "callback_data": fmt.Sprintf("gs:c:ephemeral:%s", group.ID)},
-			},
-			{
-				{"text": "📢 Force Join", "callback_data": fmt.Sprintf("gs:c:mandatory:%s", group.ID)},
-				{"text": "🧩 Welcome & Captcha", "callback_data": fmt.Sprintf("gs:c:welcome:%s", group.ID)},
-			},
-			{
-				{"text": "🌐 General Settings", "callback_data": fmt.Sprintf("gs:c:general:%s", group.ID)},
-				{"text": "🚀 Web App Dashboard", "url": dashboardURL},
-			},
-			{
-				{"text": "🔄 Refresh", "callback_data": fmt.Sprintf("gs:r:%s", group.ID)},
-				{"text": "❌ Close Menu", "callback_data": fmt.Sprintf("gs:x:%s", group.ID)},
-			},
-		}
+	keyboard := [][]map[string]interface{}{
+		{
+			{"text": i18n.T(lang, "settings.btn_content"), "callback_data": fmt.Sprintf("gs:c:content:%s", group.ID)},
+			{"text": i18n.T(lang, "settings.btn_limits"), "callback_data": fmt.Sprintf("gs:c:limits:%s", group.ID)},
+		},
+		{
+			{"text": i18n.T(lang, "settings.btn_quiet"), "callback_data": fmt.Sprintf("gs:c:quiet:%s", group.ID)},
+			{"text": i18n.T(lang, "settings.btn_ephemeral"), "callback_data": fmt.Sprintf("gs:c:ephemeral:%s", group.ID)},
+		},
+		{
+			{"text": i18n.T(lang, "settings.btn_mandatory"), "callback_data": fmt.Sprintf("gs:c:mandatory:%s", group.ID)},
+			{"text": i18n.T(lang, "settings.btn_welcome"), "callback_data": fmt.Sprintf("gs:c:welcome:%s", group.ID)},
+		},
+		{
+			{"text": i18n.T(lang, "settings.btn_general"), "callback_data": fmt.Sprintf("gs:c:general:%s", group.ID)},
+			{"text": i18n.T(lang, "settings.btn_webapp"), "url": dashboardURL},
+		},
+		{
+			{"text": i18n.T(lang, "settings.btn_refresh"), "callback_data": fmt.Sprintf("gs:r:%s", group.ID)},
+			{"text": i18n.T(lang, "settings.btn_close"), "callback_data": fmt.Sprintf("gs:x:%s", group.ID)},
+		},
 	}
 
 	markup := map[string]interface{}{
@@ -2801,29 +2565,16 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 		_ = json.Unmarshal(settings.MandatoryMembership, &mand)
 	}
 
-	isFa := (lang == "fa")
 	var text string
 	var rows [][]map[string]interface{}
 
-	backBtnText := "🔙 Back to Main Settings"
-	if isFa {
-		backBtnText = "🔙 بازگشت به منوی اصلی"
-	}
-
-	onText := "✅ On"
-	offText := "❌ Off"
-	if isFa {
-		onText = "✅ فعال"
-		offText = "❌ غیرفعال"
-	}
+	backBtnText := i18n.T(lang, "settings.btn_back")
+	onText := i18n.T(lang, "settings.status_on")
+	offText := i18n.T(lang, "settings.status_off")
 
 	switch category {
 	case "content", "cnt":
-		if isFa {
-			text = fmt.Sprintf("🛡 <b>فیلتر و محدودیت‌های محتوا</b> — <i>%s</i>\n\nجهت فعال یا غیرفعال‌سازی هر فیلتر محتوایی، روی دکمه مربوطه کلیک کنید:", telegram.EscapeHTML(group.ChatTitle))
-		} else {
-			text = fmt.Sprintf("🛡 <b>Content Restrictions</b> — <i>%s</i>\n\nToggle spam & content filters in real-time:", telegram.EscapeHTML(group.ChatTitle))
-		}
+		text = i18n.T(lang, "settings.content_title", map[string]interface{}{"group": telegram.EscapeHTML(group.ChatTitle)})
 
 		linkIcon := offText
 		if cont.RemoveLinks.Enabled {
@@ -2850,20 +2601,12 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 			mediaIcon = onText
 		}
 
-		lblLink := "🔗 Block Links: "
-		lblUsername := "🆔 Block Usernames: "
-		lblForward := "↗️ Block Forwards: "
-		lblPhone := "📞 Block Phone Numbers: "
-		lblCas := "🤖 Combot CAS Anti-Spam: "
-		lblMedia := "📸 Block Media & Stickers: "
-		if isFa {
-			lblLink = "🔗 حذف لینک‌ها: "
-			lblUsername = "🆔 حذف آیدی و منشن: "
-			lblForward = "↗️ حذف فوروارد: "
-			lblPhone = "📞 حذف شماره تماس: "
-			lblCas = "🤖 ضداسپم CAS: "
-			lblMedia = "📸 فیلتر رسانه و استیکر: "
-		}
+		lblLink := i18n.T(lang, "settings.lbl_link")
+		lblUsername := i18n.T(lang, "settings.lbl_username")
+		lblForward := i18n.T(lang, "settings.lbl_forward")
+		lblPhone := i18n.T(lang, "settings.lbl_phone")
+		lblCas := i18n.T(lang, "settings.lbl_cas")
+		lblMedia := i18n.T(lang, "settings.lbl_media")
 
 		rows = [][]map[string]interface{}{
 			{
@@ -2890,32 +2633,20 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 		}
 
 	case "limits":
-		if isFa {
-			text = fmt.Sprintf("⚡ <b>محدودیت‌ها، کنترل فلود و اسلومود</b> — <i>%s</i>\n\nتنظیم نرخ مجاز ارسال پیام، اسلومود تلگرام و حالت ضدحمله:", telegram.EscapeHTML(group.ChatTitle))
-		} else {
-			text = fmt.Sprintf("⚡ <b>Limits, Flood Control & Slow Mode</b> — <i>%s</i>\n\nConfigure message rate limits, Telegram slowmode, and anti-raid:", telegram.EscapeHTML(group.ChatTitle))
-		}
+		text = i18n.T(lang, "settings.limits_title", map[string]interface{}{"group": telegram.EscapeHTML(group.ChatTitle)})
 
 		var floodVal string
 		if limits.FloodMsgs == 0 {
 			floodVal = offText
 		} else {
-			if isFa {
-				floodVal = fmt.Sprintf("✅ (%d پیام در %d ثانیه)", limits.FloodMsgs, limits.FloodWin)
-			} else {
-				floodVal = fmt.Sprintf("✅ (%d msgs / %ds)", limits.FloodMsgs, limits.FloodWin)
-			}
+			floodVal = fmt.Sprintf("✅ (%d / %ds)", limits.FloodMsgs, limits.FloodWin)
 		}
 
 		var slowVal string
 		if limits.SlowMode == 0 {
 			slowVal = offText
 		} else {
-			if isFa {
-				slowVal = fmt.Sprintf("✅ (%d ثانیه)", limits.SlowMode)
-			} else {
-				slowVal = fmt.Sprintf("✅ (%ds)", limits.SlowMode)
-			}
+			slowVal = fmt.Sprintf("✅ (%ds)", limits.SlowMode)
 		}
 
 		raidVal := offText
@@ -2923,14 +2654,9 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 			raidVal = onText
 		}
 
-		lblFlood := "🌊 Flood Rate Limit: "
-		lblSlow := "⏱️ Telegram Slow Mode: "
-		lblRaid := "🛡️ Anti-Raid Mode: "
-		if isFa {
-			lblFlood = "🌊 محدودیت ارسال (Flood): "
-			lblSlow = "⏱️ اسلومود تلگرام: "
-			lblRaid = "🛡️ حالت ضدحمله (Anti-Raid): "
-		}
+		lblFlood := i18n.T(lang, "settings.lbl_flood")
+		lblSlow := i18n.T(lang, "settings.lbl_slow")
+		lblRaid := i18n.T(lang, "settings.lbl_raid")
 
 		rows = [][]map[string]interface{}{
 			{
@@ -2948,22 +2674,11 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 		}
 
 	case "quiet":
-		if isFa {
-			text = fmt.Sprintf("🌙 <b>ساعات سکوت و قفل گروه</b> — <i>%s</i>\n\nبی‌صدا کردن آنی چت در تلگرام یا اعطای دسترسی ارسال پیام به مدیران:", telegram.EscapeHTML(group.ChatTitle))
-		} else {
-			text = fmt.Sprintf("🌙 <b>Quiet Hours & Group Lockdown</b> — <i>%s</i>\n\nExecute Telegram-level lockdown or manage admin exceptions:", telegram.EscapeHTML(group.ChatTitle))
-		}
+		text = i18n.T(lang, "settings.quiet_title", map[string]interface{}{"group": telegram.EscapeHTML(group.ChatTitle)})
 
-		lockIcon := "🔓 Group Open"
-		if isFa {
-			lockIcon = "🔓 گروه باز است"
-		}
+		lockIcon := i18n.T(lang, "settings.status_group_open")
 		if quiet.EmergencyLock {
-			if isFa {
-				lockIcon = "🔒 گروه قفل است"
-			} else {
-				lockIcon = "🔒 Group Locked"
-			}
+			lockIcon = i18n.T(lang, "settings.status_group_locked")
 		}
 
 		adminOverrideIcon := offText
@@ -2971,12 +2686,8 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 			adminOverrideIcon = onText
 		}
 
-		lblLock := "🚨 Emergency Lock: "
-		lblAdmin := "👑 Admins Can Chat: "
-		if isFa {
-			lblLock = "🚨 قفل اضطراری: "
-			lblAdmin = "👑 گفتگوی آزاد ادمین‌ها: "
-		}
+		lblLock := i18n.T(lang, "settings.lbl_lock")
+		lblAdmin := i18n.T(lang, "settings.lbl_admin_override")
 
 		rows = [][]map[string]interface{}{
 			{
@@ -2991,11 +2702,7 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 		}
 
 	case "ephemeral":
-		if isFa {
-			text = fmt.Sprintf("👻 <b>پیام‌های موقت (خودحذف‌شونده)</b> — <i>%s</i>\n\nپاکسازی خودکار پیام‌های بات و دستورات جهت تمیز ماندن گروه:", telegram.EscapeHTML(group.ChatTitle))
-		} else {
-			text = fmt.Sprintf("👻 <b>Ephemeral Messages (Auto-Delete)</b> — <i>%s</i>\n\nKeep your group clean by auto-deleting bot messages:", telegram.EscapeHTML(group.ChatTitle))
-		}
+		text = i18n.T(lang, "settings.ephemeral_title", map[string]interface{}{"group": telegram.EscapeHTML(group.ChatTitle)})
 
 		allIcon := offText
 		if gen.EphemeralAll {
@@ -3014,23 +2721,11 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 		if gen.AutoDeleteDelay <= 0 {
 			delayVal = "15s"
 		}
-		if isFa {
-			delayVal = fmt.Sprintf("%d ثانیه", gen.AutoDeleteDelay)
-			if gen.AutoDeleteDelay <= 0 {
-				delayVal = "۱۵ ثانیه"
-			}
-		}
 
-		lblAll := "👻 Ephemeral All Bot Msgs: "
-		lblCmd := "⚡ Delete Admin Commands: "
-		lblWarn := "⚠️ Delete Warning Alerts: "
-		lblDelay := "⏱ Auto-Delete Delay: "
-		if isFa {
-			lblAll = "👻 حذف همه پیام‌های ربات: "
-			lblCmd = "⚡ حذف دستورات ادمین: "
-			lblWarn = "⚠️ حذف اخطارهای ربات: "
-			lblDelay = "⏱ زمان نگهداری پیام: "
-		}
+		lblAll := i18n.T(lang, "settings.lbl_eph_all")
+		lblCmd := i18n.T(lang, "settings.lbl_eph_cmd")
+		lblWarn := i18n.T(lang, "settings.lbl_eph_warn")
+		lblDelay := i18n.T(lang, "settings.lbl_eph_delay")
 
 		rows = [][]map[string]interface{}{
 			{
@@ -3053,24 +2748,12 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 	case "mandatory":
 		channelListMsg := ""
 		if len(mand.RequiredChannels) > 0 {
-			if isFa {
-				channelListMsg = fmt.Sprintf("\n📋 <b>کانال‌های تعیین‌شده (%d مورد):</b> <code>%s</code>\n", len(mand.RequiredChannels), strings.Join(mand.RequiredChannels, ", "))
-			} else {
-				channelListMsg = fmt.Sprintf("\n📋 <b>Configured Channels (%d):</b> <code>%s</code>\n", len(mand.RequiredChannels), strings.Join(mand.RequiredChannels, ", "))
-			}
+			channelListMsg = fmt.Sprintf("\n📋 <b>%s (%d):</b> <code>%s</code>\n", i18n.T(lang, "settings.btn_mandatory"), len(mand.RequiredChannels), strings.Join(mand.RequiredChannels, ", "))
 		} else {
-			if isFa {
-				channelListMsg = "\n⚠️ <i>هنوز کانالی ثبت نشده است. جهت ثبت کانال از پنل وب استفاده نمایید.</i>\n"
-			} else {
-				channelListMsg = "\n⚠️ <i>No channels registered yet. Configure channels via Web App.</i>\n"
-			}
+			channelListMsg = fmt.Sprintf("\n⚠️ <i>%s</i>\n", i18n.T(lang, "settings.val_no_channels"))
 		}
 
-		if isFa {
-			text = fmt.Sprintf("📢 <b>عضویت اجباری (جوین و اد اجباری)</b> — <i>%s</i>\n\nالزام کاربران به عضویت در کانال‌ها یا اد اعضا پیش از چت:%s", telegram.EscapeHTML(group.ChatTitle), channelListMsg)
-		} else {
-			text = fmt.Sprintf("📢 <b>Mandatory Channels (Force Join)</b> — <i>%s</i>\n\nRequire users to join channels before speaking:%s", telegram.EscapeHTML(group.ChatTitle), channelListMsg)
-		}
+		text = fmt.Sprintf("%s%s", i18n.T(lang, "settings.mandatory_title", map[string]interface{}{"group": telegram.EscapeHTML(group.ChatTitle)}), channelListMsg)
 
 		fjIcon := offText
 		if mand.ForceJoinEnabled {
@@ -3078,19 +2761,11 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 		}
 		faIcon := offText
 		if mand.ForcedAddEnabled {
-			if isFa {
-				faIcon = fmt.Sprintf("✅ فعال (%d عضو)", mand.ForcedAddCount)
-			} else {
-				faIcon = fmt.Sprintf("✅ On (%d members)", mand.ForcedAddCount)
-			}
+			faIcon = fmt.Sprintf("✅ (%d)", mand.ForcedAddCount)
 		}
 
-		lblFj := "📢 Force Join Required: "
-		lblFa := "👥 Force Add Members: "
-		if isFa {
-			lblFj = "📢 جوین اجباری در کانال: "
-			lblFa = "👥 اد اجباری اعضا: "
-		}
+		lblFj := i18n.T(lang, "settings.lbl_force_join")
+		lblFa := i18n.T(lang, "settings.lbl_force_add")
 
 		rows = [][]map[string]interface{}{
 			{
@@ -3105,11 +2780,7 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 		}
 
 	case "welcome":
-		if isFa {
-			text = fmt.Sprintf("🧩 <b>خوش‌آمدگویی و اعتبارسنجی اعضا</b> — <i>%s</i>\n\nمدیریت ورود اعضای جدید، پیام ترحیب و کپچای ضدربات:", telegram.EscapeHTML(group.ChatTitle))
-		} else {
-			text = fmt.Sprintf("🧩 <b>Welcome & Member Verification</b> — <i>%s</i>\n\nManage greeting messages and anti-bot verification:", telegram.EscapeHTML(group.ChatTitle))
-		}
+		text = i18n.T(lang, "settings.welcome_title", map[string]interface{}{"group": telegram.EscapeHTML(group.ChatTitle)})
 
 		welcomeIcon := offText
 		if gen.WelcomeMessage {
@@ -3124,14 +2795,9 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 			botsIcon = onText
 		}
 
-		lblWelcome := "👋 Send Welcome Message: "
-		lblCaptcha := "🧩 Captcha Verification: "
-		lblBots := "🤖 Block Foreign Bots: "
-		if isFa {
-			lblWelcome = "👋 پیام خوش‌آمدگویی: "
-			lblCaptcha = "🧩 اعتبارسنجی با کپچا: "
-			lblBots = "🤖 مسدودسازی ورود ربات‌ها: "
-		}
+		lblWelcome := i18n.T(lang, "settings.lbl_welcome_msg")
+		lblCaptcha := i18n.T(lang, "settings.lbl_captcha")
+		lblBots := i18n.T(lang, "settings.lbl_block_bots")
 
 		rows = [][]map[string]interface{}{
 			{
@@ -3149,22 +2815,11 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 		}
 
 	case "general":
-		if isFa {
-			text = fmt.Sprintf("🌐 <b>تنظیمات عمومی گروه</b> — <i>%s</i>\n\nسایر گزینه‌ها و تنظیمات ظاهری ربات در گروه:", telegram.EscapeHTML(group.ChatTitle))
-		} else {
-			text = fmt.Sprintf("🌐 <b>General Settings</b> — <i>%s</i>\n\nGeneral group and bot preferences:", telegram.EscapeHTML(group.ChatTitle))
-		}
+		text = i18n.T(lang, "settings.general_title", map[string]interface{}{"group": telegram.EscapeHTML(group.ChatTitle)})
 
-		pubCmdIcon := "❌ Admins Only"
-		if isFa {
-			pubCmdIcon = "❌ فقط ادمین‌ها"
-		}
+		pubCmdIcon := i18n.T(lang, "settings.status_admins_only")
 		if gen.PublicCommands {
-			if isFa {
-				pubCmdIcon = "✅ همه اعضا"
-			} else {
-				pubCmdIcon = "✅ All Members"
-			}
+			pubCmdIcon = i18n.T(lang, "settings.status_all_members")
 		}
 
 		hideJoinIcon := offText
@@ -3172,12 +2827,8 @@ func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *re
 			hideJoinIcon = onText
 		}
 
-		lblPub := "💬 Public /rules & /stats: "
-		lblHide := "🚪 Delete Join/Leave Msgs: "
-		if isFa {
-			lblPub = "💬 دستورات عمومی (/rules و ...): "
-			lblHide = "🚪 حذف پیام ورود و خروج: "
-		}
+		lblPub := i18n.T(lang, "settings.lbl_pub_cmds")
+		lblHide := i18n.T(lang, "settings.lbl_hide_join")
 
 		rows = [][]map[string]interface{}{
 			{
@@ -3376,41 +3027,11 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 			dashboardURL = miniAppURL
 		}
 
-		var welcomeMsg string
-		var btnSettingsText, btnDashboardText string
-		if lang == "fa" {
-			welcomeMsg = fmt.Sprintf(`🛡️ <b>محافظ هوشمند iFragment فعال شد!</b>
-
-گروه <b>%s</b> تحت حفاظت هوشمند قرار گرفت.
-
-✨ <b>ضمانت ۱۰۰٪ بدون تبلیغات (Zero-Ads Guarantee):</b>
-تحت هیچ شرایطی پیام‌های تبلیغاتی، اسپم یا ایردراپ در گروه شما ارسال نخواهد شد.
-
-⚡ <b>دسترسی سریع مدیریت:</b>
-• دستور <code>/settings</code> یا <code>/config</code> برای منوی تعاملی دکمه‌های شیشه‌ای
-• دستورات فوری: <code>/lock</code>, <code>/mute</code>, <code>/warn</code>, <code>/slowmode</code>, <code>/ephemeral</code>, <code>/rules</code>
-
-⚙️ <b>دسترسی‌های لازم ادمین:</b>
-✅ حذف پیام‌ها  ✅ محدودسازی اعضا  ✅ بن کاربران  ✅ سنجاق پیام`, telegram.EscapeHTML(chat.Title))
-			btnSettingsText = "⚙️ تنظیمات گروه (Inline Settings)"
-			btnDashboardText = "🌐 ورود به وب داشبورد (Web App)"
-		} else {
-			welcomeMsg = fmt.Sprintf(`🛡️ <b>iFragment Smart Guardian Activated!</b>
-
-Group <b>%s</b> is now under smart protection.
-
-✨ <b>100%% Zero-Ads Guarantee:</b>
-No promotional messages, ads, or unwanted broadcasts will ever be sent to your group.
-
-⚡ <b>Quick Admin Access:</b>
-• <code>/settings</code> or <code>/config</code> for interactive button settings
-• Quick commands: <code>/lock</code>, <code>/mute</code>, <code>/warn</code>, <code>/slowmode</code>, <code>/ephemeral</code>, <code>/rules</code>
-
-⚙️ <b>Required Admin Permissions:</b>
-✅ Delete Messages  ✅ Restrict Members  ✅ Ban Users  ✅ Pin Messages`, telegram.EscapeHTML(chat.Title))
-			btnSettingsText = "⚙️ Group Settings (Inline)"
-			btnDashboardText = "🌐 Open Web Dashboard (Web App)"
-		}
+		welcomeMsg := i18n.T(lang, "settings.welcome_group_added", map[string]interface{}{
+			"group": telegram.EscapeHTML(chat.Title),
+		})
+		btnSettingsText := i18n.T(lang, "settings.btn_content")
+		btnDashboardText := i18n.T(lang, "settings.btn_webapp")
 
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
@@ -3715,13 +3336,13 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	case "/setrules":
 		return h.adminSetRules(ctx, bot, tg, m, lang, group.ID)
 	case "/welcome":
-		return h.adminWelcome(ctx, tg, m, group.ID)
+		return h.adminWelcome(ctx, tg, m, lang, group.ID)
 	case "/setwelcome":
-		return h.adminSetWelcome(ctx, bot, tg, m, group.ID)
+		return h.adminSetWelcome(ctx, bot, tg, m, lang, group.ID)
 	case "/settitle", "/title":
-		return h.adminSetTitle(ctx, tg, m)
+		return h.adminSetTitle(ctx, tg, m, lang)
 	case "/setdesc", "/setdescription", "/description":
-		return h.adminSetDescription(ctx, tg, m)
+		return h.adminSetDescription(ctx, tg, m, lang)
 	case "/antispam":
 		return h.adminAntispam(ctx, bot, tg, m, lang, group.ID)
 	case "/quiet":
@@ -3736,11 +3357,11 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 		}
 		return h.adminReport(ctx, tg, m, lang, targetUserID)
 	case "/pin":
-		return h.adminPin(ctx, bot, tg, m)
+		return h.adminPin(ctx, bot, tg, m, lang)
 	case "/unpin":
-		return h.adminUnpin(ctx, bot, tg, m)
+		return h.adminUnpin(ctx, bot, tg, m, lang)
 	case "/unpinall":
-		return h.adminUnpinAll(ctx, bot, tg, m)
+		return h.adminUnpinAll(ctx, bot, tg, m, lang)
 	case "/id", "/whois":
 		return h.adminID(ctx, tg, m)
 	case "/ping":
@@ -3748,9 +3369,9 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	case "/debug", "/status":
 		return h.adminDebug(ctx, bot, tg, m, lang, group)
 	case "/admins", "/staff":
-		return h.adminAdmins(ctx, tg, m)
+		return h.adminAdmins(ctx, tg, m, lang)
 	case "/link", "/invitelink":
-		return h.adminLink(ctx, tg, m)
+		return h.adminLink(ctx, tg, m, lang)
 	case "/info":
 		return h.adminInfo(ctx, tg, m, lang, group, bot)
 	case "/stats":
@@ -4334,26 +3955,31 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 	return true
 }
 
-func (h *WebhookHandler) adminReport(ctx context.Context, tg *telegram.BotAPIClient, m *Message, _ string, ownerID int64) bool {
+func (h *WebhookHandler) adminReport(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string, ownerID int64) bool {
 	if m.ReplyToMessage == nil || m.ReplyToMessage.From == nil {
 		return false
 	}
 
-	reportMsg := fmt.Sprintf("🚨 <b>گزارش تخلف جدید</b>\n\n📌 <b>گروه:</b> %s\n👤 <b>گزارش‌دهنده:</b> <code>%d</code>\n🚫 <b>متخلف:</b> <code>%d</code>\n🔗 <b>پیام:</b> <a href=\"https://t.me/c/%s/%d\">مشاهده پیام در گروه</a>",
-		telegram.EscapeHTML(m.Chat.Title), m.From.ID, m.ReplyToMessage.From.ID, strings.TrimPrefix(fmt.Sprintf("%d", m.Chat.ID), "-100"), m.ReplyToMessage.MessageID)
+	reportMsg := i18n.T(lang, "admin.report_msg", map[string]interface{}{
+		"group":       telegram.EscapeHTML(m.Chat.Title),
+		"reporter_id": m.From.ID,
+		"target_id":   m.ReplyToMessage.From.ID,
+		"chat_id":     strings.TrimPrefix(fmt.Sprintf("%d", m.Chat.ID), "-100"),
+		"msg_id":      m.ReplyToMessage.MessageID,
+	})
 
 	_ = tg.SendMessage(ctx, ownerID, reportMsg, nil, nil)
-	_ = tg.SendMessage(ctx, m.Chat.ID, "✅ گزارش با موفقیت برای مدیریت ارسال شد.", &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.report_sent"), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminPin(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminPin(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string) bool {
 	if m.ReplyToMessage == nil {
 		return false
 	}
 
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanPinMessages {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ I don't have permission to pin messages.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.pin_no_perm"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
@@ -4361,27 +3987,27 @@ func (h *WebhookHandler) adminPin(ctx context.Context, bot *repository.ManagedBo
 	return true
 }
 
-func (h *WebhookHandler) adminUnpin(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminUnpin(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string) bool {
 	msgID := 0
 	if m.ReplyToMessage != nil {
 		msgID = m.ReplyToMessage.MessageID
 	}
 	err := tg.UnpinChatMessage(ctx, m.Chat.ID, msgID)
 	if err != nil {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to unpin message.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.unpin_fail"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
-	_ = tg.SendMessage(ctx, m.Chat.ID, "📌 Message unpinned successfully.", &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.unpin_success"), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminUnpinAll(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminUnpinAll(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string) bool {
 	err := tg.UnpinAllChatMessages(ctx, m.Chat.ID)
 	if err != nil {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to unpin all messages.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.unpinall_fail"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
-	_ = tg.SendMessage(ctx, m.Chat.ID, "📌 All pinned messages have been unpinned.", &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.unpinall_success"), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
@@ -4435,14 +4061,14 @@ func (h *WebhookHandler) adminPing(ctx context.Context, tg *telegram.BotAPIClien
 	return true
 }
 
-func (h *WebhookHandler) adminAdmins(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminAdmins(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
 	admins, err := tg.GetChatAdministrators(ctx, m.Chat.ID)
 	if err != nil || len(admins) == 0 {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to retrieve administrators.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.admins_fail"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
-	text := fmt.Sprintf("👥 <b>Administrators of %s:</b>\n\n", telegram.EscapeHTML(m.Chat.Title))
+	text := i18n.T(lang, "admin.admins_title", map[string]interface{}{"group": telegram.EscapeHTML(m.Chat.Title)})
 	for _, adm := range admins {
 		icon := "👤"
 		if adm.Status == "creator" {
@@ -4467,22 +4093,22 @@ func (h *WebhookHandler) adminAdmins(ctx context.Context, tg *telegram.BotAPICli
 	return true
 }
 
-func (h *WebhookHandler) adminLink(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminLink(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
 	if m.Chat.Username != "" {
 		link := fmt.Sprintf("https://t.me/%s", m.Chat.Username)
-		_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("🔗 <b>Group Link:</b> %s", link), &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.link_title", map[string]interface{}{"link": link}), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 	link, err := tg.ExportChatInviteLink(ctx, m.Chat.ID)
 	if err != nil || link == "" {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Unable to export invite link. Ensure bot has 'Invite Users' permission.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.link_fail"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
-	_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("🔗 <b>Group Invite Link:</b>\n%s", link), &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.link_invite_title", map[string]interface{}{"link": link}), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminWelcome(ctx context.Context, tg *telegram.BotAPIClient, m *Message, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminWelcome(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
 	settings, _ := h.moderator.GetSettings(ctx, groupID)
 	var ct repository.SettingsCustomTexts
 	var gen repository.SettingsGeneral
@@ -4491,9 +4117,9 @@ func (h *WebhookHandler) adminWelcome(ctx context.Context, tg *telegram.BotAPICl
 		_ = json.Unmarshal(settings.General, &gen)
 	}
 
-	status := "❌ Disabled"
+	status := i18n.T(lang, "settings.status_off")
 	if gen.WelcomeMessage {
-		status = "✅ Enabled"
+		status = i18n.T(lang, "settings.status_on")
 	}
 
 	preview := ct.WelcomeText
@@ -4501,15 +4127,18 @@ func (h *WebhookHandler) adminWelcome(ctx context.Context, tg *telegram.BotAPICl
 		preview = "(Default Welcome Message)"
 	}
 
-	text := fmt.Sprintf("👋 <b>Welcome Message Status:</b> %s\n\n<b>Current Template:</b>\n<code>%s</code>\n\n<i>Use <code>/setwelcome [text]</code> to change it.</i>", status, telegram.EscapeHTML(preview))
+	text := i18n.T(lang, "admin.welcome_status", map[string]interface{}{
+		"status":   status,
+		"template": telegram.EscapeHTML(preview),
+	})
 	_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminSetWelcome(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminSetWelcome(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
 	newWelcome := strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0]))
 	if newWelcome == "" {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ Usage: <code>/setwelcome Welcome to {group}, {first_name}!</code>", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.welcome_usage"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
@@ -4528,33 +4157,33 @@ func (h *WebhookHandler) adminSetWelcome(ctx context.Context, _ *repository.Mana
 	_ = h.moderator.ForceUpdateCategory(ctx, groupID, "custom_texts", dataCT)
 	_ = h.moderator.ForceUpdateCategory(ctx, groupID, "general", dataGen)
 
-	_ = tg.SendMessage(ctx, m.Chat.ID, "👋 <b>Welcome message updated & enabled!</b>", &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.welcome_updated"), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminSetTitle(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminSetTitle(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
 	newTitle := strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0]))
 	if newTitle == "" {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ Usage: <code>/settitle [New Group Title]</code>", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.title_usage"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 	err := tg.SetChatTitle(ctx, m.Chat.ID, newTitle)
 	if err != nil {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to change group title.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.title_fail"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
-	_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("✅ Group title changed to: <b>%s</b>", telegram.EscapeHTML(newTitle)), &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.title_success", map[string]interface{}{"title": telegram.EscapeHTML(newTitle)}), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminSetDescription(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminSetDescription(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
 	newDesc := strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0]))
 	err := tg.SetChatDescription(ctx, m.Chat.ID, newDesc)
 	if err != nil {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to change group description.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.desc_fail"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
-	_ = tg.SendMessage(ctx, m.Chat.ID, "✅ Group description updated successfully.", &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "admin.desc_success"), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
@@ -4635,10 +4264,7 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 		group, _ = h.botRepo.GetGroup(ctx, bot.ID, cq.Message.Chat.ID)
 	}
 	if group == nil {
-		msg := "❌ گروه یافت نشد."
-		if !isFa {
-			msg = "❌ Group not found."
-		}
+		msg := i18n.T(lang, "toasts.group_not_found")
 		_ = tg.AnswerCallbackQuery(ctx, cq.ID, msg, true)
 		return
 	}
@@ -4654,10 +4280,7 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 	}
 
 	if !isAuthorized {
-		msg := "⛔ فقط مدیران گروه مجاز به تغییر تنظیمات هستند."
-		if !isFa {
-			msg = "⛔ Only group administrators can modify settings."
-		}
+		msg := i18n.T(lang, "toasts.only_admins")
 		_ = tg.AnswerCallbackQuery(ctx, cq.ID, msg, true)
 		return
 	}
@@ -4685,16 +4308,10 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 	if action == "close" {
 		errDel := tg.DeleteMessage(ctx, cq.Message.Chat.ID, cq.Message.MessageID)
 		if errDel != nil {
-			closedText := "🔒 <b>منوی تنظیمات بسته شد.</b>"
-			if !isFa {
-				closedText = "🔒 <b>Settings menu closed.</b>"
-			}
+			closedText := fmt.Sprintf("🔒 <b>%s</b>", i18n.T(lang, "toasts.menu_closed"))
 			_ = tg.EditMessageTextWithMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, closedText, map[string]interface{}{"inline_keyboard": [][]map[string]interface{}{}}, "HTML")
 		}
-		msg := "منوی تنظیمات بسته شد."
-		if !isFa {
-			msg = "Settings menu closed."
-		}
+		msg := i18n.T(lang, "toasts.menu_closed")
 		_ = tg.AnswerCallbackQuery(ctx, cq.ID, msg, false)
 		return
 	}
@@ -4704,11 +4321,7 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 		_ = tg.EditMessageTextWithMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, markup, "HTML")
 		toastMsg := ""
 		if action == "refresh" {
-			if isFa {
-				toastMsg = "🔄 تنظیمات با موفقیت بروزرسانی شد"
-			} else {
-				toastMsg = "🔄 Settings refreshed successfully"
-			}
+			toastMsg = i18n.T(lang, "toasts.settings_refreshed")
 		}
 		_ = tg.AnswerCallbackQuery(ctx, cq.ID, toastMsg, false)
 		return
@@ -4745,15 +4358,9 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				data, _ := json.Marshal(cont)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
 				if cont.RemoveLinks.Enabled {
-					toastMsg = "🔗 حذف لینک‌ها فعال شد"
-					if !isFa {
-						toastMsg = "🔗 Link filter enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.link_enabled")
 				} else {
-					toastMsg = "🔗 حذف لینک‌ها غیرفعال شد"
-					if !isFa {
-						toastMsg = "🔗 Link filter disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.link_disabled")
 				}
 
 			case "username", "username_filter":
@@ -4761,15 +4368,9 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				data, _ := json.Marshal(cont)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
 				if cont.BlockUsernames.Enabled {
-					toastMsg = "🆔 حذف آیدی و منشن فعال شد"
-					if !isFa {
-						toastMsg = "🆔 Username filter enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.username_enabled")
 				} else {
-					toastMsg = "🆔 حذف آیدی و منشن غیرفعال شد"
-					if !isFa {
-						toastMsg = "🆔 Username filter disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.username_disabled")
 				}
 
 			case "fwd", "forward_filter":
@@ -4777,15 +4378,9 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				data, _ := json.Marshal(cont)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
 				if cont.BlockForwards.Enabled {
-					toastMsg = "↗️ حذف پیام فورواردی فعال شد"
-					if !isFa {
-						toastMsg = "↗️ Forward filter enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.forward_enabled")
 				} else {
-					toastMsg = "↗️ حذف فوروارد غیرفعال شد"
-					if !isFa {
-						toastMsg = "↗️ Forward filter disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.forward_disabled")
 				}
 
 			case "phone", "phone_filter":
@@ -4793,15 +4388,9 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				data, _ := json.Marshal(cont)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
 				if cont.BlockPhoneNumbers.Enabled {
-					toastMsg = "📞 حذف شماره تماس فعال شد"
-					if !isFa {
-						toastMsg = "📞 Phone filter enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.phone_enabled")
 				} else {
-					toastMsg = "📞 حذف شماره تماس غیرفعال شد"
-					if !isFa {
-						toastMsg = "📞 Phone filter disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.phone_disabled")
 				}
 
 			case "cas":
@@ -4809,15 +4398,9 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				data, _ := json.Marshal(gen)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
 				if gen.CasEnabled {
-					toastMsg = "🤖 ضداسپم هوشمند CAS فعال شد"
-					if !isFa {
-						toastMsg = "🤖 CAS anti-spam enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.cas_enabled")
 				} else {
-					toastMsg = "🤖 ضداسپم CAS غیرفعال شد"
-					if !isFa {
-						toastMsg = "🤖 CAS anti-spam disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.cas_disabled")
 				}
 
 			case "media":
@@ -4828,15 +4411,9 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				data, _ := json.Marshal(cont)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
 				if newMediaState {
-					toastMsg = "📸 فیلتر رسانه و استیکر فعال شد"
-					if !isFa {
-						toastMsg = "📸 Media filter enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.media_enabled")
 				} else {
-					toastMsg = "📸 فیلتر رسانه و استیکر غیرفعال شد"
-					if !isFa {
-						toastMsg = "📸 Media filter disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.media_disabled")
 				}
 			}
 
@@ -4849,17 +4426,11 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 			case "antiraid":
 				if gen.AntiRaidThreshold > 0 {
 					gen.AntiRaidThreshold = 0
-					toastMsg = "🛡️ حالت ضدحمله غیرفعال شد"
-					if !isFa {
-						toastMsg = "🛡️ Anti-Raid mode disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.antiraid_disabled")
 				} else {
 					gen.AntiRaidThreshold = 5
 					gen.AntiRaidAction = "lockdown"
-					toastMsg = "🛡️ حالت ضدحمله (Anti-Raid) فعال شد"
-					if !isFa {
-						toastMsg = "🛡️ Anti-Raid mode activated"
-					}
+					toastMsg = i18n.T(lang, "toasts.antiraid_enabled")
 				}
 				data, _ := json.Marshal(gen)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
@@ -4892,31 +4463,17 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 					if quiet.EmergencyLock {
 						msg := customTexts.SilenceStartText
 						if msg == "" {
-							if isFa {
-								msg = "🔒 <b>حالت سکوت اضطراری در گروه فعال شد.</b> اعضای عادی موقتاً امکان ارسال پیام ندارند."
-							} else {
-								msg = "🔒 <b>Emergency Lock active.</b> Regular members can no longer send messages."
-							}
+							msg = i18n.T(lang, "moderation.group_locked")
 						}
 						_ = tg.SendMessage(ctx, group.ChatID, msg, nil, nil)
-						toastMsg = "🔒 گروه با موفقیت قفل شد"
-						if !isFa {
-							toastMsg = "🔒 Group locked successfully"
-						}
+						toastMsg = i18n.T(lang, "toasts.group_locked")
 					} else {
 						msg := customTexts.SilenceEndText
 						if msg == "" {
-							if isFa {
-								msg = "🔓 <b>حالت سکوت اضطراری به پایان رسید.</b> اعضا اکنون می‌توانند پیام ارسال کنند."
-							} else {
-								msg = "🔓 <b>Emergency Lock ended.</b> Regular members can now send messages."
-							}
+							msg = i18n.T(lang, "moderation.group_unlocked")
 						}
 						_ = tg.SendMessage(ctx, group.ChatID, msg, nil, nil)
-						toastMsg = "🔓 قفل گروه باز شد"
-						if !isFa {
-							toastMsg = "🔓 Group unlocked successfully"
-						}
+						toastMsg = i18n.T(lang, "toasts.group_unlocked")
 					}
 				}
 			case "admin", "adminOverride":
@@ -4924,15 +4481,9 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				data, _ := json.Marshal(quiet)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "quiet_hours", data)
 				if quiet.AdminOverride {
-					toastMsg = "👑 گفتگوی آزاد ادمین‌ها فعال شد"
-					if !isFa {
-						toastMsg = "👑 Admin chat override enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.admin_chat_enabled")
 				} else {
-					toastMsg = "👑 گفتگوی آزاد ادمین‌ها غیرفعال شد"
-					if !isFa {
-						toastMsg = "👑 Admin chat override disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.admin_chat_disabled")
 				}
 			}
 
@@ -4945,41 +4496,23 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 			case "all", "ephemeralAll":
 				gen.EphemeralAll = !gen.EphemeralAll
 				if gen.EphemeralAll {
-					toastMsg = "👻 حذف خودکار پیام‌های ربات فعال شد"
-					if !isFa {
-						toastMsg = "👻 Ephemeral bot msgs enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.ephemeral_all_enabled")
 				} else {
-					toastMsg = "👻 حذف خودکار غیرفعال شد"
-					if !isFa {
-						toastMsg = "👻 Ephemeral bot msgs disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.ephemeral_all_disabled")
 				}
 			case "cmd", "ephemeralAdminCmd":
 				gen.EphemeralAdminCmd = !gen.EphemeralAdminCmd
 				if gen.EphemeralAdminCmd {
-					toastMsg = "⚡ حذف دستورات ادمین فعال شد"
-					if !isFa {
-						toastMsg = "⚡ Delete admin commands enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.ephemeral_cmd_enabled")
 				} else {
-					toastMsg = "⚡ حذف دستورات ادمین غیرفعال شد"
-					if !isFa {
-						toastMsg = "⚡ Delete admin commands disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.ephemeral_cmd_disabled")
 				}
 			case "warn", "ephemeralWarnings":
 				gen.EphemeralWarnings = !gen.EphemeralWarnings
 				if gen.EphemeralWarnings {
-					toastMsg = "⚠️ حذف اخطارهای ربات فعال شد"
-					if !isFa {
-						toastMsg = "⚠️ Delete warnings enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.ephemeral_warn_enabled")
 				} else {
-					toastMsg = "⚠️ حذف اخطارهای ربات غیرفعال شد"
-					if !isFa {
-						toastMsg = "⚠️ Delete warnings disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.ephemeral_warn_disabled")
 				}
 			}
 			data, _ := json.Marshal(gen)
@@ -4993,24 +4526,10 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 			switch key {
 			case "join", "force_join":
 				mand.ForceJoinEnabled = !mand.ForceJoinEnabled
-				if mand.ForceJoinEnabled && len(mand.RequiredChannels) == 0 {
-					if isFa {
-						toastMsg = "⚠️ جوین اجباری فعال شد (توجه: کانالی ثبت نشده!)"
-					} else {
-						toastMsg = "⚠️ Force join enabled (No channels configured!)"
-					}
-				} else if mand.ForceJoinEnabled {
-					if isFa {
-						toastMsg = "📢 عضویت اجباری کانال فعال شد"
-					} else {
-						toastMsg = "📢 Force join enabled"
-					}
+				if mand.ForceJoinEnabled {
+					toastMsg = i18n.T(lang, "toasts.force_join_enabled")
 				} else {
-					if isFa {
-						toastMsg = "📢 عضویت اجباری کانال غیرفعال شد"
-					} else {
-						toastMsg = "📢 Force join disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.force_join_disabled")
 				}
 			}
 			data, _ := json.Marshal(mand)
@@ -5029,45 +4548,27 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				data, _ := json.Marshal(gen)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
 				if gen.WelcomeMessage {
-					toastMsg = "👋 پیام خوش‌آمدگویی فعال شد"
-					if !isFa {
-						toastMsg = "👋 Welcome greeting enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.welcome_enabled")
 				} else {
-					toastMsg = "👋 پیام خوش‌آمدگویی غیرفعال شد"
-					if !isFa {
-						toastMsg = "👋 Welcome greeting disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.welcome_disabled")
 				}
 			case "captcha":
 				gen.VerifyMembers = !gen.VerifyMembers
 				data, _ := json.Marshal(gen)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
 				if gen.VerifyMembers {
-					toastMsg = "🧩 اعتبارسنجی با کپچا فعال شد"
-					if !isFa {
-						toastMsg = "🧩 Captcha verification enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.captcha_enabled")
 				} else {
-					toastMsg = "🧩 اعتبارسنجی با کپچا غیرفعال شد"
-					if !isFa {
-						toastMsg = "🧩 Captcha verification disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.captcha_disabled")
 				}
 			case "bots":
 				cont.BlockBots.Enabled = !cont.BlockBots.Enabled
 				data, _ := json.Marshal(cont)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "content_restrictions", data)
 				if cont.BlockBots.Enabled {
-					toastMsg = "🤖 مسدودسازی ورود ربات‌ها فعال شد"
-					if !isFa {
-						toastMsg = "🤖 Bot blocker enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.block_bots_enabled")
 				} else {
-					toastMsg = "🤖 مسدودسازی ورود ربات‌ها غیرفعال شد"
-					if !isFa {
-						toastMsg = "🤖 Bot blocker disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.block_bots_disabled")
 				}
 			}
 
@@ -5080,28 +4581,16 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 			case "cmds", "public_commands":
 				gen.PublicCommands = !gen.PublicCommands
 				if gen.PublicCommands {
-					toastMsg = "💬 دستورات برای همه اعضا مجاز شد"
-					if !isFa {
-						toastMsg = "💬 Public commands allowed"
-					}
+					toastMsg = i18n.T(lang, "toasts.pub_cmds_enabled")
 				} else {
-					toastMsg = "💬 دستورات فقط برای ادمین‌ها مجاز شد"
-					if !isFa {
-						toastMsg = "💬 Admin-only commands"
-					}
+					toastMsg = i18n.T(lang, "toasts.pub_cmds_disabled")
 				}
 			case "hidejoin", "hide_join":
 				gen.HideJoinLeave = !gen.HideJoinLeave
 				if gen.HideJoinLeave {
-					toastMsg = "🚪 حذف پیام ورود و خروج فعال شد"
-					if !isFa {
-						toastMsg = "🚪 Hide join/leave enabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.hide_join_enabled")
 				} else {
-					toastMsg = "🚪 حذف پیام ورود و خروج غیرفعال شد"
-					if !isFa {
-						toastMsg = "🚪 Hide join/leave disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.hide_join_disabled")
 				}
 			}
 			data, _ := json.Marshal(gen)
@@ -5145,27 +4634,15 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				case 0:
 					limits.FloodMsgs = 5
 					limits.FloodWin = 5
-					if isFa {
-						toastMsg = "⚡ فلود: ۵ پیام در ۵ ثانیه"
-					} else {
-						toastMsg = "⚡ Flood: 5 msgs / 5s"
-					}
+					toastMsg = i18n.T(lang, "toasts.flood_set", map[string]interface{}{"count": 5, "secs": 5})
 				case 5:
 					limits.FloodMsgs = 10
 					limits.FloodWin = 5
-					if isFa {
-						toastMsg = "⚡ فلود: ۱۰ پیام در ۵ ثانیه"
-					} else {
-						toastMsg = "⚡ Flood: 10 msgs / 5s"
-					}
+					toastMsg = i18n.T(lang, "toasts.flood_set", map[string]interface{}{"count": 10, "secs": 5})
 				default:
 					limits.FloodMsgs = 0
 					limits.FloodWin = 0
-					if isFa {
-						toastMsg = "⚡ محدودیت فلود خاموش شد"
-					} else {
-						toastMsg = "⚡ Flood limit disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.flood_disabled")
 				}
 				data, _ := json.Marshal(limits)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "limits", data)
@@ -5188,17 +4665,9 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				if updateErr == nil {
 					_ = tg.SetChatSlowModeDelay(ctx, group.ChatID, limits.SlowMode)
 					if limits.SlowMode > 0 {
-						if isFa {
-							toastMsg = fmt.Sprintf("⏱️ اسلومود تلگرام: %d ثانیه", limits.SlowMode)
-						} else {
-							toastMsg = fmt.Sprintf("⏱️ Slow mode: %ds", limits.SlowMode)
-						}
+						toastMsg = i18n.T(lang, "toasts.slowmode_set", map[string]interface{}{"secs": limits.SlowMode})
 					} else {
-						if isFa {
-							toastMsg = "⏱️ اسلومود تلگرام خاموش شد"
-						} else {
-							toastMsg = "⏱️ Slow mode disabled"
-						}
+						toastMsg = i18n.T(lang, "toasts.slowmode_disabled")
 					}
 				}
 			}
@@ -5221,11 +4690,7 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				default:
 					gen.AutoDeleteDelay = 30
 				}
-				if isFa {
-					toastMsg = fmt.Sprintf("⏱️ زمان نگهداری پیام: %d ثانیه", gen.AutoDeleteDelay)
-				} else {
-					toastMsg = fmt.Sprintf("⏱️ Auto-delete delay: %ds", gen.AutoDeleteDelay)
-				}
+				toastMsg = i18n.T(lang, "toasts.delay_set", map[string]interface{}{"secs": gen.AutoDeleteDelay})
 				data, _ := json.Marshal(gen)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
 			}
@@ -5239,33 +4704,17 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				if !mand.ForcedAddEnabled || mand.ForcedAddCount == 0 {
 					mand.ForcedAddEnabled = true
 					mand.ForcedAddCount = 3
-					if isFa {
-						toastMsg = "👥 اد اجباری: ۳ عضو"
-					} else {
-						toastMsg = "👥 Force add: 3 members"
-					}
+					toastMsg = i18n.T(lang, "toasts.force_add_set", map[string]interface{}{"count": 3})
 				} else if mand.ForcedAddCount == 3 {
 					mand.ForcedAddCount = 5
-					if isFa {
-						toastMsg = "👥 اد اجباری: ۵ عضو"
-					} else {
-						toastMsg = "👥 Force add: 5 members"
-					}
+					toastMsg = i18n.T(lang, "toasts.force_add_set", map[string]interface{}{"count": 5})
 				} else if mand.ForcedAddCount == 5 {
 					mand.ForcedAddCount = 10
-					if isFa {
-						toastMsg = "👥 اد اجباری: ۱۰ عضو"
-					} else {
-						toastMsg = "👥 Force add: 10 members"
-					}
+					toastMsg = i18n.T(lang, "toasts.force_add_set", map[string]interface{}{"count": 10})
 				} else {
 					mand.ForcedAddEnabled = false
 					mand.ForcedAddCount = 0
-					if isFa {
-						toastMsg = "👥 اد اجباری غیرفعال شد"
-					} else {
-						toastMsg = "👥 Force add disabled"
-					}
+					toastMsg = i18n.T(lang, "toasts.force_add_disabled")
 				}
 				data, _ := json.Marshal(mand)
 				updateErr = h.moderator.ForceUpdateCategory(ctx, group.ID, "mandatory_membership", data)
@@ -6167,30 +5616,14 @@ func (h *WebhookHandler) adminInfo(ctx context.Context, tg *telegram.BotAPIClien
 		expiryStr = "Expired"
 	}
 
-	var infoText string
-	if lang == "fa" {
-		infoText = fmt.Sprintf(
-			"ℹ️ *اطلاعات گروه:*\n\n"+
-				"👥 نام گروه: `%s`\n"+
-				"🆔 شناسه گروه: `%d`\n"+
-				"🤖 ربات مدیریت: @%s\n"+
-				"💳 وضعیت اشتراک: *%s*\n"+
-				"⏰ تاریخ انقضا: `%s`\n"+
-				"📊 تعداد اعضا: `%d`",
-			group.ChatTitle, group.ChatID, bot.BotUsername, group.SubscriptionStatus, expiryStr, group.MembersCount,
-		)
-	} else {
-		infoText = fmt.Sprintf(
-			"ℹ️ *Group Information:*\n\n"+
-				"👥 Group Title: `%s`\n"+
-				"🆔 Chat ID: `%d`\n"+
-				"🤖 Bot: @%s\n"+
-				"💳 Subscription: *%s*\n"+
-				"⏰ Expires At: `%s`\n"+
-				"📊 Members Count: `%d`",
-			group.ChatTitle, group.ChatID, bot.BotUsername, group.SubscriptionStatus, expiryStr, group.MembersCount,
-		)
-	}
+	infoText := i18n.T(lang, "admin.info_text", map[string]interface{}{
+		"title":        group.ChatTitle,
+		"chat_id":      group.ChatID,
+		"bot_username": bot.BotUsername,
+		"status":       group.SubscriptionStatus,
+		"expires":      expiryStr,
+		"members":      group.MembersCount,
+	})
 
 	var general repository.SettingsGeneral
 	if settings, err := h.moderator.GetSettings(ctx, group.ID); err == nil && settings != nil {
@@ -6216,28 +5649,13 @@ func (h *WebhookHandler) adminStats(ctx context.Context, tg *telegram.BotAPIClie
 		return false
 	}
 
-	var statsText string
-	if lang == "fa" {
-		statsText = fmt.Sprintf(
-			"📊 *آمار گروه در ۷ روز گذشته:*\n\n"+
-				"💬 تعداد پیام‌ها: `%d`\n"+
-				"➕ اعضای جدید: `%d`\n"+
-				"➖ اعضای خارج شده: `%d`\n"+
-				"🚫 اسپم‌های مسدود شده: `%d`\n"+
-				"👥 کاربران فعال: `%d`",
-			summary.TotalMessages, summary.NewMembers, summary.MembersLeft, summary.SpamBlocked, summary.ActiveUsers,
-		)
-	} else {
-		statsText = fmt.Sprintf(
-			"📊 *Group Stats (Last 7 Days):*\n\n"+
-				"💬 Total Messages: `%d`\n"+
-				"➕ New Members: `%d`\n"+
-				"➖ Members Left: `%d`\n"+
-				"🚫 Spam Blocked: `%d`\n"+
-				"👥 Active Users: `%d`",
-			summary.TotalMessages, summary.NewMembers, summary.MembersLeft, summary.SpamBlocked, summary.ActiveUsers,
-		)
-	}
+	statsText := i18n.T(lang, "admin.stats_text", map[string]interface{}{
+		"messages":     summary.TotalMessages,
+		"new_members":  summary.NewMembers,
+		"left_members": summary.MembersLeft,
+		"spam_blocked": summary.SpamBlocked,
+		"active_users": summary.ActiveUsers,
+	})
 
 	var general repository.SettingsGeneral
 	if settings, err := h.moderator.GetSettings(ctx, group.ID); err == nil && settings != nil {
@@ -6269,10 +5687,7 @@ func (h *WebhookHandler) adminClean(ctx context.Context, tg *telegram.BotAPIClie
 		cleanKey := fmt.Sprintf("clean_lock:%d", m.Chat.ID)
 		locked, err := cache.Client.SetNX(ctx, cleanKey, "active", 2*time.Minute).Result()
 		if err == nil && !locked {
-			msg := "⚠️ یک فرآیند پاکسازی در حال حاضر برای این گروه فعال است. لطفاً شکیبا باشید."
-			if lang != "fa" {
-				msg = "⚠️ A cleanup process is already active for this group. Please wait."
-			}
+			msg := i18n.T(lang, "admin.clean_in_progress")
 			_ = tg.SendMessage(ctx, m.Chat.ID, msg, &m.MessageID, m.MessageThreadID)
 			return true
 		}
@@ -6299,11 +5714,8 @@ func (h *WebhookHandler) adminClean(ctx context.Context, tg *telegram.BotAPIClie
 			}
 		}
 
-		successMsg := "🧹 Cleaned %d messages."
-		if lang == "fa" {
-			successMsg = "🧹 تعداد %d پیام پاکسازی شد."
-		}
-		res, err := tg.SendMessageWithResult(bgCtx, m.Chat.ID, fmt.Sprintf(successMsg, n), nil, m.MessageThreadID)
+		successMsg := i18n.T(lang, "admin.clean_success", map[string]interface{}{"count": n})
+		res, err := tg.SendMessageWithResult(bgCtx, m.Chat.ID, successMsg, nil, m.MessageThreadID)
 		if err == nil && res != nil {
 			time.Sleep(5 * time.Second)
 			_ = tg.DeleteMessage(bgCtx, m.Chat.ID, res.MessageID)
@@ -6394,52 +5806,21 @@ func (h *WebhookHandler) adminDebug(ctx context.Context, bot *repository.Managed
 		ephFilt = fmt.Sprintf("%ds", gen.AutoDeleteDelay)
 	}
 
-	var debugText string
-	if lang == "fa" {
-		debugText = fmt.Sprintf(
-			"🛠 <b>وضعیت سیستم و عیب‌یابی (iFragment Debug):</b>\n\n"+
-				"🖥 <b>سلامت زیرساخت:</b>\n"+
-				"• دیتابیس (PostgreSQL): %s\n"+
-				"• ردیس (DragonflyDB): %s\n"+
-				"• تاخیر شبکه (Latency): <code>%dms</code>\n\n"+
-				"🤖 <b>دسترسی‌های ربات:</b>\n"+
-				"• ربات: @%s (ID: <code>%d</code>)\n"+
-				"• دسترسی‌ها: %s\n\n"+
-				"🛡 <b>تنظیمات امنیتی فعال:</b>\n"+
-				"• فیلتر لینک: <code>%s</code> | آنتی‌اسپم CAS: <code>%s</code>\n"+
-				"• حالت سکوت/قفل: <code>%s</code> | جوین اجباری: <code>%s</code>\n"+
-				"• پیام موقت (Ephemeral): <code>%s</code>\n\n"+
-				"📊 <b>وضعیت گروه:</b>\n"+
-				"• شناسه چت: <code>%d</code>\n"+
-				"• اشتراک: <b>%s</b>",
-			dbStatus, cacheStatus, latency,
-			bot.BotUsername, bot.BotID, permsStr,
-			linkFilt, casFilt, quietFilt, fjFilt, ephFilt,
-			group.ChatID, group.SubscriptionStatus,
-		)
-	} else {
-		debugText = fmt.Sprintf(
-			"🛠 <b>System Diagnostics (iFragment Debug):</b>\n\n"+
-				"🖥 <b>Infrastructure Health:</b>\n"+
-				"• PostgreSQL DB: %s\n"+
-				"• DragonflyDB / Redis: %s\n"+
-				"• Network Latency: <code>%dms</code>\n\n"+
-				"🤖 <b>Bot Permissions:</b>\n"+
-				"• Bot: @%s (ID: <code>%d</code>)\n"+
-				"• Permissions: %s\n\n"+
-				"🛡 <b>Active Security Filters:</b>\n"+
-				"• Link Filter: <code>%s</code> | CAS: <code>%s</code>\n"+
-				"• Quiet/Lock: <code>%s</code> | ForceJoin: <code>%s</code>\n"+
-				"• Ephemeral Mode: <code>%s</code>\n\n"+
-				"📊 <b>Group State:</b>\n"+
-				"• Chat ID: <code>%d</code>\n"+
-				"• Subscription: <b>%s</b>",
-			dbStatus, cacheStatus, latency,
-			bot.BotUsername, bot.BotID, permsStr,
-			linkFilt, casFilt, quietFilt, fjFilt, ephFilt,
-			group.ChatID, group.SubscriptionStatus,
-		)
-	}
+	debugText := i18n.T(lang, "admin.debug_text", map[string]interface{}{
+		"db_status":    dbStatus,
+		"cache_status": cacheStatus,
+		"latency":      latency,
+		"bot_username": bot.BotUsername,
+		"bot_id":       bot.BotID,
+		"perms":        permsStr,
+		"link":         linkFilt,
+		"cas":          casFilt,
+		"quiet":        quietFilt,
+		"fj":           fjFilt,
+		"eph":          ephFilt,
+		"chat_id":      group.ChatID,
+		"sub_status":   group.SubscriptionStatus,
+	})
 
 	var general repository.SettingsGeneral
 	if settings != nil {

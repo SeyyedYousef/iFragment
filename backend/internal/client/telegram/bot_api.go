@@ -1349,3 +1349,77 @@ func (c *BotAPIClient) DeleteMessages(ctx context.Context, chatID interface{}, m
 	}
 	return nil
 }
+
+// BotGift represents a Telegram Star Gift (Bot API 8.0+)
+type BotGift struct {
+	ID               string          `json:"id"`
+	Sticker          json.RawMessage `json:"sticker"`
+	StarCount        int             `json:"star_count"`
+	TotalCount       int             `json:"total_count,omitempty"`
+	RemainingCount   int             `json:"remaining_count,omitempty"`
+	UpgradeStarCount int             `json:"upgrade_star_count,omitempty"`
+}
+
+// BotGiftsResponse is the response from getAvailableGifts
+type BotGiftsResponse struct {
+	Gifts []BotGift `json:"gifts"`
+}
+
+// SendGiftRequest contains parameters for sendGift (Bot API 8.0+)
+type SendGiftRequest struct {
+	UserID        int64  `json:"user_id,omitempty"`
+	ChatID        int64  `json:"chat_id,omitempty"`
+	GiftID        string `json:"gift_id"`
+	PayForUpgrade bool   `json:"pay_for_upgrade,omitempty"`
+	Text          string `json:"text,omitempty"`
+	TextParseMode string `json:"text_parse_mode,omitempty"`
+}
+
+// GetAvailableGifts returns available star gifts directly from Telegram Bot API (8.0+)
+func (c *BotAPIClient) GetAvailableGifts(ctx context.Context) (*BotGiftsResponse, error) {
+	resp, err := c.Request(ctx, "getAvailableGifts", nil)
+	if err != nil {
+		return nil, err
+	}
+	var res BotGiftsResponse
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// SendGift sends a gift to a user or chat (Bot API 8.0+)
+func (c *BotAPIClient) SendGift(ctx context.Context, req SendGiftRequest) (bool, error) {
+	resp, err := c.Request(ctx, "sendGift", req)
+	if err != nil {
+		return false, err
+	}
+	var ok bool
+	if err := json.Unmarshal(resp, &ok); err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
+// InlineQueryResultArticle represents an article inline query result
+type InlineQueryResultArticle struct {
+	Type                string                 `json:"type"` // "article"
+	ID                  string                 `json:"id"`
+	Title               string                 `json:"title"`
+	InputMessageContent map[string]interface{} `json:"input_message_content"`
+	ReplyMarkup         map[string]interface{} `json:"reply_markup,omitempty"`
+	Description         string                 `json:"description,omitempty"`
+	ThumbURL            string                 `json:"thumb_url,omitempty"`
+}
+
+// AnswerInlineQuery sends answers to an inline query
+func (c *BotAPIClient) AnswerInlineQuery(ctx context.Context, inlineQueryID string, results []interface{}, cacheTime int, isPersonal bool) error {
+	payload := map[string]interface{}{
+		"inline_query_id": inlineQueryID,
+		"results":         results,
+		"cache_time":      cacheTime,
+		"is_personal":     isPersonal,
+	}
+	_, err := c.Request(ctx, "answerInlineQuery", payload)
+	return err
+}

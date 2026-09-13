@@ -84,6 +84,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 	return (
 		<div
 			class="h-full w-full max-w-full overflow-y-auto overflow-x-hidden no-scrollbar relative pb-32 bg-[#030303] text-white selection:bg-[#3390ec]/30"
+			style={{ '-webkit-overflow-scrolling': 'touch', 'touch-action': 'pan-y' }}
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Top Glow - Contained in overflow-hidden wrapper */}

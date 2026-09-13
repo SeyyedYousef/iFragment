@@ -12,12 +12,14 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts/crafting"
 	"ifragment-backend/internal/service/gifts/giftchanges"
 	"ifragment-backend/internal/service/gifts/gvengine"
+	"ifragment-backend/internal/service/gifts/seeder"
 	"ifragment-backend/internal/service/gifts/telegramnft"
 	"ifragment-backend/internal/service/gifts/traits"
 	"ifragment-backend/internal/service/gifts/upgrade"
@@ -40,6 +42,7 @@ type GiftsService struct {
 	engine             *gvengine.ValuationEngine
 	cryptoPrice        *cryptoprice.CryptoPriceService
 	tgClient           *telegram.BotAPIClient
+	mtprotoClient      mtproto.Client
 	giftchangesClient  *giftchanges.Client
 	snapshotWorker     *venues.VenueSnapshotWorker
 	workerOnce         sync.Once
@@ -53,6 +56,14 @@ func NewGiftsService(
 	repo := repository.NewGiftsRepo(db)
 	creditRepo := repository.NewIntelCreditRepo(db)
 	engine := gvengine.NewValuationEngine(db, cache, cryptoPrice)
+
+	// Ensure database is bootstrapped with canonical 120 collections, traits, and baseline multi-venue snapshots
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		_ = seeder.EnsureCanonicalDataSeeded(ctx, repo)
+	}()
+
 	return &GiftsService{
 		db:                db,
 		cache:             cache,
@@ -66,6 +77,17 @@ func NewGiftsService(
 
 func (s *GiftsService) SetTelegramClient(tg *telegram.BotAPIClient) {
 	s.tgClient = tg
+}
+
+func (s *GiftsService) SetMTProtoClient(c mtproto.Client) {
+	s.mtprotoClient = c
+	if s.engine != nil {
+		s.engine.SetMTProtoClient(c)
+	}
+}
+
+func (s *GiftsService) GetMTProtoClient() mtproto.Client {
+	return s.mtprotoClient
 }
 
 // GetSnapshotWorker returns singleton instance of snapshot worker
@@ -763,6 +785,50 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 		calcVenue("Portals", 2.5, 0.05),
 		calcVenue("Tonnel", 3.0, 0.05),
 		calcVenue("MRKT", 2.0, 0.05),
+		calcVenue("Stars P2P", 8.0, 0.00),
+		calcVenue("DeDust Swap", 1.0, 0.15),
+	}
+
+	// Extract canonical 4-HEX colors for 3D card and holographic backdrop
+	var backdropColors *traits.BackdropColorSet
+	for _, t := range val.TraitDNA {
+		if t.AxisKey == "backdrop" && t.Colors != nil {
+			backdropColors = t.Colors
+			break
+		}
+	}
+	if backdropColors == nil {
+		for _, t := range val.TraitDNA {
+			if t.AxisKey == "backdrop" {
+				if ob, ok := traits.OfficialBackdrops[t.Value]; ok {
+					backdropColors = &ob.Colors
+					break
+				}
+			}
+		}
+	}
+
+	// Serial number gravity & collectible tier analysis
+	sn := ref.SerialNumber
+	snTier := "Standard"
+	snMultiplier := 1.0
+	snDesc := "معمولی"
+	if sn >= 1 && sn <= 9 {
+		snTier = "Single-Digit"
+		snMultiplier = 3.5
+		snDesc = "تک‌رقمی فوق کلکسیونی"
+	} else if sn >= 10 && sn <= 99 {
+		snTier = "Two-Digit"
+		snMultiplier = 1.8
+		snDesc = "دورقمی کمیاب"
+	} else if sn%111 == 0 || sn == 777 || sn == 888 {
+		snTier = "Repeating Digits"
+		snMultiplier = 2.2
+		snDesc = "ارقام تکرارشونده خاص"
+	} else if sn%100 == 0 {
+		snTier = "Round Number"
+		snMultiplier = 1.3
+		snDesc = "شماره رند صدگان"
 	}
 
 	res["is_unlocked"] = true
@@ -776,6 +842,21 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 	res["rarity_percentile"] = rarityPercentile
 	res["provenance"] = provenance
 	res["custody_type"] = custodyType
+	res["pillars"] = val.Pillars
+	res["serial_intel"] = map[string]interface{}{
+		"serial_number": sn,
+		"tier":          snTier,
+		"multiplier":    snMultiplier,
+		"description":   snDesc,
+	}
+	if backdropColors != nil {
+		res["backdrop_colors"] = map[string]string{
+			"center_hex":  backdropColors.CenterHex,
+			"edge_hex":    backdropColors.EdgeHex,
+			"pattern_hex": backdropColors.PatternHex,
+			"text_hex":    backdropColors.TextHex,
+		}
+	}
 	res["host_profile"] = map[string]interface{}{
 		"host_name":    hostName,
 		"is_showcased": hostName != "",
@@ -804,6 +885,14 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 	}
 
 	return res, nil
+}
+
+// GetBotGiftAppraisal performs direct mathematical valuation without paywall gate for bot commands and inline queries
+func (s *GiftsService) GetBotGiftAppraisal(ctx context.Context, raw string) (*gvengine.GiftValuation, error) {
+	if s.engine == nil {
+		return nil, errors.New("valuation engine is not initialized")
+	}
+	return s.engine.Valuate(ctx, raw)
 }
 
 // ScanPortfolio scans user gift inventory with strict 10-minute rate limit per caller

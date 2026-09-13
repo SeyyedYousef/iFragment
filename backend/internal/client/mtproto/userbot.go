@@ -258,3 +258,51 @@ func (uc *UserbotClient) JoinChannel(ctx context.Context, identifier string) err
 
 	return nil
 }
+
+func (uc *UserbotClient) GetUniqueStarGift(ctx context.Context, slug string) (*tg.StarGiftUnique, error) {
+	if uc.api == nil {
+		return nil, errors.New("userbot client is not initialized")
+	}
+	res, err := uc.api.PaymentsGetUniqueStarGift(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	if unique, ok := res.Gift.(*tg.StarGiftUnique); ok {
+		return unique, nil
+	}
+	return nil, fmt.Errorf("unexpected gift type %T", res.Gift)
+}
+
+func (uc *UserbotClient) GetUniqueStarGiftValueInfo(ctx context.Context, slug string) (*tg.PaymentsUniqueStarGiftValueInfo, error) {
+	if uc.api == nil {
+		return nil, errors.New("userbot client is not initialized")
+	}
+	return uc.api.PaymentsGetUniqueStarGiftValueInfo(ctx, slug)
+}
+
+func (uc *UserbotClient) GetStarGifts(ctx context.Context) ([]tg.StarGiftClass, error) {
+	if uc.api == nil {
+		return nil, errors.New("userbot client is not initialized")
+	}
+	res, err := uc.api.PaymentsGetStarGifts(ctx, 0)
+	if err != nil {
+		return nil, err
+	}
+	switch v := res.(type) {
+	case *tg.PaymentsStarGifts:
+		return v.Gifts, nil
+	default:
+		return nil, nil
+	}
+}
+
+func (uc *UserbotClient) GetSavedStarGifts(ctx context.Context, peer tg.InputPeerClass, offset string, limit int) (*tg.PaymentsSavedStarGifts, error) {
+	if uc.api == nil {
+		return nil, errors.New("userbot client is not initialized")
+	}
+	return uc.api.PaymentsGetSavedStarGifts(ctx, &tg.PaymentsGetSavedStarGiftsRequest{
+		Peer:   peer,
+		Offset: offset,
+		Limit:  limit,
+	})
+}

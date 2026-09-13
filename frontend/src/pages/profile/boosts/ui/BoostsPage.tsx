@@ -68,7 +68,7 @@ export const BoostsPage: Component = () => {
 			</div>
 
 			{/* ═══════ BOOSTERS CONTENT ═══════ */}
-			<div class="flex-1 w-full max-w-md mx-auto relative z-10 flex flex-col overflow-hidden mt-2">
+			<div class="flex-1 w-full max-w-md mx-auto relative z-10 flex flex-col mt-2">
 				<BoostersView />
 			</div>
 		</div>

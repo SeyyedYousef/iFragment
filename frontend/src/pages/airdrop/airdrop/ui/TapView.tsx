@@ -754,7 +754,10 @@ export const TapView: Component<{
 								<span class="material-symbols-outlined text-[20px]">close</span>
 							</button>
 						</div>
-						<div class="flex-1 min-h-0 relative w-full flex flex-col overflow-hidden">
+						<div
+							class="flex-1 min-h-0 relative w-full flex flex-col overflow-y-auto overflow-x-hidden no-scrollbar"
+							style={{ '-webkit-overflow-scrolling': 'touch', 'touch-action': 'pan-y' }}
+						>
 							<ShopView />
 						</div>
 					</div>

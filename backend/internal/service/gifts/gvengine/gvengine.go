@@ -15,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 	"golang.org/x/sync/singleflight"
 
+	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts/crafting"
@@ -61,6 +62,13 @@ func NewValuationEngine(
 // SetNFTResolver allows overriding or disabling the live Telegram NFT resolver
 func (e *ValuationEngine) SetNFTResolver(resolver *telegramnft.Resolver) {
 	e.nftResolver = resolver
+}
+
+// SetMTProtoClient configures the native MTProto client on the NFT resolver
+func (e *ValuationEngine) SetMTProtoClient(client mtproto.Client) {
+	if e.nftResolver != nil {
+		e.nftResolver.SetMTProtoClient(client)
+	}
 }
 
 // GetNFTResolver returns the live Telegram NFT resolver
@@ -345,6 +353,15 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// 3. 4-Axis Hedonic Pricing Model
 	// Resolve base floor dynamically from live venue snapshots or scarcity baseline
 	baseFloor := e.resolveDynamicFloor(ctx, ref.ModelID, col, gramUsdRate)
+	if liveNFT != nil && liveNFT.ValueInfo != nil && liveNFT.ValueInfo.FloorPrice > 0 {
+		mtpFloor := liveNFT.ValueInfo.FloorPrice
+		if strings.ToUpper(liveNFT.ValueInfo.Currency) == "USD" && gramUsdRate > 0 {
+			mtpFloor = mtpFloor / gramUsdRate
+		}
+		if mtpFloor > 0 {
+			baseFloor = mtpFloor
+		}
+	}
 	beta0 := math.Log(baseFloor)
 
 	// Axis 1: Model scarcity & crafted multiplier
@@ -525,6 +542,28 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			}
 			if appreciatedLastSale > effectiveFloor {
 				effectiveFloor = appreciatedLastSale
+			}
+			isLastSaleAnchored = true
+		}
+	} else if liveNFT != nil && liveNFT.ValueInfo != nil && liveNFT.ValueInfo.LastSalePrice > 0 {
+		// Native Telegram MTProto Realized Sale fallback
+		p := liveNFT.ValueInfo.LastSalePrice
+		if strings.ToUpper(liveNFT.ValueInfo.Currency) == "USD" && gramUsdRate > 0 {
+			p = p / gramUsdRate
+		}
+		if p > 0 {
+			lastSalePriceGRAM = p
+			if liveNFT.ValueInfo.LastSaleDate > 0 {
+				lastSaleDate = time.Unix(int64(liveNFT.ValueInfo.LastSaleDate), 0)
+			} else {
+				lastSaleDate = time.Now().Add(-24 * time.Hour)
+			}
+			lastSaleVenue = "Telegram MTProto"
+			if liveNFT.ValueInfo.LastSaleOnFragment {
+				lastSaleVenue = "Fragment"
+			}
+			if lastSalePriceGRAM > effectiveFloor {
+				effectiveFloor = lastSalePriceGRAM
 			}
 			isLastSaleAnchored = true
 		}

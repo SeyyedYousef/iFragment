@@ -148,7 +148,7 @@ export const ShopView: Component = () => {
 
 	return (
 		<div
-			class="w-full max-w-full h-full overflow-y-auto overflow-x-hidden px-4 pt-3 pb-28 animate-fade-in no-scrollbar bg-[#030303] text-white relative flex flex-col min-h-0"
+			class="w-full max-w-full overflow-x-hidden px-4 pt-3 pb-28 animate-fade-in no-scrollbar bg-[#030303] text-white relative flex flex-col"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Glowing Lighting */}

@@ -33,6 +33,10 @@ type Client interface {
 	ResolveUsername(ctx context.Context, username string) (*tg.ContactsResolvedPeer, error)
 	GetFullUser(ctx context.Context, inputUser tg.InputUserClass) (*tg.UsersUserFull, error)
 	GetFullChannel(ctx context.Context, inputChannel tg.InputChannelClass) (*tg.MessagesChatFull, error)
+	GetUniqueStarGift(ctx context.Context, slug string) (*tg.StarGiftUnique, error)
+	GetUniqueStarGiftValueInfo(ctx context.Context, slug string) (*tg.PaymentsUniqueStarGiftValueInfo, error)
+	GetStarGifts(ctx context.Context) ([]tg.StarGiftClass, error)
+	GetSavedStarGifts(ctx context.Context, peer tg.InputPeerClass, offset string, limit int) (*tg.PaymentsSavedStarGifts, error)
 }
 
 type RealClient struct {
@@ -173,6 +177,43 @@ func (c *RealClient) GetFullChannel(ctx context.Context, inputChannel tg.InputCh
 	return c.api.ChannelsGetFullChannel(ctx, inputChannel)
 }
 
+func (c *RealClient) GetUniqueStarGift(ctx context.Context, slug string) (*tg.StarGiftUnique, error) {
+	res, err := c.api.PaymentsGetUniqueStarGift(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	if unique, ok := res.Gift.(*tg.StarGiftUnique); ok {
+		return unique, nil
+	}
+	return nil, fmt.Errorf("unexpected gift type %T", res.Gift)
+}
+
+func (c *RealClient) GetUniqueStarGiftValueInfo(ctx context.Context, slug string) (*tg.PaymentsUniqueStarGiftValueInfo, error) {
+	return c.api.PaymentsGetUniqueStarGiftValueInfo(ctx, slug)
+}
+
+func (c *RealClient) GetStarGifts(ctx context.Context) ([]tg.StarGiftClass, error) {
+	res, err := c.api.PaymentsGetStarGifts(ctx, 0)
+	if err != nil {
+		return nil, err
+	}
+	switch v := res.(type) {
+	case *tg.PaymentsStarGifts:
+		return v.Gifts, nil
+	default:
+		return nil, nil
+	}
+}
+
+func (c *RealClient) GetSavedStarGifts(ctx context.Context, peer tg.InputPeerClass, offset string, limit int) (*tg.PaymentsSavedStarGifts, error) {
+	req := &tg.PaymentsGetSavedStarGiftsRequest{
+		Peer:   peer,
+		Offset: offset,
+		Limit:  limit,
+	}
+	return c.api.PaymentsGetSavedStarGifts(ctx, req)
+}
+
 // MockClient for local dev when no MTProto credentials are provided
 type MockClient struct{}
 
@@ -248,6 +289,36 @@ func (m *MockClient) GetFullUser(ctx context.Context, inputUser tg.InputUserClas
 
 func (m *MockClient) GetFullChannel(ctx context.Context, inputChannel tg.InputChannelClass) (*tg.MessagesChatFull, error) {
 	return nil, fmt.Errorf("not implemented in mock")
+}
+
+func (m *MockClient) GetUniqueStarGift(ctx context.Context, slug string) (*tg.StarGiftUnique, error) {
+	slog.Warn("Using MOCK MTProto Client for GetUniqueStarGift", "slug", slug)
+	return &tg.StarGiftUnique{
+		Title: "Celestial Star",
+		Slug:  slug,
+		Num:   1,
+	}, nil
+}
+
+func (m *MockClient) GetUniqueStarGiftValueInfo(ctx context.Context, slug string) (*tg.PaymentsUniqueStarGiftValueInfo, error) {
+	slog.Warn("Using MOCK MTProto Client for GetUniqueStarGiftValueInfo", "slug", slug)
+	return &tg.PaymentsUniqueStarGiftValueInfo{
+		Currency:    "USD",
+		Value:       45000,
+		FloorPrice:  42000,
+		AveragePrice: 48000,
+		ListedCount: 15,
+	}, nil
+}
+
+func (m *MockClient) GetStarGifts(ctx context.Context) ([]tg.StarGiftClass, error) {
+	slog.Warn("Using MOCK MTProto Client for GetStarGifts")
+	return nil, nil
+}
+
+func (m *MockClient) GetSavedStarGifts(ctx context.Context, peer tg.InputPeerClass, offset string, limit int) (*tg.PaymentsSavedStarGifts, error) {
+	slog.Warn("Using MOCK MTProto Client for GetSavedStarGifts")
+	return &tg.PaymentsSavedStarGifts{}, nil
 }
 
 // InitClient returns either a real or mock MTProto client based on env

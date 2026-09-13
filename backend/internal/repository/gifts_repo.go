@@ -733,3 +733,190 @@ func (r *GiftsRepo) UpdateSourceHealth(ctx context.Context, source, status strin
 	return err
 }
 
+// GiftCollectionRecord represents an official Telegram gift collection in PostgreSQL
+type GiftCollectionRecord struct {
+	ModelID        string     `json:"model_id"`
+	Name           string     `json:"name"`
+	TotalSupply    int        `json:"total_supply"`
+	CraftedFlag    bool       `json:"crafted_flag"`
+	ReleaseDate    *time.Time `json:"release_date,omitempty"`
+	BaseStarsPrice int        `json:"base_stars_price"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
+// GiftTraitRecord represents an official trait (model, backdrop, symbol) in PostgreSQL
+type GiftTraitRecord struct {
+	ID                  int64     `json:"id"`
+	ModelID             string    `json:"model_id"`
+	TraitType           string    `json:"trait_type"` // 'model', 'backdrop', 'symbol'
+	TraitName           string    `json:"trait_name"`
+	Permille            int       `json:"permille"`
+	BackdropCenter      string    `json:"backdrop_center,omitempty"`
+	BackdropEdge        string    `json:"backdrop_edge,omitempty"`
+	BackdropPattern     string    `json:"backdrop_pattern,omitempty"`
+	BackdropText        string    `json:"backdrop_text,omitempty"`
+	CraftChancePermille int       `json:"craft_chance_permille"`
+	CreatedAt           time.Time `json:"created_at"`
+}
+
+// UpsertGiftCollection persists or updates a collection in the database
+func (r *GiftsRepo) UpsertGiftCollection(ctx context.Context, c GiftCollectionRecord) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database connection unavailable")
+	}
+
+	query := `
+		INSERT INTO gift_collections (
+			model_id, name, total_supply, crafted_flag, release_date, base_stars_price, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, now())
+		ON CONFLICT (model_id) DO UPDATE SET
+			name = EXCLUDED.name,
+			total_supply = EXCLUDED.total_supply,
+			crafted_flag = EXCLUDED.crafted_flag,
+			release_date = COALESCE(EXCLUDED.release_date, gift_collections.release_date),
+			base_stars_price = EXCLUDED.base_stars_price,
+			updated_at = now()`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		c.ModelID, c.Name, c.TotalSupply, c.CraftedFlag, c.ReleaseDate, c.BaseStarsPrice,
+	)
+	return err
+}
+
+// GetGiftCollection fetches a single collection by model_id or slug
+func (r *GiftsRepo) GetGiftCollection(ctx context.Context, modelID string) (*GiftCollectionRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database connection unavailable")
+	}
+
+	altID := strings.ReplaceAll(modelID, "-", "_")
+	if altID == modelID {
+		altID = strings.ReplaceAll(modelID, "_", "-")
+	}
+
+	query := `
+		SELECT model_id, name, total_supply, crafted_flag, release_date, base_stars_price, created_at, updated_at
+		FROM gift_collections
+		WHERE model_id = $1 OR model_id = $2
+		LIMIT 1`
+
+	var c GiftCollectionRecord
+	err := r.db.Pool.QueryRow(ctx, query, modelID, altID).Scan(
+		&c.ModelID, &c.Name, &c.TotalSupply, &c.CraftedFlag, &c.ReleaseDate, &c.BaseStarsPrice,
+		&c.CreatedAt, &c.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// GetAllGiftCollections returns all known official gift collections
+func (r *GiftsRepo) GetAllGiftCollections(ctx context.Context) ([]GiftCollectionRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []GiftCollectionRecord{}, nil
+	}
+
+	query := `
+		SELECT model_id, name, total_supply, crafted_flag, release_date, base_stars_price, created_at, updated_at
+		FROM gift_collections
+		ORDER BY total_supply ASC, name ASC`
+
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []GiftCollectionRecord
+	for rows.Next() {
+		var c GiftCollectionRecord
+		if err := rows.Scan(
+			&c.ModelID, &c.Name, &c.TotalSupply, &c.CraftedFlag, &c.ReleaseDate, &c.BaseStarsPrice,
+			&c.CreatedAt, &c.UpdatedAt,
+		); err == nil {
+			list = append(list, c)
+		}
+	}
+	return list, nil
+}
+
+// GetGiftCollectionsCount returns the count of collections in the database
+func (r *GiftsRepo) GetGiftCollectionsCount(ctx context.Context) (int, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return 0, nil
+	}
+
+	var count int
+	err := r.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM gift_collections`).Scan(&count)
+	return count, err
+}
+
+// UpsertGiftTrait persists a model, backdrop, or symbol trait for a collection
+func (r *GiftsRepo) UpsertGiftTrait(ctx context.Context, t GiftTraitRecord) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database connection unavailable")
+	}
+
+	query := `
+		INSERT INTO gift_traits (
+			model_id, trait_type, trait_name, permille, backdrop_center, backdrop_edge,
+			backdrop_pattern, backdrop_text, craft_chance_permille
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (model_id, trait_type, trait_name) DO UPDATE SET
+			permille = EXCLUDED.permille,
+			backdrop_center = EXCLUDED.backdrop_center,
+			backdrop_edge = EXCLUDED.backdrop_edge,
+			backdrop_pattern = EXCLUDED.backdrop_pattern,
+			backdrop_text = EXCLUDED.backdrop_text,
+			craft_chance_permille = EXCLUDED.craft_chance_permille`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		t.ModelID, t.TraitType, t.TraitName, t.Permille,
+		t.BackdropCenter, t.BackdropEdge, t.BackdropPattern, t.BackdropText,
+		t.CraftChancePermille,
+	)
+	return err
+}
+
+// GetGiftTraitsByModel returns all traits belonging to a given gift model
+func (r *GiftsRepo) GetGiftTraitsByModel(ctx context.Context, modelID string) ([]GiftTraitRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []GiftTraitRecord{}, nil
+	}
+
+	altID := strings.ReplaceAll(modelID, "-", "_")
+	if altID == modelID {
+		altID = strings.ReplaceAll(modelID, "_", "-")
+	}
+
+	query := `
+		SELECT id, model_id, trait_type, trait_name, permille,
+		       COALESCE(backdrop_center, ''), COALESCE(backdrop_edge, ''),
+		       COALESCE(backdrop_pattern, ''), COALESCE(backdrop_text, ''),
+		       craft_chance_permille, created_at
+		FROM gift_traits
+		WHERE model_id = $1 OR model_id = $2
+		ORDER BY trait_type ASC, permille ASC`
+
+	rows, err := r.db.Pool.Query(ctx, query, modelID, altID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []GiftTraitRecord
+	for rows.Next() {
+		var tr GiftTraitRecord
+		if err := rows.Scan(
+			&tr.ID, &tr.ModelID, &tr.TraitType, &tr.TraitName, &tr.Permille,
+			&tr.BackdropCenter, &tr.BackdropEdge, &tr.BackdropPattern, &tr.BackdropText,
+			&tr.CraftChancePermille, &tr.CreatedAt,
+		); err == nil {
+			list = append(list, tr)
+		}
+	}
+	return list, nil
+}
+

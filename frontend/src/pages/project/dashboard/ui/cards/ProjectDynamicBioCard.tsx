@@ -1,7 +1,8 @@
 import { Motion } from '@motionone/solid';
-import { type Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { showToast } from '@/shared/ui/index.js';
 
 interface ProjectDynamicBioCardProps {
 	projectId: string;
@@ -18,6 +19,15 @@ export const ProjectDynamicBioCard: Component<ProjectDynamicBioCardProps> = (pro
 	const [currentTime, setCurrentTime] = createSignal(
 		new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
 	);
+	const [activeTokenIdx, setActiveTokenIdx] = createSignal(0);
+
+	const tokens = [
+		{ tag: '$members', label: 'تعداد اعضا', value: '14,820', icon: 'groups', color: 'text-cyan-400' },
+		{ tag: '$ton', label: 'قیمت تون', value: '$5.68', icon: 'diamond', color: 'text-sky-400' },
+		{ tag: '$btc', label: 'بیت‌کوین', value: '$66,420', icon: 'currency_bitcoin', color: 'text-amber-400' },
+		{ tag: '$countdown', label: 'شمارش معکوس', value: '04d 12h', icon: 'hourglass_top', color: 'text-emerald-400' },
+		{ tag: '$time', label: 'ساعت زنده', value: '17:45', icon: 'schedule', color: 'text-cyan-300' },
+	];
 
 	onMount(() => {
 		const clockTimer = setInterval(() => {
@@ -27,12 +37,17 @@ export const ProjectDynamicBioCard: Component<ProjectDynamicBioCardProps> = (pro
 		}, 1000);
 
 		const memberTimer = setInterval(() => {
-			setMembersCount((m) => m + Math.floor(Math.random() * 4) + 1);
-		}, 1800);
+			setMembersCount((m) => m + Math.floor(Math.random() * 3) + 1);
+		}, 2200);
+
+		const tokenTicker = setInterval(() => {
+			setActiveTokenIdx((i) => (i + 1) % tokens.length);
+		}, 3000);
 
 		onCleanup(() => {
 			clearInterval(clockTimer);
 			clearInterval(memberTimer);
+			clearInterval(tokenTicker);
 		});
 	});
 
@@ -50,8 +65,8 @@ export const ProjectDynamicBioCard: Component<ProjectDynamicBioCardProps> = (pro
 
 	return (
 		<div class="bg-[#12141C]/85 backdrop-blur-xl border border-white/10 hover:border-cyan-500/40 rounded-[26px] p-5 flex flex-col gap-4 shadow-lg relative overflow-hidden transition-all duration-300 group">
-			{/* Ambient Top Right Glow */}
-			<div class="absolute -right-10 -top-10 w-36 h-36 bg-cyan-500/15 blur-3xl rounded-full pointer-events-none" />
+			{/* Ambient Glow */}
+			<div class="absolute -left-10 -top-10 w-40 h-40 bg-gradient-to-br from-cyan-500/20 via-sky-500/10 to-transparent blur-3xl rounded-full pointer-events-none" />
 
 			{/* Header & In-Place Controls */}
 			<div class="flex items-start justify-between gap-3 relative z-10">
@@ -70,6 +85,10 @@ export const ProjectDynamicBioCard: Component<ProjectDynamicBioCardProps> = (pro
 							<h3 class="text-[15px] font-black text-white group-hover:text-cyan-300 transition-colors">
 								{t('channelProjects.dashboard.featureBio')}
 							</h3>
+							<span class="text-[9px] font-black px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+								<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+								<span>تیکر متغیرهای زنده</span>
+							</span>
 						</div>
 						<p class="text-[11px] text-white/50 leading-relaxed font-medium mt-0.5 line-clamp-1">
 							{t('channelProjects.dashboard.featureBioDesc')}
@@ -77,7 +96,7 @@ export const ProjectDynamicBioCard: Component<ProjectDynamicBioCardProps> = (pro
 					</div>
 				</div>
 
-				{/* Quick Controls: Target Switcher & Power Toggle */}
+				{/* Quick Controls */}
 				<div class="flex items-center gap-2 shrink-0">
 					<Show when={!props.isSingleChannel}>
 						<button
@@ -123,37 +142,74 @@ export const ProjectDynamicBioCard: Component<ProjectDynamicBioCardProps> = (pro
 				</div>
 			</div>
 
-			{/* ═══════ LIVE SIMULATION BOX ═══════ */}
-			<div class="bg-[#080A10] rounded-[20px] border border-white/5 p-3.5 flex flex-col gap-2.5 shadow-inner relative overflow-hidden">
+			{/* ═══════ TOKEN CHIPS BAR ═══════ */}
+			<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+				<For each={tokens}>
+					{(tok, idx) => (
+						<button
+							type="button"
+							onClick={() => {
+								haptic.impact('light');
+								setActiveTokenIdx(idx());
+								showToast(`${tok.label}: ${tok.value}`, 'info');
+							}}
+							class={`px-2.5 py-1 rounded-[10px] text-[10px] font-mono font-bold whitespace-nowrap transition-all flex items-center gap-1 border ${
+								activeTokenIdx() === idx()
+									? 'bg-cyan-500/25 text-cyan-200 border-cyan-400/50 shadow-sm'
+									: 'bg-white/5 text-white/60 border-white/5 hover:text-white hover:bg-white/10'
+							}`}
+						>
+							<span class={`material-symbols-outlined text-[13px] ${tok.color}`}>{tok.icon}</span>
+							<span>{tok.tag}</span>
+						</button>
+					)}
+				</For>
+			</div>
+
+			{/* ═══════ REAL TELEGRAM CHANNEL PROFILE SIMULATOR ═══════ */}
+			<div class="bg-gradient-to-br from-[#0c1926] via-[#081018] to-[#04080c] rounded-[22px] border border-[#1b3147] p-4 flex flex-col gap-3 shadow-inner relative overflow-hidden">
+				{/* Top Status */}
 				<div class="flex items-center justify-between text-[10px] font-mono">
 					<div class="flex items-center gap-1.5 text-cyan-400 font-bold">
 						<span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
 						<span>{t('channelProjects.dashboard.liveDemo')}</span>
 					</div>
-					<span class="text-white/40">{t('channelProjects.dashboard.bioSyncInterval')}</span>
+					<span class="text-white/40 font-mono">Telegram Channel Profile</span>
 				</div>
 
-				{/* Animated Bio Preview Bubble */}
-				<div class="bg-white/5 border border-white/10 rounded-[14px] p-3 flex flex-col gap-2">
-					<div class="flex items-center justify-between text-[12px] font-bold text-white/90">
-						<span class="truncate flex items-center gap-1.5">
-							<span class="text-cyan-400">⚡</span>
-							<span>iFragment VIP</span>
-						</span>
-						<span class="text-[10px] font-mono text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded-[6px] border border-cyan-500/20 font-black">
-							{currentTime()}
-						</span>
+				{/* Telegram Channel Header Mockup */}
+				<div class="bg-white/5 border border-white/10 rounded-[18px] p-3.5 flex flex-col gap-3">
+					{/* Avatar & Channel Title */}
+					<div class="flex items-center gap-3">
+						<div class="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-600 via-sky-500 to-[#3390ec] flex items-center justify-center text-white font-black text-[18px] shadow-lg border-2 border-white/20 shrink-0 relative">
+							<span>iF</span>
+							<span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-[#0c1926]" />
+						</div>
+
+						<div class="flex flex-col min-w-0 flex-1">
+							<div class="flex items-center gap-1.5">
+								<span class="text-[14px] font-black text-white truncate">iFragment News</span>
+								<span class="material-symbols-outlined text-cyan-400 text-[16px]">verified</span>
+								<span class="text-[9px] font-mono text-cyan-300 bg-cyan-500/20 px-1.5 py-0.2 rounded-[6px] border border-cyan-500/30">
+									{currentTime()}
+								</span>
+							</div>
+							<span class="text-[11px] text-white/50 font-mono">@iFragmentChannel • {membersCount().toLocaleString('en-US')} مشترک</span>
+						</div>
 					</div>
 
-					<div class="flex items-center justify-between text-[11px] text-white/70 font-medium">
-						<span class="text-[10px] text-white/50">{t('channelProjects.dashboard.bioLiveMembers')}:</span>
-						<Motion.span
-							initial={{ scale: 1.15, color: '#38bdf8' }}
-							animate={{ scale: 1, color: '#e0f2fe' }}
-							class="text-cyan-200 font-mono font-black"
-						>
-							{membersCount().toLocaleString('en-US')}
-						</Motion.span>
+					{/* Dynamic Bio Description Box */}
+					<div class="bg-black/40 border border-white/10 rounded-[12px] p-2.5 flex flex-col gap-1.5">
+						<div class="flex items-center justify-between text-[10px] text-white/50 font-mono">
+							<span>توضیحات زنده کانال (Bio):</span>
+							<span class="text-cyan-400 font-bold">بروزرسانی هر ۱۰ دقیقه</span>
+						</div>
+
+						<p class="text-[12px] font-bold text-white/90 leading-relaxed">
+							⚡ مرجع رسمی مارکت‌پلیس فرگمنت و گیفت‌های تلگرام | 👥 اعضا: <span class="text-cyan-300 font-mono">{membersCount().toLocaleString('en-US')}</span> | 💎 تون:{' '}
+							<span class="text-sky-300 font-mono">$5.68</span> | 🕒 ساعت:{' '}
+							<span class="text-cyan-200 font-mono">{currentTime()}</span>
+						</p>
 					</div>
 				</div>
 			</div>
@@ -162,7 +218,7 @@ export const ProjectDynamicBioCard: Component<ProjectDynamicBioCardProps> = (pro
 			<button
 				type="button"
 				onClick={props.onNavigate}
-				class="w-full h-11 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 rounded-[16px] text-[12px] font-black uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm"
+				class="w-full h-11 bg-gradient-to-r from-cyan-500/15 to-[#3390ec]/15 hover:from-cyan-500/25 hover:to-[#3390ec]/25 border border-cyan-500/30 text-cyan-300 rounded-[16px] text-[12px] font-black uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm"
 			>
 				<span>{t('channelProjects.dashboard.openStudio')}</span>
 				<span class="material-symbols-outlined text-[18px] rtl:-scale-x-100">arrow_forward</span>

@@ -481,6 +481,15 @@ func main() {
 	if botToken != "" {
 		giftsService.SetTelegramClient(telegram.NewBotAPIClient(botToken))
 	}
+	if mtprotoClient != nil {
+		giftsService.SetMTProtoClient(mtprotoClient)
+	}
+	if webhookHandler != nil {
+		webhookHandler.SetGiftsService(giftsService)
+		if mtprotoClient != nil {
+			webhookHandler.SetMTProtoClient(mtprotoClient)
+		}
+	}
 	if giftsService.GetSnapshotWorker() != nil {
 		go giftsService.GetSnapshotWorker().Start(ctx)
 	}

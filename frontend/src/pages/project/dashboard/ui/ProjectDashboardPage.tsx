@@ -350,6 +350,7 @@ export const ProjectDashboardPage: Component = () => {
 							isActive={isButtonsActive()}
 							target={buttonsTarget()}
 							buttonCount={buttonsCount()}
+							configuredButtons={config()?.inline_buttons?.buttons}
 							isSingleChannel={isSingleChannel()}
 							onToggleActive={(active) =>
 								handleToggleFeature('inline_buttons', active, t('channelProjects.dashboard.featureButtons'))

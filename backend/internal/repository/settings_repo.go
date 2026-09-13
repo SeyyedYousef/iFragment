@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/model"
 
 	"github.com/google/uuid"
@@ -304,14 +305,19 @@ func populateCustomTextsDefaults(raw json.RawMessage, lang ...string) json.RawMe
 		m = make(map[string]interface{})
 	}
 
+	l := "fa"
+	if len(lang) > 0 && lang[0] != "" {
+		l = i18n.DetectLanguage(lang[0])
+	}
+
 	defaults := map[string]interface{}{
-		"welcomeText":      "👋 {user} عزیز، به گروه {group} خوش آمدی 🌹",
-		"warningText":      "⚠️ {user}\n▫️ اخطار {count}/{threshold} — {reason}",
-		"silenceStartText": "🌙 ساعات سکوت گروه آغاز شد.",
-		"silenceEndText":   "☀️ ساعات سکوت پایان یافت. گفتگو آزاد است.",
-		"rulesText":        "📜 قوانین گروه: احترام متقابل • بدون تبلیغات و لینک • رعایت ادب",
-		"forceJoinText":    "📢 {user}، برای گفتگو ابتدا در کانال‌های زیر عضو شو:\n{channel_names}",
-		"forceAddText":     "👥 {user}، برای فعال شدن چت، {remainadd} نفر دعوت کن ({added}/{number})",
+		"welcomeText":      i18n.T(l, "templates.welcome_default"),
+		"warningText":      i18n.T(l, "templates.warning"),
+		"silenceStartText": i18n.T(l, "templates.silence_start"),
+		"silenceEndText":   i18n.T(l, "templates.silence_end"),
+		"rulesText":        i18n.T(l, "templates.rules_default"),
+		"forceJoinText":    i18n.T(l, "templates.force_join"),
+		"forceAddText":     i18n.T(l, "templates.force_add"),
 		"inlineButtons":    []interface{}{},
 	}
 

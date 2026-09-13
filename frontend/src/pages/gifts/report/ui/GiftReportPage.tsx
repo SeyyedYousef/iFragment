@@ -366,6 +366,14 @@ export const GiftReportPage: Component = () => {
 		return undefined;
 	};
 
+	const cardBackdrop = () => {
+		const bc = (enrichedQuery.data as any)?.backdrop_colors || (currentReport() as any)?.backdrop_colors;
+		if (bc?.center_hex && bc?.edge_hex) {
+			return `radial-gradient(circle at 50% 45%, ${bc.center_hex} 0%, ${bc.edge_hex} 100%)`;
+		}
+		return undefined;
+	};
+
 	return (
 		<div class="pb-40 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
 			{/* Ambient Gradient Glows matching Username Section */}
@@ -406,7 +414,7 @@ export const GiftReportPage: Component = () => {
 						<button
 							type="button"
 							onClick={handleCopyCertificate}
-							class="w-8 h-8 rounded-full flex items-center justify-center bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-white/60 hover:text-white transition-all active:scale-90"
+							class="w-8 h-8 rounded-full flex items-center justify-center bg-white/[0.05] hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-all active:scale-90"
 							title={t('gifts.copyLink')}
 						>
 							<span class="material-symbols-outlined text-[18px]">
@@ -456,8 +464,10 @@ export const GiftReportPage: Component = () => {
 								class="w-full h-full bg-[#08090D] rounded-[41px] p-7 relative overflow-hidden flex flex-col justify-between shadow-inner"
 								style={{
 									transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
-									'background-image':
-										'radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px)',
+									background: cardBackdrop() || undefined,
+									'background-image': !cardBackdrop()
+										? 'radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px)'
+										: undefined,
 									'background-size': '24px 24px',
 									transition: 'transform 0.1s ease-out',
 								}}
@@ -548,6 +558,34 @@ export const GiftReportPage: Component = () => {
 								</div>
 							</div>
 						</div>
+
+						{/* 🏷️ SERIAL NUMBER GRAVITY & COLLECTIBLE TIER */}
+						<Show when={(enrichedQuery.data as any)?.serial_intel}>
+							<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex items-center justify-between shadow-xl text-start">
+								<div class="flex items-center gap-2.5">
+									<div class="w-9 h-9 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+										<span class="material-symbols-outlined text-lg">tag</span>
+									</div>
+									<div>
+										<div class="flex items-center gap-1.5">
+											<h4 class="text-xs font-black text-white">
+												{isRtl() ? 'جاذبه شماره سریال' : 'Serial Gravity'}: #{(enrichedQuery.data as any)?.serial_intel?.serial_number}
+											</h4>
+											<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+												{(enrichedQuery.data as any)?.serial_intel?.tier}
+											</span>
+										</div>
+										<p class="text-[10px] text-white/50 mt-0.5">
+											{(enrichedQuery.data as any)?.serial_intel?.description} (ضریب ارزش: ×{(enrichedQuery.data as any)?.serial_intel?.multiplier})
+										</p>
+									</div>
+								</div>
+								<div class="text-end font-mono">
+									<span class="text-xs font-black text-amber-400">×{(enrichedQuery.data as any)?.serial_intel?.multiplier}</span>
+									<span class="block text-[8px] text-white/40 uppercase">GRAVITY</span>
+								</div>
+							</div>
+						</Show>
 
 						{/* 🏛️ 4 CORE VALUATION PILLARS & RARITY ENTROPY */}
 						<GiftValuationPillarsCard report={currentReport()!} />
@@ -652,7 +690,7 @@ export const GiftReportPage: Component = () => {
 									</h4>
 								</div>
 								<span class="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-									5 VENUES
+									{enrichedQuery.data?.venue_fee_matrix?.length || 7} VENUES
 								</span>
 							</div>
 
@@ -673,6 +711,8 @@ export const GiftReportPage: Component = () => {
 											{ venue: 'Portals', fee_pct: 2.5, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.975 - 0.05) * 100) / 100) },
 											{ venue: 'Tonnel', fee_pct: 3.0, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.97 - 0.05) * 100) / 100) },
 											{ venue: 'MRKT', fee_pct: 2.0, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.98 - 0.05) * 100) / 100) },
+											{ venue: 'Stars P2P', fee_pct: 8.0, gas_ton: 0.00, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.92) * 100) / 100) },
+											{ venue: 'DeDust Swap', fee_pct: 1.0, gas_ton: 0.15, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.99 - 0.15) * 100) / 100) },
 										]}>
 											{(v: any) => (
 												<tr>

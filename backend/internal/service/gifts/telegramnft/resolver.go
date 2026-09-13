@@ -11,32 +11,57 @@ import (
 	"sync"
 	"time"
 
+	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/service/gifts/traits"
+
+	"github.com/gotd/td/tg"
 )
+
+// MTProtoValueInfo contains official market valuation data returned natively by Telegram MTProto
+type MTProtoValueInfo struct {
+	Currency           string  `json:"currency"`
+	Value              float64 `json:"value"`
+	FloorPrice         float64 `json:"floor_price"`
+	AveragePrice       float64 `json:"average_price"`
+	LastSalePrice      float64 `json:"last_sale_price"`
+	ListedCount        int     `json:"listed_count"`
+	InitialSaleStars   int64   `json:"initial_sale_stars"`
+	InitialSaleDate    int     `json:"initial_sale_date"`
+	LastSaleDate       int     `json:"last_sale_date"`
+	LastSaleOnFragment bool    `json:"last_sale_on_fragment"`
+}
 
 // LiveNFTDetails contains parsed on-chain attributes from t.me/nft
 type LiveNFTDetails struct {
-	CollectionName  string  `json:"collection_name"`
-	CollectionSlug  string  `json:"collection_slug"`
-	SerialNumber    int     `json:"serial_number"`
-	OwnerName       string  `json:"owner_name"`
-	Model           string  `json:"model"`
-	ModelRarityPct  float64 `json:"model_rarity_pct"`
-	Backdrop        string  `json:"backdrop"`
-	BackdropRarity  float64 `json:"backdrop_rarity_pct"`
-	Symbol          string  `json:"symbol"`
-	SymbolRarityPct float64 `json:"symbol_rarity_pct"`
-	IssuedCount     int     `json:"issued_count"`
-	TotalSupply     int     `json:"total_supply"`
-	ImageURL        string  `json:"image_url"`
-	CheckedAt       time.Time `json:"checked_at"`
+	CollectionName  string            `json:"collection_name"`
+	CollectionSlug  string            `json:"collection_slug"`
+	SerialNumber    int               `json:"serial_number"`
+	OwnerName       string            `json:"owner_name"`
+	Model           string            `json:"model"`
+	ModelRarityPct  float64           `json:"model_rarity_pct"`
+	Backdrop        string            `json:"backdrop"`
+	BackdropRarity  float64           `json:"backdrop_rarity_pct"`
+	Symbol          string            `json:"symbol"`
+	SymbolRarityPct float64           `json:"symbol_rarity_pct"`
+	IssuedCount     int               `json:"issued_count"`
+	TotalSupply     int               `json:"total_supply"`
+	ImageURL        string            `json:"image_url"`
+	ValueInfo       *MTProtoValueInfo `json:"value_info,omitempty"`
+	CheckedAt       time.Time         `json:"checked_at"`
 }
 
 // Resolver fetches and parses official Telegram NFT details from t.me/nft
 type Resolver struct {
-	httpClient *http.Client
-	mu         sync.RWMutex
-	cache      map[string]*cacheEntry
+	httpClient    *http.Client
+	mtprotoClient mtproto.Client
+	mu            sync.RWMutex
+	cache         map[string]*cacheEntry
+}
+
+func (r *Resolver) SetMTProtoClient(c mtproto.Client) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.mtprotoClient = c
 }
 
 type cacheEntry struct {
@@ -123,6 +148,101 @@ func (r *Resolver) ResolveGiftNFT(ctx context.Context, modelID string, serial in
 	r.mu.RUnlock()
 
 	pascal := FormatPascalName(cleanModel)
+	slug := fmt.Sprintf("%s-%d", pascal, serial)
+
+	// Check MTProto native protocol first (Day-0 official Telegram data)
+	r.mu.RLock()
+	mtp := r.mtprotoClient
+	r.mu.RUnlock()
+
+	if mtp != nil {
+		unique, errMtp := mtp.GetUniqueStarGift(ctx, slug)
+		if errMtp == nil && unique != nil {
+			details := &LiveNFTDetails{
+				CollectionName: col.Name,
+				CollectionSlug: cleanModel,
+				SerialNumber:   unique.Num,
+				OwnerName:      unique.OwnerName,
+				IssuedCount:    unique.AvailabilityIssued,
+				TotalSupply:    unique.AvailabilityTotal,
+				CheckedAt:      time.Now().UTC(),
+			}
+			if unique.Title != "" {
+				details.CollectionName = unique.Title
+			}
+			for _, attr := range unique.Attributes {
+				switch a := attr.(type) {
+				case *tg.StarGiftAttributeModel:
+					details.Model = a.Name
+					if rarity, ok := a.Rarity.(*tg.StarGiftAttributeRarity); ok && rarity != nil {
+						details.ModelRarityPct = float64(rarity.Permille) / 10.0
+					}
+				case *tg.StarGiftAttributePattern:
+					details.Symbol = a.Name
+					if rarity, ok := a.Rarity.(*tg.StarGiftAttributeRarity); ok && rarity != nil {
+						details.SymbolRarityPct = float64(rarity.Permille) / 10.0
+					}
+				case *tg.StarGiftAttributeBackdrop:
+					details.Backdrop = a.Name
+					if rarity, ok := a.Rarity.(*tg.StarGiftAttributeRarity); ok && rarity != nil {
+						details.BackdropRarity = float64(rarity.Permille) / 10.0
+					}
+				}
+			}
+
+			if details.Model != "" && details.ImageURL == "" {
+				slugParam := strings.ReplaceAll(cleanModel, "_", "-")
+				details.ImageURL = fmt.Sprintf("https://api.changes.tg/model/%s/%s.png?size=256", slugParam, details.Model)
+			}
+
+			// Query native Telegram MTProto market valuation info (Floor, Avg, Last Sale, Listed Count)
+			if valInfo, errVal := mtp.GetUniqueStarGiftValueInfo(ctx, slug); errVal == nil && valInfo != nil {
+				curr := strings.ToUpper(valInfo.Currency)
+				divisor := 100.0 // Default cents for fiat
+				if curr == "TON" {
+					divisor = 1e9 // Nanotons
+				}
+				floorPrice := 0.0
+				if valInfo.FloorPrice > 0 {
+					floorPrice = float64(valInfo.FloorPrice) / divisor
+				}
+				avgPrice := 0.0
+				if valInfo.AveragePrice > 0 {
+					avgPrice = float64(valInfo.AveragePrice) / divisor
+				}
+				lastSale := 0.0
+				if valInfo.LastSalePrice > 0 {
+					lastSale = float64(valInfo.LastSalePrice) / divisor
+				}
+				estVal := 0.0
+				if valInfo.Value > 0 {
+					estVal = float64(valInfo.Value) / divisor
+				}
+
+				details.ValueInfo = &MTProtoValueInfo{
+					Currency:           valInfo.Currency,
+					Value:              estVal,
+					FloorPrice:         floorPrice,
+					AveragePrice:       avgPrice,
+					LastSalePrice:      lastSale,
+					ListedCount:        valInfo.ListedCount,
+					InitialSaleStars:   valInfo.InitialSaleStars,
+					InitialSaleDate:    valInfo.InitialSaleDate,
+					LastSaleDate:       valInfo.LastSaleDate,
+					LastSaleOnFragment: valInfo.LastSaleOnFragment,
+				}
+			}
+
+			r.mu.Lock()
+			r.cache[cacheKey] = &cacheEntry{
+				details:   details,
+				expiresAt: time.Now().Add(6 * time.Hour),
+			}
+			r.mu.Unlock()
+			return details, nil
+		}
+	}
+
 	targetURL := fmt.Sprintf("https://t.me/nft/%s-%d", pascal, serial)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)

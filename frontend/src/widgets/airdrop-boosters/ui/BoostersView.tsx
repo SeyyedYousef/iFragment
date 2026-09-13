@@ -38,7 +38,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 
 	return (
 		<div
-			class="flex-1 w-full max-w-full overflow-y-auto overflow-x-hidden px-4 pt-3 pb-36 animate-fade-in no-scrollbar h-full relative bg-[#030303] text-white"
+			class="flex-1 w-full max-w-full overflow-x-hidden px-4 pt-3 pb-36 animate-fade-in no-scrollbar relative bg-[#030303] text-white"
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			{/* Premium Ambient Radial Glow - Contained in overflow-hidden wrapper */}
