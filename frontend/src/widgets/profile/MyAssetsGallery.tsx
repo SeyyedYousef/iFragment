@@ -5,6 +5,7 @@ import { type Component, createSignal, For, Show } from 'solid-js';
 import { getMyAssets, type MyAssetsResponse, type MyReportsAsset } from '@/entities/user/index.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { getRecentReports } from '@/shared/lib/report-cache.js';
 
 interface Props {
 	onClose?: () => void;
@@ -28,7 +29,43 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 	const assets = () => assetsQuery.data as MyAssetsResponse | undefined;
 	const loading = () => assetsQuery.isLoading;
 
-	const totalReports = () => assets()?.reports || [];
+	const totalReports = () => {
+		const serverReports = assets()?.reports || [];
+		const serverUsernames = new Set(
+			serverReports
+				.filter((r) => (r.type || 'username') === 'username')
+				.map((r) => (r.identifier || r.username || '').toLowerCase().replace(/^@/, ''))
+		);
+
+		let localRecents: ReturnType<typeof getRecentReports> = [];
+		try {
+			localRecents = getRecentReports();
+		} catch {}
+
+		const extraUsernames: MyReportsAsset[] = [];
+		for (const rec of localRecents) {
+			const cleanName = (rec.username || '').toLowerCase().replace(/^@/, '');
+			if (!cleanName || serverUsernames.has(cleanName)) continue;
+			serverUsernames.add(cleanName);
+			extraUsernames.push({
+				type: 'username',
+				identifier: cleanName,
+				title: `@${cleanName}`,
+				username: cleanName,
+				rarityScore: rec.expectedTon ? 85 : 80,
+				status: 'completed',
+				generatedAt: new Date(rec.savedAt).toISOString(),
+				certificateUrl: `/username/report?u=${encodeURIComponent(cleanName)}`,
+				notificationEnabled: true,
+				valueEstimate: rec.expectedTon ? `${rec.expectedTon} TON` : undefined,
+			});
+		}
+
+		if (extraUsernames.length === 0) return serverReports;
+		return [...serverReports, ...extraUsernames].sort(
+			(a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
+		);
+	};
 	const usernameReports = () => totalReports().filter((r) => (r.type || 'username') === 'username');
 	const numberReports = () => totalReports().filter((r) => r.type === 'number');
 	const giftReports = () => totalReports().filter((r) => r.type === 'gift');

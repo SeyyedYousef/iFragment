@@ -149,7 +149,7 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 		IsGenesis:         true,
 		TierKey:           "GENESIS_STANDARD_BASELINE",
 		TitleEn:           "Genesis Standard Collectible",
-		TitleFa:           "جنسیس استاندارد ۴ رقمی",
+		TitleFa:           "جنسیس استاندارد 4 رقمی",
 		Description:       "Authentic 4-digit Genesis collection scarcity (1 of 1,000 ever minted)",
 		BetaGenesis:       0.0, // exp(10.6454 + 0.0) ≈ ~42,000 TON (Genesis floor)
 		EstimatedFloorTON: 42000.0,

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -636,5 +637,21 @@ func (db *Database) GetLatestValuationBacktests(ctx context.Context, modelVersio
 	return records, rows.Err()
 }
 
-
-
+// SaveUsernameReport persists a generated or unlocked username valuation report into username_reports.
+func (db *Database) SaveUsernameReport(ctx context.Context, userID int64, username string, rarityScore int, reportData json.RawMessage) error {
+	if db == nil || db.Pool == nil {
+		return nil
+	}
+	cleanU := strings.ToLower(strings.TrimPrefix(username, "@"))
+	if cleanU == "" || userID <= 0 {
+		return nil
+	}
+	if len(reportData) == 0 {
+		reportData = json.RawMessage(`{}`)
+	}
+	query := `
+		INSERT INTO username_reports (user_id, username, status, rarity_score, report_data, generated_at)
+		VALUES ($1, $2, 'completed', $3, $4, now())`
+	_, err := db.Pool.Exec(ctx, query, userID, cleanU, rarityScore, reportData)
+	return err
+}

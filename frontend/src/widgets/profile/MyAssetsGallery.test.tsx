@@ -20,6 +20,10 @@ vi.mock('@/shared/lib/haptic.js', () => ({
 	},
 }));
 
+vi.mock('@/shared/lib/report-cache.js', () => ({
+	getRecentReports: vi.fn(() => []),
+}));
+
 const mockAssetsData = {
 	reports: [
 		{
@@ -128,5 +132,23 @@ describe('MyAssetsGallery Component', () => {
 		expect(screen.getByText('Plush Pepe #42')).toBeInTheDocument();
 		expect(screen.queryByText('+888 0123 4567')).not.toBeInTheDocument();
 		expect(screen.queryByText('@durov')).not.toBeInTheDocument();
+	});
+
+	it('merges local recent reports if not yet indexed in server response', async () => {
+		const { getRecentReports } = await import('@/shared/lib/report-cache.js');
+		vi.mocked(getRecentReports).mockReturnValue([
+			{
+				username: 'crypto_whale',
+				savedAt: Date.now(),
+				expectedTon: '55.0',
+				expectedUsd: '350',
+			},
+		]);
+
+		render(() => <MyAssetsGallery />);
+
+		// Verify both server reports and local extra report are present
+		expect(screen.getByText('@crypto_whale')).toBeInTheDocument();
+		expect(screen.getByText('55.0 TON')).toBeInTheDocument();
 	});
 });

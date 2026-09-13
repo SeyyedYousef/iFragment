@@ -453,8 +453,12 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 
 	// 4. Load Predefined Inline Buttons (Priority: Project Pipeline Config, fallback: Channel)
 	var buttons []repository.ChannelInlineButton
+	btnTarget := "output"
 	if pCfg != nil {
 		if btnCfg, ok := pCfg["inline_buttons"].(map[string]interface{}); ok {
+			if t, ok := btnCfg["target"].(string); ok && t != "" {
+				btnTarget = strings.ToLower(strings.TrimSpace(t))
+			}
 			if enabled, _ := btnCfg["enabled"].(bool); enabled {
 				if btnListRaw, err := json.Marshal(btnCfg["buttons"]); err == nil {
 					var pBtns []repository.ChannelInlineButton
@@ -470,7 +474,12 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 			buttons = btns
 		}
 	}
-	buttonsRaw, _ := json.Marshal(buttons)
+	// Target check: only include buttons on output post if target is "output" or "both"
+	var outputButtons []repository.ChannelInlineButton
+	if btnTarget == "output" || btnTarget == "both" {
+		outputButtons = buttons
+	}
+	buttonsRaw, _ := json.Marshal(outputButtons)
 
 	// 5. Create Draft Post in DB
 	draft := repository.PendingFunnelPost{
@@ -547,7 +556,7 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 		_, inTG := s.resolveBotClientForChat(ctx, funnel.InputChatID, bot)
 		if inTG != nil {
 			var inMarkup interface{}
-			if len(buttons) > 0 {
+			if (btnTarget == "input" || btnTarget == "both") && len(buttons) > 0 {
 				inMarkup = buildReplyMarkupFromButtons(buttons)
 			}
 			if editErr := editMessageTextOrCaption(ctx, inTG, funnel.InputChatID, int(inputMsgID), draft.DraftText, inMarkup); editErr != nil {
@@ -1255,7 +1264,7 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 		if cache != nil && cache.Client != nil {
 			rlKey := fmt.Sprintf("funnel_ai_rl:%s", draft.ID.String())
 			if val, _ := cache.Client.Get(ctx, rlKey).Result(); val != "" {
-				_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "لطفاً ۲۰ ثانیه قبل از بازتولید مجدد صبر کنید.", true)
+				_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "لطفاً 20 ثانیه قبل از بازتولید مجدد صبر کنید.", true)
 				return nil
 			}
 			cache.Client.Set(ctx, rlKey, "1", 20*time.Second)

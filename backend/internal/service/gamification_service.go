@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
@@ -60,7 +61,7 @@ func NewGamificationService(db *repository.Database, cache *repository.Cache) *G
 func (s *GamificationService) startLeaderboardCacheWorker(ctx context.Context) {
 	refresh := func() {
 		for _, period := range []string{"all", "daily", "weekly"} {
-			s.computeAndCacheLeaderboard(ctx, period)
+			_, _ = s.computeAndCacheLeaderboard(ctx, period, "")
 		}
 	}
 	refresh() // Initial cache
@@ -1118,13 +1119,17 @@ type LeaderboardMember struct {
 
 // GetLeaderboard retrieves Top 100 members sorted by XP for a given period and league
 func (s *GamificationService) GetLeaderboard(ctx context.Context, userID int64, period string, league string) ([]LeaderboardMember, int, int64, error) {
-	if period == "" {
+	period = strings.ToLower(strings.TrimSpace(period))
+	if period == "" || period == "daily" {
 		period = "day"
+	} else if period == "weekly" {
+		period = "week"
 	}
+	league = strings.ToLower(strings.TrimSpace(league))
 
 	var minXP, maxXP int
 	hasLeague := false
-	switch strings.ToLower(league) {
+	switch league {
 	case "bronze":
 		minXP, maxXP = 0, 5000
 		hasLeague = true
@@ -1148,64 +1153,99 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context, userID int64, 
 		hasLeague = true
 	}
 
+	cacheKey := fmt.Sprintf("stats:leaderboard:payload:%s", period)
+	if hasLeague {
+		cacheKey = fmt.Sprintf("stats:leaderboard:payload:%s:%s", league, period)
+	}
+
 	res := make([]LeaderboardMember, 0)
 	var err error
 
-	if hasLeague && s.db != nil && s.db.Pool != nil {
-		// Query users in this league specifically
-		query := `
-			SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
-			FROM users u
-			JOIN user_stats us ON us.user_id = u.telegram_id
-			LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
-			LEFT JOIN clans c ON c.id = cm.clan_id
-			WHERE us.xp >= $1 AND us.xp < $2
-			ORDER BY us.xp DESC
-			LIMIT 100
-		`
-		rows, queryErr := s.db.Pool.Query(ctx, query, minXP, maxXP)
-		if queryErr == nil {
-			defer rows.Close()
-			rank := 1
-			for rows.Next() {
-				var m LeaderboardMember
-				var fn, username, clanName *string
-				if err := rows.Scan(&m.UserID, &fn, &username, &m.XP, &m.Level, &clanName); err == nil {
-					if fn != nil {
-						m.FirstName = *fn
-					}
-					if username != nil {
-						m.Username = *username
-					}
-					if clanName != nil {
-						m.ClanName = *clanName
-					}
-					m.Rank = rank
-					res = append(res, m)
-					rank++
-				}
-			}
-		}
-	} else {
-		cacheKey := fmt.Sprintf("stats:leaderboard:payload:%s", period)
-		if s.cache != nil && s.cache.Client != nil {
-			cached, err := s.cache.Client.Get(ctx, cacheKey).Result()
-			if err == nil && cached != "" {
-				_ = json.Unmarshal([]byte(cached), &res)
-			}
-		}
-		if len(res) == 0 {
-			res, err = s.computeAndCacheLeaderboard(ctx, period)
-			if err == nil && len(res) > 0 && s.cache != nil && s.cache.Client != nil {
-				if data, err := json.Marshal(res); err == nil {
-					_ = s.cache.Client.Set(ctx, cacheKey, string(data), 2*time.Minute).Err()
-				}
-			}
+	if s.cache != nil && s.cache.Client != nil {
+		cached, cErr := s.cache.Client.Get(ctx, cacheKey).Result()
+		if cErr == nil && cached != "" {
+			_ = json.Unmarshal([]byte(cached), &res)
 		}
 	}
 
+	if len(res) == 0 {
+		res, err = s.computeAndCacheLeaderboard(ctx, period, league)
+	}
+
+	userRank := s.computeUserRank(ctx, userID, period, hasLeague, minXP, maxXP)
+	totalMiners, _ := s.GetTotalMiners(ctx)
+	return res, userRank, totalMiners, err
+}
+
+func (s *GamificationService) computeUserRank(ctx context.Context, userID int64, period string, hasLeague bool, minXP, maxXP int) int {
+	if userID <= 0 || s.db == nil || s.db.Pool == nil {
+		return 0
+	}
+
 	userRank := 0
-	if userID > 0 && s.db != nil && s.db.Pool != nil {
+	switch period {
+	case "day":
+		if hasLeague {
+			_ = s.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*) + 1 
+				FROM user_stats us
+				LEFT JOIN user_daily_boosts udb ON udb.user_id = us.user_id AND udb.day = CURRENT_DATE
+				WHERE us.xp >= $1 AND us.xp < $2 
+				  AND COALESCE(udb.tapped_coins, 0) > (
+				      SELECT COALESCE(my_udb.tapped_coins, 0) 
+				      FROM user_daily_boosts my_udb 
+				      WHERE my_udb.user_id = $3 AND my_udb.day = CURRENT_DATE
+				  )
+			`, minXP, maxXP, userID).Scan(&userRank)
+		} else {
+			_ = s.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*) + 1 
+				FROM user_daily_boosts udb
+				WHERE udb.day = CURRENT_DATE 
+				  AND udb.tapped_coins > (
+				      SELECT COALESCE(my_udb.tapped_coins, 0) 
+				      FROM user_daily_boosts my_udb 
+				      WHERE my_udb.user_id = $1 AND my_udb.day = CURRENT_DATE
+				  )
+			`, userID).Scan(&userRank)
+		}
+	case "week":
+		if hasLeague {
+			_ = s.db.Pool.QueryRow(ctx, `
+				WITH weekly AS (
+					SELECT user_id, SUM(tapped_coins) as coins
+					FROM user_daily_boosts
+					WHERE day >= CURRENT_DATE - INTERVAL '7 days'
+					GROUP BY user_id
+				)
+				SELECT COUNT(*) + 1
+				FROM user_stats us
+				LEFT JOIN weekly w ON w.user_id = us.user_id
+				WHERE us.xp >= $1 AND us.xp < $2
+				  AND COALESCE(w.coins, 0) > (
+				      SELECT COALESCE(SUM(my_udb.tapped_coins), 0)
+				      FROM user_daily_boosts my_udb
+				      WHERE my_udb.user_id = $3 AND my_udb.day >= CURRENT_DATE - INTERVAL '7 days'
+				  )
+			`, minXP, maxXP, userID).Scan(&userRank)
+		} else {
+			_ = s.db.Pool.QueryRow(ctx, `
+				WITH weekly AS (
+					SELECT user_id, SUM(tapped_coins) as coins
+					FROM user_daily_boosts
+					WHERE day >= CURRENT_DATE - INTERVAL '7 days'
+					GROUP BY user_id
+				)
+				SELECT COUNT(*) + 1
+				FROM weekly w
+				WHERE w.coins > (
+				    SELECT COALESCE(SUM(my_udb.tapped_coins), 0)
+				    FROM user_daily_boosts my_udb
+				    WHERE my_udb.user_id = $1 AND my_udb.day >= CURRENT_DATE - INTERVAL '7 days'
+				)
+			`, userID).Scan(&userRank)
+		}
+	default:
 		if hasLeague {
 			_ = s.db.Pool.QueryRow(ctx, `
 				SELECT COUNT(*) + 1 FROM user_stats 
@@ -1218,9 +1258,7 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context, userID int64, 
 			`, userID).Scan(&userRank)
 		}
 	}
-
-	totalMiners, _ := s.GetTotalMiners(ctx)
-	return res, userRank, totalMiners, err
+	return userRank
 }
 
 // StartExpirationReminderWorker checks users whose credit batches expire in 5 days (Day 25 of 30)
@@ -1269,108 +1307,232 @@ func (s *GamificationService) checkExpiringCredits(ctx context.Context) {
 	slog.Info("Completed Day-25 coin expiration check", "notified_users", count)
 }
 
-func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context, period string) ([]LeaderboardMember, error) {
+func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context, period string, league string) ([]LeaderboardMember, error) {
 	now := time.Now().UTC()
-	var redisZSetKey string
-	switch strings.ToLower(period) {
-	case "daily", "day":
-		redisZSetKey = fmt.Sprintf("leaderboard:daily:%s", now.Format("2006-01-02"))
-	case "weekly", "week":
-		year, week := now.ISOWeek()
-		redisZSetKey = fmt.Sprintf("leaderboard:weekly:%d-W%02d", year, week)
-	default:
-		redisZSetKey = "leaderboard"
+	period = strings.ToLower(strings.TrimSpace(period))
+	if period == "" || period == "daily" {
+		period = "day"
+	} else if period == "weekly" {
+		period = "week"
 	}
 
-	var ids []int64
-	scoreMap := make(map[int64]int)
+	var minXP, maxXP int
+	hasLeague := false
+	league = strings.ToLower(strings.TrimSpace(league))
+	switch league {
+	case "bronze":
+		minXP, maxXP = 0, 5000
+		hasLeague = true
+	case "silver":
+		minXP, maxXP = 5000, 25000
+		hasLeague = true
+	case "gold":
+		minXP, maxXP = 25000, 100000
+		hasLeague = true
+	case "platinum":
+		minXP, maxXP = 100000, 500000
+		hasLeague = true
+	case "diamond":
+		minXP, maxXP = 500000, 2000000
+		hasLeague = true
+	case "master":
+		minXP, maxXP = 2000000, 10000000
+		hasLeague = true
+	case "grandmaster":
+		minXP, maxXP = 10000000, 1000000000
+		hasLeague = true
+	}
 
-	if s.cache != nil && s.cache.Client != nil {
-		membersZ, err := s.cache.Client.ZRevRangeWithScores(ctx, redisZSetKey, 0, 99).Result()
-		if (err != nil || len(membersZ) == 0) && (period == "" || strings.EqualFold(period, "all")) {
-			// Fallback to legacy "leaderboard:all" key
-			membersZ, err = s.cache.Client.ZRevRangeWithScores(ctx, "leaderboard:all", 0, 99).Result()
-		}
-		if err == nil && len(membersZ) > 0 {
-			for _, m := range membersZ {
-				id, err := strconv.ParseInt(m.Member.(string), 10, 64)
-				if err == nil {
-					ids = append(ids, id)
-					scoreMap[id] = int(m.Score)
-				}
-			}
-		}
+	cacheKey := fmt.Sprintf("stats:leaderboard:payload:%s", period)
+	if hasLeague {
+		cacheKey = fmt.Sprintf("stats:leaderboard:payload:%s:%s", league, period)
 	}
 
 	result := make([]LeaderboardMember, 0, 100)
 
-	if len(ids) > 0 {
-		// We have Redis ids, query DB for names
-		query := `
-			SELECT u.telegram_id, u.first_name, u.username, us.level, c.chat_title as clan_name
-			FROM users u
-			JOIN user_stats us ON us.user_id = u.telegram_id
-			LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
-			LEFT JOIN clans c ON c.id = cm.clan_id
-			WHERE u.telegram_id = ANY($1)
-		`
-		rows, err := s.db.Pool.Query(ctx, query, ids)
-		if err == nil {
-			defer rows.Close()
-			memberMap := make(map[int64]LeaderboardMember)
-			for rows.Next() {
-				var id int64
-				var fn, username, clanName *string
-				var level int
-				if err := rows.Scan(&id, &fn, &username, &level, &clanName); err == nil {
-					m := LeaderboardMember{
-						UserID: id,
-						Level:  level,
-						XP:     scoreMap[id],
-					}
-					if fn != nil {
-						m.FirstName = *fn
-					}
-					if username != nil {
-						m.Username = *username
-					}
-					if clanName != nil {
-						m.ClanName = *clanName
-					}
-					memberMap[id] = m
+	// When no league is specified, we can try Redis first
+	if !hasLeague && s.cache != nil && s.cache.Client != nil {
+		var redisZSetKey string
+		switch period {
+		case "day":
+			redisZSetKey = fmt.Sprintf("leaderboard:daily:%s", now.Format("2006-01-02"))
+		case "week":
+			year, week := now.ISOWeek()
+			redisZSetKey = fmt.Sprintf("leaderboard:weekly:%d-W%02d", year, week)
+		default:
+			redisZSetKey = "leaderboard"
+		}
+
+		membersZ, err := s.cache.Client.ZRevRangeWithScores(ctx, redisZSetKey, 0, 99).Result()
+		if (err != nil || len(membersZ) == 0) && (period == "" || period == "all") {
+			membersZ, err = s.cache.Client.ZRevRangeWithScores(ctx, "leaderboard:all", 0, 99).Result()
+		}
+		if err == nil && len(membersZ) > 0 {
+			var ids []int64
+			scoreMap := make(map[int64]int)
+			for _, m := range membersZ {
+				id, pErr := strconv.ParseInt(m.Member.(string), 10, 64)
+				if pErr == nil {
+					ids = append(ids, id)
+					scoreMap[id] = int(m.Score)
 				}
 			}
-
-			rank := 1
-			for _, id := range ids {
-				if m, exists := memberMap[id]; exists {
-					m.Rank = rank
-					result = append(result, m)
-					rank++
+			if len(ids) > 0 && s.db != nil && s.db.Pool != nil {
+				query := `
+					SELECT u.telegram_id, u.first_name, u.username, us.level, c.chat_title as clan_name
+					FROM users u
+					JOIN user_stats us ON us.user_id = u.telegram_id
+					LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+					LEFT JOIN clans c ON c.id = cm.clan_id
+					WHERE u.telegram_id = ANY($1)
+				`
+				rows, rErr := s.db.Pool.Query(ctx, query, ids)
+				if rErr == nil {
+					defer rows.Close()
+					memberMap := make(map[int64]LeaderboardMember)
+					for rows.Next() {
+						var id int64
+						var fn, username, clanName *string
+						var level int
+						if err := rows.Scan(&id, &fn, &username, &level, &clanName); err == nil {
+							m := LeaderboardMember{
+								UserID: id,
+								Level:  level,
+								XP:     scoreMap[id],
+							}
+							if fn != nil {
+								m.FirstName = *fn
+							}
+							if username != nil {
+								m.Username = *username
+							}
+							if clanName != nil {
+								m.ClanName = *clanName
+							}
+							memberMap[id] = m
+						}
+					}
+					rank := 1
+					for _, id := range ids {
+						if m, exists := memberMap[id]; exists {
+							m.Rank = rank
+							result = append(result, m)
+							rank++
+						}
+					}
 				}
 			}
 		}
 	}
 
-	if len(result) == 0 {
-		// Fallback to pure DB query if redis ZSET was empty
-		interval := "1 day"
-		if period == "week" {
-			interval = "7 days"
+	// Query DB with period awareness
+	if len(result) == 0 && s.db != nil && s.db.Pool != nil {
+		var query string
+		var rows pgx.Rows
+		var err error
+
+		switch period {
+		case "day":
+			if hasLeague {
+				query = `
+					SELECT u.telegram_id, u.first_name, u.username, 
+					       COALESCE(udb.tapped_coins, 0)::BIGINT as period_xp, 
+					       us.level, c.chat_title as clan_name
+					FROM users u
+					JOIN user_stats us ON us.user_id = u.telegram_id
+					LEFT JOIN user_daily_boosts udb ON udb.user_id = u.telegram_id AND udb.day = CURRENT_DATE
+					LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+					LEFT JOIN clans c ON c.id = cm.clan_id
+					WHERE us.xp >= $1 AND us.xp < $2
+					ORDER BY period_xp DESC, us.xp DESC
+					LIMIT 100
+				`
+				rows, err = s.db.Pool.Query(ctx, query, minXP, maxXP)
+			} else {
+				query = `
+					SELECT u.telegram_id, u.first_name, u.username, 
+					       COALESCE(udb.tapped_coins, 0)::BIGINT as period_xp, 
+					       us.level, c.chat_title as clan_name
+					FROM users u
+					JOIN user_stats us ON us.user_id = u.telegram_id
+					LEFT JOIN user_daily_boosts udb ON udb.user_id = u.telegram_id AND udb.day = CURRENT_DATE
+					LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+					LEFT JOIN clans c ON c.id = cm.clan_id
+					WHERE (udb.tapped_coins > 0 OR us.last_active_at >= NOW() - INTERVAL '1 day')
+					ORDER BY period_xp DESC, us.xp DESC
+					LIMIT 100
+				`
+				rows, err = s.db.Pool.Query(ctx, query)
+			}
+		case "week":
+			if hasLeague {
+				query = `
+					SELECT u.telegram_id, u.first_name, u.username, 
+					       COALESCE(w.weekly_coins, 0)::BIGINT as period_xp, 
+					       us.level, c.chat_title as clan_name
+					FROM users u
+					JOIN user_stats us ON us.user_id = u.telegram_id
+					LEFT JOIN (
+						SELECT user_id, SUM(tapped_coins) as weekly_coins 
+						FROM user_daily_boosts 
+						WHERE day >= CURRENT_DATE - INTERVAL '7 days' 
+						GROUP BY user_id
+					) w ON w.user_id = u.telegram_id
+					LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+					LEFT JOIN clans c ON c.id = cm.clan_id
+					WHERE us.xp >= $1 AND us.xp < $2
+					ORDER BY period_xp DESC, us.xp DESC
+					LIMIT 100
+				`
+				rows, err = s.db.Pool.Query(ctx, query, minXP, maxXP)
+			} else {
+				query = `
+					SELECT u.telegram_id, u.first_name, u.username, 
+					       COALESCE(w.weekly_coins, 0)::BIGINT as period_xp, 
+					       us.level, c.chat_title as clan_name
+					FROM users u
+					JOIN user_stats us ON us.user_id = u.telegram_id
+					LEFT JOIN (
+						SELECT user_id, SUM(tapped_coins) as weekly_coins 
+						FROM user_daily_boosts 
+						WHERE day >= CURRENT_DATE - INTERVAL '7 days' 
+						GROUP BY user_id
+					) w ON w.user_id = u.telegram_id
+					LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+					LEFT JOIN clans c ON c.id = cm.clan_id
+					WHERE (w.weekly_coins > 0 OR us.last_active_at >= NOW() - INTERVAL '7 days')
+					ORDER BY period_xp DESC, us.xp DESC
+					LIMIT 100
+				`
+				rows, err = s.db.Pool.Query(ctx, query)
+			}
+		default: // "all"
+			if hasLeague {
+				query = `
+					SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
+					FROM users u
+					JOIN user_stats us ON us.user_id = u.telegram_id
+					LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+					LEFT JOIN clans c ON c.id = cm.clan_id
+					WHERE us.xp >= $1 AND us.xp < $2
+					ORDER BY us.xp DESC
+					LIMIT 100
+				`
+				rows, err = s.db.Pool.Query(ctx, query, minXP, maxXP)
+			} else {
+				query = `
+					SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
+					FROM users u
+					JOIN user_stats us ON us.user_id = u.telegram_id
+					LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+					LEFT JOIN clans c ON c.id = cm.clan_id
+					ORDER BY us.xp DESC
+					LIMIT 100
+				`
+				rows, err = s.db.Pool.Query(ctx, query)
+			}
 		}
 
-		query := fmt.Sprintf(`
-			SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
-			FROM users u
-			JOIN user_stats us ON us.user_id = u.telegram_id
-			LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
-			LEFT JOIN clans c ON c.id = cm.clan_id
-			WHERE us.last_active_at >= NOW() - INTERVAL '%s'
-			ORDER BY us.xp DESC
-			LIMIT 100
-		`, interval)
-		rows, err := s.db.Pool.Query(ctx, query)
-		fallbackNeeded := err != nil
 		if err == nil {
 			rank := 1
 			for rows.Next() {
@@ -1392,22 +1554,37 @@ func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context, pe
 				}
 			}
 			rows.Close()
-			if len(result) == 0 {
-				fallbackNeeded = true
-			}
 		}
 
-		if fallbackNeeded {
-			fallbackQuery := `
-				SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
-				FROM users u
-				JOIN user_stats us ON us.user_id = u.telegram_id
-				LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
-				LEFT JOIN clans c ON c.id = cm.clan_id
-				ORDER BY us.xp DESC
-				LIMIT 100
-			`
-			fbRows, fbErr := s.db.Pool.Query(ctx, fallbackQuery)
+		// Fallback if no activity found in period
+		if len(result) == 0 {
+			var fbQuery string
+			var fbRows pgx.Rows
+			var fbErr error
+			if hasLeague {
+				fbQuery = `
+					SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
+					FROM users u
+					JOIN user_stats us ON us.user_id = u.telegram_id
+					LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+					LEFT JOIN clans c ON c.id = cm.clan_id
+					WHERE us.xp >= $1 AND us.xp < $2
+					ORDER BY us.xp DESC
+					LIMIT 100
+				`
+				fbRows, fbErr = s.db.Pool.Query(ctx, fbQuery, minXP, maxXP)
+			} else {
+				fbQuery = `
+					SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
+					FROM users u
+					JOIN user_stats us ON us.user_id = u.telegram_id
+					LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+					LEFT JOIN clans c ON c.id = cm.clan_id
+					ORDER BY us.xp DESC
+					LIMIT 100
+				`
+				fbRows, fbErr = s.db.Pool.Query(ctx, fbQuery)
+			}
 			if fbErr == nil {
 				defer fbRows.Close()
 				rank := 1
@@ -1431,17 +1608,11 @@ func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context, pe
 				}
 			}
 		}
+	}
 
-		// Repair sorted set if needed
-		if s.cache != nil && s.cache.Client != nil && len(result) > 0 {
-			var zsetMembers []redis.Z
-			for _, m := range result {
-				zsetMembers = append(zsetMembers, redis.Z{
-					Score:  float64(m.XP),
-					Member: strconv.FormatInt(m.UserID, 10),
-				})
-			}
-			s.cache.Client.ZAdd(ctx, redisZSetKey, zsetMembers...)
+	if s.cache != nil && s.cache.Client != nil && len(result) > 0 {
+		if data, mErr := json.Marshal(result); mErr == nil {
+			_ = s.cache.Client.Set(ctx, cacheKey, string(data), 60*time.Second).Err()
 		}
 	}
 
@@ -1802,20 +1973,9 @@ func (s *GamificationService) notifyFullTapBots(ctx context.Context) {
 	}
 
 	for _, target := range targets {
-		var msgText string
-		var btnText string
-
-		switch strings.ToLower(target.Lang) {
-		case "fa", "fas", "per":
-			msgText = "🤖 <b>ظرفیت ربات استخراج شما تکمیل شد!</b>\n\nربات ماینر شما به مدت ۱۲ ساعت استخراج کرده و مخزن آن پر شده است. برای دریافت سکه‌ها و فعال‌سازی مجدد استخراج، وارد وب‌اپ شوید."
-			btnText = "🪙 دریافت سکه‌های ماین‌شده"
-		case "ru":
-			msgText = "🤖 <b>Ваш майнинг-бот заполнен!</b>\n\nВаш авто-бот добывал монеты в течение 12 часов. Зайдите в приложение, чтобы забрать награду и продолжить добычу."
-			btnText = "🪙 Забрать монеты"
-		default:
-			msgText = "🤖 <b>Your Tap-Bot storage is full!</b>\n\nYour mining bot has been active for 12 hours. Open the app now to claim your mined coins and resume mining."
-			btnText = "🪙 Claim Mined Coins"
-		}
+		lang := i18n.DetectLanguage(target.Lang)
+		msgText := i18n.T(lang, "gamification.miner_full_title") + "\n\n" + i18n.T(lang, "gamification.miner_full_desc")
+		btnText := i18n.T(lang, "gamification.claim_btn")
 
 		replyMarkup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{

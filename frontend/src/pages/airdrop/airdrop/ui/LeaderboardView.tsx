@@ -44,12 +44,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 	};
 
 	const sortedGlobalClans = () => {
-		const data = [...(clansQuery.data || [])];
-		return data.sort((a, b) => {
-			const scoreA = a.total_score || 0;
-			const scoreB = b.total_score || 0;
-			return scoreB - scoreA;
-		});
+		return clansQuery.data || [];
 	};
 
 	const top3Clans = () => sortedGlobalClans().slice(0, 3);
@@ -271,7 +266,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 								{/* 🥈 2ND PLACE (SILVER) */}
 								<Show when={top3Clans()[1]}>
 									{(clan) => {
-										const score = clan().total_score || clan().members_count * 1500;
+										const score = clan().total_score ?? 0;
 										return (
 											<div class="flex flex-col items-center w-[31%] h-[160px] bg-gradient-to-t from-[#12141C] to-[#1a202c] border border-slate-400/30 rounded-t-[24px] rounded-b-[16px] p-2 relative shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
 												<div class="relative w-14 h-14 mb-3 mt-[-28px]">
@@ -312,7 +307,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 								{/* 🥇 1ST PLACE (GOLD) - TALLER & CENTERED */}
 								<Show when={top3Clans()[0]}>
 									{(clan) => {
-										const score = clan().total_score || clan().members_count * 1500;
+										const score = clan().total_score ?? 0;
 										return (
 											<div class="flex flex-col items-center w-[36%] h-[190px] bg-gradient-to-t from-[#12141C] to-[#2d220b] border-[1.5px] border-amber-400/60 rounded-t-[28px] rounded-b-[20px] p-2.5 relative shadow-[0_0_40px_rgba(245,158,11,0.25)] z-10">
 												{/* Glowing Aura Behind Avatar */}
@@ -368,7 +363,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 								{/* 🥉 3RD PLACE (BRONZE) */}
 								<Show when={top3Clans()[2]}>
 									{(clan) => {
-										const score = clan().total_score || clan().members_count * 1500;
+										const score = clan().total_score ?? 0;
 										return (
 											<div class="flex flex-col items-center w-[31%] h-[150px] bg-gradient-to-t from-[#12141C] to-[#261811] border border-orange-500/30 rounded-t-[24px] rounded-b-[16px] p-2 relative shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
 												<div class="relative w-12 h-12 mb-3 mt-[-24px]">
@@ -485,7 +480,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 							<div class="flex flex-col gap-2.5 mt-2">
 								<For each={restClans()}>
 									{(clan, i) => {
-										const score = clan.total_score || clan.members_count * 1500;
+										const score = clan.total_score ?? 0;
 										const rankNum = i() + 4;
 										return (
 											<div class="flex items-center justify-between p-3.5 rounded-[20px] bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 transition-all group shadow-sm">

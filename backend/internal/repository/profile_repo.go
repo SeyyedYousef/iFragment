@@ -1158,9 +1158,16 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 		Projects:   []model.MyProjectAsset{},
 	}
 
-	// 1a. Fetch purchased reports from username_reports table
+	// 1a. Fetch username reports from:
+	// - username_reports table (persisted reports)
+	// - orders table (paid valuation orders: coins, credit, free, stars)
+	// - intel_credit_ledger table (intel credits spent on username reports)
+	// - search_logs table (search history)
+	seenUsernames := make(map[string]bool)
+
+	// 1a.1 Query username_reports table
 	reportRows, err := db.Pool.Query(ctx, `
-		SELECT username, rarity_score, status, generated_at
+		SELECT username, rarity_score, status, generated_at, COALESCE(report_data->>'expected_ton', '')
 		FROM username_reports
 		WHERE user_id = $1
 		ORDER BY generated_at DESC
@@ -1170,41 +1177,141 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 		defer reportRows.Close()
 		for reportRows.Next() {
 			var r model.MyReportsAsset
-			if err := reportRows.Scan(&r.Username, &r.RarityScore, &r.Status, &r.GeneratedAt); err == nil {
+			var expTON string
+			if err := reportRows.Scan(&r.Username, &r.RarityScore, &r.Status, &r.GeneratedAt, &expTON); err == nil {
+				cleanU := strings.ToLower(strings.TrimPrefix(r.Username, "@"))
+				if cleanU == "" || seenUsernames[cleanU] {
+					continue
+				}
+				seenUsernames[cleanU] = true
 				r.Type = "username"
-				r.Identifier = r.Username
-				r.Title = "@" + r.Username
-				r.CertificateURL = fmt.Sprintf("/username/report?u=%s", r.Username)
+				r.Identifier = cleanU
+				r.Username = cleanU
+				r.Title = "@" + cleanU
+				r.CertificateURL = fmt.Sprintf("/username/report?u=%s", cleanU)
 				r.NotificationEnabled = true // purchased reports are enabled for tracking
+				if expTON != "" && expTON != "0" {
+					r.ValueEstimate = fmt.Sprintf("%s TON", expTON)
+				}
 				resp.Reports = append(resp.Reports, r)
 			}
 		}
 	}
 
-	// If no username_reports, check search_logs where user generated reports
-	if len(resp.Reports) == 0 {
-		logRows, logErr := db.Pool.Query(ctx, `
-			SELECT DISTINCT ON (username) username, created_at
-			FROM search_logs
-			WHERE user_id = $1
-			ORDER BY username, created_at DESC
-			LIMIT 20
-		`, userID)
-		if logErr == nil {
-			defer logRows.Close()
-			for logRows.Next() {
+	// 1a.2 Query orders table for paid valuation orders
+	orderRows, orderErr := db.Pool.Query(ctx, `
+		SELECT payload, created_at
+		FROM orders
+		WHERE user_id = $1
+		  AND status = 'paid'
+		  AND (
+		    starts_with(payload, 'val_coins:') OR
+		    starts_with(payload, 'val_credit:') OR
+		    starts_with(payload, 'val_free:') OR
+		    starts_with(payload, 'val_stars:')
+		  )
+		ORDER BY created_at DESC
+		LIMIT 50
+	`, userID)
+	if orderErr == nil {
+		defer orderRows.Close()
+		for orderRows.Next() {
+			var payload string
+			var createdAt time.Time
+			if err := orderRows.Scan(&payload, &createdAt); err == nil {
 				var u string
-				var genAt time.Time
-				if logRows.Scan(&u, &genAt) == nil {
+				if strings.HasPrefix(payload, "val_coins:") || strings.HasPrefix(payload, "val_credit:") {
+					parts := strings.Split(payload, ":")
+					if len(parts) >= 2 {
+						u = parts[1]
+					}
+				} else if strings.HasPrefix(payload, "val_free:") || strings.HasPrefix(payload, "val_stars:") {
+					parts := strings.Split(payload, ":")
+					if len(parts) >= 3 {
+						u = parts[2]
+					}
+				}
+				cleanU := strings.ToLower(strings.TrimPrefix(u, "@"))
+				if cleanU != "" && !seenUsernames[cleanU] {
+					seenUsernames[cleanU] = true
 					resp.Reports = append(resp.Reports, model.MyReportsAsset{
 						Type:                "username",
-						Identifier:          u,
-						Title:               "@" + u,
-						Username:            u,
+						Identifier:          cleanU,
+						Title:               "@" + cleanU,
+						Username:            cleanU,
+						RarityScore:         85,
+						Status:              "completed",
+						GeneratedAt:         createdAt,
+						CertificateURL:      fmt.Sprintf("/username/report?u=%s", cleanU),
+						NotificationEnabled: true,
+					})
+				}
+			}
+		}
+	}
+
+	// 1a.3 Query intel_credit_ledger for Intel Credit deductions on usernames
+	ledgerRows, ledgerErr := db.Pool.Query(ctx, `
+		SELECT entity, created_at
+		FROM intel_credit_ledger
+		WHERE user_id = $1
+		  AND delta < 0
+		  AND reason IN ('username', 'report:username', 'val_username', 'report:intel')
+		  AND entity != ''
+		ORDER BY created_at DESC
+		LIMIT 50
+	`, userID)
+	if ledgerErr == nil {
+		defer ledgerRows.Close()
+		for ledgerRows.Next() {
+			var entity string
+			var createdAt time.Time
+			if err := ledgerRows.Scan(&entity, &createdAt); err == nil {
+				cleanU := strings.ToLower(strings.TrimPrefix(entity, "@"))
+				if cleanU != "" && !seenUsernames[cleanU] {
+					seenUsernames[cleanU] = true
+					resp.Reports = append(resp.Reports, model.MyReportsAsset{
+						Type:                "username",
+						Identifier:          cleanU,
+						Title:               "@" + cleanU,
+						Username:            cleanU,
+						RarityScore:         85,
+						Status:              "completed",
+						GeneratedAt:         createdAt,
+						CertificateURL:      fmt.Sprintf("/username/report?u=%s", cleanU),
+						NotificationEnabled: true,
+					})
+				}
+			}
+		}
+	}
+
+	// 1a.4 Query search_logs for recent username evaluations/searches
+	logRows, logErr := db.Pool.Query(ctx, `
+		SELECT DISTINCT ON (username) username, created_at
+		FROM search_logs
+		WHERE user_id = $1
+		ORDER BY username, created_at DESC
+		LIMIT 20
+	`, userID)
+	if logErr == nil {
+		defer logRows.Close()
+		for logRows.Next() {
+			var u string
+			var genAt time.Time
+			if logRows.Scan(&u, &genAt) == nil {
+				cleanU := strings.ToLower(strings.TrimPrefix(u, "@"))
+				if cleanU != "" && !seenUsernames[cleanU] {
+					seenUsernames[cleanU] = true
+					resp.Reports = append(resp.Reports, model.MyReportsAsset{
+						Type:                "username",
+						Identifier:          cleanU,
+						Title:               "@" + cleanU,
+						Username:            cleanU,
 						RarityScore:         85,
 						Status:              "completed",
 						GeneratedAt:         genAt,
-						CertificateURL:      fmt.Sprintf("/username/report?u=%s", u),
+						CertificateURL:      fmt.Sprintf("/username/report?u=%s", cleanU),
 						NotificationEnabled: true,
 					})
 				}

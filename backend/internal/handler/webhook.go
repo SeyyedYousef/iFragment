@@ -6769,6 +6769,10 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 				if p.SourceChatID != nil && *p.SourceChatID == req.Chat.ID {
 					isMatch = true
 				}
+			} else if targetType == "both" {
+				if (p.SourceChatID != nil && *p.SourceChatID == req.Chat.ID) || (p.TargetChatID != nil && *p.TargetChatID == req.Chat.ID) {
+					isMatch = true
+				}
 			} else {
 				if p.TargetChatID != nil && *p.TargetChatID == req.Chat.ID {
 					isMatch = true

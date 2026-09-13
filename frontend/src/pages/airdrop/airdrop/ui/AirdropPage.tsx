@@ -1,4 +1,5 @@
 import { useSearchParams } from '@solidjs/router';
+import { backButton, viewport } from '@tma.js/sdk-solid';
 import {
 	type Component,
 	createEffect,
@@ -39,6 +40,20 @@ export const AirdropPage: Component = () => {
 		'miners',
 	);
 	const [offlineEarnings, setOfflineEarnings] = createSignal(0);
+
+	createEffect(() => {
+		try {
+			backButton.hide();
+		} catch (_) {}
+		try {
+			if (viewport.expand.isAvailable() && !viewport.isExpanded()) {
+				viewport.expand();
+			}
+		} catch (_) {}
+		try {
+			(window as any).Telegram?.WebApp?.expand?.();
+		} catch (_) {}
+	});
 
 	createEffect(() => {
 		let tab = searchParams?.tab;
@@ -145,8 +160,8 @@ export const AirdropPage: Component = () => {
 
 	return (
 		<div
-			class="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-hidden flex flex-col justify-between bg-[#030303] relative select-none font-sans text-white"
-			style={{ height: 'var(--tg-viewport-stable-height, 100dvh)' }}
+			class="min-h-screen w-full max-w-full flex flex-col justify-between bg-[#030303] relative select-none font-sans text-white"
+			style={{ 'min-height': 'max(100dvh, var(--tg-viewport-stable-height, 100dvh))' }}
 		>
 			{/* Main Content Area */}
 			<main

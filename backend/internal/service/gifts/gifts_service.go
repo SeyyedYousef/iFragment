@@ -22,7 +22,6 @@ import (
 	"ifragment-backend/internal/service/gifts/traits"
 	"ifragment-backend/internal/service/gifts/upgrade"
 	"ifragment-backend/internal/service/gifts/venues"
-	"ifragment-backend/internal/service/username/avm"
 )
 
 var (
@@ -86,6 +85,7 @@ type GiftsMacroStatsPayload struct {
 type GiftsIntelResponse struct {
 	TotalCumulativeVolumeUSD float64                 `json:"total_cumulative_volume_usd"`
 	TotalMarketCapUSD        float64                 `json:"total_market_cap_usd"`
+	TotalFDVUSD              float64                 `json:"total_fdv_usd,omitempty"`
 	TotalActiveWallets       int                     `json:"total_active_wallets"`
 	TotalGiftsMinted         int                     `json:"total_gifts_minted"`
 	FnGIndex                 int                     `json:"fng_index"`
@@ -165,6 +165,7 @@ type PortfolioScanResponse struct {
 	TotalPnLGRAM           float64                `json:"total_pnl_gram"`
 	TotalPnLPercent        float64                `json:"total_pnl_percent"`
 	TopValuedGifts         []PortfolioItemSummary `json:"top_valued_gifts"`
+	AnalyzedGifts          []PortfolioItemSummary `json:"analyzed_gifts,omitempty"`
 	CollectionBreakdown    []CollectionShareItem  `json:"collection_breakdown"`
 	ScannedAt              time.Time              `json:"scanned_at"`
 }
@@ -196,7 +197,23 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 		}
 	}
 
-	_, fngLabel, fngIndex := avm.GetFearAndGreedMultiplier()
+	// Gifts vertical native market sentiment index (0-100)
+	fngIndex := 50
+	fngLabel := "Neutral"
+	if s.repo != nil {
+		if stats24, err := s.repo.GetSalesStatsByPeriod(ctx, "", time.Now().Add(-24*time.Hour)); err == nil && stats24.DealsCount > 0 {
+			if stats24.DealsCount >= 50 {
+				fngIndex = 75
+				fngLabel = "Greed"
+			} else if stats24.DealsCount >= 20 {
+				fngIndex = 62
+				fngLabel = "Moderate Greed"
+			} else {
+				fngIndex = 52
+				fngLabel = "Neutral"
+			}
+		}
+	}
 	now := time.Now().UTC()
 
 	totalMinted := 0
@@ -678,14 +695,6 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 			"evidence_status": evidenceStatus,
 		})
 	}
-	if len(provenance) == 0 {
-		provenance = append(provenance, map[string]interface{}{
-			"event_type":    "mint",
-			"timestamp":     time.Now().AddDate(0, -1, 0).Format(time.RFC3339),
-			"note":          fmt.Sprintf("Minted as official Telegram Collectible %s #%d", val.ModelName, ref.SerialNumber),
-			"tonviewer_url": tonviewerURL,
-		})
-	}
 
 	// Serialize base valuation into map
 	valBytes, err := json.Marshal(val)
@@ -868,11 +877,12 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 					}
 				}
 
-				// Apply serial number rarity factor
-				if valGRAM > 0 && g.Number > 0 {
-					_, isElite, _ := traits.CalculateSerialPercentile(int(g.Number), col.TotalSupply)
-					if isElite {
-						valGRAM *= 1.5
+				// Real comps or last sale lookup if available, without artificial 1.5x multiplication
+				if s.repo != nil && g.Number > 0 {
+					if lastSale, err := s.repo.GetLastSaleForGift(ctx, col.ModelID, int(g.Number)); err == nil && lastSale != nil {
+						if p, _ := lastSale.SalePriceGRAM.Float64(); p > 0 {
+							valGRAM = p
+						}
 					}
 				}
 
@@ -902,7 +912,8 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 		}
 	}
 
-	// 3. Supplement with user's verified reports or purchased assets from database
+	// 3. User's purchased reports are listed under AnalyzedGifts (NOT added to owned inventory balance)
+	var analyzedGifts []PortfolioItemSummary
 	if s.db != nil && s.db.Pool != nil && telegramID > 0 {
 		rows, err := s.db.Pool.Query(ctx, `
 			SELECT gift_id, model_id, serial_number, fair_value_nano_gram
@@ -916,19 +927,15 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 				var sNum int
 				var fNano int64
 				if err := rows.Scan(&gID, &mID, &sNum, &fNano); err == nil {
-					if seenGifts[gID] {
-						continue
-					}
-					seenGifts[gID] = true
 					valGRAM := float64(fNano) / 1e9
-					totalGRAM += valGRAM
 					col, _ := traits.ResolveCollection(mID)
-					modelCounts[col.ModelID]++
-					modelValues[col.ModelID] += valGRAM
-
-					items = append(items, PortfolioItemSummary{
+					name := mID
+					if col.Name != "" {
+						name = col.Name
+					}
+					analyzedGifts = append(analyzedGifts, PortfolioItemSummary{
 						GiftID:           gID,
-						ModelName:        col.Name,
+						ModelName:        name,
 						SerialNumber:     sNum,
 						EstimatedValGRAM: round2(valGRAM),
 						EstimatedValUSD:  round2(valGRAM * gramUsdRate),
@@ -974,6 +981,7 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 		TotalPnLGRAM:           pnlGRAM,
 		TotalPnLPercent:        pnlPct,
 		TopValuedGifts:         items,
+		AnalyzedGifts:          analyzedGifts,
 		CollectionBreakdown:    breakdown,
 		ScannedAt:              time.Now().UTC(),
 	}, nil

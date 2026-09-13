@@ -12,46 +12,47 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 
 	const pillars = createMemo(() => {
 		const r = props.report;
-		const expectedGram = parseFloat(r.expected_gram || '0') || 100;
-		const expectedUsd = r.expected_usd || expectedGram * 1.335;
+		const expectedGram = parseFloat(r.expected_gram || '0') || 0;
+		const expectedUsd = r.expected_usd || 0;
 
 		if (r.pillars && r.pillars.fair_value_gram > 0) {
 			return r.pillars;
 		}
 
-		// Calibrated deterministic fallback if older cache snapshot
 		return {
 			fair_value_gram: expectedGram,
 			fair_value_usd: expectedUsd,
-			liquidation_value_gram: Math.round(expectedGram * 0.84 * 100) / 100,
-			liquidation_value_usd: Math.round(expectedUsd * 0.84 * 100) / 100,
-			suggested_ask_gram: Math.round(expectedGram * 1.16 * 100) / 100,
-			suggested_ask_usd: Math.round(expectedUsd * 1.16 * 100) / 100,
-			observed_floor_gram: Math.round(expectedGram * 0.76 * 100) / 100,
-			observed_floor_usd: Math.round(expectedUsd * 0.76 * 100) / 100,
+			liquidation_value_gram: expectedGram > 0 ? Math.round(expectedGram * 0.84 * 100) / 100 : 0,
+			liquidation_value_usd: expectedUsd > 0 ? Math.round(expectedUsd * 0.84 * 100) / 100 : 0,
+			suggested_ask_gram: expectedGram > 0 ? Math.round(expectedGram * 1.16 * 100) / 100 : 0,
+			suggested_ask_usd: expectedUsd > 0 ? Math.round(expectedUsd * 1.16 * 100) / 100 : 0,
+			observed_floor_gram: expectedGram > 0 ? Math.round(expectedGram * 0.76 * 100) / 100 : 0,
+			observed_floor_usd: expectedUsd > 0 ? Math.round(expectedUsd * 0.76 * 100) / 100 : 0,
 		};
 	});
 
 	const rarityInfo = createMemo(() => {
 		const jr = props.report.joint_rarity;
-		const surprisal = jr?.surprisal_entropy || jr?.surprisal_bits || 12.4;
-		const covariance = jr?.covariance_coupling || 1.18;
-		const harmonic = jr?.harmonic_rarity_score || 88.5;
-		const tier = jr?.rarity_class || (harmonic > 90 ? 'Mythic' : harmonic > 75 ? 'Legendary' : 'Epic');
+		const surprisal = jr?.surprisal_entropy || jr?.surprisal_bits || 0;
+		const covariance = jr?.covariance_coupling || 0;
+		const harmonic = jr?.harmonic_rarity_score || 0;
+		const tier = jr?.rarity_class || (harmonic > 90 ? 'Mythic' : harmonic > 75 ? 'Legendary' : harmonic > 50 ? 'Epic' : 'Common');
 
 		return {
-			surprisal: Number(surprisal).toFixed(1),
-			covariance: Number(covariance).toFixed(2),
-			harmonic: Number(harmonic).toFixed(1),
+			surprisal: surprisal > 0 ? Number(surprisal).toFixed(1) : '—',
+			covariance: covariance > 0 ? Number(covariance).toFixed(2) : '—',
+			harmonic: harmonic > 0 ? Number(harmonic).toFixed(1) : '—',
 			tier,
 		};
 	});
 
 	const fmt = (val: number) => {
+		if (!val || val <= 0) return '—';
 		return val.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
 	};
 
 	const fmtUsd = (val: number) => {
+		if (!val || val <= 0) return '—';
 		return `$${val.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
 	};
 

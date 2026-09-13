@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"sort"
 	"strings"
 	"time"
 
@@ -17,11 +16,11 @@ import (
 
 // CollectionListItem represents a gift collection in summary
 type CollectionListItem struct {
-	Slug        string  `json:"slug"`
-	Name        string  `json:"name"`
-	ImageURL    string  `json:"image_url,omitempty"`
-	TotalSupply int     `json:"total_supply"`
-	FloorGRAM   float64 `json:"floor_gram"`
+	Slug        string   `json:"slug"`
+	Name        string   `json:"name"`
+	ImageURL    string   `json:"image_url,omitempty"`
+	TotalSupply *int     `json:"total_supply"`
+	FloorGRAM   *float64 `json:"floor_gram"`
 }
 
 // CollectionIntelResponse represents comprehensive collection intelligence
@@ -37,39 +36,42 @@ type BackdropSummary struct {
 type SymbolSummary struct {
 	Name           string `json:"name"`
 	RarityPermille int    `json:"rarity_permille"`
-	TotalSupply    int    `json:"total_supply"`
+	TotalSupply    *int   `json:"total_supply"`
+	RarityStatus   string `json:"rarity_status,omitempty"` // "estimated", "verified"
 }
 
 type FloorItemSummary struct {
-	Rank         int     `json:"rank"`
-	SerialNumber int     `json:"serial_number"`
-	ModelName    string  `json:"model_name"`
-	SymbolName   string  `json:"symbol_name"`
-	BackdropName string  `json:"backdrop_name"`
-	CenterHex    string  `json:"center_hex,omitempty"`
-	EdgeHex      string  `json:"edge_hex,omitempty"`
-	PriceGRAM    float64 `json:"price_gram"`
-	PriceUSD     float64 `json:"price_usd"`
-	VenueName    string  `json:"venue_name"`
-	BuyURL       string  `json:"buy_url,omitempty"`
+	Rank         int      `json:"rank"`
+	SerialNumber int      `json:"serial_number"`
+	ModelName    string   `json:"model_name"`
+	SymbolName   string   `json:"symbol_name"`
+	BackdropName string   `json:"backdrop_name"`
+	CenterHex    string   `json:"center_hex,omitempty"`
+	EdgeHex      string   `json:"edge_hex,omitempty"`
+	PriceGRAM    *float64 `json:"price_gram"`
+	PriceUSD     *float64 `json:"price_usd"`
+	VenueName    string   `json:"venue_name"`
+	BuyURL       string   `json:"buy_url,omitempty"`
+	ListingID    string   `json:"listing_id,omitempty"`
+	ObservedAt   string   `json:"observed_at,omitempty"`
 }
 
 type MarketSalesSourceBreakdown struct {
-	VenueName  string  `json:"venue_name"`
-	VolumeGRAM float64 `json:"volume_gram"`
-	VolumeUSD  float64 `json:"volume_usd"`
-	DealsCount int     `json:"deals_count"`
+	VenueName  string   `json:"venue_name"`
+	VolumeGRAM float64  `json:"volume_gram"`
+	VolumeUSD  *float64 `json:"volume_usd"`
+	DealsCount int      `json:"deals_count"`
 }
 
 type MarketSalesMetricPeriod struct {
 	VolumeGRAM float64                      `json:"volume_gram"`
-	VolumeUSD  float64                      `json:"volume_usd"`
-	MinGRAM    float64                      `json:"min_gram"`
-	MinUSD     float64                      `json:"min_usd"`
-	AvgGRAM    float64                      `json:"avg_gram"`
-	AvgUSD     float64                      `json:"avg_usd"`
-	MaxGRAM    float64                      `json:"max_gram"`
-	MaxUSD     float64                      `json:"max_usd"`
+	VolumeUSD  *float64                     `json:"volume_usd"`
+	MinGRAM    *float64                     `json:"min_gram"`
+	MinUSD     *float64                     `json:"min_usd"`
+	AvgGRAM    *float64                     `json:"avg_gram"`
+	AvgUSD     *float64                     `json:"avg_usd"`
+	MaxGRAM    *float64                     `json:"max_gram"`
+	MaxUSD     *float64                     `json:"max_usd"`
 	DealsCount int                          `json:"deals_count"`
 	BySource   []MarketSalesSourceBreakdown `json:"by_source"`
 }
@@ -81,80 +83,86 @@ type MarketSalesStats struct {
 }
 
 type OnSaleMarketplaceBreakdown struct {
-	VenueName string  `json:"venue_name"`
-	FloorGRAM float64 `json:"floor_gram"`
-	FloorUSD  float64 `json:"floor_usd"`
-	Count     int     `json:"count"`
+	VenueName string   `json:"venue_name"`
+	FloorGRAM *float64 `json:"floor_gram"`
+	FloorUSD  *float64 `json:"floor_usd"`
+	Count     *int     `json:"count"`
+	Status    string   `json:"status"` // "live", "delayed", "stale", "unavailable"
 }
 
 type OnSaleStats struct {
 	TotalCount    int                          `json:"total_count"`
-	FloorGRAM     float64                      `json:"floor_gram"`
-	FloorUSD      float64                      `json:"floor_usd"`
+	FloorGRAM     *float64                     `json:"floor_gram"`
+	FloorUSD      *float64                     `json:"floor_usd"`
 	ByMarketplace []OnSaleMarketplaceBreakdown `json:"by_marketplace"`
 }
 
 type SalesHistoryItem struct {
-	Rank         int     `json:"rank"`
-	SerialNumber int     `json:"serial_number"`
-	ModelName    string  `json:"model_name"`
-	SymbolName   string  `json:"symbol_name"`
-	BackdropName string  `json:"backdrop_name"`
-	CenterHex    string  `json:"center_hex,omitempty"`
-	PriceGRAM    float64 `json:"price_gram"`
-	PriceUSD     float64 `json:"price_usd"`
-	ExchangeRate float64 `json:"exchange_rate"`
-	VenueName    string  `json:"venue_name"`
-	SaleDate     string  `json:"sale_date"`
-	TxHash       string  `json:"tx_hash,omitempty"`
+	Rank         int      `json:"rank"`
+	SerialNumber int      `json:"serial_number"`
+	ModelName    string   `json:"model_name"`
+	SymbolName   string   `json:"symbol_name"`
+	BackdropName string   `json:"backdrop_name"`
+	CenterHex    string   `json:"center_hex,omitempty"`
+	PriceGRAM    float64  `json:"price_gram"`
+	PriceUSD     *float64 `json:"price_usd"`
+	ExchangeRate *float64 `json:"exchange_rate"`
+	VenueName    string   `json:"venue_name"`
+	SaleDate     string   `json:"sale_date"`
+	TxHash       string   `json:"tx_hash,omitempty"`
+	EventIndex   int      `json:"event_index,omitempty"`
 }
 
 type CatalogSearchItem struct {
-	SerialNumber int     `json:"serial_number"`
-	ModelName    string  `json:"model_name"`
-	SymbolName   string  `json:"symbol_name"`
-	BackdropName string  `json:"backdrop_name"`
-	CenterHex    string  `json:"center_hex,omitempty"`
-	IsOnSale     bool    `json:"is_on_sale"`
-	PriceGRAM    float64 `json:"price_gram,omitempty"`
-	PriceUSD     float64 `json:"price_usd,omitempty"`
-	VenueName    string  `json:"venue_name,omitempty"`
-	RarityScore  float64 `json:"rarity_score"`
+	SerialNumber int      `json:"serial_number"`
+	ModelName    string   `json:"model_name"`
+	SymbolName   string   `json:"symbol_name"`
+	BackdropName string   `json:"backdrop_name"`
+	CenterHex    string   `json:"center_hex,omitempty"`
+	IsOnSale     bool     `json:"is_on_sale"`
+	PriceGRAM    *float64 `json:"price_gram,omitempty"`
+	PriceUSD     *float64 `json:"price_usd,omitempty"`
+	VenueName    string   `json:"venue_name,omitempty"`
+	RarityScore  float64  `json:"rarity_score"`
 }
 
 type CollectionIntelResponse struct {
-	CollectionID       string                 `json:"collection_id"`
-	CollectionName     string                 `json:"collection_name"`
-	CollectionSlug     string                 `json:"collection_slug"`
-	ContractAddress    string                 `json:"contract_address,omitempty"`
-	LottieURL          string                 `json:"lottie_url,omitempty"`
-	ImageURL           string                 `json:"image_url,omitempty"`
-	TotalSupply        int                    `json:"total_supply"`
-	UpgradedCount      int                    `json:"upgraded_count"`
-	IsLimited          bool                   `json:"is_limited"`
-	IsCraftable        bool                   `json:"is_craftable"`
-	ReleaseDate        string                 `json:"release_date"`
-	UpgradeEnabledDate string                 `json:"upgrade_enabled_date,omitempty"`
+	CollectionID        string  `json:"collection_id"`
+	CollectionName      string  `json:"collection_name"`
+	CollectionSlug      string  `json:"collection_slug"`
+	ContractAddress     string  `json:"contract_address,omitempty"`
+	LottieURL           string  `json:"lottie_url,omitempty"`
+	ImageURL            string  `json:"image_url,omitempty"`
+	TotalSupply         *int    `json:"total_supply"`
+	UpgradedCount       *int    `json:"upgraded_count"`
+	UpgradedCountStatus string  `json:"upgraded_count_status,omitempty"`
+	IsLimited           bool    `json:"is_limited"`
+	IsCraftable         bool    `json:"is_craftable"`
+	ReleaseDate         string  `json:"release_date"`
+	UpgradeEnabledDate  string  `json:"upgrade_enabled_date,omitempty"`
 
 	// Trait Counts
 	TotalModels    int               `json:"total_models"`
 	TotalBackdrops int               `json:"total_backdrops"`
 	TotalSymbols   int               `json:"total_symbols"`
 	BackdropsList  []BackdropSummary `json:"backdrops_list,omitempty"`
+	SymbolsList    []SymbolSummary   `json:"symbols_list,omitempty"`
 
 	// Market Pulse
-	BestFloorGRAM  float64 `json:"best_floor_gram"`
-	BestFloorUSD   float64 `json:"best_floor_usd"`
-	BestFloorVenue string  `json:"best_floor_venue"`
-	Change24hPct   float64 `json:"change_24h_pct"`
-	Change7dPct    float64 `json:"change_7d_pct"`
-	Change30dPct   float64 `json:"change_30d_pct"`
-	Volume24hGRAM  float64 `json:"volume_24h_gram"`
-	Volume24hUSD   float64 `json:"volume_24h_usd"`
-	MarketCapGRAM  float64 `json:"market_cap_gram"`
-	MarketCapUSD   float64 `json:"market_cap_usd"`
-	ListedCount    int     `json:"listed_count"`
-	LiquidityRatio float64 `json:"liquidity_ratio"`
+	BestFloorGRAM  *float64 `json:"best_floor_gram"`
+	BestFloorUSD   *float64 `json:"best_floor_usd"`
+	BestFloorVenue *string  `json:"best_floor_venue"`
+	Change24hPct   float64  `json:"change_24h_pct"`
+	Change7dPct    float64  `json:"change_7d_pct"`
+	Change30dPct   float64  `json:"change_30d_pct"`
+	Volume24hGRAM  float64  `json:"volume_24h_gram"`
+	Volume24hUSD   *float64 `json:"volume_24h_usd"`
+	MarketCapGRAM  *float64 `json:"market_cap_gram"`
+	MarketCapUSD   *float64 `json:"market_cap_usd"`
+	FDVGRAM        *float64 `json:"fdv_gram,omitempty"`
+	FDVUSD         *float64 `json:"fdv_usd,omitempty"`
+	ListedCount    int      `json:"listed_count"`
+	LiquidityRatio float64  `json:"liquidity_ratio"`
 
 	// Sub-sections
 	ModelFloors    []CollectionModelFloor `json:"model_floors"`
@@ -168,53 +176,60 @@ type CollectionIntelResponse struct {
 	FloorHistory   []FloorHistoryPoint    `json:"floor_history"`
 
 	// Extended Screenshot-based Intelligence
-	FloorItem        *FloorItemSummary    `json:"floor_item,omitempty"`
-	TopFloorItems    []FloorItemSummary   `json:"top_floor_items"`
-	MarketSalesStats MarketSalesStats     `json:"market_sales_stats"`
-	OnSaleStats      OnSaleStats          `json:"on_sale_stats"`
-	SymbolsList      []SymbolSummary      `json:"symbols_list,omitempty"`
-	SalesHistory     []SalesHistoryItem   `json:"sales_history"`
-	SearchItems      []CatalogSearchItem  `json:"search_items"`
+	FloorItem        *FloorItemSummary   `json:"floor_item,omitempty"`
+	TopFloorItems    []FloorItemSummary  `json:"top_floor_items"`
+	MarketSalesStats MarketSalesStats    `json:"market_sales_stats"`
+	OnSaleStats      OnSaleStats         `json:"on_sale_stats"`
+	SalesHistory     []SalesHistoryItem  `json:"sales_history"`
+	SearchItems      []CatalogSearchItem `json:"search_items"`
 
 	// Attribution & metadata
+	MetadataSource        string   `json:"metadata_source"`
+	PriceSource           string   `json:"price_source"`
 	DataSourceAttribution string   `json:"data_source_attribution"`
-	DataStatus            string   `json:"data_status"` // "live", "estimated", "unavailable"
+	DataStatus            string   `json:"data_status"` // "live", "delayed", "stale", "unavailable"
 	DataSources           []string `json:"data_sources"`
+	SourceTimestamp       string   `json:"source_timestamp,omitempty"`
+	AgeSeconds            int      `json:"age_seconds,omitempty"`
 	UpdatedAt             string   `json:"updated_at"`
 }
 
 type CollectionModelFloor struct {
-	ModelID        string  `json:"model_id"`
-	ModelName      string  `json:"model_name"`
-	RarityPermille int     `json:"rarity_permille"`
-	TotalSupply    int     `json:"total_supply"`
-	UpgradedCount  int     `json:"upgraded_count"`
-	FloorGRAM      float64 `json:"floor_gram"`
-	FloorUSD       float64 `json:"floor_usd"`
-	CustomEmojiID  string  `json:"custom_emoji_id,omitempty"`
+	ModelID        string   `json:"model_id"`
+	ModelName      string   `json:"model_name"`
+	RarityPermille int      `json:"rarity_permille"`
+	TotalSupply    *int     `json:"total_supply"`
+	UpgradedCount  *int     `json:"upgraded_count"`
+	FloorGRAM      *float64 `json:"floor_gram"`
+	FloorUSD       *float64 `json:"floor_usd"`
+	CustomEmojiID  string   `json:"custom_emoji_id,omitempty"`
+	DataStatus     string   `json:"data_status"` // "live", "unavailable"
 }
 
 type RarityHeatmapCell struct {
-	ModelID        string  `json:"model_id"`
-	ModelName      string  `json:"model_name"`
-	BackdropName   string  `json:"backdrop_name"`
-	SymbolID       string  `json:"symbol_id,omitempty"`
-	SymbolName     string  `json:"symbol_name,omitempty"`
-	CombinedRarity float64 `json:"combined_rarity_pct"`
-	RarityTier     string  `json:"rarity_tier"`
-	FloorGRAM      float64 `json:"floor_gram"`
+	ModelID           string   `json:"model_id"`
+	ModelName         string   `json:"model_name"`
+	BackdropName      string   `json:"backdrop_name"`
+	SymbolID          string   `json:"symbol_id,omitempty"`
+	SymbolName        string   `json:"symbol_name,omitempty"`
+	CombinedRarity    float64  `json:"combined_rarity_pct"`
+	RarityTier        string   `json:"rarity_tier"`
+	FloorGRAM         *float64 `json:"floor_gram"`
+	RarityStatus      string   `json:"rarity_status,omitempty"`
+	CalculationMethod string   `json:"calculation_method,omitempty"`
 }
 
 type MarketVenueFloor struct {
-	VenueID       string  `json:"venue_id"`
-	VenueName     string  `json:"venue_name"`
-	FloorGRAM     float64 `json:"floor_gram"`
-	FloorUSD      float64 `json:"floor_usd"`
-	Currency      string  `json:"currency"`
-	FeePct        float64 `json:"fee_pct"`
-	NetPayoutGRAM float64 `json:"net_payout_gram"`
-	IsOnChain     bool    `json:"is_on_chain"`
-	DataStatus    string  `json:"data_status"` // "live", "estimated", "unavailable"
+	VenueID       string   `json:"venue_id"`
+	VenueName     string   `json:"venue_name"`
+	FloorGRAM     *float64 `json:"floor_gram"`
+	FloorUSD      *float64 `json:"floor_usd"`
+	Currency      string   `json:"currency"`
+	FeePct        float64  `json:"fee_pct"`
+	NetPayoutGRAM *float64 `json:"net_payout_gram"`
+	IsOnChain     bool     `json:"is_on_chain"`
+	DataStatus    string   `json:"data_status"` // "live", "delayed", "stale", "unavailable"
+	AgeSeconds    int      `json:"age_seconds"`
 }
 
 type CrossMarketArbitrage struct {
@@ -241,16 +256,16 @@ type WhaleProfile struct {
 }
 
 type MarketActivityItem struct {
-	ActivityType string  `json:"activity_type"` // "sale", "listing", "upgrade", "craft", "transfer", "delist"
-	GiftID       string  `json:"gift_id"`
-	ModelName    string  `json:"model_name"`
-	SerialNumber int     `json:"serial_number"`
-	PriceGRAM    float64 `json:"price_gram,omitempty"`
-	PriceUSD     float64 `json:"price_usd,omitempty"`
-	Venue        string  `json:"venue,omitempty"`
-	FromAddress  string  `json:"from_address,omitempty"`
-	ToAddress    string  `json:"to_address,omitempty"`
-	Timestamp    string  `json:"timestamp"`
+	ActivityType string   `json:"activity_type"` // "sale", "listing", "upgrade", "craft", "transfer", "delist"
+	GiftID       string   `json:"gift_id"`
+	ModelName    string   `json:"model_name"`
+	SerialNumber int      `json:"serial_number"`
+	PriceGRAM    *float64 `json:"price_gram,omitempty"`
+	PriceUSD     *float64 `json:"price_usd,omitempty"`
+	Venue        string   `json:"venue,omitempty"`
+	FromAddress  string   `json:"from_address,omitempty"`
+	ToAddress    string   `json:"to_address,omitempty"`
+	Timestamp    string   `json:"timestamp"`
 }
 
 type FearGreedData struct {
@@ -265,13 +280,13 @@ type FearGreedData struct {
 }
 
 type UpgradeStepInfo struct {
-	Step                  int     `json:"step"`
-	PriceStars            int     `json:"price_stars"`
-	PriceGRAM             float64 `json:"price_gram"`
-	PriceUSD              float64 `json:"price_usd"`
-	EffectiveAt           string  `json:"effective_at"`
-	IsCurrent             bool    `json:"is_current"`
-	SavingsVsCurrentStars int     `json:"savings_vs_current_stars"`
+	Step                  int      `json:"step"`
+	PriceStars            int      `json:"price_stars"`
+	PriceGRAM             float64  `json:"price_gram"`
+	PriceUSD              *float64 `json:"price_usd"`
+	EffectiveAt           string   `json:"effective_at"`
+	IsCurrent             bool     `json:"is_current"`
+	SavingsVsCurrentStars int      `json:"savings_vs_current_stars"`
 }
 
 type FloorHistoryPoint struct {
@@ -286,12 +301,17 @@ func (s *GiftsService) ListCollections(ctx context.Context) ([]CollectionListIte
 	var list []CollectionListItem
 
 	for _, col := range allCols {
+		var ts *int
+		if col.TotalSupply > 0 {
+			v := col.TotalSupply
+			ts = &v
+		}
 		list = append(list, CollectionListItem{
 			Slug:        col.ModelID,
 			Name:        col.Name,
 			ImageURL:    fmt.Sprintf("/api/v1/gifts/image/%s", col.ModelID),
-			TotalSupply: col.TotalSupply,
-			FloorGRAM:   0, // Live floor resolved dynamically on collection detail page
+			TotalSupply: ts,
+			FloorGRAM:   nil, // Live floor resolved dynamically on collection detail page
 		})
 	}
 	return list, nil
@@ -320,15 +340,16 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	}
 
 	collectionName := traits.NormalizeSlug(normSlug)
-	totalSupply := 5000
-	isLimited := true
+	var totalSupply *int
+	isLimited := false
 	isCraftable := false
 	contractID := ""
 
 	if exists {
 		collectionName = col.Name
 		if col.TotalSupply > 0 {
-			totalSupply = col.TotalSupply
+			ts := col.TotalSupply
+			totalSupply = &ts
 		}
 		isCraftable = col.CraftedFlag
 		isLimited = col.LimitedFlag
@@ -337,7 +358,7 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 
 	// 1. Fetch live metadata from api.changes.tg if available
 	var liveDetail *giftchanges.GiftDetail
-	dataSources := []string{"@GiftChanges (api.changes.tg)", "Fragment (fragment.com)"}
+	metadataSource := "GiftChanges (api.changes.tg)"
 	if s.giftchangesClient != nil {
 		if detail, err := s.giftchangesClient.GetGiftDetail(ctx, normSlug); err == nil && detail != nil {
 			liveDetail = detail
@@ -348,25 +369,29 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 				contractID = liveDetail.Gift.ID
 			}
 			if liveDetail.Gift.TotalSupply > 0 {
-				totalSupply = liveDetail.Gift.TotalSupply
+				ts := liveDetail.Gift.TotalSupply
+				totalSupply = &ts
 			}
 			isCraftable = liveDetail.Gift.Craftable
 			isLimited = liveDetail.Gift.Limited
 		}
 	}
 
-	// Live TON/USD rate from crypto price service
-	gramRate := 0.0
+	// Live TON/USD rate from crypto price service (Strictly nullable - no static 1.335 fallback)
+	var gramRate *float64
 	if s.cryptoPrice != nil {
 		if rate, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && rate > 0 {
-			gramRate = rate
-			dataSources = append(dataSources, "CoinGecko (TON/USD)")
+			r := rate
+			gramRate = &r
 		}
 	}
 
-	upgradedCount := 0
+	var upgradedCount *int
+	upgradedCountStatus := "unavailable"
 	if liveDetail != nil && liveDetail.Gift.UpgradedCount > 0 {
-		upgradedCount = liveDetail.Gift.UpgradedCount
+		uc := liveDetail.Gift.UpgradedCount
+		upgradedCount = &uc
+		upgradedCountStatus = "live"
 	}
 
 	totalModels := 0
@@ -392,16 +417,21 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 
 	var symbolsList []SymbolSummary
 	if liveDetail != nil && len(liveDetail.Symbols) > 0 {
-		for _, s := range liveDetail.Symbols {
-			rPerm := s.GetRarityPermille()
-			sSupply := int(float64(totalSupply) * float64(rPerm) / 1000.0)
-			if sSupply <= 0 {
-				sSupply = 1
+		for _, sym := range liveDetail.Symbols {
+			rPerm := sym.GetRarityPermille()
+			var sSupply *int
+			if totalSupply != nil && *totalSupply > 0 {
+				sCount := int(float64(*totalSupply) * float64(rPerm) / 1000.0)
+				if sCount <= 0 {
+					sCount = 1
+				}
+				sSupply = &sCount
 			}
 			symbolsList = append(symbolsList, SymbolSummary{
-				Name:           s.Name,
+				Name:           sym.Name,
 				RarityPermille: rPerm,
 				TotalSupply:    sSupply,
+				RarityStatus:   "estimated",
 			})
 		}
 	}
@@ -455,32 +485,60 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	highestFloor := 0.0
 	highestVenue := ""
 	liveVenueCount := 0
+	var priceSources []string
+	now := time.Now().UTC()
 
 	for vID, vInfo := range venues.Registry {
-		vf := 0.0
+		var vf *float64
+		var floorUSD *float64
+		var net *float64
 		status := "unavailable"
+		ageSec := 0
+
 		if snap, ok := dbSnapshots[string(vID)]; ok {
-			if snapFloor, _ := snap.FloorPriceGRAM.Float64(); snapFloor > 0 {
-				vf = round2(snapFloor)
+			age := now.Sub(snap.UpdatedAt)
+			ageSec = int(age.Seconds())
+
+			// Freshness Policy:
+			// < 5m: live
+			// 5m - 30m: delayed
+			// 30m - 6h: stale
+			// > 6h: unavailable (strictly omitted from active floor)
+			if age < 5*time.Minute {
 				status = "live"
-				liveVenueCount++
-				dataSources = append(dataSources, vInfo.Name)
+			} else if age < 30*time.Minute {
+				status = "delayed"
+			} else if age < 6*time.Hour {
+				status = "stale"
+			} else {
+				status = "unavailable"
+			}
+
+			if status != "unavailable" {
+				if snapFloor, _ := snap.FloorPriceGRAM.Float64(); snapFloor > 0 {
+					f := round2(snapFloor)
+					vf = &f
+					if status == "live" {
+						liveVenueCount++
+					}
+					priceSources = append(priceSources, vInfo.Name)
+				}
 			}
 		}
 
-		net := 0.0
-		floorUSD := 0.0
-		if vf > 0 {
-			net = round2(vf * (1.0 - (vInfo.ProtocolFeePct / 100.0)))
-			if gramRate > 0 {
-				floorUSD = round2(vf * gramRate)
+		if vf != nil && *vf > 0 {
+			netVal := round2(*vf * (1.0 - (vInfo.ProtocolFeePct / 100.0)))
+			net = &netVal
+			if gramRate != nil && *gramRate > 0 {
+				usdVal := round2(*vf * *gramRate)
+				floorUSD = &usdVal
 			}
-			if vf < bestFloor {
-				bestFloor = vf
+			if *vf < bestFloor {
+				bestFloor = *vf
 				bestVenue = vInfo.Name
 			}
-			if vf > highestFloor {
-				highestFloor = vf
+			if *vf > highestFloor {
+				highestFloor = *vf
 				highestVenue = vInfo.Name
 			}
 		}
@@ -495,77 +553,38 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 			NetPayoutGRAM: net,
 			IsOnChain:     vID == venues.VenueFragment || vID == venues.VenueGetgems,
 			DataStatus:    status,
+			AgeSeconds:    ageSec,
 		})
 	}
 
-	bestFloorGRAM := 0.0
-	bestFloorUSD := 0.0
+	var bestFloorGRAM *float64
+	var bestFloorUSD *float64
+	var bestFloorVenue *string
+
 	if bestFloor < math.MaxFloat64 && bestFloor > 0 {
-		bestFloorGRAM = bestFloor
-		if gramRate > 0 {
-			bestFloorUSD = round2(bestFloor * gramRate)
-		}
-	} else {
-		bestVenue = ""
-	}
-
-	if bestFloorGRAM <= 0 {
-		normKey := strings.ReplaceAll(normSlug, "-", "_")
-		switch normKey {
-		case "plush_pepe":
-			bestFloorGRAM = 5316.0
-			bestVenue = "Tonnel"
-		case "durovs_cap", "durov_cap":
-			bestFloorGRAM = 450.0
-			bestVenue = "Fragment"
-		case "diamond_ring":
-			bestFloorGRAM = 180.0
-			bestVenue = "Getgems"
-		case "santa_hat":
-			bestFloorGRAM = 24.0
-			bestVenue = "Portals"
-		case "magic_potion":
-			bestFloorGRAM = 45.0
-			bestVenue = "Fragment"
-		case "eternal_rose":
-			bestFloorGRAM = 28.0
-			bestVenue = "Getgems"
-		case "durovs_glasses", "durov_glasses":
-			bestFloorGRAM = 88.0
-			bestVenue = "Fragment"
-		default:
-			if col.TotalSupply > 0 && col.TotalSupply <= 2000 {
-				bestFloorGRAM = 125.0
-			} else if col.TotalSupply <= 5000 {
-				bestFloorGRAM = 65.0
-			} else if col.TotalSupply <= 10000 {
-				bestFloorGRAM = 35.0
-			} else {
-				bestFloorGRAM = 15.0
-			}
-			bestVenue = "Fragment"
+		bf := bestFloor
+		bestFloorGRAM = &bf
+		bv := bestVenue
+		bestFloorVenue = &bv
+		if gramRate != nil && *gramRate > 0 {
+			bfUSD := round2(bestFloor * *gramRate)
+			bestFloorUSD = &bfUSD
 		}
 	}
-	if gramRate <= 0 {
-		gramRate = 1.335
-	}
-	if bestFloorUSD <= 0 && bestFloorGRAM > 0 {
-		bestFloorUSD = round2(bestFloorGRAM * gramRate)
-	}
 
-	// Arbitrage computation (only between venues with real live data)
+	// Arbitrage computation (only between venues with real live/fresh data)
 	var arb *CrossMarketArbitrage
-	if liveVenueCount >= 2 && highestFloor > bestFloorGRAM && bestFloorGRAM > 0 {
-		spread := ((highestFloor - bestFloorGRAM) / bestFloorGRAM) * 100.0
-		netProfit := highestFloor*0.95 - bestFloorGRAM
+	if liveVenueCount >= 2 && bestFloorGRAM != nil && highestFloor > *bestFloorGRAM && *bestFloorGRAM > 0 {
+		spread := ((highestFloor - *bestFloorGRAM) / *bestFloorGRAM) * 100.0
+		netProfit := highestFloor*0.95 - *bestFloorGRAM
 		if netProfit > 0 {
 			netUSD := 0.0
-			if gramRate > 0 {
-				netUSD = round2(netProfit * gramRate)
+			if gramRate != nil && *gramRate > 0 {
+				netUSD = round2(netProfit * *gramRate)
 			}
 			arb = &CrossMarketArbitrage{
 				BuyVenue:      bestVenue,
-				BuyPriceGRAM:  bestFloorGRAM,
+				BuyPriceGRAM:  *bestFloorGRAM,
 				SellVenue:     highestVenue,
 				SellPriceGRAM: highestFloor,
 				SpreadPct:     round2(spread),
@@ -575,355 +594,174 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		}
 	}
 
-	// Model floors
+	// Model floors: Computed strictly from real model listings when indexed, not artificial multipliers
 	var modelFloors []CollectionModelFloor
 	if liveDetail != nil && len(liveDetail.Models) > 0 {
 		for i, m := range liveDetail.Models {
 			rPermille := m.GetRarityPermille()
-			if rPermille <= 0 {
-				rPermille = 20
-			}
-			supply := m.TotalSupply
-			if supply <= 0 && totalSupply > 0 {
-				supply = int(float64(totalSupply) * float64(rPermille) / 1000.0)
-				if supply <= 0 {
-					supply = 1
+			var mSupply *int
+			if m.TotalSupply > 0 {
+				s := m.TotalSupply
+				mSupply = &s
+			} else if totalSupply != nil && *totalSupply > 0 {
+				s := int(float64(*totalSupply) * float64(rPermille) / 1000.0)
+				if s <= 0 {
+					s = 1
 				}
-			}
-
-			mFloor := 0.0
-			mFloorUSD := 0.0
-			if bestFloorGRAM > 0 {
-				// Rare model premium based on verified permille scarcity
-				rarityMultiplier := 1.0
-				if rPermille <= 10 {
-					rarityMultiplier = 2.5
-				} else if rPermille <= 50 {
-					rarityMultiplier = 1.6
-				} else if rPermille <= 150 {
-					rarityMultiplier = 1.2
-				}
-				mFloor = round2(bestFloorGRAM * rarityMultiplier)
-				if gramRate > 0 {
-					mFloorUSD = round2(mFloor * gramRate)
-				}
+				mSupply = &s
 			}
 
+			// Do not multiply collection floor by hardcoded multipliers.
+			// Set Floor to nil with unavailable status unless actual listing exists for this model.
 			modelFloors = append(modelFloors, CollectionModelFloor{
 				ModelID:        fmt.Sprintf("%s_%d", normSlug, i+1),
 				ModelName:      m.Name,
 				RarityPermille: rPermille,
-				TotalSupply:    supply,
-				UpgradedCount:  int(float64(supply) * 0.5),
-				FloorGRAM:      mFloor,
-				FloorUSD:       mFloorUSD,
+				TotalSupply:    mSupply,
+				UpgradedCount:  nil,
+				FloorGRAM:      nil,
+				FloorUSD:       nil,
 				CustomEmojiID:  emojiMap[m.Name],
+				DataStatus:     "unavailable",
 			})
 		}
 	}
 
-	// 3-Axis Rarity Heatmap (Model × Backdrop × Symbol)
+	// 3-Axis Rarity Heatmap (Model × Backdrop)
 	var heatmap []RarityHeatmapCell
 	if liveDetail != nil && len(liveDetail.Models) > 0 && len(liveDetail.Backdrops) > 0 {
-		type candidateCell struct {
-			cell       RarityHeatmapCell
-			combRarity float64
-		}
-		var allCandidates []candidateCell
-
 		for _, m := range liveDetail.Models {
 			mPerm := m.GetRarityPermille()
 			if mPerm <= 0 {
 				mPerm = 20
 			}
-
-			// Model rarity multiplier
-			mMult := 1.0
-			if mPerm <= 5 {
-				mMult = 2.4
-			} else if mPerm <= 10 {
-				mMult = 1.7
-			} else if mPerm <= 15 {
-				mMult = 1.3
-			} else {
-				mMult = 1.0
-			}
+			mProb := float64(mPerm) / 1000.0
 
 			for _, b := range liveDetail.Backdrops {
 				bPerm := b.GetRarityPermille()
 				if bPerm <= 0 {
-					bPerm = 15
+					bPerm = 20
 				}
+				bProb := float64(bPerm) / 1000.0
 
-				// Backdrop rarity multiplier
-				bMult := 1.0
-				if bPerm <= 10 {
-					bMult = 1.25
-				} else if bPerm <= 15 {
-					bMult = 1.12
-				} else {
-					bMult = 1.0
-				}
-
-				combRarityPct := (float64(mPerm) / 1000.0) * (float64(bPerm) / 1000.0) * 100.0
-
-				// Joint rarity tier classification
+				combRarityPct := round2(mProb * bProb * 100.0)
 				tier := "Common"
-				switch {
-				case combRarityPct <= 0.006:
+				if combRarityPct <= 0.05 {
 					tier = "Mythic"
-				case combRarityPct <= 0.012:
+				} else if combRarityPct <= 0.2 {
 					tier = "Legendary"
-				case combRarityPct <= 0.020:
+				} else if combRarityPct <= 1.0 {
 					tier = "Epic"
-				case combRarityPct <= 0.030:
+				} else if combRarityPct <= 5.0 {
 					tier = "Rare"
-				case combRarityPct <= 0.038:
+				} else if combRarityPct <= 15.0 {
 					tier = "Uncommon"
-				default:
-					tier = "Common"
 				}
 
-				cellFloor := 0.0
-				if bestFloorGRAM > 0 {
-					cellFloor = round2(bestFloorGRAM * mMult * bMult)
-				}
-
-				allCandidates = append(allCandidates, candidateCell{
-					cell: RarityHeatmapCell{
-						ModelID:        normSlug,
-						ModelName:      m.Name,
-						BackdropName:   b.Name,
-						CombinedRarity: round2(combRarityPct),
-						RarityTier:     tier,
-						FloorGRAM:      cellFloor,
-					},
-					combRarity: combRarityPct,
-				})
-			}
-		}
-
-		// Sort by combRarity ascending (rarest combinations first)
-		sort.Slice(allCandidates, func(i, j int) bool {
-			if allCandidates[i].combRarity != allCandidates[j].combRarity {
-				return allCandidates[i].combRarity < allCandidates[j].combRarity
-			}
-			return allCandidates[i].cell.FloorGRAM > allCandidates[j].cell.FloorGRAM
-		})
-
-		// Select a well-balanced sample of top combinations ensuring model diversity
-		seenModelCombos := make(map[string]int)
-		for _, cand := range allCandidates {
-			// Limit any single model to at most 3 backdrops so multiple models get visibility
-			if seenModelCombos[cand.cell.ModelName] < 3 {
-				heatmap = append(heatmap, cand.cell)
-				seenModelCombos[cand.cell.ModelName]++
-			}
-			if len(heatmap) >= 40 {
-				break
-			}
-		}
-
-		// Backfill if needed
-		if len(heatmap) < 30 {
-			for _, cand := range allCandidates {
-				alreadyIn := false
-				for _, h := range heatmap {
-					if h.ModelName == cand.cell.ModelName && h.BackdropName == cand.cell.BackdropName {
-						alreadyIn = true
-						break
-					}
-				}
-				if !alreadyIn {
-					heatmap = append(heatmap, cand.cell)
-				}
-				if len(heatmap) >= 30 {
-					break
-				}
-			}
-		}
-	}
-
-	// Ensure heatmap is never empty even if live external detail is unavailable
-	if len(heatmap) == 0 {
-		defaultModels := []struct {
-			name string
-			mult float64
-			tier string
-		}{
-			{"Genesis", 2.6, "Mythic"},
-			{"Cyber", 2.1, "Legendary"},
-			{"Royal", 1.7, "Legendary"},
-			{"Master", 1.4, "Epic"},
-			{"Standard", 1.1, "Rare"},
-			{"Classic", 1.0, "Common"},
-		}
-		defaultBackdrops := []struct {
-			name string
-			mult float64
-		}{
-			{"Onyx", 1.35},
-			{"Cosmic Blue", 1.25},
-			{"Crimson", 1.18},
-			{"Emerald", 1.12},
-			{"Golden", 1.08},
-			{"Electric Violet", 1.0},
-		}
-
-		for _, m := range defaultModels {
-			for _, b := range defaultBackdrops {
-				cellFloor := round2(bestFloorGRAM * m.mult * b.mult)
-				combRarity := round2(100.0 / (m.mult * b.mult * 20.0))
-				tier := m.tier
-				if b.mult >= 1.25 && tier != "Mythic" {
-					if tier == "Legendary" {
-						tier = "Mythic"
-					} else if tier == "Epic" {
-						tier = "Legendary"
-					}
-				}
 				heatmap = append(heatmap, RarityHeatmapCell{
-					ModelID:        normSlug,
-					ModelName:      m.name,
-					BackdropName:   b.name,
-					CombinedRarity: combRarity,
-					RarityTier:     tier,
-					FloorGRAM:      cellFloor,
+					ModelID:           normSlug,
+					ModelName:         m.Name,
+					BackdropName:      b.Name,
+					CombinedRarity:    combRarityPct,
+					RarityTier:        tier,
+					FloorGRAM:         nil, // Null unless realized model-backdrop listing exists
+					RarityStatus:      "estimated",
+					CalculationMethod: "independent_trait_assumption",
 				})
 			}
 		}
+		if len(heatmap) > 30 {
+			heatmap = heatmap[:30]
+		}
 	}
 
-	// Whales: Return empty slice with clear data_status when on-chain TonAPI indexing is pending
 	whales := make([]WhaleProfile, 0)
 
-	marketCapGRAM := 0.0
-	marketCapUSD := 0.0
-	if bestFloorGRAM > 0 && totalSupply > 0 {
-		marketCapGRAM = round2(float64(totalSupply) * bestFloorGRAM)
-		if gramRate > 0 {
-			marketCapUSD = round2(marketCapGRAM * gramRate)
+	// Market Cap vs FDV:
+	// MarketCap = Floor * UpgradedSupply (circulating upgraded assets)
+	// FDV = Floor * TotalSupply (fully diluted valuation)
+	var marketCapGRAM *float64
+	var marketCapUSD *float64
+	var fdvGRAM *float64
+	var fdvUSD *float64
+
+	if bestFloorGRAM != nil && *bestFloorGRAM > 0 {
+		if upgradedCount != nil && *upgradedCount > 0 {
+			mc := round2(float64(*upgradedCount) * *bestFloorGRAM)
+			marketCapGRAM = &mc
+			if gramRate != nil && *gramRate > 0 {
+				mcUSD := round2(mc * *gramRate)
+				marketCapUSD = &mcUSD
+			}
+		}
+		if totalSupply != nil && *totalSupply > 0 {
+			fdv := round2(float64(*totalSupply) * *bestFloorGRAM)
+			fdvGRAM = &fdv
+			if gramRate != nil && *gramRate > 0 {
+				fUSD := round2(fdv * *gramRate)
+				fdvUSD = &fUSD
+			}
 		}
 	}
 
 	dataStatus := "unavailable"
 	if liveVenueCount > 0 {
 		dataStatus = "live"
+	} else if len(dbSnapshots) > 0 {
+		dataStatus = "stale"
 	} else if liveDetail != nil {
 		dataStatus = "estimated"
 	}
 
-	// High-resolution 30-day floor history time-series anchored to bestFloorGRAM
-	now := time.Now().UTC()
-	floorHistory := make([]FloorHistoryPoint, 0, 30)
-	slugHash := 0
-	for _, c := range normSlug {
-		slugHash = (slugHash*31 + int(c)) % 10007
-	}
-	baseVariance := 0.08
-	for d := 29; d >= 0; d-- {
-		tPoint := now.Add(-time.Duration(d) * 24 * time.Hour)
-		dayFactor := float64(d)
-		wave1 := math.Sin((dayFactor+float64(slugHash%30))*0.3) * 0.04
-		wave2 := math.Cos((dayFactor+float64(slugHash%17))*0.7) * 0.02
-		trend := (float64(29-d) / 29.0) * baseVariance
-		ratio := 1.0 - baseVariance + trend + wave1 + wave2
-		if d == 0 {
-			ratio = 1.0 // Anchor exact current floor at t=0
-		}
-		ptFloor := round2(bestFloorGRAM * ratio)
-		if ptFloor <= 0 {
-			ptFloor = bestFloorGRAM
-		}
-		activeVenue := bestVenue
-		if activeVenue == "" {
-			activeVenue = "Tonnel"
-		}
-		vBreakdown := map[string]float64{
-			activeVenue: ptFloor,
-			"Getgems":   round2(ptFloor * 1.025),
-			"Tonnel":    round2(ptFloor * 0.995),
-			"Fragment":  round2(ptFloor * 1.04),
-		}
-		floorHistory = append(floorHistory, FloorHistoryPoint{
-			Timestamp:      tPoint.Format(time.RFC3339),
-			FloorGRAM:      ptFloor,
-			VenueBreakdown: vBreakdown,
-		})
-	}
-
-	venuesList := []string{"Tonnel", "Getgems", "Fragment", "MRKT", "Portals", "MarketApp"}
-
-	// Top 10 by Floor and FloorItem
-	var topFloorItems []FloorItemSummary
-	itemSerials := []int{1890, 432, 1534, 799, 451, 1533, 2115, 2211, 423, 823}
-	if strings.ReplaceAll(normSlug, "-", "_") != "plush_pepe" {
-		for idx := range itemSerials {
-			itemSerials[idx] = ((idx + 1) * 197) % totalSupply
-			if itemSerials[idx] <= 0 {
-				itemSerials[idx] = (idx + 1) * 23
+	// Historical 30-day floor history time-series:
+	// Built STRICTLY from verified snapshot history or real trades. No sin/cos waves.
+	floorHistory := make([]FloorHistoryPoint, 0)
+	if s.repo != nil {
+		if hist, err := s.repo.GetFloorHistoryFromSnapshots(ctx, normSlug, 30); err == nil && len(hist) > 0 {
+			for _, pt := range hist {
+				f, _ := pt.FloorGRAM.Float64()
+				vb := make(map[string]float64)
+				for vn, vDec := range pt.VenueBreakdown {
+					vPrice, _ := vDec.Float64()
+					vb[vn] = round2(vPrice)
+				}
+				floorHistory = append(floorHistory, FloorHistoryPoint{
+					Timestamp:      pt.Timestamp.UTC().Format(time.RFC3339),
+					FloorGRAM:      round2(f),
+					VenueBreakdown: vb,
+				})
 			}
 		}
 	}
 
-	for i := 0; i < 10; i++ {
-		modelName := "Standard"
-		if liveDetail != nil && len(liveDetail.Models) > 0 {
-			modelName = liveDetail.Models[i%len(liveDetail.Models)].Name
+	// Top Floor Items: Read strictly from real market listings index
+	var topFloorItems []FloorItemSummary
+	if s.repo != nil {
+		if dbListings, err := s.repo.GetActiveMarketListings(ctx, normSlug, 10); err == nil && len(dbListings) > 0 {
+			for idx, it := range dbListings {
+				pGRAM, _ := it.PriceGRAM.Float64()
+				var pUSD *float64
+				if gramRate != nil && *gramRate > 0 {
+					usd := round2(pGRAM * *gramRate)
+					pUSD = &usd
+				}
+				topFloorItems = append(topFloorItems, FloorItemSummary{
+					Rank:         idx + 1,
+					SerialNumber: it.SerialNumber,
+					ModelName:    it.ModelName,
+					SymbolName:   it.SymbolName,
+					BackdropName: it.BackdropName,
+					CenterHex:    it.CenterHex,
+					EdgeHex:      it.EdgeHex,
+					PriceGRAM:    &pGRAM,
+					PriceUSD:     pUSD,
+					VenueName:    it.Venue,
+					BuyURL:       it.BuyURL,
+					ListingID:    it.ListingID,
+					ObservedAt:   it.ObservedAt.UTC().Format(time.RFC3339),
+				})
+			}
 		}
-		symbolName := "Special"
-		if len(symbolsList) > 0 {
-			symbolName = symbolsList[i%len(symbolsList)].Name
-		}
-		backdropName := "Classic"
-		cHex := "#363738"
-		eHex := "#0E0F0F"
-		if len(backdropsList) > 0 {
-			bd := backdropsList[i%len(backdropsList)]
-			backdropName = bd.Name
-			cHex = bd.CenterHex
-			eHex = bd.EdgeHex
-		}
-		vName := bestVenue
-		if vName == "" {
-			vName = "Tonnel"
-		}
-		if i > 0 {
-			vName = venuesList[i%len(venuesList)]
-		}
-
-		itemPriceGRAM := round2(bestFloorGRAM * (1.0 + float64(i)*0.022))
-		itemPriceUSD := round2(itemPriceGRAM * gramRate)
-
-		buyURL := ""
-		switch strings.ToLower(vName) {
-		case "tonnel":
-			buyURL = fmt.Sprintf("https://t.me/tonnel_network_bot?start=gift_%s_%d", normSlug, itemSerials[i])
-		case "getgems":
-			buyURL = fmt.Sprintf("https://getgems.io/collection/%s", normSlug)
-		case "fragment":
-			buyURL = fmt.Sprintf("https://fragment.com/gifts/%s", normSlug)
-		case "mrkt":
-			buyURL = fmt.Sprintf("https://t.me/MRKT_app_bot?start=%s", normSlug)
-		case "portals":
-			buyURL = fmt.Sprintf("https://t.me/portals_mp_bot?start=%s", normSlug)
-		default:
-			buyURL = fmt.Sprintf("https://fragment.com/gifts/%s", normSlug)
-		}
-
-		topFloorItems = append(topFloorItems, FloorItemSummary{
-			Rank:         i + 1,
-			SerialNumber: itemSerials[i],
-			ModelName:    modelName,
-			SymbolName:   symbolName,
-			BackdropName: backdropName,
-			CenterHex:    cHex,
-			EdgeHex:      eHex,
-			PriceGRAM:    itemPriceGRAM,
-			PriceUSD:     itemPriceUSD,
-			VenueName:    vName,
-			BuyURL:       buyURL,
-		})
 	}
 
 	var floorItem *FloorItemSummary
@@ -931,47 +769,26 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		floorItem = &topFloorItems[0]
 	}
 
-	// On Sale Now stats
+	// On Sale Now stats: Computed exclusively from real venue snapshot counts
 	totalOnSale := 0
-	for _, vf := range venueFloors {
-		if snap, ok := dbSnapshots[vf.VenueID]; ok && snap.ActiveListings > 0 {
-			totalOnSale += snap.ActiveListings
-		}
-	}
-	if totalOnSale <= 0 {
-		if strings.ReplaceAll(normSlug, "-", "_") == "plush_pepe" {
-			totalOnSale = 418
-		} else {
-			totalOnSale = int(float64(totalSupply) * 0.08)
-			if totalOnSale < 15 {
-				totalOnSale = 15
-			}
-		}
-	}
-
 	var byMarketplace []OnSaleMarketplaceBreakdown
-	ratios := []struct {
-		name  string
-		mult  float64
-		count int
-	}{
-		{"Tonnel", 1.0, 3},
-		{"Getgems", 1.021, 46},
-		{"Fragment", 1.036, 7},
-		{"MRKT", 1.066, 32},
-		{"Portals", 1.090, 163},
-		{"MarketApp", 1.157, 67},
-	}
-	for _, r := range ratios {
-		vFloorGRAM := round2(bestFloorGRAM * r.mult)
-		vFloorUSD := round2(vFloorGRAM * gramRate)
+
+	for _, vf := range venueFloors {
+		var cnt *int
+		if snap, ok := dbSnapshots[vf.VenueID]; ok && vf.DataStatus != "unavailable" {
+			c := snap.ActiveListings
+			cnt = &c
+			totalOnSale += c
+		}
 		byMarketplace = append(byMarketplace, OnSaleMarketplaceBreakdown{
-			VenueName: r.name,
-			FloorGRAM: vFloorGRAM,
-			FloorUSD:  vFloorUSD,
-			Count:     r.count,
+			VenueName: vf.VenueName,
+			FloorGRAM: vf.FloorGRAM,
+			FloorUSD:  vf.FloorUSD,
+			Count:     cnt,
+			Status:    vf.DataStatus,
 		})
 	}
+
 	onSaleStats := OnSaleStats{
 		TotalCount:    totalOnSale,
 		FloorGRAM:     bestFloorGRAM,
@@ -979,249 +796,305 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		ByMarketplace: byMarketplace,
 	}
 
-	// Market Sales Stats (24h, 7d, 30d)
-	v24GRAM := round2(bestFloorGRAM * 7.6)
-	v24USD := round2(v24GRAM * gramRate)
-	deals24 := 5
-	sources24 := []MarketSalesSourceBreakdown{
-		{"Tonnel", round2(bestFloorGRAM * 3.9), round2(bestFloorGRAM * 3.9 * gramRate), 2},
-		{"Getgems", round2(bestFloorGRAM * 2.06), round2(bestFloorGRAM * 2.06 * gramRate), 2},
-		{"Fragment", round2(bestFloorGRAM * 1.64), round2(bestFloorGRAM * 1.64 * gramRate), 1},
-	}
-	period24h := MarketSalesMetricPeriod{
-		VolumeGRAM: v24GRAM,
-		VolumeUSD:  v24USD,
-		MinGRAM:    round2(bestFloorGRAM * 1.006),
-		MinUSD:     round2(bestFloorGRAM * 1.006 * gramRate),
-		AvgGRAM:    round2(bestFloorGRAM * 1.52),
-		AvgUSD:     round2(bestFloorGRAM * 1.52 * gramRate),
-		MaxGRAM:    round2(bestFloorGRAM * 2.78),
-		MaxUSD:     round2(bestFloorGRAM * 2.78 * gramRate),
-		DealsCount: deals24,
-		BySource:   sources24,
+	// Market Sales Stats (24h, 7d, 30d): Derived purely from real completed sales in DB
+	marketSalesStats := MarketSalesStats{}
+	if s.repo != nil {
+		if s24, err := s.repo.GetSalesStatsByPeriod(ctx, normSlug, now.Add(-24*time.Hour)); err == nil {
+			vGRAM, _ := s24.VolumeGRAM.Float64()
+			minG, _ := s24.MinGRAM.Float64()
+			avgG, _ := s24.AvgGRAM.Float64()
+			maxG, _ := s24.MaxGRAM.Float64()
+
+			var vUSD, minUSD, avgUSD, maxUSD *float64
+			if gramRate != nil && *gramRate > 0 && s24.DealsCount > 0 {
+				vu := round2(vGRAM * *gramRate)
+				vUSD = &vu
+				miu := round2(minG * *gramRate)
+				minUSD = &miu
+				au := round2(avgG * *gramRate)
+				avgUSD = &au
+				mau := round2(maxG * *gramRate)
+				maxUSD = &mau
+			}
+
+			var bSources []MarketSalesSourceBreakdown
+			for _, bs := range s24.BySource {
+				bsG, _ := bs.VolumeGRAM.Float64()
+				var bsU *float64
+				if gramRate != nil && *gramRate > 0 {
+					u := round2(bsG * *gramRate)
+					bsU = &u
+				}
+				bSources = append(bSources, MarketSalesSourceBreakdown{
+					VenueName:  bs.VenueName,
+					VolumeGRAM: round2(bsG),
+					VolumeUSD:  bsU,
+					DealsCount: bs.DealsCount,
+				})
+			}
+
+			var minPtr, avgPtr, maxPtr *float64
+			if s24.DealsCount > 0 {
+				minPtr = &minG
+				avgPtr = &avgG
+				maxPtr = &maxG
+			}
+
+			marketSalesStats.Period24h = MarketSalesMetricPeriod{
+				VolumeGRAM: round2(vGRAM),
+				VolumeUSD:  vUSD,
+				MinGRAM:    minPtr,
+				MinUSD:     minUSD,
+				AvgGRAM:    avgPtr,
+				AvgUSD:     avgUSD,
+				MaxGRAM:    maxPtr,
+				MaxUSD:     maxUSD,
+				DealsCount: s24.DealsCount,
+				BySource:   bSources,
+			}
+		}
+
+		if s7, err := s.repo.GetSalesStatsByPeriod(ctx, normSlug, now.Add(-7*24*time.Hour)); err == nil {
+			vGRAM, _ := s7.VolumeGRAM.Float64()
+			minG, _ := s7.MinGRAM.Float64()
+			avgG, _ := s7.AvgGRAM.Float64()
+			maxG, _ := s7.MaxGRAM.Float64()
+
+			var vUSD, minUSD, avgUSD, maxUSD *float64
+			if gramRate != nil && *gramRate > 0 && s7.DealsCount > 0 {
+				vu := round2(vGRAM * *gramRate)
+				vUSD = &vu
+				miu := round2(minG * *gramRate)
+				minUSD = &miu
+				au := round2(avgG * *gramRate)
+				avgUSD = &au
+				mau := round2(maxG * *gramRate)
+				maxUSD = &mau
+			}
+
+			var bSources []MarketSalesSourceBreakdown
+			for _, bs := range s7.BySource {
+				bsG, _ := bs.VolumeGRAM.Float64()
+				var bsU *float64
+				if gramRate != nil && *gramRate > 0 {
+					u := round2(bsG * *gramRate)
+					bsU = &u
+				}
+				bSources = append(bSources, MarketSalesSourceBreakdown{
+					VenueName:  bs.VenueName,
+					VolumeGRAM: round2(bsG),
+					VolumeUSD:  bsU,
+					DealsCount: bs.DealsCount,
+				})
+			}
+
+			var minPtr, avgPtr, maxPtr *float64
+			if s7.DealsCount > 0 {
+				minPtr = &minG
+				avgPtr = &avgG
+				maxPtr = &maxG
+			}
+
+			marketSalesStats.Period7d = MarketSalesMetricPeriod{
+				VolumeGRAM: round2(vGRAM),
+				VolumeUSD:  vUSD,
+				MinGRAM:    minPtr,
+				MinUSD:     minUSD,
+				AvgGRAM:    avgPtr,
+				AvgUSD:     avgUSD,
+				MaxGRAM:    maxPtr,
+				MaxUSD:     maxUSD,
+				DealsCount: s7.DealsCount,
+				BySource:   bSources,
+			}
+		}
+
+		if s30, err := s.repo.GetSalesStatsByPeriod(ctx, normSlug, now.Add(-30*24*time.Hour)); err == nil {
+			vGRAM, _ := s30.VolumeGRAM.Float64()
+			minG, _ := s30.MinGRAM.Float64()
+			avgG, _ := s30.AvgGRAM.Float64()
+			maxG, _ := s30.MaxGRAM.Float64()
+
+			var vUSD, minUSD, avgUSD, maxUSD *float64
+			if gramRate != nil && *gramRate > 0 && s30.DealsCount > 0 {
+				vu := round2(vGRAM * *gramRate)
+				vUSD = &vu
+				miu := round2(minG * *gramRate)
+				minUSD = &miu
+				au := round2(avgG * *gramRate)
+				avgUSD = &au
+				mau := round2(maxG * *gramRate)
+				maxUSD = &mau
+			}
+
+			var bSources []MarketSalesSourceBreakdown
+			for _, bs := range s30.BySource {
+				bsG, _ := bs.VolumeGRAM.Float64()
+				var bsU *float64
+				if gramRate != nil && *gramRate > 0 {
+					u := round2(bsG * *gramRate)
+					bsU = &u
+				}
+				bSources = append(bSources, MarketSalesSourceBreakdown{
+					VenueName:  bs.VenueName,
+					VolumeGRAM: round2(bsG),
+					VolumeUSD:  bsU,
+					DealsCount: bs.DealsCount,
+				})
+			}
+
+			var minPtr, avgPtr, maxPtr *float64
+			if s30.DealsCount > 0 {
+				minPtr = &minG
+				avgPtr = &avgG
+				maxPtr = &maxG
+			}
+
+			marketSalesStats.Period30d = MarketSalesMetricPeriod{
+				VolumeGRAM: round2(vGRAM),
+				VolumeUSD:  vUSD,
+				MinGRAM:    minPtr,
+				MinUSD:     minUSD,
+				AvgGRAM:    avgPtr,
+				AvgUSD:     avgUSD,
+				MaxGRAM:    maxPtr,
+				MaxUSD:     maxUSD,
+				DealsCount: s30.DealsCount,
+				BySource:   bSources,
+			}
+		}
 	}
 
-	v7dGRAM := round2(v24GRAM * 4.8)
-	v7dUSD := round2(v7dGRAM * gramRate)
-	period7d := MarketSalesMetricPeriod{
-		VolumeGRAM: v7dGRAM,
-		VolumeUSD:  v7dUSD,
-		MinGRAM:    round2(bestFloorGRAM * 0.95),
-		MinUSD:     round2(bestFloorGRAM * 0.95 * gramRate),
-		AvgGRAM:    round2(bestFloorGRAM * 1.48),
-		AvgUSD:     round2(bestFloorGRAM * 1.48 * gramRate),
-		MaxGRAM:    round2(bestFloorGRAM * 3.2),
-		MaxUSD:     round2(bestFloorGRAM * 3.2 * gramRate),
-		DealsCount: deals24 * 5,
-		BySource: []MarketSalesSourceBreakdown{
-			{"Tonnel", round2(v7dGRAM * 0.45), round2(v7dUSD * 0.45), 11},
-			{"Getgems", round2(v7dGRAM * 0.32), round2(v7dUSD * 0.32), 8},
-			{"Fragment", round2(v7dGRAM * 0.23), round2(v7dUSD * 0.23), 5},
-		},
-	}
-
-	v30dGRAM := round2(v24GRAM * 18.5)
-	v30dUSD := round2(v30dGRAM * gramRate)
-	period30d := MarketSalesMetricPeriod{
-		VolumeGRAM: v30dGRAM,
-		VolumeUSD:  v30dUSD,
-		MinGRAM:    round2(bestFloorGRAM * 0.88),
-		MinUSD:     round2(bestFloorGRAM * 0.88 * gramRate),
-		AvgGRAM:    round2(bestFloorGRAM * 1.45),
-		AvgUSD:     round2(bestFloorGRAM * 1.45 * gramRate),
-		MaxGRAM:    round2(bestFloorGRAM * 4.5),
-		MaxUSD:     round2(bestFloorGRAM * 4.5 * gramRate),
-		DealsCount: deals24 * 21,
-		BySource: []MarketSalesSourceBreakdown{
-			{"Tonnel", round2(v30dGRAM * 0.42), round2(v30dUSD * 0.42), 44},
-			{"Getgems", round2(v30dGRAM * 0.35), round2(v30dUSD * 0.35), 37},
-			{"Fragment", round2(v30dGRAM * 0.23), round2(v30dUSD * 0.23), 24},
-		},
-	}
-
-	marketSalesStats := MarketSalesStats{
-		Period24h: period24h,
-		Period7d:  period7d,
-		Period30d: period30d,
-	}
-
-	// Sales History
+	// Sales History: Populated strictly with verified completed sales records from DB
 	var salesHistory []SalesHistoryItem
 	if s.repo != nil {
 		if dbSales, err := s.repo.GetRecentSalesByModel(ctx, normSlug, 20); err == nil && len(dbSales) > 0 {
 			for idx, sRec := range dbSales {
 				pGRAM, _ := sRec.SalePriceGRAM.Float64()
-				pUSD, _ := sRec.SalePriceUSD.Float64()
+				var pUSD *float64
+				if !sRec.SalePriceUSD.IsZero() {
+					u, _ := sRec.SalePriceUSD.Float64()
+					pUSD = &u
+				} else if gramRate != nil && *gramRate > 0 {
+					u := round2(pGRAM * *gramRate)
+					pUSD = &u
+				}
+
+				var exRate *float64
+				if sRec.TonUsdAtSale != nil && !sRec.TonUsdAtSale.IsZero() {
+					er, _ := sRec.TonUsdAtSale.Float64()
+					exRate = &er
+				} else if gramRate != nil {
+					exRate = gramRate
+				}
+
 				salesHistory = append(salesHistory, SalesHistoryItem{
 					Rank:         idx + 1,
 					SerialNumber: sRec.SerialNumber,
-					ModelName:    "Model",
-					SymbolName:   "Symbol",
-					BackdropName: "Backdrop",
+					ModelName:    collectionName,
+					SymbolName:   "",
+					BackdropName: "",
 					PriceGRAM:    round2(pGRAM),
-					PriceUSD:     round2(pUSD),
-					ExchangeRate: gramRate,
+					PriceUSD:     pUSD,
+					ExchangeRate: exRate,
 					VenueName:    sRec.Venue,
-					SaleDate:     sRec.SaleDate.UTC().Format("02.01.06 15:04"),
+					SaleDate:     sRec.SaleDate.UTC().Format(time.RFC3339),
 					TxHash:       sRec.TxHash,
+					EventIndex:   sRec.EventIndex,
 				})
 			}
 		}
 	}
-	if len(salesHistory) < 10 {
-		historySerials := []int{823, 1273, 1534, 1534, 799, 451, 1533, 2115, 2211, 423}
-		historyPricesGRAM := []float64{14800, 8700, 5350, 5600, 6000, 5487, 5349, 5798, 5399, 6467}
-		historyTimes := []string{
-			"02.09.26 21:23", "02.09.26 14:50", "02.09.26 14:24", "02.09.26 09:30",
-			"02.09.26 05:48", "01.09.26 23:10", "01.09.26 09:54", "31.08.26 19:34",
-			"31.08.26 19:15", "31.08.26 16:16",
-		}
-		historyVenues := []string{"Getgems", "Tonnel", "MRKT", "MRKT", "Getgems", "Portals", "Getgems", "Getgems", "Portals", "Tonnel"}
 
-		scale := bestFloorGRAM / 5316.0
-		if scale <= 0 {
-			scale = 1.0
-		}
-
-		for idx := 0; idx < 10; idx++ {
-			hModel := "Genesis"
-			if liveDetail != nil && len(liveDetail.Models) > 0 {
-				hModel = liveDetail.Models[(idx*3)%len(liveDetail.Models)].Name
-			}
-			hSymbol := "Special"
-			if len(symbolsList) > 0 {
-				hSymbol = symbolsList[(idx*2)%len(symbolsList)].Name
-			}
-			hBackdrop := "Classic"
-			cHex := "#363738"
-			if len(backdropsList) > 0 {
-				bd := backdropsList[(idx*4)%len(backdropsList)]
-				hBackdrop = bd.Name
-				cHex = bd.CenterHex
-			}
-			pGRAM := round2(historyPricesGRAM[idx] * scale)
-			pUSD := round2(pGRAM * gramRate)
-
-			salesHistory = append(salesHistory, SalesHistoryItem{
-				Rank:         len(salesHistory) + 1,
-				SerialNumber: historySerials[idx],
-				ModelName:    hModel,
-				SymbolName:   hSymbol,
-				BackdropName: hBackdrop,
-				CenterHex:    cHex,
-				PriceGRAM:    pGRAM,
-				PriceUSD:     pUSD,
-				ExchangeRate: round2(gramRate),
-				VenueName:    historyVenues[idx],
-				SaleDate:     historyTimes[idx],
+	// Catalog Search Items: Populated from real active listings
+	searchItems := make([]CatalogSearchItem, 0)
+	if len(topFloorItems) > 0 {
+		for _, it := range topFloorItems {
+			searchItems = append(searchItems, CatalogSearchItem{
+				SerialNumber: it.SerialNumber,
+				ModelName:    it.ModelName,
+				SymbolName:   it.SymbolName,
+				BackdropName: it.BackdropName,
+				CenterHex:    it.CenterHex,
+				IsOnSale:     true,
+				PriceGRAM:    it.PriceGRAM,
+				PriceUSD:     it.PriceUSD,
+				VenueName:    it.VenueName,
+				RarityScore:  0,
 			})
 		}
 	}
 
-	// Catalog Search Items
-	var searchItems []CatalogSearchItem
-	for num := 1; num <= 25; num++ {
-		mName := "Standard"
-		if liveDetail != nil && len(liveDetail.Models) > 0 {
-			mName = liveDetail.Models[(num*2)%len(liveDetail.Models)].Name
-		}
-		sName := "Symbol"
-		if len(symbolsList) > 0 {
-			sName = symbolsList[(num*3)%len(symbolsList)].Name
-		}
-		bName := "Backdrop"
-		cHex := "#363738"
-		if len(backdropsList) > 0 {
-			bd := backdropsList[(num*5)%len(backdropsList)]
-			bName = bd.Name
-			cHex = bd.CenterHex
-		}
+	dataSources := []string{metadataSource}
+	if len(priceSources) > 0 {
+		dataSources = append(dataSources, priceSources...)
+	} else {
+		dataSources = append(dataSources, "Fragment / Getgems / MarketApp / Telegram / TON Indexer")
+	}
+	if gramRate != nil {
+		dataSources = append(dataSources, "CoinGecko (TON/USD)")
+	}
 
-		isOnSale := false
-		pGRAM := 0.0
-		pUSD := 0.0
-		vName := ""
-		if num == 4 {
-			isOnSale = true
-			pGRAM = round2(bestFloorGRAM * 84.5)
-			pUSD = round2(pGRAM * gramRate)
-			vName = "Fragment"
-		} else if num == 5 {
-			isOnSale = true
-			pGRAM = round2(bestFloorGRAM * 63.4)
-			pUSD = round2(pGRAM * gramRate)
-			vName = "Getgems"
-		} else if num > 10 && num%3 == 0 {
-			isOnSale = true
-			pGRAM = round2(bestFloorGRAM * (1.1 + float64(num%5)*0.1))
-			pUSD = round2(pGRAM * gramRate)
-			vName = venuesList[num%len(venuesList)]
-		}
-
-		rarityScore := round2(100.0 / float64(1+(num%15)))
-
-		searchItems = append(searchItems, CatalogSearchItem{
-			SerialNumber: num,
-			ModelName:    mName,
-			SymbolName:   sName,
-			BackdropName: bName,
-			CenterHex:    cHex,
-			IsOnSale:     isOnSale,
-			PriceGRAM:    pGRAM,
-			PriceUSD:     pUSD,
-			VenueName:    vName,
-			RarityScore:  rarityScore,
-		})
+	priceSourceAttribution := "Fragment / Getgems / MarketApp / Telegram / TON Indexer"
+	if len(priceSources) > 0 {
+		priceSourceAttribution = strings.Join(priceSources, ", ")
 	}
 
 	resp := &CollectionIntelResponse{
-		CollectionID:       normSlug,
-		CollectionName:     collectionName,
-		CollectionSlug:     normSlug,
-		ContractAddress:    contractID,
-		TotalSupply:        totalSupply,
-		UpgradedCount:      upgradedCount,
-		IsLimited:          isLimited,
-		IsCraftable:        isCraftable,
-		ReleaseDate:        releaseDate,
-		UpgradeEnabledDate: upgradeDate,
-		TotalModels:        totalModels,
-		TotalBackdrops:     totalBackdrops,
-		TotalSymbols:       totalSymbols,
-		BackdropsList:      backdropsList,
-		BestFloorGRAM:      bestFloorGRAM,
-		BestFloorUSD:       bestFloorUSD,
-		BestFloorVenue:     bestVenue,
-		Volume24hGRAM:      v24GRAM,
-		Volume24hUSD:       v24USD,
-		MarketCapGRAM:      marketCapGRAM,
-		MarketCapUSD:       marketCapUSD,
-		ListedCount:        totalOnSale,
-		LiquidityRatio:     0,
-		ModelFloors:        modelFloors,
-		RarityHeatmap:      heatmap,
-		VenueFloors:        venueFloors,
-		Arbitrage:          arb,
-		Whales:             whales,
-		RecentActivity:     make([]MarketActivityItem, 0),
-		FloorHistory:       floorHistory,
-		UpgradeLadder:      make([]UpgradeStepInfo, 0),
-		FloorItem:          floorItem,
-		TopFloorItems:      topFloorItems,
-		MarketSalesStats:   marketSalesStats,
-		OnSaleStats:        onSaleStats,
-		SymbolsList:        symbolsList,
-		SalesHistory:       salesHistory,
-		SearchItems:        searchItems,
+		CollectionID:          normSlug,
+		CollectionName:        collectionName,
+		CollectionSlug:        normSlug,
+		ContractAddress:       contractID,
+		TotalSupply:           totalSupply,
+		UpgradedCount:         upgradedCount,
+		UpgradedCountStatus:   upgradedCountStatus,
+		IsLimited:             isLimited,
+		IsCraftable:           isCraftable,
+		ReleaseDate:           releaseDate,
+		UpgradeEnabledDate:    upgradeDate,
+		TotalModels:           totalModels,
+		TotalBackdrops:        totalBackdrops,
+		TotalSymbols:          totalSymbols,
+		BackdropsList:         backdropsList,
+		SymbolsList:           symbolsList,
+		BestFloorGRAM:         bestFloorGRAM,
+		BestFloorUSD:          bestFloorUSD,
+		BestFloorVenue:        bestFloorVenue,
+		Volume24hGRAM:         marketSalesStats.Period24h.VolumeGRAM,
+		Volume24hUSD:          marketSalesStats.Period24h.VolumeUSD,
+		MarketCapGRAM:         marketCapGRAM,
+		MarketCapUSD:          marketCapUSD,
+		FDVGRAM:               fdvGRAM,
+		FDVUSD:                fdvUSD,
+		ListedCount:           totalOnSale,
+		LiquidityRatio:        0,
+		ModelFloors:           modelFloors,
+		RarityHeatmap:         heatmap,
+		VenueFloors:           venueFloors,
+		Arbitrage:             arb,
+		Whales:                whales,
+		RecentActivity:        make([]MarketActivityItem, 0),
+		FearGreed:             FearGreedData{Index: 50, Label: "Neutral"},
+		FloorHistory:          floorHistory,
+		UpgradeLadder:         make([]UpgradeStepInfo, 0),
+		FloorItem:             floorItem,
+		TopFloorItems:         topFloorItems,
+		MarketSalesStats:      marketSalesStats,
+		OnSaleStats:           onSaleStats,
+		SalesHistory:          salesHistory,
+		SearchItems:           searchItems,
+		MetadataSource:        metadataSource,
+		PriceSource:           priceSourceAttribution,
 		DataStatus:            dataStatus,
-		DataSourceAttribution: "Data powered by @GiftChanges (api.changes.tg)",
+		DataSourceAttribution: fmt.Sprintf("Metadata: %s | Prices: %s", metadataSource, priceSourceAttribution),
 		DataSources:           dataSources,
-		UpdatedAt:             time.Now().UTC().Format(time.RFC3339),
+		UpdatedAt:             now.Format(time.RFC3339),
 	}
 
+	// Cache only valid/non-unavailable responses with short TTL
 	if s.cache != nil && dataStatus != "unavailable" {
 		if snapJSON, err := json.Marshal(resp); err == nil {
-			s.cache.Client.Set(ctx, cacheKey, snapJSON, 5*time.Minute)
+			s.cache.Client.Set(ctx, cacheKey, snapJSON, 2*time.Minute)
 		}
 	}
 

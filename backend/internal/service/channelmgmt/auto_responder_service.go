@@ -152,6 +152,10 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 				if p.SourceChatID != nil && *p.SourceChatID == chatID {
 					isMatch = true
 				}
+			} else if targetType == "both" {
+				if (p.SourceChatID != nil && *p.SourceChatID == chatID) || (p.TargetChatID != nil && *p.TargetChatID == chatID) {
+					isMatch = true
+				}
 			} else {
 				// default to output channel
 				if p.TargetChatID != nil && *p.TargetChatID == chatID {
@@ -379,6 +383,11 @@ func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *
 			isMatch := false
 			if targetType == "input" {
 				if (p.SourceChatID != nil && *p.SourceChatID == chatID) || (p.SourceChannelID != nil && *p.SourceChannelID == channelID) {
+					isMatch = true
+				}
+			} else if targetType == "both" {
+				if (p.SourceChatID != nil && *p.SourceChatID == chatID) || (p.SourceChannelID != nil && *p.SourceChannelID == channelID) ||
+					(p.TargetChatID != nil && *p.TargetChatID == chatID) || (p.TargetChannelID != nil && *p.TargetChannelID == channelID) {
 					isMatch = true
 				}
 			} else {

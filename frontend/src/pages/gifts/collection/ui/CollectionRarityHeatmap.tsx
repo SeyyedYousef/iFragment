@@ -25,37 +25,37 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 	const [tierFilter, setTierFilter] = createSignal<string>('all');
 	const [selectedCell, setSelectedCell] = createSignal<RarityHeatmapCell | null>(null);
 
-	const rate = () => props.gramUsdRate || 1.335;
+	const rate = () => props.gramUsdRate || 0;
 
 	// Extract unique models and backdrops for 2D matrix
 	const uniqueModels = createMemo(() => {
 		const set = new Set<string>();
 		const list: string[] = [];
-		for (const c of props.cells) {
-			if (!set.has(c.model_name)) {
+		for (const c of props.cells || []) {
+			if (c.model_name && !set.has(c.model_name)) {
 				set.add(c.model_name);
 				list.push(c.model_name);
 			}
 		}
-		return list.length > 0 ? list : ['Genesis', 'Cyber', 'Royal', 'Master', 'Standard'];
+		return list;
 	});
 
 	const uniqueBackdrops = createMemo(() => {
 		const set = new Set<string>();
 		const list: string[] = [];
-		for (const c of props.cells) {
-			if (!set.has(c.backdrop_name)) {
+		for (const c of props.cells || []) {
+			if (c.backdrop_name && !set.has(c.backdrop_name)) {
 				set.add(c.backdrop_name);
 				list.push(c.backdrop_name);
 			}
 		}
-		return list.length > 0 ? list : ['Onyx', 'Cosmic Blue', 'Crimson', 'Emerald', 'Golden', 'Electric Violet'];
+		return list;
 	});
 
 	// Fast lookup map: `${model}::${backdrop}` -> Cell
 	const cellMap = createMemo(() => {
 		const map = new Map<string, RarityHeatmapCell>();
-		for (const c of props.cells) {
+		for (const c of props.cells || []) {
 			map.set(`${c.model_name}::${c.backdrop_name}`, c);
 		}
 		return map;
@@ -76,8 +76,8 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 		const all = props.cells || [];
 		let mythicCount = 0;
 		let legendaryCount = 0;
-		let rarest = all[0];
-		let highestFloor = all[0];
+		let rarest: RarityHeatmapCell | undefined;
+		let highestFloor: RarityHeatmapCell | undefined;
 
 		for (const c of all) {
 			const t = (c.rarity_tier || '').toLowerCase();
@@ -102,12 +102,12 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 	});
 
 	const fmt = (val?: number) => {
-		if (val === undefined || val === null) return '0';
+		if (val === undefined || val === null || val <= 0) return '—';
 		return val.toLocaleString('en-US', { maximumFractionDigits: 1 });
 	};
 
 	const fmtUsd = (val?: number) => {
-		if (val === undefined || val === null) return '$0';
+		if (val === undefined || val === null || val <= 0 || rate() <= 0) return '—';
 		return `$${val.toLocaleString('en-US', { maximumFractionDigits: 1 })}`;
 	};
 
@@ -231,10 +231,10 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 						{isRtl() ? 'کمیاب‌ترین ترکیب' : 'Rarest Combo'}
 					</span>
 					<div class="font-bold text-purple-300 text-[11px] truncate" title={stats().rarest?.model_name}>
-						{stats().rarest?.model_name || 'Genesis'}
+						{stats().rarest?.model_name || '—'}
 					</div>
 					<span class="text-[9px] text-white/40 font-mono block mt-0.5">
-						{(stats().rarest?.combined_rarity_pct || 0.006).toFixed(3)}%
+						{stats().rarest ? `${stats().rarest.combined_rarity_pct.toFixed(3)}%` : '—'}
 					</span>
 				</div>
 
@@ -253,8 +253,17 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 
 			{/* ═══ VIEW 1: TRUE 2D HEATMAP MATRIX ═══ */}
 			<Show when={viewMode() === 'matrix'}>
-				<div class="space-y-2.5">
-					<div class="text-[10px] text-white/40 flex items-center justify-between px-1">
+				<Show
+					when={uniqueModels().length > 0 && uniqueBackdrops().length > 0}
+					fallback={
+						<div class="py-12 text-center text-xs text-white/40 border border-white/[0.06] rounded-2xl bg-black/20">
+							<span class="material-symbols-outlined text-3xl mb-2 block opacity-40">grid_off</span>
+							{isRtl() ? 'ماتریس صفات برای این کالکشن در دسترس نیست' : 'Trait matrix unavailable for this collection'}
+						</div>
+					}
+				>
+					<div class="space-y-2.5">
+						<div class="text-[10px] text-white/40 flex items-center justify-between px-1">
 						<span>{isRtl() ? 'سطرها: مدل‌های گیفت | ستون‌ها: پس‌زمینه‌ها' : 'Rows: Models | Columns: Backdrops'}</span>
 						<span class="text-[#0098EA] font-semibold">{isRtl() ? 'لمس برای بررسی' : 'Tap to inspect'}</span>
 					</div>
@@ -346,6 +355,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 					</div>
 				</div>
 			</Show>
+		</Show>
 
 			{/* ═══ VIEW 2: RANKED COMBINATION CARDS ═══ */}
 			<Show when={viewMode() === 'cards'}>
@@ -375,52 +385,62 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 					</div>
 
 					{/* Combination Cards */}
-					<div class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-						<For each={filteredCells().slice(0, 40)}>
-							{(cell) => {
-								const theme = getCellTheme(cell.rarity_tier);
-								return (
-									<button
-										type="button"
-										onClick={() => handleCellClick(cell)}
-										class="w-full bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.06] rounded-2xl p-3 flex items-center justify-between text-xs transition-all active:scale-[0.99] text-start group"
-									>
-										<div class="flex items-center gap-2.5 min-w-0">
-											<div class="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0">
-												<GiftThumbnail
-													slug={props.collectionSlug}
-													name={cell.model_name}
-													model={cell.model_name}
-													size="sm"
-													class="w-6 h-6 object-contain"
-												/>
-											</div>
-											<div class="min-w-0">
-												<div class="flex items-center gap-1.5">
-													<span class="font-bold text-white truncate">{cell.model_name}</span>
-													<span class={`text-[8.5px] font-bold px-1.5 py-0.2 rounded border ${theme.badge}`}>
-														{cell.rarity_tier}
+					<Show
+						when={filteredCells().length > 0}
+						fallback={
+							<div class="py-12 text-center text-xs text-white/40 border border-white/[0.06] rounded-2xl bg-black/20">
+								<span class="material-symbols-outlined text-3xl mb-2 block opacity-40">inbox</span>
+								{isRtl() ? 'ترکیبی در این سطح یافت نشد' : 'No combinations found'}
+							</div>
+						}
+					>
+						<div class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+							<For each={filteredCells().slice(0, 40)}>
+								{(cell) => {
+									const theme = getCellTheme(cell.rarity_tier);
+									return (
+										<button
+											type="button"
+											onClick={() => handleCellClick(cell)}
+											class="w-full bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.06] rounded-2xl p-3 flex items-center justify-between text-xs transition-all active:scale-[0.99] text-start group"
+										>
+											<div class="flex items-center gap-2.5 min-w-0">
+												<div class="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0">
+													<GiftThumbnail
+														slug={props.collectionSlug}
+														name={cell.model_name}
+														model={cell.model_name}
+														size="sm"
+														class="w-6 h-6 object-contain"
+													/>
+												</div>
+												<div class="min-w-0">
+													<div class="flex items-center gap-1.5">
+														<span class="font-bold text-white truncate">{cell.model_name}</span>
+														<span class={`text-[8.5px] font-bold px-1.5 py-0.2 rounded border ${theme.badge}`}>
+															{cell.rarity_tier}
+														</span>
+													</div>
+													<span class="text-[10px] text-white/40 block mt-0.5 truncate">
+														{cell.backdrop_name} · {cell.combined_rarity_pct.toFixed(3)}%
 													</span>
 												</div>
-												<span class="text-[10px] text-white/40 block mt-0.5 truncate">
-													{cell.backdrop_name} · {cell.combined_rarity_pct.toFixed(3)}%
+											</div>
+
+											<div class="text-right rtl:text-left shrink-0">
+												<div class="font-mono font-black text-white text-xs">
+													{fmt(cell.floor_gram)} TON
+												</div>
+												<span class="text-[9.5px] text-white/40 font-mono">
+													{fmtUsd(cell.floor_gram * rate())}
 												</span>
 											</div>
-										</div>
-
-										<div class="text-right rtl:text-left shrink-0">
-											<div class="font-mono font-black text-white text-xs">
-												{fmt(cell.floor_gram)} TON
-											</div>
-											<span class="text-[9.5px] text-white/40 font-mono">
-												{fmtUsd(cell.floor_gram * rate())}
-											</span>
-										</div>
-									</button>
-								);
-							}}
-						</For>
-					</div>
+										</button>
+									);
+								}}
+							</For>
+						</div>
+					</Show>
 				</div>
 			</Show>
 

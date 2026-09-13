@@ -1765,7 +1765,7 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		if tmMatch.Severity == SeverityExactMatch {
 			tmRiskLevel = "high"
 			tmRiskScore = 95
-			tmAdvisory = fmt.Sprintf("نام کاربری منطبق با علامت تجاری رسمی %s (%s) است. طبق بند ۴ قوانین کاربری تلگرام (ToS) و دستورالعمل‌های اپ‌استور، تلگرام حق سلب مالکیت نام‌های ناقض کپی‌رایت را برای خود محفوظ می‌دارد.", tmMatch.Brand, tmMatch.Entity) + legalDisclaimer
+			tmAdvisory = fmt.Sprintf("نام کاربری منطبق با علامت تجاری رسمی %s (%s) است. طبق بند 4 قوانین کاربری تلگرام (ToS) و دستورالعمل‌های اپ‌استور، تلگرام حق سلب مالکیت نام‌های ناقض کپی‌رایت را برای خود محفوظ می‌دارد.", tmMatch.Brand, tmMatch.Entity) + legalDisclaimer
 		} else {
 			tmRiskLevel = "medium"
 			tmRiskScore = 65

@@ -14,6 +14,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	"ifragment-backend/internal/client/marketapp"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts/starsrate"
 )
@@ -92,20 +93,32 @@ func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ven
 
 	if resp.StatusCode == http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		bodyStr := string(body)
+
 		// Extract lowest price from Fragment table icon-ton element
 		rePrice := regexp.MustCompile(`(?s)<div class="table-cell-value tm-value icon-before icon-ton">([\d,]+(?:\.\d+)?)</div>`)
-		matches := rePrice.FindAllStringSubmatch(string(body), 10)
+		matches := rePrice.FindAllStringSubmatch(bodyStr, 10)
 		if len(matches) > 0 {
 			rawP := strings.ReplaceAll(matches[0][1], ",", "")
 			if p, err := strconv.ParseFloat(rawP, 64); err == nil && p > 0 {
 				decFloor := decimal.NewFromFloat(p)
+
+				// Determine active listings count
+				activeCount := len(matches)
+				reCount := regexp.MustCompile(`(?i)(\d+)\s+gifts?\s+on\s+sale`)
+				if cm := reCount.FindStringSubmatch(bodyStr); len(cm) > 1 {
+					if c, err := strconv.Atoi(cm[1]); err == nil && c > 0 {
+						activeCount = c
+					}
+				}
+
 				return &VenueFloorResult{
 					VenueID:        VenueFragment,
 					VenueName:      "Fragment",
 					FloorPriceRaw:  decFloor,
 					FloorPriceGRAM: decFloor,
 					Currency:       "GRAM",
-					ActiveListings: len(matches),
+					ActiveListings: activeCount,
 					DataStatus:     "live",
 					DeepLink:       apiURL,
 					FetchedAt:      time.Now().UTC(),
@@ -155,14 +168,14 @@ func (a *GetgemsAdapter) FetchVolume(ctx context.Context, giftSlug string) (*Ven
 	}, nil
 }
 
-// MarketAppAdapter connects to MarketApp.ws
+// MarketAppAdapter connects to MarketApp.ws via OpenAPI client
 type MarketAppAdapter struct {
-	httpClient *http.Client
+	client *marketapp.Client
 }
 
 func NewMarketAppAdapter() *MarketAppAdapter {
 	return &MarketAppAdapter{
-		httpClient: &http.Client{Timeout: 6 * time.Second},
+		client: marketapp.NewClient(),
 	}
 }
 
@@ -172,12 +185,41 @@ func (a *MarketAppAdapter) Currency() string { return "GRAM" }
 func (a *MarketAppAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(2.5) }
 
 func (a *MarketAppAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
-	// Note: MarketApp public endpoint currently serves HTML landing pages instead of JSON REST API.
-	// Returning ErrNoFloorData cleanly to avoid HTML decode errors until API contract is available.
-	return nil, ErrNoFloorData
+	if a.client == nil {
+		return nil, ErrNoFloorData
+	}
+
+	colData, err := a.client.GetCollection(ctx)
+	if err != nil || colData == nil || colData.FloorPrice <= 0 {
+		return nil, ErrNoFloorData
+	}
+
+	decFloor := decimal.NewFromFloat(colData.FloorPrice)
+	return &VenueFloorResult{
+		VenueID:        VenueMarketApp,
+		VenueName:      "MarketApp.ws",
+		FloorPriceRaw:  decFloor,
+		FloorPriceGRAM: decFloor,
+		Currency:       "GRAM",
+		ActiveListings: colData.ActiveAuctions,
+		DataStatus:     "live",
+		DeepLink:       "https://marketapp.ws/gifts",
+		FetchedAt:      time.Now().UTC(),
+	}, nil
 }
 
 func (a *MarketAppAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	if a.client != nil {
+		if colData, err := a.client.GetCollection(ctx); err == nil && colData != nil && colData.Volume24h > 0 {
+			return &VenueVolumeResult{
+				VenueID:       VenueMarketApp,
+				Volume24hGRAM: decimal.NewFromFloat(colData.Volume24h),
+				Volume7dGRAM:  decimal.Zero,
+				DataStatus:    "live",
+				FetchedAt:     time.Now().UTC(),
+			}, nil
+		}
+	}
 	return &VenueVolumeResult{
 		VenueID:    VenueMarketApp,
 		DataStatus: "unavailable",

@@ -93,12 +93,12 @@ export const GiftCollectionPage: Component = () => {
 	};
 
 	const fmt = (val?: number, decimals = 2) => {
-		if (val === undefined || val === null) return '0';
+		if (val === undefined || val === null || val <= 0) return '—';
 		return val.toLocaleString('en-US', { maximumFractionDigits: decimals });
 	};
 
 	const fmtUsd = (val?: number) => {
-		if (val === undefined || val === null) return '$0';
+		if (val === undefined || val === null || val <= 0) return '—';
 		if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`;
 		if (val >= 1_000) return `$${(val / 1_000).toFixed(1)}K`;
 		return `$${val.toFixed(0)}`;
@@ -149,7 +149,7 @@ export const GiftCollectionPage: Component = () => {
 		if (floorGram > 0 && floorUsd > 0) {
 			return +(floorUsd / floorGram).toFixed(2);
 		}
-		return 3.0;
+		return 0;
 	});
 
 	// Sales sorting & pagination
@@ -1689,7 +1689,7 @@ export const GiftCollectionPage: Component = () => {
 								collectionSlug={slug()}
 								collectionName={data()?.collection_name || ''}
 								bestFloorGram={data()?.best_floor_gram || 0}
-								gramUsdRate={data()?.best_floor_usd && data()?.best_floor_gram ? data()!.best_floor_usd / data()!.best_floor_gram : 1.335}
+								gramUsdRate={data()?.best_floor_usd && data()?.best_floor_gram ? data()!.best_floor_usd / data()!.best_floor_gram : undefined}
 							/>
 						</div>
 					</Show>

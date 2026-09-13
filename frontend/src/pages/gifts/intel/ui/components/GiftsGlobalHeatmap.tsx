@@ -223,9 +223,9 @@ export const GiftsGlobalHeatmap: Component<Props> = (props) => {
 		onCleanup(() => window.removeEventListener('resize', updateWidth));
 	});
 
-	const tonRate = () => props.rate || 1.335;
+	const tonRate = () => props.rate || 0;
 
-	// Real floor and market mapping from backend floor board with realistic fallback
+	// Real floor and market mapping from backend floor board
 	const ecosystemGifts = createMemo(() => {
 		const board = props.intel?.unified_floor_board || [];
 		const boardMap = new Map<string, (typeof board)[0]>();
@@ -239,19 +239,12 @@ export const GiftsGlobalHeatmap: Component<Props> = (props) => {
 			const slug = g.slug.toLowerCase();
 			const b = boardMap.get(slug) || boardMap.get(slug.replace(/-/g, '_'));
 
-			const floorTon = b && b.best_floor_gram > 0 ? b.best_floor_gram : (g.floorTon > 0 ? g.floorTon : 18.0);
-			const supply = b && b.total_supply > 0 ? b.total_supply : g.supply || 5000;
-			let change24h = b ? b.price_change_24h_pct : 0.0;
-			if (change24h === 0) {
-				const charCode = g.slug.charCodeAt(0) + g.slug.charCodeAt(g.slug.length - 1);
-				const osc = (charCode % 23) - 10;
-				change24h = Math.round(osc * 0.72 * 100) / 100;
-			}
+			const floorTon = b && b.best_floor_gram > 0 ? b.best_floor_gram : (g.floorTon > 0 ? g.floorTon : 0);
+			const supply = b && b.total_supply > 0 ? b.total_supply : g.supply || 0;
+			const change24h = b ? b.price_change_24h_pct : 0.0;
 			const venue = b?.best_venue_name || 'Fragment';
 			const mcapTon = Math.round(floorTon * supply);
-			const volumeTon = b && b.has_real_volume_badge 
-				? Math.round(floorTon * (supply * 0.005)) 
-				: Math.round(floorTon * Math.max(4, (supply % 19) + 3));
+			const volumeTon = 0;
 
 			return {
 				id: g.id,
@@ -295,7 +288,9 @@ export const GiftsGlobalHeatmap: Component<Props> = (props) => {
 	});
 
 	const formatVal = (ton: number) => {
+		if (ton <= 0) return '—';
 		if (currency() === 'usd') {
+			if (tonRate() <= 0) return '—';
 			const usd = ton * tonRate();
 			if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
 			if (usd >= 1_000) return `$${(usd / 1_000).toFixed(0)}K`;
@@ -307,7 +302,9 @@ export const GiftsGlobalHeatmap: Component<Props> = (props) => {
 	};
 
 	const formatFloor = (ton: number) => {
+		if (ton <= 0) return '—';
 		if (currency() === 'usd') {
+			if (tonRate() <= 0) return '—';
 			const usd = ton * tonRate();
 			if (usd >= 1000) return `$${usd.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 			return `$${usd.toFixed(1)}`;

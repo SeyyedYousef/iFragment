@@ -90,7 +90,7 @@ export const ProjectPipelinePage: Component = () => {
 
 	// 3. Dynamic Bio & Title signals
 	const [bioEnabled, setBioEnabled] = createSignal(false);
-	const [bioTarget, setBioTarget] = createSignal<'input' | 'output'>('output');
+	const [bioTarget, setBioTarget] = createSignal<'input' | 'output' | 'both'>('output');
 	const [bioTemplate, setBioTemplate] = createSignal(
 		'🔥 $time | $members',
 	);
@@ -103,7 +103,7 @@ export const ProjectPipelinePage: Component = () => {
 
 	// 4. Auto-Responder & First Comment signals
 	const [arEnabled, setArEnabled] = createSignal(false);
-	const [arTarget, setArTarget] = createSignal<'input' | 'output'>('output');
+	const [arTarget, setArTarget] = createSignal<'input' | 'output' | 'both'>('output');
 	const [arFirstComment, setArFirstComment] = createSignal(false);
 	const [arCommentMode, setArCommentMode] = createSignal<'fixed' | 'rotating' | 'ai'>('ai');
 	const [arFixedComment, setArFixedComment] = createSignal('');
@@ -127,7 +127,7 @@ export const ProjectPipelinePage: Component = () => {
 
 	// 6. Join Requests signals
 	const [jrEnabled, setJrEnabled] = createSignal(false);
-	const [jrTarget, setJrTarget] = createSignal<'input' | 'output'>('input');
+	const [jrTarget, setJrTarget] = createSignal<'input' | 'output' | 'both'>('input');
 	const [jrAutoApprove, setJrAutoApprove] = createSignal(false);
 	const [jrApprovePremium, setJrApprovePremium] = createSignal(false);
 	const [jrApprovePhoto, setJrApprovePhoto] = createSignal(false);
@@ -159,7 +159,7 @@ export const ProjectPipelinePage: Component = () => {
 			if (cfg.dynamic_bio) {
 				const b = cfg.dynamic_bio;
 				if (typeof b.enabled === 'boolean') setBioEnabled(b.enabled);
-				if (b.target === 'input' || b.target === 'output') setBioTarget(b.target);
+				if (b.target === 'input' || b.target === 'output' || b.target === 'both') setBioTarget(b.target);
 				if (b.bio_template) setBioTemplate(b.bio_template);
 				if (typeof b.display_in_name === 'boolean') setBioDisplayInName(b.display_in_name);
 				if (b.name_template) setBioNameTemplate(b.name_template);
@@ -173,7 +173,7 @@ export const ProjectPipelinePage: Component = () => {
 			if (cfg.auto_responder) {
 				const ar = cfg.auto_responder;
 				if (typeof ar.enabled === 'boolean') setArEnabled(ar.enabled);
-				if (ar.target === 'input' || ar.target === 'output') setArTarget(ar.target);
+				if (ar.target === 'input' || ar.target === 'output' || ar.target === 'both') setArTarget(ar.target);
 				if (typeof ar.auto_first_comment === 'boolean') setArFirstComment(ar.auto_first_comment);
 				if (ar.comment_mode) setArCommentMode(ar.comment_mode);
 				if (ar.fixed_comment) setArFixedComment(ar.fixed_comment);
@@ -198,7 +198,7 @@ export const ProjectPipelinePage: Component = () => {
 			if (cfg.join_requests) {
 				const jr = cfg.join_requests;
 				if (typeof jr.enabled === 'boolean') setJrEnabled(jr.enabled);
-				if (jr.target === 'input' || jr.target === 'output') setJrTarget(jr.target);
+				if (jr.target === 'input' || jr.target === 'output' || jr.target === 'both') setJrTarget(jr.target);
 				if (typeof jr.auto_approve === 'boolean') setJrAutoApprove(jr.auto_approve);
 				if (typeof jr.approve_premium === 'boolean') setJrApprovePremium(jr.approve_premium);
 				if (typeof jr.approve_profile_photo === 'boolean') setJrApprovePhoto(jr.approve_profile_photo);
@@ -655,30 +655,39 @@ export const ProjectPipelinePage: Component = () => {
 								<span class="material-symbols-outlined text-[16px]">call_split</span>
 								<span>{t('channelProjects.targetSelector.subtitle')}</span>
 							</span>
-							<div class="grid grid-cols-2 gap-2">
+							<div class="grid grid-cols-3 gap-1.5">
 								<button
 									type="button"
 									onClick={() => setBioTarget('input')}
-									class={`h-11 rounded-[14px] text-[11px] font-black flex items-center justify-center gap-1.5 transition-all ${
+									class={`h-10 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
 										bioTarget() === 'input'
 											? 'bg-[#3390ec] text-white shadow-md'
 											: 'bg-white/5 text-white/60 hover:bg-white/10'
 									}`}
 								>
-									<span class="material-symbols-outlined text-[16px]">move_to_inbox</span>
 									<span>{t('channelProjects.targetSelector.input')}</span>
 								</button>
 								<button
 									type="button"
 									onClick={() => setBioTarget('output')}
-									class={`h-11 rounded-[14px] text-[11px] font-black flex items-center justify-center gap-1.5 transition-all ${
+									class={`h-10 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
 										bioTarget() === 'output'
 											? 'bg-[#3390ec] text-white shadow-md'
 											: 'bg-white/5 text-white/60 hover:bg-white/10'
 									}`}
 								>
-									<span class="material-symbols-outlined text-[16px]">outbox</span>
 									<span>{t('channelProjects.targetSelector.output')}</span>
+								</button>
+								<button
+									type="button"
+									onClick={() => setBioTarget('both')}
+									class={`h-10 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
+										bioTarget() === 'both'
+											? 'bg-[#3390ec] text-white shadow-md'
+											: 'bg-white/5 text-white/60 hover:bg-white/10'
+									}`}
+								>
+									<span>{t('channelProjects.targetSelector.both')}</span>
 								</button>
 							</div>
 						</div>
@@ -785,30 +794,39 @@ export const ProjectPipelinePage: Component = () => {
 								<span class="material-symbols-outlined text-[16px]">call_split</span>
 								<span>{t('channelProjects.targetSelector.subtitle')}</span>
 							</span>
-							<div class="grid grid-cols-2 gap-2">
+							<div class="grid grid-cols-3 gap-1.5">
 								<button
 									type="button"
 									onClick={() => setArTarget('input')}
-									class={`h-11 rounded-[14px] text-[11px] font-black flex items-center justify-center gap-1.5 transition-all ${
+									class={`h-10 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
 										arTarget() === 'input'
 											? 'bg-[#3390ec] text-white shadow-md'
 											: 'bg-white/5 text-white/60 hover:bg-white/10'
 									}`}
 								>
-									<span class="material-symbols-outlined text-[16px]">move_to_inbox</span>
 									<span>{t('channelProjects.targetSelector.input')}</span>
 								</button>
 								<button
 									type="button"
 									onClick={() => setArTarget('output')}
-									class={`h-11 rounded-[14px] text-[11px] font-black flex items-center justify-center gap-1.5 transition-all ${
+									class={`h-10 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
 										arTarget() === 'output'
 											? 'bg-[#3390ec] text-white shadow-md'
 											: 'bg-white/5 text-white/60 hover:bg-white/10'
 									}`}
 								>
-									<span class="material-symbols-outlined text-[16px]">outbox</span>
 									<span>{t('channelProjects.targetSelector.output')}</span>
+								</button>
+								<button
+									type="button"
+									onClick={() => setArTarget('both')}
+									class={`h-10 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
+										arTarget() === 'both'
+											? 'bg-[#3390ec] text-white shadow-md'
+											: 'bg-white/5 text-white/60 hover:bg-white/10'
+									}`}
+								>
+									<span>{t('channelProjects.targetSelector.both')}</span>
 								</button>
 							</div>
 						</div>
@@ -1072,30 +1090,39 @@ export const ProjectPipelinePage: Component = () => {
 								<span class="material-symbols-outlined text-[16px]">call_split</span>
 								<span>{t('channelProjects.targetSelector.subtitle')}</span>
 							</span>
-							<div class="grid grid-cols-2 gap-2">
+							<div class="grid grid-cols-3 gap-1.5">
 								<button
 									type="button"
 									onClick={() => setJrTarget('input')}
-									class={`h-11 rounded-[14px] text-[11px] font-black flex items-center justify-center gap-1.5 transition-all ${
+									class={`h-10 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
 										jrTarget() === 'input'
 											? 'bg-[#3390ec] text-white shadow-md'
 											: 'bg-white/5 text-white/60 hover:bg-white/10'
 									}`}
 								>
-									<span class="material-symbols-outlined text-[16px]">move_to_inbox</span>
 									<span>{t('channelProjects.targetSelector.input')}</span>
 								</button>
 								<button
 									type="button"
 									onClick={() => setJrTarget('output')}
-									class={`h-11 rounded-[14px] text-[11px] font-black flex items-center justify-center gap-1.5 transition-all ${
+									class={`h-10 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
 										jrTarget() === 'output'
 											? 'bg-[#3390ec] text-white shadow-md'
 											: 'bg-white/5 text-white/60 hover:bg-white/10'
 									}`}
 								>
-									<span class="material-symbols-outlined text-[16px]">outbox</span>
 									<span>{t('channelProjects.targetSelector.output')}</span>
+								</button>
+								<button
+									type="button"
+									onClick={() => setJrTarget('both')}
+									class={`h-10 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
+										jrTarget() === 'both'
+											? 'bg-[#3390ec] text-white shadow-md'
+											: 'bg-white/5 text-white/60 hover:bg-white/10'
+									}`}
+								>
+									<span>{t('channelProjects.targetSelector.both')}</span>
 								</button>
 							</div>
 						</div>

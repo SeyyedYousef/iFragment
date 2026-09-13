@@ -404,8 +404,11 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int, period string)
 	if s.db == nil || s.db.Pool == nil {
 		return []model.Clan{}, nil
 	}
-	if period == "" {
+	period = strings.ToLower(strings.TrimSpace(period))
+	if period == "" || period == "daily" {
 		period = "day"
+	} else if period == "weekly" {
+		period = "week"
 	}
 
 	cacheKey := fmt.Sprintf("top_clans:%d:%s", limit, period)
@@ -418,27 +421,40 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int, period string)
 		}
 	}
 
-	interval := "1 day"
-	if period == "week" {
-		interval = "7 days"
-	}
-
 	clans := make([]model.Clan, 0)
-
-	query := fmt.Sprintf(`
-		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count,
-		       COALESCE(
-		           (SUM(LEAST(us.xp, 100000)) + COUNT(DISTINCT us.user_id) * 500),
-		           c.total_score,
-		           0
-		       )::BIGINT as period_score, c.created_at
-		FROM clans c
-		LEFT JOIN clan_members cm ON cm.clan_id = c.id
-		LEFT JOIN user_stats us ON us.user_id = cm.user_id AND us.last_active_at >= NOW() - INTERVAL '%s'
-		GROUP BY c.id
-		ORDER BY period_score DESC, c.members_count DESC, c.chat_title ASC
-		LIMIT $1
-	`, interval)
+	var query string
+	switch period {
+	case "day":
+		query = `
+			SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count,
+			       COALESCE(SUM(udb.tapped_coins), 0)::BIGINT as period_score, c.created_at
+			FROM clans c
+			LEFT JOIN clan_members cm ON cm.clan_id = c.id
+			LEFT JOIN user_daily_boosts udb ON udb.user_id = cm.user_id AND udb.day = CURRENT_DATE
+			GROUP BY c.id
+			ORDER BY period_score DESC, c.total_score DESC, c.members_count DESC, c.chat_title ASC
+			LIMIT $1
+		`
+	case "week":
+		query = `
+			SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count,
+			       COALESCE(SUM(udb.tapped_coins), 0)::BIGINT as period_score, c.created_at
+			FROM clans c
+			LEFT JOIN clan_members cm ON cm.clan_id = c.id
+			LEFT JOIN user_daily_boosts udb ON udb.user_id = cm.user_id AND udb.day >= CURRENT_DATE - INTERVAL '7 days'
+			GROUP BY c.id
+			ORDER BY period_score DESC, c.total_score DESC, c.members_count DESC, c.chat_title ASC
+			LIMIT $1
+		`
+	default:
+		query = `
+			SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count,
+			       COALESCE(c.total_score, 0)::BIGINT as period_score, c.created_at
+			FROM clans c
+			ORDER BY c.total_score DESC, c.members_count DESC, c.chat_title ASC
+			LIMIT $1
+		`
+	}
 
 	rows, err := s.db.Pool.Query(ctx, query, limit)
 	fallbackNeeded := err != nil

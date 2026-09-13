@@ -73,7 +73,7 @@ var CulturalMarkets = []CulturalMarketWeight{
 			'4': 2.5, // Si (Death penalty in Chinese culture)
 		},
 		DescriptionEn: "Heavy premium on digits 8, 9, 6 representing wealth and longevity; strong avoidance of digit 4.",
-		DescriptionFa: "تقاضای بالا برای ارقام ۸ (ثروت)، ۹ (طول عمر) و ۶ (روانی امور) با جریمه سنگین برای رقم ۴.",
+		DescriptionFa: "تقاضای بالا برای ارقام 8 (ثروت)، 9 (طول عمر) و 6 (روانی امور) با جریمه سنگین برای رقم 4.",
 	},
 	{
 		MarketName: "Middle East & Gulf (GCC / IR)",
@@ -85,7 +85,7 @@ var CulturalMarkets = []CulturalMarketWeight{
 		},
 		PenalizedDigits: map[rune]float64{},
 		DescriptionEn: "Preference for auspicious prime 7 (Barakah/Perfection), unity (1), and complete 9s.",
-		DescriptionFa: "محبوبیت ارقام ۷ (برکت و کمال)، ۹ (تکامل) و ۱ (یکتایی) در میان خریداران خاورمیانه.",
+		DescriptionFa: "محبوبیت ارقام 7 (برکت و کمال)، 9 (تکامل) و 1 (یکتایی) در میان خریداران خاورمیانه.",
 	},
 	{
 		MarketName: "Global / Western Market",
@@ -99,6 +99,6 @@ var CulturalMarkets = []CulturalMarketWeight{
 			'3': 0.2, // Weak penalty if cluttered
 		},
 		DescriptionEn: "Prefers clean zero endings, lucky 7s, repeating block sequences and pure palindromes.",
-		DescriptionFa: "تمرکز بر صفرهای پایانی رند، ارقام شانس جهانی (۷۷۷) و تقارن‌های ریاضی زیبا.",
+		DescriptionFa: "تمرکز بر صفرهای پایانی رند، ارقام شانس جهانی (777) و تقارن‌های ریاضی زیبا.",
 	},
 }

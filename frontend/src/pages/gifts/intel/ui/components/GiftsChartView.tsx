@@ -32,64 +32,17 @@ export const GiftsChartView: Component<Props> = (props) => {
 	const [hoverIndex, setHoverIndex] = createSignal<number | null>(null);
 
 	// Real values from API telemetry
-	const mcapUsd = () => props.intel?.total_market_cap_usd || 18_450_000;
-	const volumeUsd = () => props.intel?.total_cumulative_volume_usd || 2_150_000;
-	const gramRate = () => 1.42;
+	const mcapUsd = () => props.intel?.total_market_cap_usd || 0;
+	const volumeUsd = () => props.intel?.total_cumulative_volume_usd || 0;
+	const gramRate = () => {
+		const board = props.intel?.unified_floor_board || [];
+		const item = board.find((b) => b.best_floor_gram > 0 && b.best_floor_usd > 0);
+		return item ? item.best_floor_usd / item.best_floor_gram : 0;
+	};
 
-	// Build smooth time-series data for each timeframe anchored to live mcap
+	// Return empty array since macro time-series is not provided by telemetry
 	const chartData = createMemo<ChartPoint[]>(() => {
-		const baseMcap = mcapUsd();
-		const baseVol = volumeUsd();
-		const tf = timeframe();
-		const rate = gramRate();
-
-		let count = 24;
-		let stepLabel = (i: number) => `${i}:00`;
-		let variance = 0.04;
-
-		if (tf === '24h') {
-			count = 24;
-			stepLabel = (i) => `${String((i + 1) % 24).padStart(2, '0')}:00`;
-			variance = 0.035;
-		} else if (tf === '7d') {
-			count = 28; // 4 points per day
-			stepLabel = (i) => `Day ${Math.floor(i / 4) + 1}`;
-			variance = 0.07;
-		} else if (tf === '30d') {
-			count = 30;
-			stepLabel = (i) => `Sep ${i + 1}`;
-			variance = 0.12;
-		} else {
-			count = 36;
-			stepLabel = (i) => `M${(i % 12) + 1}`;
-			variance = 0.22;
-		}
-
-		const points: ChartPoint[] = [];
-		for (let i = 0; i < count; i++) {
-			const progress = i / (count - 1);
-			// Gentle multi-wave harmonic curve ending precisely at current live value
-			const wave =
-				Math.sin(progress * Math.PI * 2.5) * 0.4 +
-				Math.cos(progress * Math.PI * 5) * 0.2;
-			const trend = (progress - 1.0) * variance;
-			const mult = i === count - 1 ? 1.0 : Math.max(0.6, 1.0 + trend + wave * (variance * 0.7));
-
-			const ptMcapUsd = Math.round(baseMcap * mult);
-			const ptMcapGram = Math.round(ptMcapUsd / rate);
-			const ptVolUsd = Math.round((baseVol / count) * (0.8 + Math.abs(wave)));
-			const ptVolGram = Math.round(ptVolUsd / rate);
-
-			points.push({
-				label: stepLabel(i),
-				timestamp: `T-${count - 1 - i}`,
-				mcapUsd: ptMcapUsd,
-				mcapGram: ptMcapGram,
-				volumeUsd: ptVolUsd,
-				volumeGram: ptVolGram,
-			});
-		}
-		return points;
+		return [];
 	});
 
 	// SVG Coordinates & Bezier Spline
@@ -227,22 +180,24 @@ export const GiftsChartView: Component<Props> = (props) => {
 						</div>
 						<div class="flex items-baseline gap-2.5 mt-1.5">
 							<span class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight tabular-nums drop-shadow-sm">
-								{formatVal(currentPoint()?.value)}
+								{formatVal(currentPoint()?.value || mcapUsd())}
 							</span>
-							<span
-								class={`text-xs font-mono font-bold px-2 py-0.5 rounded-lg border ${
-									deltaPercent() >= 0
-										? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-										: 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-								}`}
-							>
-								{deltaPercent() >= 0 ? '+' : ''}
-								{deltaPercent().toFixed(2)}%
-							</span>
+							<Show when={deltaPercent() !== 0}>
+								<span
+									class={`text-xs font-mono font-bold px-2 py-0.5 rounded-lg border ${
+										deltaPercent() >= 0
+											? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+											: 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+									}`}
+								>
+									{deltaPercent() >= 0 ? '+' : ''}
+									{deltaPercent().toFixed(2)}%
+								</span>
+							</Show>
 						</div>
 						<div class="text-[11px] font-semibold text-white/50 mt-1 font-mono flex items-center gap-3">
 							<span>
-								Volume: <strong class="text-white/80">{formatVol(currentPoint()?.volumeUsd)}</strong>
+								Volume: <strong class="text-white/80">{formatVol(currentPoint()?.volumeUsd || volumeUsd())}</strong>
 							</span>
 							<Show when={hoverIndex() !== null && currentPoint()}>
 								<span class="text-[#0098EA] font-mono">
@@ -323,16 +278,30 @@ export const GiftsChartView: Component<Props> = (props) => {
 					onMouseLeave={handlePointerLeave}
 					onTouchEnd={handlePointerLeave}
 				>
-					<svg
-						viewBox={`0 0 ${width} ${height}`}
-						class="w-full h-full overflow-visible"
-						preserveAspectRatio="none"
+					<Show
+						when={activePoints().length > 0}
+						fallback={
+							<div class="w-full h-full flex flex-col items-center justify-center text-center p-4">
+								<span class="material-symbols-outlined text-3xl text-white/20 mb-1.5">query_stats</span>
+								<p class="text-xs text-white/50 font-medium">
+									{t('gifts.macroHistoryUnavailable') || 'Macro historical time-series indexing in progress'}
+								</p>
+								<span class="text-[10px] text-white/30 font-mono mt-1">
+									Real-time snapshot: {formatVal(mcapUsd())}
+								</span>
+							</div>
+						}
 					>
-						<defs>
-							<linearGradient id="chartGlowArea" x1="0" y1="0" x2="0" y2="1">
-								<stop offset="0%" stop-color="#0098EA" stop-opacity="0.35" />
-								<stop offset="60%" stop-color="#0098EA" stop-opacity="0.08" />
-								<stop offset="100%" stop-color="#0098EA" stop-opacity="0.0" />
+						<svg
+							viewBox={`0 0 ${width} ${height}`}
+							class="w-full h-full overflow-visible"
+							preserveAspectRatio="none"
+						>
+							<defs>
+								<linearGradient id="chartGlowArea" x1="0" y1="0" x2="0" y2="1">
+									<stop offset="0%" stop-color="#0098EA" stop-opacity="0.35" />
+									<stop offset="60%" stop-color="#0098EA" stop-opacity="0.08" />
+									<stop offset="100%" stop-color="#0098EA" stop-opacity="0.0" />
 							</linearGradient>
 							<filter id="neonStrokeGlow" x="-20%" y="-20%" width="140%" height="140%">
 								<feGaussianBlur stdDeviation="3" result="blur" />
@@ -480,6 +449,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 						<span>{chartData()[Math.floor(chartData().length / 2)]?.label || ''}</span>
 						<span class="text-[#0098EA] font-semibold">{t('gifts.now') || 'Now'}</span>
 					</div>
+					</Show>
 				</div>
 			</div>
 

@@ -432,9 +432,9 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 	// 4. Populate Trending Pattern Clubs
 	if len(resp.TrendingTail) == 0 {
 		resp.TrendingTail = []TrendingTailItem{
-			{Pattern: "+888 XXXX 8888", NameEn: "Quad 8888 Tail", NameFa: "پسوند چهارتایی ۸۸۸۸", FloorPriceTON: 12500.0, FloorPriceUSD: 12500.0 * tonUsdRate, PriceChange24h: 14.2, IsRising: true},
-			{Pattern: "+888 8XXX", NameEn: "4-Digit Genesis (1 of 1000)", NameFa: "جنسیس ۴ رقمی (۱ از ۱۰۰۰)", FloorPriceTON: 42000.0, FloorPriceUSD: 42000.0 * tonUsdRate, PriceChange24h: 8.5, IsRising: true},
-			{Pattern: "+888 XXXX X777", NameEn: "Triple 777 Tail", NameFa: "پسوند سه‌تایی ۷۷۷", FloorPriceTON: 4800.0, FloorPriceUSD: 4800.0 * tonUsdRate, PriceChange24h: 5.1, IsRising: true},
+			{Pattern: "+888 XXXX 8888", NameEn: "Quad 8888 Tail", NameFa: "پسوند چهارتایی 8888", FloorPriceTON: 12500.0, FloorPriceUSD: 12500.0 * tonUsdRate, PriceChange24h: 14.2, IsRising: true},
+			{Pattern: "+888 8XXX", NameEn: "4-Digit Genesis (1 of 1000)", NameFa: "جنسیس 4 رقمی (1 از 1000)", FloorPriceTON: 42000.0, FloorPriceUSD: 42000.0 * tonUsdRate, PriceChange24h: 8.5, IsRising: true},
+			{Pattern: "+888 XXXX X777", NameEn: "Triple 777 Tail", NameFa: "پسوند سه‌تایی 777", FloorPriceTON: 4800.0, FloorPriceUSD: 4800.0 * tonUsdRate, PriceChange24h: 5.1, IsRising: true},
 			{Pattern: "+888 1234 5678", NameEn: "Consecutive Ladder", NameFa: "توالی پلکانی متوالی", FloorPriceTON: 35000.0, FloorPriceUSD: 35000.0 * tonUsdRate, PriceChange24h: 11.8, IsRising: true},
 			{Pattern: "+888 8888 8888", NameEn: "Pristine Octa Grail", NameFa: "گاد‌هد مونودیجیت", FloorPriceTON: 250000.0, FloorPriceUSD: 250000.0 * tonUsdRate, PriceChange24h: 18.4, IsRising: true},
 		}
@@ -820,13 +820,13 @@ func (s *NumbersService) GetCategoryClubs(ctx context.Context) ([]nvengine.Categ
 		{
 			ID:            "4digit",
 			NameEn:        "4-Digit Ultra Club",
-			NameFa:        "باشگاه ۴ رقمی‌های فوق نایاب",
+			NameFa:        "باشگاه 4 رقمی‌های فوق نایاب",
 			Icon:          "💎",
 			FloorPriceTON: 48000,
 			TotalSupply:   1000, // Exactly 8000-8999 (1000 genesis numbers)
 			TopSaleTON:    300000,
 			DescriptionEn: "Super-rare 4-digit genesis numbers minted at the launch of Fragment.",
-			DescriptionFa: "شماره‌های ۴ رقمی جنسیس اولیه تلگرام با بالاترین نایابی و تقاضای کلکسیونی.",
+			DescriptionFa: "شماره‌های 4 رقمی جنسیس اولیه تلگرام با بالاترین نایابی و تقاضای کلکسیونی.",
 		},
 		{
 			ID:            "grail",
@@ -848,7 +848,7 @@ func (s *NumbersService) GetCategoryClubs(ctx context.Context) ([]nvengine.Categ
 			TotalSupply:   1240,
 			TopSaleTON:    45000,
 			DescriptionEn: "Composed of exactly 2 distinct digits (e.g. 0808 0808, 8800 8800).",
-			DescriptionFa: "شماره‌هایی که منحصراً از ۲ رقم متمایز ساخته شده‌اند.",
+			DescriptionFa: "شماره‌هایی که منحصراً از 2 رقم متمایز ساخته شده‌اند.",
 		},
 		{
 			ID:            "ladder",
@@ -1186,7 +1186,7 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 			RestrictionStatus:  "unknown",
 			IsMinted:           false,
 			Exists:             false,
-			Error:              "این شماره در کالکشن ۱۳۶,۵۶۶ عددی تلگرام وجود ندارد یا فرمت آن نامعتبر است",
+			Error:              "این شماره در کالکشن 136,566 عددی تلگرام وجود ندارد یا فرمت آن نامعتبر است",
 		}, nil
 	}
 
@@ -1207,11 +1207,11 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 
 	// Calculate mathematical profile
 	tier := "STANDARD TIER"
-	chips := []string{"سنجش در ۱۳۶,۵۶۶ شماره کلکسیونی", "۲۷ سیگنال ریاضی آماده تحلیل"}
+	chips := []string{"سنجش در 136,566 شماره کلکسیونی", "27 سیگنال ریاضی آماده تحلیل"}
 
 	if len(fv.Suffix) == 4 {
 		tier = "4-DIGIT ULTRA (GENESIS)"
-		chips = append([]string{"💎 شماره فوق نایاب ۴ رقمی جنسیس"}, chips...)
+		chips = append([]string{"💎 شماره فوق نایاب 4 رقمی جنسیس"}, chips...)
 	} else if fv.MaxRun >= 4 || strings.Contains(fv.Suffix, "8888") || strings.Contains(fv.Suffix, "7777") || strings.Contains(fv.Suffix, "0000") {
 		tier = "GRAIL TIER (QUAD REPEAT)"
 		chips = append([]string{"👑 الگوی فوق‌کمیاب رده افسانه‌ای (Grail)"}, chips...)

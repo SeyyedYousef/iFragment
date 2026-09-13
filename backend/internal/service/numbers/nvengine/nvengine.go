@@ -911,7 +911,7 @@ func buildRarityDNA(fv features.FeatureVector) []RarityBar {
 		{
 			Key:         "tail_class",
 			LabelEn:     "Tail Pattern",
-			LabelFa:     "الگوی ۴ رقم پایانی",
+			LabelFa:     "الگوی 4 رقم پایانی",
 			Value:       fv.TailClass,
 			Percentile:  fv.RarityPercentile,
 			IsExact:     true,
@@ -1041,7 +1041,7 @@ func buildRecommendation(fv features.FeatureVector, expectedTON, netPayoutTON fl
 	verdict := "HOLD"
 	conf := "Strong Hold"
 	sumEn := "Closed collection supply (136,566 frozen forever) creates long-term structural scarcity. Holding is optimal."
-	sumFa := "به دلیل بسته بودن کالکشن (توقف همیشگی مینت در ۱۳۶,۵۶۶ شماره)، نگهداری این دارایی برای رشد بلندمدت پیشنهاد می‌شود."
+	sumFa := "به دلیل بسته بودن کالکشن (توقف همیشگی مینت در 136,566 شماره)، نگهداری این دارایی برای رشد بلندمدت پیشنهاد می‌شود."
 
 	if fv.MaxRun >= 6 || expectedTON >= 50000 {
 		verdict = "SELL_NOW"
@@ -1190,7 +1190,7 @@ func buildPatternAnatomy(fv features.FeatureVector) PatternAnatomy {
 	clubEn := "Standard Collection"
 	clubFa := "کالکشن استاندارد"
 	patternTypeEn := "8-Digit Standard Telemint"
-	patternTypeFa := "شماره ۸ رقمی استاندارد تلمینت"
+	patternTypeFa := "شماره 8 رقمی استاندارد تلمینت"
 	exactSupply := 125000
 	numerologyEn := "Balanced numeric flow with standard distribution."
 	numerologyFa := "جریان عددی متوازن با توزیع استاندارد ارقام."
@@ -1198,17 +1198,17 @@ func buildPatternAnatomy(fv features.FeatureVector) PatternAnatomy {
 	suffix := fv.Suffix
 	if len(suffix) <= 4 {
 		clubEn = "4-Digit Genesis Grail"
-		clubFa = "کلاب اختصاصی جنسیس ۴ رقمی"
+		clubFa = "کلاب اختصاصی جنسیس 4 رقمی"
 		patternTypeEn = "4-Digit Ultra-Rare Genesis Number"
-		patternTypeFa = "شماره ۴ رقمی جنسیس فوق‌نایاب"
+		patternTypeFa = "شماره 4 رقمی جنسیس فوق‌نایاب"
 		exactSupply = 1
 		numerologyEn = "Absolute rarest tier in Telegram history. 1 of 1 legendary artifact."
-		numerologyFa = "نایاب‌ترین دارایی در تاریخ تلگرام؛ آیتم افسانه‌ای یکتا (۱ از ۱)."
+		numerologyFa = "نایاب‌ترین دارایی در تاریخ تلگرام؛ آیتم افسانه‌ای یکتا (1 از 1)."
 	} else if fv.DistinctDigits == 1 {
 		clubEn = "Octa Monodigit Club"
 		clubFa = "کلاب هشت‌تایی (Octa Monodigit)"
 		patternTypeEn = fmt.Sprintf("8 Identical Digits (All %c's)", suffix[0])
-		patternTypeFa = fmt.Sprintf("۸ رقم تکرار یکنواخت (تماماً %c)", suffix[0])
+		patternTypeFa = fmt.Sprintf("8 رقم تکرار یکنواخت (تماماً %c)", suffix[0])
 		exactSupply = 10
 		numerologyEn = "Legendary monolithic repetition. Maximum possible vanity prestige."
 		numerologyFa = "تکرار افسانه‌ای تک‌رقمی؛ بالاترین سطح پرستیژ و رندی در تلگرام."
@@ -1246,17 +1246,17 @@ func buildPatternAnatomy(fv features.FeatureVector) PatternAnatomy {
 		numerologyFa = "ساختار مینیمال دو رقمی با به‌یادسپاری فوق‌العاده سریع."
 	} else if fv.TailClass == "QUAD_8888" || fv.TailClass == "QUAD_7777" || fv.TailClass == "QUAD_0000" {
 		clubEn = "Quad Tail Prestige Club"
-		clubFa = "کلاب ۴ رقم آخر رند (Quad Tail)"
+		clubFa = "کلاب 4 رقم آخر رند (Quad Tail)"
 		patternTypeEn = "Repeating 4-Digit Suffix Ending"
-		patternTypeFa = "پایان‌بندی ۴ رقمی یکنواخت"
+		patternTypeFa = "پایان‌بندی 4 رقمی یکنواخت"
 		exactSupply = 1350
 		numerologyEn = "High-status ending anchor with strong memorability."
-		numerologyFa = "پسوند ۴ رقمی با پرستیژ بالا و ماندگاری ذهنی عالی."
+		numerologyFa = "پسوند 4 رقمی با پرستیژ بالا و ماندگاری ذهنی عالی."
 	} else if fv.TailClass == "TRIPLE_X888" || fv.TailClass == "TRIPLE_X777" || fv.TailClass == "TRIPLE_X000" {
 		clubEn = "Triple Tail Elite Club"
-		clubFa = "کلاب ۳ رقم آخر رند (Triple Tail)"
+		clubFa = "کلاب 3 رقم آخر رند (Triple Tail)"
 		patternTypeEn = "Repeating 3-Digit Suffix Ending"
-		patternTypeFa = "پایان‌بندی ۳ رقمی یکنواخت"
+		patternTypeFa = "پایان‌بندی 3 رقمی یکنواخت"
 		exactSupply = 13500
 		numerologyEn = "Classic collectible tail with premium merchant demand."
 		numerologyFa = "پایان‌بندی کلاسیک کلکسیونی با تقاضای بالای تجاری."
@@ -1352,17 +1352,17 @@ func buildMarketDepthInfo(fv features.FeatureVector, expectedTON, tonUsdRate flo
 		floorTON = baselineFloor
 	}
 	speedEn := "1 - 3 Days (Instant Demand)"
-	speedFa := "۱ تا ۳ روز (تقاضای فوری)"
+	speedFa := "1 تا 3 روز (تقاضای فوری)"
 	if expectedTON > 50000 {
 		speedEn = "1 - 3 Weeks (Whale Auction)"
-		speedFa = "۱ تا ۳ هفته (مزایده سنگین نهنگ‌ها)"
+		speedFa = "1 تا 3 هفته (مزایده سنگین نهنگ‌ها)"
 	}
 	return MarketDepthInfo{
 		ClubFloorTON:       floorTON,
 		ClubFloorUSD:       roundPrice(floorTON * tonUsdRate),
 		ListedRatioPct:     0.0,
 		EstimatedSellDays:  speedEn,
-		HodlStrengthFa:     "کالکشن بسته با سقف قطعی ۱۳۶,۵۶۶ شماره در تاریخ تلگرام",
+		HodlStrengthFa:     "کالکشن بسته با سقف قطعی 136,566 شماره در تاریخ تلگرام",
 		HodlStrengthEn:     "Closed genesis supply strictly limited to 136,566 Telegram numbers",
 		LiquiditySpeedEn:   speedEn,
 		LiquiditySpeedFa:   speedFa,
@@ -1406,7 +1406,7 @@ func buildOnChainAudit(normNumber string, history ValuationHistory, isGenesis bo
 	statusFa := "تایید شده در قرارداد هوشمند تلمینت تلگرام"
 	statusEn := "Verified on-chain asset via Telegram Telemint"
 	if isGenesis {
-		statusFa = "شماره جنسیس ۴ رقمی اصل — تایید شده و معتبر"
+		statusFa = "شماره جنسیس 4 رقمی اصل — تایید شده و معتبر"
 		statusEn = "Original 4-Digit Genesis — Clean & Verified"
 	}
 

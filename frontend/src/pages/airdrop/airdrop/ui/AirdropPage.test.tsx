@@ -5,6 +5,10 @@ import { AirdropPage } from './AirdropPage.js';
 vi.mock('@tma.js/sdk-solid', () => ({
 	hapticFeedback: { selectionChanged: vi.fn() },
 	backButton: { show: vi.fn(), hide: vi.fn(), onClick: () => vi.fn() },
+	viewport: {
+		expand: Object.assign(vi.fn(), { isAvailable: () => true }),
+		isExpanded: vi.fn(() => false),
+	},
 	initData: {
 		user: () => ({ first_name: 'Test', photo_url: '' }),
 	},

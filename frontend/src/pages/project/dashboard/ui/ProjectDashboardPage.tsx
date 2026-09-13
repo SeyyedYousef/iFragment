@@ -422,58 +422,18 @@ export const ProjectDashboardPage: Component = () => {
 					</Show>
 				</div>
 
-				{/* ═══════ OPERATIONS & SETTINGS GRID ═══════ */}
+				{/* ═══════ OPERATIONS & SETTINGS ═══════ */}
 				<div class="grid grid-cols-2 gap-3 pt-1">
-					<button
-						type="button"
-						onClick={() => {
-							haptic.impact('light');
-							navigate(`/projects/${params.projectId}/inbox`);
-						}}
-						class="bg-[#12141C] border border-white/10 hover:border-[#3390ec]/40 rounded-[20px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start shadow-sm"
-					>
-						<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 text-[#3390ec] flex items-center justify-center">
-							<span class="material-symbols-outlined text-[20px]">inbox</span>
-						</div>
-						<div class="flex items-center justify-between w-full">
-							<span class="text-[13px] font-black text-white">{t('channelProjects.dashboard.inboxCardTitle')}</span>
-							<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3390ec]/15 text-[#3390ec]">
-								{inboxItems() ? inboxItems()!.length : 0}
-							</span>
-						</div>
-						<span class="text-[10px] text-white/40">{t('channelProjects.dashboard.inboxCardDesc')}</span>
-					</button>
-
-					<button
-						type="button"
-						onClick={() => {
-							haptic.impact('light');
-							navigate(`/projects/${params.projectId}/deliveries`);
-						}}
-						class="bg-[#12141C] border border-white/10 hover:border-emerald-500/40 rounded-[20px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start shadow-sm"
-					>
-						<div class="w-9 h-9 rounded-[12px] bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
-							<span class="material-symbols-outlined text-[20px]">local_shipping</span>
-						</div>
-						<div class="flex items-center justify-between w-full">
-							<span class="text-[13px] font-black text-white">{t('channelProjects.dashboard.deliveriesCardTitle')}</span>
-							<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
-								{deliveries() ? deliveries()!.length : 0}
-							</span>
-						</div>
-						<span class="text-[10px] text-white/40">{t('channelProjects.dashboard.deliveriesCardDesc')}</span>
-					</button>
-
 					<button
 						type="button"
 						onClick={() => {
 							haptic.impact('light');
 							navigate(`/projects/${params.projectId}/team`);
 						}}
-						class="bg-[#12141C] border border-white/10 hover:border-sky-400/40 rounded-[20px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start shadow-sm"
+						class="bg-[#12141C] border border-white/10 hover:border-sky-400/40 rounded-[20px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start shadow-sm group"
 					>
-						<div class="w-9 h-9 rounded-[12px] bg-sky-500/15 text-sky-400 flex items-center justify-center">
-							<span class="material-symbols-outlined text-[20px]">group</span>
+						<div class="w-9 h-9 rounded-[12px] bg-sky-500/15 text-sky-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+							<span class="material-symbols-outlined text-[20px]">groups</span>
 						</div>
 						<span class="text-[13px] font-black text-white">{t('channelProjects.dashboard.featureTeam')}</span>
 						<span class="text-[10px] text-white/40">{t('channelProjects.dashboard.featureTeamDesc')}</span>
@@ -485,9 +445,9 @@ export const ProjectDashboardPage: Component = () => {
 							haptic.impact('light');
 							navigate(`/projects/${params.projectId}/settings`);
 						}}
-						class="bg-[#12141C] border border-white/10 hover:border-white/30 rounded-[20px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start shadow-sm"
+						class="bg-[#12141C] border border-white/10 hover:border-white/30 rounded-[20px] p-4 flex flex-col items-start gap-2 active:scale-95 transition-all text-start shadow-sm group"
 					>
-						<div class="w-9 h-9 rounded-[12px] bg-white/10 text-white/80 flex items-center justify-center">
+						<div class="w-9 h-9 rounded-[12px] bg-white/10 text-white/80 flex items-center justify-center group-hover:scale-105 transition-transform">
 							<span class="material-symbols-outlined text-[20px]">settings</span>
 						</div>
 						<span class="text-[13px] font-black text-white">{t('channelProjects.dashboard.settingsCardTitle')}</span>

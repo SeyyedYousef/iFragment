@@ -6,6 +6,8 @@ vi.mock('@/shared/i18n/index.js', () => ({
 	t: (key: string) => key,
 	locale: () => 'en',
 	isRtl: () => false,
+	formatNumber: (num: number) => (num !== undefined && num !== null ? num.toLocaleString('en-US') : '0'),
+	formatCoins: (num: number) => `+${num ?? 0}`,
 }));
 
 // ===== 2. Telegram Mini App SDK Mock =====
@@ -27,6 +29,12 @@ vi.mock('@tma.js/sdk-solid', () => ({
 		onClick: vi.fn(() => vi.fn()),
 	},
 	openTelegramLink: vi.fn(),
+	viewport: {
+		expand: Object.assign(vi.fn(), { isAvailable: () => true }),
+		isExpanded: vi.fn(() => true),
+		mount: vi.fn(),
+		bindCssVars: vi.fn(),
+	},
 }));
 
 // ===== 3. Motion Mock (passthrough with props) =====

@@ -191,7 +191,7 @@ func (r *GiftsRepo) GetVenueSnapshots(ctx context.Context, modelID string) ([]Ve
 	query := `
 		SELECT model_id, venue, floor_price_raw, floor_price_gram, currency, volume_24h_gram, volume_7d_gram, active_listings, venue_fee_pct, has_real_volume_badge, updated_at
 		FROM venue_snapshots
-		WHERE model_id = $1 OR $1 = ''
+		WHERE (model_id = $1 OR $1 = '') AND updated_at >= now() - interval '6 hours'
 		ORDER BY floor_price_gram ASC`
 
 	rows, err := r.db.Pool.Query(ctx, query, modelID)
@@ -454,3 +454,282 @@ func (r *GiftsRepo) GetGiftTraits(ctx context.Context, modelID string) ([]struct
 	}
 	return result, nil
 }
+
+type MarketSalesSourceBreakdownRecord struct {
+	VenueName  string          `json:"venue_name"`
+	VolumeGRAM decimal.Decimal `json:"volume_gram"`
+	DealsCount int             `json:"deals_count"`
+}
+
+type SalesPeriodStatsRecord struct {
+	DealsCount int                                `json:"deals_count"`
+	VolumeGRAM decimal.Decimal                    `json:"volume_gram"`
+	MinGRAM    decimal.Decimal                    `json:"min_gram"`
+	AvgGRAM    decimal.Decimal                    `json:"avg_gram"`
+	MaxGRAM    decimal.Decimal                    `json:"max_gram"`
+	BySource   []MarketSalesSourceBreakdownRecord `json:"by_source"`
+}
+
+type FloorHistoryPointRecord struct {
+	Timestamp      time.Time                  `json:"timestamp"`
+	FloorGRAM      decimal.Decimal            `json:"floor_gram"`
+	VenueBreakdown map[string]decimal.Decimal `json:"venue_breakdown"`
+}
+
+type MarketListingRecord struct {
+	ID           int64           `json:"id"`
+	ModelID      string          `json:"model_id"`
+	SerialNumber int             `json:"serial_number"`
+	Venue        string          `json:"venue"`
+	ListingID    string          `json:"listing_id"`
+	PriceGRAM    decimal.Decimal `json:"price_gram"`
+	PriceUSD     decimal.Decimal `json:"price_usd"`
+	ModelName    string          `json:"model_name"`
+	BackdropName string          `json:"backdrop_name"`
+	SymbolName   string          `json:"symbol_name"`
+	CenterHex    string          `json:"center_hex"`
+	EdgeHex      string          `json:"edge_hex"`
+	BuyURL       string          `json:"buy_url"`
+	IsActive     bool            `json:"is_active"`
+	ObservedAt   time.Time       `json:"observed_at"`
+}
+
+// GetSalesStatsByPeriod computes real volume, min, max, avg and deal counts from completed sales
+func (r *GiftsRepo) GetSalesStatsByPeriod(ctx context.Context, modelID string, since time.Time) (*SalesPeriodStatsRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return &SalesPeriodStatsRecord{}, nil
+	}
+
+	altModel := strings.ReplaceAll(modelID, "_", "-")
+	if altModel == modelID {
+		altModel = strings.ReplaceAll(modelID, "-", "_")
+	}
+
+	querySummary := `
+		SELECT
+			COALESCE(COUNT(*), 0),
+			COALESCE(SUM(sale_price_gram), 0),
+			COALESCE(MIN(sale_price_gram), 0),
+			COALESCE(AVG(sale_price_gram), 0),
+			COALESCE(MAX(sale_price_gram), 0)
+		FROM gift_sales
+		WHERE (model_id = $1 OR model_id = $2 OR $1 = '')
+		  AND sale_date >= $3`
+
+	var rec SalesPeriodStatsRecord
+	err := r.db.Pool.QueryRow(ctx, querySummary, modelID, altModel, since).Scan(
+		&rec.DealsCount,
+		&rec.VolumeGRAM,
+		&rec.MinGRAM,
+		&rec.AvgGRAM,
+		&rec.MaxGRAM,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	queryBySource := `
+		SELECT
+			venue,
+			COALESCE(SUM(sale_price_gram), 0),
+			COALESCE(COUNT(*), 0)
+		FROM gift_sales
+		WHERE (model_id = $1 OR model_id = $2 OR $1 = '')
+		  AND sale_date >= $3
+		GROUP BY venue
+		ORDER BY SUM(sale_price_gram) DESC`
+
+	rows, err := r.db.Pool.Query(ctx, queryBySource, modelID, altModel, since)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var b MarketSalesSourceBreakdownRecord
+			if err := rows.Scan(&b.VenueName, &b.VolumeGRAM, &b.DealsCount); err == nil {
+				rec.BySource = append(rec.BySource, b)
+			}
+		}
+	}
+
+	return &rec, nil
+}
+
+// InsertVenueSnapshotHistory logs an immutable snapshot to build truthful historical charts
+func (r *GiftsRepo) InsertVenueSnapshotHistory(ctx context.Context, s VenueSnapshotRecord) error {
+	if r.db == nil || r.db.Pool == nil {
+		return nil
+	}
+
+	query := `
+		INSERT INTO venue_snapshot_history (
+			model_id, venue, floor_price_raw, floor_price_gram, currency,
+			volume_24h_gram, volume_7d_gram, active_listings, captured_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		s.ModelID, s.Venue, s.FloorPriceRaw, s.FloorPriceGRAM, s.Currency,
+		s.Volume24hGRAM, s.Volume7dGRAM, s.ActiveListings,
+	)
+	return err
+}
+
+// GetFloorHistoryFromSnapshots retrieves daily floor snapshots from verified records
+func (r *GiftsRepo) GetFloorHistoryFromSnapshots(ctx context.Context, modelID string, days int) ([]FloorHistoryPointRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []FloorHistoryPointRecord{}, nil
+	}
+	if days <= 0 {
+		days = 30
+	}
+
+	altModel := strings.ReplaceAll(modelID, "_", "-")
+	if altModel == modelID {
+		altModel = strings.ReplaceAll(modelID, "-", "_")
+	}
+
+	query := `
+		SELECT
+			DATE_TRUNC('day', captured_at) AS day_bucket,
+			venue,
+			MIN(floor_price_gram) AS day_floor
+		FROM venue_snapshot_history
+		WHERE (model_id = $1 OR model_id = $2 OR $1 = '')
+		  AND captured_at >= now() - ($3 || ' days')::interval
+		GROUP BY day_bucket, venue
+		ORDER BY day_bucket ASC`
+
+	rows, err := r.db.Pool.Query(ctx, query, modelID, altModel, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	dayMap := make(map[string]*FloorHistoryPointRecord)
+	var orderedDays []string
+
+	for rows.Next() {
+		var dayBucket time.Time
+		var venue string
+		var dayFloor decimal.Decimal
+		if err := rows.Scan(&dayBucket, &venue, &dayFloor); err == nil {
+			dayKey := dayBucket.Format("2006-01-02")
+			if _, exists := dayMap[dayKey]; !exists {
+				dayMap[dayKey] = &FloorHistoryPointRecord{
+					Timestamp:      dayBucket,
+					FloorGRAM:      dayFloor,
+					VenueBreakdown: make(map[string]decimal.Decimal),
+				}
+				orderedDays = append(orderedDays, dayKey)
+			}
+			dayMap[dayKey].VenueBreakdown[venue] = dayFloor
+			if dayFloor.LessThan(dayMap[dayKey].FloorGRAM) || dayMap[dayKey].FloorGRAM.IsZero() {
+				dayMap[dayKey].FloorGRAM = dayFloor
+			}
+		}
+	}
+
+	var results []FloorHistoryPointRecord
+	for _, k := range orderedDays {
+		results = append(results, *dayMap[k])
+	}
+	return results, nil
+}
+
+// UpsertMarketListing inserts or updates an active marketplace listing
+func (r *GiftsRepo) UpsertMarketListing(ctx context.Context, l MarketListingRecord) error {
+	if r.db == nil || r.db.Pool == nil {
+		return nil
+	}
+
+	query := `
+		INSERT INTO market_listings (
+			model_id, serial_number, venue, listing_id, price_gram, price_usd,
+			model_name, backdrop_name, symbol_name, center_hex, edge_hex, buy_url, is_active, observed_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+		ON CONFLICT (venue, listing_id) DO UPDATE SET
+			price_gram = EXCLUDED.price_gram,
+			price_usd = EXCLUDED.price_usd,
+			is_active = EXCLUDED.is_active,
+			observed_at = now()`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		l.ModelID, l.SerialNumber, l.Venue, l.ListingID, l.PriceGRAM, l.PriceUSD,
+		l.ModelName, l.BackdropName, l.SymbolName, l.CenterHex, l.EdgeHex, l.BuyURL, l.IsActive,
+	)
+	return err
+}
+
+// GetActiveMarketListings returns verified lowest active listings for a model
+func (r *GiftsRepo) GetActiveMarketListings(ctx context.Context, modelID string, limit int) ([]MarketListingRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []MarketListingRecord{}, nil
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	altModel := strings.ReplaceAll(modelID, "_", "-")
+	if altModel == modelID {
+		altModel = strings.ReplaceAll(modelID, "-", "_")
+	}
+
+	query := `
+		SELECT
+			id, model_id, serial_number, venue, listing_id, price_gram, COALESCE(price_usd, 0),
+			COALESCE(model_name, ''), COALESCE(backdrop_name, ''), COALESCE(symbol_name, ''),
+			COALESCE(center_hex, ''), COALESCE(edge_hex, ''), COALESCE(buy_url, ''), is_active, observed_at
+		FROM market_listings
+		WHERE (model_id = $1 OR model_id = $2 OR $1 = '')
+		  AND is_active = TRUE
+		  AND observed_at >= now() - interval '6 hours'
+		ORDER BY price_gram ASC
+		LIMIT $3`
+
+	rows, err := r.db.Pool.Query(ctx, query, modelID, altModel, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []MarketListingRecord
+	for rows.Next() {
+		var it MarketListingRecord
+		if err := rows.Scan(
+			&it.ID, &it.ModelID, &it.SerialNumber, &it.Venue, &it.ListingID,
+			&it.PriceGRAM, &it.PriceUSD, &it.ModelName, &it.BackdropName, &it.SymbolName,
+			&it.CenterHex, &it.EdgeHex, &it.BuyURL, &it.IsActive, &it.ObservedAt,
+		); err == nil {
+			list = append(list, it)
+		}
+	}
+	return list, nil
+}
+
+// UpdateSourceHealth updates health status and response metrics for a data source
+func (r *GiftsRepo) UpdateSourceHealth(ctx context.Context, source, status string, success bool, respTimeMs int, errMsg string) error {
+	if r.db == nil || r.db.Pool == nil {
+		return nil
+	}
+
+	query := `
+		INSERT INTO source_health (
+			source_name, status, last_success_at, last_failure_at, consecutive_failures, response_time_ms, error_message, updated_at
+		) VALUES (
+			$1, $2,
+			CASE WHEN $3 THEN now() ELSE NULL END,
+			CASE WHEN NOT $3 THEN now() ELSE NULL END,
+			CASE WHEN $3 THEN 0 ELSE 1 END,
+			$4, $5, now()
+		)
+		ON CONFLICT (source_name) DO UPDATE SET
+			status = EXCLUDED.status,
+			last_success_at = CASE WHEN $3 THEN now() ELSE source_health.last_success_at END,
+			last_failure_at = CASE WHEN NOT $3 THEN now() ELSE source_health.last_failure_at END,
+			consecutive_failures = CASE WHEN $3 THEN 0 ELSE source_health.consecutive_failures + 1 END,
+			response_time_ms = EXCLUDED.response_time_ms,
+			error_message = EXCLUDED.error_message,
+			updated_at = now()`
+
+	_, err := r.db.Pool.Exec(ctx, query, source, status, success, respTimeMs, errMsg)
+	return err
+}
+

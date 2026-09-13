@@ -88,67 +88,85 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 				continue
 			}
 
-			// Resolve target channel: Input vs Output
-			var targetChatID int64
-			var targetChannelID *uuid.UUID
+			// Resolve target channels: Input, Output, or Both
+			type bioTargetChat struct {
+				chatID    int64
+				channelID *uuid.UUID
+				keySuffix string
+			}
+			var targets []bioTargetChat
+
 			targetType := strings.ToLower(strings.TrimSpace(config.Target))
-			if targetType == "input" {
+			if targetType == "input" || targetType == "both" {
+				var inChatID int64
 				if p.SourceChatID != nil && *p.SourceChatID != 0 {
-					targetChatID = *p.SourceChatID
+					inChatID = *p.SourceChatID
 				}
-				targetChannelID = p.SourceChannelID
-			} else {
-				// Default to output channel
+				targets = append(targets, bioTargetChat{
+					chatID:    inChatID,
+					channelID: p.SourceChannelID,
+					keySuffix: "input",
+				})
+			}
+			if targetType == "output" || targetType == "both" || (targetType != "input" && targetType != "both") {
+				var outChatID int64
 				if p.TargetChatID != nil && *p.TargetChatID != 0 {
-					targetChatID = *p.TargetChatID
+					outChatID = *p.TargetChatID
 				}
-				targetChannelID = p.TargetChannelID
+				targets = append(targets, bioTargetChat{
+					chatID:    outChatID,
+					channelID: p.TargetChannelID,
+					keySuffix: "output",
+				})
 			}
 
-			if targetChatID == 0 && targetChannelID != nil {
-				if ch, chErr := s.channelRepo.GetChannelByID(ctx, *targetChannelID); chErr == nil && ch != nil {
-					targetChatID = ch.ChatID
+			for _, t := range targets {
+				targetChatID := t.chatID
+				if targetChatID == 0 && t.channelID != nil {
+					if ch, chErr := s.channelRepo.GetChannelByID(ctx, *t.channelID); chErr == nil && ch != nil {
+						targetChatID = ch.ChatID
+					}
 				}
-			}
 
-			if targetChatID == 0 {
-				continue
-			}
-
-			// Interval check
-			cacheKey := fmt.Sprintf("proj_bio:%s:%s", p.ID.String(), targetType)
-			lastUpdateVal, ok := s.lastBioUpdate.Load(cacheKey)
-			intervalMinutes, err := normalizeDynamicBioInterval(config.Interval)
-			if err != nil || intervalMinutes < 10 {
-				intervalMinutes = 10
-			}
-			intervalDuration := time.Duration(intervalMinutes) * time.Minute
-
-			if ok {
-				lastUpdate := lastUpdateVal.(time.Time)
-				if time.Since(lastUpdate) < intervalDuration {
+				if targetChatID == 0 {
 					continue
 				}
+
+				// Interval check
+				cacheKey := fmt.Sprintf("proj_bio:%s:%s", p.ID.String(), t.keySuffix)
+				lastUpdateVal, ok := s.lastBioUpdate.Load(cacheKey)
+				intervalMinutes, err := normalizeDynamicBioInterval(config.Interval)
+				if err != nil || intervalMinutes < 10 {
+					intervalMinutes = 10
+				}
+				intervalDuration := time.Duration(intervalMinutes) * time.Minute
+
+				if ok {
+					lastUpdate := lastUpdateVal.(time.Time)
+					if time.Since(lastUpdate) < intervalDuration {
+						continue
+					}
+				}
+
+				// Resolve bot client for target channel
+				_, tg := s.resolveBotClientForChat(ctx, targetChatID, nil)
+				if tg == nil {
+					continue
+				}
+
+				s.wg.Add(1)
+				configCopy := config
+				targetChatIDCopy := targetChatID
+				cacheKeyCopy := cacheKey
+				GoSafe(func() {
+					defer s.wg.Done()
+					bgCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+					defer cancel()
+					s.updateChatDynamicBio(bgCtx, targetChatIDCopy, cacheKeyCopy, configCopy, tg)
+				})
+
+				s.lastBioUpdate.Store(cacheKey, time.Now())
 			}
-
-			// Resolve bot client for target channel
-			_, tg := s.resolveBotClientForChat(ctx, targetChatID, nil)
-			if tg == nil {
-				continue
-			}
-
-			s.wg.Add(1)
-			configCopy := config
-			targetChatIDCopy := targetChatID
-			cacheKeyCopy := cacheKey
-			GoSafe(func() {
-				defer s.wg.Done()
-				bgCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-				defer cancel()
-				s.updateChatDynamicBio(bgCtx, targetChatIDCopy, cacheKeyCopy, configCopy, tg)
-			})
-
-			s.lastBioUpdate.Store(cacheKey, time.Now())
 		}
 	}
 

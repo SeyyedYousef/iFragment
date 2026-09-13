@@ -2,6 +2,7 @@ package venues
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"sync"
@@ -115,13 +116,19 @@ func (w *VenueSnapshotWorker) syncOneCollection(ctx context.Context, modelID str
 	for _, adapter := range w.adapters {
 		adapter := adapter
 		g.Go(func() error {
+			startT := time.Now()
 			floorRes, err := adapter.FetchFloor(gctx, slug)
+			durationMs := int(time.Since(startT).Milliseconds())
+
 			if err == nil && floorRes != nil && !floorRes.FloorPriceGRAM.IsZero() {
 				results <- snapResult{
 					vID:  adapter.ID(),
 					res:  floorRes,
 					fees: adapter.ProtocolFeePct(),
 				}
+				_ = w.repo.UpdateSourceHealth(gctx, adapter.Name(), "healthy", true, durationMs, "")
+			} else if err != nil && !errors.Is(err, ErrNoFloorData) {
+				_ = w.repo.UpdateSourceHealth(gctx, adapter.Name(), "degraded", false, durationMs, err.Error())
 			}
 			return nil
 		})
@@ -147,6 +154,9 @@ func (w *VenueSnapshotWorker) syncOneCollection(ctx context.Context, modelID str
 
 		if err := w.repo.UpsertVenueSnapshot(ctx, rec); err != nil {
 			slog.Warn("Failed to upsert venue snapshot", "model_id", modelID, "venue", r.vID, "error", err)
+		} else {
+			// Persist into venue snapshot history to build genuine time-series data
+			_ = w.repo.InsertVenueSnapshotHistory(ctx, rec)
 		}
 	}
 }

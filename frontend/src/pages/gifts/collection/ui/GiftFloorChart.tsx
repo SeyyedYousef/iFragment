@@ -29,45 +29,25 @@ export const GiftFloorChart: Component<Props> = (props) => {
 	const [timeframe, setTimeframe] = createSignal<Timeframe>('30d');
 	const [hoverIdx, setHoverIdx] = createSignal<number | null>(null);
 
-	const rate = () => props.gramUsdRate || 1.335;
-	const baseFloor = () => props.currentFloorGram || 100;
+	const rate = () => props.gramUsdRate || 0;
+	const baseFloor = () => props.currentFloorGram || 0;
 
-	// Filter and prepare history data based on timeframe
+	// Filter and prepare history data based on timeframe without synthetic simulation
 	const filteredData = createMemo(() => {
 		const raw = props.history || [];
-		let source = [...raw];
-
-		// If history is empty, synthesize a 30-day realistic trajectory anchored to baseFloor()
-		if (source.length === 0) {
-			const now = Date.now();
-			source = Array.from({ length: 30 }, (_, i) => {
-				const dayOffset = 29 - i;
-				const t = new Date(now - dayOffset * 24 * 3600 * 1000).toISOString();
-				const prog = i / 29;
-				const wave = Math.sin(prog * Math.PI * 3) * 0.05 + Math.cos(prog * Math.PI * 6) * 0.02;
-				const trend = (prog - 1) * 0.08;
-				const fl = i === 29 ? baseFloor() : Math.max(1, baseFloor() * (1 + trend + wave));
-				return {
-					timestamp: t,
-					floor_gram: Math.round(fl * 100) / 100,
-					venue_breakdown: {
-						Tonnel: Math.round(fl * 100) / 100,
-						Getgems: Math.round(fl * 1.02 * 100) / 100,
-						Fragment: Math.round(fl * 1.04 * 100) / 100,
-					},
-				};
-			});
+		if (raw.length === 0) {
+			return [];
 		}
 
 		const tf = timeframe();
 		if (tf === '24h') {
-			return source.slice(-6); // last 6 points or hours
+			return raw.slice(-6);
 		} else if (tf === '7d') {
-			return source.slice(-7);
+			return raw.slice(-7);
 		} else if (tf === '30d') {
-			return source.slice(-30);
+			return raw.slice(-30);
 		}
-		return source;
+		return raw;
 	});
 
 	// Min, Max, Range calculations
@@ -148,9 +128,10 @@ export const GiftFloorChart: Component<Props> = (props) => {
 	});
 
 	const fmtVal = (val?: number) => {
-		if (val === undefined || val === null) return '0';
+		if (val === undefined || val === null || val <= 0) return '—';
 		const isUsd = currency() === 'usd';
 		if (isUsd) {
+			if (rate() <= 0) return '—';
 			return `$${val.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
 		}
 		return `${val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} TON`;
@@ -293,143 +274,154 @@ export const GiftFloorChart: Component<Props> = (props) => {
 				</div>
 			</div>
 
-			{/* ═══ Interactive SVG Spline Chart ═══ */}
-			<div
-				class="relative w-full h-[180px] rounded-2xl border border-white/[0.06] bg-black/40 p-2 overflow-hidden select-none cursor-crosshair touch-none"
-				onMouseMove={handlePointerMove}
-				onTouchMove={handlePointerMove}
-				onMouseLeave={handlePointerLeave}
-				onTouchEnd={handlePointerLeave}
+			{/* ═══ Interactive SVG Spline Chart or Truthful Empty State ═══ */}
+			<Show
+				when={filteredData().length > 0}
+				fallback={
+					<div class="flex flex-col items-center justify-center h-[180px] rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-center select-none">
+						<span class="material-symbols-outlined text-3xl text-white/20 mb-1">show_chart</span>
+						<p class="text-xs font-bold text-white/50 font-mono">Historical data unavailable</p>
+						<p class="text-[10px] text-white/30 mt-0.5">Verified daily floor snapshots are recorded in real time</p>
+					</div>
+				}
 			>
-				<svg
-					viewBox={`0 0 ${width} ${height}`}
-					class="w-full h-full overflow-visible"
-					preserveAspectRatio="none"
+				<div
+					class="relative w-full h-[180px] rounded-2xl border border-white/[0.06] bg-black/40 p-2 overflow-hidden select-none cursor-crosshair touch-none"
+					onMouseMove={handlePointerMove}
+					onTouchMove={handlePointerMove}
+					onMouseLeave={handlePointerLeave}
+					onTouchEnd={handlePointerLeave}
 				>
-					<defs>
-						<linearGradient id="floorAreaGrad" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0%" stop-color="#0098EA" stop-opacity="0.32" />
-							<stop offset="60%" stop-color="#0098EA" stop-opacity="0.06" />
-							<stop offset="100%" stop-color="#0098EA" stop-opacity="0.0" />
-						</linearGradient>
-						<filter id="floorNeonGlow" x="-20%" y="-20%" width="140%" height="140%">
-							<feGaussianBlur stdDeviation="3" result="blur" />
-							<feMerge>
-								<feMergeNode in="blur" />
-								<feMergeNode in="SourceGraphic" />
-							</feMerge>
-						</filter>
-					</defs>
+					<svg
+						viewBox={`0 0 ${width} ${height}`}
+						class="w-full h-full overflow-visible"
+						preserveAspectRatio="none"
+					>
+						<defs>
+							<linearGradient id="floorAreaGrad" x1="0" y1="0" x2="0" y2="1">
+								<stop offset="0%" stop-color="#0098EA" stop-opacity="0.32" />
+								<stop offset="60%" stop-color="#0098EA" stop-opacity="0.06" />
+								<stop offset="100%" stop-color="#0098EA" stop-opacity="0.0" />
+							</linearGradient>
+							<filter id="floorNeonGlow" x="-20%" y="-20%" width="140%" height="140%">
+								<feGaussianBlur stdDeviation="3" result="blur" />
+								<feMerge>
+									<feMergeNode in="blur" />
+									<feMergeNode in="SourceGraphic" />
+								</feMerge>
+							</filter>
+						</defs>
 
-					{/* Horizontal Price Gridlines */}
-					<line
-						x1={padding.left}
-						y1={padding.top}
-						x2={width - padding.right}
-						y2={padding.top}
-						stroke="rgba(255,255,255,0.05)"
-						stroke-dasharray="3 3"
-					/>
-					<line
-						x1={padding.left}
-						y1={height / 2}
-						x2={width - padding.right}
-						y2={height / 2}
-						stroke="rgba(255,255,255,0.05)"
-						stroke-dasharray="3 3"
-					/>
-					<line
-						x1={padding.left}
-						y1={height - padding.bottom + 5}
-						x2={width - padding.right}
-						y2={height - padding.bottom + 5}
-						stroke="rgba(255,255,255,0.05)"
-					/>
-
-					{/* Area Gradient Fill */}
-					<Show when={svgPaths().area}>
-						<path d={svgPaths().area} fill="url(#floorAreaGrad)" />
-					</Show>
-
-					{/* Glowing Curve Line */}
-					<Show when={svgPaths().line}>
-						<path
-							d={svgPaths().line}
-							fill="none"
-							stroke="#0098EA"
-							stroke-width="2.5"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							filter="url(#floorNeonGlow)"
+						{/* Horizontal Price Gridlines */}
+						<line
+							x1={padding.left}
+							y1={padding.top}
+							x2={width - padding.right}
+							y2={padding.top}
+							stroke="rgba(255,255,255,0.05)"
+							stroke-dasharray="3 3"
 						/>
-					</Show>
+						<line
+							x1={padding.left}
+							y1={height / 2}
+							x2={width - padding.right}
+							y2={height / 2}
+							stroke="rgba(255,255,255,0.05)"
+							stroke-dasharray="3 3"
+						/>
+						<line
+							x1={padding.left}
+							y1={height - padding.bottom + 5}
+							x2={width - padding.right}
+							y2={height - padding.bottom + 5}
+							stroke="rgba(255,255,255,0.05)"
+						/>
 
-					{/* Crosshair Cursor & Indicator Dot */}
-					<Show when={currentPoint()}>
+						{/* Area Gradient Fill */}
+						<Show when={svgPaths().area}>
+							<path d={svgPaths().area} fill="url(#floorAreaGrad)" />
+						</Show>
+
+						{/* Glowing Curve Line */}
+						<Show when={svgPaths().line}>
+							<path
+								d={svgPaths().line}
+								fill="none"
+								stroke="#0098EA"
+								stroke-width="2.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								filter="url(#floorNeonGlow)"
+							/>
+						</Show>
+
+						{/* Crosshair Cursor & Indicator Dot */}
+						<Show when={currentPoint()}>
+							{(() => {
+								const cp = currentPoint()!;
+								return (
+									<g>
+										<line
+											x1={cp.x}
+											y1={padding.top - 5}
+											x2={cp.x}
+											y2={height - padding.bottom + 5}
+											stroke="#0098EA"
+											stroke-width="1.5"
+											stroke-dasharray="3 3"
+											opacity="0.8"
+										/>
+										<circle cx={cp.x} cy={cp.y} r="7" fill="#0098EA" opacity="0.3" class="animate-ping" />
+										<circle cx={cp.x} cy={cp.y} r="5" fill="#0A0E17" stroke="#0098EA" stroke-width="2.5" />
+										<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
+									</g>
+								);
+							})()}
+						</Show>
+					</svg>
+
+					{/* Floating Tooltip */}
+					<Show when={hoverIdx() !== null && currentPoint()}>
 						{(() => {
 							const cp = currentPoint()!;
+							const isRightHalf = cp.x > width / 2;
 							return (
-								<g>
-									<line
-										x1={cp.x}
-										y1={padding.top - 5}
-										x2={cp.x}
-										y2={height - padding.bottom + 5}
-										stroke="#0098EA"
-										stroke-width="1.5"
-										stroke-dasharray="3 3"
-										opacity="0.8"
-									/>
-									<circle cx={cp.x} cy={cp.y} r="7" fill="#0098EA" opacity="0.3" class="animate-ping" />
-									<circle cx={cp.x} cy={cp.y} r="5" fill="#0A0E17" stroke="#0098EA" stroke-width="2.5" />
-									<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
-								</g>
+								<div
+									class="absolute pointer-events-none transition-transform duration-75 z-30"
+									style={{
+										left: `${(cp.x / width) * 100}%`,
+										top: `${Math.max(15, Math.min(125, (cp.y / height) * 100))}%`,
+										transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
+									}}
+								>
+									<div class="bg-[#0b101c]/95 border border-[#0098EA]/40 rounded-xl p-2 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap min-w-[110px]">
+										<div class="text-white font-black text-xs">{fmtVal(cp.val)}</div>
+										<div class="text-white/50 text-[9px] mt-0.5">{fmtDate(cp.timestamp)}</div>
+										<Show when={cp.venue_breakdown}>
+											<div class="mt-1 pt-1 border-t border-white/10 space-y-0.5 text-[8.5px]">
+												<For each={Object.entries(cp.venue_breakdown!)}>
+													{([vName, vFloor]: [string, number]) => (
+														<div class="flex items-center justify-between gap-2 text-white/60">
+															<span>{vName}:</span>
+															<span class="text-sky-300 font-bold">{vFloor} TON</span>
+														</div>
+													)}
+												</For>
+											</div>
+										</Show>
+									</div>
+								</div>
 							);
 						})()}
 					</Show>
-				</svg>
 
-				{/* Floating Tooltip */}
-				<Show when={hoverIdx() !== null && currentPoint()}>
-					{(() => {
-						const cp = currentPoint()!;
-						const isRightHalf = cp.x > width / 2;
-						return (
-							<div
-								class="absolute pointer-events-none transition-transform duration-75 z-30"
-								style={{
-									left: `${(cp.x / width) * 100}%`,
-									top: `${Math.max(15, Math.min(125, (cp.y / height) * 100))}%`,
-									transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
-								}}
-							>
-								<div class="bg-[#0b101c]/95 border border-[#0098EA]/40 rounded-xl p-2 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap min-w-[110px]">
-									<div class="text-white font-black text-xs">{fmtVal(cp.val)}</div>
-									<div class="text-white/50 text-[9px] mt-0.5">{fmtDate(cp.timestamp)}</div>
-									<Show when={cp.venue_breakdown}>
-										<div class="mt-1 pt-1 border-t border-white/10 space-y-0.5 text-[8.5px]">
-											<For each={Object.entries(cp.venue_breakdown!)}>
-												{([vName, vFloor]: [string, number]) => (
-													<div class="flex items-center justify-between gap-2 text-white/60">
-														<span>{vName}:</span>
-														<span class="text-sky-300 font-bold">{vFloor} TON</span>
-													</div>
-												)}
-											</For>
-										</div>
-									</Show>
-								</div>
-							</div>
-						);
-					})()}
-				</Show>
-
-				{/* Timeline Date Bounds */}
-				<div class="absolute bottom-1 left-3 right-3 flex justify-between text-[9px] font-mono text-white/30 pointer-events-none">
-					<span>{activePoints()[0] ? fmtDate(activePoints()[0].timestamp) : ''}</span>
-					<span class="text-[#0098EA] font-semibold">{t('gifts.now') || 'Now'}</span>
+					{/* Timeline Date Bounds */}
+					<div class="absolute bottom-1 left-3 right-3 flex justify-between text-[9px] font-mono text-white/30 pointer-events-none">
+						<span>{activePoints()[0] ? fmtDate(activePoints()[0].timestamp) : ''}</span>
+						<span class="text-[#0098EA] font-semibold">{t('gifts.now') || 'Now'}</span>
+					</div>
 				</div>
-			</div>
+			</Show>
 		</div>
 	);
 };

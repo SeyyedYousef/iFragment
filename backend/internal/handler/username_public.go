@@ -889,6 +889,10 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		h.cache.Client.Set(context.Background(), valCacheKey, outBytes, 10*time.Minute)
 	}
 
+	if h.db != nil && userID > 0 && len(outBytes) > 0 {
+		_ = h.db.SaveUsernameReport(ctx, userID, cleanU, int(result.ConfidenceScore), outBytes)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if len(outBytes) > 0 {
 		w.Write(outBytes)

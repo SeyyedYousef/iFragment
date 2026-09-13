@@ -272,92 +272,37 @@ func (s *BotService) sendSmartExpirationNotice(ctx context.Context, g repository
 	token, _ := DecryptToken(bot.BotTokenEncrypted)
 	tg := telegram.NewBotAPIClient(token)
 
-	var text string
-	var renewCoinsBtn, renewProBtn, dashboardBtn string
+	var text, renewCoinsBtn, renewProBtn, dashboardBtn string
+	lang = i18n.DetectLanguage(lang)
+	renewCoinsBtn = i18n.T(lang, "botmgmt.btn_coins")
+	renewProBtn = i18n.T(lang, "botmgmt.btn_stars")
+	dashboardBtn = i18n.T(lang, "botmgmt.btn_dashboard")
 
-	if lang == "fa" {
-		renewCoinsBtn = "🪙 تمدید با سکه ایردراپ"
-		renewProBtn = "⭐ تمدید با استارز یا TON"
-		dashboardBtn = "⚙️ ورود به داشبورد"
-
-		expiryDateStr := expiry.Format("2006/01/02 15:04")
-		switch stage {
-		case "48h":
-			text = fmt.Sprintf(`🔔 <b>یادآوری تمدید محافظت گروه: %s</b>
-
-⏳ <b>زمان باقی‌مانده از اشتراک:</b> ۴۸ ساعت
-📅 <b>تاریخ انقضا:</b> <code>%s</code>
-🛡️ <b>وضعیت سپر امنیتی:</b> فعال (ضد اسپم، فیلتر لینک، کپچای ورودی)
-
-✨ برای حفظ آرامش گروه و جلوگیری از ورود ربات‌های تبلیغاتی، می‌توانید همین حالا با <b>سکه ایردراپ</b> یا <b>تلگرام استارز/TON</b> اشتراک خود را تمدید کنید.
-
-🎁 <i>تخفیف وفاداری: تمدید با سکه ایردراپ بدون پرداخت ریالی!</i>`, telegram.EscapeHTML(g.ChatTitle), expiryDateStr)
-
-		case "24h":
-			text = fmt.Sprintf(`⚠️ <b>هشدار مهم: فقط ۲۴ ساعت تا پایان محافظت گروه %s!</b>
-
-⏳ <b>زمان انقضا:</b> <code>%s</code>
-🚨 پس از پایان این مهلت، ربات محافظ متوقف شده و فیلترهای ضداسپم، کپچا و قفل چت غیرفعال خواهند شد.
-
-⚡ <b>تمدید فوری بدون وقفه:</b>
-با یک کلیک از طریق دکمه‌های زیر، اشتراک گروه را تمدید کنید:`, telegram.EscapeHTML(g.ChatTitle), expiryDateStr)
-
-		case "6h", "1h":
-			remText := "۶ ساعت"
-			if stage == "1h" {
-				remText = "کمتر از ۱ ساعت"
-			}
-			text = fmt.Sprintf(`🚨 <b>هشدار فوری: اشتراک گروه %s در حال اتمام است! (%s باقی‌مانده)</b>
-
-⚡ جلوگیری از هجوم ربات‌های تبلیغاتی و قطع سرویس:
-همین حالا با زدن دکمه زیر با سکه‌های ایردراپ یا استارز تلگرام تمدید کنید.`, telegram.EscapeHTML(g.ChatTitle), remText)
-
-		case "expired":
-			text = fmt.Sprintf(`🛑 <b>اشتراک محافظت گروه %s به پایان رسید.</b>
-
-⚠️ فیلترهای ضداسپم، حذف لینک و کپچای ورودی به حالت تعلیق درآمدند.
-🔒 <b>نگران نباشید:</b> تمامی تنظیمات، لیست سیاه و کانال‌های عضویت اجباری گروه شما محفوظ است و با تمدید اشتراک، بلافاصله فعال خواهند شد.`, telegram.EscapeHTML(g.ChatTitle))
+	expiryDateStr := expiry.Format("2006/01/02 15:04")
+	switch stage {
+	case "48h":
+		text = i18n.T(lang, "botmgmt.reminder_48h", map[string]interface{}{
+			"group":   telegram.EscapeHTML(g.ChatTitle),
+			"expires": expiryDateStr,
+		})
+	case "24h":
+		text = i18n.T(lang, "botmgmt.reminder_24h", map[string]interface{}{
+			"group":   telegram.EscapeHTML(g.ChatTitle),
+			"expires": expiryDateStr,
+		})
+	case "6h", "1h":
+		remText := i18n.T(lang, "botmgmt.rem_6h")
+		if stage == "1h" {
+			remText = i18n.T(lang, "botmgmt.rem_1h")
 		}
-	} else {
-		renewCoinsBtn = "🪙 Extend with Airdrop Coins"
-		renewProBtn = "⭐ Extend with Stars / TON"
-		dashboardBtn = "⚙️ Open Web Dashboard"
-
-		expiryDateStr := expiry.Format("2006/01/02 15:04")
-		switch stage {
-		case "48h":
-			text = fmt.Sprintf(`🔔 <b>Subscription Renewal Reminder: %s</b>
-
-⏳ <b>Time Remaining:</b> 48 Hours
-📅 <b>Expires At:</b> <code>%s</code>
-🛡️ <b>Protection Status:</b> Active (Anti-Spam, Link Filter, Join CAPTCHA)
-
-✨ Extend now using your <b>Airdrop Coins</b> or <b>Telegram Stars / TON</b> to keep your group protected without interruption.`, telegram.EscapeHTML(g.ChatTitle), expiryDateStr)
-
-		case "24h":
-			text = fmt.Sprintf(`⚠️ <b>Important Notice: 24 Hours Left for %s!</b>
-
-⏳ <b>Expires At:</b> <code>%s</code>
-🚨 Protection features will be suspended after expiration.
-
-⚡ <b>Instant 1-Click Renewal:</b>
-Use the buttons below to extend protection:`, telegram.EscapeHTML(g.ChatTitle), expiryDateStr)
-
-		case "6h", "1h":
-			remText := "6 hours"
-			if stage == "1h" {
-				remText = "less than 1 hour"
-			}
-			text = fmt.Sprintf(`🚨 <b>Urgent: Protection expiring for %s! (%s left)</b>
-
-⚡ Prevent spam bot attacks and keep your group secure by renewing now:`, telegram.EscapeHTML(g.ChatTitle), remText)
-
-		case "expired":
-			text = fmt.Sprintf(`🛑 <b>Protection subscription ended for %s.</b>
-
-⚠️ Anti-spam and auto-moderation features are now suspended.
-🔒 <b>All your settings and blacklists are safely preserved.</b> Renew now to restore full protection immediately.`, telegram.EscapeHTML(g.ChatTitle))
-		}
+		text = i18n.T(lang, "botmgmt.reminder_short", map[string]interface{}{
+			"group":     telegram.EscapeHTML(g.ChatTitle),
+			"remaining": remText,
+		})
+	case "expired":
+		text = i18n.T(lang, "botmgmt.expired", map[string]interface{}{
+			"group": telegram.EscapeHTML(g.ChatTitle),
+		})
 	}
 
 	dashboardURL := fmt.Sprintf("%s?startapp=group_%s", miniAppURL, g.ID)
