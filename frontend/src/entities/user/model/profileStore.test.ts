@@ -10,8 +10,6 @@ import {
 	resetProfileSettings,
 	updateDraftNotification,
 	updateDraftSetting,
-	updateNotification,
-	updateSetting,
 } from './store.js';
 
 describe('Profile Store State Machine and Cache Isolation', () => {

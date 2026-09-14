@@ -690,6 +690,7 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 			"chat_member",
 			"chat_join_request",
 			"pre_checkout_query",
+			"inline_query",
 		},
 	}
 	body, _ := json.Marshal(payload)

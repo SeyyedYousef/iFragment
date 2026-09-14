@@ -41,7 +41,6 @@ export const ManagedChannelsPage: Component = () => {
 	const [isDeletingProject, setIsDeletingProject] = createSignal(false);
 
 	const [showSubscription, setShowSubscription] = createSignal(false);
-	const [paymentStep, setPaymentStep] = createSignal<'package' | 'method'>('package');
 	const [selectedChan, setSelectedChan] = createSignal<string>('');
 	const [selectedPkg, setSelectedPkg] = createSignal<string>('');
 	const [isDiscountEnabled, setIsDiscountEnabled] = createSignal(false);
@@ -70,7 +69,6 @@ export const ManagedChannelsPage: Component = () => {
 
 	const openSubscription = (channelId: string) => {
 		setSelectedChan(channelId);
-		setPaymentStep('package');
 		setShowSubscription(true);
 		haptic.impact('light');
 	};

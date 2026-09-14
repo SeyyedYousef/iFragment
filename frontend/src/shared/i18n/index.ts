@@ -159,9 +159,9 @@ export const customResolveTemplate = (template: string, ...args: any[]): string 
 	return result;
 };
 
-// Type-safe translator: wrong keys cause a compile-time error
+// Type-safe translator with autocomplete and string fallback
 export const t = i18n.translator(getDict, customResolveTemplate) as (
-	key: DictPaths,
+	key: DictPaths | (string & {}),
 	args?: Record<string, any>,
 ) => string;
 

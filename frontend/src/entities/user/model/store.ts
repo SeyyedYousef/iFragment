@@ -3,7 +3,7 @@
  * Uses localStorage for persistence with strict User ID scoping
  * and a formal Save / Discard state machine.
  */
-import { createEffect, createRoot, createSignal, onCleanup } from 'solid-js';
+import { createRoot, createSignal, onCleanup } from 'solid-js';
 import * as v from 'valibot';
 import { ProfileSettingsSchema } from './schemas.js';
 import type { ProfileSettings } from './types.js';

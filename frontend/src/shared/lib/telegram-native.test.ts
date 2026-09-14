@@ -3,10 +3,6 @@ import {
 	biometric,
 	checkHomeScreenStatus,
 	closeMiniApp,
-	copyToClipboard,
-	downloadFile,
-	openInvoice,
-	openSubscriptionLink,
 	requestContact,
 	requestEmojiStatusAccess,
 	requestWriteAccess,
@@ -90,7 +86,7 @@ describe('telegram-native wrapper resilience and timeouts', () => {
 					isAccessGranted: true,
 					biometricType: 'face',
 					init: (cb: () => void) => cb(),
-					authenticate: (params: any, cb: (ok: boolean) => void) => cb(true),
+					authenticate: (_params: any, cb: (ok: boolean) => void) => cb(true),
 				},
 				close: vi.fn(),
 			},
@@ -123,7 +119,6 @@ describe('telegram-native wrapper resilience and timeouts', () => {
 		};
 
 		// Run with short timeout
-		const start = Date.now();
 		const result = await requestWriteAccess();
 		// Must resolve to false on timeout
 		expect(result).toBe(false);

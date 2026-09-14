@@ -118,7 +118,7 @@ export const numbersApi = {
 			ending_soon: [],
 			trending_tail: [],
 			hall_of_fame: [],
-			data_status: 'unavailable',
+			data_status: 'insufficient_data',
 			updated_at: new Date().toISOString(),
 		};
 	},

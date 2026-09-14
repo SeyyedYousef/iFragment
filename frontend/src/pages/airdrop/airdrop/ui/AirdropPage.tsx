@@ -11,7 +11,6 @@ import {
 	Switch,
 } from 'solid-js';
 import {
-	balance,
 	setUserClan,
 	syncBoostersStatus,
 	syncDailyRewardStatus,

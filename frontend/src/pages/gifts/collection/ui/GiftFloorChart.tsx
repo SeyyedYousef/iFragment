@@ -30,7 +30,6 @@ export const GiftFloorChart: Component<Props> = (props) => {
 	const [hoverIdx, setHoverIdx] = createSignal<number | null>(null);
 
 	const rate = () => props.gramUsdRate || 0;
-	const baseFloor = () => props.currentFloorGram || 0;
 
 	// Filter and prepare history data based on timeframe without synthetic simulation
 	const filteredData = createMemo(() => {

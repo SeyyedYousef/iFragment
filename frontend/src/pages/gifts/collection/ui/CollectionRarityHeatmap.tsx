@@ -234,7 +234,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 						{stats().rarest?.model_name || '—'}
 					</div>
 					<span class="text-[9px] text-white/40 font-mono block mt-0.5">
-						{stats().rarest ? `${stats().rarest.combined_rarity_pct.toFixed(3)}%` : '—'}
+						{stats().rarest ? `${stats().rarest?.combined_rarity_pct.toFixed(3)}%` : '—'}
 					</span>
 				</div>
 

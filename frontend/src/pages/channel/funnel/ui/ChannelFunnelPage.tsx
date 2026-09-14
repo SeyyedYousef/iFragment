@@ -1,12 +1,10 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton } from '@tma.js/sdk-solid';
 import {
 	type Component,
 	createResource,
 	createSignal,
 	For,
-	onCleanup,
 	onMount,
 	Show,
 } from 'solid-js';

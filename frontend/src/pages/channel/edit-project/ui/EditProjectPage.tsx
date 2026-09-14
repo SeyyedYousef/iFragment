@@ -104,31 +104,32 @@ export const EditProjectPage: Component = () => {
 	createEffect(() => {
 		const p = projectData();
 		if (p) {
+			const cfg = p.pipeline_config as any;
 			setProjectName(p.name || '');
 			if (p.source_channel_id) {
 				setSourceChannelId(p.source_channel_id);
 			} else if (p.source_chat_id) {
 				setSourceCustomInput(String(p.source_chat_id));
-			} else if (p.pipeline_config?.source_channel_identifier) {
-				setSourceCustomInput(p.pipeline_config.source_channel_identifier);
+			} else if (cfg?.source_channel_identifier) {
+				setSourceCustomInput(cfg.source_channel_identifier);
 			}
 
 			if (p.target_channel_id) {
 				setTargetChannelId(p.target_channel_id);
 			} else if (p.target_chat_id) {
 				setTargetCustomInput(String(p.target_chat_id));
-			} else if (p.pipeline_config?.target_channel_identifier) {
-				setTargetCustomInput(p.pipeline_config.target_channel_identifier);
+			} else if (cfg?.target_channel_identifier) {
+				setTargetCustomInput(cfg.target_channel_identifier);
 			}
 
-			if (p.pipeline_config) {
-				setRemoveAds(p.pipeline_config.remove_ads !== false);
-				setRemoveLinks(!!p.pipeline_config.remove_links);
-				setRemoveHashtags(!!p.pipeline_config.remove_hashtags);
-				setDropMedia(!!p.pipeline_config.drop_media);
-				setAiRewrite(!!p.pipeline_config.ai_rewrite);
-				setAutoPublish(p.pipeline_config.auto_publish !== false);
-				setWatermark(p.pipeline_config.watermark || '');
+			if (cfg) {
+				setRemoveAds(cfg.remove_ads !== false);
+				setRemoveLinks(!!cfg.remove_links);
+				setRemoveHashtags(!!cfg.remove_hashtags);
+				setDropMedia(!!cfg.drop_media);
+				setAiRewrite(!!cfg.ai_rewrite);
+				setAutoPublish(cfg.auto_publish !== false);
+				setWatermark(cfg.watermark || '');
 			}
 		}
 	});

@@ -1,4 +1,3 @@
-import { Motion } from '@motionone/solid';
 import { type Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';

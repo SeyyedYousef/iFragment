@@ -34,11 +34,6 @@ export const GiftsChartView: Component<Props> = (props) => {
 	// Real values from API telemetry
 	const mcapUsd = () => props.intel?.total_market_cap_usd || 0;
 	const volumeUsd = () => props.intel?.total_cumulative_volume_usd || 0;
-	const gramRate = () => {
-		const board = props.intel?.unified_floor_board || [];
-		const item = board.find((b) => b.best_floor_gram > 0 && b.best_floor_usd > 0);
-		return item ? item.best_floor_usd / item.best_floor_gram : 0;
-	};
 
 	// Return empty array since macro time-series is not provided by telemetry
 	const chartData = createMemo<ChartPoint[]>(() => {

@@ -3,13 +3,7 @@ package venues
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
-	"net/url"
-	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -72,61 +66,9 @@ func (a *FragmentAdapter) Currency() string { return "GRAM" }
 func (a *FragmentAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(5.0) }
 
 func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
-	cleanSlug := strings.ToLower(strings.TrimSpace(giftSlug))
-	cleanSlug = strings.ReplaceAll(cleanSlug, "_", "")
-	cleanSlug = strings.ReplaceAll(cleanSlug, "-", "")
-
-	// Query Fragment real gifts catalog listing page with lowest price sort
-	apiURL := fmt.Sprintf("https://fragment.com/gifts/%s?sort=price_asc", url.PathEscape(cleanSlug))
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUnreachableHost, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		bodyStr := string(body)
-
-		// Extract lowest price from Fragment table icon-ton element
-		rePrice := regexp.MustCompile(`(?s)<div class="table-cell-value tm-value icon-before icon-ton">([\d,]+(?:\.\d+)?)</div>`)
-		matches := rePrice.FindAllStringSubmatch(bodyStr, 10)
-		if len(matches) > 0 {
-			rawP := strings.ReplaceAll(matches[0][1], ",", "")
-			if p, err := strconv.ParseFloat(rawP, 64); err == nil && p > 0 {
-				decFloor := decimal.NewFromFloat(p)
-
-				// Determine active listings count
-				activeCount := len(matches)
-				reCount := regexp.MustCompile(`(?i)(\d+)\s+gifts?\s+on\s+sale`)
-				if cm := reCount.FindStringSubmatch(bodyStr); len(cm) > 1 {
-					if c, err := strconv.Atoi(cm[1]); err == nil && c > 0 {
-						activeCount = c
-					}
-				}
-
-				return &VenueFloorResult{
-					VenueID:        VenueFragment,
-					VenueName:      "Fragment",
-					FloorPriceRaw:  decFloor,
-					FloorPriceGRAM: decFloor,
-					Currency:       "GRAM",
-					ActiveListings: activeCount,
-					DataStatus:     "live",
-					DeepLink:       apiURL,
-					FetchedAt:      time.Now().UTC(),
-				}, nil
-			}
-		}
-	}
-
+	// Note: Fragment uses client-side SPA rendering for gifts.
+	// Returning ErrNoFloorData cleanly to avoid futile HTML scrapes and 429 rate limits,
+	// until structured data ingestion from Omni-Agent feeds verified floor records.
 	return nil, ErrNoFloorData
 }
 
