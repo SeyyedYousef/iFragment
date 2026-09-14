@@ -920,3 +920,271 @@ func (r *GiftsRepo) GetGiftTraitsByModel(ctx context.Context, modelID string) ([
 	return list, nil
 }
 
+type ArbitrageOpportunityRecord struct {
+	ID              int64           `json:"id"`
+	ModelID         string          `json:"model_id"`
+	SourceVenue     string          `json:"source_venue"`
+	TargetVenue     string          `json:"target_venue"`
+	SourceFloorGRAM decimal.Decimal `json:"source_floor_gram"`
+	TargetFloorGRAM decimal.Decimal `json:"target_floor_gram"`
+	GrossSpreadGRAM decimal.Decimal `json:"gross_spread_gram"`
+	NetProfitGRAM   decimal.Decimal `json:"net_profit_gram"`
+	NetROIPct       decimal.Decimal `json:"net_roi_pct"`
+	SourceURL       string          `json:"source_url"`
+	TargetURL       string          `json:"target_url"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+}
+
+func (r *GiftsRepo) UpsertArbitrageOpportunity(ctx context.Context, opp ArbitrageOpportunityRecord) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database connection unavailable")
+	}
+
+	query := `
+		INSERT INTO gift_arbitrage_opportunities (
+			model_id, source_venue, target_venue, source_floor_gram, target_floor_gram,
+			gross_spread_gram, net_profit_gram, net_roi_pct, source_url, target_url, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+		ON CONFLICT (model_id, source_venue, target_venue) DO UPDATE SET
+			source_floor_gram = EXCLUDED.source_floor_gram,
+			target_floor_gram = EXCLUDED.target_floor_gram,
+			gross_spread_gram = EXCLUDED.gross_spread_gram,
+			net_profit_gram = EXCLUDED.net_profit_gram,
+			net_roi_pct = EXCLUDED.net_roi_pct,
+			source_url = EXCLUDED.source_url,
+			target_url = EXCLUDED.target_url,
+			updated_at = now()`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		opp.ModelID, opp.SourceVenue, opp.TargetVenue,
+		opp.SourceFloorGRAM, opp.TargetFloorGRAM, opp.GrossSpreadGRAM,
+		opp.NetProfitGRAM, opp.NetROIPct, opp.SourceURL, opp.TargetURL,
+	)
+	return err
+}
+
+func (r *GiftsRepo) GetArbitrageOpportunities(ctx context.Context, limit int) ([]ArbitrageOpportunityRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []ArbitrageOpportunityRecord{}, nil
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+
+	query := `
+		SELECT id, model_id, source_venue, target_venue, source_floor_gram, target_floor_gram,
+		       gross_spread_gram, net_profit_gram, net_roi_pct, COALESCE(source_url, ''),
+		       COALESCE(target_url, ''), updated_at
+		FROM gift_arbitrage_opportunities
+		WHERE net_profit_gram > 0
+		ORDER BY net_profit_gram DESC, net_roi_pct DESC
+		LIMIT $1`
+
+	rows, err := r.db.Pool.Query(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []ArbitrageOpportunityRecord
+	for rows.Next() {
+		var o ArbitrageOpportunityRecord
+		if err := rows.Scan(
+			&o.ID, &o.ModelID, &o.SourceVenue, &o.TargetVenue,
+			&o.SourceFloorGRAM, &o.TargetFloorGRAM, &o.GrossSpreadGRAM,
+			&o.NetProfitGRAM, &o.NetROIPct, &o.SourceURL, &o.TargetURL,
+			&o.UpdatedAt,
+		); err == nil {
+			list = append(list, o)
+		}
+	}
+	return list, nil
+}
+
+type WhaleWalletRecord struct {
+	ID                 int64           `json:"id"`
+	WalletAddress      string          `json:"wallet_address"`
+	Label              string          `json:"label"`
+	GiftsCount         int             `json:"gifts_count"`
+	UniqueCollections  int             `json:"unique_collections"`
+	TotalEstValueGRAM  decimal.Decimal `json:"total_est_value_gram"`
+	TopAssetName       string          `json:"top_asset_name"`
+	LastActiveAt       time.Time       `json:"last_active_at"`
+}
+
+func (r *GiftsRepo) UpsertWhaleWallet(ctx context.Context, w WhaleWalletRecord) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database connection unavailable")
+	}
+
+	query := `
+		INSERT INTO gift_whale_wallets (
+			wallet_address, label, gifts_count, unique_collections,
+			total_est_value_gram, top_asset_name, last_active_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (wallet_address) DO UPDATE SET
+			label = EXCLUDED.label,
+			gifts_count = EXCLUDED.gifts_count,
+			unique_collections = EXCLUDED.unique_collections,
+			total_est_value_gram = EXCLUDED.total_est_value_gram,
+			top_asset_name = EXCLUDED.top_asset_name,
+			last_active_at = EXCLUDED.last_active_at`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		w.WalletAddress, w.Label, w.GiftsCount, w.UniqueCollections,
+		w.TotalEstValueGRAM, w.TopAssetName, w.LastActiveAt,
+	)
+	return err
+}
+
+func (r *GiftsRepo) GetWhaleWallets(ctx context.Context, limit int) ([]WhaleWalletRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []WhaleWalletRecord{}, nil
+	}
+	if limit <= 0 {
+		limit = 25
+	}
+
+	query := `
+		SELECT id, wallet_address, label, gifts_count, unique_collections,
+		       total_est_value_gram, COALESCE(top_asset_name, ''), last_active_at
+		FROM gift_whale_wallets
+		ORDER BY total_est_value_gram DESC, gifts_count DESC
+		LIMIT $1`
+
+	rows, err := r.db.Pool.Query(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []WhaleWalletRecord
+	for rows.Next() {
+		var w WhaleWalletRecord
+		if err := rows.Scan(
+			&w.ID, &w.WalletAddress, &w.Label, &w.GiftsCount, &w.UniqueCollections,
+			&w.TotalEstValueGRAM, &w.TopAssetName, &w.LastActiveAt,
+		); err == nil {
+			list = append(list, w)
+		}
+	}
+	return list, nil
+}
+
+type ExtendedGiftCollectionRecord struct {
+	ModelID            string          `json:"model_id"`
+	Name               string          `json:"name"`
+	Slug               string          `json:"slug"`
+	TotalSupply        int             `json:"total_supply"`
+	CraftedFlag        bool            `json:"crafted_flag"`
+	UpgradedCount      int             `json:"upgraded_count"`
+	AvailabilityRemain int             `json:"availability_remains"`
+	IsAuction          bool            `json:"is_auction"`
+	IsLimited          bool            `json:"is_limited"`
+	UniqueHoldersCount int             `json:"unique_holders_count"`
+	ATHPriceGRAM       decimal.Decimal `json:"ath_price_gram"`
+	ATHDate            *time.Time      `json:"ath_date"`
+	ATLPriceGRAM       decimal.Decimal `json:"atl_price_gram"`
+	ATLDate            *time.Time      `json:"atl_date"`
+	Volume24hGRAM      decimal.Decimal `json:"volume_24h_gram"`
+	Volume7dGRAM       decimal.Decimal `json:"volume_7d_gram"`
+	Volume30dGRAM      decimal.Decimal `json:"volume_30d_gram"`
+	TurnoverRate24h    decimal.Decimal `json:"turnover_rate_24h"`
+	PriceChange24hPct  decimal.Decimal `json:"price_change_24h_pct"`
+	PriceChange7dPct   decimal.Decimal `json:"price_change_7d_pct"`
+	MarketCapUSD       decimal.Decimal `json:"market_cap_usd"`
+	BaseStarsPrice     int             `json:"base_stars_price"`
+	ReleaseDate        *time.Time      `json:"release_date"`
+	UpdatedAt          time.Time       `json:"updated_at"`
+}
+
+func (r *GiftsRepo) UpsertGiftCollectionExtended(ctx context.Context, c ExtendedGiftCollectionRecord) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database connection unavailable")
+	}
+
+	query := `
+		INSERT INTO gift_collections (
+			model_id, name, slug, total_supply, crafted_flag, upgraded_count, availability_remains,
+			is_auction, is_limited, unique_holders_count, ath_price_gram, ath_date, atl_price_gram, atl_date,
+			volume_24h_gram, volume_7d_gram, volume_30d_gram, turnover_rate_24h,
+			price_change_24h_pct, price_change_7d_pct, market_cap_usd, base_stars_price, release_date, updated_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7,
+			$8, $9, $10, $11, $12, $13, $14,
+			$15, $16, $17, $18,
+			$19, $20, $21, $22, $23, now()
+		)
+		ON CONFLICT (model_id) DO UPDATE SET
+			name = EXCLUDED.name,
+			slug = EXCLUDED.slug,
+			total_supply = EXCLUDED.total_supply,
+			crafted_flag = EXCLUDED.crafted_flag,
+			upgraded_count = EXCLUDED.upgraded_count,
+			availability_remains = EXCLUDED.availability_remains,
+			is_auction = EXCLUDED.is_auction,
+			is_limited = EXCLUDED.is_limited,
+			unique_holders_count = EXCLUDED.unique_holders_count,
+			ath_price_gram = EXCLUDED.ath_price_gram,
+			ath_date = COALESCE(EXCLUDED.ath_date, gift_collections.ath_date),
+			atl_price_gram = EXCLUDED.atl_price_gram,
+			atl_date = COALESCE(EXCLUDED.atl_date, gift_collections.atl_date),
+			volume_24h_gram = EXCLUDED.volume_24h_gram,
+			volume_7d_gram = EXCLUDED.volume_7d_gram,
+			volume_30d_gram = EXCLUDED.volume_30d_gram,
+			turnover_rate_24h = EXCLUDED.turnover_rate_24h,
+			price_change_24h_pct = EXCLUDED.price_change_24h_pct,
+			price_change_7d_pct = EXCLUDED.price_change_7d_pct,
+			market_cap_usd = EXCLUDED.market_cap_usd,
+			base_stars_price = EXCLUDED.base_stars_price,
+			release_date = COALESCE(EXCLUDED.release_date, gift_collections.release_date),
+			updated_at = now()`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		c.ModelID, c.Name, c.Slug, c.TotalSupply, c.CraftedFlag, c.UpgradedCount, c.AvailabilityRemain,
+		c.IsAuction, c.IsLimited, c.UniqueHoldersCount, c.ATHPriceGRAM, c.ATHDate, c.ATLPriceGRAM, c.ATLDate,
+		c.Volume24hGRAM, c.Volume7dGRAM, c.Volume30dGRAM, c.TurnoverRate24h,
+		c.PriceChange24hPct, c.PriceChange7dPct, c.MarketCapUSD, c.BaseStarsPrice, c.ReleaseDate,
+	)
+	return err
+}
+
+func (r *GiftsRepo) GetAllCollectionsExtended(ctx context.Context) ([]ExtendedGiftCollectionRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []ExtendedGiftCollectionRecord{}, nil
+	}
+
+	query := `
+		SELECT model_id, name, COALESCE(slug, ''), total_supply, crafted_flag,
+		       upgraded_count, availability_remains, is_auction, is_limited,
+		       unique_holders_count, ath_price_gram, ath_date, atl_price_gram, atl_date,
+		       volume_24h_gram, volume_7d_gram, volume_30d_gram, turnover_rate_24h,
+		       price_change_24h_pct, price_change_7d_pct, market_cap_usd, base_stars_price,
+		       release_date, updated_at
+		FROM gift_collections
+		ORDER BY volume_24h_gram DESC, total_supply ASC`
+
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []ExtendedGiftCollectionRecord
+	for rows.Next() {
+		var c ExtendedGiftCollectionRecord
+		if err := rows.Scan(
+			&c.ModelID, &c.Name, &c.Slug, &c.TotalSupply, &c.CraftedFlag,
+			&c.UpgradedCount, &c.AvailabilityRemain, &c.IsAuction, &c.IsLimited,
+			&c.UniqueHoldersCount, &c.ATHPriceGRAM, &c.ATHDate, &c.ATLPriceGRAM, &c.ATLDate,
+			&c.Volume24hGRAM, &c.Volume7dGRAM, &c.Volume30dGRAM, &c.TurnoverRate24h,
+			&c.PriceChange24hPct, &c.PriceChange7dPct, &c.MarketCapUSD, &c.BaseStarsPrice,
+			&c.ReleaseDate, &c.UpdatedAt,
+		); err == nil {
+			list = append(list, c)
+		}
+	}
+	return list, nil
+}
+
+

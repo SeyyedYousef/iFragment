@@ -707,3 +707,35 @@ export interface EnrichedGiftReport extends GiftValuationReport {
 	serial_intel?: SerialIntel;
 	backdrop_colors?: BackdropColors;
 }
+
+export type SerialCategory =
+	| 'single_digit'
+	| 'two_digit'
+	| 'repeating'
+	| 'palindrome'
+	| 'round_number'
+	| 'early_mint'
+	| 'standard';
+
+export interface SerialClassification {
+	serial_number: number;
+	category: SerialCategory;
+	label: string;
+	multiplier: number;
+	rarity_percentage: number;
+	estimated_floor_gram: number;
+	description: string;
+}
+
+export interface CollectionSummaryItem {
+	slug: string;
+	name: string;
+	image_url?: string;
+	total_supply: number;
+	floor_gram: number;
+	volume_24h_gram?: number;
+	price_change_24h_pct?: number;
+	holders_count?: number;
+	upgraded_count?: number;
+}
+

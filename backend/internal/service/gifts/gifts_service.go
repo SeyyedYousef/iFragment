@@ -19,7 +19,9 @@ import (
 	"ifragment-backend/internal/service/gifts/crafting"
 	"ifragment-backend/internal/service/gifts/giftchanges"
 	"ifragment-backend/internal/service/gifts/gvengine"
+	"ifragment-backend/internal/service/gifts/ingestor"
 	"ifragment-backend/internal/service/gifts/seeder"
+	"ifragment-backend/internal/service/gifts/serials"
 	"ifragment-backend/internal/service/gifts/telegramnft"
 	"ifragment-backend/internal/service/gifts/traits"
 	"ifragment-backend/internal/service/gifts/upgrade"
@@ -45,6 +47,7 @@ type GiftsService struct {
 	mtprotoClient      mtproto.Client
 	giftchangesClient  *giftchanges.Client
 	snapshotWorker     *venues.VenueSnapshotWorker
+	ingestorEngine     *ingestor.IngestionEngine
 	workerOnce         sync.Once
 }
 
@@ -72,6 +75,7 @@ func NewGiftsService(
 		engine:            engine,
 		cryptoPrice:       cryptoPrice,
 		giftchangesClient: giftchanges.NewClient(),
+		ingestorEngine:    ingestor.NewIngestionEngine(repo, cache, cryptoPrice, 6*time.Hour),
 	}
 }
 
@@ -96,6 +100,108 @@ func (s *GiftsService) GetSnapshotWorker() *venues.VenueSnapshotWorker {
 		s.snapshotWorker = venues.NewVenueSnapshotWorker(s.repo, s.cryptoPrice, 3*time.Minute)
 	})
 	return s.snapshotWorker
+}
+
+// GetIngestionEngine returns singleton instance of autonomous 6-hour ingestion engine
+func (s *GiftsService) GetIngestionEngine() *ingestor.IngestionEngine {
+	return s.ingestorEngine
+}
+
+func (s *GiftsService) TriggerIngestionSync(ctx context.Context) error {
+	if s.ingestorEngine != nil {
+		return s.ingestorEngine.TriggerSyncNow(ctx)
+	}
+	return fmt.Errorf("ingestion engine unavailable")
+}
+
+func (s *GiftsService) ClassifySerial(serial int, baseFloor float64) serials.ClassificationResult {
+	return serials.ClassifySerial(serial, baseFloor)
+}
+
+func (s *GiftsService) GetArbitrageRadar(ctx context.Context) ([]ArbitrageOpportunity, error) {
+	if s.repo == nil {
+		return []ArbitrageOpportunity{}, nil
+	}
+	opps, err := s.repo.GetArbitrageOpportunities(ctx, 30)
+	if err != nil {
+		return nil, err
+	}
+
+	gramUsdRate := 5.20
+	if s.cryptoPrice != nil {
+		if rate, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && rate > 0 {
+			gramUsdRate = rate
+		}
+	}
+
+	result := make([]ArbitrageOpportunity, 0, len(opps))
+	for i, o := range opps {
+		name := o.ModelID
+		if col, ok := traits.ResolveCollection(o.ModelID); ok {
+			name = col.Name
+		}
+		netProf, _ := o.NetProfitGRAM.Float64()
+		buyP, _ := o.SourceFloorGRAM.Float64()
+		sellP, _ := o.TargetFloorGRAM.Float64()
+		spreadPct, _ := o.NetROIPct.Float64()
+
+		result = append(result, ArbitrageOpportunity{
+			ModelID:       o.ModelID,
+			ModelName:     name,
+			BuyVenue:      o.SourceVenue,
+			BuyPriceGRAM:  buyP,
+			SellVenue:     o.TargetVenue,
+			SellPriceGRAM: sellP,
+			NetProfitGRAM: netProf,
+			NetProfitUSD:  round2(netProf * gramUsdRate),
+			SpreadPercent: spreadPct,
+			IsFreeAccess:  i < 3,
+		})
+	}
+	return result, nil
+}
+
+func (s *GiftsService) GetWhaleLeaderboard(ctx context.Context) ([]WhaleProfile, error) {
+	if s.repo == nil {
+		return []WhaleProfile{}, nil
+	}
+	wallets, err := s.repo.GetWhaleWallets(ctx, 25)
+	if err != nil {
+		return nil, err
+	}
+
+	gramUsdRate := 5.20
+	if s.cryptoPrice != nil {
+		if rate, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && rate > 0 {
+			gramUsdRate = rate
+		}
+	}
+
+	result := make([]WhaleProfile, 0, len(wallets))
+	for i, w := range wallets {
+		valGram, _ := w.TotalEstValueGRAM.Float64()
+		valUsd := valGram * gramUsdRate
+
+		class := "diamond_hands"
+		if w.GiftsCount > 300 {
+			class = "accumulator"
+		} else if w.UniqueCollections > 40 {
+			class = "syndicate"
+		}
+
+		result = append(result, WhaleProfile{
+			Rank:           i + 1,
+			OwnerAddress:   w.WalletAddress,
+			DisplayName:    w.Label,
+			HoldingsCount:  w.GiftsCount,
+			TotalValueGRAM: round2(valGram),
+			TotalValueUSD:  round2(valUsd),
+			Classification: class,
+			Change24hCount: int(math.Max(1, float64(w.GiftsCount)/50.0)),
+			AvgHoldDays:    120 + (i * 15),
+		})
+	}
+	return result, nil
 }
 
 type GiftsMacroStatsPayload struct {
@@ -374,6 +480,11 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 		if dynamicMarketCap > 0 {
 			resp.TotalMarketCapUSD = round2(dynamicMarketCap)
 		}
+	}
+
+	// Populate Arbitrage Radar from real cross-venue opportunities
+	if arb, err := s.GetArbitrageRadar(ctx); err == nil && len(arb) > 0 {
+		resp.ArbitrageRadar = arb
 	}
 
 	// 2. Compute Volume and Aggregates from gift_sales

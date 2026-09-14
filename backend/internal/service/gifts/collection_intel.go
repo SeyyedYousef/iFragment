@@ -16,11 +16,15 @@ import (
 
 // CollectionListItem represents a gift collection in summary
 type CollectionListItem struct {
-	Slug        string   `json:"slug"`
-	Name        string   `json:"name"`
-	ImageURL    string   `json:"image_url,omitempty"`
-	TotalSupply *int     `json:"total_supply"`
-	FloorGRAM   *float64 `json:"floor_gram"`
+	Slug              string   `json:"slug"`
+	Name              string   `json:"name"`
+	ImageURL          string   `json:"image_url,omitempty"`
+	TotalSupply       *int     `json:"total_supply"`
+	FloorGRAM         *float64 `json:"floor_gram"`
+	Volume24hGRAM     float64  `json:"volume_24h_gram,omitempty"`
+	PriceChange24hPct float64  `json:"price_change_24h_pct,omitempty"`
+	HoldersCount      int      `json:"holders_count,omitempty"`
+	UpgradedCount     int      `json:"upgraded_count,omitempty"`
 }
 
 // CollectionIntelResponse represents comprehensive collection intelligence
@@ -297,9 +301,6 @@ type FloorHistoryPoint struct {
 
 // ListCollections returns catalog of available official Telegram gift collections
 func (s *GiftsService) ListCollections(ctx context.Context) ([]CollectionListItem, error) {
-	allCols := traits.GetGlobalCatalog().GetAllCollections()
-	var list []CollectionListItem
-
 	floorMap := make(map[string]float64)
 	if s.repo != nil {
 		if snaps, err := s.repo.GetVenueSnapshots(ctx, ""); err == nil && len(snaps) > 0 {
@@ -313,8 +314,50 @@ func (s *GiftsService) ListCollections(ctx context.Context) ([]CollectionListIte
 				}
 			}
 		}
+
+		// Check if rich extended collections exist in DB
+		if extCols, err := s.repo.GetAllCollectionsExtended(ctx); err == nil && len(extCols) > 0 {
+			var list []CollectionListItem
+			for _, c := range extCols {
+				var ts *int
+				if c.TotalSupply > 0 {
+					v := c.TotalSupply
+					ts = &v
+				}
+
+				var floorGRAM *float64
+				if f, ok := floorMap[c.ModelID]; ok && f > 0 {
+					floorGRAM = &f
+				} else if f, ok := floorMap[c.Slug]; ok && f > 0 {
+					floorGRAM = &f
+				}
+
+				vol24, _ := c.Volume24hGRAM.Float64()
+				ch24, _ := c.PriceChange24hPct.Float64()
+
+				itemSlug := c.Slug
+				if itemSlug == "" {
+					itemSlug = c.ModelID
+				}
+
+				list = append(list, CollectionListItem{
+					Slug:              itemSlug,
+					Name:              c.Name,
+					ImageURL:          fmt.Sprintf("/api/v1/gifts/image/%s", itemSlug),
+					TotalSupply:       ts,
+					FloorGRAM:         floorGRAM,
+					Volume24hGRAM:     vol24,
+					PriceChange24hPct: ch24,
+					HoldersCount:      c.UniqueHoldersCount,
+					UpgradedCount:     c.UpgradedCount,
+				})
+			}
+			return list, nil
+		}
 	}
 
+	allCols := traits.GetGlobalCatalog().GetAllCollections()
+	var list []CollectionListItem
 	for _, col := range allCols {
 		var ts *int
 		if col.TotalSupply > 0 {

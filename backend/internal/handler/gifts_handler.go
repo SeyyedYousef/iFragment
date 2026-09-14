@@ -455,3 +455,63 @@ func (h *GiftsHandler) sendGiftNotification(r *http.Request, val *gvengine.GiftV
 
 	notification.GetAdminNotifier().NotifyGift(context.Background(), msg, markup)
 }
+
+// GetArbitrageRadar returns cross-venue arbitrage spreads with net profit and ROI
+func (h *GiftsHandler) GetArbitrageRadar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	radar, err := h.service.GetArbitrageRadar(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to load arbitrage opportunities", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, radar)
+}
+
+// GetWhales returns high-conviction whale and smart money gift holders
+func (h *GiftsHandler) GetWhales(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	whales, err := h.service.GetWhaleLeaderboard(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to load whale leaderboard", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, whales)
+}
+
+// ClassifySerial analyzes a serial number and returns genetic characteristics and valuation multiplier
+func (h *GiftsHandler) ClassifySerial(w http.ResponseWriter, r *http.Request) {
+	serialStr := r.URL.Query().Get("serial")
+	if serialStr == "" {
+		RespondError(w, r, http.StatusBadRequest, "parameter 'serial' is required", nil)
+		return
+	}
+	serial, err := strconv.Atoi(serialStr)
+	if err != nil || serial <= 0 {
+		RespondError(w, r, http.StatusBadRequest, "invalid serial number", err)
+		return
+	}
+
+	baseFloor := 15.0
+	if fStr := r.URL.Query().Get("base_floor"); fStr != "" {
+		if f, err := strconv.ParseFloat(fStr, 64); err == nil && f > 0 {
+			baseFloor = f
+		}
+	}
+
+	result := h.service.ClassifySerial(serial, baseFloor)
+	RespondJSON(w, http.StatusOK, result)
+}
+
+// TriggerSync runs on-demand ingestion sync
+func (h *GiftsHandler) TriggerSync(w http.ResponseWriter, r *http.Request) {
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer cancel()
+		_ = h.service.TriggerIngestionSync(bgCtx)
+	}()
+	RespondJSON(w, http.StatusAccepted, map[string]string{
+		"status":  "initiated",
+		"message": "autonomous gifts ingestion cycle triggered in background",
+	})
+}
+

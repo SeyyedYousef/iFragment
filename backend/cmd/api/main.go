@@ -493,6 +493,9 @@ func main() {
 	if giftsService.GetSnapshotWorker() != nil {
 		go giftsService.GetSnapshotWorker().Start(ctx)
 	}
+	if giftsService.GetIngestionEngine() != nil {
+		go giftsService.GetIngestionEngine().Start(ctx)
+	}
 	giftsHandler := handler.NewGiftsHandler(giftsService)
 
 	// Initialize Intel Credits System
