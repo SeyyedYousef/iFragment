@@ -377,7 +377,7 @@ export const GiftReportPage: Component = () => {
 	return (
 		<div class="pb-40 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
 			{/* Ambient Gradient Glows matching Username Section */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[450px] bg-gradient-to-b from-[#0098EA]/20 via-[#AF52DE]/10 to-transparent blur-[90px] pointer-events-none z-0" />
+			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[450px] bg-gradient-to-b from-[#0098EA]/20 via-[#00B2FF]/10 to-transparent blur-[90px] pointer-events-none z-0" />
 			<div class="fixed bottom-20 right-0 w-80 h-80 bg-[#0098EA]/10 blur-[100px] pointer-events-none z-0" />
 
 			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">

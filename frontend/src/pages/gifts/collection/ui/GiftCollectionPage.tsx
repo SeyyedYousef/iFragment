@@ -126,7 +126,7 @@ export const GiftCollectionPage: Component = () => {
 		if (permille <= 50)
 			return { label: 'Rare', bg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
 		if (permille <= 150)
-			return { label: 'Uncommon', bg: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' };
+			return { label: 'Uncommon', bg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' };
 		return { label: 'Common', bg: 'bg-white/5 text-white/50 border-white/10' };
 	};
 
