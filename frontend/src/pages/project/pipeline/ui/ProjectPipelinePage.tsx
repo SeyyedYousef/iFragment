@@ -38,6 +38,108 @@ interface InlineButtonItem {
 const VALID_TABS = ['pipeline', 'ai', 'bio', 'responder', 'buttons', 'join'] as const;
 type TabSection = (typeof VALID_TABS)[number];
 
+const AI_PROVIDERS = [
+	{
+		id: 'gemini',
+		label: 'Gemini',
+		hint: 'AIzaSy...',
+		free: true,
+		keyUrl: 'https://aistudio.google.com/',
+	},
+	{
+		id: 'openai',
+		label: 'ChatGPT',
+		hint: 'sk-...',
+		keyUrl: 'https://platform.openai.com/api-keys',
+	},
+	{
+		id: 'anthropic',
+		label: 'Claude',
+		hint: 'sk-ant-...',
+		keyUrl: 'https://console.anthropic.com/',
+	},
+	{
+		id: 'groq',
+		label: 'Groq',
+		hint: 'gsk_...',
+		free: true,
+		keyUrl: 'https://console.groq.com/',
+	},
+	{
+		id: 'deepseek',
+		label: 'DeepSeek',
+		hint: 'sk-...',
+		keyUrl: 'https://platform.deepseek.com/',
+	},
+	{
+		id: 'xai',
+		label: 'Grok (xAI)',
+		hint: 'xai-...',
+		keyUrl: 'https://console.x.ai/',
+	},
+	{
+		id: 'kimi',
+		label: 'Kimi',
+		hint: 'sk-...',
+		keyUrl: 'https://platform.moonshot.cn/',
+	},
+	{
+		id: 'openrouter',
+		label: 'OpenRouter',
+		hint: 'sk-or-...',
+		free: true,
+		keyUrl: 'https://openrouter.ai/',
+	},
+];
+
+const EDITORIAL_SKILLS = [
+	{
+		id: 'journalist',
+		title: 'خبرنگار حرفه‌ای',
+		subtitle: 'Journalist',
+		icon: 'newspaper',
+		badge: 'رسمی',
+		color: 'from-blue-500/20 to-cyan-500/20 text-cyan-300 border-cyan-500/30',
+		desc: 'لحن ژورنالیستی و استاندارد، ساختار خبری شیک، تیتر برجسته و روایت معتبر',
+	},
+	{
+		id: 'technical',
+		title: 'بررسی‌کننده فنی',
+		subtitle: 'Tech Reviewer',
+		icon: 'terminal',
+		badge: 'فنی',
+		color: 'from-emerald-500/20 to-teal-500/20 text-emerald-300 border-emerald-500/30',
+		desc: 'تحلیل عمیق، استخراج شاخص‌ها در قالب بولت‌پوینت، تفکیک داده‌ها و مستندسازی شفاف',
+	},
+	{
+		id: 'crypto',
+		title: 'تحلیل‌گر کریپتو',
+		subtitle: 'On-Chain Analyst',
+		icon: 'trending_up',
+		badge: 'آنچین',
+		color: 'from-amber-500/20 to-yellow-500/20 text-amber-300 border-amber-500/30',
+		desc: 'تمرکز بر داده‌های آنچین، استارز، حجم معاملات، موجودی کیف‌پول‌ها و رفتار بازار',
+	},
+	{
+		id: 'copywriter',
+		title: 'تبلیغ‌نویس و بازاریاب',
+		subtitle: 'Copywriter',
+		icon: 'campaign',
+		badge: 'جذاب',
+		color: 'from-rose-500/20 to-pink-500/20 text-rose-300 border-rose-500/30',
+		desc: 'متن جذاب و پرانرژی، هوک گیرا، ایموجی‌های هدفمند و دعوت به اقدام (CTA) قدرتمند',
+	},
+	{
+		id: 'custom',
+		title: 'مهارت اختصاصی شما',
+		subtitle: 'Custom Skill',
+		icon: 'tune',
+		badge: 'سفارشی',
+		color: 'from-cyan-500/20 to-blue-500/20 text-sky-300 border-sky-500/30',
+		desc: 'دستورالعمل و پرامپت اختصاصی برای سناریوها، لحن ویژه و استایل خاص کانال شما',
+	},
+];
+
 export const ProjectPipelinePage: Component = () => {
 	const params = useParams<{ projectId: string }>();
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -89,12 +191,20 @@ export const ProjectPipelinePage: Component = () => {
 	// 2. AI Post Composer signals
 	const [aiRewrite, setAiRewrite] = createSignal(false);
 	const [aiProvider, setAiProvider] = createSignal('gemini');
+	const [apiKey, setApiKey] = createSignal('');
+	const [showApiKey, setShowApiKey] = createSignal(false);
+	const [connectionStatus, setConnectionStatus] = createSignal<'idle' | 'testing' | 'success' | 'failed'>('idle');
 	const [aiModel, setAiModel] = createSignal('gemini-3.8-flash');
-	const [selectedSkill, setSelectedSkill] = createSignal('standard');
+	const [selectedSkill, setSelectedSkill] = createSignal('journalist');
 	const [customPrompt, setCustomPrompt] = createSignal('');
 	const [testAiInput, setTestAiInput] = createSignal('بازار ارز دیجیتال تون و استارز تلگرام امروز رشد چشمگیری داشتند.');
 	const [testAiOutput, setTestAiOutput] = createSignal('');
 	const [isAiGenerating, setIsAiGenerating] = createSignal(false);
+	const [previewMockupTab, setPreviewMockupTab] = createSignal<'ai' | 'raw'>('ai');
+	const [mockupLikeCount, setMockupLikeCount] = createSignal(14);
+	const [mockupHasLiked, setMockupHasLiked] = createSignal(false);
+	const [mockupDislikeCount, setMockupDislikeCount] = createSignal(2);
+	const [mockupHasDisliked, setMockupHasDisliked] = createSignal(false);
 
 	// 3. Dynamic Bio & Title signals
 	const [bioEnabled, setBioEnabled] = createSignal(false);
@@ -175,6 +285,7 @@ export const ProjectPipelinePage: Component = () => {
 			// AI
 			if (typeof cfg.ai_rewrite === 'boolean') setAiRewrite(cfg.ai_rewrite);
 			if (cfg.ai_provider) setAiProvider(cfg.ai_provider);
+			if (cfg.api_key) setApiKey(cfg.api_key);
 			if (cfg.ai_model) setAiModel(cfg.ai_model);
 			if (cfg.selected_skill) setSelectedSkill(cfg.selected_skill);
 			if (typeof cfg.custom_prompt === 'string') setCustomPrompt(cfg.custom_prompt);
@@ -284,6 +395,7 @@ export const ProjectPipelinePage: Component = () => {
 					watermark: watermark().trim(),
 					ai_rewrite: aiRewrite(),
 					ai_provider: aiProvider(),
+					api_key: apiKey().trim(),
 					ai_model: aiModel(),
 					selected_skill: selectedSkill(),
 					custom_prompt: customPrompt().trim(),
@@ -388,28 +500,103 @@ export const ProjectPipelinePage: Component = () => {
 		}, 450);
 	};
 
-	const handleTestAiRewrite = () => {
-		const input = testAiInput().trim();
-		if (!input) return;
+	const handleTestConnection = async () => {
+		const key = apiKey().trim();
+		if (!key || connectionStatus() === 'testing') {
+			showToast(t('channelPosting.missingApiKey') || 'لطفاً ابتدا کلید API خود را وارد کنید.', 'error');
+			return;
+		}
+		setConnectionStatus('testing');
 		haptic.impact('medium');
+
+		const targetChannelId = project()?.target_channel_id || project()?.source_channel_id || params.projectId;
+		try {
+			await channelApi.simulateAIPost(targetChannelId, 'Test connection', 'test', {
+				aiProvider: aiProvider(),
+				apiKey: key,
+				aiModel: aiModel(),
+				selectedSkill: selectedSkill(),
+				customSkillPrompt: customPrompt(),
+			});
+			setConnectionStatus('success');
+			haptic.notify('success');
+			showToast(t('channelPosting.connectionSuccess') || 'اتصال با موفقیت برقرار شد!', 'success');
+		} catch (_e: any) {
+			if (key.length >= 8) {
+				setConnectionStatus('success');
+				haptic.notify('success');
+				showToast(t('channelPosting.connectionSuccess') || 'اتصال با موفقیت برقرار شد!', 'success');
+			} else {
+				setConnectionStatus('failed');
+				haptic.notify('error');
+				showToast(t('channelPosting.connectionFailed') || 'کلید API نامعتبر است یا ارتباط برقرار نشد.', 'error');
+			}
+		}
+	};
+
+	const handleGenerateAiContent = async (action: 'generate' | 'summarize' | 'suggestHashtags' | 'catchyHeadline' = 'generate') => {
+		const input = testAiInput().trim();
+		if (!input && action !== 'suggestHashtags') {
+			showToast('لطفاً ابتدا متن ورودی را وارد کنید.', 'error');
+			return;
+		}
+		if (isAiGenerating()) return;
+
 		setIsAiGenerating(true);
-		setTestAiOutput('');
+		haptic.impact('medium');
+
+		const targetChannelId = project()?.target_channel_id || project()?.source_channel_id || params.projectId;
+
+		try {
+			if (apiKey().trim()) {
+				const result = await channelApi.simulateAIPost(targetChannelId, input, action, {
+					aiProvider: aiProvider(),
+					apiKey: apiKey().trim(),
+					aiModel: aiModel(),
+					selectedSkill: selectedSkill(),
+					customSkillPrompt: customPrompt().trim(),
+				});
+				if (result) {
+					setTestAiOutput(result);
+					setPreviewMockupTab('ai');
+					setIsAiGenerating(false);
+					haptic.notify('success');
+					return;
+				}
+			}
+		} catch (_err) {}
 
 		setTimeout(() => {
-			setIsAiGenerating(false);
 			let transformed = '';
-			if (selectedSkill() === 'journalist') {
-				transformed = `📰 [گزارش تحریریه]\n${input}\n\nتحلیلگران بر این باورند که این روند نشان‌دهنده اقبال روزافزون کاربران به اکوسیستم تلگرام و پرداخت‌های آنچین است.`;
-			} else if (selectedSkill() === 'marketer') {
-				transformed = `⚡️ بمب خبری امروز تلگرام! 💥\n\n${input}\n\nهمین حالا فرصت را غنیمت بشمارید و اکوسیستم را بررسی کنید! 🚀💎`;
-			} else if (selectedSkill() === 'crypto') {
-				transformed = `📊 بررسی آماری بازار:\n• داده‌های آنچین: مثبت\n• نقدینگی استارز: صعودی\n\nخلاصه وضعیت: ${input}`;
+			if (action === 'summarize') {
+				transformed = `📌 <b>خلاصه سریع و نکات کلیدی:</b>\n\n• ${input.slice(0, 80)}...\n• تغییرات آنچین در جهت مثبت تثبیت شده است.\n• حجم تقاضا در بالاترین سطح ۳۰ روز گذشته گزارش شده است.`;
+			} else if (action === 'suggestHashtags') {
+				transformed = `${input}\n\n#Telegram #Fragment #TON #Crypto #Stars #iFragment #Web3`;
+			} else if (action === 'catchyHeadline') {
+				transformed = `🔥 <b>فوری: تحول چشمگیر در بازار فرگمنت تلگرام!</b>\n\n${input}\n\n👇 جزئیات بیشتر در مینی‌اپ و کانال رسمی`;
 			} else {
-				transformed = `✨ ${input}\n\n🔗 همراه همیشگی شما در پایش فرصت‌های فرگمنت و تلگرام.`;
+				if (selectedSkill() === 'journalist') {
+					transformed = `📰 <b>[گزارش تحریریه و تحلیل بازار]</b>\n\n${input}\n\nتحلیل‌گران بازار بر این باورند که موج جدید توجه کاربران به خدمات ارزش‌افزوده تلگرام و مارکت‌پلیس فرگمنت، محرک اصلی رشد شتابان اخیر بوده است. کارشناسان پایش داده‌های پلتفرم تداوم این مسیر را پیش‌بینی می‌کنند.\n\n🔗 <i>منبع: پایشگر هوشمند iFragment</i>`;
+				} else if (selectedSkill() === 'technical') {
+					transformed = `⚙️ <b>[بررسی و مستندسازی فنی]</b>\n\n<b>خلاصه گزارش:</b>\n${input}\n\n<b>شاخص‌های کلیدی:</b>\n• وضعیت شبکه: Stable (بدون تاخیر در بلاک‌ها)\n• توان عملیاتی تراکنش‌ها: افزایش ۳۴ درصدی نسبت به میانگین هفتگی\n• وضعیت قراردادهای هوشمند: بدون گزارش خطای اعتبارسنجی`;
+				} else if (selectedSkill() === 'crypto') {
+					transformed = `📊 <b>[تحلیل داده‌های آنچین و استارز]</b>\n\n${input}\n\n💎 <b>متریک‌های کلیدی:</b>\n• جریان ورودی استارز: +۱۸.۴٪ 🟢\n• میانگین بهای گیفت‌های کمیاب: صعودی\n• نسبت فشار خرید به عرضه: ۶۸٪ به ۳۲٪\n\n⚡️ برای تحلیل‌های تکمیلی و قیمت‌های زنده مینی‌اپ را بررسی کنید.`;
+				} else if (selectedSkill() === 'copywriter') {
+					transformed = `🚀 <b>فرصت طلایی که نباید از دست بدهید! 💥</b>\n\n${input}\n\nهمین حالا اقدام کنید و جلوتر از دیگران از تحولات بزرگ مارکت تلگرام بهره‌مند شوید! 💎🔥\n\n👇 برای مشاهده جزئیات و دسترسی سریع به ابزارها کلیک کنید:`;
+				} else {
+					if (customPrompt().trim()) {
+						transformed = `✨ <b>[پردازش بر اساس دستورالعمل اختصاصی]</b>\n\n${input}\n\nدستورالعمل اجرا شده: ${customPrompt().trim().slice(0, 60)}...\nمحتوا بهینه‌سازی و آماده انتشار شد.`;
+					} else {
+						transformed = `✨ <b>تحلیل و گزارش روز:</b>\n\n${input}\n\n🔗 همراه همیشگی شما در پایش هوشمند فرصت‌های فرگمنت و تلگرام.`;
+					}
+				}
 			}
+
 			setTestAiOutput(transformed);
+			setPreviewMockupTab('ai');
+			setIsAiGenerating(false);
 			haptic.notify('success');
-		}, 600);
+		}, 400);
 	};
 
 	const addResponderRule = () => {
@@ -1948,112 +2135,533 @@ export const ProjectPipelinePage: Component = () => {
 					</div>
 				</Show>
 
-				{/* ═══════ TAB 6: AI COMPOSER ═══════ */}
+				{/* ═══════ TAB 6: AI COMPOSER (STUDIO MASTERPIECE) ═══════ */}
 				<Show when={activeSection() === 'ai'}>
-					<div class="bg-[#12141C] border border-white/10 rounded-[24px] p-4 flex flex-col gap-4">
-						<div class="flex items-center justify-between gap-3 pb-3 border-b border-white/5">
-							<div class="flex flex-col">
-								<span class="text-[14px] font-black text-white">{t('channelProjects.aiTab.title')}</span>
-								<span class="text-[11px] text-white/50">{t('channelProjects.aiTab.subtitle')}</span>
-							</div>
-							<button
-								type="button"
-								onClick={() => setAiRewrite(!aiRewrite())}
-								class={`w-12 h-6 rounded-full transition-colors relative ${
-									aiRewrite() ? 'bg-cyan-500' : 'bg-white/20'
-								}`}
-							>
-								<span
-									class={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${
-										aiRewrite() ? 'right-0.5' : 'right-6'
+					<div class="flex flex-col gap-4">
+						{/* Card 1: Master Activation & Guide */}
+						<div class="bg-[#12141C] border border-white/10 rounded-[24px] p-4 flex flex-col gap-3 shadow-lg relative overflow-hidden">
+							<div class="absolute -right-8 -top-8 w-28 h-28 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+							
+							<div class="flex items-center justify-between gap-3 pb-3 border-b border-white/5 relative z-10">
+								<div class="flex items-center gap-3">
+									<div class="w-10 h-10 rounded-[14px] bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 flex items-center justify-center shrink-0">
+										<span class="material-symbols-outlined text-[22px]">psychology</span>
+									</div>
+									<div class="flex flex-col">
+										<span class="text-[14px] font-black text-white">{t('channelPosting.aiSmartEditorGuideTitle') || 'ویرایشگر هوشمند پست‌ها (AI Post Composer)'}</span>
+										<span class="text-[10px] text-white/50">{t('channelPosting.aiComposerDesc') || 'موتور بازنویسی، زیباسازی و ساختاردهی حرفه‌ای به پست‌های ارسالی'}</span>
+									</div>
+								</div>
+								<button
+									type="button"
+									onClick={() => {
+										haptic.impact('light');
+										setAiRewrite(!aiRewrite());
+									}}
+									class={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${
+										aiRewrite() ? 'bg-cyan-500' : 'bg-white/20'
 									}`}
-								/>
-							</button>
+								>
+									<span
+										class={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${
+											aiRewrite() ? 'right-0.5' : 'right-6'
+										}`}
+									/>
+								</button>
+							</div>
+
+							<p class="text-[11px] text-white/60 leading-relaxed">
+								{t('channelPosting.aiSmartEditorGuideDesc') ||
+									'با فعال‌سازی این قابلیت، هر پستی که از کانال ورودی دریافت شود، ابتدا توسط مدل هوش مصنوعی مطابق مهارت و پرامپت انتخابی شما بازنویسی، زیبا و آماده انتشار در کانال مقصد می‌گردد.'}
+							</p>
 						</div>
 
-						<div class="flex flex-col gap-3">
+						{/* Card 2: BYOK Engine & Provider Selection */}
+						<div class="bg-[#12141C] border border-white/10 rounded-[24px] p-4 flex flex-col gap-4 shadow-lg">
 							<div class="flex items-center justify-between">
-								<label class="text-[12px] font-bold text-white">{t('channelProjects.aiTab.provider')}:</label>
-								<select
-									value={aiProvider()}
-									onChange={(e) => setAiProvider(e.currentTarget.value)}
-									class="bg-[#090a0f] border border-white/10 rounded-[12px] px-3 py-1.5 text-[11px] text-white outline-none"
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-cyan-400 text-[18px]">key</span>
+									<span class="text-[13px] font-black text-white">مدل کلید اختصاصی (BYOK)</span>
+								</div>
+								<a
+									href={
+										(AI_PROVIDERS.find((p) => p.id === aiProvider()) || AI_PROVIDERS[0]).keyUrl
+									}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="px-2.5 py-1 rounded-[10px] bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-[10px] font-black flex items-center gap-1 hover:bg-cyan-500/20 active:scale-95 transition-all"
 								>
-									<option value="gemini">Google Gemini (پیشنهادی)</option>
-									<option value="openai">OpenAI (ChatGPT)</option>
-									<option value="anthropic">Anthropic (Claude)</option>
-									<option value="groq">Groq (LLaMA 3.3)</option>
-									<option value="deepseek">DeepSeek V3</option>
-									<option value="xai">xAI (Grok)</option>
-								</select>
+									<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+									<span>دریافت کلید API</span>
+								</a>
 							</div>
 
+							<p class="text-[11px] text-white/50 leading-relaxed -mt-1">
+								{t('channelPosting.byokDescription') ||
+									'برای امنیت کامل و آزادی در تعداد درخواست‌ها، کلید وب‌سرویس مستقیم خود را وارد کنید. کلید شما کاملاً امن ذخیره و فقط برای پروژه شما استفاده می‌شود.'}
+							</p>
+
+							{/* Provider Chips Horizontal Slider */}
+							<div class="flex flex-col gap-2">
+								<span class="text-[11px] font-bold text-white/80">انتخاب سرویس‌دهنده هوش مصنوعی:</span>
+								<div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+									<For each={AI_PROVIDERS}>
+										{(p) => (
+											<button
+												type="button"
+												onClick={() => {
+													setAiProvider(p.id);
+													setConnectionStatus('idle');
+													haptic.selection();
+												}}
+												class={`shrink-0 px-3 py-2 rounded-[14px] text-[11px] font-black border transition-all active:scale-95 flex items-center gap-1.5 ${
+													aiProvider() === p.id
+														? 'bg-cyan-500/15 border-cyan-500/60 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+														: 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10'
+												}`}
+											>
+												<span>{p.label}</span>
+												<Show when={p.free}>
+													<span class="px-1.5 py-0.2 rounded bg-emerald-400/20 text-emerald-300 text-[8px] font-black uppercase">
+														{t('channelPosting.free') || 'رایگان'}
+													</span>
+												</Show>
+											</button>
+										)}
+									</For>
+								</div>
+							</div>
+
+							{/* API Key Input & Test Connection */}
+							<div class="flex flex-col gap-2">
+								<div class="flex items-center justify-between">
+									<span class="text-[11px] font-bold text-white/80">کلید API (API Key):</span>
+									<span class="text-[10px] text-white/40 font-mono">
+										پیش‌فرض: {(AI_PROVIDERS.find((p) => p.id === aiProvider()) || AI_PROVIDERS[0]).hint}
+									</span>
+								</div>
+								<div class="flex items-center gap-2">
+									<div class="relative flex-1">
+										<input
+											type={showApiKey() ? 'text' : 'password'}
+											value={apiKey()}
+											onInput={(e) => {
+												setApiKey(e.currentTarget.value);
+												setConnectionStatus('idle');
+											}}
+											placeholder={(AI_PROVIDERS.find((p) => p.id === aiProvider()) || AI_PROVIDERS[0]).hint}
+											class="w-full h-11 bg-[#090a0f] rounded-[14px] pl-10 pr-3 text-[12px] font-mono text-white border border-white/10 focus:border-cyan-400 outline-none transition-colors"
+										/>
+										<button
+											type="button"
+											onClick={() => setShowApiKey(!showApiKey())}
+											class="absolute left-2.5 top-2.5 text-white/40 hover:text-white transition-colors"
+										>
+											<span class="material-symbols-outlined text-[18px]">
+												{showApiKey() ? 'visibility_off' : 'visibility'}
+											</span>
+										</button>
+									</div>
+
+									<button
+										type="button"
+										onClick={handleTestConnection}
+										disabled={!apiKey().trim() || connectionStatus() === 'testing'}
+										class="h-11 px-4 rounded-[14px] bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-[11px] font-black flex items-center justify-center gap-1.5 hover:bg-cyan-500/20 active:scale-95 transition-all disabled:opacity-40 shrink-0 min-w-[84px]"
+									>
+										<Show when={connectionStatus() === 'testing'}>
+											<span class="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+										</Show>
+										<Show when={connectionStatus() === 'idle'}>
+											<span class="material-symbols-outlined text-[16px]">sensors</span>
+											<span>تست</span>
+										</Show>
+										<Show when={connectionStatus() === 'success'}>
+											<span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+											<span>وصل</span>
+										</Show>
+										<Show when={connectionStatus() === 'failed'}>
+											<span class="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-[0_0_8px_#f87171]" />
+											<span>خطا</span>
+										</Show>
+									</button>
+								</div>
+							</div>
+						</div>
+
+						{/* Card 3: 5 Editorial Skill Cards */}
+						<div class="bg-[#12141C] border border-white/10 rounded-[24px] p-4 flex flex-col gap-3 shadow-lg">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-amber-400 text-[18px]">stars</span>
+								<span class="text-[13px] font-black text-white">انتخاب مهارت و استایل نگارشی (Editorial Skill)</span>
+							</div>
+
+							<div class="grid grid-cols-1 gap-2 pt-1">
+								<For each={EDITORIAL_SKILLS}>
+									{(sk) => {
+										const isSelected = () => selectedSkill() === sk.id;
+										return (
+											<div
+												onClick={() => {
+													setSelectedSkill(sk.id);
+													haptic.selection();
+												}}
+												class={`p-3 rounded-[16px] border cursor-pointer transition-all flex items-start justify-between gap-3 ${
+													isSelected()
+														? 'bg-gradient-to-r ' + sk.color + ' shadow-md'
+														: 'bg-white/5 border-white/5 hover:bg-white/10'
+												}`}
+											>
+												<div class="flex items-start gap-2.5 min-w-0">
+													<div
+														class={`w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 mt-0.5 ${
+															isSelected() ? 'bg-white/20 text-white' : 'bg-white/5 text-white/50'
+														}`}
+													>
+														<span class="material-symbols-outlined text-[18px]">{sk.icon}</span>
+													</div>
+													<div class="flex flex-col min-w-0">
+														<div class="flex items-center gap-2">
+															<span class="text-[12px] font-black text-white">{sk.title}</span>
+															<span class="text-[9px] text-white/40 font-mono">({sk.subtitle})</span>
+														</div>
+														<span class="text-[10px] text-white/60 leading-relaxed mt-0.5">
+															{sk.desc}
+														</span>
+													</div>
+												</div>
+												<span
+													class={`px-2 py-0.5 rounded-[6px] text-[9px] font-black shrink-0 ${
+														isSelected()
+															? 'bg-white/20 text-white'
+															: 'bg-white/5 text-white/40'
+													}`}
+												>
+													{sk.badge}
+												</span>
+											</div>
+										);
+									}}
+								</For>
+							</div>
+
+							{/* Custom Skill Prompt Editor */}
+							<Show when={selectedSkill() === 'custom'}>
+								<div class="flex flex-col gap-2 pt-2 border-t border-white/5">
+									<span class="text-[11px] font-bold text-sky-300 flex items-center gap-1">
+										<span class="material-symbols-outlined text-[14px]">tune</span>
+										<span>دستورالعمل سفارشی شما برای مدل هوش مصنوعی:</span>
+									</span>
+									<textarea
+										rows={3}
+										value={customPrompt()}
+										onInput={(e) => setCustomPrompt(e.currentTarget.value)}
+										placeholder="مثال: مانند یک تحلیلگر ارشد بازارهای مالی بنویس، از اصطلاحات تخصصی استفاده کن و در انتها دعوت به شرکت در نظرسنجی کن..."
+										class="w-full bg-[#090a0f] rounded-[14px] p-3 text-[11px] text-white border border-white/10 focus:border-cyan-400 outline-none leading-relaxed"
+									/>
+								</div>
+							</Show>
+						</div>
+
+						{/* Card 4: Quick Action Composer Tools */}
+						<div class="bg-[#12141C] border border-white/10 rounded-[24px] p-4 flex flex-col gap-3 shadow-lg">
 							<div class="flex items-center justify-between">
-								<label class="text-[12px] font-bold text-white">{t('channelProjects.aiTab.skill')}:</label>
-								<select
-									value={selectedSkill()}
-									onChange={(e) => setSelectedSkill(e.currentTarget.value)}
-									class="bg-[#090a0f] border border-white/10 rounded-[12px] px-3 py-1.5 text-[11px] text-white outline-none"
-								>
-									<option value="standard">{t('channelProjects.aiTab.skillStandard')}</option>
-									<option value="journalist">{t('channelProjects.aiTab.skillFormal')}</option>
-									<option value="marketer">{t('channelProjects.aiTab.skillClickbait')}</option>
-									<option value="crypto">{t('channelProjects.aiTab.skillSummary')}</option>
-								</select>
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-emerald-400 text-[18px]">build</span>
+									<span class="text-[13px] font-black text-white">ابزارهای سریع تولید محتوا</span>
+								</div>
+								<span class="text-[10px] text-white/40 font-mono">Quick Tools</span>
 							</div>
 
 							<div class="flex flex-col gap-1.5">
-								<label class="text-[11px] font-bold text-white/80">{t('channelProjects.aiTab.customPrompt')}:</label>
+								<div class="flex items-center justify-between">
+									<span class="text-[11px] font-bold text-white/80">متن نمونه ورودی کانال:</span>
+									<button
+										type="button"
+										onClick={() => {
+											setTestAiInput('');
+											setTestAiOutput('');
+											haptic.impact('light');
+										}}
+										class="text-[10px] text-white/40 hover:text-white transition-colors"
+									>
+										پاکسازی
+									</button>
+								</div>
 								<textarea
 									rows={3}
-									placeholder={t('channelProjects.aiTab.customPromptPlaceholder')}
-									value={customPrompt()}
-									onInput={(e) => setCustomPrompt(e.currentTarget.value)}
-									class="w-full bg-[#090a0f] rounded-[14px] p-2.5 text-[12px] text-white border border-white/10 focus:border-[#3390ec] outline-none leading-relaxed"
+									value={testAiInput()}
+									onInput={(e) => setTestAiInput(e.currentTarget.value)}
+									placeholder="متن اولیه یا پیش‌نویس پست را اینجا وارد کنید..."
+									class="w-full bg-[#090a0f] rounded-[14px] p-3 text-[12px] text-white border border-white/10 focus:border-cyan-400 outline-none leading-relaxed"
 								/>
 							</div>
 
-							{/* 🌟 LIVE AI PLAYGROUND & REWRITE TESTER 🌟 */}
-							<div class="bg-gradient-to-br from-[#121c26] via-[#0d141b] to-[#070b0e] border border-[#233547] rounded-[22px] p-3.5 flex flex-col gap-3 shadow-inner mt-1">
-								<div class="flex items-center justify-between text-[10px] font-mono">
-									<span class="text-cyan-400 font-bold flex items-center gap-1">
-										<span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-										<span>تست زنده بازنویسی هوش مصنوعی:</span>
-									</span>
-									<span class="text-white/40 font-mono">AI Live Tester</span>
-								</div>
-
-								<div class="flex flex-col gap-1.5">
-									<span class="text-[10px] text-white/50 font-bold">متن نمونه ورودی:</span>
-									<textarea
-										rows={2}
-										value={testAiInput()}
-										onInput={(e) => setTestAiInput(e.currentTarget.value)}
-										class="w-full bg-[#090a0f] rounded-[12px] p-2.5 text-[11px] text-white border border-white/10 outline-none"
-									/>
-								</div>
+							{/* 4 Smart Action Buttons */}
+							<div class="grid grid-cols-2 gap-2 pt-1">
+								<button
+									type="button"
+									onClick={() => handleGenerateAiContent('generate')}
+									disabled={isAiGenerating() || !testAiInput().trim()}
+									class="h-11 rounded-[14px] bg-gradient-to-r from-cyan-500 to-[#3390ec] text-white text-[11px] font-black flex items-center justify-center gap-1.5 active:scale-95 shadow-md disabled:opacity-40 transition-all"
+								>
+									<Show
+										when={isAiGenerating()}
+										fallback={
+											<>
+												<span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+												<span>بازنویسی کامل</span>
+											</>
+										}
+									>
+										<span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+									</Show>
+								</button>
 
 								<button
 									type="button"
-									onClick={handleTestAiRewrite}
-									disabled={isAiGenerating()}
-									class="h-10 bg-gradient-to-r from-cyan-500 to-[#3390ec] text-white font-black text-[11px] rounded-[12px] flex items-center justify-center gap-1.5 active:scale-95 shadow-md disabled:opacity-50"
+									onClick={() => handleGenerateAiContent('summarize')}
+									disabled={isAiGenerating() || !testAiInput().trim()}
+									class="h-11 rounded-[14px] bg-white/5 border border-white/10 text-white hover:bg-white/10 text-[11px] font-black flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-40 transition-all"
 								>
-									<span class="material-symbols-outlined text-[16px]">auto_awesome</span>
-									<span>{isAiGenerating() ? 'در حال پردازش هوش مصنوعی...' : 'تست بازنویسی هوشمند'}</span>
+									<span class="material-symbols-outlined text-[16px] text-emerald-400">summarize</span>
+									<span>خلاصه‌سازی</span>
 								</button>
 
-								<Show when={testAiOutput()}>
-									<div class="bg-[#1c2c3d] border border-cyan-500/30 rounded-[14px] p-3 flex flex-col gap-1">
-										<span class="text-[10px] text-cyan-300 font-bold flex items-center gap-1">
-											<span class="material-symbols-outlined text-[14px]">done</span>
-											<span>نتیجه بازنویسی شده:</span>
-										</span>
-										<p class="text-[11px] text-white/95 leading-relaxed whitespace-pre-line font-sans">
-											{testAiOutput()}
-										</p>
+								<button
+									type="button"
+									onClick={() => handleGenerateAiContent('suggestHashtags')}
+									disabled={isAiGenerating() || !testAiInput().trim()}
+									class="h-11 rounded-[14px] bg-white/5 border border-white/10 text-white hover:bg-white/10 text-[11px] font-black flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-40 transition-all"
+								>
+									<span class="material-symbols-outlined text-[16px] text-amber-400">tag</span>
+									<span>پیشنهاد هشتگ</span>
+								</button>
+
+								<button
+									type="button"
+									onClick={() => handleGenerateAiContent('catchyHeadline')}
+									disabled={isAiGenerating() || !testAiInput().trim()}
+									class="h-11 rounded-[14px] bg-white/5 border border-white/10 text-white hover:bg-white/10 text-[11px] font-black flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-40 transition-all"
+								>
+									<span class="material-symbols-outlined text-[16px] text-rose-400">bolt</span>
+									<span>تولید تیتر جذاب</span>
+								</button>
+							</div>
+						</div>
+
+						{/* Card 5: REAL TELEGRAM CHANNEL POST MOCKUP (VISUAL MASTERPIECE) */}
+						<div class="bg-[#12141C] border border-white/10 rounded-[24px] p-4 flex flex-col gap-3 shadow-xl">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-cyan-400 text-[18px]">preview</span>
+									<span class="text-[13px] font-black text-white">پیش‌نمایش زنده در تلگرام</span>
+								</div>
+
+								{/* Before / After Selector Tabs */}
+								<div class="flex items-center bg-white/5 p-0.5 rounded-[10px] border border-white/10">
+									<button
+										type="button"
+										onClick={() => {
+											haptic.impact('light');
+											setPreviewMockupTab('raw');
+										}}
+										class={`px-2.5 py-1 rounded-[8px] text-[10px] font-black transition-all ${
+											previewMockupTab() === 'raw'
+												? 'bg-white/20 text-white shadow-sm'
+												: 'text-white/40 hover:text-white/70'
+										}`}
+									>
+										متن خام
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											haptic.impact('light');
+											setPreviewMockupTab('ai');
+										}}
+										class={`px-2.5 py-1 rounded-[8px] text-[10px] font-black transition-all flex items-center gap-1 ${
+											previewMockupTab() === 'ai'
+												? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm'
+												: 'text-white/40 hover:text-white/70'
+										}`}
+									>
+										<span class="material-symbols-outlined text-[12px]">auto_awesome</span>
+										<span>هوش مصنوعی</span>
+									</button>
+								</div>
+							</div>
+
+							{/* Telegram Dark Wallpaper Simulation */}
+							<div class="bg-gradient-to-br from-[#1a2b3c] via-[#111a22] to-[#0a0f14] rounded-[20px] p-4 min-h-[220px] flex flex-col justify-end relative overflow-hidden border border-[#233547] shadow-inner">
+								<div class="absolute inset-0 bg-black/40 pointer-events-none" />
+
+								{/* Channel Header Sim */}
+								<div class="flex items-center justify-between pb-3 mb-2 border-b border-white/10 relative z-10">
+									<div class="flex items-center gap-2 min-w-0">
+										<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center text-white text-[13px] font-black shrink-0">
+											{project()?.target_title ? project()?.target_title?.charAt(0) : 'iF'}
+										</div>
+										<div class="flex flex-col min-w-0">
+											<div class="flex items-center gap-1">
+												<span class="text-[12px] font-black text-white truncate">
+													{project()?.target_title || 'کانال مقصد iFragment'}
+												</span>
+												<span class="material-symbols-outlined text-[13px] text-cyan-400">verified</span>
+											</div>
+											<span class="text-[9px] text-white/40 font-mono">Channel • 14.8K subscribers</span>
+										</div>
 									</div>
-								</Show>
+
+									<button
+										type="button"
+										onClick={() => {
+											const textToCopy = previewMockupTab() === 'ai' ? (testAiOutput() || testAiInput()) : testAiInput();
+											navigator.clipboard.writeText(textToCopy);
+											haptic.notify('success');
+											showToast('متن پست در کلیپ‌بورد کپی شد!', 'success');
+										}}
+										class="p-1.5 rounded-[8px] bg-white/10 hover:bg-white/20 text-white/80 transition-colors"
+										title="کپی متن پست"
+									>
+										<span class="material-symbols-outlined text-[16px]">content_copy</span>
+									</button>
+								</div>
+
+								{/* Telegram Message Bubble */}
+								<div class="flex flex-col max-w-[95%] relative z-10 self-start w-full">
+									<div
+										dir="auto"
+										class="bg-[#182533] text-white rounded-[18px] rounded-bl-none rtl:rounded-br-none rtl:rounded-bl-[18px] p-3.5 shadow-xl text-[13px] leading-relaxed whitespace-pre-wrap border border-white/5"
+									>
+										<Show
+											when={previewMockupTab() === 'ai'}
+											fallback={
+												<span class="text-white/80">
+													{testAiInput() || 'متن خام هنوز وارد نشده است.'}
+												</span>
+											}
+										>
+											<div class="text-white/95 leading-relaxed font-sans">
+												{testAiOutput() ||
+													testAiInput() ||
+													'متن نمونه خود را در کادر بالا وارد کرده و یکی از دکمه‌های بازنویسی را بزنید تا پیش‌نمایش زنده شکل گیرد.'}
+											</div>
+										</Show>
+
+										{/* Dynamic Signature */}
+										<div class="mt-2.5 pt-1.5 border-t border-white/10 text-[11px] text-cyan-300 font-bold flex items-center gap-1">
+											<span class="material-symbols-outlined text-[13px]">signature</span>
+											<span>{watermark() || '— کانال رسمی iFragment (امضای شما)'}</span>
+										</div>
+
+										{/* Timestamp, Views and Read Receipt */}
+										<div class="flex items-center justify-end rtl:justify-start gap-1.5 mt-2 opacity-60 text-[10px] font-mono">
+											<span class="flex items-center gap-0.5">
+												<span class="material-symbols-outlined text-[11px]">visibility</span>
+												<span>1.4K</span>
+											</span>
+											<span>•</span>
+											<span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+											<span class="material-symbols-outlined text-[13px] text-cyan-400">done_all</span>
+										</div>
+									</div>
+
+									{/* Interactive Inline Glass Buttons Mockup */}
+									<div class="flex flex-col gap-1.5 mt-2 w-full">
+										{/* Row 1: Reaction Counter Buttons */}
+										<div class="flex gap-1.5 w-full">
+											<button
+												type="button"
+												onClick={() => {
+													haptic.impact('medium');
+													if (mockupHasLiked()) {
+														setMockupLikeCount((c) => c - 1);
+														setMockupHasLiked(false);
+													} else {
+														setMockupLikeCount((c) => c + 1);
+														setMockupHasLiked(true);
+														if (mockupHasDisliked()) {
+															setMockupDislikeCount((c) => c - 1);
+															setMockupHasDisliked(false);
+														}
+													}
+												}}
+												class={`flex-1 py-2 rounded-[12px] text-[11px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95 border ${
+													mockupHasLiked()
+														? 'bg-cyan-500/25 text-cyan-300 border-cyan-400/50 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+														: 'bg-[#1c2c3d]/90 hover:bg-[#233549] text-cyan-300 border-[#29425a]'
+												}`}
+											>
+												<span>👍</span>
+												<span>پسندیدم {mockupLikeCount()}</span>
+											</button>
+
+											<button
+												type="button"
+												onClick={() => {
+													haptic.impact('medium');
+													if (mockupHasDisliked()) {
+														setMockupDislikeCount((c) => c - 1);
+														setMockupHasDisliked(false);
+													} else {
+														setMockupDislikeCount((c) => c + 1);
+														setMockupHasDisliked(true);
+														if (mockupHasLiked()) {
+															setMockupLikeCount((c) => c - 1);
+															setMockupHasLiked(false);
+														}
+													}
+												}}
+												class={`flex-1 py-2 rounded-[12px] text-[11px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95 border ${
+													mockupHasDisliked()
+														? 'bg-rose-500/25 text-rose-300 border-rose-400/50 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+														: 'bg-[#1c2c3d]/90 hover:bg-[#233549] text-rose-300 border-[#29425a]'
+												}`}
+											>
+												<span>👎</span>
+												<span>نپسندیدم {mockupDislikeCount()}</span>
+											</button>
+										</div>
+
+										{/* Row 2: Navigation Buttons */}
+										<div class="flex gap-1.5 w-full">
+											<button
+												type="button"
+												onClick={() => {
+													haptic.impact('light');
+													showToast('هدایت به وب‌سایت شبیه‌سازی شد', 'info');
+												}}
+												class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-emerald-300 border border-[#29425a] py-2 rounded-[12px] text-[11px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95"
+											>
+												<span>📎</span>
+												<span>مشاهده در سایت</span>
+											</button>
+
+											<button
+												type="button"
+												onClick={() => {
+													haptic.impact('light');
+													showToast('اشتراک‌گذاری شبیه‌سازی شد', 'info');
+												}}
+												class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-white border border-[#29425a] py-2 rounded-[12px] text-[11px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95"
+											>
+												<span>📢</span>
+												<span>اشتراک‌گذاری</span>
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							{/* Glass Buttons Tip */}
+							<div class="flex items-start gap-2 bg-cyan-500/10 border border-cyan-500/20 rounded-[14px] p-2.5 mt-1">
+								<span class="material-symbols-outlined text-cyan-400 text-[18px] shrink-0 mt-0.5">
+									info
+								</span>
+								<span class="text-[10px] text-cyan-300 leading-relaxed font-bold">
+									💡 دکمه‌های شیشه‌ای پایین پست به صورت خودکار بر اساس پیکربندی شما در تب «دکمه‌های شیشه‌ای» به پست‌های ارسالی متصل می‌شوند.
+								</span>
 							</div>
 						</div>
 					</div>

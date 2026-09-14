@@ -947,7 +947,10 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 						}
 						reportURL := fmt.Sprintf("%s?startapp=number_%s", miniAppURL, strings.TrimPrefix(number, "+"))
 						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-						_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received! Your %s valuation report is unlocked:\n%s", number, reportURL), nil, nil)
+						if tg != nil {
+							userLang, _ := h.db.GetUserLanguage(ctx, userID)
+							_ = tg.SendMessage(ctx, userID, i18n.T(userLang, "receipts.number_unlocked", map[string]interface{}{"number": number, "url": reportURL}), nil, nil)
+						}
 
 						timeStr := time.Now().UTC().Format("15:04:05 UTC")
 						msgTopic := fmt.Sprintf(
@@ -990,7 +993,8 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 						reportURL := fmt.Sprintf("%s?startapp=gift_%s", miniAppURL, giftID)
 						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 						if tg != nil {
-							_ = tg.SendMessage(ctx, userID, fmt.Sprintf("🎁 <b>Payment Received!</b>\nYour %s Gift valuation report is unlocked:\n%s", giftID, reportURL), nil, nil)
+							userLang, _ := h.db.GetUserLanguage(ctx, userID)
+							_ = tg.SendMessage(ctx, userID, i18n.T(userLang, "receipts.gift_unlocked", map[string]interface{}{"url": reportURL}), nil, nil)
 						}
 
 						timeStr := time.Now().UTC().Format("15:04:05 UTC")
@@ -1020,7 +1024,8 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 					username := parts[2]
 					if parseErr == nil && username != "" {
 						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-						_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received! You now have 24-hour full access to @%s AI valuation.", username), nil, nil)
+						userLang, _ := h.db.GetUserLanguage(ctx, userID)
+						_ = tg.SendMessage(ctx, userID, i18n.T(userLang, "receipts.avm_unlocked", map[string]interface{}{"username": username}), nil, nil)
 
 						timeStr := time.Now().UTC().Format("15:04:05 UTC")
 						msgTopic := fmt.Sprintf(
@@ -1929,40 +1934,24 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 	if violation.Action == "warn" || violation.Action == "delete" {
 		template := ct.WarningText
 		if template == "" || repository.IsLegacyText(template) {
-			if lang == "fa" {
-				template = "⚠️ {user}\n▫️ اخطار {count}/{threshold} — {reason}"
-			} else {
-				template = "⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}"
-			}
+			template = i18n.T(lang, "templates.warning")
 		}
 
 		switch violation.Type {
 		case "mandatory_membership":
 			template = ct.ForceJoinText
 			if template == "" || repository.IsLegacyText(template) {
-				if lang == "fa" {
-					template = "📢 {user}، برای گفتگو ابتدا در کانال‌های زیر عضو شو:\n{channel_names}"
-				} else {
-					template = "📢 {user}, join required channels to chat:\n{channel_names}"
-				}
+				template = i18n.T(lang, "templates.force_join")
 			}
 		case "forced_add":
 			template = ct.ForceAddText
 			if template == "" || repository.IsLegacyText(template) {
-				if lang == "fa" {
-					template = "👥 {user}، برای فعال شدن چت، {remainadd} نفر دعوت کن ({added}/{number})"
-				} else {
-					template = "👥 {user}, invite {remainadd} member(s) to chat ({added}/{number})"
-				}
+				template = i18n.T(lang, "templates.force_add")
 			}
 		case "quiet_hours":
 			template = ct.SilenceStartText
 			if template == "" || repository.IsLegacyText(template) {
-				if lang == "fa" {
-					template = "🌙 ساعات سکوت گروه آغاز شد."
-				} else {
-					template = "🔒 Quiet mode activated"
-				}
+				template = i18n.T(lang, "templates.silence_start")
 			}
 		}
 
@@ -2283,7 +2272,11 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		if latency < 0 {
 			latency = 0
 		}
-		text := fmt.Sprintf("🏓 <b>Pong!</b>\n⚡ Latency: <code>%dms</code>\n🛡️ Engine: <b>iFragment v2.0 (Active)</b>", latency)
+		userLang, _ := h.db.GetUserLanguage(ctx, m.From.ID)
+		if userLang == "" {
+			userLang = i18n.DetectLanguage(m.From.LanguageCode)
+		}
+		text := i18n.T(userLang, "bot.pong", map[string]interface{}{"latency": latency})
 		_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
 	}
 }
@@ -4017,7 +4010,18 @@ func (h *WebhookHandler) adminHelp(ctx context.Context, tg *telegram.BotAPIClien
 	return true
 }
 
-func (h *WebhookHandler) adminID(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminID(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang ...string) bool {
+	l := "fa"
+	if len(lang) > 0 && lang[0] != "" {
+		l = lang[0]
+	} else if m.From != nil {
+		userLangFromDB, _ := h.db.GetUserLanguage(ctx, m.From.ID)
+		if userLangFromDB != "" {
+			l = userLangFromDB
+		} else {
+			l = i18n.DetectLanguage(m.From.LanguageCode)
+		}
+	}
 	var targetUserID int64
 	var targetUserName string
 	if m.ReplyToMessage != nil && m.ReplyToMessage.From != nil {
@@ -4033,30 +4037,51 @@ func (h *WebhookHandler) adminID(ctx context.Context, tg *telegram.BotAPIClient,
 		replyID = m.ReplyToMessage.MessageID
 	}
 
-	text := fmt.Sprintf("🆔 <b>Chat & User ID Info:</b>\n\n• <b>Chat ID:</b> <code>%d</code>\n• <b>Chat Title:</b> %s\n• <b>Sender ID:</b> <code>%d</code>",
-		m.Chat.ID, telegram.EscapeHTML(m.Chat.Title), m.From.ID)
+	text := i18n.T(l, "bot.id_info", map[string]interface{}{
+		"chat_id":    m.Chat.ID,
+		"chat_title": telegram.EscapeHTML(m.Chat.Title),
+		"sender_id":  m.From.ID,
+	})
 
 	if targetUserID != 0 {
-		text += fmt.Sprintf("\n• <b>Target User:</b> %s (<code>%d</code>)", telegram.EscapeHTML(targetUserName), targetUserID)
+		text += "\n" + i18n.T(l, "bot.id_target_user", map[string]interface{}{
+			"user": telegram.EscapeHTML(targetUserName),
+			"id":   targetUserID,
+		})
 	}
 	if replyID != 0 {
-		text += fmt.Sprintf("\n• <b>Replied Message ID:</b> <code>%d</code>", replyID)
+		text += "\n" + i18n.T(l, "bot.id_reply_id", map[string]interface{}{
+			"id": replyID,
+		})
 	}
 	if m.MessageThreadID != nil {
-		text += fmt.Sprintf("\n• <b>Topic/Thread ID:</b> <code>%d</code>", *m.MessageThreadID)
+		text += "\n" + i18n.T(l, "bot.id_topic_id", map[string]interface{}{
+			"id": *m.MessageThreadID,
+		})
 	}
 
 	_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminPing(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminPing(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang ...string) bool {
+	l := "fa"
+	if len(lang) > 0 && lang[0] != "" {
+		l = lang[0]
+	} else if m.From != nil {
+		userLangFromDB, _ := h.db.GetUserLanguage(ctx, m.From.ID)
+		if userLangFromDB != "" {
+			l = userLangFromDB
+		} else {
+			l = i18n.DetectLanguage(m.From.LanguageCode)
+		}
+	}
 	msgTime := time.Unix(int64(m.Date), 0)
 	latency := time.Since(msgTime).Milliseconds()
 	if latency < 0 {
 		latency = 0
 	}
-	text := fmt.Sprintf("🏓 <b>Pong!</b>\n⚡ Latency: <code>%dms</code>\n🛡️ Engine: <b>iFragment v2.0 (Active)</b>", latency)
+	text := i18n.T(l, "bot.pong", map[string]interface{}{"latency": latency})
 	_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
 	return true
 }
@@ -4242,7 +4267,7 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 		langCode = userLangFromDB
 	}
 	lang := i18n.DetectLanguage(langCode)
-	isFa := (lang == "fa")
+	_ = (lang == "fa")
 
 	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 	var tg *telegram.BotAPIClient
@@ -4599,10 +4624,7 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 
 		if updateErr != nil {
 			slog.Error("Failed to update setting category", "err", updateErr, "group_id", group.ID, "category", category)
-			errMsg := "⚠️ خطا در ذخیره تنظیمات"
-			if !isFa {
-				errMsg = "⚠️ Error updating setting"
-			}
+			errMsg := i18n.T(lang, "settings.err_save")
 			_ = tg.AnswerCallbackQuery(ctx, cq.ID, errMsg, true)
 			return
 		}
@@ -4723,10 +4745,7 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 
 		if updateErr != nil {
 			slog.Error("Failed to cycle setting", "err", updateErr, "group_id", group.ID, "category", category)
-			errMsg := "⚠️ خطا در ذخیره مقدار"
-			if !isFa {
-				errMsg = "⚠️ Error cycling value"
-			}
+			errMsg := i18n.T(lang, "settings.err_save_val")
 			_ = tg.AnswerCallbackQuery(ctx, cq.ID, errMsg, true)
 			return
 		}
@@ -4937,24 +4956,18 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 
 			if errors.Is(err, channelmgmt.ErrAlreadyClicked) {
 				userLang := i18n.DetectLanguage(cq.From.LanguageCode)
-				msg := "You have already voted!"
-				switch userLang {
-				case "fa":
-					msg = "شما قبلاً رأی داده‌اید!"
-				case "ru":
-					msg = "Вы уже проголосовали!"
-				case "ar":
-					msg = "لقد قمت بالتصويت بالفعل!"
-				}
+				msg := i18n.T(userLang, "channel.already_voted")
 				_ = tg.AnswerCallbackQuery(ctx, cq.ID, msg, true) // true = show alert popup
 				return
 			} else if err != nil {
 				slog.Error("Failed to register button click", "button_id", buttonID, "error", err)
-				_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Failed to register click", false)
+				userLang := i18n.DetectLanguage(cq.From.LanguageCode)
+				_ = tg.AnswerCallbackQuery(ctx, cq.ID, i18n.T(userLang, "channel.click_failed"), false)
 				return
 			}
 
-			_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Click registered!", false)
+			userLang := i18n.DetectLanguage(cq.From.LanguageCode)
+			_ = tg.AnswerCallbackQuery(ctx, cq.ID, i18n.T(userLang, "channel.click_registered"), false)
 
 			// Automatically update the message reply markup
 			if cq.Message != nil {
@@ -6169,14 +6182,16 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 				// Check Premium requirement
 				if jrCfg.ApprovePremium && !req.From.IsPremium {
 					_ = tg.DeclineChatJoinRequest(ctx, req.Chat.ID, req.From.ID)
-					_ = tg.SendMessage(ctx, targetChatID, "⚠️ درخواست عضویت شما تایید نشد: نیاز به اکانت پریمیوم تلگرام است.", nil, nil)
+					userLang := i18n.DetectLanguage(req.From.LanguageCode)
+					_ = tg.SendMessage(ctx, targetChatID, i18n.T(userLang, "channel.join_request_rejected_premium", map[string]interface{}{"channel": req.Chat.Title}), nil, nil)
 					return
 				}
 
 				// Check Account Age (Burner account protection)
 				if jrCfg.ApproveAccountAge && req.From.ID > 7800000000 {
 					_ = tg.DeclineChatJoinRequest(ctx, req.Chat.ID, req.From.ID)
-					_ = tg.SendMessage(ctx, targetChatID, "⚠️ درخواست عضویت شما به دلیل عدم احراز سن اکانت تایید نشد.", nil, nil)
+					userLang := i18n.DetectLanguage(req.From.LanguageCode)
+					_ = tg.SendMessage(ctx, targetChatID, i18n.T(userLang, "channel.join_request_rejected_account_age", map[string]interface{}{"channel": req.Chat.Title}), nil, nil)
 					return
 				}
 
@@ -6209,15 +6224,8 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		if mandatory.VerificationEnabled {
 			// Send verification button in PV to the user using targetChatID
 			userLang := i18n.DetectLanguage(req.From.LanguageCode)
-			verifyText := i18n.T(userLang, "verification.pv_prompt", map[string]interface{}{"group": group.ChatTitle})
-			if verifyText == "" || verifyText == "verification.pv_prompt" {
-				if userLang == "fa" {
-					verifyText = fmt.Sprintf("🛡 برای ورود به گروه <b>%s</b>، لطفاً روی دکمه زیر کلیک کنید تا هویت شما تأیید شود:", telegram.EscapeHTML(group.ChatTitle))
-				} else {
-					verifyText = fmt.Sprintf("🛡 To join <b>%s</b>, please click the button below to verify yourself:", telegram.EscapeHTML(group.ChatTitle))
-				}
-			}
-			btnText := "✅ تأیید و ورود"
+			verifyText := i18n.T(userLang, "verification.pv_prompt", map[string]interface{}{"group": telegram.EscapeHTML(group.ChatTitle)})
+			btnText := i18n.T(userLang, "verification.btn_verify")
 			if userLang != "fa" {
 				btnText = "✅ Verify & Join"
 			}
@@ -6344,23 +6352,11 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 					}
 				}
 			case "account_age":
-				if userLang == "fa" {
-					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s پذیرفته نشد زیرا سن اکانت تلگرام شما کمتر از حداقل مجاز است.", ch.ChatTitle)
-				} else {
-					rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved because your Telegram account is too new.", ch.ChatTitle)
-				}
+				rejectMsg = i18n.T(userLang, "channel.join_request_rejected_account_age", map[string]interface{}{"channel": ch.ChatTitle})
 			case "collectibles":
-				if userLang == "fa" {
-					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s پذیرفته نشد زیرا اکانت شما دارای نام کاربری کلکسیونی نیست.", ch.ChatTitle)
-				} else {
-					rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved because your account does not have a collectible identifier.", ch.ChatTitle)
-				}
+				rejectMsg = i18n.T(userLang, "channel.join_request_rejected_collectibles", map[string]interface{}{"channel": ch.ChatTitle})
 			case "gifts":
-				if userLang == "fa" {
-					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s پذیرفته نشد زیرا شرایط گیفت و دارایی‌های اکانت تأیید نشد.", ch.ChatTitle)
-				} else {
-					rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved due to gift & asset requirements.", ch.ChatTitle)
-				}
+				rejectMsg = i18n.T(userLang, "channel.join_request_rejected_gifts", map[string]interface{}{"channel": ch.ChatTitle})
 			}
 			_ = tg.SendMessage(ctx, targetChatID, rejectMsg, nil, nil)
 		}

@@ -678,22 +678,29 @@ func editMessageTextOrCaption(ctx context.Context, tg *telegram.BotAPIClient, ch
 	return err
 }
 
-func buildInputChannelPreviewKeyboard(draft *repository.PendingFunnelPost) map[string]interface{} {
+func buildInputChannelPreviewKeyboard(draft *repository.PendingFunnelPost, lang ...string) map[string]interface{} {
+	l := "fa"
+	if len(lang) > 0 && lang[0] != "" {
+		l = lang[0]
+	}
 	totalVars := len(draft.AiVariations)
 	if totalVars == 0 {
 		totalVars = 1
 	}
-	varBtnText := fmt.Sprintf("🔄 تغییر استایل هوش مصنوعی (%d/%d)", draft.SelectedVariationIndex+1, totalVars)
+	varBtnText := i18n.T(l, "funnel.btn_style_variation", map[string]interface{}{
+		"current": draft.SelectedVariationIndex + 1,
+		"total":   totalVars,
+	})
 
 	return map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
 			{
 				{
-					"text":          "🚀 تایید و ارسال به کانال خروجی",
+					"text":          i18n.T(l, "funnel.btn_approve_send"),
 					"callback_data": fmt.Sprintf("f_app:%s", draft.ID.String()),
 				},
 				{
-					"text":          "❌ رد و لغو",
+					"text":          i18n.T(l, "funnel.btn_reject"),
 					"callback_data": fmt.Sprintf("f_rej:%s", draft.ID.String()),
 				},
 			},
@@ -703,7 +710,7 @@ func buildInputChannelPreviewKeyboard(draft *repository.PendingFunnelPost) map[s
 					"callback_data": fmt.Sprintf("f_var:%s", draft.ID.String()),
 				},
 				{
-					"text":          "🤖 بازتولید متن",
+					"text":          i18n.T(l, "funnel.btn_regenerate"),
 					"callback_data": fmt.Sprintf("f_reg:%s", draft.ID.String()),
 				},
 			},
@@ -711,11 +718,15 @@ func buildInputChannelPreviewKeyboard(draft *repository.PendingFunnelPost) map[s
 	}
 }
 
-func formatFunnelPreviewText(destTitle string, contentText string) string {
-	return fmt.Sprintf("🎛️ <b>پیش‌نمایش پست پردازش‌شده (iFragment Funnel)</b>\n📤 کانال مقصد: <b>%s</b>\n━━━━━━━━━━━━━━━━\n%s",
-		telegram.EscapeHTML(destTitle),
-		contentText,
-	)
+func formatFunnelPreviewText(destTitle string, contentText string, lang ...string) string {
+	l := "fa"
+	if len(lang) > 0 && lang[0] != "" {
+		l = lang[0]
+	}
+	header := i18n.T(l, "funnel.preview_header", map[string]interface{}{
+		"channel": telegram.EscapeHTML(destTitle),
+	})
+	return fmt.Sprintf("%s\n━━━━━━━━━━━━━━━━\n%s", header, contentText)
 }
 
 func (s *ChannelService) sendFunnelPreviewToInputChannel(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, draft *repository.PendingFunnelPost, destTitle string) error {
@@ -785,7 +796,7 @@ func (s *ChannelService) sendFunnelPreviewToInputChannel(ctx context.Context, bo
 			_, sendErr = tg.Request(ctx, method, payload)
 		}
 	} else {
-		albumPreview := fmt.Sprintf("%s\n\n<i>📷 [آلبوم شامل %d رسانه است]</i>", previewText, len(draft.MediaPayload))
+		albumPreview := fmt.Sprintf("%s\n\n<i>%s</i>", previewText, i18n.T("fa", "funnel.album_media_count", map[string]interface{}{"count": len(draft.MediaPayload)}))
 		payload := map[string]interface{}{
 			"chat_id":             funnel.InputChatID,
 			"text":                albumPreview,
@@ -1186,15 +1197,15 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 	}
 
 	if !isAuthorized {
-		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "⚠️ فقط مدیران کانال ورودی/خروجی یا مالک پروژه مجاز به اقدام هستند.", true)
+		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, i18n.T(lang, "funnel.unauthorized_action"), true)
 		return nil
 	}
 
 	switch cmd {
 	case "f_app":
 		// Approve & Publish (Async to prevent UI freeze)
-		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "🚀 در حال انتشار در کانال خروجی...", false)
-		_ = editMessageTextOrCaption(ctx, tg, cq.ChatID, cq.MessageID, "⏳ <b>در حال انتشار پست در کانال مقصد...</b>", nil)
+		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, i18n.T(lang, "funnel.publishing_progress"), false)
+		_ = editMessageTextOrCaption(ctx, tg, cq.ChatID, cq.MessageID, i18n.T(lang, "funnel.publishing_status"), nil)
 
 		s.wg.Add(1)
 		GoSafe(func() {
@@ -1205,7 +1216,7 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 			err := s.publishFunnelPostDirectly(bgCtx, tg, funnel, draft)
 			if err != nil {
 				slog.Error("Failed to publish funnel post", "error", err, "draft_id", draft.ID)
-				_ = editMessageTextOrCaption(bgCtx, tg, cq.ChatID, cq.MessageID, fmt.Sprintf("❌ <b>خطا در انتشار پست:</b> %s", telegram.EscapeHTML(err.Error())), nil)
+				_ = editMessageTextOrCaption(bgCtx, tg, cq.ChatID, cq.MessageID, fmt.Sprintf(i18n.T(lang, "funnel.published_failed"), telegram.EscapeHTML(err.Error())), nil)
 				return
 			}
 
@@ -1214,9 +1225,9 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 				destName = destChan.ChatTitle
 			}
 			if destName == "" {
-				destName = "کانال خروجی"
+				destName = i18n.T(lang, "funnel.default_output_channel")
 			}
-			successMsg := fmt.Sprintf("✅ <b>این پست تایید شد و با موفقیت در کانال خروجی منتشر گردید.</b>\n\n🎯 کانال مقصد: <b>%s</b>", telegram.EscapeHTML(destName))
+			successMsg := fmt.Sprintf(i18n.T(lang, "funnel.published_success"), telegram.EscapeHTML(destName))
 			_ = editMessageTextOrCaption(bgCtx, tg, cq.ChatID, cq.MessageID, successMsg, nil)
 		})
 
@@ -1224,31 +1235,31 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 		// Reject
 		draft.Status = "rejected"
 		_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
-		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "❌ پیش‌نویس رد و لغو شد.", false)
-		_ = editMessageTextOrCaption(ctx, tg, cq.ChatID, cq.MessageID, "❌ <b>این پیش‌نویس توسط مدیر رد شد و ارسال نخواهد شد.</b>", nil)
+		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, i18n.T(lang, "funnel.rejected_confirm"), false)
+		_ = editMessageTextOrCaption(ctx, tg, cq.ChatID, cq.MessageID, i18n.T(lang, "funnel.rejected_status"), nil)
 
 	case "f_var":
 		// Cycle styles (0 -> 1 -> 2 -> 0)
 		if len(draft.AiVariations) == 0 {
-			_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "تنوع هوش مصنوعی برای این پست موجود نیست.", true)
+			_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, i18n.T(lang, "funnel.variation_not_available"), true)
 			return nil
 		}
 		draft.SelectedVariationIndex = (draft.SelectedVariationIndex + 1) % len(draft.AiVariations)
 		draft.DraftText = draft.AiVariations[draft.SelectedVariationIndex]
 		_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
-		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, fmt.Sprintf("استایل شماره %d فعال شد", draft.SelectedVariationIndex+1), false)
+		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, fmt.Sprintf(i18n.T(lang, "funnel.variation_activated"), draft.SelectedVariationIndex+1), false)
 
 		destName := funnel.ProjectName
 		if destName == "" && destChan != nil {
 			destName = destChan.ChatTitle
 		}
 		if destName == "" {
-			destName = "کانال مقصد"
+			destName = i18n.T(lang, "funnel.default_output_channel")
 		}
 
 		if cq.ChatID == funnel.InputChatID {
-			updatedPreview := formatFunnelPreviewText(destName, draft.DraftText)
-			updatedMarkup := buildInputChannelPreviewKeyboard(draft)
+			updatedPreview := formatFunnelPreviewText(destName, draft.DraftText, lang)
+			updatedMarkup := buildInputChannelPreviewKeyboard(draft, lang)
 			_ = editMessageTextOrCaption(ctx, tg, cq.ChatID, cq.MessageID, updatedPreview, updatedMarkup)
 		} else {
 			panelMarkup := buildFunnelPanelKeyboard(draft)
@@ -1264,12 +1275,12 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 		if cache != nil && cache.Client != nil {
 			rlKey := fmt.Sprintf("funnel_ai_rl:%s", draft.ID.String())
 			if val, _ := cache.Client.Get(ctx, rlKey).Result(); val != "" {
-				_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "لطفاً 20 ثانیه قبل از بازتولید مجدد صبر کنید.", true)
+				_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, i18n.T(lang, "funnel.cooldown_wait"), true)
 				return nil
 			}
 			cache.Client.Set(ctx, rlKey, "1", 20*time.Second)
 		}
-		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "🤖 در حال بازتولید متن با هوش مصنوعی Gemini 3.8 Flash...", false)
+		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, i18n.T(lang, "funnel.regenerating_progress"), false)
 
 		var posting PostingSettingsSchema
 		if destChan != nil {
@@ -1308,18 +1319,18 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 				destName = destChan.ChatTitle
 			}
 			if destName == "" {
-				destName = "کانال مقصد"
+				destName = i18n.T(lang, "funnel.default_output_channel")
 			}
 
 			if cq.ChatID == funnel.InputChatID {
-				updatedPreview := formatFunnelPreviewText(destName, draft.DraftText)
-				updatedMarkup := buildInputChannelPreviewKeyboard(draft)
+				updatedPreview := formatFunnelPreviewText(destName, draft.DraftText, lang)
+				updatedMarkup := buildInputChannelPreviewKeyboard(draft, lang)
 				_ = editMessageTextOrCaption(ctx, tg, cq.ChatID, cq.MessageID, updatedPreview, updatedMarkup)
 			} else {
 				_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, i18n.T(lang, "funnel.regenerated", map[string]interface{}{"text": draft.DraftText}), nil, nil, "HTML")
 			}
 		} else {
-			_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "خطا در برقراری ارتباط با مدل هوش مصنوعی", true)
+			_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, i18n.T(lang, "funnel.ai_error"), true)
 		}
 
 	case "f_edt":
