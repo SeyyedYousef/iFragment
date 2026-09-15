@@ -21,8 +21,6 @@ type TelegramUpdate struct {
 	MyChatMember      *ChatMemberUpdated `json:"my_chat_member"`
 	ChatMember        *ChatMemberUpdated `json:"chat_member"`
 	CallbackQuery     *CallbackQuery     `json:"callback_query"`
-	ChannelPost       *Message           `json:"channel_post"`
-	EditedChannelPost *Message           `json:"edited_channel_post"`
 	ChatJoinRequest   *ChatJoinRequest   `json:"chat_join_request"`
 	InlineQuery       *InlineQuery       `json:"inline_query,omitempty"`
 	ChosenInlineResult *ChosenInlineResult `json:"chosen_inline_result,omitempty"`

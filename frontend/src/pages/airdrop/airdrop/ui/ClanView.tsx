@@ -358,7 +358,9 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 							{/* Clan Contribution & Anti-Whale Ledger Status */}
 							<div class="w-full mt-4 bg-white/[0.03] border border-white/5 rounded-[20px] p-3 flex items-center justify-between text-start">
 								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-emerald-400 text-[18px]">verified_user</span>
+									<span class="material-symbols-outlined text-emerald-400 text-[18px]">
+										verified_user
+									</span>
 									<div class="flex flex-col">
 										<span class="text-[11px] font-bold text-white">
 											{t('airdrop.clan.antiWhaleTitle')}

@@ -7,7 +7,8 @@ import { haptic } from './haptic.js';
 
 export { haptic };
 
-const getWebApp = () => (typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined);
+const getWebApp = () =>
+	typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
 
 /**
  * Safely execute an asynchronous callback-based Telegram WebApp method
@@ -183,19 +184,23 @@ export const requestContact = (): Promise<boolean> => {
 
 // ─── QR Scanner ───
 export const showScanQrPopup = (text?: string): Promise<string | null> => {
-	return safeTelegramAsync<string | null>((wa, resolve) => {
-		if (typeof wa.showScanQrPopup !== 'function') {
-			resolve(null);
-			return;
-		}
-		wa.showScanQrPopup({ text: text || 'Scan QR code' }, (data: string) => {
-			try {
-				wa.closeScanQrPopup?.();
-			} catch {}
-			resolve(data || null);
-			return true;
-		});
-	}, null, 15000);
+	return safeTelegramAsync<string | null>(
+		(wa, resolve) => {
+			if (typeof wa.showScanQrPopup !== 'function') {
+				resolve(null);
+				return;
+			}
+			wa.showScanQrPopup({ text: text || 'Scan QR code' }, (data: string) => {
+				try {
+					wa.closeScanQrPopup?.();
+				} catch {}
+				resolve(data || null);
+				return true;
+			});
+		},
+		null,
+		15000,
+	);
 };
 
 // ─── Popups ───
@@ -284,14 +289,18 @@ export const biometric = {
 		}, false);
 	},
 	authenticate: (reason: string): Promise<boolean> => {
-		return safeTelegramAsync<boolean>((wa, resolve) => {
-			const bm = wa.BiometricManager;
-			if (!bm || typeof bm.authenticate !== 'function') {
-				resolve(false);
-				return;
-			}
-			bm.authenticate({ reason }, (success: boolean) => resolve(Boolean(success)));
-		}, false, 15000);
+		return safeTelegramAsync<boolean>(
+			(wa, resolve) => {
+				const bm = wa.BiometricManager;
+				if (!bm || typeof bm.authenticate !== 'function') {
+					resolve(false);
+					return;
+				}
+				bm.authenticate({ reason }, (success: boolean) => resolve(Boolean(success)));
+			},
+			false,
+			15000,
+		);
 	},
 	openSettings: () => {
 		try {
@@ -384,11 +393,15 @@ export const openSubscriptionLink = (url: string): Promise<boolean> => {
 };
 
 export const openInvoice = (url: string): Promise<string> => {
-	return safeTelegramAsync<string>((wa, resolve) => {
-		if (typeof wa.openInvoice !== 'function') {
-			resolve('failed');
-			return;
-		}
-		wa.openInvoice(url, (status: string) => resolve(status || 'failed'));
-	}, 'failed', 20000);
+	return safeTelegramAsync<string>(
+		(wa, resolve) => {
+			if (typeof wa.openInvoice !== 'function') {
+				resolve('failed');
+				return;
+			}
+			wa.openInvoice(url, (status: string) => resolve(status || 'failed'));
+		},
+		'failed',
+		20000,
+	);
 };

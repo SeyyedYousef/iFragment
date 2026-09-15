@@ -2,19 +2,13 @@ import { useLocation, useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { GiftThumbnail, giftsApi } from '@/entities/gifts/index.js';
-import { GiftFloorChart } from './GiftFloorChart.js';
-import { CollectionRarityHeatmap } from './CollectionRarityHeatmap.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import { CollectionRarityHeatmap } from './CollectionRarityHeatmap.js';
+import { GiftFloorChart } from './GiftFloorChart.js';
 
-export type CollectionTabKey =
-	| 'market'
-	| 'sales'
-	| 'items'
-	| 'attributes'
-	| 'venues'
-	| 'heatmap';
+export type CollectionTabKey = 'market' | 'sales' | 'items' | 'attributes' | 'venues' | 'heatmap';
 
 export const GiftCollectionPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -24,7 +18,10 @@ export const GiftCollectionPage: Component = () => {
 	const getCollectionSlug = () => {
 		const params = new URLSearchParams(location.search);
 		const raw = params.get('c') || 'plush_pepe';
-		return raw.toLowerCase().trim().replace(/[\s_]+/g, '-');
+		return raw
+			.toLowerCase()
+			.trim()
+			.replace(/[\s_]+/g, '-');
 	};
 
 	const slug = () => getCollectionSlug();
@@ -35,7 +32,9 @@ export const GiftCollectionPage: Component = () => {
 
 	// Extended state for 5 capabilities
 	const [marketTimeframe, setMarketTimeframe] = createSignal<'24h' | '7d' | '30d'>('24h');
-	const [attributeTab, setAttributeTab] = createSignal<'models' | 'symbols' | 'backdrops'>('models');
+	const [attributeTab, setAttributeTab] = createSignal<'models' | 'symbols' | 'backdrops'>(
+		'models',
+	);
 
 	// Sales tab state
 	const [salesSort, setSalesSort] = createSignal<'date' | 'price' | 'number'>('date');
@@ -173,7 +172,9 @@ export const GiftCollectionPage: Component = () => {
 		return sorted;
 	});
 
-	const totalSalesPages = createMemo(() => Math.max(1, Math.ceil(sortedSales().length / salesPageSize)));
+	const totalSalesPages = createMemo(() =>
+		Math.max(1, Math.ceil(sortedSales().length / salesPageSize)),
+	);
 
 	const paginatedSales = createMemo(() => {
 		const all = sortedSales();
@@ -225,7 +226,9 @@ export const GiftCollectionPage: Component = () => {
 		return list;
 	});
 
-	const totalItemsPages = createMemo(() => Math.max(1, Math.ceil(filteredItems().length / itemsPageSize)));
+	const totalItemsPages = createMemo(() =>
+		Math.max(1, Math.ceil(filteredItems().length / itemsPageSize)),
+	);
 
 	const paginatedItems = createMemo(() => {
 		const all = filteredItems();
@@ -358,8 +361,12 @@ export const GiftCollectionPage: Component = () => {
 				<Show when={intelQuery.isError && !intelQuery.isLoading}>
 					<div class="bg-rose-500/10 border border-rose-500/20 rounded-3xl p-6 text-center space-y-3 mb-4">
 						<span class="material-symbols-outlined text-rose-400 text-3xl">error</span>
-						<h3 class="text-sm font-bold text-white">{t('common.error') || 'خطا در دریافت اطلاعات کالکشن'}</h3>
-						<p class="text-xs text-white/50">{t('common.errors.generic') || 'لطفاً دوباره تلاش کنید'}</p>
+						<h3 class="text-sm font-bold text-white">
+							{t('common.error') || 'خطا در دریافت اطلاعات کالکشن'}
+						</h3>
+						<p class="text-xs text-white/50">
+							{t('common.errors.generic') || 'لطفاً دوباره تلاش کنید'}
+						</p>
 						<button
 							type="button"
 							onClick={() => intelQuery.refetch()}
@@ -571,8 +578,12 @@ export const GiftCollectionPage: Component = () => {
 										</div>
 
 										<div class="text-right rtl:text-left shrink-0">
-											<div class="text-base font-black text-white font-mono">{fmt(fi.price_gram)} TON</div>
-											<div class="text-[11px] text-white/40 font-mono font-medium">{fmtUsd(fi.price_usd)}</div>
+											<div class="text-base font-black text-white font-mono">
+												{fmt(fi.price_gram)} TON
+											</div>
+											<div class="text-[11px] text-white/40 font-mono font-medium">
+												{fmtUsd(fi.price_usd)}
+											</div>
 										</div>
 									</div>
 
@@ -602,7 +613,9 @@ export const GiftCollectionPage: Component = () => {
 											class="flex-1 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/10 text-white font-bold text-xs border border-white/10 transition-all active:scale-[0.98] flex items-center justify-center gap-1"
 										>
 											<span>{t('gifts.viewInCollection')}</span>
-											<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_forward</span>
+											<span class="material-symbols-outlined text-sm rtl:rotate-180">
+												arrow_forward
+											</span>
 										</button>
 									</div>
 								</div>
@@ -732,7 +745,9 @@ export const GiftCollectionPage: Component = () => {
 							<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
 								<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 									<h3 class="text-xs font-black text-white flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-[#0098EA] text-base">format_list_numbered</span>
+										<span class="material-symbols-outlined text-[#0098EA] text-base">
+											format_list_numbered
+										</span>
 										<span>{t('gifts.top10ByFloor')}</span>
 									</h3>
 									<span class="text-[10px] text-white/40 font-mono font-medium">
@@ -800,7 +815,9 @@ export const GiftCollectionPage: Component = () => {
 							<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
 								<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 									<h3 class="text-xs font-black text-white flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-emerald-400 text-base">monitoring</span>
+										<span class="material-symbols-outlined text-emerald-400 text-base">
+											monitoring
+										</span>
 										<span>{t('gifts.salesAnalytics')}</span>
 									</h3>
 
@@ -824,8 +841,8 @@ export const GiftCollectionPage: Component = () => {
 													{tf === '24h'
 														? t('gifts.timeframe24h')
 														: tf === '7d'
-														? t('gifts.timeframe7d')
-														: t('gifts.timeframe30d')}
+															? t('gifts.timeframe7d')
+															: t('gifts.timeframe30d')}
 												</button>
 											)}
 										</For>
@@ -901,7 +918,9 @@ export const GiftCollectionPage: Component = () => {
 																	<div class="flex items-center justify-between text-xs bg-white/[0.015] p-2 rounded-xl border border-white/[0.03]">
 																		<span class="font-bold text-white">{src.venue_name}</span>
 																		<div class="text-right rtl:text-left text-[11px] font-mono">
-																			<span class="text-white font-bold">{src.deals_count} {t('gifts.deals')}</span>
+																			<span class="text-white font-bold">
+																				{src.deals_count} {t('gifts.deals')}
+																			</span>
 																			<span class="text-white/40 mx-1.5">·</span>
 																			<span class="text-sky-400">{fmt(src.volume_gram)} TON</span>
 																		</div>
@@ -922,7 +941,9 @@ export const GiftCollectionPage: Component = () => {
 								<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
 									<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 										<h3 class="text-xs font-black text-white flex items-center gap-1.5">
-											<span class="material-symbols-outlined text-amber-400 text-base">shopping_cart</span>
+											<span class="material-symbols-outlined text-amber-400 text-base">
+												shopping_cart
+											</span>
 											<span>{t('gifts.onSaleNow')}</span>
 										</h3>
 										<span class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
@@ -943,8 +964,7 @@ export const GiftCollectionPage: Component = () => {
 										<div class="text-right rtl:text-left font-mono">
 											<span class="text-[10px] text-white/40 block">
 												{(
-													(data()!.on_sale_stats!.total_count /
-														Math.max(1, data()!.total_supply)) *
+													(data()!.on_sale_stats!.total_count / Math.max(1, data()!.total_supply)) *
 													100
 												).toFixed(2)}
 												%
@@ -1147,7 +1167,9 @@ export const GiftCollectionPage: Component = () => {
 									}}
 									class="px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-30 disabled:pointer-events-none text-white font-bold transition-all"
 								>
-									<span class="material-symbols-outlined text-xs rtl:rotate-180">arrow_forward</span>
+									<span class="material-symbols-outlined text-xs rtl:rotate-180">
+										arrow_forward
+									</span>
 								</button>
 							</div>
 						</div>
@@ -1411,7 +1433,9 @@ export const GiftCollectionPage: Component = () => {
 									}}
 									class="px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-30 disabled:pointer-events-none text-white font-bold transition-all"
 								>
-									<span class="material-symbols-outlined text-xs rtl:rotate-180">arrow_forward</span>
+									<span class="material-symbols-outlined text-xs rtl:rotate-180">
+										arrow_forward
+									</span>
 								</button>
 							</div>
 						</div>
@@ -1689,7 +1713,11 @@ export const GiftCollectionPage: Component = () => {
 								collectionSlug={slug()}
 								collectionName={data()?.collection_name || ''}
 								bestFloorGram={data()?.best_floor_gram || 0}
-								gramUsdRate={data()?.best_floor_usd && data()?.best_floor_gram ? data()!.best_floor_usd / data()!.best_floor_gram : undefined}
+								gramUsdRate={
+									data()?.best_floor_usd && data()?.best_floor_gram
+										? data()!.best_floor_usd / data()!.best_floor_gram
+										: undefined
+								}
 							/>
 						</div>
 					</Show>

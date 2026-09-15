@@ -1,10 +1,4 @@
-import {
-	type Component,
-	createMemo,
-	createSignal,
-	For,
-	Show,
-} from 'solid-js';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import type { GiftsIntelResponse } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -192,12 +186,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 						</div>
 						<div class="text-[11px] font-semibold text-white/50 mt-1 font-mono flex items-center gap-3">
 							<span>
-								Volume: <strong class="text-white/80">{formatVol(currentPoint()?.volumeUsd || volumeUsd())}</strong>
+								Volume:{' '}
+								<strong class="text-white/80">
+									{formatVol(currentPoint()?.volumeUsd || volumeUsd())}
+								</strong>
 							</span>
 							<Show when={hoverIndex() !== null && currentPoint()}>
-								<span class="text-[#0098EA] font-mono">
-									{currentPoint()?.label}
-								</span>
+								<span class="text-[#0098EA] font-mono">{currentPoint()?.label}</span>
 							</Show>
 						</div>
 					</div>
@@ -277,9 +272,12 @@ export const GiftsChartView: Component<Props> = (props) => {
 						when={activePoints().length > 0}
 						fallback={
 							<div class="w-full h-full flex flex-col items-center justify-center text-center p-4">
-								<span class="material-symbols-outlined text-3xl text-white/20 mb-1.5">query_stats</span>
+								<span class="material-symbols-outlined text-3xl text-white/20 mb-1.5">
+									query_stats
+								</span>
 								<p class="text-xs text-white/50 font-medium">
-									{t('gifts.macroHistoryUnavailable') || 'Macro historical time-series indexing in progress'}
+									{t('gifts.macroHistoryUnavailable') ||
+										'Macro historical time-series indexing in progress'}
 								</p>
 								<span class="text-[10px] text-white/30 font-mono mt-1">
 									Real-time snapshot: {formatVal(mcapUsd())}
@@ -297,153 +295,153 @@ export const GiftsChartView: Component<Props> = (props) => {
 									<stop offset="0%" stop-color="#0098EA" stop-opacity="0.35" />
 									<stop offset="60%" stop-color="#0098EA" stop-opacity="0.08" />
 									<stop offset="100%" stop-color="#0098EA" stop-opacity="0.0" />
-							</linearGradient>
-							<filter id="neonStrokeGlow" x="-20%" y="-20%" width="140%" height="140%">
-								<feGaussianBlur stdDeviation="3" result="blur" />
-								<feMerge>
-									<feMergeNode in="blur" />
-									<feMergeNode in="SourceGraphic" />
-								</feMerge>
-							</filter>
-						</defs>
+								</linearGradient>
+								<filter id="neonStrokeGlow" x="-20%" y="-20%" width="140%" height="140%">
+									<feGaussianBlur stdDeviation="3" result="blur" />
+									<feMerge>
+										<feMergeNode in="blur" />
+										<feMergeNode in="SourceGraphic" />
+									</feMerge>
+								</filter>
+							</defs>
 
-						{/* Horizontal Reference Gridlines */}
-						<line
-							x1={padding.left}
-							y1={padding.top}
-							x2={width - padding.right}
-							y2={padding.top}
-							stroke="rgba(255,255,255,0.06)"
-							stroke-dasharray="4 4"
-						/>
-						<line
-							x1={padding.left}
-							y1={height / 2}
-							x2={width - padding.right}
-							y2={height / 2}
-							stroke="rgba(255,255,255,0.06)"
-							stroke-dasharray="4 4"
-						/>
-						<line
-							x1={padding.left}
-							y1={height - padding.bottom + 5}
-							x2={width - padding.right}
-							y2={height - padding.bottom + 5}
-							stroke="rgba(255,255,255,0.06)"
-						/>
-
-						{/* Volume Histogram Bars at Bottom */}
-						<For each={activePoints()}>
-							{(pt) => {
-								const barH = Math.min(22, Math.max(4, (pt.volumeUsd / (volumeUsd() * 0.1)) * 14));
-								const barY = height - padding.bottom + 5 - barH;
-								return (
-									<rect
-										x={pt.x - 2.5}
-										y={barY}
-										width="5"
-										height={barH}
-										rx="1.5"
-										fill="rgba(0, 152, 234, 0.18)"
-										class="transition-all hover:fill-[#0098EA]/40"
-									/>
-								);
-							}}
-						</For>
-
-						{/* Area Gradient Fill */}
-						<Show when={svgPaths().area}>
-							<path d={svgPaths().area} fill="url(#chartGlowArea)" />
-						</Show>
-
-						{/* Glowing Spline Line */}
-						<Show when={svgPaths().line}>
-							<path
-								d={svgPaths().line}
-								fill="none"
-								stroke="#0098EA"
-								stroke-width="2.5"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								filter="url(#neonStrokeGlow)"
+							{/* Horizontal Reference Gridlines */}
+							<line
+								x1={padding.left}
+								y1={padding.top}
+								x2={width - padding.right}
+								y2={padding.top}
+								stroke="rgba(255,255,255,0.06)"
+								stroke-dasharray="4 4"
 							/>
-						</Show>
+							<line
+								x1={padding.left}
+								y1={height / 2}
+								x2={width - padding.right}
+								y2={height / 2}
+								stroke="rgba(255,255,255,0.06)"
+								stroke-dasharray="4 4"
+							/>
+							<line
+								x1={padding.left}
+								y1={height - padding.bottom + 5}
+								x2={width - padding.right}
+								y2={height - padding.bottom + 5}
+								stroke="rgba(255,255,255,0.06)"
+							/>
 
-						{/* Interactive Hover Crosshair & Indicator Point */}
-						<Show when={currentPoint()}>
+							{/* Volume Histogram Bars at Bottom */}
+							<For each={activePoints()}>
+								{(pt) => {
+									const barH = Math.min(22, Math.max(4, (pt.volumeUsd / (volumeUsd() * 0.1)) * 14));
+									const barY = height - padding.bottom + 5 - barH;
+									return (
+										<rect
+											x={pt.x - 2.5}
+											y={barY}
+											width="5"
+											height={barH}
+											rx="1.5"
+											fill="rgba(0, 152, 234, 0.18)"
+											class="transition-all hover:fill-[#0098EA]/40"
+										/>
+									);
+								}}
+							</For>
+
+							{/* Area Gradient Fill */}
+							<Show when={svgPaths().area}>
+								<path d={svgPaths().area} fill="url(#chartGlowArea)" />
+							</Show>
+
+							{/* Glowing Spline Line */}
+							<Show when={svgPaths().line}>
+								<path
+									d={svgPaths().line}
+									fill="none"
+									stroke="#0098EA"
+									stroke-width="2.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									filter="url(#neonStrokeGlow)"
+								/>
+							</Show>
+
+							{/* Interactive Hover Crosshair & Indicator Point */}
+							<Show when={currentPoint()}>
+								{(() => {
+									const cp = currentPoint()!;
+									return (
+										<g>
+											{/* Vertical Crosshair Line */}
+											<line
+												x1={cp.x}
+												y1={padding.top - 5}
+												x2={cp.x}
+												y2={height - padding.bottom + 5}
+												stroke="#0098EA"
+												stroke-width="1.5"
+												stroke-dasharray="3 3"
+												opacity="0.75"
+											/>
+											{/* Outer Pulsing Aura */}
+											<circle
+												cx={cp.x}
+												cy={cp.y}
+												r="7"
+												fill="#0098EA"
+												opacity="0.3"
+												class="animate-ping"
+											/>
+											{/* Outer Ring */}
+											<circle
+												cx={cp.x}
+												cy={cp.y}
+												r="5"
+												fill="#0A0E17"
+												stroke="#0098EA"
+												stroke-width="2.5"
+											/>
+											{/* Core Dot */}
+											<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
+										</g>
+									);
+								})()}
+							</Show>
+						</svg>
+
+						{/* Floating Scrubber Tooltip */}
+						<Show when={hoverIndex() !== null && currentPoint()}>
 							{(() => {
 								const cp = currentPoint()!;
+								const isRightHalf = cp.x > width / 2;
 								return (
-									<g>
-										{/* Vertical Crosshair Line */}
-										<line
-											x1={cp.x}
-											y1={padding.top - 5}
-											x2={cp.x}
-											y2={height - padding.bottom + 5}
-											stroke="#0098EA"
-											stroke-width="1.5"
-											stroke-dasharray="3 3"
-											opacity="0.75"
-										/>
-										{/* Outer Pulsing Aura */}
-										<circle
-											cx={cp.x}
-											cy={cp.y}
-											r="7"
-											fill="#0098EA"
-											opacity="0.3"
-											class="animate-ping"
-										/>
-										{/* Outer Ring */}
-										<circle
-											cx={cp.x}
-											cy={cp.y}
-											r="5"
-											fill="#0A0E17"
-											stroke="#0098EA"
-											stroke-width="2.5"
-										/>
-										{/* Core Dot */}
-										<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
-									</g>
+									<div
+										class="absolute pointer-events-none transition-transform duration-75 z-30"
+										style={{
+											left: `${(cp.x / width) * 100}%`,
+											top: `${Math.max(10, Math.min(130, (cp.y / height) * 100))}%`,
+											transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
+										}}
+									>
+										<div class="bg-[#0b101c]/95 border border-[#0098EA]/40 rounded-xl px-2.5 py-1.5 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap">
+											<div class="text-white font-bold text-xs">{formatVal(cp.value)}</div>
+											<div class="text-white/50 text-[9px] flex items-center justify-between gap-2 mt-0.5">
+												<span>{cp.label}</span>
+												<span class="text-sky-400">{formatVol(cp.volumeUsd)} Vol</span>
+											</div>
+										</div>
+									</div>
 								);
 							})()}
 						</Show>
-					</svg>
 
-					{/* Floating Scrubber Tooltip */}
-					<Show when={hoverIndex() !== null && currentPoint()}>
-						{(() => {
-							const cp = currentPoint()!;
-							const isRightHalf = cp.x > width / 2;
-							return (
-								<div
-									class="absolute pointer-events-none transition-transform duration-75 z-30"
-									style={{
-										left: `${(cp.x / width) * 100}%`,
-										top: `${Math.max(10, Math.min(130, (cp.y / height) * 100))}%`,
-										transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
-									}}
-								>
-									<div class="bg-[#0b101c]/95 border border-[#0098EA]/40 rounded-xl px-2.5 py-1.5 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap">
-										<div class="text-white font-bold text-xs">{formatVal(cp.value)}</div>
-										<div class="text-white/50 text-[9px] flex items-center justify-between gap-2 mt-0.5">
-											<span>{cp.label}</span>
-											<span class="text-sky-400">{formatVol(cp.volumeUsd)} Vol</span>
-										</div>
-									</div>
-								</div>
-							);
-						})()}
-					</Show>
-
-					{/* Time Axis Labels */}
-					<div class="absolute bottom-1 left-3 right-3 flex justify-between text-[9px] font-mono text-white/30 pointer-events-none">
-						<span>{chartData()[0]?.label || ''}</span>
-						<span>{chartData()[Math.floor(chartData().length / 2)]?.label || ''}</span>
-						<span class="text-[#0098EA] font-semibold">{t('gifts.now') || 'Now'}</span>
-					</div>
+						{/* Time Axis Labels */}
+						<div class="absolute bottom-1 left-3 right-3 flex justify-between text-[9px] font-mono text-white/30 pointer-events-none">
+							<span>{chartData()[0]?.label || ''}</span>
+							<span>{chartData()[Math.floor(chartData().length / 2)]?.label || ''}</span>
+							<span class="text-[#0098EA] font-semibold">{t('gifts.now') || 'Now'}</span>
+						</div>
 					</Show>
 				</div>
 			</div>

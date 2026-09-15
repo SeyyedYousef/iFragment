@@ -367,7 +367,8 @@ export const GiftReportPage: Component = () => {
 	};
 
 	const cardBackdrop = () => {
-		const bc = (enrichedQuery.data as any)?.backdrop_colors || (currentReport() as any)?.backdrop_colors;
+		const bc =
+			(enrichedQuery.data as any)?.backdrop_colors || (currentReport() as any)?.backdrop_colors;
 		if (bc?.center_hex && bc?.edge_hex) {
 			return `radial-gradient(circle at 50% 45%, ${bc.center_hex} 0%, ${bc.edge_hex} 100%)`;
 		}
@@ -569,19 +570,23 @@ export const GiftReportPage: Component = () => {
 									<div>
 										<div class="flex items-center gap-1.5">
 											<h4 class="text-xs font-black text-white">
-												{isRtl() ? 'جاذبه شماره سریال' : 'Serial Gravity'}: #{(enrichedQuery.data as any)?.serial_intel?.serial_number}
+												{isRtl() ? 'جاذبه شماره سریال' : 'Serial Gravity'}: #
+												{(enrichedQuery.data as any)?.serial_intel?.serial_number}
 											</h4>
 											<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
 												{(enrichedQuery.data as any)?.serial_intel?.tier}
 											</span>
 										</div>
 										<p class="text-[10px] text-white/50 mt-0.5">
-											{(enrichedQuery.data as any)?.serial_intel?.description} (ضریب ارزش: ×{(enrichedQuery.data as any)?.serial_intel?.multiplier})
+											{(enrichedQuery.data as any)?.serial_intel?.description} (ضریب ارزش: ×
+											{(enrichedQuery.data as any)?.serial_intel?.multiplier})
 										</p>
 									</div>
 								</div>
 								<div class="text-end font-mono">
-									<span class="text-xs font-black text-amber-400">×{(enrichedQuery.data as any)?.serial_intel?.multiplier}</span>
+									<span class="text-xs font-black text-amber-400">
+										×{(enrichedQuery.data as any)?.serial_intel?.multiplier}
+									</span>
 									<span class="block text-[8px] text-white/40 uppercase">GRAVITY</span>
 								</div>
 							</div>
@@ -600,38 +605,53 @@ export const GiftReportPage: Component = () => {
 									</h4>
 								</div>
 								<span class="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
-									{enrichedQuery.data?.custody_type === 'on_chain_nft' || currentReport()?.on_chain?.is_on_chain
+									{enrichedQuery.data?.custody_type === 'on_chain_nft' ||
+									currentReport()?.on_chain?.is_on_chain
 										? 'ON-CHAIN (TEP-62)'
 										: 'IN-APP (STARS)'}
 								</span>
 							</div>
 
 							<div class="grid grid-cols-2 gap-2 text-[10px]">
-								<div class={`p-3 rounded-2xl border transition-all ${
-									enrichedQuery.data?.custody_type === 'on_chain_nft' || currentReport()?.on_chain?.is_on_chain
-										? 'bg-purple-500/10 border-purple-500/30 text-white'
-										: 'bg-black/40 border-white/5 text-white/50'
-								}`}>
+								<div
+									class={`p-3 rounded-2xl border transition-all ${
+										enrichedQuery.data?.custody_type === 'on_chain_nft' ||
+										currentReport()?.on_chain?.is_on_chain
+											? 'bg-purple-500/10 border-purple-500/30 text-white'
+											: 'bg-black/40 border-white/5 text-white/50'
+									}`}
+								>
 									<div class="flex items-center justify-between mb-1">
-										<span class="font-black">{isRtl() ? 'بلاکچین TON (TEP-62)' : 'On-Chain TEP-62'}</span>
+										<span class="font-black">
+											{isRtl() ? 'بلاکچین TON (TEP-62)' : 'On-Chain TEP-62'}
+										</span>
 										<span class="text-[9px] text-purple-400 font-bold">Non-Custodial</span>
 									</div>
 									<p class="text-[9px] text-white/60 leading-tight">
-										{isRtl() ? 'دارایی مستقل در والت با قابلیت انتقال و فروش در مارکت‌ها' : 'Decentralized asset in private wallet'}
+										{isRtl()
+											? 'دارایی مستقل در والت با قابلیت انتقال و فروش در مارکت‌ها'
+											: 'Decentralized asset in private wallet'}
 									</p>
 								</div>
 
-								<div class={`p-3 rounded-2xl border transition-all ${
-									enrichedQuery.data?.custody_type !== 'on_chain_nft' && !currentReport()?.on_chain?.is_on_chain
-										? 'bg-amber-500/10 border-amber-500/30 text-white'
-										: 'bg-black/40 border-white/5 text-white/50'
-								}`}>
+								<div
+									class={`p-3 rounded-2xl border transition-all ${
+										enrichedQuery.data?.custody_type !== 'on_chain_nft' &&
+										!currentReport()?.on_chain?.is_on_chain
+											? 'bg-amber-500/10 border-amber-500/30 text-white'
+											: 'bg-black/40 border-white/5 text-white/50'
+									}`}
+								>
 									<div class="flex items-center justify-between mb-1">
-										<span class="font-black">{isRtl() ? 'درون‌برنامه‌ای (Stars)' : 'In-App Stars'}</span>
+										<span class="font-black">
+											{isRtl() ? 'درون‌برنامه‌ای (Stars)' : 'In-App Stars'}
+										</span>
 										<span class="text-[9px] text-amber-400 font-bold">Custodial</span>
 									</div>
 									<p class="text-[9px] text-white/60 leading-tight">
-										{isRtl() ? 'ثبت در سرور تلگرام، قابل ارتقا به NFT با پرداخت استارز' : 'Held on Telegram servers, upgradable to NFT'}
+										{isRtl()
+											? 'ثبت در سرور تلگرام، قابل ارتقا به NFT با پرداخت استارز'
+											: 'Held on Telegram servers, upgradable to NFT'}
 									</p>
 								</div>
 							</div>
@@ -643,7 +663,9 @@ export const GiftReportPage: Component = () => {
 								<div class="flex items-center gap-2">
 									<span class="material-symbols-outlined text-cyan-400 text-base">badge</span>
 									<h4 class="text-xs font-black text-white">
-										{isRtl() ? 'تفکیک نمایش‌دهنده پروفایل از مالک والت' : 'Showcaser vs Wallet Owner'}
+										{isRtl()
+											? 'تفکیک نمایش‌دهنده پروفایل از مالک والت'
+											: 'Showcaser vs Wallet Owner'}
 									</h4>
 								</div>
 								<span class="text-[9px] font-mono text-white/40">PROVENANCE</span>
@@ -655,7 +677,9 @@ export const GiftReportPage: Component = () => {
 										{isRtl() ? 'نمایش‌دهنده در پروفایل (Host)' : 'Profile Showcaser'}
 									</span>
 									<span class="font-black text-white truncate block">
-										{enrichedQuery.data?.host_profile?.host_name || currentReport()?.owner_name || 'Anonymous User'}
+										{enrichedQuery.data?.host_profile?.host_name ||
+											currentReport()?.owner_name ||
+											'Anonymous User'}
 									</span>
 								</div>
 
@@ -663,12 +687,17 @@ export const GiftReportPage: Component = () => {
 									<span class="text-white/40 block text-[9px] mb-0.5">
 										{isRtl() ? 'والت مالک حقیقی بلاکچین' : 'On-Chain Owner Wallet'}
 									</span>
-									<span class={`font-mono font-black truncate block ${
-										enrichedQuery.data?.owner_wallet?.is_escrow ? 'text-amber-400' : 'text-emerald-400'
-									}`} dir="ltr">
+									<span
+										class={`font-mono font-black truncate block ${
+											enrichedQuery.data?.owner_wallet?.is_escrow
+												? 'text-amber-400'
+												: 'text-emerald-400'
+										}`}
+										dir="ltr"
+									>
 										{enrichedQuery.data?.owner_wallet?.is_escrow
-											? (enrichedQuery.data?.owner_wallet?.escrow_name || 'Market Escrow')
-											: (ownerInfo().shortAddr || 'Non-Custodial Wallet')}
+											? enrichedQuery.data?.owner_wallet?.escrow_name || 'Market Escrow'
+											: ownerInfo().shortAddr || 'Non-Custodial Wallet'}
 									</span>
 								</div>
 							</div>
@@ -686,7 +715,9 @@ export const GiftReportPage: Component = () => {
 								<div class="flex items-center gap-2">
 									<span class="material-symbols-outlined text-emerald-400 text-base">payments</span>
 									<h4 class="text-xs font-black text-white">
-										{isRtl() ? 'ماتریس کارمزد و عایدی خالص در بازارهای مختلف' : 'Cross-Venue Net Proceeds Matrix'}
+										{isRtl()
+											? 'ماتریس کارمزد و عایدی خالص در بازارهای مختلف'
+											: 'Cross-Venue Net Proceeds Matrix'}
 									</h4>
 								</div>
 								<span class="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
@@ -701,19 +732,94 @@ export const GiftReportPage: Component = () => {
 											<th class="pb-1.5 text-start font-bold">{isRtl() ? 'مارکت‌پلیس' : 'Venue'}</th>
 											<th class="pb-1.5 font-bold">{isRtl() ? 'کارمزد' : 'Fee %'}</th>
 											<th class="pb-1.5 font-bold">{isRtl() ? 'گس' : 'Gas'}</th>
-											<th class="pb-1.5 text-end font-bold text-emerald-400">{isRtl() ? 'عایدی خالص (TON)' : 'Net Proceeds'}</th>
+											<th class="pb-1.5 text-end font-bold text-emerald-400">
+												{isRtl() ? 'عایدی خالص (TON)' : 'Net Proceeds'}
+											</th>
 										</tr>
 									</thead>
 									<tbody class="divide-y divide-white/5 font-mono">
-										<For each={enrichedQuery.data?.venue_fee_matrix || [
-											{ venue: 'Fragment', fee_pct: 5.0, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.95 - 0.05) * 100) / 100) },
-											{ venue: 'Getgems', fee_pct: 5.0, gas_ton: 0.08, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.95 - 0.08) * 100) / 100) },
-											{ venue: 'Portals', fee_pct: 2.5, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.975 - 0.05) * 100) / 100) },
-											{ venue: 'Tonnel', fee_pct: 3.0, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.97 - 0.05) * 100) / 100) },
-											{ venue: 'MRKT', fee_pct: 2.0, gas_ton: 0.05, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.98 - 0.05) * 100) / 100) },
-											{ venue: 'Stars P2P', fee_pct: 8.0, gas_ton: 0.00, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.92) * 100) / 100) },
-											{ venue: 'DeDust Swap', fee_pct: 1.0, gas_ton: 0.15, net_proceeds_ton: Math.max(0, Math.round((Number(currentReport()?.expected_gram || 0) * 0.99 - 0.15) * 100) / 100) },
-										]}>
+										<For
+											each={
+												enrichedQuery.data?.venue_fee_matrix || [
+													{
+														venue: 'Fragment',
+														fee_pct: 5.0,
+														gas_ton: 0.05,
+														net_proceeds_ton: Math.max(
+															0,
+															Math.round(
+																(Number(currentReport()?.expected_gram || 0) * 0.95 - 0.05) * 100,
+															) / 100,
+														),
+													},
+													{
+														venue: 'Getgems',
+														fee_pct: 5.0,
+														gas_ton: 0.08,
+														net_proceeds_ton: Math.max(
+															0,
+															Math.round(
+																(Number(currentReport()?.expected_gram || 0) * 0.95 - 0.08) * 100,
+															) / 100,
+														),
+													},
+													{
+														venue: 'Portals',
+														fee_pct: 2.5,
+														gas_ton: 0.05,
+														net_proceeds_ton: Math.max(
+															0,
+															Math.round(
+																(Number(currentReport()?.expected_gram || 0) * 0.975 - 0.05) * 100,
+															) / 100,
+														),
+													},
+													{
+														venue: 'Tonnel',
+														fee_pct: 3.0,
+														gas_ton: 0.05,
+														net_proceeds_ton: Math.max(
+															0,
+															Math.round(
+																(Number(currentReport()?.expected_gram || 0) * 0.97 - 0.05) * 100,
+															) / 100,
+														),
+													},
+													{
+														venue: 'MRKT',
+														fee_pct: 2.0,
+														gas_ton: 0.05,
+														net_proceeds_ton: Math.max(
+															0,
+															Math.round(
+																(Number(currentReport()?.expected_gram || 0) * 0.98 - 0.05) * 100,
+															) / 100,
+														),
+													},
+													{
+														venue: 'Stars P2P',
+														fee_pct: 8.0,
+														gas_ton: 0.0,
+														net_proceeds_ton: Math.max(
+															0,
+															Math.round(Number(currentReport()?.expected_gram || 0) * 0.92 * 100) /
+																100,
+														),
+													},
+													{
+														venue: 'DeDust Swap',
+														fee_pct: 1.0,
+														gas_ton: 0.15,
+														net_proceeds_ton: Math.max(
+															0,
+															Math.round(
+																(Number(currentReport()?.expected_gram || 0) * 0.99 - 0.15) * 100,
+															) / 100,
+														),
+													},
+												]
+											}
+										>
 											{(v: any) => (
 												<tr>
 													<td class="py-2 text-start font-sans font-bold text-white flex items-center gap-1">
@@ -983,7 +1089,10 @@ export const GiftReportPage: Component = () => {
 								<For each={currentReport()?.trait_dna}>
 									{(dna) => {
 										const colSupply = resolvedCollectionItem()?.supply || 5000;
-										const repFloor = Number(currentReport()?.base_price_gram) || resolvedCollectionItem()?.floorTon || 45;
+										const repFloor =
+											Number(currentReport()?.base_price_gram) ||
+											resolvedCollectionItem()?.floorTon ||
+											45;
 										const traitFloorTon = Math.round(repFloor * (1 + (100 - dna.percentile) / 45));
 										const population = Math.max(1, Math.round((dna.percentile / 100) * colSupply));
 										return (
@@ -1019,7 +1128,10 @@ export const GiftReportPage: Component = () => {
 													<div class="p-2 rounded-lg bg-black/30 border border-white/5 flex items-center justify-between">
 														<span class="text-white/50 text-[10px]">{t('gifts.globalSupply')}</span>
 														<span class="font-mono font-bold text-sky-400">
-															{t('gifts.populationRatio', { count: population.toLocaleString(), total: colSupply.toLocaleString() })}
+															{t('gifts.populationRatio', {
+																count: population.toLocaleString(),
+																total: colSupply.toLocaleString(),
+															})}
 														</span>
 													</div>
 												</div>
@@ -1673,7 +1785,9 @@ export const GiftReportPage: Component = () => {
 								<span>سلب مسئولیت مالی و سرمایه‌گذاری (Financial Disclaimer)</span>
 							</div>
 							<p class="text-[11px] text-white/40 leading-relaxed max-w-md mx-auto">
-								این گزارش و تحلیل‌های ارزش‌گذاری صرفاً حاصل پردازش‌های الگوریتمی متادیتای عمومی اکوسیستم تلگرام بوده و به هیچ وجه به عنوان مشاوره مالی، تعهد بازدهی، یا پیشنهاد خرید و فروش تلقی نمی‌شود. مسئولیت تصمیمات معاملاتی تماماً بر عهده کاربر است.
+								این گزارش و تحلیل‌های ارزش‌گذاری صرفاً حاصل پردازش‌های الگوریتمی متادیتای عمومی اکوسیستم
+								تلگرام بوده و به هیچ وجه به عنوان مشاوره مالی، تعهد بازدهی، یا پیشنهاد خرید و فروش
+								تلقی نمی‌شود. مسئولیت تصمیمات معاملاتی تماماً بر عهده کاربر است.
 							</p>
 						</div>
 

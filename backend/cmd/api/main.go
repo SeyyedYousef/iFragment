@@ -28,9 +28,12 @@ import (
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/router"
 	"ifragment-backend/internal/service"
-	"ifragment-backend/internal/service/botmgmt"
+	cryptoRand "crypto/rand"
+	"encoding/hex"
+
+	"ifragment-backend/internal/crypto"
+	"ifragment-backend/internal/service/raffle"
 	"ifragment-backend/internal/service/broadcaster"
-	"ifragment-backend/internal/service/channelmgmt"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts"
 	"ifragment-backend/internal/service/intelcredit"
@@ -292,18 +295,10 @@ func main() {
 	analysisService := username.NewAnalysisService(context.Background(), db, cache, tonClient, mtprotoClient)
 	paymentService := payment.NewStarsService(db)
 
-	// Initialize Bot Management repos & services
+	// Initialize Repositories
 	botRepo := repository.NewBotRepo(db)
 	settingsRepo := repository.NewSettingsRepo(db, cache)
-	auditRepo := repository.NewAuditRepo(db)
-	analyticsRepo := repository.NewAnalyticsRepo(db)
-
-	botService := botmgmt.NewBotService(botRepo, settingsRepo, auditRepo, analyticsRepo, cache, cryptoPriceService)
-	AutoRegisterMainBot(ctx, db, botService)
-	moderatorService := botmgmt.NewModeratorService(settingsRepo, botRepo, auditRepo, analyticsRepo, cache)
-
-	// 🚀 Start Background Expiration Worker
-	botService.StartBackgroundTasks(ctx)
+	AutoRegisterMainBot(ctx, db, botRepo)
 
 	// 🚀 Start Background Partition & Maintenance Worker
 	if db != nil {
@@ -317,13 +312,6 @@ func main() {
 		go collectionWorker.Start(ctx)
 	}
 
-	// Initialize Handlers
-	channelRepo := repository.NewChannelRepo(db, cache)
-	channelService := channelmgmt.NewChannelService(channelRepo, botRepo, auditRepo, cryptoPriceService)
-
-	// 🚀 Start Channel Background Workers (Post scheduler & daily analytics snapshots)
-	channelService.StartBackgroundTasks(ctx)
-
 	// Initialize UserbotManager
 	ownerRepo := repository.NewOwnerRepo(db)
 
@@ -331,10 +319,9 @@ func main() {
 	appID, _ := strconv.Atoi(appIDStr)
 	appHash := os.Getenv("TG_APP_HASH")
 
-	userbotManager := mtproto.NewUserbotManager(appID, appHash, channelService.ProcessChannelPostForUserbot, func(ctx context.Context, source, msg string) error {
+	userbotManager := mtproto.NewUserbotManager(appID, appHash, nil, func(ctx context.Context, source, msg string) error {
 		return ownerRepo.LogSystemError(ctx, source, msg)
 	})
-	channelService.SetUserbotJoiner(userbotManager.JoinChannel)
 
 	// Fetch active userbots and start them
 	bgCtx := context.Background()
@@ -345,17 +332,16 @@ func main() {
 		}
 	}
 
-	channelHandler := handler.NewChannelHandler(channelService)
-	projectService := channelmgmt.NewProjectService(channelRepo, botRepo, auditRepo)
-	go projectService.StartProjectExpirationWorker(ctx)
-	projectHandler := handler.NewProjectHandler(projectService, botService, paymentService)
-
 	avmService := avm.NewValuationService(db, cache, tonClient)
 
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, analysisService, mtprotoClient, cache, avmService, db, paymentService)
 
-	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo, channelService)
-	botMgmtHandler := handler.NewBotMgmtHandler(botService, paymentService)
+	// Initialize Raffle Handler
+	raffleRepo := repository.NewRaffleRepo(db)
+	raffleSvc := raffle.NewRaffleService(raffleRepo, cache)
+	raffleHandler := handler.NewRaffleHandler(raffleSvc)
+
+	webhookHandler := handler.NewWebhookHandler(db, cache, botRepo, raffleSvc)
 	profileService := service.NewProfileService(db, cache)
 	// 🚀 Warm up Redis leaderboard at startup and periodically
 	go func() {
@@ -502,6 +488,8 @@ func main() {
 	intelCreditService := intelcredit.NewIntelCreditService(db)
 	intelCreditHandler := handler.NewIntelCreditHandler(intelCreditService, cache)
 
+
+
 	// Register API and Owner routes via modular router package
 	router.RegisterAPIRoutes(r, router.Config{
 		DB:                  db,
@@ -511,8 +499,6 @@ func main() {
 		AuthHandler:         authHandler,
 		UsernameHandler:     usernameHandler,
 		CollectionHandler:   collectionHandler,
-		BotMgmtHandler:      botMgmtHandler,
-		ChannelHandler:      channelHandler,
 		ProfileHandler:      profileHandler,
 		GamificationHandler: gamificationHandler,
 		ClanHandler:         clanHandler,
@@ -520,8 +506,8 @@ func main() {
 		OwnerHandler:        ownerHandler,
 		NumbersHandler:      numbersHandler,
 		GiftsHandler:        giftsHandler,
-		ProjectHandler:      projectHandler,
 		IntelCreditHandler:  intelCreditHandler,
+		RaffleHandler:       raffleHandler,
 	})
 
 	// Start server with graceful shutdown
@@ -568,7 +554,7 @@ func main() {
 	slog.Info("Server exiting")
 }
 
-func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botService *botmgmt.BotService) {
+func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botRepo *repository.BotRepo) {
 	token := os.Getenv("TELEGRAM_BOT_TOKEN")
 	if token == "" {
 		token = os.Getenv("BOT_TOKEN")
@@ -637,16 +623,40 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 			return
 		}
 
-		// Rename any incorrectly registered bot with the same username but different ID.
-		// This happens if the bot username was reclaimed or transferred on Telegram.
-		// We rename the old bot to avoid dropping all its associated groups and analytics via cascade deletion.
 		_, err = db.Pool.Exec(ctx, "UPDATE managed_bots SET bot_username = bot_username || '_conflict_' || bot_id WHERE LOWER(bot_username) = LOWER($1) AND bot_id != $2", me.Username, botID)
 		if err != nil {
 			slog.Warn("AutoRegisterMainBot: failed to rename conflicting bot_username", "error", err)
 		}
 
-		bot, err := botService.RegisterBot(ctx, ownerID, token, me.Username, me.FirstName, botID)
-		if err != nil {
+		encrypted, encErr := crypto.EncryptToken(token)
+		if encErr != nil {
+			slog.Error("AutoRegisterMainBot: failed to encrypt bot token", "error", encErr)
+			return
+		}
+
+		secretBytes := make([]byte, 32)
+		if _, randErr := cryptoRand.Read(secretBytes); randErr != nil {
+			slog.Error("AutoRegisterMainBot: failed to generate secret bytes", "error", randErr)
+			return
+		}
+		secretHex := hex.EncodeToString(secretBytes)
+
+		actualName := me.FirstName
+		if actualName == "" {
+			actualName = "iFragmentBot"
+		}
+
+		bot := &repository.ManagedBot{
+			OwnerUserID:        ownerID,
+			BotTokenEncrypted:  encrypted,
+			BotUsername:        me.Username,
+			BotName:            actualName,
+			BotID:              me.ID,
+			Status:             "active",
+			WebhookSecretToken: secretHex,
+		}
+
+		if err := botRepo.CreateBot(ctx, bot); err != nil {
 			slog.Error("AutoRegisterMainBot: failed to register bot in database", "error", err)
 			return
 		}
@@ -687,8 +697,6 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 			"message",
 			"edited_message",
 			"callback_query",
-			"channel_post",
-			"edited_channel_post",
 			"my_chat_member",
 			"chat_member",
 			"chat_join_request",

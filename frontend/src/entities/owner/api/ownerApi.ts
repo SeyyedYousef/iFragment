@@ -198,14 +198,7 @@ export const ownerApi = {
 		return res.data;
 	},
 
-	// ─── Entities (Channels & Groups) ───────────────────────────────────────────
-	getAllChannels: async (limit = 50, offset = 0): Promise<OwnerEntityItem[]> => {
-		const res = await api.get<OwnerEntityItem[]>('/entities/channels', {
-			params: { limit, offset },
-		});
-		return res.data;
-	},
-
+	// ─── Entities (Groups) ───────────────────────────────────────────
 	getAllGroups: async (limit = 50, offset = 0): Promise<OwnerEntityItem[]> => {
 		const res = await api.get<OwnerEntityItem[]>('/entities/groups', {
 			params: { limit, offset },
@@ -214,7 +207,7 @@ export const ownerApi = {
 	},
 
 	extendSubscription: async (
-		entityType: 'channel' | 'group',
+		entityType: 'group',
 		entityId: string,
 		days: number,
 		reason: string,
@@ -232,7 +225,7 @@ export const ownerApi = {
 	},
 
 	grantEntityCoins: async (
-		entityType: 'channel' | 'group',
+		entityType: 'group',
 		entityId: string,
 		coins: number,
 		reason: string,
@@ -247,7 +240,7 @@ export const ownerApi = {
 	},
 
 	addEntityCredit: async (
-		entityType: 'channel' | 'group',
+		entityType: 'group',
 		entityId: string,
 		coins: number,
 		reason: string,

@@ -941,10 +941,6 @@ func (s *OwnerService) CancelBroadcast(ctx context.Context, id string, ownerID i
 }
 
 // ─── Phase 1.2 Entities (Extend Subscription vs Grant Coins) ────────────────
-func (s *OwnerService) GetAllChannels(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
-	return s.repo.GetAllChannels(ctx, limit, offset)
-}
-
 func (s *OwnerService) GetAllGroups(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
 	return s.repo.GetAllGroups(ctx, limit, offset)
 }
@@ -959,9 +955,7 @@ func (s *OwnerService) ExtendEntitySubscription(ctx context.Context, entityType,
 
 	var newUntil *time.Time
 	var err error
-	if entityType == "channel" {
-		newUntil, err = s.repo.AddChannelSubscriptionDays(ctx, entityID, days)
-	} else if entityType == "group" {
+	if entityType == "group" {
 		newUntil, err = s.repo.AddGroupSubscriptionDays(ctx, entityID, days)
 	} else {
 		return nil, fmt.Errorf("invalid entity type: %s", entityType)
@@ -998,9 +992,7 @@ func (s *OwnerService) GrantEntityCoins(ctx context.Context, entityType, entityI
 
 	var newBalance float64
 	var err error
-	if entityType == "channel" {
-		newBalance, err = s.repo.AddChannelCoins(ctx, entityID, coins)
-	} else if entityType == "group" {
+	if entityType == "group" {
 		newBalance, err = s.repo.AddGroupCoins(ctx, entityID, coins)
 	} else {
 		return 0, fmt.Errorf("invalid entity type: %s", entityType)

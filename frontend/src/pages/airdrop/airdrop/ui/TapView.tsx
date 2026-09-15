@@ -547,7 +547,6 @@ export const TapView: Component<{
 				</Show>
 			</div>
 
-
 			{/* 4. The Hero Glowing Tap Coin (Perfectly Centered via flex-1) */}
 			<div class="flex-1 flex flex-col items-center justify-center w-full relative z-10 w-full">
 				<div
@@ -666,7 +665,10 @@ export const TapView: Component<{
 				</div>
 
 				{/* Row B: 3-Column Glassmorphic Action Cards */}
-				<div class="grid grid-cols-3 gap-2.5 w-full pointer-events-auto" dir={isRtl() ? 'rtl' : 'ltr'}>
+				<div
+					class="grid grid-cols-3 gap-2.5 w-full pointer-events-auto"
+					dir={isRtl() ? 'rtl' : 'ltr'}
+				>
 					{/* Boost / Upgrade */}
 					<button
 						type="button"

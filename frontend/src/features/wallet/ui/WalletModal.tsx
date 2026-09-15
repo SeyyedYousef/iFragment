@@ -194,7 +194,7 @@ export const WalletModal: Component<WalletModalProps> = (props) => {
 										<div class="p-6 text-center text-white/40 text-[11px] font-mono">
 											{isLoading()
 												? 'Loading activity...'
-												: (t('wallet.noTransactions' as any) || 'No recent transaction records')}
+												: t('wallet.noTransactions' as any) || 'No recent transaction records'}
 										</div>
 									}
 								>

@@ -1,11 +1,5 @@
-import {
-	type Component,
-	createMemo,
-	createSignal,
-	For,
-	Show,
-} from 'solid-js';
 import { useNavigate } from '@solidjs/router';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import type { RarityHeatmapCell } from '@/entities/gifts/index.js';
 import { GiftThumbnail } from '@/entities/gifts/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
@@ -188,7 +182,9 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 							} catch {}
 						}}
 						class={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
-							viewMode() === 'matrix' ? 'bg-[#0098EA] text-white shadow' : 'text-white/40 hover:text-white'
+							viewMode() === 'matrix'
+								? 'bg-[#0098EA] text-white shadow'
+								: 'text-white/40 hover:text-white'
 						}`}
 					>
 						<span class="material-symbols-outlined text-xs">table_chart</span>
@@ -203,7 +199,9 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 							} catch {}
 						}}
 						class={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
-							viewMode() === 'cards' ? 'bg-[#0098EA] text-white shadow' : 'text-white/40 hover:text-white'
+							viewMode() === 'cards'
+								? 'bg-[#0098EA] text-white shadow'
+								: 'text-white/40 hover:text-white'
 						}`}
 					>
 						<span class="material-symbols-outlined text-xs">view_agenda</span>
@@ -218,9 +216,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 					<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">
 						{isRtl() ? 'کل ترکیبات' : 'Total Combos'}
 					</span>
-					<div class="font-mono font-black text-white text-sm">
-						{stats().total}
-					</div>
+					<div class="font-mono font-black text-white text-sm">{stats().total}</div>
 					<span class="text-[9px] text-emerald-400 font-bold block mt-0.5">
 						{stats().mythicCount} Mythic
 					</span>
@@ -230,7 +226,10 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 					<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">
 						{isRtl() ? 'کمیاب‌ترین ترکیب' : 'Rarest Combo'}
 					</span>
-					<div class="font-bold text-purple-300 text-[11px] truncate" title={stats().rarest?.model_name}>
+					<div
+						class="font-bold text-purple-300 text-[11px] truncate"
+						title={stats().rarest?.model_name}
+					>
 						{stats().rarest?.model_name || '—'}
 					</div>
 					<span class="text-[9px] text-white/40 font-mono block mt-0.5">
@@ -258,104 +257,116 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 					fallback={
 						<div class="py-12 text-center text-xs text-white/40 border border-white/[0.06] rounded-2xl bg-black/20">
 							<span class="material-symbols-outlined text-3xl mb-2 block opacity-40">grid_off</span>
-							{isRtl() ? 'ماتریس صفات برای این کالکشن در دسترس نیست' : 'Trait matrix unavailable for this collection'}
+							{isRtl()
+								? 'ماتریس صفات برای این کالکشن در دسترس نیست'
+								: 'Trait matrix unavailable for this collection'}
 						</div>
 					}
 				>
 					<div class="space-y-2.5">
 						<div class="text-[10px] text-white/40 flex items-center justify-between px-1">
-						<span>{isRtl() ? 'سطرها: مدل‌های گیفت | ستون‌ها: پس‌زمینه‌ها' : 'Rows: Models | Columns: Backdrops'}</span>
-						<span class="text-[#0098EA] font-semibold">{isRtl() ? 'لمس برای بررسی' : 'Tap to inspect'}</span>
-					</div>
+							<span>
+								{isRtl()
+									? 'سطرها: مدل‌های گیفت | ستون‌ها: پس‌زمینه‌ها'
+									: 'Rows: Models | Columns: Backdrops'}
+							</span>
+							<span class="text-[#0098EA] font-semibold">
+								{isRtl() ? 'لمس برای بررسی' : 'Tap to inspect'}
+							</span>
+						</div>
 
-					<div class="overflow-x-auto rounded-2xl border border-white/[0.07] bg-black/40 p-2 scrollbar-thin">
-						<table class="w-full text-center border-collapse">
-							<thead>
-								<tr>
-									<th class="p-2 text-[10px] font-bold text-white/40 text-start uppercase tracking-wider min-w-[70px]">
-										{isRtl() ? 'مدل' : 'Model'}
-									</th>
-									<For each={uniqueBackdrops()}>
-										{(backdrop) => (
-											<th class="p-1.5 text-[9px] font-bold text-white/60 min-w-[62px] max-w-[75px] truncate">
-												<span class="block truncate" title={backdrop}>
-													{backdrop.split(' ')[0]}
-												</span>
-											</th>
+						<div class="overflow-x-auto rounded-2xl border border-white/[0.07] bg-black/40 p-2 scrollbar-thin">
+							<table class="w-full text-center border-collapse">
+								<thead>
+									<tr>
+										<th class="p-2 text-[10px] font-bold text-white/40 text-start uppercase tracking-wider min-w-[70px]">
+											{isRtl() ? 'مدل' : 'Model'}
+										</th>
+										<For each={uniqueBackdrops()}>
+											{(backdrop) => (
+												<th class="p-1.5 text-[9px] font-bold text-white/60 min-w-[62px] max-w-[75px] truncate">
+													<span class="block truncate" title={backdrop}>
+														{backdrop.split(' ')[0]}
+													</span>
+												</th>
+											)}
+										</For>
+									</tr>
+								</thead>
+								<tbody>
+									<For each={uniqueModels()}>
+										{(model) => (
+											<tr class="border-t border-white/[0.04]">
+												{/* Sticky Model Row Header */}
+												<td class="p-2 text-start font-bold text-xs text-white whitespace-nowrap">
+													<span class="block truncate max-w-[80px]" title={model}>
+														{model}
+													</span>
+												</td>
+
+												{/* Heatmap Matrix Cells */}
+												<For each={uniqueBackdrops()}>
+													{(backdrop) => {
+														const key = `${model}::${backdrop}`;
+														const cell = cellMap().get(key);
+														const theme = getCellTheme(cell?.rarity_tier);
+														const isSelected =
+															selectedCell()?.model_name === model &&
+															selectedCell()?.backdrop_name === backdrop;
+
+														return (
+															<td class="p-1">
+																<button
+																	type="button"
+																	onClick={() => {
+																		if (cell) handleCellClick(cell);
+																	}}
+																	class={`w-full h-11 rounded-xl p-1 flex flex-col items-center justify-center transition-all active:scale-95 border ${
+																		theme.bg
+																	} ${isSelected ? 'ring-2 ring-[#0098EA] scale-105 z-10' : ''}`}
+																	title={`${model} × ${backdrop}: ${cell?.floor_gram} TON (${cell?.rarity_tier})`}
+																>
+																	<span class="text-[10px] font-black font-mono leading-none">
+																		{fmt(cell?.floor_gram)}
+																	</span>
+																	<span class="text-[8px] font-mono opacity-70 mt-0.5 leading-none">
+																		{cell?.combined_rarity_pct
+																			? `${cell.combined_rarity_pct.toFixed(2)}%`
+																			: '—'}
+																	</span>
+																</button>
+															</td>
+														);
+													}}
+												</For>
+											</tr>
 										)}
 									</For>
-								</tr>
-							</thead>
-							<tbody>
-								<For each={uniqueModels()}>
-									{(model) => (
-										<tr class="border-t border-white/[0.04]">
-											{/* Sticky Model Row Header */}
-											<td class="p-2 text-start font-bold text-xs text-white whitespace-nowrap">
-												<span class="block truncate max-w-[80px]" title={model}>
-													{model}
-												</span>
-											</td>
+								</tbody>
+							</table>
+						</div>
 
-											{/* Heatmap Matrix Cells */}
-											<For each={uniqueBackdrops()}>
-												{(backdrop) => {
-													const key = `${model}::${backdrop}`;
-													const cell = cellMap().get(key);
-													const theme = getCellTheme(cell?.rarity_tier);
-													const isSelected = selectedCell()?.model_name === model && selectedCell()?.backdrop_name === backdrop;
-
-													return (
-														<td class="p-1">
-															<button
-																type="button"
-																onClick={() => {
-																	if (cell) handleCellClick(cell);
-																}}
-																class={`w-full h-11 rounded-xl p-1 flex flex-col items-center justify-center transition-all active:scale-95 border ${
-																	theme.bg
-																} ${isSelected ? 'ring-2 ring-[#0098EA] scale-105 z-10' : ''}`}
-																title={`${model} × ${backdrop}: ${cell?.floor_gram} TON (${cell?.rarity_tier})`}
-															>
-																<span class="text-[10px] font-black font-mono leading-none">
-																	{fmt(cell?.floor_gram)}
-																</span>
-																<span class="text-[8px] font-mono opacity-70 mt-0.5 leading-none">
-																	{cell?.combined_rarity_pct ? `${cell.combined_rarity_pct.toFixed(2)}%` : '—'}
-																</span>
-															</button>
-														</td>
-													);
-												}}
-											</For>
-										</tr>
-									)}
-								</For>
-							</tbody>
-						</table>
+						{/* Heatmap Legend */}
+						<div class="flex items-center justify-between text-[9px] text-white/40 pt-1 px-1 font-mono">
+							<span class="flex items-center gap-1">
+								<span class="w-2 h-2 rounded-full bg-white/20" /> Common
+							</span>
+							<span class="flex items-center gap-1">
+								<span class="w-2 h-2 rounded-full bg-emerald-500" /> Rare
+							</span>
+							<span class="flex items-center gap-1">
+								<span class="w-2 h-2 rounded-full bg-sky-500" /> Epic
+							</span>
+							<span class="flex items-center gap-1">
+								<span class="w-2 h-2 rounded-full bg-amber-500" /> Legendary
+							</span>
+							<span class="flex items-center gap-1">
+								<span class="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_6px_#a855f7]" /> Mythic
+							</span>
+						</div>
 					</div>
-
-					{/* Heatmap Legend */}
-					<div class="flex items-center justify-between text-[9px] text-white/40 pt-1 px-1 font-mono">
-						<span class="flex items-center gap-1">
-							<span class="w-2 h-2 rounded-full bg-white/20" /> Common
-						</span>
-						<span class="flex items-center gap-1">
-							<span class="w-2 h-2 rounded-full bg-emerald-500" /> Rare
-						</span>
-						<span class="flex items-center gap-1">
-							<span class="w-2 h-2 rounded-full bg-sky-500" /> Epic
-						</span>
-						<span class="flex items-center gap-1">
-							<span class="w-2 h-2 rounded-full bg-amber-500" /> Legendary
-						</span>
-						<span class="flex items-center gap-1">
-							<span class="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_6px_#a855f7]" /> Mythic
-						</span>
-					</div>
-				</div>
+				</Show>
 			</Show>
-		</Show>
 
 			{/* ═══ VIEW 2: RANKED COMBINATION CARDS ═══ */}
 			<Show when={viewMode() === 'cards'}>
@@ -417,7 +428,9 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 												<div class="min-w-0">
 													<div class="flex items-center gap-1.5">
 														<span class="font-bold text-white truncate">{cell.model_name}</span>
-														<span class={`text-[8.5px] font-bold px-1.5 py-0.2 rounded border ${theme.badge}`}>
+														<span
+															class={`text-[8.5px] font-bold px-1.5 py-0.2 rounded border ${theme.badge}`}
+														>
 															{cell.rarity_tier}
 														</span>
 													</div>
@@ -472,9 +485,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 									<span class="text-[9px] text-white/40 uppercase block mb-0.5">
 										{isRtl() ? 'کف قیمت تخمینی' : 'Estimated Floor'}
 									</span>
-									<div class="font-mono font-black text-white text-sm">
-										{fmt(c.floor_gram)} TON
-									</div>
+									<div class="font-mono font-black text-white text-sm">{fmt(c.floor_gram)} TON</div>
 									<span class="text-[10px] text-white/40 font-mono">
 										{fmtUsd(c.floor_gram * rate())}
 									</span>
@@ -487,7 +498,9 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 									<div class="font-mono font-black text-sky-400 text-sm">
 										{c.combined_rarity_pct.toFixed(3)}%
 									</div>
-									<span class={`text-[9px] font-bold px-1.5 py-0.2 rounded border inline-block mt-0.5 ${theme.badge}`}>
+									<span
+										class={`text-[9px] font-bold px-1.5 py-0.2 rounded border inline-block mt-0.5 ${theme.badge}`}
+									>
 										{c.rarity_tier}
 									</span>
 								</div>
@@ -503,7 +516,9 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 								}}
 								class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#0081C8] hover:brightness-110 text-white font-black text-xs text-center shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
 							>
-								<span>{isRtl() ? 'کارشناسی و صدور شناسنامه این مدل' : 'Inspect & Certify Model'}</span>
+								<span>
+									{isRtl() ? 'کارشناسی و صدور شناسنامه این مدل' : 'Inspect & Certify Model'}
+								</span>
 								<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_forward</span>
 							</button>
 						</div>

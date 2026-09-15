@@ -69,7 +69,10 @@ describe('Profile Store State Machine and Cache Isolation', () => {
 
 	it('should isolate and purge all user cache on purgeAllUserCache', () => {
 		const testUserId = 987654321;
-		localStorage.setItem(`cached_profile_stats_${testUserId}`, JSON.stringify({ telegramId: testUserId }));
+		localStorage.setItem(
+			`cached_profile_stats_${testUserId}`,
+			JSON.stringify({ telegramId: testUserId }),
+		);
 		localStorage.setItem(`cached_profile_achievements_${testUserId}`, JSON.stringify([{ id: 1 }]));
 		localStorage.setItem('cached_profile_stats', 'leak');
 		localStorage.setItem('cached_profile_achievements', 'leak');

@@ -23,8 +23,8 @@ export interface ProfileStats {
 	firstName?: string;
 	lastName?: string;
 	usernamesAnalyzed: number;
-	groupsManaged: number;
-	channelsManaged: number;
+	giftsAppraised?: number;
+	groupsManaged?: number;
 	daysActive: number;
 	currentStreak: number;
 	globalRank: number;
@@ -113,6 +113,8 @@ export interface TaskStatus {
 	action_url?: string;
 	is_premium_req?: boolean;
 	is_clan_req?: boolean;
+	cooldown_seconds?: number;
+	available_at?: string;
 }
 
 export interface DailyComboStatus {
@@ -252,7 +254,7 @@ export interface MyReportsAsset {
 
 export interface MyConnectedProperty {
 	id: string;
-	type: 'channel' | 'group' | 'bot';
+	type: 'group' | 'bot';
 	title: string;
 	username: string;
 	photoUrl?: string;
@@ -261,21 +263,6 @@ export interface MyConnectedProperty {
 	paidUntil?: string;
 	daysLeft: number;
 	dashboardUrl: string;
-}
-
-export interface MyProjectAsset {
-	id: string;
-	name: string;
-	status: string;
-	sourceChatTitle: string;
-	targetChatTitle: string;
-	sourceChatUsername: string;
-	targetChatUsername: string;
-	starsExpiresAt?: string;
-	daysLeft: number;
-	subscriptionActive: boolean;
-	pipelineEnabled: boolean;
-	autoRenew: boolean;
 }
 
 export interface MyBoostersAsset {
@@ -288,7 +275,6 @@ export interface MyBoostersAsset {
 export interface MyAssetsResponse {
 	reports: MyReportsAsset[];
 	properties: MyConnectedProperty[];
-	projects: MyProjectAsset[];
 	boosters: MyBoostersAsset;
 	summaryText: string;
 }
@@ -348,7 +334,6 @@ export const ACHIEVEMENT_DEFS: Omit<
 	{ id: 'army_builder', category: 'social', icon: '🪖' },
 	{ id: 'network_king', category: 'social', icon: '👑' },
 	{ id: 'group_guardian', category: 'management', icon: '🛡️' },
-	{ id: 'channel_commander', category: 'management', icon: '📡' },
 	{ id: 'empire_builder', category: 'management', icon: '🏰' },
 	{ id: 'week_warrior', category: 'streaks', icon: '🗓️' },
 	{ id: 'month_master', category: 'streaks', icon: '📅' },

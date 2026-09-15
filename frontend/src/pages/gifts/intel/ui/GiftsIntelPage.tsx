@@ -1,29 +1,11 @@
 import { createQuery } from '@tanstack/solid-query';
-import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
+import type { Component } from 'solid-js';
 import { giftsApi } from '@/entities/gifts/index.js';
-import { t } from '@/shared/i18n/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import { GiftsArbitrageRadar } from './components/GiftsArbitrageRadar.js';
 import { GiftsChartView } from './components/GiftsChartView.js';
-import { GiftsCollectionsExplorer } from './components/GiftsCollectionsExplorer.js';
-import { GiftsGlobalHeatmap } from './components/GiftsGlobalHeatmap.js';
-import { GiftsSerialAnalyzer } from './components/GiftsSerialAnalyzer.js';
-import { GiftsWhalesTracker } from './components/GiftsWhalesTracker.js';
-
-type TabType = 'chart' | 'arbitrage' | 'whales' | 'serials' | 'collections' | 'heatmap';
-
-interface TabItem {
-	id: TabType;
-	label: string;
-	icon: string;
-	badge?: string;
-}
 
 export const GiftsIntelPage: Component = () => {
 	useTelegramBackButton(-1);
-
-	const [activeTab, setActiveTab] = createSignal<TabType>('chart');
 
 	const intelQuery = createQuery(() => ({
 		queryKey: ['giftsIntel'],
@@ -32,27 +14,6 @@ export const GiftsIntelPage: Component = () => {
 	}));
 
 	const intel = () => intelQuery.data;
-
-	const effectiveRate = createMemo(() => {
-		const board = intel()?.unified_floor_board;
-		if (board && board.length > 0) {
-			for (const item of board) {
-				if (item.best_floor_usd > 0 && item.best_floor_gram > 0) {
-					return item.best_floor_usd / item.best_floor_gram;
-				}
-			}
-		}
-		return 5.5;
-	});
-
-	const tabsList = (): TabItem[] => [
-		{ id: 'chart', label: t('gifts.tabChart') || 'نبض بازار', icon: 'monitoring' },
-		{ id: 'arbitrage', label: 'رادار آربیتراژ', icon: 'currency_exchange', badge: 'LIVE' },
-		{ id: 'whales', label: 'نهنگ‌ها', icon: 'shield_person', badge: 'ON-CHAIN' },
-		{ id: 'serials', label: 'ژنتیک سریال', icon: 'pin', badge: 'DNA' },
-		{ id: 'collections', label: t('gifts.tabCollections') || 'کالکشن‌ها', icon: 'category' },
-		{ id: 'heatmap', label: t('gifts.tabHeatmap') || 'نقشه نایابی', icon: 'grid_view' },
-	];
 
 	return (
 		<div class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
@@ -95,66 +56,8 @@ export const GiftsIntelPage: Component = () => {
 					</div>
 				</div>
 
-				{/* ═══════ TOP PRIMARY NAVIGATION TABS (HORIZONTAL SCROLLING PILL BAR) ═══════ */}
-				<div class="flex items-center gap-1.5 p-1 bg-[#0d121c] rounded-2xl border border-white/[0.08] shadow-lg overflow-x-auto no-scrollbar">
-					<For each={tabsList()}>
-						{(tab) => (
-							<button
-								type="button"
-								onClick={() => {
-									try {
-										haptic.selection();
-									} catch {}
-									setActiveTab(tab.id as TabType);
-								}}
-								class={`py-2 px-3 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
-									activeTab() === tab.id
-										? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25 scale-[1.02]'
-										: 'text-white/50 hover:text-white bg-white/[0.02]'
-								}`}
-							>
-								<span class="material-symbols-outlined text-sm">{tab.icon}</span>
-								<span>{tab.label}</span>
-								<Show when={tab.badge}>
-									<span
-										class={`text-[8px] uppercase font-mono px-1 py-0.5 rounded font-black ${
-											activeTab() === tab.id
-												? 'bg-white/20 text-white'
-												: 'bg-[#0098EA]/20 text-[#0098EA]'
-										}`}
-									>
-										{tab.badge}
-									</span>
-								</Show>
-							</button>
-						)}
-					</For>
-				</div>
-
-				{/* ═══════ TAB VIEWS ═══════ */}
-				<Show when={activeTab() === 'chart'}>
-					<GiftsChartView intel={intel()} />
-				</Show>
-
-				<Show when={activeTab() === 'arbitrage'}>
-					<GiftsArbitrageRadar intel={intel()} />
-				</Show>
-
-				<Show when={activeTab() === 'whales'}>
-					<GiftsWhalesTracker />
-				</Show>
-
-				<Show when={activeTab() === 'serials'}>
-					<GiftsSerialAnalyzer rate={effectiveRate()} />
-				</Show>
-
-				<Show when={activeTab() === 'collections'}>
-					<GiftsCollectionsExplorer rate={effectiveRate()} />
-				</Show>
-
-				<Show when={activeTab() === 'heatmap'}>
-					<GiftsGlobalHeatmap intel={intel()} rate={effectiveRate()} />
-				</Show>
+				{/* ═══════ SINGLE CHART & MARKET ANALYSIS VIEW ═══════ */}
+				<GiftsChartView intel={intel()} />
 
 				{/* Attribution Badge */}
 				<div class="text-center pt-4 pb-2">
@@ -172,4 +75,3 @@ export const GiftsIntelPage: Component = () => {
 		</div>
 	);
 };
-

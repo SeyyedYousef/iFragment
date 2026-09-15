@@ -18,7 +18,6 @@ type ProfileStats struct {
 	LastName                   string                     `json:"lastName"`
 	UsernamesAnalyzed          int                        `json:"usernamesAnalyzed"`
 	GroupsManaged              int                        `json:"groupsManaged"`
-	ChannelsManaged            int                        `json:"channelsManaged"`
 	DaysActive                 int                        `json:"daysActive"`
 	CurrentStreak              int                        `json:"currentStreak"`
 	GlobalRank                 int                        `json:"globalRank"`
@@ -144,7 +143,7 @@ type MyReportsAsset struct {
 
 type MyConnectedProperty struct {
 	ID                 string     `json:"id"`
-	Type               string     `json:"type"` // "channel", "group", "bot"
+	Type               string     `json:"type"` // "group", "bot"
 	Title              string     `json:"title"`
 	Username           string     `json:"username"`
 	PhotoURL           string     `json:"photoUrl,omitempty"`
@@ -153,21 +152,6 @@ type MyConnectedProperty struct {
 	PaidUntil          *time.Time `json:"paidUntil,omitempty"`
 	DaysLeft           int        `json:"daysLeft"`
 	DashboardURL       string     `json:"dashboardUrl"`
-}
-
-type MyProjectAsset struct {
-	ID                    string     `json:"id"`
-	Name                  string     `json:"name"`
-	Status                string     `json:"status"`
-	SourceChatTitle       string     `json:"sourceChatTitle"`
-	TargetChatTitle       string     `json:"targetChatTitle"`
-	SourceChatUsername    string     `json:"sourceChatUsername"`
-	TargetChatUsername    string     `json:"targetChatUsername"`
-	StarsExpiresAt        *time.Time `json:"starsExpiresAt,omitempty"`
-	DaysLeft              int        `json:"daysLeft"`
-	SubscriptionActive    bool       `json:"subscriptionActive"`
-	PipelineEnabled       bool       `json:"pipelineEnabled"`
-	AutoRenew             bool       `json:"autoRenew"`
 }
 
 type MyBoostersAsset struct {
@@ -192,7 +176,6 @@ type MyAssetsResponse struct {
 	Reports     []MyReportsAsset      `json:"reports"`
 	Gifts       []MyGiftAsset         `json:"gifts"`
 	Properties  []MyConnectedProperty `json:"properties"`
-	Projects    []MyProjectAsset      `json:"projects"`
 	Boosters    MyBoostersAsset       `json:"boosters"`
 	SummaryText string                `json:"summaryText"`
 }

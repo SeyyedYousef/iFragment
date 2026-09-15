@@ -526,26 +526,7 @@ func (h *OwnerHandler) CancelBroadcast(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
-// ─── Entities (Channels & Groups) ───────────────────────────────────────────
-
-func (h *OwnerHandler) GetAllChannels(w http.ResponseWriter, r *http.Request) {
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-	limit, offset := 50, 0
-	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
-		limit = min(l, 100)
-	}
-	if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-		offset = o
-	}
-
-	channels, err := h.ownerService.GetAllChannels(r.Context(), limit, offset)
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	h.writeJSON(w, http.StatusOK, channels)
-}
+// ─── Entities (Groups) ───────────────────────────────────────────────────────
 
 func (h *OwnerHandler) GetAllGroups(w http.ResponseWriter, r *http.Request) {
 	limitStr := r.URL.Query().Get("limit")

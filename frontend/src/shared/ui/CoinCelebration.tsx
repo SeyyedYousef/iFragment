@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, For } from 'solid-js';
+import { createSignal, For, onCleanup } from 'solid-js';
 import { balance, setBalance } from '@/entities/airdrop/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -192,14 +192,12 @@ export const flyCoinsToBalance = (options: FlyCoinsOptions) => {
 				activeRemaining++;
 
 				// Quadratic Bezier interpolation with burst anticipation
-				const easeProgress = Math.pow(progress, 1.8); // Accelerates into target
+				const easeProgress = progress ** 1.8; // Accelerates into target
 				const t = easeProgress;
 				const invT = 1 - t;
 
-				const currentX =
-					invT * invT * c.burstX + 2 * invT * t * c.ctrlX + t * t * c.targetX;
-				const currentY =
-					invT * invT * c.burstY + 2 * invT * t * c.ctrlY + t * t * c.targetY;
+				const currentX = invT * invT * c.burstX + 2 * invT * t * c.ctrlX + t * t * c.targetX;
+				const currentY = invT * invT * c.burstY + 2 * invT * t * c.ctrlY + t * t * c.targetY;
 
 				c.rotation += c.rotSpeed;
 
@@ -214,12 +212,7 @@ export const flyCoinsToBalance = (options: FlyCoinsOptions) => {
 				// Golden Coin Outer Rim
 				ctx.beginPath();
 				ctx.arc(0, 0, c.size / 2, 0, Math.PI * 2);
-				const grad = ctx.createLinearGradient(
-					-c.size / 2,
-					-c.size / 2,
-					c.size / 2,
-					c.size / 2,
-				);
+				const grad = ctx.createLinearGradient(-c.size / 2, -c.size / 2, c.size / 2, c.size / 2);
 				grad.addColorStop(0, '#FFF59D');
 				grad.addColorStop(0.3, '#FFD700');
 				grad.addColorStop(0.7, '#FFA000');

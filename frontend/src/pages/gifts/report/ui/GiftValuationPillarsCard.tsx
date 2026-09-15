@@ -36,7 +36,9 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 		const surprisal = jr?.surprisal_entropy || jr?.surprisal_bits || 0;
 		const covariance = jr?.covariance_coupling || 0;
 		const harmonic = jr?.harmonic_rarity_score || 0;
-		const tier = jr?.rarity_class || (harmonic > 90 ? 'Mythic' : harmonic > 75 ? 'Legendary' : harmonic > 50 ? 'Epic' : 'Common');
+		const tier =
+			jr?.rarity_class ||
+			(harmonic > 90 ? 'Mythic' : harmonic > 75 ? 'Legendary' : harmonic > 50 ? 'Epic' : 'Common');
 
 		return {
 			surprisal: surprisal > 0 ? Number(surprisal).toFixed(1) : '—',
@@ -76,7 +78,9 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 							{isRtl() ? '۴ ستون ارزش‌گذاری GV Engine' : '4 Core Valuation Pillars'}
 						</h3>
 						<span class="text-[10px] text-white/40 block">
-							{isRtl() ? 'ارزیابی مستقل چندبعدی قیمت و نقدشوندگی' : 'Multi-dimensional price & liquidity framework'}
+							{isRtl()
+								? 'ارزیابی مستقل چندبعدی قیمت و نقدشوندگی'
+								: 'Multi-dimensional price & liquidity framework'}
 						</span>
 					</div>
 				</div>
@@ -123,7 +127,8 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 						<span class="material-symbols-outlined text-amber-400 text-sm">bolt</span>
 					</div>
 					<div class="text-base sm:text-lg font-black text-white font-mono leading-tight">
-						{fmt(pillars().liquidation_value_gram)} <span class="text-[11px] text-amber-400">TON</span>
+						{fmt(pillars().liquidation_value_gram)}{' '}
+						<span class="text-[11px] text-amber-400">TON</span>
 					</div>
 					<div class="text-[10px] font-mono text-white/50 mt-0.5">
 						{fmtUsd(pillars().liquidation_value_usd)}
@@ -145,7 +150,8 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 						<span class="material-symbols-outlined text-emerald-400 text-sm">sell</span>
 					</div>
 					<div class="text-base sm:text-lg font-black text-white font-mono leading-tight">
-						{fmt(pillars().suggested_ask_gram)} <span class="text-[11px] text-emerald-400">TON</span>
+						{fmt(pillars().suggested_ask_gram)}{' '}
+						<span class="text-[11px] text-emerald-400">TON</span>
 					</div>
 					<div class="text-[10px] font-mono text-white/50 mt-0.5">
 						{fmtUsd(pillars().suggested_ask_usd)}
@@ -167,7 +173,8 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 						<span class="material-symbols-outlined text-purple-400 text-sm">layers</span>
 					</div>
 					<div class="text-base sm:text-lg font-black text-white font-mono leading-tight">
-						{fmt(pillars().observed_floor_gram)} <span class="text-[11px] text-purple-400">TON</span>
+						{fmt(pillars().observed_floor_gram)}{' '}
+						<span class="text-[11px] text-purple-400">TON</span>
 					</div>
 					<div class="text-[10px] font-mono text-white/50 mt-0.5">
 						{fmtUsd(pillars().observed_floor_usd)}
@@ -221,7 +228,11 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 				<div class="flex items-center justify-between">
 					<span class="text-[10px] uppercase font-black text-white/50 tracking-wider flex items-center gap-1.5">
 						<span class="material-symbols-outlined text-sm text-cyan-400">query_stats</span>
-						<span>{isRtl() ? 'آنتروپی اطلاعاتی و کوواریانس کمیابی' : 'Information Entropy & Rarity Covariance'}</span>
+						<span>
+							{isRtl()
+								? 'آنتروپی اطلاعاتی و کوواریانس کمیابی'
+								: 'Information Entropy & Rarity Covariance'}
+						</span>
 					</span>
 					<span class="text-[10px] font-black text-amber-300 bg-amber-400/15 px-2 py-0.5 rounded-md border border-amber-400/30">
 						{rarityInfo().tier}
@@ -235,7 +246,8 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 							{isRtl() ? 'بیت غافلگیری' : 'Surprisal'}
 						</span>
 						<span class="font-mono font-black text-cyan-400 text-sm">
-							{rarityInfo().surprisal} <span class="text-[9px] text-white/40 font-normal">bits</span>
+							{rarityInfo().surprisal}{' '}
+							<span class="text-[9px] text-white/40 font-normal">bits</span>
 						</span>
 					</div>
 
@@ -255,7 +267,8 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 							{isRtl() ? 'امتیاز هارمونیک' : 'Harmonic Rarity'}
 						</span>
 						<span class="font-mono font-black text-emerald-400 text-sm">
-							{rarityInfo().harmonic} <span class="text-[9px] text-white/40 font-normal">/ 100</span>
+							{rarityInfo().harmonic}{' '}
+							<span class="text-[9px] text-white/40 font-normal">/ 100</span>
 						</span>
 					</div>
 				</div>

@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
-	"ifragment-backend/internal/service/botmgmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
@@ -91,7 +91,7 @@ func (s *ProfileService) getBotAPIClient(ctx context.Context) (*telegram.BotAPIC
 	botRepo := repository.NewBotRepo(s.db)
 	encryptedToken, err := botRepo.GetActiveBotEncryptedToken(ctx)
 	if err == nil && len(encryptedToken) > 0 {
-		token, err := botmgmt.DecryptToken(encryptedToken)
+		token, err := crypto.DecryptToken(encryptedToken)
 		if err == nil {
 			return telegram.NewBotAPIClient(token), nil
 		}
@@ -159,7 +159,7 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 			for rows.Next() {
 				var encryptedToken []byte
 				if err := rows.Scan(&encryptedToken); err == nil && len(encryptedToken) > 0 {
-					token, decryptErr := botmgmt.DecryptToken(encryptedToken)
+					token, decryptErr := crypto.DecryptToken(encryptedToken)
 					if decryptErr == nil && token != "" {
 						tgCustom := telegram.NewBotAPIClient(token)
 						path, err := tgCustom.GetUserProfilePhotoURL(ctx, userID)
@@ -364,8 +364,7 @@ func (s *ProfileService) GetAchievements(ctx context.Context, userID int64) ([]m
 				{ID: "whale_hunter", Progress: stats.UsernamesAnalyzed},
 				{ID: "data_scientist", Progress: stats.UsernamesAnalyzed},
 				{ID: "group_guardian", Progress: stats.GroupsManaged},
-				{ID: "channel_commander", Progress: stats.ChannelsManaged},
-				{ID: "empire_builder", Progress: stats.GroupsManaged + stats.ChannelsManaged},
+				{ID: "empire_builder", Progress: stats.GroupsManaged},
 				{ID: "week_warrior", Progress: stats.DaysActive},
 				{ID: "month_master", Progress: stats.DaysActive},
 				{ID: "legendary", Progress: stats.DaysActive},

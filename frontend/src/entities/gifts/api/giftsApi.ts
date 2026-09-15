@@ -1,6 +1,5 @@
 import { apiClient } from '@/shared/api/axios.js';
 import type {
-	ArbitrageOpportunity,
 	CollectionIntelResponse,
 	CollectionSummaryItem,
 	CraftingEVData,
@@ -9,9 +8,7 @@ import type {
 	GiftsIntelResponse,
 	GiftValuationReport,
 	PortfolioScanResponse,
-	SerialClassification,
 	UpgradeAdviceData,
-	WhaleProfile,
 } from '../model/types.js';
 
 export const giftsApi = {
@@ -117,31 +114,4 @@ export const giftsApi = {
 		});
 		return res.data;
 	},
-
-	// ═══════════════════════════════════════════════════════════
-	// Phase 2: Omni-Analytics, Arbitrage, Whales & Serial Genetics
-	// ═══════════════════════════════════════════════════════════
-
-	getArbitrageRadar: async (): Promise<ArbitrageOpportunity[]> => {
-		const res = await apiClient.get<ArbitrageOpportunity[]>('/gifts/arbitrage');
-		return res.data;
-	},
-
-	getWhaleLeaderboard: async (): Promise<WhaleProfile[]> => {
-		const res = await apiClient.get<WhaleProfile[]>('/gifts/whales');
-		return res.data;
-	},
-
-	classifySerial: async (serial: number, baseFloor?: number): Promise<SerialClassification> => {
-		const res = await apiClient.get<SerialClassification>('/gifts/serials/classify', {
-			params: { serial, base_floor: baseFloor },
-		});
-		return res.data;
-	},
-
-	triggerSync: async (): Promise<{ status: string; message: string }> => {
-		const res = await apiClient.post<{ status: string; message: string }>('/gifts/sync');
-		return res.data;
-	},
 };
-

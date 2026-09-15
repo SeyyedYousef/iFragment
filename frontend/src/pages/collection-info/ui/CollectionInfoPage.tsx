@@ -436,7 +436,9 @@ export const CollectionInfoPage: Component = () => {
 
 						{/* ═══════ ON-CHAIN FLOOR & VOLUME HISTORY CHART ═══════ */}
 						<UsernameCollectionChart
-							currentFloorTon={parseFloat(usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10')}
+							currentFloorTon={parseFloat(
+								usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10',
+							)}
 							totalVolumeTon={usernameQuery.data?.stats?.total_volume}
 							tonUsdRate={usernameQuery.data?.ton_usd_rate}
 						/>
@@ -606,7 +608,8 @@ export const CollectionInfoPage: Component = () => {
 												<span class="text-[10px] font-mono text-white/40">
 													{item.priceUsd !== undefined
 														? `≈ $${(item.priceUsd / 1000).toFixed(0)}K`
-														: usernameQuery.data?.ton_usd_rate && usernameQuery.data.ton_usd_rate > 0
+														: usernameQuery.data?.ton_usd_rate &&
+																usernameQuery.data.ton_usd_rate > 0
 															? `≈ $${((item.priceTon * usernameQuery.data.ton_usd_rate) / 1000).toFixed(0)}K`
 															: ''}
 												</span>

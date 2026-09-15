@@ -51,18 +51,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			SELECT COUNT(DISTINCT username) as count FROM search_logs WHERE user_id = $1
 		),
 		managed_counts AS (
-			SELECT 
-				(
-					SELECT COUNT(*) FROM managed_groups mg
-					LEFT JOIN managed_bots mb ON mg.bot_id = mb.id
-					WHERE mg.connected_by_user_id = $1 OR mb.owner_user_id = $1
-				) as groups,
-				(
-					SELECT COUNT(*) FROM managed_channels mc
-					LEFT JOIN managed_bots mb ON mc.bot_id = mb.id
-					WHERE mc.connected_by_user_id = $1 OR mb.owner_user_id = $1 
-					   OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = mc.id AND ca.telegram_id = $1)
-				) as channels
+			SELECT 0 as groups
 		),
 		stats_info AS (
 			SELECT us.days_active, us.current_streak, us.total_taps, us.xp, us.level, us.last_active_at,
@@ -93,7 +82,6 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			ui.created_at,
 			rc.count,
 			mc.groups,
-			mc.channels,
 			si.days_active,
 			si.current_streak,
 			si.total_taps,
@@ -122,7 +110,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	var targetTelegramID int64
 	var targetUsername, targetFirstName, targetLastName, dbPhotoURL string
 	var memberSince time.Time
-	var usernamesAnalyzed, groupsManaged, channelsManaged int
+	var usernamesAnalyzed, groupsManaged int
 	var daysActive, currentStreak, totalTaps, xp, level int
 	var lastActiveAt time.Time
 	var isPremium bool
@@ -137,7 +125,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 
 	err := db.Pool.QueryRow(ctx, query, userID).Scan(
 		&targetTelegramID, &targetUsername, &targetFirstName, &targetLastName,
-		&memberSince, &usernamesAnalyzed, &groupsManaged, &channelsManaged,
+		&memberSince, &usernamesAnalyzed, &groupsManaged,
 		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
 		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin, &airdropCoins,
 		&creditExpiresInDays,
@@ -205,7 +193,6 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		LastName:            targetLastName,
 		UsernamesAnalyzed:   usernamesAnalyzed,
 		GroupsManaged:       groupsManaged,
-		ChannelsManaged:     channelsManaged,
 		DaysActive:          daysActive,
 		CurrentStreak:       currentStreak,
 		GlobalRank:          globalRank,
@@ -269,7 +256,6 @@ var PredefinedAchievements = map[string]int{
 	"army_builder":      50,
 	"network_king":      200,
 	"group_guardian":    1,
-	"channel_commander": 1,
 	"empire_builder":    10,
 	"week_warrior":      7,
 	"month_master":      30,
@@ -1155,7 +1141,6 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 	resp := &model.MyAssetsResponse{
 		Reports:    []model.MyReportsAsset{},
 		Properties: []model.MyConnectedProperty{},
-		Projects:   []model.MyProjectAsset{},
 	}
 
 	// 1a. Fetch username reports from:
@@ -1394,82 +1379,10 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 		})
 	}
 
-	// 2. Fetch Connected Properties (Managed Channels & Groups)
-	channelRows, err := db.Pool.Query(ctx, `
-		SELECT mc.id, mc.chat_title, COALESCE(mc.chat_id::text, ''), mc.subscription_status, mc.paid_until, mc.subscribers_count
-		FROM managed_channels mc
-		LEFT JOIN managed_bots mb ON mc.bot_id = mb.id
-		WHERE mc.connected_by_user_id = $1 OR mb.owner_user_id = $1
-		   OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = mc.id AND ca.telegram_id = $1)
-		ORDER BY mc.created_at DESC
-	`, userID)
-	if err == nil {
-		defer channelRows.Close()
-		for channelRows.Next() {
-			var p model.MyConnectedProperty
-			p.Type = "channel"
-			if err := channelRows.Scan(&p.ID, &p.Title, &p.Username, &p.SubscriptionStatus, &p.PaidUntil, &p.MemberCount); err == nil {
-				if p.PaidUntil != nil && p.PaidUntil.After(time.Now()) {
-					p.DaysLeft = int(time.Until(*p.PaidUntil).Hours() / 24)
-				}
-				p.DashboardURL = fmt.Sprintf("/channel/%s", p.ID)
-				resp.Properties = append(resp.Properties, p)
-			}
-		}
-	}
+	// 2. Connected Properties (Purged - standalone MiniGuard)
+	resp.Properties = []model.MyConnectedProperty{}
 
-	groupRows, err := db.Pool.Query(ctx, `
-		SELECT mg.id, mg.chat_title, COALESCE(mg.chat_id::text, ''), COALESCE(mg.photo_url, ''), mg.members_count, mg.subscription_status, mg.paid_until
-		FROM managed_groups mg
-		LEFT JOIN managed_bots mb ON mg.bot_id = mb.id
-		WHERE mg.connected_by_user_id = $1 OR mb.owner_user_id = $1
-		ORDER BY mg.created_at DESC
-	`, userID)
-	if err == nil {
-		defer groupRows.Close()
-		for groupRows.Next() {
-			var p model.MyConnectedProperty
-			p.Type = "group"
-			if err := groupRows.Scan(&p.ID, &p.Title, &p.Username, &p.PhotoURL, &p.MemberCount, &p.SubscriptionStatus, &p.PaidUntil); err == nil {
-				if p.PaidUntil != nil && p.PaidUntil.After(time.Now()) {
-					p.DaysLeft = int(time.Until(*p.PaidUntil).Hours() / 24)
-				}
-				p.DashboardURL = fmt.Sprintf("/group/%s", p.ID)
-				resp.Properties = append(resp.Properties, p)
-			}
-		}
-	}
-
-	// 3. Fetch Projects
-	projRows, err := db.Pool.Query(ctx, `
-		SELECT 
-			p.id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at,
-			COALESCE(sc.chat_title, ''), COALESCE(tc.chat_title, '')
-		FROM projects p
-		LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
-		LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
-		WHERE p.owner_user_id = $1
-		ORDER BY p.created_at DESC
-	`, userID)
-	if err == nil {
-		defer projRows.Close()
-		for projRows.Next() {
-			var pj model.MyProjectAsset
-			if err := projRows.Scan(
-				&pj.ID, &pj.Name, &pj.Status, &pj.SubscriptionActive, &pj.StarsExpiresAt,
-				&pj.SourceChatTitle, &pj.TargetChatTitle,
-			); err == nil {
-				if pj.StarsExpiresAt != nil && pj.StarsExpiresAt.After(time.Now()) {
-					pj.DaysLeft = int(time.Until(*pj.StarsExpiresAt).Hours() / 24)
-				}
-				pj.PipelineEnabled = pj.Status == "active"
-				pj.AutoRenew = pj.SubscriptionActive
-				resp.Projects = append(resp.Projects, pj)
-			}
-		}
-	}
-
-	// 4. Fetch Purchased Gifts from gift_reports
+	// 3. Fetch Purchased Gifts from gift_reports
 	resp.Gifts = []model.MyGiftAsset{}
 	giftRows, err := db.Pool.Query(ctx, `
 		SELECT gift_id, model_id, serial_number, fair_value_nano_gram, purchased_at
@@ -1493,7 +1406,7 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 		}
 	}
 
-	// 5. Boosters
+	// 4. Boosters
 	boosts, _ := db.GetUserBoosts(ctx, userID)
 	if boosts != nil {
 		resp.Boosters = model.MyBoostersAsset{
@@ -1511,10 +1424,10 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 		}
 	}
 
-	// 6. Summary Text
+	// 5. Summary Text
 	resp.SummaryText = fmt.Sprintf(
-		"%d Reports · %d Gifts · %d Properties · %d Projects · %d Boosters",
-		len(resp.Reports), len(resp.Gifts), len(resp.Properties), len(resp.Projects), 3,
+		"%d Reports · %d Gifts · %d Boosters",
+		len(resp.Reports), len(resp.Gifts), 3,
 	)
 
 	return resp, nil

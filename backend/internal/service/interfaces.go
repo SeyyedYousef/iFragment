@@ -38,7 +38,7 @@ type GamificationRepository interface {
 	GetActiveQuests(ctx context.Context) ([]model.Quest, error)
 }
 
-// BotRepository defines data access methods for Telegram bot management and moderation
+// BotRepository defines data access methods for Telegram bot management
 type BotRepository interface {
 	GetActiveBotEncryptedToken(ctx context.Context) ([]byte, error)
 	GetBotByID(ctx context.Context, id uuid.UUID) (*model.ManagedBot, error)
@@ -46,10 +46,6 @@ type BotRepository interface {
 	ListBotsByOwner(ctx context.Context, ownerID int64) ([]model.ManagedBot, error)
 	SaveBot(ctx context.Context, bot *model.ManagedBot) error
 	DeleteBot(ctx context.Context, id uuid.UUID, ownerID int64) error
-	GetManagedGroup(ctx context.Context, groupID uuid.UUID) (*model.ManagedGroup, error)
-	ListManagedGroups(ctx context.Context, botID uuid.UUID) ([]model.ManagedGroup, error)
-	SaveManagedGroup(ctx context.Context, group *model.ManagedGroup) error
-	DeleteManagedGroup(ctx context.Context, groupID uuid.UUID) error
 }
 
 // LeaderboardCacheStore abstracts leaderboard caching operations

@@ -10,7 +10,7 @@ import {
 
 export const OwnerEntities: Component = () => {
 	const queryClient = useQueryClient();
-	const [activeTab, setActiveTab] = createSignal<'channel' | 'group'>('channel');
+	const [activeTab] = createSignal<'group'>('group');
 
 	// Modals State
 	const [selectedEntity, setSelectedEntity] = createSignal<OwnerEntityItem | null>(null);
@@ -20,8 +20,7 @@ export const OwnerEntities: Component = () => {
 
 	const entitiesQuery = createQuery<OwnerEntityItem[]>(() => ({
 		queryKey: ['owner', 'entities', activeTab()],
-		queryFn: () =>
-			activeTab() === 'channel' ? ownerApi.getAllChannels(50, 0) : ownerApi.getAllGroups(50, 0),
+		queryFn: () => ownerApi.getAllGroups(50, 0),
 	}));
 
 	const extendSubMutation = createMutation(() => ({
@@ -31,7 +30,7 @@ export const OwnerEntities: Component = () => {
 			days,
 			reason,
 		}: {
-			entityType: 'channel' | 'group';
+			entityType: 'group';
 			entityId: string;
 			days: number;
 			reason: string;
@@ -49,7 +48,7 @@ export const OwnerEntities: Component = () => {
 			coins,
 			reason,
 		}: {
-			entityType: 'channel' | 'group';
+			entityType: 'group';
 			entityId: string;
 			coins: number;
 			reason: string;
@@ -103,28 +102,9 @@ export const OwnerEntities: Component = () => {
 				</div>
 
 				<div class="flex gap-1.5 rounded-2xl bg-white/5 p-1 text-xs">
-					<button
-						type="button"
-						onClick={() => setActiveTab('channel')}
-						class={`px-4 py-2 rounded-xl font-medium transition ${
-							activeTab() === 'channel'
-								? 'bg-amber-500 text-black font-bold'
-								: 'text-white/60 hover:text-white'
-						}`}
-					>
-						{t('ownerEntities.channels')}
-					</button>
-					<button
-						type="button"
-						onClick={() => setActiveTab('group')}
-						class={`px-4 py-2 rounded-xl font-medium transition ${
-							activeTab() === 'group'
-								? 'bg-amber-500 text-black font-bold'
-								: 'text-white/60 hover:text-white'
-						}`}
-					>
+					<div class="px-4 py-2 rounded-xl font-bold bg-amber-500 text-black">
 						{t('ownerEntities.groups')}
-					</button>
+					</div>
 				</div>
 			</div>
 

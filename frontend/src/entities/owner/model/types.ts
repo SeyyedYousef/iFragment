@@ -185,7 +185,7 @@ export interface SystemErrorLog {
 
 export interface OwnerEntityItem {
 	id: string;
-	entity_type: 'channel' | 'group';
+	entity_type: 'group';
 	entity_id: string;
 	title: string;
 	status: string;

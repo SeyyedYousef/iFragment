@@ -7,127 +7,14 @@ import { OwnerRouteGuard } from './OwnerRouteGuard.js';
 const AirdropPage = lazy(() =>
 	import('@/pages/airdrop/airdrop/index.js').then((m) => ({ default: m.AirdropPage })),
 );
-const ChannelAdminsPage = lazy(() =>
-	import('@/pages/channel/admins/index.js').then((m) => ({ default: m.ChannelAdminsPage })),
-);
-const ChannelAnalyticsPage = lazy(() =>
-	import('@/pages/channel/analytics/index.js').then((m) => ({ default: m.ChannelAnalyticsPage })),
-);
-const ChannelAuditLogPage = lazy(() =>
-	import('@/pages/channel/audit-log/index.js').then((m) => ({ default: m.ChannelAuditLogPage })),
-);
-const ChannelAutoResponderPage = lazy(() =>
-	import('@/pages/channel/auto-responder/index.js').then((m) => ({
-		default: m.ChannelAutoResponderPage,
-	})),
-);
-const ChannelDashboardPage = lazy(() =>
-	import('@/pages/channel/dashboard/index.js').then((m) => ({ default: m.ChannelDashboardPage })),
-);
-const ChannelDynamicBioPage = lazy(() =>
-	import('@/pages/channel/dynamic-bio/index.js').then((m) => ({
-		default: m.ChannelDynamicBioPage,
-	})),
-);
-const EditProjectPage = lazy(() =>
-	import('@/pages/channel/edit-project/ui/EditProjectPage.js').then((m) => ({
-		default: m.EditProjectPage,
-	})),
-);
-const ChannelForwardingPage = lazy(() =>
-	import('@/pages/channel/forwarding/index.js').then((m) => ({ default: m.ChannelForwardingPage })),
-);
-const ChannelFunnelPage = lazy(() =>
-	import('@/pages/channel/projects/index.js').then((m) => ({ default: m.ProjectsPage })),
-);
-const ProjectsPage = lazy(() =>
-	import('@/pages/channel/projects/index.js').then((m) => ({ default: m.ProjectsPage })),
-);
-const ProjectsHubPage = lazy(() =>
-	import('@/pages/project/hub/index.js').then((m) => ({ default: m.ProjectsHubPage })),
-);
-const ProjectDashboardPage = lazy(() =>
-	import('@/pages/project/dashboard/index.js').then((m) => ({ default: m.ProjectDashboardPage })),
-);
-const ProjectInboxPage = lazy(() =>
-	import('@/pages/project/inbox/index.js').then((m) => ({ default: m.ProjectInboxPage })),
-);
-const ProjectPipelinePage = lazy(() =>
-	import('@/pages/project/pipeline/index.js').then((m) => ({ default: m.ProjectPipelinePage })),
-);
-const ProjectDeliveriesPage = lazy(() =>
-	import('@/pages/project/deliveries/index.js').then((m) => ({ default: m.ProjectDeliveriesPage })),
-);
-const ProjectTeamPage = lazy(() =>
-	import('@/pages/project/team/index.js').then((m) => ({ default: m.ProjectTeamPage })),
-);
-const ProjectSettingsPage = lazy(() =>
-	import('@/pages/project/settings/index.js').then((m) => ({ default: m.ProjectSettingsPage })),
-);
-const ChannelHealthPage = lazy(() =>
-	import('@/pages/channel/health/index.js').then((m) => ({ default: m.ChannelHealthPage })),
-);
-const ChannelMembersPage = lazy(() =>
-	import('@/pages/channel/members/index.js').then((m) => ({ default: m.ChannelMembersPage })),
-);
-const ChannelGeneralSettingsPage = lazy(() =>
-	import('@/pages/channel/general-settings/index.js').then((m) => ({
-		default: m.ChannelGeneralSettingsPage,
-	})),
-);
-const ChannelInlineButtonsPage = lazy(() =>
-	import('@/pages/channel/inline-buttons/index.js').then((m) => ({
-		default: m.ChannelInlineButtonsPage,
-	})),
-);
-const ChannelPostingPage = lazy(() =>
-	import('@/pages/channel/posting/index.js').then((m) => ({ default: m.ChannelPostingPage })),
-);
 const CollectionInfoPage = lazy(() =>
 	import('@/pages/collection-info/index.js').then((m) => ({ default: m.CollectionInfoPage })),
 );
 const DashboardPage = lazy(() =>
 	import('@/pages/dashboard/dashboard/index.js').then((m) => ({ default: m.DashboardPage })),
 );
-const AnalyticsPage = lazy(() =>
-	import('@/pages/group/analytics/index.js').then((m) => ({ default: m.AnalyticsPage })),
-);
-const BotManagePage = lazy(() =>
-	import('@/pages/group/bot-manage/index.js').then((m) => ({ default: m.BotManagePage })),
-);
-const ContentRestrictionsPage = lazy(() =>
-	import('@/pages/group/content-restrictions/index.js').then((m) => ({
-		default: m.ContentRestrictionsPage,
-	})),
-);
-const CustomTextsPage = lazy(() =>
-	import('@/pages/group/custom-texts/index.js').then((m) => ({ default: m.CustomTextsPage })),
-);
-const GroupDashboardPage = lazy(() =>
-	import('@/pages/group/dashboard/index.js').then((m) => ({ default: m.GroupDashboardPage })),
-);
-const GroupDynamicBioPage = lazy(() =>
-	import('@/pages/group/dynamic-bio/index.js').then((m) => ({ default: m.GroupDynamicBioPage })),
-);
-const GeneralSettingsPage = lazy(() =>
-	import('@/pages/group/general-settings/index.js').then((m) => ({
-		default: m.GeneralSettingsPage,
-	})),
-);
-const LimitsPage = lazy(() =>
-	import('@/pages/group/limits/index.js').then((m) => ({ default: m.LimitsPage })),
-);
-const ManagedBotsPage = lazy(() =>
-	import('@/pages/group/managed-bots/index.js').then((m) => ({ default: m.ManagedBotsPage })),
-);
-const MandatoryPage = lazy(() =>
-	import('@/pages/group/mandatory/index.js').then((m) => ({ default: m.MandatoryPage })),
-);
-const MembersPage = lazy(() =>
-	import('@/pages/group/members/index.js').then((m) => ({ default: m.MembersPage })),
-);
-const QuietHoursPage = lazy(() =>
-	import('@/pages/group/quiet-hours/index.js').then((m) => ({ default: m.QuietHoursPage })),
+const InvestorsPromoPage = lazy(() =>
+	import('@/pages/dashboard/dashboard/index.js').then((m) => ({ default: m.InvestorsPromoPage })),
 );
 const IndexPage = lazy(() =>
 	import('@/pages/home/home/index.js').then((m) => ({ default: m.IndexPage })),
@@ -260,16 +147,13 @@ const ShopRedirect: Component = () => {
 	return null;
 };
 
-const ProjectsRedirect: Component = () => {
-	const nav = useNavigate();
-	onMount(() => nav('/projects', { replace: true }));
-	return null;
-};
-
 export const routes: Route[] = [
 	{ path: '/', Component: IndexPage },
 
 	{ path: '/airdrop', Component: AirdropPage },
+	{ path: '/boost', Component: BoostsRedirect },
+	{ path: '/boosts', Component: BoostsRedirect },
+	{ path: '/investors', Component: InvestorsPromoPage },
 	{ path: '/shop', Component: ShopRedirect },
 	{ path: '/store', Component: ShopRedirect },
 	{ path: '/marketplace', Component: ShopRedirect },
@@ -282,51 +166,6 @@ export const routes: Route[] = [
 	{ path: '/profile/tasks', Component: TasksRedirect },
 	{ path: '/profile/boosts', Component: BoostsRedirect },
 	{ path: '/profile/shop', Component: ShopRedirect },
-	{ path: '/managed-bots', Component: ManagedBotsPage },
-	{ path: '/bot/:botId/manage', Component: BotManagePage },
-	{ path: '/group/:id', Component: GroupDashboardPage },
-	{ path: '/group/:id/settings', Component: GeneralSettingsPage },
-	{ path: '/group/:id/content', Component: ContentRestrictionsPage },
-	{ path: '/group/:id/limits', Component: LimitsPage },
-	{ path: '/group/:id/quiet', Component: QuietHoursPage },
-	{ path: '/group/:id/mandatory', Component: MandatoryPage },
-	{ path: '/group/:id/settings/custom-texts', Component: CustomTextsPage },
-	{ path: '/group/:id/members', Component: MembersPage },
-	{ path: '/group/:id/analytics', Component: AnalyticsPage },
-	{ path: '/group/:id/dynamic-bio', Component: GroupDynamicBioPage },
-	// Project-Centric Routes
-	{ path: '/projects', Component: ProjectsHubPage },
-	{ path: '/projects/:projectId', Component: ProjectDashboardPage },
-	{ path: '/projects/:projectId/dashboard', Component: ProjectDashboardPage },
-	{ path: '/projects/:projectId/inbox', Component: ProjectInboxPage },
-	{ path: '/projects/:projectId/approvals', Component: ProjectInboxPage },
-	{ path: '/projects/:projectId/pipeline', Component: ProjectPipelinePage },
-	{ path: '/projects/:projectId/deliveries', Component: ProjectDeliveriesPage },
-	{ path: '/projects/:projectId/schedules', Component: ProjectDeliveriesPage },
-	{ path: '/projects/:projectId/team', Component: ProjectTeamPage },
-	{ path: '/projects/:projectId/settings', Component: ProjectSettingsPage },
-
-	// Deprecated channel routes redirected to /projects
-	{ path: '/managed-channels', Component: ProjectsRedirect },
-	{ path: '/channel/connect', Component: ProjectsRedirect },
-	{ path: '/channel/projects', Component: ProjectsRedirect },
-	{ path: '/channel/:id', Component: ChannelDashboardPage },
-	{ path: '/channel/:id/dashboard', Component: ChannelDashboardPage },
-	{ path: '/channel/:id/projects', Component: ProjectsPage },
-	{ path: '/channel/:id/edit-project', Component: EditProjectPage },
-	{ path: '/channel/:id/settings', Component: ChannelGeneralSettingsPage },
-	{ path: '/channel/:id/general', Component: ChannelGeneralSettingsPage },
-	{ path: '/channel/:id/posting', Component: ChannelPostingPage },
-	{ path: '/channel/:id/funnel', Component: ChannelFunnelPage },
-	{ path: '/channel/:id/forwarding', Component: ChannelForwardingPage },
-	{ path: '/channel/:id/health', Component: ChannelHealthPage },
-	{ path: '/channel/:id/members', Component: ChannelMembersPage },
-	{ path: '/channel/:id/admins', Component: ChannelAdminsPage },
-	{ path: '/channel/:id/analytics', Component: ChannelAnalyticsPage },
-	{ path: '/channel/:id/inline-buttons', Component: ChannelInlineButtonsPage },
-	{ path: '/channel/:id/dynamic-bio', Component: ChannelDynamicBioPage },
-	{ path: '/channel/:id/auto-responder', Component: ChannelAutoResponderPage },
-	{ path: '/channel/:id/audit-log', Component: ChannelAuditLogPage },
 	{
 		path: '/owner/dashboard',
 		Component: withOwnerGuard(OwnerDashboardPage, 'dashboard', 'ownerDashboard.title'),

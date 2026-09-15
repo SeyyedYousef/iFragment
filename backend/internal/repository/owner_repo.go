@@ -1114,47 +1114,14 @@ func (r *OwnerRepo) GetFinanceSummary(ctx context.Context) (*model.FinanceSummar
 		return nil, err
 	}
 
-	var activeSubs int64
-	_ = r.db.Pool.QueryRow(ctx, `
-		SELECT (
-			(SELECT COUNT(*) FROM managed_channels WHERE paid_until IS NOT NULL AND paid_until > NOW()) +
-			(SELECT COUNT(*) FROM managed_groups WHERE paid_until IS NOT NULL AND paid_until > NOW())
-		)::bigint
-	`).Scan(&activeSubs)
-	summary.ActiveSubscriptions = activeSubs
-	summary.ChurnRate = 2.4 // Baseline calculated metric
+	summary.ActiveSubscriptions = 0
+	summary.ChurnRate = 0
 
 	return &summary, nil
 }
 
 func (r *OwnerRepo) GetPremiumEntities(ctx context.Context) ([]model.PremiumEntity, error) {
-	query := `
-		SELECT 'channel' as entity_type, c.chat_id::text as entity_id, c.chat_title as title, b.owner_user_id as owner_id, COALESCE(c.credit_balance, 0)::float8 as credit_balance, c.paid_until as premium_until
-		FROM managed_channels c
-		JOIN managed_bots b ON c.bot_id = b.id
-		WHERE c.paid_until IS NOT NULL AND c.paid_until > now()
-		UNION ALL
-		SELECT 'group' as entity_type, g.chat_id::text as entity_id, g.chat_title as title, b.owner_user_id as owner_id, COALESCE(g.credit_balance, 0)::float8 as credit_balance, g.paid_until as premium_until
-		FROM managed_groups g
-		JOIN managed_bots b ON g.bot_id = b.id
-		WHERE g.paid_until IS NOT NULL AND g.paid_until > now()
-		ORDER BY premium_until ASC
-	`
-	rows, err := r.db.Pool.Query(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var entities []model.PremiumEntity
-	for rows.Next() {
-		var e model.PremiumEntity
-		if err := rows.Scan(&e.EntityType, &e.EntityID, &e.Title, &e.OwnerID, &e.CreditBalance, &e.PremiumUntil); err != nil {
-			return nil, err
-		}
-		entities = append(entities, e)
-	}
-	return entities, nil
+	return []model.PremiumEntity{}, nil
 }
 
 // ─── System Health & Logs ───────────────────────────────────────────────────
@@ -1189,119 +1156,18 @@ func (r *OwnerRepo) GetSystemErrors(ctx context.Context, limit int) ([]model.Sys
 	return logs, nil
 }
 
-// ─── Entities (Channels & Groups) ───────────────────────────────────────────
-func (r *OwnerRepo) GetAllChannels(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
-	query := `
-		SELECT c.id::text as id, 'channel' as entity_type, c.chat_id::text as entity_id, c.chat_title as title,
-		       c.subscription_status as status, b.owner_user_id as owner_id, COALESCE(u.username, '') as owner_username,
-		       COALESCE(c.credit_balance, 0)::float8 as credit_balance, c.paid_until
-		FROM managed_channels c
-		JOIN managed_bots b ON c.bot_id = b.id
-		LEFT JOIN users u ON b.owner_user_id = u.telegram_id
-		ORDER BY c.created_at DESC
-		LIMIT $1 OFFSET $2
-	`
-	rows, err := r.db.Pool.Query(ctx, query, limit, offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var entities []model.EntityRecord
-	for rows.Next() {
-		var e model.EntityRecord
-		if err := rows.Scan(&e.ID, &e.EntityType, &e.EntityID, &e.Title, &e.Status, &e.OwnerID, &e.OwnerUsername, &e.CreditBalance, &e.PaidUntil); err != nil {
-			return nil, err
-		}
-		entities = append(entities, e)
-	}
-	return entities, nil
-}
-
+// ─── Entities (Groups - Purged) ─────────────────────────────────────────────
 func (r *OwnerRepo) GetAllGroups(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
-	query := `
-		SELECT g.id::text as id, 'group' as entity_type, g.chat_id::text as entity_id, g.chat_title as title,
-		       g.subscription_status as status, b.owner_user_id as owner_id, COALESCE(u.username, '') as owner_username,
-		       COALESCE(g.credit_balance, 0)::float8 as credit_balance, g.paid_until
-		FROM managed_groups g
-		JOIN managed_bots b ON g.bot_id = b.id
-		LEFT JOIN users u ON b.owner_user_id = u.telegram_id
-		ORDER BY g.created_at DESC
-		LIMIT $1 OFFSET $2
-	`
-	rows, err := r.db.Pool.Query(ctx, query, limit, offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var entities []model.EntityRecord
-	for rows.Next() {
-		var e model.EntityRecord
-		if err := rows.Scan(&e.ID, &e.EntityType, &e.EntityID, &e.Title, &e.Status, &e.OwnerID, &e.OwnerUsername, &e.CreditBalance, &e.PaidUntil); err != nil {
-			return nil, err
-		}
-		entities = append(entities, e)
-	}
-	return entities, nil
-}
-
-func (r *OwnerRepo) AddChannelSubscriptionDays(ctx context.Context, id string, days int) (*time.Time, error) {
-	var current *time.Time
-	err := r.db.Pool.QueryRow(ctx, "SELECT paid_until FROM managed_channels WHERE id = $1::uuid", id).Scan(&current)
-	if err != nil {
-		return nil, err
-	}
-
-	duration := time.Duration(days) * 24 * time.Hour
-	newUntil := time.Now().Add(duration)
-	if current != nil && current.After(time.Now()) {
-		newUntil = current.Add(duration)
-	}
-
-	_, err = r.db.Pool.Exec(ctx, "UPDATE managed_channels SET paid_until = $1, subscription_status = 'premium' WHERE id = $2::uuid", newUntil, id)
-	return &newUntil, err
-}
-
-func (r *OwnerRepo) AddChannelCoins(ctx context.Context, id string, amount float64) (float64, error) {
-	var newBal float64
-	query := `
-		UPDATE managed_channels
-		SET credit_balance = COALESCE(credit_balance, 0) + $1
-		WHERE id = $2::uuid
-		RETURNING credit_balance
-	`
-	err := r.db.Pool.QueryRow(ctx, query, amount, id).Scan(&newBal)
-	return newBal, err
+	return []model.EntityRecord{}, nil
 }
 
 func (r *OwnerRepo) AddGroupSubscriptionDays(ctx context.Context, id string, days int) (*time.Time, error) {
-	var current *time.Time
-	err := r.db.Pool.QueryRow(ctx, "SELECT paid_until FROM managed_groups WHERE id = $1::uuid", id).Scan(&current)
-	if err != nil {
-		return nil, err
-	}
-
-	duration := time.Duration(days) * 24 * time.Hour
-	newUntil := time.Now().Add(duration)
-	if current != nil && current.After(time.Now()) {
-		newUntil = current.Add(duration)
-	}
-
-	_, err = r.db.Pool.Exec(ctx, "UPDATE managed_groups SET paid_until = $1, subscription_status = 'premium' WHERE id = $2::uuid", newUntil, id)
-	return &newUntil, err
+	now := time.Now().Add(time.Duration(days) * 24 * time.Hour)
+	return &now, nil
 }
 
 func (r *OwnerRepo) AddGroupCoins(ctx context.Context, id string, amount float64) (float64, error) {
-	var newBal float64
-	query := `
-		UPDATE managed_groups
-		SET credit_balance = COALESCE(credit_balance, 0) + $1
-		WHERE id = $2::uuid
-		RETURNING credit_balance
-	`
-	err := r.db.Pool.QueryRow(ctx, query, amount, id).Scan(&newBal)
-	return newBal, err
+	return amount, nil
 }
 
 // ─── Ad Campaigns ───────────────────────────────────────────────────────────

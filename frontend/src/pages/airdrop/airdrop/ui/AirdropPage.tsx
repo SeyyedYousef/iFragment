@@ -16,7 +16,12 @@ import {
 	syncDailyRewardStatus,
 	syncProfileStats,
 } from '@/entities/airdrop/index.js';
-import { type Clan, collectOfflineMining, getClan, startOfflineMining } from '@/entities/user/index.js';
+import {
+	type Clan,
+	collectOfflineMining,
+	getClan,
+	startOfflineMining,
+} from '@/entities/user/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { flyCoinsToBalance } from '@/shared/ui/index.js';
@@ -110,9 +115,15 @@ export const AirdropPage: Component = () => {
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 
 		// 1. Unconditionally sync stats, rewards, boosters and clan status on entry
-		Promise.resolve(syncProfileStats?.())?.catch((e) => console.error('[Airdrop] syncProfileStats error:', e));
-		Promise.resolve(syncDailyRewardStatus?.())?.catch((e) => console.error('[Airdrop] syncDailyRewardStatus error:', e));
-		Promise.resolve(syncBoostersStatus?.())?.catch((e) => console.error('[Airdrop] syncBoostersStatus error:', e));
+		Promise.resolve(syncProfileStats?.())?.catch((e) =>
+			console.error('[Airdrop] syncProfileStats error:', e),
+		);
+		Promise.resolve(syncDailyRewardStatus?.())?.catch((e) =>
+			console.error('[Airdrop] syncDailyRewardStatus error:', e),
+		);
+		Promise.resolve(syncBoostersStatus?.())?.catch((e) =>
+			console.error('[Airdrop] syncBoostersStatus error:', e),
+		);
 		getClan()
 			.then((res) => {
 				if (res?.is_member && res.clan) {

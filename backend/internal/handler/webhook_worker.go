@@ -7,8 +7,6 @@ import (
 	"sync"
 
 	"ifragment-backend/internal/repository"
-	"ifragment-backend/internal/service/botmgmt"
-	"ifragment-backend/internal/service/channelmgmt"
 )
 
 const numShards = 32
@@ -30,9 +28,8 @@ var (
 // All updates belonging to the same chatID are hashed to the exact same shard channel,
 // guaranteeing strict per-chat sequential FIFO processing while allowing 32 independent chats
 // to execute in parallel concurrently.
-func initWorkerPool(db *repository.Database, mod *botmgmt.ModeratorService, botRepo *repository.BotRepo, chanServ *channelmgmt.ChannelService) {
+func initWorkerPool(h *WebhookHandler) {
 	queueOnce.Do(func() {
-		handler := NewWebhookHandler(db, mod, botRepo, chanServ)
 		for i := 0; i < numShards; i++ {
 			shards[i] = make(chan WebhookJob, 1024)
 			shardChan := shards[i]
@@ -44,7 +41,7 @@ func initWorkerPool(db *repository.Database, mod *botmgmt.ModeratorService, botR
 								slog.Error("Worker panic recovered during async webhook execution", "shard", shardID, "panic", r, "stack", string(debug.Stack()))
 							}
 						}()
-						handler.processUpdateAsync(job.ctx, job.bot, job.update)
+						h.processUpdateAsync(job.ctx, job.bot, job.update)
 					}()
 				}
 			}(shardChan, i)
@@ -62,12 +59,6 @@ func extractChatIDFromUpdate(update *TelegramUpdate) int64 {
 	}
 	if update.EditedMessage != nil && update.EditedMessage.Chat != nil {
 		return update.EditedMessage.Chat.ID
-	}
-	if update.ChannelPost != nil && update.ChannelPost.Chat != nil {
-		return update.ChannelPost.Chat.ID
-	}
-	if update.EditedChannelPost != nil && update.EditedChannelPost.Chat != nil {
-		return update.EditedChannelPost.Chat.ID
 	}
 	if update.CallbackQuery != nil && update.CallbackQuery.Message != nil && update.CallbackQuery.Message.Chat != nil {
 		return update.CallbackQuery.Message.Chat.ID

@@ -131,49 +131,6 @@ func (db *Database) CompleteStarsPremiumPayment(ctx context.Context, payload str
 	return tx.Commit(ctx)
 }
 
-// CompleteChannelStarsPayment atomically marks order as paid AND grants/extends subscription to the channel.
-func (db *Database) CompleteChannelStarsPayment(ctx context.Context, payload string, chargeID string, channelID uuid.UUID, duration time.Duration) error {
-	tx, err := db.Pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	// 1. Update order status to paid
-	queryOrder := `
-		UPDATE orders
-		SET status = 'paid', telegram_payment_charge_id = $1, updated_at = CURRENT_TIMESTAMP
-		WHERE payload = $2 AND status != 'paid'
-	`
-	cmdTag, err := tx.Exec(ctx, queryOrder, chargeID, payload)
-	if err != nil {
-		return fmt.Errorf("update order status: %w", err)
-	}
-	if cmdTag.RowsAffected() == 0 {
-		// Already paid
-	}
-
-	// 2. Fetch current paid_until
-	var currentPaidUntil *time.Time
-	err = tx.QueryRow(ctx, "SELECT paid_until FROM managed_channels WHERE id = $1::uuid FOR UPDATE", channelID).Scan(&currentPaidUntil)
-	if err != nil && err != pgx.ErrNoRows {
-		return fmt.Errorf("fetch paid_until: %w", err)
-	}
-
-	newUntil := time.Now().Add(duration)
-	if currentPaidUntil != nil && currentPaidUntil.After(time.Now()) {
-		newUntil = currentPaidUntil.Add(duration)
-	}
-
-	// 3. Grant subscription
-	_, err = tx.Exec(ctx, "UPDATE managed_channels SET subscription_status = 'premium', paid_until = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid", newUntil, channelID)
-	if err != nil {
-		return fmt.Errorf("grant channel premium: %w", err)
-	}
-
-	return tx.Commit(ctx)
-}
-
 // HasPaidValuation checks if a user has a paid valuation order or consumed an Intel Credit for the specified username within the last 24 hours.
 // Returns (hasAccess, method, error).
 func (db *Database) HasPaidValuation(ctx context.Context, userID int64, username string) (bool, string, error) {

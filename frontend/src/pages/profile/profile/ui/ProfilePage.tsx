@@ -15,12 +15,7 @@ import { haptic } from '@/shared/lib/haptic.js';
 import { ErrorFallback, SkeletonProfile } from '@/shared/ui/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { OwnerGateModal } from '@/widgets/owner/index.js';
-import {
-	AchievementPreview,
-	IdentityHero,
-	MyAssetsGallery,
-	WalletCard,
-} from '@/widgets/profile/index.js';
+import { AchievementPreview, IdentityHero, MyAssetsGallery } from '@/widgets/profile/index.js';
 
 export const ProfilePage: Component = () => {
 	const secretTrigger = useSecretTrigger();
@@ -80,10 +75,7 @@ export const ProfilePage: Component = () => {
 				try {
 					const uid = currentUserId();
 					if (uid) {
-						localStorage.setItem(
-							`cached_profile_achievements_${uid}`,
-							JSON.stringify(res),
-						);
+						localStorage.setItem(`cached_profile_achievements_${uid}`, JSON.stringify(res));
 					}
 				} catch {}
 			}
@@ -147,10 +139,7 @@ export const ProfilePage: Component = () => {
 							<IdentityHero stats={stats()} onStatusUpdated={() => statsQuery.refetch()} />
 						</Motion.div>
 
-						{/* ═══════ 2. WALLET & UNIFIED LEDGER SUMMARY ═══════ */}
-						<WalletCard stats={stats()} onBuyStars={() => handleNavigate('/airdrop?tab=shop')} />
-
-						{/* ═══════ 3. MY ASSETS GALLERY (4 TABS) ═══════ */}
+						{/* ═══════ 2. MY ASSETS GALLERY (4 TABS) ═══════ */}
 						<MyAssetsGallery />
 
 						{/* ═══════ 4. TODAY'S PROGRESS & GAMIFICATION ═══════ */}
@@ -220,7 +209,7 @@ export const ProfilePage: Component = () => {
 											<span class="text-[11px] font-black text-white">
 												{stats()?.globalRank
 													? t('profilePg.rankLabel' as any, { rank: stats()?.globalRank })
-													: (t('profilePg.unranked' as any) || '—')}
+													: t('profilePg.unranked' as any) || '—'}
 											</span>
 											<span class="text-[9px] text-amber-400 font-bold">
 												{t('profilePg.globalBoard' as any)}

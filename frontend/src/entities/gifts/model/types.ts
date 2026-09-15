@@ -738,4 +738,3 @@ export interface CollectionSummaryItem {
 	holders_count?: number;
 	upgraded_count?: number;
 }
-

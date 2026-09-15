@@ -31,13 +31,12 @@ type AdminNotificationService struct {
 	client       *telegram.BotAPIClient
 	adminGroupID int64
 
-	topicAVM        *int
-	topicNewBot     *int
-	topicNewChannel *int
-	topicPayments   *int
-	topicGifts      *int
-	topicNumbers    *int
-	topicSystem     *int
+	topicAVM      *int
+	topicNewBot   *int
+	topicPayments *int
+	topicGifts    *int
+	topicNumbers  *int
+	topicSystem   *int
 
 	queue  chan notificationJob
 	stopCh chan struct{}
@@ -53,15 +52,12 @@ func NewAdminNotificationService() *AdminNotificationService {
 
 	adminGroupID, _ := strconv.ParseInt(os.Getenv("ADMIN_GROUP_ID"), 10, 64)
 
-	var topicAVM, topicNewBot, topicNewChannel, topicPayments, topicGifts, topicNumbers, topicSystem *int
+	var topicAVM, topicNewBot, topicPayments, topicGifts, topicNumbers, topicSystem *int
 	if t, err := strconv.Atoi(os.Getenv("ADMIN_TOPIC_AVM")); err == nil && t > 0 {
 		topicAVM = &t
 	}
 	if t, err := strconv.Atoi(os.Getenv("ADMIN_TOPIC_NEW_BOT")); err == nil && t > 0 {
 		topicNewBot = &t
-	}
-	if t, err := strconv.Atoi(os.Getenv("ADMIN_TOPIC_NEW_CHANNEL")); err == nil && t > 0 {
-		topicNewChannel = &t
 	}
 	if t, err := strconv.Atoi(os.Getenv("ADMIN_TOPIC_PAYMENTS")); err == nil && t > 0 {
 		topicPayments = &t
@@ -81,13 +77,12 @@ func NewAdminNotificationService() *AdminNotificationService {
 	}
 
 	service := &AdminNotificationService{
-		client:          client,
-		adminGroupID:    adminGroupID,
-		topicAVM:        topicAVM,
-		topicNewBot:     topicNewBot,
-		topicNewChannel: topicNewChannel,
-		topicPayments:   topicPayments,
-		topicGifts:      topicGifts,
+		client:        client,
+		adminGroupID:  adminGroupID,
+		topicAVM:      topicAVM,
+		topicNewBot:   topicNewBot,
+		topicPayments: topicPayments,
+		topicGifts:    topicGifts,
 		topicNumbers:    topicNumbers,
 		topicSystem:     topicSystem,
 		queue:           make(chan notificationJob, 500),
@@ -204,10 +199,6 @@ func (s *AdminNotificationService) NotifyNumber(ctx context.Context, text string
 
 func (s *AdminNotificationService) NotifyNewBot(ctx context.Context, text string, markup ...interface{}) {
 	s.send(ctx, s.topicNewBot, text, markup...)
-}
-
-func (s *AdminNotificationService) NotifyNewChannel(ctx context.Context, text string, markup ...interface{}) {
-	s.send(ctx, s.topicNewChannel, text, markup...)
 }
 
 func (s *AdminNotificationService) NotifyPayment(ctx context.Context, text string, markup ...interface{}) {

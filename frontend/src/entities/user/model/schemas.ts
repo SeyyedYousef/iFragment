@@ -117,6 +117,8 @@ export const TaskStatusSchema = v.object({
 	action_url: v.optional(v.string()),
 	is_premium_req: v.optional(v.boolean()),
 	is_clan_req: v.optional(v.boolean()),
+	cooldown_seconds: v.optional(v.number()),
+	available_at: v.optional(v.string()),
 });
 
 export const DailyComboStatusSchema = v.object({
@@ -252,7 +254,7 @@ export const MyReportsAssetSchema = v.object({
 
 export const MyConnectedPropertySchema = v.object({
 	id: v.string(),
-	type: v.picklist(['channel', 'group', 'bot']),
+	type: v.picklist(['group', 'bot']),
 	title: v.string(),
 	username: v.string(),
 	photoUrl: v.optional(v.nullable(v.string())),

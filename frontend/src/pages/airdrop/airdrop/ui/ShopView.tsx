@@ -342,9 +342,7 @@ export const ShopView: Component = () => {
 										🪙
 									</div>
 									<div class="flex flex-col text-start">
-										<h3 class="text-[15px] font-black text-white">
-											{t('shop.coinExchangeTitle')}
-										</h3>
+										<h3 class="text-[15px] font-black text-white">{t('shop.coinExchangeTitle')}</h3>
 										<span class="text-[12px] font-medium text-emerald-300/80">
 											{t('shop.coinExchangeRate', { count: formatNumber(coinsCost()) })}
 										</span>
@@ -438,9 +436,7 @@ export const ShopView: Component = () => {
 								1
 							</div>
 							<div class="flex flex-col">
-								<span class="font-bold text-white text-[12.5px]">
-									{t('shop.utility1Title')}
-								</span>
+								<span class="font-bold text-white text-[12.5px]">{t('shop.utility1Title')}</span>
 								<span class="text-white/60 text-[11px] mt-0.5 leading-relaxed">
 									{t('shop.utility1Desc')}
 								</span>
@@ -453,9 +449,7 @@ export const ShopView: Component = () => {
 								3
 							</div>
 							<div class="flex flex-col">
-								<span class="font-bold text-white text-[12.5px]">
-									{t('shop.utility2Title')}
-								</span>
+								<span class="font-bold text-white text-[12.5px]">{t('shop.utility2Title')}</span>
 								<span class="text-white/60 text-[11px] mt-0.5 leading-relaxed">
 									{t('shop.utility2Desc')}
 								</span>
@@ -468,9 +462,7 @@ export const ShopView: Component = () => {
 								⚡
 							</div>
 							<div class="flex flex-col">
-								<span class="font-bold text-white text-[12.5px]">
-									{t('shop.utility3Title')}
-								</span>
+								<span class="font-bold text-white text-[12.5px]">{t('shop.utility3Title')}</span>
 								<span class="text-white/60 text-[11px] mt-0.5 leading-relaxed">
 									{t('shop.utility3Desc')}
 								</span>

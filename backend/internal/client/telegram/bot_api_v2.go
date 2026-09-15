@@ -119,37 +119,37 @@ func (c *BotAPIClient) EditRichMessage(ctx context.Context, chatID interface{}, 
 // GiftSummary is a compact projection of a unique gift from getUserGifts /
 // getChatGifts responses.
 type GiftSummary struct {
-	GiftID            string  `json:"gift_id,omitempty"`
-	BaseGiftID        string  `json:"base_gift_id,omitempty"`
-	Model             string  `json:"model,omitempty"`
-	Symbol            string  `json:"symbol,omitempty"`
-	Backdrop          string  `json:"backdrop,omitempty"`
-	Number            int64   `json:"number,omitempty"`
-	Rarity            float64 `json:"rarity,omitempty"` // official model rarity (9.4)
-	IsBurned          bool    `json:"is_burned,omitempty"`
-	LastResaleCurrency string `json:"last_resale_currency,omitempty"`
+	GiftID             string  `json:"gift_id,omitempty"`
+	BaseGiftID         string  `json:"base_gift_id,omitempty"`
+	Model              string  `json:"model,omitempty"`
+	Symbol             string  `json:"symbol,omitempty"`
+	Backdrop           string  `json:"backdrop,omitempty"`
+	Number             int64   `json:"number,omitempty"`
+	Rarity             float64 `json:"rarity,omitempty"` // official model rarity (9.4)
+	IsBurned           bool    `json:"is_burned,omitempty"`
+	LastResaleCurrency string  `json:"last_resale_currency,omitempty"`
 	LastResaleAmount   float64 `json:"last_resale_amount,omitempty"`
 }
 
 type userGiftsResponse struct {
-	TotalCount int          `json:"total_count"`
+	TotalCount int `json:"total_count"`
 	Gifts      []struct {
 		Gift struct {
-			GiftID    string `json:"gift_id,omitempty"`
-			BaseName  string `json:"base_name,omitempty"`
-			Model     *struct {
+			GiftID   string `json:"gift_id,omitempty"`
+			BaseName string `json:"base_name,omitempty"`
+			Model    *struct {
 				Name   string  `json:"name"`
 				Rarity float64 `json:"rarity"`
 			} `json:"model,omitempty"`
-			Symbol   *struct {
+			Symbol *struct {
 				Name string `json:"name"`
 			} `json:"symbol,omitempty"`
 			Backdrop *struct {
 				Name string `json:"name"`
 			} `json:"backdrop,omitempty"`
-			Number       int64   `json:"number,omitempty"`
-			IsBurned     bool    `json:"is_burned,omitempty"`
-			ResaleInfo   *struct {
+			Number     int64 `json:"number,omitempty"`
+			IsBurned   bool  `json:"is_burned,omitempty"`
+			ResaleInfo *struct {
 				Currency string  `json:"last_resale_currency,omitempty"`
 				Amount   float64 `json:"last_resale_amount,omitempty"`
 			} `json:"unique_gift_info,omitempty"`
@@ -313,8 +313,8 @@ func (c *BotAPIClient) ReplaceManagedBotToken(ctx context.Context, managedBotUse
 // SendLivePhoto sends a photo with a short accompanying video (live photo).
 func (c *BotAPIClient) SendLivePhoto(ctx context.Context, chatID int64, photoURL, videoURL string, caption ...string) error {
 	payload := map[string]interface{}{
-		"chat_id":   chatID,
-		"photo":     photoURL,
+		"chat_id":    chatID,
+		"photo":      photoURL,
 		"live_video": videoURL,
 	}
 	if len(caption) > 0 && caption[0] != "" {
@@ -330,15 +330,15 @@ func (c *BotAPIClient) SendLivePhoto(ctx context.Context, chatID int64, photoURL
 // carry the newer optional fields. Existing call sites passing raw maps keep
 // working unchanged; use this only when the extra fields are needed.
 type InlineButton struct {
-	Text                         string  `json:"text"`
-	URL                          string  `json:"url,omitempty"`
-	CallbackData                 string  `json:"callback_data,omitempty"`
-	SwitchInlineQuery            string  `json:"switch_inline_query,omitempty"`
-	SwitchInlineQueryCurrentChat string  `json:"switch_inline_query_current_chat,omitempty"`
-	Pay                          bool    `json:"pay,omitempty"`
-	Style                        string  `json:"style,omitempty"`           // 9.4: e.g. "danger"
-	Disabled                     bool    `json:"disabled,omitempty"`         // 10.3
-	IconCustomEmojiID            string  `json:"icon_custom_emoji_id,omitempty"` // 9.3
+	Text                         string `json:"text"`
+	URL                          string `json:"url,omitempty"`
+	CallbackData                 string `json:"callback_data,omitempty"`
+	SwitchInlineQuery            string `json:"switch_inline_query,omitempty"`
+	SwitchInlineQueryCurrentChat string `json:"switch_inline_query_current_chat,omitempty"`
+	Pay                          bool   `json:"pay,omitempty"`
+	Style                        string `json:"style,omitempty"`                // 9.4: e.g. "danger"
+	Disabled                     bool   `json:"disabled,omitempty"`             // 10.3
+	IconCustomEmojiID            string `json:"icon_custom_emoji_id,omitempty"` // 9.3
 }
 
 // BuildInlineKeyboard converts [][]InlineButton to the raw reply_markup map
@@ -356,4 +356,28 @@ func BuildInlineKeyboard(rows [][]InlineButton) map[string]interface{} {
 		grid = append(grid, r)
 	}
 	return map[string]interface{}{"inline_keyboard": grid}
+}
+
+// ─── Chat Boosts (Bot API 7.0+, Telegram Premium) ───────────────────────────
+
+// GetUserChatBoosts checks the list of boosts added to a chat by a specific user.
+// Returns the number of active boosts the user has applied to the chat.
+func (c *BotAPIClient) GetUserChatBoosts(ctx context.Context, chatID interface{}, userID int64) (int, error) {
+	raw, err := c.Request(ctx, "getUserChatBoosts", map[string]interface{}{
+		"chat_id": chatID,
+		"user_id": userID,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	var result struct {
+		Boosts []json.RawMessage `json:"boosts"`
+	}
+
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return 0, fmt.Errorf("failed to parse user chat boosts: %w", err)
+	}
+
+	return len(result.Boosts), nil
 }

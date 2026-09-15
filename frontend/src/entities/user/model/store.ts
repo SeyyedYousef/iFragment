@@ -171,10 +171,7 @@ export const updateSetting = <K extends keyof ProfileSettings>(
 /**
  * Legacy immediate update notification helper (also syncs draft and persists)
  */
-export const updateNotification = (
-	key: keyof ProfileSettings['notifications'],
-	value: boolean,
-) => {
+export const updateNotification = (key: keyof ProfileSettings['notifications'], value: boolean) => {
 	setProfileSettings((prev) => {
 		const next = {
 			...prev,

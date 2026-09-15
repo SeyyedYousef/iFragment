@@ -1,10 +1,4 @@
-import {
-	type Component,
-	createMemo,
-	createSignal,
-	For,
-	Show,
-} from 'solid-js';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -196,9 +190,7 @@ export const GiftFloorChart: Component<Props> = (props) => {
 
 					<div class="text-[10px] text-white/40 font-mono mt-0.5 flex items-center gap-3">
 						<Show when={hoverIdx() !== null && currentPoint()}>
-							<span class="text-[#0098EA] font-semibold">
-								{fmtDate(currentPoint()!.timestamp)}
-							</span>
+							<span class="text-[#0098EA] font-semibold">{fmtDate(currentPoint()!.timestamp)}</span>
 						</Show>
 						<Show when={hoverIdx() === null}>
 							<span>
@@ -227,7 +219,9 @@ export const GiftFloorChart: Component<Props> = (props) => {
 								} catch {}
 							}}
 							class={`px-2 py-0.5 rounded-lg transition-all ${
-								currency() === 'ton' ? 'bg-[#0098EA] text-white shadow' : 'text-white/40 hover:text-white'
+								currency() === 'ton'
+									? 'bg-[#0098EA] text-white shadow'
+									: 'text-white/40 hover:text-white'
 							}`}
 						>
 							TON
@@ -241,7 +235,9 @@ export const GiftFloorChart: Component<Props> = (props) => {
 								} catch {}
 							}}
 							class={`px-2 py-0.5 rounded-lg transition-all ${
-								currency() === 'usd' ? 'bg-[#0098EA] text-white shadow' : 'text-white/40 hover:text-white'
+								currency() === 'usd'
+									? 'bg-[#0098EA] text-white shadow'
+									: 'text-white/40 hover:text-white'
 							}`}
 						>
 							USD
@@ -280,7 +276,9 @@ export const GiftFloorChart: Component<Props> = (props) => {
 					<div class="flex flex-col items-center justify-center h-[180px] rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-center select-none">
 						<span class="material-symbols-outlined text-3xl text-white/20 mb-1">show_chart</span>
 						<p class="text-xs font-bold text-white/50 font-mono">Historical data unavailable</p>
-						<p class="text-[10px] text-white/30 mt-0.5">Verified daily floor snapshots are recorded in real time</p>
+						<p class="text-[10px] text-white/30 mt-0.5">
+							Verified daily floor snapshots are recorded in real time
+						</p>
 					</div>
 				}
 			>
@@ -370,8 +368,22 @@ export const GiftFloorChart: Component<Props> = (props) => {
 											stroke-dasharray="3 3"
 											opacity="0.8"
 										/>
-										<circle cx={cp.x} cy={cp.y} r="7" fill="#0098EA" opacity="0.3" class="animate-ping" />
-										<circle cx={cp.x} cy={cp.y} r="5" fill="#0A0E17" stroke="#0098EA" stroke-width="2.5" />
+										<circle
+											cx={cp.x}
+											cy={cp.y}
+											r="7"
+											fill="#0098EA"
+											opacity="0.3"
+											class="animate-ping"
+										/>
+										<circle
+											cx={cp.x}
+											cy={cp.y}
+											r="5"
+											fill="#0A0E17"
+											stroke="#0098EA"
+											stroke-width="2.5"
+										/>
 										<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
 									</g>
 								);

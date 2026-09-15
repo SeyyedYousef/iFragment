@@ -8,7 +8,6 @@ import (
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service"
-	"ifragment-backend/internal/service/botmgmt"
 	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/payment"
 	"io"
@@ -132,8 +131,8 @@ func (h *ProfileHandler) GetEconomyConfig(w http.ResponseWriter, r *http.Request
 				"max_level": 1,
 			},
 		},
-		"subscription_packages": botmgmt.Packages,
-		"discount_tiers":        botmgmt.DiscountTiers,
+		"subscription_packages": []interface{}{},
+		"discount_tiers":        []interface{}{},
 		"credit_packs":          intelcredit.Packs(),
 	}
 
@@ -364,7 +363,7 @@ func (h *ProfileHandler) GetAchievementDefs(w http.ResponseWriter, r *http.Reque
 	keys := []string{
 		"first_steps", "home_base", "tap_novice", "mining_machine", "frg_millionaire",
 		"first_scan", "whale_hunter", "data_scientist", "social_butterfly", "army_builder",
-		"network_king", "group_guardian", "channel_commander", "empire_builder", "week_warrior",
+		"network_king", "group_guardian", "empire_builder", "week_warrior",
 		"month_master", "legendary", "early_adopter", "premium_user", "bug_hunter",
 	}
 	defs := make([]model.AchievementDef, 0, len(keys))

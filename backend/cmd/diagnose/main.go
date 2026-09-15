@@ -45,18 +45,4 @@ func main() {
 		fmt.Printf("Error querying managed_bots: %v\n", err)
 	}
 
-	fmt.Println("\n=== Managed Groups ===")
-	rows2, err := conn.Query(ctx, "SELECT id, bot_id, chat_id, chat_title, subscription_status FROM managed_groups")
-	if err == nil {
-		defer rows2.Close()
-		for rows2.Next() {
-			var id, botID, chatTitle, subStatus string
-			var chatID int64
-			if err := rows2.Scan(&id, &botID, &chatID, &chatTitle, &subStatus); err == nil {
-				fmt.Printf("ID: %s | BotID (UUID): %s | ChatID: %d | Title: %s | Subs: %s\n", id, botID, chatID, chatTitle, subStatus)
-			}
-		}
-	} else {
-		fmt.Printf("Error querying managed_groups: %v\n", err)
-	}
 }

@@ -92,7 +92,8 @@ export const SecurityPage: Component = () => {
 		const currentVal = profileSettings().biometricEnabled;
 		if (!currentVal) {
 			const accessGranted = await biometric.requestAccess(
-				t('securityPg.biometricAccessReason' as any) || 'Authenticate to enable biometric protection',
+				t('securityPg.biometricAccessReason' as any) ||
+					'Authenticate to enable biometric protection',
 			);
 			if (accessGranted) {
 				const verified = await biometric.authenticate(

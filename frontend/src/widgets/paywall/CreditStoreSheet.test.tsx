@@ -54,12 +54,12 @@ describe('CreditStoreSheet', () => {
 	});
 
 	it('does not render when open is false', () => {
-		render(() => <CreditStoreSheet open={false} onClose={vi.fn()} vertical="group" />);
+		render(() => <CreditStoreSheet open={false} onClose={vi.fn()} vertical="gift" />);
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 	});
 
 	it('renders dialog with z-[140] and content when open is true', () => {
-		render(() => <CreditStoreSheet open={true} onClose={vi.fn()} vertical="group" />);
+		render(() => <CreditStoreSheet open={true} onClose={vi.fn()} vertical="gift" />);
 		const dialog = screen.getByRole('dialog');
 		expect(dialog).toBeInTheDocument();
 		expect(dialog.className).toContain('z-[140]');
@@ -68,7 +68,7 @@ describe('CreditStoreSheet', () => {
 
 	it('calls onClose when close button is clicked', () => {
 		const onCloseMock = vi.fn();
-		render(() => <CreditStoreSheet open={true} onClose={onCloseMock} vertical="group" />);
+		render(() => <CreditStoreSheet open={true} onClose={onCloseMock} vertical="gift" />);
 		const closeButtons = screen.getAllByRole('button');
 		const closeIconButton = closeButtons.find(
 			(btn) => btn.textContent?.includes('close') && btn.getAttribute('aria-label') !== 'close',
@@ -85,7 +85,7 @@ describe('CreditStoreSheet', () => {
 
 	it('calls onClose when backdrop is clicked', () => {
 		const onCloseMock = vi.fn();
-		render(() => <CreditStoreSheet open={true} onClose={onCloseMock} vertical="group" />);
+		render(() => <CreditStoreSheet open={true} onClose={onCloseMock} vertical="gift" />);
 		const backdrop = screen.getByLabelText('close');
 		fireEvent.click(backdrop);
 		expect(onCloseMock).toHaveBeenCalledTimes(1);

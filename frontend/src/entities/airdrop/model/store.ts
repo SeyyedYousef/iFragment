@@ -423,9 +423,11 @@ export const syncPendingTaps = async () => {
 				// Ensure fresh timestamp right before signing and dispatching so offline/cached buckets never suffer from clock skew
 				bucket.ts = Date.now();
 				if (!bucket.nonce) {
-					bucket.nonce = typeof crypto.randomUUID === 'function'
-						? crypto.randomUUID().replace(/-/g, '')
-						: (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+					bucket.nonce =
+						typeof crypto.randomUUID === 'function'
+							? crypto.randomUUID().replace(/-/g, '')
+							: Math.random().toString(36).substring(2, 15) +
+								Math.random().toString(36).substring(2, 15);
 				}
 
 				let sig = `dummy_signature_for_${bucket.nonce}`;

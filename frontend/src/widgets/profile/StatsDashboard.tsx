@@ -24,18 +24,11 @@ const STAT_TEMPLATES: StatItemTemplate[] = [
 		defaultLabel: 'Analyzed',
 	},
 	{
-		key: 'groupsManaged',
-		icon: 'group',
-		color: '#9d4edd',
-		labelKey: 'profile.statsGroups',
-		defaultLabel: 'Groups',
-	},
-	{
-		key: 'channelsManaged',
-		icon: 'campaign',
-		color: '#00f5ff',
-		labelKey: 'profile.statsChannels',
-		defaultLabel: 'Channels',
+		key: 'giftsAppraised',
+		icon: 'card_giftcard',
+		color: '#f59e0b',
+		labelKey: 'profile.statsGifts',
+		defaultLabel: 'Gifts',
 	},
 	{
 		key: 'currentStreak',
@@ -77,18 +70,17 @@ export const StatsDashboard: Component<Props> = (props) => {
 			transition={{ delay: 0.1 }}
 			class="w-full relative"
 		>
-			<div class="grid grid-cols-6 gap-3">
+			<div class="grid grid-cols-2 gap-3">
 				<For each={STAT_TEMPLATES}>
 					{(item, i) => {
 						const rawVal = () => (props.stats ? (props.stats[item.key] as number) : 0);
 						const label = () => t(item.labelKey as any) || item.defaultLabel;
-						const colClass = i() < 3 ? 'col-span-2' : 'col-span-3';
 						return (
 							<Motion.div
 								initial={{ opacity: 0, scale: 0.95 }}
 								animate={{ opacity: 1, scale: 1 }}
 								transition={{ delay: 0.15 + i() * 0.05 }}
-								class={`group relative ${colClass}`}
+								class="group relative"
 							>
 								{/* Hover Glow */}
 								<div class="absolute -inset-[1px] bg-gradient-to-r from-white/0 via-white/20 to-white/0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-[2px]" />

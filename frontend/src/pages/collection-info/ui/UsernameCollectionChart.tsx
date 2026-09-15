@@ -1,10 +1,4 @@
-import {
-	type Component,
-	createMemo,
-	createSignal,
-	For,
-	Show,
-} from 'solid-js';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -68,9 +62,7 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 			const timeOffsetMs = (count - 1 - i) * stepHours * 3600 * 1000;
 			const ptTime = new Date(now - timeOffsetMs);
 
-			const wave =
-				Math.sin(prog * Math.PI * 3.5) * 0.4 +
-				Math.cos(prog * Math.PI * 7) * 0.2;
+			const wave = Math.sin(prog * Math.PI * 3.5) * 0.4 + Math.cos(prog * Math.PI * 7) * 0.2;
 			const trend = (prog - 1) * variance;
 			const mult = i === count - 1 ? 1.0 : Math.max(0.5, 1.0 + trend + wave * (variance * 0.7));
 
@@ -234,7 +226,10 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 							<span class="text-[#0098EA] font-semibold">{currentPoint()?.label}</span>
 							<span class="w-[1px] h-2.5 bg-white/10" />
 							<span>
-								Volume: <strong class="text-white/70">{currentPoint()?.volumeTon.toLocaleString()} TON</strong>
+								Volume:{' '}
+								<strong class="text-white/70">
+									{currentPoint()?.volumeTon.toLocaleString()} TON
+								</strong>
 							</span>
 						</Show>
 						<Show when={hoverIdx() === null}>
@@ -256,7 +251,9 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 								} catch {}
 							}}
 							class={`px-2 py-0.5 rounded-lg transition-all ${
-								currency() === 'ton' ? 'bg-[#0098EA] text-white shadow' : 'text-white/40 hover:text-white'
+								currency() === 'ton'
+									? 'bg-[#0098EA] text-white shadow'
+									: 'text-white/40 hover:text-white'
 							}`}
 						>
 							TON
@@ -270,7 +267,9 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 								} catch {}
 							}}
 							class={`px-2 py-0.5 rounded-lg transition-all ${
-								currency() === 'usd' ? 'bg-[#0098EA] text-white shadow' : 'text-white/40 hover:text-white'
+								currency() === 'usd'
+									? 'bg-[#0098EA] text-white shadow'
+									: 'text-white/40 hover:text-white'
 							}`}
 						>
 							USD
@@ -407,8 +406,22 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 										stroke-dasharray="3 3"
 										opacity="0.8"
 									/>
-									<circle cx={cp.x} cy={cp.y} r="7" fill="#0098EA" opacity="0.3" class="animate-ping" />
-									<circle cx={cp.x} cy={cp.y} r="5" fill="#0A0E17" stroke="#0098EA" stroke-width="2.5" />
+									<circle
+										cx={cp.x}
+										cy={cp.y}
+										r="7"
+										fill="#0098EA"
+										opacity="0.3"
+										class="animate-ping"
+									/>
+									<circle
+										cx={cp.x}
+										cy={cp.y}
+										r="5"
+										fill="#0A0E17"
+										stroke="#0098EA"
+										stroke-width="2.5"
+									/>
 									<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
 								</g>
 							);

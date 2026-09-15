@@ -34,9 +34,10 @@ describe('DashboardPage', () => {
 		expect(screen.getByText('dashboard.title')).toBeInTheDocument();
 	});
 
-	it('renders the group management section', () => {
+	it('renders the ecosystem hub sections', () => {
 		render(() => <DashboardPage />);
-		expect(screen.getByText('dashboard.groupMgmt')).toBeInTheDocument();
+		expect(screen.getByText('Telegram Gifts Intel')).toBeInTheDocument();
+		expect(screen.getByText('Numbers +888 Valuation')).toBeInTheDocument();
 	});
 
 	it('contains the bottom navigation dashboard link', () => {

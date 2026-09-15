@@ -555,7 +555,9 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 
 type UserTaskStatus struct {
 	model.Quest
-	Completed bool `json:"completed"`
+	Completed       bool       `json:"completed"`
+	CooldownSeconds int64      `json:"cooldown_seconds,omitempty"`
+	AvailableAt     *time.Time `json:"available_at,omitempty"`
 }
 
 // GetTasksStatus returns status of quests/tasks with enriched UI metadata
@@ -566,8 +568,10 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 	}
 
 	completedMap := make(map[string]bool)
+	completedAtMap := make(map[string]*time.Time)
 	for _, t := range completedTasks {
 		completedMap[t.TaskKey] = t.Completed
+		completedAtMap[t.TaskKey] = t.CompletedAt
 	}
 
 	ownerRepo := repository.NewOwnerRepo(s.db)
@@ -643,6 +647,20 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 			}
 			channelRaw := strings.TrimPrefix(q.ActionText, "@")
 			q.ActionURL = "https://t.me/" + channelRaw
+		case "chat_boost_daily":
+			var config struct {
+				ChatUsername string `json:"chat_username"`
+				GroupURL     string `json:"group_url"`
+			}
+			_ = json.Unmarshal(q.Config, &config)
+			q.ActionText = config.ChatUsername
+			if q.ActionText == "" {
+				q.ActionText = "@FragmentInvestors"
+			}
+			q.ActionURL = config.GroupURL
+			if q.ActionURL == "" {
+				q.ActionURL = "https://t.me/FragmentInvestors"
+			}
 		case "link", "social", "campaign":
 			var config struct {
 				URL string `json:"url"`
@@ -657,9 +675,27 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 			q.ProgressCurrent = q.ProgressTarget
 		}
 
+		completed := completedMap[q.Key]
+		var availableAt *time.Time
+		var cooldownSeconds int64
+
+		if q.Type == "chat_boost_daily" {
+			completed = false
+			if claimedAt := completedAtMap[q.Key]; claimedAt != nil {
+				next := claimedAt.Add(24 * time.Hour)
+				if time.Now().Before(next) {
+					completed = true
+					availableAt = &next
+					cooldownSeconds = int64(time.Until(next).Seconds())
+				}
+			}
+		}
+
 		results = append(results, UserTaskStatus{
-			Quest:     q,
-			Completed: completedMap[q.Key],
+			Quest:           q,
+			Completed:       completed,
+			CooldownSeconds: cooldownSeconds,
+			AvailableAt:     availableAt,
 		})
 	}
 	return results, nil
@@ -770,6 +806,33 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 				return nil, fmt.Errorf("ERR_NEED_CHANNEL_JOIN")
 			}
 		}
+	case "chat_boost_daily":
+		var config struct {
+			ChatUsername string `json:"chat_username"`
+		}
+		_ = json.Unmarshal(target.Config, &config)
+		chatID := config.ChatUsername
+		if chatID == "" {
+			chatID = "@FragmentInvestors"
+		}
+		if !strings.HasPrefix(chatID, "@") && !strings.HasPrefix(chatID, "-") {
+			chatID = "@" + chatID
+		}
+
+		tgClient := s.getBotAPIClient()
+		if tgClient == nil {
+			return nil, fmt.Errorf("ERR_BOT_TOKEN_MISSING")
+		}
+
+		boostCount, err := tgClient.GetUserChatBoosts(ctx, chatID, userID)
+		if err != nil {
+			slog.Warn("failed to verify Telegram chat boost", "userID", userID, "chat", chatID, "err", err)
+			return nil, fmt.Errorf("ERR_BOOST_VERIFICATION_PENDING")
+		}
+
+		if boostCount < 1 {
+			return nil, fmt.Errorf("ERR_NEED_GROUP_BOOST")
+		}
 	case "quiz":
 		var config struct {
 			QuizAnswerHash string `json:"quiz_answer_hash"`
@@ -825,17 +888,27 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 
 	// 3. Lock user task record to prevent concurrent claims
 	var completed bool
+	var completedAt *time.Time
 	queryTask := `
-		SELECT completed FROM user_tasks 
+		SELECT completed, completed_at FROM user_tasks 
 		WHERE user_id = $1 AND task_key = $2 FOR UPDATE
 	`
-	err = tx.QueryRow(ctx, queryTask, userID, taskKey).Scan(&completed)
+	err = tx.QueryRow(ctx, queryTask, userID, taskKey).Scan(&completed, &completedAt)
 	if err != nil && err != pgx.ErrNoRows {
 		return nil, fmt.Errorf("failed to lock user task status: %w", err)
 	}
 
 	if completed {
-		return nil, fmt.Errorf("task already completed")
+		if target.Type != "chat_boost_daily" {
+			return nil, fmt.Errorf("task already completed")
+		}
+
+		if completedAt != nil {
+			next := completedAt.Add(24 * time.Hour)
+			if time.Now().Before(next) {
+				return nil, fmt.Errorf("ERR_TASK_COOLDOWN")
+			}
+		}
 	}
 
 	// 4. Update task completion in transaction
@@ -930,9 +1003,19 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 	}
 
+	var cooldownSeconds int64
+	var availableAt *time.Time
+	if target.Type == "chat_boost_daily" {
+		next := time.Now().Add(24 * time.Hour)
+		availableAt = &next
+		cooldownSeconds = 86400
+	}
+
 	return &UserTaskStatus{
-		Quest:     *target,
-		Completed: true,
+		Quest:           *target,
+		Completed:       true,
+		CooldownSeconds: cooldownSeconds,
+		AvailableAt:     availableAt,
 	}, nil
 }
 

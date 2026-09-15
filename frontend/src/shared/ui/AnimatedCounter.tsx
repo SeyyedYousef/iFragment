@@ -53,7 +53,7 @@ export const AnimatedCounter: Component<AnimatedCounterProps> = (props) => {
 			const progress = Math.min(1, elapsed / animDuration);
 
 			// Ease-out cubic: 1 - (1 - t)^3
-			const easeOut = 1 - Math.pow(1 - progress, 3);
+			const easeOut = 1 - (1 - progress) ** 3;
 			const nextVal = Math.round(startValue + diff * easeOut);
 			setDisplayValue(nextVal);
 
@@ -79,9 +79,7 @@ export const AnimatedCounter: Component<AnimatedCounterProps> = (props) => {
 	return (
 		<span
 			class={`tabular-nums transition-transform duration-200 inline-block select-none ${
-				isPulsing()
-					? 'scale-[1.08] text-amber-300 drop-shadow-[0_0_16px_rgba(252,211,77,0.8)]'
-					: ''
+				isPulsing() ? 'scale-[1.08] text-amber-300 drop-shadow-[0_0_16px_rgba(252,211,77,0.8)]' : ''
 			} ${props.class || ''}`}
 		>
 			{displayValue().toLocaleString('en-US')}

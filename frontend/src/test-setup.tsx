@@ -6,7 +6,8 @@ vi.mock('@/shared/i18n/index.js', () => ({
 	t: (key: string) => key,
 	locale: () => 'en',
 	isRtl: () => false,
-	formatNumber: (num: number) => (num !== undefined && num !== null ? num.toLocaleString('en-US') : '0'),
+	formatNumber: (num: number) =>
+		num !== undefined && num !== null ? num.toLocaleString('en-US') : '0',
 	formatCoins: (num: number) => `+${num ?? 0}`,
 }));
 
@@ -63,9 +64,6 @@ vi.mock('@motionone/solid', () => ({
 }));
 
 // ===== 4. Shared UI Mocks =====
-vi.mock('@/shared/ui/hamburger-menu.js', () => ({
-	HamburgerMenu: () => null,
-}));
 
 vi.mock('@/shared/ui/toast.js', () => ({
 	showToast: vi.fn(),

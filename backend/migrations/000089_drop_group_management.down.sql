@@ -1,0 +1,2 @@
+-- 000089_drop_group_management.down.sql
+-- Group management has been permanently extracted to standalone MiniGuard repository.

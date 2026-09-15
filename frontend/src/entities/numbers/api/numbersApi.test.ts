@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { numbersApi, parseNumbersFromHTML } from './numbersApi.js';
 import { apiClient } from '@/shared/api/axios.js';
+import { numbersApi, parseNumbersFromHTML } from './numbersApi.js';
 
 describe('numbersApi integrity tests', () => {
 	describe('parseNumbersFromHTML', () => {
@@ -37,7 +37,9 @@ describe('numbersApi integrity tests', () => {
 
 	describe('numbersApi.getNumbersList (Zero Fake Fallback)', () => {
 		it('returns empty array and 0 total on backend failure without generating fake items', async () => {
-			vi.spyOn(apiClient, 'get').mockRejectedValueOnce(new Error('Network error / 502 Bad Gateway'));
+			vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+				new Error('Network error / 502 Bad Gateway'),
+			);
 
 			const result = await numbersApi.getNumbersList({ page: 1 });
 			expect(result.items).toEqual([]);

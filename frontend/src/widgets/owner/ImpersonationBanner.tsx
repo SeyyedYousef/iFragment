@@ -120,20 +120,6 @@ export const ImpersonationBanner: Component = () => {
 				<div class="flex items-center gap-1.5">
 					<button
 						type="button"
-						onClick={() => navigateTo('/managed-channels')}
-						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
-					>
-						{t('bottomNav.channels') || 'Channels'}
-					</button>
-					<button
-						type="button"
-						onClick={() => navigateTo('/managed-bots')}
-						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
-					>
-						{t('bottomNav.groups') || 'Groups'}
-					</button>
-					<button
-						type="button"
 						onClick={() => navigateTo('/profile')}
 						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
 					>

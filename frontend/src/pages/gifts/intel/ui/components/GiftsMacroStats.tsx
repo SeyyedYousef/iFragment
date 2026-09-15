@@ -33,7 +33,10 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 			items: [
 				{
 					label: t('gifts.totalGiftsCount') || 'Total Gifts',
-					value: props.data?.total_gifts_minted && props.data.total_gifts_minted > 0 ? props.data.total_gifts_minted : 151,
+					value:
+						props.data?.total_gifts_minted && props.data.total_gifts_minted > 0
+							? props.data.total_gifts_minted
+							: 151,
 					sub: 'Official Catalog Registry',
 					icon: 'inventory_2',
 				},
@@ -93,9 +96,10 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 				},
 				{
 					label: t('gifts.activeWallets') || 'Active Wallets',
-					value: props.data?.total_active_wallets && props.data.total_active_wallets > 0
-						? props.data.total_active_wallets.toLocaleString()
-						: '—',
+					value:
+						props.data?.total_active_wallets && props.data.total_active_wallets > 0
+							? props.data.total_active_wallets.toLocaleString()
+							: '—',
 					sub: 'Monthly Active',
 					icon: 'wallet',
 				},

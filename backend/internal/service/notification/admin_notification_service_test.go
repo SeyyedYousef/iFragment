@@ -48,7 +48,6 @@ func TestAdminNotificationService_ExplicitTopics(t *testing.T) {
 	_ = os.Setenv("ADMIN_TOPIC_NUMBERS", "56")
 	_ = os.Setenv("ADMIN_TOPIC_PAYMENTS", "52")
 	_ = os.Setenv("ADMIN_TOPIC_NEW_BOT", "53")
-	_ = os.Setenv("ADMIN_TOPIC_NEW_CHANNEL", "54")
 	_ = os.Setenv("ADMIN_TOPIC_SYSTEM", "99")
 	defer func() {
 		_ = os.Unsetenv("ADMIN_GROUP_ID")
@@ -57,7 +56,6 @@ func TestAdminNotificationService_ExplicitTopics(t *testing.T) {
 		_ = os.Unsetenv("ADMIN_TOPIC_NUMBERS")
 		_ = os.Unsetenv("ADMIN_TOPIC_PAYMENTS")
 		_ = os.Unsetenv("ADMIN_TOPIC_NEW_BOT")
-		_ = os.Unsetenv("ADMIN_TOPIC_NEW_CHANNEL")
 		_ = os.Unsetenv("ADMIN_TOPIC_SYSTEM")
 	}()
 
@@ -75,9 +73,6 @@ func TestAdminNotificationService_ExplicitTopics(t *testing.T) {
 	}
 	if svc.topicNewBot == nil || *svc.topicNewBot != 53 {
 		t.Fatalf("expected topicNewBot 53, got %v", svc.topicNewBot)
-	}
-	if svc.topicNewChannel == nil || *svc.topicNewChannel != 54 {
-		t.Fatalf("expected topicNewChannel 54, got %v", svc.topicNewChannel)
 	}
 	if svc.topicSystem == nil || *svc.topicSystem != 99 {
 		t.Fatalf("expected topicSystem 99, got %v", svc.topicSystem)

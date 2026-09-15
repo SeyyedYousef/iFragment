@@ -3,7 +3,7 @@ import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { getMyAssets, type MyAssetsResponse, type MyReportsAsset } from '@/entities/user/index.js';
-import { formatNumber, t } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { getRecentReports } from '@/shared/lib/report-cache.js';
 
@@ -11,7 +11,7 @@ interface Props {
 	onClose?: () => void;
 }
 
-type AssetTab = 'reports' | 'properties' | 'projects' | 'boosters';
+type AssetTab = 'reports' | 'boosters';
 type ReportFilter = 'all' | 'username' | 'number' | 'gift';
 
 export const MyAssetsGallery: Component<Props> = (props) => {
@@ -34,7 +34,7 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 		const serverUsernames = new Set(
 			serverReports
 				.filter((r) => (r.type || 'username') === 'username')
-				.map((r) => (r.identifier || r.username || '').toLowerCase().replace(/^@/, ''))
+				.map((r) => (r.identifier || r.username || '').toLowerCase().replace(/^@/, '')),
 		);
 
 		let localRecents: ReturnType<typeof getRecentReports> = [];
@@ -63,7 +63,7 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 
 		if (extraUsernames.length === 0) return serverReports;
 		return [...serverReports, ...extraUsernames].sort(
-			(a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
+			(a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime(),
 		);
 	};
 	const usernameReports = () => totalReports().filter((r) => (r.type || 'username') === 'username');
@@ -116,31 +116,27 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 
 	return (
 		<Motion.div
-			initial={{ opacity: 0, y: 12 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{ delay: 0.1 }}
-			class="w-full relative select-none"
+			initial={{ opacity: 0, scale: 0.95, y: 20 }}
+			animate={{ opacity: 1, scale: 1, y: 0 }}
+			transition={{ duration: 0.3, easing: [0.22, 1, 0.36, 1] }}
+			class="w-full max-w-lg mx-auto flex flex-col gap-4"
 		>
-			<div class="bg-[#0D1017]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 flex flex-col gap-4 shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
-				{/* Section Header */}
-				<div class="flex items-center justify-between">
+			{/* HUD Glass Shell */}
+			<div class="p-4 bg-[#0A0C14]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] shadow-[0_20px_60px_rgba(0,0,0,0.8)] flex flex-col gap-3.5">
+				{/* Header */}
+				<div class="flex items-center justify-between px-1">
 					<div class="flex items-center gap-2.5">
-						<div class="w-9 h-9 rounded-[12px] bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner">
-							<span
-								class="material-symbols-outlined text-[20px]"
-								style={{ 'font-variation-settings': '"FILL" 1' }}
-							>
-								inventory_2
-							</span>
+						<div class="w-8 h-8 rounded-[10px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA]">
+							<span class="material-symbols-outlined text-[18px]">inventory_2</span>
 						</div>
 						<div class="flex flex-col">
-							<span class="text-[14px] font-black text-white tracking-tight">
-								{t('assets.title' as any) || 'My Assets Gallery'}
-							</span>
+							<h3 class="text-[15px] font-black text-white tracking-tight">
+								{t('assets.title' as any) || 'My Assets'}
+							</h3>
 							<span class="text-[10px] font-bold text-white/40 uppercase tracking-wider">
 								{assets()?.summaryText ||
 									t('assets.subtitle' as any) ||
-									'Reports, channels, projects & boosters'}
+									'Reports, groups & boosters'}
 							</span>
 						</div>
 					</div>
@@ -155,8 +151,8 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 					</Show>
 				</div>
 
-				{/* 4 Tabs */}
-				<div class="grid grid-cols-4 gap-1.5 p-1 bg-[#07090E] border border-white/5 rounded-[16px]">
+				{/* 2 Tabs */}
+				<div class="grid grid-cols-2 gap-1.5 p-1 bg-[#07090E] border border-white/5 rounded-[16px]">
 					<For
 						each={
 							[
@@ -165,12 +161,6 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 									label: t('assets.reports' as any) || 'Reports',
 									icon: 'description',
 								},
-								{
-									id: 'properties',
-									label: t('assets.properties' as any) || 'Properties',
-									icon: 'hub',
-								},
-								{ id: 'projects', label: t('assets.projects' as any) || 'Projects', icon: 'route' },
 								{
 									id: 'boosters',
 									label: t('assets.boosters' as any) || 'Boosters',
@@ -214,12 +204,29 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 								<Show when={totalReports().length > 0}>
 									<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
 										<For
-											each={[
-												{ id: 'all', label: 'All', count: totalReports().length, icon: 'apps' },
-												{ id: 'username', label: 'Usernames', count: usernameReports().length, icon: 'alternate_email' },
-												{ id: 'number', label: 'Numbers +888', count: numberReports().length, icon: 'dialpad' },
-												{ id: 'gift', label: 'Gifts', count: giftReports().length, icon: 'featured_seasonal_and_gifts' },
-											] as const}
+											each={
+												[
+													{ id: 'all', label: 'All', count: totalReports().length, icon: 'apps' },
+													{
+														id: 'username',
+														label: 'Usernames',
+														count: usernameReports().length,
+														icon: 'alternate_email',
+													},
+													{
+														id: 'number',
+														label: 'Numbers +888',
+														count: numberReports().length,
+														icon: 'dialpad',
+													},
+													{
+														id: 'gift',
+														label: 'Gifts',
+														count: giftReports().length,
+														icon: 'featured_seasonal_and_gifts',
+													},
+												] as const
+											}
 										>
 											{(f) => (
 												<button
@@ -269,12 +276,16 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 											</span>
 											<span class="text-white/40 text-[11px] font-bold">
 												{reportFilter() === 'username'
-													? (t('assets.noUsernameReports' as any) || 'No username valuation reports registered yet.')
+													? t('assets.noUsernameReports' as any) ||
+														'No username valuation reports registered yet.'
 													: reportFilter() === 'number'
-														? (t('assets.noNumberReports' as any) || 'No collectible number reports registered yet.')
+														? t('assets.noNumberReports' as any) ||
+															'No collectible number reports registered yet.'
 														: reportFilter() === 'gift'
-															? (t('assets.noGiftReports' as any) || 'No Telegram gift valuation reports registered yet.')
-															: (t('assets.noReports' as any) || 'No valuation reports registered yet across any vertical.')}
+															? t('assets.noGiftReports' as any) ||
+																'No Telegram gift valuation reports registered yet.'
+															: t('assets.noReports' as any) ||
+																'No valuation reports registered yet across any vertical.'}
 											</span>
 											<div class="flex items-center gap-2 mt-1 flex-wrap justify-center">
 												<Show when={reportFilter() === 'all' || reportFilter() === 'username'}>
@@ -346,7 +357,10 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 														<div class="flex flex-col min-w-0">
 															<div class="flex items-center gap-1.5 min-w-0">
 																<span class="text-[13px] font-black text-white truncate font-mono">
-																	{r.title || (type() === 'username' ? `@${r.username.replace(/^@/, '')}` : (r.identifier || r.username))}
+																	{r.title ||
+																		(type() === 'username'
+																			? `@${r.username.replace(/^@/, '')}`
+																			: r.identifier || r.username)}
 																</span>
 																<span
 																	class={`text-[9px] font-black px-1.5 py-0.5 rounded-[6px] shrink-0 uppercase tracking-wider ${
@@ -357,7 +371,11 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 																				: 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
 																	}`}
 																>
-																	{type() === 'username' ? 'Username' : type() === 'number' ? '+888' : 'Gift'}
+																	{type() === 'username'
+																		? 'Username'
+																		: type() === 'number'
+																			? '+888'
+																			: 'Gift'}
 																</span>
 															</div>
 
@@ -408,149 +426,7 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 							</div>
 						</Show>
 
-						{/* ═══════ TAB 2: CONNECTED PROPERTIES ═══════ */}
-						<Show when={activeTab() === 'properties'}>
-							<div class="flex flex-col gap-2">
-								<Show
-									when={(assets()?.properties || []).length > 0}
-									fallback={
-										<div class="py-8 text-center flex flex-col items-center gap-2">
-											<span class="material-symbols-outlined text-[32px] text-white/20">
-												campaign
-											</span>
-											<span class="text-white/40 text-[11px] font-bold">
-												{t('assets.noProperties' as any) || 'No connected channels or groups yet.'}
-											</span>
-											<button
-												type="button"
-												onClick={() => navigate('/managed-channels')}
-												class="px-4 py-1.5 rounded-[10px] bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] text-[10px] font-black uppercase tracking-wider"
-											>
-												{t('assets.connectChannel' as any) || 'Connect Channel'}
-											</button>
-										</div>
-									}
-								>
-									<For each={assets()?.properties || []}>
-										{(p) => (
-											<div
-												role="button"
-												tabIndex={0}
-												onKeyDown={(e) => {
-													if (e.key === 'Enter') navigate(p.dashboardUrl);
-												}}
-												onClick={() => navigate(p.dashboardUrl)}
-												class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between gap-3 active:scale-[0.99] transition-all cursor-pointer group"
-											>
-												<div class="flex items-center gap-3 min-w-0">
-													<div class="w-10 h-10 rounded-[12px] bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-														<span class="material-symbols-outlined text-[20px]">
-															{p.type === 'channel' ? 'campaign' : 'groups'}
-														</span>
-													</div>
-													<div class="flex flex-col min-w-0">
-														<span class="text-[13px] font-black text-white truncate">
-															{p.title || p.username}
-														</span>
-														<div class="flex items-center gap-1.5 text-[10px] text-white/40">
-															<span class="text-white/60 font-bold capitalize">{p.type}</span>
-															<span>•</span>
-															<span>{formatNumber(p.memberCount)} members</span>
-														</div>
-													</div>
-												</div>
-
-												<div class="flex items-center gap-2">
-													<Show when={p.daysLeft > 0}>
-														<span class="text-[9px] px-2 py-0.5 rounded-[8px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-black">
-															{p.daysLeft}d Pro
-														</span>
-													</Show>
-													<span class="material-symbols-outlined text-[18px] text-white/40 group-hover:text-white group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-all">
-														chevron_right
-													</span>
-												</div>
-											</div>
-										)}
-									</For>
-								</Show>
-							</div>
-						</Show>
-
-						{/* ═══════ TAB 3: PROJECTS ═══════ */}
-						<Show when={activeTab() === 'projects'}>
-							<div class="flex flex-col gap-2">
-								<Show
-									when={(assets()?.projects || []).length > 0}
-									fallback={
-										<div class="py-8 text-center flex flex-col items-center gap-2">
-											<span class="material-symbols-outlined text-[32px] text-white/20">route</span>
-											<span class="text-white/40 text-[11px] font-bold">
-												{t('assets.noProjects' as any) || 'No automation projects configured.'}
-											</span>
-											<button
-												type="button"
-												onClick={() => navigate('/projects')}
-												class="px-4 py-1.5 rounded-[10px] bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] text-[10px] font-black uppercase tracking-wider"
-											>
-												{t('assets.createProject' as any) || 'Create Project'}
-											</button>
-										</div>
-									}
-								>
-									<For each={assets()?.projects || []}>
-										{(pj) => (
-											<div class="p-3.5 bg-[#07090E] border border-white/5 rounded-[18px] flex flex-col gap-2.5">
-												<div class="flex items-center justify-between">
-													<span class="text-[13px] font-black text-white tracking-tight">
-														{pj.name}
-													</span>
-													<span
-														class={`text-[9px] px-2 py-0.5 rounded-[8px] font-black uppercase ${
-															pj.status === 'active'
-																? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
-																: 'bg-amber-500/15 border border-amber-500/30 text-amber-400'
-														}`}
-													>
-														{pj.status}
-													</span>
-												</div>
-
-												{/* Visual Route Path */}
-												<div class="flex items-center gap-2 text-[11px] bg-white/5 p-2 rounded-[12px] font-mono">
-													<span class="text-white/80 truncate max-w-[120px]">
-														{pj.sourceChatTitle || 'Source'}
-													</span>
-													<span class="material-symbols-outlined text-[14px] text-[#0098EA] shrink-0">
-														arrow_forward
-													</span>
-													<span class="text-white/80 truncate max-w-[120px]">
-														{pj.targetChatTitle || 'Target'}
-													</span>
-												</div>
-
-												<div class="flex items-center justify-between text-[10px] text-white/40 pt-0.5">
-													<span>
-														{pj.daysLeft > 0
-															? `${pj.daysLeft} ${t('botManage.daysLeft') || 'days remaining'}`
-															: t('botManage.expired') || 'Subscription Expired'}
-													</span>
-													<button
-														type="button"
-														onClick={() => navigate(`/projects/${pj.id}`)}
-														class="text-[#0098EA] font-black uppercase tracking-wider hover:underline"
-													>
-														{t('botManage.manage') || 'Manage'}
-													</button>
-												</div>
-											</div>
-										)}
-									</For>
-								</Show>
-							</div>
-						</Show>
-
-						{/* ═══════ TAB 4: BOOSTERS ═══════ */}
+						{/* ═══════ TAB 3: BOOSTERS ═══════ */}
 						<Show when={activeTab() === 'boosters'}>
 							<div class="flex flex-col gap-2.5">
 								{/* MultiTap */}

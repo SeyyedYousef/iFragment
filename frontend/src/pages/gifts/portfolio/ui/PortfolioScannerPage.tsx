@@ -213,8 +213,13 @@ export const PortfolioScannerPage: Component = () => {
 										<span class="text-[9px] uppercase font-bold text-white/40 block">
 											{t('gifts.pnl')}
 										</span>
-										<span class={`font-black font-mono ${res().total_pnl_percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-											{res().total_pnl_percent >= 0 ? `+${res().total_pnl_percent}` : res().total_pnl_percent}%
+										<span
+											class={`font-black font-mono ${res().total_pnl_percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+										>
+											{res().total_pnl_percent >= 0
+												? `+${res().total_pnl_percent}`
+												: res().total_pnl_percent}
+											%
 										</span>
 									</div>
 								</div>
@@ -262,7 +267,9 @@ export const PortfolioScannerPage: Component = () => {
 									<span>سلب مسئولیت مالی و سرمایه‌گذاری</span>
 								</div>
 								<p>
-									تمام ارقام تخمینی، رریتی و ارزش‌گذاری‌ها صرفاً بر پایه متادیتای عمومی و الگوریتم‌های محاسباتی است و به هیچ وجه توصیه مالی، سرمایه‌گذاری یا پیشنهاد خرید/فروش تلقی نمی‌شود.
+									تمام ارقام تخمینی، رریتی و ارزش‌گذاری‌ها صرفاً بر پایه متادیتای عمومی و الگوریتم‌های
+									محاسباتی است و به هیچ وجه توصیه مالی، سرمایه‌گذاری یا پیشنهاد خرید/فروش تلقی
+									نمی‌شود.
 								</p>
 							</div>
 						</div>

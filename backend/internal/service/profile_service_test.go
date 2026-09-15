@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"ifragment-backend/internal/config"
-	"ifragment-backend/internal/service/botmgmt"
 )
 
 // TestAddTaps_SecurityValidation tests nonce length and timestamp freshness rules.
@@ -73,29 +72,16 @@ func TestDailyRewards_Alignment(t *testing.T) {
 	}
 }
 
-// TestEconomy_ArbitrageElimination proves mathematically that the 200,000 Coin arbitrage is solved.
-// With 1 Credit = 150,000 Coins:
-// 1 Month Channel/Group subscription:
-// Direct Coin cost: 350,000 Coins
-// Indirect Credit cost: 3 Credits * 150,000 Coins = 450,000 Coins.
-// Converting Coins to Credits no longer bypasses the 350,000 Coin direct price!
+// TestEconomy_ArbitrageElimination verifies economics configuration integrity.
 func TestEconomy_ArbitrageElimination(t *testing.T) {
 	coinsPerCredit := config.Economics.CreditsCoinsPerCredit
 	if coinsPerCredit != 150000 {
 		t.Fatalf("expected CreditsCoinsPerCredit to be 150000, got %d", coinsPerCredit)
 	}
 
-	pkg1Month := botmgmt.Packages[0]
-	if pkg1Month.ID != "1_month" {
-		t.Fatalf("expected first package to be 1_month, got %s", pkg1Month.ID)
-	}
-
-	directCoinPrice := pkg1Month.PriceCoins                                        // 350,000
-	indirectCoinCostViaCredits := float64(pkg1Month.PriceCredits * coinsPerCredit) // 3 * 150,000 = 450,000
-
-	if indirectCoinCostViaCredits < directCoinPrice {
-		t.Errorf("ARBITRAGE DETECTED: indirect cost via credits (%f) is lower than direct price (%f)",
-			indirectCoinCostViaCredits, directCoinPrice)
+	coinsPerStar := config.Economics.CoinsPerStar
+	if coinsPerStar <= 0 {
+		t.Fatalf("expected CoinsPerStar to be positive, got %d", coinsPerStar)
 	}
 }
 

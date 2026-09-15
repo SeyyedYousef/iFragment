@@ -1,6 +1,6 @@
 import { createQuery } from '@tanstack/solid-query';
 import { openTelegramLink } from '@tma.js/sdk-solid';
-import { type Component, createSignal, For, Show } from 'solid-js';
+import { type Component, createSignal, For, onCleanup, Show } from 'solid-js';
 import { balance, syncProfileStats } from '@/entities/airdrop/index.js';
 import {
 	claimDailyCombo,
@@ -24,6 +24,41 @@ export const TasksView: Component = () => {
 	const [comboInput, setComboInput] = createSignal('');
 	const [comboError, setComboError] = createSignal('');
 	const [isSubmittingCombo, setIsSubmittingCombo] = createSignal(false);
+	const [now, setNow] = createSignal(Date.now());
+
+	const countdownTimer = window.setInterval(() => {
+		const current = Date.now();
+		setNow(current);
+
+		if (
+			tasksQuery.data?.some(
+				(task) =>
+					task.type === 'chat_boost_daily' &&
+					task.completed &&
+					task.available_at &&
+					Date.parse(task.available_at) <= current,
+			)
+		) {
+			void tasksQuery.refetch();
+		}
+	}, 1000);
+
+	onCleanup(() => {
+		window.clearInterval(countdownTimer);
+	});
+
+	const formatCooldown = (task: TaskStatus) => {
+		const target = task.available_at
+			? Date.parse(task.available_at)
+			: now() + (task.cooldown_seconds || 0) * 1000;
+
+		const total = Math.max(0, Math.ceil((target - now()) / 1000));
+		const hours = Math.floor(total / 3600);
+		const minutes = Math.floor((total % 3600) / 60);
+		const seconds = total % 60;
+
+		return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+	};
 
 	const comboQuery = createQuery<DailyComboStatus>(() => ({
 		queryKey: ['daily-combo-status'],
@@ -144,6 +179,19 @@ export const TasksView: Component = () => {
 				errorMessage = t('airdrop.tasks.errors.membershipPending', {
 					defaultValue: 'Verification in progress, please wait...',
 				});
+			} else if (raw.includes('ERR_NEED_GROUP_BOOST')) {
+				errorMessage = t('fragmentInvestors.boostRequired');
+				const groupUrl =
+					task.action_url || (task.config as any)?.group_url || 'https://t.me/FragmentInvestors';
+				try {
+					openTelegramLink(groupUrl);
+				} catch {
+					window.open(groupUrl, '_blank', 'noopener,noreferrer');
+				}
+			} else if (raw.includes('ERR_BOOST_VERIFICATION_PENDING')) {
+				errorMessage = t('fragmentInvestors.boostVerificationPending');
+			} else if (raw.includes('ERR_TASK_COOLDOWN')) {
+				errorMessage = t('fragmentInvestors.cooldownPending');
 			}
 			setTaskErrors((prev) => ({ ...prev, [key]: errorMessage }));
 			haptic.notify('error');
@@ -262,9 +310,16 @@ export const TasksView: Component = () => {
 				return { title: t('airdropFinal.tasks.premium') || task.title, icon: 'stars' };
 			case 'join_ifragment_channel':
 				return { title: t('airdropFinal.tasks.joinChannel') || task.title, icon: 'podcasts' };
+			case 'boost_fragment_investors_daily':
+				return { title: t('fragmentInvestors.boost') || task.title, icon: 'rocket_launch' };
 			default: {
 				let icon = 'card_giftcard';
-				if (task.type === 'channel_join' || key.includes('channel') || key.includes('telegram'))
+				if (task.type === 'chat_boost_daily' || key.includes('boost')) icon = 'rocket_launch';
+				else if (
+					task.type === 'channel_join' ||
+					key.includes('channel') ||
+					key.includes('telegram')
+				)
 					icon = 'podcasts';
 				else if (task.type === 'quiz' || key.includes('quiz') || key.includes('question'))
 					icon = 'help';
@@ -297,7 +352,9 @@ export const TasksView: Component = () => {
 							<span class="text-[#4A2500] text-[13px] font-black leading-none select-none">¢</span>
 						</div>
 						<div class="flex items-center gap-2 font-mono">
-							<span class="text-white/50 text-[11px] font-bold uppercase tracking-wider">BALANCE</span>
+							<span class="text-white/50 text-[11px] font-bold uppercase tracking-wider">
+								BALANCE
+							</span>
 							<span class="text-white font-black text-[18px] tabular-nums tracking-tight">
 								{balance().toLocaleString('en-US')}
 							</span>
@@ -452,8 +509,10 @@ export const TasksView: Component = () => {
 
 												const isPremium = task.is_premium_req;
 												const actionText = task.action_text || '';
+												const isBoostTask = task.type === 'chat_boost_daily';
 												let btnText = 'START';
-												if (task.type === 'channel_join') btnText = 'JOIN';
+												if (isBoostTask) btnText = t('fragmentInvestors.check');
+												else if (task.type === 'channel_join') btnText = 'JOIN';
 												else if (task.type === 'quiz') btnText = 'SOLVE';
 												else if (hasProgress && progressCurrent >= progressTarget)
 													btnText = 'CLAIM';
@@ -532,9 +591,20 @@ export const TasksView: Component = () => {
 																{/* Action Button / Status */}
 																<div class="shrink-0 flex items-center justify-center pl-2">
 																	{task.completed ? (
-																		<span class="material-symbols-outlined text-emerald-500/80 text-[28px] mr-1">
-																			check_circle
-																		</span>
+																		isBoostTask ? (
+																			<div class="rounded-[12px] border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-center backdrop-blur-md">
+																				<div class="text-[9px] font-black uppercase tracking-wider text-emerald-300">
+																					{t('fragmentInvestors.next')}
+																				</div>
+																				<div class="font-mono text-[11px] font-black tabular-nums text-white">
+																					{formatCooldown(task)}
+																				</div>
+																			</div>
+																		) : (
+																			<span class="material-symbols-outlined text-emerald-500/80 text-[28px] mr-1">
+																				check_circle
+																			</span>
+																		)
 																	) : loadingKeys()[task.key] ? (
 																		<span class="material-symbols-outlined animate-spin text-[22px] text-white/40 mr-2">
 																			progress_activity

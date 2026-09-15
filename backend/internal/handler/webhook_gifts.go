@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/repository"
-	"ifragment-backend/internal/service/botmgmt"
 	"ifragment-backend/internal/service/gifts/gvengine"
 	"ifragment-backend/internal/service/gifts/telegramnft"
 )
@@ -20,7 +20,7 @@ var giftLinkRegex = regexp.MustCompile(`(?i)(?:https?://)?(?:t\.me/nft/|fragment
 
 // handleGiftCommand processes /gift [id/name] [serial]
 func (h *WebhookHandler) handleGiftCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) {
-	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
 	if token == "" {
 		return
 	}
@@ -90,7 +90,7 @@ func (h *WebhookHandler) handleGiftCommand(ctx context.Context, bot *repository.
 
 // handleGiftsCommand processes /gifts - displays Telegram Gifts market pulse
 func (h *WebhookHandler) handleGiftsCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) {
-	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
 	if token == "" {
 		return
 	}
@@ -162,7 +162,7 @@ func (h *WebhookHandler) handleGiftLinkSniff(ctx context.Context, bot *repositor
 		return
 	}
 
-	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
 	if token == "" {
 		return
 	}
@@ -188,7 +188,7 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 		return
 	}
 
-	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
 	if token == "" {
 		return
 	}

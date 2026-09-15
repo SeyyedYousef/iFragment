@@ -142,7 +142,8 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		suffix === '8888'
 	) {
 		tier = 'GRAIL';
-		patternLabel = suffix.length === 4 ? 'GRAIL TIER (4-Digit Genesis)' : 'GRAIL TIER (Quad Repeat / Genesis)';
+		patternLabel =
+			suffix.length === 4 ? 'GRAIL TIER (4-Digit Genesis)' : 'GRAIL TIER (Quad Repeat / Genesis)';
 	} else if (
 		suffix.includes('1234') ||
 		suffix.includes('5678') ||
@@ -599,7 +600,9 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h4 class="text-xs font-black text-white">
-											{isRtl() ? 'تحلیل هوشمند پیش‌ارزیابی آماده است' : 'Pre-Appraisal Intelligence Ready'}
+											{isRtl()
+												? 'تحلیل هوشمند پیش‌ارزیابی آماده است'
+												: 'Pre-Appraisal Intelligence Ready'}
 										</h4>
 										<span class="text-[9px] font-bold text-cyan-400 font-mono" dir="ltr">
 											{gateData()?.display_number || validation().formatted}
@@ -614,19 +617,29 @@ export const NumberReportPage: Component = () => {
 							{/* 3 Metric Pills */}
 							<div class="grid grid-cols-3 gap-2 text-center mb-3.5">
 								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
-									<span class="text-[9px] text-white/40 block mb-0.5">{isRtl() ? 'سیگنال‌ها' : 'Signals'}</span>
+									<span class="text-[9px] text-white/40 block mb-0.5">
+										{isRtl() ? 'سیگنال‌ها' : 'Signals'}
+									</span>
 									<span class="text-xs font-black text-cyan-300 font-mono">
 										{gateData()?.signals_analyzed || 27} {isRtl() ? 'مورد' : 'Pts'}
 									</span>
 								</div>
 								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
-									<span class="text-[9px] text-white/40 block mb-0.5">{isRtl() ? 'ریسک آنچین' : 'On-Chain Risk'}</span>
+									<span class="text-[9px] text-white/40 block mb-0.5">
+										{isRtl() ? 'ریسک آنچین' : 'On-Chain Risk'}
+									</span>
 									<span class="text-xs font-black text-emerald-400 font-mono">
-										{gateData()?.risks_identified === 0 ? (isRtl() ? 'صفر (پاک)' : '0 (Clean)') : `${gateData()?.risks_identified} Warning`}
+										{gateData()?.risks_identified === 0
+											? isRtl()
+												? 'صفر (پاک)'
+												: '0 (Clean)'
+											: `${gateData()?.risks_identified} Warning`}
 									</span>
 								</div>
 								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
-									<span class="text-[9px] text-white/40 block mb-0.5">{isRtl() ? 'منابع تطبیق' : 'Sources'}</span>
+									<span class="text-[9px] text-white/40 block mb-0.5">
+										{isRtl() ? 'منابع تطبیق' : 'Sources'}
+									</span>
 									<span class="text-xs font-black text-amber-300 font-mono">
 										{gateData()?.data_sources_count || 4} {isRtl() ? 'مرجع' : 'APIs'}
 									</span>
@@ -652,7 +665,9 @@ export const NumberReportPage: Component = () => {
 								<div class="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
 									<span class="text-[10px] font-black text-white/90 bg-white/10 px-3 py-1 rounded-full border border-white/20 flex items-center gap-1">
 										<span class="material-symbols-outlined text-xs text-amber-400">lock</span>
-										<span>{isRtl() ? 'بازگشایی با ۱ کریدیت iFragment' : 'Unlock with 1 Credit'}</span>
+										<span>
+											{isRtl() ? 'بازگشایی با ۱ کریدیت iFragment' : 'Unlock with 1 Credit'}
+										</span>
 									</span>
 								</div>
 							</div>
@@ -890,10 +905,14 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h4 class="text-xs font-black text-white">
-											{isRtl() ? 'هشدار امنیتی تصاحب حساب (Account Takeover)' : 'Account Takeover & Login Advisory'}
+											{isRtl()
+												? 'هشدار امنیتی تصاحب حساب (Account Takeover)'
+												: 'Account Takeover & Login Advisory'}
 										</h4>
 										<span class="text-[9px] font-bold text-rose-400 block">
-											{isRtl() ? 'شماره +888 یک اعتبارنامه ورود به تلگرام است' : '+888 is an active Telegram login credential'}
+											{isRtl()
+												? 'شماره +888 یک اعتبارنامه ورود به تلگرام است'
+												: '+888 is an active Telegram login credential'}
 										</span>
 									</div>
 								</div>
@@ -912,19 +931,35 @@ export const NumberReportPage: Component = () => {
 							<div class="space-y-1.5 mb-3.5">
 								<div class="flex items-center gap-2 text-[10px] text-white/90 bg-black/40 p-2 rounded-xl border border-white/5">
 									<span class="text-emerald-400 font-black">✓</span>
-									<span>{isRtl() ? '۱. انتقال NFT شماره به والت غیرامانی شخصی' : '1. Transfer NFT to non-custodial wallet'}</span>
+									<span>
+										{isRtl()
+											? '۱. انتقال NFT شماره به والت غیرامانی شخصی'
+											: '1. Transfer NFT to non-custodial wallet'}
+									</span>
 								</div>
 								<div class="flex items-center gap-2 text-[10px] text-white/90 bg-black/40 p-2 rounded-xl border border-white/5">
 									<span class="text-emerald-400 font-black">✓</span>
-									<span>{isRtl() ? '۲. ورود به تلگرام و دریافت کد از طریق ربات رسمی Fragment' : '2. Sign in via official Fragment verification bot'}</span>
+									<span>
+										{isRtl()
+											? '۲. ورود به تلگرام و دریافت کد از طریق ربات رسمی Fragment'
+											: '2. Sign in via official Fragment verification bot'}
+									</span>
 								</div>
 								<div class="flex items-center gap-2 text-[10px] text-amber-300 bg-amber-500/10 p-2 rounded-xl border border-amber-500/20">
 									<span class="material-symbols-outlined text-sm">warning</span>
-									<span>{isRtl() ? '۳. مراجعه به Settings > Devices و فشردن Terminate All Sessions' : '3. Settings > Devices > Terminate All Other Sessions'}</span>
+									<span>
+										{isRtl()
+											? '۳. مراجعه به Settings > Devices و فشردن Terminate All Sessions'
+											: '3. Settings > Devices > Terminate All Other Sessions'}
+									</span>
 								</div>
 								<div class="flex items-center gap-2 text-[10px] text-white/90 bg-black/40 p-2 rounded-xl border border-white/5">
 									<span class="text-emerald-400 font-black">✓</span>
-									<span>{isRtl() ? '۴. فعال‌سازی رمز تایید دومرحله‌ای (Two-Step Verification)' : '4. Enable 2-Step Verification with rescue email'}</span>
+									<span>
+										{isRtl()
+											? '۴. فعال‌سازی رمز تایید دومرحله‌ای (Two-Step Verification)'
+											: '4. Enable 2-Step Verification with rescue email'}
+									</span>
 								</div>
 							</div>
 
@@ -932,10 +967,14 @@ export const NumberReportPage: Component = () => {
 							<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
 								<div class="text-start">
 									<span class="text-[9px] font-bold text-white/50 block">
-										{isRtl() ? 'امتیاز ارزش کاربردی ثبت‌نام (بدون سیم‌کارت)' : 'SIM-less Utility Value'}
+										{isRtl()
+											? 'امتیاز ارزش کاربردی ثبت‌نام (بدون سیم‌کارت)'
+											: 'SIM-less Utility Value'}
 									</span>
 									<span class="text-xs font-black text-cyan-400">
-										{isRtl() ? 'حریم خصوصی کامل بدون هویت واقعی' : '100% Zero-KYC Telegram Registration'}
+										{isRtl()
+											? 'حریم خصوصی کامل بدون هویت واقعی'
+											: '100% Zero-KYC Telegram Registration'}
 									</span>
 								</div>
 								<span class="text-sm font-mono font-black text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-xl">
@@ -961,15 +1000,36 @@ export const NumberReportPage: Component = () => {
 
 							<div class="grid grid-cols-2 gap-2 text-[10px]">
 								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-									<span class="text-white/40 block text-[9px] mb-0.5">{isRtl() ? 'قرارداد مرجع تل‌مینت' : 'Official Collection'}</span>
-									<span class="font-mono text-cyan-300 truncate block" dir="ltr" title={reportData()?.on_chain_audit?.telemint_contract || "EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N"}>
-										{reportData()?.on_chain_audit?.telemint_contract ? `${reportData()?.on_chain_audit?.telemint_contract.slice(0, 4)}...${reportData()?.on_chain_audit?.telemint_contract.slice(-4)}` : 'EQAO...si5N'}
+									<span class="text-white/40 block text-[9px] mb-0.5">
+										{isRtl() ? 'قرارداد مرجع تل‌مینت' : 'Official Collection'}
+									</span>
+									<span
+										class="font-mono text-cyan-300 truncate block"
+										dir="ltr"
+										title={
+											reportData()?.on_chain_audit?.telemint_contract ||
+											'EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N'
+										}
+									>
+										{reportData()?.on_chain_audit?.telemint_contract
+											? `${reportData()?.on_chain_audit?.telemint_contract.slice(0, 4)}...${reportData()?.on_chain_audit?.telemint_contract.slice(-4)}`
+											: 'EQAO...si5N'}
 									</span>
 								</div>
 								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-									<span class="text-white/40 block text-[9px] mb-0.5">{isRtl() ? 'نوع مالکیت' : 'Ownership State'}</span>
-									<span class={`font-black truncate block ${reportData()?.on_chain_audit?.is_escrow ? 'text-amber-400' : 'text-emerald-400'}`}>
-										{reportData()?.on_chain_audit?.is_escrow ? (isRtl() ? 'اسکرو در مارکت' : 'Market Escrow') : (isRtl() ? 'والت مالک حقیقی' : 'Real Owner Wallet')}
+									<span class="text-white/40 block text-[9px] mb-0.5">
+										{isRtl() ? 'نوع مالکیت' : 'Ownership State'}
+									</span>
+									<span
+										class={`font-black truncate block ${reportData()?.on_chain_audit?.is_escrow ? 'text-amber-400' : 'text-emerald-400'}`}
+									>
+										{reportData()?.on_chain_audit?.is_escrow
+											? isRtl()
+												? 'اسکرو در مارکت'
+												: 'Market Escrow'
+											: isRtl()
+												? 'والت مالک حقیقی'
+												: 'Real Owner Wallet'}
 									</span>
 								</div>
 							</div>
@@ -979,7 +1039,10 @@ export const NumberReportPage: Component = () => {
 									{isRtl() ? 'کاوشگر بلاکچین:' : 'Block Explorer:'}
 								</span>
 								<a
-									href={reportData()?.on_chain_audit?.tonviewer_url || `https://tonviewer.com/${reportData()?.on_chain_audit?.telemint_contract || 'EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N'}`}
+									href={
+										reportData()?.on_chain_audit?.tonviewer_url ||
+										`https://tonviewer.com/${reportData()?.on_chain_audit?.telemint_contract || 'EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N'}`
+									}
 									target="_blank"
 									rel="noopener noreferrer"
 									class="text-cyan-400 hover:underline flex items-center gap-1 font-mono font-bold"
@@ -1049,7 +1112,9 @@ export const NumberReportPage: Component = () => {
 							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 								<h3 class="text-xs font-black text-white flex items-center gap-2">
 									<span class="material-symbols-outlined text-[#0098EA] text-base">monitoring</span>
-									<span>{isRtl() ? 'ماتریس ۴ رقمی ارزش‌گذاری هوشمند' : '4-Figure Valuation Matrix'}</span>
+									<span>
+										{isRtl() ? 'ماتریس ۴ رقمی ارزش‌گذاری هوشمند' : '4-Figure Valuation Matrix'}
+									</span>
 								</h3>
 								<span
 									class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20"
@@ -1134,7 +1199,10 @@ export const NumberReportPage: Component = () => {
 										</span>
 										<span class="material-symbols-outlined text-xs text-emerald-400">sync_alt</span>
 									</div>
-									<div class="font-mono font-black text-white text-xs sm:text-sm truncate" dir="ltr">
+									<div
+										class="font-mono font-black text-white text-xs sm:text-sm truncate"
+										dir="ltr"
+									>
 										{formatTon(reportData()?.low_ton)} - {formatTon(reportData()?.high_ton)}{' '}
 										<span class="text-[10px] text-emerald-400">TON</span>
 									</div>
@@ -1158,7 +1226,9 @@ export const NumberReportPage: Component = () => {
 									<span class="material-symbols-outlined text-[#0098EA] text-base">
 										account_tree
 									</span>
-									<span>{isRtl() ? 'تفکیک سهم مؤلفه‌های مدل ارزش‌گذاری' : 'Model Contribution Breakdown'}</span>
+									<span>
+										{isRtl() ? 'تفکیک سهم مؤلفه‌های مدل ارزش‌گذاری' : 'Model Contribution Breakdown'}
+									</span>
 								</h3>
 								<span class="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
 									NV-ENGINE v2.5
@@ -1230,7 +1300,9 @@ export const NumberReportPage: Component = () => {
 								<div>
 									<div class="flex justify-between items-center text-xs mb-1">
 										<span class="text-white/70 font-medium">
-											{isRtl() ? 'امنیت، اصالت تل‌مینت و عدم محدودیت' : 'Safety & Telemint Clean Status'}
+											{isRtl()
+												? 'امنیت، اصالت تل‌مینت و عدم محدودیت'
+												: 'Safety & Telemint Clean Status'}
 										</span>
 										<span class="font-mono font-black text-emerald-400" dir="ltr">
 											{reportData()?.price_contributions?.safety_pct ?? 8}%
@@ -1640,7 +1712,9 @@ export const NumberReportPage: Component = () => {
 							<div class="pt-3 border-t border-white/5 text-start">
 								<div class="flex items-center justify-between mb-2">
 									<span class="text-[10px] font-bold text-white/70">
-										{isRtl() ? 'احتمال فروش در بازار (Selling Probabilities)' : 'Selling Probabilities'}
+										{isRtl()
+											? 'احتمال فروش در بازار (Selling Probabilities)'
+											: 'Selling Probabilities'}
 									</span>
 									<span class="text-[9px] font-mono text-cyan-400 font-bold" dir="ltr">
 										{isRtl()
@@ -1805,7 +1879,9 @@ export const NumberReportPage: Component = () => {
 							{/* Cryptographic Model Card info */}
 							<div class="space-y-2 p-3 rounded-2xl bg-black/40 border border-white/5 text-[10px] my-3">
 								<div class="flex justify-between items-center">
-									<span class="text-white/50">{isRtl() ? 'نسخه موتور NV:' : 'Engine Version:'}</span>
+									<span class="text-white/50">
+										{isRtl() ? 'نسخه موتور NV:' : 'Engine Version:'}
+									</span>
 									<span class="font-mono text-cyan-400 font-bold" dir="ltr">
 										{reportData()?.model_card?.engine_version || 'NV-Engine-v2.5'}
 									</span>
@@ -1819,7 +1895,9 @@ export const NumberReportPage: Component = () => {
 									</span>
 								</div>
 								<div class="flex justify-between items-center">
-									<span class="text-white/50">{isRtl() ? 'امضای اثبات ارزیابی:' : 'Signature Proof:'}</span>
+									<span class="text-white/50">
+										{isRtl() ? 'امضای اثبات ارزیابی:' : 'Signature Proof:'}
+									</span>
 									<span class="font-mono text-emerald-400" dir="ltr">
 										{reportData()?.model_card?.signature_proof
 											? `${reportData()?.model_card?.signature_proof.slice(0, 12)}...`
@@ -1850,7 +1928,9 @@ export const NumberReportPage: Component = () => {
 									<span class="material-symbols-outlined text-base">
 										{copiedCert() ? 'check' : 'content_copy'}
 									</span>
-									<span class="truncate">{copiedCert() ? t('numbers.certCopied') : t('numbers.copyCertLink')}</span>
+									<span class="truncate">
+										{copiedCert() ? t('numbers.certCopied') : t('numbers.copyCertLink')}
+									</span>
 								</button>
 
 								<button
@@ -1865,7 +1945,15 @@ export const NumberReportPage: Component = () => {
 									<span class="material-symbols-outlined text-base">
 										{copiedJson() ? 'check' : 'code'}
 									</span>
-									<span class="truncate">{copiedJson() ? (isRtl() ? 'کپی شد' : 'Copied') : (isRtl() ? 'JSON کامل' : 'Export JSON')}</span>
+									<span class="truncate">
+										{copiedJson()
+											? isRtl()
+												? 'کپی شد'
+												: 'Copied'
+											: isRtl()
+												? 'JSON کامل'
+												: 'Export JSON'}
+									</span>
 								</button>
 							</div>
 						</div>

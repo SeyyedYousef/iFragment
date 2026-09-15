@@ -19,8 +19,6 @@ type Config struct {
 	AuthHandler         *handler.AuthHandler
 	UsernameHandler     *handler.UsernameHandler
 	CollectionHandler   *handler.CollectionHandler
-	BotMgmtHandler      *handler.BotMgmtHandler
-	ChannelHandler      *handler.ChannelHandler
 	ProfileHandler      *handler.ProfileHandler
 	GamificationHandler *handler.GamificationHandler
 	ClanHandler         *handler.ClanHandler
@@ -28,8 +26,8 @@ type Config struct {
 	OwnerHandler        *handler.OwnerHandler
 	NumbersHandler      *handler.NumbersHandler
 	GiftsHandler        *handler.GiftsHandler
-	ProjectHandler      *handler.ProjectHandler
 	IntelCreditHandler  *handler.IntelCreditHandler
+	RaffleHandler       *handler.RaffleHandler
 }
 
 // RegisterAPIRoutes mounts API v1 sub-routes onto the router
@@ -41,6 +39,9 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 
 		r.Get("/config", cfg.ProfileHandler.GetPublicConfig)
 		r.Get("/economy/config", cfg.ProfileHandler.GetEconomyConfig)
+		if cfg.RaffleHandler != nil {
+			r.Get("/raffle/latest", cfg.RaffleHandler.GetLatestDraw)
+		}
 
 		r.Post("/webhook/telegram/{botID}", cfg.WebhookHandler.HandleTelegramWebhook)
 		r.Post("/webhook/tonapi", cfg.WebhookHandler.HandleTonAPIWebhook)
@@ -119,124 +120,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/stats", cfg.CollectionHandler.GetStats)
 		})
 
-		r.Route("/bots", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
 
-			r.Get("/", cfg.BotMgmtHandler.ListBots)
-			r.Post("/", cfg.BotMgmtHandler.RegisterBot)
-			r.Get("/{botID}", cfg.BotMgmtHandler.GetBot)
-			r.Delete("/{botID}", cfg.BotMgmtHandler.RevokeBot)
-			r.Post("/{botID}/reconnect-webhook", cfg.BotMgmtHandler.ReconnectWebhook)
-			r.Get("/{botID}/groups", cfg.BotMgmtHandler.ListGroups)
-		})
-
-		r.Route("/groups", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-
-			r.Get("/{groupID}", cfg.BotMgmtHandler.GetGroup)
-			r.Delete("/{groupID}", cfg.BotMgmtHandler.DeleteGroup)
-			r.Get("/{groupID}/settings", cfg.BotMgmtHandler.GetSettings)
-			r.Put("/{groupID}/settings", cfg.BotMgmtHandler.UpdateSettings)
-			r.Get("/{groupID}/telegram-info", cfg.BotMgmtHandler.GetGroupTelegramInfo)
-			r.Get("/{groupID}/members/warnings", cfg.BotMgmtHandler.ListGroupWarnings)
-			r.Post("/{groupID}/members/warnings/{targetUserID}/reset", cfg.BotMgmtHandler.ResetGroupWarnings)
-			r.Post("/{groupID}/members/restrict", cfg.BotMgmtHandler.RestrictMemberManual)
-			r.Post("/{groupID}/members/unban", cfg.BotMgmtHandler.UnbanMember)
-			r.Get("/{groupID}/analytics", cfg.BotMgmtHandler.GetAnalytics)
-			r.Get("/{groupID}/audit", cfg.BotMgmtHandler.GetAuditLogs)
-		})
-
-		r.Route("/channels", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-			r.Use(middleware.NewChannelRateLimiter(cfg.Cache))
-
-			r.Get("/", cfg.ChannelHandler.ListChannels)
-			r.Post("/connect", cfg.ChannelHandler.ConnectChannel)
-			r.Get("/{channelID}", cfg.ChannelHandler.GetChannel)
-			r.Delete("/{channelID}", cfg.ChannelHandler.DisconnectChannel)
-			r.Get("/{channelID}/settings", cfg.ChannelHandler.GetSettings)
-			r.Put("/{channelID}/settings", cfg.ChannelHandler.UpdateSettings)
-			r.Get("/{channelID}/telegram-info", cfg.ChannelHandler.GetTelegramInfo)
-			r.Get("/{channelID}/audit", cfg.ChannelHandler.GetAuditLogs)
-			r.Get("/{channelID}/analytics", cfg.ChannelHandler.GetAnalytics)
-			r.Get("/{channelID}/health", cfg.ChannelHandler.GetChannelHealth)
-			r.Post("/{channelID}/posts", cfg.ChannelHandler.CreatePost)
-			r.Post("/{channelID}/simulate", cfg.ChannelHandler.SimulateAI)
-			r.Post("/{channelID}/verify", cfg.ChannelHandler.VerifyChannel)
-
-			r.Get("/{channelID}/funnel", cfg.ChannelHandler.GetFunnel)
-			r.Post("/{channelID}/funnel", cfg.ChannelHandler.CreateFunnel)
-			r.Put("/{channelID}/funnel", cfg.ChannelHandler.UpdateFunnel)
-			r.Delete("/{channelID}/funnel", cfg.ChannelHandler.DeleteFunnel)
-
-			r.Get("/{channelID}/forwarding/rules", cfg.ChannelHandler.GetForwardingRules)
-			r.Get("/{channelID}/forwarding/logs", cfg.ChannelHandler.GetForwardingLogs)
-			r.Get("/{channelID}/forwarding/verify", cfg.ChannelHandler.VerifyForwardingTarget)
-			r.Post("/{channelID}/forwarding/rules", cfg.ChannelHandler.CreateForwardingRule)
-			r.Put("/{channelID}/forwarding/rules/{ruleID}", cfg.ChannelHandler.UpdateForwardingRule)
-			r.Delete("/{channelID}/forwarding/rules/{ruleID}", cfg.ChannelHandler.DeleteForwardingRule)
-			r.Post("/{channelID}/webhooks/ping", cfg.ChannelHandler.PingWebhook)
-
-			r.Post("/{channelID}/admins/sync", cfg.ChannelHandler.SyncAdmins)
-			r.Get("/{channelID}/admins", cfg.ChannelHandler.GetAdmins)
-			r.Put("/{channelID}/admins/{adminID}", cfg.ChannelHandler.UpdateAdmin)
-
-			r.Get("/{channelID}/members", cfg.ChannelHandler.GetMembers)
-			r.Post("/{channelID}/members/{memberID}/ban", cfg.ChannelHandler.BanMember)
-			r.Post("/{channelID}/members/{memberID}/restrict", cfg.ChannelHandler.RestrictMember)
-
-			r.Get("/{channelID}/buttons", cfg.ChannelHandler.GetButtons)
-			r.Post("/{channelID}/buttons", cfg.ChannelHandler.SaveButtons)
-			r.Put("/{channelID}/inline-buttons", cfg.ChannelHandler.SaveInlineButtonsAtomic)
-		})
-
-		r.Route("/projects", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-
-			if cfg.ProjectHandler != nil {
-				r.Get("/", cfg.ProjectHandler.ListProjects)
-				r.Post("/", cfg.ProjectHandler.CreateProject)
-				r.Post("/preflight", cfg.ProjectHandler.CheckPreflight)
-				r.Get("/{projectID}", cfg.ProjectHandler.GetProject)
-				r.Put("/{projectID}", cfg.ProjectHandler.UpdateProject)
-				r.Post("/{projectID}/toggle", cfg.ProjectHandler.ToggleProject)
-				r.Post("/{projectID}/pause", cfg.ProjectHandler.PauseProject)
-				r.Post("/{projectID}/resume", cfg.ProjectHandler.ResumeProject)
-				r.Post("/{projectID}/renew", cfg.ProjectHandler.RenewProject)
-				r.Post("/{projectID}/subscribe-credits", cfg.ProjectHandler.SubscribeCredits)
-				r.Post("/{projectID}/subscribe-stars", cfg.ProjectHandler.SubscribeStars)
-				r.Delete("/{projectID}", cfg.ProjectHandler.DeleteProject)
-
-				// Editorial & Content Lifecycle Routes
-				r.Get("/{projectID}/inbox", cfg.ProjectHandler.GetInbox)
-				r.Get("/{projectID}/content/{contentID}", cfg.ProjectHandler.GetContentItem)
-				r.Post("/{projectID}/content/{contentID}/approve", cfg.ProjectHandler.ApproveContentItem)
-				r.Post("/{projectID}/content/{contentID}/reject", cfg.ProjectHandler.RejectContentItem)
-				r.Post("/{projectID}/content/{contentID}/edit", cfg.ProjectHandler.EditContentItem)
-				r.Post("/{projectID}/content/{contentID}/publish", cfg.ProjectHandler.PublishContentItem)
-				r.Get("/{projectID}/deliveries", cfg.ProjectHandler.GetDeliveries)
-
-				// Team & Permissions
-				r.Get("/{projectID}/team", cfg.ProjectHandler.GetMembers)
-				r.Post("/{projectID}/team", cfg.ProjectHandler.AddMember)
-				r.Delete("/{projectID}/team/{userID}", cfg.ProjectHandler.RemoveMember)
-			}
-		})
-
-		r.Route("/subscription", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-
-			r.Get("/packages", cfg.BotMgmtHandler.GetPackages)
-			r.Post("/subscribe", cfg.BotMgmtHandler.Subscribe)
-			r.Post("/subscribe-airdrop", cfg.BotMgmtHandler.SubscribeWithAirdrop)
-			r.Post("/subscribe-credits", cfg.BotMgmtHandler.SubscribeWithCredits)
-			r.Post("/subscribe-stars-invoice", cfg.BotMgmtHandler.SubscribeStarsInvoice)
-
-			r.Post("/channel/subscribe", cfg.BotMgmtHandler.SubscribeChannel)
-			r.Post("/channel/subscribe-airdrop", cfg.BotMgmtHandler.SubscribeChannelWithAirdrop)
-			r.Post("/channel/subscribe-credits", cfg.BotMgmtHandler.SubscribeChannelWithCredits)
-			r.Post("/channel/subscribe-stars-invoice", cfg.BotMgmtHandler.SubscribeChannelStarsInvoice)
-		})
 
 		r.Route("/profile", func(r chi.Router) {
 			r.Get("/avatar/{userID}", cfg.ProfileHandler.GetAvatar)
@@ -259,6 +143,9 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Get("/assets", cfg.ProfileHandler.GetMyAssets)
 				r.Get("/sessions", cfg.AuthHandler.GetSessions)
 				r.Post("/sessions/revoke-all", cfg.AuthHandler.RevokeAllSessions)
+				if cfg.RaffleHandler != nil {
+					r.Get("/raffle", cfg.RaffleHandler.GetUserProfileRaffle)
+				}
 
 				r.Get("/cosmetics", cfg.ProfileHandler.GetCosmetics)
 				r.Post("/cosmetics/purchase", cfg.ProfileHandler.PurchaseCosmetic)
@@ -409,7 +296,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/metrics", cfg.OwnerHandler.GetHealth)
 
 				// Entities
-				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/channels", cfg.OwnerHandler.GetAllChannels)
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/groups", cfg.OwnerHandler.GetAllGroups)
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/entities/extend-subscription", cfg.OwnerHandler.ExtendEntitySubscription)
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/entities/grant-coins", cfg.OwnerHandler.GrantEntityCoins)

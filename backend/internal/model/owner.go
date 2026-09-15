@@ -207,7 +207,7 @@ type FinanceSummary struct {
 }
 
 type PremiumEntity struct {
-	EntityType    string     `json:"entity_type"` // "channel" or "group"
+	EntityType    string     `json:"entity_type"` // "group"
 	EntityID      string     `json:"entity_id"`
 	Title         string     `json:"title"`
 	OwnerID       int64      `json:"owner_id"`

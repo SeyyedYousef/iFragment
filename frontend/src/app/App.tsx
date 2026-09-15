@@ -5,7 +5,6 @@ import { createEffect, ErrorBoundary, For } from 'solid-js';
 import { routes } from '@/app/router/routes.js';
 import { t } from '@/shared/i18n/index.js';
 import { CoinCelebrationOverlay, PageTransition } from '@/shared/ui/index.js';
-import { DemoBanner } from '@/widgets/demo-banner/index.js';
 import { ImpersonationBanner } from '@/widgets/owner/index.js';
 
 const PageErrorFallback = (err: any, reset: () => void) => {
@@ -46,7 +45,6 @@ const RouteWrapper = (props: { component: any; [key: string]: any }) => {
 	return (
 		<ErrorBoundary fallback={(err, reset) => PageErrorFallback(err, reset)}>
 			<ImpersonationBanner />
-			<DemoBanner />
 			<PageTransition>
 				<props.component {...props} />
 			</PageTransition>
@@ -62,12 +60,7 @@ const DeepLinkHandler = () => {
 			const launchParams = retrieveLaunchParams();
 			const startParam = launchParams.tgWebAppStartParam;
 			if (startParam) {
-				if (startParam.startsWith('group_')) {
-					const groupId = startParam.substring(6);
-					if (groupId) {
-						navigate(`/group/${groupId}`, { replace: true });
-					}
-				} else if (startParam.startsWith('username_')) {
+				if (startParam.startsWith('username_')) {
 					const username = startParam.substring(9);
 					if (username) {
 						navigate(`/username/report?u=${username}`, { replace: true });
