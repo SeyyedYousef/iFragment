@@ -10,7 +10,6 @@ import type {
 	FinanceSummary,
 	ManagedUserbot,
 	OwnerDashboardStats,
-	OwnerEntityItem,
 	PromoCode,
 	QuestItem,
 	SearchedUser,
@@ -198,61 +197,8 @@ export const ownerApi = {
 		return res.data;
 	},
 
-	// ─── Entities (Groups) ───────────────────────────────────────────
-	getAllGroups: async (limit = 50, offset = 0): Promise<OwnerEntityItem[]> => {
-		const res = await api.get<OwnerEntityItem[]>('/entities/groups', {
-			params: { limit, offset },
-		});
-		return res.data;
-	},
 
-	extendSubscription: async (
-		entityType: 'group',
-		entityId: string,
-		days: number,
-		reason: string,
-	): Promise<{ success: boolean; new_until: string }> => {
-		const res = await api.post<{ success: boolean; new_until: string }>(
-			'/entities/extend-subscription',
-			{
-				entity_type: entityType,
-				entity_id: entityId,
-				days,
-				reason,
-			},
-		);
-		return res.data;
-	},
 
-	grantEntityCoins: async (
-		entityType: 'group',
-		entityId: string,
-		coins: number,
-		reason: string,
-	): Promise<{ success: boolean; new_balance: number }> => {
-		const res = await api.post<{ success: boolean; new_balance: number }>('/entities/grant-coins', {
-			entity_type: entityType,
-			entity_id: entityId,
-			coins,
-			reason,
-		});
-		return res.data;
-	},
-
-	addEntityCredit: async (
-		entityType: 'group',
-		entityId: string,
-		coins: number,
-		reason: string,
-	): Promise<{ success: boolean; new_balance: number }> => {
-		const res = await api.post<{ success: boolean; new_balance: number }>('/entities/grant-coins', {
-			entity_type: entityType,
-			entity_id: entityId,
-			coins,
-			reason,
-		});
-		return res.data;
-	},
 
 	// ─── Finance ────────────────────────────────────────────────────────────────
 	getFinanceSummary: async (): Promise<FinanceSummary> => {

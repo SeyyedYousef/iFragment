@@ -17,7 +17,7 @@ type ProfileStats struct {
 	FirstName                  string                     `json:"firstName"`
 	LastName                   string                     `json:"lastName"`
 	UsernamesAnalyzed          int                        `json:"usernamesAnalyzed"`
-	GroupsManaged              int                        `json:"groupsManaged"`
+	GiftsAppraised             int                        `json:"giftsAppraised,omitempty"`
 	DaysActive                 int                        `json:"daysActive"`
 	CurrentStreak              int                        `json:"currentStreak"`
 	GlobalRank                 int                        `json:"globalRank"`
@@ -141,19 +141,6 @@ type MyReportsAsset struct {
 	ValueEstimate       string    `json:"valueEstimate,omitempty"`       // e.g. "12.5 TON", "450 GRAM"
 }
 
-type MyConnectedProperty struct {
-	ID                 string     `json:"id"`
-	Type               string     `json:"type"` // "group", "bot"
-	Title              string     `json:"title"`
-	Username           string     `json:"username"`
-	PhotoURL           string     `json:"photoUrl,omitempty"`
-	MemberCount        int        `json:"memberCount"`
-	SubscriptionStatus string     `json:"subscriptionStatus"`
-	PaidUntil          *time.Time `json:"paidUntil,omitempty"`
-	DaysLeft           int        `json:"daysLeft"`
-	DashboardURL       string     `json:"dashboardUrl"`
-}
-
 type MyBoostersAsset struct {
 	MultiTapLevel    int `json:"multitapLevel"`
 	EnergyLimitLevel int `json:"energyLimitLevel"`
@@ -173,11 +160,10 @@ type MyGiftAsset struct {
 }
 
 type MyAssetsResponse struct {
-	Reports     []MyReportsAsset      `json:"reports"`
-	Gifts       []MyGiftAsset         `json:"gifts"`
-	Properties  []MyConnectedProperty `json:"properties"`
-	Boosters    MyBoostersAsset       `json:"boosters"`
-	SummaryText string                `json:"summaryText"`
+	Reports     []MyReportsAsset `json:"reports"`
+	Gifts       []MyGiftAsset    `json:"gifts"`
+	Boosters    MyBoostersAsset  `json:"boosters"`
+	SummaryText string           `json:"summaryText"`
 }
 
 type EmojiRewardResponse struct {

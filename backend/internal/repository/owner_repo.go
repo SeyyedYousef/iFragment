@@ -1156,19 +1156,6 @@ func (r *OwnerRepo) GetSystemErrors(ctx context.Context, limit int) ([]model.Sys
 	return logs, nil
 }
 
-// ─── Entities (Groups - Purged) ─────────────────────────────────────────────
-func (r *OwnerRepo) GetAllGroups(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
-	return []model.EntityRecord{}, nil
-}
-
-func (r *OwnerRepo) AddGroupSubscriptionDays(ctx context.Context, id string, days int) (*time.Time, error) {
-	now := time.Now().Add(time.Duration(days) * 24 * time.Hour)
-	return &now, nil
-}
-
-func (r *OwnerRepo) AddGroupCoins(ctx context.Context, id string, amount float64) (float64, error) {
-	return amount, nil
-}
 
 // ─── Ad Campaigns ───────────────────────────────────────────────────────────
 func (r *OwnerRepo) CreateAdCampaign(ctx context.Context, ad *model.AdCampaign) error {

@@ -183,17 +183,7 @@ export interface SystemErrorLog {
 	created_at: string;
 }
 
-export interface OwnerEntityItem {
-	id: string;
-	entity_type: 'group';
-	entity_id: string;
-	title: string;
-	status: string;
-	owner_id: number;
-	owner_username?: string;
-	credit_balance: number;
-	paid_until?: string;
-}
+
 
 export interface ChartPoint {
 	date: string;

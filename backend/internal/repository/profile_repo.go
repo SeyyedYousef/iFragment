@@ -50,8 +50,8 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		reports_count AS (
 			SELECT COUNT(DISTINCT username) as count FROM search_logs WHERE user_id = $1
 		),
-		managed_counts AS (
-			SELECT 0 as groups
+		gifts_count AS (
+			SELECT COUNT(*) as count FROM gift_reports WHERE user_id = $1
 		),
 		stats_info AS (
 			SELECT us.days_active, us.current_streak, us.total_taps, us.xp, us.level, us.last_active_at,
@@ -81,7 +81,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			ui.last_name,
 			ui.created_at,
 			rc.count,
-			mc.groups,
+			gc.count,
 			si.days_active,
 			si.current_streak,
 			si.total_taps,
@@ -104,13 +104,13 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		FROM stats_info si
 		CROSS JOIN user_info ui
 		CROSS JOIN reports_count rc
-		CROSS JOIN managed_counts mc
+		CROSS JOIN gifts_count gc
 	`
 
 	var targetTelegramID int64
 	var targetUsername, targetFirstName, targetLastName, dbPhotoURL string
 	var memberSince time.Time
-	var usernamesAnalyzed, groupsManaged int
+	var usernamesAnalyzed, giftsAppraised int
 	var daysActive, currentStreak, totalTaps, xp, level int
 	var lastActiveAt time.Time
 	var isPremium bool
@@ -125,7 +125,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 
 	err := db.Pool.QueryRow(ctx, query, userID).Scan(
 		&targetTelegramID, &targetUsername, &targetFirstName, &targetLastName,
-		&memberSince, &usernamesAnalyzed, &groupsManaged,
+		&memberSince, &usernamesAnalyzed, &giftsAppraised,
 		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
 		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin, &airdropCoins,
 		&creditExpiresInDays,
@@ -192,7 +192,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		FirstName:           targetFirstName,
 		LastName:            targetLastName,
 		UsernamesAnalyzed:   usernamesAnalyzed,
-		GroupsManaged:       groupsManaged,
+		GiftsAppraised:      giftsAppraised,
 		DaysActive:          daysActive,
 		CurrentStreak:       currentStreak,
 		GlobalRank:          globalRank,
@@ -255,8 +255,8 @@ var PredefinedAchievements = map[string]int{
 	"social_butterfly":  5,
 	"army_builder":      50,
 	"network_king":      200,
-	"group_guardian":    1,
-	"empire_builder":    10,
+	"gift_connoisseur":  1,
+	"rare_collector":    10,
 	"week_warrior":      7,
 	"month_master":      30,
 	"legendary":         100,
@@ -1139,8 +1139,8 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 	}
 
 	resp := &model.MyAssetsResponse{
-		Reports:    []model.MyReportsAsset{},
-		Properties: []model.MyConnectedProperty{},
+		Reports: []model.MyReportsAsset{},
+		Gifts:   []model.MyGiftAsset{},
 	}
 
 	// 1a. Fetch username reports from:
@@ -1379,10 +1379,7 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 		})
 	}
 
-	// 2. Connected Properties (Purged - standalone MiniGuard)
-	resp.Properties = []model.MyConnectedProperty{}
-
-	// 3. Fetch Purchased Gifts from gift_reports
+	// 2. Fetch Purchased Gifts from gift_reports
 	resp.Gifts = []model.MyGiftAsset{}
 	giftRows, err := db.Pool.Query(ctx, `
 		SELECT gift_id, model_id, serial_number, fair_value_nano_gram, purchased_at

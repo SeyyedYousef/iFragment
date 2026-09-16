@@ -34,9 +34,6 @@ const OwnerCombos = lazy(() =>
 const OwnerDashboardPage = lazy(() =>
 	import('@/pages/owner/dashboard/index.js').then((m) => ({ default: m.OwnerDashboardPage })),
 );
-const OwnerEntitiesPage = lazy(() =>
-	import('@/pages/owner/entities/index.js').then((m) => ({ default: m.OwnerEntitiesPage })),
-);
 const OwnerFinancePage = lazy(() =>
 	import('@/pages/owner/finance/index.js').then((m) => ({ default: m.OwnerFinancePage })),
 );
@@ -203,7 +200,11 @@ export const routes: Route[] = [
 	},
 	{
 		path: '/owner/entities',
-		Component: withOwnerGuard(OwnerEntitiesPage, 'entities', 'ownerEntities.title'),
+		Component: () => {
+			const nav = useNavigate();
+			onMount(() => nav('/owner/dashboard', { replace: true }));
+			return null;
+		},
 	},
 	{ path: '/owner/ads', Component: withOwnerGuard(OwnerAds, 'ads', 'ownerAds.title') },
 	{ path: '/collection-info', Component: CollectionInfoPage },

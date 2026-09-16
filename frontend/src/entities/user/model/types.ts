@@ -24,7 +24,6 @@ export interface ProfileStats {
 	lastName?: string;
 	usernamesAnalyzed: number;
 	giftsAppraised?: number;
-	groupsManaged?: number;
 	daysActive: number;
 	currentStreak: number;
 	globalRank: number;
@@ -252,19 +251,6 @@ export interface MyReportsAsset {
 	valueEstimate?: string;
 }
 
-export interface MyConnectedProperty {
-	id: string;
-	type: 'group' | 'bot';
-	title: string;
-	username: string;
-	photoUrl?: string;
-	memberCount: number;
-	subscriptionStatus: string;
-	paidUntil?: string;
-	daysLeft: number;
-	dashboardUrl: string;
-}
-
 export interface MyBoostersAsset {
 	multitapLevel: number;
 	energyLimitLevel: number;
@@ -274,7 +260,6 @@ export interface MyBoostersAsset {
 
 export interface MyAssetsResponse {
 	reports: MyReportsAsset[];
-	properties: MyConnectedProperty[];
 	boosters: MyBoostersAsset;
 	summaryText: string;
 }

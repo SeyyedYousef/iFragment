@@ -363,7 +363,7 @@ func (h *ProfileHandler) GetAchievementDefs(w http.ResponseWriter, r *http.Reque
 	keys := []string{
 		"first_steps", "home_base", "tap_novice", "mining_machine", "frg_millionaire",
 		"first_scan", "whale_hunter", "data_scientist", "social_butterfly", "army_builder",
-		"network_king", "group_guardian", "empire_builder", "week_warrior",
+		"network_king", "gift_connoisseur", "rare_collector", "week_warrior",
 		"month_master", "legendary", "early_adopter", "premium_user", "bug_hunter",
 	}
 	defs := make([]model.AchievementDef, 0, len(keys))

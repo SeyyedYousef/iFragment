@@ -104,187 +104,12 @@ const NUMBER_TRENDING_POOLS: TrendingPool[] = [
 	},
 ];
 
-const RICH_GIFTS_TRENDING_POOLS: GiftTrendingPool[] = [
-	{
-		id: 'bluechips',
-		icon: '🔥',
-		label: 'بلوچیپ و جنسیس',
-		shortLabel: 'بلوچیپ',
-		badge: 'BLUECHIP & APEX (بلوچیپ)',
-		items: [
-			{
-				slug: 'plush-pepe',
-				name: 'Plush Pepe',
-				serial: 1,
-				url: 'https://t.me/nft/PlushPepe-1',
-				floor: 5200,
-				emoji: '🐸',
-				tag: 'Top 0.01% Genesis',
-			},
-			{
-				slug: 'durov-cap',
-				name: "Durov's Cap",
-				serial: 1,
-				url: 'https://t.me/nft/DurovsCap-1',
-				floor: 2800,
-				emoji: '🧢',
-				tag: 'Mythic Genesis #1',
-			},
-			{
-				slug: 'signet-ring',
-				name: 'Signet Ring',
-				serial: 7,
-				url: 'https://t.me/nft/SignetRing-7',
-				floor: 950,
-				emoji: '💍',
-				tag: 'Lucky 7 Apex',
-			},
-			{
-				slug: 'precious-peach',
-				name: 'Precious Peach',
-				serial: 88,
-				url: 'https://t.me/nft/PreciousPeach-88',
-				floor: 1100,
-				emoji: '🍑',
-				tag: 'Double 8 Grail',
-			},
-		],
-	},
-	{
-		id: 'popular',
-		icon: '🌟',
-		label: 'ستارگان و ترند',
-		shortLabel: 'ترند بازار',
-		badge: 'TALISMANS & STARS (ستارگان و نمادین)',
-		items: [
-			{
-				slug: 'snoop-dogg',
-				name: 'Snoop Dogg',
-				serial: 420,
-				url: 'https://t.me/nft/SnoopDogg-420',
-				floor: 3200,
-				emoji: '🎙️',
-				tag: '420 OG Legend',
-			},
-			{
-				slug: 'scared-cat',
-				name: 'Scared Cat',
-				serial: 10,
-				url: 'https://t.me/nft/ScaredCat-10',
-				floor: 1450,
-				emoji: '🐱',
-				tag: 'Top 10 Apex',
-			},
-			{
-				slug: 'lunar-snake',
-				name: 'Lunar Snake',
-				serial: 8,
-				url: 'https://t.me/nft/LunarSnake-8',
-				floor: 850,
-				emoji: '🐍',
-				tag: 'Single Digit #8',
-			},
-			{
-				slug: 'astral-shard',
-				name: 'Astral Shard',
-				serial: 99,
-				url: 'https://t.me/nft/AstralShard-99',
-				floor: 780,
-				emoji: '💎',
-				tag: 'Double Digit #99',
-			},
-		],
-	},
-	{
-		id: 'seasonal',
-		icon: '🎭',
-		label: 'فصلی و جادو',
-		shortLabel: 'فصلی',
-		badge: 'SEASONAL & MAGIC (فصلی و جادو)',
-		items: [
-			{
-				slug: 'santa-hat',
-				name: 'Santa Hat',
-				serial: 1,
-				url: 'https://t.me/nft/SantaHat-1',
-				floor: 650,
-				emoji: '🎅',
-				tag: 'Genesis Mint #1',
-			},
-			{
-				slug: 'magic-potion',
-				name: 'Magic Potion',
-				serial: 777,
-				url: 'https://t.me/nft/MagicPotion-777',
-				floor: 480,
-				emoji: '🧪',
-				tag: 'Triple 7 Jackpot',
-			},
-			{
-				slug: 'kissed-frog',
-				name: 'Kissed Frog',
-				serial: 10,
-				url: 'https://t.me/nft/KissedFrog-10',
-				floor: 390,
-				emoji: '🐸',
-				tag: 'Apex Single Digit',
-			},
-			{
-				slug: 'hex-pot',
-				name: 'Hex Pot',
-				serial: 42,
-				url: 'https://t.me/nft/HexPot-42',
-				floor: 320,
-				emoji: '🏺',
-				tag: 'Rare Serial #42',
-			},
-		],
-	},
-	{
-		id: 'luxury',
-		icon: '👑',
-		label: 'لوکس و خاص',
-		shortLabel: 'لوکس',
-		badge: 'LUXURY & HIGH TIER (لوکس و کلکسیونی)',
-		items: [
-			{
-				slug: 'swiss-watch',
-				name: 'Swiss Watch',
-				serial: 12,
-				url: 'https://t.me/nft/SwissWatch-12',
-				floor: 1800,
-				emoji: '⌚',
-				tag: 'High Luxury #12',
-			},
-			{
-				slug: 'diamond-ring',
-				name: 'Diamond Ring',
-				serial: 1,
-				url: 'https://t.me/nft/DiamondRing-1',
-				floor: 4500,
-				emoji: '💎',
-				tag: 'Genesis Mint #1',
-			},
-			{
-				slug: 'record-player',
-				name: 'Record Player',
-				serial: 100,
-				url: 'https://t.me/nft/RecordPlayer-100',
-				floor: 920,
-				emoji: '📻',
-				tag: 'Centennial #100',
-			},
-			{
-				slug: 'mini-oscar',
-				name: 'Mini Oscar',
-				serial: 1,
-				url: 'https://t.me/nft/MiniOscar-1',
-				floor: 2900,
-				emoji: '🏆',
-				tag: 'Apex #1 Trophy',
-			},
-		],
-	},
+const GIFT_TRENDING_ITEMS = [
+	'https://t.me/nft/PlushPepe-1',
+	'https://t.me/nft/HeroicHelmet-1',
+	'https://t.me/nft/DurovsCap-1',
+	'https://t.me/nft/SignetRing-7',
+	'https://t.me/nft/SantaHat-1',
 ];
 
 const GIFT_MODEL_ALIASES: Record<string, string> = {
@@ -719,13 +544,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			}
 		} catch (_e) {}
 
-		// Auto cycle collectibles / gifts trending items every 8 seconds when idle
+		// Auto cycle collectibles trending items every 8 seconds when idle
 		cycleInterval = setInterval(() => {
 			if (!isFocused() && !searchQuery()) {
 				if (props.activeTab === 'collectibles') {
 					setPoolIndex((prev) => (prev + 1) % NUMBER_TRENDING_POOLS.length);
-				} else if (props.activeTab === 'gifts') {
-					setGiftPoolIndex((prev) => (prev + 1) % RICH_GIFTS_TRENDING_POOLS.length);
 				}
 			}
 		}, 8000);
@@ -740,16 +563,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const currentTrendingPool = createMemo(
 		() => NUMBER_TRENDING_POOLS[poolIndex() % NUMBER_TRENDING_POOLS.length],
 	);
-	const currentGiftsTrendingPool = createMemo(
-		() => RICH_GIFTS_TRENDING_POOLS[giftPoolIndex() % RICH_GIFTS_TRENDING_POOLS.length],
-	);
 
 	const trendingItems = createMemo(() => {
 		if (props.activeTab === 'collectibles') {
 			return currentTrendingPool().items;
 		}
 		if (props.activeTab === 'gifts') {
-			return currentGiftsTrendingPool().items.map((i) => i.url);
+			return GIFT_TRENDING_ITEMS;
 		}
 		return trendingUsernames();
 	});
@@ -759,9 +579,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			haptic.selection();
 		} catch {}
 		setIsRotating(true);
-		if (props.activeTab === 'gifts') {
-			setGiftPoolIndex((prev) => (prev + 1) % RICH_GIFTS_TRENDING_POOLS.length);
-		} else {
+		if (props.activeTab === 'collectibles') {
 			setPoolIndex((prev) => (prev + 1) % NUMBER_TRENDING_POOLS.length);
 		}
 		setTimeout(() => setIsRotating(false), 450);
@@ -1180,25 +998,18 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									<Show
 										when={props.activeTab === 'collectibles'}
 										fallback={
-											<Show
-												when={props.activeTab === 'gifts'}
-												fallback={
-													<span
-														class="text-[24px] font-medium transition-colors duration-300 min-w-[20px]"
-														style={{
-															color: isFocused()
-																? searchQuery()
-																	? inputStateColors().icon
-																	: '#3390ec'
-																: 'rgba(255,255,255,0.2)',
-														}}
-													>
-														@
-													</span>
-												}
-											>
-												<span class="text-[22px] select-none shrink-0" title="Telegram Gifts">
-													🎁
+											<Show when={props.activeTab === 'username'}>
+												<span
+													class="text-[24px] font-medium transition-colors duration-300 min-w-[20px]"
+													style={{
+														color: isFocused()
+															? searchQuery()
+																? inputStateColors().icon
+																: '#3390ec'
+															: 'rgba(255,255,255,0.2)',
+													}}
+												>
+													@
 												</span>
 											</Show>
 										}
@@ -1397,65 +1208,6 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							</div>
 						</div>
 
-						{/* Format Helper Pills for Gifts */}
-						<Show when={props.activeTab === 'gifts' && !searchQuery()}>
-							<div class="flex flex-wrap items-center justify-center gap-1.5 mt-2.5 px-2">
-								<span class="text-[10px] font-bold text-white/40">قالب‌های مجاز:</span>
-								<button
-									type="button"
-									onClick={() => {
-										try {
-											haptic.selection();
-										} catch {}
-										updateSearchQuery('https://t.me/nft/PlushPepe-1');
-									}}
-									class="px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-[#0098EA]/40 text-[10px] font-mono text-[#0098EA] transition-all flex items-center gap-1 active:scale-95 shadow-sm"
-								>
-									<span>🔗</span>
-									<span>t.me/nft/PlushPepe-1</span>
-								</button>
-								<button
-									type="button"
-									onClick={() => {
-										try {
-											haptic.selection();
-										} catch {}
-										updateSearchQuery('DurovsCap-1');
-									}}
-									class="px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-cyan-400/40 text-[10px] font-mono text-cyan-300 transition-all flex items-center gap-1 active:scale-95 shadow-sm"
-								>
-									<span>🧢</span>
-									<span>DurovsCap-1</span>
-								</button>
-								<button
-									type="button"
-									onClick={() => {
-										try {
-											haptic.selection();
-										} catch {}
-										updateSearchQuery('Signet Ring #7');
-									}}
-									class="px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-amber-400/40 text-[10px] font-mono text-amber-300 transition-all flex items-center gap-1 active:scale-95 shadow-sm"
-								>
-									<span>💍</span>
-									<span>Signet Ring #7</span>
-								</button>
-								<button
-									type="button"
-									onClick={() => {
-										try {
-											haptic.selection();
-										} catch {}
-										updateSearchQuery('https://fragment.com/gift/SantaHat-1');
-									}}
-									class="px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-400/40 text-[10px] font-mono text-emerald-300 transition-all flex items-center gap-1 active:scale-95 shadow-sm"
-								>
-									<span>🎅</span>
-									<span>fragment.com/gift/SantaHat-1</span>
-								</button>
-							</div>
-						</Show>
-
 						{/* Analyze Button */}
 						<button
 							type="button"
@@ -1510,177 +1262,57 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 								<span>{t('action.trending.title')}</span>
 							</span>
 
-							<Show
-								when={props.activeTab === 'gifts'}
-								fallback={
-									<Show when={props.activeTab === 'collectibles'}>
-										<button
-											type="button"
-											onClick={handleCycleTrending}
-											class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[11px] font-medium text-white/70 hover:text-white transition-all active:scale-95 group"
-										>
-											<span
-												class={`material-symbols-outlined text-[13px] text-[#0098EA] transition-transform duration-500 ${isRotating() ? 'rotate-180' : 'group-hover:rotate-45'}`}
-											>
-												cached
-											</span>
-											<span>{t(currentTrendingPool().categoryKey)}</span>
-										</button>
-									</Show>
-								}
-							>
-								<span class="text-[10px] font-bold text-emerald-400/90 flex items-center gap-1 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-									<span>داده‌های زنده فرگمنت</span>
-								</span>
+							<Show when={props.activeTab === 'collectibles'}>
+								<button
+									type="button"
+									onClick={handleCycleTrending}
+									class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[11px] font-medium text-white/70 hover:text-white transition-all active:scale-95 group"
+								>
+									<span
+										class={`material-symbols-outlined text-[13px] text-[#0098EA] transition-transform duration-500 ${isRotating() ? 'rotate-180' : 'group-hover:rotate-45'}`}
+									>
+										cached
+									</span>
+									<span>{t(currentTrendingPool().categoryKey)}</span>
+								</button>
 							</Show>
 						</div>
 
-						{/* Gifts Category Selector Pills (Tab Group) */}
-						<Show when={props.activeTab === 'gifts'}>
-							<div class="w-full max-w-[460px] px-1 mb-3.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth pb-1">
-								<For each={RICH_GIFTS_TRENDING_POOLS}>
-									{(pool, idx) => {
-										const isActive = () => giftPoolIndex() === idx();
-										return (
-											<button
-												type="button"
-												onClick={() => {
-													try {
-														haptic.selection();
-													} catch {}
-													setGiftPoolIndex(idx());
-												}}
-												class={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all duration-300 flex items-center gap-1.5 shrink-0 active:scale-95 ${
-													isActive()
-														? 'bg-gradient-to-r from-[#0098EA]/30 via-[#3390ec]/20 to-white/10 border border-[#0098EA]/50 text-white shadow-[0_0_15px_rgba(0,152,234,0.3)] scale-[1.02]'
-														: 'bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.06] text-white/60 hover:text-white'
-												}`}
-											>
-												<span>{pool.icon}</span>
-												<span>{pool.label}</span>
-											</button>
-										);
-									}}
-								</For>
-							</div>
-						</Show>
-
-						{/* Gifts Custom Luxury Cards */}
-						<Show
-							when={props.activeTab === 'gifts'}
-							fallback={
-								<div class="flex flex-wrap justify-center gap-2.5 w-full" dir="ltr">
-									<For each={trendingItems()}>
-										{(item, idx) => (
-											<Motion.button
-												initial={{ opacity: 0, y: 8 }}
-												animate={{ opacity: 1, y: 0 }}
-												transition={{
-													duration: 0.35,
-													delay: idx() * 0.04,
-													easing: [0.16, 1, 0.3, 1],
-												}}
-												onClick={() => {
-													try {
-														haptic.selection();
-													} catch {}
-													updateSearchQuery(item);
-													const el = document.getElementById('search-input');
-													if (el) el.focus();
-												}}
-												class="group relative px-4 py-2.5 rounded-[16px] bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white text-[13px] font-mono font-medium transition-all duration-300 active:scale-95 flex items-center gap-1.5 border border-white/[0.05] hover:border-white/15 shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
-											>
-												<Show when={props.activeTab === 'username'}>
-													<span class="text-white/25">@</span>
-												</Show>
-												<Show when={props.activeTab === 'collectibles' && !item.startsWith('+')}>
-													<span class="text-[#0098EA]/60 font-bold">+888 </span>
-												</Show>
-												<span class="tracking-wider">{item}</span>
-												<span class="material-symbols-outlined text-[12px] opacity-0 group-hover:opacity-60 -translate-x-1 group-hover:translate-x-0 transition-all text-white">
-													arrow_outward
-												</span>
-											</Motion.button>
-										)}
-									</For>
-								</div>
-							}
-						>
-							<div class="grid grid-cols-1 xs:grid-cols-2 gap-2.5 w-full max-w-[460px]">
-								<For each={currentGiftsTrendingPool().items}>
-									{(gCard, idx) => (
-										<Motion.button
-											initial={{ opacity: 0, y: 10 }}
-											animate={{ opacity: 1, y: 0 }}
-											transition={{
-												duration: 0.3,
-												delay: idx() * 0.04,
-												easing: [0.16, 1, 0.3, 1],
-											}}
-											onClick={() => {
-												try {
-													haptic.impact('medium');
-												} catch {}
-												updateSearchQuery(gCard.url);
-												const el = document.getElementById('search-input');
-												if (el) el.focus();
-											}}
-											class="group relative p-3 rounded-[22px] bg-gradient-to-b from-white/[0.05] to-white/[0.015] hover:from-white/[0.09] hover:to-white/[0.04] border border-white/[0.08] hover:border-[#0098EA]/50 text-left transition-all duration-300 active:scale-[0.98] flex items-center gap-3 shadow-[0_4px_20px_rgba(0,0,0,0.3)] overflow-hidden backdrop-blur-xl"
-										>
-											{/* Background Ambient Glow */}
-											<div class="absolute -right-6 -bottom-6 w-20 h-20 bg-[#0098EA]/10 rounded-full blur-xl pointer-events-none group-hover:bg-[#0098EA]/20 transition-all duration-500" />
-
-											{/* Gift Thumbnail Art Box */}
-											<div class="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-white/10 to-black/60 border border-white/15 shrink-0 overflow-hidden flex items-center justify-center p-1 group-hover:scale-105 group-hover:border-[#0098EA]/40 transition-all duration-300 shadow-md">
-												<GiftThumbnail
-													slug={gCard.slug}
-													name={gCard.name}
-													class="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
-												/>
-												<span class="absolute top-0.5 right-0.5 text-[8px] leading-none">
-													{gCard.emoji}
-												</span>
-											</div>
-
-											{/* Info Column */}
-											<div class="flex-1 min-w-0 flex flex-col justify-center">
-												<div class="flex items-center justify-between gap-1">
-													<span class="text-[13px] font-black text-white truncate group-hover:text-[#0098EA] transition-colors">
-														{gCard.name}
-													</span>
-													<span class="text-[9px] font-mono font-black px-1.5 py-0.5 rounded-md bg-white/[0.07] text-amber-300/90 border border-white/10 shrink-0">
-														#{gCard.serial}
-													</span>
-												</div>
-
-												<div class="flex items-center justify-between mt-1 text-[10px]">
-													<span class="font-mono font-bold text-emerald-400 flex items-center gap-0.5">
-														<span class="text-[9px]">💎</span>
-														<span>{gCard.floor.toLocaleString()} TON</span>
-													</span>
-													<span class="text-white/40 font-mono text-[9px]">
-														~$
-														{(gCard.floor * 3.2).toLocaleString(undefined, {
-															maximumFractionDigits: 0,
-														})}
-													</span>
-												</div>
-
-												<div class="flex items-center justify-between mt-1 pt-1 border-t border-white/[0.05]">
-													<span class="text-[8px] font-mono font-black uppercase tracking-wider text-white/50 truncate">
-														{gCard.tag}
-													</span>
-													<span class="material-symbols-outlined text-[13px] text-white/40 group-hover:text-[#0098EA] group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-all">
-														arrow_forward
-													</span>
-												</div>
-											</div>
-										</Motion.button>
-									)}
-								</For>
-							</div>
-						</Show>
+						<div class="flex flex-wrap justify-center gap-2.5 w-full" dir="ltr">
+							<For each={trendingItems()}>
+								{(item, idx) => (
+									<Motion.button
+										initial={{ opacity: 0, y: 8 }}
+										animate={{ opacity: 1, y: 0 }}
+										transition={{
+											duration: 0.35,
+											delay: idx() * 0.04,
+											easing: [0.16, 1, 0.3, 1],
+										}}
+										onClick={() => {
+											try {
+												haptic.selection();
+											} catch {}
+											updateSearchQuery(item);
+											const el = document.getElementById('search-input');
+											if (el) el.focus();
+										}}
+										class="group relative px-4 py-2.5 rounded-[16px] bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white text-[13px] font-mono font-medium transition-all duration-300 active:scale-95 flex items-center gap-1.5 border border-white/[0.05] hover:border-white/15 shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
+									>
+										<Show when={props.activeTab === 'username'}>
+											<span class="text-white/25">@</span>
+										</Show>
+										<Show when={props.activeTab === 'collectibles' && !item.startsWith('+')}>
+											<span class="text-[#0098EA]/60 font-bold">+888 </span>
+										</Show>
+										<span class="tracking-wider">{item}</span>
+										<span class="material-symbols-outlined text-[12px] opacity-0 group-hover:opacity-60 -translate-x-1 group-hover:translate-x-0 transition-all text-white">
+											arrow_outward
+										</span>
+									</Motion.button>
+								)}
+							</For>
+						</div>
 					</Motion.div>
 				</div>
 			</div>

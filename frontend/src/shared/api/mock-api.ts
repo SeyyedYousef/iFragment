@@ -209,7 +209,7 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 			if (!win.__mockProfileStats) {
 				win.__mockProfileStats = {
 					usernamesAnalyzed: 47,
-					groupsManaged: 3,
+					giftsAppraised: 12,
 					daysActive: 34,
 					currentStreak: 12,
 					globalRank: 156,

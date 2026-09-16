@@ -294,11 +294,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				// Health
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/errors", cfg.OwnerHandler.GetSystemErrors)
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/metrics", cfg.OwnerHandler.GetHealth)
-
-				// Entities
-				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/groups", cfg.OwnerHandler.GetAllGroups)
-				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/entities/extend-subscription", cfg.OwnerHandler.ExtendEntitySubscription)
-				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/entities/grant-coins", cfg.OwnerHandler.GrantEntityCoins)
 			})
 		})
 	})
