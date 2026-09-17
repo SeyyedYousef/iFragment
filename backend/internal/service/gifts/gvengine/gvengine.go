@@ -184,7 +184,17 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 		return nil, err
 	}
 
-	col, _ := traits.ResolveCollection(ref.ModelID)
+	col, isKnownCol := traits.ResolveCollection(ref.ModelID)
+	// RB-P0-003, AC-P0-002: Strict Gift Identity Gate
+	if !isKnownCol {
+		return nil, fmt.Errorf("unknown gift collection '%s'", ref.ModelID)
+	}
+	if ref.SerialNumber <= 0 {
+		return nil, fmt.Errorf("invalid gift serial number #%d", ref.SerialNumber)
+	}
+	if col.TotalSupply > 0 && ref.SerialNumber > col.TotalSupply {
+		return nil, fmt.Errorf("serial number #%d exceeds total supply of %d for collection '%s'", ref.SerialNumber, col.TotalSupply, col.Name)
+	}
 
 	selectedModel := ""
 	ownerName := ""
@@ -323,7 +333,10 @@ func (e *ValuationEngine) Valuate(ctx context.Context, raw string) (*GiftValuati
 
 func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftRef) (*GiftValuation, error) {
 	col, isKnownCol := traits.ResolveCollection(ref.ModelID)
-	_ = isKnownCol
+	// RB-P0-003, AC-P0-002: Strict Gift Identity Gate
+	if !isKnownCol {
+		return nil, fmt.Errorf("unknown gift collection '%s'", ref.ModelID)
+	}
 
 	// Live on-chain resolver for real model, backdrop, symbol, and owner
 	var liveNFT *telegramnft.LiveNFTDetails
@@ -334,6 +347,10 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 				col.TotalSupply = liveNFT.TotalSupply
 			}
 		}
+	}
+
+	if col.TotalSupply > 0 && ref.SerialNumber > col.TotalSupply {
+		return nil, fmt.Errorf("serial number #%d exceeds total supply of %d for collection '%s'", ref.SerialNumber, col.TotalSupply, col.Name)
 	}
 
 	// 1. Fetch live GRAM/USD rate (CryptoPrice TON equivalent)
@@ -519,13 +536,21 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		}
 	}
 
-	// Strict Hard Floor & Realized Last-Sale Invariant
-	// User Directive: Under NO circumstance may valuation be lower than last realized sale price or collection floor!
+	// Strict Floor & Realized Last-Sale Invariant with Down-Market Responsiveness (AC-P1-002)
 	effectiveFloor := baseFloor
 	isLastSaleAnchored := false
 	lastSalePriceGRAM := 0.0
 	var lastSaleDate time.Time
 	var lastSaleVenue string
+
+	cohortCompsMean := 0.0
+	if len(comps) > 0 {
+		totalCompPrice := 0.0
+		for _, c := range comps {
+			totalCompPrice += c.SalePriceGRAM
+		}
+		cohortCompsMean = totalCompPrice / float64(len(comps))
+	}
 
 	if lastSaleRecord != nil {
 		p, _ := lastSaleRecord.SalePriceGRAM.Float64()
@@ -540,8 +565,19 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			if elapsedYears > 0 {
 				appreciatedLastSale = lastSalePriceGRAM * math.Pow(1.15, elapsedYears)
 			}
-			if appreciatedLastSale > effectiveFloor {
-				effectiveFloor = appreciatedLastSale
+
+			// If cohort comps indicate a down-market, allow valuation to decrease below appreciated last sale (AC-P1-002)
+			if cohortCompsMean > 0 && cohortCompsMean < lastSalePriceGRAM {
+				cohortRatio := cohortCompsMean / lastSalePriceGRAM
+				decayWeight := math.Exp(-0.20 * math.Max(0, elapsedYears))
+				blendedAnchor := (lastSalePriceGRAM * cohortRatio * decayWeight) + (cohortCompsMean * (1.0 - decayWeight))
+				if blendedAnchor > baseFloor {
+					effectiveFloor = blendedAnchor
+				}
+			} else {
+				if appreciatedLastSale > effectiveFloor {
+					effectiveFloor = appreciatedLastSale
+				}
 			}
 			isLastSaleAnchored = true
 		}
@@ -562,7 +598,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			if liveNFT.ValueInfo.LastSaleOnFragment {
 				lastSaleVenue = "Fragment"
 			}
-			if lastSalePriceGRAM > effectiveFloor {
+			if cohortCompsMean > 0 && cohortCompsMean < lastSalePriceGRAM {
+				effectiveFloor = math.Max(baseFloor, cohortCompsMean)
+			} else if lastSalePriceGRAM > effectiveFloor {
 				effectiveFloor = lastSalePriceGRAM
 			}
 			isLastSaleAnchored = true
@@ -583,8 +621,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// Dynamic adaptive uncertainty bounds using MAD and Bayesian scale
 	lowBound, highBound := core.ComputeUncertaintyBounds(expectedGRAM, mad, 1.20, 0.12, 0.38)
 
-	// Invariant: lowBound must never collapse below the baseline floor or 95% of last sale
-	if isLastSaleAnchored && lowBound < lastSalePriceGRAM*0.95 {
+	// Invariant: lowBound must never collapse below the baseline floor.
+	// In down-market conditions, lowBound may decrease below last sale (AC-P1-002: no hard clamp).
+	if isLastSaleAnchored && (cohortCompsMean == 0 || cohortCompsMean >= lastSalePriceGRAM) && lowBound < lastSalePriceGRAM*0.95 {
 		lowBound = lastSalePriceGRAM * 0.95
 	}
 	if lowBound < baseFloor {

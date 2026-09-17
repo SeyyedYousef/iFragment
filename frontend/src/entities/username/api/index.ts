@@ -4,13 +4,17 @@ import { apiFetch } from '@/shared/api/base.js';
 
 export type UsernameStatusType =
 	| 'available'
-	| 'taken'
+	| 'purchase_available'
+	| 'on_auction'
+	| 'on_sale'
+	| 'owned'
 	| 'reserved'
-	| 'active_auction'
-	| 'listed_for_sale'
 	| 'collectible_not_listed'
+	| 'source_unavailable'
 	| 'unknown'
-	| 'source_unavailable';
+	| 'taken'
+	| 'active_auction'
+	| 'listed_for_sale';
 
 export interface AvailabilityStatus {
 	username: string;

@@ -93,7 +93,7 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 	}
 
 	if h.cache != nil && h.cache.Client != nil {
-		h.cache.Client.Set(context.Background(), cacheKey, "processed", 10*time.Minute)
+		h.cache.Client.Set(context.Background(), cacheKey, "processed", 7*24*time.Hour)
 	}
 }
 
@@ -279,10 +279,10 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 
 	webhookStatus = "success"
 
-	// Strict 7-Day Replay & Idempotency Check with Redis SETNX
+	// ING-P1-005: Webhook state machine received -> processing (5m lease) -> processed (committed)
 	cacheKey = fmt.Sprintf("update:%s:%d", botIDStr, update.UpdateID)
 	if cache != nil && cache.Client != nil {
-		locked, err := cache.Client.SetNX(ctx, cacheKey, "processed", 7*24*time.Hour).Result()
+		locked, err := cache.Client.SetNX(ctx, cacheKey, "processing", 5*time.Minute).Result()
 		if err != nil {
 			slog.Warn("Redis error in idempotency check", "error", err, "update_id", update.UpdateID, "bot_id", botIDStr)
 		} else if !locked {

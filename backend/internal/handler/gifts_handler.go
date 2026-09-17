@@ -57,7 +57,7 @@ func (h *GiftsHandler) GetCuriosityGate(w http.ResponseWriter, r *http.Request) 
 
 	gate, err := h.service.GetCuriosityGate(ctx, giftID)
 	if err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid gift format", err)
+		RespondError(w, r, http.StatusUnprocessableEntity, "invalid gift format", err)
 		return
 	}
 	RespondJSON(w, http.StatusOK, gate)
@@ -300,7 +300,7 @@ func (h *GiftsHandler) GetCollectionIntel(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if !slugRegex.MatchString(slug) {
-		RespondError(w, r, http.StatusBadRequest, "invalid collection slug format", nil)
+		RespondError(w, r, http.StatusUnprocessableEntity, "invalid collection slug format", nil)
 		return
 	}
 
@@ -326,7 +326,7 @@ func (h *GiftsHandler) GetGiftImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !slugRegex.MatchString(slug) {
-		http.Error(w, "invalid slug format", http.StatusBadRequest)
+		RespondError(w, r, http.StatusUnprocessableEntity, "invalid slug format", nil)
 		return
 	}
 
@@ -487,7 +487,7 @@ func (h *GiftsHandler) ClassifySerial(w http.ResponseWriter, r *http.Request) {
 	}
 	serial, err := strconv.Atoi(serialStr)
 	if err != nil || serial <= 0 {
-		RespondError(w, r, http.StatusBadRequest, "invalid serial number", err)
+		RespondError(w, r, http.StatusUnprocessableEntity, "invalid serial number", err)
 		return
 	}
 

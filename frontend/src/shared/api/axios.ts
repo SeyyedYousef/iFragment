@@ -26,7 +26,7 @@ export const clearUserSessionData = () => {
 
 		for (let i = localStorage.length - 1; i >= 0; i--) {
 			const key = localStorage.key(i);
-			if (key && (key.startsWith('cached_profile_') || key.startsWith('airdrop-pending-taps'))) {
+			if (key && (key.startsWith('cached_profile_') || key.startsWith('airdrop-pending-taps') || key.startsWith('val_report_'))) {
 				localStorage.removeItem(key);
 			}
 		}

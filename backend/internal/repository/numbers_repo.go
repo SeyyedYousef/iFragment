@@ -252,7 +252,7 @@ func (r *NumbersRepo) GetHistoricalSalesForNumber(ctx context.Context, number st
 		       COALESCE(buyer_address, ''), COALESCE(seller_address, ''), COALESCE(market_address, ''),
 		       price_confidence, COALESCE(transaction_hash, ''), indexed_at
 		FROM number_sales
-		WHERE number = $1
+		WHERE number = $1 AND COALESCE(is_reorged, FALSE) = FALSE
 		ORDER BY sale_date DESC
 		LIMIT 20`
 

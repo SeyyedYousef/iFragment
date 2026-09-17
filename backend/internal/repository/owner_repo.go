@@ -1032,44 +1032,33 @@ func (r *OwnerRepo) DeleteQuestTx(ctx context.Context, tx pgx.Tx, key string) er
 
 // ─── Managed Userbots ───────────────────────────────────────────────────────
 func (r *OwnerRepo) CreateManagedUserbot(ctx context.Context, phone string) error {
-	_, err := r.db.Pool.Exec(ctx, "INSERT INTO managed_userbots (phone_number, status) VALUES ($1, 'active') ON CONFLICT (phone_number) DO UPDATE SET status = 'active', updated_at = NOW()", phone)
-	return err
+	// Table managed_userbots was dropped in migration 000086
+	return nil
+}
+
+func (r *OwnerRepo) SaveManagedUserbot(ctx context.Context, phone string) error {
+	// Table managed_userbots was dropped in migration 000086
+	return nil
 }
 
 func (r *OwnerRepo) GetActiveManagedUserbots(ctx context.Context) ([]model.ManagedUserbot, error) {
-	rows, err := r.db.Pool.Query(ctx, "SELECT id, phone_number, status, channels_count, created_at, updated_at FROM managed_userbots WHERE status = 'active'")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var bots []model.ManagedUserbot
-	for rows.Next() {
-		var b model.ManagedUserbot
-		if err := rows.Scan(&b.ID, &b.PhoneNumber, &b.Status, &b.ChannelsCount, &b.CreatedAt, &b.UpdatedAt); err != nil {
-			return nil, err
-		}
-		bots = append(bots, b)
-	}
-	return bots, nil
+	// Table managed_userbots was dropped in migration 000086
+	return []model.ManagedUserbot{}, nil
 }
 
 func (r *OwnerRepo) GetManagedUserbotByID(ctx context.Context, id string) (*model.ManagedUserbot, error) {
-	query := `SELECT id, phone_number, status, channels_count, created_at, updated_at FROM managed_userbots WHERE id = $1::uuid`
-	var b model.ManagedUserbot
-	err := r.db.Pool.QueryRow(ctx, query, id).Scan(&b.ID, &b.PhoneNumber, &b.Status, &b.ChannelsCount, &b.CreatedAt, &b.UpdatedAt)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &b, nil
+	// Table managed_userbots was dropped in migration 000086
+	return nil, nil
+}
+
+func (r *OwnerRepo) UpdateManagedUserbotStatus(ctx context.Context, id string, status string) error {
+	// Table managed_userbots was dropped in migration 000086
+	return nil
 }
 
 func (r *OwnerRepo) DeleteManagedUserbot(ctx context.Context, id string) error {
-	_, err := r.db.Pool.Exec(ctx, "DELETE FROM managed_userbots WHERE id = $1::uuid", id)
-	return err
+	// Table managed_userbots was dropped in migration 000086
+	return nil
 }
 
 // ─── Finance & Orders ───────────────────────────────────────────────────────

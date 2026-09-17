@@ -11,8 +11,16 @@
  * read, so nothing lingers beyond the promised window.
  */
 
-const REPORT_PREFIX = 'val_report_';
-const INDEX_KEY = 'val_report_index';
+const getSessionUserId = (): string => {
+	try {
+		return localStorage.getItem('tg_user_id') || 'anon';
+	} catch {
+		return 'anon';
+	}
+};
+
+const getReportPrefix = (): string => `val_report_${getSessionUserId()}_`;
+const getIndexKey = (): string => `val_report_index_${getSessionUserId()}`;
 export const REPORT_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_RECENTS = 20;
 
@@ -66,13 +74,13 @@ const isExpired = (savedAt: number, now: number): boolean => now - savedAt >= RE
  */
 export const getRecentReports = (): RecentReport[] => {
 	const now = Date.now();
-	const index = readJson<RecentReport[]>(INDEX_KEY) ?? [];
+	const index = readJson<RecentReport[]>(getIndexKey()) ?? [];
 
 	const live: RecentReport[] = [];
 	for (const entry of index) {
 		if (!entry?.username || typeof entry.savedAt !== 'number') continue;
 		if (isExpired(entry.savedAt, now)) {
-			removeKey(REPORT_PREFIX + entry.username);
+			removeKey(getReportPrefix() + entry.username);
 			continue;
 		}
 		live.push(entry);
@@ -80,7 +88,7 @@ export const getRecentReports = (): RecentReport[] => {
 
 	live.sort((a, b) => b.savedAt - a.savedAt);
 
-	if (live.length !== index.length) writeJson(INDEX_KEY, live);
+	if (live.length !== index.length) writeJson(getIndexKey(), live);
 	return live;
 };
 
@@ -89,11 +97,11 @@ export const getCachedReport = <T>(username: string): T | null => {
 	const key = normalize(username);
 	if (!key) return null;
 
-	const cached = readJson<CachedReport<T>>(REPORT_PREFIX + key);
+	const cached = readJson<CachedReport<T>>(getReportPrefix() + key);
 	if (!cached || typeof cached.savedAt !== 'number') return null;
 
 	if (isExpired(cached.savedAt, Date.now())) {
-		removeKey(REPORT_PREFIX + key);
+		removeKey(getReportPrefix() + key);
 		return null;
 	}
 	return cached.data;
@@ -101,7 +109,7 @@ export const getCachedReport = <T>(username: string): T | null => {
 
 /** Epoch ms at which the cached report for this username expires, or null. */
 export const getCacheExpiry = (username: string): number | null => {
-	const cached = readJson<CachedReport<unknown>>(REPORT_PREFIX + normalize(username));
+	const cached = readJson<CachedReport<unknown>>(getReportPrefix() + normalize(username));
 	if (!cached || typeof cached.savedAt !== 'number') return null;
 	const expiry = cached.savedAt + REPORT_TTL_MS;
 	return expiry > Date.now() ? expiry : null;
@@ -113,7 +121,7 @@ export const saveReport = <T extends Record<string, any>>(username: string, data
 	if (!key || !data) return;
 
 	const savedAt = Date.now();
-	writeJson(REPORT_PREFIX + key, { savedAt, data } satisfies CachedReport<T>);
+	writeJson(getReportPrefix() + key, { savedAt, data } satisfies CachedReport<T>);
 
 	const others = getRecentReports().filter((entry) => entry.username !== key);
 	const next: RecentReport[] = [
@@ -129,18 +137,18 @@ export const saveReport = <T extends Record<string, any>>(username: string, data
 
 	// Drop anything past the cap, payload included, so storage stays bounded.
 	for (const stale of next.slice(MAX_RECENTS)) {
-		removeKey(REPORT_PREFIX + stale.username);
+		removeKey(getReportPrefix() + stale.username);
 	}
-	writeJson(INDEX_KEY, next.slice(0, MAX_RECENTS));
+	writeJson(getIndexKey(), next.slice(0, MAX_RECENTS));
 };
 
 /** Removes a single cached report — used when the user asks for a fresh run. */
 export const invalidateReport = (username: string): void => {
 	const key = normalize(username);
 	if (!key) return;
-	removeKey(REPORT_PREFIX + key);
+	removeKey(getReportPrefix() + key);
 	writeJson(
-		INDEX_KEY,
+		getIndexKey(),
 		getRecentReports().filter((entry) => entry.username !== key),
 	);
 };

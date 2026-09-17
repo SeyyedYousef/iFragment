@@ -127,7 +127,7 @@ func (s *GiftsService) GetArbitrageRadar(ctx context.Context) ([]ArbitrageOpport
 		return nil, err
 	}
 
-	gramUsdRate := 5.20
+	var gramUsdRate float64
 	if s.cryptoPrice != nil {
 		if rate, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && rate > 0 {
 			gramUsdRate = rate
@@ -145,6 +145,11 @@ func (s *GiftsService) GetArbitrageRadar(ctx context.Context) ([]ArbitrageOpport
 		sellP, _ := o.TargetFloorGRAM.Float64()
 		spreadPct, _ := o.NetROIPct.Float64()
 
+		usdProfit := 0.0
+		if gramUsdRate > 0 {
+			usdProfit = round2(netProf * gramUsdRate)
+		}
+
 		result = append(result, ArbitrageOpportunity{
 			ModelID:       o.ModelID,
 			ModelName:     name,
@@ -153,7 +158,7 @@ func (s *GiftsService) GetArbitrageRadar(ctx context.Context) ([]ArbitrageOpport
 			SellVenue:     o.TargetVenue,
 			SellPriceGRAM: sellP,
 			NetProfitGRAM: netProf,
-			NetProfitUSD:  round2(netProf * gramUsdRate),
+			NetProfitUSD:  usdProfit,
 			SpreadPercent: spreadPct,
 			IsFreeAccess:  i < 3,
 		})
@@ -170,7 +175,7 @@ func (s *GiftsService) GetWhaleLeaderboard(ctx context.Context) ([]WhaleProfile,
 		return nil, err
 	}
 
-	gramUsdRate := 5.20
+	var gramUsdRate float64
 	if s.cryptoPrice != nil {
 		if rate, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && rate > 0 {
 			gramUsdRate = rate
@@ -180,7 +185,10 @@ func (s *GiftsService) GetWhaleLeaderboard(ctx context.Context) ([]WhaleProfile,
 	result := make([]WhaleProfile, 0, len(wallets))
 	for i, w := range wallets {
 		valGram, _ := w.TotalEstValueGRAM.Float64()
-		valUsd := valGram * gramUsdRate
+		valUsd := 0.0
+		if gramUsdRate > 0 {
+			valUsd = round2(valGram * gramUsdRate)
+		}
 
 		class := "diamond_hands"
 		if w.GiftsCount > 300 {
@@ -195,10 +203,10 @@ func (s *GiftsService) GetWhaleLeaderboard(ctx context.Context) ([]WhaleProfile,
 			DisplayName:    w.Label,
 			HoldingsCount:  w.GiftsCount,
 			TotalValueGRAM: round2(valGram),
-			TotalValueUSD:  round2(valUsd),
+			TotalValueUSD:  valUsd,
 			Classification: class,
-			Change24hCount: int(math.Max(1, float64(w.GiftsCount)/50.0)),
-			AvgHoldDays:    120 + (i * 15),
+			Change24hCount: 0,
+			AvgHoldDays:    0,
 		})
 	}
 	return result, nil
@@ -393,7 +401,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 			COALESCE(AVG(CASE WHEN sale_date >= now() - interval '24 hours' THEN sale_price_gram END), 0) as avg_cur,
 			COALESCE(AVG(CASE WHEN sale_date >= now() - interval '48 hours' AND sale_date < now() - interval '24 hours' THEN sale_price_gram END), 0) as avg_prev
 		FROM gift_sales
-		WHERE sale_date >= now() - interval '48 hours'
+		WHERE sale_date >= now() - interval '48 hours' AND COALESCE(is_reorged, FALSE) = FALSE
 		GROUP BY model_id`)
 	if err == nil {
 		for salesRows.Next() {
@@ -424,7 +432,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 
 		// Check models with verified sales in last 7d for accurate volume badge
 		model7dSales := make(map[string]bool)
-		volRows, vErr := s.db.Pool.Query(ctx, `SELECT model_id FROM gift_sales WHERE sale_date >= now() - interval '7 days' GROUP BY model_id HAVING COUNT(*) > 0`)
+		volRows, vErr := s.db.Pool.Query(ctx, `SELECT model_id FROM gift_sales WHERE sale_date >= now() - interval '7 days' AND COALESCE(is_reorged, FALSE) = FALSE GROUP BY model_id HAVING COUNT(*) > 0`)
 		if vErr == nil {
 			defer volRows.Close()
 			for volRows.Next() {
@@ -492,7 +500,8 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 	var totalVolumeGRAM float64
 	_ = s.db.Pool.QueryRow(ctx, `
 		SELECT COUNT(*), COALESCE(SUM(sale_price_gram), 0)
-		FROM gift_sales`).Scan(&totalSalesCount, &totalVolumeGRAM)
+		FROM gift_sales
+		WHERE COALESCE(is_reorged, FALSE) = FALSE`).Scan(&totalSalesCount, &totalVolumeGRAM)
 
 	if totalSalesCount > 0 {
 		resp.DataStatus = "live"
@@ -515,13 +524,13 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 		WITH cur_7d AS (
 			SELECT model_id, COUNT(*) as sales_count, COALESCE(SUM(sale_price_gram), 0) as vol_cur, COALESCE(AVG(sale_price_gram), 0) as avg_price
 			FROM gift_sales
-			WHERE sale_date >= now() - interval '7 days'
+			WHERE sale_date >= now() - interval '7 days' AND COALESCE(is_reorged, FALSE) = FALSE
 			GROUP BY model_id
 		),
 		prev_7d AS (
 			SELECT model_id, COALESCE(SUM(sale_price_gram), 0) as vol_prev
 			FROM gift_sales
-			WHERE sale_date >= now() - interval '14 days' AND sale_date < now() - interval '7 days'
+			WHERE sale_date >= now() - interval '14 days' AND sale_date < now() - interval '7 days' AND COALESCE(is_reorged, FALSE) = FALSE
 			GROUP BY model_id
 		)
 		SELECT c.model_id, c.sales_count, c.avg_price, c.vol_cur, COALESCE(p.vol_prev, 0) as vol_prev
@@ -638,7 +647,7 @@ func (s *GiftsService) UnlockWithCoins(ctx context.Context, userID int64, raw st
 		// Persist purchased report within transaction
 		snapJSON, _ := json.Marshal(val)
 		fairNano := val.ExpectedGRAM.Mul(decimal.NewFromInt(1e9)).IntPart()
-		_, err = s.repo.SaveGiftReport(ctx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON)
+		_, err = s.repo.SaveGiftReportTx(ctx, tx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON)
 		if err != nil {
 			return nil, err
 		}
@@ -665,26 +674,32 @@ func (s *GiftsService) UnlockWithCredit(ctx context.Context, userID int64, raw s
 		if s.creditRepo == nil {
 			return nil, ErrInsufficientCredit
 		}
+
+		// First valuate to guarantee success before consuming user credit
+		val, err := s.engine.Valuate(ctx, ref.GiftID)
+		if err != nil {
+			return nil, err
+		}
+
 		idemKey := fmt.Sprintf("report:gift:%d:%s", userID, ref.GiftID)
-		_, err := s.creditRepo.ConsumeCreditFIFO(ctx, userID, "report:gift", ref.GiftID, idemKey)
+		_, err = s.creditRepo.ConsumeCreditFIFO(ctx, userID, "report:gift", ref.GiftID, idemKey)
 		if err != nil {
 			return nil, ErrInsufficientCredit
 		}
+
+		// Persist purchased report
+		if userID > 0 {
+			snapJSON, _ := json.Marshal(val)
+			fairNano := val.ExpectedGRAM.Mul(decimal.NewFromInt(1e9)).IntPart()
+			if _, err := s.repo.SaveGiftReport(ctx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON); err != nil {
+				return nil, fmt.Errorf("failed to save report: %w", err)
+			}
+		}
+
+		return val, nil
 	}
 
-	val, err := s.engine.Valuate(ctx, ref.GiftID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Persist purchased report
-	if userID > 0 {
-		snapJSON, _ := json.Marshal(val)
-		fairNano := val.ExpectedGRAM.Mul(decimal.NewFromInt(1e9)).IntPart()
-		_, _ = s.repo.SaveGiftReport(ctx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON)
-	}
-
-	return val, nil
+	return s.engine.Valuate(ctx, raw)
 }
 
 // GetEnrichedReport returns valuation with verified on-chain and provenance telemetry

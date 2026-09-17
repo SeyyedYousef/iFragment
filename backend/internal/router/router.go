@@ -44,7 +44,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		}
 
 		r.Post("/webhook/telegram/{botID}", cfg.WebhookHandler.HandleTelegramWebhook)
-		r.Post("/webhook/tonapi", cfg.WebhookHandler.HandleTonAPIWebhook)
 		r.With(middleware.ValidateTelegramInitData(cfg.DB, cfg.Cache)).Post("/auth/token", cfg.AuthHandler.IssueToken)
 		r.Post("/auth/refresh", cfg.AuthHandler.RefreshToken)
 
@@ -81,7 +80,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/chart-data", cfg.NumbersHandler.GetChartData)
 			r.Get("/gate", cfg.NumbersHandler.GetCuriosityGate)
 			r.Get("/mask", cfg.NumbersHandler.SearchMask)
-			r.Get("/search-mask", cfg.NumbersHandler.SearchMask)
 			r.Get("/deals", cfg.NumbersHandler.GetDeals)
 			r.Get("/clubs", cfg.NumbersHandler.GetClubs)
 			r.With(middleware.NewStrictRateLimiter(cfg.Cache, 15, time.Minute)).Get("/portfolio", cfg.NumbersHandler.ScanPortfolio)
@@ -172,7 +170,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Post("/clan/join", cfg.ClanHandler.JoinClan)
 				r.Post("/clan/leave", cfg.ClanHandler.LeaveClan)
 				r.Get("/clan/top", cfg.ClanHandler.GetTopClans)
-				r.Get("/clans/top", cfg.ClanHandler.GetTopClans)
 				r.Get("/clan/members", cfg.ClanHandler.GetClanMembers)
 
 				r.Post("/promo/redeem", cfg.OwnerHandler.RedeemPromo)

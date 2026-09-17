@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"ifragment-backend/internal/middleware"
-	"ifragment-backend/internal/service"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
+
+	"ifragment-backend/internal/middleware"
+	"ifragment-backend/internal/service"
 )
 
 type ClanHandler struct {
@@ -168,11 +171,36 @@ func (h *ClanHandler) GetClanPhotoProxy(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// SEC-P1-002: Validate username format to prevent injection/traversal
+	cleanUsername := strings.TrimPrefix(username, "@")
+	if len(cleanUsername) < 4 || len(cleanUsername) > 32 {
+		RespondError(w, r, http.StatusBadRequest, "invalid username length", nil)
+		return
+	}
+	for _, c := range cleanUsername {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+			RespondError(w, r, http.StatusBadRequest, "invalid characters in username", nil)
+			return
+		}
+	}
+
 	// 1. Get official photo URL from Telegram Bot API via clanService
-	photoURL, err := h.clanService.GetOfficialChannelPhotoURL(r.Context(), username)
+	photoURL, err := h.clanService.GetOfficialChannelPhotoURL(r.Context(), cleanUsername)
 	if err != nil || photoURL == "" {
 		// Fallback to t.me if official fails
-		photoURL = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", username)
+		photoURL = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", cleanUsername)
+	}
+
+	// SEC-P1-002: Strict host allowlist (only official Telegram hosts)
+	parsedURL, err := url.Parse(photoURL)
+	if err != nil || parsedURL.Scheme != "https" {
+		RespondError(w, r, http.StatusBadRequest, "invalid photo URL", nil)
+		return
+	}
+	host := parsedURL.Hostname()
+	if host != "t.me" && host != "api.telegram.org" && host != "telegram.org" && !strings.HasSuffix(host, ".telegram.org") {
+		RespondError(w, r, http.StatusForbidden, "disallowed photo host", nil)
+		return
 	}
 
 	// 2. Fetch the actual image bytes safely with context and timeout
@@ -198,5 +226,7 @@ func (h *ClanHandler) GetClanPhotoProxy(w http.ResponseWriter, r *http.Request) 
 	// Cache for 1 day in browser/CDN to prevent hammering Telegram API
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 
-	_, _ = io.Copy(w, resp.Body)
+	// SEC-P1-002: Bounded image read (max 5MB) to prevent memory exhaustion
+	limitedReader := io.LimitReader(resp.Body, 5*1024*1024)
+	_, _ = io.Copy(w, limitedReader)
 }

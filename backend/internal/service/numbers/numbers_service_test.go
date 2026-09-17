@@ -107,8 +107,8 @@ func TestNumbersService_VerifyNumber(t *testing.T) {
 		isMinted    bool
 		isGenesis   bool
 	}{
-		{"+888 0000 0000", "+88800000000", true, false},
-		{"+888 8888 8888", "+88888888888", true, false},
+		{"+888 0000 0000", "+88800000000", false, false},
+		{"+888 8888 8888", "+88888888888", false, false},
 		{"+888 8004", "+8888004", true, true},
 		{"+888 8000", "+8888000", true, true},
 		{"+888 123", "", false, false},

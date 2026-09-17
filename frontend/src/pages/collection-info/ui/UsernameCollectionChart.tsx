@@ -24,71 +24,15 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 	const [currency, setCurrency] = createSignal<'ton' | 'usd'>('ton');
 	const [hoverIdx, setHoverIdx] = createSignal<number | null>(null);
 
-	const rate = () => props.tonUsdRate || 2.45;
-	const baseFloor = () => props.currentFloorTon || 10;
+	const rate = () => props.tonUsdRate || 0;
+	const baseFloor = () => props.currentFloorTon || 0;
 
-	// Synthesize 30-day realistic trajectory anchored to live on-chain floor
+	// RB-P0-002, DEL-P0-002, AC-P0-008: Zero synthetic points.
+	// Do not synthesize fictional sinusoidal or flatline waves.
+	// When historical transaction data is unavailable, return empty array so that
+	// "History unavailable" is displayed truthfully with zero generated points.
 	const chartPoints = createMemo<ChartPoint[]>(() => {
-		const tf = timeframe();
-		const bf = baseFloor();
-		const r = rate();
-		const now = Date.now();
-
-		let count = 30;
-		let stepHours = 24;
-		let variance = 0.14;
-
-		if (tf === '24h') {
-			count = 24;
-			stepHours = 1;
-			variance = 0.04;
-		} else if (tf === '7d') {
-			count = 28;
-			stepHours = 6;
-			variance = 0.08;
-		} else if (tf === '30d') {
-			count = 30;
-			stepHours = 24;
-			variance = 0.15;
-		} else {
-			count = 36;
-			stepHours = 240;
-			variance = 0.35;
-		}
-
-		const pts: ChartPoint[] = [];
-		for (let i = 0; i < count; i++) {
-			const prog = i / (count - 1);
-			const timeOffsetMs = (count - 1 - i) * stepHours * 3600 * 1000;
-			const ptTime = new Date(now - timeOffsetMs);
-
-			const wave = Math.sin(prog * Math.PI * 3.5) * 0.4 + Math.cos(prog * Math.PI * 7) * 0.2;
-			const trend = (prog - 1) * variance;
-			const mult = i === count - 1 ? 1.0 : Math.max(0.5, 1.0 + trend + wave * (variance * 0.7));
-
-			const flTon = Math.round(bf * mult * 10) / 10;
-			const flUsd = Math.round(flTon * r * 10) / 10;
-			const volTon = Math.round((14000 / count) * (0.8 + Math.abs(wave)));
-			const volUsd = Math.round(volTon * r);
-
-			let label = '';
-			if (tf === '24h') {
-				label = `${String(ptTime.getUTCHours()).padStart(2, '0')}:00`;
-			} else {
-				label = `${ptTime.getUTCMonth() + 1}/${ptTime.getUTCDate()}`;
-			}
-
-			pts.push({
-				timestamp: ptTime.toISOString(),
-				label,
-				floorTon: flTon,
-				floorUsd: flUsd,
-				volumeTon: volTon,
-				volumeUsd: volUsd,
-			});
-		}
-
-		return pts;
+		return [];
 	});
 
 	const width = 500;
@@ -303,12 +247,21 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 
 			{/* SVG Chart */}
 			<div
-				class="relative w-full h-[170px] rounded-2xl border border-white/[0.06] bg-black/40 p-2 overflow-hidden select-none cursor-crosshair touch-none"
+				class="relative w-full h-[170px] rounded-2xl border border-white/[0.06] bg-black/40 p-2 overflow-hidden select-none flex items-center justify-center"
 				onMouseMove={handlePointerMove}
 				onTouchMove={handlePointerMove}
 				onMouseLeave={handlePointerLeave}
 				onTouchEnd={handlePointerLeave}
 			>
+				<Show
+					when={activePoints().length > 0}
+					fallback={
+						<div class="text-center">
+							<div class="text-white/40 text-xs font-mono mb-1">تاریخچه معاملات در دسترس نیست</div>
+							<div class="text-white/20 text-[10px] font-mono">History unavailable — zero synthetic points</div>
+						</div>
+					}
+				>
 				<svg
 					viewBox={`0 0 ${width} ${height}`}
 					class="w-full h-full overflow-visible"
@@ -457,6 +410,7 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 					<span>{activePoints()[0]?.label || ''}</span>
 					<span class="text-[#0098EA] font-semibold">{t('common.now') || 'Now'}</span>
 				</div>
+				</Show>
 			</div>
 		</div>
 	);

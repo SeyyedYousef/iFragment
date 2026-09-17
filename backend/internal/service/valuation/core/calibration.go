@@ -18,9 +18,13 @@ type ModelCalibrationSummary struct {
 }
 
 func GetCalibratedConfidenceScore(rawScore int16, sampleSize int, modelVersion string) (int16, string) {
-	if sampleSize <= 0 {
-		note := fmt.Sprintf("Heuristic score (uncalibrated; no empirical backtest sample for %s)", modelVersion)
-		return rawScore, note
+	if sampleSize < 3 {
+		cappedScore := rawScore
+		if cappedScore > 50 {
+			cappedScore = 50
+		}
+		note := fmt.Sprintf("uncalibrated / low evidence (sparse sample n=%d comps for %s; heuristic estimate only)", sampleSize, modelVersion)
+		return cappedScore, note
 	}
 
 	// Empirical monotonic mapping from heuristic score bins to actual within-band containment rates

@@ -852,7 +852,7 @@ export const GiftReportPage: Component = () => {
 								>
 									<span>{t('gifts.certificate')}:</span>
 									<span class="text-[#0098EA] font-bold">
-										{currentReport()?.certificate_id || 'CERT-GF-8839'}
+										{currentReport()?.certificate_id || '-'}
 									</span>
 								</button>
 							</div>
@@ -1088,13 +1088,13 @@ export const GiftReportPage: Component = () => {
 							<div class="space-y-2.5">
 								<For each={currentReport()?.trait_dna}>
 									{(dna) => {
-										const colSupply = resolvedCollectionItem()?.supply || 5000;
+										const colSupply = resolvedCollectionItem()?.supply || 0;
 										const repFloor =
 											Number(currentReport()?.base_price_gram) ||
 											resolvedCollectionItem()?.floorTon ||
-											45;
-										const traitFloorTon = Math.round(repFloor * (1 + (100 - dna.percentile) / 45));
-										const population = Math.max(1, Math.round((dna.percentile / 100) * colSupply));
+											0;
+										const traitFloorTon = repFloor > 0 ? Math.round(repFloor * (1 + (100 - dna.percentile) / 45)) : 0;
+										const population = colSupply > 0 ? Math.max(1, Math.round((dna.percentile / 100) * colSupply)) : 0;
 										return (
 											<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3">
 												<div class="flex items-center justify-between mb-1">
@@ -1203,7 +1203,9 @@ export const GiftReportPage: Component = () => {
 										{t('gifts.sumInverses')}
 									</span>
 									<span class="font-black text-white font-mono text-sm">
-										{currentReport()?.joint_rarity?.harmonic_rarity_score?.toFixed(1) || '85.4'}
+										{currentReport()?.joint_rarity?.harmonic_rarity_score != null
+											? currentReport()!.joint_rarity.harmonic_rarity_score.toFixed(1)
+											: '-'}
 									</span>
 									<span class="text-[9px] text-emerald-400 block font-medium">Σ(1/frequency)</span>
 								</div>
@@ -1213,7 +1215,9 @@ export const GiftReportPage: Component = () => {
 										{t('gifts.avgRarity')}
 									</span>
 									<span class="font-black text-white font-mono text-sm">
-										{((currentReport()?.joint_rarity?.harmonic_rarity_score || 80) / 4).toFixed(1)}
+										{currentReport()?.joint_rarity?.harmonic_rarity_score != null
+											? (currentReport()!.joint_rarity.harmonic_rarity_score / 4).toFixed(1)
+											: '-'}
 									</span>
 									<span class="text-[9px] text-sky-400 block font-medium">Σ(1/freq)/N</span>
 								</div>
@@ -1222,7 +1226,11 @@ export const GiftReportPage: Component = () => {
 									<span class="text-[9px] uppercase font-bold text-white/40 block">
 										{t('gifts.statProduct')}
 									</span>
-									<span class="font-black text-white font-mono text-sm">1.42e-4</span>
+									<span class="font-black text-white font-mono text-sm">
+										{currentReport()?.joint_rarity?.joint_permille != null
+											? (currentReport()!.joint_rarity.joint_permille / 1000).toExponential(2)
+											: '-'}
+									</span>
 									<span class="text-[9px] text-amber-400 block font-medium">Π(frequency)</span>
 								</div>
 
@@ -1230,7 +1238,11 @@ export const GiftReportPage: Component = () => {
 									<span class="text-[9px] uppercase font-bold text-white/40 block">
 										{t('gifts.infoEntropy')}
 									</span>
-									<span class="font-black text-white font-mono text-sm">11.84 bits</span>
+									<span class="font-black text-white font-mono text-sm">
+										{currentReport()?.joint_rarity?.joint_permille && currentReport()!.joint_rarity.joint_permille > 0
+											? `${(-Math.log2(currentReport()!.joint_rarity.joint_permille / 1000)).toFixed(2)} bits`
+											: '-'}
+									</span>
 									<span class="text-[9px] text-sky-400 block font-medium">Σ(-log₂ P)</span>
 								</div>
 							</div>

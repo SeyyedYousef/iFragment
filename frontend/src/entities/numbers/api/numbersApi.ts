@@ -133,17 +133,6 @@ export const numbersApi = {
 		return data;
 	},
 
-	getCollectionOverview: async (
-		address?: string,
-	): Promise<import('../model/types.js').NumbersCollectionOverview> => {
-		const { data } = await apiClient.get<import('../model/types.js').NumbersCollectionOverview>(
-			'/numbers/collection-overview',
-			{
-				params: address ? { address } : undefined,
-			},
-		);
-		return data;
-	},
 
 	searchMask: async (
 		pattern: string,

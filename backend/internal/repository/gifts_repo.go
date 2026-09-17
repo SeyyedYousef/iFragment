@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 )
 
@@ -125,10 +126,28 @@ func (r *GiftsRepo) SaveGiftReport(ctx context.Context, userID int64, giftID, mo
 		INSERT INTO gift_reports (
 			user_id, gift_id, model_id, serial_number, fair_value_nano_gram, confidence_score, report_snapshot, purchased_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+		ON CONFLICT (user_id, gift_id) DO UPDATE SET report_snapshot = EXCLUDED.report_snapshot, purchased_at = now()
 		RETURNING report_id`
 
 	var reportID uuid.UUID
 	err := r.db.Pool.QueryRow(ctx, query, userID, giftID, modelID, serialNumber, fairNano, confidence, snapshot).Scan(&reportID)
+	return reportID, err
+}
+
+func (r *GiftsRepo) SaveGiftReportTx(ctx context.Context, tx pgx.Tx, userID int64, giftID, modelID string, serialNumber int, fairNano int64, confidence int, snapshot []byte) (uuid.UUID, error) {
+	if tx == nil {
+		return r.SaveGiftReport(ctx, userID, giftID, modelID, serialNumber, fairNano, confidence, snapshot)
+	}
+
+	query := `
+		INSERT INTO gift_reports (
+			user_id, gift_id, model_id, serial_number, fair_value_nano_gram, confidence_score, report_snapshot, purchased_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+		ON CONFLICT (user_id, gift_id) DO UPDATE SET report_snapshot = EXCLUDED.report_snapshot, purchased_at = now()
+		RETURNING report_id`
+
+	var reportID uuid.UUID
+	err := tx.QueryRow(ctx, query, userID, giftID, modelID, serialNumber, fairNano, confidence, snapshot).Scan(&reportID)
 	return reportID, err
 }
 
@@ -287,7 +306,7 @@ func (r *GiftsRepo) GetLastSaleForGift(ctx context.Context, modelID string, seri
 		       price_confidence, sale_date, buyer_address, seller_address, tx_hash,
 		       COALESCE(event_index, 0), ton_usd_at_sale
 		FROM gift_sales
-		WHERE (model_id = $1 OR model_id = $2) AND serial_number = $3
+		WHERE (model_id = $1 OR model_id = $2) AND serial_number = $3 AND COALESCE(is_reorged, FALSE) = FALSE
 		ORDER BY sale_date DESC
 		LIMIT 1`
 
@@ -319,7 +338,7 @@ func (r *GiftsRepo) GetCompsForGift(ctx context.Context, modelID string, serialN
 		       price_confidence, sale_date, buyer_address, seller_address, tx_hash,
 		       COALESCE(event_index, 0), ton_usd_at_sale
 		FROM gift_sales
-		WHERE model_id = $1
+		WHERE model_id = $1 AND COALESCE(is_reorged, FALSE) = FALSE
 		ORDER BY ABS(serial_number - $2) ASC, sale_date DESC
 		LIMIT $3`
 

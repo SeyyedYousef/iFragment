@@ -126,7 +126,7 @@ func TestGVEngine_ValuationInvariantsAndMonotonicity(t *testing.T) {
 	engine.SetNFTResolver(nil) // Deterministic isolated traits for pure monotonicity proof
 	ctx := context.Background()
 
-	models := []string{"durov_cap", "plush_pepe", "snoop_dogg", "golden_star", "cyber_heart"}
+	models := []string{"durov_cap", "plush_pepe", "snoop_dogg", "heart_locket", "kissed_frog"}
 
 	for _, model := range models {
 		// Test Serial Monotonicity: #1 must be strictly > #10 > #100 > #1000
@@ -253,7 +253,7 @@ func TestGVEngine_NeverBelowMarketFloor(t *testing.T) {
 		"plush_pepe-1200",
 		"durov_cap-2400",
 		"santa_hat-9500",
-		"diamond_ring-4500",
+		"diamond_ring-3500",
 		"spiced_wine-14000",
 	}
 

@@ -143,28 +143,28 @@ export const NumbersCollectionPage: Component = () => {
 						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
 							<span class="text-[10px] font-bold text-white/40 block">Floor Price</span>
 							<span class="text-sm font-black text-white font-mono block mt-0.5">
-								{formatTon(intel()?.floor_price_ton || 2450)}{' '}
+								{intel()?.floor_price_ton ? formatTon(intel()!.floor_price_ton) : '-'}{' '}
 								<span class="text-[10px] text-[#0098EA]">TON</span>
 							</span>
 						</div>
 						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
 							<span class="text-[10px] font-bold text-white/40 block">24h Volume</span>
 							<span class="text-sm font-black text-emerald-400 font-mono block mt-0.5">
-								{formatTon(intel()?.volume_24h_ton || 14850)}{' '}
+								{intel()?.volume_24h_ton ? formatTon(intel()!.volume_24h_ton) : '-'}{' '}
 								<span class="text-[10px] text-white/40">TON</span>
 							</span>
 						</div>
 						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
 							<span class="text-[10px] font-bold text-white/40 block">Total Volume</span>
 							<span class="text-sm font-black text-[#0098EA] font-mono block mt-0.5">
-								{formatTon(intel()?.total_volume_ton || 48920000)}{' '}
+								{intel()?.total_volume_ton ? formatTon(intel()!.total_volume_ton) : '-'}{' '}
 								<span class="text-[10px] text-white/40">TON</span>
 							</span>
 						</div>
 						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
 							<span class="text-[10px] font-bold text-white/40 block">Highest Sale (ATH)</span>
 							<span class="text-sm font-black text-amber-400 font-mono block mt-0.5">
-								{formatTon(intel()?.historical_ath_ton || 666666)}{' '}
+								{intel()?.historical_ath_ton ? formatTon(intel()!.historical_ath_ton) : '-'}{' '}
 								<span class="text-[10px] text-white/40">TON</span>
 							</span>
 						</div>

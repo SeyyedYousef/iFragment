@@ -2,6 +2,9 @@ package avm
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -375,10 +378,18 @@ func TestDigitalValuationCertificate(t *testing.T) {
 		t.Errorf("VerifyValuationCertificate returned true for tampered certificate")
 	}
 
+	// Test AC-P0-017: Attacker creates public SHA-256 digest without HMAC secret
+	forgedPayload := fmt.Sprintf("%s:%s:%s:%d:%d", res.Username, res.ModelVersion, res.ExpectedTON.String(), res.ConfidenceScore, res.FetchedAt.Unix())
+	forgedSha := sha256.Sum256([]byte(forgedPayload))
+	forgedSig := hex.EncodeToString(forgedSha[:])
+	if VerifyValuationCertificate(res.Username, res.ModelVersion, res.ExpectedTON.String(), res.ConfidenceScore, res.FetchedAt.Unix(), forgedSig) {
+		t.Errorf("AC-P0-017 Violation: VerifyValuationCertificate accepted forged public SHA digest!")
+	}
+
 	if res.DataBadges["certificate"] != res.CertificateID {
 		t.Errorf("Expected DataBadges['certificate'] to equal CertificateID, got %s", res.DataBadges["certificate"])
 	}
-	if res.DataBadges["certificate_status"] != "Cryptographically Verified" {
+	if !strings.HasPrefix(res.DataBadges["certificate_status"], "Cryptographically Verified") {
 		t.Errorf("Expected Cryptographically Verified status, got %s", res.DataBadges["certificate_status"])
 	}
 }

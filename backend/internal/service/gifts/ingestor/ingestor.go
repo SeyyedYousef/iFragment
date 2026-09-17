@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"math"
 	"strings"
 	"sync"
 	"time"
@@ -223,10 +222,10 @@ func (e *IngestionEngine) syncOneCollection(ctx context.Context, slug string) {
 		baseStars = canonicalMeta.BaseStarsPrice
 	}
 
-	upgradedCount := int(math.Round(float64(totalSupply) * 0.18))
-	availRemains := int(math.Max(0, float64(totalSupply-upgradedCount)))
+	upgradedCount := 0
+	availRemains := 0
 	isAuction := slug == "khabibs-papakha" || slug == "ufc-strike"
-	holdersCount := int(math.Max(12, float64(upgradedCount)*0.72))
+	holdersCount := 0
 
 	var detail *giftchanges.GiftDetail
 	if e.changes != nil {
@@ -248,25 +247,9 @@ func (e *IngestionEngine) syncOneCollection(ctx context.Context, slug string) {
 		}
 	}
 
-	// Calculate ATH / ATL estimates from baseline floor
-	baseFloor := 15.0
-	if baseStars > 0 {
-		baseFloor = float64(baseStars) / 35.0
-	}
-	athPrice := baseFloor * 3.45
-	atlPrice := baseFloor * 0.65
 	now := time.Now().UTC()
-	athDate := now.Add(-60 * 24 * time.Hour)
-	atlDate := now.Add(-180 * 24 * time.Hour)
-
-	vol24h := decimal.NewFromFloat(round(baseFloor * float64(upgradedCount) * 0.008))
-	vol7d := vol24h.Mul(decimal.NewFromFloat(5.8))
-	vol30d := vol24h.Mul(decimal.NewFromFloat(22.5))
-	turnover := decimal.NewFromFloat(0.015)
-	change24h := decimal.NewFromFloat(2.4)
-	change7d := decimal.NewFromFloat(-1.2)
-	mcapUsd := decimal.NewFromFloat(round(baseFloor * float64(upgradedCount) * 5.20))
-
+	// RB-P0-001, DEL-P0-001, RB-P0-008: Zero synthetic trade metrics or multipliers.
+	// In the absence of confirmed on-chain sales, volume/ATH/ATL/mcap remain zero/unverified.
 	colRec := repository.ExtendedGiftCollectionRecord{
 		ModelID:            modelID,
 		Name:               name,
@@ -278,17 +261,17 @@ func (e *IngestionEngine) syncOneCollection(ctx context.Context, slug string) {
 		IsAuction:          isAuction,
 		IsLimited:          true,
 		UniqueHoldersCount: holdersCount,
-		ATHPriceGRAM:       decimal.NewFromFloat(round(athPrice)),
-		ATHDate:            &athDate,
-		ATLPriceGRAM:       decimal.NewFromFloat(round(atlPrice)),
-		ATLDate:            &atlDate,
-		Volume24hGRAM:      vol24h,
-		Volume7dGRAM:       vol7d,
-		Volume30dGRAM:      vol30d,
-		TurnoverRate24h:    turnover,
-		PriceChange24hPct:  change24h,
-		PriceChange7dPct:   change7d,
-		MarketCapUSD:       mcapUsd,
+		ATHPriceGRAM:       decimal.Zero,
+		ATHDate:            nil,
+		ATLPriceGRAM:       decimal.Zero,
+		ATLDate:            nil,
+		Volume24hGRAM:      decimal.Zero,
+		Volume7dGRAM:       decimal.Zero,
+		Volume30dGRAM:      decimal.Zero,
+		TurnoverRate24h:    decimal.Zero,
+		PriceChange24hPct:  decimal.Zero,
+		PriceChange7dPct:   decimal.Zero,
+		MarketCapUSD:       decimal.Zero,
 		BaseStarsPrice:     baseStars,
 		UpdatedAt:          now,
 	}
@@ -364,95 +347,13 @@ func (e *IngestionEngine) syncOneCollection(ctx context.Context, slug string) {
 }
 
 func (e *IngestionEngine) computeArbitrageOpportunities(ctx context.Context, slugs []string) {
-	type venuePrice struct {
-		venue   venues.VenueID
-		feePct  float64
-		price   float64
-		deepURL string
-	}
-
-	for _, slug := range slugs[:int(math.Min(float64(len(slugs)), 35))] {
-		modelID := strings.ReplaceAll(slug, "-", "_")
-
-		// Construct realistic venue prices based on empirical liquidity profiles
-		base := 20.0
-		if meta, ok := traits.CanonicalCollections[slug]; ok && meta.BaseStarsPrice > 0 {
-			base = float64(meta.BaseStarsPrice) / 30.0
-		}
-
-		prices := []venuePrice{
-			{venue: venues.VenueMarketApp, feePct: 0.025, price: base * 0.94, deepURL: "https://marketapp.ws/gifts/" + slug},
-			{venue: venues.VenueMRKT, feePct: 0.00, price: base * 0.96, deepURL: "https://mrkt.tg/gifts/" + slug},
-			{venue: venues.VenueFragment, feePct: 0.05, price: base * 1.08, deepURL: "https://fragment.com/gifts/" + slug},
-			{venue: venues.VenueGetgems, feePct: 0.05, price: base * 1.05, deepURL: "https://getgems.io/collection/" + slug},
-			{venue: venues.VenueTonnel, feePct: 0.03, price: base * 1.02, deepURL: "https://t.me/tonnel_gift_bot"},
-		}
-
-		// Find lowest buy venue and highest sell venue
-		for i := 0; i < len(prices); i++ {
-			for j := 0; j < len(prices); j++ {
-				if i == j {
-					continue
-				}
-				source := prices[i] // Buy here
-				target := prices[j] // Sell here
-
-				// Net Profit = (SellPrice * (1 - SellFee)) - (BuyPrice * (1 + BuyFee)) - TON Network Gas (0.08 TON)
-				cost := source.price * (1.0 + source.feePct)
-				revenue := target.price * (1.0 - target.feePct)
-				gasTON := 0.08
-				netProfit := revenue - cost - gasTON
-
-				if netProfit > 0.5 { // Only register actionable opportunities with >0.5 TON net gain
-					roi := (netProfit / cost) * 100.0
-					opp := repository.ArbitrageOpportunityRecord{
-						ModelID:         modelID,
-						SourceVenue:     string(source.venue),
-						TargetVenue:     string(target.venue),
-						SourceFloorGRAM: decimal.NewFromFloat(round(source.price)),
-						TargetFloorGRAM: decimal.NewFromFloat(round(target.price)),
-						GrossSpreadGRAM: decimal.NewFromFloat(round(target.price - source.price)),
-						NetProfitGRAM:   decimal.NewFromFloat(round(netProfit)),
-						NetROIPct:       decimal.NewFromFloat(round(roi)),
-						SourceURL:       source.deepURL,
-						TargetURL:       target.deepURL,
-					}
-					_ = e.repo.UpsertArbitrageOpportunity(ctx, opp)
-				}
-			}
-		}
-	}
+	// RB-P0-001, DEL-P0-001: Zero synthetic arbitrage generation
+	// Real arbitrage opportunities are only computed from genuine live venue_snapshots in database
 }
 
 func (e *IngestionEngine) syncWhaleHolders(ctx context.Context) {
-	whaleWallets := []struct {
-		address   string
-		label     string
-		count     int
-		uniqueCol int
-		val       float64
-		topAsset  string
-	}{
-		{"EQBvW8Z5huBkMJYdn3PCDnKKuvJcdK_ZNOJmLDAxMBap5TEA", "Telegram Foundation Vault", 450, 68, 85400.0, "Plush Pepe #1"},
-		{"EQD1g4p7iF0s9qKlMnBv7wXyZ3e8R1a5tY7uI2o9P4k3L6mN", "Durov Sovereign Reserve", 320, 54, 62100.0, "Khabib's Papakha #1"},
-		{"EQA3mKp9rT8vX1zL0wY5bC7dE2fH4jN6qS8uV0xZ2aB4cD6e", "Fragment Liquidity Syndicate", 215, 42, 41250.0, "Spicy Chili #7"},
-		{"EQC7xY9zB2vD4fG6hJ8kL0mN2pQ4rS6tU8wX0yZ2aB4cD6e8", "TON Whales Alpha Fund", 185, 38, 32900.0, "Diamond Ring #88"},
-		{"EQF4jN6qS8uV0xZ2aB4cD6e8fG0hJ2kL4mP6rT8vX1zL0wY5", "Smart Money Syndicate", 140, 31, 24800.0, "Heart Glow #777"},
-		{"EQH2kL4mP6rT8vX1zL0wY5bC7dE2fH4jN6qS8uV0xZ2aB4cD", "Arbitrageur Vault #3", 95, 22, 16400.0, "Party Sparkler #42"},
-	}
-
-	for _, w := range whaleWallets {
-		rec := repository.WhaleWalletRecord{
-			WalletAddress:     w.address,
-			Label:             w.label,
-			GiftsCount:        w.count,
-			UniqueCollections: w.uniqueCol,
-			TotalEstValueGRAM: decimal.NewFromFloat(w.val),
-			TopAssetName:      w.topAsset,
-			LastActiveAt:      time.Now().UTC().Add(-time.Duration(w.count*12) * time.Minute),
-		}
-		_ = e.repo.UpsertWhaleWallet(ctx, rec)
-	}
+	// RB-P0-001, DEL-P0-001: Zero synthetic whale wallet generation
+	// Whale analytics must be populated solely from real on-chain indexer events
 }
 
 func round(val float64) float64 {

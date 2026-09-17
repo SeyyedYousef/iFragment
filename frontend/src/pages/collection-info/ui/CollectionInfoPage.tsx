@@ -57,7 +57,7 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 		priceUsd: 5467000,
 		date: 'Nov 2022',
 		category: 'brand',
-		verified: true,
+		verified: false,
 	},
 	{
 		rank: 2,
@@ -66,7 +66,7 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 		priceUsd: 4950000,
 		date: 'Nov 2022',
 		category: 'short',
-		verified: true,
+		verified: false,
 	},
 	{
 		rank: 3,
@@ -75,7 +75,7 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 		priceUsd: 4675000,
 		date: 'Dec 2022',
 		category: 'crypto',
-		verified: true,
+		verified: false,
 	},
 	{
 		rank: 4,
@@ -84,7 +84,7 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 		priceUsd: 4400000,
 		date: 'Dec 2022',
 		category: 'short',
-		verified: true,
+		verified: false,
 	},
 	{
 		rank: 5,
@@ -93,7 +93,7 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 		priceUsd: 3850000,
 		date: 'Nov 2022',
 		category: 'short',
-		verified: true,
+		verified: false,
 	},
 	{
 		rank: 6,
@@ -102,7 +102,7 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 		priceUsd: 3712500,
 		date: 'Dec 2022',
 		category: 'short',
-		verified: true,
+		verified: false,
 	},
 	{
 		rank: 7,
@@ -111,7 +111,7 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 		priceUsd: 3300000,
 		date: 'Dec 2022',
 		category: 'brand',
-		verified: true,
+		verified: false,
 	},
 	{
 		rank: 8,
@@ -120,7 +120,7 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 		priceUsd: 3055552,
 		date: 'Nov 2022',
 		category: 'other',
-		verified: true,
+		verified: false,
 	},
 	{
 		rank: 9,
@@ -129,7 +129,7 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 		priceUsd: 2750000,
 		date: 'Jan 2023',
 		category: 'short',
-		verified: true,
+		verified: false,
 	},
 	{
 		rank: 10,
@@ -138,7 +138,7 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 		priceUsd: 2590500,
 		date: 'Nov 2022',
 		category: 'brand',
-		verified: true,
+		verified: false,
 	},
 ];
 

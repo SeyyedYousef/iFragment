@@ -21,6 +21,8 @@ import (
 	"ifragment-backend/internal/service/numbers/watchlist"
 )
 
+const NumbersIndexerScope = "numbers_sales"
+
 type NumbersSalesIndexer struct {
 	client         *tonapi.Client
 	db             *repository.Database
@@ -129,16 +131,79 @@ func (s *NumbersSalesIndexer) IndexSingleNumber(ctx context.Context, normNumber 
 	return s.processNFTSales(ctx, normNumber, featRec.NFTAddress)
 }
 
-// RunIncrementalSync scans recent batches of collection items for new sales
+// LoadDurableOffset loads the persisted checkpoint from indexer_checkpoints
+func (s *NumbersSalesIndexer) LoadDurableOffset(ctx context.Context) int {
+	if s.db == nil || s.db.Pool == nil {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.lastOffset
+	}
+
+	var cursor string
+	query := `SELECT cursor FROM indexer_checkpoints WHERE scope = $1`
+	err := s.db.Pool.QueryRow(ctx, query, NumbersIndexerScope).Scan(&cursor)
+	if err != nil {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.lastOffset
+	}
+
+	var offset int
+	if _, err := fmt.Sscanf(cursor, "%d", &offset); err == nil && offset >= 0 {
+		s.mu.Lock()
+		s.lastOffset = offset
+		s.mu.Unlock()
+		return offset
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastOffset
+}
+
+// SaveDurableOffset persists the current offset and indexed item count
+func (s *NumbersSalesIndexer) SaveDurableOffset(ctx context.Context, offset int, count int) {
+	s.mu.Lock()
+	s.lastOffset = offset
+	s.mu.Unlock()
+
+	if s.db == nil || s.db.Pool == nil {
+		return
+	}
+
+	query := `
+		INSERT INTO indexer_checkpoints (scope, cursor, last_seen_ts, items_indexed, lag_seconds, updated_at)
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+		ON CONFLICT (scope) DO UPDATE SET
+			cursor = EXCLUDED.cursor,
+			last_seen_ts = GREATEST(indexer_checkpoints.last_seen_ts, EXCLUDED.last_seen_ts),
+			items_indexed = indexer_checkpoints.items_indexed + EXCLUDED.items_indexed,
+			lag_seconds = EXCLUDED.lag_seconds,
+			updated_at = CURRENT_TIMESTAMP
+	`
+	cursor := fmt.Sprintf("%d", offset)
+	nowTs := time.Now().Unix()
+	_, err := s.db.Pool.Exec(ctx, query, NumbersIndexerScope, cursor, nowTs, int64(count), 0)
+	if err != nil {
+		slog.Warn("Failed to persist numbers indexer checkpoint", "error", err, "scope", NumbersIndexerScope, "offset", offset)
+	}
+}
+
+// GetLastOffset returns the in-memory cached offset
+func (s *NumbersSalesIndexer) GetLastOffset() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastOffset
+}
+
+// RunIncrementalSync scans recent batches of collection items for new sales using durable checkpoints
 func (s *NumbersSalesIndexer) RunIncrementalSync(ctx context.Context) {
 	if s.client == nil || s.db == nil {
 		return
 	}
 
 	limit := 50
-	s.mu.Lock()
-	offset := s.lastOffset
-	s.mu.Unlock()
+	offset := s.LoadDurableOffset(ctx)
 
 	_ = s.rateLimiter.Wait(ctx)
 	res, err := s.circuitBreaker.Execute(func() (interface{}, error) {
@@ -152,12 +217,11 @@ func (s *NumbersSalesIndexer) RunIncrementalSync(ctx context.Context) {
 	items := res.(*tonapi.NFTItems)
 	if len(items.Items) == 0 {
 		// Reset back to start for cyclical monitoring
-		s.mu.Lock()
-		s.lastOffset = 0
-		s.mu.Unlock()
+		s.SaveDurableOffset(ctx, 0, 0)
 		return
 	}
 
+	processedCount := 0
 	for _, item := range items.Items {
 		if ctx.Err() != nil {
 			return
@@ -173,12 +237,12 @@ func (s *NumbersSalesIndexer) RunIncrementalSync(ctx context.Context) {
 		}
 
 		_ = s.rateLimiter.Wait(ctx)
-		_, _ = s.processNFTSales(ctx, norm, item.Address)
+		n, _ := s.processNFTSales(ctx, norm, item.Address)
+		processedCount += n
 	}
 
-	s.mu.Lock()
-	s.lastOffset = (offset + len(items.Items)) % registry.TotalSupply
-	s.mu.Unlock()
+	nextOffset := (offset + len(items.Items)) % registry.TotalSupply
+	s.SaveDurableOffset(ctx, nextOffset, len(items.Items))
 }
 
 func (s *NumbersSalesIndexer) processNFTSales(ctx context.Context, normNumber string, nftAddr string) (int, error) {
@@ -217,10 +281,23 @@ func (s *NumbersSalesIndexer) processNFTSales(ctx context.Context, normNumber st
 			txHash := event.Actions[0].BaseTransactions[0]
 			priceTON, saleType, confidence := s.extractPriceFromTrace(ctx, txHash)
 
-			if priceTON > 0 {
+			// RB-P0-004, AC-P0-009: Verify market address or official venue
+			// If confidence is not confirmed exact by a registered market contract, do NOT store as a verified sale
+			isMarketAddress := false
+			buyer := transfer.Recipient.Address
+			seller := transfer.Sender.Address
+			if s.db != nil && s.db.Pool != nil {
+				var count int
+				_ = s.db.Pool.QueryRow(ctx, `
+					SELECT COUNT(*) FROM market_registry 
+					WHERE address IN ($1, $2) AND is_official = TRUE`, buyer, seller).Scan(&count)
+				if count > 0 {
+					isMarketAddress = true
+				}
+			}
+
+			if priceTON > 0 && (isMarketAddress && confidence == "exact") {
 				saleDate := time.Unix(event.Timestamp, 0)
-				buyer := transfer.Recipient.Address
-				seller := transfer.Sender.Address
 				rawData, _ := json.Marshal(event)
 
 				saleRec := repository.NumberSaleRecord{
@@ -282,7 +359,9 @@ func (s *NumbersSalesIndexer) extractPriceFromTrace(ctx context.Context, traceID
 		if t.Transaction.InMsg != nil {
 			msg := t.Transaction.InMsg
 			op := strings.ToLower(msg.DecodedOpName)
-			if strings.Contains(op, "bid") || strings.Contains(op, "purchase") || strings.Contains(op, "buy") || strings.Contains(op, "sale") {
+			// RB-P0-004, AC-P0-010: Only purchase, buy, sale, or complete_auction qualify as exact sales.
+			// Bids in an active auction are bid events, NOT concluded sales.
+			if strings.Contains(op, "purchase") || strings.Contains(op, "buy") || strings.Contains(op, "sale") || strings.Contains(op, "complete_auction") {
 				if msg.Value > 0 {
 					maxNano = msg.Value
 					matchedMarket = true

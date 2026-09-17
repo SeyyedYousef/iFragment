@@ -65,7 +65,7 @@ func (h *NumbersHandler) GetCuriosityGate(w http.ResponseWriter, r *http.Request
 
 	gate, err := h.service.GetCuriosityGate(ctx, number)
 	if err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid number format", err)
+		RespondError(w, r, http.StatusUnprocessableEntity, "invalid number format", err)
 		return
 	}
 	RespondJSON(w, http.StatusOK, gate)
@@ -88,7 +88,7 @@ func (h *NumbersHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	if !purchased {
 		gate, err := h.service.GetCuriosityGate(ctx, number)
 		if err != nil {
-			RespondError(w, r, http.StatusBadRequest, "invalid number format", err)
+			RespondError(w, r, http.StatusUnprocessableEntity, "invalid number format", err)
 			return
 		}
 		RespondJSON(w, http.StatusForbidden, map[string]interface{}{
@@ -227,7 +227,7 @@ func (h *NumbersHandler) SearchMask(w http.ResponseWriter, r *http.Request) {
 	// Validate pattern contains only valid mask characters
 	for _, ch := range pattern {
 		if !((ch >= '0' && ch <= '9') || ch == '+' || ch == '*' || ch == '?' || ch == ' ' || ch == '_' || ch == '%') {
-			RespondError(w, r, http.StatusBadRequest, "invalid character in mask pattern", nil)
+			RespondError(w, r, http.StatusUnprocessableEntity, "invalid character in mask pattern", nil)
 			return
 		}
 	}

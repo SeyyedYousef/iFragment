@@ -535,11 +535,20 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 
 	rawEstimateTON := math.Exp(finalLogP) * colorInfo.Multiplier
 
-	// Realized on-chain sale anchoring with empirical time-decay and sentiment adjustment
+	// Realized on-chain sale anchoring with empirical time-decay and down-market responsiveness (AC-P1-002)
+	compsMean := 0.0
+	if len(comps) > 0 {
+		totalCompPrice := 0.0
+		for _, c := range comps {
+			totalCompPrice += c.PriceTON
+		}
+		compsMean = totalCompPrice / float64(len(comps))
+	}
+
+	years := 0.0
 	if latestExactSaleTON > 0 {
 		priceBasis = "exact_asset_realized_sale_anchor"
 
-		years := 0.0
 		if !latestSaleDate.IsZero() {
 			years = time.Since(latestSaleDate).Hours() / (24 * 365.25)
 		}
@@ -548,8 +557,17 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		marketAdjustedSale := latestExactSaleTON * (1.0 + (fngMult-1.0)*0.3)
 		anchoredPrice := marketAdjustedSale*decayWeight + rawEstimateTON*(1.0-decayWeight)
 
-		if rawEstimateTON < anchoredPrice {
-			rawEstimateTON = anchoredPrice
+		// Down-market responsiveness (AC-P1-002: no hard clamp to past high sales)
+		if compsMean > 0 && compsMean < latestExactSaleTON {
+			cohortDownRatio := compsMean / latestExactSaleTON
+			blendedAnchor := (latestExactSaleTON * cohortDownRatio * decayWeight) + (rawEstimateTON * (1.0 - decayWeight))
+			if rawEstimateTON < blendedAnchor {
+				rawEstimateTON = blendedAnchor
+			}
+		} else {
+			if rawEstimateTON < anchoredPrice {
+				rawEstimateTON = anchoredPrice
+			}
 		}
 		if rawEstimateTON > maxCeiling {
 			maxCeiling = rawEstimateTON * 1.25
@@ -573,9 +591,12 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	lowTON := roundPrice(lowBound)
 	highTON := roundPrice(highBound)
 
-	// Invariant: Floor clamp (no asset in a closed collection trades below secondary market floor or realized sale anchor)
-	if latestExactSaleTON > 0 && lowTON < latestExactSaleTON {
-		lowTON = latestExactSaleTON
+	// Invariant: no asset in a closed collection trades below baseline minimum floor.
+	// In down-market conditions (compsMean < latestExactSaleTON), lowTON may decrease below previous sale (AC-P1-002: no hard clamp).
+	if latestExactSaleTON > 0 && (compsMean == 0 || compsMean >= latestExactSaleTON) && years < 1.0 {
+		if lowTON < latestExactSaleTON*0.85 {
+			lowTON = roundPrice(latestExactSaleTON * 0.85)
+		}
 	} else if lowTON < minFloor {
 		lowTON = minFloor
 	}

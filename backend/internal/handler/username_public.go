@@ -107,7 +107,7 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 	}
 
 	if !username.ValidateUsername(u) {
-		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
+		RespondError(w, r, http.StatusUnprocessableEntity, "invalid username format", nil)
 		return
 	}
 	cacheKey := "check_cache:" + u
@@ -142,7 +142,7 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 		var finalStatus string
 		switch mtStatus {
 		case mtproto.StatusOccupied:
-			finalStatus = "taken"
+			finalStatus = "owned"
 		case mtproto.StatusPurchase:
 			finalStatus = "purchase_available"
 		case mtproto.StatusAvailable:
@@ -219,7 +219,7 @@ func (h *UsernameHandler) getQuickAnalysisCachedOrFetch(ctx context.Context, u s
 		case mtproto.StatusPurchase:
 			result.Status = "purchase_available"
 		case mtproto.StatusOccupied:
-			result.Status = "taken"
+			result.Status = "owned"
 		case mtproto.StatusAvailable:
 			if username.IsBasicEligible(u) {
 				result.Status = "available"
@@ -227,7 +227,7 @@ func (h *UsernameHandler) getQuickAnalysisCachedOrFetch(ctx context.Context, u s
 				result.Status = "purchase_available"
 			}
 		default:
-			result.Status = "taken"
+			result.Status = "owned"
 		}
 
 		data, err := json.Marshal(result)
@@ -264,7 +264,7 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if !username.ValidateUsername(u) {
-		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
+		RespondError(w, r, http.StatusUnprocessableEntity, "invalid username format", nil)
 		return
 	}
 
@@ -320,7 +320,7 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 	}
 
 	if !username.ValidateUsername(u) {
-		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
+		RespondError(w, r, http.StatusUnprocessableEntity, "invalid username format", nil)
 		return
 	}
 
@@ -448,7 +448,7 @@ func (h *UsernameHandler) GetSimilar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !username.ValidateUsername(u) {
-		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
+		RespondError(w, r, http.StatusUnprocessableEntity, "invalid username format", nil)
 		return
 	}
 
@@ -494,7 +494,7 @@ func similarEvidenceRank(s avm.ValuationSimilar) int {
 		return 3
 	case s.Status == "on_sale" || s.Status == "on_auction":
 		return 2
-	case s.Status == "taken":
+	case s.Status == "taken" || s.Status == "owned":
 		return 1
 	default:
 		return 0
@@ -519,7 +519,7 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !username.ValidateUsername(u) {
-		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
+		RespondError(w, r, http.StatusUnprocessableEntity, "invalid username format", nil)
 		return
 	}
 
@@ -1568,17 +1568,8 @@ func (h *UsernameHandler) ValuationPayAirdrop(w http.ResponseWriter, r *http.Req
 		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-
-	_, err = tx.Exec(ctx, `
-		UPDATE user_stats
-		SET airdrop_coins = airdrop_coins - $1
-		WHERE user_id = $2 AND airdrop_coins >= $1
-	`, priceFRG, userID)
-	if err != nil {
-		slog.Error("Failed to update user_stats airdrop_coins", "user_id", userID, "err", err)
-		RespondError(w, r, http.StatusInternalServerError, "Failed to update balance", err)
-		return
-	}
+	// RB-P0-005, AC-P0-013: DeductCreditsFIFO already updates user_stats.airdrop_coins from remaining batches.
+	// Redundant manual subtraction removed to prevent critical double-debit bug.
 
 	payload := fmt.Sprintf("val_coins:%s:%d:%d", u, userID, time.Now().Unix())
 	_, err = tx.Exec(ctx, `
@@ -1785,48 +1776,71 @@ func (h *UsernameHandler) ValuationMonitor(w http.ResponseWriter, r *http.Reques
 
 // GetOrderStatus returns the payment status for an order ID
 func (h *UsernameHandler) GetOrderStatus(w http.ResponseWriter, r *http.Request) {
-	orderIDStr := chi.URLParam(r, "id")
-	orderID, err := uuid.Parse(orderIDStr)
-	if err != nil {
-		RespondError(w, r, http.StatusBadRequest, "Invalid order UUID format", err)
+	ctx := r.Context()
+	callerID, _ := middleware.GetUserID(ctx)
+	if callerID <= 0 {
+		RespondError(w, r, http.StatusUnauthorized, "Unauthorized: authentication required to inspect order status", nil)
 		return
 	}
 
-	order, err := h.db.GetOrderByID(r.Context(), orderID)
+	orderIDStr := chi.URLParam(r, "id")
+	orderID, err := uuid.Parse(orderIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusUnprocessableEntity, "Invalid order UUID format", err)
+		return
+	}
+
+	order, err := h.db.GetOrderByID(ctx, orderID)
 	if err != nil || order == nil {
 		RespondError(w, r, http.StatusNotFound, "Order not found", err)
 		return
 	}
 
+	// RB-P0-006, AC-P0-015: IDOR Protection.
+	// Only order owner can view order status.
+	if order.UserID != callerID {
+		RespondError(w, r, http.StatusForbidden, "Forbidden: cannot inspect another user's order", nil)
+		return
+	}
+
 	RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"id":      order.ID.String(),
-		"user_id": order.UserID,
-		"status":  order.Status,
-		"amount":  order.Amount,
-		"payload": order.Payload,
+		"id":     order.ID.String(),
+		"status": order.Status,
+		"amount": order.Amount,
 	})
 }
 
 // GetOrderStatusByPayload returns the payment status for an order by payload
 func (h *UsernameHandler) GetOrderStatusByPayload(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	callerID, _ := middleware.GetUserID(ctx)
+	if callerID <= 0 {
+		RespondError(w, r, http.StatusUnauthorized, "Unauthorized: authentication required to inspect order status", nil)
+		return
+	}
+
 	payload := chi.URLParam(r, "payload")
 	if payload == "" {
 		RespondError(w, r, http.StatusBadRequest, "Payload cannot be empty", nil)
 		return
 	}
 
-	order, err := h.db.GetOrderByPayload(r.Context(), payload)
+	order, err := h.db.GetOrderByPayload(ctx, payload)
 	if err != nil || order == nil {
 		RespondError(w, r, http.StatusNotFound, "Order not found", err)
 		return
 	}
 
+	// RB-P0-006, AC-P0-015: IDOR Protection.
+	if order.UserID != callerID {
+		RespondError(w, r, http.StatusForbidden, "Forbidden: cannot inspect another user's order", nil)
+		return
+	}
+
 	RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"id":      order.ID.String(),
-		"user_id": order.UserID,
-		"status":  order.Status,
-		"amount":  order.Amount,
-		"payload": order.Payload,
+		"id":     order.ID.String(),
+		"status": order.Status,
+		"amount": order.Amount,
 	})
 }
 

@@ -31,7 +31,8 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 		}
 	});
 
-	const floorTon = (): number => Number(props.floorPriceTon) || 2450;
+	// RB-P0-008, DEL-P0-003: No hardcoded numeric fallbacks (e.g. 2450). Return 0 or null if unavailable.
+	const floorTon = (): number => Number(props.floorPriceTon) || 0;
 	const tonRate = (): number => Number(props.rate) || 0;
 
 	const handleScan = async (targetAddr?: string) => {
@@ -279,10 +280,10 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 											<div class="text-right">
 												<div class="font-black text-white font-mono text-xs flex items-center justify-end gap-1.5">
 													<span class="w-1.5 h-1.5 rounded-full bg-[#0098EA]" />
-													<span>{formatTon(asset.expected_ton || floorTon())} TON</span>
+													<span>{asset.expected_ton ? `${formatTon(asset.expected_ton)} TON` : (floorTon() > 0 ? `${formatTon(floorTon())} TON` : '-')}</span>
 												</div>
 												<div class="text-[10px] text-white/40 font-mono">
-													≈ {formatUsd(asset.expected_usd || Math.round(floorTon() * tonRate()))}
+													{(asset.expected_usd || (floorTon() > 0 && tonRate() > 0)) ? `≈ ${formatUsd(asset.expected_usd || Math.round(floorTon() * tonRate()))}` : '-'}
 												</div>
 											</div>
 										</button>

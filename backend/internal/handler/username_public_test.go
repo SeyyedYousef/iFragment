@@ -39,8 +39,17 @@ func TestCheckAvailability(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.CheckAvailability(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400 Bad Request, got %d", w.Code)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("Expected 422 Unprocessable Entity, got %d", w.Code)
+	}
+
+	// Test case: Missing username parameter (missing framing -> 400 Bad Request)
+	reqMissing := httptest.NewRequest("GET", "/api/v1/usernames/check", nil)
+	wMissing := httptest.NewRecorder()
+	h.CheckAvailability(wMissing, reqMissing)
+
+	if wMissing.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request, got %d", wMissing.Code)
 	}
 
 	// Test case: Valid basic username (Mock MTProto returns StatusAvailable)

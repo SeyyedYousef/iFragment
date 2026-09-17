@@ -413,46 +413,34 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 	}
 
 	// 3. Fallback Hall of Fame if Fragment scraping was blocked and DB is empty
-	// Unverified historical sales are marked Verified: false (legacy reference only)
-	if len(resp.HallOfFame) == 0 {
-		resp.HallOfFame = []HallOfFameItem{
-			{Rank: 1, Number: "+8888666", Display: "+888 8 666", PriceTON: 666666.0, PriceUSD: 666666.0 * tonUsdRate, SaleDate: "Aug 2026", Color: "Blue", Verified: false, IsGenesis4D: true, TonviewerURL: ""},
-			{Rank: 2, Number: "+8888777", Display: "+888 8 777", PriceTON: 651358.0, PriceUSD: 651358.0 * tonUsdRate, SaleDate: "Mar 2026", Color: "Blue", Verified: false, IsGenesis4D: true, TonviewerURL: ""},
-			{Rank: 3, Number: "+8888588", Display: "+888 8 588", PriceTON: 589552.0, PriceUSD: 589552.0 * tonUsdRate, SaleDate: "May 2026", Color: "Blue", Verified: false, IsGenesis4D: true, TonviewerURL: ""},
-			{Rank: 4, Number: "+8888222", Display: "+888 8 222", PriceTON: 520000.0, PriceUSD: 520000.0 * tonUsdRate, SaleDate: "Apr 2026", Color: "Blue", Verified: false, IsGenesis4D: true, TonviewerURL: ""},
-			{Rank: 5, Number: "+88800888888", Display: "+888 0088 8888", PriceTON: 490000.0, PriceUSD: 490000.0 * tonUsdRate, SaleDate: "Mar 2026", Color: "Blue", Verified: false, IsGenesis4D: false, TonviewerURL: ""},
-		}
-	}
-
+	// RB-P0-001, DEL-P0-002: Zero synthetic or fabricated hall of fame records
+	// If no real records are available, leave resp.HallOfFame empty
 	if resp.HistoricalATH == 0 && len(resp.HallOfFame) > 0 {
 		resp.HistoricalATH = resp.HallOfFame[0].PriceTON
 		resp.ATHNumber = resp.HallOfFame[0].Number
 	}
 
 	// 4. Populate Trending Pattern Clubs
-	if len(resp.TrendingTail) == 0 {
-		resp.TrendingTail = []TrendingTailItem{
-			{Pattern: "+888 XXXX 8888", NameEn: "Quad 8888 Tail", NameFa: "پسوند چهارتایی 8888", FloorPriceTON: 12500.0, FloorPriceUSD: 12500.0 * tonUsdRate, PriceChange24h: 14.2, IsRising: true},
-			{Pattern: "+888 8XXX", NameEn: "4-Digit Genesis (1 of 1000)", NameFa: "جنسیس 4 رقمی (1 از 1000)", FloorPriceTON: 42000.0, FloorPriceUSD: 42000.0 * tonUsdRate, PriceChange24h: 8.5, IsRising: true},
-			{Pattern: "+888 XXXX X777", NameEn: "Triple 777 Tail", NameFa: "پسوند سه‌تایی 777", FloorPriceTON: 4800.0, FloorPriceUSD: 4800.0 * tonUsdRate, PriceChange24h: 5.1, IsRising: true},
-			{Pattern: "+888 1234 5678", NameEn: "Consecutive Ladder", NameFa: "توالی پلکانی متوالی", FloorPriceTON: 35000.0, FloorPriceUSD: 35000.0 * tonUsdRate, PriceChange24h: 11.8, IsRising: true},
-			{Pattern: "+888 8888 8888", NameEn: "Pristine Octa Grail", NameFa: "گاد‌هد مونودیجیت", FloorPriceTON: 250000.0, FloorPriceUSD: 250000.0 * tonUsdRate, PriceChange24h: 18.4, IsRising: true},
-		}
+	// RB-P0-002, DEL-P0-002: Zero static fallback pattern clubs. If empty, remain empty.
+	if resp.TrendingTail == nil {
+		resp.TrendingTail = []TrendingTailItem{}
 	}
 
 	// 5. Dynamic Percentile Chart Points
 	floorForChart := resp.FloorPriceTON
 	chartPoints := make([]PriceChartPoint, 0, 7)
-	for i := 6; i >= 0; i-- {
-		dayTime := now.AddDate(0, 0, -i*5)
-		dateStr := dayTime.Format("02 Jan")
-		dayFactor := 1.0 + (float64(fngIndex-50)/500.0)*float64(6-i)/6.0
-		chartPoints = append(chartPoints, PriceChartPoint{
-			Date: dateStr,
-			P50:  roundPrice(floorForChart * 1.00 * dayFactor),
-			P68:  roundPrice(floorForChart * 1.45 * dayFactor),
-			P85:  roundPrice(floorForChart * 2.80 * dayFactor),
-		})
+	if floorForChart > 0 {
+		for i := 6; i >= 0; i-- {
+			dayTime := now.AddDate(0, 0, -i*5)
+			dateStr := dayTime.Format("02 Jan")
+			dayFactor := 1.0 + (float64(fngIndex-50)/500.0)*float64(6-i)/6.0
+			chartPoints = append(chartPoints, PriceChartPoint{
+				Date: dateStr,
+				P50:  roundPrice(floorForChart * 1.00 * dayFactor),
+				P68:  roundPrice(floorForChart * 1.45 * dayFactor),
+				P85:  roundPrice(floorForChart * 2.80 * dayFactor),
+			})
+		}
 	}
 	resp.PercentileChart = chartPoints
 
@@ -1231,7 +1219,7 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 	restrictionStatus := "unknown"
 	var color, ownerAddr, nftAddr string
 
-	if len(fv.Suffix) == 4 {
+	if len(fv.Suffix) == 4 && strings.HasPrefix(fv.Suffix, "8") {
 		// All 1,000 Genesis numbers (8000..8999) are guaranteed minted Telemint Genesis assets
 		collectionVerified = true
 		verificationState = "verified_telemint_genesis"
@@ -1246,7 +1234,11 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 			WHERE number = $1`, norm).Scan(&color, &ownerAddr, &nftAddr, &isRestricted)
 		if err == nil {
 			collectionVerified = true
-			verificationState = "verified_telemint"
+			if len(fv.Suffix) == 4 {
+				verificationState = "verified_telemint_genesis"
+			} else {
+				verificationState = "verified_telemint"
+			}
 			if isRestricted {
 				restrictionStatus = "restricted"
 			} else {
@@ -1257,19 +1249,20 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 			_ = s.db.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM number_sales WHERE number = $1)`, norm).Scan(&saleExists)
 			if saleExists {
 				collectionVerified = true
-				verificationState = "verified_telemint_sales"
+				if len(fv.Suffix) == 4 {
+					verificationState = "verified_telemint_genesis"
+				} else {
+					verificationState = "verified_telemint_sales"
+				}
 				restrictionStatus = "clean"
 			}
 		}
-	} else if len(fv.Suffix) != 4 {
-		// In standalone in-memory mode without DB for standard 8-digit numbers
-		collectionVerified = true
-		verificationState = "format_verified"
-		restrictionStatus = "clean"
 	}
 
-	isMinted := true
-	exists := true
+	// RB-P0-003, AC-P0-001: Strict identity gate.
+	// Only numbers verified via DB feature/sales records or on-chain are marked collectionVerified and isMinted.
+	isMinted := collectionVerified
+	exists := collectionVerified
 
 	res := &nvengine.NumberVerificationResult{
 		Number:             norm,
@@ -1403,36 +1396,8 @@ func (s *NumbersService) GetChartData(ctx context.Context) (*ChartDataResponse, 
 		}
 	}
 
-	// 4. Baseline continuous 180-day OHLCV progression if upstream API is unreachable and DB is cold
-	if len(chartMap) == 0 {
-		now := time.Now().UTC()
-		startFloor := 1850.0
-		endFloor := floorTon
-		if endFloor <= 0 {
-			endFloor = 2450.0
-		}
-		for d := 180; d >= 0; d-- {
-			dayTime := now.AddDate(0, 0, -d)
-			dayStr := dayTime.Format("2006-01-02")
-			progress := float64(180-d) / 180.0
-			cycle := math.Sin(progress*math.Pi*3.0) * 80.0
-			baseD := math.Round(startFloor + (endFloor-startFloor)*progress + cycle)
-			if baseD < 1500.0 {
-				baseD = 1500.0
-			}
-			openD := math.Round(baseD * 0.99)
-			closeD := baseD
-			highD := math.Round(baseD * 1.04)
-			lowD := math.Round(baseD * 0.97)
-			volD := math.Round(18000.0 + (progress * 24000.0) + math.Abs(cycle)*120.0)
-
-			chartMap[dayStr] = []float64{
-				closeD, math.Round(closeD * rate), volD, math.Round(volD * rate),
-				openD, highD, lowD, closeD,
-				math.Round(openD * rate), math.Round(highD * rate), math.Round(lowD * rate), math.Round(closeD * rate),
-			}
-		}
-	}
+	// 4. RB-P0-002, DEL-P0-002, AC-P0-008: Zero synthetic sinusoidal chart generation
+	// If upstream API is unreachable and DB is cold, chartMap remains empty (no fake points).
 
 	floorUsd := math.Round(floorTon * rate)
 	floorNUsd := math.Round(floorNTon * rate)
@@ -1567,10 +1532,13 @@ func (s *NumbersService) GetNumbersList(ctx context.Context, params NumbersListP
 					items, totalPages := parseNumbersHTML(string(bodyBytes), rate)
 					if len(items) > 0 {
 						res := &NumbersListResponse{
-							Items:      items,
-							Total:      totalPages * 50,
-							Page:       params.Page,
-							TotalPages: totalPages,
+							Items:        items,
+							Total:        totalPages * 50,
+							Page:         params.Page,
+							TotalPages:   totalPages,
+							DataStatus:   "live",
+							SourceStatus: "upstream_live",
+							ObservedAt:   time.Now().UTC().Format(time.RFC3339),
 						}
 						if s.cache != nil && s.cache.Client != nil {
 							if bytes, err := json.Marshal(res); err == nil {
@@ -1602,14 +1570,19 @@ func (s *NumbersService) GetNumbersList(ctx context.Context, params NumbersListP
 		return res, nil
 	}
 
-	// 4. Serve authoritative canonical catalogue instead of empty screen
-	canonical := s.generateCanonicalCatalogue(params, rate)
-	if s.cache != nil && s.cache.Client != nil {
-		if bytes, err := json.Marshal(canonical); err == nil {
-			_ = s.cache.Client.Set(ctx, cacheKey, string(bytes), 5*time.Minute).Err()
-		}
+	// 4. RB-P0-001, DEL-P0-002: Zero synthetic catalogue generation
+	// Return unavailable status when upstream is down and DB has no records
+	res := &NumbersListResponse{
+		Items:        []NumberTableItem{},
+		Total:        0,
+		Page:         params.Page,
+		TotalPages:   0,
+		DataStatus:   "unavailable",
+		SourceStatus: "upstream_offline",
+		ObservedAt:   time.Now().UTC().Format(time.RFC3339),
+		Message:      "Marketplace data currently unavailable from upstream providers",
 	}
-	return canonical, nil
+	return res, nil
 }
 
 func parseNumbersHTML(htmlStr string, tonRate float64) ([]NumberTableItem, int) {
@@ -1808,118 +1781,5 @@ func (s *NumbersService) fetchCachedNumbersFromDB(ctx context.Context, params Nu
 	return items, total
 }
 
-func (s *NumbersService) generateCanonicalCatalogue(params NumbersListParams, tonRate float64) *NumbersListResponse {
-	baseColors := []struct {
-		Hex  string
-		Name string
-	}{
-		{Hex: "#8D66E3", Name: "Royal Iris"},
-		{Hex: "#288576", Name: "Turquoise"},
-		{Hex: "#73589A", Name: "Amethyst"},
-		{Hex: "#14ACB9", Name: "Teal"},
-		{Hex: "#D35E9E", Name: "Pink"},
-		{Hex: "#5863D1", Name: "Blue"},
-		{Hex: "#7A6147", Name: "Brown"},
-		{Hex: "#111518", Name: "Black"},
-		{Hex: "#BD66DA", Name: "Lilac"},
-		{Hex: "#E06054", Name: "Red"},
-		{Hex: "#D47650", Name: "Orange"},
-		{Hex: "#984D4B", Name: "Rose"},
-		{Hex: "#6F7D8A", Name: "Gray"},
-		{Hex: "#377E8A", Name: "Blue Gray"},
-		{Hex: "#998655", Name: "Tan"},
-		{Hex: "#66A14D", Name: "Olive"},
-		{Hex: "#43A34E", Name: "Green"},
-		{Hex: "#368DEB", Name: "Sky"},
-		{Hex: "#C49A3F", Name: "Gold"},
-		{Hex: "#3BA76E", Name: "Mint"},
-	}
-
-	itemsPerPage := 50
-	totalCollection := registry.TotalSupply // 136,566
-	totalPages := (totalCollection + itemsPerPage - 1) / itemsPerPage
-
-	startOffset := (params.Page - 1) * itemsPerPage
-	if startOffset < 0 {
-		startOffset = 0
-	}
-
-	cleanMask := strings.TrimPrefix(strings.ReplaceAll(params.Mask, " ", ""), "+888")
-	cleanMask = strings.TrimPrefix(cleanMask, "888")
-
-	var items []NumberTableItem
-	for i := 0; i < itemsPerPage; i++ {
-		idx := startOffset + i
-		if idx >= totalCollection {
-			break
-		}
-
-		var numSuffix string
-		var floorPrice float64
-		var source string
-
-		if idx < 1000 {
-			// Genesis 4-digit numbers: +888 8000 .. +888 8999
-			numSuffix = fmt.Sprintf("%04d", 8000+idx)
-			floorPrice = 42000.0
-			source = "telemint_genesis"
-		} else {
-			// Standard 8-digit numbers
-			numSuffix = fmt.Sprintf("%08d", 88880000+(idx-1000))
-			floorPrice = 2450.0
-			source = "telemint_standard"
-		}
-
-		if cleanMask != "" {
-			if !strings.Contains(numSuffix, cleanMask) {
-				if len(numSuffix) == 4 {
-					numSuffix = fmt.Sprintf("%04d", 8000+((idx*17)%1000))
-				} else {
-					numSuffix = fmt.Sprintf("%08d", 88880000+((idx*17)%10000000))
-				}
-			}
-		}
-
-		color := baseColors[idx%len(baseColors)]
-		if len(params.NFTColors) > 0 {
-			chosenHex := params.NFTColors[i%len(params.NFTColors)]
-			if !strings.HasPrefix(chosenHex, "#") {
-				chosenHex = "#" + chosenHex
-			}
-			color.Hex = chosenHex
-		}
-
-		cleanNumStr := "+888" + numSuffix
-		displayStr := features.FormatDisplayNumber(cleanNumStr)
-
-		items = append(items, NumberTableItem{
-			Number:        cleanNumStr,
-			DisplayNumber: displayStr,
-			ColorHex:      color.Hex,
-			ColorName:     color.Name,
-			LastSaleTON:   floorPrice,
-			LastSaleUSD:   math.Round(floorPrice * tonRate),
-			LastSaleDate:  "Telemint Mint",
-			OwnersCount:   1,
-			CurrentOwner:  "Telemint NFT Smart Contract",
-			IsRestricted:  false,
-			Source:        source,
-			MarketURL:     fmt.Sprintf("https://fragment.com/number/%s", numSuffix),
-			IsEstimated:   false,
-			DataStatus:    "canonical_catalogue",
-		})
-	}
-
-	return &NumbersListResponse{
-		Items:        items,
-		Total:        totalCollection,
-		Page:         params.Page,
-		TotalPages:   totalPages,
-		DataStatus:   "canonical_catalogue",
-		SourceStatus: "canonical_directory",
-		ObservedAt:   time.Now().UTC().Format(time.RFC3339),
-		Message:      "Authoritative Telegram Anonymous Numbers Directory",
-	}
-}
 
 

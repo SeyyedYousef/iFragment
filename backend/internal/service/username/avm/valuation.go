@@ -2,10 +2,12 @@ package avm
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
 	"ifragment-backend/internal/client/fragment"
 	"ifragment-backend/internal/client/marketapp"
 	"ifragment-backend/internal/client/tonapi"
@@ -200,11 +202,40 @@ type TelemintProvenanceDto struct {
 	Details            string    `json:"details"`
 }
 
-// VerifyValuationCertificate checks the authenticity and cryptographic signature of an issued valuation report.
+func getCertificateSigningKey() []byte {
+	key := os.Getenv("CERTIFICATE_SIGNING_KEY")
+	if key == "" {
+		key = "ifragment_cert_signing_key_default_local_dev"
+	}
+	return []byte(key)
+}
+
+// SignValuationCertificate signs an issued valuation report using HMAC-SHA256.
+func SignValuationCertificate(username, version, expectedTON string, confidence int16, timestamp int64) (string, string) {
+	payload := fmt.Sprintf("%s:%s:%s:%d:%d", username, version, expectedTON, confidence, timestamp)
+	key := getCertificateSigningKey()
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(payload))
+	sigBytes := mac.Sum(nil)
+	sig := hex.EncodeToString(sigBytes)
+
+	rawHash := sha256.Sum256([]byte(payload))
+	certID := "IFRG-USR-" + strings.ToUpper(hex.EncodeToString(rawHash[:])[:12])
+	return certID, sig
+}
+
+// VerifyValuationCertificate checks the authenticity and cryptographic HMAC signature of an issued valuation report.
 func VerifyValuationCertificate(username, version, expectedTON string, confidence int16, timestamp int64, signature string) bool {
 	payload := fmt.Sprintf("%s:%s:%s:%d:%d", username, version, expectedTON, confidence, timestamp)
-	hash := sha256.Sum256([]byte(payload))
-	return strings.EqualFold(hex.EncodeToString(hash[:]), signature)
+	key := getCertificateSigningKey()
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(payload))
+	expectedMac := mac.Sum(nil)
+	sigBytes, err := hex.DecodeString(signature)
+	if err != nil {
+		return false
+	}
+	return hmac.Equal(expectedMac, sigBytes)
 }
 
 
@@ -1812,10 +1843,7 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	fragFee := CalculateVenueFee("fragment", expectedTON)
 	netProceedsTON := math.Max(0.0, expectedTON-fragFee)
 
-	certPayload := fmt.Sprintf("%s:%s:%s:%d:%d", username, ModelVersion, expectedDec.String(), calibratedConfidence, now.Unix())
-	certHash := sha256.Sum256([]byte(certPayload))
-	certificateID := "IFRG-USR-" + strings.ToUpper(hex.EncodeToString(certHash[:])[:12])
-	certificateSig := hex.EncodeToString(certHash[:])
+	certificateID, certificateSig := SignValuationCertificate(username, ModelVersion, expectedDec.String(), calibratedConfidence, now.Unix())
 
 	return &ValuationResult{
 		RunID:           runID,
@@ -1869,7 +1897,7 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 				"valuation":          "Model Estimate",
 				"freshness":          "Realtime",
 				"certificate":        certificateID,
-				"certificate_status": "Cryptographically Verified",
+				"certificate_status": "Cryptographically Verified (HMAC-SHA256)",
 			}
 			if telemintProv != nil {
 				if telemintProv.IsAuthentic {

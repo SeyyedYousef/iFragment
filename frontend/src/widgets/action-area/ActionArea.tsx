@@ -338,12 +338,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				isWallet: false,
 				isUser: false,
 				title: `${catalogItem.name} #1`,
-				subtitle: `کف قیمت: ${catalogItem.floorTon.toLocaleString()} TON · تیراژ: ${catalogItem.supply.toLocaleString()} هدیه`,
+				subtitle: `تیراژ: ${catalogItem.supply.toLocaleString()} هدیه · آماده ارزیابی AVM`,
 				slug: `${catalogItem.slug}-1`,
 				serial: 1,
 				emoji: catalogItem.emoji || '🎁',
 				tag: 'OFFICIAL COLLECTION (#1)',
-				floorTon: catalogItem.floorTon,
+				floorTon: 0,
 				supply: catalogItem.supply,
 			};
 		}
