@@ -1,3 +1,4 @@
+import { A } from '@solidjs/router';
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createEffect, createSignal, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
@@ -313,14 +314,22 @@ export const OwnerSettings: Component = () => {
 					{/* Investors Page Promotional Image */}
 					<section class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 						<header>
-							<div class="flex items-center gap-2 border-b border-white/10 pb-3">
-								<span class="material-symbols-outlined text-amber-400">image</span>
-								<h3 class="text-sm font-bold text-white">Investors Page</h3>
+							<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-amber-400">handshake</span>
+									<h3 class="text-sm font-bold text-white">تصویر تمام‌صفحه صفحه سرمایه‌گذاران (تب دوم ربات)</h3>
+								</div>
+								<A
+									href="/owner/investors"
+									class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#3390ec]/20 hover:bg-[#3390ec]/30 text-[#3390ec] text-xs font-bold transition border border-[#3390ec]/30"
+								>
+									<span class="material-symbols-outlined text-sm">open_in_new</span>
+									<span>صفحه اختصاصی با پیش‌نمایش زنده</span>
+								</A>
 							</div>
 							<p class="text-xs text-white/50 mt-2 leading-relaxed">
-								Upload the full-screen promotional image displayed on the Investors page.
-								Recommended size: 1080×1920 (9:16 portrait). Safe zones: Top 140px, Bottom 260px, Sides 60px.
-								Changes take effect publicly after saving configuration below.
+								تصویر تمام‌صفحه که به جای کل صفحه تب دوم (سرمایه‌گذاران) نمایش داده می‌شود.
+								ابعاد استاندارد: ۱۰۸۰×۱۹۲۰ (عمودی ۹:۱۶). این بخش کاملاً مستقل از بنرهای صفحه اول است.
 							</p>
 						</header>
 

@@ -1,7 +1,7 @@
 import { createQuery } from '@tanstack/solid-query';
 import { openTelegramLink } from '@tma.js/sdk-solid';
 import { type Component, createSignal, For, onCleanup, Show } from 'solid-js';
-import { balance, syncProfileStats } from '@/entities/airdrop/index.js';
+import { balance, setBalance, syncProfileStats } from '@/entities/airdrop/index.js';
 import {
 	claimDailyCombo,
 	completeTask,
