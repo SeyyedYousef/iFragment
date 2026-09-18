@@ -147,19 +147,19 @@ export const BottomNav: Component = () => {
 				</A>
 
 				<A
-					href="/dashboard"
+					href="/investors"
 					onClick={() => haptic.selection()}
 					class={`flex-1 h-13 rounded-[20px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
-						isActive('/dashboard')
+						isActive('/investors') || isActive('/dashboard')
 							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/35 shadow-sm scale-102'
 							: 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
 					}`}
 				>
 					<span
 						class="material-symbols-outlined text-[22px]"
-						style={{ 'font-variation-settings': isActive('/dashboard') ? '"FILL" 1' : '"FILL" 0' }}
+						style={{ 'font-variation-settings': isActive('/investors') || isActive('/dashboard') ? '"FILL" 1' : '"FILL" 0' }}
 					>
-						dashboard
+						handshake
 					</span>
 					<span class="text-[10px] font-bold tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 leading-tight">
 						{t('bottomNav.dashboard')}

@@ -1,5 +1,4 @@
 import { createSignal, For, onCleanup } from 'solid-js';
-import { balance, setBalance } from '@/entities/airdrop/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export interface FlyCoinsOptions {
@@ -8,6 +7,8 @@ export interface FlyCoinsOptions {
 	startY?: number;
 	targetSelector?: string;
 	onFinish?: () => void;
+	initialBalance?: number;
+	onBalanceUpdate?: (newBalance: number) => void;
 }
 
 interface FlyingCoin {
@@ -74,7 +75,7 @@ export const flyCoinsToBalance = (options: FlyCoinsOptions) => {
 	}
 
 	// 3. Balance Rolling Animation: starts when coins begin landing
-	const initialBalance = balance();
+	const initialBalance = options.initialBalance ?? 0;
 	const finalBalance = initialBalance + amount;
 	let lastBalanceUpdate = 0;
 	let hitCount = 0;
@@ -180,9 +181,11 @@ export const flyCoinsToBalance = (options: FlyCoinsOptions) => {
 							} catch {}
 						}
 
-						// Incrementally update live balance
+						// Incrementally update live balance if callback provided
 						const partialProgress = hitCount / coinCount;
-						setBalance(Math.round(initialBalance + amount * partialProgress));
+						if (options.onBalanceUpdate) {
+							options.onBalanceUpdate(Math.round(initialBalance + amount * partialProgress));
+						}
 					}
 					// Remove finished coin
 					activeCoins.splice(i, 1);
@@ -250,8 +253,10 @@ export const flyCoinsToBalance = (options: FlyCoinsOptions) => {
 				ctx.clearRect(0, 0, w, h);
 				globalAnimId = null;
 
-				// Guarantee final balance precision
-				setBalance(finalBalance);
+				// Guarantee final balance precision if callback provided
+				if (options.onBalanceUpdate) {
+					options.onBalanceUpdate(finalBalance);
+				}
 
 				// Show floating +AMOUNT 🪙 badge above target
 				const badgeId = Math.random().toString(36).substring(2, 9);

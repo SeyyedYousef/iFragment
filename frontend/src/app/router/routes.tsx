@@ -22,6 +22,9 @@ const IndexPage = lazy(() =>
 const OwnerAds = lazy(() =>
 	import('@/pages/owner/ads/index.js').then((m) => ({ default: m.OwnerAds })),
 );
+const OwnerInvestorsPage = lazy(() =>
+	import('@/pages/owner/investors/index.js').then((m) => ({ default: m.OwnerInvestorsPage })),
+);
 const OwnerAuditLogPage = lazy(() =>
 	import('@/pages/owner/audit-log/index.js').then((m) => ({ default: m.OwnerAuditLogPage })),
 );
@@ -154,7 +157,7 @@ export const routes: Route[] = [
 	{ path: '/shop', Component: ShopRedirect },
 	{ path: '/store', Component: ShopRedirect },
 	{ path: '/marketplace', Component: ShopRedirect },
-	{ path: '/dashboard', Component: DashboardPage },
+	{ path: '/dashboard', Component: InvestorsPromoPage },
 	{ path: '/profile', Component: ProfilePage },
 	{ path: '/profile/achievements', Component: AchievementsPage },
 	{ path: '/profile/settings', Component: SettingsPage },
@@ -207,6 +210,10 @@ export const routes: Route[] = [
 		},
 	},
 	{ path: '/owner/ads', Component: withOwnerGuard(OwnerAds, 'ads', 'ownerAds.title') },
+	{
+		path: '/owner/investors',
+		Component: withOwnerGuard(OwnerInvestorsPage, 'investors', 'ownerInvestors.title'),
+	},
 	{ path: '/collection-info', Component: CollectionInfoPage },
 	{ path: '/username', Component: UsernamePage },
 	{ path: '/usernames', Component: UsernamePage },

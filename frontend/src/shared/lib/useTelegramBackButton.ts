@@ -19,8 +19,14 @@ export function useTelegramBackButton(target?: string | number): void {
 			};
 			backButton.onClick(handler);
 			onCleanup(() => {
-				backButton.offClick(handler);
-				backButton.hide();
+				try {
+					if (typeof (backButton as any)?.offClick === 'function') {
+						(backButton as any).offClick(handler);
+					}
+					if (typeof (backButton as any)?.hide === 'function') {
+						(backButton as any).hide();
+					}
+				} catch {}
 			});
 		} catch (e) {
 			console.warn('Telegram backButton is not available', e);

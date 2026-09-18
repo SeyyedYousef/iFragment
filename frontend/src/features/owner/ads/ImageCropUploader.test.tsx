@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@solidjs/testing-library';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImageCropUploader } from './ImageCropUploader.js';
 
 vi.mock('@/shared/i18n/index.js', () => ({
@@ -16,6 +16,10 @@ vi.mock('@/shared/api/config.js', () => ({
 }));
 
 describe('ImageCropUploader', () => {
+	afterEach(() => {
+		cleanup();
+		document.body.innerHTML = '';
+	});
 	it('renders drop zone when no currentImageUrl is provided', () => {
 		const onUploaded = vi.fn();
 		render(() => (

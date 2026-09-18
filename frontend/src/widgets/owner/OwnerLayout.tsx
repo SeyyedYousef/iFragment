@@ -18,7 +18,8 @@ interface OwnerLayoutProps {
 		| 'finance'
 		| 'health'
 		| 'entities'
-		| 'ads';
+		| 'ads'
+		| 'investors';
 	/** i18n key resolved by OwnerLayout, e.g. 'ownerNav.dashboardTitle' */
 	title?: string;
 }

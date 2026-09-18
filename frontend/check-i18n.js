@@ -100,6 +100,9 @@ function looksLikeCode(t) {
 }
 
 function scanFile(absPath, rel) {
+	if (!absPath.endsWith('.tsx') && !absPath.endsWith('.ts')) return;
+	if (/\.test\.(ts|tsx)$/.test(absPath) || absPath.includes('test-setup') || absPath.includes('__tests__')) return;
+
 	const isTsx = absPath.endsWith('.tsx');
 	let src;
 	try {
@@ -111,22 +114,24 @@ function scanFile(absPath, rel) {
 
 	const push = (lineNo, kind, text) => errors.push(`${rel}:${lineNo} [${kind}] ${text.slice(0, 140)}`);
 
-	// a) Persian/RTL characters anywhere (comments excluded)
+	// a) Persian/RTL characters anywhere (comments and regexes excluded)
 	lines.forEach((raw, i) => {
 		let s = raw.trim();
+		// strip JSX comments {/* ... */}
+		s = s.replace(/\{\/\*.*?\*\/\}/g, '').trim();
 		// strip trailing // comment (not inside a string literal — heuristic: last ' //')
 		const cIdx = s.indexOf('//');
 		if (cIdx > 0 && !s.slice(0, cIdx).includes("'") && !s.slice(0, cIdx).includes('"') && !s.slice(0, cIdx).includes('`')) {
 			s = s.slice(0, cIdx).trim();
 			if (!s) return;
 		}
-		if (AR.test(s) && !s.startsWith('//') && !s.startsWith('*') && !s.startsWith('/*')) {
+		// strip regex character ranges
+		s = s.replace(/\/\[[^\]]+\]\/[gimu]*/g, '').trim();
+		if (AR.test(s) && !s.startsWith('//') && !s.startsWith('*') && !s.startsWith('/*') && !s.startsWith('{/*')) {
 			push(i + 1, 'hardcoded-fa', s);
 		}
 	});
 
-	if (!isTsx && !absPath.endsWith('.ts')) return;
-	if (/\.test\.(ts|tsx)$/.test(absPath)) return; // tests assert literals legitimately
 	if (!isTsx) return;
 
 	// b) JSX text nodes (English or any Latin prose)

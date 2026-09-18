@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@solidjs/testing-library';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InvestorsPromoPage } from './InvestorsPromoPage.js';
 
 let mockQueryData: any = {
@@ -35,6 +35,11 @@ vi.mock('@/widgets/bottom-nav/index.js', () => ({
 }));
 
 describe('InvestorsPromoPage', () => {
+	afterEach(() => {
+		cleanup();
+		document.body.innerHTML = '';
+	});
+
 	beforeEach(() => {
 		mockQueryData = {
 			data: { image_url: '/uploads/ads/investors-123.webp', updated_at: '2026-09-18T10:00:00Z' },
@@ -45,13 +50,13 @@ describe('InvestorsPromoPage', () => {
 	});
 
 	it('renders the promotional image with eager loading and object-cover when config is available', () => {
-		render(() => <InvestorsPromoPage />);
-		const img = screen.getByAltText('Investors Promotional Banner') as HTMLImageElement;
+		const { getByAltText, getByTestId } = render(() => <InvestorsPromoPage />);
+		const img = getByAltText('Investors Promotional Banner') as HTMLImageElement;
 		expect(img).toBeInTheDocument();
 		expect(img.getAttribute('loading')).toBe('eager');
 		expect(img.className).toContain('object-cover');
 		expect(img.className).toContain('object-center');
-		expect(screen.getByTestId('bottom-nav')).toBeInTheDocument();
+		expect(getByTestId('bottom-nav')).toBeInTheDocument();
 	});
 
 	it('renders loading skeleton when query is loading', () => {
@@ -61,9 +66,9 @@ describe('InvestorsPromoPage', () => {
 			isError: false,
 			refetch: vi.fn(),
 		};
-		render(() => <InvestorsPromoPage />);
-		expect(screen.getByTestId('investors-skeleton')).toBeInTheDocument();
-		expect(screen.getByTestId('bottom-nav')).toBeInTheDocument();
+		const { getByTestId } = render(() => <InvestorsPromoPage />);
+		expect(getByTestId('investors-skeleton')).toBeInTheDocument();
+		expect(getByTestId('bottom-nav')).toBeInTheDocument();
 	});
 
 	it('renders empty state when image_url is empty', () => {
@@ -73,10 +78,10 @@ describe('InvestorsPromoPage', () => {
 			isError: false,
 			refetch: vi.fn(),
 		};
-		render(() => <InvestorsPromoPage />);
-		expect(screen.getByTestId('investors-empty-state')).toBeInTheDocument();
-		expect(screen.getByText('Investors image is not configured yet.')).toBeInTheDocument();
-		expect(screen.getByTestId('bottom-nav')).toBeInTheDocument();
+		const { getByTestId, getByText } = render(() => <InvestorsPromoPage />);
+		expect(getByTestId('investors-empty-state')).toBeInTheDocument();
+		expect(getByText('Investors image is not configured yet.')).toBeInTheDocument();
+		expect(getByTestId('bottom-nav')).toBeInTheDocument();
 	});
 
 	it('renders error state with retry button when query fails', () => {
@@ -87,9 +92,9 @@ describe('InvestorsPromoPage', () => {
 			isError: true,
 			refetch: refetchFn,
 		};
-		render(() => <InvestorsPromoPage />);
-		expect(screen.getByTestId('investors-error-state')).toBeInTheDocument();
-		const retryBtn = screen.getByText('Retry');
+		const { getByTestId, getByText } = render(() => <InvestorsPromoPage />);
+		expect(getByTestId('investors-error-state')).toBeInTheDocument();
+		const retryBtn = getByText('Retry');
 		expect(retryBtn).toBeInTheDocument();
 
 		fireEvent.click(retryBtn);
@@ -97,10 +102,10 @@ describe('InvestorsPromoPage', () => {
 	});
 
 	it('displays error state when the image fails to load via onError', () => {
-		render(() => <InvestorsPromoPage />);
-		const img = screen.getByAltText('Investors Promotional Banner');
+		const { getByAltText, getByTestId } = render(() => <InvestorsPromoPage />);
+		const img = getByAltText('Investors Promotional Banner');
 		fireEvent.error(img);
 
-		expect(screen.getByTestId('investors-error-state')).toBeInTheDocument();
+		expect(getByTestId('investors-error-state')).toBeInTheDocument();
 	});
 });

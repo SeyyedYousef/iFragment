@@ -3,6 +3,7 @@ import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { BroadcastMessage } from '@/entities/owner/model/types.js';
 import { t } from '@/shared/i18n/index.js';
+import { sanitizeTelegramHtml } from '@/shared/lib/sanitize.js';
 
 export const OwnerBroadcast: Component = () => {
 	const queryClient = useQueryClient();
@@ -226,7 +227,7 @@ export const OwnerBroadcast: Component = () => {
 							}
 						>
 							<div
-								innerHTML={messageText()}
+								innerHTML={sanitizeTelegramHtml(messageText())}
 								class="prose prose-invert prose-xs max-w-none break-words"
 							/>
 						</Show>

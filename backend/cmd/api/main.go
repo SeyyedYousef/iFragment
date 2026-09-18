@@ -130,18 +130,27 @@ func main() {
 		for i := 0; i < 5; i++ {
 			m, mErr := migrate.New("file://./migrations", os.Getenv("DATABASE_URL"))
 			if mErr == nil {
-				// Handle dirty database state from previous failed migration
+				// Handle dirty database state from previous failed migration (Architecture Audit Finding 7)
 				v, dirty, vErr := m.Version()
 				if vErr == nil && dirty {
-					targetVersion := int(v - 1)
-					if v == 0 {
-						targetVersion = 0
+					slog.Error("CRITICAL FATAL: Database migration is in a DIRTY state! Automatic schema forcing is disabled to prevent schema corruption.",
+						"version", v,
+						"runbook", "Check failed migration DDL, verify database state, fix manually or run one-shot migration job before restarting.")
+					if isProd {
+						os.Exit(1)
 					}
-					slog.Warn("⚠️ Detected dirty database migration state, forcing clean version before reapplying...", "version", v, "force_version", targetVersion)
-					if fErr := m.Force(targetVersion); fErr != nil {
-						slog.Error("Failed to force clean migration version", "error", fErr, "target_version", targetVersion)
+					if os.Getenv("AUTO_FORCE_DIRTY_MIGRATION") == "true" {
+						targetVersion := int(v - 1)
+						if v == 0 {
+							targetVersion = 0
+						}
+						slog.Warn("⚠️ AUTO_FORCE_DIRTY_MIGRATION enabled in non-production: forcing version...", "version", v, "force_version", targetVersion)
+						if fErr := m.Force(targetVersion); fErr != nil {
+							slog.Error("Failed to force clean migration version", "error", fErr, "target_version", targetVersion)
+						}
 					} else {
-						slog.Info("Successfully forced migration version, continuing...", "forced_version", targetVersion)
+						slog.Error("Halting startup due to dirty migration. Set AUTO_FORCE_DIRTY_MIGRATION=true only for local throwaway dev databases.")
+						os.Exit(1)
 					}
 				}
 

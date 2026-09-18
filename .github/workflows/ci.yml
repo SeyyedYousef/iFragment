@@ -88,7 +88,7 @@ jobs:
       - name: Run Spectral Linter
         uses: stoplight/spectral-action@v0.8.2
         with:
-          file_glob: 'backend/openapi.yaml'
+          file_glob: 'openapi.yaml'
           spectral_ruleset: '.spectral.yaml'
 
   deploy:

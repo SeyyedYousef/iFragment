@@ -1,3 +1,4 @@
+import { A } from '@solidjs/router';
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
@@ -110,6 +111,26 @@ export const OwnerAds: Component = () => {
 					<span class="material-symbols-outlined text-base">add_photo_alternate</span>
 					<span>{t('owner.ads.createCampaign')}</span>
 				</button>
+			</div>
+
+			{/* Distinction Callout Banner */}
+			<div class="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+				<div class="flex items-start gap-3">
+					<span class="material-symbols-outlined text-blue-400 text-xl shrink-0 mt-0.5">info</span>
+					<div class="text-xs space-y-0.5">
+						<div class="font-bold text-blue-300">توجه: این صفحه مختص بنرهای بالای صفحه اول است</div>
+						<p class="text-white/70">
+							اگر قصد تنظیم تصویر تمام‌صفحه «سرمایه‌گذاران» (تب دوم در نوار پایین ربات) را دارید، به صفحه اختصاصی آن مراجعه فرمایید.
+						</p>
+					</div>
+				</div>
+				<A
+					href="/owner/investors"
+					class="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-white font-bold text-xs shrink-0 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20"
+				>
+					<span class="material-symbols-outlined text-base">handshake</span>
+					<span>صفحه سرمایه‌گذاران</span>
+				</A>
 			</div>
 
 			{/* Slot Selector */}

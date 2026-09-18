@@ -57,6 +57,9 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/similar", cfg.UsernameHandler.GetSimilar)
 			r.Get("/calibration", cfg.UsernameHandler.GetAVMCalibration)
 			r.With(middleware.AuthMiddleware).Get("/valuate", cfg.UsernameHandler.Valuate)
+			if cfg.CollectionHandler != nil {
+				r.Get("/collection/stats", cfg.CollectionHandler.GetStats)
+			}
 			r.Post("/share", cfg.UsernameHandler.Share)
 			r.With(middleware.AuthMiddleware).Post("/send-to-chat", cfg.UsernameHandler.SendToChat)
 

@@ -16,7 +16,8 @@ export type OwnerTabId =
 	| 'broadcast'
 	| 'finance'
 	| 'health'
-	| 'ads';
+	| 'ads'
+	| 'investors';
 
 interface TabConfig {
 	id: OwnerTabId;
@@ -97,6 +98,12 @@ const TABS: TabConfig[] = [
 		labelKey: 'ownerNav.adsLabel',
 		icon: 'campaign',
 		path: '/owner/ads',
+	},
+	{
+		id: 'investors',
+		labelKey: 'ownerNav.investorsLabel',
+		icon: 'handshake',
+		path: '/owner/investors',
 	},
 ];
 

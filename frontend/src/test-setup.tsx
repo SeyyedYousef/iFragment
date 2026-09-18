@@ -17,6 +17,7 @@ vi.mock('@tma.js/sdk-solid', () => ({
 		show: vi.fn(),
 		hide: vi.fn(),
 		onClick: vi.fn(() => vi.fn()),
+		offClick: vi.fn(),
 	},
 	hapticFeedback: {
 		impactOccurred: vi.fn(),
