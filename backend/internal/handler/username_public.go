@@ -553,20 +553,23 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	needsQuotaCommit := false
-	var dailyKey string
-	if isPro {
+	if isPro && userID > 0 {
 		todayStr := time.Now().UTC().Format("2006-01-02")
-		dailyKey = fmt.Sprintf("val_daily_used:%d:%s", userID, todayStr)
-		dailyUsed := 0
+		dailyKey := fmt.Sprintf("val_daily_used:%d:%s", userID, todayStr)
 		if h.cache != nil {
-			if cntStr, err := h.cache.Client.Get(ctx, dailyKey).Result(); err == nil {
-				dailyUsed, _ = strconv.Atoi(cntStr)
+			// Atomic Redis INCR prevents race condition (AC-P0-013)
+			newCount, err := h.cache.Client.Incr(ctx, dailyKey).Result()
+			if err == nil {
+				if newCount == 1 {
+					h.cache.Client.Expire(ctx, dailyKey, 24*time.Hour)
+				}
+				if newCount <= 3 {
+					hasAccess = true
+				} else {
+					// Daily quota exceeded, atomically decrement back
+					h.cache.Client.Decr(ctx, dailyKey)
+				}
 			}
-		}
-		if dailyUsed < 3 {
-			hasAccess = true
-			needsQuotaCommit = true
 		}
 	}
 
@@ -859,14 +862,6 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	})
 
 	_ = gVal.Wait()
-
-	// Commit Pro daily quota consumption only after successful calculation
-	if needsQuotaCommit && h.cache != nil && dailyKey != "" {
-		cnt, _ := h.cache.Client.Incr(ctx, dailyKey).Result()
-		if cnt == 1 {
-			h.cache.Client.Expire(ctx, dailyKey, 24*time.Hour)
-		}
-	}
 
 	// Reconcile the wallet summary with what the on-chain lookup actually returned.
 	// WalletInfo used to ship hardcoded counts ("12 NFTs" for any short handle),
@@ -1455,6 +1450,11 @@ func (h *UsernameHandler) ValuationOrderStatus(w http.ResponseWriter, r *http.Re
 	if payload != "" && h.db != nil {
 		order, err := h.db.GetOrderByPayload(ctx, payload)
 		if err == nil && order != nil {
+			// RB-P0-006, AC-P0-015: IDOR Protection. Ensure order belongs to caller.
+			if order.UserID != userID {
+				RespondError(w, r, http.StatusForbidden, "Forbidden: cannot inspect another user's order", nil)
+				return
+			}
 			status = order.Status
 			if order.Status == "paid" {
 				isPaid = true
@@ -1554,6 +1554,30 @@ func (h *UsernameHandler) ValuationPayAirdrop(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	if idempotencyKey == "" {
+		idempotencyKey = r.Header.Get("X-Idempotency-Key")
+	}
+	if idempotencyKey != "" && h.db != nil && h.db.Pool != nil {
+		var existingID int64
+		errOrder := h.db.Pool.QueryRow(ctx, `SELECT id FROM orders WHERE user_id = $1 AND idempotency_key = $2`, userID, idempotencyKey).Scan(&existingID)
+		if errOrder == nil {
+			profile, _ := h.db.GetProfileStats(ctx, userID)
+			rem := 0.0
+			if profile != nil {
+				rem = profile.AirdropCoins
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success":         true,
+				"method":          "coins",
+				"idempotent":      true,
+				"remaining_coins": rem,
+			})
+			return
+		}
+	}
+
 	// 3. FIFO Deductions inside locked database transaction (Sacred Rule #4)
 	tx, err := h.db.Pool.Begin(ctx)
 	if err != nil {
@@ -1572,14 +1596,26 @@ func (h *UsernameHandler) ValuationPayAirdrop(w http.ResponseWriter, r *http.Req
 	// Redundant manual subtraction removed to prevent critical double-debit bug.
 
 	payload := fmt.Sprintf("val_coins:%s:%d:%d", u, userID, time.Now().Unix())
+	var idempParam interface{}
+	if idempotencyKey != "" {
+		idempParam = idempotencyKey
+	}
 	_, err = tx.Exec(ctx, `
-		INSERT INTO orders (user_id, amount, status, payload, created_at)
-		VALUES ($1, $2, 'paid', $3, CURRENT_TIMESTAMP)
-	`, userID, int(priceFRG), payload)
+		INSERT INTO orders (user_id, amount, status, payload, idempotency_key, created_at)
+		VALUES ($1, $2, 'paid', $3, $4, CURRENT_TIMESTAMP)
+	`, userID, int(priceFRG), payload, idempParam)
 	if err != nil {
 		slog.Error("Failed to record valuation order", "user_id", userID, "err", err)
 		RespondError(w, r, http.StatusInternalServerError, "Failed to record order", err)
 		return
+	}
+
+	if idempotencyKey != "" {
+		_, _ = tx.Exec(ctx, `
+			INSERT INTO report_entitlements (principal_id, asset_id, idempotency_key, product_type, granted_at)
+			VALUES ($1, $2, $3, 'username_report', CURRENT_TIMESTAMP)
+			ON CONFLICT (principal_id, asset_id, idempotency_key) DO NOTHING
+		`, userID, u, idempotencyKey)
 	}
 
 	if err = tx.Commit(ctx); err != nil {

@@ -166,8 +166,8 @@ var Registry = map[VenueID]VenueInfo{
 
 // ComputeExitPlan evaluates venue choices using real baseline price and fee schedules
 func ComputeExitPlan(ctx context.Context, targetGRAM, gramUsdRate float64, customResalePermille int) *ExitPlannerPlan {
-	if gramUsdRate <= 0 {
-		gramUsdRate = 1.42
+	if gramUsdRate < 0 {
+		gramUsdRate = 0.0
 	}
 	if targetGRAM <= 0 {
 		targetGRAM = 1.0

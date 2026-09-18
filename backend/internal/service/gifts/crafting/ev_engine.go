@@ -81,8 +81,8 @@ func CalculateCraftingEV(ctx context.Context, inputs []CraftInputItem, gramUsdRa
 		}
 	}
 
-	if gramUsdRate <= 0 {
-		gramUsdRate = 1.42
+	if gramUsdRate < 0 {
+		gramUsdRate = 0.0
 	}
 
 	// 1. Calculate input burn cost & aggregate success chance

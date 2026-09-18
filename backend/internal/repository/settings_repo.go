@@ -718,7 +718,62 @@ func (r *SettingsRepo) UpdateSystemSettings(ctx context.Context, settings *model
 	_, err = r.db.Pool.Exec(ctx, query, b, nextVersion)
 	if err == nil && r.cache != nil && r.cache.Client != nil {
 		r.cache.Client.Del(ctx, "system_settings:global")
+		r.cache.Client.Del(ctx, "investors_page:config")
 	}
 	return err
+}
+
+func (r *SettingsRepo) GetInvestorsPageConfig(ctx context.Context) (*model.InvestorsPageConfig, error) {
+	cacheKey := "investors_page:config"
+	if r.cache != nil && r.cache.Client != nil {
+		val, err := r.cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var cfg model.InvestorsPageConfig
+			if json.Unmarshal([]byte(val), &cfg) == nil {
+				return &cfg, nil
+			}
+		}
+	}
+
+	if r.db == nil || r.db.Pool == nil {
+		return &model.InvestorsPageConfig{
+			ImageURL:  "",
+			UpdatedAt: nil,
+		}, nil
+	}
+
+	query := `SELECT value, updated_at FROM system_settings WHERE key = 'global'`
+	var b []byte
+	var updatedAt *time.Time
+	err := r.db.Pool.QueryRow(ctx, query).Scan(&b, &updatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &model.InvestorsPageConfig{
+				ImageURL:  "",
+				UpdatedAt: nil,
+			}, nil
+		}
+		return nil, err
+	}
+
+	var s model.SystemSettings
+	if err := json.Unmarshal(b, &s); err != nil {
+		return nil, err
+	}
+
+	cfg := &model.InvestorsPageConfig{
+		ImageURL:  s.InvestorsPageImageURL,
+		UpdatedAt: updatedAt,
+	}
+	if cfg.ImageURL == "" {
+		cfg.UpdatedAt = nil
+	}
+
+	if r.cache != nil && r.cache.Client != nil {
+		data, _ := json.Marshal(cfg)
+		r.cache.Client.Set(ctx, cacheKey, string(data), 5*time.Minute)
+	}
+
+	return cfg, nil
 }
 

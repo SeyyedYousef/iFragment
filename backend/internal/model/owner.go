@@ -169,8 +169,14 @@ type SystemSettings struct {
 	CoinExpiryDays       int           `json:"coin_expiry_days,omitempty"`
 	TurboDurationSeconds int           `json:"turbo_duration_seconds,omitempty"`
 	InflationCap         float64       `json:"inflation_cap,omitempty"`
-	DashboardAds         []DashboardAd `json:"dashboard_ads,omitempty"`
-	Version              int           `json:"version"`
+	DashboardAds          []DashboardAd `json:"dashboard_ads,omitempty"`
+	InvestorsPageImageURL string        `json:"investors_page_image_url,omitempty"`
+	Version               int           `json:"version"`
+}
+
+type InvestorsPageConfig struct {
+	ImageURL  string     `json:"image_url"`
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 type Broadcast struct {

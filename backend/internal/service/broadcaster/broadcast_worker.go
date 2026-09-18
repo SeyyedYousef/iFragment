@@ -204,6 +204,11 @@ func (w *BroadcastWorker) executeBroadcast(ctx context.Context, b model.Broadcas
 			"parse_mode": "HTML",
 		}
 		_, reqErr := w.tgClient.Request(ctx, "sendMessage", payload)
+		if reqErr != nil && (strings.Contains(strings.ToLower(reqErr.Error()), "can't parse entities") || strings.Contains(strings.ToLower(reqErr.Error()), "bad request")) {
+			// Safe fallback: retry as plain text without parse_mode to guarantee delivery
+			delete(payload, "parse_mode")
+			_, reqErr = w.tgClient.Request(ctx, "sendMessage", payload)
+		}
 		if reqErr != nil {
 			// Check for Telegram 429 rate limit
 			if strings.Contains(reqErr.Error(), "429") || strings.Contains(reqErr.Error(), "Too Many Requests") {

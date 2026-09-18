@@ -326,7 +326,7 @@ type CollectionShareItem struct {
 
 // GetGiftsIntel generates the free market intelligence board from real database snapshots and sales
 func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, error) {
-	gramUsdRate := 1.42
+	var gramUsdRate float64
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
 			gramUsdRate = r
@@ -681,19 +681,33 @@ func (s *GiftsService) UnlockWithCredit(ctx context.Context, userID int64, raw s
 			return nil, err
 		}
 
+		if s.db == nil || s.db.Pool == nil {
+			return nil, ErrInsufficientCredit
+		}
+
+		tx, err := s.db.Pool.Begin(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback(ctx)
+
 		idemKey := fmt.Sprintf("report:gift:%d:%s", userID, ref.GiftID)
-		_, err = s.creditRepo.ConsumeCreditFIFO(ctx, userID, "report:gift", ref.GiftID, idemKey)
+		_, err = s.creditRepo.ConsumeCreditFIFOTx(ctx, tx, userID, "report:gift", ref.GiftID, idemKey)
 		if err != nil {
 			return nil, ErrInsufficientCredit
 		}
 
-		// Persist purchased report
+		// Persist purchased report within same transaction
 		if userID > 0 {
 			snapJSON, _ := json.Marshal(val)
 			fairNano := val.ExpectedGRAM.Mul(decimal.NewFromInt(1e9)).IntPart()
-			if _, err := s.repo.SaveGiftReport(ctx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON); err != nil {
+			if _, err := s.repo.SaveGiftReportTx(ctx, tx, userID, ref.GiftID, ref.ModelID, ref.SerialNumber, fairNano, int(val.ConfidenceScore), snapJSON); err != nil {
 				return nil, fmt.Errorf("failed to save report: %w", err)
 			}
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return nil, err
 		}
 
 		return val, nil
@@ -1040,7 +1054,7 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 		}
 	}
 
-	gramUsdRate := 1.42
+	var gramUsdRate float64
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
 			gramUsdRate = r
@@ -1204,7 +1218,7 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 
 // CalculateCraftingEV runs public crafting EV simulation
 func (s *GiftsService) CalculateCraftingEV(ctx context.Context, inputs []crafting.CraftInputItem) (*crafting.CraftingEVResult, error) {
-	gramUsdRate := 1.42
+	var gramUsdRate float64
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
 			gramUsdRate = r
@@ -1252,7 +1266,7 @@ func (s *GiftsService) GetUpgradeAdvice(ctx context.Context, raw string) (*upgra
 		supply = 5000
 	}
 
-	gramUsdRate := 1.42
+	var gramUsdRate float64
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
 			gramUsdRate = r

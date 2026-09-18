@@ -38,6 +38,7 @@ func TestAllAPIRoutePaths(t *testing.T) {
 		{"POST", "/api/v1/owner/auth/totp/verify"},
 		{"GET", "/api/v1/owner/dashboard/stats"},
 		{"GET", "/api/v1/intel/credits"},
+		{"GET", "/api/v1/public/investors-page"},
 	}
 
 	for _, tt := range pathsToTest {

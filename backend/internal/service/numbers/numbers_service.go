@@ -1219,12 +1219,8 @@ func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengin
 	restrictionStatus := "unknown"
 	var color, ownerAddr, nftAddr string
 
-	if len(fv.Suffix) == 4 && strings.HasPrefix(fv.Suffix, "8") {
-		// All 1,000 Genesis numbers (8000..8999) are guaranteed minted Telemint Genesis assets
-		collectionVerified = true
-		verificationState = "verified_telemint_genesis"
-		restrictionStatus = "clean"
-	}
+	// RB-P0-003, AC-P0-001: Format alone (even Genesis 8000..8999) does not prove minting or on-chain existence.
+	// collectionVerified is false until proven by database records with confirmed on-chain evidence.
 
 	if s.db != nil && s.db.Pool != nil {
 		var isRestricted bool

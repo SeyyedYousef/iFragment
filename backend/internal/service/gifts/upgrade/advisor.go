@@ -46,8 +46,8 @@ type UpgradeAdviceReport struct {
 
 // GenerateUpgradeAdvice analyzes live falling stairs and computes optimal upgrade timing
 func GenerateUpgradeAdvice(ctx context.Context, giftID, modelID string, baseStarsPrice int, gramUsdRate float64) *UpgradeAdviceReport {
-	if gramUsdRate <= 0 {
-		gramUsdRate = 1.42
+	if gramUsdRate < 0 {
+		gramUsdRate = 0.0
 	}
 	if baseStarsPrice <= 0 {
 		baseStarsPrice = 15000 // default initial high anchor

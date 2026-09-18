@@ -359,18 +359,14 @@ func (s *NumbersSalesIndexer) extractPriceFromTrace(ctx context.Context, traceID
 		if t.Transaction.InMsg != nil {
 			msg := t.Transaction.InMsg
 			op := strings.ToLower(msg.DecodedOpName)
-			// RB-P0-004, AC-P0-010: Only purchase, buy, sale, or complete_auction qualify as exact sales.
-			// Bids in an active auction are bid events, NOT concluded sales.
-			if strings.Contains(op, "purchase") || strings.Contains(op, "buy") || strings.Contains(op, "sale") || strings.Contains(op, "complete_auction") {
+			// RB-P0-004, AC-P0-009, AC-P0-010: Only verified market contracts with purchase, buy, sale, or complete_auction qualify as sales.
+			// Never guess price from non-market transactions or unclassified transfers.
+			if isMarketTx && (strings.Contains(op, "purchase") || strings.Contains(op, "buy") || strings.Contains(op, "sale") || strings.Contains(op, "complete_auction")) {
 				if msg.Value > 0 {
 					maxNano = msg.Value
 					matchedMarket = true
 					confidence = "exact"
 				}
-			} else if isMarketTx && msg.Value > maxNano {
-				maxNano = msg.Value
-			} else if !matchedMarket && msg.Value > maxNano {
-				maxNano = msg.Value
 			}
 		}
 
@@ -381,17 +377,14 @@ func (s *NumbersSalesIndexer) extractPriceFromTrace(ctx context.Context, traceID
 
 	traverse(trace)
 
-	if maxNano == 0 {
-		return 0, "unknown", "heuristic"
+	// Strictly reject if not a matched market contract with exact opcode
+	if maxNano == 0 || !matchedMarket || confidence != "exact" {
+		return 0, "unclassified_transfer", "heuristic"
 	}
 
 	tonValue := float64(maxNano) / math.Pow10(9)
 	if tonValue < 0.5 {
-		return 0, "unknown", "heuristic"
-	}
-
-	if matchedMarket && confidence != "exact" {
-		confidence = "exact"
+		return 0, "unclassified_transfer", "heuristic"
 	}
 
 	return tonValue, saleType, confidence

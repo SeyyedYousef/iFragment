@@ -852,10 +852,37 @@ func (s *OwnerService) AdjustAirdropCoins(ctx context.Context, req AdjustAirdrop
 	return newBalance, nil
 }
 
+var disallowedBroadcastPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)<\s*(script|iframe|embed|object|style|form|input|meta|link|base|applet|svg)\b`),
+	regexp.MustCompile(`(?i)\bon\w+\s*=`),
+	regexp.MustCompile(`(?i)javascript\s*:`),
+	regexp.MustCompile(`(?i)data\s*:\s*text/html`),
+	regexp.MustCompile(`(?i)vbscript\s*:`),
+}
+
+func ValidateBroadcastMessage(msg string) error {
+	trimmed := strings.TrimSpace(msg)
+	if trimmed == "" {
+		return errors.New("target_audience and message are required")
+	}
+	if len(msg) > 4096 {
+		return errors.New("broadcast message exceeds Telegram maximum length of 4096 characters")
+	}
+	for _, pattern := range disallowedBroadcastPatterns {
+		if pattern.MatchString(msg) {
+			return errors.New("broadcast message contains disallowed tags or dangerous script patterns")
+		}
+	}
+	return nil
+}
+
 // ─── Phase 1.1 Broadcasts ───────────────────────────────────────────────────
 func (s *OwnerService) CreateBroadcast(ctx context.Context, ownerID int64, targetAudience, message string, scheduledAt *time.Time, ip, ua string) (string, error) {
-	if targetAudience == "" || strings.TrimSpace(message) == "" {
+	if targetAudience == "" {
 		return "", errors.New("target_audience and message are required")
+	}
+	if err := ValidateBroadcastMessage(message); err != nil {
+		return "", err
 	}
 
 	id, err := s.repo.CreateBroadcastWithSchedule(ctx, ownerID, targetAudience, message, scheduledAt)

@@ -490,6 +490,8 @@ func main() {
 
 
 
+	investorsHandler := handler.NewInvestorsPublicHandler(settingsRepo)
+
 	// Register API and Owner routes via modular router package
 	router.RegisterAPIRoutes(r, router.Config{
 		DB:                  db,
@@ -508,6 +510,7 @@ func main() {
 		GiftsHandler:        giftsHandler,
 		IntelCreditHandler:  intelCreditHandler,
 		RaffleHandler:       raffleHandler,
+		InvestorsHandler:    investorsHandler,
 	})
 
 	// Start server with graceful shutdown

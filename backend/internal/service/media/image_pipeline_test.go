@@ -94,3 +94,38 @@ func TestProcessAndStoreAdImageMagicByteRejection(t *testing.T) {
 		t.Fatal("Expected error for non-image data, got nil")
 	}
 }
+
+func TestProcessAndStoreAdImageInvestorsPageSlot(t *testing.T) {
+	pngData := createTestPNG(600, 1000)
+	r := bytes.NewReader(pngData)
+
+	res, err := ProcessAndStoreAdImage(r, "investors_page")
+	if err != nil {
+		t.Fatalf("Failed to process valid PNG for investors_page slot: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if res != nil && res.Filename != "" {
+			_ = os.Remove(filepath.Join(UploadDirBase, res.Filename))
+			_ = os.Remove(filepath.Join(UploadDirBase, strings.TrimSuffix(res.Filename, filepath.Ext(res.Filename))+"_thumb.jpg"))
+		}
+	})
+
+	if res.Width != 1080 || res.Height != 1920 {
+		t.Errorf("Expected 1080x1920 dimensions for investors_page slot, got %dx%d", res.Width, res.Height)
+	}
+}
+
+func TestProcessAndStoreAdImageInvestorsPageRejectsGIF(t *testing.T) {
+	gifHeader := []byte("GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+	r := bytes.NewReader(gifHeader)
+
+	_, err := ProcessAndStoreAdImage(r, "investors_page")
+	if err == nil {
+		t.Fatal("Expected error for GIF in investors_page slot, got nil")
+	}
+	if !strings.Contains(err.Error(), "GIF format is not supported") {
+		t.Errorf("Expected GIF rejection error message, got: %v", err)
+	}
+}
+

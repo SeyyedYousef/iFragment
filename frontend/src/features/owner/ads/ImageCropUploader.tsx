@@ -3,16 +3,27 @@ import { ownerApi } from '@/entities/owner/index.js';
 import { buildMediaUrl } from '@/shared/api/config.js';
 import { t } from '@/shared/i18n/index.js';
 
-interface ImageCropUploaderProps {
+export interface ImageCropUploaderProps {
 	slot?: string;
 	currentImageUrl?: string;
+	targetWidth?: number;
+	targetHeight?: number;
+	aspectRatio?: number;
+	maxFileSizeMB?: number;
+	outputFormat?: 'image/webp' | 'image/jpeg' | 'image/png';
+	outputQuality?: number;
 	onUploaded: (url: string, width: number, height: number, sizeBytes: number) => void;
+	onRemove?: () => void;
 }
 
 export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 	const slot = () => props.slot || 'dashboard_banner';
-	const targetWidth = 1080;
-	const targetHeight = 384;
+	const targetWidth = () => props.targetWidth ?? 1080;
+	const targetHeight = () => props.targetHeight ?? 384;
+	const aspectRatio = () => props.aspectRatio ?? targetWidth() / targetHeight();
+	const maxFileSizeMB = () => props.maxFileSizeMB ?? 5;
+	const outputFormat = () => props.outputFormat ?? 'image/webp';
+	const outputQuality = () => props.outputQuality ?? 0.86;
 
 	const [_selectedFile, setSelectedFile] = createSignal<File | null>(null);
 	const [imageSrc, setImageSrc] = createSignal<string | null>(null);
@@ -28,8 +39,15 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 	const [uploadProgress, setUploadProgress] = createSignal(0);
 	const [errorMessage, setErrorMessage] = createSignal<string | null>(null);
 	const [uploadedUrl, setUploadedUrl] = createSignal<string | null>(props.currentImageUrl || null);
+	const [lastUploadedSize, setLastUploadedSize] = createSignal<number | null>(null);
+	const [showRemoveConfirm, setShowRemoveConfirm] = createSignal(false);
 
 	let canvasRef: HTMLCanvasElement | undefined;
+	let fileInputRef: HTMLInputElement | undefined;
+
+	createEffect(() => {
+		setUploadedUrl(props.currentImageUrl || null);
+	});
 
 	const handleFileSelect = (e: Event) => {
 		const target = e.target as HTMLInputElement;
@@ -47,6 +65,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 
 	const loadFile = (file: File) => {
 		setErrorMessage(null);
+		setShowRemoveConfirm(false);
 		if (
 			!file.type.startsWith('image/') &&
 			!/\.(jpe?g|png|webp|gif|bmp|avif|heic|svg)$/i.test(file.name)
@@ -54,8 +73,8 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 			setErrorMessage(t('imageCrop.invalidFormat') || 'Only image files are supported');
 			return;
 		}
-		if (file.size > 5 * 1024 * 1024) {
-			setErrorMessage('File size exceeds maximum allowed limit of 5MB');
+		if (file.size > maxFileSizeMB() * 1024 * 1024) {
+			setErrorMessage(`File size exceeds maximum allowed limit of ${maxFileSizeMB()}MB`);
 			return;
 		}
 
@@ -85,19 +104,22 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
-		canvas.width = targetWidth;
-		canvas.height = targetHeight;
+		const tw = targetWidth();
+		const th = targetHeight();
 
-		ctx.clearRect(0, 0, targetWidth, targetHeight);
+		canvas.width = tw;
+		canvas.height = th;
+
+		ctx.clearRect(0, 0, tw, th);
 
 		// Calculate scaled dimensions to fill canvas
-		const scale = Math.max(targetWidth / img.width, targetHeight / img.height) * zoom();
+		const scale = Math.max(tw / img.width, th / img.height) * zoom();
 		const drawW = img.width * scale;
 		const drawH = img.height * scale;
 
 		// Center + pan
-		const x = (targetWidth - drawW) / 2 + panX();
-		const y = (targetHeight - drawH) / 2 + panY();
+		const x = (tw - drawW) / 2 + panX();
+		const y = (th - drawH) / 2 + panY();
 
 		ctx.drawImage(img, x, y, drawW, drawH);
 	});
@@ -126,48 +148,116 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 		setErrorMessage(null);
 
 		try {
-			canvas.toBlob(async (blob) => {
-				if (!blob) {
-					setErrorMessage('Failed to generate image from canvas');
-					setIsUploading(false);
-					return;
-				}
+			canvas.toBlob(
+				async (blob) => {
+					if (!blob) {
+						setErrorMessage('Failed to generate image from canvas');
+						setIsUploading(false);
+						return;
+					}
 
-				setUploadProgress(50);
-				try {
-					const result = await ownerApi.uploadAdImage(blob, slot());
-					setUploadProgress(100);
-					setUploadedUrl(result.url);
-					props.onUploaded(result.url, result.width, result.height, result.size_bytes);
-					setImageSrc(null);
-					setImageEl(null);
-				} catch (err: any) {
-					setErrorMessage(err.response?.data?.error || err.message || 'Upload failed');
-				} finally {
-					setIsUploading(false);
-				}
-			}, 'image/png');
+					setUploadProgress(50);
+					try {
+						const result = await ownerApi.uploadAdImage(blob, slot());
+						setUploadProgress(100);
+						setUploadedUrl(result.url);
+						setLastUploadedSize(result.size_bytes);
+						props.onUploaded(result.url, result.width, result.height, result.size_bytes);
+						setImageSrc(null);
+						setImageEl(null);
+					} catch (err: any) {
+						setErrorMessage(err.response?.data?.error || err.message || 'Upload failed');
+					} finally {
+						setIsUploading(false);
+					}
+				},
+				outputFormat(),
+				outputQuality(),
+			);
 		} catch (err: any) {
 			setErrorMessage(err.message || 'Error processing crop');
 			setIsUploading(false);
 		}
 	};
 
+	const handleConfirmRemove = () => {
+		setUploadedUrl(null);
+		setLastUploadedSize(null);
+		setShowRemoveConfirm(false);
+		props.onRemove?.();
+	};
+
 	return (
 		<div class="space-y-4">
-			{/* Current Active Banner Preview */}
+			{/* Current Active Image Preview */}
 			<Show when={uploadedUrl() && !imageSrc()}>
-				<div class="rounded-xl border border-white/10 bg-black/40 p-4">
-					<div class="mb-2 flex items-center justify-between text-xs text-white/60">
-						<span>{t('imageCrop.activeBanner')}</span>
-						<span class="text-emerald-400 font-mono">{t('imageCrop.ready')}</span>
+				<div class="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
+					<div class="flex items-center justify-between text-xs text-white/60">
+						<span class="font-medium text-white/80">{t('imageCrop.activeBanner')}</span>
+						<div class="flex items-center gap-2">
+							<Show when={lastUploadedSize()}>
+								<span class="text-white/40 text-[11px]">
+									{(lastUploadedSize()! / 1024).toFixed(0)} KB
+								</span>
+							</Show>
+							<span class="text-emerald-400 font-mono">{t('imageCrop.ready')}</span>
+						</div>
 					</div>
-					<div class="relative overflow-hidden rounded-lg border border-white/10 aspect-[25/9] bg-white/5">
+
+					<div
+						class="relative overflow-hidden rounded-xl border border-white/10 bg-white/5 mx-auto max-h-[420px]"
+						style={{ "aspect-ratio": `${aspectRatio()}` }}
+					>
 						<img
 							src={buildMediaUrl(uploadedUrl()!)}
 							alt={t('imageCrop.bannerPreviewAlt')}
 							class="h-full w-full object-cover"
 						/>
+					</div>
+
+					{/* Action Buttons for Active Image */}
+					<div class="flex items-center justify-end gap-2 pt-1">
+						<Show
+							when={!showRemoveConfirm()}
+							fallback={
+								<div class="flex items-center gap-2 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-1.5 text-xs text-rose-300">
+									<span>Remove this image?</span>
+									<button
+										type="button"
+										onClick={handleConfirmRemove}
+										class="px-2.5 py-1 bg-rose-500 hover:bg-rose-400 text-white rounded-lg font-semibold text-[11px] transition"
+									>
+										Confirm
+									</button>
+									<button
+										type="button"
+										onClick={() => setShowRemoveConfirm(false)}
+										class="px-2 py-1 text-white/60 hover:text-white text-[11px] transition"
+									>
+										Cancel
+									</button>
+								</div>
+							}
+						>
+							<Show when={props.onRemove}>
+								<button
+									type="button"
+									onClick={() => setShowRemoveConfirm(true)}
+									class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 text-white/60 text-xs font-medium transition"
+								>
+									<span class="material-symbols-outlined text-sm">delete</span>
+									<span>Remove</span>
+								</button>
+							</Show>
+							<button
+								type="button"
+								onClick={() => fileInputRef?.click()}
+								class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs font-medium transition"
+							>
+								<span class="material-symbols-outlined text-sm">swap_horiz</span>
+								<span>Replace</span>
+							</button>
+						</Show>
 					</div>
 				</div>
 			</Show>
@@ -180,6 +270,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					class="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/20 bg-white/[0.02] p-6 text-center hover:border-amber-500/50 hover:bg-white/[0.04] transition-all cursor-pointer"
 				>
 					<input
+						ref={fileInputRef}
 						type="file"
 						aria-label={t('imageCrop.uploadAriaLabel')}
 						accept="image/*"
@@ -190,7 +281,9 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 						<span class="material-symbols-outlined text-2xl">cloud_upload</span>
 					</div>
 					<div class="text-sm font-medium text-white">{t('imageCrop.dragDrop')}</div>
-					<div class="text-xs text-white/50 mt-1">{t('imageCrop.formats')}</div>
+					<div class="text-xs text-white/50 mt-1">
+						{t('imageCrop.formats')} • Max {maxFileSizeMB()}MB • Output {targetWidth()}×{targetHeight()}
+					</div>
 				</div>
 			</Show>
 
@@ -216,7 +309,8 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 
 					{/* Crop Canvas Display */}
 					<div
-						class="relative overflow-hidden rounded-xl border border-white/20 aspect-[25/9] bg-black cursor-move select-none"
+						class="relative overflow-hidden rounded-xl border border-white/20 bg-black cursor-move select-none mx-auto max-h-[480px]"
+						style={{ "aspect-ratio": `${aspectRatio()}` }}
 						role="application"
 						aria-label={t('imageCrop.cropAreaAriaLabel')}
 						onMouseDown={handleMouseDown}
@@ -237,6 +331,18 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 							<div class="border-r border-amber-500/10" />
 							<div />
 						</div>
+
+						{/* Safe Zone Visual Overlays for Portrait 9:16 */}
+						<Show when={aspectRatio() < 0.75}>
+							<div class="absolute inset-0 pointer-events-none flex flex-col justify-between">
+								<div class="h-[7.3%] border-b border-dashed border-sky-400/50 bg-sky-500/10 flex items-center justify-center text-[10px] text-sky-300 font-mono tracking-wider">
+									Telegram Header (Top Safe Zone)
+								</div>
+								<div class="h-[13.5%] border-t border-dashed border-amber-400/50 bg-amber-500/10 flex items-center justify-center text-[10px] text-amber-300 font-mono tracking-wider">
+									BottomNav Area (Bottom Safe Zone)
+								</div>
+							</div>
+						</Show>
 					</div>
 
 					{/* Zoom & Controls */}

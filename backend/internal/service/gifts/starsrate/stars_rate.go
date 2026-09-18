@@ -20,7 +20,7 @@ func NewStarsRateService() *StarsRateService {
 // ConvertStarsToGRAM converts Telegram Stars to TON based on the live TON/USD rate
 func ConvertStarsToGRAM(stars int, tonUsdRate float64) float64 {
 	if tonUsdRate <= 0 {
-		tonUsdRate = 1.42
+		return 0.0
 	}
 	// Total USD = stars / StarsPerUSD
 	usdVal := float64(stars) / StarsPerUSD
@@ -32,7 +32,7 @@ func ConvertStarsToGRAM(stars int, tonUsdRate float64) float64 {
 // ConvertGRAMToStars converts TON to Telegram Stars based on the live TON/USD rate
 func ConvertGRAMToStars(gram float64, tonUsdRate float64) int {
 	if tonUsdRate <= 0 {
-		tonUsdRate = 1.42
+		return 0
 	}
 	// Total USD = gram * tonUsdRate
 	usdVal := gram * tonUsdRate

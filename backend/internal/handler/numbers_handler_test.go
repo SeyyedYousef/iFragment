@@ -80,7 +80,8 @@ func TestNumbersHandler_VerifyEndpoint(t *testing.T) {
 	if resp["format_valid"] != true {
 		t.Errorf("expected format_valid=true, got %v", resp["format_valid"])
 	}
-	if resp["collection_verified"] != true {
-		t.Errorf("expected collection_verified=true for Genesis number, got %v", resp["collection_verified"])
+	// RB-P0-003, AC-P0-001: Without DB evidence, collection_verified must be false
+	if resp["collection_verified"] != false {
+		t.Errorf("expected collection_verified=false without DB evidence, got %v", resp["collection_verified"])
 	}
 }

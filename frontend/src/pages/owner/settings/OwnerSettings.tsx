@@ -2,6 +2,7 @@ import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-que
 import { type Component, createEffect, createSignal, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { SystemSettings } from '@/entities/owner/model/types.js';
+import { ImageCropUploader } from '@/features/owner/ads/ImageCropUploader.js';
 import { t } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
@@ -308,6 +309,34 @@ export const OwnerSettings: Component = () => {
 							</div>
 						</div>
 					</div>
+
+					{/* Investors Page Promotional Image */}
+					<section class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+						<header>
+							<div class="flex items-center gap-2 border-b border-white/10 pb-3">
+								<span class="material-symbols-outlined text-amber-400">image</span>
+								<h3 class="text-sm font-bold text-white">Investors Page</h3>
+							</div>
+							<p class="text-xs text-white/50 mt-2 leading-relaxed">
+								Upload the full-screen promotional image displayed on the Investors page.
+								Recommended size: 1080×1920 (9:16 portrait). Safe zones: Top 140px, Bottom 260px, Sides 60px.
+								Changes take effect publicly after saving configuration below.
+							</p>
+						</header>
+
+						<ImageCropUploader
+							slot="investors_page"
+							currentImageUrl={currentSettings()?.investors_page_image_url}
+							targetWidth={1080}
+							targetHeight={1920}
+							aspectRatio={9 / 16}
+							maxFileSizeMB={5}
+							outputFormat="image/webp"
+							outputQuality={0.86}
+							onUploaded={(url) => updateField('investors_page_image_url', url)}
+							onRemove={() => updateField('investors_page_image_url', '')}
+						/>
+					</section>
 
 					{/* Save Button */}
 					<div class="flex justify-end pt-2">

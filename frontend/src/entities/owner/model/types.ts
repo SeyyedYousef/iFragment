@@ -80,6 +80,7 @@ export interface SystemSettings {
 	turbo_duration_seconds?: number;
 	inflation_cap?: number;
 	dashboard_ads?: DashboardAd[];
+	investors_page_image_url?: string;
 	version: number;
 }
 

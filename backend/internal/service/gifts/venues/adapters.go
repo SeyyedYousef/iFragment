@@ -198,11 +198,14 @@ func (a *TelegramStarsAdapter) FetchVolume(ctx context.Context, giftSlug string)
 
 // Helper: ConvertStarsToGRAM converts Telegram Stars integer to exact decimal TON
 func (a *TelegramStarsAdapter) ConvertStarsToDecimalGRAM(stars int64) decimal.Decimal {
-	tonUsd := 1.42
+	var tonUsd float64
 	if a.cryptoPrice != nil {
 		if rate, ok := a.cryptoPrice.GetFloatPrice("the-open-network"); ok && rate > 0 {
 			tonUsd = rate
 		}
+	}
+	if tonUsd <= 0 {
+		return decimal.Zero
 	}
 	gramVal := starsrate.ConvertStarsToGRAM(int(stars), tonUsd)
 	return decimal.NewFromFloat(gramVal)

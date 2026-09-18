@@ -7,7 +7,9 @@ import (
 	"io"
 	"log/slog"
 	"math"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -189,6 +191,115 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 	return "", "", nil
 }
 
+type safeReadCloser struct {
+	io.Reader
+	io.Closer
+}
+
+var privateIPBlocks []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"127.0.0.0/8",     // IPv4 loopback
+		"10.0.0.0/8",      // RFC1918
+		"172.16.0.0/12",   // RFC1918
+		"192.168.0.0/16",  // RFC1918
+		"169.254.0.0/16",  // RFC3927 link-local
+		"0.0.0.0/8",       // RFC1122 current network
+		"100.64.0.0/10",   // RFC6598 carrier-grade NAT
+		"192.0.0.0/24",    // RFC6890 IETF protocol assignments
+		"192.0.2.0/24",    // RFC5737 TEST-NET-1
+		"198.51.100.0/24", // RFC5737 TEST-NET-2
+		"203.0.113.0/24",  // RFC5737 TEST-NET-3
+		"224.0.0.0/4",     // RFC5771 multicast
+		"240.0.0.0/4",     // RFC1112 reserved
+		"::1/128",         // IPv6 loopback
+		"fc00::/7",        // IPv6 unique local addr (ULA)
+		"fe80::/10",       // IPv6 link-local unicast
+		"::/128",          // IPv6 unspecified
+		"ff00::/8",        // IPv6 multicast
+	} {
+		_, block, err := net.ParseCIDR(cidr)
+		if err == nil {
+			privateIPBlocks = append(privateIPBlocks, block)
+		}
+	}
+}
+
+func isSafeIP(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() || ip.IsUnspecified() {
+		return false
+	}
+	for _, block := range privateIPBlocks {
+		if block.Contains(ip) {
+			return false
+		}
+	}
+	return true
+}
+
+func createSafeAvatarHTTPClient() *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   3 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid address: %w", err)
+			}
+
+			ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve host %s: %w", host, err)
+			}
+			if len(ips) == 0 {
+				return nil, fmt.Errorf("no IP found for host %s", host)
+			}
+
+			var chosenIP net.IP
+			for _, ip := range ips {
+				if isSafeIP(ip) {
+					chosenIP = ip
+					break
+				}
+			}
+
+			if chosenIP == nil {
+				return nil, fmt.Errorf("connection to host %s rejected: resolves to restricted or private IP addresses", host)
+			}
+
+			// Connect directly to the validated IP to defeat DNS rebinding attacks
+			return dialer.DialContext(ctx, network, net.JoinHostPort(chosenIP.String(), port))
+		},
+		MaxIdleConns:          50,
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   3 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	return &http.Client{
+		Transport: transport,
+		Timeout:   5 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 3 {
+				return fmt.Errorf("stopped after 3 redirects")
+			}
+			if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
+				return fmt.Errorf("unsupported protocol in redirect: %s", req.URL.Scheme)
+			}
+			return nil
+		},
+	}
+}
+
+const maxAvatarBytes = 5 * 1024 * 1024 // 5 MB limit (SEC-P1-002)
+
 func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.ReadCloser, string, int64, error) {
 	slog.Debug("[GetAvatarStream] Starting avatar stream download", "user_id", userID)
 	path, botToken, err := s.GetUserProfilePhotoPath(ctx, userID)
@@ -201,21 +312,25 @@ func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.
 		return nil, "", 0, fmt.Errorf("no avatar found")
 	}
 
-	client := &http.Client{Timeout: 5 * time.Second}
-	var req *http.Request
-
+	var targetURL string
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		targetURL = path
 		slog.Debug("[GetAvatarStream] Downloading direct URL", "url", path, "user_id", userID)
-		req, err = http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
 	} else if botToken != "" {
 		tg := telegram.NewBotAPIClient(botToken)
-		fileURL := fmt.Sprintf("%s/file/bot%s/%s", tg.BaseURL(), tg.Token(), path)
+		targetURL = fmt.Sprintf("%s/file/bot%s/%s", tg.BaseURL(), tg.Token(), path)
 		slog.Debug("[GetAvatarStream] Downloading from Telegram", "base_url", tg.BaseURL(), "path", path)
-		req, err = http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
 	} else {
 		return nil, "", 0, fmt.Errorf("invalid avatar source")
 	}
 
+	parsedURL, err := url.Parse(targetURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		return nil, "", 0, fmt.Errorf("invalid avatar URL scheme")
+	}
+
+	client := createSafeAvatarHTTPClient()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
 	if err != nil {
 		return nil, "", 0, err
 	}
@@ -233,12 +348,21 @@ func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.
 	}
 
 	contentLength, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+	if contentLength > maxAvatarBytes {
+		resp.Body.Close()
+		return nil, "", 0, fmt.Errorf("avatar exceeds maximum size limit of 5MB")
+	}
+
 	contentType := resp.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = "image/jpeg"
 	}
 	slog.Debug("[GetAvatarStream] Stream initialized", "user_id", userID, "size_bytes", contentLength, "content_type", contentType)
-	return resp.Body, contentType, contentLength, nil
+	safeBody := safeReadCloser{
+		Reader: io.LimitReader(resp.Body, maxAvatarBytes),
+		Closer: resp.Body,
+	}
+	return safeBody, contentType, contentLength, nil
 }
 
 func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.ProfileStats, error) {

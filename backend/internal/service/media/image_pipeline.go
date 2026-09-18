@@ -45,7 +45,8 @@ type SlotConfig struct {
 
 var SlotDimensions = map[string]SlotConfig{
 	"dashboard_banner": {TargetWidth: SlotDashboardW, TargetHeight: SlotDashboardH},
-	"interstitial":    {TargetWidth: 1080, TargetHeight: 1920},
+	"interstitial":     {TargetWidth: 1080, TargetHeight: 1920},
+	"investors_page":   {TargetWidth: 1080, TargetHeight: 1920},
 }
 
 // ProcessAndStoreAdImage validates magic bytes, decodes, resizes/crops to slot dimensions,
@@ -89,6 +90,10 @@ func ProcessAndStoreAdImage(r io.Reader, slot string) (*ProcessedImage, error) {
 		}
 	}
 
+	if slot == "investors_page" && (mimeType == "image/gif" || isGIF(data)) {
+		return nil, errors.New("GIF format is not supported for investors page")
+	}
+
 	// 3. Dimension Bomb Check using Config
 	imgCfg, format, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
@@ -115,17 +120,31 @@ func ProcessAndStoreAdImage(r io.Reader, slot string) (*ProcessedImage, error) {
 		return nil, fmt.Errorf("failed to create upload directory: %w", err)
 	}
 
-	// 7. Encode to PNG (strips all EXIF/metadata, safe from XSS)
+	// 7. Encode image (strips all EXIF/metadata, safe from XSS)
 	fileUUID := uuid.NewString()
-	filename := fmt.Sprintf("%s.png", fileUUID)
-	filePath := filepath.Join(UploadDirBase, filename)
+	var filename string
+	var encodedBytes []byte
+	var outMime string
 
-	outBuf := new(bytes.Buffer)
-	if err := png.Encode(outBuf, processedImg); err != nil {
-		return nil, fmt.Errorf("failed to encode processed image: %w", err)
+	if slot == "investors_page" {
+		filename = fmt.Sprintf("%s.jpg", fileUUID)
+		outBuf := new(bytes.Buffer)
+		if err := jpeg.Encode(outBuf, processedImg, &jpeg.Options{Quality: 88}); err != nil {
+			return nil, fmt.Errorf("failed to encode processed image: %w", err)
+		}
+		encodedBytes = outBuf.Bytes()
+		outMime = "image/jpeg"
+	} else {
+		filename = fmt.Sprintf("%s.png", fileUUID)
+		outBuf := new(bytes.Buffer)
+		if err := png.Encode(outBuf, processedImg); err != nil {
+			return nil, fmt.Errorf("failed to encode processed image: %w", err)
+		}
+		encodedBytes = outBuf.Bytes()
+		outMime = "image/png"
 	}
-	encodedBytes := outBuf.Bytes()
 
+	filePath := filepath.Join(UploadDirBase, filename)
 	if err := os.WriteFile(filePath, encodedBytes, 0644); err != nil {
 		return nil, fmt.Errorf("failed to save image to disk: %w", err)
 	}
@@ -151,7 +170,7 @@ func ProcessAndStoreAdImage(r io.Reader, slot string) (*ProcessedImage, error) {
 		Width:        cfg.TargetWidth,
 		Height:       cfg.TargetHeight,
 		SizeBytes:    int64(len(encodedBytes)),
-		MimeType:     "image/png",
+		MimeType:     outMime,
 		ETag:         fmt.Sprintf("\"%s\"", etag),
 	}, nil
 }

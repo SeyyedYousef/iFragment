@@ -118,6 +118,14 @@ export const apiClient: AxiosInstance = axios.create({
 	},
 });
 
+export const publicApi: AxiosInstance = axios.create({
+	baseURL: API_CONFIG.BASE_URL,
+	timeout: API_CONFIG.TIMEOUT,
+	headers: {
+		'Content-Type': 'application/json',
+	},
+});
+
 const isOwnerPath = (url?: string) => (url ? /\/owner(\/|\?|#|$)/.test(url) : false);
 let refreshPromise: Promise<string> | null = null;
 

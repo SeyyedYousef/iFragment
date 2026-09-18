@@ -175,6 +175,14 @@ func (s *CryptoPriceService) GetFloatPrice(symbol string) (float64, bool) {
 	return price, true
 }
 
+// SetTestPrice manually assigns a rate for tests or mocks
+func (s *CryptoPriceService) SetTestPrice(symbol string, price float64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.prices[symbol] = price
+	s.lastFetch = time.Now()
+}
+
 func formatPrice(price float64) string {
 	if price >= 1000 {
 		p := int64(price)

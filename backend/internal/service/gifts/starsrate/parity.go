@@ -23,7 +23,11 @@ func CalculateStarsParity(baseStars int, gramUsdRate float64, currentMarketGRAM 
 		baseStars = 1000
 	}
 	if gramUsdRate <= 0 {
-		gramUsdRate = 1.42
+		return StarsParityMetrics{
+			BaseStarsPrice: baseStars,
+			DescriptionEn: "Rate unavailable; parity metrics cannot be computed without verified market rate.",
+			DescriptionFa: "نرخ بازار در دسترس نیست؛ متریک برابری بدون نرخ معتبر قابل محاسبه نیست.",
+		}
 	}
 
 	// 1. Fixed Telegram upgrade fee in Stars (standard 1,000 to 2,000 Stars)

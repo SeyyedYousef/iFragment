@@ -28,6 +28,7 @@ type Config struct {
 	GiftsHandler        *handler.GiftsHandler
 	IntelCreditHandler  *handler.IntelCreditHandler
 	RaffleHandler       *handler.RaffleHandler
+	InvestorsHandler    *handler.InvestorsPublicHandler
 }
 
 // RegisterAPIRoutes mounts API v1 sub-routes onto the router
@@ -206,6 +207,14 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/ads/active", cfg.OwnerHandler.GetActiveAds)
 			r.Post("/ads/{id}/impression", cfg.OwnerHandler.TrackAdImpression)
 			r.Post("/ads/{id}/click", cfg.OwnerHandler.TrackAdClick)
+		}
+
+		// Public Investors Page Endpoint
+		if cfg.InvestorsHandler != nil {
+			r.Get("/public/investors-page", cfg.InvestorsHandler.GetInvestorsPage)
+		} else if cfg.SettingsRepo != nil {
+			investorsH := handler.NewInvestorsPublicHandler(cfg.SettingsRepo)
+			r.Get("/public/investors-page", investorsH.GetInvestorsPage)
 		}
 
 		// Public uploads media serving fallback

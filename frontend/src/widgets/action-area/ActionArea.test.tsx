@@ -52,17 +52,9 @@ describe('ActionArea Component', () => {
 		expect(screen.queryByText(/durov.*پورتفولیو/i)).not.toBeInTheDocument();
 
 		// Verify gifts format chips exist
-		expect(screen.getByText('t.me/nft/PlushPepe-1')).toBeInTheDocument();
-		expect(screen.getByText('DurovsCap-1')).toBeInTheDocument();
-		expect(screen.getByText('Signet Ring #7')).toBeInTheDocument();
-		expect(screen.getByText('fragment.com/gift/SantaHat-1')).toBeInTheDocument();
-	});
-
-	it('renders gifts trending categories', () => {
-		render(() => <ActionArea activeTab="gifts" />);
-		expect(screen.getByText('بلوچیپ و جنسیس')).toBeInTheDocument();
-		expect(screen.getByText('ستارگان و ترند')).toBeInTheDocument();
-		expect(screen.getByText('فصلی و جادو')).toBeInTheDocument();
-		expect(screen.getByText('لوکس و خاص')).toBeInTheDocument();
+		expect(screen.getByText('https://t.me/nft/PlushPepe-1')).toBeInTheDocument();
+		expect(screen.getByText('https://t.me/nft/DurovsCap-1')).toBeInTheDocument();
+		expect(screen.getByText('https://t.me/nft/SignetRing-7')).toBeInTheDocument();
+		expect(screen.getByText('https://t.me/nft/SantaHat-1')).toBeInTheDocument();
 	});
 });

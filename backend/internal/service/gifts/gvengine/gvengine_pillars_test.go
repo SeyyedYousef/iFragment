@@ -3,10 +3,15 @@ package gvengine
 import (
 	"context"
 	"testing"
+
+	"ifragment-backend/internal/service/cryptoprice"
 )
 
 func TestGVEngine_FourValuationPillars(t *testing.T) {
-	engine := NewValuationEngine(nil, nil, nil)
+	priceSvc := cryptoprice.NewCryptoPriceService(nil)
+	priceSvc.SetTestPrice("the-open-network", 5.0)
+
+	engine := NewValuationEngine(nil, nil, priceSvc)
 	ctx := context.Background()
 
 	// Valuate Plush Pepe #42

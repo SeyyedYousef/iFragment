@@ -104,11 +104,11 @@ func TestNumbersService_VerifyNumber(t *testing.T) {
 	testCases := []struct {
 		input       string
 		expectedNum string
-		isMinted    bool
+		formatValid bool
 		isGenesis   bool
 	}{
-		{"+888 0000 0000", "+88800000000", false, false},
-		{"+888 8888 8888", "+88888888888", false, false},
+		{"+888 0000 0000", "+88800000000", true, false},
+		{"+888 8888 8888", "+88888888888", true, false},
 		{"+888 8004", "+8888004", true, true},
 		{"+888 8000", "+8888000", true, true},
 		{"+888 123", "", false, false},
@@ -119,10 +119,17 @@ func TestNumbersService_VerifyNumber(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error verifying %s: %v", tc.input, err)
 		}
-		if res.IsMinted != tc.isMinted {
-			t.Errorf("for input %s, expected isMinted=%v, got %v (error: %s)", tc.input, tc.isMinted, res.IsMinted, res.Error)
+		if res.FormatValid != tc.formatValid {
+			t.Errorf("for input %s, expected formatValid=%v, got %v", tc.input, tc.formatValid, res.FormatValid)
 		}
-		if tc.isMinted && res.Number != tc.expectedNum {
+		// RB-P0-003, AC-P0-001: Without DB evidence, isMinted and CollectionVerified must be false
+		if res.IsMinted {
+			t.Errorf("for input %s without DB evidence, expected isMinted=false, got true", tc.input)
+		}
+		if res.CollectionVerified {
+			t.Errorf("for input %s without DB evidence, expected CollectionVerified=false, got true", tc.input)
+		}
+		if tc.formatValid && res.Number != tc.expectedNum {
 			t.Errorf("for input %s, expected number %s, got %s", tc.input, tc.expectedNum, res.Number)
 		}
 		if tc.isGenesis && res.Tier != "4-DIGIT ULTRA (GENESIS)" {
@@ -135,16 +142,16 @@ func TestNumbersService_VerificationStatusesSeparation(t *testing.T) {
 	svc := NewNumbersService(nil, nil, nil, nil)
 	ctx := context.Background()
 
-	// 1. Genesis number must be verified telemint genesis with clean status
+	// 1. Without on-chain evidence, Genesis number has format valid and Tier, but unverified_inventory (RB-P0-003)
 	resGen, err := svc.VerifyNumber(ctx, "+888 8000")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !resGen.FormatValid || !resGen.CollectionVerified || resGen.VerificationState != "verified_telemint_genesis" {
-		t.Errorf("expected verified_telemint_genesis, got %+v", resGen)
+	if !resGen.FormatValid || resGen.CollectionVerified || resGen.VerificationState != "unverified_inventory" {
+		t.Errorf("expected unverified_inventory without DB evidence, got %+v", resGen)
 	}
-	if resGen.RestrictionStatus != "clean" {
-		t.Errorf("expected clean restriction status for Genesis, got %s", resGen.RestrictionStatus)
+	if resGen.RestrictionStatus != "unknown" {
+		t.Errorf("expected unknown restriction status without DB evidence, got %s", resGen.RestrictionStatus)
 	}
 
 	// 2. Invalid format number

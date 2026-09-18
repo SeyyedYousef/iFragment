@@ -205,6 +205,12 @@ type TelemintProvenanceDto struct {
 func getCertificateSigningKey() []byte {
 	key := os.Getenv("CERTIFICATE_SIGNING_KEY")
 	if key == "" {
+		key = os.Getenv("HMAC_SECRET")
+	}
+	if key == "" {
+		if os.Getenv("APP_ENV") == "production" || os.Getenv("GO_ENV") == "production" {
+			slog.Error("CRITICAL: CERTIFICATE_SIGNING_KEY/HMAC_SECRET is missing in production environment")
+		}
 		key = "ifragment_cert_signing_key_default_local_dev"
 	}
 	return []byte(key)
@@ -226,6 +232,18 @@ func SignValuationCertificate(username, version, expectedTON string, confidence 
 
 // VerifyValuationCertificate checks the authenticity and cryptographic HMAC signature of an issued valuation report.
 func VerifyValuationCertificate(username, version, expectedTON string, confidence int16, timestamp int64, signature string) bool {
+	if signature == "" || timestamp <= 0 {
+		return false
+	}
+	// Certificates expire after 90 days (RB-P0-007, SEC-P0-004)
+	now := time.Now().Unix()
+	if now-timestamp > 90*86400 {
+		return false // Expired certificate
+	}
+	if timestamp > now+300 {
+		return false // Future timestamp rejected
+	}
+
 	payload := fmt.Sprintf("%s:%s:%s:%d:%d", username, version, expectedTON, confidence, timestamp)
 	key := getCertificateSigningKey()
 	mac := hmac.New(sha256.New, key)

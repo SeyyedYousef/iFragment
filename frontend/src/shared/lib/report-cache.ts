@@ -13,9 +13,20 @@
 
 const getSessionUserId = (): string => {
 	try {
-		return localStorage.getItem('tg_user_id') || 'anon';
+		const userId = localStorage.getItem('tg_user_id');
+		if (userId && userId.trim() !== '') {
+			return userId.trim();
+		}
+		// RB-P0-009, SEC-P0-003: Never use a shared 'anon' namespace across different users.
+		// Use an isolated per-session ephemeral ID so anonymous sessions never share cache.
+		let sessionId = sessionStorage.getItem('ephemeral_session_id');
+		if (!sessionId) {
+			sessionId = 'sess_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now().toString(36);
+			sessionStorage.setItem('ephemeral_session_id', sessionId);
+		}
+		return sessionId;
 	} catch {
-		return 'anon';
+		return 'ephemeral_' + Date.now().toString(36);
 	}
 };
 

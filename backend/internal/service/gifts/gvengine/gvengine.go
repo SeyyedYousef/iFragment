@@ -211,7 +211,7 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 		}
 	}
 
-	gramUsdRate := 1.42
+	gramUsdRate := 0.0
 	if e.cryptoPriceSvc != nil {
 		if rate, ok := e.cryptoPriceSvc.GetFloatPrice("the-open-network"); ok && rate > 0 {
 			gramUsdRate = rate
@@ -354,7 +354,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	// 1. Fetch live GRAM/USD rate (CryptoPrice TON equivalent)
-	gramUsdRate := 1.42
+	gramUsdRate := 0.0
 	if e.cryptoPriceSvc != nil {
 		if rate, ok := e.cryptoPriceSvc.GetFloatPrice("the-open-network"); ok && rate > 0 {
 			gramUsdRate = rate
