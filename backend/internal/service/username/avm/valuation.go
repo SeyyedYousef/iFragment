@@ -210,6 +210,7 @@ func getCertificateSigningKey() []byte {
 	if key == "" {
 		if os.Getenv("APP_ENV") == "production" || os.Getenv("GO_ENV") == "production" {
 			slog.Error("CRITICAL: CERTIFICATE_SIGNING_KEY/HMAC_SECRET is missing in production environment")
+			return nil
 		}
 		key = "ifragment_cert_signing_key_default_local_dev"
 	}
@@ -219,14 +220,18 @@ func getCertificateSigningKey() []byte {
 // SignValuationCertificate signs an issued valuation report using HMAC-SHA256.
 func SignValuationCertificate(username, version, expectedTON string, confidence int16, timestamp int64) (string, string) {
 	payload := fmt.Sprintf("%s:%s:%s:%d:%d", username, version, expectedTON, confidence, timestamp)
+	rawHash := sha256.Sum256([]byte(payload))
+	certID := "IFRG-USR-" + strings.ToUpper(hex.EncodeToString(rawHash[:])[:12])
+
 	key := getCertificateSigningKey()
+	if len(key) == 0 {
+		return certID, ""
+	}
+
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(payload))
 	sigBytes := mac.Sum(nil)
 	sig := hex.EncodeToString(sigBytes)
-
-	rawHash := sha256.Sum256([]byte(payload))
-	certID := "IFRG-USR-" + strings.ToUpper(hex.EncodeToString(rawHash[:])[:12])
 	return certID, sig
 }
 
@@ -244,8 +249,12 @@ func VerifyValuationCertificate(username, version, expectedTON string, confidenc
 		return false // Future timestamp rejected
 	}
 
-	payload := fmt.Sprintf("%s:%s:%s:%d:%d", username, version, expectedTON, confidence, timestamp)
 	key := getCertificateSigningKey()
+	if len(key) == 0 {
+		return false
+	}
+
+	payload := fmt.Sprintf("%s:%s:%s:%d:%d", username, version, expectedTON, confidence, timestamp)
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(payload))
 	expectedMac := mac.Sum(nil)
@@ -1909,13 +1918,17 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		CertificateSignature: certificateSig,
 		TelemintProvenance:   telemintProv,
 		DataBadges: func() map[string]string {
+			certStatus := "Integrity Checksum (HMAC-SHA256)"
+			if certificateSig == "" {
+				certStatus = "Unverified (Signing Key Not Configured)"
+			}
 			b := map[string]string{
 				"listing":            "Live - Fragment",
 				"sale_data":          "On-chain - TON",
 				"valuation":          "Model Estimate",
 				"freshness":          "Realtime",
 				"certificate":        certificateID,
-				"certificate_status": "Cryptographically Verified (HMAC-SHA256)",
+				"certificate_status": certStatus,
 			}
 			if telemintProv != nil {
 				if telemintProv.IsAuthentic {

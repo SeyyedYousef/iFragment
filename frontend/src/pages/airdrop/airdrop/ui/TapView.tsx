@@ -2,6 +2,7 @@ import { type Component, createSignal, For, onCleanup, onMount, Show } from 'sol
 import {
 	activateTurbo,
 	balance,
+	setBalance,
 	checkedInToday,
 	claimDailyReward,
 	currentLeague,
@@ -840,6 +841,8 @@ export const TapView: Component<{
 											startX: sx,
 											startY: sy,
 											targetSelector: '#airdrop-balance-counter',
+											initialBalance: balance(),
+											onBalanceUpdate: setBalance,
 										});
 									} catch (_) {
 										haptic.notify('error');

@@ -389,8 +389,8 @@ func TestDigitalValuationCertificate(t *testing.T) {
 	if res.DataBadges["certificate"] != res.CertificateID {
 		t.Errorf("Expected DataBadges['certificate'] to equal CertificateID, got %s", res.DataBadges["certificate"])
 	}
-	if !strings.HasPrefix(res.DataBadges["certificate_status"], "Cryptographically Verified") {
-		t.Errorf("Expected Cryptographically Verified status, got %s", res.DataBadges["certificate_status"])
+	if !strings.HasPrefix(res.DataBadges["certificate_status"], "Integrity Checksum") && !strings.HasPrefix(res.DataBadges["certificate_status"], "Cryptographically Verified") {
+		t.Errorf("Expected Integrity Checksum status, got %s", res.DataBadges["certificate_status"])
 	}
 }
 

@@ -133,6 +133,8 @@ export const TasksView: Component = () => {
 					startX: sx,
 					startY: sy,
 					targetSelector: '#airdrop-tasks-balance',
+					initialBalance: balance(),
+					onBalanceUpdate: setBalance,
 				});
 			} else {
 				throw new Error('empty_response');
@@ -227,6 +229,8 @@ export const TasksView: Component = () => {
 					startX: window.innerWidth / 2,
 					startY: window.innerHeight / 2,
 					targetSelector: '#airdrop-tasks-balance',
+					initialBalance: balance(),
+					onBalanceUpdate: setBalance,
 				});
 				setActiveQuizTask(null);
 			} else {
@@ -272,6 +276,8 @@ export const TasksView: Component = () => {
 					startX: window.innerWidth / 2,
 					startY: window.innerHeight / 2,
 					targetSelector: '#airdrop-tasks-balance',
+					initialBalance: balance(),
+					onBalanceUpdate: setBalance,
 				});
 				setComboInput('');
 			}

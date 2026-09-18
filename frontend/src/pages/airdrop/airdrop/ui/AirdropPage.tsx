@@ -11,6 +11,8 @@ import {
 	Switch,
 } from 'solid-js';
 import {
+	balance,
+	setBalance,
 	setUserClan,
 	syncBoostersStatus,
 	syncDailyRewardStatus,
@@ -332,6 +334,8 @@ export const AirdropPage: Component = () => {
 										startX: sx,
 										startY: sy,
 										targetSelector: '#airdrop-balance-counter',
+										initialBalance: balance(),
+										onBalanceUpdate: setBalance,
 									});
 								}
 							}}
