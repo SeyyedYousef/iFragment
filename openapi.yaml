@@ -90,19 +90,19 @@ paths:
             text/event-stream:
               schema:
                 type: string
-  /usernames/trending:
+  /usernames/verify:
     get:
       tags: [Usernames]
-      summary: Get trending usernames
+      summary: Verify username on-chain authenticity and NFT collection status
+      parameters:
+        - $ref: "#/components/parameters/UsernameQuery"
       responses:
         "200":
-          description: Username list
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
+          description: Verification details
+        "400":
+          description: Invalid username format
+        "404":
+          description: Username not found
   /usernames/rates:
     get:
       tags: [Usernames]
@@ -172,11 +172,35 @@ paths:
           description: Rate limit exceeded
         "500":
           description: Valuation pipeline failed
-  /usernames/report/request:
-
+  /usernames/valuation-access:
+    get:
+      tags: [Usernames]
+      summary: Check if user has unlocked the full valuation report for a username
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UsernameQuery"
+      responses:
+        "200":
+          description: Access status
+  /usernames/valuation-order-status:
+    get:
+      tags: [Usernames]
+      summary: Check status of a valuation report purchase order
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Order status
+  /usernames/valuation-pay-airdrop:
     post:
-      tags: [Premium Reports]
-      summary: Create Telegram Stars invoice for a premium username report
+      tags: [Usernames]
+      summary: Unlock username valuation report using Airdrop coins
       security:
         - BearerAuth: []
       requestBody:
@@ -184,38 +208,87 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReportRequest"
+              type: object
+              required: [username]
+              properties:
+                username: { type: string }
+      responses:
+        "200":
+          description: Unlock result
+        "400":
+          description: Insufficient coin balance
+  /usernames/valuation-pay-stars:
+    post:
+      tags: [Usernames]
+      summary: Create Telegram Stars invoice for username valuation report
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username: { type: string }
       responses:
         "200":
           description: Invoice link
-        "402":
-          description: Payment required
-  /usernames/report/view:
-    get:
-      tags: [Premium Reports]
-      summary: View or generate a paid premium username report
+  /usernames/valuation-verify-free:
+    post:
+      tags: [Usernames]
+      summary: Verify free eligibility or promotional unlock for username valuation
       security:
         - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/UsernameQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username: { type: string }
       responses:
         "200":
-          description: Premium report
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FullReport"
-        "402":
-          description: Payment required
-  /usernames/report/history:
-    get:
-      tags: [Premium Reports]
-      summary: List current user's generated reports
+          description: Unlock result
+  /usernames/valuation-monitor:
+    post:
+      tags: [Usernames]
+      summary: Add username to live valuation monitor and price alert watchlist
       security:
         - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username: { type: string }
       responses:
         "200":
-          description: Report history
+          description: Monitor status
+  /usernames/send-to-chat:
+    post:
+      tags: [Usernames]
+      summary: Send valuation report preview to user's Telegram chat
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username: { type: string }
+      responses:
+        "200":
+          description: Delivery status
   /usernames/share:
     post:
       tags: [Usernames]
@@ -357,24 +430,24 @@ paths:
       responses:
         "200":
           description: Purchase options
-  /marketplace/purchase/stars:
+  /marketplace/buy-stars:
     post:
       tags: [Marketplace]
-      summary: Purchase with Telegram Stars
+      summary: Buy stars on the marketplace
       security:
         - BearerAuth: []
       responses:
         "200":
           description: Purchase result
-  /marketplace/purchase/toncoin:
+  /marketplace/convert:
     post:
       tags: [Marketplace]
-      summary: Purchase with Toncoin
+      summary: Convert airdrop coins to stars or credits
       security:
         - BearerAuth: []
       responses:
         "200":
-          description: Purchase result
+          description: Conversion result
   /healthz/live:
     get:
       tags: [Health]
@@ -400,199 +473,6 @@ paths:
       responses:
         "200":
           description: Data successfully wiped
-  /channels:
-    get:
-      tags: [Channels]
-      summary: List managed channels with cursor pagination
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: bot_id
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 20
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Paginated channels list
-    post:
-      tags: [Channels]
-      summary: Connect a new channel
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [bot_id, username]
-              properties:
-                bot_id:
-                  type: string
-                username:
-                  type: string
-      responses:
-        "200":
-          description: Connected channel details
-  /channels/{channelID}:
-    get:
-      tags: [Channels]
-      summary: Get channel details
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/ChannelID"
-      responses:
-        "200":
-          description: Channel details
-    delete:
-      tags: [Channels]
-      summary: Disconnect a channel
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/ChannelID"
-      responses:
-        "200":
-          description: Channel disconnected
-  /channels/{channelID}/settings:
-    get:
-      tags: [Channels]
-      summary: Get channel settings
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/ChannelID"
-      responses:
-        "200":
-          description: Channel settings details
-    put:
-      tags: [Channels]
-      summary: Update channel settings
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/ChannelID"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [category, data, version]
-              properties:
-                category:
-                  type: string
-                data:
-                  type: object
-                version:
-                  type: integer
-      responses:
-        "200":
-          description: Updated channel settings
-  /channels/{channelID}/audit:
-    get:
-      tags: [Channels]
-      summary: Get channel audit logs
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/ChannelID"
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 20
-        - name: offset
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 0
-      responses:
-        "200":
-          description: Paginated audit logs
-  /channels/{channelID}/analytics:
-    get:
-      tags: [Channels]
-      summary: Get channel daily analytics snapshots
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/ChannelID"
-        - name: days
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 7
-      responses:
-        "200":
-          description: Channel analytics timeline
-  /channels/{channelID}/posts:
-    post:
-      tags: [Channels]
-      summary: Schedule or post a new message to channel
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/ChannelID"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [text]
-              properties:
-                text:
-                  type: string
-                scheduled_at:
-                  type: string
-                  format: date-time
-      responses:
-        "200":
-          description: Created/Scheduled post details
-  /channels/{channelID}/forwarding/rules:
-    get:
-      tags: [Channels]
-      summary: Get channel forwarding rules
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/ChannelID"
-      responses:
-        "200":
-          description: List of forwarding rules
-    post:
-      tags: [Channels]
-      summary: Create a forwarding rule
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/ChannelID"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ForwardingRuleInput"
-      responses:
-        "200":
-          description: Created forwarding rule
   /intel/credits:
     get:
       tags: [Intel Credits]
@@ -1072,12 +952,6 @@ components:
         type: string
     GroupID:
       name: groupID
-      in: path
-      required: true
-      schema:
-        type: string
-    ChannelID:
-      name: channelID
       in: path
       required: true
       schema:

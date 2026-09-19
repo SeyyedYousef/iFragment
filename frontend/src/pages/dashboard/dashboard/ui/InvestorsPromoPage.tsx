@@ -99,13 +99,13 @@ export const InvestorsPromoPage: Component = () => {
 					</Show>
 
 					<img
+						alt="Investors Promotional Banner"
 						ref={(el) => {
 							if (el && el.complete && el.naturalWidth > 0) {
 								setImageReady(true);
 							}
 						}}
 						src={buildMediaUrl(imageUrl()!)}
-						alt="Investors Promotional Banner"
 						loading="eager"
 						decoding="async"
 						onLoad={() => setImageReady(true)}

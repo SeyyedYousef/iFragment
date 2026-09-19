@@ -110,9 +110,9 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 		const t = (tier || '').toLowerCase();
 		if (t === 'mythic') {
 			return {
-				bg: 'bg-gradient-to-br from-purple-600/80 via-pink-600/70 to-purple-800/80 text-white border-purple-400/60 shadow-[0_0_12px_rgba(168,85,247,0.35)]',
-				badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-				dot: 'bg-purple-400',
+				bg: 'bg-gradient-to-br from-cyan-600/80 via-teal-600/70 to-cyan-800/80 text-white border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.35)]',
+				badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+				dot: 'bg-cyan-400',
 			};
 		}
 		if (t === 'legendary') {
@@ -227,7 +227,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 						{isRtl() ? 'کمیاب‌ترین ترکیب' : 'Rarest Combo'}
 					</span>
 					<div
-						class="font-bold text-purple-300 text-[11px] truncate"
+						class="font-bold text-cyan-300 text-[11px] truncate"
 						title={stats().rarest?.model_name}
 					>
 						{stats().rarest?.model_name || '—'}
@@ -361,7 +361,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 								<span class="w-2 h-2 rounded-full bg-amber-500" /> Legendary
 							</span>
 							<span class="flex items-center gap-1">
-								<span class="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_6px_#a855f7]" /> Mythic
+								<span class="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_6px_#06b6d4]" /> Mythic
 							</span>
 						</div>
 					</div>

@@ -599,12 +599,12 @@ export const GiftReportPage: Component = () => {
 						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex flex-col gap-2.5 shadow-xl text-start">
 							<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
 								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-purple-400 text-base">token</span>
+									<span class="material-symbols-outlined text-cyan-400 text-base">token</span>
 									<h4 class="text-xs font-black text-white">
 										{isRtl() ? 'معماری دوجهانه گیفت تلگرام' : 'Dual-World Architecture'}
 									</h4>
 								</div>
-								<span class="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
+								<span class="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
 									{enrichedQuery.data?.custody_type === 'on_chain_nft' ||
 									currentReport()?.on_chain?.is_on_chain
 										? 'ON-CHAIN (TEP-62)'
@@ -617,7 +617,7 @@ export const GiftReportPage: Component = () => {
 									class={`p-3 rounded-2xl border transition-all ${
 										enrichedQuery.data?.custody_type === 'on_chain_nft' ||
 										currentReport()?.on_chain?.is_on_chain
-											? 'bg-purple-500/10 border-purple-500/30 text-white'
+											? 'bg-cyan-500/10 border-cyan-500/30 text-white'
 											: 'bg-black/40 border-white/5 text-white/50'
 									}`}
 								>
@@ -625,7 +625,7 @@ export const GiftReportPage: Component = () => {
 										<span class="font-black">
 											{isRtl() ? 'بلاکچین TON (TEP-62)' : 'On-Chain TEP-62'}
 										</span>
-										<span class="text-[9px] text-purple-400 font-bold">Non-Custodial</span>
+										<span class="text-[9px] text-cyan-400 font-bold">Non-Custodial</span>
 									</div>
 									<p class="text-[9px] text-white/60 leading-tight">
 										{isRtl()

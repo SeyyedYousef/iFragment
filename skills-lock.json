@@ -1,5 +1,69 @@
 {
   "version": 1,
+  "locked_modules": [
+    "project-router",
+    "gift",
+    "username",
+    "collectible-number",
+    "architecture-data",
+    "frontend-ui",
+    "security",
+    "testing-quality",
+    "debugging",
+    "deploy-operations"
+  ],
+  "modules": {
+    "project-router": {
+      "domain": "cross-cutting",
+      "always_on": true,
+      "description": "Deterministic classification, progressive disclosure, safety/provenance, command router without unnecessary questions"
+    },
+    "gift": {
+      "domain": "product-gift",
+      "skillPath": ".agent/skills/telegram-gifts/SKILL.md",
+      "description": "Telegram Gifts, catalog, serial, traits, Stars, TEP-62 on-chain and venue observations, GV valuation"
+    },
+    "username": {
+      "domain": "product-username",
+      "skillPath": ".agent/skills/api-patterns/SKILL.md",
+      "description": "Username identity, canonical routes, schema, ownership, payment, quota, source-backed sales, certificate restrictions, AVM"
+    },
+    "collectible-number": {
+      "domain": "product-number",
+      "skillPath": ".agent/skills/telegram-anonymous-numbers/SKILL.md",
+      "description": "+888 Anonymous Numbers, grammar, registry, NV engine, sale parser, finality, checkpoint, reorg without synthetic charts"
+    },
+    "architecture-data": {
+      "domain": "core-backend",
+      "skillPath": ".agent/skills/database-design/SKILL.md",
+      "description": "Go/chi, Solid contracts, PostgreSQL migrations, context ownership, cache, OpenAPI/ADRs"
+    },
+    "frontend-ui": {
+      "domain": "core-frontend",
+      "skillPath": ".agent/skills/frontend-design/SKILL.md",
+      "description": "SolidJS, Vite, TMA, FSD layer rules, RTL/i18n, a11y, performance, safe URL/HTML preview"
+    },
+    "security": {
+      "domain": "core-security",
+      "skillPath": ".agent/skills/security-and-hardening/SKILL.md",
+      "description": "InitData validation, authz, webhook signatures, SSRF prevention, secrets, keys, privacy, provenance claims"
+    },
+    "testing-quality": {
+      "domain": "quality-assurance",
+      "skillPath": ".agent/skills/testing-patterns/SKILL.md",
+      "description": "Go/Vitest/Playwright, contract verification, migration replay, race detection, fuzzing, evidence output"
+    },
+    "debugging": {
+      "domain": "diagnostics",
+      "skillPath": ".agent/skills/debugging-and-error-recovery/SKILL.md",
+      "description": "Evidence-first loop for reproduce, localize, hypothesis, fix, and regression verification"
+    },
+    "deploy-operations": {
+      "domain": "operations",
+      "skillPath": ".agent/skills/deployment-procedures/SKILL.md",
+      "description": "Docker, GitHub Actions, topology, one-shot migrations, rollback, health/version identity, observability"
+    }
+  },
   "skills": {
     "impeccable": {
       "source": "pbakaus/impeccable",

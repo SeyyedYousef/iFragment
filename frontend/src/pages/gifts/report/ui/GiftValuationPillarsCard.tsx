@@ -163,23 +163,23 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 
 				{/* 4. Observed Floor */}
 				<div
-					class="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-br from-purple-500/15 via-purple-500/5 to-transparent border border-purple-500/30 relative overflow-hidden transition-all hover:border-purple-500/50 cursor-pointer"
+					class="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-br from-teal-500/15 via-teal-500/5 to-transparent border border-teal-500/30 relative overflow-hidden transition-all hover:border-teal-500/50 cursor-pointer"
 					onClick={() => toggleTooltip('floor')}
 				>
 					<div class="flex items-center justify-between mb-1.5">
-						<span class="text-[9px] sm:text-[10px] uppercase font-black tracking-wider text-purple-400">
+						<span class="text-[9px] sm:text-[10px] uppercase font-black tracking-wider text-teal-400">
 							{isRtl() ? '۴. کف زنده مارکت' : '4. Observed Floor'}
 						</span>
-						<span class="material-symbols-outlined text-purple-400 text-sm">layers</span>
+						<span class="material-symbols-outlined text-teal-400 text-sm">layers</span>
 					</div>
 					<div class="text-base sm:text-lg font-black text-white font-mono leading-tight">
 						{fmt(pillars().observed_floor_gram)}{' '}
-						<span class="text-[11px] text-purple-400">TON</span>
+						<span class="text-[11px] text-teal-400">TON</span>
 					</div>
 					<div class="text-[10px] font-mono text-white/50 mt-0.5">
 						{fmtUsd(pillars().observed_floor_usd)}
 					</div>
-					<div class="mt-2 text-[8.5px] text-purple-400 font-bold bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 inline-block">
+					<div class="mt-2 text-[8.5px] text-teal-400 font-bold bg-teal-500/10 px-1.5 py-0.5 rounded border border-teal-500/20 inline-block">
 						{isRtl() ? 'کف واقعی صرافی‌ها' : 'Venue Floor'}
 					</div>
 				</div>
@@ -213,7 +213,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 							: 'Optimal listing price recommended on venues, incorporating bargaining premium for patient sellers.'}
 					</Show>
 					<Show when={activeTooltip() === 'floor'}>
-						<strong class="text-purple-400 block mb-0.5">
+						<strong class="text-teal-400 block mb-0.5">
 							{isRtl() ? 'کف مشاهده‌شده (Observed Floor):' : 'Observed Floor:'}
 						</strong>
 						{isRtl()
@@ -256,7 +256,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 						<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">
 							{isRtl() ? 'کوواریانس تریت' : 'Covariance'}
 						</span>
-						<span class="font-mono font-black text-purple-400 text-sm">
+						<span class="font-mono font-black text-teal-400 text-sm">
 							{rarityInfo().covariance}x
 						</span>
 					</div>
