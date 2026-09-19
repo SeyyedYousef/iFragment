@@ -17,6 +17,7 @@ tags:
   - name: Gifts
   - name: Numbers
   - name: Intel Credits
+  - name: Marketplace
 paths:
   /health:
     get:
@@ -944,18 +945,6 @@ components:
         maxLength: 32
         pattern: "^[A-Za-z][A-Za-z0-9_]{3,31}$"
       description: Telegram username without @
-    BotID:
-      name: botID
-      in: path
-      required: true
-      schema:
-        type: string
-    GroupID:
-      name: groupID
-      in: path
-      required: true
-      schema:
-        type: string
   schemas:
     UsernameStatus:
       type: object
@@ -988,31 +977,6 @@ components:
           type: integer
         linguistic_score:
           type: number
-    ReportRequest:
-      type: object
-      required: [username]
-      properties:
-        username:
-          type: string
-    PriceEstimate:
-      type: object
-      properties:
-        p10_ton:
-          type: number
-        p50_ton:
-          type: number
-        p90_ton:
-          type: number
-        confidence:
-          type: number
-          minimum: 0
-          maximum: 1
-        method:
-          type: string
-        signals:
-          type: array
-          items:
-            type: string
     SimilarUsername:
       type: object
       properties:
@@ -1028,46 +992,6 @@ components:
           type: integer
         fragment_url:
           type: string
-    FullReport:
-      allOf:
-        - $ref: "#/components/schemas/QuickCheck"
-        - type: object
-          properties:
-            contains_numbers:
-              type: boolean
-            is_dictionary_word:
-              type: boolean
-            peer_type:
-              type: string
-            is_verified:
-              type: boolean
-            is_premium:
-              type: boolean
-            is_scam:
-              type: boolean
-            is_fake:
-              type: boolean
-            participants_count:
-              type: integer
-            owner_address:
-              type: string
-            past_sales:
-              type: array
-              items:
-                type: object
-            owner_wallet_balance:
-              type: number
-            owner_other_assets:
-              type: integer
-            estimated_value:
-              type: number
-            value_estimate:
-              $ref: "#/components/schemas/PriceEstimate"
-            exchange_rate:
-              type: number
-            generated_at:
-              type: string
-              format: date-time
     CollectionSummary:
       type: object
       properties:
@@ -1099,30 +1023,6 @@ components:
           type: array
           items:
             type: object
-    ForwardingRuleInput:
-      type: object
-      required: [source_channel_id, target_channel_id, active]
-      properties:
-        source_channel_id:
-          type: string
-        target_channel_id:
-          type: string
-        active:
-          type: boolean
-        filter_keywords:
-          type: array
-          items:
-            type: string
-    InlineButtonInput:
-      type: object
-      required: [text, url, row]
-      properties:
-        text:
-          type: string
-        url:
-          type: string
-        row:
-          type: integer
     ModelCalibrationSummary:
       type: object
       properties:

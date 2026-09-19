@@ -136,6 +136,10 @@ func Load() (*Config, error) {
 				loadErr = fmt.Errorf("CRITICAL CONFIG ERROR: BOT_TOKEN_KEY must be set in production")
 				return
 			}
+			if botTokenKey == jwtSecret || botTokenKey == webhookSecret {
+				loadErr = fmt.Errorf("CRITICAL CONFIG ERROR: BOT_TOKEN_KEY must be distinct from JWT_SECRET and WEBHOOK_SECRET_TOKEN in production")
+				return
+			}
 			if os.Getenv("DATABASE_URL") == "" {
 				loadErr = fmt.Errorf("CRITICAL CONFIG ERROR: DATABASE_URL must be set in production")
 				return

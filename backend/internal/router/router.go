@@ -1,6 +1,7 @@
 package router
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -37,6 +38,43 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		r.Use(middleware.MaintenanceMiddleware(cfg.SettingsRepo))
 		r.Use(middleware.BlockImpersonatedWrites)
 		r.Use(middleware.UserBanCheckMiddleware(cfg.OwnerRepo))
+
+		// Health & Readiness Endpoints (AGENTS.md Contract & Production Monitoring)
+		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
+		})
+		r.Get("/healthz/ready", func(w http.ResponseWriter, r *http.Request) {
+			dbHealthy := false
+			if cfg.DB != nil && cfg.DB.Pool != nil {
+				if err := cfg.DB.Pool.Ping(r.Context()); err == nil {
+					dbHealthy = true
+				}
+			}
+
+			cacheHealthy := false
+			if cfg.Cache != nil && cfg.Cache.Client != nil {
+				if err := cfg.Cache.Client.Ping(r.Context()).Err(); err == nil {
+					cacheHealthy = true
+				}
+			}
+
+			status := http.StatusOK
+			if !dbHealthy {
+				status = http.StatusServiceUnavailable
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.WriteHeader(status)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"status":    map[bool]string{true: "ready", false: "degraded"}[dbHealthy],
+				"database":  dbHealthy,
+				"cache":     cacheHealthy,
+				"timestamp": time.Now().UTC().Format(time.RFC3339),
+			})
+		})
 
 		r.Get("/config", cfg.ProfileHandler.GetPublicConfig)
 		r.Get("/economy/config", cfg.ProfileHandler.GetEconomyConfig)

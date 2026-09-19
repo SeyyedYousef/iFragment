@@ -43,6 +43,7 @@ func (h *IntelCreditHandler) GetBalance(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	w.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
 	RespondJSON(w, http.StatusOK, bal)
 }
 
@@ -59,6 +60,13 @@ func (h *IntelCreditHandler) Consume(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", nil)
 		return
+	}
+
+	if req.IdemKey == "" {
+		req.IdemKey = r.Header.Get("Idempotency-Key")
+		if req.IdemKey == "" {
+			req.IdemKey = r.Header.Get("X-Idempotency-Key")
+		}
 	}
 
 	if req.Reason == "" {
@@ -99,6 +107,7 @@ func (h *IntelCreditHandler) Consume(w http.ResponseWriter, r *http.Request) {
 // The Mini App must render prices exclusively from this response.
 func (h *IntelCreditHandler) GetStoreConfig(w http.ResponseWriter, r *http.Request) {
 	store := intelcredit.NewStoreService(nil)
+	w.Header().Set("Cache-Control", "public, max-age=300, stale-while-revalidate=600")
 	RespondJSON(w, http.StatusOK, store.GetConfig())
 }
 

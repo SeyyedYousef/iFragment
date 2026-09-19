@@ -48,7 +48,6 @@ interface LeaderboardItem {
 	verified: boolean;
 	txHash?: string;
 }
-}
 
 export const CollectionInfoPage: Component = () => {
 	useTelegramBackButton(-1);

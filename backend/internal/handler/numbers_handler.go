@@ -34,6 +34,7 @@ func (h *NumbersHandler) GetIntel(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "failed to load numbers intel", nil)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
 	RespondJSON(w, http.StatusOK, intel)
 }
 
@@ -51,6 +52,7 @@ func (h *NumbersHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "verification failed", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400")
 	RespondJSON(w, http.StatusOK, result)
 }
 
@@ -68,6 +70,7 @@ func (h *NumbersHandler) GetCuriosityGate(w http.ResponseWriter, r *http.Request
 		RespondError(w, r, http.StatusUnprocessableEntity, "invalid number format", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
 	RespondJSON(w, http.StatusOK, gate)
 }
 
@@ -105,6 +108,7 @@ func (h *NumbersHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.sendNumberNotification(r, val, "purchased")
+	w.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
 	RespondJSON(w, http.StatusOK, val)
 }
 
@@ -124,11 +128,42 @@ func (h *NumbersHandler) UnlockWithCoins(w http.ResponseWriter, r *http.Request)
 		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
+
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	if idempotencyKey == "" {
+		idempotencyKey = r.Header.Get("X-Idempotency-Key")
+	}
+
+	db := h.service.DB()
+	if idempotencyKey != "" && db != nil && db.Pool != nil {
+		var existingID string
+		errEnt := db.Pool.QueryRow(ctx, `
+			SELECT id FROM report_entitlements 
+			WHERE principal_id = $1 AND asset_id = $2 AND idempotency_key = $3
+			LIMIT 1`, userID, req.Number, idempotencyKey).Scan(&existingID)
+		if errEnt == nil {
+			val, errVal := h.service.ValuateNumber(ctx, userID, req.Number)
+			if errVal == nil {
+				RespondJSON(w, http.StatusOK, val)
+				return
+			}
+		}
+	}
+
 	val, err := h.service.UnlockWithCoins(ctx, userID, req.Number)
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "failed to unlock with coins", err)
 		return
 	}
+
+	if idempotencyKey != "" && db != nil && db.Pool != nil {
+		_, _ = db.Pool.Exec(ctx, `
+			INSERT INTO report_entitlements (principal_id, asset_id, idempotency_key, product_type, granted_at)
+			VALUES ($1, $2, $3, 'number_report', CURRENT_TIMESTAMP)
+			ON CONFLICT (principal_id, asset_id, idempotency_key) DO NOTHING`,
+			userID, req.Number, idempotencyKey)
+	}
+
 	h.sendNumberNotification(r, val, "coins")
 	RespondJSON(w, http.StatusOK, val)
 }
@@ -149,11 +184,42 @@ func (h *NumbersHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request
 		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
+
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	if idempotencyKey == "" {
+		idempotencyKey = r.Header.Get("X-Idempotency-Key")
+	}
+
+	db := h.service.DB()
+	if idempotencyKey != "" && db != nil && db.Pool != nil {
+		var existingID string
+		errEnt := db.Pool.QueryRow(ctx, `
+			SELECT id FROM report_entitlements 
+			WHERE principal_id = $1 AND asset_id = $2 AND idempotency_key = $3
+			LIMIT 1`, userID, req.Number, idempotencyKey).Scan(&existingID)
+		if errEnt == nil {
+			val, errVal := h.service.ValuateNumber(ctx, userID, req.Number)
+			if errVal == nil {
+				RespondJSON(w, http.StatusOK, val)
+				return
+			}
+		}
+	}
+
 	val, err := h.service.UnlockWithCredit(ctx, userID, req.Number)
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "failed to unlock with credit", err)
 		return
 	}
+
+	if idempotencyKey != "" && db != nil && db.Pool != nil {
+		_, _ = db.Pool.Exec(ctx, `
+			INSERT INTO report_entitlements (principal_id, asset_id, idempotency_key, product_type, granted_at)
+			VALUES ($1, $2, $3, 'number_report', CURRENT_TIMESTAMP)
+			ON CONFLICT (principal_id, asset_id, idempotency_key) DO NOTHING`,
+			userID, req.Number, idempotencyKey)
+	}
+
 	h.sendNumberNotification(r, val, "credit")
 	RespondJSON(w, http.StatusOK, val)
 }
@@ -258,6 +324,7 @@ func (h *NumbersHandler) GetDeals(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "failed to fetch deals", nil)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=120")
 	RespondJSON(w, http.StatusOK, deals)
 }
 
@@ -269,6 +336,7 @@ func (h *NumbersHandler) GetClubs(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "failed to fetch category clubs", nil)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=300, stale-while-revalidate=600")
 	RespondJSON(w, http.StatusOK, clubs)
 }
 
@@ -286,6 +354,7 @@ func (h *NumbersHandler) ScanPortfolio(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "failed to scan portfolio", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
 	RespondJSON(w, http.StatusOK, result)
 }
 
@@ -297,6 +366,7 @@ func (h *NumbersHandler) GetLiveActivity(w http.ResponseWriter, r *http.Request)
 		RespondError(w, r, http.StatusInternalServerError, "failed to fetch activity ticker", nil)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=15, stale-while-revalidate=30")
 	RespondJSON(w, http.StatusOK, activity)
 }
 
@@ -308,6 +378,7 @@ func (h *NumbersHandler) GetChartData(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "failed to fetch chart data", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=300, stale-while-revalidate=600")
 	RespondJSON(w, http.StatusOK, chartData)
 }
 
@@ -352,6 +423,7 @@ func (h *NumbersHandler) GetNumbersList(w http.ResponseWriter, r *http.Request) 
 		RespondError(w, r, http.StatusInternalServerError, "failed to load numbers list", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=120")
 	RespondJSON(w, http.StatusOK, result)
 }
 

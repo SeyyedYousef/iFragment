@@ -98,6 +98,7 @@ type ValuationSEO struct {
 // ValuationResult is the output DTO for a single valuation.
 type ValuationResult struct {
 	RunID           int64              `json:"run_id"`
+	AuditPersisted  bool               `json:"audit_persisted"`
 	Username        string             `json:"username"`
 	ModelVersion    string             `json:"model_version"`
 	BasePriceTON    decimal.Decimal    `json:"base_price_ton"`
@@ -1632,16 +1633,21 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	}
 
 	var runID int64
+	var auditPersisted bool
 	if s.db != nil {
 		var err error
 		runID, err = s.db.InsertValuationRun(ctx, run)
 		if err != nil {
-			slog.Warn("AVM audit write encountered non-fatal error — continuing with synthetic runID",
+			slog.Warn("AVM audit write encountered non-fatal error — leaving runID as 0 (unpersisted)",
 				"username", username, "error", err)
-			runID = time.Now().UnixNano()
+			runID = 0
+			auditPersisted = false
+		} else {
+			auditPersisted = true
 		}
 	} else {
-		runID = time.Now().UnixNano()
+		runID = 0
+		auditPersisted = false
 	}
 
 	// ── Step 4.5: Populate New Report Fields ──
@@ -1874,6 +1880,7 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 
 	return &ValuationResult{
 		RunID:           runID,
+		AuditPersisted:  auditPersisted,
 		Username:        username,
 		ModelVersion:    ModelVersion,
 		BasePriceTON:    baseDec,

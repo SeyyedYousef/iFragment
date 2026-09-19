@@ -165,9 +165,9 @@ apiClient.interceptors.request.use(
 			config.headers.Authorization = `Bearer ${token}`;
 		}
 
-		// Attach Idempotency-Key for mutating administrative operations to prevent duplicate execution
+		// Attach Idempotency-Key for ALL mutating operations to prevent duplicate execution and double debits
 		const reqMethod = (config.method || 'get').toLowerCase();
-		if (isOwnerRequest && ['post', 'put', 'patch', 'delete'].includes(reqMethod)) {
+		if (['post', 'put', 'patch', 'delete'].includes(reqMethod)) {
 			if (!config.headers['Idempotency-Key']) {
 				const key =
 					typeof crypto !== 'undefined' && crypto.randomUUID

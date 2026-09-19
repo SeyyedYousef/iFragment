@@ -79,6 +79,10 @@ func NewGiftsService(
 	}
 }
 
+func (s *GiftsService) DB() *repository.Database {
+	return s.db
+}
+
 func (s *GiftsService) SetTelegramClient(tg *telegram.BotAPIClient) {
 	s.tgClient = tg
 }

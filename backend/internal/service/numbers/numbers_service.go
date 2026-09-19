@@ -77,6 +77,10 @@ func NewNumbersService(
 	}
 }
 
+func (s *NumbersService) DB() *repository.Database {
+	return s.db
+}
+
 func (s *NumbersService) getTonUsdRate() float64 {
 	if s.cryptoPrice != nil {
 		if r, ok := s.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {

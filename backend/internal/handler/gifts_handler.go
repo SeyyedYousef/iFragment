@@ -43,6 +43,7 @@ func (h *GiftsHandler) GetIntel(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "failed to load gifts intel", nil)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
 	RespondJSON(w, http.StatusOK, intel)
 }
 
@@ -60,6 +61,7 @@ func (h *GiftsHandler) GetCuriosityGate(w http.ResponseWriter, r *http.Request) 
 		RespondError(w, r, http.StatusUnprocessableEntity, "invalid gift format", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
 	RespondJSON(w, http.StatusOK, gate)
 }
 
@@ -88,6 +90,7 @@ func (h *GiftsHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.sendGiftNotification(r, val, "free")
+	w.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
 	RespondJSON(w, http.StatusOK, val)
 }
 
@@ -107,6 +110,7 @@ func (h *GiftsHandler) GetEnrichedReport(w http.ResponseWriter, r *http.Request)
 		RespondError(w, r, http.StatusInternalServerError, "failed to generate enriched report", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
 	RespondJSON(w, http.StatusOK, report)
 }
 
@@ -127,11 +131,41 @@ func (h *GiftsHandler) UnlockWithCoins(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	if idempotencyKey == "" {
+		idempotencyKey = r.Header.Get("X-Idempotency-Key")
+	}
+
+	db := h.service.DB()
+	if idempotencyKey != "" && db != nil && db.Pool != nil {
+		var existingID string
+		errEnt := db.Pool.QueryRow(ctx, `
+			SELECT id FROM report_entitlements 
+			WHERE principal_id = $1 AND asset_id = $2 AND idempotency_key = $3
+			LIMIT 1`, userID, req.GiftID, idempotencyKey).Scan(&existingID)
+		if errEnt == nil {
+			val, errVal := h.service.ValuateGift(ctx, userID, req.GiftID)
+			if errVal == nil {
+				RespondJSON(w, http.StatusOK, val)
+				return
+			}
+		}
+	}
+
 	val, err := h.service.UnlockWithCoins(ctx, userID, req.GiftID)
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "failed to unlock gift report with coins", err)
 		return
 	}
+
+	if idempotencyKey != "" && db != nil && db.Pool != nil {
+		_, _ = db.Pool.Exec(ctx, `
+			INSERT INTO report_entitlements (principal_id, asset_id, idempotency_key, product_type, granted_at)
+			VALUES ($1, $2, $3, 'gift_report', CURRENT_TIMESTAMP)
+			ON CONFLICT (principal_id, asset_id, idempotency_key) DO NOTHING`,
+			userID, req.GiftID, idempotencyKey)
+	}
+
 	h.sendGiftNotification(r, val, "coins")
 	RespondJSON(w, http.StatusOK, val)
 }
@@ -153,11 +187,41 @@ func (h *GiftsHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	if idempotencyKey == "" {
+		idempotencyKey = r.Header.Get("X-Idempotency-Key")
+	}
+
+	db := h.service.DB()
+	if idempotencyKey != "" && db != nil && db.Pool != nil {
+		var existingID string
+		errEnt := db.Pool.QueryRow(ctx, `
+			SELECT id FROM report_entitlements 
+			WHERE principal_id = $1 AND asset_id = $2 AND idempotency_key = $3
+			LIMIT 1`, userID, req.GiftID, idempotencyKey).Scan(&existingID)
+		if errEnt == nil {
+			val, errVal := h.service.ValuateGift(ctx, userID, req.GiftID)
+			if errVal == nil {
+				RespondJSON(w, http.StatusOK, val)
+				return
+			}
+		}
+	}
+
 	val, err := h.service.UnlockWithCredit(ctx, userID, req.GiftID)
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "failed to unlock gift report with credit", err)
 		return
 	}
+
+	if idempotencyKey != "" && db != nil && db.Pool != nil {
+		_, _ = db.Pool.Exec(ctx, `
+			INSERT INTO report_entitlements (principal_id, asset_id, idempotency_key, product_type, granted_at)
+			VALUES ($1, $2, $3, 'gift_report', CURRENT_TIMESTAMP)
+			ON CONFLICT (principal_id, asset_id, idempotency_key) DO NOTHING`,
+			userID, req.GiftID, idempotencyKey)
+	}
+
 	h.sendGiftNotification(r, val, "credit")
 	RespondJSON(w, http.StatusOK, val)
 }
@@ -287,6 +351,7 @@ func (h *GiftsHandler) ListCollections(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "failed to list collections", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=120, stale-while-revalidate=300")
 	RespondJSON(w, http.StatusOK, list)
 }
 
@@ -309,6 +374,7 @@ func (h *GiftsHandler) GetCollectionIntel(w http.ResponseWriter, r *http.Request
 		RespondError(w, r, http.StatusInternalServerError, "failed to fetch collection intelligence", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=120")
 	RespondJSON(w, http.StatusOK, data)
 }
 
@@ -464,6 +530,7 @@ func (h *GiftsHandler) GetArbitrageRadar(w http.ResponseWriter, r *http.Request)
 		RespondError(w, r, http.StatusInternalServerError, "failed to load arbitrage opportunities", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=30, stale-while-revalidate=60")
 	RespondJSON(w, http.StatusOK, radar)
 }
 
@@ -475,6 +542,7 @@ func (h *GiftsHandler) GetWhales(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "failed to load whale leaderboard", err)
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=120, stale-while-revalidate=300")
 	RespondJSON(w, http.StatusOK, whales)
 }
 
