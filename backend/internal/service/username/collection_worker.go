@@ -159,85 +159,14 @@ func (w *CollectionWorker) updateCollectionData(ctx context.Context) {
 	today := time.Now().UTC().Truncate(24 * time.Hour)
 
 	if count == 0 {
-		slog.Info("[CollectionWorker] Database is empty. Seeding initial collection data...")
-		w.seedInitialData(ctx, today)
+		slog.Info("[CollectionWorker] Collection stats table is empty. Awaiting live data fetch from APIs...")
 	}
 
 	// 2. Try to fetch live data from GetGems/Fragment and update the database
 	if err := w.fetchAndSaveLiveData(ctx, today); err != nil {
-		slog.Warn("[CollectionWorker] Failed to fetch live collection data from APIs, using existing/fallback data", "error", err)
+		slog.Warn("[CollectionWorker] Failed to fetch live collection data from APIs, using existing data", "error", err)
 	} else {
 		slog.Info("[CollectionWorker] Successfully updated collection stats with live data")
-	}
-}
-
-func (w *CollectionWorker) seedInitialData(ctx context.Context, date time.Time) {
-	tx, err := w.db.Pool.Begin(ctx)
-	if err != nil {
-		slog.Error("[CollectionWorker] Failed to start transaction for seeding", "error", err)
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	// Seed stats using real live metadata values
-	_, err = tx.Exec(ctx, `
-		INSERT INTO nft_collection_stats (stat_date, items_count, owners_count, floor_price, total_volume)
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (stat_date) DO NOTHING
-	`, date, "582.8K", "164.6K", "5.49 TON", "124.0M TON")
-	if err != nil {
-		slog.Error("[CollectionWorker] Failed to seed nft_collection_stats", "error", err)
-		return
-	}
-
-	// Seed categories
-	categories := []struct {
-		Name   string
-		Volume string
-	}{
-		{"4 Letters", "55.8M TON"},
-		{"5 Letters", "37.2M TON"},
-		{"6 Letters", "18.6M TON"},
-		{"7+ Letters", "12.4M TON"},
-	}
-	for _, cat := range categories {
-		_, err = tx.Exec(ctx, `
-			INSERT INTO nft_collection_categories (stat_date, category_name, volume)
-			VALUES ($1, $2, $3)
-		`, date, cat.Name, cat.Volume)
-		if err != nil {
-			slog.Error("[CollectionWorker] Failed to seed category", "name", cat.Name, "error", err)
-			return
-		}
-	}
-
-	// Seed fallback recent auctions using actual premium ones from Fragment
-	auctions := []struct {
-		Name   string
-		Price  string
-		Status string
-	}{
-		{"@feds", "23,665 TON", "Active"},
-		{"@blackhat", "10,001 TON", "Active"},
-		{"@gramv", "8,023 TON", "Active"},
-		{"@cryptoapp", "8,009 TON", "Active"},
-		{"@bcsj", "5,513 TON", "Active"},
-	}
-	for _, auc := range auctions {
-		_, err = tx.Exec(ctx, `
-			INSERT INTO nft_collection_recent_auctions (stat_date, item_name, price, status)
-			VALUES ($1, $2, $3, $4)
-		`, date, auc.Name, auc.Price, auc.Status)
-		if err != nil {
-			slog.Error("[CollectionWorker] Failed to seed auction", "name", auc.Name, "error", err)
-			return
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		slog.Error("[CollectionWorker] Failed to commit seeding transaction", "error", err)
-	} else {
-		slog.Info("[CollectionWorker] Initial seeding completed successfully")
 	}
 }
 
