@@ -1922,11 +1922,25 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 			if certificateSig == "" {
 				certStatus = "Unverified (Signing Key Not Configured)"
 			}
+			listingBadge := "Model Observation"
+			if s.fragmentClient != nil {
+				listingBadge = "Live - Fragment"
+			}
+			saleDataBadge := "Statistical Prior"
+			if len(historyTransactions) > 0 {
+				saleDataBadge = "On-chain - TON"
+			} else if len(targetSales) > 0 || len(exactSales) > 0 {
+				saleDataBadge = "Observed Sales"
+			}
+			freshnessBadge := "Model Estimate"
+			if len(historyTransactions) > 0 || len(targetSales) > 0 {
+				freshnessBadge = "Realtime"
+			}
 			b := map[string]string{
-				"listing":            "Live - Fragment",
-				"sale_data":          "On-chain - TON",
+				"listing":            listingBadge,
+				"sale_data":          saleDataBadge,
 				"valuation":          "Model Estimate",
-				"freshness":          "Realtime",
+				"freshness":          freshnessBadge,
 				"certificate":        certificateID,
 				"certificate_status": certStatus,
 			}
