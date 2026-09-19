@@ -48,99 +48,7 @@ interface LeaderboardItem {
 	verified: boolean;
 	txHash?: string;
 }
-
-const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
-	{
-		rank: 1,
-		handle: 'news',
-		priceTon: 994000,
-		priceUsd: 5467000,
-		date: 'Nov 2022',
-		category: 'brand',
-		verified: false,
-	},
-	{
-		rank: 2,
-		handle: 'auto',
-		priceTon: 900000,
-		priceUsd: 4950000,
-		date: 'Nov 2022',
-		category: 'short',
-		verified: false,
-	},
-	{
-		rank: 3,
-		handle: 'bank',
-		priceTon: 850000,
-		priceUsd: 4675000,
-		date: 'Dec 2022',
-		category: 'crypto',
-		verified: false,
-	},
-	{
-		rank: 4,
-		handle: 'avia',
-		priceTon: 800000,
-		priceUsd: 4400000,
-		date: 'Dec 2022',
-		category: 'short',
-		verified: false,
-	},
-	{
-		rank: 5,
-		handle: 'chat',
-		priceTon: 700000,
-		priceUsd: 3850000,
-		date: 'Nov 2022',
-		category: 'short',
-		verified: false,
-	},
-	{
-		rank: 6,
-		handle: 'king',
-		priceTon: 675000,
-		priceUsd: 3712500,
-		date: 'Dec 2022',
-		category: 'short',
-		verified: false,
-	},
-	{
-		rank: 7,
-		handle: 'fifa',
-		priceTon: 600000,
-		priceUsd: 3300000,
-		date: 'Dec 2022',
-		category: 'brand',
-		verified: false,
-	},
-	{
-		rank: 8,
-		handle: 'devil',
-		priceTon: 555555,
-		priceUsd: 3055552,
-		date: 'Nov 2022',
-		category: 'other',
-		verified: false,
-	},
-	{
-		rank: 9,
-		handle: 'game',
-		priceTon: 500000,
-		priceUsd: 2750000,
-		date: 'Jan 2023',
-		category: 'short',
-		verified: false,
-	},
-	{
-		rank: 10,
-		handle: 'sber',
-		priceTon: 471000,
-		priceUsd: 2590500,
-		date: 'Nov 2022',
-		category: 'brand',
-		verified: false,
-	},
-];
+}
 
 export const CollectionInfoPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -201,10 +109,29 @@ export const CollectionInfoPage: Component = () => {
 		};
 	});
 
-	const filteredLeaderboard = createMemo(() => {
-		const filter = leaderboardFilter();
-		if (filter === 'all') return HISTORICAL_HALL_OF_FAME;
-		return HISTORICAL_HALL_OF_FAME.filter((item) => item.category === filter);
+	const filteredLeaderboard = createMemo<LeaderboardItem[]>(() => {
+		const topSales = usernameQuery.data?.top_sales || [];
+		if (topSales.length === 0) return [];
+		return topSales
+			.map((item, idx) => {
+				const cleanName = item.item_name.replace('@', '');
+				const priceNum = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0;
+				const category = cleanName.length <= 4 ? 'short' : 'brand';
+				return {
+					rank: idx + 1,
+					handle: cleanName,
+					priceTon: priceNum,
+					priceUsd: priceNum * (usernameQuery.data?.ton_usd_rate || 5.0),
+					date: item.status || 'Confirmed Sale',
+					category: category,
+					verified: true,
+				};
+			})
+			.filter((item) => {
+				const filter = leaderboardFilter();
+				if (filter === 'all') return true;
+				return item.category === filter;
+			});
 	});
 
 	const openValuation = (handle: string) => {
@@ -549,75 +476,85 @@ export const CollectionInfoPage: Component = () => {
 
 						{/* LEADERBOARD LIST */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[24px] overflow-hidden shadow-sm">
-							<For each={filteredLeaderboard()}>
-								{(item) => {
-									const rankColor =
-										item.rank === 1
-											? 'text-amber-400 bg-amber-400/15 border-amber-400/30'
-											: item.rank === 2
-												? 'text-slate-300 bg-slate-300/15 border-slate-300/30'
-												: item.rank === 3
-													? 'text-amber-600 bg-amber-600/15 border-amber-600/30'
-													: 'text-white/40 bg-white/5 border-white/5';
+							<Show
+								when={filteredLeaderboard().length > 0}
+								fallback={
+									<div class="p-8 text-center text-white/40 text-xs">
+										<span class="material-symbols-outlined text-3xl mb-2 text-white/20 block">
+											folder_off
+										</span>
+										{t('collectionInfo.noLeaderboardData') ||
+											'No confirmed sales records available yet.'}
+									</div>
+								}
+							>
+								<For each={filteredLeaderboard()}>
+									{(item) => {
+										const rankColor =
+											item.rank === 1
+												? 'text-amber-400 bg-amber-400/15 border-amber-400/30'
+												: item.rank === 2
+													? 'text-slate-300 bg-slate-300/15 border-slate-300/30'
+													: item.rank === 3
+														? 'text-amber-600 bg-amber-600/15 border-amber-600/30'
+														: 'text-white/40 bg-white/5 border-white/5';
 
-									return (
-										<div
-											onClick={() => openValuation(item.handle)}
-											class="flex items-center justify-between p-4 hover:bg-white/[0.04] transition-all cursor-pointer border-b border-white/5 last:border-0 active:scale-[0.99]"
-										>
-											<div class="flex items-center gap-3.5 min-w-0">
-												<div
-													class={`w-8 h-8 rounded-[10px] flex items-center justify-center font-black font-mono text-[12px] border shrink-0 ${rankColor}`}
-												>
-													{item.rank === 1
-														? '🥇'
-														: item.rank === 2
-															? '🥈'
-															: item.rank === 3
-																? '🥉'
-																: `#${item.rank}`}
-												</div>
-
-												<div class="flex flex-col min-w-0 text-start">
-													<div class="flex items-center gap-1.5">
-														<span
-															class="text-white font-mono font-black text-[14px] truncate"
-															dir="ltr"
-														>
-															@{item.handle}
-														</span>
-														<Show when={item.verified}>
-															<span class="material-symbols-outlined text-[#0098EA] text-[14px]">
-																verified
-															</span>
-														</Show>
+										return (
+											<div
+												onClick={() => openValuation(item.handle)}
+												class="flex items-center justify-between p-4 hover:bg-white/[0.04] transition-all cursor-pointer border-b border-white/5 last:border-0 active:scale-[0.99]"
+											>
+												<div class="flex items-center gap-3.5 min-w-0">
+													<div
+														class={`w-8 h-8 rounded-[10px] flex items-center justify-center font-black font-mono text-[12px] border shrink-0 ${rankColor}`}
+													>
+														{item.rank === 1
+															? '🥇'
+															: item.rank === 2
+																? '🥈'
+																: item.rank === 3
+																	? '🥉'
+																	: `#${item.rank}`}
 													</div>
-													<span class="text-[10px] text-white/40 font-mono">{item.date}</span>
-												</div>
-											</div>
 
-											<div class="flex flex-col items-end shrink-0" dir="ltr">
-												<div class="flex items-baseline gap-1">
-													<span class="text-[14px] font-black font-mono text-white">
-														{item.priceTon.toLocaleString('en-US')}
-													</span>
-													<span class="text-[10px] font-black text-[#0098EA]">
-														{t('common.ton')}
+													<div class="flex flex-col min-w-0 text-start">
+														<div class="flex items-center gap-1.5">
+															<span
+																class="text-white font-mono font-black text-[14px] truncate"
+																dir="ltr"
+															>
+																@{item.handle}
+															</span>
+															<Show when={item.verified}>
+																<span class="material-symbols-outlined text-[#0098EA] text-[14px]">
+																	verified
+																</span>
+															</Show>
+														</div>
+														<span class="text-[10px] text-white/40 font-mono">
+															{item.date}
+														</span>
+													</div>
+												</div>
+
+												<div class="flex flex-col items-end shrink-0" dir="ltr">
+													<div class="flex items-baseline gap-1">
+														<span class="text-white font-mono font-black text-[14px]">
+															{item.priceTon.toLocaleString()}
+														</span>
+														<span class="text-[9px] font-black text-[#0098EA]">
+															{t('common.ton')}
+														</span>
+													</div>
+													<span class="text-[10px] text-white/40 font-mono">
+														≈ ${item.priceUsd.toLocaleString()}
 													</span>
 												</div>
-												<span class="text-[10px] font-mono text-white/40">
-													{item.priceUsd !== undefined
-														? `≈ $${(item.priceUsd / 1000).toFixed(0)}K`
-														: usernameQuery.data?.ton_usd_rate &&
-																usernameQuery.data.ton_usd_rate > 0
-															? `≈ $${((item.priceTon * usernameQuery.data.ton_usd_rate) / 1000).toFixed(0)}K`
-															: ''}
-												</span>
 											</div>
-										</div>
-									);
-								}}
-							</For>
+										);
+									}}
+								</For>
+							</Show>
 						</div>
 					</div>
 				</Show>
