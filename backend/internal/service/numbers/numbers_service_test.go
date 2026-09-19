@@ -21,17 +21,23 @@ func TestNumbersService_GetNumbersIntel_Structure(t *testing.T) {
 		t.Errorf("expected TotalSupply %d, got %d", registry.TotalSupply, intel.TotalSupply)
 	}
 
-	if len(intel.PercentileChart) == 0 {
-		t.Errorf("expected PercentileChart to have points, got 0")
-	}
-
-	// Verify each chart point has valid P50 <= P68 <= P85
-	for _, pt := range intel.PercentileChart {
-		if pt.P50 <= 0 || pt.P68 <= 0 || pt.P85 <= 0 {
-			t.Errorf("expected positive percentile values, got %+v", pt)
+	if intel.FloorPriceTON > 0 {
+		if len(intel.PercentileChart) == 0 {
+			t.Errorf("expected PercentileChart to have points when FloorPriceTON > 0, got 0")
 		}
-		if pt.P50 > pt.P68 || pt.P68 > pt.P85 {
-			t.Errorf("invariant violated: P50 <= P68 <= P85 failed for point %+v", pt)
+		// Verify each chart point has valid P50 <= P68 <= P85
+		for _, pt := range intel.PercentileChart {
+			if pt.P50 <= 0 || pt.P68 <= 0 || pt.P85 <= 0 {
+				t.Errorf("expected positive percentile values, got %+v", pt)
+			}
+			if pt.P50 > pt.P68 || pt.P68 > pt.P85 {
+				t.Errorf("invariant violated: P50 <= P68 <= P85 failed for point %+v", pt)
+			}
+		}
+	} else {
+		// Zero synthetic points when no floor/history is available (T-P0-001, AC-P0-008)
+		if len(intel.PercentileChart) != 0 {
+			t.Errorf("expected zero synthetic PercentileChart points when no floor available, got %d", len(intel.PercentileChart))
 		}
 	}
 }

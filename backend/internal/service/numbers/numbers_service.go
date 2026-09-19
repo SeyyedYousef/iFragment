@@ -283,15 +283,14 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 	now := time.Now().UTC()
 
 	// Authoritative baseline metrics for Telegram Anonymous Numbers (+888)
-	baseFloor := registry.InitialFloorTON
 	resp := &NumbersIntelResponse{
 		TotalSupply:     registry.TotalSupply,
 		SupplyStatus:    "Closed Collection — Supply Frozen Forever",
 		TotalOwners:     0,
 		TotalSales:      0,
 		TotalVolumeTON:  0.0,
-		FloorPriceTON:   baseFloor,
-		FloorPriceUSD:   baseFloor * tonUsdRate,
+		FloorPriceTON:   0.0,
+		FloorPriceUSD:   0.0,
 		Volume24hTON:    0.0,
 		Volume7dTON:     0.0,
 		FnGIndex:        fngIndex,
@@ -332,10 +331,24 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 		var dbVolume float64
 		err := s.db.Pool.QueryRow(ctx, `
 			SELECT COUNT(*), COALESCE(SUM(sale_price_ton), 0)
-			FROM number_sales`).Scan(&dbSales, &dbVolume)
+			FROM number_sales
+			WHERE is_reorged = FALSE`).Scan(&dbSales, &dbVolume)
 		if err == nil && dbSales > 0 {
 			resp.TotalSales = dbSales
 			resp.TotalVolumeTON = dbVolume
+		}
+
+		if resp.FloorPriceTON == 0 {
+			var minSale float64
+			errMin := s.db.Pool.QueryRow(ctx, `
+				SELECT MIN(sale_price_ton)
+				FROM number_sales
+				WHERE is_reorged = FALSE AND sale_date >= now() - interval '30 days' AND sale_price_ton > 0`).Scan(&minSale)
+			if errMin == nil && minSale > 0 {
+				resp.FloorPriceTON = minSale
+				resp.FloorPriceUSD = minSale * tonUsdRate
+				resp.DataStatus = "live"
+			}
 		}
 
 		var dbVol24h float64
@@ -1335,8 +1348,8 @@ func (s *NumbersService) GetChartData(ctx context.Context) (*ChartDataResponse, 
 
 	rate := s.getTonUsdRate()
 
-	floorTon := registry.InitialFloorTON
-	floorNTon := registry.InitialFloorTON * 1.05
+	floorTon := 0.0
+	floorNTon := 0.0
 
 	// 1. Fetch live market rates
 	latestReq, err := http.NewRequestWithContext(ctx, "GET", "https://nums888.io/api/latest/", nil)
@@ -1361,6 +1374,15 @@ func (s *NumbersService) GetChartData(ctx context.Context) (*ChartDataResponse, 
 					}
 				}
 			}
+		}
+	}
+
+	if floorTon == 0 && s.db != nil && s.db.Pool != nil {
+		var minSale float64
+		_ = s.db.Pool.QueryRow(ctx, `SELECT MIN(sale_price_ton) FROM number_sales WHERE is_reorged = FALSE AND sale_date >= now() - interval '30 days' AND sale_price_ton > 0`).Scan(&minSale)
+		if minSale > 0 {
+			floorTon = minSale
+			floorNTon = minSale * 1.05
 		}
 	}
 

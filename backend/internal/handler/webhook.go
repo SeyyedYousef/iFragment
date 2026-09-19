@@ -42,6 +42,7 @@ type WebhookHandler struct {
 	raffleSvc     *raffle.RaffleService
 	giftsService  *gifts.GiftsService
 	mtprotoClient mtproto.Client
+	webhookInbox  *repository.WebhookInboxRepo
 }
 
 func (h *WebhookHandler) SetGiftsService(s *gifts.GiftsService) {
@@ -54,10 +55,11 @@ func (h *WebhookHandler) SetMTProtoClient(c mtproto.Client) {
 
 func NewWebhookHandler(db *repository.Database, cache *repository.Cache, botRepo *repository.BotRepo, raffleSvc *raffle.RaffleService) *WebhookHandler {
 	return &WebhookHandler{
-		db:        db,
-		cache:     cache,
-		botRepo:   botRepo,
-		raffleSvc: raffleSvc,
+		db:           db,
+		cache:        cache,
+		botRepo:      botRepo,
+		raffleSvc:    raffleSvc,
+		webhookInbox: repository.NewWebhookInboxRepo(db),
 	}
 }
 
@@ -94,6 +96,9 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 
 	if h.cache != nil && h.cache.Client != nil {
 		h.cache.Client.Set(context.Background(), cacheKey, "processed", 7*24*time.Hour)
+	}
+	if h.webhookInbox != nil {
+		_ = h.webhookInbox.MarkProcessed(context.Background(), bot.ID, int64(update.UpdateID))
 	}
 }
 
@@ -205,6 +210,8 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	}
 	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
+	var update *TelegramUpdate
+
 	// Central panic recovery and latency telemetry
 	defer func() {
 		duration := time.Since(startTime).Seconds()
@@ -233,13 +240,18 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 					slog.Error("Failed to write to webhook DLQ", "error", errX)
 				}
 			}
+
+			if h.webhookInbox != nil && bot != nil && update != nil {
+				_ = h.webhookInbox.MarkFailedOrDLQ(context.Background(), bot.ID, int64(update.UpdateID), fmt.Sprintf("%v", rec))
+			}
+
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 
 		telemetry.RecordChannelWebhookLatency(botIDStr, webhookStatus, duration)
 	}()
 
-	update := telegramUpdatePool.Get().(*TelegramUpdate)
+	update = telegramUpdatePool.Get().(*TelegramUpdate)
 	dispatched := false
 	defer func() {
 		if !dispatched {
@@ -278,6 +290,22 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	}
 
 	webhookStatus = "success"
+
+	// Finding 5: Durable PostgreSQL Inbox State Machine + Redis Fast-path
+	payloadHashBytes := sha256.Sum256(bodyBytes)
+	payloadHash := hex.EncodeToString(payloadHashBytes[:])
+	chatID := extractChatIDFromUpdate(update)
+
+	if h.webhookInbox != nil {
+		isDup, err := h.webhookInbox.RecordIncoming(ctx, bot.ID, int64(update.UpdateID), chatID, payloadHash, bodyBytes)
+		if err != nil {
+			slog.Warn("Webhook inbox record warning", "error", err, "update_id", update.UpdateID, "bot_id", botIDStr)
+		} else if isDup {
+			slog.Info("Duplicate/replay Telegram update dropped by durable inbox", "update_id", update.UpdateID, "bot_id", botIDStr)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+	}
 
 	// ING-P1-005: Webhook state machine received -> processing (5m lease) -> processed (committed)
 	cacheKey = fmt.Sprintf("update:%s:%d", botIDStr, update.UpdateID)

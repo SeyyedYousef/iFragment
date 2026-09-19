@@ -281,6 +281,27 @@ func (s *NumbersSalesIndexer) processNFTSales(ctx context.Context, normNumber st
 			txHash := event.Actions[0].BaseTransactions[0]
 			priceTON, saleType, confidence := s.extractPriceFromTrace(ctx, txHash)
 
+			// Finding 6: Finality confirmation check
+			// TON masterchain finality requires block confirmation (at least 15s elapsed since event timestamp to avoid edge-block reorgs)
+			saleDate := time.Unix(event.Timestamp, 0)
+			if time.Since(saleDate) < 15*time.Second {
+				slog.Debug("Postponing unfinalized TON sale event for finality depth", "tx_hash", txHash, "age", time.Since(saleDate))
+				continue
+			}
+
+			// Check if event is marked as reorged in chain_events
+			if s.db != nil && s.db.Pool != nil {
+				var reorged bool
+				err := s.db.Pool.QueryRow(ctx, `
+					SELECT reorged FROM chain_events 
+					WHERE chain = 'ton' AND network = 'mainnet' AND tx_hash = $1
+					LIMIT 1`, txHash).Scan(&reorged)
+				if err == nil && reorged {
+					slog.Warn("Skipping reorged TON sale event", "tx_hash", txHash, "number", normNumber)
+					continue
+				}
+			}
+
 			// RB-P0-004, AC-P0-009: Verify market address or official venue
 			// If confidence is not confirmed exact by a registered market contract, do NOT store as a verified sale
 			isMarketAddress := false
@@ -297,7 +318,6 @@ func (s *NumbersSalesIndexer) processNFTSales(ctx context.Context, normNumber st
 			}
 
 			if priceTON > 0 && (isMarketAddress && confidence == "exact") {
-				saleDate := time.Unix(event.Timestamp, 0)
 				rawData, _ := json.Marshal(event)
 
 				saleRec := repository.NumberSaleRecord{
@@ -316,6 +336,18 @@ func (s *NumbersSalesIndexer) processNFTSales(ctx context.Context, normNumber st
 				if err := s.repo.InsertNumberSale(ctx, saleRec); err == nil {
 					indexedCount++
 					slog.Info("Indexed new verified number sale", "number", normNumber, "price_ton", priceTON, "type", saleType, "tx", txHash)
+
+					// Record confirmed event in chain_events table (Finding 6, SCHEMA-P0-003)
+					if s.db != nil && s.db.Pool != nil {
+						_, _ = s.db.Pool.Exec(ctx, `
+							INSERT INTO chain_events (
+								chain, network, tx_hash, item_address, event_type,
+								confirmation_depth, finality_status, reorged, captured_at
+							) VALUES (
+								'ton', 'mainnet', $1, $2, 'nft_sale', 1, 'confirmed', FALSE, NOW()
+							) ON CONFLICT (chain, network, tx_hash, event_index, decoder_version) DO NOTHING`,
+							txHash, nftAddr)
+					}
 
 					// Trigger instant watchlist notification
 					if s.notifier != nil {

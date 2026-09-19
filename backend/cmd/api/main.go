@@ -22,6 +22,7 @@ import (
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/client/tonapi"
+	"ifragment-backend/internal/config"
 	"ifragment-backend/internal/handler"
 	"ifragment-backend/internal/logger"
 	"ifragment-backend/internal/middleware"
@@ -74,28 +75,14 @@ func main() {
 		}
 	}
 
-	// P0-S1: Validate critical secrets at startup (fail-fast)
-	isProd := os.Getenv("APP_ENV") == "production"
-	if jwtSecret := os.Getenv("JWT_SECRET"); len(jwtSecret) < 32 {
-		if isProd {
-			slog.Error("FATAL: JWT_SECRET must be at least 32 characters for production")
-			os.Exit(1)
-		}
-		slog.Warn("JWT_SECRET is too short (< 32 chars), using anyway in non-production")
+	// Load and validate typed configuration (Finding 7)
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("FATAL: Failed to load application configuration", "error", err)
+		os.Exit(1)
 	}
-	if isProd {
-		requiredSecrets := []string{"WEBHOOK_SECRET_TOKEN", "DATABASE_URL"}
-		for _, s := range requiredSecrets {
-			if os.Getenv(s) == "" {
-				slog.Error("FATAL: Required secret is missing in production", "secret", s)
-				os.Exit(1)
-			}
-		}
-		if os.Getenv("BOT_TOKEN") == "" && os.Getenv("TELEGRAM_BOT_TOKEN") == "" {
-			slog.Error("FATAL: Required secret is missing in production", "secret", "BOT_TOKEN or TELEGRAM_BOT_TOKEN")
-			os.Exit(1)
-		}
-	}
+
+	isProd := cfg.App.IsProduction()
 
 	ctx, cancelMain := context.WithCancel(context.Background())
 	defer cancelMain()
@@ -114,7 +101,7 @@ func main() {
 	}
 
 	// Initialize Database
-	db, err := repository.NewDatabase(ctx)
+	db, err := repository.NewDatabaseWithConfig(ctx, cfg.DB)
 	if err != nil {
 		if isProd {
 			slog.Error("FATAL: Database connection failed in production", "error", err)
@@ -523,7 +510,7 @@ func main() {
 	})
 
 	// Start server with graceful shutdown
-	port := os.Getenv("PORT")
+	port := cfg.App.Port
 	if port == "" {
 		port = "8080"
 	}

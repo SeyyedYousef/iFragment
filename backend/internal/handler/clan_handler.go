@@ -162,6 +162,16 @@ func (h *ClanHandler) GetClanMembers(w http.ResponseWriter, r *http.Request) {
 
 var clanHTTPClient = &http.Client{
 	Timeout: 10 * time.Second,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 1 {
+			return errors.New("redirects are prohibited on photo proxy")
+		}
+		host := req.URL.Hostname()
+		if host != "t.me" && host != "api.telegram.org" && host != "telegram.org" && !strings.HasSuffix(host, ".telegram.org") {
+			return errors.New("redirect to disallowed host prohibited")
+		}
+		return nil
+	},
 }
 
 func (h *ClanHandler) GetClanPhotoProxy(w http.ResponseWriter, r *http.Request) {

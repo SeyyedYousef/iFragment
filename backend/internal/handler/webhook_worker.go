@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"runtime/debug"
 	"sync"
@@ -39,6 +40,9 @@ func initWorkerPool(h *WebhookHandler) {
 						defer func() {
 							if r := recover(); r != nil {
 								slog.Error("Worker panic recovered during async webhook execution", "shard", shardID, "panic", r, "stack", string(debug.Stack()))
+								if h != nil && h.webhookInbox != nil && job.bot != nil && job.update != nil {
+									_ = h.webhookInbox.MarkFailedOrDLQ(context.Background(), job.bot.ID, int64(job.update.UpdateID), fmt.Sprintf("panic: %v", r))
+								}
 							}
 						}()
 						h.processUpdateAsync(job.ctx, job.bot, job.update)
