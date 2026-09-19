@@ -101,10 +101,11 @@ type NumbersIntelResponse struct {
 	HistoricalATH   float64            `json:"historical_ath_ton"`
 	ATHNumber       string             `json:"ath_number"`
 	PercentileChart []PriceChartPoint  `json:"percentile_chart"`
+	ChartType       string             `json:"chart_type,omitempty"` // "modeled_estimate" vs "historical_sales"
 	EndingSoon      []AuctionItem      `json:"ending_soon"`
 	TrendingTail    []TrendingTailItem `json:"trending_tail"`
 	HallOfFame      []HallOfFameItem   `json:"hall_of_fame"`
-	DataStatus      string             `json:"data_status"` // "live" or "insufficient_data"
+	DataStatus      string             `json:"data_status"` // "live", "estimated", or "insufficient_data"
 	UpdatedAt       string             `json:"updated_at"`
 }
 
@@ -443,6 +444,16 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 		}
 	}
 	resp.PercentileChart = chartPoints
+	if len(chartPoints) > 0 {
+		resp.ChartType = "modeled_estimate"
+	}
+	if resp.DataStatus == "syncing" {
+		if resp.TotalSales > 0 || len(resp.EndingSoon) > 0 {
+			resp.DataStatus = "live"
+		} else {
+			resp.DataStatus = "estimated"
+		}
+	}
 
 	// 5. Cache for 6 hours (reduces upstream API load to a minimum)
 	if s.cache != nil && s.cache.Client != nil {
