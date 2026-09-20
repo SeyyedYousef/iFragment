@@ -16,13 +16,12 @@ This command handles production deployment with pre-flight checks, deployment ex
 
 ## Sub-commands
 
-```
 /deploy            - Interactive deployment wizard
-/deploy check      - Run pre-deployment checks only
+/deploy vps        - One-click deploy to production VPS (109.172.94.139)
+/deploy check      - Run pre-deployment checks only (go test & npx tsc)
 /deploy preview    - Deploy to preview/staging
-/deploy production - Deploy to production
+/deploy production - Run automated deploy script: python .agent/skills/ifragment-deploy/scripts/deploy_vps.py
 /deploy rollback   - Rollback to previous version
-```
 
 ---
 
