@@ -157,7 +157,10 @@ export const BottomNav: Component = () => {
 				>
 					<span
 						class="material-symbols-outlined text-[22px]"
-						style={{ 'font-variation-settings': isActive('/investors') || isActive('/dashboard') ? '"FILL" 1' : '"FILL" 0' }}
+						style={{
+							'font-variation-settings':
+								isActive('/investors') || isActive('/dashboard') ? '"FILL" 1' : '"FILL" 0',
+						}}
 					>
 						handshake
 					</span>

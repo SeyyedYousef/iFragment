@@ -115,7 +115,7 @@ export const CollectionInfoPage: Component = () => {
 			.map((item, idx) => {
 				const cleanName = item.item_name.replace('@', '');
 				const priceNum = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0;
-				const category = cleanName.length <= 4 ? 'short' : 'brand';
+				const category: 'short' | 'brand' = cleanName.length <= 4 ? 'short' : 'brand';
 				return {
 					rank: idx + 1,
 					handle: cleanName,
@@ -530,9 +530,7 @@ export const CollectionInfoPage: Component = () => {
 																</span>
 															</Show>
 														</div>
-														<span class="text-[10px] text-white/40 font-mono">
-															{item.date}
-														</span>
+														<span class="text-[10px] text-white/40 font-mono">{item.date}</span>
 													</div>
 												</div>
 

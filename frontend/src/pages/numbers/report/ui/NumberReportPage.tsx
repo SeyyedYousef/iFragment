@@ -202,8 +202,6 @@ export const NumberReportPage: Component = () => {
 	const [watchLoading, setWatchLoading] = createSignal(false);
 	const [isMonitored, setIsMonitored] = createSignal(false);
 
-
-
 	// Reactive validation
 	const validation = createMemo(() => validateAndFormatAnonymousNumber(inputNumber()));
 
@@ -818,8 +816,6 @@ export const NumberReportPage: Component = () => {
 							</div>
 						</div>
 
-
-
 						{/* ⚡ MODULE 2: ACTION HUB (MONITOR, FRAGMENT, WATCHLIST) */}
 						<div class="grid grid-cols-3 gap-2">
 							<button
@@ -984,8 +980,6 @@ export const NumberReportPage: Component = () => {
 									: t('numbers.basisRegression')}
 							</p>
 						</div>
-
-
 
 						{/* 🧬 MODULE 5: STRUCTURAL GENETICS & SCARCITY MATRIX */}
 						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
@@ -1252,8 +1246,6 @@ export const NumberReportPage: Component = () => {
 								</Show>
 							</div>
 						</div>
-
-
 					</div>
 				</Show>
 			</div>

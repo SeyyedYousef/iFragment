@@ -280,10 +280,18 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 											<div class="text-right">
 												<div class="font-black text-white font-mono text-xs flex items-center justify-end gap-1.5">
 													<span class="w-1.5 h-1.5 rounded-full bg-[#0098EA]" />
-													<span>{asset.expected_ton ? `${formatTon(asset.expected_ton)} TON` : (floorTon() > 0 ? `${formatTon(floorTon())} TON` : '-')}</span>
+													<span>
+														{asset.expected_ton
+															? `${formatTon(asset.expected_ton)} TON`
+															: floorTon() > 0
+																? `${formatTon(floorTon())} TON`
+																: '-'}
+													</span>
 												</div>
 												<div class="text-[10px] text-white/40 font-mono">
-													{(asset.expected_usd || (floorTon() > 0 && tonRate() > 0)) ? `≈ ${formatUsd(asset.expected_usd || Math.round(floorTon() * tonRate()))}` : '-'}
+													{asset.expected_usd || (floorTon() > 0 && tonRate() > 0)
+														? `≈ ${formatUsd(asset.expected_usd || Math.round(floorTon() * tonRate()))}`
+														: '-'}
 												</div>
 											</div>
 										</button>

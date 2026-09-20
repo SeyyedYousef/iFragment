@@ -17,7 +17,7 @@ export const OwnerInvestorsPage: Component = () => {
 
 	const settingsQuery = createQuery<SystemSettings>(() => ({
 		queryKey: ['owner', 'settings'],
-		queryFn: () => ownerApi.getSystemSettings(),
+		queryFn: () => ownerApi.getSettings(),
 	}));
 
 	// Sync staged URL with loaded settings
@@ -43,7 +43,7 @@ export const OwnerInvestorsPage: Component = () => {
 		mutationFn: (newUrl: string) => {
 			const current = settingsQuery.data;
 			if (!current) throw new Error('Settings not loaded');
-			return ownerApi.updateSystemSettings({
+			return ownerApi.updateSettings({
 				...current,
 				investors_page_image_url: newUrl,
 			});
@@ -112,25 +112,17 @@ export const OwnerInvestorsPage: Component = () => {
 						<span class="material-symbols-outlined text-base">
 							{updateMutation.isPending ? 'sync' : 'check_circle'}
 						</span>
-						<span>
-							{updateMutation.isPending ? 'Saving...' : t('ownerInvestors.saveButton')}
-						</span>
+						<span>{updateMutation.isPending ? 'Saving...' : t('ownerInvestors.saveButton')}</span>
 					</button>
 				</div>
 			</div>
 
 			{/* Distinction Callout Banner */}
 			<div class="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-start gap-3.5">
-				<span class="material-symbols-outlined text-amber-400 text-2xl shrink-0 mt-0.5">
-					info
-				</span>
+				<span class="material-symbols-outlined text-amber-400 text-2xl shrink-0 mt-0.5">info</span>
 				<div class="space-y-1 text-xs">
-					<div class="font-bold text-amber-300">
-						{t('ownerInvestors.noticeTitle')}
-					</div>
-					<p class="text-white/70 leading-relaxed">
-						{t('ownerInvestors.noticeDesc')}
-					</p>
+					<div class="font-bold text-amber-300">{t('ownerInvestors.noticeTitle')}</div>
+					<p class="text-white/70 leading-relaxed">{t('ownerInvestors.noticeDesc')}</p>
 				</div>
 			</div>
 
@@ -142,9 +134,7 @@ export const OwnerInvestorsPage: Component = () => {
 						<div class="flex items-center justify-between border-b border-white/10 pb-3">
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-outlined text-amber-400">crop_portrait</span>
-								<h3 class="text-sm font-bold text-white">
-									{t('ownerInvestors.uploadTitle')}
-								</h3>
+								<h3 class="text-sm font-bold text-white">{t('ownerInvestors.uploadTitle')}</h3>
 							</div>
 							<span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-white/60">
 								1080 × 1920 (9:16)
@@ -152,7 +142,8 @@ export const OwnerInvestorsPage: Component = () => {
 						</div>
 
 						<p class="text-xs text-white/50 leading-relaxed">
-							تصویر انتخابی را با نسبت عمودی ۹:۱۶ برش دهید. بخش امن (Safe Zone) شامل ۱۴۰ پیکسل از بالا (هدر تلگرام) و ۲۶۰ پیکسل از پایین (نوار پیمایش) است.
+							تصویر انتخابی را با نسبت عمودی ۹:۱۶ برش دهید. بخش امن (Safe Zone) شامل ۱۴۰ پیکسل از
+							بالا (هدر تلگرام) و ۲۶۰ پیکسل از پایین (نوار پیمایش) است.
 						</p>
 
 						<ImageCropUploader
@@ -177,7 +168,10 @@ export const OwnerInvestorsPage: Component = () => {
 							<div class="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 flex items-center justify-between">
 								<div class="flex items-center gap-2 text-xs text-amber-300">
 									<span class="material-symbols-outlined text-base">pending</span>
-									<span>تغییرات هنوز ذخیره نشده‌اند. برای انتشار روی دکمه «ذخیره تنظیمات تصویر» کلیک کنید.</span>
+									<span>
+										تغییرات هنوز ذخیره نشده‌اند. برای انتشار روی دکمه «ذخیره تنظیمات تصویر» کلیک
+										کنید.
+									</span>
 								</div>
 								<button
 									type="button"
@@ -273,12 +267,12 @@ export const OwnerInvestorsPage: Component = () => {
 			{/* Delete Confirmation Modal */}
 			<Show when={showDeleteConfirm()}>
 				<DangerActionDialog
+					isOpen={showDeleteConfirm()}
 					title={t('ownerInvestors.removeButton')}
 					description="آیا مطمئن هستید که می‌خواهید تصویر تمام‌صفحه صفحه سرمایه‌گذاران را حذف کنید؟ در این صورت کاربران صفحه خالی پیش‌فرض را مشاهده خواهند کرد."
-					confirmLabel={t('common.delete')}
-					cancelLabel={t('common.cancel')}
+					actionLabel={t('common.delete')}
 					onConfirm={handleConfirmRemove}
-					onCancel={() => setShowDeleteConfirm(false)}
+					onClose={() => setShowDeleteConfirm(false)}
 				/>
 			</Show>
 		</div>

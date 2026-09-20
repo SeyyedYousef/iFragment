@@ -1,25 +1,11 @@
 import type { Component, JSX } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { ImpersonationBanner } from './ImpersonationBanner.js';
-import { OwnerTabs } from './OwnerTabs.js';
+import { type OwnerTabId, OwnerTabs } from './OwnerTabs.js';
 
 interface OwnerLayoutProps {
 	children: JSX.Element;
-	activeTab:
-		| 'dashboard'
-		| 'users'
-		| 'audit-logs'
-		| 'quests'
-		| 'combos'
-		| 'userbot'
-		| 'settings'
-		| 'promos'
-		| 'broadcast'
-		| 'finance'
-		| 'health'
-		| 'entities'
-		| 'ads'
-		| 'investors';
+	activeTab: OwnerTabId;
 	/** i18n key resolved by OwnerLayout, e.g. 'ownerNav.dashboardTitle' */
 	title?: string;
 }

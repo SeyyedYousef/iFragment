@@ -184,8 +184,6 @@ export interface SystemErrorLog {
 	created_at: string;
 }
 
-
-
 export interface ChartPoint {
 	date: string;
 	value: number;

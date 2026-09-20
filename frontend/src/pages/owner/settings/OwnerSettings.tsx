@@ -317,7 +317,9 @@ export const OwnerSettings: Component = () => {
 							<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
 								<div class="flex items-center gap-2">
 									<span class="material-symbols-outlined text-amber-400">handshake</span>
-									<h3 class="text-sm font-bold text-white">تصویر تمام‌صفحه صفحه سرمایه‌گذاران (تب دوم ربات)</h3>
+									<h3 class="text-sm font-bold text-white">
+										تصویر تمام‌صفحه صفحه سرمایه‌گذاران (تب دوم ربات)
+									</h3>
 								</div>
 								<A
 									href="/owner/investors"
@@ -328,8 +330,8 @@ export const OwnerSettings: Component = () => {
 								</A>
 							</div>
 							<p class="text-xs text-white/50 mt-2 leading-relaxed">
-								تصویر تمام‌صفحه که به جای کل صفحه تب دوم (سرمایه‌گذاران) نمایش داده می‌شود.
-								ابعاد استاندارد: ۱۰۸۰×۱۹۲۰ (عمودی ۹:۱۶). این بخش کاملاً مستقل از بنرهای صفحه اول است.
+								تصویر تمام‌صفحه که به جای کل صفحه تب دوم (سرمایه‌گذاران) نمایش داده می‌شود. ابعاد
+								استاندارد: ۱۰۸۰×۱۹۲۰ (عمودی ۹:۱۶). این بخش کاملاً مستقل از بنرهای صفحه اول است.
 							</p>
 						</header>
 

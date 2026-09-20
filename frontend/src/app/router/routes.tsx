@@ -10,9 +10,6 @@ const AirdropPage = lazy(() =>
 const CollectionInfoPage = lazy(() =>
 	import('@/pages/collection-info/index.js').then((m) => ({ default: m.CollectionInfoPage })),
 );
-const DashboardPage = lazy(() =>
-	import('@/pages/dashboard/dashboard/index.js').then((m) => ({ default: m.DashboardPage })),
-);
 const InvestorsPromoPage = lazy(() =>
 	import('@/pages/dashboard/dashboard/index.js').then((m) => ({ default: m.InvestorsPromoPage })),
 );

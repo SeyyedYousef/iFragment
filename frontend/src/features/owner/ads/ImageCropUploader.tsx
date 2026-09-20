@@ -206,7 +206,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 
 					<div
 						class="relative overflow-hidden rounded-xl border border-white/10 bg-white/5 mx-auto max-h-[420px]"
-						style={{ "aspect-ratio": `${aspectRatio()}` }}
+						style={{ 'aspect-ratio': `${aspectRatio()}` }}
 					>
 						<img
 							src={buildMediaUrl(uploadedUrl()!)}
@@ -282,7 +282,8 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					</div>
 					<div class="text-sm font-medium text-white">{t('imageCrop.dragDrop')}</div>
 					<div class="text-xs text-white/50 mt-1">
-						{t('imageCrop.formats')} • Max {maxFileSizeMB()}MB • Output {targetWidth()}×{targetHeight()}
+						{t('imageCrop.formats')} • Max {maxFileSizeMB()}MB • Output {targetWidth()}×
+						{targetHeight()}
 					</div>
 				</div>
 			</Show>
@@ -310,7 +311,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					{/* Crop Canvas Display */}
 					<div
 						class="relative overflow-hidden rounded-xl border border-white/20 bg-black cursor-move select-none mx-auto max-h-[480px]"
-						style={{ "aspect-ratio": `${aspectRatio()}` }}
+						style={{ 'aspect-ratio': `${aspectRatio()}` }}
 						role="application"
 						aria-label={t('imageCrop.cropAreaAriaLabel')}
 						onMouseDown={handleMouseDown}

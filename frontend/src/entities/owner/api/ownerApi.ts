@@ -197,9 +197,6 @@ export const ownerApi = {
 		return res.data;
 	},
 
-
-
-
 	// ─── Finance ────────────────────────────────────────────────────────────────
 	getFinanceSummary: async (): Promise<FinanceSummary> => {
 		const res = await api.get<FinanceSummary>('/finance/summary');

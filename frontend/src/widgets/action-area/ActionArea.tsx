@@ -62,25 +62,6 @@ interface TrendingPool {
 	items: string[];
 }
 
-interface GiftTrendingCard {
-	slug: string;
-	name: string;
-	serial: number;
-	url: string;
-	floor: number;
-	emoji: string;
-	tag: string;
-}
-
-interface GiftTrendingPool {
-	id: string;
-	icon: string;
-	label: string;
-	shortLabel: string;
-	badge: string;
-	items: GiftTrendingCard[];
-}
-
 const NUMBER_TRENDING_POOLS: TrendingPool[] = [
 	{
 		categoryKey: 'numbers.poolRoyal',
@@ -152,7 +133,6 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	>(null);
 	const [isVerifying, setIsVerifying] = createSignal(false);
 	const [poolIndex, setPoolIndex] = createSignal(0);
-	const [giftPoolIndex, setGiftPoolIndex] = createSignal(0);
 	const [isRotating, setIsRotating] = createSignal(false);
 
 	let autoGuideTimeout: any = null;

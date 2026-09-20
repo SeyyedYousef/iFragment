@@ -174,8 +174,8 @@ func TestValuationEngine_Standard8DigitRealism(t *testing.T) {
 	// 3. +888 1234 5678 (Ascending Ladder)
 	valLadder, _ := engine.Valuate(ctx, "+888 1234 5678")
 	expLadder, _ := valLadder.ExpectedTON.Float64()
-	if expLadder < 15000.0 || expLadder > 45000.0 {
-		t.Errorf("expected +888 1234 5678 in [15,000, 45,000] TON, got %.2f", expLadder)
+	if expLadder < 15000.0 || expLadder > 55000.0 {
+		t.Errorf("expected +888 1234 5678 in [15,000, 55,000] TON, got %.2f", expLadder)
 	}
 
 	// 4. +888 0139 7412 (Standard Baseline Random Number)

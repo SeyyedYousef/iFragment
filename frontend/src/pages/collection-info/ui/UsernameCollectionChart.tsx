@@ -19,13 +19,10 @@ interface ChartPoint {
 	volumeUsd: number;
 }
 
-export const UsernameCollectionChart: Component<Props> = (props) => {
+export const UsernameCollectionChart: Component<Props> = (_props) => {
 	const [timeframe, setTimeframe] = createSignal<Timeframe>('30d');
 	const [currency, setCurrency] = createSignal<'ton' | 'usd'>('ton');
 	const [hoverIdx, setHoverIdx] = createSignal<number | null>(null);
-
-	const rate = () => props.tonUsdRate || 0;
-	const baseFloor = () => props.currentFloorTon || 0;
 
 	// RB-P0-002, DEL-P0-002, AC-P0-008: Zero synthetic points.
 	// Do not synthesize fictional sinusoidal or flatline waves.
@@ -258,158 +255,160 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 					fallback={
 						<div class="text-center">
 							<div class="text-white/40 text-xs font-mono mb-1">تاریخچه معاملات در دسترس نیست</div>
-							<div class="text-white/20 text-[10px] font-mono">History unavailable — zero synthetic points</div>
+							<div class="text-white/20 text-[10px] font-mono">
+								History unavailable — zero synthetic points
+							</div>
 						</div>
 					}
 				>
-				<svg
-					viewBox={`0 0 ${width} ${height}`}
-					class="w-full h-full overflow-visible"
-					preserveAspectRatio="none"
-				>
-					<defs>
-						<linearGradient id="usernameAreaGrad" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0%" stop-color="#0098EA" stop-opacity="0.3" />
-							<stop offset="60%" stop-color="#0098EA" stop-opacity="0.05" />
-							<stop offset="100%" stop-color="#0098EA" stop-opacity="0.0" />
-						</linearGradient>
-						<filter id="usernameNeonGlow" x="-20%" y="-20%" width="140%" height="140%">
-							<feGaussianBlur stdDeviation="3" result="blur" />
-							<feMerge>
-								<feMergeNode in="blur" />
-								<feMergeNode in="SourceGraphic" />
-							</feMerge>
-						</filter>
-					</defs>
+					<svg
+						viewBox={`0 0 ${width} ${height}`}
+						class="w-full h-full overflow-visible"
+						preserveAspectRatio="none"
+					>
+						<defs>
+							<linearGradient id="usernameAreaGrad" x1="0" y1="0" x2="0" y2="1">
+								<stop offset="0%" stop-color="#0098EA" stop-opacity="0.3" />
+								<stop offset="60%" stop-color="#0098EA" stop-opacity="0.05" />
+								<stop offset="100%" stop-color="#0098EA" stop-opacity="0.0" />
+							</linearGradient>
+							<filter id="usernameNeonGlow" x="-20%" y="-20%" width="140%" height="140%">
+								<feGaussianBlur stdDeviation="3" result="blur" />
+								<feMerge>
+									<feMergeNode in="blur" />
+									<feMergeNode in="SourceGraphic" />
+								</feMerge>
+							</filter>
+						</defs>
 
-					{/* Grid Lines */}
-					<line
-						x1={padding.left}
-						y1={padding.top}
-						x2={width - padding.right}
-						y2={padding.top}
-						stroke="rgba(255,255,255,0.05)"
-						stroke-dasharray="3 3"
-					/>
-					<line
-						x1={padding.left}
-						y1={height / 2}
-						x2={width - padding.right}
-						y2={height / 2}
-						stroke="rgba(255,255,255,0.05)"
-						stroke-dasharray="3 3"
-					/>
-					<line
-						x1={padding.left}
-						y1={height - padding.bottom + 5}
-						x2={width - padding.right}
-						y2={height - padding.bottom + 5}
-						stroke="rgba(255,255,255,0.05)"
-					/>
-
-					{/* Volume Bars */}
-					<For each={activePoints()}>
-						{(pt) => {
-							const barH = Math.min(18, Math.max(3, (pt.volumeTon / 800) * 10));
-							const barY = height - padding.bottom + 5 - barH;
-							return (
-								<rect
-									x={pt.x - 2.5}
-									y={barY}
-									width="5"
-									height={barH}
-									rx="1.5"
-									fill="rgba(0, 152, 234, 0.16)"
-								/>
-							);
-						}}
-					</For>
-
-					{/* Area Fill */}
-					<Show when={svgPaths().area}>
-						<path d={svgPaths().area} fill="url(#usernameAreaGrad)" />
-					</Show>
-
-					{/* Line */}
-					<Show when={svgPaths().line}>
-						<path
-							d={svgPaths().line}
-							fill="none"
-							stroke="#0098EA"
-							stroke-width="2.5"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							filter="url(#usernameNeonGlow)"
+						{/* Grid Lines */}
+						<line
+							x1={padding.left}
+							y1={padding.top}
+							x2={width - padding.right}
+							y2={padding.top}
+							stroke="rgba(255,255,255,0.05)"
+							stroke-dasharray="3 3"
 						/>
-					</Show>
+						<line
+							x1={padding.left}
+							y1={height / 2}
+							x2={width - padding.right}
+							y2={height / 2}
+							stroke="rgba(255,255,255,0.05)"
+							stroke-dasharray="3 3"
+						/>
+						<line
+							x1={padding.left}
+							y1={height - padding.bottom + 5}
+							x2={width - padding.right}
+							y2={height - padding.bottom + 5}
+							stroke="rgba(255,255,255,0.05)"
+						/>
 
-					{/* Crosshair Dot */}
-					<Show when={currentPoint()}>
+						{/* Volume Bars */}
+						<For each={activePoints()}>
+							{(pt) => {
+								const barH = Math.min(18, Math.max(3, (pt.volumeTon / 800) * 10));
+								const barY = height - padding.bottom + 5 - barH;
+								return (
+									<rect
+										x={pt.x - 2.5}
+										y={barY}
+										width="5"
+										height={barH}
+										rx="1.5"
+										fill="rgba(0, 152, 234, 0.16)"
+									/>
+								);
+							}}
+						</For>
+
+						{/* Area Fill */}
+						<Show when={svgPaths().area}>
+							<path d={svgPaths().area} fill="url(#usernameAreaGrad)" />
+						</Show>
+
+						{/* Line */}
+						<Show when={svgPaths().line}>
+							<path
+								d={svgPaths().line}
+								fill="none"
+								stroke="#0098EA"
+								stroke-width="2.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								filter="url(#usernameNeonGlow)"
+							/>
+						</Show>
+
+						{/* Crosshair Dot */}
+						<Show when={currentPoint()}>
+							{(() => {
+								const cp = currentPoint()!;
+								return (
+									<g>
+										<line
+											x1={cp.x}
+											y1={padding.top - 5}
+											x2={cp.x}
+											y2={height - padding.bottom + 5}
+											stroke="#0098EA"
+											stroke-width="1.5"
+											stroke-dasharray="3 3"
+											opacity="0.8"
+										/>
+										<circle
+											cx={cp.x}
+											cy={cp.y}
+											r="7"
+											fill="#0098EA"
+											opacity="0.3"
+											class="animate-ping"
+										/>
+										<circle
+											cx={cp.x}
+											cy={cp.y}
+											r="5"
+											fill="#0A0E17"
+											stroke="#0098EA"
+											stroke-width="2.5"
+										/>
+										<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
+									</g>
+								);
+							})()}
+						</Show>
+					</svg>
+
+					{/* Floating Tooltip */}
+					<Show when={hoverIdx() !== null && currentPoint()}>
 						{(() => {
 							const cp = currentPoint()!;
+							const isRightHalf = cp.x > width / 2;
 							return (
-								<g>
-									<line
-										x1={cp.x}
-										y1={padding.top - 5}
-										x2={cp.x}
-										y2={height - padding.bottom + 5}
-										stroke="#0098EA"
-										stroke-width="1.5"
-										stroke-dasharray="3 3"
-										opacity="0.8"
-									/>
-									<circle
-										cx={cp.x}
-										cy={cp.y}
-										r="7"
-										fill="#0098EA"
-										opacity="0.3"
-										class="animate-ping"
-									/>
-									<circle
-										cx={cp.x}
-										cy={cp.y}
-										r="5"
-										fill="#0A0E17"
-										stroke="#0098EA"
-										stroke-width="2.5"
-									/>
-									<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
-								</g>
+								<div
+									class="absolute pointer-events-none transition-transform duration-75 z-30"
+									style={{
+										left: `${(cp.x / width) * 100}%`,
+										top: `${Math.max(15, Math.min(125, (cp.y / height) * 100))}%`,
+										transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
+									}}
+								>
+									<div class="bg-[#0b101c]/95 border border-[#0098EA]/40 rounded-xl px-2.5 py-1.5 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap">
+										<div class="text-white font-black text-xs">{fmtVal(cp.val)}</div>
+										<div class="text-white/50 text-[9px] mt-0.5">{cp.label}</div>
+									</div>
+								</div>
 							);
 						})()}
 					</Show>
-				</svg>
 
-				{/* Floating Tooltip */}
-				<Show when={hoverIdx() !== null && currentPoint()}>
-					{(() => {
-						const cp = currentPoint()!;
-						const isRightHalf = cp.x > width / 2;
-						return (
-							<div
-								class="absolute pointer-events-none transition-transform duration-75 z-30"
-								style={{
-									left: `${(cp.x / width) * 100}%`,
-									top: `${Math.max(15, Math.min(125, (cp.y / height) * 100))}%`,
-									transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
-								}}
-							>
-								<div class="bg-[#0b101c]/95 border border-[#0098EA]/40 rounded-xl px-2.5 py-1.5 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap">
-									<div class="text-white font-black text-xs">{fmtVal(cp.val)}</div>
-									<div class="text-white/50 text-[9px] mt-0.5">{cp.label}</div>
-								</div>
-							</div>
-						);
-					})()}
-				</Show>
-
-				{/* Time Bounds */}
-				<div class="absolute bottom-1 left-3 right-3 flex justify-between text-[9px] font-mono text-white/30 pointer-events-none">
-					<span>{activePoints()[0]?.label || ''}</span>
-					<span class="text-[#0098EA] font-semibold">{t('common.now') || 'Now'}</span>
-				</div>
+					{/* Time Bounds */}
+					<div class="absolute bottom-1 left-3 right-3 flex justify-between text-[9px] font-mono text-white/30 pointer-events-none">
+						<span>{activePoints()[0]?.label || ''}</span>
+						<span class="text-[#0098EA] font-semibold">{t('common.now') || 'Now'}</span>
+					</div>
 				</Show>
 			</div>
 		</div>

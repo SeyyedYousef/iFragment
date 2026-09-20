@@ -265,7 +265,6 @@ export const UsernamePage: Component = () => {
 	>(null);
 	const [_isPro, setIsPro] = createSignal<boolean>(false);
 	const [_dailyUsed, setDailyUsed] = createSignal<number>(0);
-	const [copiedCert, setCopiedCert] = createSignal<boolean>(false);
 	const [_showPaymentGate, setShowPaymentGate] = createSignal<boolean>(false);
 	const [_freeQuotaUsed, setFreeQuotaUsed] = createSignal<boolean>(false);
 	const [lastOrderPayload, _setLastOrderPayload] = createSignal<string>('');
@@ -281,7 +280,6 @@ export const UsernamePage: Component = () => {
 	const [verificationData, setVerificationData] = createSignal<UsernameVerificationResult | null>(
 		null,
 	);
-	const [copiedSig, setCopiedSig] = createSignal<boolean>(false);
 	const [similarFilter, setSimilarFilter] = createSignal<'all' | 'word' | 'structure' | 'price'>(
 		'all',
 	);
@@ -485,16 +483,6 @@ export const UsernamePage: Component = () => {
 	const triggerAlert = (msg: string) => {
 		const tg = (window as any).Telegram?.WebApp;
 		tg?.showAlert ? tg.showAlert(msg) : alert(msg);
-	};
-
-	const handleCopyCertificate = async () => {
-		const u = data()?.username || username();
-		if (!u) return;
-		const link = `${window.location.origin}/username/report?u=${encodeURIComponent(u)}`;
-		await copyToClipboard(link);
-		setCopiedCert(true);
-		haptic.notify('success');
-		setTimeout(() => setCopiedCert(false), 3000);
 	};
 
 	const grantAccess = (
@@ -1419,8 +1407,6 @@ export const UsernamePage: Component = () => {
 											</div>
 										</div>
 									</div>
-
-
 								</div>
 							</Show>
 
@@ -1439,8 +1425,6 @@ export const UsernamePage: Component = () => {
 										</span>
 									</div>
 								</Show>
-
-
 
 								{/* ⚖️ TRADEMARK & LEGAL RISK ADVISORY CARD */}
 								<Show when={data()?.trademark_risk && data()!.trademark_risk!.risk_level !== 'low'}>
@@ -1497,8 +1481,6 @@ export const UsernamePage: Component = () => {
 										</div>
 									</div>
 								</Show>
-
-
 
 								{/* 💰 TRANSACTION ECONOMICS & FRAGMENT PROTOCOL FEE */}
 								<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 flex flex-col gap-3.5 shadow-xl text-start">
@@ -1576,8 +1558,6 @@ export const UsernamePage: Component = () => {
 										</div>
 									</div>
 								</div>
-
-
 
 								{/* 🏢 PHASE 3: RENT YIELD CARD (GLOBAL UNIQUE FEATURE) */}
 								<div class="w-full bg-gradient-to-br from-[#0098EA]/15 via-[#12141C]/90 to-[#08090D] border border-[#0098EA]/30 rounded-[28px] p-5 flex flex-col gap-3 shadow-[0_10px_30px_rgba(0,152,234,0.15)]">
@@ -1699,8 +1679,6 @@ export const UsernamePage: Component = () => {
 										</div>
 									</div>
 								</div>
-
-
 
 								{/* 🌟 1. LINGUISTIC MEANING, DICTIONARY & WIKIPEDIA */}
 								<div
@@ -2335,8 +2313,6 @@ export const UsernamePage: Component = () => {
 										</div>
 									</div>
 								</Show>
-
-
 
 								{/* Social Sharing Actions */}
 								<div class="w-full flex gap-3 mt-2">

@@ -173,8 +173,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 						<span class="material-symbols-outlined text-teal-400 text-sm">layers</span>
 					</div>
 					<div class="text-base sm:text-lg font-black text-white font-mono leading-tight">
-						{fmt(pillars().observed_floor_gram)}{' '}
-						<span class="text-[11px] text-teal-400">TON</span>
+						{fmt(pillars().observed_floor_gram)} <span class="text-[11px] text-teal-400">TON</span>
 					</div>
 					<div class="text-[10px] font-mono text-white/50 mt-0.5">
 						{fmtUsd(pillars().observed_floor_usd)}

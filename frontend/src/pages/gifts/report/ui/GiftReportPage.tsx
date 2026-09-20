@@ -1093,8 +1093,12 @@ export const GiftReportPage: Component = () => {
 											Number(currentReport()?.base_price_gram) ||
 											resolvedCollectionItem()?.floorTon ||
 											0;
-										const traitFloorTon = repFloor > 0 ? Math.round(repFloor * (1 + (100 - dna.percentile) / 45)) : 0;
-										const population = colSupply > 0 ? Math.max(1, Math.round((dna.percentile / 100) * colSupply)) : 0;
+										const traitFloorTon =
+											repFloor > 0 ? Math.round(repFloor * (1 + (100 - dna.percentile) / 45)) : 0;
+										const population =
+											colSupply > 0
+												? Math.max(1, Math.round((dna.percentile / 100) * colSupply))
+												: 0;
 										return (
 											<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3">
 												<div class="flex items-center justify-between mb-1">
@@ -1239,7 +1243,8 @@ export const GiftReportPage: Component = () => {
 										{t('gifts.infoEntropy')}
 									</span>
 									<span class="font-black text-white font-mono text-sm">
-										{currentReport()?.joint_rarity?.joint_permille && currentReport()!.joint_rarity.joint_permille > 0
+										{currentReport()?.joint_rarity?.joint_permille &&
+										currentReport()!.joint_rarity.joint_permille > 0
 											? `${(-Math.log2(currentReport()!.joint_rarity.joint_permille / 1000)).toFixed(2)} bits`
 											: '-'}
 									</span>

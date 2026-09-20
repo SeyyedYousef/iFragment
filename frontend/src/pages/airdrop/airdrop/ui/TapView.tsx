@@ -2,7 +2,6 @@ import { type Component, createSignal, For, onCleanup, onMount, Show } from 'sol
 import {
 	activateTurbo,
 	balance,
-	setBalance,
 	checkedInToday,
 	claimDailyReward,
 	currentLeague,
@@ -15,6 +14,7 @@ import {
 	isTurboActive,
 	maxEnergy,
 	recordTaps,
+	setBalance,
 	streakDay,
 	tapPower,
 	turboExpiresAt,

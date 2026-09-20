@@ -2988,7 +2988,8 @@ export const dict = {
 		title: 'Investors Full-Screen Page Management (Tab 2)',
 		subtitle: 'Configure the full-screen image that replaces the entire Investors page',
 		noticeTitle: 'Completely Separate from Homepage Banner Ads',
-		noticeDesc: 'This section manages the full-screen image for the second bottom tab (Investors) and is completely separate from top banner ads.',
+		noticeDesc:
+			'This section manages the full-screen image for the second bottom tab (Investors) and is completely separate from top banner ads.',
 		currentPreview: 'Mobile Device Preview',
 		uploadTitle: 'Upload & Crop Image (1080×1920)',
 		saveButton: 'Save Configuration',

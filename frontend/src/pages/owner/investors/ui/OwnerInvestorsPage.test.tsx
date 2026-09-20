@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@solidjs/testing-library';
+import { render } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OwnerInvestorsPage } from './OwnerInvestorsPage.js';
 
@@ -11,8 +11,8 @@ const mockUpdateSettings = vi.fn().mockResolvedValue({ success: true });
 
 vi.mock('@/entities/owner/api/ownerApi.js', () => ({
 	ownerApi: {
-		getSystemSettings: () => Promise.resolve(mockSettings),
-		updateSystemSettings: (...args: any[]) => mockUpdateSettings(...args),
+		getSettings: () => Promise.resolve(mockSettings),
+		updateSettings: (...args: any[]) => mockUpdateSettings(...args),
 	},
 }));
 
@@ -20,7 +20,7 @@ vi.mock('@tanstack/solid-query', () => ({
 	useQueryClient: () => ({
 		invalidateQueries: vi.fn(),
 	}),
-	createQuery: (fn: any) => ({
+	createQuery: (_fn: any) => ({
 		data: mockSettings,
 		isLoading: false,
 		isError: false,
