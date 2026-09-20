@@ -56,14 +56,9 @@ func EnsureSessionDir() (string, error) {
 	return sessionDir, nil
 }
 
-// NewRealClient creates a real MTProto client with session management.
-func NewRealClient(ctx context.Context) (Client, error) {
-	sessionDir, err := EnsureSessionDir()
-	if err != nil {
-		return nil, err
-	}
-
-	storage := &session.FileStorage{Path: filepath.Join(sessionDir, "bot.session")}
+// startRealClient establishes connection to Telegram MTProto using session stored at sessionPath.
+func startRealClient(ctx context.Context, sessionPath string) (Client, error) {
+	storage := &session.FileStorage{Path: sessionPath}
 
 	appIDStr := os.Getenv("TG_APP_ID")
 	if appIDStr == "" {
@@ -133,6 +128,36 @@ func NewRealClient(ctx context.Context) (Client, error) {
 		client: client,
 		api:    client.API(),
 	}, nil
+}
+
+// NewRealClient creates a real MTProto client with session management and automatic self-healing.
+func NewRealClient(ctx context.Context) (Client, error) {
+	sessionDir, err := EnsureSessionDir()
+	if err != nil {
+		return nil, err
+	}
+
+	sessionFile := filepath.Join(sessionDir, "bot.session")
+	client, err := startRealClient(ctx, sessionFile)
+	if err != nil {
+		// If a session file exists on disk, the failure may be due to a dead/expired/corrupted session.
+		// Automatically purge the dead session and retry once with a clean session.
+		if fi, statErr := os.Stat(sessionFile); statErr == nil && fi.Size() > 0 {
+			slog.Warn("MTProto client failed with existing session file; attempting recovery by purging dead session",
+				"error", err, "session_file", sessionFile)
+			_ = os.Remove(sessionFile)
+
+			retryClient, retryErr := startRealClient(ctx, sessionFile)
+			if retryErr == nil {
+				slog.Info("Real MTProto client recovered successfully after session reset")
+				return retryClient, nil
+			}
+			return nil, fmt.Errorf("failed to start mtproto client even after session purge: %w (initial error: %v)", retryErr, err)
+		}
+		return nil, err
+	}
+
+	return client, nil
 }
 
 // CheckUsername uses MTProto account.checkUsername
@@ -325,6 +350,7 @@ func (m *MockClient) GetSavedStarGifts(ctx context.Context, peer tg.InputPeerCla
 func InitClient(ctx context.Context) (Client, error) {
 	appEnv := os.Getenv("APP_ENV")
 	isProd := appEnv == "production"
+	allowMock := os.Getenv("ALLOW_MOCK_CLIENT") == "true" || appEnv == "development" || appEnv == "test" || appEnv == ""
 
 	appID := os.Getenv("TG_APP_ID")
 	botToken := os.Getenv("BOT_TOKEN")
@@ -340,17 +366,19 @@ func InitClient(ctx context.Context) (Client, error) {
 			return c, nil
 		}
 		slog.Error("Failed to initialize real MTProto client", "error", err)
-		if isProd {
-			return nil, fmt.Errorf("FATAL: real MTProto client failed to initialize in production environment: %w", err)
+		if isProd && !allowMock {
+			return nil, fmt.Errorf("FATAL: real MTProto client failed to initialize in production environment: %w (set ALLOW_MOCK_CLIENT=true to bypass)", err)
+		}
+		if isProd && allowMock {
+			slog.Warn("⚠️ CRITICAL FALLBACK: Real MTProto client failed in production, but ALLOW_MOCK_CLIENT=true. Continuing with MockClient to prevent API crash loop.", "error", err)
 		}
 	} else {
-		if isProd {
-			return nil, fmt.Errorf("FATAL: MTProto credentials (TG_APP_ID, TG_APP_HASH, BOT_TOKEN) are missing in production environment. Refusing to start with MockClient")
+		if isProd && !allowMock {
+			return nil, fmt.Errorf("FATAL: MTProto credentials (TG_APP_ID, TG_APP_HASH, BOT_TOKEN) are missing in production environment. Refusing to start with MockClient (set ALLOW_MOCK_CLIENT=true to bypass)")
 		}
-		slog.Warn("MTProto credentials (TG_APP_ID, TG_APP_HASH, BOT_TOKEN) are missing or incomplete. Using MockClient in non-production mode")
+		slog.Warn("MTProto credentials (TG_APP_ID, TG_APP_HASH, BOT_TOKEN) are missing or incomplete. Using MockClient")
 	}
 
-	allowMock := os.Getenv("ALLOW_MOCK_CLIENT") == "true" || appEnv == "development" || appEnv == "test" || appEnv == ""
 	if !allowMock {
 		return nil, fmt.Errorf("MockClient is prohibited unless APP_ENV is development/test or ALLOW_MOCK_CLIENT=true")
 	}
