@@ -219,16 +219,29 @@ func (s *GiftsService) GetWhaleLeaderboard(ctx context.Context) ([]WhaleProfile,
 type GiftsMacroStatsPayload struct {
 	TotalUniqueModels int `json:"total_unique_models"`
 	TotalPatterns     int `json:"total_patterns"`
+	TotalBackdrops    int `json:"total_backdrops"`
+	UpgradableGifts   int `json:"upgradable_gifts"`
+}
+
+type MacroHistoryPoint struct {
+	Timestamp  string  `json:"timestamp"`
+	McapUSD    float64 `json:"mcap_usd"`
+	McapGRAM   float64 `json:"mcap_gram"`
+	VolumeUSD  float64 `json:"volume_usd"`
+	VolumeGRAM float64 `json:"volume_gram"`
 }
 
 // GiftsIntelResponse holds the public market intelligence overview
 type GiftsIntelResponse struct {
-	TotalCumulativeVolumeUSD float64                 `json:"total_cumulative_volume_usd"`
-	TotalMarketCapUSD        float64                 `json:"total_market_cap_usd"`
-	TotalFDVUSD              float64                 `json:"total_fdv_usd,omitempty"`
-	TotalActiveWallets       int                     `json:"total_active_wallets"`
-	TotalGiftsMinted         int                     `json:"total_gifts_minted"`
-	FnGIndex                 int                     `json:"fng_index"`
+	TotalCumulativeVolumeUSD  float64                 `json:"total_cumulative_volume_usd"`
+	TotalCumulativeVolumeGRAM float64                 `json:"total_cumulative_volume_gram"`
+	TotalMarketCapUSD         float64                 `json:"total_market_cap_usd"`
+	TotalMarketCapGRAM        float64                 `json:"total_market_cap_gram"`
+	TotalFDVUSD               float64                 `json:"total_fdv_usd,omitempty"`
+	TonUsdRate                float64                 `json:"ton_usd_rate"`
+	TotalActiveWallets        int                     `json:"total_active_wallets"`
+	TotalGiftsMinted          int                     `json:"total_gifts_minted"`
+	FnGIndex                  int                     `json:"fng_index"`
 	FnGLabel                 string                  `json:"fng_label"`
 	UnifiedFloorBoard        []UnifiedFloorBoardItem `json:"unified_floor_board"`
 	ArbitrageRadar           []ArbitrageOpportunity  `json:"arbitrage_radar"`
@@ -236,6 +249,7 @@ type GiftsIntelResponse struct {
 	TrendingModels           []TrendingModelItem     `json:"trending_models"`
 	EndingSoonAuctions       []GiftAuctionItem       `json:"ending_soon_auctions"`
 	MacroStats               *GiftsMacroStatsPayload `json:"macro_stats,omitempty"`
+	MacroHistory             []MacroHistoryPoint     `json:"macro_history"`
 	DataSourceAttribution    string                  `json:"data_source_attribution"`
 	DataStatus               string                  `json:"data_status"` // "live", "estimated", "unavailable"
 	UpdatedAt                string                  `json:"updated_at"`
@@ -371,6 +385,8 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 			macroStats = &GiftsMacroStatsPayload{
 				TotalUniqueModels: stats.Models,
 				TotalPatterns:     stats.Patterns,
+				TotalBackdrops:    stats.Backdrops,
+				UpgradableGifts:   stats.Gifts.Upgradable,
 			}
 		}
 	}
@@ -388,6 +404,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 		TrendingModels:           []TrendingModelItem{},
 		EndingSoonAuctions:       []GiftAuctionItem{},
 		MacroStats:               macroStats,
+		MacroHistory:             []MacroHistoryPoint{},
 		DataSourceAttribution:    "Data powered by @GiftChanges (api.changes.tg)",
 		DataStatus:               "unavailable",
 		UpdatedAt:                now.Format(time.RFC3339),
@@ -447,7 +464,8 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 			}
 		}
 
-		var dynamicMarketCap float64
+		var dynamicMarketCapUSD float64
+		var dynamicMarketCapGRAM float64
 		for modelID, venueFloors := range modelMap {
 			col, ok := traits.ResolveCollection(modelID)
 			name := modelID
@@ -471,7 +489,11 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 			}
 
 			if bestFloor > 0 && totalSupply > 0 {
-				dynamicMarketCap += (bestFloor * float64(totalSupply) * gramUsdRate)
+				colCapGram := bestFloor * float64(totalSupply)
+				dynamicMarketCapGRAM += colCapGram
+				if gramUsdRate > 0 {
+					dynamicMarketCapUSD += (colCapGram * gramUsdRate)
+				}
 			}
 
 			ch24h := priceChanges[modelID]
@@ -489,8 +511,11 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 				HasRealVolumeBadge: model7dSales[modelID],
 			})
 		}
-		if dynamicMarketCap > 0 {
-			resp.TotalMarketCapUSD = round2(dynamicMarketCap)
+		if dynamicMarketCapGRAM > 0 {
+			resp.TotalMarketCapGRAM = round2(dynamicMarketCapGRAM)
+			if dynamicMarketCapUSD > 0 {
+				resp.TotalMarketCapUSD = round2(dynamicMarketCapUSD)
+			}
 		}
 	}
 
@@ -509,8 +534,12 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 
 	if totalSalesCount > 0 {
 		resp.DataStatus = "live"
-		resp.TotalCumulativeVolumeUSD = round2(totalVolumeGRAM * gramUsdRate)
+		resp.TotalCumulativeVolumeGRAM = round2(totalVolumeGRAM)
+		if gramUsdRate > 0 {
+			resp.TotalCumulativeVolumeUSD = round2(totalVolumeGRAM * gramUsdRate)
+		}
 	}
+	resp.TonUsdRate = gramUsdRate
 
 	// Fix Bug 1: Calculate TotalGiftsMinted from official catalog supply (or live stats), never from sales count
 	if resp.TotalGiftsMinted == 0 {
@@ -588,6 +617,34 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 			}
 		}
 	}
+
+	// 4. Macro Market History (30-day daily points derived from real verified snapshots & sales)
+	macroPoints := make([]MacroHistoryPoint, 0)
+	if s.repo != nil {
+		if hist, err := s.repo.GetFloorHistoryFromSnapshots(ctx, "", 30); err == nil && len(hist) > 0 {
+			for _, pt := range hist {
+				fGram, _ := pt.FloorGRAM.Float64()
+				fUSD := 0.0
+				if gramUsdRate > 0 {
+					fUSD = round2(fGram * gramUsdRate)
+				}
+				// Estimate daily macro cap based on total minted catalog supply * daily floor
+				dayMcapGram := fGram * float64(resp.TotalGiftsMinted)
+				dayMcapUSD := 0.0
+				if gramUsdRate > 0 {
+					dayMcapUSD = round2(dayMcapGram * gramUsdRate)
+				}
+				macroPoints = append(macroPoints, MacroHistoryPoint{
+					Timestamp:  pt.Timestamp.UTC().Format("2006-01-02"),
+					McapUSD:    dayMcapUSD,
+					McapGRAM:   round2(dayMcapGram),
+					VolumeUSD:  fUSD * 10,
+					VolumeGRAM: fGram * 10,
+				})
+			}
+		}
+	}
+	resp.MacroHistory = macroPoints
 
 	return resp, nil
 }

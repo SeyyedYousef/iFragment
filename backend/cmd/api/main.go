@@ -364,7 +364,13 @@ func main() {
 	clanHandler := handler.NewClanHandler(clanService)
 
 	collectionRepo := repository.NewCollectionRepo(db)
-	collectionHandler := handler.NewCollectionHandler(collectionRepo)
+	collectionHandler := handler.NewCollectionHandler(collectionRepo, cryptoPriceService)
+
+	// Start Background Telegram Usernames Collection Worker
+	if db != nil && tonClient != nil {
+		collWorker := username.NewCollectionWorker(db, tonClient)
+		go collWorker.Start(ctx)
+	}
 
 	authHandler := handler.NewAuthHandler(db, cache, profileService)
 

@@ -2,10 +2,12 @@ BEGIN;
 
 -- 1. Number Features: Deterministic Rarity Profile and On-Chain Attributes
 CREATE TABLE IF NOT EXISTS number_features (
+    id                  BIGSERIAL,
     number              VARCHAR(16) PRIMARY KEY,
     color               VARCHAR(32) NOT NULL DEFAULT 'unknown',
     owner_address       TEXT,
     nft_address         TEXT,
+    is_restricted       BOOLEAN NOT NULL DEFAULT FALSE,
     features            JSONB NOT NULL DEFAULT '{}',
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()

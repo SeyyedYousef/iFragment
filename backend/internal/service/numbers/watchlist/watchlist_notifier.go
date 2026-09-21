@@ -80,3 +80,42 @@ func (n *WatchlistNotifier) NotifySale(ctx context.Context, sale repository.Numb
 		}()
 	}
 }
+
+// NotifyBid sends a Telegram alert when a new bid is placed on a watched number (N-16)
+func (n *WatchlistNotifier) NotifyBid(ctx context.Context, number string, bidAmountTON float64, bidderAddress string, tonUsdRate float64) {
+	if n.repo == nil || n.tgClient == nil {
+		return
+	}
+
+	userIDs, err := n.repo.GetWatchedUsersForNumberWithBidAlerts(ctx, number)
+	if err != nil || len(userIDs) == 0 {
+		return
+	}
+
+	displayNum := features.FormatDisplayNumber(number)
+	priceUSD := bidAmountTON * tonUsdRate
+
+	msg := fmt.Sprintf(
+		"⚡ <b>Watchlist Alert: New Bid on %s!</b>\n\n"+
+			"💰 <b>Bid:</b> <code>%.2f TON</code> (≈ $%.2f)\n"+
+			"👤 <b>Bidder:</b> <code>%s</code>\n\n"+
+			"📊 <a href=\"%s?startapp=num_%s\">View Number Intelligence Report</a>",
+		displayNum,
+		bidAmountTON,
+		priceUSD,
+		bidderAddress,
+		n.appURL,
+		number,
+	)
+
+	for _, uID := range userIDs {
+		targetID := uID
+		go func() {
+			bgCtx := context.Background()
+			if err := n.tgClient.SendMessage(bgCtx, targetID, msg, nil, nil); err != nil {
+				slog.Warn("Failed to send number bid alert to user", "user_id", targetID, "number", number, "error", err)
+			}
+		}()
+	}
+}
+

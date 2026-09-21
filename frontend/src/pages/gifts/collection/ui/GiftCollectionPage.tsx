@@ -588,20 +588,33 @@ export const GiftCollectionPage: Component = () => {
 									</div>
 
 									<div class="flex items-center gap-2 pt-2 border-t border-white/[0.06]">
-										<a
-											href={fi.buy_url || `https://tonnel.network`}
-											target="_blank"
-											rel="noopener noreferrer"
-											onClick={() => {
-												try {
-													haptic.impact('medium');
-												} catch {}
-											}}
-											class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#0081C8] hover:brightness-110 text-white font-black text-xs text-center shadow-lg shadow-[#0098EA]/25 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+										<Show
+											when={fi.buy_url}
+											fallback={
+												<button
+													type="button"
+													disabled
+													class="flex-1 py-2.5 rounded-xl bg-white/[0.04] text-white/30 font-bold text-xs text-center border border-white/[0.06] cursor-not-allowed flex items-center justify-center gap-1.5"
+												>
+													<span>{t('gifts.noActiveListing') || 'No Verified Listing'}</span>
+												</button>
+											}
 										>
-											<span>{t('gifts.buyNow')}</span>
-											<span class="material-symbols-outlined text-sm">open_in_new</span>
-										</a>
+											<a
+												href={fi.buy_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												onClick={() => {
+													try {
+														haptic.impact('medium');
+													} catch {}
+												}}
+												class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#0081C8] hover:brightness-110 text-white font-black text-xs text-center shadow-lg shadow-[#0098EA]/25 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+											>
+												<span>{t('gifts.buyNow')}</span>
+												<span class="material-symbols-outlined text-sm">open_in_new</span>
+											</a>
+										</Show>
 										<button
 											type="button"
 											onClick={() => {

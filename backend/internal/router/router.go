@@ -97,6 +97,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.With(middleware.AuthMiddleware).Get("/valuate", cfg.UsernameHandler.Valuate)
 			if cfg.CollectionHandler != nil {
 				r.Get("/collection/stats", cfg.CollectionHandler.GetStats)
+				r.Get("/collection/history", cfg.CollectionHandler.GetHistory)
 			}
 			r.Post("/share", cfg.UsernameHandler.Share)
 			r.With(middleware.AuthMiddleware).Post("/send-to-chat", cfg.UsernameHandler.SendToChat)
@@ -119,6 +120,12 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/list", cfg.NumbersHandler.GetNumbersList)
 			r.Get("/verify", cfg.NumbersHandler.Verify)
 			r.Get("/intel", cfg.NumbersHandler.GetIntel)
+			r.Get("/collection-overview", cfg.NumbersHandler.GetCollectionOverview)
+			r.Get("/collection-history", cfg.NumbersHandler.GetCollectionHistory)
+			r.Get("/collection-listings", cfg.NumbersHandler.GetCollectionListings)
+			r.Get("/patterns", cfg.NumbersHandler.GetPatternAnalytics)
+			r.Get("/colors", cfg.NumbersHandler.GetColors)
+			r.Get("/export", cfg.NumbersHandler.ExportCollectionSnapshot)
 			r.Get("/chart-data", cfg.NumbersHandler.GetChartData)
 			r.Get("/gate", cfg.NumbersHandler.GetCuriosityGate)
 			r.Get("/mask", cfg.NumbersHandler.SearchMask)

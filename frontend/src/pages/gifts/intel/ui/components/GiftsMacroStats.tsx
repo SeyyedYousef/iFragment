@@ -4,6 +4,7 @@ import { t } from '@/shared/i18n/index.js';
 
 interface Props {
 	data?: GiftsIntelResponse;
+	currency?: 'usd' | 'gram';
 }
 
 interface MacroItem {
@@ -21,9 +22,34 @@ interface MacroSection {
 }
 
 export const GiftsMacroStats: Component<Props> = (props) => {
-	const formatCurrencyVal = (val?: number) => {
-		if (!val || val <= 0) return '—';
-		return `$${(val / 1_000_000).toFixed(1)}M`;
+	const isGram = () => props.currency === 'gram';
+
+	const formatMcap = () => {
+		if (isGram()) {
+			const g = props.data?.total_market_cap_gram;
+			if (g && g > 0) return `${(g / 1_000_000).toFixed(1)}M TON`;
+			const rate = props.data?.ton_usd_rate || 0;
+			const u = props.data?.total_market_cap_usd || 0;
+			if (rate > 0 && u > 0) return `${(u / rate / 1_000_000).toFixed(1)}M TON`;
+			return '—';
+		}
+		const u = props.data?.total_market_cap_usd;
+		if (!u || u <= 0) return '—';
+		return `$${(u / 1_000_000).toFixed(1)}M`;
+	};
+
+	const formatVolume = () => {
+		if (isGram()) {
+			const g = props.data?.total_cumulative_volume_gram;
+			if (g && g > 0) return `${(g / 1_000_000).toFixed(1)}M TON`;
+			const rate = props.data?.ton_usd_rate || 0;
+			const u = props.data?.total_cumulative_volume_usd || 0;
+			if (rate > 0 && u > 0) return `${(u / rate / 1_000_000).toFixed(1)}M TON`;
+			return '—';
+		}
+		const u = props.data?.total_cumulative_volume_usd;
+		if (!u || u <= 0) return '—';
+		return `$${(u / 1_000_000).toFixed(1)}M`;
 	};
 
 	const macroSections = (): MacroSection[] => [
@@ -35,14 +61,17 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					label: t('gifts.totalGiftsCount') || 'Total Gifts',
 					value:
 						props.data?.total_gifts_minted && props.data.total_gifts_minted > 0
-							? props.data.total_gifts_minted
-							: 151,
+							? props.data.total_gifts_minted.toLocaleString()
+							: '—',
 					sub: 'Official Catalog Registry',
 					icon: 'inventory_2',
 				},
 				{
 					label: t('gifts.upgradableGiftsCount') || 'Upgradable to NFT',
-					value: 120,
+					value:
+						props.data?.macro_stats?.upgradable_gifts && props.data.macro_stats.upgradable_gifts > 0
+							? props.data.macro_stats.upgradable_gifts.toLocaleString()
+							: '—',
 					sub: 'TEP-62 Standard',
 					icon: 'auto_awesome',
 				},
@@ -56,7 +85,10 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 				},
 				{
 					label: t('gifts.backdropsCount') || 'Backdrops',
-					value: '80',
+					value:
+						props.data?.macro_stats?.total_backdrops && props.data.macro_stats.total_backdrops > 0
+							? props.data.macro_stats.total_backdrops.toLocaleString()
+							: '—',
 					sub: 'Metallic & Gradient',
 					icon: 'palette',
 				},
@@ -82,14 +114,14 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 			items: [
 				{
 					label: t('gifts.marketCap') || 'Market Cap',
-					value: formatCurrencyVal(props.data?.total_market_cap_usd),
+					value: formatMcap(),
 					sub: 'Live Venue Floor Aggregation',
 					icon: 'account_balance',
 					highlight: true,
 				},
 				{
 					label: t('gifts.cumulativeVolume') || 'All-Time Volume',
-					value: formatCurrencyVal(props.data?.total_cumulative_volume_usd),
+					value: formatVolume(),
 					sub: 'Verified Marketplace Trades',
 					icon: 'query_stats',
 					highlight: true,

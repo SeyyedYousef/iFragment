@@ -50,6 +50,22 @@ func GetColorMultiplier(colorName string) float64 {
 	return 1.0
 }
 
+// GetOfficialColorsList returns all 20 canonical NFT colors in a deterministic order
+func GetOfficialColorsList() []ColorInfo {
+	order := []string{
+		"Gold", "Pink", "Black", "Green", "Rose", "Purple", "Red", "Teal",
+		"Turquoise", "Mint", "Sky", "Violet", "Lavender", "Blue", "Blue Gray",
+		"Orange", "Olive", "Tan", "Brown", "Gray",
+	}
+	list := make([]ColorInfo, 0, len(order))
+	for _, name := range order {
+		if c, exists := OfficialColors[name]; exists {
+			list = append(list, c)
+		}
+	}
+	return list
+}
+
 // Cultural Weights Matrix per Target Region
 type CulturalMarketWeight struct {
 	MarketName    string

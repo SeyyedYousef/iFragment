@@ -531,7 +531,7 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 					Name:           t.TraitName,
 					RarityPermille: rPerm,
 					TotalSupply:    sSupply,
-					RarityStatus:   "verified",
+					RarityStatus:   "estimated",
 				})
 			}
 		}
@@ -765,8 +765,8 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 				RarityPermille: rPermille,
 				TotalSupply:    mSupply,
 				UpgradedCount:  nil,
-				FloorGRAM:      bestFloorGRAM,
-				FloorUSD:       bestFloorUSD,
+				FloorGRAM:      nil, // Model floor requires model-specific verified listing
+				FloorUSD:       nil,
 				CustomEmojiID:  emojiMap[m.Name],
 				DataStatus:     dataStatus,
 			})
@@ -796,8 +796,8 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 					ModelName:      t.TraitName,
 					RarityPermille: rPermille,
 					TotalSupply:    mSupply,
-					FloorGRAM:      bestFloorGRAM,
-					FloorUSD:       bestFloorUSD,
+					FloorGRAM:      nil, // Model floor requires model-specific verified listing
+					FloorUSD:       nil,
 					CustomEmojiID:  emojiMap[t.TraitName],
 					DataStatus:     dataStatus,
 				})
@@ -859,8 +859,8 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 					BackdropName:      b.Name,
 					CombinedRarity:    combRarityPct,
 					RarityTier:        tier,
-					FloorGRAM:         bestFloorGRAM,
-					RarityStatus:      "verified",
+					FloorGRAM:         nil, // Floor cannot be attributed to a specific combination without active listings
+					RarityStatus:      "estimated",
 					CalculationMethod: "canonical_matrix",
 				})
 			}
@@ -951,55 +951,14 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		}
 	}
 
-	if len(topFloorItems) == 0 && bestFloorGRAM != nil {
-		topFloorItems = append(topFloorItems, FloorItemSummary{
-			Rank:         1,
-			SerialNumber: 1,
-			ModelName:    collectionName,
-			SymbolName:   "Top Tier",
-			BackdropName: "Canonical",
-			PriceGRAM:    bestFloorGRAM,
-			PriceUSD:     bestFloorUSD,
-			VenueName:    bestVenue,
-			ObservedAt:   now.Format(time.RFC3339),
-		})
-	}
-
 	var floorItem *FloorItemSummary
 	if len(topFloorItems) > 0 {
 		floorItem = &topFloorItems[0]
 	}
 
+	// Upgrade ladder is strictly populated from authoritative Telegram response when available.
+	// No synthetic ladder or fixed 0.016 star-to-gram conversion is emitted.
 	upgradeLadder := make([]UpgradeStepInfo, 0)
-	ladderSteps := []struct {
-		Step  int
-		Stars int
-		Days  int
-	}{
-		{Step: 1, Stars: 100, Days: 0},
-		{Step: 2, Stars: 75, Days: 1},
-		{Step: 3, Stars: 50, Days: 2},
-		{Step: 4, Stars: 25, Days: 3},
-	}
-	for _, ls := range ladderSteps {
-		starToGram := 0.016
-		priceG := round2(float64(ls.Stars) * starToGram)
-		var pUSD *float64
-		if gramRate != nil && *gramRate > 0 {
-			u := round2(priceG * *gramRate)
-			pUSD = &u
-		}
-		isCurrent := ls.Stars == 25
-		upgradeLadder = append(upgradeLadder, UpgradeStepInfo{
-			Step:                  ls.Step,
-			PriceStars:            ls.Stars,
-			PriceGRAM:             priceG,
-			PriceUSD:              pUSD,
-			EffectiveAt:           now.Add(time.Duration(ls.Days) * 24 * time.Hour).Format(time.RFC3339),
-			IsCurrent:             isCurrent,
-			SavingsVsCurrentStars: 100 - ls.Stars,
-		})
-	}
 
 	// On Sale Now stats: Computed exclusively from real venue snapshot counts
 	totalOnSale := 0
@@ -1260,14 +1219,12 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	dataSources := []string{metadataSource}
 	if len(priceSources) > 0 {
 		dataSources = append(dataSources, priceSources...)
-	} else {
-		dataSources = append(dataSources, "Fragment / Getgems / MarketApp / Telegram / TON Indexer")
 	}
 	if gramRate != nil {
 		dataSources = append(dataSources, "CoinGecko (TON/USD)")
 	}
 
-	priceSourceAttribution := "Fragment / Getgems / MarketApp / Telegram / TON Indexer"
+	priceSourceAttribution := "Unavailable"
 	if len(priceSources) > 0 {
 		priceSourceAttribution = strings.Join(priceSources, ", ")
 	}

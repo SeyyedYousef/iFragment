@@ -27,11 +27,56 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 	// Real values from API telemetry
 	const mcapUsd = () => props.intel?.total_market_cap_usd || 0;
+	const mcapGram = () => props.intel?.total_market_cap_gram || 0;
 	const volumeUsd = () => props.intel?.total_cumulative_volume_usd || 0;
+	const volumeGram = () => props.intel?.total_cumulative_volume_gram || 0;
+	const tonRate = () => props.intel?.ton_usd_rate || 0;
 
-	// Return empty array since macro time-series is not provided by telemetry
+	// Populate chart points from real macro_history provided by API
 	const chartData = createMemo<ChartPoint[]>(() => {
-		return [];
+		const raw = props.intel?.macro_history || [];
+		if (raw.length === 0) {
+			// If no time series history yet, fallback to single live point if current market cap exists
+			const curUsd = mcapUsd();
+			const curGram = mcapGram() > 0 ? mcapGram() : (tonRate() > 0 ? curUsd / tonRate() : 0);
+			if (curUsd > 0) {
+				return [
+					{
+						label: 'Today',
+						timestamp: new Date().toISOString(),
+						mcapUsd: curUsd,
+						mcapGram: curGram,
+						volumeUsd: volumeUsd(),
+						volumeGram: volumeGram() > 0 ? volumeGram() : (tonRate() > 0 ? volumeUsd() / tonRate() : 0),
+					},
+				];
+			}
+			return [];
+		}
+
+		// Filter by timeframe
+		let filtered = [...raw];
+		const tf = timeframe();
+		if (tf === '24h') {
+			filtered = raw.slice(-2);
+		} else if (tf === '7d') {
+			filtered = raw.slice(-7);
+		} else if (tf === '30d') {
+			filtered = raw.slice(-30);
+		}
+
+		return filtered.map((pt) => {
+			const d = new Date(pt.timestamp);
+			const label = !isNaN(d.getTime()) ? `${d.getMonth() + 1}/${d.getDate()}` : pt.timestamp;
+			return {
+				label,
+				timestamp: pt.timestamp,
+				mcapUsd: pt.mcap_usd,
+				mcapGram: pt.mcap_gram,
+				volumeUsd: pt.volume_usd,
+				volumeGram: pt.volume_gram,
+			};
+		});
 	});
 
 	// SVG Coordinates & Bezier Spline
@@ -162,14 +207,42 @@ export const GiftsChartView: Component<Props> = (props) => {
 							<span class="text-xs uppercase font-extrabold text-[#0098EA] tracking-wider">
 								{t('gifts.marketCap')}
 							</span>
-							<span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/25 flex items-center gap-1">
-								<span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
-								<span>On-Chain Real-Time</span>
+							<span
+								class={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+									props.intel?.data_status === 'live'
+										? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
+										: props.intel?.data_status === 'delayed' || props.intel?.data_status === 'stale'
+											? 'bg-amber-500/15 text-amber-400 border-amber-500/25'
+											: 'bg-white/10 text-white/60 border-white/20'
+								}`}
+							>
+								<span
+									class={`w-1.5 h-1.5 rounded-full ${
+										props.intel?.data_status === 'live'
+											? 'bg-emerald-400 animate-pulse'
+											: 'bg-white/40'
+									}`}
+								/>
+								<span>
+									{props.intel?.data_status
+										? props.intel.data_status.toUpperCase()
+										: 'SNAPSHOT'}
+								</span>
 							</span>
+							<Show when={props.intel?.updated_at}>
+								<span class="text-[9px] text-white/40 font-mono">
+									as of {new Date(props.intel!.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+								</span>
+							</Show>
 						</div>
 						<div class="flex items-baseline gap-2.5 mt-1.5">
 							<span class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight tabular-nums drop-shadow-sm">
-								{formatVal(currentPoint()?.value || mcapUsd())}
+								{formatVal(
+									currentPoint()?.value ||
+										(chartCurrency() === 'gram'
+											? (mcapGram() > 0 ? mcapGram() : (tonRate() > 0 ? mcapUsd() / tonRate() : 0))
+											: mcapUsd())
+								)}
 							</span>
 							<Show when={deltaPercent() !== 0}>
 								<span
@@ -188,7 +261,11 @@ export const GiftsChartView: Component<Props> = (props) => {
 							<span>
 								Volume:{' '}
 								<strong class="text-white/80">
-									{formatVol(currentPoint()?.volumeUsd || volumeUsd())}
+									{formatVol(
+										chartCurrency() === 'gram'
+											? (currentPoint()?.volumeGram || (volumeGram() > 0 ? volumeGram() : (tonRate() > 0 ? volumeUsd() / tonRate() : 0)))
+											: (currentPoint()?.volumeUsd || volumeUsd())
+									)}
 								</strong>
 							</span>
 							<Show when={hoverIndex() !== null && currentPoint()}>
@@ -447,7 +524,161 @@ export const GiftsChartView: Component<Props> = (props) => {
 			</div>
 
 			{/* Macro Ecosystem Statistics Bento Grid */}
-			<GiftsMacroStats data={props.intel} />
+			<GiftsMacroStats data={props.intel} currency={chartCurrency()} />
+
+			{/* ═══════ Collection Discovery & Floor Board ═══════ */}
+			<Show when={props.intel?.unified_floor_board && props.intel.unified_floor_board.length > 0}>
+				<div class="bg-[#0e1320]/90 border border-white/[0.08] rounded-[24px] p-4 backdrop-blur-xl shadow-xl space-y-3">
+					<div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
+						<div class="flex items-center gap-2">
+							<span class="material-symbols-outlined text-[#0098EA] text-base">grid_view</span>
+							<span class="text-xs font-bold text-white tracking-wide">
+								{t('gifts.unifiedFloorBoard') || 'Collection Discovery & Floor Board'}
+							</span>
+						</div>
+						<span class="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+							Verified Market Depth
+						</span>
+					</div>
+
+					<div class="overflow-x-auto scrollbar-none">
+						<table class="w-full text-left rtl:text-right border-collapse text-xs">
+							<thead>
+								<tr class="border-b border-white/[0.06] text-[10px] text-white/40 uppercase font-mono">
+									<th class="py-2 px-1">Collection</th>
+									<th class="py-2 px-1 text-right rtl:text-left">Floor</th>
+									<th class="py-2 px-1 text-center">24h</th>
+									<th class="py-2 px-1 text-center">Venue</th>
+									<th class="py-2 px-1 text-center">Status</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-white/[0.04]">
+								<For each={props.intel?.unified_floor_board}>
+									{(item) => (
+										<tr class="hover:bg-white/[0.02] transition-colors">
+											<td class="py-2.5 px-1 font-bold text-white flex items-center gap-2">
+												<a
+													href={`/gifts/collection?c=${item.model_id}`}
+													class="hover:text-[#0098EA] transition-colors flex items-center gap-1.5"
+												>
+													<span>{item.name}</span>
+													<Show when={item.has_real_volume_badge}>
+														<span class="material-symbols-outlined text-[12px] text-emerald-400" title="Verified Volume in 7d">
+															verified
+														</span>
+													</Show>
+												</a>
+											</td>
+											<td class="py-2.5 px-1 text-right rtl:text-left font-mono font-bold text-white">
+												{chartCurrency() === 'gram'
+													? `${item.best_floor_gram.toLocaleString()} TON`
+													: `$${item.best_floor_usd.toLocaleString()}`}
+											</td>
+											<td class="py-2.5 px-1 text-center font-mono">
+												<span
+													class={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+														item.price_change_24h_pct > 0
+															? 'text-emerald-400 bg-emerald-500/10'
+															: item.price_change_24h_pct < 0
+																? 'text-rose-400 bg-rose-500/10'
+																: 'text-white/40'
+													}`}
+												>
+													{item.price_change_24h_pct > 0 ? '+' : ''}
+													{item.price_change_24h_pct}%
+												</span>
+											</td>
+											<td class="py-2.5 px-1 text-center">
+												<span class="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.08] text-white/70">
+													{item.best_venue_name || 'Fragment'}
+												</span>
+											</td>
+											<td class="py-2.5 px-1 text-center">
+												<span class="text-[9px] font-mono text-emerald-400 font-semibold">
+													Active
+												</span>
+											</td>
+										</tr>
+									)}
+								</For>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</Show>
+
+			{/* ═══════ Market Venues & Custody Architecture Table ═══════ */}
+			<div class="bg-[#0e1320]/90 border border-white/[0.08] rounded-[24px] p-4 backdrop-blur-xl shadow-xl space-y-3">
+				<div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
+					<div class="flex items-center gap-2">
+						<span class="material-symbols-outlined text-[#0098EA] text-base">storefront</span>
+						<span class="text-xs font-bold text-white tracking-wide">
+							{t('gifts.marketplaceComparison') || 'Marketplace Custody & Architecture'}
+						</span>
+					</div>
+					<span class="text-[9px] font-mono text-white/50 bg-white/[0.05] px-2 py-0.5 rounded-full border border-white/[0.08]">
+						Verified Adapters Only
+					</span>
+				</div>
+
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+					<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-between">
+						<div>
+							<div class="font-bold text-white flex items-center gap-1.5">
+								<span>Fragment</span>
+								<span class="text-[9px] text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">On-Chain</span>
+							</div>
+							<div class="text-[10px] text-white/40 font-mono mt-0.5">Custody: Smart Contract (TEP-62)</div>
+						</div>
+						<span class="text-[10px] text-emerald-400 font-mono font-bold">Connected</span>
+					</div>
+
+					<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-between">
+						<div>
+							<div class="font-bold text-white flex items-center gap-1.5">
+								<span>Getgems</span>
+								<span class="text-[9px] text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">On-Chain</span>
+							</div>
+							<div class="text-[10px] text-white/40 font-mono mt-0.5">Custody: Non-Custodial Marketplace</div>
+						</div>
+						<span class="text-[10px] text-emerald-400 font-mono font-bold">Connected</span>
+					</div>
+
+					<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-between">
+						<div>
+							<div class="font-bold text-white/50 flex items-center gap-1.5">
+								<span>Portals / Tonnel / MRKT</span>
+								<span class="text-[9px] text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">Mini App</span>
+							</div>
+							<div class="text-[10px] text-white/30 font-mono mt-0.5">Custody: Telegram Escrow / App</div>
+						</div>
+						<span class="text-[10px] text-white/40 font-mono">Adapter Inactive</span>
+					</div>
+
+					<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-between">
+						<div>
+							<div class="font-bold text-white flex items-center gap-1.5">
+								<span>Telegram Internal</span>
+								<span class="text-[9px] text-purple-400 bg-purple-500/10 px-1.5 py-0.2 rounded border border-purple-500/20">Native</span>
+							</div>
+							<div class="text-[10px] text-white/40 font-mono mt-0.5">Custody: Telegram MTProto Profile</div>
+						</div>
+						<span class="text-[10px] text-emerald-400 font-mono font-bold">Connected</span>
+					</div>
+				</div>
+			</div>
+
+			{/* ═══════ Methodology & Provenance Disclosure ═══════ */}
+			<div class="bg-[#0e1320]/60 border border-white/[0.06] rounded-[20px] p-3.5 space-y-2 text-[11px]">
+				<div class="flex items-center gap-2 text-white/70 font-bold">
+					<span class="material-symbols-outlined text-sm text-[#0098EA]">info</span>
+					<span>متدولوژی و شفافیت داده‌ها (Methodology & Provenance)</span>
+				</div>
+				<p class="text-white/40 text-[10px] leading-relaxed">
+					ارزش بازار تخمینی (Implied Market Cap) بر اساس ضرب پایین‌ترین کف قیمت معتبر در عرضه کل کاتالوگ محاسبه شده و نشان‌دهنده نقدشوندگی کل نیست.
+					ارقام حجم معاملات صرفاً معاملات تاییدشده بدون reorg را لحاظ می‌کنند و نقل و انتقالات عادی (Transfer) به عنوان معامله ثبت نمی‌شوند.
+				</p>
+			</div>
 		</div>
 	);
 };

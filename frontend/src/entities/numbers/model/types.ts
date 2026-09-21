@@ -471,3 +471,139 @@ export interface NumbersCollectionOverview {
 	total_owners: number;
 	clubs_count?: number;
 }
+
+export interface FloorDepthSummary {
+	plus_5pct_count: number;
+	plus_10pct_count: number;
+	plus_25pct_count: number;
+	plus_5pct_volume_ton: number;
+	plus_10pct_volume_ton: number;
+	plus_25pct_volume_ton: number;
+}
+
+export interface MarketPulseInfo {
+	demand: string;
+	supply: string;
+	liquidity: string;
+	momentum: string;
+}
+
+export interface CollectionRiskFlag {
+	code: string;
+	severity: 'warning' | 'info' | 'alert';
+	title: string;
+	description: string;
+}
+
+export interface NumbersInstitutionalCollectionOverview {
+	collection_address: string;
+	collection_name: string;
+	supply_total: number;
+	supply_status: string;
+	genesis_supply: number;
+	standard_supply: number;
+	unique_holders: number;
+	floor_ask_ton?: number | null;
+	floor_ask_usd?: number | null;
+	floor_number?: string | null;
+	floor_venue: string;
+	floor_depth: FloorDepthSummary;
+	median_sale_7d_ton?: number | null;
+	median_sale_30d_ton?: number | null;
+	sales_count_7d: number;
+	sales_count_30d: number;
+	volume_24h_ton: number;
+	volume_7d_ton: number;
+	sales_count_24h: number;
+	unique_buyers_7d: number;
+	unique_sellers_7d: number;
+	active_listings_count: number;
+	listed_share_pct: number;
+	top10_holder_share_pct: number;
+	top50_holder_share_pct: number;
+	market_pulse: MarketPulseInfo;
+	ton_usd_rate: number;
+	data_status: 'verified' | 'stale' | 'partial' | 'unavailable' | string;
+	is_live: boolean;
+	observed_at: string;
+	snapshot_id: string;
+	active_sources: string[];
+	risk_flags: CollectionRiskFlag[];
+}
+
+export interface NumberCollectionHistoryPoint {
+	timestamp: string;
+	timeframe: string;
+	floor_ton: number;
+	floor_usd: number;
+	median_sale_ton?: number | null;
+	median_sale_usd?: number | null;
+	volume_ton: number;
+	volume_usd: number;
+	sales_count: number;
+	unique_buyers: number;
+	unique_sellers: number;
+	open_ton?: number | null;
+	high_ton?: number | null;
+	low_ton?: number | null;
+	close_ton?: number | null;
+	provenance: string;
+}
+
+export interface NumberCollectionHistoryResponse {
+	schema_version: string;
+	timeframe: string;
+	points: NumberCollectionHistoryPoint[];
+	rate: number;
+	data_status: string;
+	observed_at: string;
+}
+
+export interface NumberMarketListing {
+	id: number;
+	number: string;
+	display_number: string;
+	nft_item_address?: string | null;
+	venue: string;
+	listing_type: string;
+	ask_price_nano_ton?: number | null;
+	current_bid_nano_ton?: number | null;
+	next_min_bid_nano_ton?: number | null;
+	bids_count: number;
+	pattern_tag?: string | null;
+	is_genesis: boolean;
+	ends_at?: string | null;
+	is_active: boolean;
+	observed_at: string;
+	source_url?: string | null;
+	seller_address?: string | null;
+	difference_from_floor_pct: number;
+}
+
+export interface NumberPatternAnalytics {
+	id: number;
+	pattern_key: string;
+	pattern_name_en: string;
+	pattern_name_fa: string;
+	sample_mask: string;
+	exact_supply: number;
+	supply_share_pct: number;
+	active_listings_count: number;
+	floor_nano_ton?: number | null;
+	median_sale_nano_ton?: number | null;
+	p25_sale_nano_ton?: number | null;
+	p75_sale_nano_ton?: number | null;
+	premium_pct: number;
+	sample_size: number;
+	confidence_score: number;
+	updated_at: string;
+}
+
+export interface NFTColorInfo {
+	name: string;
+	hex: string;
+	multiplier: number;
+	description: string;
+}
+
+

@@ -40,7 +40,7 @@ paths:
   /collection/stats:
     get:
       tags: [Usernames]
-      summary: Get Telegram username collection statistics
+      summary: Get Telegram username collection statistics (Legacy route)
       responses:
         "200":
           description: Collection summary
@@ -48,6 +48,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CollectionSummary"
+  /usernames/collection/stats:
+    get:
+      tags: [Usernames]
+      summary: Get Telegram username collection statistics and Market Pulse
+      responses:
+        "200":
+          description: Verified collection analytics and Market Pulse
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionSummary"
+  /usernames/collection/history:
+    get:
+      tags: [Usernames]
+      summary: Get historical floor price and volume chart series for username collection
+      parameters:
+        - name: timeframe
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, all]
+            default: 30d
+      responses:
+        "200":
+          description: Time-series history points
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timeframe: { type: string }
+                  points:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp: { type: string }
+                        label: { type: string }
+                        floor_ton: { type: number }
+                        volume_ton: { type: number }
   /usernames/check:
     get:
       tags: [Usernames]
@@ -521,7 +562,11 @@ paths:
       summary: Get macro market intelligence overview for Telegram Gifts
       responses:
         "200":
-          description: Market intelligence data with unified floor board, fear & greed index, and trending gifts
+          description: Market intelligence data with unified floor board, macro history time series, fear & greed index, and trending gifts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GiftsIntelDto"
   /gifts/collections:
     get:
       tags: [Gifts]
@@ -532,7 +577,7 @@ paths:
   /gifts/collection-intel:
     get:
       tags: [Gifts]
-      summary: Deep collection intelligence (models, backdrops, 7 venue floors, rarity heatmap, Dutch auction ladder)
+      summary: Deep collection intelligence (models, backdrops, verified venue floors, rarity heatmap, sales history)
       parameters:
         - name: c
           in: query
@@ -750,8 +795,13 @@ paths:
         - name: owners_history
           in: query
           schema: { type: string, enum: ["", "1", "2-3", "4+"] }
+        - name: nft_color
+          in: query
+          description: Hex color code (e.g. 8D66E3)
+          schema: { type: string }
         - name: nft_colors
           in: query
+          description: Alias for nft_color
           schema: { type: string }
         - name: mask
           in: query
@@ -778,6 +828,72 @@ paths:
       responses:
         "200":
           description: Intelligence metrics
+  /numbers/collection-overview:
+    get:
+      tags: [Numbers]
+      summary: Institutional collection overview with live metrics, depth, pulse, and risk flags
+      responses:
+        "200":
+          description: Collection overview response
+  /numbers/collection-history:
+    get:
+      tags: [Numbers]
+      summary: Schema V2 historical time-series OHLCV and volume with explicit timestamps
+      parameters:
+        - name: timeframe
+          in: query
+          schema: { type: string, enum: ["24h", "7d", "30d", "90d", "all"], default: "30d" }
+      responses:
+        "200":
+          description: Historical time-series data
+  /numbers/collection-listings:
+    get:
+      tags: [Numbers]
+      summary: Verified live listings and active auctions from Fragment & Getgems
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: venue
+          in: query
+          schema: { type: string, enum: ["all", "fragment", "getgems"], default: "all" }
+        - name: type
+          in: query
+          schema: { type: string, enum: ["all", "ask", "auction"], default: "all" }
+      responses:
+        "200":
+          description: Live listings feed
+  /numbers/patterns:
+    get:
+      tags: [Numbers]
+      summary: Deterministic pattern classes, exact supplies, floor prices, and premiums
+      responses:
+        "200":
+          description: Pattern analytics list
+  /numbers/colors:
+    get:
+      tags: [Numbers]
+      summary: Canonical list of the 20 official Telegram Anonymous Number colors
+      responses:
+        "200":
+          description: Official NFT colors
+  /numbers/export:
+    get:
+      tags: [Numbers]
+      summary: Export verifiable snapshot of collection metrics or listings in CSV/JSON
+      parameters:
+        - name: format
+          in: query
+          schema: { type: string, enum: ["csv", "json"], default: "csv" }
+        - name: type
+          in: query
+          schema: { type: string, enum: ["overview", "listings", "patterns"], default: "overview" }
+      responses:
+        "200":
+          description: Exported data file
   /numbers/chart-data:
     get:
       tags: [Numbers]
@@ -862,6 +978,10 @@ paths:
       responses:
         "200":
           description: Valuation report
+        "401":
+          description: Unauthorized - authentication required
+        "403":
+          description: Forbidden - report must be unlocked with coins or paid credits
   /numbers/unlock-coins:
     post:
       tags: [Numbers]
@@ -995,31 +1115,49 @@ components:
     CollectionSummary:
       type: object
       properties:
-        total_supply:
-          type: integer
-        holders:
-          type: integer
-        floor_price:
+        collection_address:
           type: string
-        total_volume:
-          type: string
-        active_auctions:
-          type: integer
-        revenue:
-          type: string
-        daily_volume:
-          type: number
-        sales_count:
-          type: integer
-        highest_sale:
-          type: number
-        listed_ratio:
-          type: number
-        top_holders:
+        stats:
+          type: object
+          properties:
+            stat_date: { type: string }
+            items_count: { type: string }
+            owners_count: { type: string }
+            floor_price: { type: string }
+            total_volume: { type: string }
+            source: { type: string }
+            is_stale: { type: boolean }
+        market_pulse:
+          type: object
+          properties:
+            demand: { type: object }
+            supply_pressure: { type: object }
+            liquidity: { type: object }
+            price_momentum: { type: object }
+        categories:
+          type: array
+          items:
+            type: object
+        auctions:
           type: array
           items:
             type: object
         top_sales:
+          type: array
+          items:
+            type: object
+        recent_activity:
+          type: array
+          items:
+            type: object
+        fx:
+          type: object
+          properties:
+            ton_usd: { type: number }
+            source: { type: string }
+            observed_at: { type: string }
+            is_stale: { type: boolean }
+        sources:
           type: array
           items:
             type: object
@@ -1111,4 +1249,58 @@ components:
           type: string
         reasoning_log:
           type: object
+    MacroHistoryPointDto:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        mcap_usd:
+          type: number
+        mcap_gram:
+          type: number
+        volume_usd:
+          type: number
+        volume_gram:
+          type: number
+    GiftsIntelDto:
+      type: object
+      properties:
+        total_cumulative_volume_usd:
+          type: number
+        total_cumulative_volume_gram:
+          type: number
+        total_market_cap_usd:
+          type: number
+        total_market_cap_gram:
+          type: number
+        ton_usd_rate:
+          type: number
+        total_active_wallets:
+          type: integer
+        total_gifts_minted:
+          type: integer
+        fng_index:
+          type: integer
+        fng_label:
+          type: string
+        macro_stats:
+          type: object
+          properties:
+            total_unique_models: { type: integer }
+            total_patterns: { type: integer }
+            total_backdrops: { type: integer }
+            upgradable_gifts: { type: integer }
+        data_status:
+          type: string
+          enum: [live, estimated, delayed, stale, unavailable]
+        macro_history:
+          type: array
+          items:
+            $ref: "#/components/schemas/MacroHistoryPointDto"
+        data_source_attribution:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+
 

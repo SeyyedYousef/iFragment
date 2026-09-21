@@ -131,17 +131,30 @@ export const MaskBuilderPage: Component = () => {
 	const handlePaste = (e: ClipboardEvent) => {
 		e.preventDefault();
 		const text = e.clipboardData?.getData('text') || '';
-		const digitsOnly = toAscii(text).replace(/\D/g, '').replace(/^888/, '');
+		let rawDigits = toAscii(text).replace(/\D/g, '');
+		const trimmedText = text.trim();
+
+		// Only strip leading 888 prefix if the input is explicitly a full Telegram number (N-24):
+		// e.g. starts with "+888", or has 11 digits (3 prefix + 8 suffix), or 7 digits (3 prefix + 4 suffix)
+		if (trimmedText.startsWith('+888')) {
+			rawDigits = rawDigits.slice(3);
+		} else if (rawDigits.length === 11 && rawDigits.startsWith('888')) {
+			rawDigits = rawDigits.slice(3);
+		} else if (rawDigits.length === 7 && rawDigits.startsWith('888')) {
+			rawDigits = rawDigits.slice(3);
+		}
+
 		const maxLen = lengthMode() === '4' ? 4 : 8;
 
-		if (digitsOnly.length > 0) {
+		if (rawDigits.length > 0) {
 			try {
 				haptic.impact('medium');
 			} catch {}
-			const next = [...currentSlots()];
+			// Cleanly overwrite slots, resetting remaining to '*'
+			const next = Array(maxLen).fill('*');
 			for (let i = 0; i < maxLen; i++) {
-				if (i < digitsOnly.length) {
-					next[i] = digitsOnly[i];
+				if (i < rawDigits.length) {
+					next[i] = rawDigits[i];
 				}
 			}
 			if (lengthMode() === '4') {
@@ -149,7 +162,7 @@ export const MaskBuilderPage: Component = () => {
 			} else {
 				setSlots8(next);
 			}
-			const targetFocus = Math.min(maxLen - 1, digitsOnly.length);
+			const targetFocus = Math.min(maxLen - 1, rawDigits.length);
 			inputRefs[targetFocus]?.focus();
 		}
 	};

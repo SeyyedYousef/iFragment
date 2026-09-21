@@ -38,6 +38,122 @@ func (h *NumbersHandler) GetIntel(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, intel)
 }
 
+// GetCollectionOverview returns verified institutional metrics and status for the collection
+func (h *NumbersHandler) GetCollectionOverview(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	overview, err := h.service.GetCollectionOverview(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to load collection overview", err)
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
+	RespondJSON(w, http.StatusOK, overview)
+}
+
+// GetCollectionHistory returns historical price/volume time-series with schema v2
+func (h *NumbersHandler) GetCollectionHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	timeframe := r.URL.Query().Get("timeframe")
+	if timeframe == "" {
+		timeframe = "30d"
+	}
+	history, err := h.service.GetCollectionHistory(ctx, timeframe)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to load collection history", err)
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=120, stale-while-revalidate=600")
+	RespondJSON(w, http.StatusOK, history)
+}
+
+// GetCollectionListings returns active listings and auctions
+func (h *NumbersHandler) GetCollectionListings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	venue := r.URL.Query().Get("venue")
+	listingType := r.URL.Query().Get("listing_type")
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page <= 0 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+
+	listings, total, err := h.service.GetCollectionListings(ctx, venue, listingType, page, limit)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to load collection listings", err)
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=30, stale-while-revalidate=60")
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"items": listings,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
+}
+
+// GetPatternAnalytics returns deterministic pattern classes
+func (h *NumbersHandler) GetPatternAnalytics(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	patterns, err := h.service.GetPatternAnalytics(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to load pattern analytics", err)
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=300, stale-while-revalidate=600")
+	RespondJSON(w, http.StatusOK, patterns)
+}
+
+// ExportCollectionSnapshot downloads snapshot in JSON or CSV format
+func (h *NumbersHandler) ExportCollectionSnapshot(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	format := r.URL.Query().Get("format")
+	overview, err := h.service.GetCollectionOverview(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to generate export snapshot", err)
+		return
+	}
+
+	if format == "csv" {
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"telegram_numbers_snapshot_%d.csv\"", time.Now().Unix()))
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "Metric,Value,Unit\n")
+		fmt.Fprintf(w, "Collection Address,%s,-\n", overview.CollectionAddress)
+		fmt.Fprintf(w, "Total Supply,%d,items\n", overview.SupplyTotal)
+		fmt.Fprintf(w, "Genesis Supply,%d,items\n", overview.GenesisSupply)
+		fmt.Fprintf(w, "Standard Supply,%d,items\n", overview.StandardSupply)
+		fmt.Fprintf(w, "Unique Holders,%d,wallets\n", overview.UniqueHolders)
+		if overview.FloorAskTON != nil {
+			fmt.Fprintf(w, "Floor Ask,%.2f,TON\n", *overview.FloorAskTON)
+		}
+		if overview.MedianSale7dTON != nil {
+			fmt.Fprintf(w, "Median Sale 7d,%.2f,TON\n", *overview.MedianSale7dTON)
+		}
+		fmt.Fprintf(w, "Volume 24h,%.2f,TON\n", overview.Volume24hTON)
+		fmt.Fprintf(w, "Volume 7d,%.2f,TON\n", overview.Volume7dTON)
+		fmt.Fprintf(w, "Sales Count 24h,%d,sales\n", overview.SalesCount24h)
+		fmt.Fprintf(w, "Sales Count 7d,%d,sales\n", overview.SalesCount7d)
+		fmt.Fprintf(w, "Active Listings,%d,items\n", overview.ActiveListingsCount)
+		fmt.Fprintf(w, "Data Status,%s,-\n", overview.DataStatus)
+		fmt.Fprintf(w, "Observed At,%s,UTC\n", overview.ObservedAt)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"telegram_numbers_snapshot_%d.json\"", time.Now().Unix()))
+	RespondJSON(w, http.StatusOK, overview)
+}
+
+// GetColors returns the authoritative catalog of official NFT colors
+func (h *NumbersHandler) GetColors(w http.ResponseWriter, r *http.Request) {
+	colors := h.service.GetOfficialColors(r.Context())
+	w.Header().Set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800")
+	RespondJSON(w, http.StatusOK, colors)
+}
+
 // Verify checks whether a number exists and was minted in the 136,566 Telegram collection
 func (h *NumbersHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

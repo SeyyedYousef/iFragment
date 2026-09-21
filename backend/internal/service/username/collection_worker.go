@@ -382,11 +382,12 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 			floorStr = lastFloor
 			volumeStr = lastVolume
 		} else {
-			// Emergency initial seed if DB has zero rows
-			itemsStr = "582.8K"
-			ownersStr = "164.6K"
-			floorStr = "5.49 TON"
-			volumeStr = "124.0M TON"
+			// Do not seed synthetic fake numbers; record unavailable/syncing state
+			itemsStr = "—"
+			ownersStr = "—"
+			floorStr = "—"
+			volumeStr = "—"
+			slog.Warn("[CollectionWorker] No previous stats and on-chain fetch failed; stats marked pending sync")
 		}
 	}
 
@@ -423,22 +424,7 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 			WHERE stat_date = (SELECT stat_date FROM nft_collection_categories ORDER BY stat_date DESC LIMIT 1)
 		`, date)
 		if err != nil {
-			slog.Warn("[CollectionWorker] Could not copy categories for today, using defaults", "error", err)
-			categories := []struct {
-				Name   string
-				Volume string
-			}{
-				{"4 Letters", "55.8M TON"},
-				{"5 Letters", "37.2M TON"},
-				{"6 Letters", "18.6M TON"},
-				{"7+ Letters", "12.4M TON"},
-			}
-			for _, cat := range categories {
-				_, _ = tx.Exec(ctx, `
-					INSERT INTO nft_collection_categories (stat_date, category_name, volume)
-					VALUES ($1, $2, $3)
-				`, date, cat.Name, cat.Volume)
-			}
+			slog.Warn("[CollectionWorker] No historical categories to copy for today", "error", err)
 		}
 	}
 
@@ -462,36 +448,16 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 			}
 		}
 	} else {
-		// Fallback to latest database auctions or defaults
+		// Fallback to latest database auctions without inserting fake hardcoded handles
 		var aucCount int
 		_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM nft_collection_recent_auctions WHERE stat_date = $1", date).Scan(&aucCount)
 		if aucCount == 0 {
-			_, err = tx.Exec(ctx, `
+			_, _ = tx.Exec(ctx, `
 				INSERT INTO nft_collection_recent_auctions (stat_date, item_name, price, status)
 				SELECT $1, item_name, price, status
 				FROM nft_collection_recent_auctions
 				WHERE stat_date = (SELECT stat_date FROM nft_collection_recent_auctions ORDER BY stat_date DESC LIMIT 1)
 			`, date)
-			if err != nil {
-				slog.Warn("[CollectionWorker] Could not copy auctions for today, using defaults", "error", err)
-				defaultAuctions := []struct {
-					Name   string
-					Price  string
-					Status string
-				}{
-					{"@feds", "23,665 TON", "Active"},
-					{"@blackhat", "10,001 TON", "Active"},
-					{"@gramv", "8,023 TON", "Active"},
-					{"@cryptoapp", "8,009 TON", "Active"},
-					{"@bcsj", "5,513 TON", "Active"},
-				}
-				for _, auc := range defaultAuctions {
-					_, _ = tx.Exec(ctx, `
-						INSERT INTO nft_collection_recent_auctions (stat_date, item_name, price, status)
-						VALUES ($1, $2, $3, $4)
-					`, date, auc.Name, auc.Price, auc.Status)
-				}
-			}
 		}
 	}
 
@@ -518,32 +484,12 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 		var saleCount int
 		_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM nft_collection_top_sales WHERE stat_date = $1", date).Scan(&saleCount)
 		if saleCount == 0 {
-			_, err = tx.Exec(ctx, `
+			_, _ = tx.Exec(ctx, `
 				INSERT INTO nft_collection_top_sales (stat_date, item_name, price, status)
 				SELECT $1, item_name, price, status
 				FROM nft_collection_top_sales
 				WHERE stat_date = (SELECT stat_date FROM nft_collection_top_sales ORDER BY stat_date DESC LIMIT 1)
 			`, date)
-			if err != nil {
-				slog.Warn("[CollectionWorker] Could not copy top sales for today, using defaults", "error", err)
-				defaultSales := []struct {
-					Name   string
-					Price  string
-					Status string
-				}{
-					{"@danbao", "1,583,948 TON", "Sold"},
-					{"@news", "994,000 TON", "Sold"},
-					{"@auto", "900,000 TON", "Sold"},
-					{"@bank", "850,000 TON", "Sold"},
-					{"@avia", "800,000 TON", "Sold"},
-				}
-				for _, auc := range defaultSales {
-					_, _ = tx.Exec(ctx, `
-						INSERT INTO nft_collection_top_sales (stat_date, item_name, price, status)
-						VALUES ($1, $2, $3, $4)
-					`, date, auc.Name, auc.Price, auc.Status)
-				}
-			}
 		}
 	}
 
@@ -570,32 +516,12 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 		var actCount int
 		_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM nft_collection_recent_activity WHERE stat_date = $1", date).Scan(&actCount)
 		if actCount == 0 {
-			_, err = tx.Exec(ctx, `
+			_, _ = tx.Exec(ctx, `
 				INSERT INTO nft_collection_recent_activity (stat_date, item_name, price, status)
 				SELECT $1, item_name, price, status
 				FROM nft_collection_recent_activity
 				WHERE stat_date = (SELECT stat_date FROM nft_collection_recent_activity ORDER BY stat_date DESC LIMIT 1)
 			`, date)
-			if err != nil {
-				slog.Warn("[CollectionWorker] Could not copy recent activity for today, using defaults", "error", err)
-				defaultRecent := []struct {
-					Name   string
-					Price  string
-					Status string
-				}{
-					{"@hateallperson", "10 TON", "Sold"},
-					{"@ruimatech", "15 TON", "Sold"},
-					{"@grimoire", "515 TON", "Sold"},
-					{"@aiyawei", "19 TON", "Sold"},
-					{"@buxinxie", "19 TON", "Sold"},
-				}
-				for _, auc := range defaultRecent {
-					_, _ = tx.Exec(ctx, `
-						INSERT INTO nft_collection_recent_activity (stat_date, item_name, price, status)
-						VALUES ($1, $2, $3, $4)
-					`, date, auc.Name, auc.Price, auc.Status)
-				}
-			}
 		}
 	}
 

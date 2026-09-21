@@ -1,6 +1,7 @@
-import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
+import { type Component, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { apiClient as api } from '@/shared/api/axios.js';
 
 interface Props {
 	currentFloorTon?: number;
@@ -19,17 +20,44 @@ interface ChartPoint {
 	volumeUsd: number;
 }
 
-export const UsernameCollectionChart: Component<Props> = (_props) => {
+interface HistoryResponse {
+	timeframe: string;
+	points?: Array<{
+		timestamp: string;
+		label: string;
+		floor_ton: number;
+		volume_ton: number;
+	}>;
+}
+
+export const UsernameCollectionChart: Component<Props> = (props) => {
 	const [timeframe, setTimeframe] = createSignal<Timeframe>('30d');
 	const [currency, setCurrency] = createSignal<'ton' | 'usd'>('ton');
 	const [hoverIdx, setHoverIdx] = createSignal<number | null>(null);
 
+	const [historyData] = createResource(timeframe, async (tf) => {
+		try {
+			const res = await api.get<HistoryResponse>(`/usernames/collection/history?timeframe=${tf}`);
+			return res.data?.points || [];
+		} catch {
+			return [];
+		}
+	});
+
 	// RB-P0-002, DEL-P0-002, AC-P0-008: Zero synthetic points.
-	// Do not synthesize fictional sinusoidal or flatline waves.
-	// When historical transaction data is unavailable, return empty array so that
-	// "History unavailable" is displayed truthfully with zero generated points.
+	// Only render real data from on-chain/indexer history; truthfully show empty state if none exists.
 	const chartPoints = createMemo<ChartPoint[]>(() => {
-		return [];
+		const raw = historyData() || [];
+		if (raw.length === 0) return [];
+		const usdRate = props.tonUsdRate || 0;
+		return raw.map((p) => ({
+			timestamp: p.timestamp,
+			label: p.label,
+			floorTon: p.floor_ton,
+			floorUsd: p.floor_ton * usdRate,
+			volumeTon: p.volume_ton,
+			volumeUsd: p.volume_ton * usdRate,
+		}));
 	});
 
 	const width = 500;

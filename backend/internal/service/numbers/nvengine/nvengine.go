@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	ModelVersion = "NV-Engine-v5.0-QuantumBayes"
+	ModelVersion = "NV-Engine-v5.2-EmpiricalPrior"
 	ShrinkageK   = 10.0
 	DecayLambda  = 0.005 // Half-life ~138 days
 )
@@ -836,12 +836,12 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		SecurityAdvisory:   BuildSecurityAdvisory(normNumber),
 		TelemintProvenance: TelemintProvenance{
 			CollectionAddress:  registry.AnonymousNumbersCollectionAddr,
-			CollectionVerified: true,
+			CollectionVerified: onChainAudit.CollectionVerified,
 			RealOwnerAddress:   history.OwnerAddress,
 			IsEscrow:           onChainAudit.IsEscrow,
 			TransactionHash:    onChainAudit.TransactionHash,
 			TonviewerURL:       onChainAudit.TonviewerURL,
-			DataStatus:         "live",
+			DataStatus:         onChainAudit.DataStatus,
 		},
 		PriceContributions: priceContrib,
 		SellingProbability: sellingProb,
@@ -851,15 +851,13 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		ReasoningLog:       reasoningLog,
 	}
 
-	// Valuation Audit Write (best-effort async to prevent DB hiccups from failing valuation)
+	// Valuation Audit Write (persisted with timeout so RunID is bound to response)
 	if e.db != nil && e.db.Pool != nil {
-		go func(v NumberValuation) {
-			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := e.persistValuationAudit(bgCtx, &v); err != nil {
-				slog.Warn("Valuation audit write failed", "number", v.Number, "error", err)
-			}
-		}(*valuation)
+		auditCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
+		if err := e.persistValuationAudit(auditCtx, valuation); err != nil {
+			slog.Warn("Valuation audit write failed", "number", valuation.Number, "error", err)
+		}
 	}
 
 	return valuation, nil
@@ -1222,9 +1220,9 @@ func buildPatternAnatomy(fv features.FeatureVector) PatternAnatomy {
 		clubFa = "کلاب اختصاصی جنسیس 4 رقمی"
 		patternTypeEn = "4-Digit Ultra-Rare Genesis Number"
 		patternTypeFa = "شماره 4 رقمی جنسیس فوق‌نایاب"
-		exactSupply = 1
-		numerologyEn = "Absolute rarest tier in Telegram history. 1 of 1 legendary artifact."
-		numerologyFa = "نایاب‌ترین دارایی در تاریخ تلگرام؛ آیتم افسانه‌ای یکتا (1 از 1)."
+		exactSupply = 1000 // Total Genesis collection supply is 1,000 (8000..8999)
+		numerologyEn = "Ultra-rare tier in Telegram history. Genesis cohort of 1,000 numbers (8000-8999)."
+		numerologyFa = "نایاب‌ترین رده در تاریخ تلگرام؛ کالکشن جنسیس متشکل از ۱,۰۰۰ شماره (۸۰۰۰ تا ۸۹۹۹)."
 	} else if fv.DistinctDigits == 1 {
 		clubEn = "Octa Monodigit Club"
 		clubFa = "کلاب هشت‌تایی (Octa Monodigit)"
@@ -1410,9 +1408,6 @@ func BuildSecurityAdvisory(normNumber string) SecurityAdvisory {
 func buildOnChainAudit(normNumber string, history ValuationHistory, isGenesis bool) OnChainAudit {
 	mintDate := "December 2022 (Genesis Telemint Batch)"
 	txCount := len(history.Transactions)
-	if txCount == 0 {
-		txCount = 1
-	}
 
 	baselineFloor := registry.StandardInitialFloorTON
 	if isGenesis {
@@ -1424,11 +1419,21 @@ func buildOnChainAudit(normNumber string, history ValuationHistory, isGenesis bo
 		appreciation = roundPrice(((history.HighestPastSaleTON - baselineFloor) / baselineFloor) * 100.0)
 	}
 
-	statusFa := "تایید شده در قرارداد هوشمند تلمینت تلگرام"
-	statusEn := "Verified on-chain asset via Telegram Telemint"
-	if isGenesis {
-		statusFa = "شماره جنسیس 4 رقمی اصل — تایید شده و معتبر"
-		statusEn = "Original 4-Digit Genesis — Clean & Verified"
+	hasChainProof := len(history.Transactions) > 0 || history.OwnerAddress != "" || isGenesis
+	dataStatus := "unverified"
+	collectionVerified := false
+
+	statusFa := "در انتظار استعلام زنده بلاکچین TON"
+	statusEn := "Pending On-Chain Verification"
+	if hasChainProof {
+		collectionVerified = true
+		dataStatus = "live"
+		statusFa = "تایید شده در قرارداد هوشمند تلمینت تلگرام"
+		statusEn = "Verified on-chain asset via Telegram Telemint"
+		if isGenesis {
+			statusFa = "شماره جنسیس 4 رقمی اصل — تایید شده و معتبر"
+			statusEn = "Original 4-Digit Genesis — Clean & Verified"
+		}
 	}
 
 	txHash := ""
@@ -1453,12 +1458,12 @@ func buildOnChainAudit(normNumber string, history ValuationHistory, isGenesis bo
 		TransferCount:       txCount,
 		HighestPastSaleTON:  history.HighestPastSaleTON,
 		AppreciationPct:     appreciation,
-		CollectionVerified:  true,
+		CollectionVerified:  collectionVerified,
 		RealOwnerAddress:    history.OwnerAddress,
 		IsEscrow:            isEscrow,
 		TransactionHash:     txHash,
 		TonviewerURL:        tonviewerURL,
-		DataStatus:          "live",
+		DataStatus:          dataStatus,
 	}
 }
 

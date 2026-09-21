@@ -216,8 +216,8 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 							{isRtl() ? 'کف مشاهده‌شده (Observed Floor):' : 'Observed Floor:'}
 						</strong>
 						{isRtl()
-							? 'پایین‌ترین قیمت لیست‌شده فعال در میان ۷ صرافی یکپارچه‌شده (Fragment, Getgems, Tonnel, MRKT, Portals, MarketApp, Stars).'
-							: 'Lowest active listing observed across all 7 integrated venues.'}
+							? 'پایین‌ترین قیمت لیست‌شده فعال در میان صرافی‌های متصل و تاییدشده (شامل Fragment، Getgems و منابع تلگرام).'
+							: 'Lowest active listing observed across connected and verified venues.'}
 					</Show>
 				</div>
 			</Show>

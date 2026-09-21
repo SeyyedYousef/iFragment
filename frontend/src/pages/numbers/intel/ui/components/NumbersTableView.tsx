@@ -2,7 +2,7 @@ import { createQuery } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { numbersApi, splitNumberPrefix } from '@/entities/numbers/index.js';
 import type { NumbersFilterState } from '@/entities/numbers/model/types.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
@@ -462,9 +462,11 @@ export const NumbersTableView: Component<Props> = (props) => {
 			<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl backdrop-blur-xl shadow-xl overflow-hidden">
 				<div class="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+						<span class={`w-2 h-2 rounded-full ${numbersQuery.data?.data_status === 'stale' ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`} />
 						<span class="text-xs font-black text-white">
-							{t('numbers.liveOnChainFeed') || 'Live On-Chain Feed'}
+							{numbersQuery.data?.data_status === 'stale'
+								? (isRtl() ? 'کش محلی (آفلاین)' : 'Cached Offline Feed')
+								: (t('numbers.liveOnChainFeed') || 'Live On-Chain Feed')}
 						</span>
 						<span class="text-[10px] font-mono text-white/40">
 							({numbersQuery.data?.items.length || 0} /{' '}

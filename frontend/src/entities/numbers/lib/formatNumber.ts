@@ -85,3 +85,55 @@ export function formatLiveNumberInput(val: string): { formatted: string; digits:
 
 	return { formatted, digits };
 }
+
+/**
+ * Validate that an anonymous number strictly belongs to the official 136,566 Telegram collection (N-23)
+ * - 4-digit Genesis numbers MUST be in range 8000..8999 (+888 8000 to +888 8999)
+ * - Standard numbers MUST be exactly 8 digits (+888 0000 0000 to +888 9999 9999)
+ */
+export function validateAnonymousNumber(raw?: string | null): {
+	isValid: boolean;
+	normalized: string;
+	isGenesis: boolean;
+	error?: string;
+} {
+	if (!raw) {
+		return { isValid: false, normalized: '', isGenesis: false, error: 'شماره نمی‌تواند خالی باشد' };
+	}
+
+	const parts = splitNumberPrefix(raw);
+	const suffix = parts.rawDigits;
+
+	if (suffix.length === 4) {
+		const n = parseInt(suffix, 10);
+		if (isNaN(n) || n < 8000 || n > 8999) {
+			return {
+				isValid: false,
+				normalized: `+888${suffix}`,
+				isGenesis: true,
+				error: 'شماره جنسیس ۴ رقمی خارج از بازه رسمی تلگرام (۸۰۰۰ تا ۸۹۹۹) است',
+			};
+		}
+		return {
+			isValid: true,
+			normalized: `+888${suffix}`,
+			isGenesis: true,
+		};
+	}
+
+	if (suffix.length === 8) {
+		return {
+			isValid: true,
+			normalized: `+888${suffix}`,
+			isGenesis: false,
+		};
+	}
+
+	return {
+		isValid: false,
+		normalized: raw,
+		isGenesis: false,
+		error: 'طول شماره نامعتبر است (باید ۴ رقمی جنسیس یا ۸ رقمی استاندارد باشد)',
+	};
+}
+

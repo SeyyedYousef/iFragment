@@ -285,9 +285,20 @@ export interface GiftAuctionItem {
 	venue: string;
 }
 
+export interface MacroHistoryPoint {
+	timestamp: string;
+	mcap_usd: number;
+	mcap_gram: number;
+	volume_usd: number;
+	volume_gram: number;
+}
+
 export interface GiftsIntelResponse {
 	total_cumulative_volume_usd: number;
+	total_cumulative_volume_gram?: number;
 	total_market_cap_usd: number;
+	total_market_cap_gram?: number;
+	ton_usd_rate?: number;
 	total_active_wallets: number;
 	total_gifts_minted: number;
 	fng_index: number;
@@ -301,8 +312,12 @@ export interface GiftsIntelResponse {
 	macro_stats?: {
 		total_unique_models?: number;
 		total_patterns?: number;
+		total_backdrops?: number;
+		upgradable_gifts?: number;
 	};
+	macro_history?: MacroHistoryPoint[];
 	data_source_attribution?: string;
+	data_status?: 'live' | 'estimated' | 'delayed' | 'stale' | 'unavailable';
 	updated_at: string;
 }
 

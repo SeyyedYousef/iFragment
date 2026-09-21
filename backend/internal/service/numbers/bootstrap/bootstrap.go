@@ -159,6 +159,31 @@ func (b *BootstrapWorker) incrementHistogram(ctx context.Context, key, bucket st
 	_, _ = b.db.Pool.Exec(ctx, query, key, bucket)
 }
 
+// RebuildHistograms deterministically calculates exact frequency distributions from number_features (N-07)
+func (b *BootstrapWorker) RebuildHistograms(ctx context.Context) error {
+	if b.db == nil || b.db.Pool == nil {
+		return nil
+	}
+
+	keys := []string{"max_run", "distinct_digits", "tail_class", "repeated_block"}
+	for _, k := range keys {
+		query := fmt.Sprintf(`
+			INSERT INTO feature_histograms (feature_key, bucket, count)
+			SELECT '%s' AS feature_key, 
+			       COALESCE(features->>'%s', '') AS bucket, 
+			       COUNT(*)::int AS count
+			FROM number_features
+			WHERE features ? '%s'
+			GROUP BY features->>'%s'
+			ON CONFLICT (feature_key, bucket) DO UPDATE
+			SET count = EXCLUDED.count`, k, k, k, k)
+		if _, err := b.db.Pool.Exec(ctx, query); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (b *BootstrapWorker) getLastCheckpoint(ctx context.Context) int {
 	query := `SELECT COALESCE(MAX(last_offset), 0) FROM number_bootstrap_checkpoints`
 	var offset int

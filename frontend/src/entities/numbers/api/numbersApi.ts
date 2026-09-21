@@ -286,6 +286,9 @@ export const numbersApi = {
 		total: number;
 		page: number;
 		totalPages: number;
+		data_status?: string;
+		source_status?: string;
+		observed_at?: string;
 	}> => {
 		const page = params.page || 1;
 		const saleType = params.saleType || '';
@@ -310,6 +313,9 @@ export const numbersApi = {
 				total: number;
 				page: number;
 				totalPages: number;
+				data_status?: string;
+				source_status?: string;
+				observed_at?: string;
 			}>('/numbers/list', { params: queryParams });
 
 			if (data && Array.isArray(data.items)) {
@@ -327,4 +333,67 @@ export const numbersApi = {
 			totalPages: 1,
 		};
 	},
+
+	getCollectionOverview: async (): Promise<
+		import('../model/types.js').NumbersInstitutionalCollectionOverview
+	> => {
+		const { data } = await apiClient.get<
+			import('../model/types.js').NumbersInstitutionalCollectionOverview
+		>('/numbers/collection-overview');
+		return data;
+	},
+
+	getCollectionHistory: async (
+		timeframe: string = '30d',
+	): Promise<import('../model/types.js').NumberCollectionHistoryResponse> => {
+		const { data } = await apiClient.get<
+			import('../model/types.js').NumberCollectionHistoryResponse
+		>('/numbers/collection-history', {
+			params: { timeframe },
+		});
+		return data;
+	},
+
+	getCollectionListings: async (params?: {
+		venue?: string;
+		listing_type?: string;
+		page?: number;
+		limit?: number;
+	}): Promise<{
+		items: import('../model/types.js').NumberMarketListing[];
+		total: number;
+		page: number;
+		limit: number;
+	}> => {
+		const { data } = await apiClient.get<{
+			items: import('../model/types.js').NumberMarketListing[];
+			total: number;
+			page: number;
+			limit: number;
+		}>('/numbers/collection-listings', {
+			params: {
+				venue: params?.venue,
+				listing_type: params?.listing_type,
+				page: params?.page || 1,
+				limit: params?.limit || 20,
+			},
+		});
+		return data;
+	},
+
+	getPatternAnalytics: async (): Promise<
+		import('../model/types.js').NumberPatternAnalytics[]
+	> => {
+		const { data } = await apiClient.get<
+			import('../model/types.js').NumberPatternAnalytics[]
+		>('/numbers/patterns');
+		return data;
+	},
+
+	getColors: async (): Promise<import('../model/types.js').NFTColorInfo[]> => {
+		const { data } = await apiClient.get<import('../model/types.js').NFTColorInfo[]>('/numbers/colors');
+		return data;
+	},
 };
+
+

@@ -75,17 +75,17 @@ func (w *ArbitrageWorker) runScan(ctx context.Context) {
 		return
 	}
 
-	// 1. Fetch recent live auctions & active listings from database
+	// 1. Fetch recent live auctions & active listings from database (F-15 fix)
 	query := `
 		SELECT item_name, price, status 
-		FROM nft_collection_auctions 
-		WHERE status = 'Active' OR status = 'on_sale'
+		FROM nft_collection_recent_auctions 
+		WHERE status = 'Active' OR status = 'on_sale' OR status = 'auction'
 		ORDER BY id DESC 
 		LIMIT 20
 	`
 	rows, err := w.db.Pool.Query(ctx, query)
 	if err != nil {
-		slog.Debug("ArbitrageWorker: no active auctions found or query error", "err", err)
+		slog.Warn("ArbitrageWorker: query active auctions error", "err", err)
 		return
 	}
 	defer rows.Close()
@@ -101,6 +101,7 @@ func (w *ArbitrageWorker) runScan(ctx context.Context) {
 		if err := rows.Scan(&name, &priceStr, &status); err == nil {
 			cleanName := strings.ToLower(strings.TrimPrefix(name, "@"))
 			cleanedPrice := strings.ToUpper(strings.ReplaceAll(priceStr, "TON", ""))
+			cleanedPrice = strings.ReplaceAll(cleanedPrice, ",", "")
 			cleanedPrice = strings.TrimSpace(cleanedPrice)
 			priceVal, errParse := strconv.ParseFloat(cleanedPrice, 64)
 			if errParse == nil && priceVal > 0 {

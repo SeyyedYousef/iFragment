@@ -75,8 +75,8 @@ export const NumbersChartView: Component<Props> = (props) => {
 
 	const currentFloor = createMemo(() => {
 		// 1. Calculate dynamic conversion rate
-		let effectiveRate = props.rate;
-		if (!effectiveRate || effectiveRate <= 0) {
+		let effectiveRate: number = props.rate || 0;
+		if (effectiveRate <= 0) {
 			if (
 				props.intel?.floor_price_usd &&
 				props.intel?.floor_price_ton &&
@@ -86,7 +86,7 @@ export const NumbersChartView: Component<Props> = (props) => {
 			} else if (props.floor?.usd && props.floor?.ton && props.floor.ton > 0) {
 				effectiveRate = props.floor.usd / props.floor.ton;
 			} else {
-				effectiveRate = 5.5;
+				effectiveRate = (props.rate && props.rate > 0) ? props.rate : 0;
 			}
 		}
 
@@ -103,12 +103,12 @@ export const NumbersChartView: Component<Props> = (props) => {
 			}
 		}
 		if (!rawTon || rawTon <= 0) {
-			rawTon = props.intel?.floor_price_ton || 2450;
+			rawTon = props.intel?.floor_price_ton || 0;
 		}
 
 		// 3. Handle unrestricted floor filter (+5% or props.floorN)
 		let ton = rawTon;
-		if (unrestrictedFloor()) {
+		if (unrestrictedFloor() && rawTon > 0) {
 			if (props.floorN?.ton && props.floorN.ton > 0) {
 				ton = props.floorN.ton;
 			} else {
@@ -127,7 +127,7 @@ export const NumbersChartView: Component<Props> = (props) => {
 		return { ton, usd };
 	});
 
-	// Percentage changes: 24h, 7d, 30d
+	// Percentage changes: 24h, 7d, 30d computed strictly by timestamp
 	const percentageChanges = createMemo(() => {
 		const data = props.chartData || {};
 		const dates = Object.keys(data).sort();
@@ -140,10 +140,27 @@ export const NumbersChartView: Component<Props> = (props) => {
 		}
 		const currVal = currentFloor()[chartCurrency()];
 		const idx = chartCurrency() === 'ton' ? 0 : 1;
+		const latestDateStr = dates[dates.length - 1];
+		const latestTime = new Date(latestDateStr).getTime();
 
-		const getDiff = (targetDateIdx: number) => {
-			if (targetDateIdx < 0) targetDateIdx = 0;
-			const pastVal = data[dates[targetDateIdx]]?.[idx] || currVal;
+		const getDiffByDuration = (durationMs: number) => {
+			const targetTime = latestTime - durationMs;
+			let closestDate = dates[0];
+			let minDiff = Math.abs(new Date(dates[0]).getTime() - targetTime);
+
+			for (let i = 1; i < dates.length - 1; i++) {
+				const diff = Math.abs(new Date(dates[i]).getTime() - targetTime);
+				if (diff < minDiff) {
+					minDiff = diff;
+					closestDate = dates[i];
+				}
+			}
+
+			if (minDiff > durationMs * 1.5) {
+				return { sign: '', diff: null as number | null };
+			}
+
+			const pastVal = data[closestDate]?.[idx] || currVal;
 			const diff = currVal - pastVal;
 			const pct = pastVal > 0 ? (diff / pastVal) * 100 : 0;
 			return {
@@ -153,9 +170,9 @@ export const NumbersChartView: Component<Props> = (props) => {
 		};
 
 		return {
-			'24h': getDiff(dates.length - 2),
-			'7d': getDiff(dates.length - 8),
-			'30d': getDiff(dates.length - 31),
+			'24h': getDiffByDuration(24 * 3600 * 1000),
+			'7d': getDiffByDuration(7 * 24 * 3600 * 1000),
+			'30d': getDiffByDuration(30 * 24 * 3600 * 1000),
 		};
 	});
 

@@ -1,348 +1,316 @@
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
-import { type Component, createSignal, For, Show } from 'solid-js';
+import { type Component, createSignal, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import { NumberActivityTape } from './components/NumberActivityTape.js';
+import { NumberAlertsModal } from './components/NumberAlertsModal.js';
+import { NumberCollectionChart } from './components/NumberCollectionChart.js';
+import { NumberCollectionHeader } from './components/NumberCollectionHeader.js';
+import { NumberCollectionKpis } from './components/NumberCollectionKpis.js';
+import { NumberExportModal } from './components/NumberExportModal.js';
+import { NumberHoldersView } from './components/NumberHoldersView.js';
+import { NumberMarketView } from './components/NumberMarketView.js';
+import { NumberPatternsView } from './components/NumberPatternsView.js';
+import { NumberRiskMethodology } from './components/NumberRiskMethodology.js';
+
+export type CollectionTabKey = 'overview' | 'market' | 'patterns' | 'holders' | 'activity' | 'risk';
 
 export const NumbersCollectionPage: Component = () => {
 	useTelegramBackButton(-1);
 	const navigate = useNavigate();
-	const [selectedTab, setSelectedTab] = createSignal<'overview' | 'clubs' | 'genesis' | 'colors'>(
-		'overview',
-	);
 
-	const intelQuery = createQuery(() => ({
-		queryKey: ['numbersIntelCollection'],
-		queryFn: () => numbersApi.getIntel(),
+	const [selectedTab, setSelectedTab] = createSignal<CollectionTabKey>('overview');
+	const [timeframe, setTimeframe] = createSignal<'24h' | '7d' | '30d' | '90d' | 'all'>('30d');
+	const [marketVenue, setMarketVenue] = createSignal<string>('all');
+	const [marketType, setMarketType] = createSignal<string>('all');
+	const [marketPage, setMarketPage] = createSignal<number>(1);
+
+	// Modals
+	const [isExportOpen, setIsExportOpen] = createSignal(false);
+	const [isAlertsOpen, setIsAlertsOpen] = createSignal(false);
+	const [isMethodologyOpen, setIsMethodologyOpen] = createSignal(false);
+
+	// 1. Core Collection Overview Query
+	const overviewQuery = createQuery(() => ({
+		queryKey: ['numbersCollectionOverview'],
+		queryFn: () => numbersApi.getCollectionOverview(),
 		staleTime: 60 * 1000,
 	}));
 
-	const intel = () => intelQuery.data;
+	// 2. Collection Time-Series History Query
+	const historyQuery = createQuery(() => ({
+		queryKey: ['numbersCollectionHistory', timeframe()],
+		queryFn: () => numbersApi.getCollectionHistory(timeframe()),
+		staleTime: 120 * 1000,
+	}));
 
-	const formatTon = (val?: number | string) => {
-		if (!val) return '0';
-		const num = typeof val === 'string' ? parseFloat(val) : val;
-		return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+	// 3. Market Listings Query
+	const listingsQuery = createQuery(() => ({
+		queryKey: ['numbersCollectionListings', marketVenue(), marketType(), marketPage()],
+		queryFn: () =>
+			numbersApi.getCollectionListings({
+				venue: marketVenue(),
+				listing_type: marketType(),
+				page: marketPage(),
+				limit: 20,
+			}),
+		staleTime: 30 * 1000,
+	}));
+
+	// 4. Pattern Analytics Query
+	const patternsQuery = createQuery(() => ({
+		queryKey: ['numbersPatternAnalytics'],
+		queryFn: () => numbersApi.getPatternAnalytics(),
+		staleTime: 300 * 1000,
+	}));
+
+	const overview = () => overviewQuery.data;
+	const history = () => historyQuery.data?.points || [];
+	const rate = () => overviewQuery.data?.ton_usd_rate || 5.0;
+	const listings = () => listingsQuery.data?.items || [];
+	const listingsTotal = () => listingsQuery.data?.total || 0;
+	const patterns = () => patternsQuery.data || [];
+
+	const switchTab = (tab: CollectionTabKey) => {
+		try {
+			haptic.selection();
+		} catch {}
+		setSelectedTab(tab);
 	};
-
-	const CLUBS = [
-		{
-			name: 'Grail & Mono-digit',
-			mask: '+888 8888 8888',
-			floor: 185000,
-			count: 12,
-			bg: 'from-amber-500/20 to-orange-500/20',
-			border: 'border-amber-500/30',
-			color: 'text-amber-300',
-		},
-		{
-			name: '4-Digit Genesis (1 of 1000)',
-			mask: '+888 8XXX',
-			floor: 42000,
-			count: 1000,
-			bg: 'from-cyan-500/20 to-teal-500/20',
-			border: 'border-cyan-500/30',
-			color: 'text-cyan-300',
-		},
-		{
-			name: 'Quad Repdigit Tail',
-			mask: '+888 XXXX 8888',
-			floor: 12500,
-			count: 850,
-			bg: 'from-[#0098EA]/20 to-cyan-500/20',
-			border: 'border-[#0098EA]/30',
-			color: 'text-[#0098EA]',
-		},
-		{
-			name: 'Triple 777 Tail',
-			mask: '+888 XXXX X777',
-			floor: 4800,
-			count: 2400,
-			bg: 'from-emerald-500/20 to-teal-500/20',
-			border: 'border-emerald-500/30',
-			color: 'text-emerald-300',
-		},
-		{
-			name: 'Standard 8-Digit Floor',
-			mask: '+888 XXXX XXXX',
-			floor: 2450,
-			count: 135566,
-			bg: 'from-slate-500/20 to-zinc-500/20',
-			border: 'border-white/10',
-			color: 'text-white/80',
-		},
-	];
-
-	const NFT_COLORS = [
-		{ name: 'Ocean Blue', hex: '#0098EA', count: 48200, multiplier: 1.0 },
-		{ name: 'Emerald Green', hex: '#10b981', count: 32100, multiplier: 1.05 },
-		{ name: 'Deep Indigo', hex: '#6366f1', count: 24300, multiplier: 1.12 },
-		{ name: 'Sunset Amber', hex: '#f59e0b', count: 18400, multiplier: 1.2 },
-		{ name: 'Cyber Neon', hex: '#06b6d4', count: 10200, multiplier: 1.25 },
-		{ name: 'Obsidian Black', hex: '#1e293b', count: 3366, multiplier: 1.45 },
-	];
 
 	return (
 		<div class="pb-36 bg-[#030303] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
-			{/* Ambient Background Glows */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[380px] bg-gradient-to-b from-[#0098EA]/15 via-transparent to-transparent blur-[100px] pointer-events-none z-0" />
+			{/* Ambient Gradient Glows */}
+			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[360px] bg-gradient-to-b from-[#0098EA]/15 via-cyan-500/5 to-transparent blur-[110px] pointer-events-none z-0" />
 
 			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
-				{/* Top Navigation */}
-				<div class="flex items-center justify-between mb-4">
+				{/* Top Collection Header */}
+				<NumberCollectionHeader
+					overview={overview()}
+					onOpenExport={() => setIsExportOpen(true)}
+					onOpenAlerts={() => setIsAlertsOpen(true)}
+					onOpenMethodology={() => setIsMethodologyOpen(true)}
+					onBack={() => navigate(-1)}
+					onNavigateMask={() => navigate('/numbers/mask')}
+				/>
+
+				{/* Primary Decision KPIs */}
+				<NumberCollectionKpis overview={overview()} />
+
+				{/* Interactive Multi-Mode Chart */}
+				<NumberCollectionChart
+					points={history()}
+					rate={rate()}
+					timeframe={timeframe()}
+					onTimeframeChange={setTimeframe}
+					isLoading={historyQuery.isLoading}
+				/>
+
+				{/* 6-Tab Navigation Segment */}
+				<div class="grid grid-cols-6 bg-[#0e121d]/90 p-1 rounded-2xl border border-white/10 mb-4 shadow-xl backdrop-blur-xl">
 					<button
 						type="button"
-						onClick={() => navigate(-1)}
-						class="w-10 h-10 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-95"
-					>
-						<span class="material-symbols-outlined text-xl rtl:rotate-180">arrow_back</span>
-					</button>
-
-					<div class="text-center flex-1 px-2">
-						<h1 class="text-base font-black text-white flex items-center justify-center gap-1.5">
-							<span>Telegram Anonymous Numbers</span>
-							<span class="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
-								+888
-							</span>
-						</h1>
-						<p class="text-[11px] font-medium text-white/50">Collection Intel & Analytics</p>
-					</div>
-
-					<button
-						type="button"
-						onClick={() => {
-							try {
-								haptic.impact('light');
-							} catch {}
-							navigate('/numbers/mask');
-						}}
-						class="w-10 h-10 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-[#0098EA] transition-all active:scale-95"
-						title="Mask Builder"
-					>
-						<span class="material-symbols-outlined text-xl">tune</span>
-					</button>
-				</div>
-
-				{/* Hero Card */}
-				<div class="bg-gradient-to-br from-[#0e131d] to-[#08090D] border border-white/[0.08] rounded-3xl p-5 mb-4 shadow-2xl relative overflow-hidden">
-					<div class="flex items-start justify-between mb-4">
-						<div>
-							<div class="flex items-center gap-2">
-								<span class="text-xl font-black text-white font-mono">+888 Series</span>
-								<span class="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-extrabold uppercase">
-									Closed Collection
-								</span>
-							</div>
-							<p class="text-xs text-white/50 mt-1">136,566 Total Supply · Supply Frozen Forever</p>
-						</div>
-					</div>
-
-					{/* Metrics Grid */}
-					<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
-							<span class="text-[10px] font-bold text-white/40 block">Floor Price</span>
-							<span class="text-sm font-black text-white font-mono block mt-0.5">
-								{intel()?.floor_price_ton ? formatTon(intel()!.floor_price_ton) : '-'}{' '}
-								<span class="text-[10px] text-[#0098EA]">TON</span>
-							</span>
-						</div>
-						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
-							<span class="text-[10px] font-bold text-white/40 block">24h Volume</span>
-							<span class="text-sm font-black text-emerald-400 font-mono block mt-0.5">
-								{intel()?.volume_24h_ton ? formatTon(intel()!.volume_24h_ton) : '-'}{' '}
-								<span class="text-[10px] text-white/40">TON</span>
-							</span>
-						</div>
-						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
-							<span class="text-[10px] font-bold text-white/40 block">Total Volume</span>
-							<span class="text-sm font-black text-[#0098EA] font-mono block mt-0.5">
-								{intel()?.total_volume_ton ? formatTon(intel()!.total_volume_ton) : '-'}{' '}
-								<span class="text-[10px] text-white/40">TON</span>
-							</span>
-						</div>
-						<div class="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3">
-							<span class="text-[10px] font-bold text-white/40 block">Highest Sale (ATH)</span>
-							<span class="text-sm font-black text-amber-400 font-mono block mt-0.5">
-								{intel()?.historical_ath_ton ? formatTon(intel()!.historical_ath_ton) : '-'}{' '}
-								<span class="text-[10px] text-white/40">TON</span>
-							</span>
-						</div>
-					</div>
-				</div>
-
-				{/* Segmented Tab Navigation */}
-				<div class="grid grid-cols-4 bg-[#12141C]/90 p-1 rounded-2xl border border-white/10 mb-4 shadow-lg">
-					<button
-						type="button"
-						onClick={() => setSelectedTab('overview')}
-						class={`py-1.5 px-2 rounded-xl text-xs font-black transition-all ${
+						onClick={() => switchTab('overview')}
+						class={`py-2 rounded-xl text-[10px] font-black transition-all ${
 							selectedTab() === 'overview'
-								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25'
-								: 'text-white/50 hover:text-white'
+								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/30'
+								: 'text-white/40 hover:text-white'
 						}`}
 					>
-						Overview
+						نمای کلی
 					</button>
+
 					<button
 						type="button"
-						onClick={() => setSelectedTab('clubs')}
-						class={`py-1.5 px-2 rounded-xl text-xs font-black transition-all ${
-							selectedTab() === 'clubs'
-								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25'
-								: 'text-white/50 hover:text-white'
+						onClick={() => switchTab('market')}
+						class={`py-2 rounded-xl text-[10px] font-black transition-all ${
+							selectedTab() === 'market'
+								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/30'
+								: 'text-white/40 hover:text-white'
 						}`}
 					>
-						Clubs
+						بازار
 					</button>
+
 					<button
 						type="button"
-						onClick={() => setSelectedTab('genesis')}
-						class={`py-1.5 px-2 rounded-xl text-xs font-black transition-all ${
-							selectedTab() === 'genesis'
-								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25'
-								: 'text-white/50 hover:text-white'
+						onClick={() => switchTab('patterns')}
+						class={`py-2 rounded-xl text-[10px] font-black transition-all ${
+							selectedTab() === 'patterns'
+								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/30'
+								: 'text-white/40 hover:text-white'
 						}`}
 					>
-						Genesis
+						الگوها
 					</button>
+
 					<button
 						type="button"
-						onClick={() => setSelectedTab('colors')}
-						class={`py-1.5 px-2 rounded-xl text-xs font-black transition-all ${
-							selectedTab() === 'colors'
-								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25'
-								: 'text-white/50 hover:text-white'
+						onClick={() => switchTab('holders')}
+						class={`py-2 rounded-xl text-[10px] font-black transition-all ${
+							selectedTab() === 'holders'
+								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/30'
+								: 'text-white/40 hover:text-white'
 						}`}
 					>
-						Colors
+						نهنگ‌ها
+					</button>
+
+					<button
+						type="button"
+						onClick={() => switchTab('activity')}
+						class={`py-2 rounded-xl text-[10px] font-black transition-all ${
+							selectedTab() === 'activity'
+								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/30'
+								: 'text-white/40 hover:text-white'
+						}`}
+					>
+						رویدادها
+					</button>
+
+					<button
+						type="button"
+						onClick={() => switchTab('risk')}
+						class={`py-2 rounded-xl text-[10px] font-black transition-all ${
+							selectedTab() === 'risk'
+								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/30'
+								: 'text-white/40 hover:text-white'
+						}`}
+					>
+						ریسک
 					</button>
 				</div>
 
 				{/* Tab 1: Overview */}
 				<Show when={selectedTab() === 'overview'}>
-					<div class="space-y-4">
-						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-3xl p-5 backdrop-blur-xl">
-							<h3 class="text-xs font-black text-white uppercase tracking-wider mb-3">
-								About +888 Anonymous Numbers
+					<div class="space-y-3">
+						{/* Market Summary Card */}
+						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-3xl p-4 backdrop-blur-xl">
+							<h3 class="text-xs font-black text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
+								<span class="material-symbols-outlined text-[#0098EA] text-sm">info</span>
+								درباره شماره‌های کلکسیونی تلگرام (+888)
 							</h3>
 							<p class="text-xs text-white/70 leading-relaxed">
-								Telegram Anonymous Numbers are decentralized NFT identifiers minted via the Fragment
-								platform and secured by the TON blockchain (Telemint standard). They enable Telegram
-								account authentication without physical SIM cards.
+								شماره‌های ناشناس تلگرام دارایی‌های غیرمتمرکز NFT بر بستر استاندارد تلمینت (Telemint) در
+								بلاکچین TON هستند. این مجموعه در دسامبر ۲۰۲۲ منجمد شده و عرضه کل آن دقیقاً ۱۳۶,۵۶۶ عدد
+								است؛ بنابراین هیچ شماره جدیدی مینت نخواهد شد و تمامی معاملات ثانویه هستند.
 							</p>
 						</div>
 
-						{/* Quick Action Navigation */}
+						{/* Quick Tools Navigation */}
 						<div class="grid grid-cols-2 gap-2.5">
 							<button
 								type="button"
-								onClick={() => navigate('/numbers/intel')}
+								onClick={() => {
+									try {
+										haptic.impact('light');
+									} catch {}
+									navigate('/numbers/intel');
+								}}
 								class="p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] text-start transition-all group"
 							>
 								<span class="material-symbols-outlined text-[#0098EA] text-2xl mb-1 block">
 									monitoring
 								</span>
 								<span class="text-xs font-black text-white block group-hover:text-[#0098EA]">
-									Live Market Table
+									میز هوش بازار (Intel Table)
 								</span>
 								<span class="text-[10px] text-white/40 block mt-0.5">
-									Explore 50+ listings with filters
+									مشاهده حراجی‌ها و لیستینگ‌های جاری
 								</span>
 							</button>
 
 							<button
 								type="button"
-								onClick={() => navigate('/numbers/mask')}
+								onClick={() => {
+									try {
+										haptic.impact('light');
+									} catch {}
+									navigate('/numbers/mask');
+								}}
 								class="p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] text-start transition-all group"
 							>
 								<span class="material-symbols-outlined text-cyan-400 text-2xl mb-1 block">
 									tune
 								</span>
 								<span class="text-xs font-black text-white block group-hover:text-cyan-400">
-									Mask Builder
+									طراح ماسک و فیلتر الگو
 								</span>
 								<span class="text-[10px] text-white/40 block mt-0.5">
-									Filter by custom digit masks
+									جستجوی پیشرفته بر اساس الگوهای ریاضی
 								</span>
 							</button>
 						</div>
 					</div>
 				</Show>
 
-				{/* Tab 2: Clubs */}
-				<Show when={selectedTab() === 'clubs'}>
-					<div class="space-y-3">
-						<For each={CLUBS}>
-							{(club) => (
-								<div
-									class={`p-4 rounded-2xl bg-gradient-to-r ${club.bg} border ${club.border} flex items-center justify-between`}
-								>
-									<div>
-										<span class={`text-xs font-black ${club.color} block`}>{club.name}</span>
-										<span class="text-[10px] font-mono text-white/50 block mt-0.5">
-											{club.mask}
-										</span>
-									</div>
-									<div class="text-end">
-										<span class="text-xs font-black text-white font-mono block">
-											{formatTon(club.floor)} TON
-										</span>
-										<span class="text-[10px] text-white/40 block">{club.count} numbers</span>
-									</div>
-								</div>
-							)}
-						</For>
-					</div>
+				{/* Tab 2: Market */}
+				<Show when={selectedTab() === 'market'}>
+					<NumberMarketView
+						listings={listings()}
+						total={listingsTotal()}
+						page={marketPage()}
+						onPageChange={setMarketPage}
+						venue={marketVenue()}
+						onVenueChange={setMarketVenue}
+						listingType={marketType()}
+						onListingTypeChange={setMarketType}
+						floorTon={overview()?.floor_ask_ton}
+						rate={rate()}
+						isLoading={listingsQuery.isLoading}
+					/>
 				</Show>
 
-				{/* Tab 3: Genesis */}
-				<Show when={selectedTab() === 'genesis'}>
-					<div class="bg-[#0e131d]/90 border border-cyan-500/30 rounded-3xl p-5 backdrop-blur-xl">
-						<div class="flex items-center gap-2 mb-3">
-							<span class="px-2.5 py-1 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-black">
-								4-Digit Genesis (1 of 1000)
-							</span>
-						</div>
-						<p class="text-xs text-white/70 leading-relaxed mb-4">
-							Genesis numbers span from +888 8000 to +888 8999. Representing under 0.73% of total
-							collection supply, they hold highest historical liquidity and whale prestige.
-						</p>
-						<button
-							type="button"
-							onClick={() => navigate('/numbers/mask')}
-							class="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-[#0098EA] text-white font-black text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition-all"
-						>
-							Explore Genesis Numbers in Mask Builder
-						</button>
-					</div>
+				{/* Tab 3: Patterns & Rarity */}
+				<Show when={selectedTab() === 'patterns'}>
+					<NumberPatternsView patterns={patterns()} rate={rate()} />
 				</Show>
 
-				{/* Tab 4: Colors */}
-				<Show when={selectedTab() === 'colors'}>
-					<div class="space-y-2.5">
-						<For each={NFT_COLORS}>
-							{(c) => (
-								<div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
-									<div class="flex items-center gap-3">
-										<span
-											class="w-4 h-4 rounded-full border border-white/30"
-											style={{ background: c.hex }}
-										/>
-										<span class="text-xs font-black text-white">{c.name}</span>
-									</div>
-									<div class="text-end">
-										<span class="text-xs font-mono font-bold text-amber-400 block">
-											x{c.multiplier} Multiplier
-										</span>
-										<span class="text-[10px] text-white/40 block">{formatTon(c.count)} items</span>
-									</div>
-								</div>
-							)}
-						</For>
-					</div>
+				{/* Tab 4: Holders & Whales */}
+				<Show when={selectedTab() === 'holders'}>
+					<NumberHoldersView overview={overview()} />
+				</Show>
+
+				{/* Tab 5: Event Activity Tape */}
+				<Show when={selectedTab() === 'activity'}>
+					<NumberActivityTape rate={rate()} />
+				</Show>
+
+				{/* Tab 6: Risk & Methodology */}
+				<Show when={selectedTab() === 'risk'}>
+					<NumberRiskMethodology overview={overview()} />
 				</Show>
 			</div>
+
+			{/* Methodology Drawer Modal */}
+			<Show when={isMethodologyOpen()}>
+				<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in p-0 sm:p-4">
+					<div class="bg-[#0e121d] border border-white/10 rounded-t-3xl sm:rounded-3xl p-5 max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl">
+						<NumberRiskMethodology
+							overview={overview()}
+							isDrawer={true}
+							onCloseDrawer={() => setIsMethodologyOpen(false)}
+						/>
+					</div>
+				</div>
+			</Show>
+
+			{/* Alerts Modal */}
+			<NumberAlertsModal
+				isOpen={isAlertsOpen()}
+				onClose={() => setIsAlertsOpen(false)}
+				currentFloor={overview()?.floor_ask_ton}
+			/>
+
+			{/* Export Modal */}
+			<NumberExportModal
+				isOpen={isExportOpen()}
+				onClose={() => setIsExportOpen(false)}
+				overview={overview()}
+			/>
 		</div>
 	);
 };
+export default NumbersCollectionPage;

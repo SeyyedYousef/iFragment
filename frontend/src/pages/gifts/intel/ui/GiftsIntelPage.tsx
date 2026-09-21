@@ -52,7 +52,11 @@ export const GiftsIntelPage: Component = () => {
 									: 'Live Ecosystem'}
 							</span>
 						</div>
-						<div class="text-[10px] text-emerald-400 font-mono font-bold">149 Gifts · 120 NFTs</div>
+						<div class="text-[10px] text-emerald-400 font-mono font-bold">
+							{intel()?.total_gifts_minted
+								? `${intel()!.total_gifts_minted.toLocaleString()} Gifts Catalog`
+								: 'Catalog Registry'}
+						</div>
 					</div>
 				</div>
 

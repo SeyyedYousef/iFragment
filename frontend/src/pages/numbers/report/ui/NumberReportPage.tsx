@@ -804,10 +804,20 @@ export const NumberReportPage: Component = () => {
 									</div>
 
 									<div class="flex flex-col items-end gap-1 flex-shrink-0">
-										<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-2.5 py-1 rounded-[8px] border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-wider text-[9px] shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-											<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />{' '}
-											<span>{t('valuation.verified') || 'VERIFIED'}</span>
-										</div>
+										<Show
+											when={reportData()?.telemint_provenance?.collection_verified && reportData()?.telemint_provenance?.data_status === 'live'}
+											fallback={
+												<div class="flex items-center gap-1.5 bg-amber-500/15 px-2.5 py-1 rounded-[8px] border border-amber-500/40 text-amber-400 font-bold uppercase tracking-wider text-[9px]">
+													<div class="w-1.5 h-1.5 bg-amber-400 rounded-full" />
+													<span>{isRtl() ? 'تأیید نشده' : 'UNVERIFIED'}</span>
+												</div>
+											}
+										>
+											<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-2.5 py-1 rounded-[8px] border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-wider text-[9px] shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+												<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />{' '}
+												<span>{t('valuation.verified') || 'VERIFIED'}</span>
+											</div>
+										</Show>
 										<span class="text-xs text-white/60 font-black leading-none font-mono" dir="ltr">
 											≈ {formatUsd(reportData()?.expected_usd)}
 										</span>
@@ -914,18 +924,16 @@ export const NumberReportPage: Component = () => {
 										<span class="material-symbols-outlined text-xs text-amber-400">sell</span>
 									</div>
 									<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
-										{formatTon(
-											reportData()?.suggested_ask_ton ||
-												Math.round(Number(reportData()?.expected_ton || 0) * 1.15),
-										)}{' '}
-										<span class="text-xs text-amber-400">TON</span>
+										<Show
+											when={reportData()?.suggested_ask_ton}
+											fallback={<span class="text-white/40 text-sm">—</span>}
+										>
+											{formatTon(reportData()?.suggested_ask_ton)}{' '}
+											<span class="text-xs text-amber-400">TON</span>
+										</Show>
 									</div>
 									<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
-										≈{' '}
-										{formatUsd(
-											reportData()?.suggested_ask_usd ||
-												Math.round(Number(reportData()?.expected_usd || 0) * 1.15),
-										)}
+										{reportData()?.suggested_ask_usd ? `≈ ${formatUsd(reportData()?.suggested_ask_usd)}` : '—'}
 									</span>
 								</div>
 
@@ -938,18 +946,16 @@ export const NumberReportPage: Component = () => {
 										<span class="material-symbols-outlined text-xs text-rose-400">flash_on</span>
 									</div>
 									<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
-										{formatTon(
-											reportData()?.liquidation_ton ||
-												Math.round(Number(reportData()?.expected_ton || 0) * 0.75),
-										)}{' '}
-										<span class="text-xs text-rose-400">TON</span>
+										<Show
+											when={reportData()?.liquidation_ton}
+											fallback={<span class="text-white/40 text-sm">—</span>}
+										>
+											{formatTon(reportData()?.liquidation_ton)}{' '}
+											<span class="text-xs text-rose-400">TON</span>
+										</Show>
 									</div>
 									<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
-										≈{' '}
-										{formatUsd(
-											reportData()?.liquidation_usd ||
-												Math.round(Number(reportData()?.expected_usd || 0) * 0.75),
-										)}
+										{reportData()?.liquidation_usd ? `≈ ${formatUsd(reportData()?.liquidation_usd)}` : '—'}
 									</span>
 								</div>
 
@@ -992,7 +998,7 @@ export const NumberReportPage: Component = () => {
 									class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md"
 									dir="ltr"
 								>
-									{reportData()?.pattern_anatomy?.exact_supply_count || 10} IN EXISTENCE
+									{reportData()?.pattern_anatomy?.exact_supply_count ?? '—'} IN EXISTENCE
 								</span>
 							</div>
 
@@ -1000,8 +1006,13 @@ export const NumberReportPage: Component = () => {
 								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between gap-2">
 									<span class="text-white/60 truncate">{t('numbers.exactSupplyLabel')}:</span>
 									<span class="font-mono font-black text-amber-300 flex-shrink-0" dir="ltr">
-										{reportData()?.pattern_anatomy?.exact_supply_count || 10} / 136,566 (
-										{reportData()?.pattern_anatomy?.supply_percentage || 0.007}%)
+										<Show
+											when={reportData()?.pattern_anatomy?.exact_supply_count != null}
+											fallback={<span>—</span>}
+										>
+											{reportData()?.pattern_anatomy?.exact_supply_count} / 136,566 (
+											{reportData()?.pattern_anatomy?.supply_percentage || 0}%)
+										</Show>
 									</span>
 								</div>
 
@@ -1011,7 +1022,7 @@ export const NumberReportPage: Component = () => {
 											{t('numbers.uniqueDigitsLabel')}
 										</span>
 										<span class="font-mono font-black text-white text-xs block truncate" dir="ltr">
-											{reportData()?.pattern_anatomy?.distinct_digits ?? 1} {t('numbers.digitUnit')}
+											{reportData()?.pattern_anatomy?.distinct_digits ?? '—'} {t('numbers.digitUnit')}
 										</span>
 									</div>
 
@@ -1023,7 +1034,7 @@ export const NumberReportPage: Component = () => {
 											class="font-mono font-black text-emerald-400 text-xs block truncate"
 											dir="ltr"
 										>
-											{reportData()?.pattern_anatomy?.symmetry_score || 100}%
+											{reportData()?.pattern_anatomy?.symmetry_score != null ? `${reportData()?.pattern_anatomy?.symmetry_score}%` : '—'}
 										</span>
 									</div>
 
@@ -1035,7 +1046,7 @@ export const NumberReportPage: Component = () => {
 											class="font-mono font-black text-[#0098EA] text-xs block truncate"
 											dir="ltr"
 										>
-											{reportData()?.pattern_anatomy?.memorability_score || 99} / 100
+											{reportData()?.pattern_anatomy?.memorability_score != null ? `${reportData()?.pattern_anatomy?.memorability_score} / 100` : '—'}
 										</span>
 									</div>
 								</div>
@@ -1060,7 +1071,7 @@ export const NumberReportPage: Component = () => {
 									<span>{t('numbers.rentalYieldTitle')}</span>
 								</h3>
 								<span class="text-[9px] uppercase font-mono font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-md">
-									~{reportData()?.rental_yield?.est_apy || 54.0}% APY
+									{reportData()?.rental_yield?.est_apy != null ? `~${reportData()?.rental_yield?.est_apy}% APY` : (isRtl() ? 'شبیه‌سازی تحلیلی' : 'Simulation')}
 								</span>
 							</div>
 
@@ -1070,19 +1081,21 @@ export const NumberReportPage: Component = () => {
 										{t('numbers.monthlyRentalEst')}
 									</span>
 									<span class="text-lg font-mono font-black text-emerald-400 block" dir="ltr">
-										~
-										{formatTon(
-											reportData()?.rental_yield?.monthly_yield_ton ||
-												Math.round(Number(reportData()?.expected_ton || 0) * 0.045),
-										)}{' '}
-										TON
+										<Show
+											when={reportData()?.rental_yield?.monthly_yield_ton}
+											fallback={<span class="text-white/40 text-sm">—</span>}
+										>
+											~{formatTon(reportData()?.rental_yield?.monthly_yield_ton)} TON
+										</Show>
 									</span>
 								</div>
 								<div class="text-end">
 									<span class="text-[9px] font-bold text-white/50 block mb-0.5">
 										{t('numbers.estApyLabel')}
 									</span>
-									<span class="text-base font-mono font-black text-[#0098EA] block">~54.0%</span>
+									<span class="text-base font-mono font-black text-[#0098EA] block">
+										{reportData()?.rental_yield?.est_apy != null ? `~${reportData()?.rental_yield?.est_apy}%` : '—'}
+									</span>
 								</div>
 							</div>
 
@@ -1115,11 +1128,12 @@ export const NumberReportPage: Component = () => {
 										{t('numbers.clubFloorLabel')}
 									</span>
 									<span class="text-sm font-mono font-black text-white block" dir="ltr">
-										{formatTon(
-											reportData()?.market_depth?.club_floor_ton ||
-												Math.round(Number(reportData()?.expected_ton || 0) * 0.75),
-										)}{' '}
-										TON
+										<Show
+											when={reportData()?.market_depth?.club_floor_ton}
+											fallback={<span class="text-white/40 text-sm">—</span>}
+										>
+											{formatTon(reportData()?.market_depth?.club_floor_ton)} TON
+										</Show>
 									</span>
 								</div>
 
@@ -1129,8 +1143,8 @@ export const NumberReportPage: Component = () => {
 									</span>
 									<span class="text-sm font-mono font-black text-emerald-400 block">
 										{isRtl()
-											? reportData()?.market_depth?.liquidity_speed_fa || '۱ تا ۳ روز'
-											: reportData()?.market_depth?.liquidity_speed_en || '1 - 3 Days'}
+											? reportData()?.market_depth?.liquidity_speed_fa || '—'
+											: reportData()?.market_depth?.liquidity_speed_en || '—'}
 									</span>
 								</div>
 							</div>
@@ -1140,9 +1154,9 @@ export const NumberReportPage: Component = () => {
 								<span>
 									{isRtl()
 										? reportData()?.market_depth?.hodl_strength_fa ||
-											'بسیار قوی (بیش از ۸۰٪ شماره‌ها در ولت سرد هولدرها نگهداری می‌شود)'
+											'کالکشن بسته با سقف قطعی 136,566 شماره در تلگرام'
 										: reportData()?.market_depth?.hodl_strength_en ||
-											'Very Strong (>80% held in long-term cold wallets)'}
+											'Closed collection strictly capped at 136,566 numbers'}
 								</span>
 							</div>
 
@@ -1151,13 +1165,18 @@ export const NumberReportPage: Component = () => {
 								<div class="flex items-center justify-between mb-2">
 									<span class="text-[10px] font-bold text-white/70">
 										{isRtl()
-											? 'احتمال فروش در بازار (Selling Probabilities)'
-											: 'Selling Probabilities'}
+											? 'احتمال فروش در بازار (Selling Probabilities - شبیه‌سازی)'
+											: 'Selling Probabilities (Simulation)'}
 									</span>
 									<span class="text-[9px] font-mono text-cyan-400 font-bold" dir="ltr">
-										{isRtl()
-											? `تخمین فروش: ${reportData()?.selling_probabilities?.estimated_days_to_sell || 14} روز`
-											: `Est: ${reportData()?.selling_probabilities?.estimated_days_to_sell || 14} Days`}
+										<Show
+											when={reportData()?.selling_probabilities?.estimated_days_to_sell}
+											fallback={<span>—</span>}
+										>
+											{isRtl()
+												? `تخمین فروش: ${reportData()?.selling_probabilities?.estimated_days_to_sell} روز`
+												: `Est: ${reportData()?.selling_probabilities?.estimated_days_to_sell} Days`}
+										</Show>
 									</span>
 								</div>
 
@@ -1165,19 +1184,19 @@ export const NumberReportPage: Component = () => {
 									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
 										<span class="text-[9px] text-white/40 block mb-0.5">7 Days</span>
 										<span class="text-xs font-black font-mono text-amber-400">
-											{reportData()?.selling_probabilities?.p_7d ?? 38}%
+											{reportData()?.selling_probabilities?.p_7d != null ? `${reportData()?.selling_probabilities?.p_7d}%` : '—'}
 										</span>
 									</div>
 									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
 										<span class="text-[9px] text-white/40 block mb-0.5">30 Days</span>
 										<span class="text-xs font-black font-mono text-cyan-400">
-											{reportData()?.selling_probabilities?.p_30d ?? 72}%
+											{reportData()?.selling_probabilities?.p_30d != null ? `${reportData()?.selling_probabilities?.p_30d}%` : '—'}
 										</span>
 									</div>
 									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
 										<span class="text-[9px] text-white/40 block mb-0.5">90 Days</span>
 										<span class="text-xs font-black font-mono text-emerald-400">
-											{reportData()?.selling_probabilities?.p_90d ?? 94}%
+											{reportData()?.selling_probabilities?.p_90d != null ? `${reportData()?.selling_probabilities?.p_90d}%` : '—'}
 										</span>
 									</div>
 								</div>

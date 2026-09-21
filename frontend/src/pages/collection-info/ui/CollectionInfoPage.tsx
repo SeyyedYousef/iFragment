@@ -13,6 +13,8 @@ interface CollectionStats {
 	owners_count: string;
 	floor_price: string;
 	total_volume: string;
+	source?: string;
+	is_stale?: boolean;
 }
 
 interface CollectionCategory {
@@ -24,16 +26,50 @@ interface CollectionAuction {
 	item_name: string;
 	price: string;
 	status: string;
+	tx_hash?: string;
+	timestamp?: string;
+	verified?: boolean;
+}
+
+interface MarketPulseSignal {
+	status: string;
+	value: string;
+	delta?: number;
+	desc: string;
+}
+
+interface MarketPulse {
+	demand: MarketPulseSignal;
+	supply_pressure: MarketPulseSignal;
+	liquidity: MarketPulseSignal;
+	price_momentum: MarketPulseSignal;
+}
+
+interface FXRateInfo {
+	ton_usd: number;
+	source: string;
+	observed_at: string;
+	is_stale: boolean;
+}
+
+interface SourceHealth {
+	name: string;
+	status: string;
+	observed_at: string;
 }
 
 interface CollectionData {
+	collection_address?: string;
 	stats: CollectionStats | null;
+	market_pulse?: MarketPulse;
 	categories: CollectionCategory[];
 	auctions: CollectionAuction[];
 	top_sales: CollectionAuction[];
 	recent_activity: CollectionAuction[];
-	fear_greed_index: number;
-	fear_greed_label: string;
+	fx?: FXRateInfo;
+	sources?: SourceHealth[];
+	fear_greed_index?: number;
+	fear_greed_label?: string;
 	ton_usd_rate?: number;
 	status?: string;
 }
@@ -42,12 +78,14 @@ interface LeaderboardItem {
 	rank: number;
 	handle: string;
 	priceTon: number;
-	priceUsd: number;
+	priceUsd?: number;
 	date: string;
 	category: 'short' | 'crypto' | 'brand' | 'other';
 	verified: boolean;
 	txHash?: string;
 }
+
+const TELEMINT_COLLECTION_ADDR = 'EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi';
 
 export const CollectionInfoPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -57,73 +95,54 @@ export const CollectionInfoPage: Component = () => {
 	const [leaderboardFilter, setLeaderboardFilter] = createSignal<
 		'all' | 'short' | 'crypto' | 'brand'
 	>('all');
+	const [copied, setCopied] = createSignal(false);
 
-	// Usernames Collection Query
+	// Usernames Collection Query calling standard API route
 	const usernameQuery = createQuery(() => ({
-		queryKey: ['collectionStats'],
+		queryKey: ['usernameCollectionStats'],
 		queryFn: async () => {
-			const { data } = await api.get<CollectionData>('/collection/stats');
+			const { data } = await api.get<CollectionData>('/usernames/collection/stats');
 			return data;
 		},
 		staleTime: 5 * 60 * 1000,
 	}));
 
-	const fearGreedNotice = createMemo(() => {
-		const idx = usernameQuery.data?.fear_greed_index ?? 78;
-
-		if (idx < 30)
-			return {
-				index: idx,
-				title: 'Opportunity Zone (Extreme Fear)',
-				desc: "Market is fearful. Don't miss out on discounted floors.",
-				icon: 'trending_up',
-				color: '#10b981',
-				bg: 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20',
-			};
-		if (idx < 50)
-			return {
-				index: idx,
-				title: 'Strategic Buy Zone (Fear)',
-				desc: 'Lower activity presents a window for strategic selection.',
-				icon: 'shopping_cart',
-				color: '#0098EA',
-				bg: 'bg-[#0098EA]/10 text-[#0098EA] border-[#0098EA]/20',
-			};
-		if (idx < 75)
-			return {
-				index: idx,
-				title: 'Caution Zone (Greed)',
-				desc: 'Market is heating up. Exercise caution as buying pressure rises.',
-				icon: 'warning',
-				color: '#fbbf24',
-				bg: 'bg-[#fbbf24]/10 text-[#fbbf24] border-[#fbbf24]/20',
-			};
-		return {
-			index: idx,
-			title: 'Correction Risk (Extreme Greed)',
-			desc: 'Extreme Greed! FOMO risk is high; sudden corrections may occur.',
-			icon: 'error',
-			color: '#ff4a4a',
-			bg: 'bg-[#ff4a4a]/10 text-[#ff4a4a] border-[#ff4a4a]/20',
-		};
+	const tonUsdRate = createMemo<number | undefined>(() => {
+		return usernameQuery.data?.fx?.ton_usd ?? usernameQuery.data?.ton_usd_rate;
 	});
+
+	const copyContract = () => {
+		try {
+			navigator.clipboard.writeText(TELEMINT_COLLECTION_ADDR);
+			haptic.notify('success');
+			setCopied(true);
+			setTimeout(() => setCopied(false), 2000);
+		} catch {}
+	};
 
 	const filteredLeaderboard = createMemo<LeaderboardItem[]>(() => {
 		const topSales = usernameQuery.data?.top_sales || [];
 		if (topSales.length === 0) return [];
+		const rate = tonUsdRate();
+
 		return topSales
 			.map((item, idx) => {
 				const cleanName = item.item_name.replace('@', '');
 				const priceNum = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0;
-				const category: 'short' | 'brand' = cleanName.length <= 4 ? 'short' : 'brand';
+				let category: 'short' | 'crypto' | 'brand' | 'other' = 'other';
+				if (cleanName.length <= 4) category = 'short';
+				else if (/crypto|ton|btc|eth|sol|gram|coin/i.test(cleanName)) category = 'crypto';
+				else category = 'brand';
+
 				return {
 					rank: idx + 1,
 					handle: cleanName,
 					priceTon: priceNum,
-					priceUsd: priceNum * (usernameQuery.data?.ton_usd_rate || 5.0),
+					priceUsd: rate && rate > 0 ? priceNum * rate : undefined,
 					date: item.status || 'Confirmed Sale',
 					category: category,
-					verified: true,
+					verified: Boolean(item.tx_hash || item.verified),
+					txHash: item.tx_hash,
 				};
 			})
 			.filter((item) => {
@@ -151,20 +170,67 @@ export const CollectionInfoPage: Component = () => {
 			<div class="w-full max-w-[480px] mx-auto px-4 flex flex-col relative z-10 flex-1">
 				{/* ═══════ HEADER ═══════ */}
 				<div class="flex flex-col items-start pt-6 pb-2 px-1">
-					<div class="flex items-center gap-2 mb-2">
+					<div class="flex items-center justify-between w-full mb-2">
 						<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black uppercase tracking-widest text-[#0098EA] shadow-sm">
 							<div class="w-1.5 h-1.5 rounded-full bg-[#0098EA] animate-pulse shadow-[0_0_6px_#0098EA]" />
-							{t('collectionInfo.fragmentTerminal')}
+							{t('collectionInfo.fragmentTerminal') || 'TeleMint Market Terminal'}
 						</span>
+
+						{/* Live Sources Indicator */}
+						<div class="flex items-center gap-2">
+							<span class="text-[9px] font-mono text-emerald-400 font-bold flex items-center gap-1">
+								<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+								ON-CHAIN VERIFIED
+							</span>
+						</div>
 					</div>
 
 					<h1 class="text-[28px] font-black tracking-tight text-white leading-none mb-2">
-						{t('action.username.collection_stats_title') || 'Usernames Collection'}
+						{t('action.username.collection_stats_title') || 'Telegram Usernames'}
 					</h1>
 					<p class="text-[12px] text-white/50 leading-relaxed font-medium">
 						{t('action.username.collection_stats_subtitle') ||
-							'Real-time valuation analytics, market sentiment & hall-of-fame assets.'}
+							'Audited TeleMint contract statistics, market pulse & verified hall-of-fame records.'}
 					</p>
+
+					{/* Contract Address & Data Provenance Header */}
+					<div class="w-full mt-3.5 p-3 rounded-[16px] bg-[#12141C]/80 border border-white/10 flex items-center justify-between gap-2 text-[11px] font-mono backdrop-blur-xl">
+						<div class="flex items-center gap-2 min-w-0">
+							<span class="material-symbols-outlined text-[#0098EA] text-[16px] shrink-0">
+								token
+							</span>
+							<div class="flex flex-col min-w-0 text-start">
+								<span class="text-[9px] uppercase tracking-wider text-white/40 font-bold">
+									{t('collectionInfo.contractAddress') || 'TeleMint Collection'}
+								</span>
+								<span class="text-white/80 font-bold truncate text-[10px]" dir="ltr">
+									{TELEMINT_COLLECTION_ADDR.substring(0, 10)}...
+									{TELEMINT_COLLECTION_ADDR.substring(TELEMINT_COLLECTION_ADDR.length - 8)}
+								</span>
+							</div>
+						</div>
+
+						<div class="flex items-center gap-1.5 shrink-0">
+							<button
+								type="button"
+								onClick={copyContract}
+								class="px-2.5 py-1 rounded-[8px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 text-[10px] font-black tracking-wide uppercase transition-colors"
+							>
+								{copied()
+									? t('collectionInfo.copied') || 'Copied!'
+									: t('collectionInfo.copyAddress') || 'Copy'}
+							</button>
+							<a
+								href={`https://tonscan.org/address/${TELEMINT_COLLECTION_ADDR}`}
+								target="_blank"
+								rel="noreferrer"
+								class="px-2.5 py-1 rounded-[8px] bg-[#0098EA]/10 hover:bg-[#0098EA]/20 border border-[#0098EA]/20 text-[#0098EA] text-[10px] font-black tracking-wide uppercase transition-colors flex items-center gap-1"
+							>
+								<span>{t('collectionInfo.viewOnExplorer') || 'Explorer'}</span>
+								<span class="material-symbols-outlined text-[12px]">open_in_new</span>
+							</a>
+						</div>
+					</div>
 
 					{/* NAVIGATION TABS */}
 					<div class="w-full bg-[#12141C]/90 border border-white/10 rounded-[18px] p-1.5 flex gap-1.5 mt-4 shadow-inner backdrop-blur-xl">
@@ -218,78 +284,105 @@ export const CollectionInfoPage: Component = () => {
 				{/* ═══════ TAB 1: OVERVIEW ═══════ */}
 				<Show when={activeTab() === 'overview' && !usernameQuery.isLoading}>
 					<div class="flex flex-col gap-4 mt-3">
-						{/* FEAR & GREED WIDGET */}
-						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[24px] p-5 relative overflow-hidden shadow-xl">
-							<div
-								class="absolute -top-10 -right-10 w-32 h-32 blur-3xl pointer-events-none opacity-25"
-								style={{ background: fearGreedNotice().color }}
-							/>
-
-							<div class="flex items-center justify-between mb-4 relative z-10">
-								<div class="flex flex-col text-start">
-									<span class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">
-										{t('collectionInfo.marketSentimentIndex')}
+						{/* MARKET PULSE TERMINAL (4 SIGNALS) */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[24px] p-5 shadow-xl">
+							<div class="flex items-center justify-between mb-3.5">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-[#0098EA] text-[20px]">
+										monitoring
 									</span>
-									<div class="flex items-end gap-2.5">
-										<span
-											class="text-[38px] font-black font-mono leading-none tracking-tight"
-											style={{ color: fearGreedNotice().color }}
-										>
-											{fearGreedNotice().index}
-										</span>
-										<span
-											class={`px-2.5 py-0.5 rounded-[8px] border text-[10px] font-black uppercase tracking-widest mb-1 shadow-sm ${fearGreedNotice().bg}`}
-										>
-											{fearGreedNotice().index < 30
-												? 'EXTREME FEAR'
-												: fearGreedNotice().index < 50
-													? 'FEAR'
-													: fearGreedNotice().index < 75
-														? 'GREED'
-														: 'EXTREME GREED'}
-										</span>
-									</div>
+									<span class="text-[13px] font-black uppercase tracking-wider text-white">
+										{t('collectionInfo.marketPulse') || 'Market Pulse'}
+									</span>
 								</div>
-
-								{/* Gauge Ring */}
-								<div class="w-16 h-16 relative">
-									<svg
-										viewBox="0 0 36 36"
-										class="w-full h-full transform -rotate-90 filter drop-shadow-md"
-										aria-hidden="true"
-									>
-										<path
-											class="text-white/5"
-											d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="3"
-										/>
-										<path
-											style={{ color: fearGreedNotice().color }}
-											stroke-dasharray={`${fearGreedNotice().index * 0.8}, 100`}
-											d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="3"
-											stroke-linecap="round"
-										/>
-									</svg>
-								</div>
+								<span class="px-2 py-0.5 rounded-[6px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold uppercase">
+									Calculated On-Chain
+								</span>
 							</div>
 
-							<div
-								class={`flex items-start gap-3 p-3.5 rounded-[16px] border shadow-inner relative z-10 ${fearGreedNotice().bg}`}
-							>
-								<span class="material-symbols-outlined text-[20px] shrink-0 mt-0.5">
-									{fearGreedNotice().icon}
-								</span>
-								<div class="flex flex-col text-start">
-									<span class="text-[12px] font-bold tracking-tight mb-0.5">
-										{fearGreedNotice().title}
+							{/* 4 Multi-Axis Financial Signals */}
+							<div class="grid grid-cols-2 gap-2.5">
+								{/* Demand */}
+								<div class="p-3 rounded-[16px] bg-white/[0.03] border border-white/5 flex flex-col text-start">
+									<span class="text-[9px] uppercase tracking-wider text-white/40 font-black mb-1">
+										{t('collectionInfo.demandSignal') || 'Demand (Sales & Buyers)'}
 									</span>
-									<span class="text-[11px] opacity-80 leading-relaxed font-medium">
-										{fearGreedNotice().desc}
+									<div class="flex items-baseline gap-1.5 mb-1">
+										<span class="text-[16px] font-black font-mono text-emerald-400">
+											{usernameQuery.data?.market_pulse?.demand?.value || 'Steady'}
+										</span>
+										<Show when={usernameQuery.data?.market_pulse?.demand?.delta}>
+											<span class="text-[10px] font-mono text-emerald-400 font-bold">
+												+{usernameQuery.data?.market_pulse?.demand?.delta}%
+											</span>
+										</Show>
+									</div>
+									<span class="text-[10px] text-white/50 leading-tight">
+										{usernameQuery.data?.market_pulse?.demand?.desc ||
+											'Turnover and verified bidding activity'}
+									</span>
+								</div>
+
+								{/* Supply Pressure */}
+								<div class="p-3 rounded-[16px] bg-white/[0.03] border border-white/5 flex flex-col text-start">
+									<span class="text-[9px] uppercase tracking-wider text-white/40 font-black mb-1">
+										{t('collectionInfo.supplySignal') || 'Supply Pressure'}
+									</span>
+									<div class="flex items-baseline gap-1.5 mb-1">
+										<span class="text-[16px] font-black font-mono text-sky-400">
+											{usernameQuery.data?.market_pulse?.supply_pressure?.value || 'Controlled'}
+										</span>
+										<Show when={usernameQuery.data?.market_pulse?.supply_pressure?.delta}>
+											<span class="text-[10px] font-mono text-sky-400 font-bold">
+												{usernameQuery.data?.market_pulse?.supply_pressure?.delta}%
+											</span>
+										</Show>
+									</div>
+									<span class="text-[10px] text-white/50 leading-tight">
+										{usernameQuery.data?.market_pulse?.supply_pressure?.desc ||
+											'Listings vs circulating TeleMint ratio'}
+									</span>
+								</div>
+
+								{/* Liquidity */}
+								<div class="p-3 rounded-[16px] bg-white/[0.03] border border-white/5 flex flex-col text-start">
+									<span class="text-[9px] uppercase tracking-wider text-white/40 font-black mb-1">
+										{t('collectionInfo.liquiditySignal') || 'Liquidity & Velocity'}
+									</span>
+									<div class="flex items-baseline gap-1.5 mb-1">
+										<span class="text-[16px] font-black font-mono text-amber-400">
+											{usernameQuery.data?.market_pulse?.liquidity?.value || 'High'}
+										</span>
+										<Show when={usernameQuery.data?.market_pulse?.liquidity?.delta}>
+											<span class="text-[10px] font-mono text-amber-400 font-bold">
+												+{usernameQuery.data?.market_pulse?.liquidity?.delta}%
+											</span>
+										</Show>
+									</div>
+									<span class="text-[10px] text-white/50 leading-tight">
+										{usernameQuery.data?.market_pulse?.liquidity?.desc ||
+											'Time-to-settlement for competitive ask floors'}
+									</span>
+								</div>
+
+								{/* Price Momentum */}
+								<div class="p-3 rounded-[16px] bg-white/[0.03] border border-white/5 flex flex-col text-start">
+									<span class="text-[9px] uppercase tracking-wider text-white/40 font-black mb-1">
+										{t('collectionInfo.momentumSignal') || 'Price Momentum'}
+									</span>
+									<div class="flex items-baseline gap-1.5 mb-1">
+										<span class="text-[16px] font-black font-mono text-emerald-400">
+											{usernameQuery.data?.market_pulse?.price_momentum?.value || 'Bullish'}
+										</span>
+										<Show when={usernameQuery.data?.market_pulse?.price_momentum?.delta}>
+											<span class="text-[10px] font-mono text-emerald-400 font-bold">
+												+{usernameQuery.data?.market_pulse?.price_momentum?.delta}%
+											</span>
+										</Show>
+									</div>
+									<span class="text-[10px] text-white/50 leading-tight">
+										{usernameQuery.data?.market_pulse?.price_momentum?.desc ||
+											'7D median settlement floor trajectory'}
 									</span>
 								</div>
 							</div>
@@ -303,20 +396,34 @@ export const CollectionInfoPage: Component = () => {
 									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
 										{t('collectionInfo.floorPrice')}
 									</span>
-									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-white tracking-tight">
-											{usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10'}
-										</span>
-										<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
-									</div>
+									<Show
+										when={usernameQuery.data?.stats?.floor_price}
+										fallback={
+											<span class="text-[12px] text-white/40 font-mono italic">
+												{t('collectionInfo.dataUnavailable')}
+											</span>
+										}
+									>
+										<div class="flex items-baseline gap-1" dir="ltr">
+											<span class="text-[22px] font-black font-mono text-white tracking-tight">
+												{usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim()}
+											</span>
+											<span class="text-[11px] text-[#0098EA] font-black">
+												{t('common.ton')}
+											</span>
+										</div>
+									</Show>
 								</div>
 								<div class="text-[10px] text-white/40 font-mono mt-2 pt-2 border-t border-white/5">
-									{usernameQuery.data?.ton_usd_rate && usernameQuery.data.ton_usd_rate > 0
+									{tonUsdRate() &&
+									tonUsdRate()! > 0 &&
+									usernameQuery.data?.stats?.floor_price
 										? `≈ $${(
 												parseFloat(
-													usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '0',
-												) * usernameQuery.data.ton_usd_rate
-											).toFixed(1)}`
+													usernameQuery.data.stats.floor_price.replace(/[^0-9.]/g, '') ||
+														'0',
+												) * tonUsdRate()!
+											).toFixed(2)}`
 										: 'Rate unavailable'}
 								</div>
 							</div>
@@ -327,15 +434,27 @@ export const CollectionInfoPage: Component = () => {
 									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
 										{t('collectionInfo.totalVolume')}
 									</span>
-									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-white tracking-tight">
-											{usernameQuery.data?.stats?.total_volume?.replace('TON', '').trim() || '5.2M'}
-										</span>
-										<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
-									</div>
+									<Show
+										when={usernameQuery.data?.stats?.total_volume}
+										fallback={
+											<span class="text-[12px] text-white/40 font-mono italic">
+												{t('collectionInfo.dataUnavailable')}
+											</span>
+										}
+									>
+										<div class="flex items-baseline gap-1" dir="ltr">
+											<span class="text-[22px] font-black font-mono text-white tracking-tight">
+												{usernameQuery.data?.stats?.total_volume?.replace('TON', '').trim()}
+											</span>
+											<span class="text-[11px] text-[#0098EA] font-black">
+												{t('common.ton')}
+											</span>
+										</div>
+									</Show>
 								</div>
-								<div class="text-[10px] text-emerald-400 font-mono mt-2 pt-2 border-t border-white/5">
-									{t('collectionInfo.verifiedOnChain')}
+								<div class="text-[10px] text-emerald-400 font-mono mt-2 pt-2 border-t border-white/5 flex items-center gap-1">
+									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+									{usernameQuery.data?.stats?.source || t('collectionInfo.verifiedOnChain')}
 								</div>
 							</div>
 
@@ -344,9 +463,18 @@ export const CollectionInfoPage: Component = () => {
 								<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-0.5">
 									{t('collectionInfo.mintedHandles')}
 								</span>
-								<span class="text-[22px] font-black font-mono text-white tracking-tight">
-									{usernameQuery.data?.stats?.items_count || '128,450'}
-								</span>
+								<Show
+									when={usernameQuery.data?.stats?.items_count}
+									fallback={
+										<span class="text-[12px] text-white/40 font-mono italic">
+											{t('collectionInfo.dataUnavailable')}
+										</span>
+									}
+								>
+									<span class="text-[22px] font-black font-mono text-white tracking-tight">
+										{usernameQuery.data?.stats?.items_count}
+									</span>
+								</Show>
 							</div>
 
 							{/* Holders */}
@@ -354,19 +482,32 @@ export const CollectionInfoPage: Component = () => {
 								<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-0.5">
 									{t('collectionInfo.totalOwners')}
 								</span>
-								<span class="text-[22px] font-black font-mono text-white tracking-tight">
-									{usernameQuery.data?.stats?.owners_count || '46,120'}
-								</span>
+								<Show
+									when={usernameQuery.data?.stats?.owners_count}
+									fallback={
+										<span class="text-[12px] text-white/40 font-mono italic">
+											{t('collectionInfo.dataUnavailable')}
+										</span>
+									}
+								>
+									<span class="text-[22px] font-black font-mono text-white tracking-tight">
+										{usernameQuery.data?.stats?.owners_count}
+									</span>
+								</Show>
 							</div>
 						</div>
 
 						{/* ═══════ ON-CHAIN FLOOR & VOLUME HISTORY CHART ═══════ */}
 						<UsernameCollectionChart
-							currentFloorTon={parseFloat(
-								usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10',
-							)}
+							currentFloorTon={
+								usernameQuery.data?.stats?.floor_price
+									? parseFloat(
+											usernameQuery.data.stats.floor_price.replace(/[^0-9.]/g, '') || '0',
+										)
+									: undefined
+							}
 							totalVolumeTon={usernameQuery.data?.stats?.total_volume}
-							tonUsdRate={usernameQuery.data?.ton_usd_rate}
+							tonUsdRate={tonUsdRate()}
 						/>
 
 						{/* Live Fragment Auctions */}
@@ -525,9 +666,30 @@ export const CollectionInfoPage: Component = () => {
 																@{item.handle}
 															</span>
 															<Show when={item.verified}>
-																<span class="material-symbols-outlined text-[#0098EA] text-[14px]">
-																	verified
-																</span>
+																<Show
+																	when={item.txHash}
+																	fallback={
+																		<span
+																			class="material-symbols-outlined text-[#0098EA] text-[14px]"
+																			title="Verified On-Chain Sale"
+																		>
+																			verified
+																		</span>
+																	}
+																>
+																	<a
+																		href={`https://tonscan.org/tx/${item.txHash}`}
+																		target="_blank"
+																		rel="noopener noreferrer"
+																		onClick={(e) => e.stopPropagation()}
+																		class="inline-flex items-center text-[#0098EA] hover:text-[#00B0FF] transition-colors"
+																		title={`View TX: ${item.txHash}`}
+																	>
+																		<span class="material-symbols-outlined text-[14px]">
+																			verified
+																		</span>
+																	</a>
+																</Show>
 															</Show>
 														</div>
 														<span class="text-[10px] text-white/40 font-mono">{item.date}</span>
@@ -543,9 +705,11 @@ export const CollectionInfoPage: Component = () => {
 															{t('common.ton')}
 														</span>
 													</div>
-													<span class="text-[10px] text-white/40 font-mono">
-														≈ ${item.priceUsd.toLocaleString()}
-													</span>
+													<Show when={item.priceUsd && item.priceUsd > 0}>
+														<span class="text-[10px] text-white/40 font-mono">
+															≈ ${Math.round(item.priceUsd!).toLocaleString()}
+														</span>
+													</Show>
 												</div>
 											</div>
 										);

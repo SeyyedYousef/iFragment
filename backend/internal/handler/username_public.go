@@ -1034,23 +1034,41 @@ func (h *UsernameHandler) Share(w http.ResponseWriter, r *http.Request) {
 		base64Data = base64Data[idx+1:]
 	}
 
+	// Reject payloads larger than ~7MB base64 (~5MB binary) before decode
+	if len(base64Data) > 7*1024*1024 {
+		RespondError(w, r, http.StatusRequestEntityTooLarge, "Image payload exceeds maximum allowed size (5MB)", nil)
+		return
+	}
+
 	dec, err := base64.StdEncoding.DecodeString(base64Data)
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid base64 encoding", err)
 		return
 	}
 
+	// Validate magic bytes: PNG (\x89PNG\r\n\x1a\n) or JPEG (\xff\xd8\xff)
+	isPNG := len(dec) >= 8 && dec[0] == 0x89 && dec[1] == 0x50 && dec[2] == 0x4E && dec[3] == 0x47 && dec[4] == 0x0D && dec[5] == 0x0A && dec[6] == 0x1A && dec[7] == 0x0A
+	isJPEG := len(dec) >= 3 && dec[0] == 0xFF && dec[1] == 0xD8 && dec[2] == 0xFF
+	if !isPNG && !isJPEG {
+		RespondError(w, r, http.StatusBadRequest, "Invalid image format: only PNG and JPEG are accepted", nil)
+		return
+	}
+
 	// Create static/shares dir if not exists
 	dir := "./static/shares"
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to create storage directory", err)
 		return
 	}
 
+	ext := ".png"
+	if isJPEG {
+		ext = ".jpg"
+	}
 	fileID := uuid.New().String()
-	filePath := fmt.Sprintf("%s/%s.png", dir, fileID)
+	filePath := fmt.Sprintf("%s/%s%s", dir, fileID, ext)
 
-	if err := os.WriteFile(filePath, dec, 0644); err != nil {
+	if err := os.WriteFile(filePath, dec, 0600); err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to save image file", err)
 		return
 	}
@@ -1490,7 +1508,11 @@ func (h *UsernameHandler) ValuationPayAirdrop(w http.ResponseWriter, r *http.Req
 		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
 		return
 	}
-	u := strings.ToLower(strings.TrimPrefix(req.Username, "@"))
+	u := username.CanonicalizeUsername(req.Username)
+	if valid, reason := username.ValidateUsernameFormat(u); !valid {
+		RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Invalid username: %s", reason), nil)
+		return
+	}
 
 	if h.db == nil {
 		RespondError(w, r, http.StatusServiceUnavailable, "Database unavailable", nil)
@@ -1721,7 +1743,11 @@ func (h *UsernameHandler) ValuationVerifyFree(w http.ResponseWriter, r *http.Req
 		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
 		return
 	}
-	u := strings.ToLower(strings.TrimPrefix(req.Username, "@"))
+	u := username.CanonicalizeUsername(req.Username)
+	if valid, reason := username.ValidateUsernameFormat(u); !valid {
+		RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Invalid username: %s", reason), nil)
+		return
+	}
 
 	if h.db != nil {
 		used, err := h.db.HasUsedFreeValuationQuota(ctx, userID)
@@ -1774,7 +1800,11 @@ func (h *UsernameHandler) ValuationMonitor(w http.ResponseWriter, r *http.Reques
 		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
 		return
 	}
-	u := strings.ToLower(strings.TrimPrefix(req.Username, "@"))
+	u := username.CanonicalizeUsername(req.Username)
+	if valid, reason := username.ValidateUsernameFormat(u); !valid {
+		RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Invalid username: %s", reason), nil)
+		return
+	}
 
 	// Strict requirement: User MUST have purchased valuation report for this username
 	hasAccess := false
