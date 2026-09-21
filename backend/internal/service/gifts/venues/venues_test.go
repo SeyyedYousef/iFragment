@@ -104,3 +104,21 @@ func TestVenues_AdaptersRegistry(t *testing.T) {
 		t.Errorf("Expected snapshot worker to have 7 adapters, got %d", len(worker.adapters))
 	}
 }
+
+func TestVenues_FragmentAdapterNormalization(t *testing.T) {
+	cases := map[string]string{
+		"algorithm_cup": "algorithmcup",
+		"algorithm-cup": "algorithmcup",
+		"Algorithm Cup": "algorithmcup",
+		"durovs-cap":    "durovscap",
+		"durovs_cap":    "durovscap",
+		"plush-pepe":    "plushpepe",
+	}
+
+	for input, expected := range cases {
+		got := normalizeFragmentSlug(input)
+		if got != expected {
+			t.Errorf("normalizeFragmentSlug(%q) = %q; expected %q", input, got, expected)
+		}
+	}
+}

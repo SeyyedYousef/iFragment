@@ -300,6 +300,8 @@ export interface GiftsIntelResponse {
 	total_market_cap_gram?: number;
 	ton_usd_rate?: number;
 	total_active_wallets: number;
+	total_holder_users?: number;
+	total_circulating_gifts?: number;
 	total_gifts_minted: number;
 	fng_index: number;
 	fng_label: string;

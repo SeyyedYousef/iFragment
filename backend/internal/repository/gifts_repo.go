@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -207,13 +208,28 @@ func (r *GiftsRepo) GetVenueSnapshots(ctx context.Context, modelID string) ([]Ve
 		return []VenueSnapshotRecord{}, nil
 	}
 
-	query := `
-		SELECT model_id, venue, floor_price_raw, floor_price_gram, currency, volume_24h_gram, volume_7d_gram, active_listings, venue_fee_pct, has_real_volume_badge, updated_at
-		FROM venue_snapshots
-		WHERE (model_id = $1 OR $1 = '') AND updated_at >= now() - interval '6 hours'
-		ORDER BY floor_price_gram ASC`
+	var query string
+	var rows pgx.Rows
+	var err error
 
-	rows, err := r.db.Pool.Query(ctx, query, modelID)
+	if modelID != "" {
+		altModel := strings.ReplaceAll(modelID, "_", "-")
+		query = `
+			SELECT DISTINCT ON (venue)
+				model_id, venue, floor_price_raw, floor_price_gram, currency, volume_24h_gram, volume_7d_gram, active_listings, venue_fee_pct, has_real_volume_badge, updated_at
+			FROM venue_snapshots
+			WHERE model_id = $1 OR model_id = $2
+			ORDER BY venue, updated_at DESC`
+		rows, err = r.db.Pool.Query(ctx, query, modelID, altModel)
+	} else {
+		query = `
+			SELECT DISTINCT ON (model_id, venue)
+				model_id, venue, floor_price_raw, floor_price_gram, currency, volume_24h_gram, volume_7d_gram, active_listings, venue_fee_pct, has_real_volume_badge, updated_at
+			FROM venue_snapshots
+			ORDER BY model_id, venue, updated_at DESC`
+		rows, err = r.db.Pool.Query(ctx, query)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -230,6 +246,11 @@ func (r *GiftsRepo) GetVenueSnapshots(ctx context.Context, modelID string) ([]Ve
 			list = append(list, s)
 		}
 	}
+
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].FloorPriceGRAM.LessThan(list[j].FloorPriceGRAM)
+	})
+
 	return list, nil
 }
 
@@ -587,6 +608,25 @@ func (r *GiftsRepo) InsertVenueSnapshotHistory(ctx context.Context, s VenueSnaps
 	_, err := r.db.Pool.Exec(ctx, query,
 		s.ModelID, s.Venue, s.FloorPriceRaw, s.FloorPriceGRAM, s.Currency,
 		s.Volume24hGRAM, s.Volume7dGRAM, s.ActiveListings,
+	)
+	return err
+}
+
+// InsertVenueSnapshotHistoryAt logs an immutable snapshot with specific timestamp
+func (r *GiftsRepo) InsertVenueSnapshotHistoryAt(ctx context.Context, s VenueSnapshotRecord, capturedAt time.Time) error {
+	if r.db == nil || r.db.Pool == nil {
+		return nil
+	}
+
+	query := `
+		INSERT INTO venue_snapshot_history (
+			model_id, venue, floor_price_raw, floor_price_gram, currency,
+			volume_24h_gram, volume_7d_gram, active_listings, captured_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		s.ModelID, s.Venue, s.FloorPriceRaw, s.FloorPriceGRAM, s.Currency,
+		s.Volume24hGRAM, s.Volume7dGRAM, s.ActiveListings, capturedAt,
 	)
 	return err
 }

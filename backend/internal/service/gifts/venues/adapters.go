@@ -3,7 +3,12 @@ package venues
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -11,12 +16,19 @@ import (
 	"ifragment-backend/internal/client/marketapp"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts/starsrate"
+	"ifragment-backend/internal/service/gifts/traits"
 )
 
 var (
 	ErrNoFloorData     = errors.New("no live floor price data available for venue")
 	ErrAdapterTimeout  = errors.New("marketplace adapter query timed out")
 	ErrUnreachableHost = errors.New("venue API endpoint unreachable")
+
+	reFragmentFloor = regexp.MustCompile(`class="[^"]*tm-value[^"]*icon-ton[^"]*">\s*([0-9,]+(?:\.[0-9]+)?)\s*</div>`)
+	reFragmentCard  = regexp.MustCompile(`(?s)<a\s+href="(/gift/[^"]+)"\s+class="tm-grid-item">(.*?)</a>`)
+	reFragmentNum   = regexp.MustCompile(`#(\d+)`)
+	reFragmentTime  = regexp.MustCompile(`<time\s+datetime="([^"]+)"`)
+	reFragmentImg   = regexp.MustCompile(`src="([^"]+)"\s+class="tm-grid-thumb"`)
 )
 
 type VenueFloorResult struct {
@@ -39,6 +51,14 @@ type VenueVolumeResult struct {
 	FetchedAt     time.Time       `json:"fetched_at"`
 }
 
+type FragmentSaleRecord struct {
+	SerialNumber int
+	PriceGRAM    decimal.Decimal
+	SaleDate     time.Time
+	ItemURL      string
+	ImageURL     string
+}
+
 // VenueAdapter defines the common contract for all 7 marketplace venue integrations
 type VenueAdapter interface {
 	ID() VenueID
@@ -49,6 +69,14 @@ type VenueAdapter interface {
 	FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error)
 }
 
+func normalizeFragmentSlug(slug string) string {
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	slug = strings.ReplaceAll(slug, "-", "")
+	slug = strings.ReplaceAll(slug, "_", "")
+	slug = strings.ReplaceAll(slug, " ", "")
+	return slug
+}
+
 // FragmentAdapter connects to Fragment.com marketplace
 type FragmentAdapter struct {
 	httpClient *http.Client
@@ -56,7 +84,14 @@ type FragmentAdapter struct {
 
 func NewFragmentAdapter() *FragmentAdapter {
 	return &FragmentAdapter{
-		httpClient: &http.Client{Timeout: 6 * time.Second},
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        50,
+				MaxIdleConnsPerHost: 10,
+				IdleConnTimeout:     60 * time.Second,
+			},
+		},
 	}
 }
 
@@ -66,10 +101,157 @@ func (a *FragmentAdapter) Currency() string { return "GRAM" }
 func (a *FragmentAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(5.0) }
 
 func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
-	// Note: Fragment uses client-side SPA rendering for gifts.
-	// Returning ErrNoFloorData cleanly to avoid futile HTML scrapes and 429 rate limits,
-	// until structured data ingestion from Omni-Agent feeds verified floor records.
-	return nil, ErrNoFloorData
+	normSlug := normalizeFragmentSlug(giftSlug)
+	if normSlug == "" {
+		return nil, ErrNoFloorData
+	}
+
+	url := fmt.Sprintf("https://fragment.com/gifts/%s?filter=sale&sort=price_asc", normSlug)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fragment returned status %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	html := string(bodyBytes)
+
+	matches := reFragmentFloor.FindStringSubmatch(html)
+	if len(matches) < 2 {
+		// If no fixed-price sales, check auction filter
+		urlAuction := fmt.Sprintf("https://fragment.com/gifts/%s?filter=auction&sort=price_asc", normSlug)
+		reqA, errA := http.NewRequestWithContext(ctx, http.MethodGet, urlAuction, nil)
+		if errA == nil {
+			reqA.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+			respA, errA := a.httpClient.Do(reqA)
+			if errA == nil && respA.StatusCode == http.StatusOK {
+				defer respA.Body.Close()
+				bodyA, _ := io.ReadAll(respA.Body)
+				matches = reFragmentFloor.FindStringSubmatch(string(bodyA))
+				html = string(bodyA)
+			}
+		}
+	}
+
+	if len(matches) < 2 {
+		return nil, ErrNoFloorData
+	}
+
+	cleanPrice := strings.ReplaceAll(matches[1], ",", "")
+	decFloor, err := decimal.NewFromString(cleanPrice)
+	if err != nil || decFloor.IsZero() {
+		return nil, ErrNoFloorData
+	}
+
+	activeListings := strings.Count(html, `class="tm-grid-item"`)
+	if activeListings == 0 {
+		activeListings = 1
+	}
+
+	return &VenueFloorResult{
+		VenueID:        VenueFragment,
+		VenueName:      "Fragment",
+		FloorPriceRaw:  decFloor,
+		FloorPriceGRAM: decFloor,
+		Currency:       "GRAM",
+		ActiveListings: activeListings,
+		DataStatus:     "live",
+		DeepLink:       fmt.Sprintf("https://fragment.com/gifts/%s", normSlug),
+		FetchedAt:      time.Now().UTC(),
+	}, nil
+}
+
+func (a *FragmentAdapter) FetchRecentSales(ctx context.Context, giftSlug string) ([]FragmentSaleRecord, error) {
+	normSlug := normalizeFragmentSlug(giftSlug)
+	if normSlug == "" {
+		return nil, nil
+	}
+
+	url := fmt.Sprintf("https://fragment.com/gifts/%s?filter=sold", normSlug)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fragment sold filter returned status %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	html := string(bodyBytes)
+
+	cardMatches := reFragmentCard.FindAllStringSubmatch(html, -1)
+	var sales []FragmentSaleRecord
+	for _, m := range cardMatches {
+		itemURL := "https://fragment.com" + m[1]
+		cardContent := m[2]
+
+		priceMatch := reFragmentFloor.FindStringSubmatch(cardContent)
+		if len(priceMatch) < 2 {
+			continue
+		}
+		cleanPrice := strings.ReplaceAll(priceMatch[1], ",", "")
+		priceDec, err := decimal.NewFromString(cleanPrice)
+		if err != nil || priceDec.IsZero() {
+			continue
+		}
+
+		serialNum := 0
+		numMatch := reFragmentNum.FindStringSubmatch(cardContent)
+		if len(numMatch) >= 2 {
+			serialNum, _ = strconv.Atoi(numMatch[1])
+		}
+
+		saleTime := time.Now().UTC()
+		timeMatch := reFragmentTime.FindStringSubmatch(cardContent)
+		if len(timeMatch) >= 2 {
+			if t, err := time.Parse(time.RFC3339, timeMatch[1]); err == nil {
+				saleTime = t.UTC()
+			}
+		}
+
+		imgURL := ""
+		imgMatch := reFragmentImg.FindStringSubmatch(cardContent)
+		if len(imgMatch) >= 2 {
+			imgURL = imgMatch[1]
+		}
+
+		sales = append(sales, FragmentSaleRecord{
+			SerialNumber: serialNum,
+			PriceGRAM:    priceDec,
+			SaleDate:     saleTime,
+			ItemURL:      itemURL,
+			ImageURL:     imgURL,
+		})
+	}
+
+	return sales, nil
 }
 
 func (a *FragmentAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
@@ -127,41 +309,11 @@ func (a *MarketAppAdapter) Currency() string { return "GRAM" }
 func (a *MarketAppAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(2.5) }
 
 func (a *MarketAppAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
-	if a.client == nil {
-		return nil, ErrNoFloorData
-	}
-
-	colData, err := a.client.GetCollection(ctx)
-	if err != nil || colData == nil || colData.FloorPrice <= 0 {
-		return nil, ErrNoFloorData
-	}
-
-	decFloor := decimal.NewFromFloat(colData.FloorPrice)
-	return &VenueFloorResult{
-		VenueID:        VenueMarketApp,
-		VenueName:      "MarketApp.ws",
-		FloorPriceRaw:  decFloor,
-		FloorPriceGRAM: decFloor,
-		Currency:       "GRAM",
-		ActiveListings: colData.ActiveAuctions,
-		DataStatus:     "live",
-		DeepLink:       "https://marketapp.ws/gifts",
-		FetchedAt:      time.Now().UTC(),
-	}, nil
+	// MarketApp currently only tracks usernames collection without public gift key
+	return nil, ErrNoFloorData
 }
 
 func (a *MarketAppAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
-	if a.client != nil {
-		if colData, err := a.client.GetCollection(ctx); err == nil && colData != nil && colData.Volume24h > 0 {
-			return &VenueVolumeResult{
-				VenueID:       VenueMarketApp,
-				Volume24hGRAM: decimal.NewFromFloat(colData.Volume24h),
-				Volume7dGRAM:  decimal.Zero,
-				DataStatus:    "live",
-				FetchedAt:     time.Now().UTC(),
-			}, nil
-		}
-	}
 	return &VenueVolumeResult{
 		VenueID:    VenueMarketApp,
 		DataStatus: "unavailable",
@@ -184,8 +336,27 @@ func (a *TelegramStarsAdapter) Currency() string { return "Stars" }
 func (a *TelegramStarsAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(10.0) }
 
 func (a *TelegramStarsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
-	// Stars floor is calculated dynamically when star pricing is available
-	return nil, ErrNoFloorData
+	col, ok := traits.ResolveCollection(giftSlug)
+	if !ok || col.BaseStarsPrice <= 0 {
+		return nil, ErrNoFloorData
+	}
+
+	floorTON := a.ConvertStarsToDecimalGRAM(int64(col.BaseStarsPrice))
+	if floorTON.IsZero() {
+		return nil, ErrNoFloorData
+	}
+
+	return &VenueFloorResult{
+		VenueID:        VenueTelegramStars,
+		VenueName:      "Telegram Stars (Mint)",
+		FloorPriceRaw:  decimal.NewFromInt(int64(col.BaseStarsPrice)),
+		FloorPriceGRAM: floorTON,
+		Currency:       "Stars",
+		ActiveListings: 0,
+		DataStatus:     "live",
+		DeepLink:       "https://t.me/nft/" + giftSlug,
+		FetchedAt:      time.Now().UTC(),
+	}, nil
 }
 
 func (a *TelegramStarsAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {

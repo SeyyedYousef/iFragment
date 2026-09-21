@@ -21,7 +21,7 @@ func EnsureCanonicalDataSeeded(ctx context.Context, repo *repository.GiftsRepo) 
 	}
 
 	if count >= len(traits.CanonicalCollections) {
-		// Already fully seeded
+		// Collections already seeded
 		return nil
 	}
 
@@ -162,5 +162,6 @@ func getCanonicalModels(modelID string) []modelEntry {
 		}
 	}
 }
+
 
 

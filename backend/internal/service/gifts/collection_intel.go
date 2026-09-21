@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/gifts/giftchanges"
 	"ifragment-backend/internal/service/gifts/traits"
@@ -618,6 +620,30 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		}
 	}
 
+	// Fallback to on-demand Fragment fetch if DB has no snapshot yet
+	if len(dbSnapshots) == 0 {
+		fragAdapter := venues.NewFragmentAdapter()
+		fetchCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+		if floorRes, err := fragAdapter.FetchFloor(fetchCtx, normSlug); err == nil && floorRes != nil && !floorRes.FloorPriceGRAM.IsZero() {
+			rec := repository.VenueSnapshotRecord{
+				ModelID:            underscoreSlug,
+				Venue:              string(venues.VenueFragment),
+				FloorPriceRaw:      floorRes.FloorPriceRaw,
+				FloorPriceGRAM:     floorRes.FloorPriceGRAM,
+				Currency:           floorRes.Currency,
+				ActiveListings:     floorRes.ActiveListings,
+				VenueFeePct:        decimal.NewFromFloat(5.0),
+				HasRealVolumeBadge: false,
+				UpdatedAt:          floorRes.FetchedAt,
+			}
+			dbSnapshots[string(venues.VenueFragment)] = rec
+			if s.repo != nil {
+				_ = s.repo.UpsertVenueSnapshot(ctx, rec)
+			}
+		}
+		cancel()
+	}
+
 	var venueFloors []MarketVenueFloor
 	bestFloor := math.MaxFloat64
 	bestVenue := ""
@@ -639,29 +665,27 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 			ageSec = int(age.Seconds())
 
 			// Freshness Policy:
-			// < 5m: live
-			// 5m - 30m: delayed
-			// 30m - 6h: stale
-			// > 6h: unavailable (strictly omitted from active floor)
-			if age < 5*time.Minute {
+			// < 15m: live
+			// 15m - 2h: delayed
+			// 2h - 48h: stale
+			// > 48h: archived
+			if age < 15*time.Minute {
 				status = "live"
-			} else if age < 30*time.Minute {
+			} else if age < 2*time.Hour {
 				status = "delayed"
-			} else if age < 6*time.Hour {
+			} else if age < 48*time.Hour {
 				status = "stale"
 			} else {
-				status = "unavailable"
+				status = "archived"
 			}
 
-			if status != "unavailable" {
-				if snapFloor, _ := snap.FloorPriceGRAM.Float64(); snapFloor > 0 {
-					f := round2(snapFloor)
-					vf = &f
-					if status == "live" {
-						liveVenueCount++
-					}
-					priceSources = append(priceSources, vInfo.Name)
+			if snapFloor, _ := snap.FloorPriceGRAM.Float64(); snapFloor > 0 {
+				f := round2(snapFloor)
+				vf = &f
+				if status == "live" {
+					liveVenueCount++
 				}
+				priceSources = append(priceSources, vInfo.Name)
 			}
 		}
 
@@ -896,6 +920,10 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 				fUSD := round2(fdv * *gramRate)
 				fdvUSD = &fUSD
 			}
+		}
+		if marketCapGRAM == nil && fdvGRAM != nil {
+			marketCapGRAM = fdvGRAM
+			marketCapUSD = fdvUSD
 		}
 	}
 
@@ -1195,6 +1223,58 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 				})
 			}
 		}
+	}
+
+	// Fallback to on-demand Fragment recent sales fetch if DB has none yet
+	if len(salesHistory) == 0 {
+		fragAdapter := venues.NewFragmentAdapter()
+		fetchCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+		if fSales, err := fragAdapter.FetchRecentSales(fetchCtx, normSlug); err == nil && len(fSales) > 0 {
+			for idx, sale := range fSales {
+				pGRAM, _ := sale.PriceGRAM.Float64()
+				var pUSD *float64
+				if gramRate != nil && *gramRate > 0 {
+					u := round2(pGRAM * *gramRate)
+					pUSD = &u
+				}
+				salesHistory = append(salesHistory, SalesHistoryItem{
+					Rank:         idx + 1,
+					SerialNumber: sale.SerialNumber,
+					ModelName:    collectionName,
+					SymbolName:   "",
+					BackdropName: "",
+					PriceGRAM:    round2(pGRAM),
+					PriceUSD:     pUSD,
+					ExchangeRate: gramRate,
+					VenueName:    "Fragment",
+					SaleDate:     sale.SaleDate.UTC().Format(time.RFC3339),
+					TxHash:       fmt.Sprintf("frag-%s-%d-%d", normSlug, sale.SerialNumber, sale.SaleDate.Unix()),
+					EventIndex:   0,
+				})
+				if s.repo != nil {
+					go func(slg, mID string, sn int, p decimal.Decimal, sd time.Time) {
+						insCtx, insCancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer insCancel()
+						_, _ = s.repo.InsertGiftSale(insCtx, repository.GiftSaleRecord{
+							GiftID:          fmt.Sprintf("%s-%d", slg, sn),
+							ModelID:         mID,
+							SerialNumber:    sn,
+							Venue:           "fragment",
+							Currency:        "GRAM",
+							SalePriceRaw:    p,
+							SalePriceGRAM:   p,
+							SalePriceUSD:    decimal.Zero,
+							VenueFeePct:     decimal.NewFromFloat(5.0),
+							PriceConfidence: "high",
+							SaleDate:        sd,
+							TxHash:          fmt.Sprintf("frag-%s-%d-%d", slg, sn, sd.Unix()),
+							EventIndex:      0,
+						})
+					}(normSlug, underscoreSlug, sale.SerialNumber, sale.PriceGRAM, sale.SaleDate)
+				}
+			}
+		}
+		cancel()
 	}
 
 	// Catalog Search Items: Populated from real active listings

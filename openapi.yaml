@@ -1277,6 +1277,10 @@ components:
           type: number
         total_active_wallets:
           type: integer
+        total_holder_users:
+          type: integer
+        total_circulating_gifts:
+          type: integer
         total_gifts_minted:
           type: integer
         fng_index:

@@ -3,6 +3,7 @@ package venues
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -81,24 +82,37 @@ func (w *VenueSnapshotWorker) syncSnapshots(ctx context.Context) {
 
 	slog.Info("VenueSnapshotWorker: Refreshing live marketplace snapshots...", "collections_count", len(allCols))
 
-	// Rate-limited sync worker pool
-	sem := make(chan struct{}, 6) // Max 6 concurrent requests
+	// Rate-limited sync worker pool with polite pacing to prevent HTTP 429
+	sem := make(chan struct{}, 3) // Max 3 concurrent requests
 	var wg sync.WaitGroup
 
-	for _, col := range allCols {
+	for i, col := range allCols {
 		col := col
 		wg.Add(1)
-		go func() {
+		go func(idx int) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
+			// Polite delay between batches
+			if idx > 0 {
+				time.Sleep(time.Duration(idx%3*100) * time.Millisecond)
+			}
 			w.syncOneCollection(ctx, col.ModelID)
-		}()
+		}(i)
 	}
 
 	wg.Wait()
 	slog.Info("VenueSnapshotWorker: Snapshot sync cycle completed")
+}
+
+func (w *VenueSnapshotWorker) getFragmentAdapter() (*FragmentAdapter, bool) {
+	for _, a := range w.adapters {
+		if fa, ok := a.(*FragmentAdapter); ok {
+			return fa, true
+		}
+	}
+	return nil, false
 }
 
 func (w *VenueSnapshotWorker) syncOneCollection(ctx context.Context, modelID string) {
@@ -157,6 +171,38 @@ func (w *VenueSnapshotWorker) syncOneCollection(ctx context.Context, modelID str
 		} else {
 			// Persist into venue snapshot history to build genuine time-series data
 			_ = w.repo.InsertVenueSnapshotHistory(ctx, rec)
+		}
+
+		if r.vID == VenueFragment {
+			// Ingest recent verified sales from Fragment into gift_sales table
+			if fragAdapter, ok := w.getFragmentAdapter(); ok {
+				go func(mID, slg string) {
+					salesCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+					defer cancel()
+					if recentSales, err := fragAdapter.FetchRecentSales(salesCtx, slg); err == nil && len(recentSales) > 0 {
+						for _, sale := range recentSales {
+							saleRec := repository.GiftSaleRecord{
+								GiftID:          fmt.Sprintf("%s-%d", slg, sale.SerialNumber),
+								ModelID:         mID,
+								SerialNumber:    sale.SerialNumber,
+								Venue:           "fragment",
+								Currency:        "GRAM",
+								SalePriceRaw:    sale.PriceGRAM,
+								SalePriceGRAM:   sale.PriceGRAM,
+								SalePriceUSD:    decimal.Zero,
+								VenueFeePct:     decimal.NewFromFloat(5.0),
+								PriceConfidence: "high",
+								SaleDate:        sale.SaleDate,
+								BuyerAddress:    "",
+								SellerAddress:   "",
+								TxHash:          fmt.Sprintf("frag-%s-%d-%d", slg, sale.SerialNumber, sale.SaleDate.Unix()),
+								EventIndex:      0,
+							}
+							_, _ = w.repo.InsertGiftSale(salesCtx, saleRec)
+						}
+					}
+				}(modelID, slug)
+			}
 		}
 	}
 }

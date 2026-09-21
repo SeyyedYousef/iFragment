@@ -493,11 +493,13 @@ export const GiftCollectionPage: Component = () => {
 								{t('gifts.floorPrice')}
 							</span>
 							<div class="text-base font-black text-white font-mono">
-								{fmt(data()!.best_floor_gram)} TON
+								{data()?.best_floor_gram ? `${fmt(data()!.best_floor_gram)} TON` : 'بدون لیستینگ'}
 							</div>
-							<span class="text-[10px] text-white/40 font-mono block mt-0.5">
-								{fmtUsd(data()!.best_floor_usd)}
-							</span>
+							<Show when={data()?.best_floor_usd}>
+								<span class="text-[10px] text-white/40 font-mono block mt-0.5">
+									{fmtUsd(data()!.best_floor_usd)}
+								</span>
+							</Show>
 						</div>
 
 						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-2xl p-3 text-center">
@@ -505,10 +507,16 @@ export const GiftCollectionPage: Component = () => {
 								{t('gifts.volume24h')}
 							</span>
 							<div class="text-base font-black text-white font-mono">
-								{fmtUsd(data()!.volume_24h_usd)}
+								{data()?.volume_24h_usd && data()!.volume_24h_usd! > 0
+									? fmtUsd(data()!.volume_24h_usd)
+									: (data()?.volume_24h_gram && data()!.volume_24h_gram > 0
+										? `${fmt(data()!.volume_24h_gram, 0)} TON`
+										: 'پایش ۲۴س')}
 							</div>
 							<span class="text-[10px] text-white/40 font-mono block mt-0.5">
-								{fmt(data()!.volume_24h_gram, 0)} TON
+								{data()?.volume_24h_gram && data()!.volume_24h_gram > 0
+									? `${fmt(data()!.volume_24h_gram, 0)} TON`
+									: 'Fragment Verified'}
 							</span>
 						</div>
 
@@ -517,10 +525,14 @@ export const GiftCollectionPage: Component = () => {
 								{t('gifts.marketCap')}
 							</span>
 							<div class="text-base font-black text-white font-mono">
-								{fmtUsd(data()!.market_cap_usd)}
+								{data()?.market_cap_usd && data()!.market_cap_usd! > 0
+									? fmtUsd(data()!.market_cap_usd)
+									: (data()?.best_floor_usd && data()?.total_supply
+										? fmtUsd(data()!.best_floor_usd! * data()!.total_supply!)
+										: 'پایش زنده')}
 							</div>
 							<span class="text-[10px] text-emerald-400 font-bold block mt-0.5">
-								{t('gifts.activeItemsCount', { count: data()!.listed_count })}
+								{data()?.listed_count ? t('gifts.activeItemsCount', { count: data()!.listed_count }) : 'Live Market'}
 							</span>
 						</div>
 					</div>
