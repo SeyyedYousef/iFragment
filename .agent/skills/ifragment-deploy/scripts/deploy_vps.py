@@ -84,8 +84,11 @@ def main():
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        client.connect(VPS_HOST, port=VPS_PORT, username=VPS_USER, password=VPS_PASS, timeout=20)
-        print("✅ Connected successfully to VPS!")
+        client.connect(VPS_HOST, port=VPS_PORT, username=VPS_USER, password=VPS_PASS, timeout=30)
+        transport = client.get_transport()
+        if transport:
+            transport.set_keepalive(5)
+        print("✅ Connected successfully to VPS (with TCP keepalive enabled)!")
     except Exception as e:
         print(f"❌ Failed to connect to VPS: {e}")
         sys.exit(1)
@@ -120,12 +123,22 @@ def main():
         else:
             code, _, _ = run_remote_command(
                 client,
-                f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} up -d --build",
-                label="3/5: Rebuilding and launching Docker containers",
+                f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} build api",
+                label="3a/5: Building API container",
                 stream=True
             )
             if code != 0:
-                print("❌ Docker compose build/up failed!")
+                print("❌ Docker build failed!")
+                sys.exit(code)
+
+            code, _, _ = run_remote_command(
+                client,
+                f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} up -d",
+                label="3b/5: Launching updated containers",
+                stream=True
+            )
+            if code != 0:
+                print("❌ Docker compose up failed!")
                 sys.exit(code)
 
         # 5. Check container statuses

@@ -7,7 +7,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o main ./cmd/api
+RUN CGO_ENABLED=0 GOMAXPROCS=1 GOOS=linux go build -p 1 -ldflags="-s -w" -o main ./cmd/api
 
 # Final stage
 FROM alpine:3.21
