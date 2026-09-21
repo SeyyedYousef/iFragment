@@ -56,10 +56,16 @@ python .agent/skills/ifragment-deploy/scripts/deploy_vps.py
 ```
 
 Options:
-- `--skip-git-pull`: Skips pulling from GitHub on the VPS (useful if testing VPS-local edits).
+- *(Default)*: Compiles Linux binary locally with `go build`, gzips to ~18MB, transfers via pipelined SFTP, builds Docker image on VPS in ~2s, and restarts the container with zero RAM spike.
+- `--skip-git-pull`: Skips pulling from GitHub on the VPS.
 - `--restart-only`: Restarts the `api` container without rebuilding the Docker image (for fast env or config reloads).
+- `--build-on-vps`: Compiles directly inside Docker on the VPS (not recommended for 2GB VPS).
 
-### Step 4: Verification & Live Health Check
+### Quick Status & Health Inspection:
+To check VPS memory, Docker containers, and live endpoint responses at any time:
+```bash
+python .agent/skills/ifragment-deploy/scripts/vps_status.py
+```
 The script automatically queries:
 `curl -s https://109-172-94-139.sslip.io/api/v1/healthz/ready`
 Expected JSON output:

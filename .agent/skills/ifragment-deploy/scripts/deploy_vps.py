@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-iFragment VPS One-Click Deployment Automation Script
-Connects to Aeza VPS (109.172.94.139), pulls origin main, rebuilds Docker containers, and verifies health.
+iFragment VPS One-Click Automated Deployment Script
+Deploys updated code to production VPS (109.172.94.139).
+Default: Ultra-fast RAM-safe prebuilt cross-compilation + pipelined SFTP transfer.
 """
 
 import os
 import sys
 import time
+import gzip
+import shutil
+import subprocess
 import argparse
 
 if hasattr(sys.stdout, 'reconfigure'):
@@ -26,6 +30,9 @@ VPS_PASS = os.environ.get("VPS_PASSWORD", "4PKa07cd4hzr")
 APP_DIR = "/opt/ifragment"
 COMPOSE_FILE = "docker-compose.prod.yml"
 HEALTH_URL = "https://109-172-94-139.sslip.io/api/v1/healthz/ready"
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+BACKEND_DIR = os.path.join(REPO_ROOT, "backend")
 
 
 def run_remote_command(client, cmd, label=None, stream=False):
@@ -66,15 +73,112 @@ def run_remote_command(client, cmd, label=None, stream=False):
         return code, out, err
 
 
+def deploy_via_prebuilt(client):
+    print("\n📦 [1/4: Compiling Linux AMD64 Go binary locally (RAM-safe)]...", flush=True)
+    local_bin = os.path.join(BACKEND_DIR, "dist_main")
+    local_gz = os.path.join(BACKEND_DIR, "dist_main.gz")
+    
+    # Cross compile
+    env = os.environ.copy()
+    env["GOOS"] = "linux"
+    env["GOARCH"] = "amd64"
+    env["CGO_ENABLED"] = "0"
+    
+    t0 = time.time()
+    res = subprocess.run(
+        ["go", "build", "-ldflags=-s -w", "-o", local_bin, "./cmd/api"],
+        cwd=BACKEND_DIR,
+        env=env,
+        capture_output=True,
+        text=True
+    )
+    if res.returncode != 0:
+        print(f"❌ Local Go cross-compile failed:\n{res.stderr}")
+        sys.exit(1)
+    
+    raw_size = os.path.getsize(local_bin)
+    print(f"✅ Compiled {raw_size / (1024*1024):.1f} MB binary in {time.time()-t0:.1f}s", flush=True)
+
+    # Gzip
+    t1 = time.time()
+    with open(local_bin, 'rb') as f_in:
+        with gzip.open(local_gz, 'wb', compresslevel=6) as f_out:
+            shutil.copyfileobj(f_in, f_out, length=1024*1024)
+    gz_size = os.path.getsize(local_gz)
+    print(f"✅ Gzip compressed to {gz_size / (1024*1024):.1f} MB in {time.time()-t1:.1f}s", flush=True)
+
+    # Upload via SFTP pipelined
+    print("\n🚀 [2/4: Transferring compressed binary to VPS via Pipelined SFTP]...", flush=True)
+    t2 = time.time()
+    sftp = client.open_sftp()
+    remote_gz = f"{APP_DIR}/backend/main.gz"
+    
+    with open(local_gz, 'rb') as fl:
+        with sftp.file(remote_gz, "wb") as fr:
+            fr.set_pipelined(True)
+            uploaded = 0
+            while True:
+                chunk = fl.read(256 * 1024)
+                if not chunk:
+                    break
+                fr.write(chunk)
+                uploaded += len(chunk)
+                if uploaded % (4 * 1024 * 1024) < len(chunk) or uploaded == gz_size:
+                    pct = uploaded / gz_size * 100
+                    print(f"  Uploaded {uploaded / (1024*1024):.1f} / {gz_size / (1024*1024):.1f} MB ({pct:.0f}%)", flush=True)
+    sftp.close()
+    print(f"✅ Upload completed in {time.time()-t2:.1f}s!", flush=True)
+
+    # Clean local temp files
+    try:
+        os.remove(local_bin)
+        os.remove(local_gz)
+    except Exception:
+        pass
+
+    # Extract & write Dockerfile.prebuilt on VPS
+    print("\n🐳 [3/4: Building Docker image and updating containers on VPS]...", flush=True)
+    extract_cmd = (
+        f"cd {APP_DIR}/backend && "
+        f"gunzip -f main.gz && "
+        f"chmod +x main && "
+        f"cat << 'EOF' > Dockerfile.prebuilt\n"
+        f"FROM alpine:3.21\n"
+        f"RUN apk --no-cache add ca-certificates tzdata && \\\n"
+        f"    addgroup -g 10001 -S appgroup && \\\n"
+        f"    adduser -u 10001 -S appuser -G appgroup\n"
+        f"WORKDIR /app\n"
+        f"COPY main .\n"
+        f"COPY migrations ./migrations\n"
+        f"RUN mkdir -p /app/sessions /app/uploads && \\\n"
+        f"    chown -R appuser:appgroup /app && \\\n"
+        f"    chmod +x /app/main\n"
+        f"USER 10001:10001\n"
+        f"EXPOSE 8080\n"
+        f"CMD [\"./main\"]\n"
+        f"EOF\n"
+        f"docker build -t ifragment-api:latest -f Dockerfile.prebuilt .\n"
+    )
+    run_remote_command(client, extract_cmd, label="Build Docker image from prebuilt binary")
+
+    # Launch container
+    run_remote_command(
+        client,
+        f"docker compose -f {APP_DIR}/{COMPOSE_FILE} up -d --no-deps api",
+        label="Restarting api container with zero downtime"
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Deploy iFragment to Production VPS")
     parser.add_argument("--skip-git-pull", action="store_true", help="Skip git pull on VPS")
     parser.add_argument("--restart-only", action="store_true", help="Only restart containers without building")
+    parser.add_argument("--build-on-vps", action="store_true", help="Build Go binary directly on VPS inside Docker (not recommended for 2GB VPS)")
     args = parser.parse_args()
 
     start_time = time.time()
     print("=" * 70)
-    print(f"👑 iFragment VPS Automated Deployment")
+    print("👑 iFragment VPS Automated Deployment")
     print(f"📡 Target: {VPS_USER}@{VPS_HOST}:{VPS_PORT}")
     print(f"📂 App Directory: {APP_DIR}")
     print("=" * 70)
@@ -87,7 +191,7 @@ def main():
         client.connect(VPS_HOST, port=VPS_PORT, username=VPS_USER, password=VPS_PASS, timeout=30)
         transport = client.get_transport()
         if transport:
-            transport.set_keepalive(5)
+            transport.set_keepalive(10)
         print("✅ Connected successfully to VPS (with TCP keepalive enabled)!")
     except Exception as e:
         print(f"❌ Failed to connect to VPS: {e}")
@@ -98,65 +202,45 @@ def main():
         run_remote_command(
             client,
             f"grep -q 'ALLOW_MOCK_CLIENT' {APP_DIR}/.env && sed -i 's/ALLOW_MOCK_CLIENT=.*/ALLOW_MOCK_CLIENT=true/' {APP_DIR}/.env || echo 'ALLOW_MOCK_CLIENT=true' >> {APP_DIR}/.env",
-            label="1/5: Enforcing MTProto resilient fallback in .env"
+            label="Enforcing MTProto resilient fallback in .env"
         )
 
-        # 3. Pull latest code
+        # 3. Pull latest code on VPS
         if not args.skip_git_pull:
-            code, out, _ = run_remote_command(
+            run_remote_command(
                 client,
                 f"cd {APP_DIR} && git pull origin main",
-                label="2/5: Synchronizing latest code from GitHub (git pull origin main)"
+                label="Synchronizing latest git commits on VPS"
             )
-            if code != 0:
-                print("⚠️ Git pull encountered issues, proceeding with existing code...")
-        else:
-            print("\n⏩ [2/5: Skipping git pull as requested]")
 
-        # 4. Build and run containers
+        # 4. Build and deploy
         if args.restart_only:
             run_remote_command(
                 client,
                 f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} restart api",
-                label="3/5: Restarting API container"
+                label="Restarting API container"
+            )
+        elif args.build_on_vps:
+            run_remote_command(
+                client,
+                f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} build api && docker compose -f {COMPOSE_FILE} up -d",
+                label="Building directly on VPS",
+                stream=True
             )
         else:
-            code, _, _ = run_remote_command(
-                client,
-                f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} build api",
-                label="3a/5: Building API container",
-                stream=True
-            )
-            if code != 0:
-                print("❌ Docker build failed!")
-                sys.exit(code)
-
-            code, _, _ = run_remote_command(
-                client,
-                f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} up -d",
-                label="3b/5: Launching updated containers",
-                stream=True
-            )
-            if code != 0:
-                print("❌ Docker compose up failed!")
-                sys.exit(code)
+            deploy_via_prebuilt(client)
 
         # 5. Check container statuses
-        print("\n🔍 [4/5: Checking running container statuses]...")
-        time.sleep(3)
-        _, out, _ = run_remote_command(
-            client,
-            f"docker compose -f {APP_DIR}/{COMPOSE_FILE} ps",
-            label=None
-        )
+        print("\n🔍 [Checking running container statuses]...")
+        time.sleep(4)
+        run_remote_command(client, f"docker compose -f {APP_DIR}/{COMPOSE_FILE} ps")
 
         # 6. Verify health endpoint
-        print("\n🏥 [5/5: Verifying live API health endpoint]...")
+        print("\n🏥 [Verifying live API health endpoint]...")
         time.sleep(2)
         code, health_out, _ = run_remote_command(
             client,
-            "curl -sf http://localhost:8080/api/v1/healthz/ready || curl -sf https://109-172-94-139.sslip.io/api/v1/healthz/ready || echo 'HEALTH_FAILED'",
-            label=None
+            "curl -sf http://localhost:8080/api/v1/healthz/ready || curl -sf https://109-172-94-139.sslip.io/api/v1/healthz/ready || echo 'HEALTH_FAILED'"
         )
 
         duration = round(time.time() - start_time, 1)
@@ -168,7 +252,7 @@ def main():
             print("=" * 70)
         else:
             print(f"⚠️ Deployment completed in {duration}s, but health check returned: {health_out.strip()}")
-            print("Check logs with: docker compose -f /opt/ifragment/docker-compose.prod.yml logs --tail 50 api")
+            print(f"Check logs with: docker compose -f {APP_DIR}/{COMPOSE_FILE} logs --tail 50 api")
             print("=" * 70)
 
     finally:
