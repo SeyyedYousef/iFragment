@@ -21,33 +21,36 @@ import (
 //  3. Gemini AI Desirability (40% weight)
 //  4. Clearbit Brand Power (20% weight)
 type SemanticEngine struct {
-	gemini *GeminiScorer
-	cache  map[string]*SemanticResult
-	mu     sync.RWMutex
-	ttl    time.Duration
-	times  map[string]time.Time
+	gemini        *GeminiScorer
+	layaEvaluator *LayaUsernameEvaluator
+	cache         map[string]*SemanticResult
+	mu            sync.RWMutex
+	ttl           time.Duration
+	times         map[string]time.Time
 }
 
 // SemanticResult holds the combined semantic analysis.
 type SemanticResult struct {
-	TotalScore      float64  `json:"total_score"`      // 0-100 combined score
-	Multiplier      float64  `json:"multiplier"`       // Price multiplier (1x - 200x)
-	WordFreqScore   float64  `json:"word_freq_score"`  // 0-100 from Datamuse
-	WikiScore       float64  `json:"wiki_score"`       // 0-100 from Wikipedia
-	AIScore         float64  `json:"ai_score"`         // 0-100 from Gemini
-	BrandScore      int      `json:"brand_score"`      // 0 or 100 from Clearbit
-	Tags            []string `json:"tags"`             // AI-generated tags
-	AIReason        string   `json:"ai_reason"`        // One-line AI explanation
-	WikiDescription string   `json:"wiki_description"` // Wikipedia article description
+	TotalScore      float64             `json:"total_score"`      // 0-100 combined score
+	Multiplier      float64             `json:"multiplier"`       // Price multiplier (1x - 200x)
+	WordFreqScore   float64             `json:"word_freq_score"`  // 0-100 from Datamuse
+	WikiScore       float64             `json:"wiki_score"`       // 0-100 from Wikipedia
+	AIScore         float64             `json:"ai_score"`         // 0-100 from Gemini / Laya
+	BrandScore      int                 `json:"brand_score"`      // 0 or 100 from Clearbit
+	Tags            []string            `json:"tags"`             // AI-generated tags
+	AIReason        string              `json:"ai_reason"`        // One-line AI explanation
+	WikiDescription string              `json:"wiki_description"` // Wikipedia article description
+	Laya            *LayaUsernameResult `json:"laya,omitempty"`   // Laya System 1 decision vector
 }
 
 // NewSemanticEngine creates a new semantic analysis engine.
 func NewSemanticEngine(db *repository.Database) *SemanticEngine {
 	return &SemanticEngine{
-		gemini: NewGeminiScorer(db),
-		cache:  make(map[string]*SemanticResult),
-		ttl:    12 * time.Hour,
-		times:  make(map[string]time.Time),
+		gemini:        NewGeminiScorer(db),
+		layaEvaluator: NewLayaUsernameEvaluator(),
+		cache:         make(map[string]*SemanticResult),
+		ttl:           12 * time.Hour,
+		times:         make(map[string]time.Time),
 	}
 }
 
@@ -63,16 +66,17 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		return cached
 	}
 
-	// 2. Run all 4 signals in parallel
+	// 2. Run all 5 signals in parallel (Signal 5: Laya System 1 Decision Pass)
 	var (
 		wordFreqScore float64
 		wikiResult    *WikipediaResult
 		geminiResult  *GeminiResult
 		brandResult   int
+		layaResult    *LayaUsernameResult
 		wg            sync.WaitGroup
 	)
 
-	wg.Add(4)
+	wg.Add(5)
 
 	// Signal 1: Word Frequency (LOCAL data first, then Datamuse fallback)
 	go func() {
@@ -175,6 +179,14 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		brandResult = CheckGlobalBrand(username)
 	}()
 
+	// Signal 5: Laya System 1 Decision Pass (ModernBERT / mmBERT classification heads)
+	go func() {
+		defer wg.Done()
+		if e.layaEvaluator != nil {
+			layaResult = e.layaEvaluator.Evaluate(ctx, username)
+		}
+	}()
+
 	wg.Wait()
 
 	// 3. Combine signals with weighted average
@@ -193,11 +205,25 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	}
 
 	aiAvailable := false
-	if geminiResult != nil && geminiResult.Available {
+	if layaResult != nil {
+		tags = append(tags, layaResult.Tags...)
+		if geminiResult != nil && geminiResult.Available {
+			aiAvailable = true
+			aiScore = (float64(layaResult.TotalScore) * 0.70) + (float64(geminiResult.Score) * 0.30)
+			aiReason = fmt.Sprintf("Laya System 1: %s (%s) | %s", layaResult.CulturalResonance, layaResult.TargetEntityFit, geminiResult.Reason)
+			for _, t := range geminiResult.Tags {
+				tags = append(tags, t)
+			}
+		} else {
+			aiAvailable = true
+			aiScore = float64(layaResult.TotalScore)
+			aiReason = fmt.Sprintf("Laya System 1: %s (%s, liquidity: %s)", layaResult.CulturalResonance, layaResult.TargetEntityFit, layaResult.LiquidityRating)
+		}
+	} else if geminiResult != nil && geminiResult.Available {
 		aiAvailable = true
 		aiScore = float64(geminiResult.Score)
 		aiReason = geminiResult.Reason
-		tags = geminiResult.Tags
+		tags = append(tags, geminiResult.Tags...)
 	}
 
 	if wikiScore > 60.0 {
@@ -371,6 +397,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		Tags:            tags,
 		AIReason:        aiReason,
 		WikiDescription: wikiDesc,
+		Laya:            layaResult,
 	}
 
 	slog.Info("SemanticEngine scored username",

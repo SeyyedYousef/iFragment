@@ -7,3 +7,4 @@ coverage.out
 !.env.example
 main
 api
+dist_main*

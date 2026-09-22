@@ -639,11 +639,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	// 8. Rarity DNA Bars
 	rarityDNA := buildRarityDNA(fv)
 
-	// 9. Cultural Radar
-	culturalRadar := buildCulturalRadar(fv)
+	// 9. Cultural Radar (Laya System One Enhanced)
+	culturalRadar, layaNumberRes := buildCulturalRadar(fv, normNumber)
 
-	// 10. Liquidity & Sell-Time (dynamic)
-	liquidity := buildLiquidityMetrics(fv, expectedTON, len(comps))
+	// 10. Liquidity & Sell-Time (Laya Enhanced)
+	liquidity := buildLiquidityMetrics(fv, expectedTON, len(comps), layaNumberRes)
 
 	// 11. Risk Audit
 	riskAudit := buildRiskAudit(fv, expectedTON)
@@ -958,7 +958,14 @@ func buildRarityDNA(fv features.FeatureVector) []RarityBar {
 	return bars
 }
 
-func buildCulturalRadar(fv features.FeatureVector) []CulturalScoreItem {
+var defaultLayaNumberEvaluator = NewLayaNumberEvaluator()
+
+func buildCulturalRadar(fv features.FeatureVector, rawNumber string) ([]CulturalScoreItem, *LayaNumberResult) {
+	var layaRes *LayaNumberResult
+	if defaultLayaNumberEvaluator != nil {
+		layaRes = defaultLayaNumberEvaluator.EvaluateNumber(context.Background(), rawNumber)
+	}
+
 	items := make([]CulturalScoreItem, 0, len(registry.CulturalMarkets))
 	for _, m := range registry.CulturalMarkets {
 		score := 50
@@ -971,6 +978,19 @@ func buildCulturalRadar(fv features.FeatureVector) []CulturalScoreItem {
 				score -= int(pen * float64(count) * 12.0)
 			}
 		}
+
+		// Harmonize with Laya System 1 cultural decisions
+		if layaRes != nil {
+			switch m.RegionKey {
+			case "east_asia":
+				score = int(float64(score)*0.30 + float64(layaRes.ScoreChina)*0.70)
+			case "middle_east":
+				score = int(float64(score)*0.30 + float64(layaRes.ScoreMENA)*0.70)
+			case "global":
+				score = int(float64(score)*0.30 + float64(layaRes.ScoreRussia)*0.35 + float64(layaRes.PatternAesthetics*10)*0.35)
+			}
+		}
+
 		if score > 100 {
 			score = 100
 		}
@@ -998,10 +1018,10 @@ func buildCulturalRadar(fv features.FeatureVector) []CulturalScoreItem {
 			DescriptionFa: m.DescriptionFa,
 		})
 	}
-	return items
+	return items, layaRes
 }
 
-func buildLiquidityMetrics(fv features.FeatureVector, expectedTON float64, compsCount int) LiquidityMetrics {
+func buildLiquidityMetrics(fv features.FeatureVector, expectedTON float64, compsCount int, layaRes *LayaNumberResult) LiquidityMetrics {
 	rating := "Medium"
 	days := "7 - 14 Days"
 	medianDays := 10
@@ -1030,6 +1050,27 @@ func buildLiquidityMetrics(fv features.FeatureVector, expectedTON float64, comps
 		days = "10 - 20 Days"
 		medianDays = 14
 		bidVelocity = 6.2
+	}
+
+	// Laya System 1 Cultural & Keypad Cadence Enhancement
+	if layaRes != nil {
+		if layaRes.ScoreChina >= 85 {
+			buyer = "East Asian Whale / Feng-Shui Collector"
+			rating = "Ultra-Liquid"
+			days = "1 - 3 Days"
+			medianDays = 2
+		} else if layaRes.ScoreMENA >= 85 {
+			buyer = "Gulf Royal / Ultra-HNW Collector"
+			rating = "Ultra-Liquid"
+			days = "1 - 3 Days"
+			medianDays = 2
+		} else if layaRes.ScoreRussia >= 85 {
+			buyer = "CIS VIP Mobile Collector"
+			rating = "High"
+		}
+		if layaRes.PatternAesthetics >= 8 {
+			bidVelocity = math.Max(bidVelocity, 9.2)
+		}
 	}
 
 	return LiquidityMetrics{

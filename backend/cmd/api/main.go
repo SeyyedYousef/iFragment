@@ -490,7 +490,12 @@ func main() {
 	intelCreditService := intelcredit.NewIntelCreditService(db)
 	intelCreditHandler := handler.NewIntelCreditHandler(intelCreditService, cache)
 
-
+	if webhookHandler != nil {
+		webhookHandler.SetNumbersService(numbersService)
+		webhookHandler.SetAVMService(avmService)
+		webhookHandler.SetIntelCreditService(intelCreditService)
+		webhookHandler.SetProfileService(profileService)
+	}
 
 	investorsHandler := handler.NewInvestorsPublicHandler(settingsRepo)
 

@@ -149,13 +149,10 @@ When user's prompt is NOT in English:
 
 ### 📱 Project Type Routing
 
-| Project Type                           | Primary Agent         | Skills                        |
-| -------------------------------------- | --------------------- | ----------------------------- |
-| **MOBILE** (iOS, Android, RN, Flutter) | `mobile-developer`    | mobile-design                 |
-| **WEB** (Next.js, React web)           | `frontend-specialist` | frontend-design               |
-| **BACKEND** (API, server, DB)          | `backend-specialist`  | api-patterns, database-design |
-
-> 🔴 **Mobile + frontend-specialist = WRONG.** Mobile = mobile-developer ONLY.
+| Project Type                           | Primary Agent         | Skills                                            |
+| -------------------------------------- | --------------------- | ------------------------------------------------- |
+| **TMA / WEB** (SolidJS, Vite, TMA)     | `frontend-specialist` | frontend-design, frontend-ui-engineering          |
+| **BACKEND** (Go 1.25, Chi, Postgres)  | `backend-specialist`  | api-patterns, database-design, clean-code         |
 
 ### 🛑 Socratic Gate
 
@@ -209,9 +206,6 @@ When user's prompt is NOT in English:
 | `schema_validator.py`      | database-design       | After DB change     |
 | `ux_audit.py`              | frontend-design       | After UI change     |
 | `accessibility_checker.py` | frontend-design       | After UI change     |
-| `seo_checker.py`           | seo-fundamentals      | After page change   |
-| `bundle_analyzer.py`       | performance-profiling | Before deploy       |
-| `mobile_audit.py`          | mobile-design         | After mobile change |
 | `lighthouse_audit.py`      | performance-profiling | Before deploy       |
 | `playwright_runner.py`     | webapp-testing        | Before deploy       |
 
@@ -243,7 +237,6 @@ When user's prompt is NOT in English:
 | Task         | Read                            |
 | ------------ | ------------------------------- |
 | Web UI/UX    | `.agent/frontend-specialist.md` |
-| Mobile UI/UX | `.agent/mobile-developer.md`    |
 
 **These agents contain:**
 

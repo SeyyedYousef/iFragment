@@ -376,6 +376,7 @@ type AuctionPlaybookDto struct {
 	BidStepTON    float64 `json:"bid_step_ton"`
 	BestDay       string  `json:"best_day"`
 	BestHourUTC   string  `json:"best_hour_utc"`
+	Tactics       string  `json:"tactics,omitempty"`
 }
 
 type PhishingThreatDto struct {
@@ -1541,9 +1542,11 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	}
 	reasoning["liquidity_score"] = liquidityScore
 
-	// Derive Liquidity Rating
+	// Derive Liquidity Rating (Laya System 1 Enhanced)
 	liquidityRating := "Moderate"
-	if liquidityScore >= 75 {
+	if semResult != nil && semResult.Laya != nil && semResult.Laya.LiquidityRating != "" {
+		liquidityRating = semResult.Laya.LiquidityRating
+	} else if liquidityScore >= 75 {
 		liquidityRating = "Ultra-Liquid"
 	} else if liquidityScore >= 55 {
 		liquidityRating = "High"
@@ -1551,9 +1554,11 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		liquidityRating = "Illiquid"
 	}
 
-	// Derive Estimated Sell Time based on liquidity score & price bracket
+	// Derive Estimated Sell Time (Laya System 1 Enhanced)
 	estimatedSellTime := "1–3 Weeks"
-	if liquidityScore >= 80 {
+	if semResult != nil && semResult.Laya != nil && semResult.Laya.EstimatedSellTime != "" {
+		estimatedSellTime = semResult.Laya.EstimatedSellTime
+	} else if liquidityScore >= 80 {
 		estimatedSellTime = "24–48 Hours"
 	} else if liquidityScore >= 60 {
 		estimatedSellTime = "3–7 Days"
@@ -1563,9 +1568,11 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		estimatedSellTime = "1–3 Months (OTC)"
 	}
 
-	// Derive Target Buyer Profile
+	// Derive Target Buyer Profile (Laya System 1 Enhanced)
 	targetBuyerProfile := "Personal Brand & Creator"
-	if semResult != nil && semResult.Tags != nil {
+	if semResult != nil && semResult.Laya != nil && semResult.Laya.TargetBuyerProfile != "" {
+		targetBuyerProfile = semResult.Laya.TargetBuyerProfile
+	} else if semResult != nil && semResult.Tags != nil {
 		for _, tag := range semResult.Tags {
 			if strings.Contains(tag, "crypto") {
 				targetBuyerProfile = "Web3 & Crypto Project"
@@ -1581,6 +1588,23 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	}
 	if targetBuyerProfile == "Personal Brand & Creator" && features.IsDictionary {
 		targetBuyerProfile = "Brand & Corporate Entity"
+	}
+
+	if semResult != nil && semResult.Laya != nil {
+		reasoning["laya_system_one"] = map[string]any{
+			"total_score":           semResult.Laya.TotalScore,
+			"phonetic_score":        semResult.Laya.PhoneticScore,
+			"cultural_resonance":    semResult.Laya.CulturalResonance,
+			"target_entity_fit":     semResult.Laya.TargetEntityFit,
+			"commercial_intent":     semResult.Laya.CommercialIntent,
+			"trademark_risk_level":  semResult.Laya.TrademarkRiskLevel,
+			"seizure_risk":          semResult.Laya.SeizureRisk,
+			"liquidity_speed":       semResult.Laya.LiquiditySpeed,
+			"buyer_archetype":       semResult.Laya.BuyerArchetype,
+			"bidding_war_potential": semResult.Laya.BiddingWarPotential,
+			"auction_tactics":       semResult.Laya.AuctionTactics,
+			"confidence":            semResult.Laya.Confidence,
+		}
 	}
 
 	// Projected Growth (1-Year Bull / Base / Bear).
@@ -2295,6 +2319,12 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 					return bestSaleHour
 				}
 				return "16:00–19:00 UTC"
+			}(),
+			Tactics: func() string {
+				if semResult != nil && semResult.Laya != nil && semResult.Laya.AuctionTactics != "" {
+					return semResult.Laya.AuctionTactics
+				}
+				return "Standard Reserve Auction"
 			}(),
 		},
 		PhishingThreat: &PhishingThreatDto{

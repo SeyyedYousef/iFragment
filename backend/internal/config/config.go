@@ -15,6 +15,13 @@ type Config struct {
 	Security SecurityConfig
 	Telegram TelegramConfig
 	TON      TONConfig
+	Laya     LayaConfig
+}
+
+type LayaConfig struct {
+	BaseURL string
+	APIKey  string
+	Model   string
 }
 
 type AppConfig struct {
@@ -183,6 +190,13 @@ func Load() (*Config, error) {
 		cfg.TON = TONConfig{
 			APIKeys:       tonKeys,
 			WebhookSecret: os.Getenv("TONAPI_WEBHOOK_SECRET"),
+		}
+
+		// Laya System 1 (Convai Innovations) Configuration
+		cfg.Laya = LayaConfig{
+			BaseURL: getEnv("LAYA_BASE_URL", "http://localhost:8000/v1/systemone"),
+			APIKey:  os.Getenv("LAYA_API_KEY"),
+			Model:   getEnv("LAYA_MODEL", "convai/laya-multilingual"),
 		}
 
 		globalConfig = cfg

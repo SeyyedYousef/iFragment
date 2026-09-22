@@ -110,9 +110,9 @@ var enDict = map[string]interface{}{
 		"features":              "🛡 <b>Privacy & Security Settings</b>\n\n✅ <b>These features are now active:</b>\n\n🚫 Auto-delete links & domains\n🤖 Block nuisance bots\n🔥 Smart Anti-Spam (5 msgs / 10s)\n\n🎛 To customize, open your dashboard:\n👉 <a href=\"{arg0}\">Open Dashboard</a>",
 		"combined":              "🎉 <b>Thank you for your trust!</b>\n\nFrom this moment, the smart guardian of <b>{group}</b> is at your service.\n\n⚙️ <b>To enable full protection, promote me to Admin with:</b>\n✅ Delete Messages  ✅ Restrict Members  ✅ Ban Users  ✅ Pin Messages\n\n🎛 <b>Customize settings via dashboard:</b>\n👉 <a href=\"{url}\">Open Dashboard</a>\n\n🌟 <i>Powered by @iFragmentBot</i>",
 		"welcome_owner":         "🔥 <b>iFragment Admin Portal</b>\n\nWelcome back, Commander {arg0}. Manage your system settings, view real-time logs, and monitor live status.\n\n👇 <b>Launch control panel:</b>",
-		"welcome_public":        "💎 <b>Welcome to @iFragmentBot</b>\n\nMonitor the true value of your Telegram collectibles; <b>search, value, and analyze</b> usernames, anonymous numbers, and gifts in real time.\n\nTransform your <b>group security</b> and <b>professional channel management</b> using our intelligent system.\n\n👇 <b>Open the iFragment Mini App now:</b>",
+		"welcome_public":        "💎 <b>Welcome to iFragment Market Intelligence</b>\n\nInspect trait rarity, estimated valuations, and liquidity signals for Telegram usernames, +888 anonymous numbers, and gifts.\n\n<i>Send an asset handle, +888 number, gift slug, or Fragment link to start an instant scan.</i>\n\n👇 <b>Launch iFragment Mini App:</b>",
 		"welcome_hosted_public": "🛡 <b>Hello {arg0}!</b>\n\nI am your group management bot; security, organization, and professional administration — all in one.\n\n✨ <b>This bot is proudly hosted and powered by @iFragmentBot!</b>\n\nIf you want your own custom group management bot with a <b>custom name, logo, and bio</b>, create it now 👇",
-		"open_app":              "🚀 Launch iFragment 💎",
+		"open_app":              "💎 Launch iFragment Terminal",
 		"create_bot":            "🤖 Create My Own Bot",
 	},
 	"moderation": map[string]interface{}{
@@ -156,7 +156,7 @@ var enDict = map[string]interface{}{
 		"languageSettings": "Your language has been successfully updated",
 	},
 	"help": map[string]interface{}{
-		"admin_help": "📖 <b>iFragment Bot Commands Guide:</b>\n\n⚡ <b>Moderation & Security:</b>\n• <code>/settings</code> or <code>/config</code> — Interactive Settings Menu\n• <code>/lock</code> | <code>/unlock</code> — Lock / Unlock Group Chat\n• <code>/ban</code> | <code>/unban</code> | <code>/kick</code> — Ban / Unban / Kick Member\n• <code>/mute [time]</code> | <code>/unmute</code> — Mute / Unmute Member (e.g. /mute 1h)\n• <code>/warn</code> | <code>/warns</code> | <code>/unwarn</code> — Manage User Warnings\n• <code>/antispam [on|off]</code> — Quick Anti-Spam Toggle\n• <code>/quiet [start] [end]</code> — Automated Quiet Hours\n\n🧹 <b>Cleanup & Messages:</b>\n• <code>/del</code> — Delete Replied Message\n• <code>/purge</code> — Bulk Delete Messages to this point\n• <code>/clean [count]</code> — Clean up to 100 recent messages\n• <code>/ephemeral [time|off]</code> — Auto-delete bot messages\n• <code>/slowmode [sec]</code> — Chat Rate Limiting\n\n⚙️ <b>Configuration & Info:</b>\n• <code>/rules</code> | <code>/setrules [text]</code> — Group Rules\n• <code>/welcome</code> | <code>/setwelcome [text]</code> — Welcome Message\n• <code>/pin</code> | <code>/unpin</code> | <code>/unpinall</code> — Pin Management\n• <code>/tag [args]</code> — Tag Group Members\n• <code>/info</code> — Bot Status & Group License\n• <code>/stats</code> — 7-Day Group Activity Stats\n• <code>/id</code> | <code>/ping</code> | <code>/admins</code> | <code>/link</code> | <code>/debug</code> — Utilities",
+		"admin_help": "📖 <b>iFragment Market Intelligence Terminal:</b>\n\n💎 <b>Asset Analytics:</b>\n• Send any <b>username</b> (e.g. <code>durov</code>) — Trait rarity, trademark risk, and valuation estimate\n• Send any <b>+888 number</b> (e.g. <code>+888 0123 4567</code>) — Pattern detection, scarcity tier, and comparable sales\n\n⚙️ <b>Commands & Navigation:</b>\n• <code>/start</code> — Launch Mini App & market dashboard\n• <code>/language</code> — Switch language\n• <code>/ping</code> — Service latency & status",
 	},
 	"penalty": map[string]interface{}{
 		"mute": "🔇 <b>User restricted for {duration}</b>\n\nReason: {reason}",
@@ -174,8 +174,8 @@ var enDict = map[string]interface{}{
 	},
 	"payments": map[string]interface{}{
 		"success":                "✅ <b>Payment Successful!</b>\n\nCredited <b>{amount}</b> Coins (FRG) to your balance.",
-		"report_unlocked":        "💎 <b>Payment Received</b>\n\nYour <b>@{username}</b> report is unlocked:\n<a href=\"{url}\">View Report</a>",
-		"number_report_unlocked": "💎 <b>Payment Received</b>\n\nYour <b>{number}</b> valuation report is unlocked:\n<a href=\"{url}\">View Report</a>",
+		"report_unlocked":        "💎 <b>Payment Confirmed</b>\n\nYour valuation report for <b>@{username}</b> is unlocked:\n<a href=\"{url}\">View Deep Report</a>",
+		"number_report_unlocked": "💎 <b>Payment Confirmed</b>\n\nYour valuation report for <b>{number}</b> is unlocked:\n<a href=\"{url}\">View Deep Report</a>",
 		"credit_deduct_failed":   "⚠️ Your payment was received, but coin deduction encountered an issue. Our team is reviewing this.",
 	},
 	"funnel": map[string]interface{}{
@@ -427,8 +427,8 @@ var enDict = map[string]interface{}{
 		"rem_1h":         "Less than 1 Hour",
 	},
 	"gamification": map[string]interface{}{
-		"miner_full_title": "🤖 <b>Your Tap-Bot storage is full!</b>",
-		"miner_full_desc":  "Your mining bot has been active for 12 hours. Open the app now to claim your mined coins and resume mining.",
+		"miner_full_title": "🤖 <b>Extraction Ready to Claim!</b>",
+		"miner_full_desc":  "Your miner completed a 12-hour cycle and reached maximum capacity. Claim your coins now to resume extraction.",
 		"claim_btn":        "🪙 Claim Mined Coins",
 	},
 	"language": map[string]interface{}{
@@ -470,11 +470,11 @@ var enDict = map[string]interface{}{
 		"credit_pack_title":     "╔════ 💳 <b>Successful Payment: Intel Credit Pack</b> ════╗",
 		"credits_count":         "🔑 <b>Credits:</b> <code>{count} Intel Credit</code>",
 		"credit_pack_named":     "🔑 <b>Package:</b> <code>{name}</code> (<code>{count} Credit</code>)",
-		"user_report_unlocked":  "💎 Payment received. Your @{username} report is unlocked:\n{url}",
-		"number_unlocked":       "💎 Payment received. Your {number} report is unlocked:\n{url}",
-		"gift_unlocked":         "💎 Payment received. Your gift report is unlocked:\n{url}",
-		"avm_unlocked":          "💎 Payment received. 24-hour AVM access unlocked for @{username}",
-		"credits_credited":      "💎 Payment received. {count} Intel Credit credited to your account.",
+		"user_report_unlocked":  "💎 Payment confirmed. Your @{username} deep report is unlocked:\n{url}",
+		"number_unlocked":       "💎 Payment confirmed. Your {number} deep report is unlocked:\n{url}",
+		"gift_unlocked":         "💎 Payment confirmed. Your gift deep report is unlocked:\n{url}",
+		"avm_unlocked":          "💎 Payment confirmed. 24-hour analytical access unlocked for @{username}",
+		"credits_credited":      "💎 Payment confirmed. {count} Intel Credits credited to your account.",
 	},
 }
 
@@ -484,10 +484,9 @@ var faDict = map[string]interface{}{
 		"admin_req":             "⚠️ <b>تنها یک قدم تا فعال‌سازی کامل باقیست!</b>\n\nبرای اینکه بتوانم پیام‌های مخرب را حذف و با متخلفان برخورد کنم، لطفاً مرا به عنوان <b>مدیر (Administrator)</b> با دسترسی‌های زیر ارتقا دهید:\n\n✅ حذف پیام‌ها (Delete Messages)\n✅ محدود کردن کاربران (Restrict Members)\n✅ مسدود کردن کاربران (Ban Users)\n✅ سنجاق کردن پیام (Pin Messages)",
 		"features":              "🛡 <b>تنظیمات حریم خصوصی و امنیت</b>\n\n✅ <b>قابلیت‌های زیر هم‌اکنون فعال هستند:</b>\n\n🚫 حذف خودکار لینک‌ها و دامنه‌ها\n🤖 مسدودسازی ربات‌های مزاحم\n🔥 ضد اسپم هوشمند (5 پیام در 10 ثانیه)\n\n🎛 برای شخصی‌سازی، داشبورد مدیریت خود را باز کنید:\n👉 <a href=\"{arg0}\">ورود به داشبورد</a>",
 		"combined":              "🎉 <b>از اعتماد شما سپاسگزاریم!</b>\n\nاز این لحظه، محافظ هوشمند <b>{group}</b> در خدمت شماست.\n\n⚙️ <b>برای فعال‌سازی کامل، مرا ادمین کنید با دسترسی‌های:</b>\n✅ حذف پیام‌ها  ✅ محدودسازی اعضا  ✅ بن کاربران  ✅ سنجاق پیام\n\n🎛 <b>مدیریت و شخصی‌سازی از داشبورد:</b>\n👉 <a href=\"{url}\">ورود به داشبورد</a>\n\n🌟 <i>قدرت‌گرفته از @iFragmentBot</i>",
-		"welcome_owner":         "🔥 <b>پنل مدیریت آی‌فرگمنت</b>\n\nخوش آمدید فرمانده {arg0}. تنظیمات سیستم خود را مدیریت کنید، لاگ‌ها را لحظه‌ای بررسی کنید و وضعیت را کنترل نمایید.\n\n👇 <b>ورود به کنترل پنل:</b>",
-		"welcome_public":        "💎 <b>به پلتفرم همه‌کاره @iFragmentBot خوش آمدید.</b>\n\nبا آی‌فرگمنت ارزش واقعی دارایی‌های تلگرامی خود را ارزیابی کنید؛ نام‌های کاربری، شماره‌های ناشناس و هدایا را <b>جستجو، ارزش‌گذاری و تحلیل</b> کنید.\n\nهمچنین <b>امنیت گروه‌ها</b> و <b>مدیریت حرفه‌ای کانال‌های خود</b> را با سیستم هوشمند ما متحول سازید.\n\n👇 <b>همین حالا مینی‌اپ آی‌فرگمنت را باز کنید:</b>",
+		"welcome_public":        "💎 <b>به ترمینال هوش بازار iFragment خوش آمدید</b>\n\nنام کاربری، شماره ناشناس +888 یا گیفت مورد نظر خود را بفرستید تا ساختار، کمیابی، برآورد ارزش و سیگنال‌های بازار آن بررسی شود.\n\n<i>برای تحلیل فوری می‌توانید شناسه، شماره یا لینک Fragment را مستقیماً در این چت ارسال کنید.</i>\n\n👇 <b>ورود به مینی‌اپ iFragment:</b>",
 		"welcome_hosted_public": "🛡 <b>سلام {arg0}!</b>\n\nمن ربات مدیریت گروه شما هستم؛ امنیت، نظم و مدیریت حرفه‌ای — همه در یکجا.\n\n✨ <b>این ربات توسط @iFragmentBot میزبانی می‌شود.</b>\n\nاگر می‌خواهید ربات مدیریت گروه اختصاصی خودتان را با <b>نام، لوگو و بیوی دلخواه</b> داشته باشید، همین حالا بسازید 👇",
-		"open_app":              "🚀 ورود به آی‌فرگمنت 💎",
+		"open_app":              "💎 شروع تحلیل در iFragment",
 		"create_bot":            "🤖 ساخت ربات اختصاصی من",
 	},
 	"moderation": map[string]interface{}{
@@ -531,7 +530,7 @@ var faDict = map[string]interface{}{
 		"languageSettings": "زبان شما با موفقیت تغییر کرد",
 	},
 	"help": map[string]interface{}{
-		"admin_help": "📖 <b>راهنمای دستورات ربات (iFragment):</b>\n\n⚡ <b>مدیریت و نظارت:</b>\n• <code>/settings</code> یا <code>/config</code> — منوی شیشه‌ای و تعاملی تنظیمات\n• <code>/lock</code> | <code>/unlock</code> — قفل و باز کردن چت\n• <code>/ban</code> | <code>/unban</code> | <code>/kick</code> — مسدودسازی و اخراج\n• <code>/mute [زمان]</code> | <code>/unmute</code> — بی‌صدا کردن (مثلاً /mute 1h)\n• <code>/warn</code> | <code>/warns</code> | <code>/unwarn</code> — مدیریت اخطارها\n• <code>/antispam [on|off]</code> — محافظت سریع ضد اسپم\n• <code>/quiet [شروع] [پایان]</code> — ساعات سکوت خودکار\n\n🧹 <b>پاکسازی و محتوا:</b>\n• <code>/del</code> — حذف پیام ریپلای شده\n• <code>/purge</code> — حذف دسته‌جمعی پیام‌ها تا این نقطه\n• <code>/clean [تعداد]</code> — پاکسازی N پیام اخیر (حداکثر 100)\n• <code>/ephemeral [زمان|off]</code> — حذف خودکار پیام‌های ربات\n• <code>/slowmode [ثانیه]</code> — فعال‌سازی اسلومود\n\n⚙️ <b>پیکربندی و اطلاعات:</b>\n• <code>/rules</code> | <code>/setrules [متن]</code> — قوانین گروه\n• <code>/welcome</code> | <code>/setwelcome [متن]</code> — پیام خوش‌آمدگویی\n• <code>/pin</code> | <code>/unpin</code> | <code>/unpinall</code> — سنجاق پیام‌ها\n• <code>/tag [متن]</code> — تگ کردن اعضای گروه\n• <code>/info</code> — مشخصات فنی و لایسنس ربات\n• <code>/stats</code> — آمار 7 روزه فعالیت گروه\n• <code>/id</code> | <code>/ping</code> | <code>/admins</code> | <code>/link</code> | <code>/debug</code> — ابزارهای سیستمی",
+		"admin_help": "📖 <b>راهنمای ترمینال هوش بازار iFragment:</b>\n\n💎 <b>تحلیل دارایی‌های تلگرام:</b>\n• ارسال <b>نام کاربری</b> (مانند <code>durov</code>) — بررسی کمیابی، ریسک برند و برآورد ارزش\n• ارسال <b>شماره ناشناس +888</b> — الگوی عددی، کمیابی ارقام و معاملات مشابه\n\n⚙️ <b>دستورات عمومی:</b>\n• <code>/start</code> — ورود به مینی‌اپ و خانه\n• <code>/language</code> — تغییر زبان برنامه\n• <code>/ping</code> — وضعیت سلامت سرور و تاخیر",
 	},
 	"penalty": map[string]interface{}{
 		"mute": "🔇 <b>کاربر به مدت {duration} بی‌صدا شد</b>\n\nعلت: {reason}",
@@ -549,8 +548,8 @@ var faDict = map[string]interface{}{
 	},
 	"payments": map[string]interface{}{
 		"success":                "✅ <b>پرداخت موفقیت‌آمیز!</b>\n\nمبلغ <b>{amount}</b> سکه (FRG) به حساب شما واریز شد.",
-		"report_unlocked":        "💎 <b>تایید پرداخت</b>\n\nگزارش تحلیل یوزرنیم <b>@{username}</b> برای شما باز شد:\n<a href=\"{url}\">مشاهده گزارش</a>",
-		"number_report_unlocked": "💎 <b>تایید پرداخت</b>\n\nگزارش ارزش‌گذاری شماره <b>{number}</b> برای شما باز شد:\n<a href=\"{url}\">مشاهده گزارش</a>",
+		"report_unlocked":        "💎 <b>تأیید پرداخت</b>\n\nگزارش تحلیلی نام کاربری <b>@{username}</b> برای شما باز شد:\n<a href=\"{url}\">مشاهده گزارش عمیق</a>",
+		"number_report_unlocked": "💎 <b>تأیید پرداخت</b>\n\nگزارش ارزش‌گذاری شماره <b>{number}</b> برای شما باز شد:\n<a href=\"{url}\">مشاهده گزارش عمیق</a>",
 	},
 	"funnel": map[string]interface{}{
 		"btn_approve_send":        "🚀 تایید و ارسال به کانال خروجی",
@@ -801,9 +800,9 @@ var faDict = map[string]interface{}{
 		"rem_1h":         "کمتر از 1 ساعت",
 	},
 	"gamification": map[string]interface{}{
-		"miner_full_title": "🤖 <b>ظرفیت ربات استخراج شما تکمیل شد!</b>",
-		"miner_full_desc":  "ربات ماینر شما به مدت 12 ساعت استخراج کرده و مخزن آن پر شده است. برای دریافت سکه‌ها و فعال‌سازی مجدد استخراج، وارد وب‌اپ شوید.",
-		"claim_btn":        "🪙 دریافت سکه‌های ماین‌شده",
+		"miner_full_title": "🤖 <b>برداشت آماده است!</b>",
+		"miner_full_desc":  "ماینر 12 ساعت کار کرده و به سقف ظرفیت رسیده است. سکه‌ها را برداشت کنید تا استخراج دوباره آغاز شود.",
+		"claim_btn":        "🪙 برداشت سکه‌های استخراج‌شده",
 	},
 	"language": map[string]interface{}{
 		"prompt": "لطفاً زبان مورد نظر خود را انتخاب کنید:\nPlease select your preferred language:\nПожалуйста, выберите язык:\n请选择您的首选语言：",
@@ -833,22 +832,22 @@ var faDict = map[string]interface{}{
 		"activation_time":       "⏰ <b>زمان فعال‌سازی:</b> <code>{time}</code>",
 		"btn_user_profile":      "👤 پروفایل کاربر",
 		"btn_miniapp":           "📱 مینی‌اپ",
-		"username_report_title": "╔════ 💳 <b>پرداخت موفق: آنلاک گزارش یوزرنیم</b> ════╗",
-		"username_label":        "🆔 <b>یوزرنیم:</b> @{username}",
+		"username_report_title": "╔════ 💳 <b>پرداخت موفق: گزارش نام کاربری</b> ════╗",
+		"username_label":        "🆔 <b>نام کاربری:</b> @{username}",
 		"btn_view_report":       "🔎 مشاهده گزارش",
-		"number_report_title":   "╔════ 💳 <b>پرداخت موفق: آنلاک گزارش شماره کلکسیونی</b> ════╗",
+		"number_report_title":   "╔════ 💳 <b>پرداخت موفق: گزارش شماره ناشناس</b> ════╗",
 		"number_label":          "📞 <b>شماره:</b> <code>{number}</code>",
-		"gift_report_title":     "╔════ 💳 <b>پرداخت موفق: آنلاک گزارش گیفت تلگرام</b> ════╗",
+		"gift_report_title":     "╔════ 💳 <b>پرداخت موفق: گزارش گیفت تلگرام</b> ════╗",
 		"gift_label":            "🎁 <b>شناسه گیفت:</b> <code>{id}</code>",
 		"avm_access_title":      "╔════ 💳 <b>پرداخت موفق: دسترسی 24 ساعته AVM</b> ════╗",
-		"credit_pack_title":     "╔════ 💳 <b>پرداخت موفق: خرید بسته کردیت تحلیلی</b> ════╗",
+		"credit_pack_title":     "╔════ 💳 <b>پرداخت موفق: خرید بسته اعتبار تحلیلی</b> ════╗",
 		"credits_count":         "🔑 <b>تعداد اعتبار:</b> <code>{count} Intel Credit</code>",
 		"credit_pack_named":     "🔑 <b>بسته:</b> <code>{name}</code> (<code>{count} Credit</code>)",
-		"user_report_unlocked":  "💎 پرداخت دریافت شد. گزارش یوزرنیم @{username} آنلاک شد:\n{url}",
-		"number_unlocked":       "💎 پرداخت دریافت شد. گزارش شماره {number} آنلاک شد:\n{url}",
-		"gift_unlocked":         "💎 پرداخت دریافت شد. گزارش گیفت تلگرام آنلاک شد:\n{url}",
+		"user_report_unlocked":  "💎 پرداخت دریافت شد. گزارش نام کاربری @{username} باز شد:\n{url}",
+		"number_unlocked":       "💎 پرداخت دریافت شد. گزارش شماره {number} باز شد:\n{url}",
+		"gift_unlocked":         "💎 پرداخت دریافت شد. گزارش گیفت تلگرام باز شد:\n{url}",
 		"avm_unlocked":          "💎 پرداخت دریافت شد. دسترسی 24 ساعته ارزش‌گذاری هوشمند برای @{username} فعال شد.",
-		"credits_credited":      "💎 پرداخت دریافت شد. تعداد {count} کردیت تحلیلی به حساب شما افزوده شد.",
+		"credits_credited":      "💎 پرداخت دریافت شد. تعداد {count} اعتبار تحلیلی به حساب شما افزوده شد.",
 	},
 }
 
@@ -859,9 +858,9 @@ var ruDict = map[string]interface{}{
 		"features":              "🛡 <b>Настройки конфиденциальности и безопасности</b>\n\n✅ <b>Эти функции уже активны:</b>\n\n🚫 Автоудаление ссылок и доменов\n🤖 Блокировка назойливых ботов\n🔥 Умный антиспам (5 сообщ. / 10 сек)\n\n🎛 Для настройки откройте панель управления:\n👉 <a href=\"{arg0}\">Открыть дашборд</a>",
 		"combined":              "🎉 <b>Спасибо за ваше доверие!</b>\n\nС этого момента умный страж <b>{group}</b> к вашим услугам.\n\n⚙️ <b>Для активации полной защиты назначьте меня админом с правами:</b>\n✅ Удаление сообщений  ✅ Ограничение  ✅ Бан  ✅ Закрепление\n\n🎛 <b>Настройки в дашборде:</b>\n👉 <a href=\"{url}\">Открыть дашборд</a>\n\n🌟 <i>При поддержке @iFragmentBot</i>",
 		"welcome_owner":         "🔥 <b>Панель администратора iFragment</b>\n\nДобро пожаловать, Командир {arg0}. Управляйте настройками системы и просматривайте логи в реальном времени.\n\n👇 <b>Открыть панель управления:</b>",
-		"welcome_public":        "💎 <b>Добро пожаловать в @iFragmentBot</b>\n\nОтслеживайте реальную стоимость коллекционных объектов Telegram; <b>ищите, оценивайте и анализируйте</b> юзернеймы, анонимные номера и подарки в реальном времени.\n\nКроме того, преобразите <b>безопасность групп</b> и <b>профессиональное управление каналами</b> с помощью нашей системы.\n\n👇 <b>Запустите приложение iFragment прямо сейчас:</b>",
+		"welcome_public":        "💎 <b>Добро пожаловать в аналитический терминал iFragment</b>\n\nОтправьте юзернейм, анонимный номер +888 или подарок Telegram для анализа редкости, ориентировочной стоимости и рыночных сигналов.\n\n<i>Вы также можете отправить ссылку Fragment или идентификатор актива прямо в этот чат.</i>\n\n👇 <b>Открыть приложение iFragment:</b>",
 		"welcome_hosted_public": "🛡 <b>Привет, {arg0}!</b>\n\nЯ бот для управления вашей группой: безопасность, порядок и профессиональное администрирование.\n\n✨ <b>Этот бот поддерживается платформой @iFragmentBot!</b>\n\nЕсли вы хотите создать собственного бота с <b>персональным именем, логотипом и описанием</b>, создайте его прямо сейчас 👇",
-		"open_app":              "🚀 Открыть iFragment 💎",
+		"open_app":              "💎 Запустить iFragment Terminal",
 		"create_bot":            "🤖 Создать своего бота",
 	},
 	"moderation": map[string]interface{}{
@@ -905,7 +904,7 @@ var ruDict = map[string]interface{}{
 		"languageSettings": "Ваш язык успешно обновлен",
 	},
 	"help": map[string]interface{}{
-		"admin_help": "📖 <b>Руководство по командам бота (iFragment):</b>\n\n⚡ <b>Модерация и безопасность:</b>\n• <code>/settings</code> или <code>/config</code> — Интерактивное меню настроек\n• <code>/lock</code> | <code>/unlock</code> — Блокировка / Разблокировка чата\n• <code>/ban</code> | <code>/unban</code> | <code>/kick</code> — Бан / Разбан / Исключение\n• <code>/mute [время]</code> | <code>/unmute</code> — Мут / Размут (напр. /mute 1h)\n• <code>/warn</code> | <code>/warns</code> | <code>/unwarn</code> — Управление предупреждениями\n• <code>/antispam [on|off]</code> — Быстрый переключатель антиспама\n• <code>/quiet [начало] [конец]</code> — Автоматические часы тишины\n\n🧹 <b>Очистка и сообщения:</b>\n• <code>/del</code> — Удалить сообщение по ответу\n• <code>/purge</code> — Массовое удаление сообщений до этой точки\n• <code>/clean [кол-во]</code> — Очистить до 100 последних сообщений\n• <code>/ephemeral [время|off]</code> — Автоудаление сообщений бота\n• <code>/slowmode [сек]</code> — Ограничение частоты сообщений\n\n⚙️ <b>Конфигурация и инфо:</b>\n• <code>/rules</code> | <code>/setrules [текст]</code> — Правила группы\n• <code>/welcome</code> | <code>/setwelcome [текст]</code> — Приветственное сообщение\n• <code>/pin</code> | <code>/unpin</code> | <code>/unpinall</code> — Управление закрепом\n• <code>/tag [текст]</code> — Тег участников группы\n• <code>/info</code> — Статус бота и лицензия группы\n• <code>/stats</code> — Статистика активности за 7 дней\n• <code>/id</code> | <code>/ping</code> | <code>/admins</code> | <code>/link</code> | <code>/debug</code> — Утилиты",
+		"admin_help": "📖 <b>Терминал рыночной аналитики iFragment:</b>\n\n💎 <b>Аналитика активов:</b>\n• Отправьте <b>юзернейм</b> (напр. <code>durov</code>) — редкость, риск товарного знака и оценка стоимости\n• Отправьте <b>номер +888</b> — числовой паттерн, редкость и похожие сделки\n\n⚙️ <b>Команды и навигация:</b>\n• <code>/start</code> — запуск Mini App и дашборда\n• <code>/language</code> — выбор языка интерфейса\n• <code>/ping</code> — задержка и состояние системы",
 	},
 	"penalty": map[string]interface{}{
 		"mute": "🔇 <b>Пользователь ограничен на {duration}</b>\n\nПричина: {reason}",
@@ -923,8 +922,8 @@ var ruDict = map[string]interface{}{
 	},
 	"payments": map[string]interface{}{
 		"success":                "✅ <b>Оплата прошла успешно!</b>\n\nЗачислено <b>{amount}</b> монет (FRG) на ваш баланс.",
-		"report_unlocked":        "💎 <b>Оплата получена</b>\n\nВаш отчет <b>@{username}</b> разблокирован:\n<a href=\"{url}\">Посмотреть отчет</a>",
-		"number_report_unlocked": "💎 <b>Оплата получена</b>\n\nВаш отчет по номеру <b>{number}</b> разблокирован:\n<a href=\"{url}\">Посмотреть отчет</a>",
+		"report_unlocked":        "💎 <b>Оплата подтверждена</b>\n\nАналитический отчет для <b>@{username}</b> открыт:\n<a href=\"{url}\">Посмотреть отчет</a>",
+		"number_report_unlocked": "💎 <b>Оплата подтверждена</b>\n\nОтчет об оценке номера <b>{number}</b> открыт:\n<a href=\"{url}\">Посмотреть отчет</a>",
 		"credit_deduct_failed":   "⚠️ Оплата получена, но возникла проблема со списанием монет. Наша команда проверяет это.",
 	},
 	"funnel": map[string]interface{}{
@@ -1176,8 +1175,8 @@ var ruDict = map[string]interface{}{
 		"rem_1h":         "Менее 1 часа",
 	},
 	"gamification": map[string]interface{}{
-		"miner_full_title": "🤖 <b>Хранилище вашего бота заполнено!</b>",
-		"miner_full_desc":  "Ваш майнинг-бот добывал монеты в течение 12 часов. Откройте приложение, чтобы забрать монеты и возобновить добычу.",
+		"miner_full_title": "🤖 <b>Сбор добычи готов!</b>",
+		"miner_full_desc":  "Ваш майнер отработал 12 часов и заполнил хранилище. Заберите монеты, чтобы возобновить добычу.",
 		"claim_btn":        "🪙 Забрать добытые монеты",
 	},
 	"language": map[string]interface{}{
@@ -1219,11 +1218,11 @@ var ruDict = map[string]interface{}{
 		"credit_pack_title":     "╔════ 💳 <b>Успешная оплата: Пакет кредитов Intel</b> ════╗",
 		"credits_count":         "🔑 <b>Кредиты:</b> <code>{count} Intel Credit</code>",
 		"credit_pack_named":     "🔑 <b>Пакет:</b> <code>{name}</code> (<code>{count} Credit</code>)",
-		"user_report_unlocked":  "💎 Оплата получена. Отчёт по @{username} разблокирован:\n{url}",
-		"number_unlocked":       "💎 Оплата получена. Отчёт по номеру {number} разблокирован:\n{url}",
-		"gift_unlocked":         "💎 Оплата получена. Отчёт по подарку разблокирован:\n{url}",
-		"avm_unlocked":          "💎 Оплата получена. Доступ к AVM на 24 часа для @{username} активирован.",
-		"credits_credited":      "💎 Оплата получена. Начислено {count} Intel Credit на ваш баланс.",
+		"user_report_unlocked":  "💎 Оплата подтверждена. Отчёт по @{username} разблокирован:\n{url}",
+		"number_unlocked":       "💎 Оплата подтверждена. Отчёт по номеру {number} разблокирован:\n{url}",
+		"gift_unlocked":         "💎 Оплата подтверждена. Отчёт по подарку разблокирован:\n{url}",
+		"avm_unlocked":          "💎 Оплата подтверждена. 24-часовой аналитический доступ активирован для @{username}",
+		"credits_credited":      "💎 Оплата подтверждена. Начислено {count} Intel Credit на ваш баланс.",
 	},
 }
 
@@ -1234,9 +1233,9 @@ var zhDict = map[string]interface{}{
 		"features":              "🛡 <b>隐私与安全设置</b>\n\n✅ <b>这些功能现已激活：</b>\n\n🚫 自动删除链接和域名\n🤖 封锁骚扰机器人\n🔥 智能防洪（10秒内5条消息）\n\n🎛 如需自定义，请打开您的仪表板：\n👉 <a href=\"{arg0}\">打开仪表板</a>",
 		"combined":              "🎉 <b>感谢您的信任！</b>\n\n从这一刻起，<b>{group}</b> 的智能守护者将为您服务。\n\n⚙️ <b>为了完全激活保护，请将我提升为管理员并授予以下权限：</b>\n✅ 删除消息  ✅ 限制成员  ✅ 封禁用户  ✅ 置顶消息\n\n🎛 <b>在仪表板中自定义设置：</b>\n👉 <a href=\"{url}\">打开仪表板</a>\n\n🌟 <i>由 @iFragmentBot 提供支持</i>",
 		"welcome_owner":         "🔥 <b>iFragment 管理员门户</b>\n\n欢迎回来，指挥官 {arg0}。管理您的系统设置、查看实时日志并监控实时状态。\n\n👇 <b>启动控制面板：</b>",
-		"welcome_public":        "💎 <b>欢迎使用 @iFragmentBot</b>\n\n实时监控您 Telegram 收藏品的真实价值；<b>搜索、估值和分析</b>用户名、匿名号码及礼物。\n\n使用我们的智能系统彻底改变您的<b>群组安全</b>和<b>专业频道管理</b>。\n\n👇 <b>立即打开 iFragment 小程序：</b>",
+		"welcome_public":        "💎 <b>欢迎使用 iFragment 市场智能终端</b>\n\n发送任意 Telegram 用户名、+888 匿名号码或礼物，即可检索其特征稀缺度、参考估值区间与市场流动性信号。\n\n<i>您也可直接在此发送 Fragment 链接或资产标识开启即时分析。</i>\n\n👇 <b>启动 iFragment 小程序：</b>",
 		"welcome_hosted_public": "🛡 <b>你好，{arg0}！</b>\n\n我是您的群组管理机器人；安全、秩序与专业管理 — 尽在一处。\n\n✨ <b>本机器人由 @iFragmentBot 托管与支持！</b>\n\n如果您想拥有带有<b>自定义名称、头像和简介</b>的专属群管机器人，请立即创建 👇",
-		"open_app":              "🚀 打开 iFragment 💎",
+		"open_app":              "💎 启动 iFragment 终端",
 		"create_bot":            "🤖 创建我的专属机器人",
 	},
 	"moderation": map[string]interface{}{
@@ -1280,7 +1279,7 @@ var zhDict = map[string]interface{}{
 		"languageSettings": "您的语言已成功更新",
 	},
 	"help": map[string]interface{}{
-		"admin_help": "📖 <b>iFragment 机器人命令指南：</b>\n\n⚡ <b>管理与安全：</b>\n• <code>/settings</code> 或 <code>/config</code> — 交互式设置菜单\n• <code>/lock</code> | <code>/unlock</code> — 锁定 / 解锁群组聊天\n• <code>/ban</code> | <code>/unban</code> | <code>/kick</code> — 封禁 / 解封 / 踢出成员\n• <code>/mute [时间]</code> | <code>/unmute</code> — 禁言 / 解禁（例如 /mute 1h）\n• <code>/warn</code> | <code>/warns</code> | <code>/unwarn</code> — 警告管理\n• <code>/antispam [on|off]</code> — 快速防洪防垃圾开关\n• <code>/quiet [开始] [结束]</code> — 自动静音时段\n\n🧹 <b>清理与消息：</b>\n• <code>/del</code> — 删除回复的消息\n• <code>/purge</code> — 批量清理至该消息\n• <code>/clean [数量]</code> — 清理最近最多100条消息\n• <code>/ephemeral [时间|off]</code> — 自动删除机器人消息\n• <code>/slowmode [秒]</code> — 发言频率限制\n\n⚙️ <b>配置与信息：</b>\n• <code>/rules</code> | <code>/setrules [文本]</code> — 群组规则\n• <code>/welcome</code> | <code>/setwelcome [文本]</code> — 欢迎消息\n• <code>/pin</code> | <code>/unpin</code> | <code>/unpinall</code> — 置顶管理\n• <code>/tag [文本]</code> — 艾特群成员\n• <code>/info</code> — 机器人状态及授权\n• <code>/stats</code> — 7天群组活跃统计\n• <code>/id</code> | <code>/ping</code> | <code>/admins</code> | <code>/link</code> | <code>/debug</code> — 实用工具",
+		"admin_help": "📖 <b>iFragment 市场智能终端指南：</b>\n\n💎 <b>资产全维度分析：</b>\n• 发送 <b>用户名</b> (如 <code>durov</code>) — 特征稀缺度、商标风险与参考估值区间\n• 发送 <b>+888 匿名号码</b> — 数字排列模式、稀缺层级与相似成交案例\n\n⚙️ <b>指令与导航：</b>\n• <code>/start</code> — 启动小程序并进入主看板\n• <code>/language</code> — 切换系统语言\n• <code>/ping</code> — 检查系统状态与网络延迟",
 	},
 	"penalty": map[string]interface{}{
 		"mute": "🔇 <b>用户已被禁言 {duration}</b>\n\n原因: {reason}",
@@ -1298,8 +1297,8 @@ var zhDict = map[string]interface{}{
 	},
 	"payments": map[string]interface{}{
 		"success":                "✅ <b>支付成功！</b>\n\n已将 <b>{amount}</b> 金币（FRG）充值到您的账户。",
-		"report_unlocked":        "💎 <b>已收到付款</b>\n\n您的 <b>@{username}</b> 报告已解锁：\n<a href=\"{url}\">查看报告</a>",
-		"number_report_unlocked": "💎 <b>已收到付款</b>\n\n您的 <b>{number}</b> 号码估值报告已解锁：\n<a href=\"{url}\">查看报告</a>",
+		"report_unlocked":        "💎 <b>支付已确认</b>\n\n用户名 <b>@{username}</b> 的深度研报已解锁：\n<a href=\"{url}\">查看深度报告</a>",
+		"number_report_unlocked": "💎 <b>支付已确认</b>\n\n号码 <b>{number}</b> 的估值报告已解锁：\n<a href=\"{url}\">查看深度报告</a>",
 		"credit_deduct_failed":   "⚠️ 已收到付款，但在扣除代币时遇到问题。我们的团队正在处理。",
 	},
 	"funnel": map[string]interface{}{
@@ -1551,9 +1550,9 @@ var zhDict = map[string]interface{}{
 		"rem_1h":         "不足 1 小时",
 	},
 	"gamification": map[string]interface{}{
-		"miner_full_title": "🤖 <b>您的挖矿机器人储能已满！</b>",
-		"miner_full_desc":  "您的挖矿机器人已连续运行 12 小时，存储容量已满。请打开小程序领取收益并重新开始挖矿。",
-		"claim_btn":        "🪙 领取挖矿收益",
+		"miner_full_title": "🤖 <b>开采收益待提取！</b>",
+		"miner_full_desc":  "您的挖矿机器人已连续运行 12 小时，存储容量已达上限。请打开小程序提取收益以恢复开采。",
+		"claim_btn":        "🪙 提取开采收益",
 	},
 	"language": map[string]interface{}{
 		"prompt": "请选择您的首选语言：\nPlease select your preferred language:\nلطفاً زبان مورد نظر خود را انتخاب کنید:\nПожалуйста, выберите язык：",
@@ -1594,9 +1593,9 @@ var zhDict = map[string]interface{}{
 		"credit_pack_title":     "╔════ 💳 <b>支付成功：购买情报分析点数包</b> ════╗",
 		"credits_count":         "🔑 <b>点数：</b> <code>{count} Intel Credit</code>",
 		"credit_pack_named":     "🔑 <b>套餐：</b> <code>{name}</code> (<code>{count} Credit</code>)",
-		"user_report_unlocked":  "💎 支付已确认。您的 @{username} 深度估值报告已解锁：\n{url}",
-		"number_unlocked":       "💎 支付已确认。您的 {number} 深度分析报告已解锁：\n{url}",
-		"gift_unlocked":         "💎 支付已确认。您的礼物专属估值报告已解锁：\n{url}",
+		"user_report_unlocked":  "💎 支付已确认。用户名 @{username} 深度研报已解锁：\n{url}",
+		"number_unlocked":       "💎 支付已确认。号码 {number} 深度分析报告已解锁：\n{url}",
+		"gift_unlocked":         "💎 支付已确认。礼物专属估值报告已解锁：\n{url}",
 		"avm_unlocked":          "💎 支付已确认。已为 @{username} 开通 24 小时 AVM 深度估值权限。",
 		"credits_credited":      "💎 支付已确认。已成功充值 {count} 点 Intel Credit 到您的账户。",
 	},
@@ -1609,9 +1608,9 @@ var arDict = map[string]interface{}{
 		"features":              "🛡 <b>إعدادات الأمان والخصوصية</b>\n\n✅ <b>الميزات النشطة الآن:</b>\n\n🚫 الحذف التلقائي للروابط\n🤖 حظر البوتات المزعجة\n🔥 مكافحة السبام الذكية (5 رسائل / 10 ثوانٍ)\n\n🎛 للتخصيص، افتح لوحة التحكم:\n👉 <a href=\"{arg0}\">فتح لوحة التحكم</a>",
 		"combined":              "🎉 <b>شكراً لثقتكم!</b>\n\nمن الآن، الحارس الذكي لمجموعة <b>{group}</b> في خدمتكم.\n\n⚙️ <b>لتفعيل الحماية الكاملة، قم بترقيتي لمشرف بصلاحيات:</b>\n✅ حذف الرسائل  ✅ تقييد الأعضاء  ✅ حظر المستخدمين  ✅ تثبيت الرسائل\n\n🎛 <b>إدارة وتخصيص الإعدادات:</b>\n👉 <a href=\"{url}\">فتح لوحة التحكم</a>\n\n🌟 <i>مدعوم من @iFragmentBot</i>",
 		"welcome_owner":         "🔥 <b>بوابة إدارة iFragment</b>\n\nمرحباً بك مجدداً {arg0}. تحكم بإعدادات النظام وراقب السجلات والحالة المباشرة.\n\n👇 <b>فتح لوحة التحكم:</b>",
-		"welcome_public":        "💎 <b>مرحباً بك في @iFragmentBot</b>\n\nتابع القيمة الحقيقية لأصول تيليجرام؛ <b>ابحث، قيّم وحلل</b> أسماء المستخدمين والأرقام المجهولة والهدايا مباشرة.\n\nطور <b>أمان مجموعاتك</b> و <b>إدارة قنواتك الاحترافية</b> عبر نظامنا الذكي.\n\n👇 <b>افتح تطبيق iFragment المصغر الآن:</b>",
+		"welcome_public":        "💎 <b>مرحباً بك في محطة iFragment لذكاء السوق</b>\n\nتابع القيمة التقديرية لأصول تيليجرام؛ <b>ابحث، قيّم وحلل</b> أسماء المستخدمين والأرقام المجهولة والهدايا بدقة وشفافية.\n\n👇 <b>افتح تطبيق iFragment المصغر الآن:</b>",
 		"welcome_hosted_public": "🛡 <b>مرحباً {arg0}!</b>\n\nأنا بوت إدارة مجموعتك؛ أمان، تنظيم وإدارة احترافية — كل ذلك في مكان واحد.\n\n✨ <b>هذا البوت مستضاف ومدعوم بواسطة @iFragmentBot!</b>\n\nإذا كنت ترغب في إنشاء بوت إدارة خاص بك مع <b>اسم وشعار ونبذة مخصصة</b>، أنشئه الآن 👇",
-		"open_app":              "🚀 فتح تطبيق iFragment 💎",
+		"open_app":              "💎 تشغيل منصة iFragment",
 		"create_bot":            "🤖 إنشاء بوت مخصص لي",
 	},
 	"moderation": map[string]interface{}{

@@ -23,9 +23,13 @@ import (
 	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service"
 	"ifragment-backend/internal/service/gifts"
+	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/notification"
+	"ifragment-backend/internal/service/numbers"
 	"ifragment-backend/internal/service/raffle"
+	"ifragment-backend/internal/service/username/avm"
 	"ifragment-backend/internal/telemetry"
 
 	"github.com/go-chi/chi/v5"
@@ -36,13 +40,18 @@ import (
 var webhookHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 type WebhookHandler struct {
-	db            *repository.Database
-	cache         *repository.Cache
-	botRepo       *repository.BotRepo
-	raffleSvc     *raffle.RaffleService
-	giftsService  *gifts.GiftsService
-	mtprotoClient mtproto.Client
-	webhookInbox  *repository.WebhookInboxRepo
+	db                 *repository.Database
+	cache              *repository.Cache
+	botRepo            *repository.BotRepo
+	raffleSvc          *raffle.RaffleService
+	giftsService       *gifts.GiftsService
+	mtprotoClient      mtproto.Client
+	webhookInbox       *repository.WebhookInboxRepo
+	numbersService     *numbers.NumbersService
+	avmService         *avm.ValuationService
+	intelCreditService *intelcredit.IntelCreditService
+	intelStoreService  *intelcredit.StoreService
+	profileService     *service.ProfileService
 }
 
 func (h *WebhookHandler) SetGiftsService(s *gifts.GiftsService) {
@@ -51,6 +60,22 @@ func (h *WebhookHandler) SetGiftsService(s *gifts.GiftsService) {
 
 func (h *WebhookHandler) SetMTProtoClient(c mtproto.Client) {
 	h.mtprotoClient = c
+}
+
+func (h *WebhookHandler) SetNumbersService(s *numbers.NumbersService) {
+	h.numbersService = s
+}
+
+func (h *WebhookHandler) SetAVMService(s *avm.ValuationService) {
+	h.avmService = s
+}
+
+func (h *WebhookHandler) SetIntelCreditService(s *intelcredit.IntelCreditService) {
+	h.intelCreditService = s
+}
+
+func (h *WebhookHandler) SetProfileService(s *service.ProfileService) {
+	h.profileService = s
 }
 
 func NewWebhookHandler(db *repository.Database, cache *repository.Cache, botRepo *repository.BotRepo, raffleSvc *raffle.RaffleService) *WebhookHandler {
@@ -487,6 +512,42 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				})
 			}
 		}
+	} else if strings.HasPrefix(pay.InvoicePayload, "intel_credits:") {
+		parts := strings.Split(pay.InvoicePayload, ":")
+		if len(parts) >= 3 {
+			packID := parts[1]
+			userID, parseErr := strconv.ParseInt(parts[2], 10, 64)
+			if parseErr == nil && userID > 0 {
+				storeSvc := h.intelStoreService
+				if storeSvc == nil {
+					storeSvc = intelcredit.NewStoreService(h.db)
+				}
+				fulfilled, err := storeSvc.FulfillStarsPurchase(ctx, userID, packID, pay.TelegramPaymentChargeID)
+				if err != nil {
+					slog.Error("Failed to fulfill Intel Credits Stars purchase", "error", err, "user_id", userID, "pack_id", packID)
+				} else if fulfilled {
+					creditsGranted := intelcredit.PackCredits(packID)
+					slog.Info("Successfully granted Intel Credits via Stars", "user_id", userID, "credits", creditsGranted, "pack_id", packID)
+
+					// Update order status if order exists
+					_ = h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
+
+					token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
+					tg := telegram.NewBotAPIClient(token)
+					if tg != nil {
+						userLang, _ := h.db.GetUserLanguage(ctx, userID)
+						lang := i18n.DetectLanguage(userLang)
+						var successText string
+						if lang == "fa" {
+							successText = fmt.Sprintf("✅ <b>خرید بسته کریدت با موفقیت انجام شد!</b>\n\nتعداد <b>%d کریدت تحلیل</b> به حساب شما افزوده شد.\nاکنون می‌توانید گزارش‌های موشکافانه دارایی‌ها را آزاد کنید.", creditsGranted)
+						} else {
+							successText = fmt.Sprintf("✅ <b>Credit Pack Purchase Successful!</b>\n\n<b>%d Intel Credits</b> have been added to your account.\nYou can now unlock deep asset intelligence reports.", creditsGranted)
+						}
+						_ = tg.SendMessage(ctx, userID, successText, nil, nil)
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -587,32 +648,20 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			}
 		}
 
-		userLangFromDB, _ := h.db.GetUserLanguage(ctx, m.From.ID)
-		langCode := m.From.LanguageCode
-		if userLangFromDB != "" {
-			langCode = userLangFromDB
+		// Send Main Interactive Menu
+		firstName := m.From.FirstName
+		if firstName == "" {
+			firstName = m.From.Username
 		}
-		lang := i18n.DetectLanguage(langCode)
-		userName := m.From.FirstName
-
-		welcome := i18n.T(lang, "onboarding.welcome_public", userName)
-
-		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-		tg := telegram.NewBotAPIClient(token)
-
-		btnText := i18n.T(lang, "onboarding.open_app")
-		markup := map[string]interface{}{
-			"inline_keyboard": [][]map[string]interface{}{
-				{
-					{
-						"text": btnText,
-						"url":  targetURL,
-					},
-				},
-			},
+		h.sendMainMenuWithURL(ctx, bot, m.Chat.ID, m.From.ID, firstName, targetURL, nil, m.MessageThreadID)
+	} else if strings.HasPrefix(cmdText, "/menu") {
+		firstName := m.From.FirstName
+		if firstName == "" {
+			firstName = m.From.Username
 		}
-
-		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, welcome, markup, m.MessageThreadID)
+		h.sendMainMenu(ctx, bot, m.Chat.ID, m.From.ID, firstName, nil, m.MessageThreadID)
+	} else if strings.HasPrefix(cmdText, "/profile") {
+		h.sendProfileView(ctx, bot, m.Chat.ID, m.From.ID, nil, m.MessageThreadID)
 	} else if strings.HasPrefix(cmdText, "/language") {
 		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
 		tg := telegram.NewBotAPIClient(token)
@@ -628,30 +677,11 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 					{"text": "🇷🇺 Русский", "callback_data": "lang:ru"},
 					{"text": "🇨🇳 中文", "callback_data": "lang:zh"},
 				},
-				{
-					{"text": "🇸🇦 العربية", "callback_data": "lang:ar"},
-				},
 			},
 		}
 		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID)
 	} else if strings.HasPrefix(m.Text, "/help") || strings.HasPrefix(m.Text, "/commands") {
-		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-		tg := telegram.NewBotAPIClient(token)
-
-		userLangFromDB, _ := h.db.GetUserLanguage(ctx, m.From.ID)
-		langCode := m.From.LanguageCode
-		if userLangFromDB != "" {
-			langCode = userLangFromDB
-		}
-		lang := i18n.DetectLanguage(langCode)
-
-		helpText := i18n.T(lang, "help.admin_help")
-		if lang == "fa" {
-			helpText += "\n\n🎁 <b>دستورات تلگرام گیفت (Day-0):</b>\n• /gift &lt;نام یا شناسه&gt; [شماره] — کارشناسی هوشمند ارزش منصفانه و کمیابی\n• /gifts — نبض زنده بازار گیفت‌ها و حجم نقدینگی\n• ارسال مستقیم لینک <code>t.me/nft/...</code> یا <code>fragment.com/gift/...</code> برای ارزیابی آنی"
-		} else {
-			helpText += "\n\n🎁 <b>Telegram Gifts Commands (Day-0):</b>\n• /gift &lt;name/slug&gt; [num] — 4-Pillar Fair Valuation & Rarity Appraisal\n• /gifts — Telegram Gifts Market Pulse & Macro Stats\n• Send any <code>t.me/nft/...</code> or <code>fragment.com/gift/...</code> link for instant appraisal"
-		}
-		_ = tg.SendMessage(ctx, m.Chat.ID, helpText, &m.MessageID, m.MessageThreadID)
+		h.sendHelpView(ctx, bot, m.Chat.ID, m.From.ID, nil, m.MessageThreadID)
 	} else if strings.HasPrefix(m.Text, "/gift ") || m.Text == "/gift" {
 		h.handleGiftCommand(ctx, bot, m)
 	} else if strings.HasPrefix(m.Text, "/gifts") {
@@ -666,6 +696,15 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			latency = 0
 		}
 		_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("🏓 <b>Pong!</b> Latency: <code>%dms</code>", latency), &m.MessageID, m.MessageThreadID)
+	} else {
+		// Smart Sniffer Fallback for direct text input in private chat
+		sniff := SniffAsset(cmdText)
+		if sniff != nil {
+			h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, sniff.Type, sniff.Entity, nil, m.MessageThreadID)
+		} else {
+			// Not recognized as asset: send helpful guidance with examples
+			h.sendHelpView(ctx, bot, m.Chat.ID, m.From.ID, nil, m.MessageThreadID)
+		}
 	}
 }
 
@@ -688,8 +727,150 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 
 			_ = tg.AnswerCallbackQuery(ctx, cq.ID, msg, false)
 			if cq.Message != nil {
-				_ = tg.DeleteMessage(ctx, cq.Message.Chat.ID, cq.Message.MessageID)
+				// Refresh main menu in the selected language
+				var msgID *int
+				if cq.Message != nil {
+					msgID = &cq.Message.MessageID
+				}
+				firstName := cq.From.FirstName
+				if firstName == "" {
+					firstName = cq.From.Username
+				}
+				h.sendMainMenu(ctx, bot, cq.Message.Chat.ID, cq.From.ID, firstName, msgID, cq.Message.MessageThreadID)
 			}
+		}
+		return
+	}
+
+	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
+	tg := telegram.NewBotAPIClient(token)
+	if tg == nil {
+		return
+	}
+
+	// Always acknowledge callback query to dismiss loading state
+	defer func() {
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "", false)
+	}()
+
+	var msgID *int
+	var chatID int64
+	var threadID *int
+	if cq.Message != nil {
+		msgID = &cq.Message.MessageID
+		chatID = cq.Message.Chat.ID
+		threadID = cq.Message.MessageThreadID
+	} else {
+		chatID = cq.From.ID
+	}
+
+	data := cq.Data
+
+	// 1. Navigation callbacks
+	switch data {
+	case "nav:menu":
+		firstName := cq.From.FirstName
+		if firstName == "" {
+			firstName = cq.From.Username
+		}
+		h.sendMainMenu(ctx, bot, chatID, cq.From.ID, firstName, msgID, threadID)
+		return
+	case "nav:profile":
+		h.sendProfileView(ctx, bot, chatID, cq.From.ID, msgID, threadID)
+		return
+	case "nav:help":
+		h.sendHelpView(ctx, bot, chatID, cq.From.ID, msgID, threadID)
+		return
+	case "nav:asset_username":
+		h.sendAssetPrompt(ctx, bot, chatID, cq.From.ID, "username", msgID, threadID)
+		return
+	case "nav:asset_number":
+		h.sendAssetPrompt(ctx, bot, chatID, cq.From.ID, "number", msgID, threadID)
+		return
+	case "nav:asset_gifts":
+		h.sendAssetPrompt(ctx, bot, chatID, cq.From.ID, "gifts", msgID, threadID)
+		return
+	case "nav:language":
+		msgText := i18n.T("en", "language.prompt")
+		markup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
+					{"text": "🇺🇸 English", "callback_data": "lang:en"},
+					{"text": "🇮🇷 فارسی", "callback_data": "lang:fa"},
+				},
+				{
+					{"text": "🇷🇺 Русский", "callback_data": "lang:ru"},
+					{"text": "🇨🇳 中文", "callback_data": "lang:zh"},
+				},
+				{
+					{"text": "🔙 بازگشت / Back", "callback_data": "nav:menu"},
+				},
+			},
+		}
+		if msgID != nil {
+			_ = tg.EditMessageTextWithMarkup(ctx, chatID, *msgID, msgText, markup)
+		} else {
+			_, _ = tg.SendMessageWithMarkup(ctx, chatID, msgText, markup, threadID)
+		}
+		return
+	}
+
+	// 2. Precheck Gate callback: precheck:<type>:<entity>
+	if strings.HasPrefix(data, "precheck:") {
+		parts := strings.SplitN(data, ":", 3)
+		if len(parts) == 3 {
+			h.sendPreCheckGate(ctx, bot, chatID, cq.From.ID, parts[1], parts[2], msgID, threadID)
+		}
+		return
+	}
+
+	// 3. Unlock & Valuate Report callback: unlock:<type>:<entity>
+	if strings.HasPrefix(data, "unlock:") {
+		parts := strings.SplitN(data, ":", 3)
+		if len(parts) == 3 {
+			h.executeUnlockAndReport(ctx, bot, chatID, cq.From.ID, parts[1], parts[2], msgID, threadID)
+		}
+		return
+	}
+
+	// 4. Exchange Coins callback: exchange:<type>:<entity> or exchange_coins:profile
+	if strings.HasPrefix(data, "exchange:") {
+		parts := strings.SplitN(data, ":", 3)
+		if len(parts) == 3 {
+			h.handleCreditExchange(ctx, bot, chatID, cq.From.ID, parts[1], parts[2], msgID, threadID)
+		}
+		return
+	} else if data == "exchange_coins:profile" {
+		h.handleCreditExchange(ctx, bot, chatID, cq.From.ID, "", "", msgID, threadID)
+		return
+	}
+
+	// 5. Stars Pack Selection callback: stars_pack:<type>:<entity> or buy_credits:profile
+	if strings.HasPrefix(data, "stars_pack:") {
+		parts := strings.SplitN(data, ":", 3)
+		var assetType, entity string
+		if len(parts) == 3 {
+			assetType = parts[1]
+			entity = parts[2]
+		}
+		h.sendStarsPacksList(ctx, bot, chatID, cq.From.ID, assetType, entity, msgID, threadID)
+		return
+	} else if data == "buy_credits:profile" {
+		h.sendStarsPacksList(ctx, bot, chatID, cq.From.ID, "", "", msgID, threadID)
+		return
+	}
+
+	// 6. Buy Pack Invoice callback: buy_pack:<packID>:<type>:<entity>
+	if strings.HasPrefix(data, "buy_pack:") {
+		parts := strings.SplitN(data, ":", 4)
+		if len(parts) >= 2 {
+			packID := parts[1]
+			var assetType, entity string
+			if len(parts) == 4 {
+				assetType = parts[2]
+				entity = parts[3]
+			}
+			h.createAndSendStarsInvoice(ctx, bot, chatID, cq.From.ID, packID, assetType, entity, msgID, threadID)
 		}
 		return
 	}

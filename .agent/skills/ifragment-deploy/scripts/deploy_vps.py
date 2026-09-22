@@ -31,7 +31,7 @@ APP_DIR = "/opt/ifragment"
 COMPOSE_FILE = "docker-compose.prod.yml"
 HEALTH_URL = "https://109-172-94-139.sslip.io/api/v1/healthz/ready"
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 BACKEND_DIR = os.path.join(REPO_ROOT, "backend")
 
 
@@ -107,25 +107,20 @@ def deploy_via_prebuilt(client):
     gz_size = os.path.getsize(local_gz)
     print(f"✅ Gzip compressed to {gz_size / (1024*1024):.1f} MB in {time.time()-t1:.1f}s", flush=True)
 
-    # Upload via SFTP pipelined
-    print("\n🚀 [2/4: Transferring compressed binary to VPS via Pipelined SFTP]...", flush=True)
+    # Upload via SFTP
+    print("\n🚀 [2/4: Transferring compressed binary to VPS via SFTP]...", flush=True)
     t2 = time.time()
     sftp = client.open_sftp()
     remote_gz = f"{APP_DIR}/backend/main.gz"
     
-    with open(local_gz, 'rb') as fl:
-        with sftp.file(remote_gz, "wb") as fr:
-            fr.set_pipelined(True)
-            uploaded = 0
-            while True:
-                chunk = fl.read(256 * 1024)
-                if not chunk:
-                    break
-                fr.write(chunk)
-                uploaded += len(chunk)
-                if uploaded % (4 * 1024 * 1024) < len(chunk) or uploaded == gz_size:
-                    pct = uploaded / gz_size * 100
-                    print(f"  Uploaded {uploaded / (1024*1024):.1f} / {gz_size / (1024*1024):.1f} MB ({pct:.0f}%)", flush=True)
+    last_reported = [0]
+    def sftp_callback(transferred, total):
+        if transferred - last_reported[0] >= 3 * 1024 * 1024 or transferred == total:
+            last_reported[0] = transferred
+            pct = (transferred / total) * 100 if total > 0 else 0
+            print(f"  Uploaded {transferred / (1024*1024):.1f} / {total / (1024*1024):.1f} MB ({pct:.0f}%)", flush=True)
+
+    sftp.put(local_gz, remote_gz, callback=sftp_callback)
     sftp.close()
     print(f"✅ Upload completed in {time.time()-t2:.1f}s!", flush=True)
 
@@ -187,14 +182,31 @@ def main():
     print("🔌 Connecting to server via SSH...")
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    try:
-        client.connect(VPS_HOST, port=VPS_PORT, username=VPS_USER, password=VPS_PASS, timeout=30)
-        transport = client.get_transport()
-        if transport:
-            transport.set_keepalive(10)
-        print("✅ Connected successfully to VPS (with TCP keepalive enabled)!")
-    except Exception as e:
-        print(f"❌ Failed to connect to VPS: {e}")
+    connected = False
+    for attempt in range(1, 4):
+        try:
+            print(f"  Attempt {attempt}/3...")
+            client.connect(
+                VPS_HOST,
+                port=VPS_PORT,
+                username=VPS_USER,
+                password=VPS_PASS,
+                timeout=30,
+                banner_timeout=60,
+                auth_timeout=60
+            )
+            transport = client.get_transport()
+            if transport:
+                transport.set_keepalive(10)
+            print("✅ Connected successfully to VPS (with TCP keepalive enabled)!")
+            connected = True
+            break
+        except Exception as e:
+            print(f"⚠️ Attempt {attempt} failed: {e}")
+            time.sleep(3)
+
+    if not connected:
+        print("❌ Failed to connect to VPS after 3 attempts.")
         sys.exit(1)
 
     try:

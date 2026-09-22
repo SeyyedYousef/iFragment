@@ -710,8 +710,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		BearUSD:  roundPrice(expectedGRAM * 0.88 * gramUsdRate),
 	}
 
-	// 13. Recommendation
-	recommendation := buildGiftRecommendation(expectedGRAM, exitPlanner, craftingEV)
+	// 13. Recommendation (Laya System One Enhanced)
+	recommendation := buildGiftRecommendation(ctx, col.Name, backdropKey, symbolKey, ref.SerialNumber, expectedGRAM, exitPlanner, craftingEV)
 
 	// 14. Deterministic Certificate Hash ID
 	certPayload := fmt.Sprintf("%s:%s:%.2f:%.2f:%.2f", ref.GiftID, ModelVersion, expectedGRAM, lowGRAM, highGRAM)
@@ -765,6 +765,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		"narrative_only":         true, // Sacred Rule 11
 		"signals_count":          42,
 		"comparables":            compSummaries,
+		"recommendation_verdict": recommendation.Verdict,
+		"recommendation_summary": recommendation.SummaryEn,
 	}
 
 	selectedModel := modelKey
@@ -1094,11 +1096,18 @@ func buildTraitDNA(col traits.CollectionMeta, serial int, backdropName string, b
 	return buildTraitDNAWithCertainty(col, serial, col.Name, 0, backdropName, backdropPermille, colors, "Aero Crest", symbolPermille, "exact", "exact")
 }
 
-func buildGiftRecommendation(expectedGRAM float64, exitPlan *venues.ExitPlannerPlan, craftEV *crafting.CraftingEVResult) ValuationActionVerdict {
+var defaultLayaGiftEvaluator = NewLayaGiftEvaluator()
+
+func buildGiftRecommendation(ctx context.Context, modelName, backdrop, symbol string, serial int, expectedGRAM float64, exitPlan *venues.ExitPlannerPlan, craftEV *crafting.CraftingEVResult) ValuationActionVerdict {
 	verdict := "HOLD"
 	conf := "Strong Scarcity Hold"
 	sumEn := "Deflationary tokenomics and high trait rarity make holding optimal for medium-term yield."
 	sumFa := "به دلیل کمیابی بالای صفات و عرضه محدود، نگهداری دارایی برای رشد ارزش میان‌مدت پیشنهاد می‌شود."
+
+	var layaRes *LayaGiftResult
+	if defaultLayaGiftEvaluator != nil {
+		layaRes = defaultLayaGiftEvaluator.EvaluateGift(ctx, modelName, backdrop, symbol, serial)
+	}
 
 	if craftEV != nil && craftEV.Recommendation == "YES" {
 		verdict = "CRAFT_FORGE"
@@ -1110,6 +1119,11 @@ func buildGiftRecommendation(expectedGRAM float64, exitPlan *venues.ExitPlannerP
 		conf = "Arbitrage Peak"
 		sumEn = fmt.Sprintf("Sell on %s to capture %.1f%% cross-market arbitrage premium after all venue fees.", exitPlan.BestVenueName, exitPlan.ArbitrageSpread)
 		sumFa = fmt.Sprintf("فروش در %s برای دریافت %.1f٪ پرمیوم خالص آربیتراژ پس از کسر کارمزد پیشنهاد می‌شود.", exitPlan.BestVenueName, exitPlan.ArbitrageSpread)
+	} else if layaRes != nil && layaRes.ActionRecommendation != "" {
+		verdict = layaRes.ActionRecommendation
+		conf = "Laya AI Calibrated"
+		sumEn = layaRes.VerdictSummaryEn
+		sumFa = layaRes.VerdictSummaryFa
 	}
 
 	bestVenue := "fragment"

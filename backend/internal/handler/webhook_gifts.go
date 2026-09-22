@@ -237,10 +237,10 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 				results = append(results, telegram.InlineQueryResultArticle{
 					Type:        "article",
 					ID:          fmt.Sprintf("col_%s", item.ModelID),
-					Title:       fmt.Sprintf("💎 کالکشن %s", item.Name),
+					Title:       fmt.Sprintf("💎 مجموعه %s", item.Name),
 					Description: fmt.Sprintf("کف قیمت: %.1f TON ($%.0f) | عرضه: %d", item.BestFloorGRAM, item.BestFloorUSD, item.TotalSupply),
 					InputMessageContent: map[string]interface{}{
-						"message_text": fmt.Sprintf("💎 <b>کالکشن گیفت %s</b>\n🌊 کف قیمت: <code>%.1f TON</code> ($%.0f)\n📦 کل عرضه: <code>%s</code>\n\n⚡ <a href=\"%s?startapp=gift_%s-1\">مشاهده گزارش تحلیلی در iFragment</a>",
+						"message_text": fmt.Sprintf("💎 <b>مجموعه گیفت %s</b>\n🌊 کف قیمت: <code>%.1f TON</code> ($%.0f)\n📦 کل عرضه: <code>%s</code>\n\n⚡ <a href=\"%s?startapp=gift_%s-1\">مشاهده گزارش تحلیلی در iFragment</a>",
 							item.Name, item.BestFloorGRAM, item.BestFloorUSD, formatNumberWithCommas(item.TotalSupply), miniAppURL, item.ModelID),
 						"parse_mode": "HTML",
 					},
@@ -294,8 +294,8 @@ func (h *WebhookHandler) formatGiftAppraisalMessage(val *gvengine.GiftValuation,
 	}
 
 	sb.WriteString("\n━━━━━━━━━━━━━━━━━━━━\n")
-	sb.WriteString("🎯 <b>ارزیابی ۴ پایه ریاضی (4-Pillar Valuation):</b>\n")
-	sb.WriteString(fmt.Sprintf("• <b>ارزش منصفانه (Fair Value):</b> <code>%.2f TON</code> (~$%.2f)\n", fairTON, val.ExpectedUSD))
+	sb.WriteString("🎯 <b>برآورد ارزش ۴ پایه‌ای (4-Pillar Valuation):</b>\n")
+	sb.WriteString(fmt.Sprintf("• <b>برآورد ارزش تحلیلی (Fair Value):</b> <code>%.2f TON</code> (~$%.2f)\n", fairTON, val.ExpectedUSD))
 	if floorTON > 0 {
 		sb.WriteString(fmt.Sprintf("• <b>کف قیمت مشاهده‌شده:</b> <code>%.2f TON</code>\n", floorTON))
 	}
@@ -348,7 +348,7 @@ func (h *WebhookHandler) formatGiftAppraisalMessage(val *gvengine.GiftValuation,
 		sb.WriteString(fmt.Sprintf("🔢 <b>گرانش سریال:</b> %s (ضریب: <code>%.2fx</code>)\n", snTier, snMult))
 	}
 
-	sb.WriteString("\n⚡ <i>محاسبه شده با متدولوژی روز صفر، بدون داده‌های ساختگی</i>")
+	sb.WriteString("\n⚡ <i>برآورد تحلیلی بر پایه داده‌های ثبت‌شده بازار</i>")
 
 	pascal := telegramnft.FormatPascalName(val.ModelID)
 	fragmentURL := fmt.Sprintf("https://fragment.com/gift/%s-%d", pascal, val.SerialNumber)
@@ -357,7 +357,7 @@ func (h *WebhookHandler) formatGiftAppraisalMessage(val *gvengine.GiftValuation,
 	markup := map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
 			{
-				{"text": "📊 مشاهده کارت سه‌بعدی و تحلیل کامل", "url": appGiftURL},
+				{"text": "📊 مشاهده گزارش کامل در مینی‌اپ", "url": appGiftURL},
 			},
 			{
 				{"text": "💎 مشاهده در فرگمنت", "url": fragmentURL},
