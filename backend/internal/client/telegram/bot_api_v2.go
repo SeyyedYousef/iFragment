@@ -102,6 +102,30 @@ func (c *BotAPIClient) SendMessageDraft(ctx context.Context, chatID int64, text 
 	return err
 }
 
+// SendRichMessageWithMarkup sends a rich message along with an inline keyboard or reply markup.
+// If threadID is non-nil, it will be directed to that topic/thread.
+func (c *BotAPIClient) SendRichMessageWithMarkup(ctx context.Context, chatID int64, richMessage map[string]interface{}, markup interface{}, threadID *int) (*EphemeralMessageResult, error) {
+	payload := map[string]interface{}{
+		"chat_id":      chatID,
+		"rich_message": richMessage,
+	}
+	if !IsNil(markup) {
+		payload["reply_markup"] = markup
+	}
+	if threadID != nil {
+		payload["message_thread_id"] = *threadID
+	}
+	raw, err := c.Request(ctx, "sendRichMessage", payload)
+	if err != nil {
+		return nil, err
+	}
+	var msg EphemeralMessageResult
+	if err := json.Unmarshal(raw, &msg); err != nil {
+		return nil, fmt.Errorf("failed to parse rich message result: %w", err)
+	}
+	return &msg, nil
+}
+
 // EditRichMessage edits an existing message's content into / as a rich
 // message (rich_message parameter of editMessageText).
 func (c *BotAPIClient) EditRichMessage(ctx context.Context, chatID interface{}, messageID int, richMessage map[string]interface{}) error {
@@ -109,6 +133,21 @@ func (c *BotAPIClient) EditRichMessage(ctx context.Context, chatID interface{}, 
 		"chat_id":      chatID,
 		"message_id":   messageID,
 		"rich_message": richMessage,
+	}
+	_, err := c.Request(ctx, "editMessageText", payload)
+	return err
+}
+
+// EditRichMessageWithMarkup edits an existing message's content into / as a rich message
+// and updates its reply markup.
+func (c *BotAPIClient) EditRichMessageWithMarkup(ctx context.Context, chatID interface{}, messageID int, richMessage map[string]interface{}, markup interface{}) error {
+	payload := map[string]interface{}{
+		"chat_id":      chatID,
+		"message_id":   messageID,
+		"rich_message": richMessage,
+	}
+	if !IsNil(markup) {
+		payload["reply_markup"] = markup
 	}
 	_, err := c.Request(ctx, "editMessageText", payload)
 	return err

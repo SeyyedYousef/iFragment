@@ -13,6 +13,8 @@ import (
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/numbers/features"
+	"ifragment-backend/internal/service/numbers/nvengine"
+	"ifragment-backend/internal/service/username/avm"
 )
 
 // SmartSniffResult holds the recognized asset type and normalized query.
@@ -810,99 +812,55 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 // renderUsernameReport produces rich analytical valuation of a username
 func (h *WebhookHandler) renderUsernameReport(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, _ int64, username string, miniAppURL string, _ string, messageID *int, threadID *int) {
 	normUser := strings.TrimPrefix(strings.ToLower(username), "@")
-
-	var reportText string
 	appURL := fmt.Sprintf("%s?startapp=val_%s", miniAppURL, normUser)
 
+	var res *avm.ValuationResult
 	var tier string = "STANDARD"
 	var expectedTONStr string = "0.0"
 	var expectedUSDStr string = "0"
+	var brandability int = 50
 
 	if h.avmService != nil {
-		res, err := h.avmService.Valuate(ctx, normUser, 0)
-		if err == nil && res != nil {
-			var gradeEmoji string
+		if valRes, err := h.avmService.Valuate(ctx, normUser, 0); err == nil && valRes != nil {
+			res = valRes
 			tier = res.InvestmentGrade
 			expectedTONStr = res.ExpectedTON.StringFixed(1)
 			expectedUSDStr = res.ExpectedUSD.StringFixed(0)
-
-			switch res.InvestmentGrade {
-			case "AAA", "AA":
-				gradeEmoji = "💎"
-			case "A", "BBB":
-				gradeEmoji = "⭐"
-			default:
-				gradeEmoji = "📊"
-			}
-
-			reportText = fmt.Sprintf(`🏷️ <b>کارشناسی تحلیلی نام کاربری: @%s</b>
-
-%s درجه سرمایه‌گذاری: <b>%s</b>
-📈 شاخص برندپذیری: <b>%d / 100</b>
-📉 بازه برآورد ارزش: <b>%s الی %s TON</b>
-💰 میانگین برآورد منصفانه: <b>~%s TON (معادل $%s)</b>
-
-━━━━━━━━━━━━━━━━━━━
-🧬 <b>ویژگی‌های ساختاری:</b>
-• طول شناسه: <b>%d کاراکتر</b>
-• رتبه نقدشوندگی: <b>%s</b>
-• افق زمانی فروش: <b>%s</b>
-• مخاطب هدف: <b>%s</b>
-━━━━━━━━━━━━━━━━━━━
-
-⚡ <i>برآورد تحلیلی موتور هوشمند AVM بر پایه سیگنال‌های معاملات فرگمنت</i>`,
-				normUser,
-				gradeEmoji, res.InvestmentGrade,
-				res.Brandability,
-				res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
-				res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0),
-				res.Length,
-				res.LiquidityRating,
-				res.EstimatedSellTime,
-				res.TargetBuyerProfile,
-			)
+			brandability = res.Brandability
 		}
 	}
 
-	if reportText == "" {
-		reportText = fmt.Sprintf(`🏷️ <b>کارشناسی نام کاربری: @%s</b>
+	richHTML := buildUsernameRichHTML(normUser, res)
+	standardHTML := buildUsernameStandardHTML(normUser, res)
+	copySummary := buildCopySummary("🏷️", "@"+normUser, expectedTONStr, expectedUSDStr, fmt.Sprintf("درجه: %s | برندپذیری: %d/100", tier, brandability))
+	markup := buildUsernameMarkup(normUser, appURL, copySummary)
 
-گزارش کامل شاخص‌های برندپذیری، تحلیل تقاضا و ارزش‌گذاری این نام کاربری هم‌اکنون آماده مشاهده در وب‌اپلیکیشن است.`, normUser)
-	}
-
-	markup := map[string]interface{}{
-		"inline_keyboard": [][]map[string]interface{}{
-			{
-				{"text": "📊 مشاهده تحلیل جامع در مینی‌اپ", "url": appURL},
-			},
-			{
-				{"text": "🌐 مشاهده در فرگمنت", "url": fmt.Sprintf("https://fragment.com/username/%s", normUser)},
-			},
-			{
-				{"text": "🔙 بازگشت به منو", "callback_data": "nav:menu"},
-			},
-		},
-	}
-
-	// Visual Card Generation & Delivery
+	// Hybrid Visual Card + Rich Message Delivery
 	if h.cardGen != nil && tg != nil {
 		if pngBytes, err := h.cardGen.GenerateUsernameCard(normUser, tier, expectedTONStr, expectedUSDStr); err == nil {
 			if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
 				publicURL := h.cardGen.GetPublicCardURL(fileID, nil)
+				photoCaption := fmt.Sprintf("🏷️ <b>کارت تحلیلی: @%s</b>\n💰 برآورد منصفانه: <b>~%s TON ($%s)</b>\n💎 درجه سرمایه‌گذاری: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, tier)
 				if messageID != nil {
 					_ = tg.DeleteMessage(ctx, chatID, *messageID)
 				}
-				if _, err := tg.SendPhotoWithMarkup(ctx, chatID, publicURL, reportText, markup); err == nil {
-					return
+				_, _ = tg.SendPhoto(ctx, chatID, publicURL, photoCaption)
+				if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err != nil {
+					_, _ = tg.SendMessageWithMarkup(ctx, chatID, standardHTML, markup, threadID)
 				}
+				return
 			}
 		}
 	}
 
 	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, reportText, markup)
+		if err := tg.EditRichMessageWithMarkup(ctx, chatID, *messageID, map[string]interface{}{"html": richHTML}, markup); err != nil {
+			_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, standardHTML, markup)
+		}
 	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, reportText, markup, threadID)
+		if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err != nil {
+			_, _ = tg.SendMessageWithMarkup(ctx, chatID, standardHTML, markup, threadID)
+		}
 	}
 }
 
@@ -910,18 +868,19 @@ func (h *WebhookHandler) renderUsernameReport(ctx context.Context, tg *telegram.
 func (h *WebhookHandler) renderNumberReport(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, userID int64, number string, miniAppURL string, _ string, messageID *int, threadID *int) {
 	cleanNum := features.CleanNumber(number)
 	displayNum := number
-	var reportText string
 	appURL := fmt.Sprintf("%s?startapp=num_%s", miniAppURL, cleanNum)
 
 	var club string = "کلکسیونی"
 	var globalRank int = 0
 	var tonStr string = "0.0"
 	var usdStr string = "0"
+	var val *nvengine.NumberValuation
 
 	if h.numbersService != nil {
-		val, err := h.numbersService.ValuateNumber(ctx, userID, number)
-		if err == nil && val != nil {
+		if v, err := h.numbersService.ValuateNumber(ctx, userID, number); err == nil && v != nil {
+			val = v
 			displayNum = val.DisplayNumber
+			cleanNum = features.CleanNumber(val.DisplayNumber)
 			club = val.CategoryClubFa
 			if club == "" {
 				club = val.CategoryClub
@@ -929,75 +888,40 @@ func (h *WebhookHandler) renderNumberReport(ctx context.Context, tg *telegram.Bo
 			globalRank = val.GlobalRank
 			tonStr = val.ExpectedTON.StringFixed(1)
 			usdStr = fmt.Sprintf("%.0f", val.ExpectedUSD)
-
-			reportText = fmt.Sprintf(`📱 <b>کارشناسی تحلیلی شماره کلکسیونی: %s</b>
-
-👑 کلوپ دسته‌بندی: <b>%s</b>
-🏆 رتبه کمیابی در شبکه: <b>#%d از ۱۳۶,۵۶۶</b>
-🎯 شاخص اطمینان مدل: <b>%d%%</b>
-
-━━━━━━━━━━━━━━━━━━━
-💰 <b>برآورد ارزش بازار:</b>
-• ارزش پایه: <b>%s TON</b>
-• کف نقدشوندگی: <b>%s TON (~$%.0f)</b>
-• قیمت منصفانه (Fair): <b>%s TON (~$%.0f)</b>
-• سقف ارزش احتمالی: <b>%s TON (~$%.0f)</b>
-━━━━━━━━━━━━━━━━━━━
-
-🎨 رنگ رسمی فرگمنت: <b>%s</b>
-⚡ <i>ارزیابی دقیق موتور NV Engine بر اساس متدولوژی ثبت‌شده در شبکه TON</i>`,
-				val.DisplayNumber,
-				val.CategoryClubFa,
-				val.GlobalRank,
-				val.ConfidenceScore,
-				val.BasePriceTON.StringFixed(1),
-				val.LowTON.StringFixed(1), val.LowUSD,
-				val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
-				val.HighTON.StringFixed(1), val.HighUSD,
-				val.Color.Name,
-			)
 		}
 	}
 
-	if reportText == "" {
-		reportText = fmt.Sprintf(`📱 <b>کارشناسی شماره ناشناس: %s</b>
+	richHTML := buildNumberRichHTML(val)
+	standardHTML := buildNumberStandardHTML(val, displayNum)
+	copySummary := buildCopySummary("📱", displayNum, tonStr, usdStr, fmt.Sprintf("کلوپ: %s | رتبه: #%d", club, globalRank))
+	markup := buildNumberMarkup(cleanNum, displayNum, appURL, copySummary)
 
-گزارش کامل گرانش الگو، دسته‌بندی کلکسیونی و تحلیل نقدشوندگی هم‌اکنون در دسترس است.`, displayNum)
-	}
-
-	markup := map[string]interface{}{
-		"inline_keyboard": [][]map[string]interface{}{
-			{
-				{"text": "📊 مشاهده تحلیل جامع در مینی‌اپ", "url": appURL},
-			},
-			{
-				{"text": "🌐 مشاهده در فرگمنت", "url": fmt.Sprintf("https://fragment.com/number/%s", cleanNum)},
-			},
-			{
-				{"text": "🔙 بازگشت به منو", "callback_data": "nav:menu"},
-			},
-		},
-	}
-
-	// Visual Card Generation & Delivery
+	// Hybrid Visual Card + Rich Message Delivery
 	if h.cardGen != nil && tg != nil {
 		if pngBytes, err := h.cardGen.GenerateNumberCard(displayNum, club, globalRank, tonStr, usdStr); err == nil {
 			if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
 				publicURL := h.cardGen.GetPublicCardURL(fileID, nil)
+				photoCaption := fmt.Sprintf("📱 <b>کارت تحلیلی شماره: %s</b>\n👑 کلوپ: <b>%s</b> (#%d)\n💰 ارزش منصفانه: <b>~%s TON ($%s)</b>", displayNum, club, globalRank, tonStr, usdStr)
 				if messageID != nil {
 					_ = tg.DeleteMessage(ctx, chatID, *messageID)
 				}
-				if _, err := tg.SendPhotoWithMarkup(ctx, chatID, publicURL, reportText, markup); err == nil {
-					return
+				_, _ = tg.SendPhoto(ctx, chatID, publicURL, photoCaption)
+				if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err != nil {
+					_, _ = tg.SendMessageWithMarkup(ctx, chatID, standardHTML, markup, threadID)
 				}
+				return
 			}
 		}
 	}
 
 	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, reportText, markup)
+		if err := tg.EditRichMessageWithMarkup(ctx, chatID, *messageID, map[string]interface{}{"html": richHTML}, markup); err != nil {
+			_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, standardHTML, markup)
+		}
 	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, reportText, markup, threadID)
+		if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err != nil {
+			_, _ = tg.SendMessageWithMarkup(ctx, chatID, standardHTML, markup, threadID)
+		}
 	}
 }
 
@@ -1006,36 +930,48 @@ func (h *WebhookHandler) renderGiftReport(ctx context.Context, tg *telegram.BotA
 	if h.giftsService != nil {
 		appraisal, err := h.giftsService.GetBotGiftAppraisal(ctx, giftSlug)
 		if err == nil && appraisal != nil {
-			text, markup := h.formatGiftAppraisalMessage(appraisal, miniAppURL)
+			richHTML := buildGiftRichHTML(appraisal)
+			standardText, _ := h.formatGiftAppraisalMessage(appraisal, miniAppURL)
 
-			// Visual Card Generation & Delivery
+			tonStr := fmt.Sprintf("%.1f", appraisal.Pillars.FairValueGRAM)
+			usdStr := fmt.Sprintf("%.0f", appraisal.ExpectedUSD)
+			rarityTier := appraisal.JointRarity.DescriptionFa
+			if rarityTier == "" {
+				rarityTier = appraisal.JointRarity.RarityClass
+			}
+			if rarityTier == "" {
+				rarityTier = "کلکسیونی"
+			}
+
+			copySummary := buildCopySummary("🎁", appraisal.DisplayTitle, tonStr, usdStr, fmt.Sprintf("رده: %s | سریال: #%d", rarityTier, appraisal.SerialNumber))
+			markup := buildGiftMarkup(appraisal, miniAppURL, copySummary)
+
+			// Hybrid Visual Card + Rich Message Delivery
 			if h.cardGen != nil && tg != nil {
-				tonStr := fmt.Sprintf("%.1f", appraisal.Pillars.FairValueGRAM)
-				usdStr := fmt.Sprintf("%.0f", appraisal.ExpectedUSD)
-				rarityTier := appraisal.JointRarity.DescriptionFa
-				if rarityTier == "" {
-					rarityTier = appraisal.JointRarity.RarityClass
-				}
-				if rarityTier == "" {
-					rarityTier = "کلکسیونی"
-				}
 				if pngBytes, err := h.cardGen.GenerateGiftCard(appraisal.DisplayTitle, appraisal.GiftID, appraisal.SerialNumber, rarityTier, tonStr, usdStr); err == nil {
 					if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
 						publicURL := h.cardGen.GetPublicCardURL(fileID, nil)
+						photoCaption := fmt.Sprintf("🎁 <b>کارت تحلیلی: %s</b>\n💎 رده: <b>%s</b>\n💰 برآورد منصفانه: <b>~%s TON ($%s)</b>", appraisal.DisplayTitle, rarityTier, tonStr, usdStr)
 						if messageID != nil {
 							_ = tg.DeleteMessage(ctx, chatID, *messageID)
 						}
-						if _, err := tg.SendPhotoWithMarkup(ctx, chatID, publicURL, text, markup); err == nil {
-							return
+						_, _ = tg.SendPhoto(ctx, chatID, publicURL, photoCaption)
+						if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err != nil {
+							_, _ = tg.SendMessageWithMarkup(ctx, chatID, standardText, markup, threadID)
 						}
+						return
 					}
 				}
 			}
 
 			if messageID != nil {
-				_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, text, markup)
+				if err := tg.EditRichMessageWithMarkup(ctx, chatID, *messageID, map[string]interface{}{"html": richHTML}, markup); err != nil {
+					_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, standardText, markup)
+				}
 			} else {
-				_, _ = tg.SendMessageWithMarkup(ctx, chatID, text, markup, threadID)
+				if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err != nil {
+					_, _ = tg.SendMessageWithMarkup(ctx, chatID, standardText, markup, threadID)
+				}
 			}
 			return
 		}

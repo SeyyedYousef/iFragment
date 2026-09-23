@@ -1,5 +1,5 @@
 import { type Component } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, USERNAME_I18N } from '@/shared/i18n/laya-i18n.js';
 
 export interface LayaUsernameDecision {
 	total_score?: number;
@@ -60,14 +60,14 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 	const auctionTactics = () => {
 		if (props.decision?.auction_tactics) return props.decision.auction_tactics;
 		const b = biddingWarPotential();
-		if (b >= 80) return 'حراج با قیمت پایه رقابتی جهت شعله‌ور کردن جنگ بیدها (High Bidding War)';
-		if (b >= 60) return 'فروش مستقیم فوری با قیمت سقف منطقی (Fixed Buy-Now Target)';
-		return 'مزایده استاندارد با رزرو مشخص (Standard Reserve Auction)';
+		if (b >= 80) return layaT(USERNAME_I18N.auctionTacticsAggressive);
+		if (b >= 60) return layaT(USERNAME_I18N.auctionTacticsBuyNow);
+		return layaT(USERNAME_I18N.auctionTacticsStandard);
 	};
 
 	const culturalResonance = () => {
 		if (props.decision?.cultural_resonance) return props.decision.cultural_resonance;
-		return 'Universal / Web3 High Alignment';
+		return layaT(USERNAME_I18N.universalWeb3);
 	};
 
 	return (
@@ -83,15 +83,15 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h4 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl() ? 'کارت ارزیابی چندبعدی لایا (LAYA System 1)' : 'LAYA MULTI-DIMENSIONAL CARD'}
+							{layaT(USERNAME_I18N.cardTitle)}
 						</h4>
 						<span class="text-[9px] font-mono text-[#0098EA] font-semibold">
-							{isRtl() ? 'مدل تصمیم‌گیری عصبی مدرن‌برت / mmBERT' : 'ModernBERT Real-time Decision Matrix'}
+							{layaT(USERNAME_I18N.cardSubtitle)}
 						</span>
 					</div>
 				</div>
 				<span class="text-[9px] font-mono font-black uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-[8px] shadow-sm">
-					{isRtl() ? 'ارزیابی فعال' : 'LIVE AUDIT'}
+					{layaT(USERNAME_I18N.liveAuditBadge)}
 				</span>
 			</div>
 
@@ -101,7 +101,7 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 				<div class="bg-[#08090D] border border-white/5 rounded-[20px] p-3.5 flex flex-col justify-between gap-2 shadow-inner">
 					<div class="flex items-center justify-between">
 						<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-							{isRtl() ? 'روانی تلفظ و ریتم' : 'PHONETIC RHYTHM'}
+							{layaT(USERNAME_I18N.phoneticTitle)}
 						</span>
 						<span class="material-symbols-outlined text-[15px] text-[#0098EA]">record_voice_over</span>
 					</div>
@@ -120,12 +120,10 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 					</div>
 					<span class="text-[9px] text-white/40 font-mono">
 						{phoneticScore() >= 8
-							? isRtl()
-								? 'تلفظ آسان و ارگونومی تایپ عالی'
-								: 'Ultra Fluid Pronunciation'
-							: isRtl()
-								? 'خوانش متوسط'
-								: 'Standard Cadence'}
+							? layaT(USERNAME_I18N.phoneticTopTier)
+							: phoneticScore() >= 6
+								? layaT(USERNAME_I18N.phoneticFluent)
+								: layaT(USERNAME_I18N.phoneticStandard)}
 					</span>
 				</div>
 
@@ -133,7 +131,7 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 				<div class="bg-[#08090D] border border-white/5 rounded-[20px] p-3.5 flex flex-col justify-between gap-2 shadow-inner">
 					<div class="flex items-center justify-between">
 						<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-							{isRtl() ? 'تمایل سرمایه‌گذاری تجاری' : 'COMMERCIAL INTENT'}
+							{layaT(USERNAME_I18N.commercialIntentTitle)}
 						</span>
 						<span class="material-symbols-outlined text-[15px] text-emerald-400">trending_up</span>
 					</div>
@@ -154,12 +152,10 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 					</div>
 					<span class="text-[9px] text-white/40 font-mono">
 						{commercialIntent() >= 75
-							? isRtl()
-								? 'جذابیت بالا برای اسپانسرها و شرکت‌ها'
-								: 'High Corporate Acquisition'
-							: isRtl()
-								? 'تقاضای معتدل'
-								: 'Moderate Entity Fit'}
+							? layaT(USERNAME_I18N.commercialIntentHigh)
+							: commercialIntent() >= 50
+								? layaT(USERNAME_I18N.commercialIntentMedium)
+								: layaT(USERNAME_I18N.commercialIntentPersonal)}
 					</span>
 				</div>
 
@@ -167,7 +163,7 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 				<div class="bg-[#08090D] border border-white/5 rounded-[20px] p-3.5 flex flex-col justify-between gap-2 shadow-inner">
 					<div class="flex items-center justify-between">
 						<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-							{isRtl() ? 'پتانسیل جنگ بیدها' : 'BIDDING WAR INDEX'}
+							{layaT(USERNAME_I18N.biddingWarTitle)}
 						</span>
 						<span class="material-symbols-outlined text-[15px] text-amber-400">
 							local_fire_department
@@ -190,12 +186,10 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 					</div>
 					<span class="text-[9px] text-white/40 font-mono">
 						{biddingWarPotential() >= 75
-							? isRtl()
-								? 'احتمال بالای رقابت چند خریدار همزمان'
-								: 'Multi-Bidder Auction Friction'
-							: isRtl()
-								? 'حراج با بیدهای منفرد'
-								: 'Single-Bidder Clearance'}
+							? layaT(USERNAME_I18N.biddingWarExtreme)
+							: biddingWarPotential() >= 50
+								? layaT(USERNAME_I18N.biddingWarModerate)
+								: layaT(USERNAME_I18N.biddingWarOrderly)}
 					</span>
 				</div>
 			</div>
@@ -205,7 +199,7 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 				<div class="flex items-center justify-between">
 					<span class="text-[10px] font-mono font-black text-[#0098EA] uppercase tracking-wider flex items-center gap-1.5">
 						<span class="material-symbols-outlined text-[15px]">strategy</span>
-						{isRtl() ? 'استراتژی و رزونانس فرهنگی لایا:' : 'Laya Tactics & Cultural Alignment:'}
+						{layaT(USERNAME_I18N.auctionTacticsTitle)}:
 					</span>
 					<span class="text-[9px] font-mono text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded">
 						{culturalResonance()}

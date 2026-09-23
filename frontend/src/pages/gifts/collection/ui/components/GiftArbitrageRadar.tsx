@@ -1,5 +1,5 @@
 import { type Component, createMemo, For, Show } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, GIFTS_I18N } from '@/shared/i18n/laya-i18n.js';
 import type { MarketVenueFloor, CrossMarketArbitrage } from '@/entities/gifts/model/types.js';
 
 interface Props {
@@ -150,12 +150,10 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h3 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl() ? 'رادار آربیتراژ بین‌مارکت و فیلتر واش‌ترید LAYA' : 'CROSS-MARKET ARBITRAGE & WASH-TRADE RADAR'}
+							{layaT(GIFTS_I18N.arbitrageRadarTitle)}
 						</h3>
 						<span class="text-[9px] font-mono text-white/40">
-							{isRtl()
-								? 'کشف اختلاف قیمت زنده میان فرگمنت، گت‌جمز و پورتالز با حذف معاملات صوری'
-								: 'Real-time multi-venue price spreads with algorithmic circular wash-trade anomaly detection'}
+							{layaT(GIFTS_I18N.arbitrageRadarSubtitle)}
 						</span>
 					</div>
 				</div>
@@ -171,33 +169,23 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 						<div class="flex items-center gap-2">
 							<span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
 							<span class="text-[10px] font-mono font-black text-cyan-300 uppercase tracking-wider">
-								{isRtl() ? 'فرصت سود بدون ریسک کشف شد' : 'ACTIVE ARBITRAGE SPREAD DETECTED'}
+								{layaT(GIFTS_I18N.spreadDetected)}
 							</span>
 							<span class="text-[9px] font-mono font-bold text-white/70 bg-white/10 px-2 py-0.5 rounded">
 								+{rawSpreadPct()}% Gross Spread
 							</span>
 						</div>
 						<div class="text-[11px] text-white/80 font-mono">
-							{isRtl() ? (
-								<>
-									خرید از <span class="text-cyan-400 font-bold">{cheapestVenue()?.name}</span> ({fmt(cheapestVenue()!.floorTon)} TON)
-									{' ➔ '}
-									فروش در <span class="text-emerald-400 font-bold">{expensiveVenue()?.name}</span> ({fmt(expensiveVenue()!.floorTon)} TON)
-								</>
-							) : (
-								<>
-									Buy on <span class="text-cyan-400 font-bold">{cheapestVenue()?.name}</span> ({fmt(cheapestVenue()!.floorTon)} TON)
-									{' ➔ '}
-									Sell on <span class="text-emerald-400 font-bold">{expensiveVenue()?.name}</span> ({fmt(expensiveVenue()!.floorTon)} TON)
-								</>
-							)}
+							{layaT(GIFTS_I18N.buyOn)} <span class="text-cyan-400 font-bold">{cheapestVenue()?.name}</span> ({fmt(cheapestVenue()!.floorTon)} TON)
+							{' ➔ '}
+							{layaT(GIFTS_I18N.sellOn)} <span class="text-emerald-400 font-bold">{expensiveVenue()?.name}</span> ({fmt(expensiveVenue()!.floorTon)} TON)
 						</div>
 					</div>
 
 					<div class="flex items-center gap-3 bg-[#050B11] border border-cyan-500/20 px-3.5 py-2 rounded-[16px] shrink-0">
 						<div class="flex flex-col text-end">
 							<span class="text-[8px] font-mono text-white/40 uppercase">
-								{isRtl() ? 'سود خالص نهایی' : 'NET ROI AFTER FEES'}
+								{layaT(GIFTS_I18N.netRoi)}
 							</span>
 							<div class="flex items-baseline gap-1 font-mono">
 								<span class="text-[16px] font-black text-cyan-400">+{fmt(netArbitrage().netTon)}</span>
@@ -213,27 +201,27 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 			<div class="grid grid-cols-2 gap-2.5">
 				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-1">
 					<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
-						{isRtl() ? 'کف قیمت ارگانیک تاییدشده LAYA' : 'LAYA ORGANIC VERIFIED FLOOR'}
+						{layaT(GIFTS_I18N.organicFloor)}
 					</span>
 					<div class="flex items-baseline gap-1.5 font-mono">
 						<span class="text-[18px] font-black text-emerald-400">{fmt(organicFloorTon())}</span>
 						<span class="text-[11px] font-bold text-emerald-400">TON</span>
 					</div>
 					<span class="text-[9px] font-mono text-white/40">
-						{isRtl() ? 'حذف سفارشات ساختگی و مارکت‌میکرهای فیک' : 'Excludes simulated wash-trading volume'}
+						{layaT(GIFTS_I18N.organicFloorSubtitle)}
 					</span>
 				</div>
 
 				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-1">
 					<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
-						{isRtl() ? 'شاخص سلامت معاملاتی کالکشن' : 'ORGANIC HEALTH INDEX'}
+						{layaT(GIFTS_I18N.healthIndexTitle)}
 					</span>
 					<div class="flex items-baseline gap-1.5 font-mono">
 						<span class="text-[18px] font-black text-white">88/100</span>
 						<span class="text-[10px] font-bold text-emerald-400">LOW MANIPULATION</span>
 					</div>
 					<span class="text-[9px] font-mono text-white/40">
-						{isRtl() ? 'کمتر از ۱۲٪ حجم مشکوک به چرخش والت' : '<12% circular transfer anomalies'}
+						{layaT(GIFTS_I18N.healthIndexSubtitle)}
 					</span>
 				</div>
 			</div>
@@ -241,7 +229,7 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 			{/* Multi-Venue Price & Liquidity Table */}
 			<div class="flex flex-col gap-2">
 				<span class="text-[10px] font-mono font-black text-white/50 uppercase tracking-wider">
-					{isRtl() ? 'جدول مقایسه نقدینگی و کارمزد مارکت‌پلیس‌ها' : 'MARKETPLACE LIQUIDITY & FEE BREAKDOWN'}
+					{layaT(GIFTS_I18N.marketplaceBreakdown)}
 				</span>
 
 				<div class="flex flex-col gap-1.5">

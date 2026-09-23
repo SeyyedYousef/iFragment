@@ -1,5 +1,5 @@
 import { type Component, createMemo, For, Show } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, GIFTS_I18N } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	expectedTon: number;
@@ -119,17 +119,15 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h3 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl() ? 'برنامه‌ریز خروج و بهینه‌ساز کارمزد معامله' : 'EXIT PLANNER & FEE OPTIMIZER'}
+							{layaT(GIFTS_I18N.exitPlannerTitle)}
 						</h3>
 						<span class="text-[9px] font-mono text-white/40">
-							{isRtl()
-								? 'مقایسه خالص دریافتی فروشنده در ۴ مارکت‌پلیس مختلف'
-								: 'Net seller proceeds after protocol commission & TON network gas fees'}
+							{layaT(GIFTS_I18N.exitPlannerSubtitle)}
 						</span>
 					</div>
 				</div>
 				<span class="text-[9px] font-mono font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-					FEE MINIMIZER
+					{layaT(GIFTS_I18N.feeMinimizerBadge)}
 				</span>
 			</div>
 
@@ -139,22 +137,20 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 					<div class="flex items-center gap-2">
 						<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
 						<span class="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-wider">
-							{isRtl() ? 'بهترین مسیر نقد کردن با بالاترین دریافتی' : 'OPTIMAL LIQUIDATION VENUE'}
+							{layaT(GIFTS_I18N.optimalVenue)}
 						</span>
 					</div>
 					<span class="text-sm font-black text-white">
 						{bestVenue()?.name}
 					</span>
 					<span class="text-[10px] text-white/50 font-mono">
-						{isRtl()
-							? `کارمزد ${bestVenue()?.feePct}% با حداقل هزینه گس`
-							: `Lowest combined protocol deduction of ${fmt(bestVenue()?.totalCostTon || 0)} TON`}
+						{bestVenue()?.feePct}% · -{fmt(bestVenue()?.totalCostTon || 0)} TON
 					</span>
 				</div>
 
 				<div class="flex flex-col items-end font-mono bg-[#050D08] border border-emerald-500/30 px-3.5 py-2 rounded-[16px] shrink-0">
 					<span class="text-[8px] text-white/40 uppercase">
-						{isRtl() ? 'خالص دریافتی' : 'NET PROCEEDS'}
+						{layaT(GIFTS_I18N.netProceeds)}
 					</span>
 					<div class="flex items-baseline gap-1">
 						<span class="text-[18px] font-black text-emerald-400">{fmt(bestVenue()?.netTon || 0)}</span>
@@ -178,7 +174,7 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 									<span class="text-xs font-bold text-white">{venue.name}</span>
 									<Show when={venue.isRecommended}>
 										<span class="text-[8px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded">
-											MAX NET
+											{layaT(GIFTS_I18N.maxNetBadge)}
 										</span>
 									</Show>
 								</div>
@@ -193,7 +189,7 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 									<span class="text-[10px] font-bold text-[#0098EA]">TON</span>
 								</div>
 								<span class="text-[9px] text-white/40">
-									Deduction: -{fmt(venue.totalCostTon)} TON
+									{layaT(GIFTS_I18N.deductionLabel)} -{fmt(venue.totalCostTon)} TON
 								</span>
 							</div>
 						</div>

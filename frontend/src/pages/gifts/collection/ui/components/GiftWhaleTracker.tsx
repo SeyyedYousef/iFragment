@@ -1,12 +1,12 @@
 import { type Component, createMemo, For } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, GIFTS_I18N } from '@/shared/i18n/laya-i18n.js';
 import type { WhaleProfile } from '@/entities/gifts/model/types.js';
 
 interface Props {
-	collectionName: string;
-	whales?: WhaleProfile[];
-	totalSupply?: number;
-	floorTon?: number;
+ 	collectionName: string;
+ 	whales?: WhaleProfile[];
+ 	totalSupply?: number;
+ 	floorTon?: number;
 }
 
 export const GiftWhaleTracker: Component<Props> = (props) => {
@@ -104,111 +104,109 @@ export const GiftWhaleTracker: Component<Props> = (props) => {
 	const fmt = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 0 });
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
-			{/* Decorative ambient aura */}
-			<div class="absolute -top-10 -left-10 w-44 h-44 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+ 		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
+ 			{/* Decorative ambient aura */}
+ 			<div class="absolute -top-10 -left-10 w-44 h-44 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
-			{/* Header */}
-			<div class="flex items-center justify-between border-b border-white/5 pb-3 relative z-10">
-				<div class="flex items-center gap-2.5">
-					<div class="w-9 h-9 rounded-[14px] bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
-						<span class="material-symbols-outlined text-[20px]">monitoring</span>
-					</div>
-					<div class="flex flex-col">
-						<h3 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl() ? 'ردیاب انباشت نهنگ‌های LAYA' : 'LAYA SMART MONEY & WHALE ACCUMULATION'}
-						</h3>
-						<span class="text-[9px] font-mono text-white/40">
-							{isRtl()
-								? 'پایش حرکت کیف‌پول‌های سنگین، تمرکز هولدرها و جریان خالص ۲۴ ساعته'
-								: 'Real-time on-chain tracking of top holders, supply concentration, and 24h net absorption'}
-						</span>
-					</div>
-				</div>
-				<span class="text-[9px] font-mono font-black text-blue-400 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-md">
-					ON-CHAIN PROVENANCE
-				</span>
-			</div>
+ 			{/* Header */}
+ 			<div class="flex items-center justify-between border-b border-white/5 pb-3 relative z-10">
+ 				<div class="flex items-center gap-2.5">
+ 					<div class="w-9 h-9 rounded-[14px] bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
+ 						<span class="material-symbols-outlined text-[20px]">monitoring</span>
+ 					</div>
+ 					<div class="flex flex-col">
+ 						<h3 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
+ 							{layaT(GIFTS_I18N.whaleTrackerTitle)}
+ 						</h3>
+ 						<span class="text-[9px] font-mono text-white/40">
+ 							{layaT(GIFTS_I18N.whaleTrackerSubtitle)}
+ 						</span>
+ 					</div>
+ 				</div>
+ 				<span class="text-[9px] font-mono font-black text-blue-400 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-md">
+ 					{layaT(GIFTS_I18N.onChainProvenance)}
+ 				</span>
+ 			</div>
 
-			{/* 3 Metric Summary Banner */}
-			<div class="grid grid-cols-3 gap-2.5">
-				{/* 1. Concentration */}
-				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 text-center flex flex-col gap-0.5">
-					<span class="text-[8px] font-mono text-white/40 uppercase font-bold">
-						{isRtl() ? 'تمرکز ۵ نهنگ برتر' : 'TOP 5 CONCENTRATION'}
-					</span>
-					<div class="text-[16px] font-mono font-black text-white">{concentrationPct()}%</div>
-					<span class="text-[8px] font-mono text-white/40">{fmt(topHoldingsSum())} / {fmt(total())} gifts</span>
-				</div>
+ 			{/* 3 Metric Summary Banner */}
+ 			<div class="grid grid-cols-3 gap-2.5">
+ 				{/* 1. Concentration */}
+ 				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 text-center flex flex-col gap-0.5">
+ 					<span class="text-[8px] font-mono text-white/40 uppercase font-bold">
+ 						{layaT(GIFTS_I18N.top5Concentration)}
+ 					</span>
+ 					<div class="text-[16px] font-mono font-black text-white">{concentrationPct()}%</div>
+ 					<span class="text-[8px] font-mono text-white/40">{fmt(topHoldingsSum())} / {fmt(total())} gifts</span>
+ 				</div>
 
-				{/* 2. 24h Net Absorption */}
-				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 text-center flex flex-col gap-0.5">
-					<span class="text-[8px] font-mono text-white/40 uppercase font-bold">
-						{isRtl() ? 'جذب خالص ۲۴س' : '24H NET INFLOW'}
-					</span>
-					<div class="text-[16px] font-mono font-black text-emerald-400">
-						{net24hFlow() > 0 ? `+${net24hFlow()}` : net24hFlow()}
-					</div>
-					<span class="text-[8px] font-mono text-emerald-400/80">
-						{net24hFlow() > 0 ? (isRtl() ? 'فاز انباشت فعال' : 'Active Inflow') : 'Holding'}
-					</span>
-				</div>
+ 				{/* 2. 24h Net Absorption */}
+ 				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 text-center flex flex-col gap-0.5">
+ 					<span class="text-[8px] font-mono text-white/40 uppercase font-bold">
+ 						{layaT(GIFTS_I18N.netInflow24h)}
+ 					</span>
+ 					<div class="text-[16px] font-mono font-black text-emerald-400">
+ 						{net24hFlow() > 0 ? `+${net24hFlow()}` : net24hFlow()}
+ 					</div>
+ 					<span class="text-[8px] font-mono text-emerald-400/80">
+ 						{net24hFlow() > 0 ? layaT(GIFTS_I18N.activeInflow) : 'Holding'}
+ 					</span>
+ 				</div>
 
-				{/* 3. Smart Money Signal */}
-				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 text-center flex flex-col gap-0.5">
-					<span class="text-[8px] font-mono text-white/40 uppercase font-bold">
-						{isRtl() ? 'سیگنال پول هوشمند' : 'SMART MONEY BIAS'}
-					</span>
-					<div class="text-[13px] font-mono font-black text-cyan-400 mt-0.5">
-						ACCUMULATE
-					</div>
-					<span class="text-[8px] font-mono text-white/40">Low Sell Churn</span>
-				</div>
-			</div>
+ 				{/* 3. Smart Money Signal */}
+ 				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 text-center flex flex-col gap-0.5">
+ 					<span class="text-[8px] font-mono text-white/40 uppercase font-bold">
+ 						{layaT(GIFTS_I18N.smartMoneyBias)}
+ 					</span>
+ 					<div class="text-[13px] font-mono font-black text-cyan-400 mt-0.5">
+ 						{layaT(GIFTS_I18N.smartMoneySignal)}
+ 					</div>
+ 					<span class="text-[8px] font-mono text-white/40">{layaT(GIFTS_I18N.lowSellChurn)}</span>
+ 				</div>
+ 			</div>
 
-			{/* Whale Leaderboard List */}
-			<div class="flex flex-col gap-1.5">
-				<For each={whaleList()}>
-					{(w) => (
-						<div class="bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 rounded-[16px] p-3 flex items-center justify-between transition-all">
-							<div class="flex items-center gap-3">
-								<div class="w-7 h-7 rounded-[10px] bg-white/5 border border-white/10 flex items-center justify-center font-mono text-xs font-black text-white/80">
-									#{w.rank}
-								</div>
+ 			{/* Whale Leaderboard List */}
+ 			<div class="flex flex-col gap-1.5">
+ 				<For each={whaleList()}>
+ 					{(w) => (
+ 						<div class="bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 rounded-[16px] p-3 flex items-center justify-between transition-all">
+ 							<div class="flex items-center gap-3">
+ 								<div class="w-7 h-7 rounded-[10px] bg-white/5 border border-white/10 flex items-center justify-center font-mono text-xs font-black text-white/80">
+ 									#{w.rank}
+ 								</div>
 
-								<div class="flex flex-col">
-									<div class="flex items-center gap-2">
-										<span class="text-xs font-bold text-white">
-											{w.display_name || w.telegram_username || shortAddr(w.owner_address)}
-										</span>
-										<span class="text-[8px] font-mono bg-blue-500/15 text-blue-300 border border-blue-500/25 px-1.5 py-0.5 rounded">
-											{w.classification}
-										</span>
-									</div>
-									<div class="flex items-center gap-2 text-[9px] font-mono text-white/40">
-										<span>{shortAddr(w.owner_address)}</span>
-										<span>·</span>
-										<span>Avg Hold: {w.avg_hold_days} days</span>
-									</div>
-								</div>
-							</div>
+ 								<div class="flex flex-col">
+ 									<div class="flex items-center gap-2">
+ 										<span class="text-xs font-bold text-white">
+ 											{w.display_name || w.telegram_username || shortAddr(w.owner_address)}
+ 										</span>
+ 										<span class="text-[8px] font-mono bg-blue-500/15 text-blue-300 border border-blue-500/25 px-1.5 py-0.5 rounded">
+ 											{w.classification}
+ 										</span>
+ 									</div>
+ 									<div class="flex items-center gap-2 text-[9px] font-mono text-white/40">
+ 										<span>{shortAddr(w.owner_address)}</span>
+ 										<span>·</span>
+ 										<span>Avg Hold: {w.avg_hold_days} days</span>
+ 									</div>
+ 								</div>
+ 							</div>
 
-							<div class="flex flex-col items-end font-mono">
-								<div class="flex items-baseline gap-1">
-									<span class="text-sm font-black text-white">{w.holdings_count}</span>
-									<span class="text-[9px] text-white/40">items</span>
-								</div>
-								<div class="flex items-center gap-1.5 text-[9px]">
-									<span class="text-[#0098EA] font-bold">{fmt(w.total_value_gram)} TON</span>
-									<span class="text-emerald-400 font-bold">
-										{w.change_24h_count > 0 ? `+${w.change_24h_count}` : '0'} (24h)
-									</span>
-								</div>
-							</div>
-						</div>
-					)}
-				</For>
-			</div>
-		</div>
-	);
+ 							<div class="flex flex-col items-end font-mono">
+ 								<div class="flex items-baseline gap-1">
+ 									<span class="text-sm font-black text-white">{w.holdings_count}</span>
+ 									<span class="text-[9px] text-white/40">{layaT(GIFTS_I18N.itemsUnit)}</span>
+ 								</div>
+ 								<div class="flex items-center gap-1.5 text-[9px]">
+ 									<span class="text-[#0098EA] font-bold">{fmt(w.total_value_gram)} TON</span>
+ 									<span class="text-emerald-400 font-bold">
+ 										{w.change_24h_count > 0 ? `+${w.change_24h_count}` : '0'} (24h)
+ 									</span>
+ 								</div>
+ 							</div>
+ 						</div>
+ 					)}
+ 				</For>
+ 			</div>
+ 		</div>
+ 	);
 };

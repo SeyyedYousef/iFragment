@@ -1,5 +1,5 @@
 import { type Component } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	medianFloorTon?: number;
@@ -28,10 +28,10 @@ export const NumberDeFiFinancials: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h4 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl() ? 'تراز مالی دیفای و استخر اجاره شماره‌ها' : 'DEFI COLLATERAL & RENTAL YIELD'}
+							{layaT(NUMBERS_I18N.defiCollateralTitle)}
 						</h4>
 						<span class="text-[9px] font-mono text-white/40">
-							{isRtl() ? 'وام‌گیری آن‌چین و درآمد غیرفعال ماهانه' : 'On-chain borrowing capacity & passive rental yield'}
+							{layaT(NUMBERS_I18N.defiCollateralSubtitle)}
 						</span>
 					</div>
 				</div>
@@ -46,7 +46,7 @@ export const NumberDeFiFinancials: Component<Props> = (props) => {
 				<div class="bg-[#08090D] border border-white/5 rounded-[20px] p-4 flex flex-col justify-between gap-2 shadow-inner">
 					<div class="flex items-center justify-between">
 						<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-							{isRtl() ? 'بازده اجاره ماهانه (Rental Yield)' : 'MONTHLY RENTAL'}
+							{layaT(NUMBERS_I18N.monthlyRental)}
 						</span>
 						<span class="text-[9px] font-mono font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">
 							~54.0% APY
@@ -56,17 +56,15 @@ export const NumberDeFiFinancials: Component<Props> = (props) => {
 					<div class="flex flex-col gap-0.5">
 						<div class="flex items-baseline gap-1.5 font-mono">
 							<span class="text-[22px] font-black text-white">~{monthlyYieldTon()}</span>
-							<span class="text-[12px] font-bold text-emerald-400">TON / month</span>
+							<span class="text-[12px] font-bold text-emerald-400">TON {layaT(NUMBERS_I18N.perMonth)}</span>
 						</div>
 						<span class="text-[10px] font-mono text-white/40">
-							≈ ${monthlyYieldUsd()} USD / {isRtl() ? 'ماه' : 'mo'}
+							≈ ${monthlyYieldUsd()} USD {layaT(NUMBERS_I18N.perMonth)}
 						</span>
 					</div>
 
 					<p class="text-[9px] text-white/50 leading-relaxed font-mono">
-						{isRtl()
-							? 'قابلیت اجاره جهت خطوط رسمی پشتیبانی تلگرام و ربات‌ها'
-							: 'Passive cashflow via Telegram official desk rentals'}
+						{layaT(NUMBERS_I18N.rentalYieldDesc)}
 					</p>
 				</div>
 
@@ -74,7 +72,7 @@ export const NumberDeFiFinancials: Component<Props> = (props) => {
 				<div class="bg-[#08090D] border border-white/5 rounded-[20px] p-4 flex flex-col justify-between gap-2 shadow-inner">
 					<div class="flex items-center justify-between">
 						<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-							{isRtl() ? 'سقف وثیقه وام (Max Loan-to-Value)' : 'COLLATERAL LTV'}
+							{layaT(NUMBERS_I18N.collateralLtv)}
 						</span>
 						<span class="text-[9px] font-mono font-black text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded">
 							60% LTV
@@ -87,14 +85,12 @@ export const NumberDeFiFinancials: Component<Props> = (props) => {
 							<span class="text-[12px] font-bold text-cyan-400">TON Max Loan</span>
 						</div>
 						<span class="text-[10px] font-mono text-white/40">
-							≈ ${maxLoanUsd()} USD {isRtl() ? 'اعتبار نقدی فوری' : 'instant borrowing'}
+							≈ ${maxLoanUsd()} USD {layaT(NUMBERS_I18N.instantBorrowing)}
 						</span>
 					</div>
 
 					<p class="text-[9px] text-white/50 leading-relaxed font-mono">
-						{isRtl()
-							? 'امکان دریافت وام بدون فروش شماره با توکن‌های TON / USDT'
-							: 'Non-custodial borrowing without parting with NFT ownership'}
+						{layaT(NUMBERS_I18N.collateralDesc)}
 					</p>
 				</div>
 			</div>

@@ -1,5 +1,5 @@
 import { type Component, For } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 import type { CulturalScore } from '@/entities/numbers/model/types.js';
 
 interface Props {
@@ -45,7 +45,7 @@ export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 			return props.radar.map((item) => ({
 				region: item.market_name || item.region_key,
 				score: item.score,
-				badge: isRtl() ? (item.verdict_fa || item.verdict_en) : (item.verdict_en || item.verdict_fa),
+				badge: item.verdict_en || item.verdict_fa || 'Active',
 				color: item.score >= 80 ? '#10b981' : item.score >= 60 ? '#0098EA' : '#f59e0b',
 			}));
 		}
@@ -62,12 +62,10 @@ export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h4 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl() ? 'رادار فرهنگی چندمنطقه‌ای LAYA' : 'LAYA 4-REGION CULTURAL RADAR'}
+							{layaT(NUMBERS_I18N.singleCulturalTitle)}
 						</h4>
 						<span class="text-[9px] font-mono text-white/40">
-							{isRtl()
-								? 'کشش تقاضا در بازارهای کلیدی چین، خاورمیانه و CIS'
-								: 'Regional numerology & buyer prestige index'}
+							{layaT(NUMBERS_I18N.singleCulturalSubtitle)}
 						</span>
 					</div>
 				</div>
@@ -109,13 +107,11 @@ export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 			<div class="bg-gradient-to-r from-[#0098EA]/10 via-[#08090D] to-[#08090D] border border-[#0098EA]/20 rounded-[18px] p-3 flex flex-col gap-1">
 				<div class="flex items-center gap-1.5 text-[#0098EA] text-[10px] font-mono font-bold">
 					<span class="material-symbols-outlined text-[14px]">psychology</span>
-					<span>{isRtl() ? 'جمع‌بندی هوش فرهنگی لایا:' : 'Laya Cultural Verdict:'}</span>
+					<span>{layaT(NUMBERS_I18N.layaCulturalVerdict)}</span>
 				</div>
 				<p class="text-[10px] text-white/70 leading-relaxed font-mono">
-					{isRtl()
-						? props.layaReasoning?.cultural_resonance ||
-							'توالی ارقام دارای کشش منطقه‌ای بالا بوده و هماهنگی قابل توجهی با ترجیحات خریداران وب۳ و سرمایه‌گذاران بین‌المللی نشان می‌دهد.'
-						: 'High regional affinity with strong appeal across secondary market buyers on Fragment.'}
+					{props.layaReasoning?.cultural_resonance ||
+						layaT(NUMBERS_I18N.layaCulturalDefaultSummary)}
 				</p>
 			</div>
 		</div>

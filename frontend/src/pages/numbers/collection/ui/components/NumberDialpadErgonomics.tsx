@@ -1,5 +1,5 @@
 import { type Component, createSignal, For, Show } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
@@ -51,9 +51,9 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 	// Travel distance description
 	const travelMetric = () => {
 		const s = ergonomicsScore();
-		if (s >= 90) return isRtl() ? 'حرکت شست صفر / تایپ صاعقه‌ای' : 'Near-Zero Thumb Travel';
-		if (s >= 75) return isRtl() ? 'مسیر کوتاه و روان' : 'Fluid Minimalist Strokes';
-		return isRtl() ? 'حرکت پراکنده روی پد' : 'Standard Dialpad Traversal';
+		if (s >= 90) return layaT(NUMBERS_I18N.thumbZeroTravel);
+		if (s >= 75) return layaT(NUMBERS_I18N.thumbFluidTravel);
+		return layaT(NUMBERS_I18N.thumbStandardTravel);
 	};
 
 	return (
@@ -66,12 +66,10 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h4 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl()
-								? 'شاخص ارگونومی پد شماره‌گیر لایا'
-								: 'LAYA DIALPAD ERGONOMICS SCORE'}
+							{layaT(NUMBERS_I18N.ergonomicsTitle)}
 						</h4>
 						<span class="text-[9px] font-mono text-white/40">
-							{isRtl() ? 'فاصله حرکت شست، تقارن و ریتم کیپد' : 'Single-thumb travel distance & keypad symmetry'}
+							{layaT(NUMBERS_I18N.ergonomicsSubtitle)}
 						</span>
 					</div>
 				</div>
@@ -151,7 +149,7 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 				<div class="flex flex-col gap-2.5">
 					<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-1">
 						<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-							{isRtl() ? 'امتیاز ارگونومی و سرعت تایپ' : 'ERGONOMICS & CADENCE'}
+							{layaT(NUMBERS_I18N.cadenceTitle)}
 						</span>
 						<div class="flex items-baseline gap-2">
 							<span class="text-[26px] font-mono font-black text-cyan-400 leading-none">
@@ -172,13 +170,15 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 
 					<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 flex flex-col gap-1 text-[10px] font-mono text-white/70">
 						<div class="flex justify-between items-center">
-							<span class="text-white/40">{isRtl() ? 'تعداد کلیدهای فعال:' : 'Active Keys:'}</span>
+							<span class="text-white/40">{layaT(NUMBERS_I18N.activeKeys)}</span>
 							<span class="text-white font-bold">{Object.keys(digitFreq()).length} / 10</span>
 						</div>
 						<div class="flex justify-between items-center">
-							<span class="text-white/40">{isRtl() ? 'حفظ در حافظه بصری:' : 'Muscle Memory:'}</span>
+							<span class="text-white/40">{layaT(NUMBERS_I18N.muscleMemory)}</span>
 							<span class="text-emerald-400 font-bold">
-								{ergonomicsScore() >= 80 ? 'بسیار بالا (Elite)' : 'متوسط (Standard)'}
+								{ergonomicsScore() >= 80
+									? layaT(NUMBERS_I18N.muscleMemoryElite)
+									: layaT(NUMBERS_I18N.muscleMemoryStandard)}
 							</span>
 						</div>
 					</div>

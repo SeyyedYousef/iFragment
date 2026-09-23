@@ -1,5 +1,5 @@
 import { type Component, Show } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, USERNAME_I18N } from '@/shared/i18n/laya-i18n.js';
 
 export interface TrademarkRiskData {
 	risk_level?: string; // "low" | "medium" | "high"
@@ -28,6 +28,19 @@ export const TelegramTOSLegalMatrix: Component<Props> = (props) => {
 
 	const isHighRisk = () => riskLevel() === 'high' || riskScore() >= 80;
 	const isMediumRisk = () => riskLevel() === 'medium' || (riskScore() >= 50 && riskScore() < 80);
+
+	const riskBadgeText = () => {
+		if (isHighRisk()) return layaT(USERNAME_I18N.riskHigh);
+		if (isMediumRisk()) return layaT(USERNAME_I18N.riskMedium);
+		return layaT(USERNAME_I18N.riskClean);
+	};
+
+	const advisoryText = () => {
+		if (props.trademarkRisk?.advisory_warning) return props.trademarkRisk.advisory_warning;
+		if (isHighRisk()) return layaT(USERNAME_I18N.advisoryHigh);
+		if (isMediumRisk()) return layaT(USERNAME_I18N.advisoryMedium);
+		return layaT(USERNAME_I18N.advisoryClean);
+	};
 
 	return (
 		<div
@@ -63,14 +76,10 @@ export const TelegramTOSLegalMatrix: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h4 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl()
-								? 'ماتریس ریسک حقوقی تلگرام و توقیف (TOS §4)'
-								: 'TELEGRAM TOS & TRADEMARK LIABILITY'}
+							{layaT(USERNAME_I18N.legalMatrixTitle)}
 						</h4>
 						<span class="text-[9px] font-mono text-white/40">
-							{isRtl()
-								? 'انطباق با علائم تجاری جهانی، بند ۴ ToS و ریسک سلب مالکیت'
-								: 'Section 4 ToS Trademark & Seizure Risk Audit'}
+							{layaT(USERNAME_I18N.legalMatrixSubtitle)}
 						</span>
 					</div>
 				</div>
@@ -85,7 +94,7 @@ export const TelegramTOSLegalMatrix: Component<Props> = (props) => {
 									: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
 						}`}
 					>
-						{isHighRisk() ? 'RISK: HIGH' : isMediumRisk() ? 'RISK: MEDIUM' : 'CLEAN / LOW RISK'}
+						{riskBadgeText()}
 					</span>
 				</div>
 			</div>
@@ -94,52 +103,42 @@ export const TelegramTOSLegalMatrix: Component<Props> = (props) => {
 			<div class="flex items-center justify-between bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 relative z-10">
 				<div class="flex flex-col">
 					<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-						{isRtl() ? 'شاخص ریسک حقوقی و مصادره' : 'LEGAL LIABILITY INDEX'}
+						{layaT(USERNAME_I18N.legalIndexTitle)}
 					</span>
 					<div class="flex items-baseline gap-2 mt-0.5">
 						<span
-							class={`text-[20px] font-mono font-black ${
-								isHighRisk() ? 'text-rose-400' : isMediumRisk() ? 'text-amber-400' : 'text-emerald-400'
-							}`}
+							class="text-[26px] font-mono font-black leading-none"
+							style={{
+								color: isHighRisk() ? '#f43f5e' : isMediumRisk() ? '#f59e0b' : '#10b981',
+							}}
 						>
-							{riskScore()} / 100
+							{riskScore()}
 						</span>
-						<span class="text-[11px] font-mono text-white/40">
-							{isHighRisk()
-								? isRtl()
-									? 'احتمال بالای پیگیری حقوقی'
-									: 'High Dispute Probability'
-								: isMediumRisk()
-									? isRtl()
-										? 'نیازمند احتیاط در برندینگ'
-										: 'Brand Caution Advised'
-									: isRtl()
-										? 'فاقد تشابه شاخص'
-										: 'No Registered Clashes'}
-						</span>
+						<span class="text-[11px] font-mono font-bold text-white/30">/ 100</span>
 					</div>
 				</div>
 
 				<Show when={props.trademarkRisk?.matched_entity || props.trademarkRisk?.brand}>
 					<div class="flex flex-col items-end">
-						<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
-							{isRtl() ? 'برند متناظر شناسایی‌شده:' : 'Matched Brand:'}
+						<span class="text-[9px] font-mono text-white/40 uppercase">
+							{layaT(USERNAME_I18N.directTrademarkMatch)}
 						</span>
-						<span class="text-[12px] font-mono font-black text-white bg-white/10 px-2 py-0.5 rounded-[6px] border border-white/10 mt-0.5">
-							{props.trademarkRisk?.brand || props.trademarkRisk?.matched_entity}
+						<span class="text-xs font-mono font-black text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2.5 py-0.5 rounded-md mt-0.5">
+							{props.trademarkRisk?.matched_entity || props.trademarkRisk?.brand}
 						</span>
+					</div>
+				</Show>
+				<Show when={!props.trademarkRisk?.matched_entity && !props.trademarkRisk?.brand}>
+					<div class="flex items-center gap-1.5 text-emerald-400 text-[10px] font-mono">
+						<span class="material-symbols-outlined text-[16px]">verified</span>
+						<span>{layaT(USERNAME_I18N.noInfringementDetected)}</span>
 					</div>
 				</Show>
 			</div>
 
 			{/* Advisory Message */}
-			<p class="text-[11px] text-white/80 leading-relaxed relative z-10">
-				{props.trademarkRisk?.advisory_warning ||
-					(isHighRisk()
-						? 'این نام کاربری با یکی از علائم تجاری ثبت‌شده بین‌المللی هم‌پوشانی کامل دارد. طبق بند ۴ قوانین رسمی تلگرام، شرکت تلگرام حق استرداد نام را برای خود محفوظ می‌دارد.'
-						: isMediumRisk()
-							? 'تشابه نسبی با اسامی و هویت‌های تجاری مشاهده شده است. توصیه می‌شود از این آیدی صرفاً برای مقاصد شخصی و مستقل استفاده گردد.'
-							: 'هیچ علامت تجاری انحصاری بین‌المللی در دیتابیس با این نام تلاقی ندارد. انتقال و نگهداری این دارایی در بستر قراردادهای هوشمند Telemint بدون مانع حقوقی است.')}
+			<p class="text-[11px] text-white/80 leading-relaxed relative z-10 font-sans">
+				{advisoryText()}
 			</p>
 
 			{/* Official Telegram Terms of Service Section 4 Box */}
@@ -148,9 +147,7 @@ export const TelegramTOSLegalMatrix: Component<Props> = (props) => {
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-outlined text-[16px] text-cyan-400">policy</span>
 						<span class="text-[11px] font-mono font-black text-white uppercase tracking-wider">
-							{isRtl()
-								? 'متن رسمی بند ۴ قوانین تلگرام (Telegram ToS §4)'
-								: 'TELEGRAM TERMS OF SERVICE — SECTION 4'}
+							{layaT(USERNAME_I18N.section4BoxTitle)}
 						</span>
 					</div>
 					<a
@@ -159,40 +156,25 @@ export const TelegramTOSLegalMatrix: Component<Props> = (props) => {
 						rel="noopener noreferrer"
 						class="text-[10px] font-mono font-bold text-[#0098EA] hover:underline flex items-center gap-1"
 					>
-						<span>{isRtl() ? 'مطالعه در سایت رسمی تلگرام' : 'Official ToS'}</span>
+						<span>{layaT(USERNAME_I18N.readOfficialTos)}</span>
 						<span class="material-symbols-outlined text-[12px]">open_in_new</span>
 					</a>
 				</div>
 
 				<div class="flex flex-col gap-2 text-[11px] leading-relaxed">
-					{/* English Official Excerpt */}
-					<div class="p-2.5 rounded-[12px] bg-white/[0.03] border border-white/5 font-mono text-[10px] text-white/70" dir="ltr">
-						<strong class="text-white">Section 4 — Telegram Collectibles:</strong>
-						<p class="mt-1 italic">
-							"Telegram reserves the right to reclaim any username, channel link, or collectible in the event of trademark infringement, fraud, copyright violations, or malicious squatting on globally recognized marks."
+					{/* Official Excerpt in User Language */}
+					<div class="p-2.5 rounded-[12px] bg-white/[0.03] border border-white/5 font-mono text-[10px] text-white/80">
+						<strong class="text-white block mb-0.5">{layaT(USERNAME_I18N.section4QuoteTitle)}</strong>
+						<p class="italic">
+							{layaT(USERNAME_I18N.section4Quote)}
 						</p>
 					</div>
 
-					{/* Persian Translation & Legal Analysis */}
-					<p class="text-[11px] text-white/80 font-medium">
-						<strong class="text-white">ترجمه و تحلیل حقوقی:</strong> تلگرام صراحتاً در بند ۴ قوانین تصریح کرده است که حتی با انتقال نام کاربری بر روی بستر بلاکچین و ان‌اف‌تی‌های Telemint، چنانچه نام کاربری ناقض نشان‌های تجاری معتبر (مانند Apple، Nike، Binance و غیره) یا به قصد کلاهبرداری و جعل هویت تصاحب شده باشد، مسنجر تلگرام می‌تواند اتصال نام کاربری به شبکه تلگرام را سلب یا قطع نماید.
+					{/* Legal Analysis */}
+					<p class="text-[11px] text-white/80 font-medium font-sans">
+						<strong class="text-white">{layaT(USERNAME_I18N.legalAnalysisTitle)}</strong>{' '}
+						{layaT(USERNAME_I18N.legalAnalysisText)}
 					</p>
-				</div>
-
-				{/* Quick Action Links */}
-				<div class="flex items-center justify-between pt-1 border-t border-white/5 text-[10px] font-mono">
-					<span class="text-white/40">
-						{isRtl() ? 'مرجع قوانین مزایده:' : 'Auction Protocol Rules:'}
-					</span>
-					<a
-						href="https://fragment.com/terms"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="text-cyan-400 hover:underline flex items-center gap-1"
-					>
-						<span>fragment.com/terms</span>
-						<span class="material-symbols-outlined text-[11px]">open_in_new</span>
-					</a>
 				</div>
 			</div>
 		</div>

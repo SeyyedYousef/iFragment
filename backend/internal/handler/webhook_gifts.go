@@ -13,7 +13,6 @@ import (
 	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/gifts/gvengine"
-	"ifragment-backend/internal/service/gifts/telegramnft"
 )
 
 var giftLinkRegex = regexp.MustCompile(`(?i)(?:https?://)?(?:t\.me/nft/|fragment\.com/gift/)([a-zA-Z0-9_\-]+)`)
@@ -85,7 +84,10 @@ func (h *WebhookHandler) handleGiftCommand(ctx context.Context, bot *repository.
 	}
 
 	msgText, markup := h.formatGiftAppraisalMessage(val, miniAppURL)
-	_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID, "HTML")
+	richHTML := buildGiftRichHTML(val)
+	if _, err := tg.SendRichMessageWithMarkup(ctx, m.Chat.ID, map[string]interface{}{"html": richHTML}, markup, m.MessageThreadID); err != nil {
+		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID, "HTML")
+	}
 }
 
 // handleGiftsCommand processes /gifts - displays Telegram Gifts market pulse
@@ -179,7 +181,10 @@ func (h *WebhookHandler) handleGiftLinkSniff(ctx context.Context, bot *repositor
 	}
 
 	msgText, markup := h.formatGiftAppraisalMessage(val, miniAppURL)
-	_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID, "HTML")
+	richHTML := buildGiftRichHTML(val)
+	if _, err := tg.SendRichMessageWithMarkup(ctx, m.Chat.ID, map[string]interface{}{"html": richHTML}, markup, m.MessageThreadID); err != nil {
+		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID, "HTML")
+	}
 }
 
 // handleInlineQuery handles @iFragmentBot inline searches for gifts
@@ -443,20 +448,10 @@ func (h *WebhookHandler) formatGiftAppraisalMessage(val *gvengine.GiftValuation,
 
 	sb.WriteString("\n⚡ <i>برآورد تحلیلی بر پایه داده‌های ثبت‌شده بازار</i>")
 
-	pascal := telegramnft.FormatPascalName(val.ModelID)
-	fragmentURL := fmt.Sprintf("https://fragment.com/gift/%s-%d", pascal, val.SerialNumber)
-	appGiftURL := fmt.Sprintf("%s?startapp=gift_%s-%d", miniAppURL, val.ModelID, val.SerialNumber)
-
-	markup := map[string]interface{}{
-		"inline_keyboard": [][]map[string]interface{}{
-			{
-				{"text": "📊 مشاهده گزارش کامل در مینی‌اپ", "url": appGiftURL},
-			},
-			{
-				{"text": "💎 مشاهده در فرگمنت", "url": fragmentURL},
-			},
-		},
-	}
+	tonStr := fmt.Sprintf("%.2f", fairTON)
+	usdStr := fmt.Sprintf("%.2f", val.ExpectedUSD)
+	copySummary := buildCopySummary("🎁", val.DisplayTitle, tonStr, usdStr, fmt.Sprintf("سریال: #%d | ضریب: %.2fx", val.SerialNumber, snMult))
+	markup := buildGiftMarkup(val, miniAppURL, copySummary)
 
 	return sb.String(), markup
 }

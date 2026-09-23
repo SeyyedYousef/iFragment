@@ -1,5 +1,5 @@
 import { type Component } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	expectedTon: number;
@@ -35,12 +35,10 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h4 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl() ? 'مهندسی مالی معامله در فرگمنت' : 'TRANSACTION FINANCIAL ENGINEERING'}
+							{layaT(NUMBERS_I18N.financialEngineeringTitle)}
 						</h4>
 						<span class="text-[9px] font-mono text-white/40">
-							{isRtl()
-								? 'خالص دریافتی، کارمزد ۵٪ و سقف بید عقلایی'
-								: 'Net seller proceeds after 5% protocol fee (min 5 TON)'}
+							{layaT(NUMBERS_I18N.financialEngineeringSubtitle)}
 						</span>
 					</div>
 				</div>
@@ -54,7 +52,7 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 				{/* 1. Fair Value */}
 				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 flex flex-col gap-0.5">
 					<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-						{isRtl() ? 'ارزش ناخالص منصفانه' : 'GROSS FAIR VALUE'}
+						{layaT(NUMBERS_I18N.grossFairValue)}
 					</span>
 					<div class="flex items-baseline gap-1 font-mono">
 						<span class="text-[16px] font-black text-white">{fmt(expected())}</span>
@@ -68,14 +66,14 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 				{/* 2. Protocol Fee */}
 				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 flex flex-col gap-0.5">
 					<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-						{isRtl() ? 'کارمزد فرگمنت (۵٪)' : 'PROTOCOL FEE (5%)'}
+						{layaT(NUMBERS_I18N.protocolFee)}
 					</span>
 					<div class="flex items-baseline gap-1 font-mono">
 						<span class="text-[16px] font-black text-amber-400">-{fmt(feeTon())}</span>
 						<span class="text-[10px] font-bold text-amber-400">TON</span>
 					</div>
 					<span class="text-[9px] font-mono text-white/40">
-						{isRtl() ? 'کف کارمزد: ۵ TON' : 'Min 5 TON per sale'}
+						{layaT(NUMBERS_I18N.minFeeNotice)}
 					</span>
 				</div>
 
@@ -83,7 +81,7 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 				<div class="col-span-2 bg-gradient-to-r from-emerald-950/30 via-[#08090D] to-[#08090D] border border-emerald-500/30 rounded-[20px] p-3.5 flex items-center justify-between">
 					<div class="flex flex-col">
 						<span class="text-[9px] font-mono font-black text-emerald-400 uppercase tracking-wider">
-							{isRtl() ? 'خالص دریافتی نهایی فروشنده' : 'NET SELLER PROCEEDS'}
+							{layaT(NUMBERS_I18N.netSellerProceeds)}
 						</span>
 						<div class="flex items-baseline gap-1.5 font-mono">
 							<span class="text-[20px] font-black text-emerald-400">{fmt(netProceedsTon())}</span>
@@ -96,7 +94,7 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 
 					<div class="flex flex-col items-end gap-1">
 						<span class="text-[9px] font-mono text-white/40 uppercase">
-							{isRtl() ? 'سقف بید عقلایی (۸۵٪)' : 'MAX RATIONAL BID'}
+							{layaT(NUMBERS_I18N.maxRationalBid)}
 						</span>
 						<span class="text-[12px] font-mono font-black text-white bg-white/5 border border-white/10 px-2 py-0.5 rounded-[8px]">
 							{fmt(maxRationalBidTon())} TON
@@ -111,7 +109,7 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 			{/* Recommended Start Bid Advice */}
 			<div class="bg-white/[0.02] border border-white/5 rounded-[16px] p-3 flex items-center justify-between text-[10px] font-mono">
 				<span class="text-white/50">
-					{isRtl() ? 'قیمت پیشنهادی شروع در حراج فرگمنت:' : 'Rec. Fragment Reserve Start:'}
+					{layaT(NUMBERS_I18N.recStartBid)}
 				</span>
 				<span class="text-white font-black bg-white/10 px-2 py-0.5 rounded border border-white/10">
 					{fmt(recStartBidTon())} TON

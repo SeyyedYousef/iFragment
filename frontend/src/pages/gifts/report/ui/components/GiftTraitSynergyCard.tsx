@@ -1,5 +1,5 @@
 import { type Component, createMemo } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, GIFTS_I18N } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	baseExpectedTon: number;
@@ -65,17 +65,15 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h3 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl() ? 'ضریب هم‌افزایی تریت‌های LAYA' : 'LAYA TRAIT SYNERGY MULTIPLIER'}
+							{layaT(GIFTS_I18N.synergyCardTitle)}
 						</h3>
 						<span class="text-[9px] font-mono text-white/40">
-							{isRtl()
-								? 'ترکیب مدل، پالت بک‌دراپ و سیمبل (۰.۹۰x تا ۱.۳۵x)'
-								: 'Holistic visual trait harmony & aesthetic co-occurrence multiplier'}
+							{layaT(GIFTS_I18N.synergyCardSubtitle)}
 						</span>
 					</div>
 				</div>
 				<span class="text-[11px] font-mono font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-lg">
-					{synergy().multiplier}x MULTIPLIER
+					{synergy().multiplier}{layaT(GIFTS_I18N.synergyMultiplierSuffix)}
 				</span>
 			</div>
 
@@ -84,19 +82,21 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 				{/* Baseline Fair Value */}
 				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 flex flex-col gap-0.5">
 					<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
-						{isRtl() ? 'ارزش پایه تریت‌های منفرد' : 'INDEPENDENT TRAIT FLOOR'}
+						{layaT(GIFTS_I18N.independentFloor)}
 					</span>
 					<div class="flex items-baseline gap-1 font-mono">
 						<span class="text-base font-black text-white">{fmt(base())}</span>
 						<span class="text-[10px] font-bold text-[#0098EA]">TON</span>
 					</div>
-					<span class="text-[8px] font-mono text-white/40">Linear component pricing</span>
+					<span class="text-[8px] font-mono text-white/40">
+						{layaT(GIFTS_I18N.independentFloorSubtitle)}
+					</span>
 				</div>
 
 				{/* Synergy-Adjusted Value */}
 				<div class="bg-gradient-to-r from-amber-950/30 via-[#0E0C08] to-[#08090D] border border-amber-500/30 rounded-[18px] p-3 flex flex-col gap-0.5">
 					<span class="text-[9px] font-mono font-bold text-amber-400 uppercase">
-						{isRtl() ? 'ارزش نهایی با هم‌افزایی LAYA' : 'SYNERGY ADJUSTED VALUE'}
+						{layaT(GIFTS_I18N.synergyAdjusted)}
 					</span>
 					<div class="flex items-baseline gap-1 font-mono">
 						<span class="text-base font-black text-amber-300">{fmt(synergy().adjustedValueTon)}</span>
@@ -114,7 +114,7 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 				<div class="flex flex-col gap-1">
 					<div class="flex items-center justify-between text-[10px] font-mono">
 						<span class="text-white/60">
-							{isRtl() ? 'تطابق رنگی مدل و پس‌زمینه (ΔE)' : 'Model-Backdrop Chromatic Resonance'}
+							{layaT(GIFTS_I18N.modelBackdropResonance)}
 						</span>
 						<span class="text-amber-400 font-bold">{synergy().score}%</span>
 					</div>
@@ -130,7 +130,7 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 				<div class="flex flex-col gap-1">
 					<div class="flex items-center justify-between text-[10px] font-mono">
 						<span class="text-white/60">
-							{isRtl() ? 'هماهنگی سمبل و پترن' : 'Symbol Pattern Cohesion'}
+							{layaT(GIFTS_I18N.symbolPatternCohesion)}
 						</span>
 						<span class="text-amber-400 font-bold">85%</span>
 					</div>
@@ -142,9 +142,7 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 
 			{/* Footnote */}
 			<p class="text-[10px] text-white/50 leading-relaxed font-sans bg-white/[0.02] border border-white/5 rounded-[14px] p-2.5">
-				{isRtl()
-					? 'کلکسیونرهای گیفت تلگرام برای هارمونی رنگی و تقارن بصری تریت‌ها نسبت به اجزای جداگانه، پرمیوم قابل توجهی در حراج‌های فرگمنت ثبت می‌کنند.'
-					: 'Empirical Fragment auction clearing prices confirm coherent trait harmonies consistently clear above the sum of isolated trait floor prices.'}
+				{layaT(GIFTS_I18N.traitHarmonyFootnote)}
 			</p>
 		</div>
 	);

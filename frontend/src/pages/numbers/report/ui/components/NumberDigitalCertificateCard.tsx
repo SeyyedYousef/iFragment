@@ -1,5 +1,5 @@
 import { type Component, createSignal } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 import { copyToClipboard } from '@/shared/lib/telegram-native.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -34,10 +34,10 @@ export const NumberDigitalCertificateCard: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h4 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl() ? 'گواهی دیجیتال رمزنگاری‌شده ارزش‌گذاری' : 'DIGITAL VALUATION CERTIFICATE'}
+							{layaT(NUMBERS_I18N.digitalCertTitle)}
 						</h4>
 						<span class="text-[9px] font-mono text-white/40">
-							{isRtl() ? 'امضای یکتای ضدجعل HMAC-SHA256' : 'Cryptographic proof of valuation integrity'}
+							{layaT(NUMBERS_I18N.digitalCertSubtitle)}
 						</span>
 					</div>
 				</div>
@@ -50,7 +50,7 @@ export const NumberDigitalCertificateCard: Component<Props> = (props) => {
 			<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex items-center justify-between gap-2">
 				<div class="flex flex-col min-w-0">
 					<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
-						{isRtl() ? 'شناسه یکتای گواهینامه:' : 'Unique Certificate ID:'}
+						{layaT(NUMBERS_I18N.uniqueCertificateId)}
 					</span>
 					<span class="text-[12px] font-mono font-black text-cyan-300 truncate" dir="ltr">
 						{certId()}
@@ -65,22 +65,22 @@ export const NumberDigitalCertificateCard: Component<Props> = (props) => {
 					<span class="material-symbols-outlined text-[15px]">
 						{copied() ? 'check' : 'content_copy'}
 					</span>
-					<span>{copied() ? (isRtl() ? 'کپی شد' : 'Copied') : (isRtl() ? 'کپی شناسه' : 'Copy')}</span>
+					<span>{copied() ? layaT(NUMBERS_I18N.copied) : layaT(NUMBERS_I18N.copyCertId)}</span>
 				</button>
 			</div>
 
 			{/* Certificate Metadata */}
 			<div class="grid grid-cols-3 gap-2 text-[10px] font-mono text-center">
 				<div class="bg-white/[0.02] border border-white/5 rounded-[14px] p-2 flex flex-col gap-0.5">
-					<span class="text-white/40 uppercase">{isRtl() ? 'مدل ارزش‌گذار' : 'Engine'}</span>
+					<span class="text-white/40 uppercase">{layaT(NUMBERS_I18N.engineLabel)}</span>
 					<span class="text-white font-bold">NV v7.0 LAYA</span>
 				</div>
 				<div class="bg-white/[0.02] border border-white/5 rounded-[14px] p-2 flex flex-col gap-0.5">
-					<span class="text-white/40 uppercase">{isRtl() ? 'ضریب اطمینان' : 'Confidence'}</span>
+					<span class="text-white/40 uppercase">{layaT(NUMBERS_I18N.confidenceLabel)}</span>
 					<span class="text-emerald-400 font-bold">{props.confidence || 88}%</span>
 				</div>
 				<div class="bg-white/[0.02] border border-white/5 rounded-[14px] p-2 flex flex-col gap-0.5">
-					<span class="text-white/40 uppercase">{isRtl() ? 'تاریخ صدور' : 'Timestamp'}</span>
+					<span class="text-white/40 uppercase">{layaT(NUMBERS_I18N.timestampLabel)}</span>
 					<span class="text-white/70 font-bold">{new Date().toLocaleDateString('en-GB')}</span>
 				</div>
 			</div>

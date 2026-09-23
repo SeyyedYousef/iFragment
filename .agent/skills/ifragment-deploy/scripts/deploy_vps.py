@@ -233,12 +233,15 @@ def main():
                 label="Restarting API container"
             )
         elif args.build_on_vps:
-            run_remote_command(
+            code, _, _ = run_remote_command(
                 client,
                 f"cd {APP_DIR} && docker compose -f {COMPOSE_FILE} build api && docker compose -f {COMPOSE_FILE} up -d",
                 label="Building directly on VPS",
                 stream=True
             )
+            if code != 0:
+                print(f"❌ Build failed on VPS with exit code {code}")
+                sys.exit(1)
         else:
             deploy_via_prebuilt(client)
 

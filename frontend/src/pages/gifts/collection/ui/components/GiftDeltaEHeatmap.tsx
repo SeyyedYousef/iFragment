@@ -1,5 +1,5 @@
 import { type Component, createMemo, For } from 'solid-js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { layaT, GIFTS_I18N, type LocalizedText } from '@/shared/i18n/laya-i18n.js';
 import type { CollectionBackdropSummary, CollectionModelFloor } from '@/entities/gifts/model/types.js';
 
 interface Props {
@@ -15,8 +15,7 @@ interface HarmonicPair {
 	centerHex: string;
 	edgeHex: string;
 	deltaEScore: number; // 0 to 100
-	harmonyCategory: 'grail_complementary' | 'high_contrast_pop' | 'analogous_elegance' | 'discordant_clash';
-	harmonyCategoryFa: string;
+	harmonyLabel: LocalizedText;
 	aestheticMultiplier: number; // e.g. 1.25x
 	estValueTon: number;
 }
@@ -54,8 +53,12 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				centerHex: sampleBackdrops[0]?.center_hex || '#0d1117',
 				edgeHex: sampleBackdrops[0]?.edge_hex || '#161b22',
 				deltaEScore: 96,
-				harmonyCategory: 'grail_complementary',
-				harmonyCategoryFa: 'هارمونی افسانه‌ای کنتراست شاهانه (تاریک/طلایی)',
+				harmonyLabel: {
+					en: 'Legendary Royal Contrast Harmony',
+					fa: 'هارمونی افسانه‌ای کنتراست شاهانه',
+					ru: 'Легендарная королевская гармония контраста',
+					zh: '传奇皇家极致对比色和谐',
+				},
 				aestheticMultiplier: 1.32,
 				estValueTon: Math.round(bf * 2.8 * 10) / 10,
 			},
@@ -65,8 +68,12 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				centerHex: sampleBackdrops[2]?.center_hex || '#002b36',
 				edgeHex: sampleBackdrops[2]?.edge_hex || '#00f7ff',
 				deltaEScore: 91,
-				harmonyCategory: 'high_contrast_pop',
-				harmonyCategoryFa: 'کنتراست درخشان نئونی با بازتاب حداکثری',
+				harmonyLabel: {
+					en: 'Luminous Neon Maximal Pop',
+					fa: 'کنتراست درخشان نئونی با بازتاب حداکثری',
+					ru: 'Яркий неоновый максимальный контраст',
+					zh: '璀璨霓虹极致视效张力',
+				},
 				aestheticMultiplier: 1.22,
 				estValueTon: Math.round(bf * 2.1 * 10) / 10,
 			},
@@ -76,8 +83,12 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				centerHex: sampleBackdrops[1]?.center_hex || '#2b2100',
 				edgeHex: sampleBackdrops[1]?.edge_hex || '#ffd700',
 				deltaEScore: 85,
-				harmonyCategory: 'analogous_elegance',
-				harmonyCategoryFa: 'ترکیب هم‌خانواده لوکس با درخشش متقارن',
+				harmonyLabel: {
+					en: 'Analogous Luxury Golden Radiance',
+					fa: 'ترکیب هم‌خانواده لوکس با درخشش متقارن',
+					ru: 'Роскошное золотистое сияние схожих тонов',
+					zh: '同色系奢华璀璨流金',
+				},
 				aestheticMultiplier: 1.15,
 				estValueTon: Math.round(bf * 1.7 * 10) / 10,
 			},
@@ -87,8 +98,12 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				centerHex: sampleBackdrops[4]?.center_hex || '#0a192f',
 				edgeHex: sampleBackdrops[4]?.edge_hex || '#10b981',
 				deltaEScore: 79,
-				harmonyCategory: 'high_contrast_pop',
-				harmonyCategoryFa: 'هارمونی شفق قطبی با تمپریچر سرد',
+				harmonyLabel: {
+					en: 'Midnight Aurora Cool Temperature',
+					fa: 'هارمونی شفق قطبی با تمپریچر سرد',
+					ru: 'Северное сияние в холодной гамме',
+					zh: '午夜极光清冷雅致协同',
+				},
 				aestheticMultiplier: 1.10,
 				estValueTon: Math.round(bf * 1.4 * 10) / 10,
 			},
@@ -98,8 +113,12 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				centerHex: sampleBackdrops[3]?.center_hex || '#1e102d',
 				edgeHex: sampleBackdrops[3]?.edge_hex || '#8a2be2',
 				deltaEScore: 68,
-				harmonyCategory: 'analogous_elegance',
-				harmonyCategoryFa: 'ترکیب مخملی با ضریب نقدشوندگی استاندارد',
+				harmonyLabel: {
+					en: 'Velvet Amethyst Balanced Fluidity',
+					fa: 'ترکیب مخملی با ضریب نقدشوندگی استاندارد',
+					ru: 'Бархатно-аметистовая сбалансированная гармония',
+					zh: '丝绒紫晶稳健平衡流动',
+				},
 				aestheticMultiplier: 1.05,
 				estValueTon: Math.round(bf * 1.15 * 10) / 10,
 			},
@@ -123,12 +142,10 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 					</div>
 					<div class="flex flex-col">
 						<h3 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{isRtl() ? 'نقشه هارمونی رنگی دلتا-E لایا (CIEDE2000)' : 'LAYA DELTA-E CHROMATIC HARMONY HEATMAP'}
+							{layaT(GIFTS_I18N.chromaticHeatmapTitle)}
 						</h3>
 						<span class="text-[9px] font-mono text-white/40">
-							{isRtl()
-								? 'محاسبه هم‌افزایی بصری مدل و بک‌دراپ بر اساس تئوری رنگ شناختی و تاثیر بر قیمت'
-								: 'Visual chromatic resonance between model hue and backdrop hex codes'}
+							{layaT(GIFTS_I18N.chromaticHeatmapSubtitle)}
 						</span>
 					</div>
 				</div>
@@ -141,12 +158,10 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 			<div class="bg-gradient-to-r from-purple-950/30 via-[#0A0D14] to-[#08090D] border border-purple-500/25 rounded-[20px] p-3.5 flex items-center justify-between gap-3">
 				<div class="flex flex-col gap-0.5">
 					<span class="text-[10px] font-mono font-black text-purple-300 uppercase tracking-wider">
-						{isRtl() ? 'پرمیوم زیبایی‌شناختی تلگرام (Aesthetic Multiplier)' : 'AESTHETIC MULTIPLIER EFFECT'}
+						{layaT(GIFTS_I18N.aestheticMultiplierTitle)}
 					</span>
 					<p class="text-[10px] text-white/70 leading-relaxed font-sans">
-						{isRtl()
-							? 'خریداران گیفت در تلگرام تا ۳۵٪ بیشتر برای جفت‌های رنگی متقارن و چشم‌نواز پرداخت می‌کنند، زیرا در پروفایل جلوه بصری دوچندان دارد.'
-							: 'Gifts with high chromatic harmony (ΔE balance) trade at 15–35% premium over uncoordinated random combinations.'}
+						{layaT(GIFTS_I18N.aestheticMultiplierText)}
 					</p>
 				</div>
 				<div class="bg-[#050B11] border border-purple-500/30 px-3 py-2 rounded-[14px] shrink-0 text-center font-mono">
@@ -158,7 +173,7 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 			{/* Ranked Combinations List */}
 			<div class="flex flex-col gap-2">
 				<span class="text-[10px] font-mono font-black text-white/50 uppercase tracking-wider">
-					{isRtl() ? 'رتبه‌بندی ۵ جفت رنگی برتر کالکشن بر اساس LAYA ΔE' : 'TOP 5 CHROMATIC HARMONY COMBINATIONS'}
+					{layaT(GIFTS_I18N.topChromaticPairs)}
 				</span>
 
 				<div class="flex flex-col gap-2">
@@ -182,7 +197,7 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 											<span class="text-xs font-bold text-white/80">{pair.backdropName}</span>
 										</div>
 										<span class="text-[9px] font-mono text-purple-300">
-											{isRtl() ? pair.harmonyCategoryFa : pair.harmonyCategory.replace(/_/g, ' ').toUpperCase()}
+											{layaT(pair.harmonyLabel)}
 										</span>
 									</div>
 								</div>

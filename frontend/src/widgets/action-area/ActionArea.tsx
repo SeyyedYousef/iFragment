@@ -715,13 +715,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 	const isAnalyzeDisabled = createMemo(() => {
 		if (analyzeState() === 'loading') return true;
-		if (isVerifying()) return true;
 		if (props.activeTab === 'collectibles') {
 			const v = numbersValidation();
-			if (!v.isValid) return true;
-			const sv = serverVerified();
-			if (sv && sv.is_minted === false) return true;
-			return false;
+			return !v.isValid;
 		}
 		if (props.activeTab === 'gifts') {
 			return !searchQuery().trim();
