@@ -316,6 +316,7 @@ export interface NumberValuationResult {
 	on_chain_audit?: OnChainAuditData;
 	security_advisory?: SecurityAdvisoryData;
 	telemint_provenance?: TelemintProvenanceData;
+	reasoning_log?: Record<string, any>;
 	certificate_id: string;
 	evaluated_at: string;
 }

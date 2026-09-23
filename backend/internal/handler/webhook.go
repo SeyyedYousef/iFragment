@@ -24,6 +24,7 @@ import (
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service"
+	"ifragment-backend/internal/service/cardgen"
 	"ifragment-backend/internal/service/gifts"
 	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/notification"
@@ -52,6 +53,11 @@ type WebhookHandler struct {
 	intelCreditService *intelcredit.IntelCreditService
 	intelStoreService  *intelcredit.StoreService
 	profileService     *service.ProfileService
+	cardGen            *cardgen.CardGenerator
+}
+
+func (h *WebhookHandler) SetCardGenerator(cg *cardgen.CardGenerator) {
+	h.cardGen = cg
 }
 
 func (h *WebhookHandler) SetGiftsService(s *gifts.GiftsService) {
@@ -590,6 +596,21 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			}
 		}
 		return
+	}
+
+	// 4. Group / Supergroup Mention handling: when bot is tagged or addressed in a group
+	if (msg.Chat.Type == "group" || msg.Chat.Type == "supergroup") && bot.BotUsername != "" {
+		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
+		if strings.Contains(raw, botMention) {
+			cleanText := strings.TrimSpace(strings.ReplaceAll(raw, botMention, ""))
+			sniff := SniffAsset(cleanText)
+			if sniff != nil {
+				h.sendPreCheckGate(ctx, bot, msg.Chat.ID, msg.From.ID, sniff.Type, sniff.Entity, nil, msg.MessageThreadID)
+			} else {
+				h.sendHelpView(ctx, bot, msg.Chat.ID, msg.From.ID, nil, msg.MessageThreadID)
+			}
+			return
+		}
 	}
 }
 

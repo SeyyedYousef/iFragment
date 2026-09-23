@@ -207,7 +207,100 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 
 	var results []interface{}
 
-	if query == "" || strings.EqualFold(query, "gifts") {
+	// Sniff if the user is asking about a Username, Collectible Number, or Gift
+	sniff := SniffAsset(query)
+	if sniff != nil {
+		switch sniff.Type {
+		case "username":
+			normUser := strings.TrimPrefix(strings.ToLower(sniff.Entity), "@")
+			if h.avmService != nil {
+				res, err := h.avmService.Valuate(ctx, normUser, 0)
+				if err == nil && res != nil {
+					appURL := fmt.Sprintf("%s?startapp=val_%s", miniAppURL, normUser)
+					msgText := fmt.Sprintf(`🏷️ <b>کارشناسی تحلیلی نام کاربری: @%s</b>
+
+💎 درجه سرمایه‌گذاری: <b>%s</b>
+📈 شاخص برندپذیری: <b>%d / 100</b>
+📉 بازه ارزش: <b>%s الی %s TON</b>
+💰 برآورد منصفانه: <b>~%s TON (معادل $%s)</b>
+
+⚡ <i>برآورد هوشمند موتور تحلیلی AVM بر پایه معاملات فرگمنت</i>`,
+						normUser,
+						res.InvestmentGrade,
+						res.Brandability,
+						res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
+						res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0),
+					)
+
+					results = append(results, telegram.InlineQueryResultArticle{
+						Type:        "article",
+						ID:          fmt.Sprintf("user_%s", normUser),
+						Title:       fmt.Sprintf("🏷️ کارشناسی نام کاربری: @%s", normUser),
+						Description: fmt.Sprintf("تخمین: ~%s TON ($%s) | درجه: %s | برندپذیری: %d/100", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0), res.InvestmentGrade, res.Brandability),
+						InputMessageContent: map[string]interface{}{
+							"message_text": msgText,
+							"parse_mode":   "HTML",
+						},
+						ReplyMarkup: map[string]interface{}{
+							"inline_keyboard": [][]map[string]interface{}{
+								{
+									{"text": "📊 تحلیل جامع در مینی‌اپ", "url": appURL},
+									{"text": "🌐 مشاهده در فرگمنت", "url": fmt.Sprintf("https://fragment.com/username/%s", normUser)},
+								},
+							},
+						},
+					})
+				}
+			}
+		case "number":
+			if h.numbersService != nil {
+				val, err := h.numbersService.ValuateNumber(ctx, 0, sniff.Entity)
+				if err == nil && val != nil {
+					cleanNum := strings.TrimPrefix(val.Number, "+")
+					appURL := fmt.Sprintf("%s?startapp=num_%s", miniAppURL, cleanNum)
+					club := val.CategoryClubFa
+					if club == "" {
+						club = val.CategoryClub
+					}
+					msgText := fmt.Sprintf(`📱 <b>کارشناسی تحلیلی شماره کلکسیونی: %s</b>
+
+👑 کلوپ: <b>%s</b>
+🏆 رتبه کمیابی در شبکه: <b>#%d</b>
+🎯 ضریب اطمینان: <b>%d%%</b>
+💰 قیمت منصفانه (Fair): <b>%s TON (~$%.0f)</b>
+
+⚡ <i>ارزیابی دقیق موتور NV Engine بر اساس متدولوژی TON</i>`,
+						val.DisplayNumber,
+						club,
+						val.GlobalRank,
+						val.ConfidenceScore,
+						val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
+					)
+
+					results = append(results, telegram.InlineQueryResultArticle{
+						Type:        "article",
+						ID:          fmt.Sprintf("num_%s", cleanNum),
+						Title:       fmt.Sprintf("📱 کارشناسی شماره: %s", val.DisplayNumber),
+						Description: fmt.Sprintf("کلوپ: %s | رتبه: #%d | قیمت: %s TON (~$%.0f)", club, val.GlobalRank, val.ExpectedTON.StringFixed(1), val.ExpectedUSD),
+						InputMessageContent: map[string]interface{}{
+							"message_text": msgText,
+							"parse_mode":   "HTML",
+						},
+						ReplyMarkup: map[string]interface{}{
+							"inline_keyboard": [][]map[string]interface{}{
+								{
+									{"text": "📊 تحلیل جامع در مینی‌اپ", "url": appURL},
+									{"text": "🌐 مشاهده در فرگمنت", "url": fmt.Sprintf("https://fragment.com/number/%s", cleanNum)},
+								},
+							},
+						},
+					})
+				}
+			}
+		}
+	}
+
+	if (query == "" || strings.EqualFold(query, "gifts")) && len(results) == 0 {
 		// Return Market Overview Article
 		intel, err := h.giftsService.GetGiftsIntel(ctx)
 		if err == nil && intel != nil {
@@ -252,7 +345,7 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 				})
 			}
 		}
-	} else {
+	} else if len(results) == 0 {
 		// Specific gift query (e.g. "pepe 42" or "CelestialStar-1")
 		val, err := h.giftsService.GetBotGiftAppraisal(ctx, query)
 		if err == nil && val != nil {

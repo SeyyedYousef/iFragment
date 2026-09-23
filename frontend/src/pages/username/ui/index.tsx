@@ -25,6 +25,10 @@ import {
 } from '@/shared/lib/report-cache.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
 import { UnifiedPaywallGate } from '@/widgets/paywall/index.js';
+import { LayaCategoriesExplorer } from './components/LayaCategoriesExplorer.js';
+import { LayaMultiDimensionalCard } from './components/LayaMultiDimensionalCard.js';
+import { TargetBuyerPersonaCard } from './components/TargetBuyerPersonaCard.js';
+import { TelegramTOSLegalMatrix } from './components/TelegramTOSLegalMatrix.js';
 
 interface ValuationResult {
 	run_id: number;
@@ -208,6 +212,7 @@ interface ValuationResult {
 	certificate_signature?: string;
 	telemint_provenance?: TelemintProvenance;
 	homoglyph_twins?: HomoglyphTwin[];
+	laya_system_one?: any;
 }
 
 export interface TelemintProvenance {
@@ -1108,6 +1113,9 @@ export const UsernamePage: Component = () => {
 										</div>
 									</div>
 
+									{/* 🧠 LAYA COGNITIVE SEMANTIC CATEGORIES EXPLORER */}
+									<LayaCategoriesExplorer onSelectHandle={(h) => openReport(h)} />
+
 									{/* Recent Appraisals (from cache) */}
 									<Show when={recents().length > 0}>
 										<div class="w-full flex flex-col gap-2.5 text-start">
@@ -1426,61 +1434,11 @@ export const UsernamePage: Component = () => {
 									</div>
 								</Show>
 
-								{/* ⚖️ TRADEMARK & LEGAL RISK ADVISORY CARD */}
-								<Show when={data()?.trademark_risk && data()!.trademark_risk!.risk_level !== 'low'}>
-									<div
-										class={`w-full p-4 rounded-[24px] border backdrop-blur-xl text-start shadow-xl relative overflow-hidden ${
-											data()!.trademark_risk!.risk_level === 'high'
-												? 'bg-gradient-to-br from-rose-950/40 via-[#12141C] to-rose-900/20 border-rose-500/40'
-												: 'bg-gradient-to-br from-amber-950/40 via-[#12141C] to-amber-900/20 border-amber-500/40'
-										}`}
-									>
-										<div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-white/5">
-											<div class="flex items-center gap-2">
-												<span
-													class={`material-symbols-outlined text-base ${
-														data()!.trademark_risk!.risk_level === 'high'
-															? 'text-rose-400'
-															: 'text-amber-400'
-													}`}
-												>
-													gavel
-												</span>
-												<h4 class="text-xs font-black text-white">
-													{isRtl()
-														? 'هشدار حقوقی و ریسک علامت تجاری (Trademark)'
-														: 'Trademark & Legal Risk Advisory'}
-												</h4>
-											</div>
-											<span
-												class={`text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-md border ${
-													data()!.trademark_risk!.risk_level === 'high'
-														? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-														: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-												}`}
-											>
-												{data()!.trademark_risk!.risk_level === 'high'
-													? 'RISK: HIGH'
-													: 'RISK: MEDIUM'}
-											</span>
-										</div>
-
-										<p class="text-[11px] text-white/80 leading-relaxed mb-2.5">
-											{data()!.trademark_risk!.advisory_warning}
-										</p>
-
-										<div class="flex items-center justify-between text-[10px] text-white/50 pt-2 border-t border-white/5 font-mono">
-											<span>
-												{isRtl() ? 'مرجع حقوقی:' : 'Legal Ref:'} Telegram ToS §4 & App Stores Policy
-											</span>
-											<Show when={data()!.trademark_risk!.matched_entity}>
-												<span class="text-white/70 font-bold truncate max-w-[50%]">
-													{data()!.trademark_risk!.matched_entity}
-												</span>
-											</Show>
-										</div>
-									</div>
-								</Show>
+								{/* ⚖️ TELEGRAM TOS §4 & TRADEMARK LIABILITY MATRIX */}
+								<TelegramTOSLegalMatrix
+									trademarkRisk={data()?.trademark_risk}
+									username={data()?.username || username()}
+								/>
 
 								{/* 💰 TRANSACTION ECONOMICS & FRAGMENT PROTOCOL FEE */}
 								<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 flex flex-col gap-3.5 shadow-xl text-start">
@@ -1679,6 +1637,18 @@ export const UsernamePage: Component = () => {
 										</div>
 									</div>
 								</div>
+
+								{/* 🧠 LAYA MULTI-DIMENSIONAL COGNITIVE CARD */}
+								<LayaMultiDimensionalCard
+									decision={data()?.laya_system_one || data()?.reasoning_log?.laya_system_one}
+									username={data()?.username || username()}
+								/>
+
+								{/* 👥 TARGET BUYER PERSONAS (8 ARCHETYPES) */}
+								<TargetBuyerPersonaCard
+									detectedPersona={data()?.target_buyer_profile || data()?.laya_system_one?.buyer_archetype}
+									username={data()?.username || username()}
+								/>
 
 								{/* 🌟 1. LINGUISTIC MEANING, DICTIONARY & WIKIPEDIA */}
 								<div

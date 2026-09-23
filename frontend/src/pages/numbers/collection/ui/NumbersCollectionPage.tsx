@@ -14,6 +14,10 @@ import { NumberHoldersView } from './components/NumberHoldersView.js';
 import { NumberMarketView } from './components/NumberMarketView.js';
 import { NumberPatternsView } from './components/NumberPatternsView.js';
 import { NumberRiskMethodology } from './components/NumberRiskMethodology.js';
+import { NumberClubFloorsTracker } from './components/NumberClubFloorsTracker.js';
+import { NumberCulturalRadarHeatmap } from './components/NumberCulturalRadarHeatmap.js';
+import { NumberDeFiFinancials } from './components/NumberDeFiFinancials.js';
+import { NumberDialpadErgonomics } from './components/NumberDialpadErgonomics.js';
 
 export type CollectionTabKey = 'overview' | 'market' | 'patterns' | 'holders' | 'activity' | 'risk';
 
@@ -185,7 +189,24 @@ export const NumbersCollectionPage: Component = () => {
 
 				{/* Tab 1: Overview */}
 				<Show when={selectedTab() === 'overview'}>
-					<div class="space-y-3">
+					<div class="space-y-4">
+						{/* 🌍 1. LAYA MULTI-CULTURAL DEMAND HEATMAP */}
+						<NumberCulturalRadarHeatmap />
+
+						{/* 🏆 2. COLLECTIBLE CLUB FLOORS TRACKER */}
+						<NumberClubFloorsTracker
+							onSelectNumber={(num) => navigate(`/numbers/report?n=${encodeURIComponent(num)}`)}
+						/>
+
+						{/* 📱 3. LAYA DIALPAD ERGONOMICS SCORE */}
+						<NumberDialpadErgonomics initialNumber={overview()?.floor_number || '+888 8888 8888'} />
+
+						{/* 💎 4. DEFI COLLATERAL & RENTAL YIELD */}
+						<NumberDeFiFinancials
+							medianFloorTon={overview()?.floor_ask_ton || 75}
+							tonUsdRate={rate()}
+						/>
+
 						{/* Market Summary Card */}
 						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-3xl p-4 backdrop-blur-xl">
 							<h3 class="text-xs font-black text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">

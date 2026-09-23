@@ -35,6 +35,7 @@ import (
 	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/service/raffle"
 	"ifragment-backend/internal/service/broadcaster"
+	"ifragment-backend/internal/service/cardgen"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts"
 	"ifragment-backend/internal/service/intelcredit"
@@ -490,7 +491,31 @@ func main() {
 	intelCreditService := intelcredit.NewIntelCreditService(db)
 	intelCreditHandler := handler.NewIntelCreditHandler(intelCreditService, cache)
 
+	// Initialize Visual Asset Card Generator and inject into handlers for DM & Bot delivery
+	cardGen := cardgen.NewCardGenerator()
+	var mainTgClient *telegram.BotAPIClient
+	if botToken != "" {
+		mainTgClient = telegram.NewBotAPIClient(botToken)
+	}
+
+	numbersHandler.SetCardGenerator(cardGen)
+	if mainTgClient != nil {
+		numbersHandler.SetTelegramClient(mainTgClient)
+	}
+
+	giftsHandler.SetCardGenerator(cardGen)
+	if mainTgClient != nil {
+		giftsHandler.SetTelegramClient(mainTgClient)
+	}
+
+	intelCreditHandler.SetCardGenerator(cardGen)
+	if mainTgClient != nil {
+		intelCreditHandler.SetTelegramClient(mainTgClient)
+	}
+	intelCreditHandler.SetAVMService(avmService)
+
 	if webhookHandler != nil {
+		webhookHandler.SetCardGenerator(cardGen)
 		webhookHandler.SetNumbersService(numbersService)
 		webhookHandler.SetAVMService(avmService)
 		webhookHandler.SetIntelCreditService(intelCreditService)
@@ -712,6 +737,8 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botRepo *
 			"chat_join_request",
 			"pre_checkout_query",
 			"inline_query",
+			"chosen_inline_result",
+			"guest_message",
 		},
 	}
 	body, _ := json.Marshal(payload)

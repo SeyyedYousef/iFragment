@@ -1,25 +1,45 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service/cardgen"
 	"ifragment-backend/internal/service/intelcredit"
+	"ifragment-backend/internal/service/username/avm"
 )
 
 type IntelCreditHandler struct {
-	service *intelcredit.IntelCreditService
-	cache   *repository.Cache
+	service    *intelcredit.IntelCreditService
+	cache      *repository.Cache
+	cardGen    *cardgen.CardGenerator
+	tgClient   *telegram.BotAPIClient
+	avmService *avm.ValuationService
 }
 
 func NewIntelCreditHandler(service *intelcredit.IntelCreditService, cache *repository.Cache) *IntelCreditHandler {
 	return &IntelCreditHandler{service: service, cache: cache}
+}
+
+func (h *IntelCreditHandler) SetCardGenerator(cg *cardgen.CardGenerator) {
+	h.cardGen = cg
+}
+
+func (h *IntelCreditHandler) SetTelegramClient(tg *telegram.BotAPIClient) {
+	h.tgClient = tg
+}
+
+func (h *IntelCreditHandler) SetAVMService(avm *avm.ValuationService) {
+	h.avmService = avm
 }
 
 type ConsumeCreditRequest struct {
@@ -90,10 +110,13 @@ func (h *IntelCreditHandler) Consume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Proactively cache valuation access in Redis if this credit was consumed for a username report
-	if h.cache != nil && req.Entity != "" {
+	if req.Entity != "" {
 		cleanEntity := strings.ToLower(strings.TrimPrefix(req.Entity, "@"))
 		if req.Reason == "username" || req.Reason == "report:username" || req.Reason == "val_username" {
-			_ = h.cache.Client.Set(ctx, fmt.Sprintf("val_access:%d:%s", userID, cleanEntity), "credit", 24*time.Hour).Err()
+			if h.cache != nil {
+				_ = h.cache.Client.Set(ctx, fmt.Sprintf("val_access:%d:%s", userID, cleanEntity), "credit", 24*time.Hour).Err()
+			}
+			h.deliverUsernameReportToUser(r, userID, cleanEntity)
 		}
 	}
 
@@ -179,3 +202,131 @@ func (h *IntelCreditHandler) ExchangeCoins(w http.ResponseWriter, r *http.Reques
 		"balance": balance,
 	})
 }
+
+func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID int64, username string) {
+	cleanUser := strings.ToLower(strings.TrimPrefix(username, "@"))
+	if cleanUser == "" || userID <= 0 {
+		return
+	}
+	tg := h.tgClient
+	if tg == nil {
+		token := os.Getenv("TELEGRAM_BOT_TOKEN")
+		if token == "" {
+			token = os.Getenv("BOT_TOKEN")
+		}
+		if token != "" {
+			tg = telegram.NewBotAPIClient(token)
+		}
+	}
+	if tg == nil {
+		return
+	}
+
+	scheme := "https"
+	host := ""
+	if r != nil {
+		if r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https" {
+			scheme = "http"
+		}
+		host = r.Host
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		miniAppURL := os.Getenv("MINI_APP_URL")
+		if miniAppURL == "" {
+			miniAppURL = "https://t.me/iFragmentBot/iFragment"
+		}
+		appLink := fmt.Sprintf("%s?startapp=val_%s", miniAppURL, cleanUser)
+		fragmentLink := fmt.Sprintf("https://fragment.com/username/%s", cleanUser)
+
+		var reportText string
+		tier := "STANDARD"
+		expectedTONStr := "0.0"
+		expectedUSDStr := "0"
+
+		if h.avmService != nil {
+			res, err := h.avmService.Valuate(ctx, cleanUser, 0)
+			if err == nil && res != nil {
+				tier = res.InvestmentGrade
+				expectedTONStr = res.ExpectedTON.StringFixed(1)
+				expectedUSDStr = res.ExpectedUSD.StringFixed(0)
+
+				var gradeEmoji string
+				switch res.InvestmentGrade {
+				case "AAA", "AA":
+					gradeEmoji = "💎"
+				case "A", "BBB":
+					gradeEmoji = "⭐"
+				default:
+					gradeEmoji = "📊"
+				}
+
+				reportText = fmt.Sprintf(`🏷️ <b>کارشناسی تحلیلی نام کاربری: @%s</b>
+
+%s درجه سرمایه‌گذاری: <b>%s</b>
+📈 شاخص برندپذیری: <b>%d / 100</b>
+📉 بازه برآورد ارزش: <b>%s الی %s TON</b>
+💰 میانگین برآورد منصفانه: <b>~%s TON (معادل $%s)</b>
+
+━━━━━━━━━━━━━━━━━━━
+🧬 <b>ویژگی‌های ساختاری:</b>
+• طول شناسه: <b>%d کاراکتر</b>
+• رتبه نقدشوندگی: <b>%s</b>
+• افق زمانی فروش: <b>%s</b>
+• مخاطب هدف: <b>%s</b>
+━━━━━━━━━━━━━━━━━━━
+
+⚡ <i>برآورد تحلیلی موتور هوشمند AVM بر پایه سیگنال‌های معاملات فرگمنت</i>`,
+					cleanUser,
+					gradeEmoji, res.InvestmentGrade,
+					res.Brandability,
+					res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
+					res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0),
+					res.Length,
+					res.LiquidityRating,
+					res.EstimatedSellTime,
+					res.TargetBuyerProfile,
+				)
+			}
+		}
+
+		if reportText == "" {
+			reportText = fmt.Sprintf(`🏷️ <b>کارشناسی نام کاربری: @%s</b>
+
+گزارش کامل شاخص‌های برندپذیری، تحلیل تقاضا و ارزش‌گذاری این نام کاربری هم‌اکنون در مینی‌اپ در دسترس شماست.`, cleanUser)
+		}
+
+		markup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
+					{"text": "📊 مشاهده تحلیل کامل در مینی‌اپ", "url": appLink},
+				},
+				{
+					{"text": "🌐 مشاهده در فرگمنت", "url": fragmentLink},
+				},
+			},
+		}
+
+		if h.cardGen != nil {
+			if pngBytes, err := h.cardGen.GenerateUsernameCard(cleanUser, tier, expectedTONStr, expectedUSDStr); err == nil {
+				if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
+					var publicURL string
+					if host != "" {
+						publicURL = fmt.Sprintf("%s://%s/static/shares/%s.png", scheme, host, fileID)
+					} else {
+						publicURL = h.cardGen.GetPublicCardURL(fileID, nil)
+					}
+					if _, err := tg.SendPhotoWithMarkup(ctx, userID, publicURL, reportText, markup); err == nil {
+						return
+					}
+				}
+			}
+		}
+
+		_, _ = tg.SendMessageWithMarkup(ctx, userID, reportText, markup, nil)
+	}()
+}
+

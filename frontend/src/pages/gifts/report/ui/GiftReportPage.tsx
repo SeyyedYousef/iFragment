@@ -16,6 +16,10 @@ import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { UnifiedPaywallGate } from '@/widgets/paywall/index.js';
 import { GiftValuationPillarsCard } from './GiftValuationPillarsCard.js';
+import { GiftLayaActionCard } from './components/GiftLayaActionCard.js';
+import { GiftTraitSynergyCard } from './components/GiftTraitSynergyCard.js';
+import { GiftStarsParityCard } from './components/GiftStarsParityCard.js';
+import { GiftExitPlannerCard } from './components/GiftExitPlannerCard.js';
 
 export const GiftReportPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -594,6 +598,54 @@ export const GiftReportPage: Component = () => {
 
 						{/* 🏛️ 4 CORE VALUATION PILLARS & RARITY ENTROPY */}
 						<GiftValuationPillarsCard report={currentReport()!} />
+
+						{/* ⚡ LAYA SYSTEM 1 STRATEGIC ACTION CARD */}
+						<GiftLayaActionCard
+							expectedTon={Number(currentReport()?.expected_gram) || 0}
+							expectedUsd={Number(currentReport()?.expected_usd) || 0}
+							serialNumber={currentReport()?.serial_number}
+							modelName={currentReport()?.model_name || currentReport()?.selected_model}
+							isUpgraded={
+								enrichedQuery.data?.custody_type === 'on_chain_nft' ||
+								currentReport()?.on_chain?.is_on_chain
+							}
+							isCraftable={true}
+							confidenceScore={currentReport()?.confidence_score}
+							verdict={currentReport()?.recommendation?.verdict}
+							summaryFa={currentReport()?.recommendation?.summary_fa}
+							summaryEn={currentReport()?.recommendation?.summary_en}
+						/>
+
+						{/* 🧬 LAYA TRAIT SYNERGY MULTIPLIER (0.90x - 1.35x) */}
+						<GiftTraitSynergyCard
+							baseExpectedTon={Number(currentReport()?.expected_gram) || 0}
+							modelName={currentReport()?.model_name || currentReport()?.selected_model}
+							backdropName={currentReport()?.trait_dna?.find((t: any) => t.axis_key === 'backdrop')?.value}
+							symbolName={currentReport()?.trait_dna?.find((t: any) => t.axis_key === 'symbol')?.value}
+							rarityTier={currentReport()?.trait_dna?.[0]?.rarity_tier}
+							backdropColors={
+								(enrichedQuery.data as any)?.backdrop_colors ||
+								(currentReport() as any)?.backdrop_colors
+							}
+						/>
+
+						{/* 🌟 STARS TO TON REAL-TIME PARITY ARBITRAGE */}
+						<GiftStarsParityCard
+							expectedTon={Number(currentReport()?.expected_gram) || 0}
+							starsPrice={enrichedQuery.data?.upgrade_info?.upgrade_fee_stars}
+							tonUsdRate={Number(currentReport()?.gram_usd_rate) || 5.5}
+							isUpgraded={
+								enrichedQuery.data?.custody_type === 'on_chain_nft' ||
+								currentReport()?.on_chain?.is_on_chain
+							}
+						/>
+
+						{/* 💰 EXIT PLANNER & MULTI-VENUE FEE OPTIMIZER */}
+						<GiftExitPlannerCard
+							expectedTon={Number(currentReport()?.expected_gram) || 0}
+							expectedUsd={Number(currentReport()?.expected_usd) || 0}
+							tonUsdRate={Number(currentReport()?.gram_usd_rate) || 5.5}
+						/>
 
 						{/* 🌐 DUAL-WORLD ARCHITECTURE: IN-APP STARS vs ON-CHAIN TEP-62 */}
 						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex flex-col gap-2.5 shadow-xl text-start">

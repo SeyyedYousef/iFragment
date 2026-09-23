@@ -620,8 +620,8 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		}
 	}
 
-	// Fallback to on-demand Fragment fetch if DB has no snapshot yet
-	if len(dbSnapshots) == 0 {
+	// Fallback to on-demand Fragment fetch if DB has no snapshot yet and repo is active
+	if len(dbSnapshots) == 0 && s.repo != nil {
 		fragAdapter := venues.NewFragmentAdapter()
 		fetchCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
 		if floorRes, err := fragAdapter.FetchFloor(fetchCtx, normSlug); err == nil && floorRes != nil && !floorRes.FloorPriceGRAM.IsZero() {

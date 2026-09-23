@@ -13,17 +13,28 @@ import (
 
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/middleware"
+	"ifragment-backend/internal/service/cardgen"
 	"ifragment-backend/internal/service/notification"
 	"ifragment-backend/internal/service/numbers"
 	"ifragment-backend/internal/service/numbers/nvengine"
 )
 
 type NumbersHandler struct {
-	service *numbers.NumbersService
+	service  *numbers.NumbersService
+	cardGen  *cardgen.CardGenerator
+	tgClient *telegram.BotAPIClient
 }
 
 func NewNumbersHandler(service *numbers.NumbersService) *NumbersHandler {
 	return &NumbersHandler{service: service}
+}
+
+func (h *NumbersHandler) SetCardGenerator(cg *cardgen.CardGenerator) {
+	h.cardGen = cg
+}
+
+func (h *NumbersHandler) SetTelegramClient(tg *telegram.BotAPIClient) {
+	h.tgClient = tg
 }
 
 // GetIntel returns the free market intelligence dashboard
@@ -337,6 +348,7 @@ func (h *NumbersHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request
 	}
 
 	h.sendNumberNotification(r, val, "credit")
+	h.deliverNumberReportToUser(r, userID, val)
 	RespondJSON(w, http.StatusOK, val)
 }
 
@@ -657,3 +669,107 @@ func (h *NumbersHandler) sendNumberNotification(r *http.Request, val *nvengine.N
 
 	notification.GetAdminNotifier().NotifyNumber(context.Background(), msg, markup)
 }
+
+func (h *NumbersHandler) deliverNumberReportToUser(r *http.Request, userID int64, val *nvengine.NumberValuation) {
+	if val == nil || userID <= 0 {
+		return
+	}
+	tg := h.tgClient
+	if tg == nil {
+		token := os.Getenv("TELEGRAM_BOT_TOKEN")
+		if token == "" {
+			token = os.Getenv("BOT_TOKEN")
+		}
+		if token != "" {
+			tg = telegram.NewBotAPIClient(token)
+		}
+	}
+	if tg == nil {
+		return
+	}
+
+	scheme := "https"
+	host := ""
+	if r != nil {
+		if r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https" {
+			scheme = "http"
+		}
+		host = r.Host
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		club := val.CategoryClubFa
+		if club == "" {
+			club = val.CategoryClub
+		}
+		cleanNum := strings.TrimPrefix(val.Number, "+")
+		miniAppURL := os.Getenv("MINI_APP_URL")
+		if miniAppURL == "" {
+			miniAppURL = "https://t.me/iFragmentBot/iFragment"
+		}
+		appLink := fmt.Sprintf("%s?startapp=num_%s", miniAppURL, cleanNum)
+		fragmentLink := fmt.Sprintf("https://fragment.com/number/%s", cleanNum)
+
+		reportText := fmt.Sprintf(`📱 <b>کارشناسی تحلیلی شماره کلکسیونی: %s</b>
+
+👑 کلوپ دسته‌بندی: <b>%s</b>
+🏆 رتبه کمیابی در شبکه: <b>#%d از ۱۳۶,۵۶۶</b>
+🎯 شاخص اطمینان مدل: <b>%d%%</b>
+
+━━━━━━━━━━━━━━━━━━━
+💰 <b>برآورد ارزش بازار:</b>
+• ارزش پایه: <b>%s TON</b>
+• کف نقدشوندگی: <b>%s TON (~$%.0f)</b>
+• قیمت منصفانه (Fair): <b>%s TON (~$%.0f)</b>
+• سقف ارزش احتمالی: <b>%s TON (~$%.0f)</b>
+━━━━━━━━━━━━━━━━━━━
+
+🎨 رنگ رسمی فرگمنت: <b>%s</b>
+⚡ <i>ارزیابی دقیق موتور NV Engine بر اساس متدولوژی ثبت‌شده در شبکه TON</i>`,
+			val.DisplayNumber,
+			club,
+			val.GlobalRank,
+			val.ConfidenceScore,
+			val.BasePriceTON.StringFixed(1),
+			val.LowTON.StringFixed(1), val.LowUSD,
+			val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
+			val.HighTON.StringFixed(1), val.HighUSD,
+			val.Color.Name,
+		)
+
+		markup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
+					{"text": "📊 مشاهده تحلیل کامل در مینی‌اپ", "url": appLink},
+				},
+				{
+					{"text": "🌐 مشاهده در فرگمنت", "url": fragmentLink},
+				},
+			},
+		}
+
+		if h.cardGen != nil {
+			tonStr := val.ExpectedTON.StringFixed(1)
+			usdStr := fmt.Sprintf("%.0f", val.ExpectedUSD)
+			if pngBytes, err := h.cardGen.GenerateNumberCard(val.DisplayNumber, club, val.GlobalRank, tonStr, usdStr); err == nil {
+				if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
+					var publicURL string
+					if host != "" {
+						publicURL = fmt.Sprintf("%s://%s/static/shares/%s.png", scheme, host, fileID)
+					} else {
+						publicURL = h.cardGen.GetPublicCardURL(fileID, nil)
+					}
+					if _, err := tg.SendPhotoWithMarkup(ctx, userID, publicURL, reportText, markup); err == nil {
+						return
+					}
+				}
+			}
+		}
+
+		_, _ = tg.SendMessageWithMarkup(ctx, userID, reportText, markup, nil)
+	}()
+}
+

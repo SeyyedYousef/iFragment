@@ -17,6 +17,7 @@ import (
 
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/middleware"
+	"ifragment-backend/internal/service/cardgen"
 	"ifragment-backend/internal/service/gifts"
 	"ifragment-backend/internal/service/gifts/crafting"
 	"ifragment-backend/internal/service/gifts/gvengine"
@@ -28,11 +29,21 @@ var (
 )
 
 type GiftsHandler struct {
-	service *gifts.GiftsService
+	service  *gifts.GiftsService
+	cardGen  *cardgen.CardGenerator
+	tgClient *telegram.BotAPIClient
 }
 
 func NewGiftsHandler(service *gifts.GiftsService) *GiftsHandler {
 	return &GiftsHandler{service: service}
+}
+
+func (h *GiftsHandler) SetCardGenerator(cg *cardgen.CardGenerator) {
+	h.cardGen = cg
+}
+
+func (h *GiftsHandler) SetTelegramClient(tg *telegram.BotAPIClient) {
+	h.tgClient = tg
 }
 
 // GetIntel returns the free market intelligence overview
@@ -223,6 +234,7 @@ func (h *GiftsHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request) 
 	}
 
 	h.sendGiftNotification(r, val, "credit")
+	h.deliverGiftReportToUser(r, userID, val)
 	RespondJSON(w, http.StatusOK, val)
 }
 
@@ -582,4 +594,106 @@ func (h *GiftsHandler) TriggerSync(w http.ResponseWriter, r *http.Request) {
 		"message": "autonomous gifts ingestion cycle triggered in background",
 	})
 }
+
+func (h *GiftsHandler) deliverGiftReportToUser(r *http.Request, userID int64, val *gvengine.GiftValuation) {
+	if val == nil || userID <= 0 {
+		return
+	}
+	tg := h.tgClient
+	if tg == nil {
+		token := os.Getenv("TELEGRAM_BOT_TOKEN")
+		if token == "" {
+			token = os.Getenv("BOT_TOKEN")
+		}
+		if token != "" {
+			tg = telegram.NewBotAPIClient(token)
+		}
+	}
+	if tg == nil {
+		return
+	}
+
+	scheme := "https"
+	host := ""
+	if r != nil {
+		if r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https" {
+			scheme = "http"
+		}
+		host = r.Host
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		miniAppURL := os.Getenv("MINI_APP_URL")
+		if miniAppURL == "" {
+			miniAppURL = "https://t.me/iFragmentBot/iFragment"
+		}
+		appLink := fmt.Sprintf("%s?startapp=gift_%s", miniAppURL, val.GiftID)
+		fragmentLink := "https://fragment.com/gifts"
+
+		rarityTier := val.JointRarity.DescriptionFa
+		if rarityTier == "" {
+			rarityTier = val.JointRarity.RarityClass
+		}
+		if rarityTier == "" {
+			rarityTier = "کلکسیونی"
+		}
+
+		reportText := fmt.Sprintf(`🎁 <b>کارشناسی تحلیلی گیفت تلگرام: %s</b>
+
+💎 شناسه گیفت: <code>%s</code>
+🏆 رتبه کمیابی: <b>%s</b>
+#️⃣ شماره سریال: <b>#%d</b>
+
+━━━━━━━━━━━━━━━━━━━
+💰 <b>برآورد ارزش ۴ پایه‌ای:</b>
+• برآورد ارزش تحلیلی (Fair Value): <b>%s TON (~$%.0f)</b>
+• ضریب اطمینان الگوریتم: <b>%d%%</b>
+━━━━━━━━━━━━━━━━━━━
+
+⚡ <i>ارزیابی هوشمند موتور GV Engine بر اساس متدولوژی ثبت‌شده در شبکه TON</i>`,
+			telegram.EscapeHTML(val.DisplayTitle),
+			telegram.EscapeHTML(val.GiftID),
+			telegram.EscapeHTML(rarityTier),
+			val.SerialNumber,
+			val.ExpectedGRAM.StringFixed(2),
+			val.ExpectedUSD,
+			val.ConfidenceScore,
+		)
+
+		markup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
+					{"text": "🎁 مشاهده در مینی‌اپ", "url": appLink},
+				},
+				{
+					{"text": "🌐 بازار گیفت فرگمنت", "url": fragmentLink},
+				},
+			},
+		}
+
+		if h.cardGen != nil {
+			tonStr := val.ExpectedGRAM.StringFixed(1)
+			usdStr := fmt.Sprintf("%.0f", val.ExpectedUSD)
+			if pngBytes, err := h.cardGen.GenerateGiftCard(val.DisplayTitle, val.GiftID, val.SerialNumber, rarityTier, tonStr, usdStr); err == nil {
+				if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
+					var publicURL string
+					if host != "" {
+						publicURL = fmt.Sprintf("%s://%s/static/shares/%s.png", scheme, host, fileID)
+					} else {
+						publicURL = h.cardGen.GetPublicCardURL(fileID, nil)
+					}
+					if _, err := tg.SendPhotoWithMarkup(ctx, userID, publicURL, reportText, markup); err == nil {
+						return
+					}
+				}
+			}
+		}
+
+		_, _ = tg.SendMessageWithMarkup(ctx, userID, reportText, markup, nil)
+	}()
+}
+
 

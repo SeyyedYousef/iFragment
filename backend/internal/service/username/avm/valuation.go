@@ -185,6 +185,9 @@ type ValuationResult struct {
 	CertificateID        string                 `json:"certificate_id"`
 	CertificateSignature string                 `json:"certificate_signature"`
 	TelemintProvenance   *TelemintProvenanceDto `json:"telemint_provenance,omitempty"`
+
+	// LAYA System 1 Multi-Dimensional Decision Vector
+	LayaSystemOne *LayaUsernameResult `json:"laya_system_one,omitempty"`
 }
 
 // TelemintProvenanceDto details on-chain smart contract provenance and collection verification.
@@ -2023,6 +2026,12 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		CalibrationNote: calibNote,
 		DataFreshness:   now,
 		AVMVersion:      ModelVersion,
+		LayaSystemOne: func() *LayaUsernameResult {
+			if semResult != nil && semResult.Laya != nil {
+				return semResult.Laya
+			}
+			return nil
+		}(),
 
 
 		InvestmentGrade: func() string {

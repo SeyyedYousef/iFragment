@@ -91,25 +91,26 @@ func (h *WebhookHandler) sendMainMenuWithURL(ctx context.Context, bot *repositor
 	lang := i18n.DetectLanguage(userLang)
 
 	var menuText string
-	if lang == "fa" {
+	switch lang {
+	case "fa":
 		menuText = fmt.Sprintf(`💎 <b>ترمینال تحلیل دارایی‌های تلگرام | iFragment</b>
 
 سلام <b>%s</b> عزیز، به دستیار هوشمند کارشناسی و ارزیابی دارایی‌های دیجیتال تلگرام خوش آمدید.
 
 یکی از بخش‌های زیر را انتخاب کنید، یا مستقیماً <b>نام کاربری</b>، <b>شماره ناشناس (+888)</b> یا <b>لینک گیفت</b> را در چت ارسال فرمایید:`, telegram.EscapeHTML(firstName))
-	} else if lang == "ru" {
+	case "ru":
 		menuText = fmt.Sprintf(`💎 <b>Терминал аналитики активов Telegram | iFragment</b>
 
 Здравствуйте, <b>%s</b>! Добро пожаловать в интеллектуальный ассистент оценки активов Telegram.
 
 Выберите категорию или отправьте <b>юзернейм</b>, <b>номер (+888)</b> или <b>ссылку на подарок</b> прямо в чат:`, telegram.EscapeHTML(firstName))
-	} else if lang == "zh" {
+	case "zh":
 		menuText = fmt.Sprintf(`💎 <b>Telegram 资产智能分析终端 | iFragment</b>
 
 您好 <b>%s</b>！欢迎使用 Telegram 数字资产专业估值与市场洞察终端。
 
 请选择下方的资产类别，或直接在聊天中发送<b>用户名</b>、<b>+888 匿名靓号</b>或<b>礼物链接</b>：`, telegram.EscapeHTML(firstName))
-	} else {
+	default:
 		menuText = fmt.Sprintf(`💎 <b>Telegram Asset Intelligence Terminal | iFragment</b>
 
 Welcome <b>%s</b>! I am your institutional analytics engine for Telegram Digital Assets.
@@ -130,7 +131,8 @@ Select an asset class below or simply send any <b>username</b>, <b>anonymous num
 func (h *WebhookHandler) buildMainMenuMarkup(lang string, miniAppURL string) map[string]interface{} {
 	var btnUsername, btnNumber, btnGifts, btnProfile, btnLang, btnHelp, btnMiniApp string
 
-	if lang == "fa" {
+	switch lang {
+	case "fa":
 		btnUsername = "🏷️ نام کاربری (Username)"
 		btnNumber = "📱 شماره کلکسیونی (+888)"
 		btnGifts = "🎁 گیفت‌های تلگرام (Gifts)"
@@ -138,7 +140,7 @@ func (h *WebhookHandler) buildMainMenuMarkup(lang string, miniAppURL string) map
 		btnLang = "🌐 تغییر زبان"
 		btnHelp = "📖 راهنما و متدولوژی"
 		btnMiniApp = "💎 ورود به مینی‌اپ iFragment"
-	} else if lang == "ru" {
+	case "ru":
 		btnUsername = "🏷️ Юзернеймы"
 		btnNumber = "📱 Номера (+888)"
 		btnGifts = "🎁 Подарки (NFT)"
@@ -146,7 +148,7 @@ func (h *WebhookHandler) buildMainMenuMarkup(lang string, miniAppURL string) map
 		btnLang = "🌐 Язык / Language"
 		btnHelp = "📖 Инструкция"
 		btnMiniApp = "💎 Открыть iFragment Mini App"
-	} else if lang == "zh" {
+	case "zh":
 		btnUsername = "🏷️ 用户名 (Usernames)"
 		btnNumber = "📱 匿名靓号 (+888)"
 		btnGifts = "🎁 电报礼物 (Gifts)"
@@ -154,7 +156,7 @@ func (h *WebhookHandler) buildMainMenuMarkup(lang string, miniAppURL string) map
 		btnLang = "🌐 切换语言 / Language"
 		btnHelp = "📖 使用指南与算法"
 		btnMiniApp = "💎 进入 iFragment 小程序"
-	} else {
+	default:
 		btnUsername = "🏷️ Usernames"
 		btnNumber = "📱 Anonymous Numbers (+888)"
 		btnGifts = "🎁 Telegram Gifts"
@@ -218,7 +220,8 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 	refLink := fmt.Sprintf("https://t.me/iFragmentBot?start=ref_%d", userID)
 
 	var text string
-	if lang == "fa" {
+	switch lang {
+	case "fa":
 		text = fmt.Sprintf(`👤 <b>پروفایل سرمایه‌گذار | iFragment</b>
 
 کاربر: <b>%s</b> (شناسه: <code>%d</code>)
@@ -234,7 +237,7 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 <code>%s</code>
 <i>با دعوت از هر دوست، سکه ایردراپ و اعتبار تحلیل هدیه بگیرید!</i>`,
 			telegram.EscapeHTML(firstName), userID, level, globalRank, airdropCoins, intelCredits, refLink)
-	} else if lang == "ru" {
+	case "ru":
 		text = fmt.Sprintf(`👤 <b>Профиль пользователя | iFragment</b>
 
 Пользователь: <b>%s</b> (ID: <code>%d</code>)
@@ -249,7 +252,7 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 🔗 <b>Ваша реферальная ссылка:</b>
 <code>%s</code>`,
 			telegram.EscapeHTML(firstName), userID, level, globalRank, airdropCoins, intelCredits, refLink)
-	} else if lang == "zh" {
+	case "zh":
 		text = fmt.Sprintf(`👤 <b>个人中心与资产 | iFragment</b>
 
 用户: <b>%s</b> (ID: <code>%d</code>)
@@ -265,7 +268,7 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 <code>%s</code>
 <i>邀请好友加入，双方均可获得代币与分析信用点奖励！</i>`,
 			telegram.EscapeHTML(firstName), userID, level, globalRank, airdropCoins, intelCredits, refLink)
-	} else {
+	default:
 		text = fmt.Sprintf(`👤 <b>Investor Profile | iFragment</b>
 
 Account: <b>%s</b> (ID: <code>%d</code>)
@@ -338,7 +341,8 @@ func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.Manag
 	lang := i18n.DetectLanguage(userLang)
 
 	var text string
-	if lang == "fa" {
+	switch lang {
+	case "fa":
 		text = `📖 <b>راهنمای ترمینال هوشمند iFragment</b>
 
 شما می‌توانید بدون نیاز به هیچ دستوری، عبارات مورد نظرتان را مستقیماً برای ربات بفرستید:
@@ -359,7 +363,7 @@ func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.Manag
 • <code>/gift CelestialStar-1</code>
 
 💡 <i>هر گزارش عمیق به ۱ کریدت تحلیلی نیاز دارد که می‌توانید با سکه‌های ایردراپ خود یا استارز تلگرام آن را فعال کنید.</i>`
-	} else if lang == "ru" {
+	case "ru":
 		text = `📖 <b>Инструкция терминала iFragment</b>
 
 Вы можете отправлять активы прямо в чат без дополнительных команд:
@@ -380,7 +384,7 @@ func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.Manag
 • <code>/gift CelestialStar-1</code>
 
 💡 <i>Каждый детальный отчет требует 1 Intel Credit. Кредиты можно получить за Airdrop-монеты или Stars.</i>`
-	} else if lang == "zh" {
+	case "zh":
 		text = `📖 <b>iFragment 智能终端使用指南</b>
 
 您可以直接向机器人发送资产信息，无需输入复杂指令：
@@ -401,7 +405,7 @@ func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.Manag
 • <code>/gift CelestialStar-1</code>
 
 💡 <i>每份深度报告消耗 1 个分析信用点，支持使用空投代币兑换或 Telegram Stars 购买。</i>`
-	} else {
+	default:
 		text = `📖 <b>iFragment Terminal Guide</b>
 
 You can send assets directly into the chat:
@@ -422,13 +426,16 @@ Send any NFT gift link or slug:
 • <code>/gift CelestialStar-1</code>`
 	}
 
-	btnBack := "🔙 بازگشت به منوی اصلی"
-	if lang == "ru" {
+	var btnBack string
+	switch lang {
+	case "ru":
 		btnBack = "🔙 В главное меню"
-	} else if lang == "zh" {
+	case "zh":
 		btnBack = "🔙 返回主菜单"
-	} else if lang == "en" {
+	case "en":
 		btnBack = "🔙 Back to Main Menu"
+	default:
+		btnBack = "🔙 بازگشت به منوی اصلی"
 	}
 
 	markup := map[string]interface{}{
@@ -460,55 +467,58 @@ func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.Ma
 	var title, desc, example string
 	switch assetType {
 	case "username":
-		if lang == "fa" {
+		switch lang {
+		case "fa":
 			title = "🏷️ <b>تحلیل و کارشناسی نام کاربری (Username)</b>"
 			desc = "لطفاً نام کاربری مد نظر خود را به صورت متن یا با @ ارسال کنید:"
 			example = "نمونه: <code>@crypto</code> ، <code>wallet</code> ، <code>ton_holder</code>"
-		} else if lang == "ru" {
+		case "ru":
 			title = "🏷️ <b>Оценка и анализ юзернейма Telegram</b>"
 			desc = "Пожалуйста, отправьте тег или имя пользователя:"
 			example = "Пример: <code>@crypto</code>, <code>wallet</code>"
-		} else if lang == "zh" {
+		case "zh":
 			title = "🏷️ <b>Telegram 用户名专业估值分析</b>"
 			desc = "请输入您想要评估的 Telegram 用户名或链接："
 			example = "示例: <code>@crypto</code>, <code>wallet</code>"
-		} else {
+		default:
 			title = "🏷️ <b>Telegram Username Valuation</b>"
 			desc = "Please enter the username handle you wish to valuate:"
 			example = "Example: <code>@crypto</code>, <code>wallet</code>"
 		}
 	case "number":
-		if lang == "fa" {
+		switch lang {
+		case "fa":
 			title = "📱 <b>تحلیل شماره کلکسیونی ناشناس (+888)</b>"
 			desc = "لطفاً شماره کلکسیونی ۸ رقمی یا رند ۴ رقمی مد نظر را وارد نمایید:"
 			example = "نمونه: <code>+888 8888 8888</code> یا <code>+88801234567</code> یا <code>8888</code>"
-		} else if lang == "ru" {
+		case "ru":
 			title = "📱 <b>Анализ анонимного номера (+888)</b>"
 			desc = "Введите анонимный 8-значный или генезис 4-значный номер:"
 			example = "Пример: <code>+888 8888 8888</code> или <code>8888</code>"
-		} else if lang == "zh" {
+		case "zh":
 			title = "📱 <b>Telegram +888 匿名靓号价值分析</b>"
 			desc = "请输入您想要分析的 8 位或 4 位 +888 靓号："
 			example = "示例: <code>+888 8888 8888</code> 或 <code>8888</code>"
-		} else {
+		default:
 			title = "📱 <b>Telegram Anonymous Numbers (+888)</b>"
 			desc = "Please enter the anonymous +888 number to analyze:"
 			example = "Example: <code>+888 8888 8888</code> or <code>8888</code>"
 		}
 	case "gifts":
-		if lang == "fa" {
+		switch lang {
+		case "fa":
 			title = "🎁 <b>کارشناسی گیفت و کالکشن‌های تلگرام</b>"
 			desc = "لطفاً لینک گیفت در تلگرام یا فرگمنت، یا نام و شماره آن را ارسال کنید:"
 			example = "نمونه: <code>https://t.me/nft/PlushPepe-42</code> یا <code>PlushPepe-42</code>"
-		} else if lang == "ru" {
+		case "ru":
 			title = "🎁 <b>Оценка и анализ подарков Telegram</b>"
 			desc = "Отправьте ссылку на NFT-подарок или название и номер:"
 			example = "Пример: <code>https://t.me/nft/PlushPepe-42</code> или <code>PlushPepe-42</code>"
-		} else if lang == "zh" {
+		case "zh":
 			title = "🎁 <b>Telegram 礼物 NFT 稀缺度与估值鉴定</b>"
 			desc = "请发送礼物 NFT 链接或模型名称及编号："
 			example = "示例: <code>https://t.me/nft/PlushPepe-42</code> 或 <code>PlushPepe-42</code>"
-		} else {
+		default:
 			title = "🎁 <b>Telegram Gifts Appraisal</b>"
 			desc = "Please send the Telegram Gift link or model-serial:"
 			example = "Example: <code>https://t.me/nft/PlushPepe-42</code>"
@@ -798,16 +808,24 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 }
 
 // renderUsernameReport produces rich analytical valuation of a username
-func (h *WebhookHandler) renderUsernameReport(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, userID int64, username string, miniAppURL string, lang string, messageID *int, threadID *int) {
+func (h *WebhookHandler) renderUsernameReport(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, _ int64, username string, miniAppURL string, _ string, messageID *int, threadID *int) {
 	normUser := strings.TrimPrefix(strings.ToLower(username), "@")
 
 	var reportText string
 	appURL := fmt.Sprintf("%s?startapp=val_%s", miniAppURL, normUser)
 
+	var tier string = "STANDARD"
+	var expectedTONStr string = "0.0"
+	var expectedUSDStr string = "0"
+
 	if h.avmService != nil {
 		res, err := h.avmService.Valuate(ctx, normUser, 0)
 		if err == nil && res != nil {
 			var gradeEmoji string
+			tier = res.InvestmentGrade
+			expectedTONStr = res.ExpectedTON.StringFixed(1)
+			expectedUSDStr = res.ExpectedUSD.StringFixed(0)
+
 			switch res.InvestmentGrade {
 			case "AAA", "AA":
 				gradeEmoji = "💎"
@@ -866,6 +884,21 @@ func (h *WebhookHandler) renderUsernameReport(ctx context.Context, tg *telegram.
 		},
 	}
 
+	// Visual Card Generation & Delivery
+	if h.cardGen != nil && tg != nil {
+		if pngBytes, err := h.cardGen.GenerateUsernameCard(normUser, tier, expectedTONStr, expectedUSDStr); err == nil {
+			if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
+				publicURL := h.cardGen.GetPublicCardURL(fileID, nil)
+				if messageID != nil {
+					_ = tg.DeleteMessage(ctx, chatID, *messageID)
+				}
+				if _, err := tg.SendPhotoWithMarkup(ctx, chatID, publicURL, reportText, markup); err == nil {
+					return
+				}
+			}
+		}
+	}
+
 	if messageID != nil {
 		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, reportText, markup)
 	} else {
@@ -874,16 +907,29 @@ func (h *WebhookHandler) renderUsernameReport(ctx context.Context, tg *telegram.
 }
 
 // renderNumberReport produces rich analytical valuation of a +888 number
-func (h *WebhookHandler) renderNumberReport(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, userID int64, number string, miniAppURL string, lang string, messageID *int, threadID *int) {
+func (h *WebhookHandler) renderNumberReport(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, userID int64, number string, miniAppURL string, _ string, messageID *int, threadID *int) {
 	cleanNum := features.CleanNumber(number)
 	displayNum := number
 	var reportText string
 	appURL := fmt.Sprintf("%s?startapp=num_%s", miniAppURL, cleanNum)
 
+	var club string = "کلکسیونی"
+	var globalRank int = 0
+	var tonStr string = "0.0"
+	var usdStr string = "0"
+
 	if h.numbersService != nil {
 		val, err := h.numbersService.ValuateNumber(ctx, userID, number)
 		if err == nil && val != nil {
 			displayNum = val.DisplayNumber
+			club = val.CategoryClubFa
+			if club == "" {
+				club = val.CategoryClub
+			}
+			globalRank = val.GlobalRank
+			tonStr = val.ExpectedTON.StringFixed(1)
+			usdStr = fmt.Sprintf("%.0f", val.ExpectedUSD)
+
 			reportText = fmt.Sprintf(`📱 <b>کارشناسی تحلیلی شماره کلکسیونی: %s</b>
 
 👑 کلوپ دسته‌بندی: <b>%s</b>
@@ -933,6 +979,21 @@ func (h *WebhookHandler) renderNumberReport(ctx context.Context, tg *telegram.Bo
 		},
 	}
 
+	// Visual Card Generation & Delivery
+	if h.cardGen != nil && tg != nil {
+		if pngBytes, err := h.cardGen.GenerateNumberCard(displayNum, club, globalRank, tonStr, usdStr); err == nil {
+			if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
+				publicURL := h.cardGen.GetPublicCardURL(fileID, nil)
+				if messageID != nil {
+					_ = tg.DeleteMessage(ctx, chatID, *messageID)
+				}
+				if _, err := tg.SendPhotoWithMarkup(ctx, chatID, publicURL, reportText, markup); err == nil {
+					return
+				}
+			}
+		}
+	}
+
 	if messageID != nil {
 		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, reportText, markup)
 	} else {
@@ -941,11 +1002,36 @@ func (h *WebhookHandler) renderNumberReport(ctx context.Context, tg *telegram.Bo
 }
 
 // renderGiftReport produces rich appraisal for gifts
-func (h *WebhookHandler) renderGiftReport(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, userID int64, giftSlug string, miniAppURL string, lang string, messageID *int, threadID *int) {
+func (h *WebhookHandler) renderGiftReport(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, _ int64, giftSlug string, miniAppURL string, _ string, messageID *int, threadID *int) {
 	if h.giftsService != nil {
 		appraisal, err := h.giftsService.GetBotGiftAppraisal(ctx, giftSlug)
 		if err == nil && appraisal != nil {
 			text, markup := h.formatGiftAppraisalMessage(appraisal, miniAppURL)
+
+			// Visual Card Generation & Delivery
+			if h.cardGen != nil && tg != nil {
+				tonStr := fmt.Sprintf("%.1f", appraisal.Pillars.FairValueGRAM)
+				usdStr := fmt.Sprintf("%.0f", appraisal.ExpectedUSD)
+				rarityTier := appraisal.JointRarity.DescriptionFa
+				if rarityTier == "" {
+					rarityTier = appraisal.JointRarity.RarityClass
+				}
+				if rarityTier == "" {
+					rarityTier = "کلکسیونی"
+				}
+				if pngBytes, err := h.cardGen.GenerateGiftCard(appraisal.DisplayTitle, appraisal.GiftID, appraisal.SerialNumber, rarityTier, tonStr, usdStr); err == nil {
+					if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
+						publicURL := h.cardGen.GetPublicCardURL(fileID, nil)
+						if messageID != nil {
+							_ = tg.DeleteMessage(ctx, chatID, *messageID)
+						}
+						if _, err := tg.SendPhotoWithMarkup(ctx, chatID, publicURL, text, markup); err == nil {
+							return
+						}
+					}
+				}
+			}
+
 			if messageID != nil {
 				_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, text, markup)
 			} else {

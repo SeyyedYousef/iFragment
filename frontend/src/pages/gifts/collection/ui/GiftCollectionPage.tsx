@@ -2,13 +2,16 @@ import { useLocation, useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { GiftThumbnail, giftsApi } from '@/entities/gifts/index.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { CollectionRarityHeatmap } from './CollectionRarityHeatmap.js';
 import { GiftFloorChart } from './GiftFloorChart.js';
+import { GiftArbitrageRadar } from './components/GiftArbitrageRadar.js';
+import { GiftDeltaEHeatmap } from './components/GiftDeltaEHeatmap.js';
+import { GiftWhaleTracker } from './components/GiftWhaleTracker.js';
 
-export type CollectionTabKey = 'market' | 'sales' | 'items' | 'attributes' | 'venues' | 'heatmap';
+export type CollectionTabKey = 'market' | 'sales' | 'items' | 'attributes' | 'venues' | 'heatmap' | 'laya';
 
 export const GiftCollectionPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -751,6 +754,23 @@ export const GiftCollectionPage: Component = () => {
 						>
 							{t('gifts.tabHeatmap')}
 						</button>
+
+						<button
+							type="button"
+							onClick={() => {
+								setSelectedTab('laya');
+								try {
+									haptic.impact('light');
+								} catch {}
+							}}
+							class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap text-center ${
+								selectedTab() === 'laya'
+									? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30'
+									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
+							}`}
+						>
+							{isRtl() ? '⚡ هوش LAYA' : '⚡ LAYA AI'}
+						</button>
 					</div>
 
 					{/* ═══════════════════════════════════════════════════════════ */}
@@ -765,6 +785,44 @@ export const GiftCollectionPage: Component = () => {
 								currentFloorUsd={data()?.best_floor_usd}
 								collectionName={data()?.collection_name}
 							/>
+
+							{/* ═══ LAYA System 1 Quick Banner ═══ */}
+							<div class="bg-gradient-to-r from-cyan-950/40 via-[#0E1520] to-[#0A0D14] border border-cyan-500/30 rounded-3xl p-4 shadow-xl flex items-center justify-between gap-3">
+								<div class="flex items-center gap-3">
+									<div class="w-10 h-10 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+										<span class="material-symbols-outlined text-xl">psychology</span>
+									</div>
+									<div class="flex flex-col">
+										<div class="flex items-center gap-2">
+											<span class="text-xs font-black text-white">
+												{isRtl() ? 'رادار تصمیم‌گیری هوشمند لایا فعال است' : 'LAYA System 1 Intelligence Active'}
+											</span>
+											<span class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
+												REAL-TIME
+											</span>
+										</div>
+										<span class="text-[10px] text-white/50">
+											{isRtl()
+												? 'آربیتراژ میان‌مارکتی، فیلتر معاملات صوری، هارمونی رنگی ΔE و ردیابی نهنگ‌ها'
+												: 'Cross-venue arbitrage, wash-trade filter, ΔE harmony & whale tracking'}
+										</span>
+									</div>
+								</div>
+
+								<button
+									type="button"
+									onClick={() => {
+										setSelectedTab('laya');
+										try {
+											haptic.impact('medium');
+										} catch {}
+									}}
+									class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-mono text-[11px] font-black shrink-0 shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-1.5"
+								>
+									<span>{isRtl() ? 'مشاهده' : 'Explore'}</span>
+									<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_forward</span>
+								</button>
+							</div>
 
 							{/* Section 1: Top 10 by Floor */}
 							<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
@@ -1743,6 +1801,39 @@ export const GiftCollectionPage: Component = () => {
 										? data()!.best_floor_usd / data()!.best_floor_gram
 										: undefined
 								}
+							/>
+						</div>
+					</Show>
+
+					{/* ═══════════════════════════════════════════════════════════ */}
+					{/* TAB 7: LAYA SYSTEM 1 ARBITRAGE & HARMONY INTELLIGENCE        */}
+					{/* ═══════════════════════════════════════════════════════════ */}
+					<Show when={selectedTab() === 'laya'}>
+						<div class="space-y-4 mb-4">
+							<GiftArbitrageRadar
+								collectionName={data()?.collection_name || ''}
+								bestFloorTon={data()?.best_floor_gram}
+								venueFloors={data()?.venue_floors}
+								arbitrage={data()?.arbitrage}
+								tonUsdRate={
+									data()?.best_floor_usd && data()?.best_floor_gram
+										? data()!.best_floor_usd / data()!.best_floor_gram
+										: undefined
+								}
+							/>
+
+							<GiftDeltaEHeatmap
+								collectionName={data()?.collection_name || ''}
+								backdrops={data()?.backdrops_list}
+								models={data()?.model_floors}
+								baseFloorTon={data()?.best_floor_gram}
+							/>
+
+							<GiftWhaleTracker
+								collectionName={data()?.collection_name || ''}
+								whales={data()?.whales}
+								totalSupply={data()?.total_supply}
+								floorTon={data()?.best_floor_gram}
 							/>
 						</div>
 					</Show>

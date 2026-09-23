@@ -10,6 +10,9 @@ import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { CreditStoreSheet, UnifiedPaywallGate, useWallet } from '@/widgets/paywall/index.js';
+import { NumberSingleCulturalRadarCard } from './components/NumberSingleCulturalRadarCard.js';
+import { NumberFinancialEngineeringCard } from './components/NumberFinancialEngineeringCard.js';
+import { NumberDigitalCertificateCard } from './components/NumberDigitalCertificateCard.js';
 
 interface NumberValidation {
 	isValid: boolean;
@@ -987,6 +990,20 @@ export const NumberReportPage: Component = () => {
 							</p>
 						</div>
 
+						{/* 🌍 LAYA 4-REGION CULTURAL RADAR */}
+						<NumberSingleCulturalRadarCard
+							radar={reportData()?.cultural_radar}
+							number={reportData()?.number || inputNumber()}
+							layaReasoning={reportData()?.reasoning_log?.laya_system_one}
+						/>
+
+						{/* 💸 TRANSACTION FINANCIAL ENGINEERING & 5% PROTOCOL FEE */}
+						<NumberFinancialEngineeringCard
+							expectedTon={reportData()?.expected_ton ? Number(reportData()!.expected_ton) : 0}
+							expectedUsd={reportData()?.expected_usd}
+							tonUsdRate={reportData()?.ton_usd_rate}
+						/>
+
 						{/* 🧬 MODULE 5: STRUCTURAL GENETICS & SCARCITY MATRIX */}
 						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
 							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
@@ -1265,6 +1282,14 @@ export const NumberReportPage: Component = () => {
 								</Show>
 							</div>
 						</div>
+
+						{/* 📜 DIGITAL VALUATION CERTIFICATE (HMAC-SHA256) */}
+						<NumberDigitalCertificateCard
+							certificateId={reportData()?.certificate_id}
+							number={reportData()?.number || inputNumber()}
+							expectedTon={reportData()?.expected_ton ? Number(reportData()!.expected_ton) : 0}
+							confidence={reportData()?.confidence_score}
+						/>
 					</div>
 				</Show>
 			</div>
