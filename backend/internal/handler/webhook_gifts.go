@@ -83,8 +83,43 @@ func (h *WebhookHandler) handleGiftCommand(ctx context.Context, bot *repository.
 		return
 	}
 
-	msgText, markup := h.formatGiftAppraisalMessage(val, miniAppURL)
-	richHTML := buildGiftRichHTML(val)
+	userLang := "fa"
+	if m.From != nil && m.From.LanguageCode != "" {
+		userLang = m.From.LanguageCode
+	}
+	msgText, markup := h.formatGiftAppraisalMessage(val, miniAppURL, userLang)
+	richHTML := buildGiftRichHTML(val, userLang)
+
+	if h.cardGen != nil && tg != nil {
+		rarityTier := val.JointRarity.RarityClass
+		if rarityTier == "" {
+			rarityTier = "EXCLUSIVE"
+		}
+		tonStr := val.ExpectedGRAM.StringFixed(1)
+		usdStr := fmt.Sprintf("%.0f", val.ExpectedUSD)
+		if pngBytes, err := h.cardGen.GenerateGiftCardLang(val.DisplayTitle, val.GiftID, val.SerialNumber, rarityTier, tonStr, usdStr, userLang); err == nil {
+			if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
+				publicURL := h.cardGen.GetPublicCardURL(fileID, nil)
+				var photoCaption string
+				switch normalizeLang(userLang) {
+				case "fa":
+					photoCaption = fmt.Sprintf("🎁 <b>کارت تحلیلی: %s</b>\n💎 رده: <b>%s</b>\n💰 برآورد منصفانه: <b>~%s TON ($%s)</b>", val.DisplayTitle, rarityTier, tonStr, usdStr)
+				case "ru":
+					photoCaption = fmt.Sprintf("🎁 <b>Карта оценки подарка: %s</b>\n💎 Класс: <b>%s</b>\n💰 Справедливая цена: <b>~%s TON ($%s)</b>", val.DisplayTitle, rarityTier, tonStr, usdStr)
+				case "zh":
+					photoCaption = fmt.Sprintf("🎁 <b>礼物估值卡: %s</b>\n💎 评级: <b>%s</b>\n💰 公允价值: <b>~%s TON ($%s)</b>", val.DisplayTitle, rarityTier, tonStr, usdStr)
+				default:
+					photoCaption = fmt.Sprintf("🎁 <b>Gift Valuation Card: %s</b>\n💎 Tier: <b>%s</b>\n💰 Fair Value: <b>~%s TON ($%s)</b>", val.DisplayTitle, rarityTier, tonStr, usdStr)
+				}
+				_, _ = tg.SendPhoto(ctx, m.Chat.ID, publicURL, photoCaption)
+				if _, err := tg.SendRichMessageWithMarkup(ctx, m.Chat.ID, map[string]interface{}{"html": richHTML}, markup, m.MessageThreadID); err != nil {
+					_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID, "HTML")
+				}
+				return
+			}
+		}
+	}
+
 	if _, err := tg.SendRichMessageWithMarkup(ctx, m.Chat.ID, map[string]interface{}{"html": richHTML}, markup, m.MessageThreadID); err != nil {
 		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID, "HTML")
 	}
@@ -180,8 +215,12 @@ func (h *WebhookHandler) handleGiftLinkSniff(ctx context.Context, bot *repositor
 		miniAppURL = "https://t.me/iFragmentBot/iFragment"
 	}
 
-	msgText, markup := h.formatGiftAppraisalMessage(val, miniAppURL)
-	richHTML := buildGiftRichHTML(val)
+	userLang := "fa"
+	if m.From != nil && m.From.LanguageCode != "" {
+		userLang = m.From.LanguageCode
+	}
+	msgText, markup := h.formatGiftAppraisalMessage(val, miniAppURL, userLang)
+	richHTML := buildGiftRichHTML(val, userLang)
 	if _, err := tg.SendRichMessageWithMarkup(ctx, m.Chat.ID, map[string]interface{}{"html": richHTML}, markup, m.MessageThreadID); err != nil {
 		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID, "HTML")
 	}
@@ -377,83 +416,17 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 }
 
 // formatGiftAppraisalMessage constructs a rich, beautiful Telegram card for a gift valuation
-func (h *WebhookHandler) formatGiftAppraisalMessage(val *gvengine.GiftValuation, miniAppURL string) (string, map[string]interface{}) {
-	fairTON := val.Pillars.FairValueGRAM
-	floorTON := val.Pillars.ObservedFloorGRAM
-	liqTON := val.Pillars.LiquidationValueGRAM
-	askTON := val.Pillars.SuggestedAskGRAM
-
-	var sb strings.Builder
-	sb.WriteString("🎁 <b>کارشناسی ارزش گیفت تلگرام</b>\n")
-	sb.WriteString(fmt.Sprintf("💎 <b>%s</b>\n", telegram.EscapeHTML(val.DisplayTitle)))
-
-	if val.OwnerName != "" {
-		sb.WriteString(fmt.Sprintf("👤 <b>مالک کنونی:</b> <code>%s</code>\n", telegram.EscapeHTML(val.OwnerName)))
+func (h *WebhookHandler) formatGiftAppraisalMessage(val *gvengine.GiftValuation, miniAppURL string, lang ...string) (string, map[string]interface{}) {
+	userLang := "fa"
+	if len(lang) > 0 && lang[0] != "" {
+		userLang = normalizeLang(lang[0])
 	}
-
-	sb.WriteString("\n━━━━━━━━━━━━━━━━━━━━\n")
-	sb.WriteString("🎯 <b>برآورد ارزش ۴ پایه‌ای (4-Pillar Valuation):</b>\n")
-	sb.WriteString(fmt.Sprintf("• <b>برآورد ارزش تحلیلی (Fair Value):</b> <code>%.2f TON</code> (~$%.2f)\n", fairTON, val.ExpectedUSD))
-	if floorTON > 0 {
-		sb.WriteString(fmt.Sprintf("• <b>کف قیمت مشاهده‌شده:</b> <code>%.2f TON</code>\n", floorTON))
-	}
-	if liqTON > 0 {
-		sb.WriteString(fmt.Sprintf("• <b>ارزش نقدشوندگی آنی:</b> <code>%.2f TON</code>\n", liqTON))
-	}
-	if askTON > 0 {
-		sb.WriteString(fmt.Sprintf("• <b>قیمت پیشنهادی فروش:</b> <code>%.2f TON</code>\n", askTON))
-	}
-
-	// Trait DNA section
-	if len(val.TraitDNA) > 0 {
-		sb.WriteString("\n🧬 <b>ویژگی‌های ژنتیکی و کمیابی:</b>\n")
-		for _, trait := range val.TraitDNA {
-			label := trait.LabelFa
-			if label == "" {
-				label = trait.LabelEn
-			}
-			tier := trait.RarityTier
-			if tier != "" {
-				tier = " — " + tier
-			}
-			sb.WriteString(fmt.Sprintf("• %s: <b>%s</b> (کمیابی: <code>%.2f%%</code>%s)\n",
-				telegram.EscapeHTML(label),
-				telegram.EscapeHTML(trait.Value),
-				trait.Percentile,
-				telegram.EscapeHTML(tier)))
-		}
-	}
-
-	// Serial Gravity
-	sn := val.SerialNumber
-	snTier := "استاندارد"
-	snMult := 1.0
-	switch {
-	case sn == 1:
-		snTier = "👑 تک خال مطلق (God Tier #1)"
-		snMult = 3.5
-	case sn <= 9:
-		snTier = "⭐ تک رقمی (Single Digit)"
-		snMult = 2.4
-	case sn <= 99:
-		snTier = "✨ دو رقمی (Double Digit)"
-		snMult = 1.7
-	case sn <= 999:
-		snTier = "💠 سه رقمی (Triple Digit)"
-		snMult = 1.3
-	}
-	if snMult > 1.0 {
-		sb.WriteString(fmt.Sprintf("🔢 <b>گرانش سریال:</b> %s (ضریب: <code>%.2fx</code>)\n", snTier, snMult))
-	}
-
-	sb.WriteString("\n⚡ <i>برآورد تحلیلی بر پایه داده‌های ثبت‌شده بازار</i>")
-
-	tonStr := fmt.Sprintf("%.2f", fairTON)
+	text := buildGiftStandardHTML(val, userLang)
+	tonStr := fmt.Sprintf("%.2f", val.Pillars.FairValueGRAM)
 	usdStr := fmt.Sprintf("%.2f", val.ExpectedUSD)
-	copySummary := buildCopySummary("🎁", val.DisplayTitle, tonStr, usdStr, fmt.Sprintf("سریال: #%d | ضریب: %.2fx", val.SerialNumber, snMult))
-	markup := buildGiftMarkup(val, miniAppURL, copySummary)
-
-	return sb.String(), markup
+	copySummary := buildCopySummary("🎁", val.DisplayTitle, tonStr, usdStr, fmt.Sprintf("Serial: #%d", val.SerialNumber), userLang)
+	markup := buildGiftMarkup(val, miniAppURL, copySummary, userLang)
+	return text, markup
 }
 
 func formatNumberWithCommas(n int) string {

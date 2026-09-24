@@ -854,15 +854,26 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		return
 	}
 
-	// 4. Exchange Coins callback: exchange:<type>:<entity> or exchange_coins:profile
+	// 4. Exchange Coins Confirmation callback: exchange:<type>:<entity> or exchange_coins:profile
 	if strings.HasPrefix(data, "exchange:") {
 		parts := strings.SplitN(data, ":", 3)
 		if len(parts) == 3 {
-			h.handleCreditExchange(ctx, bot, chatID, cq.From.ID, parts[1], parts[2], msgID, threadID)
+			h.sendExchangeConfirmView(ctx, bot, chatID, cq.From.ID, parts[1], parts[2], msgID, threadID)
 		}
 		return
 	} else if data == "exchange_coins:profile" {
-		h.handleCreditExchange(ctx, bot, chatID, cq.From.ID, "", "", msgID, threadID)
+		h.sendExchangeConfirmView(ctx, bot, chatID, cq.From.ID, "", "", msgID, threadID)
+		return
+	}
+
+	// 4b. Confirm Exchange Execution callback: confirm_exchange:<type>:<entity> or confirm_exchange:profile
+	if strings.HasPrefix(data, "confirm_exchange:") {
+		parts := strings.SplitN(data, ":", 3)
+		if len(parts) == 3 {
+			h.handleCreditExchange(ctx, bot, chatID, cq.From.ID, parts[1], parts[2], msgID, threadID)
+		} else if data == "confirm_exchange:profile" {
+			h.handleCreditExchange(ctx, bot, chatID, cq.From.ID, "", "", msgID, threadID)
+		}
 		return
 	}
 
