@@ -882,7 +882,7 @@ func (db *Database) DeductCreditsFIFO(ctx context.Context, tx pgx.Tx, userID int
 	}
 
 	rows, err := tx.Query(ctx, `
-		SELECT id, remaining_amount 
+		SELECT id::text, remaining_amount 
 		FROM user_credit_batches 
 		WHERE user_id = $1 AND is_expired = FALSE AND expires_at >= CURRENT_TIMESTAMP AND remaining_amount > 0 
 		ORDER BY expires_at ASC 
@@ -909,8 +909,32 @@ func (db *Database) DeductCreditsFIFO(ctx context.Context, tx pgx.Tx, userID int
 	}
 	rows.Close()
 
-	if totalAvailable < requiredCoins {
-		return fmt.Errorf("insufficient active credits: have %.0f, need %.0f", totalAvailable, requiredCoins)
+	// Check if user has available balance in user_stats.airdrop_coins
+	var statCoins float64
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&statCoins)
+
+	if totalAvailable < requiredCoins && statCoins < requiredCoins {
+		have := totalAvailable
+		if statCoins > have {
+			have = statCoins
+		}
+		return fmt.Errorf("insufficient active credits: have %.0f, need %.0f", have, requiredCoins)
+	}
+
+	// If totalAvailable in active unexpired batches is less than required, but statCoins is sufficient,
+	// create a reconciled batch for the difference so FIFO deduction can proceed cleanly.
+	if totalAvailable < requiredCoins && statCoins >= requiredCoins {
+		diff := requiredCoins - totalAvailable
+		var newBatchID string
+		err := tx.QueryRow(ctx, `
+			INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
+			VALUES ($1, $2, $2, 'reconciled_balance', now(), now() + INTERVAL '30 days', FALSE)
+			RETURNING id::text
+		`, userID, diff).Scan(&newBatchID)
+		if err == nil {
+			batches = append(batches, BatchRow{ID: newBatchID, Remaining: diff})
+			totalAvailable += diff
+		}
 	}
 
 	toDeduct := requiredCoins
@@ -922,7 +946,7 @@ func (db *Database) DeductCreditsFIFO(ctx context.Context, tx pgx.Tx, userID int
 			_, err := tx.Exec(ctx, `
 				UPDATE user_credit_batches 
 				SET remaining_amount = 0, is_expired = TRUE 
-				WHERE id = $1
+				WHERE id = $1::uuid
 			`, b.ID)
 			if err != nil {
 				return err
@@ -932,7 +956,7 @@ func (db *Database) DeductCreditsFIFO(ctx context.Context, tx pgx.Tx, userID int
 			_, err := tx.Exec(ctx, `
 				UPDATE user_credit_batches 
 				SET remaining_amount = remaining_amount - $1 
-				WHERE id = $2
+				WHERE id = $2::uuid
 			`, toDeduct, b.ID)
 			if err != nil {
 				return err
@@ -943,13 +967,9 @@ func (db *Database) DeductCreditsFIFO(ctx context.Context, tx pgx.Tx, userID int
 
 	_, err = tx.Exec(ctx, `
 		UPDATE user_stats 
-		SET airdrop_coins = COALESCE((
-			SELECT SUM(remaining_amount) 
-			FROM user_credit_batches 
-			WHERE user_id = $1 AND is_expired = FALSE AND expires_at >= CURRENT_TIMESTAMP
-		), 0.0) 
-		WHERE user_id = $1
-	`, userID)
+		SET airdrop_coins = GREATEST(0.0, airdrop_coins - $1)
+		WHERE user_id = $2
+	`, requiredCoins, userID)
 	return err
 }
 

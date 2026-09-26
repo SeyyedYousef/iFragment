@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"regexp"
 	"strings"
+	"time"
 
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/config"
@@ -42,6 +44,8 @@ type SmartSniffResult struct {
 	Raw    string
 }
 
+var giftSlugRegex = regexp.MustCompile(`(?i)^[a-zA-Z0-9_]+-\d+$`)
+
 // SniffAsset recognizes user input as either a username, +888 number, or gift.
 func SniffAsset(raw string) *SmartSniffResult {
 	trimmed := strings.TrimSpace(raw)
@@ -49,19 +53,58 @@ func SniffAsset(raw string) *SmartSniffResult {
 		return nil
 	}
 
+	var forcedType string
+	if strings.HasPrefix(trimmed, "/") {
+		parts := strings.SplitN(trimmed, " ", 2)
+		if len(parts) == 2 {
+			cmd := strings.ToLower(parts[0])
+			if atIdx := strings.Index(cmd, "@"); atIdx != -1 {
+				cmd = cmd[:atIdx]
+			}
+			switch cmd {
+			case "/val", "/valuate", "/check":
+				forcedType = "username"
+				trimmed = strings.TrimSpace(parts[1])
+			case "/num", "/number":
+				forcedType = "number"
+				trimmed = strings.TrimSpace(parts[1])
+			case "/gift", "/nft":
+				forcedType = "gift"
+				trimmed = strings.TrimSpace(parts[1])
+			}
+		}
+	}
+
+	if forcedType == "gift" {
+		if giftLinkRegex.MatchString(trimmed) {
+			m := giftLinkRegex.FindStringSubmatch(trimmed)
+			if len(m) > 1 {
+				return &SmartSniffResult{Type: "gift", Entity: m[1], Raw: raw}
+			}
+		}
+		spaceParts := strings.Fields(trimmed)
+		if len(spaceParts) == 2 {
+			trimmed = fmt.Sprintf("%s-%s", spaceParts[0], spaceParts[1])
+		}
+		return &SmartSniffResult{Type: "gift", Entity: trimmed, Raw: raw}
+	}
+
 	// 1. Check if it's a gift link or gift slug format
 	if giftLinkRegex.MatchString(trimmed) {
 		m := giftLinkRegex.FindStringSubmatch(trimmed)
 		if len(m) > 1 {
-			return &SmartSniffResult{Type: "gift", Entity: m[1], Raw: trimmed}
+			return &SmartSniffResult{Type: "gift", Entity: m[1], Raw: raw}
 		}
+	}
+	if giftSlugRegex.MatchString(trimmed) {
+		return &SmartSniffResult{Type: "gift", Entity: trimmed, Raw: raw}
 	}
 
 	// 2. Check if it's a +888 Anonymous Number
 	// Digits with optional +, spaces, dashes, or 888 prefix
 	normNum, err := features.NormalizeNumber(trimmed)
 	if err == nil && normNum != "" {
-		return &SmartSniffResult{Type: "number", Entity: normNum, Raw: trimmed}
+		return &SmartSniffResult{Type: "number", Entity: normNum, Raw: raw}
 	}
 
 	// 3. Check for @username or telegram username pattern
@@ -83,8 +126,15 @@ func SniffAsset(raw string) *SmartSniffResult {
 			}
 		}
 		if valid && !strings.HasPrefix(cleanUser, "888") {
-			return &SmartSniffResult{Type: "username", Entity: strings.ToLower(cleanUser), Raw: trimmed}
+			return &SmartSniffResult{Type: "username", Entity: strings.ToLower(cleanUser), Raw: raw}
 		}
+	}
+
+	if forcedType == "number" && normNum != "" {
+		return &SmartSniffResult{Type: "number", Entity: normNum, Raw: raw}
+	}
+	if forcedType == "username" && cleanUser != "" {
+		return &SmartSniffResult{Type: "username", Entity: strings.ToLower(cleanUser), Raw: raw}
 	}
 
 	return nil
@@ -147,26 +197,26 @@ Select an asset class below or simply send any <b>username</b>, <b>anonymous num
 	}
 }
 
-// buildMainMenuMarkup creates the inline keyboard with premium glass aesthetics,
-// structured as a balanced 1 + 2 + 2 + 2 layout with Telegram 9.4+ custom emoji and style tags.
+// buildMainMenuMarkup creates the clean, elegant inline keyboard with standard Telegram buttons
+// structured as a balanced 1 + 2 + 2 + 2 layout.
 func (h *WebhookHandler) buildMainMenuMarkup(lang string, miniAppURL string) map[string]interface{} {
 	var btnUsername, btnNumber, btnGifts, btnProfile, btnLang, btnHelp, btnMiniApp string
 
 	switch lang {
 	case "fa":
-		btnUsername = "🏷️ نام کاربری"
-		btnNumber = "📱 شماره کلکسیونی (+888)"
+		btnUsername = "🏷️ نام‌های کاربری"
+		btnNumber = "📱 شماره‌های رند (+888)"
 		btnGifts = "🎁 گیفت‌های تلگرام"
 		btnProfile = "👤 پروفایل و دارایی‌ها"
 		btnLang = "🌐 تغییر زبان"
-		btnHelp = "📖 راهنما و متدولوژی"
+		btnHelp = "📖 راهنمای ربات"
 		btnMiniApp = "💎 ورود به مینی‌اپ iFragment"
 	case "ru":
 		btnUsername = "🏷️ Юзернеймы"
 		btnNumber = "📱 Номера (+888)"
 		btnGifts = "🎁 Подарки (NFT)"
 		btnProfile = "👤 Мой профиль"
-		btnLang = "🌐 Язык / Language"
+		btnLang = "🌐 Сменить язык"
 		btnHelp = "📖 Инструкция"
 		btnMiniApp = "💎 Открыть iFragment Mini App"
 	case "zh":
@@ -174,8 +224,8 @@ func (h *WebhookHandler) buildMainMenuMarkup(lang string, miniAppURL string) map
 		btnNumber = "📱 匿名靓号 (+888)"
 		btnGifts = "🎁 电报礼物 (NFT)"
 		btnProfile = "👤 个人中心与资产"
-		btnLang = "🌐 切换语言 / Language"
-		btnHelp = "📖 使用指南与算法"
+		btnLang = "🌐 切换语言"
+		btnHelp = "📖 使用指南"
 		btnMiniApp = "💎 进入 iFragment 小程序"
 	default:
 		btnUsername = "🏷️ Usernames"
@@ -189,52 +239,44 @@ func (h *WebhookHandler) buildMainMenuMarkup(lang string, miniAppURL string) map
 
 	return map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
-			// Row 1: Hero Primary CTA (Full Width, Telegram Blue)
+			// Row 1: Hero Primary CTA (Full Width)
 			{
 				{
-					"text":                 btnMiniApp,
-					"url":                  miniAppURL,
-					"style":                "primary",
-					"icon_custom_emoji_id": CustomEmojiDiamond,
+					"text": btnMiniApp,
+					"url":  miniAppURL,
 				},
 			},
 			// Row 2: Asset Analytics (2 balanced buttons)
 			{
 				{
-					"text":                 btnUsername,
-					"callback_data":        "nav:asset_username",
-					"icon_custom_emoji_id": CustomEmojiTag,
+					"text":          btnUsername,
+					"callback_data": "nav:asset_username",
 				},
 				{
-					"text":                 btnNumber,
-					"callback_data":        "nav:asset_number",
-					"icon_custom_emoji_id": CustomEmojiPhone,
+					"text":          btnNumber,
+					"callback_data": "nav:asset_number",
 				},
 			},
 			// Row 3: Ecosystem & Investor Profile (2 balanced buttons)
 			{
 				{
-					"text":                 btnGifts,
-					"callback_data":        "nav:asset_gifts",
-					"icon_custom_emoji_id": CustomEmojiGift,
+					"text":          btnGifts,
+					"callback_data": "nav:asset_gifts",
 				},
 				{
-					"text":                 btnProfile,
-					"callback_data":        "nav:profile",
-					"icon_custom_emoji_id": CustomEmojiUser,
+					"text":          btnProfile,
+					"callback_data": "nav:profile",
 				},
 			},
 			// Row 4: Preferences & Methodology (2 balanced buttons)
 			{
 				{
-					"text":                 btnLang,
-					"callback_data":        "nav:language",
-					"icon_custom_emoji_id": CustomEmojiGlobe,
+					"text":          btnLang,
+					"callback_data": "nav:language",
 				},
 				{
-					"text":                 btnHelp,
-					"callback_data":        "nav:help",
-					"icon_custom_emoji_id": CustomEmojiBook,
+					"text":          btnHelp,
+					"callback_data": "nav:help",
 				},
 			},
 		},
@@ -350,24 +392,27 @@ Global Rank: <b>#%d</b>
 	}
 
 	var btnExchange, btnStars, btnLang, btnBack string
+	costCoins := config.Economics.CreditsCoinsPerCredit
+	formattedCost := formatNumberWithCommas(costCoins)
+
 	switch lang {
 	case "fa":
-		btnExchange = "🔄 تبدیل سکه به کریدت"
-		btnStars = "⭐ خرید کریدت با Stars"
+		btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به ۱ کردیت", formattedCost)
+		btnStars = "⭐ خرید کردیت با Stars"
 		btnLang = "🌐 تغییر زبان"
 		btnBack = "🔙 بازگشت به منو"
 	case "ru":
-		btnExchange = "🔄 Обменять монеты"
+		btnExchange = fmt.Sprintf("🔄 Обменять %s монет", formattedCost)
 		btnStars = "⭐ Купить кредиты за Stars"
 		btnLang = "🌐 Язык"
 		btnBack = "🔙 В меню"
 	case "zh":
-		btnExchange = "🔄 代币兑换信用点"
+		btnExchange = fmt.Sprintf("🔄 兑换 %s 代币为信用点", formattedCost)
 		btnStars = "⭐ 使用 Stars 购买信用点"
 		btnLang = "🌐 切换语言"
 		btnBack = "🔙 返回主菜单"
 	default:
-		btnExchange = "🔄 Exchange Coins"
+		btnExchange = fmt.Sprintf("🔄 Exchange %s Coins", formattedCost)
 		btnStars = "⭐ Buy Credits with Stars"
 		btnLang = "🌐 Language"
 		btnBack = "🔙 Back to Menu"
@@ -377,26 +422,24 @@ Global Rank: <b>#%d</b>
 		"inline_keyboard": [][]map[string]interface{}{
 			{
 				{
-					"text":                 btnExchange,
-					"callback_data":        "exchange_coins:profile",
-					"icon_custom_emoji_id": CustomEmojiRefresh,
-				},
-				{
-					"text":                 btnStars,
-					"callback_data":        "buy_credits:profile",
-					"icon_custom_emoji_id": CustomEmojiStar,
+					"text":          btnExchange,
+					"callback_data": "exchange_coins:profile",
 				},
 			},
 			{
 				{
-					"text":                 btnLang,
-					"callback_data":        "nav:language",
-					"icon_custom_emoji_id": CustomEmojiGlobe,
+					"text":          btnStars,
+					"callback_data": "buy_credits:profile",
+				},
+			},
+			{
+				{
+					"text":          btnLang,
+					"callback_data": "nav:language",
 				},
 				{
-					"text":                 btnBack,
-					"callback_data":        "nav:menu",
-					"icon_custom_emoji_id": CustomEmojiDiamond,
+					"text":          btnBack,
+					"callback_data": "nav:menu",
 				},
 			},
 		},
@@ -607,10 +650,20 @@ func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.Ma
 
 	text := fmt.Sprintf("%s\n\n%s\n\n📌 %s", title, desc, example)
 
+	btnBack := "🔙 بازگشت به منوی اصلی"
+	switch lang {
+	case "ru":
+		btnBack = "🔙 Назад в меню"
+	case "zh":
+		btnBack = "🔙 返回主菜单"
+	case "en":
+		btnBack = "🔙 Back to Menu"
+	}
+
 	markup := map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
 			{
-				{"text": "🔙 بازگشت به منوی اصلی", "callback_data": "nav:menu"},
+				{"text": btnBack, "callback_data": "nav:menu"},
 			},
 		},
 	}
@@ -793,29 +846,26 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 		"inline_keyboard": [][]map[string]interface{}{
 			{
 				{
-					"text":                 btnUnlock,
-					"callback_data":        unlockCallback,
-					"style":                "success",
-					"icon_custom_emoji_id": CustomEmojiBolt,
+					"text":          btnUnlock,
+					"callback_data": unlockCallback,
 				},
 			},
 			{
 				{
-					"text":                 btnExchange,
-					"callback_data":        exchangeCallback,
-					"icon_custom_emoji_id": CustomEmojiRefresh,
-				},
-				{
-					"text":                 btnStars,
-					"callback_data":        starsCallback,
-					"icon_custom_emoji_id": CustomEmojiStar,
+					"text":          btnExchange,
+					"callback_data": exchangeCallback,
 				},
 			},
 			{
 				{
-					"text":                 btnBack,
-					"callback_data":        "nav:menu",
-					"icon_custom_emoji_id": CustomEmojiDiamond,
+					"text":          btnStars,
+					"callback_data": starsCallback,
+				},
+			},
+			{
+				{
+					"text":          btnBack,
+					"callback_data": "nav:menu",
 				},
 			},
 		},
@@ -839,70 +889,91 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 	userLang, _ := h.db.GetUserLanguage(ctx, userID)
 	lang := i18n.DetectLanguage(userLang)
 
-	// Consume 1 Intel Credit
-	if h.intelCreditService != nil {
-		idemKey := fmt.Sprintf("tg_report:%d:%s:%s", userID, assetType, entity)
-		_, err := h.intelCreditService.ConsumeCredit(ctx, userID, "asset_valuation", fmt.Sprintf("%s:%s", assetType, entity), idemKey)
-		if err != nil {
-			var errMsg string
-			var btnExchange, btnStars, btnBack string
-			costCoins := config.Economics.CreditsCoinsPerCredit
-			formattedCost := formatNumberWithCommas(costCoins)
+	// Ensure intelCreditService is initialized
+	if h.intelCreditService == nil && h.db != nil {
+		h.intelCreditService = intelcredit.NewIntelCreditService(h.db)
+	}
 
-			switch lang {
-			case "fa":
-				errMsg = "⚠️ <b>اعتبار تحلیلی کافی ندارید!</b>\n\nشما به حداقل <b>۱ کریدت تحلیلی</b> برای مشاهده این گزارش نیاز دارید. می‌توانید سکه‌های ایردراپ خود را تبدیل کنید یا با تلگرام استارز کریدت تهیه نمایید."
-				btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به کریدت", formattedCost)
-				btnStars = "⭐ خرید با Stars"
-				btnBack = "🔙 بازگشت"
-			case "ru":
-				errMsg = "⚠️ <b>Недостаточно кредитов (Intel Credits)!</b>\n\nДля просмотра этого отчета необходим минимум <b>1 кредит</b>. Вы можете обменять Airdrop монеты или приобрести кредиты через Telegram Stars."
-				btnExchange = fmt.Sprintf("🔄 Обменять %s монет", formattedCost)
-				btnStars = "⭐ Купить за Stars"
-				btnBack = "🔙 Назад"
-			case "zh":
-				errMsg = "⚠️ <b>分析信用点不足！</b>\n\n查看此深度报告需要至少 <b>1 个分析信用点</b>。您可以使用空投代币兑换，或通过 Telegram Stars 购买点数包。"
-				btnExchange = fmt.Sprintf("🔄 兑换 %s 代币", formattedCost)
-				btnStars = "⭐ 使用 Stars 购买"
-				btnBack = "🔙 返回"
-			default:
-				errMsg = "⚠️ <b>Insufficient Intel Credits!</b>\n\nYou need at least <b>1 Intel Credit</b> to view this report. Exchange coins or purchase credits via Stars."
-				btnExchange = fmt.Sprintf("🔄 Exchange %s Coins", formattedCost)
-				btnStars = "⭐ Buy with Stars"
-				btnBack = "🔙 Back"
-			}
+	if h.intelCreditService == nil {
+		var serviceErrMsg string
+		switch lang {
+		case "fa":
+			serviceErrMsg = "⚠️ سیستم اعتبارات در حال حاضر در دسترس نیست. لطفاً بعداً دوباره تلاش کنید."
+		case "ru":
+			serviceErrMsg = "⚠️ Сервис кредитов временно недоступен. Пожалуйста, попробуйте позже."
+		case "zh":
+			serviceErrMsg = "⚠️ 信用服务暂时不可用，请稍后重试。"
+		default:
+			serviceErrMsg = "⚠️ Credit service is temporarily unavailable. Please try again later."
+		}
+		if messageID != nil {
+			_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, serviceErrMsg, nil)
+		} else {
+			_ = tg.SendMessage(ctx, chatID, serviceErrMsg, nil, threadID)
+		}
+		return
+	}
 
-			markup := map[string]interface{}{
-				"inline_keyboard": [][]map[string]interface{}{
+	// 24-hour idempotent window key (re-checking the same asset within the same calendar day doesn't double-charge)
+	idemKey := fmt.Sprintf("tg_report:%d:%s:%s:%s", userID, assetType, entity, time.Now().UTC().Format("2006-01-02"))
+	_, err := h.intelCreditService.ConsumeCredit(ctx, userID, "asset_valuation", fmt.Sprintf("%s:%s", assetType, entity), idemKey)
+	if err != nil {
+		var errMsg string
+		var btnExchange, btnStars, btnBack string
+		costCoins := config.Economics.CreditsCoinsPerCredit
+		formattedCost := formatNumberWithCommas(costCoins)
+
+		switch lang {
+		case "fa":
+			errMsg = "⚠️ <b>اعتبار تحلیلی کافی ندارید!</b>\n\nشما به حداقل <b>۱ کریدت تحلیلی</b> برای مشاهده این گزارش نیاز دارید. می‌توانید سکه‌های ایردراپ خود را تبدیل کنید یا با تلگرام استارز کریدت تهیه نمایید."
+			btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به کریدت", formattedCost)
+			btnStars = "⭐ خرید با Stars"
+			btnBack = "🔙 بازگشت"
+		case "ru":
+			errMsg = "⚠️ <b>Недостаточно кредитов (Intel Credits)!</b>\n\nДля просмотра этого отчета необходим минимум <b>1 кредит</b>. Вы можете обменять Airdrop монеты или приобрести кредиты через Telegram Stars."
+			btnExchange = fmt.Sprintf("🔄 Обменять %s монет", formattedCost)
+			btnStars = "⭐ Купить за Stars"
+			btnBack = "🔙 Назад"
+		case "zh":
+			errMsg = "⚠️ <b>分析信用点不足！</b>\n\n查看此深度报告需要至少 <b>1 个分析信用点</b>。您可以使用空投代币兑换，或通过 Telegram Stars 购买点数包。"
+			btnExchange = fmt.Sprintf("🔄 兑换 %s 代币", formattedCost)
+			btnStars = "⭐ 使用 Stars 购买"
+			btnBack = "🔙 返回"
+		default:
+			errMsg = "⚠️ <b>Insufficient Intel Credits!</b>\n\nYou need at least <b>1 Intel Credit</b> to view this report. Exchange coins or purchase credits via Stars."
+			btnExchange = fmt.Sprintf("🔄 Exchange %s Coins", formattedCost)
+			btnStars = "⭐ Buy with Stars"
+			btnBack = "🔙 Back"
+		}
+
+		markup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
 					{
-						{
-							"text":                 btnExchange,
-							"callback_data":        fmt.Sprintf("exchange:%s:%s", assetType, entity),
-							"icon_custom_emoji_id": CustomEmojiRefresh,
-						},
-						{
-							"text":                 btnStars,
-							"callback_data":        fmt.Sprintf("stars_pack:%s:%s", assetType, entity),
-							"style":                "primary",
-							"icon_custom_emoji_id": CustomEmojiStar,
-						},
-					},
-					{
-						{
-							"text":                 btnBack,
-							"callback_data":        fmt.Sprintf("precheck:%s:%s", assetType, entity),
-							"icon_custom_emoji_id": CustomEmojiDiamond,
-						},
+						"text":          btnExchange,
+						"callback_data": fmt.Sprintf("exchange:%s:%s", assetType, entity),
 					},
 				},
-			}
-			if messageID != nil {
-				_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, errMsg, markup)
-			} else {
-				_, _ = tg.SendMessageWithMarkup(ctx, chatID, errMsg, markup, threadID)
-			}
-			return
+				{
+					{
+						"text":          btnStars,
+						"callback_data": fmt.Sprintf("stars_pack:%s:%s", assetType, entity),
+					},
+				},
+				{
+					{
+						"text":          btnBack,
+						"callback_data": fmt.Sprintf("precheck:%s:%s", assetType, entity),
+					},
+				},
+			},
 		}
+		if messageID != nil {
+			_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, errMsg, markup)
+		} else {
+			_, _ = tg.SendMessageWithMarkup(ctx, chatID, errMsg, markup, threadID)
+		}
+		return
 	}
 
 	miniAppURL := os.Getenv("MINI_APP_URL")
@@ -1347,18 +1418,14 @@ Are you sure you want to exchange <b>%s Airdrop Coins</b> for <b>1 Intel Credit<
 		"inline_keyboard": [][]map[string]interface{}{
 			{
 				{
-					"text":                 btnConfirm,
-					"callback_data":        confirmCallback,
-					"style":                "success",
-					"icon_custom_emoji_id": CustomEmojiCheck,
+					"text":          btnConfirm,
+					"callback_data": confirmCallback,
 				},
 			},
 			{
 				{
-					"text":                 btnCancel,
-					"callback_data":        backCallback,
-					"style":                "danger",
-					"icon_custom_emoji_id": CustomEmojiCross,
+					"text":          btnCancel,
+					"callback_data": backCallback,
 				},
 			},
 		},
@@ -1466,17 +1533,14 @@ Deducted <b>%s coins</b>. 1 Intel Credit added.
 			"inline_keyboard": [][]map[string]interface{}{
 				{
 					{
-						"text":                 btnStars,
-						"callback_data":        fmt.Sprintf("stars_pack:%s:%s", returnAssetType, returnEntity),
-						"style":                "primary",
-						"icon_custom_emoji_id": CustomEmojiStar,
+						"text":          btnStars,
+						"callback_data": fmt.Sprintf("stars_pack:%s:%s", returnAssetType, returnEntity),
 					},
 				},
 				{
 					{
-						"text":                 btnBack,
-						"callback_data":        backCallback,
-						"icon_custom_emoji_id": CustomEmojiCross,
+						"text":          btnBack,
+						"callback_data": backCallback,
 					},
 				},
 			},
@@ -1495,17 +1559,14 @@ Deducted <b>%s coins</b>. 1 Intel Credit added.
 			"inline_keyboard": [][]map[string]interface{}{
 				{
 					{
-						"text":                 btnUnlock,
-						"callback_data":        fmt.Sprintf("unlock:%s:%s", returnAssetType, returnEntity),
-						"style":                "success",
-						"icon_custom_emoji_id": CustomEmojiBolt,
+						"text":          btnUnlock,
+						"callback_data": fmt.Sprintf("unlock:%s:%s", returnAssetType, returnEntity),
 					},
 				},
 				{
 					{
-						"text":                 btnBack,
-						"callback_data":        "nav:menu",
-						"icon_custom_emoji_id": CustomEmojiDiamond,
+						"text":          btnBack,
+						"callback_data": "nav:menu",
 					},
 				},
 			},
@@ -1515,17 +1576,14 @@ Deducted <b>%s coins</b>. 1 Intel Credit added.
 			"inline_keyboard": [][]map[string]interface{}{
 				{
 					{
-						"text":                 btnProfile,
-						"callback_data":        "nav:profile",
-						"style":                "primary",
-						"icon_custom_emoji_id": CustomEmojiUser,
+						"text":          btnProfile,
+						"callback_data": "nav:profile",
 					},
 				},
 				{
 					{
-						"text":                 btnBack,
-						"callback_data":        "nav:menu",
-						"icon_custom_emoji_id": CustomEmojiDiamond,
+						"text":          btnBack,
+						"callback_data": "nav:menu",
 					},
 				},
 			},
@@ -1608,9 +1666,8 @@ Please select a credit pack:`
 		}
 		inlineRows = append(inlineRows, []map[string]interface{}{
 			{
-				"text":                 btnLabel,
-				"callback_data":        fmt.Sprintf("buy_pack:%s:%s:%s", p.ID, returnAssetType, returnEntity),
-				"icon_custom_emoji_id": CustomEmojiStar,
+				"text":          btnLabel,
+				"callback_data": fmt.Sprintf("buy_pack:%s:%s:%s", p.ID, returnAssetType, returnEntity),
 			},
 		})
 	}
@@ -1621,9 +1678,8 @@ Please select a credit pack:`
 	}
 	inlineRows = append(inlineRows, []map[string]interface{}{
 		{
-			"text":                 backText,
-			"callback_data":        backCallback,
-			"icon_custom_emoji_id": CustomEmojiCross,
+			"text":          backText,
+			"callback_data": backCallback,
 		},
 	})
 
@@ -1723,17 +1779,14 @@ Click the payment button below to complete checkout. Credits will be deposited i
 		"inline_keyboard": [][]map[string]interface{}{
 			{
 				{
-					"text":                 btnPay,
-					"url":                  link,
-					"style":                "primary",
-					"icon_custom_emoji_id": CustomEmojiStar,
+					"text": btnPay,
+					"url":  link,
 				},
 			},
 			{
 				{
-					"text":                 btnBack,
-					"callback_data":        backCallback,
-					"icon_custom_emoji_id": CustomEmojiCross,
+					"text":          btnBack,
+					"callback_data": backCallback,
 				},
 			},
 		},

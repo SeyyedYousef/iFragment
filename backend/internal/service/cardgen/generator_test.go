@@ -159,12 +159,54 @@ func TestGenerateSampleCards(t *testing.T) {
 	_ = os.WriteFile("test_sample_number.png", nData, 0644)
 	_ = os.WriteFile(filepath.Join(artifactDir, "flex_card_number.png"), nData, 0644)
 
-	// 3. Gift Card
-	gData, err := cg.GenerateGiftCard("Plush Pepe", "plush_pepe-42", 42, "LEGENDARY", "145", "725")
+	// 3. Rich Gift Card (Plush Pepe #42, LEGENDARY, Emerald Glow, 145.0 TON, $725)
+	imgFile := filepath.Join(artifactDir, "scratch", "real_gift_img.jpg")
+	gData, err := cg.GenerateRichGiftCard(GiftCardParams{
+		Title:          "Plush Pepe #42",
+		ModelName:      "Plush Pepe",
+		SerialNumber:   42,
+		RarityTier:     "LEGENDARY",
+		BackdropName:   "Emerald Glow",
+		BackdropCenter: "#0098EA",
+		BackdropEdge:   "#0A1F30",
+		SymbolName:     "Golden Star",
+		ImageURL:       imgFile,
+		ExpectedTON:    "145.0",
+		ExpectedUSD:    "725",
+		Lang:           "fa",
+	})
 	if err != nil {
-		t.Fatalf("GenerateGiftCard failed: %v", err)
+		t.Fatalf("GenerateRichGiftCard failed: %v", err)
 	}
 	_ = os.WriteFile("test_sample_gift.png", gData, 0644)
 	_ = os.WriteFile(filepath.Join(artifactDir, "flex_card_gift.png"), gData, 0644)
+}
+
+func TestCardGenerator_GenerateRichGiftCard_Langs(t *testing.T) {
+	cg := NewCardGenerator()
+	artifactDir := `C:\Users\DEll\.gemini\antigravity-ide\brain\eedbfa01-a771-4105-8fad-05011484b61c`
+	imgFile := filepath.Join(artifactDir, "scratch", "real_gift_img.jpg")
+
+	for _, lang := range []string{"fa", "en", "ru", "zh"} {
+		data, err := cg.GenerateRichGiftCard(GiftCardParams{
+			Title:          "Plush Pepe #42",
+			ModelName:      "Plush Pepe",
+			SerialNumber:   42,
+			RarityTier:     "LEGENDARY",
+			BackdropName:   "Emerald Glow",
+			BackdropCenter: "#0098EA",
+			SymbolName:     "Golden Star",
+			ImageURL:       imgFile,
+			ExpectedTON:    "145.0",
+			ExpectedUSD:    "725",
+			Lang:           lang,
+		})
+		if err != nil {
+			t.Fatalf("GenerateRichGiftCard lang=%s failed: %v", lang, err)
+		}
+		if len(data) == 0 {
+			t.Fatalf("expected non-empty byte slice for lang=%s", lang)
+		}
+	}
 }
 

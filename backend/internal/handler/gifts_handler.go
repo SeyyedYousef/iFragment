@@ -675,9 +675,8 @@ func (h *GiftsHandler) deliverGiftReportToUser(r *http.Request, userID int64, va
 		}
 
 		if h.cardGen != nil {
-			tonStr := val.ExpectedGRAM.StringFixed(1)
-			usdStr := fmt.Sprintf("%.0f", val.ExpectedUSD)
-			if pngBytes, err := h.cardGen.GenerateGiftCard(val.DisplayTitle, val.GiftID, val.SerialNumber, rarityTier, tonStr, usdStr); err == nil {
+			cardParams := buildGiftCardParams(val, "fa")
+			if pngBytes, err := h.cardGen.GenerateRichGiftCard(cardParams); err == nil {
 				if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
 					var publicURL string
 					if host != "" {

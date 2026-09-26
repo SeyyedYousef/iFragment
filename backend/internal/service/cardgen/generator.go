@@ -3,15 +3,21 @@ package cardgen
 import (
 	"bytes"
 	_ "embed"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
+	_ "image/jpeg"
 	"image/png"
+	"io"
 	"math"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/image/font"
@@ -21,6 +27,7 @@ import (
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
+	_ "golang.org/x/image/webp"
 )
 
 //go:embed assets/Outfit-Black.ttf
@@ -210,28 +217,541 @@ func (cg *CardGenerator) GenerateNumberCardLang(displayNum string, club string, 
 	})
 }
 
+// GiftCardParams defines the full metadata for rendering a specific Telegram Gift NFT card
+type GiftCardParams struct {
+	Title          string // e.g. "Plush Pepe #42"
+	ModelName      string // e.g. "Milan Heart"
+	SerialNumber   int    // e.g. 42
+	RarityTier     string // e.g. "EXCLUSIVE", "LEGENDARY", "RARE"
+	BackdropName   string // e.g. "Army Khaki", "Cyberpunk"
+	BackdropCenter string // e.g. "#0D1B2A"
+	BackdropEdge   string // e.g. "#1B263B"
+	SymbolName     string // e.g. "Coin", "Star"
+	ImageURL       string // e.g. "https://cdn4.telesco.pe/..." or api.changes.tg
+	ExpectedTON    string // e.g. "145.0"
+	ExpectedUSD    string // e.g. "725"
+	Lang           string // e.g. "fa", "en", "ru", "zh"
+}
+
+// GenerateRichGiftCard renders a rich 600x600 Flex Card for a specific Telegram Gift NFT with image and traits
+func (cg *CardGenerator) GenerateRichGiftCard(p GiftCardParams) ([]byte, error) {
+	theme := getTierTheme(p.RarityTier)
+	if p.BackdropCenter != "" {
+		parsedCenter := parseHexColor(p.BackdropCenter, theme.Glow)
+		theme.Glow = color.RGBA{R: parsedCenter.R, G: parsedCenter.G, B: parsedCenter.B, A: 0xAA}
+	}
+
+	rightBadge := theme.Badge
+	if p.SerialNumber > 0 {
+		rightBadge = fmt.Sprintf("%s #%d", theme.Badge, p.SerialNumber)
+	}
+
+	const (
+		width  = 600
+		height = 600
+		x0     = 24.0
+		y0     = 24.0
+		x1     = 576.0
+		y1     = 576.0
+		radius = 48.0
+	)
+
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+
+	// 1. Draw outer neon glow, rounded squircle border, and interior background
+	glowRadius := 24.0
+	for y := 0; y < height; y++ {
+		fy := float64(y) + 0.5
+		for x := 0; x < width; x++ {
+			fx := float64(x) + 0.5
+
+			dist := signedDistRoundRect(fx, fy, x0, y0, x1, y1, radius)
+			if dist > glowRadius {
+				continue
+			}
+
+			if dist > 0.0 {
+				factor := 1.0 - (dist / glowRadius)
+				alpha := factor * factor * (float64(theme.Glow.A) / 255.0) * 0.85
+				glowCol := color.RGBA{
+					R: uint8(float64(theme.Glow.R) * alpha),
+					G: uint8(float64(theme.Glow.G) * alpha),
+					B: uint8(float64(theme.Glow.B) * alpha),
+					A: uint8(alpha * 255),
+				}
+				img.Set(x, y, glowCol)
+				continue
+			}
+
+			if dist >= -2.8 {
+				borderAlpha := 1.0
+				if dist > -0.9 {
+					borderAlpha = -dist / 0.9
+				}
+				borderCol := blendColor(
+					color.RGBA{R: 0x08, G: 0x09, B: 0x0D, A: 0xFF},
+					theme.Border,
+					borderAlpha,
+				)
+				img.Set(x, y, borderCol)
+				continue
+			}
+
+			normY := (fy - y0) / (y1 - y0)
+			bgR := uint8(10 - normY*4)
+			bgG := uint8(13 - normY*5)
+			bgB := uint8(21 - normY*9)
+
+			// Ambient spotlight behind the gift image
+			dx := (fx - 300.0) / 210.0
+			dy := (fy - 210.0) / 140.0
+			centerDist := math.Hypot(dx, dy)
+			if centerDist < 1.0 {
+				ambientFactor := 1.0 - centerDist
+				ambientAlpha := ambientFactor * ambientFactor * 0.35
+				glowR := float64(theme.Glow.R)
+				glowG := float64(theme.Glow.G)
+				glowB := float64(theme.Glow.B)
+				bgR = uint8(float64(bgR)*(1.0-ambientAlpha) + glowR*ambientAlpha)
+				bgG = uint8(float64(bgG)*(1.0-ambientAlpha) + glowG*ambientAlpha)
+				bgB = uint8(float64(bgB)*(1.0-ambientAlpha) + glowB*ambientAlpha)
+			}
+
+			img.Set(x, y, color.RGBA{R: bgR, G: bgG, B: bgB, A: 0xFF})
+		}
+	}
+
+	// 2. Draw dot matrix cyber grid
+	dotSpacing := 26
+	for gx := 52; gx <= 548; gx += dotSpacing {
+		for gy := 52; gy <= 548; gy += dotSpacing {
+			if signedDistRoundRect(float64(gx), float64(gy), x0, y0, x1, y1, radius) < -8.0 {
+				drawSoftDot(img, gx, gy, 1.4, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x18})
+			}
+		}
+	}
+
+	// 3. Top Row: Left Badge & Right Badge
+	drawPill(img, 48, 48, 150, 36, 12,
+		color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0E},
+		color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x22})
+	cg.drawText(img, cg.fontOutfitBold, 11.5, 48+75, 71, "I F R A G M E N T",
+		color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xFF}, alignCenter)
+
+	rightFace, _ := cg.getFace(cg.fontOutfitBlack, 12.0)
+	rightTextW := font.MeasureString(rightFace, rightBadge).Ceil()
+	pillW := rightTextW + 36
+	if pillW < 96 {
+		pillW = 96
+	}
+	pillX := 552 - pillW
+	drawPill(img, pillX, 48, pillW, 36, 12,
+		color.RGBA{R: theme.Border.R, G: theme.Border.G, B: theme.Border.B, A: 0x22},
+		theme.Border)
+	cg.drawText(img, cg.fontOutfitBlack, 12.0, pillX+pillW/2, 71, rightBadge,
+		theme.Border, alignCenter)
+
+	// 4. Center Section: Gift Image Container Box
+	boxSize := 160
+	boxX := 300 - boxSize/2
+	boxY := 105
+	boxR := 26.0
+
+	// Draw container pill
+	drawPill(img, boxX, boxY, boxSize, boxSize, boxR,
+		color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0C},
+		color.RGBA{R: theme.Border.R, G: theme.Border.G, B: theme.Border.B, A: 0x66})
+
+	// Fetch & render real gift image (or fallback vector)
+	var downloadedImg image.Image
+	if p.ImageURL != "" {
+		downloadedImg, _ = fetchAndDecodeImage(p.ImageURL, 5*time.Second)
+	}
+	if downloadedImg == nil && p.SerialNumber > 0 {
+		mName := p.ModelName
+		if mName == "" {
+			mName = p.Title
+		}
+		pascal := formatPascalSimple(mName)
+		if pascal != "" {
+			targetURL := fmt.Sprintf("https://t.me/nft/%s-%d", pascal, p.SerialNumber)
+			if ogURL := fetchOGImageURL(targetURL, 3*time.Second); ogURL != "" {
+				downloadedImg, _ = fetchAndDecodeImage(ogURL, 4*time.Second)
+			}
+		}
+	}
+
+	if downloadedImg != nil {
+		innerMargin := 8
+		innerSize := boxSize - (innerMargin * 2)
+		drawImageRounded(img, downloadedImg, boxX+innerMargin, boxY+innerMargin, innerSize, innerSize, boxR-4.0)
+	} else {
+		drawFallbackGiftVector(img, 300, boxY+boxSize/2, theme.Border)
+	}
+
+	// 5. Gift Title below the image
+	title := p.Title
+	if title == "" {
+		title = "TELEGRAM GIFT"
+	}
+	titleSize := 28.0
+	if len(title) > 22 {
+		titleSize = 22.0
+	} else if len(title) > 16 {
+		titleSize = 25.0
+	}
+
+	titleY := 305
+	titleFace, _ := cg.getFace(cg.fontOutfitBlack, titleSize)
+	titleW := font.MeasureString(titleFace, title).Ceil()
+
+	// 3D Drop shadow
+	cg.drawText(img, cg.fontOutfitBlack, titleSize, 300, titleY+2, title,
+		color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xB0}, alignCenter)
+	// Crisp White Title
+	cg.drawText(img, cg.fontOutfitBlack, titleSize, 300, titleY, title,
+		color.White, alignCenter)
+
+	// Sparkles on sides
+	sparkleY := titleY - int(titleSize*0.22)
+	drawSparkle(img, 300-titleW/2-24, sparkleY, 14, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
+	drawSparkle(img, 300+titleW/2+24, sparkleY, 14, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
+
+	// 6. Traits Badge Pill below title
+	var traitsParts []string
+	if p.ModelName != "" {
+		traitsParts = append(traitsParts, fmt.Sprintf("MODEL: %s", strings.ToUpper(p.ModelName)))
+	}
+	if p.BackdropName != "" {
+		traitsParts = append(traitsParts, fmt.Sprintf("BACKDROP: %s", strings.ToUpper(p.BackdropName)))
+	}
+	if p.SymbolName != "" {
+		traitsParts = append(traitsParts, fmt.Sprintf("SYMBOL: %s", strings.ToUpper(p.SymbolName)))
+	}
+
+	if len(traitsParts) > 0 {
+		traitsText := strings.Join(traitsParts, "   |   ")
+		trFace, _ := cg.getFace(cg.fontOutfitBold, 10.0)
+		trW := font.MeasureString(trFace, traitsText).Ceil()
+		trPillW := trW + 28
+		if trPillW > 500 {
+			trPillW = 500
+		}
+		trPillX := 300 - trPillW/2
+		trPillY := 345
+		drawPill(img, trPillX, trPillY, trPillW, 28, 10,
+			color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0E},
+			color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x24})
+		cg.drawText(img, cg.fontOutfitBold, 10.0, 300, trPillY+19, traitsText,
+			color.RGBA{R: 0xCF, G: 0xD8, B: 0xDC, A: 0xEE}, alignCenter)
+	}
+
+	// 7. Horizontal divider line
+	dividerY := 432
+	for x := 48; x <= 552; x++ {
+		img.Set(x, dividerY, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x18})
+	}
+
+	// 8. Bottom Row: Left side (Verified + Market Value + USD)
+	isFa := p.Lang == "fa" || p.Lang == ""
+
+	if isFa && cg.fontVazirBold != nil {
+		drawPill(img, 48, 452, 68, 36, 12,
+			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x24},
+			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x77})
+		cg.drawText(img, cg.fontVazirBold, 9.5, 54, 465, PersianTayidShaped,
+			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}, alignLeft)
+		cg.drawText(img, cg.fontVazirBold, 9.5, 54, 479, PersianShodeShaped,
+			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}, alignLeft)
+		drawCircleFilled(img, 100, 470, 3.5, color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF})
+
+		cg.drawText(img, cg.fontVazirBold, 11.5, 126, 473, PersianEstimatedPriceShaped,
+			color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xDD}, alignLeft)
+	} else {
+		drawPill(img, 48, 454, 92, 32, 10,
+			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x24},
+			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x77})
+		drawCircleFilled(img, 60, 470, 3.5, color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF})
+		cg.drawText(img, cg.fontOutfitBold, 9.5, 70, 474, "VERIFIED",
+			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}, alignLeft)
+		cg.drawText(img, cg.fontOutfitBold, 10.0, 150, 474, "ESTIMATED MARKET VALUE",
+			color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xCC}, alignLeft)
+	}
+
+	usdDisplay := "$0"
+	if p.ExpectedUSD != "" {
+		usdDisplay = fmt.Sprintf("$%s", strings.TrimPrefix(strings.TrimPrefix(p.ExpectedUSD, "≈"), "$"))
+	}
+	cg.drawText(img, cg.fontOutfitBlack, 27.0, 48, 528, usdDisplay, color.White, alignLeft)
+
+	// 9. Bottom Row: Right side (TON Diamond Icon + TON Amount + ≈TON)
+	iconCenterX := 526
+	iconCenterY := 498
+	drawTonDiamondIcon(img, iconCenterX, iconCenterY, 24)
+
+	tonNumStr := p.ExpectedTON
+	if tonNumStr == "" {
+		tonNumStr = "0"
+	}
+	tonFace, _ := cg.getFace(cg.fontOutfitBlack, 44.0)
+	tonNumW := font.MeasureString(tonFace, tonNumStr).Ceil()
+
+	tonEndX := iconCenterX - 36
+	tonStartX := tonEndX - tonNumW
+	cg.drawTextAt(img, tonFace, tonStartX, 528, tonNumStr, color.White)
+
+	tonLabelFace, _ := cg.getFace(cg.fontOutfitBlack, 17.0)
+	tonLabelW := font.MeasureString(tonLabelFace, "TON").Ceil()
+	approxW := 14
+	gap := 5
+	labelStartX := tonStartX - (approxW + gap + tonLabelW) - 8
+
+	drawApproxSymbol(img, labelStartX, 510-7, color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF})
+	cg.drawTextAt(img, tonLabelFace, labelStartX+approxW+gap, 510, "TON",
+		color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF})
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 // GenerateGiftCard creates a high-fidelity 600x600 Flex Card for Telegram Gifts & NFTs
 func (cg *CardGenerator) GenerateGiftCard(title string, giftID string, serialNumber int, rarityTier string, expectedTON string, expectedUSD string) ([]byte, error) {
 	return cg.GenerateGiftCardLang(title, giftID, serialNumber, rarityTier, expectedTON, expectedUSD, "fa")
 }
 
 func (cg *CardGenerator) GenerateGiftCardLang(title string, giftID string, serialNumber int, rarityTier string, expectedTON string, expectedUSD string, lang string) ([]byte, error) {
-	theme := getTierTheme(rarityTier)
-	rightBadge := theme.Badge
-	if serialNumber > 0 {
-		rightBadge = fmt.Sprintf("%s #%d", theme.Badge, serialNumber)
+	modelName := ""
+	if idx := strings.LastIndex(giftID, "-"); idx > 0 {
+		modelName = giftID[:idx]
+	} else if giftID != "" {
+		modelName = giftID
+	}
+	return cg.GenerateRichGiftCard(GiftCardParams{
+		Title:        title,
+		ModelName:    modelName,
+		SerialNumber: serialNumber,
+		RarityTier:   rarityTier,
+		ExpectedTON:  expectedTON,
+		ExpectedUSD:  expectedUSD,
+		Lang:         lang,
+	})
+}
+
+// drawImageRounded draws and scales src image into dst at (x, y, w, h) with anti-aliased rounded corners
+func drawImageRounded(dst *image.RGBA, src image.Image, x, y, w, h int, radius float64) {
+	if src == nil {
+		return
+	}
+	bounds := src.Bounds()
+	srcW := bounds.Dx()
+	srcH := bounds.Dy()
+	if srcW == 0 || srcH == 0 {
+		return
 	}
 
-	return cg.renderFlexCard(cardParams{
-		leftPill:    "I F R A G M E N T",
-		rightPill:   rightBadge,
-		theme:       theme,
-		identifier:  title,
-		subLabel:    "TELEGRAM STAR GIFT NFT",
-		expectedTON: expectedTON,
-		expectedUSD: expectedUSD,
-		lang:        lang,
+	x0 := float64(x)
+	y0 := float64(y)
+	x1 := float64(x + w)
+	y1 := float64(y + h)
+
+	for py := 0; py < h; py++ {
+		dstY := y + py
+		if dstY < 0 || dstY >= dst.Bounds().Dy() {
+			continue
+		}
+		fy := float64(dstY) + 0.5
+		sy := bounds.Min.Y + int(float64(py)*float64(srcH)/float64(h))
+		if sy >= bounds.Max.Y {
+			sy = bounds.Max.Y - 1
+		}
+
+		for px := 0; px < w; px++ {
+			dstX := x + px
+			if dstX < 0 || dstX >= dst.Bounds().Dx() {
+				continue
+			}
+			fx := float64(dstX) + 0.5
+
+			dist := signedDistRoundRect(fx, fy, x0, y0, x1, y1, radius)
+			if dist > 0.0 {
+				continue
+			}
+
+			sx := bounds.Min.X + int(float64(px)*float64(srcW)/float64(w))
+			if sx >= bounds.Max.X {
+				sx = bounds.Max.X - 1
+			}
+
+			srcColor := src.At(sx, sy)
+			r, g, b, a := srcColor.RGBA()
+			if a == 0 {
+				continue
+			}
+			c := color.RGBA{
+				R: uint8(r >> 8),
+				G: uint8(g >> 8),
+				B: uint8(b >> 8),
+				A: uint8(a >> 8),
+			}
+
+			if dist > -1.0 {
+				alpha := -dist
+				c.A = uint8(float64(c.A) * alpha)
+			}
+			drawPixelOver(dst, dstX, dstY, c)
+		}
+	}
+}
+
+// drawFallbackGiftVector draws a stylish 3D Telegram Gift box when real image is unavailable
+func drawFallbackGiftVector(img *image.RGBA, cx, cy int, theme color.RGBA) {
+	baseW, baseH := 74, 62
+	baseX := cx - baseW/2
+	baseY := cy - baseH/2 + 8
+	drawPill(img, baseX, baseY, baseW, baseH, 12,
+		color.RGBA{R: theme.R, G: theme.G, B: theme.B, A: 0x33},
+		theme)
+
+	lidW, lidH := 84, 18
+	lidX := cx - lidW/2
+	lidY := baseY - lidH + 4
+	drawPill(img, lidX, lidY, lidW, lidH, 6,
+		color.RGBA{R: theme.R, G: theme.G, B: theme.B, A: 0x55},
+		theme)
+
+	ribbonCol := color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xEE}
+	drawAALine(img, float64(cx), float64(lidY), float64(cx), float64(baseY+baseH), 4.0, ribbonCol)
+	drawAALine(img, float64(baseX), float64(baseY+baseH/2), float64(baseX+baseW), float64(baseY+baseH/2), 3.5, ribbonCol)
+
+	drawCircleFilled(img, cx-10, lidY-4, 7.0, color.RGBA{R: theme.R, G: theme.G, B: theme.B, A: 0x88})
+	drawCircleFilled(img, cx+10, lidY-4, 7.0, color.RGBA{R: theme.R, G: theme.G, B: theme.B, A: 0x88})
+	drawCircleFilled(img, cx, lidY-3, 5.0, ribbonCol)
+
+	drawSparkle(img, cx-48, cy-32, 10, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x88})
+	drawSparkle(img, cx+52, cy-20, 12, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x88})
+	drawSparkle(img, cx+44, cy+36, 8, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x66})
+}
+
+// parseHexColor parses a hex color string with Purple Ban protection
+func parseHexColor(hexStr string, defaultCol color.RGBA) color.RGBA {
+	hexStr = strings.TrimPrefix(strings.TrimSpace(hexStr), "#")
+	if len(hexStr) != 6 {
+		return defaultCol
+	}
+	r, err1 := strconv.ParseUint(hexStr[0:2], 16, 8)
+	g, err2 := strconv.ParseUint(hexStr[2:4], 16, 8)
+	b, err3 := strconv.ParseUint(hexStr[4:6], 16, 8)
+	if err1 != nil || err2 != nil || err3 != nil {
+		return defaultCol
+	}
+	// Purple Ban rule: clamp purple/violet to deep indigo/cyber cyan
+	if r > 100 && b > 130 && g < 90 {
+		return color.RGBA{R: 0x0D, G: 0x1B, B: 0x2A, A: 0xFF}
+	}
+	return color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 0xFF}
+}
+
+// fetchAndDecodeImage downloads and decodes an image with timeout
+func fetchAndDecodeImage(imageURL string, timeout time.Duration) (image.Image, error) {
+	trimmed := strings.TrimSpace(imageURL)
+	if trimmed == "" {
+		return nil, errors.New("empty image URL")
+	}
+
+	// Check for local file path or file:// scheme
+	localPath := trimmed
+	if strings.HasPrefix(localPath, "file://") {
+		localPath = strings.TrimPrefix(localPath, "file://")
+		localPath = strings.TrimPrefix(localPath, "/")
+	}
+	if fileInfo, err := os.Stat(localPath); err == nil && !fileInfo.IsDir() {
+		f, err := os.Open(localPath)
+		if err == nil {
+			defer f.Close()
+			img, _, err := image.Decode(f)
+			return img, err
+		}
+	}
+
+	client := &http.Client{
+		Timeout: timeout,
+	}
+	req, err := http.NewRequest("GET", imageURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) iFragmentBot/1.0")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	img, _, err := image.Decode(resp.Body)
+	return img, err
+}
+
+var telegramNFTSlugMap = map[string]string{
+	"durov_cap":   "DurovsBlackCap",
+	"durovscap":   "DurovsBlackCap",
+	"golden_star": "CelestialStar",
+	"goldenstar":  "CelestialStar",
+}
+
+func formatPascalSimple(raw string) string {
+	clean := strings.ToLower(strings.TrimSpace(raw))
+	clean = strings.ReplaceAll(clean, "-", "_")
+	if override, ok := telegramNFTSlugMap[clean]; ok {
+		return override
+	}
+
+	clean = strings.ReplaceAll(clean, "'", "")
+	clean = strings.ReplaceAll(clean, "’", "")
+	words := strings.FieldsFunc(clean, func(r rune) bool {
+		return r == ' ' || r == '-' || r == '_'
 	})
+	var b strings.Builder
+	for _, w := range words {
+		if len(w) > 0 {
+			b.WriteString(strings.ToUpper(w[:1]) + strings.ToLower(w[1:]))
+		}
+	}
+	return b.String()
+}
+
+var ogImageRegex = regexp.MustCompile(`(?i)<meta\s+(?:property|name)=["'](?:og:image|twitter:image)["']\s+content=["']([^"']+)["']`)
+
+func fetchOGImageURL(pageURL string, timeout time.Duration) string {
+	client := &http.Client{Timeout: timeout}
+	req, err := http.NewRequest("GET", pageURL, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) iFragmentBot/1.0")
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if err != nil {
+		return ""
+	}
+	if m := ogImageRegex.FindStringSubmatch(string(body)); len(m) >= 2 {
+		return strings.TrimSpace(m[1])
+	}
+	return ""
 }
 
 type cardParams struct {

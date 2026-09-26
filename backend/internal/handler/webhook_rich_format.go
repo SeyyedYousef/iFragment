@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/service/cardgen"
 	"ifragment-backend/internal/service/gifts/gvengine"
 	"ifragment-backend/internal/service/gifts/telegramnft"
 	"ifragment-backend/internal/service/numbers/nvengine"
@@ -1597,4 +1598,59 @@ func buildCopySummary(assetEmoji, identifier, fairTON, fairUSD, extra, lang stri
 	}
 
 	return sb.String()
+}
+
+// buildGiftCardParams constructs a rich card parameter struct from a GiftValuation
+func buildGiftCardParams(val *gvengine.GiftValuation, lang string) cardgen.GiftCardParams {
+	p := cardgen.GiftCardParams{
+		Title:        val.DisplayTitle,
+		ModelName:    val.ModelName,
+		SerialNumber: val.SerialNumber,
+		ImageURL:     val.ImageURL,
+		ExpectedTON:  val.ExpectedGRAM.StringFixed(1),
+		ExpectedUSD:  fmt.Sprintf("%.0f", val.ExpectedUSD),
+		Lang:         lang,
+	}
+
+	if p.Title == "" {
+		if val.ModelName != "" {
+			p.Title = fmt.Sprintf("%s #%d", val.ModelName, val.SerialNumber)
+		} else {
+			p.Title = fmt.Sprintf("Gift #%d", val.SerialNumber)
+		}
+	}
+	if p.ModelName == "" {
+		p.ModelName = val.SelectedModel
+	}
+	if p.ModelName == "" {
+		p.ModelName = val.ModelID
+	}
+
+	rarityTier := val.JointRarity.RarityClass
+	if normalizeLang(lang) == "fa" && val.JointRarity.DescriptionFa != "" {
+		rarityTier = val.JointRarity.DescriptionFa
+	}
+	if rarityTier == "" {
+		rarityTier = "Collectible"
+	}
+	p.RarityTier = rarityTier
+
+	for _, bar := range val.TraitDNA {
+		switch bar.AxisKey {
+		case "model":
+			if p.ModelName == "" {
+				p.ModelName = bar.Value
+			}
+		case "backdrop":
+			p.BackdropName = bar.Value
+			if bar.Colors != nil {
+				p.BackdropCenter = bar.Colors.CenterHex
+				p.BackdropEdge = bar.Colors.EdgeHex
+			}
+		case "symbol":
+			p.SymbolName = bar.Value
+		}
+	}
+
+	return p
 }

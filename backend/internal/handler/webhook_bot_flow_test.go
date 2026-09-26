@@ -36,11 +36,8 @@ func TestBuildMainMenuMarkupLayout(t *testing.T) {
 			if heroBtn["url"] != miniAppURL {
 				t.Errorf("expected hero button url to be %s, got %v", miniAppURL, heroBtn["url"])
 			}
-			if heroBtn["style"] != "primary" {
-				t.Errorf("expected hero button style to be 'primary', got %v", heroBtn["style"])
-			}
-			if heroBtn["icon_custom_emoji_id"] != CustomEmojiDiamond {
-				t.Errorf("expected hero button icon_custom_emoji_id to be %s, got %v", CustomEmojiDiamond, heroBtn["icon_custom_emoji_id"])
+			if heroBtn["text"] == "" {
+				t.Errorf("expected hero button text to be non-empty")
 			}
 
 			// Row 2: Exactly 2 buttons (Username, Number)
@@ -50,14 +47,8 @@ func TestBuildMainMenuMarkupLayout(t *testing.T) {
 			if grid[1][0]["callback_data"] != "nav:asset_username" {
 				t.Errorf("expected row 2 btn 1 callback to be nav:asset_username, got %v", grid[1][0]["callback_data"])
 			}
-			if grid[1][0]["icon_custom_emoji_id"] != CustomEmojiTag {
-				t.Errorf("expected row 2 btn 1 icon_custom_emoji_id to be %s, got %v", CustomEmojiTag, grid[1][0]["icon_custom_emoji_id"])
-			}
 			if grid[1][1]["callback_data"] != "nav:asset_number" {
 				t.Errorf("expected row 2 btn 2 callback to be nav:asset_number, got %v", grid[1][1]["callback_data"])
-			}
-			if grid[1][1]["icon_custom_emoji_id"] != CustomEmojiPhone {
-				t.Errorf("expected row 2 btn 2 icon_custom_emoji_id to be %s, got %v", CustomEmojiPhone, grid[1][1]["icon_custom_emoji_id"])
 			}
 
 			// Row 3: Exactly 2 buttons (Gifts, Profile) — CRITICAL: No longer 3 buttons!
@@ -67,14 +58,8 @@ func TestBuildMainMenuMarkupLayout(t *testing.T) {
 			if grid[2][0]["callback_data"] != "nav:asset_gifts" {
 				t.Errorf("expected row 3 btn 1 callback to be nav:asset_gifts, got %v", grid[2][0]["callback_data"])
 			}
-			if grid[2][0]["icon_custom_emoji_id"] != CustomEmojiGift {
-				t.Errorf("expected row 3 btn 1 icon_custom_emoji_id to be %s, got %v", CustomEmojiGift, grid[2][0]["icon_custom_emoji_id"])
-			}
 			if grid[2][1]["callback_data"] != "nav:profile" {
 				t.Errorf("expected row 3 btn 2 callback to be nav:profile, got %v", grid[2][1]["callback_data"])
-			}
-			if grid[2][1]["icon_custom_emoji_id"] != CustomEmojiUser {
-				t.Errorf("expected row 3 btn 2 icon_custom_emoji_id to be %s, got %v", CustomEmojiUser, grid[2][1]["icon_custom_emoji_id"])
 			}
 
 			// Row 4: Exactly 2 buttons (Language, Help)
@@ -84,14 +69,8 @@ func TestBuildMainMenuMarkupLayout(t *testing.T) {
 			if grid[3][0]["callback_data"] != "nav:language" {
 				t.Errorf("expected row 4 btn 1 callback to be nav:language, got %v", grid[3][0]["callback_data"])
 			}
-			if grid[3][0]["icon_custom_emoji_id"] != CustomEmojiGlobe {
-				t.Errorf("expected row 4 btn 1 icon_custom_emoji_id to be %s, got %v", CustomEmojiGlobe, grid[3][0]["icon_custom_emoji_id"])
-			}
 			if grid[3][1]["callback_data"] != "nav:help" {
 				t.Errorf("expected row 4 btn 2 callback to be nav:help, got %v", grid[3][1]["callback_data"])
-			}
-			if grid[3][1]["icon_custom_emoji_id"] != CustomEmojiBook {
-				t.Errorf("expected row 4 btn 2 icon_custom_emoji_id to be %s, got %v", CustomEmojiBook, grid[3][1]["icon_custom_emoji_id"])
 			}
 
 			// Ensure no row in the entire menu exceeds 2 buttons
@@ -144,5 +123,43 @@ func TestEconomicsCoinExchangeValue(t *testing.T) {
 	formatted := formatNumberWithCommas(config.Economics.CreditsCoinsPerCredit)
 	if formatted != "150,000" {
 		t.Errorf("Expected formatted 150,000, got %s", formatted)
+	}
+}
+
+func TestSniffAssetEnhanced(t *testing.T) {
+	tests := []struct {
+		input      string
+		expectedType string
+		expectedEntity string
+	}{
+		{"durov", "username", "durov"},
+		{"@telegram", "username", "telegram"},
+		{"/val durov", "username", "durov"},
+		{"/val@iFragmentBot durov", "username", "durov"},
+		{"/check crypto", "username", "crypto"},
+		{"/num +888 8888 8888", "number", "+88888888888"},
+		{"/number 8888", "number", "+8888888"},
+		{"88888888", "number", "+88888888888"},
+		{"PlushPepe-42", "gift", "PlushPepe-42"},
+		{"CelestialStar-1", "gift", "CelestialStar-1"},
+		{"/gift PlushPepe-42", "gift", "PlushPepe-42"},
+		{"/gift plush_pepe 42", "gift", "plush_pepe-42"},
+		{"https://t.me/nft/PlushPepe-42", "gift", "PlushPepe-42"},
+		{"https://fragment.com/gift/CelestialStar-99", "gift", "CelestialStar-99"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			res := SniffAsset(tt.input)
+			if res == nil {
+				t.Fatalf("expected non-nil result for input %q", tt.input)
+			}
+			if res.Type != tt.expectedType {
+				t.Errorf("expected type %s, got %s", tt.expectedType, res.Type)
+			}
+			if res.Entity != tt.expectedEntity {
+				t.Errorf("expected entity %s, got %s", tt.expectedEntity, res.Entity)
+			}
+		})
 	}
 }

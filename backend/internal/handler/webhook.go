@@ -567,6 +567,17 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		raw = strings.TrimSpace(msg.Caption)
 	}
 
+	// Always ensure user exists in repository so foreign key references never fail
+	if msg.From != nil && !msg.From.IsBot && h.db != nil {
+		_ = h.db.UpsertUser(ctx, repository.User{
+			TelegramID:   msg.From.ID,
+			Username:     msg.From.Username,
+			FirstName:    msg.From.FirstName,
+			LastName:     msg.From.LastName,
+			LanguageCode: msg.From.LanguageCode,
+		})
+	}
+
 	// 1. If message contains a Gift link, sniff & analyze automatically
 	if giftLinkRegex.MatchString(raw) {
 		h.handleGiftLinkSniff(ctx, bot, msg, raw)
@@ -642,21 +653,44 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			startParam = string(sanitized)
 		}
 
-		if startParam != "" && !strings.HasPrefix(startParam, "group_") && !strings.HasPrefix(startParam, "gift_") && !strings.HasPrefix(startParam, "channel_") && !strings.HasPrefix(startParam, "nft_") {
-			err := h.db.UpsertUser(ctx, repository.User{
-				TelegramID:   m.From.ID,
-				Username:     m.From.Username,
-				FirstName:    m.From.FirstName,
-				LastName:     "",
-				LanguageCode: m.From.LanguageCode,
-			})
-			if err == nil {
-				_, err := h.db.SetReferredBy(ctx, m.From.ID, startParam)
-				if err != nil {
-					slog.Debug("Referred_by skipped or invalid", "user_id", m.From.ID, "referrer_code", startParam, "error", err)
+		if startParam != "" {
+			// Deep link routing: if user clicked a link for a specific asset, take them straight to precheck gate
+			if strings.HasPrefix(startParam, "username_") || strings.HasPrefix(startParam, "val_") {
+				entity := strings.TrimPrefix(strings.TrimPrefix(startParam, "username_"), "val_")
+				if entity != "" {
+					h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, "username", entity, nil, m.MessageThreadID)
+					return
 				}
-			} else {
-				slog.Error("Failed to upsert user for referral via webhook", "error", err)
+			} else if strings.HasPrefix(startParam, "number_") || strings.HasPrefix(startParam, "num_") {
+				entity := strings.TrimPrefix(strings.TrimPrefix(startParam, "number_"), "num_")
+				if entity != "" {
+					h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, "number", entity, nil, m.MessageThreadID)
+					return
+				}
+			} else if strings.HasPrefix(startParam, "gift_") || strings.HasPrefix(startParam, "nft_") {
+				entity := strings.TrimPrefix(strings.TrimPrefix(startParam, "gift_"), "nft_")
+				if entity != "" {
+					h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, "gift", entity, nil, m.MessageThreadID)
+					return
+				}
+			}
+
+			if !strings.HasPrefix(startParam, "group_") && !strings.HasPrefix(startParam, "channel_") {
+				err := h.db.UpsertUser(ctx, repository.User{
+					TelegramID:   m.From.ID,
+					Username:     m.From.Username,
+					FirstName:    m.From.FirstName,
+					LastName:     m.From.LastName,
+					LanguageCode: m.From.LanguageCode,
+				})
+				if err == nil {
+					_, err := h.db.SetReferredBy(ctx, m.From.ID, startParam)
+					if err != nil {
+						slog.Debug("Referred_by skipped or invalid", "user_id", m.From.ID, "referrer_code", startParam, "error", err)
+					}
+				} else {
+					slog.Error("Failed to upsert user for referral via webhook", "error", err)
+				}
 			}
 		}
 
@@ -730,6 +764,16 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 }
 
 func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repository.ManagedBot, cq *CallbackQuery) {
+	if cq.From.ID != 0 && h.db != nil {
+		_ = h.db.UpsertUser(ctx, repository.User{
+			TelegramID:   cq.From.ID,
+			Username:     cq.From.Username,
+			FirstName:    cq.From.FirstName,
+			LastName:     cq.From.LastName,
+			LanguageCode: cq.From.LanguageCode,
+		})
+	}
+
 	if strings.HasPrefix(cq.Data, "lang:") {
 		parts := strings.Split(cq.Data, ":")
 		if len(parts) >= 2 {
