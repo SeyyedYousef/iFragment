@@ -70,9 +70,15 @@ func (h *WebhookHandler) handleGiftCommand(ctx context.Context, bot *repository.
 	}
 
 	sniff := SniffAsset(arg)
-	entity := arg
+	entity := strings.ToLower(strings.TrimSpace(arg))
 	if sniff != nil && sniff.Entity != "" {
 		entity = sniff.Entity
+	} else {
+		// Fallback slug normalization: replace spaces with hyphens (e.g. "plush pepe 42" -> "plush_pepe-42" or "pepe 42" -> "pepe-42")
+		parts := strings.Fields(entity)
+		if len(parts) == 2 {
+			entity = fmt.Sprintf("%s-%s", parts[0], parts[1])
+		}
 	}
 	h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, "gift", entity, nil, m.MessageThreadID)
 }
@@ -193,26 +199,30 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 				res, err := h.avmService.Valuate(ctx, normUser, 0)
 				if err == nil && res != nil {
 					appURL := fmt.Sprintf("%s?startapp=val_%s", miniAppURL, normUser)
-					msgText := fmt.Sprintf(`🏷️ <b>کارشناسی تحلیلی نام کاربری: @%s</b>
+					botUsername := bot.BotUsername
+					if botUsername == "" {
+						botUsername = "iFragmentBot"
+					}
+					cleanBotUser := strings.TrimPrefix(botUsername, "@")
+					botPMURL := fmt.Sprintf("https://t.me/%s?start=val_%s", cleanBotUser, normUser)
+
+					msgText := fmt.Sprintf(`🏷️ <b>پیش‌نمایش کارشناسی نام کاربری: @%s</b>
 
 💎 درجه سرمایه‌گذاری: <b>%s</b>
 📈 شاخص برندپذیری: <b>%d / 100</b>
-📉 بازه ارزش: <b>%s الی %s TON</b>
-💰 برآورد منصفانه: <b>~%s TON (معادل $%s)</b>
+🔒 <i>ارزش منصفانه و برآورد قیمتی قفل است.</i>
 
-⚡ <i>برآورد هوشمند موتور تحلیلی AVM بر پایه معاملات فرگمنت</i>`,
+⚡ جهت دریافت گزارش کامل و دقیق موتور AVM با اعتبار تحلیلی، ربات را در پیوی باز کنید.`,
 						normUser,
 						res.InvestmentGrade,
 						res.Brandability,
-						res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
-						res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0),
 					)
 
 					results = append(results, telegram.InlineQueryResultArticle{
 						Type:        "article",
 						ID:          fmt.Sprintf("user_%s", normUser),
 						Title:       fmt.Sprintf("🏷️ کارشناسی نام کاربری: @%s", normUser),
-						Description: fmt.Sprintf("تخمین: ~%s TON ($%s) | درجه: %s | برندپذیری: %d/100", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0), res.InvestmentGrade, res.Brandability),
+						Description: fmt.Sprintf("درجه: %s | شاخص برندپذیری: %d/100 | گزارش کامل در پیوی", res.InvestmentGrade, res.Brandability),
 						InputMessageContent: map[string]interface{}{
 							"message_text": msgText,
 							"parse_mode":   "HTML",
@@ -220,8 +230,8 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 						ReplyMarkup: map[string]interface{}{
 							"inline_keyboard": [][]map[string]interface{}{
 								{
-									{"text": "📊 تحلیل جامع در مینی‌اپ", "url": appURL},
-									{"text": "🌐 مشاهده در فرگمنت", "url": fmt.Sprintf("https://fragment.com/username/%s", normUser)},
+									{"text": "🔓 مشاهده گزارش کامل در پیوی", "url": botPMURL},
+									{"text": "📊 مینی‌اپ iFragment", "url": appURL},
 								},
 							},
 						},
@@ -238,26 +248,32 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 					if club == "" {
 						club = val.CategoryClub
 					}
-					msgText := fmt.Sprintf(`📱 <b>کارشناسی تحلیلی شماره کلکسیونی: %s</b>
+					botUsername := bot.BotUsername
+					if botUsername == "" {
+						botUsername = "iFragmentBot"
+					}
+					cleanBotUser := strings.TrimPrefix(botUsername, "@")
+					botPMURL := fmt.Sprintf("https://t.me/%s?start=num_%s", cleanBotUser, cleanNum)
+
+					msgText := fmt.Sprintf(`📱 <b>پیش‌نمایش شماره کلکسیونی: %s</b>
 
 👑 کلوپ: <b>%s</b>
 🏆 رتبه کمیابی در شبکه: <b>#%d</b>
 🎯 ضریب اطمینان: <b>%d%%</b>
-💰 قیمت منصفانه (Fair): <b>%s TON (~$%.0f)</b>
+🔒 <i>برآورد قیمت منصفانه (Fair Value) قفل است.</i>
 
-⚡ <i>ارزیابی دقیق موتور NV Engine بر اساس متدولوژی TON</i>`,
+⚡ جهت آزادسازی ارزیابی دقیق موتور NV Engine با اعتبار تحلیلی، دکمه زیر را لمس نمایید.`,
 						val.DisplayNumber,
 						club,
 						val.GlobalRank,
 						val.ConfidenceScore,
-						val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
 					)
 
 					results = append(results, telegram.InlineQueryResultArticle{
 						Type:        "article",
 						ID:          fmt.Sprintf("num_%s", cleanNum),
 						Title:       fmt.Sprintf("📱 کارشناسی شماره: %s", val.DisplayNumber),
-						Description: fmt.Sprintf("کلوپ: %s | رتبه: #%d | قیمت: %s TON (~$%.0f)", club, val.GlobalRank, val.ExpectedTON.StringFixed(1), val.ExpectedUSD),
+						Description: fmt.Sprintf("کلوپ: %s | رتبه: #%d | گزارش کامل در پیوی", club, val.GlobalRank),
 						InputMessageContent: map[string]interface{}{
 							"message_text": msgText,
 							"parse_mode":   "HTML",
@@ -265,8 +281,8 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 						ReplyMarkup: map[string]interface{}{
 							"inline_keyboard": [][]map[string]interface{}{
 								{
-									{"text": "📊 تحلیل جامع در مینی‌اپ", "url": appURL},
-									{"text": "🌐 مشاهده در فرگمنت", "url": fmt.Sprintf("https://fragment.com/number/%s", cleanNum)},
+									{"text": "🔓 دریافت گزارش کامل در پیوی", "url": botPMURL},
+									{"text": "📊 مینی‌اپ iFragment", "url": appURL},
 								},
 							},
 						},
@@ -278,56 +294,59 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 
 	if (query == "" || strings.EqualFold(query, "gifts")) && len(results) == 0 {
 		// Return Market Overview Article
-		intel, err := h.giftsService.GetGiftsIntel(ctx)
-		if err == nil && intel != nil {
-			marketArticle := telegram.InlineQueryResultArticle{
-				Type:        "article",
-				ID:          "gifts_market_overview",
-				Title:       fmt.Sprintf("📊 نبض بازار گیفت‌ها (F&G: %d/100)", intel.FnGIndex),
-				Description: fmt.Sprintf("حجم: $%.1fM | ارزش بازار: $%.1fM | فعال: %d", intel.TotalCumulativeVolumeUSD/1_000_000, intel.TotalMarketCapUSD/1_000_000, intel.TotalActiveWallets),
-				InputMessageContent: map[string]interface{}{
-					"message_text": fmt.Sprintf("📊 <b>نبض بازار تلگرام گیفت</b>\n🔥 احساسات: <b>%d/100 (%s)</b>\n💰 حجم: <code>$%.2fM</code> | مارکت کپ: <code>$%.2fM</code>\n\n⚡ <a href=\"%s?startapp=gifts\">مشاهده زنده در مینی‌اپ iFragment</a>",
-						intel.FnGIndex, intel.FnGLabel, intel.TotalCumulativeVolumeUSD/1_000_000, intel.TotalMarketCapUSD/1_000_000, miniAppURL),
-					"parse_mode": "HTML",
-				},
-				ReplyMarkup: map[string]interface{}{
-					"inline_keyboard": [][]map[string]interface{}{
-						{{"text": "🚀 باز کردن بازار در مینی‌اپ", "url": miniAppURL + "?startapp=gifts"}},
-					},
-				},
-			}
-			results = append(results, marketArticle)
-
-			// Top 4 collections as quick search suggestions
-			for idx, item := range intel.UnifiedFloorBoard {
-				if idx >= 4 {
-					break
-				}
-				results = append(results, telegram.InlineQueryResultArticle{
+		if h.giftsService != nil {
+			intel, err := h.giftsService.GetGiftsIntel(ctx)
+			if err == nil && intel != nil {
+				marketArticle := telegram.InlineQueryResultArticle{
 					Type:        "article",
-					ID:          fmt.Sprintf("col_%s", item.ModelID),
-					Title:       fmt.Sprintf("💎 مجموعه %s", item.Name),
-					Description: fmt.Sprintf("کف قیمت: %.1f TON ($%.0f) | عرضه: %d", item.BestFloorGRAM, item.BestFloorUSD, item.TotalSupply),
+					ID:          "gifts_market_overview",
+					Title:       fmt.Sprintf("📊 نبض بازار گیفت‌ها (F&G: %d/100)", intel.FnGIndex),
+					Description: fmt.Sprintf("حجم: $%.1fM | ارزش بازار: $%.1fM | فعال: %d", intel.TotalCumulativeVolumeUSD/1_000_000, intel.TotalMarketCapUSD/1_000_000, intel.TotalActiveWallets),
 					InputMessageContent: map[string]interface{}{
-						"message_text": fmt.Sprintf("💎 <b>مجموعه گیفت %s</b>\n🌊 کف قیمت: <code>%.1f TON</code> ($%.0f)\n📦 کل عرضه: <code>%s</code>\n\n⚡ <a href=\"%s?startapp=gift_%s-1\">مشاهده گزارش تحلیلی در iFragment</a>",
-							item.Name, item.BestFloorGRAM, item.BestFloorUSD, formatNumberWithCommas(item.TotalSupply), miniAppURL, item.ModelID),
+						"message_text": fmt.Sprintf("📊 <b>نبض بازار تلگرام گیفت</b>\n🔥 احساسات: <b>%d/100 (%s)</b>\n💰 حجم: <code>$%.2fM</code> | مارکت کپ: <code>$%.2fM</code>\n\n⚡ <a href=\"%s?startapp=gifts\">مشاهده زنده در مینی‌اپ iFragment</a>",
+							intel.FnGIndex, intel.FnGLabel, intel.TotalCumulativeVolumeUSD/1_000_000, intel.TotalMarketCapUSD/1_000_000, miniAppURL),
 						"parse_mode": "HTML",
 					},
 					ReplyMarkup: map[string]interface{}{
 						"inline_keyboard": [][]map[string]interface{}{
-							{{"text": "📊 تحلیل هوشمند در مینی‌اپ", "url": fmt.Sprintf("%s?startapp=gift_%s-1", miniAppURL, item.ModelID)}},
+							{{"text": "🚀 باز کردن بازار در مینی‌اپ", "url": miniAppURL + "?startapp=gifts"}},
 						},
 					},
-				})
+				}
+				results = append(results, marketArticle)
+
+				// Top 4 collections as quick search suggestions
+				for idx, item := range intel.UnifiedFloorBoard {
+					if idx >= 4 {
+						break
+					}
+					results = append(results, telegram.InlineQueryResultArticle{
+						Type:        "article",
+						ID:          fmt.Sprintf("col_%s", item.ModelID),
+						Title:       fmt.Sprintf("💎 مجموعه %s", item.Name),
+						Description: fmt.Sprintf("کف قیمت: %.1f TON ($%.0f) | عرضه: %d", item.BestFloorGRAM, item.BestFloorUSD, item.TotalSupply),
+						InputMessageContent: map[string]interface{}{
+							"message_text": fmt.Sprintf("💎 <b>مجموعه گیفت %s</b>\n🌊 کف قیمت: <code>%.1f TON</code> ($%.0f)\n📦 کل عرضه: <code>%s</code>\n\n⚡ <a href=\"%s?startapp=gift_%s-1\">مشاهده گزارش تحلیلی در iFragment</a>",
+								item.Name, item.BestFloorGRAM, item.BestFloorUSD, formatNumberWithCommas(item.TotalSupply), miniAppURL, item.ModelID),
+							"parse_mode": "HTML",
+						},
+						ReplyMarkup: map[string]interface{}{
+							"inline_keyboard": [][]map[string]interface{}{
+								{{"text": "📊 تحلیل هوشمند در مینی‌اپ", "url": fmt.Sprintf("%s?startapp=gift_%s-1", miniAppURL, item.ModelID)}},
+							},
+						},
+					})
+				}
 			}
 		}
-	} else if len(results) == 0 {
+	} else if len(results) == 0 && h.giftsService != nil {
 		// Specific gift query (e.g. "pepe 42" or "CelestialStar-1")
 		val, err := h.giftsService.GetBotGiftAppraisal(ctx, query)
 		if err == nil && val != nil {
 			fairTON := val.Pillars.FairValueGRAM
 			floorTON := val.Pillars.ObservedFloorGRAM
-			msgText, markup := h.formatGiftAppraisalMessage(val, miniAppURL)
+			userLang := iq.From.LanguageCode
+			msgText, markup := h.formatGiftAppraisalMessage(val, miniAppURL, userLang)
 
 			giftArticle := telegram.InlineQueryResultArticle{
 				Type:        "article",
@@ -344,7 +363,25 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 		}
 	}
 
-	_ = tg.AnswerInlineQuery(ctx, iq.ID, results, 10, false)
+	var inlineBtn *telegram.InlineQueryResultsButton
+	if sniff != nil {
+		switch sniff.Type {
+		case "username":
+			normUser := strings.TrimPrefix(strings.ToLower(sniff.Entity), "@")
+			inlineBtn = &telegram.InlineQueryResultsButton{
+				Text:           "🔓 دریافت گزارش کامل در پیوی",
+				StartParameter: fmt.Sprintf("val_%s", normUser),
+			}
+		case "number":
+			cleanNum := strings.TrimPrefix(sniff.Entity, "+")
+			inlineBtn = &telegram.InlineQueryResultsButton{
+				Text:           "🔓 دریافت گزارش کامل در پیوی",
+				StartParameter: fmt.Sprintf("num_%s", cleanNum),
+			}
+		}
+	}
+
+	_ = tg.AnswerInlineQueryWithButton(ctx, iq.ID, results, 10, false, inlineBtn)
 }
 
 // formatGiftAppraisalMessage constructs a rich, beautiful Telegram card for a gift valuation

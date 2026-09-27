@@ -145,7 +145,8 @@ def deploy_via_prebuilt(client):
         f"WORKDIR /app\n"
         f"COPY main .\n"
         f"COPY migrations ./migrations\n"
-        f"RUN mkdir -p /app/sessions /app/uploads && \\\n"
+        f"RUN mkdir -p /app/sessions /app/uploads/ads /app/static/shares && \\\n"
+        f"    chmod -R 775 /app/uploads /app/static && \\\n"
         f"    chown -R appuser:appgroup /app && \\\n"
         f"    chmod +x /app/main\n"
         f"USER 10001:10001\n"
@@ -161,6 +162,13 @@ def deploy_via_prebuilt(client):
         client,
         f"docker compose -f {APP_DIR}/{COMPOSE_FILE} up -d --no-deps api",
         label="Restarting api container with zero downtime"
+    )
+
+    # Fix mounted volume permissions for uploads, sessions, and static shares
+    run_remote_command(
+        client,
+        f"docker compose -f {APP_DIR}/{COMPOSE_FILE} exec -u root api sh -c 'mkdir -p /app/uploads/ads /app/sessions /app/static/shares && chown -R 10001:10001 /app/uploads /app/sessions /app/static && chmod -R 775 /app/uploads /app/sessions /app/static' || true",
+        label="Ensuring proper permissions on mounted uploads, sessions, and static volumes"
     )
 
 

@@ -479,16 +479,21 @@ func (r *IntelCreditRepo) GrantPackOnce(ctx context.Context, userID int64, credi
 		return false, nil
 	}
 
-	// 2. Grant the batch
+	// 2. Grant the batch using ON CONFLICT DO NOTHING to eliminate race conditions
 	var refVal *string
 	refVal = &referenceID
 	var batchID uuid.UUID
 	err = tx.QueryRow(ctx, `
 		INSERT INTO intel_credit_batches (user_id, kind, amount, remaining, source, reference_id, expires_at, created_at)
 		VALUES ($1, 'purchased', $2, $2, $3, $4, $5, now())
+		ON CONFLICT (source, reference_id) WHERE reference_id IS NOT NULL DO NOTHING
 		RETURNING id
 	`, userID, credits, source, refVal, expiresAt).Scan(&batchID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Already granted concurrently by another instance or delivery
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to create credit batch: %w", err)
 	}
 

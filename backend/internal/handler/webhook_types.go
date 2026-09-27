@@ -26,12 +26,10 @@ type TelegramUpdate struct {
 	ChosenInlineResult *ChosenInlineResult `json:"chosen_inline_result,omitempty"`
 
 	// ── Bot API 9.4+ / 10.x new-era updates (added 2026-08-25) ──
-	// Managed bot lifecycle (Bot API 9.6): fired on this manager bot when a
-	// user creates/rotates a managed bot through us.
-	ManagedBotUpdated *ManagedBotUpdated `json:"managed_bot_updated,omitempty"`
-	// Bot subscription changes (Bot API 10.2): a user's paid subscription to
-	// this bot started/stopped/renewed.
-	BotSubscriptionUpdated *BotSubscriptionUpdated `json:"bot_subscription_updated,omitempty"`
+	// Managed bot lifecycle (Bot API 9.6): field name is "managed_bot" in official Telegram Bot API
+	ManagedBotUpdated *ManagedBotUpdated `json:"managed_bot,omitempty"`
+	// Bot subscription changes (Bot API 10.2): field name is "subscription" in official Telegram Bot API
+	BotSubscriptionUpdated *BotSubscriptionUpdated `json:"subscription,omitempty"`
 	// Guest mode (Bot API 10.0): mention in a chat where the bot is not a member.
 	GuestMessage *GuestMessageUpdate `json:"guest_message,omitempty"`
 }
@@ -180,6 +178,7 @@ type Message struct {
 	SenderChat         *Chat                   `json:"sender_chat,omitempty"`
 	ReceiverUser       *User                   `json:"receiver_user,omitempty"`
 	EphemeralMessageID telegram.FlexibleString `json:"ephemeral_message_id,omitempty"`
+	GuestQueryID       string                  `json:"guest_query_id,omitempty"`
 	MigrateToChatID    *int64                  `json:"migrate_to_chat_id,omitempty"`
 	MigrateFromChatID  *int64                  `json:"migrate_from_chat_id,omitempty"`
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"ifragment-backend/internal/config"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/payment"
@@ -123,7 +125,7 @@ func (s *StoreService) CreateStarsInvoice(ctx context.Context, userID int64, pac
 		return "", fmt.Errorf("database unavailable")
 	}
 
-	payload := fmt.Sprintf("intel_credits:%s:%d", pack.ID, userID)
+	payload := fmt.Sprintf("intel_credits:%s:%d:%s", pack.ID, userID, uuid.NewString()[:12])
 	if _, err := db.CreateOrder(ctx, repository.Order{
 		UserID:  userID,
 		Amount:  pack.StarsPrice,

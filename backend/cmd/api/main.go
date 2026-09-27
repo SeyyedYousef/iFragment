@@ -520,6 +520,8 @@ func main() {
 		webhookHandler.SetAVMService(avmService)
 		webhookHandler.SetIntelCreditService(intelCreditService)
 		webhookHandler.SetProfileService(profileService)
+		webhookHandler.SetSettingsRepo(settingsRepo)
+		webhookHandler.SetOwnerRepo(ownerRepo)
 	}
 
 	investorsHandler := handler.NewInvestorsPublicHandler(settingsRepo)

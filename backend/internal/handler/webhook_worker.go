@@ -37,11 +37,15 @@ func initWorkerPool(h *WebhookHandler) {
 			go func(ch chan WebhookJob, shardID int) {
 				for job := range ch {
 					func() {
+						var updateID int
+						if job.update != nil {
+							updateID = job.update.UpdateID
+						}
 						defer func() {
 							if r := recover(); r != nil {
 								slog.Error("Worker panic recovered during async webhook execution", "shard", shardID, "panic", r, "stack", string(debug.Stack()))
-								if h != nil && h.webhookInbox != nil && job.bot != nil && job.update != nil {
-									_ = h.webhookInbox.MarkFailedOrDLQ(context.Background(), job.bot.ID, int64(job.update.UpdateID), fmt.Sprintf("panic: %v", r))
+								if h != nil && h.webhookInbox != nil && job.bot != nil && updateID != 0 {
+									_ = h.webhookInbox.MarkFailedOrDLQ(context.Background(), job.bot.ID, int64(updateID), fmt.Sprintf("panic: %v", r))
 								}
 							}
 						}()

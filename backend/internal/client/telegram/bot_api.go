@@ -532,8 +532,8 @@ func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, 
 		payload["message_thread_id"] = *threadID
 	}
 	resp, err := c.Request(ctx, "sendMessage", payload)
-	if err != nil && mode != "" && (strings.Contains(strings.ToLower(err.Error()), "can't parse entities") || strings.Contains(strings.ToLower(err.Error()), "bad request")) {
-		// Fallback without parse_mode (plain text) to guarantee message delivery
+	if err != nil && mode != "" && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
+		// Fallback without parse_mode (plain text) to guarantee message delivery when custom markup fails
 		delete(payload, "parse_mode")
 		resp, err = c.Request(ctx, "sendMessage", payload)
 	}
@@ -1094,6 +1094,15 @@ func (c *BotAPIClient) GetStarTransactions(ctx context.Context) (*StarTransactio
 	return &res, nil
 }
 
+// RefundStarPayment refunds a successful payment in Telegram Stars (Bot API 7.4+).
+func (c *BotAPIClient) RefundStarPayment(ctx context.Context, userID int64, telegramPaymentChargeID string) error {
+	_, err := c.Request(ctx, "refundStarPayment", map[string]interface{}{
+		"user_id":                     userID,
+		"telegram_payment_charge_id": telegramPaymentChargeID,
+	})
+	return err
+}
+
 // SendPhoto sends a photo by URL or file_id
 func (c *BotAPIClient) SendPhoto(ctx context.Context, chatID int64, photoURL string, caption string, parseMode ...string) (*MessageResult, error) {
 	mode := "HTML"
@@ -1111,18 +1120,16 @@ func (c *BotAPIClient) SendPhoto(ctx context.Context, chatID int64, photoURL str
 		payload["parse_mode"] = mode
 	}
 
-	resp, err := c.doRequestWithRetry(ctx, "sendPhoto", payload)
+	resp, err := c.Request(ctx, "sendPhoto", payload)
 	if err != nil {
 		return nil, err
 	}
 
-	var msgResult struct {
-		Result MessageResult `json:"result"`
+	var res MessageResult
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse sendPhoto result: %w", err)
 	}
-	if err := json.Unmarshal(resp, &msgResult); err != nil {
-		return nil, err
-	}
-	return &msgResult.Result, nil
+	return &res, nil
 }
 
 // SendPhotoWithMarkup sends a photo by URL or file_id along with inline keyboard markup
@@ -1145,22 +1152,20 @@ func (c *BotAPIClient) SendPhotoWithMarkup(ctx context.Context, chatID int64, ph
 		payload["parse_mode"] = mode
 	}
 
-	resp, err := c.doRequestWithRetry(ctx, "sendPhoto", payload)
+	resp, err := c.Request(ctx, "sendPhoto", payload)
 	if err != nil && mode != "" && (strings.Contains(strings.ToLower(err.Error()), "can't parse entities") || strings.Contains(strings.ToLower(err.Error()), "bad request")) {
 		delete(payload, "parse_mode")
-		resp, err = c.doRequestWithRetry(ctx, "sendPhoto", payload)
+		resp, err = c.Request(ctx, "sendPhoto", payload)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	var msgResult struct {
-		Result MessageResult `json:"result"`
+	var res MessageResult
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse sendPhotoWithMarkup result: %w", err)
 	}
-	if err := json.Unmarshal(resp, &msgResult); err != nil {
-		return nil, err
-	}
-	return &msgResult.Result, nil
+	return &res, nil
 }
 
 
@@ -1200,6 +1205,11 @@ type EphemeralMessageResult struct {
 	EphemeralMessageID FlexibleString `json:"ephemeral_message_id"`
 }
 
+// EphemeralMessageParameters represents parameters for sending an ephemeral message (Bot API 10.3+).
+type EphemeralMessageParameters struct {
+	ReceiverUserID int64 `json:"receiver_user_id,omitempty"`
+}
+
 // SendEphemeralMessage sends a text message visible only to a specific user in a group chat.
 func (c *BotAPIClient) SendEphemeralMessage(ctx context.Context, chatID int64, receiverUserID int64, text string, threadID *int, parseMode ...string) (*EphemeralMessageResult, error) {
 	mode := "HTML"
@@ -1207,8 +1217,11 @@ func (c *BotAPIClient) SendEphemeralMessage(ctx context.Context, chatID int64, r
 		mode = parseMode[0]
 	}
 	payload := map[string]interface{}{
-		"chat_id":          chatID,
-		"receiver_user_id": receiverUserID,
+		"chat_id": chatID,
+		"ephemeral_message_parameters": map[string]interface{}{
+			"receiver_user_id": receiverUserID,
+		},
+		"receiver_user_id": receiverUserID, // Kept for backwards compatibility with pre-10.3 servers
 		"text":             text,
 	}
 	if mode != "" {
@@ -1238,8 +1251,11 @@ func (c *BotAPIClient) SendEphemeralMessageWithMarkup(ctx context.Context, chatI
 		mode = parseMode[0]
 	}
 	payload := map[string]interface{}{
-		"chat_id":          chatID,
-		"receiver_user_id": receiverUserID,
+		"chat_id": chatID,
+		"ephemeral_message_parameters": map[string]interface{}{
+			"receiver_user_id": receiverUserID,
+		},
+		"receiver_user_id": receiverUserID, // Kept for backwards compatibility with pre-10.3 servers
 		"text":             text,
 	}
 	if !IsNil(markup) {
@@ -1412,6 +1428,12 @@ type InlineQueryResultArticle struct {
 	ThumbURL            string                 `json:"thumb_url,omitempty"`
 }
 
+// InlineQueryResultsButton represents a button shown over inline query results (Bot API 6.7+).
+type InlineQueryResultsButton struct {
+	Text           string `json:"text"`
+	StartParameter string `json:"start_parameter,omitempty"`
+}
+
 // AnswerInlineQuery sends answers to an inline query
 func (c *BotAPIClient) AnswerInlineQuery(ctx context.Context, inlineQueryID string, results []interface{}, cacheTime int, isPersonal bool) error {
 	payload := map[string]interface{}{
@@ -1419,6 +1441,21 @@ func (c *BotAPIClient) AnswerInlineQuery(ctx context.Context, inlineQueryID stri
 		"results":         results,
 		"cache_time":      cacheTime,
 		"is_personal":     isPersonal,
+	}
+	_, err := c.Request(ctx, "answerInlineQuery", payload)
+	return err
+}
+
+// AnswerInlineQueryWithButton sends answers to an inline query with a button (e.g. deep link to bot PM).
+func (c *BotAPIClient) AnswerInlineQueryWithButton(ctx context.Context, inlineQueryID string, results []interface{}, cacheTime int, isPersonal bool, button *InlineQueryResultsButton) error {
+	payload := map[string]interface{}{
+		"inline_query_id": inlineQueryID,
+		"results":         results,
+		"cache_time":      cacheTime,
+		"is_personal":     isPersonal,
+	}
+	if button != nil {
+		payload["button"] = button
 	}
 	_, err := c.Request(ctx, "answerInlineQuery", payload)
 	return err

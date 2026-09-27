@@ -185,4 +185,35 @@ func TestFormatDisplayNumber(t *testing.T) {
 	}
 }
 
+func TestExtractFeatures_Run8AndAboveScore(t *testing.T) {
+	ath := "+888 8888 8888"
+	fv, err := ExtractFeatures(ath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Composite score must be 100 for 88888888
+	if fv.RarityScore != 100 {
+		t.Errorf("expected max rarity score 100 for ATH 8-run, got %d", fv.RarityScore)
+	}
+}
+
+func TestNormalizeNumber_RejectsAlphaStrings(t *testing.T) {
+	badInputs := []string{
+		"durov",
+		"@crypto",
+		"ton_whale",
+		"gift-42",
+		"888abc",
+		"+888abcd",
+	}
+
+	for _, bad := range badInputs {
+		_, err := NormalizeNumber(bad)
+		if err == nil {
+			t.Errorf("expected NormalizeNumber to reject alphanumeric input %q, but got nil error", bad)
+		}
+	}
+}
+
 

@@ -8,6 +8,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -15,7 +16,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/client/telegram"
@@ -29,6 +33,7 @@ import (
 	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/notification"
 	"ifragment-backend/internal/service/numbers"
+	"ifragment-backend/internal/service/numbers/features"
 	"ifragment-backend/internal/service/raffle"
 	"ifragment-backend/internal/service/username/avm"
 	"ifragment-backend/internal/telemetry"
@@ -54,6 +59,29 @@ type WebhookHandler struct {
 	intelStoreService  *intelcredit.StoreService
 	profileService     *service.ProfileService
 	cardGen            *cardgen.CardGenerator
+	settingsRepo       *repository.SettingsRepo
+	ownerRepo          *repository.OwnerRepo
+	templateRepo       *repository.BotTemplateRepo
+	botClients         sync.Map // map[string]*telegram.BotAPIClient keyed by bot token
+}
+
+// getBotClient returns a cached *telegram.BotAPIClient or creates and stores a new one thread-safely
+func (h *WebhookHandler) getBotClient(bot *repository.ManagedBot) *telegram.BotAPIClient {
+	if bot == nil {
+		return nil
+	}
+	token, err := crypto.DecryptToken(bot.BotTokenEncrypted)
+	if err != nil || token == "" {
+		return nil
+	}
+	if client, ok := h.botClients.Load(token); ok {
+		if tg, ok := client.(*telegram.BotAPIClient); ok {
+			return tg
+		}
+	}
+	newClient := telegram.NewBotAPIClient(token)
+	h.botClients.Store(token, newClient)
+	return newClient
 }
 
 func (h *WebhookHandler) SetCardGenerator(cg *cardgen.CardGenerator) {
@@ -84,6 +112,18 @@ func (h *WebhookHandler) SetProfileService(s *service.ProfileService) {
 	h.profileService = s
 }
 
+func (h *WebhookHandler) SetSettingsRepo(r *repository.SettingsRepo) {
+	h.settingsRepo = r
+}
+
+func (h *WebhookHandler) SetOwnerRepo(r *repository.OwnerRepo) {
+	h.ownerRepo = r
+}
+
+func (h *WebhookHandler) SetTemplateRepo(r *repository.BotTemplateRepo) {
+	h.templateRepo = r
+}
+
 func NewWebhookHandler(db *repository.Database, cache *repository.Cache, botRepo *repository.BotRepo, raffleSvc *raffle.RaffleService) *WebhookHandler {
 	return &WebhookHandler{
 		db:           db,
@@ -91,13 +131,17 @@ func NewWebhookHandler(db *repository.Database, cache *repository.Cache, botRepo
 		botRepo:      botRepo,
 		raffleSvc:    raffleSvc,
 		webhookInbox: repository.NewWebhookInboxRepo(db),
+		templateRepo: repository.NewBotTemplateRepo(db, cache),
 	}
 }
 
 func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repository.ManagedBot, update *TelegramUpdate) {
+	cleanExit := false
 	defer func() {
-		*update = TelegramUpdate{}
-		telegramUpdatePool.Put(update)
+		if cleanExit {
+			*update = TelegramUpdate{}
+			telegramUpdatePool.Put(update)
+		}
 	}()
 
 	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
@@ -116,13 +160,19 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 	} else if update.GuestMessage != nil {
 		h.handleGuestMessage(ctx, bot, update.GuestMessage)
 	} else if update.Message != nil {
-		if update.Message.SuccessfulPayment != nil {
+		if update.Message.GuestQueryID != "" {
+			h.handleGuestMessage(ctx, bot, &GuestMessageUpdate{
+				GuestQueryID: update.Message.GuestQueryID,
+				From:         *update.Message.From,
+				Message:      *update.Message,
+			})
+		} else if update.Message.SuccessfulPayment != nil {
 			h.handleSuccessfulPaymentUpdate(ctx, bot, update.Message)
 		} else {
-			h.handleRegularMessageUpdate(ctx, bot, update.Message)
+			h.handleRegularMessageUpdate(ctx, bot, update.Message, false)
 		}
 	} else if update.EditedMessage != nil {
-		h.handleRegularMessageUpdate(ctx, bot, update.EditedMessage)
+		h.handleRegularMessageUpdate(ctx, bot, update.EditedMessage, true)
 	}
 
 	if h.cache != nil && h.cache.Client != nil {
@@ -131,6 +181,7 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 	if h.webhookInbox != nil {
 		_ = h.webhookInbox.MarkProcessed(context.Background(), bot.ID, int64(update.UpdateID))
 	}
+	cleanExit = true
 }
 
 func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Request) {
@@ -198,12 +249,19 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	// Now fetch the actual bot if we don't have it or need the full bot object
 	bot, err = h.botRepo.GetBotByID(ctx, botID)
 	if err != nil || bot == nil {
-		// Bot not found: cache it negatively for 5 minutes to protect DB from floods
-		if cache != nil && cache.Client != nil {
-			notFoundKey := "bot_not_found:" + botID.String()
-			cache.Client.Set(ctx, notFoundKey, "1", 5*time.Minute)
+		isNotFound := errors.Is(err, pgx.ErrNoRows) || (err != nil && strings.Contains(strings.ToLower(err.Error()), "not found"))
+		if isNotFound {
+			// Bot genuinely not found: cache it negatively for 5 minutes to protect DB from floods
+			if cache != nil && cache.Client != nil {
+				notFoundKey := "bot_not_found:" + botID.String()
+				cache.Client.Set(ctx, notFoundKey, "1", 5*time.Minute)
+			}
+			w.WriteHeader(http.StatusNotFound)
+			return
 		}
-		w.WriteHeader(http.StatusNotFound)
+		// Transient DB error: return 500 so Telegram retries instead of caching a 5-minute 404
+		slog.Error("Database error during bot lookup in webhook", "bot_id", botID, "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -243,11 +301,23 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 
 	var update *TelegramUpdate
 
+	update = telegramUpdatePool.Get().(*TelegramUpdate)
+	dispatched := false
+	panicked := false
+	var incomingUpdateID int
+	defer func() {
+		if !dispatched && !panicked {
+			*update = TelegramUpdate{}
+			telegramUpdatePool.Put(update)
+		}
+	}()
+
 	// Central panic recovery and latency telemetry
 	defer func() {
 		duration := time.Since(startTime).Seconds()
 
 		if rec := recover(); rec != nil {
+			panicked = true
 			webhookStatus = "failed"
 			slog.Error("CRITICAL: Panic during webhook processing. Sending to DLQ.", "panic", rec, "bot_id", botIDStr)
 
@@ -272,8 +342,8 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 				}
 			}
 
-			if h.webhookInbox != nil && bot != nil && update != nil {
-				_ = h.webhookInbox.MarkFailedOrDLQ(context.Background(), bot.ID, int64(update.UpdateID), fmt.Sprintf("%v", rec))
+			if h.webhookInbox != nil && bot != nil && incomingUpdateID != 0 {
+				_ = h.webhookInbox.MarkFailedOrDLQ(context.Background(), bot.ID, int64(incomingUpdateID), fmt.Sprintf("%v", rec))
 			}
 
 			w.WriteHeader(http.StatusInternalServerError)
@@ -282,20 +352,12 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		telemetry.RecordChannelWebhookLatency(botIDStr, webhookStatus, duration)
 	}()
 
-	update = telegramUpdatePool.Get().(*TelegramUpdate)
-	dispatched := false
-	defer func() {
-		if !dispatched {
-			*update = TelegramUpdate{}
-			telegramUpdatePool.Put(update)
-		}
-	}()
-
 	if err := json.Unmarshal(bodyBytes, update); err != nil {
 		slog.Error("Error decoding update", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	incomingUpdateID = update.UpdateID
 
 	var updateDate int
 	if update.Message != nil {
@@ -464,8 +526,8 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 						token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
 						tg := telegram.NewBotAPIClient(token)
 						if tg != nil {
-							failMsg := i18n.T(lang, "payment.credit_deduct_failed", nil)
-							if failMsg == "" || failMsg == "payment.credit_deduct_failed" {
+							failMsg := i18n.T(lang, "payments.credit_deduct_failed", nil)
+							if failMsg == "" || failMsg == "payments.credit_deduct_failed" {
 								failMsg = "⚠️ Your payment was received, but coin deduction encountered an issue. Our team is reviewing this."
 							}
 							_ = tg.SendMessage(ctx, userID, failMsg, nil, nil)
@@ -530,7 +592,37 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				}
 				fulfilled, err := storeSvc.FulfillStarsPurchase(ctx, userID, packID, pay.TelegramPaymentChargeID)
 				if err != nil {
-					slog.Error("Failed to fulfill Intel Credits Stars purchase", "error", err, "user_id", userID, "pack_id", packID)
+					slog.Error("CRITICAL: Failed to fulfill Intel Credits Stars purchase", "error", err, "user_id", userID, "pack_id", packID, "charge_id", pay.TelegramPaymentChargeID)
+					h.pushPaymentDLQ(ctx, "fulfill_intel_credits_failed", pay.InvoicePayload, err)
+					notification.GetAdminNotifier().NotifyPayment(ctx, fmt.Sprintf("🚨 <b>Intel Credits Fulfillment Failed</b>\nUser %d pack %s charge %s: %v", userID, packID, pay.TelegramPaymentChargeID, err))
+
+					token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
+					tg := telegram.NewBotAPIClient(token)
+					if tg != nil {
+						// Attempt immediate refund via Telegram Stars API
+						refundErr := tg.RefundStarPayment(ctx, userID, pay.TelegramPaymentChargeID)
+						userLang, _ := h.db.GetUserLanguage(ctx, userID)
+						lang := i18n.DetectLanguage(userLang)
+
+						var failNotice string
+						if refundErr == nil {
+							slog.Info("Successfully refunded Stars payment after fulfillment error", "user_id", userID, "charge_id", pay.TelegramPaymentChargeID)
+							if lang == "fa" {
+								failNotice = "⚠️ در اعطای بسته اعتباری خطایی رخ داد. مبلغ ستاره‌های پرداختی به حساب تلگرام شما استرداد (Refund) گردید."
+							} else {
+								failNotice = "⚠️ A technical issue occurred while granting your credit pack. Your Telegram Stars have been automatically refunded."
+							}
+						} else {
+							slog.Error("CRITICAL: Failed to refund Stars payment after fulfillment error", "error", refundErr, "user_id", userID, "charge_id", pay.TelegramPaymentChargeID)
+							if lang == "fa" {
+								failNotice = "⚠️ پرداخت شما دریافت شد، اما در شارژ خودکار اعتبار مشکلی پیش آمد. تیم پشتیبانی در حال پیگیری و واریز اعتبار شماست."
+							} else {
+								failNotice = "⚠️ Your payment was received, but credit activation encountered a delay. Our team has been alerted and will fulfill it promptly."
+							}
+						}
+						_ = tg.SendMessage(ctx, userID, failNotice, nil, nil)
+					}
+					return
 				} else if fulfilled {
 					creditsGranted := intelcredit.PackCredits(packID)
 					slog.Info("Successfully granted Intel Credits via Stars", "user_id", userID, "credits", creditsGranted, "pack_id", packID)
@@ -557,7 +649,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 	}
 }
 
-func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *repository.ManagedBot, msg *Message) {
+func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *repository.ManagedBot, msg *Message, isEdited bool) {
 	if msg.Chat == nil || (msg.From == nil && msg.SenderChat == nil) {
 		return
 	}
@@ -578,10 +670,20 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		})
 	}
 
-	// 1. If message contains a Gift link, sniff & analyze automatically
-	if giftLinkRegex.MatchString(raw) {
-		h.handleGiftLinkSniff(ctx, bot, msg, raw)
+	// Edited messages should not re-trigger gate, commands, or automated sniffing
+	if isEdited {
 		return
+	}
+
+	// 1. If message contains a Gift link, sniff & analyze automatically (only in private chat or when bot is explicitly mentioned in groups)
+	if giftLinkRegex.MatchString(raw) {
+		isGroup := msg.Chat.Type == "group" || msg.Chat.Type == "supergroup"
+		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
+		isMentioned := bot.BotUsername != "" && strings.Contains(raw, botMention)
+		if !isGroup || isMentioned {
+			h.handleGiftLinkSniff(ctx, bot, msg, raw)
+			return
+		}
 	}
 
 	// 2. Private chat commands (/start, /language, /help, /gift, /gifts, /ping)
@@ -613,12 +715,19 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 	if (msg.Chat.Type == "group" || msg.Chat.Type == "supergroup") && bot.BotUsername != "" {
 		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
 		if strings.Contains(raw, botMention) {
+			var senderID int64
+			if msg.From != nil {
+				senderID = msg.From.ID
+			} else if msg.SenderChat != nil {
+				senderID = msg.SenderChat.ID
+			}
+
 			cleanText := strings.TrimSpace(strings.ReplaceAll(raw, botMention, ""))
 			sniff := SniffAsset(cleanText)
 			if sniff != nil {
-				h.sendPreCheckGate(ctx, bot, msg.Chat.ID, msg.From.ID, sniff.Type, sniff.Entity, nil, msg.MessageThreadID)
+				h.sendPreCheckGate(ctx, bot, msg.Chat.ID, senderID, sniff.Type, sniff.Entity, nil, msg.MessageThreadID)
 			} else {
-				h.sendHelpView(ctx, bot, msg.Chat.ID, msg.From.ID, nil, msg.MessageThreadID)
+				h.sendHelpView(ctx, bot, msg.Chat.ID, senderID, nil, msg.MessageThreadID)
 			}
 			return
 		}
@@ -626,15 +735,25 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 }
 
 func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) {
+	// 0. Intercept text input if owner is currently editing a bot text or button
+	if h.processOwnerInput(ctx, bot, m) {
+		return
+	}
+
 	cmdText := m.Text
 	if cmdText == "" {
 		cmdText = m.Caption
 	}
 
-	if strings.HasPrefix(cmdText, "/start") {
+	isStartCmd := cmdText == "/start" || strings.HasPrefix(cmdText, "/start ") || strings.HasPrefix(cmdText, "/start@")
+	if isStartCmd {
 		miniAppURL := os.Getenv("MINI_APP_URL")
 		if miniAppURL == "" {
-			miniAppURL = "https://t.me/iFragmentBot/iFragment"
+			if bot != nil && bot.BotUsername != "" {
+				miniAppURL = fmt.Sprintf("https://t.me/%s/iFragment", bot.BotUsername)
+			} else {
+				miniAppURL = "https://t.me/iFragmentBot/iFragment"
+			}
 		}
 
 		var startParam string
@@ -656,21 +775,24 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		if startParam != "" {
 			// Deep link routing: if user clicked a link for a specific asset, take them straight to precheck gate
 			if strings.HasPrefix(startParam, "username_") || strings.HasPrefix(startParam, "val_") {
-				entity := strings.TrimPrefix(strings.TrimPrefix(startParam, "username_"), "val_")
-				if entity != "" {
-					h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, "username", entity, nil, m.MessageThreadID)
+				rawEntity := strings.TrimPrefix(strings.TrimPrefix(startParam, "username_"), "val_")
+				sniff := SniffAsset(rawEntity)
+				if sniff != nil && sniff.Type == "username" {
+					h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, "username", sniff.Entity, nil, m.MessageThreadID)
 					return
 				}
 			} else if strings.HasPrefix(startParam, "number_") || strings.HasPrefix(startParam, "num_") {
-				entity := strings.TrimPrefix(strings.TrimPrefix(startParam, "number_"), "num_")
-				if entity != "" {
-					h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, "number", entity, nil, m.MessageThreadID)
+				rawEntity := strings.TrimPrefix(strings.TrimPrefix(startParam, "number_"), "num_")
+				normNum, err := features.NormalizeNumber(rawEntity)
+				if err == nil && normNum != "" {
+					h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, "number", normNum, nil, m.MessageThreadID)
 					return
 				}
 			} else if strings.HasPrefix(startParam, "gift_") || strings.HasPrefix(startParam, "nft_") {
-				entity := strings.TrimPrefix(strings.TrimPrefix(startParam, "gift_"), "nft_")
-				if entity != "" {
-					h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, "gift", entity, nil, m.MessageThreadID)
+				rawEntity := strings.TrimPrefix(strings.TrimPrefix(startParam, "gift_"), "nft_")
+				sniff := SniffAsset(rawEntity)
+				if sniff != nil && sniff.Type == "gift" {
+					h.sendPreCheckGate(ctx, bot, m.Chat.ID, m.From.ID, "gift", sniff.Entity, nil, m.MessageThreadID)
 					return
 				}
 			}
@@ -709,15 +831,15 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			firstName = m.From.Username
 		}
 		h.sendMainMenuWithURL(ctx, bot, m.Chat.ID, m.From.ID, firstName, targetURL, nil, m.MessageThreadID)
-	} else if strings.HasPrefix(cmdText, "/menu") {
+	} else if cmdText == "/menu" || strings.HasPrefix(cmdText, "/menu ") || strings.HasPrefix(cmdText, "/menu@") {
 		firstName := m.From.FirstName
 		if firstName == "" {
 			firstName = m.From.Username
 		}
 		h.sendMainMenu(ctx, bot, m.Chat.ID, m.From.ID, firstName, nil, m.MessageThreadID)
-	} else if strings.HasPrefix(cmdText, "/profile") {
+	} else if cmdText == "/profile" || strings.HasPrefix(cmdText, "/profile ") || strings.HasPrefix(cmdText, "/profile@") {
 		h.sendProfileView(ctx, bot, m.Chat.ID, m.From.ID, nil, m.MessageThreadID)
-	} else if strings.HasPrefix(cmdText, "/language") {
+	} else if cmdText == "/language" || strings.HasPrefix(cmdText, "/language ") || strings.HasPrefix(cmdText, "/language@") {
 		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
 		tg := telegram.NewBotAPIClient(token)
 
@@ -732,6 +854,9 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 					{"text": "🇷🇺 Русский", "callback_data": "lang:ru"},
 					{"text": "🇨🇳 中文", "callback_data": "lang:zh"},
 				},
+				{
+					{"text": "🇸🇦 العربية", "callback_data": "lang:ar"},
+				},
 			},
 		}
 		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID)
@@ -741,6 +866,8 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		h.handleGiftCommand(ctx, bot, m)
 	} else if strings.HasPrefix(m.Text, "/gifts") {
 		h.handleGiftsCommand(ctx, bot, m)
+	} else if strings.HasPrefix(m.Text, "/panel") || strings.HasPrefix(m.Text, "/admin") {
+		h.handleAdminPanelCommand(ctx, bot, m)
 	} else if strings.HasPrefix(m.Text, "/ping") {
 		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
 		tg := telegram.NewBotAPIClient(token)
@@ -774,15 +901,23 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		})
 	}
 
+	tg := h.getBotClient(bot)
+	if tg == nil {
+		return
+	}
+
 	if strings.HasPrefix(cq.Data, "lang:") {
 		parts := strings.Split(cq.Data, ":")
 		if len(parts) >= 2 {
 			newLang := parts[1]
+			// Strict whitelist for supported languages
+			validLangs := map[string]bool{"en": true, "fa": true, "ru": true, "zh": true, "ar": true}
+			if !validLangs[newLang] {
+				_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Invalid language", false)
+				return
+			}
+
 			err := h.db.UpdateUserLanguage(ctx, cq.From.ID, newLang)
-
-			token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-			tg := telegram.NewBotAPIClient(token)
-
 			var msg string
 			if err == nil {
 				msg = i18n.T(newLang, "profile.languageSettings") + " ✅"
@@ -792,7 +927,6 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 
 			_ = tg.AnswerCallbackQuery(ctx, cq.ID, msg, false)
 			if cq.Message != nil {
-				// Refresh main menu in the selected language
 				var msgID *int
 				if cq.Message != nil {
 					msgID = &cq.Message.MessageID
@@ -807,16 +941,8 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		return
 	}
 
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
-	if tg == nil {
-		return
-	}
-
-	// Always acknowledge callback query to dismiss loading state
-	defer func() {
-		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "", false)
-	}()
+	// Always acknowledge callback query early to dismiss Telegram's loading spinner instantly
+	_ = tg.AnswerCallbackQuery(ctx, cq.ID, "", false)
 
 	var msgID *int
 	var chatID int64
@@ -868,15 +994,14 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 					{"text": "🇨🇳 中文", "callback_data": "lang:zh"},
 				},
 				{
+					{"text": "🇸🇦 العربية", "callback_data": "lang:ar"},
+				},
+				{
 					{"text": "🔙 بازگشت / Back", "callback_data": "nav:menu"},
 				},
 			},
 		}
-		if msgID != nil {
-			_ = tg.EditMessageTextWithMarkup(ctx, chatID, *msgID, msgText, markup)
-		} else {
-			_, _ = tg.SendMessageWithMarkup(ctx, chatID, msgText, markup, threadID)
-		}
+		h.sendOrEditMessage(ctx, tg, chatID, msgID, msgText, markup, threadID)
 		return
 	}
 
@@ -948,6 +1073,12 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			}
 			h.createAndSendStarsInvoice(ctx, bot, chatID, cq.From.ID, packID, assetType, entity, msgID, threadID)
 		}
+		return
+	}
+
+	// 7. Admin Panel callback: panel:*
+	if strings.HasPrefix(data, "panel:") {
+		h.handleAdminPanelCallback(ctx, bot, cq)
 		return
 	}
 }

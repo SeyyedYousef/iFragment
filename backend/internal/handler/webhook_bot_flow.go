@@ -2,10 +2,13 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,7 +47,52 @@ type SmartSniffResult struct {
 	Raw    string
 }
 
-var giftSlugRegex = regexp.MustCompile(`(?i)^[a-zA-Z0-9_]+-\d+$`)
+var (
+	giftSlugRegex    = regexp.MustCompile(`(?i)^[a-zA-Z0-9_]+-\d+$`)
+	usernameRe       = regexp.MustCompile(`^[a-zA-Z](?:[a-zA-Z0-9_]{2,30})[a-zA-Z0-9]$`)
+	premiumEmojiIDRe = regexp.MustCompile(`\[emoji:(\d{10,21})\]|\[(\d{10,21})\]`)
+)
+
+// FormatPremiumEmojiText replaces bracketed emoji IDs like [5368324170671202286] or [emoji:5368324170671202286]
+// with standard Telegram Bot API custom emoji markup: <tg-emoji emoji-id="ID">✨</tg-emoji>
+func FormatPremiumEmojiText(input string) string {
+	if input == "" {
+		return input
+	}
+	return premiumEmojiIDRe.ReplaceAllStringFunc(input, func(m string) string {
+		sub := premiumEmojiIDRe.FindStringSubmatch(m)
+		id := sub[1]
+		if id == "" {
+			id = sub[2]
+		}
+		if id != "" {
+			return fmt.Sprintf(`<tg-emoji emoji-id="%s">✨</tg-emoji>`, id)
+		}
+		return m
+	})
+}
+
+// resolveText retrieves a custom text if defined by owner, or falls back to default.
+func (h *WebhookHandler) resolveText(ctx context.Context, key, lang, defaultText string) string {
+	if h.templateRepo != nil {
+		custom, err := h.templateRepo.GetTemplate(ctx, key, lang)
+		if err == nil && custom != "" {
+			return custom
+		}
+	}
+	return defaultText
+}
+
+// resolveButton retrieves a custom button label if defined by owner, or falls back to default.
+func (h *WebhookHandler) resolveButton(ctx context.Context, key, lang, defaultLabel string) string {
+	if h.templateRepo != nil {
+		custom, err := h.templateRepo.GetTemplate(ctx, key, lang)
+		if err == nil && custom != "" {
+			return custom
+		}
+	}
+	return defaultLabel
+}
 
 // SniffAsset recognizes user input as either a username, +888 number, or gift.
 func SniffAsset(raw string) *SmartSniffResult {
@@ -107,33 +155,43 @@ func SniffAsset(raw string) *SmartSniffResult {
 		return &SmartSniffResult{Type: "number", Entity: normNum, Raw: raw}
 	}
 
-	// 3. Check for @username or telegram username pattern
+	// 3. Extract potential username from URL or @mention
 	cleanUser := strings.TrimPrefix(trimmed, "@")
-	cleanUser = strings.TrimPrefix(cleanUser, "https://t.me/")
-	cleanUser = strings.TrimPrefix(cleanUser, "http://t.me/")
-	cleanUser = strings.TrimPrefix(cleanUser, "t.me/")
-	cleanUser = strings.TrimPrefix(cleanUser, "https://fragment.com/username/")
-	cleanUser = strings.TrimPrefix(cleanUser, "fragment.com/username/")
-	cleanUser = strings.TrimRight(cleanUser, "/")
-
-	// Usernames in Telegram are alphanumeric + underscores, 4 to 32 characters
-	if len(cleanUser) >= 4 && len(cleanUser) <= 32 {
-		valid := true
-		for _, ch := range cleanUser {
-			if !((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_') {
-				valid = false
-				break
+	if strings.Contains(cleanUser, "://") || strings.HasPrefix(strings.ToLower(cleanUser), "t.me/") || strings.HasPrefix(strings.ToLower(cleanUser), "fragment.com/") || strings.HasPrefix(strings.ToLower(cleanUser), "www.fragment.com/") {
+		urlStr := cleanUser
+		if !strings.Contains(urlStr, "://") {
+			urlStr = "https://" + urlStr
+		}
+		if u, parseErr := url.Parse(urlStr); parseErr == nil {
+			host := strings.ToLower(u.Hostname())
+			path := strings.Trim(u.Path, "/")
+			if host == "t.me" || strings.HasSuffix(host, ".t.me") {
+				pathParts := strings.Split(path, "/")
+				if len(pathParts) > 0 && pathParts[0] != "" {
+					cleanUser = pathParts[0]
+				}
+			} else if host == "fragment.com" || host == "www.fragment.com" {
+				pathParts := strings.Split(path, "/")
+				if len(pathParts) >= 2 && strings.EqualFold(pathParts[0], "username") {
+					cleanUser = pathParts[1]
+				} else if len(pathParts) > 0 && pathParts[0] != "" {
+					cleanUser = pathParts[0]
+				}
 			}
 		}
-		if valid && !strings.HasPrefix(cleanUser, "888") {
-			return &SmartSniffResult{Type: "username", Entity: strings.ToLower(cleanUser), Raw: raw}
-		}
+	} else {
+		cleanUser = strings.TrimRight(cleanUser, "/")
+	}
+
+	// Telegram usernames: start with a letter, end with alphanumeric, 4 to 32 chars (4 chars for Fragment collectibles)
+	if usernameRe.MatchString(cleanUser) && !strings.HasPrefix(cleanUser, "888") {
+		return &SmartSniffResult{Type: "username", Entity: strings.ToLower(cleanUser), Raw: raw}
 	}
 
 	if forcedType == "number" && normNum != "" {
 		return &SmartSniffResult{Type: "number", Entity: normNum, Raw: raw}
 	}
-	if forcedType == "username" && cleanUser != "" {
+	if forcedType == "username" && usernameRe.MatchString(cleanUser) {
 		return &SmartSniffResult{Type: "username", Entity: strings.ToLower(cleanUser), Raw: raw}
 	}
 
@@ -144,7 +202,11 @@ func SniffAsset(raw string) *SmartSniffResult {
 func (h *WebhookHandler) sendMainMenu(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, firstName string, messageID *int, threadID *int) {
 	miniAppURL := os.Getenv("MINI_APP_URL")
 	if miniAppURL == "" {
-		miniAppURL = "https://t.me/iFragmentBot/iFragment"
+		if bot != nil && bot.BotUsername != "" {
+			miniAppURL = fmt.Sprintf("https://t.me/%s/iFragment", bot.BotUsername)
+		} else {
+			miniAppURL = "https://t.me/iFragmentBot/iFragment"
+		}
 	}
 	h.sendMainMenuWithURL(ctx, bot, chatID, userID, firstName, miniAppURL, messageID, threadID)
 }
@@ -160,41 +222,47 @@ func (h *WebhookHandler) sendMainMenuWithURL(ctx context.Context, bot *repositor
 	userLang, _ := h.db.GetUserLanguage(ctx, userID)
 	lang := i18n.DetectLanguage(userLang)
 
-	var menuText string
+	var defaultMenuText string
 	switch lang {
 	case "fa":
-		menuText = fmt.Sprintf(`<tg-emoji emoji-id="%s">💎</tg-emoji> <b>ترمینال تحلیل دارایی‌های تلگرام | iFragment</b>
+		defaultMenuText = `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>ترمینال تحلیل دارایی‌های تلگرام | iFragment</b>
 
-سلام <b>%s</b> عزیز؛ به دستیار هوشمند کارشناسی و ارزیابی دارایی‌های دیجیتال تلگرام خوش آمدید.
+سلام <b>{name}</b> عزیز؛ به دستیار هوشمند کارشناسی و ارزیابی دارایی‌های دیجیتال تلگرام خوش آمدید.
 
-یکی از بخش‌های زیر را انتخاب کنید، یا مستقیماً <b>نام کاربری</b>، <b>شماره ناشناس (+888)</b> یا <b>لینک گیفت</b> را در چت ارسال فرمایید:`, CustomEmojiDiamond, telegram.EscapeHTML(firstName))
+یکی از بخش‌های زیر را انتخاب کنید، یا مستقیماً <b>نام کاربری</b>، <b>شماره ناشناس (+888)</b> یا <b>لینک گیفت</b> را در چت ارسال فرمایید:`
+	case "ar":
+		defaultMenuText = `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>منصة تحليل أصول تيليجرام الذكية | iFragment</b>
+
+أهلاً بك <b>{name}</b>! مرحباً بك في المساعد الذكي لتقييم وفحص أصول تيليجرام الرقمية.
+
+اختر إحدى الفئات أدناه، أو أرسل <b>اسم المستخدم</b> أو <b>الرقم المميز (+888)</b> أو <b>رابط الهدية</b> مباشرة في الدردشة:`
 	case "ru":
-		menuText = fmt.Sprintf(`<tg-emoji emoji-id="%s">💎</tg-emoji> <b>Терминал аналитики активов Telegram | iFragment</b>
+		defaultMenuText = `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Терминал аналитики активов Telegram | iFragment</b>
 
-Здравствуйте, <b>%s</b>! Добро пожаловать в интеллектуальный ассистент оценки активов Telegram.
+Здравствуйте, <b>{name}</b>! Добро пожаловать в интеллектуальный ассистент оценки активов Telegram.
 
-Выберите категорию или отправьте <b>юзернейм</b>, <b>номер (+888)</b> или <b>ссылку на подарок</b> прямо в чат:`, CustomEmojiDiamond, telegram.EscapeHTML(firstName))
+Выберите категорию یا отправьте <b>юзернейм</b>, <b>номер (+888)</b> или <b>ссылку на подарок</b> прямо в чат:`
 	case "zh":
-		menuText = fmt.Sprintf(`<tg-emoji emoji-id="%s">💎</tg-emoji> <b>Telegram 资产智能分析终端 | iFragment</b>
+		defaultMenuText = `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Telegram 资产智能分析终端 | iFragment</b>
 
-您好 <b>%s</b>！欢迎使用 Telegram 数字资产专业估值与市场洞察终端。
+您好 <b>{name}</b>！欢迎使用 Telegram 数字资产专业估值与市场洞察终端。
 
-请选择下方的资产类别，或直接在聊天中发送<b>用户名</b>、<b>+888 匿名靓号</b>或<b>礼物链接</b>：`, CustomEmojiDiamond, telegram.EscapeHTML(firstName))
+请选择下方的资产类别，或直接在聊天中发送<b>用户名</b>、<b>+888 匿名靓号</b>或<b>礼物链接</b>：`
 	default:
-		menuText = fmt.Sprintf(`<tg-emoji emoji-id="%s">💎</tg-emoji> <b>Telegram Asset Intelligence Terminal | iFragment</b>
+		defaultMenuText = `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Telegram Asset Intelligence Terminal | iFragment</b>
 
-Welcome <b>%s</b>! I am your institutional analytics engine for Telegram Digital Assets.
+Welcome <b>{name}</b>! I am your institutional analytics engine for Telegram Digital Assets.
 
-Select an asset class below or simply send any <b>username</b>, <b>anonymous number (+888)</b>, or <b>gift link</b> in chat:`, CustomEmojiDiamond, telegram.EscapeHTML(firstName))
+Select an asset class below or simply send any <b>username</b>, <b>anonymous number (+888)</b>, or <b>gift link</b> in chat:`
 	}
+
+	rawMenu := h.resolveText(ctx, "start_menu", lang, defaultMenuText)
+	menuText := strings.ReplaceAll(rawMenu, "{name}", telegram.EscapeHTML(firstName))
+	menuText = strings.ReplaceAll(menuText, "{diamond}", fmt.Sprintf(`<tg-emoji emoji-id="%s">💎</tg-emoji>`, CustomEmojiDiamond))
 
 	markup := h.buildMainMenuMarkup(lang, targetURL)
 
-	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, menuText, markup)
-	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, menuText, markup, threadID)
-	}
+	h.sendOrEditMessage(ctx, tg, chatID, messageID, menuText, markup, threadID)
 }
 
 // buildMainMenuMarkup creates the clean, elegant inline keyboard with standard Telegram buttons
@@ -211,6 +279,14 @@ func (h *WebhookHandler) buildMainMenuMarkup(lang string, miniAppURL string) map
 		btnLang = "🌐 تغییر زبان"
 		btnHelp = "📖 راهنمای ربات"
 		btnMiniApp = "💎 ورود به مینی‌اپ iFragment"
+	case "ar":
+		btnUsername = "🏷️ أسماء المستخدمين"
+		btnNumber = "📱 الأرقام المميزة (+888)"
+		btnGifts = "🎁 هدايا تيليجرام"
+		btnProfile = "👤 الملف الشخصي والأرصدة"
+		btnLang = "🌐 تغيير اللغة"
+		btnHelp = "📖 دليل الاستخدام"
+		btnMiniApp = "💎 فتح تطبيق iFragment"
 	case "ru":
 		btnUsername = "🏷️ Юзернеймы"
 		btnNumber = "📱 Номера (+888)"
@@ -236,6 +312,14 @@ func (h *WebhookHandler) buildMainMenuMarkup(lang string, miniAppURL string) map
 		btnHelp = "📖 Help & Guide"
 		btnMiniApp = "💎 Launch iFragment Mini App"
 	}
+
+	btnMiniApp = h.resolveButton(context.Background(), "btn_mini_app", lang, btnMiniApp)
+	btnUsername = h.resolveButton(context.Background(), "btn_usernames", lang, btnUsername)
+	btnNumber = h.resolveButton(context.Background(), "btn_numbers", lang, btnNumber)
+	btnGifts = h.resolveButton(context.Background(), "btn_gifts", lang, btnGifts)
+	btnProfile = h.resolveButton(context.Background(), "btn_profile", lang, btnProfile)
+	btnLang = h.resolveButton(context.Background(), "btn_language", lang, btnLang)
+	btnHelp = h.resolveButton(context.Background(), "btn_help", lang, btnHelp)
 
 	return map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
@@ -317,79 +401,91 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 
 	formattedAirdropCoins := formatNumberWithCommas(int(airdropCoins))
 
-	var text string
+	var defaultProfileText string
 	switch lang {
 	case "fa":
-		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>پروفایل سرمایه‌گذار | iFragment</b>
+		defaultProfileText = `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>پروفایل سرمایه‌گذار | iFragment</b>
 
-کاربر: <b>%s</b> (شناسه: <code>%d</code>)
-سطح کاربری: <b>سطح %d</b>
-رتبه جهانی در شبکه: <b>#%d</b>
+کاربر: <b>{name}</b> (شناسه: <code>{id}</code>)
+سطح کاربری: <b>سطح {level}</b>
+رتبه جهانی در شبکه: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>موجودی سکه ایردراپ:</b> <code>%s</code> سکه
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>اعتبار تحلیلی (Intel Credits):</b> <code>%d</code> کریدت
+<tg-emoji emoji-id="5406830500155238210">🪙</tg-emoji> <b>موجودی سکه ایردراپ:</b> <code>{coins}</code> سکه
+<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code> کریدت
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>لینک دعوت اختصاصی شما:</b>
-<code>%s</code>
-<i>با دعوت از هر دوست، سکه ایردراپ و اعتبار تحلیل هدیه بگیرید!</i>`,
-			CustomEmojiUser, telegram.EscapeHTML(firstName), userID, level, globalRank,
-			CustomEmojiCoin, formattedAirdropCoins,
-			CustomEmojiBolt, intelCredits, refLink)
-	case "ru":
-		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>Профиль пользователя | iFragment</b>
+<code>{reflink}</code>
+<i>با دعوت از هر دوست، سکه ایردراپ و اعتبار تحلیل هدیه بگیرید!</i>`
+	case "ar":
+		defaultProfileText = `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>الملف الشخصي للمستثمر | iFragment</b>
 
-Пользователь: <b>%s</b> (ID: <code>%d</code>)
-Уровень: <b>Level %d</b>
-Глобальный ранг: <b>#%d</b>
+المستخدم: <b>{name}</b> (المعرف: <code>{id}</code>)
+المستوى: <b>المستوى {level}</b>
+الترتيب العالمي: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>Airdrop монеты:</b> <code>%s</code>
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Intel Credits (кредиты отчетов):</b> <code>%d</code>
+<tg-emoji emoji-id="5406830500155238210">🪙</tg-emoji> <b>رصيد عملات الإنزال:</b> <code>{coins}</code> عملة
+<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>رصيد التحليل (Intel Credits):</b> <code>{credits}</code> رصيد
+━━━━━━━━━━━━━━━━━━━
+
+🔗 <b>رابط الدعوة الخاص بك:</b>
+<code>{reflink}</code>
+<i>اربح عملات وأرصدة تحليلية مجانية عند دعوة أصدقائك!</i>`
+	case "ru":
+		defaultProfileText = `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>Профиль пользователя | iFragment</b>
+
+Пользователь: <b>{name}</b> (ID: <code>{id}</code>)
+Уровень: <b>Level {level}</b>
+Глобальный ранг: <b>#{rank}</b>
+
+━━━━━━━━━━━━━━━━━━━
+<tg-emoji emoji-id="5406830500155238210">🪙</tg-emoji> <b>Airdrop монеты:</b> <code>{coins}</code>
+<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Intel Credits (кредиты отчетов):</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>Ваша реферальная ссылка:</b>
-<code>%s</code>`,
-			CustomEmojiUser, telegram.EscapeHTML(firstName), userID, level, globalRank,
-			CustomEmojiCoin, formattedAirdropCoins,
-			CustomEmojiBolt, intelCredits, refLink)
+<code>{reflink}</code>`
 	case "zh":
-		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>个人中心与资产 | iFragment</b>
+		defaultProfileText = `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>个人中心与资产 | iFragment</b>
 
-用户: <b>%s</b> (ID: <code>%d</code>)
-等级: <b>Level %d</b>
-全网排名: <b>#%d</b>
+用户: <b>{name}</b> (ID: <code>{id}</code>)
+等级: <b>Level {level}</b>
+全网排名: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>空投代币余额:</b> <code>%s</code>
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>分析信用点 (Intel Credits):</b> <code>%d</code> 点
+<tg-emoji emoji-id="5406830500155238210">🪙</tg-emoji> <b>空投代币余额:</b> <code>{coins}</code>
+<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>您的专属邀请链接:</b>
-<code>%s</code>
-<i>邀请好友加入，双方均可获得代币与分析信用点奖励！</i>`,
-			CustomEmojiUser, telegram.EscapeHTML(firstName), userID, level, globalRank,
-			CustomEmojiCoin, formattedAirdropCoins,
-			CustomEmojiBolt, intelCredits, refLink)
+<code>{reflink}</code>
+<i>邀请好友加入，双方均可获得代币与分析信用点奖励！</i>`
 	default:
-		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>Investor Profile | iFragment</b>
+		defaultProfileText = `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>Investor Profile | iFragment</b>
 
-Account: <b>%s</b> (ID: <code>%d</code>)
-Tier Level: <b>Level %d</b>
-Global Rank: <b>#%d</b>
+Account: <b>{name}</b> (ID: <code>{id}</code>)
+Tier Level: <b>Level {level}</b>
+Global Rank: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>Airdrop Coins Balance:</b> <code>%s</code>
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Intel Credits Available:</b> <code>%d</code>
+<tg-emoji emoji-id="5406830500155238210">🪙</tg-emoji> <b>Airdrop Coins Balance:</b> <code>{coins}</code>
+<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Intel Credits Available:</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>Your Exclusive Referral Link:</b>
-<code>%s</code>`,
-			CustomEmojiUser, telegram.EscapeHTML(firstName), userID, level, globalRank,
-			CustomEmojiCoin, formattedAirdropCoins,
-			CustomEmojiBolt, intelCredits, refLink)
+<code>{reflink}</code>`
 	}
+
+	rawProfile := h.resolveText(ctx, "profile_view", lang, defaultProfileText)
+	text := strings.ReplaceAll(rawProfile, "{name}", telegram.EscapeHTML(firstName))
+	text = strings.ReplaceAll(text, "{id}", strconv.FormatInt(userID, 10))
+	text = strings.ReplaceAll(text, "{level}", strconv.Itoa(level))
+	text = strings.ReplaceAll(text, "{rank}", strconv.Itoa(globalRank))
+	text = strings.ReplaceAll(text, "{coins}", formattedAirdropCoins)
+	text = strings.ReplaceAll(text, "{credits}", strconv.Itoa(intelCredits))
+	text = strings.ReplaceAll(text, "{reflink}", refLink)
 
 	var btnExchange, btnStars, btnLang, btnBack string
 	costCoins := config.Economics.CreditsCoinsPerCredit
@@ -401,10 +497,15 @@ Global Rank: <b>#%d</b>
 		btnStars = "⭐ خرید کردیت با Stars"
 		btnLang = "🌐 تغییر زبان"
 		btnBack = "🔙 بازگشت به منو"
+	case "ar":
+		btnExchange = fmt.Sprintf("🔄 تحويل %s عملة إلى 1 رصيد", formattedCost)
+		btnStars = "⭐ شراء أرصدة عبر Stars"
+		btnLang = "🌐 تغيير اللغة"
+		btnBack = "🔙 العودة للقائمة"
 	case "ru":
 		btnExchange = fmt.Sprintf("🔄 Обменять %s монет", formattedCost)
 		btnStars = "⭐ Купить кредиты за Stars"
-		btnLang = "🌐 Язык"
+		btnLang = "🌐 Языک"
 		btnBack = "🔙 В меню"
 	case "zh":
 		btnExchange = fmt.Sprintf("🔄 兑换 %s 代币为信用点", formattedCost)
@@ -417,6 +518,11 @@ Global Rank: <b>#%d</b>
 		btnLang = "🌐 Language"
 		btnBack = "🔙 Back to Menu"
 	}
+
+	btnExchange = h.resolveButton(ctx, "btn_exchange", lang, btnExchange)
+	btnStars = h.resolveButton(ctx, "btn_stars", lang, btnStars)
+	btnLang = h.resolveButton(ctx, "btn_language", lang, btnLang)
+	btnBack = h.resolveButton(ctx, "btn_back", lang, btnBack)
 
 	markup := map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
@@ -445,11 +551,7 @@ Global Rank: <b>#%d</b>
 		},
 	}
 
-	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, text, markup)
-	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, text, markup, threadID)
-	}
+	h.sendOrEditMessage(ctx, tg, chatID, messageID, text, markup, threadID)
 }
 
 // sendHelpView displays instructions and examples for analyzing assets
@@ -486,6 +588,27 @@ func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.Manag
 • <code>/gift CelestialStar-1</code>
 
 💡 <i>هر گزارش عمیق به ۱ کریدت تحلیلی نیاز دارد که می‌توانید با سکه‌های ایردراپ خود یا استارز تلگرام آن را فعال کنید.</i>`
+	case "ar":
+		text = `📖 <b>دليل استخدام منصة iFragment الذكية</b>
+
+يمكنك إرسال معلومات الأصول مباشرة إلى الدردشة دون الحاجة لأوامر معقدة:
+
+🏷️ <b>1. تقييم أسماء المستخدمين (Username):</b>
+أرسل المعرف أو الرابط:
+• <code>@crypto</code> أو <code>wallet</code>
+• <code>https://fragment.com/username/telecom</code>
+
+📱 <b>2. تحليل الأرقام المميزة (+888):</b>
+أرسل أي رقم مجهول:
+• <code>+888 8888 8888</code>
+• <code>+88801234567</code> أو <code>8888</code>
+
+🎁 <b>3. تقييم وفحص هدايا تيليجرام (Telegram Gifts):</b>
+أرسل رابط هدية NFT أو معرفها:
+• <code>https://t.me/nft/PlushPepe-42</code>
+• <code>/gift CelestialStar-1</code>
+
+💡 <i>يتطلب كل تقرير تحليلي متقدم رصيد تحليل واحد (1 Intel Credit)، ويمكن الحصول عليه عبر تحويل عملات الإنزال الجوي أو شرائه عبر نجوم تيليجرام (Stars).</i>`
 	case "ru":
 		text = `📖 <b>Инструкция терминала iFragment</b>
 
@@ -549,17 +672,19 @@ Send any NFT gift link or slug:
 • <code>/gift CelestialStar-1</code>`
 	}
 
-	var btnBack string
+	btnBack := "🔙 بازگشت به منوی اصلی"
 	switch lang {
+	case "ar":
+		btnBack = "🔙 العودة للقائمة الرئيسية"
 	case "ru":
 		btnBack = "🔙 В главное меню"
 	case "zh":
 		btnBack = "🔙 返回主菜单"
 	case "en":
 		btnBack = "🔙 Back to Main Menu"
-	default:
-		btnBack = "🔙 بازگشت به منوی اصلی"
 	}
+	btnBack = h.resolveButton(ctx, "btn_back", lang, btnBack)
+	text = h.resolveText(ctx, "help_view", lang, text)
 
 	markup := map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
@@ -569,11 +694,7 @@ Send any NFT gift link or slug:
 		},
 	}
 
-	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, text, markup)
-	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, text, markup, threadID)
-	}
+	h.sendOrEditMessage(ctx, tg, chatID, messageID, text, markup, threadID)
 }
 
 // sendAssetPrompt asks the user to input the specific asset
@@ -595,6 +716,10 @@ func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.Ma
 			title = "🏷️ <b>تحلیل و کارشناسی نام کاربری (Username)</b>"
 			desc = "لطفاً نام کاربری مد نظر خود را به صورت متن یا با @ ارسال کنید:"
 			example = "نمونه: <code>@crypto</code> ، <code>wallet</code> ، <code>ton_holder</code>"
+		case "ar":
+			title = "🏷️ <b>تحليل وتقييم اسم المستخدم (Username)</b>"
+			desc = "يرجى إرسال اسم المستخدم المطلوب كنص أو مسبوقاً بـ @:"
+			example = "مثال: <code>@crypto</code> أو <code>wallet</code> أو <code>ton_holder</code>"
 		case "ru":
 			title = "🏷️ <b>Оценка и анализ юзернейма Telegram</b>"
 			desc = "Пожалуйста, отправьте тег или имя пользователя:"
@@ -614,6 +739,10 @@ func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.Ma
 			title = "📱 <b>تحلیل شماره کلکسیونی ناشناس (+888)</b>"
 			desc = "لطفاً شماره کلکسیونی ۸ رقمی یا رند ۴ رقمی مد نظر را وارد نمایید:"
 			example = "نمونه: <code>+888 8888 8888</code> یا <code>+88801234567</code> یا <code>8888</code>"
+		case "ar":
+			title = "📱 <b>تحليل الرقم المميز المجهول (+888)</b>"
+			desc = "يرجى إدخال الرقم المميز المكون من 8 أرقام أو 4 أرقام:"
+			example = "مثال: <code>+888 8888 8888</code> أو <code>+88801234567</code> یا <code>8888</code>"
 		case "ru":
 			title = "📱 <b>Анализ анонимного номера (+888)</b>"
 			desc = "Введите анонимный 8-значный или генезис 4-значный номер:"
@@ -633,6 +762,10 @@ func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.Ma
 			title = "🎁 <b>کارشناسی گیفت و کالکشن‌های تلگرام</b>"
 			desc = "لطفاً لینک گیفت در تلگرام یا فرگمنت، یا نام و شماره آن را ارسال کنید:"
 			example = "نمونه: <code>https://t.me/nft/PlushPepe-42</code> یا <code>PlushPepe-42</code>"
+		case "ar":
+			title = "🎁 <b>تقييم وفحص هدايا ومجموعات تيليجرام</b>"
+			desc = "يرجى إرسال رابط الهدية في تيليجرام أو Fragment، أو اسمها ورقمها:"
+			example = "مثال: <code>https://t.me/nft/PlushPepe-42</code> أو <code>PlushPepe-42</code>"
 		case "ru":
 			title = "🎁 <b>Оценка и анализ подарков Telegram</b>"
 			desc = "Отправьте ссылку на NFT-подарок или название и номер:"
@@ -648,10 +781,23 @@ func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.Ma
 		}
 	}
 
-	text := fmt.Sprintf("%s\n\n%s\n\n📌 %s", title, desc, example)
+	var templateKey string
+	switch assetType {
+	case "username":
+		templateKey = "prompt_username"
+	case "number":
+		templateKey = "prompt_number"
+	case "gifts":
+		templateKey = "prompt_gift"
+	}
+
+	defaultText := fmt.Sprintf("%s\n\n%s\n\n📌 %s", title, desc, example)
+	text := h.resolveText(ctx, templateKey, lang, defaultText)
 
 	btnBack := "🔙 بازگشت به منوی اصلی"
 	switch lang {
+	case "ar":
+		btnBack = "🔙 العودة للقائمة"
 	case "ru":
 		btnBack = "🔙 Назад в меню"
 	case "zh":
@@ -659,6 +805,7 @@ func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.Ma
 	case "en":
 		btnBack = "🔙 Back to Menu"
 	}
+	btnBack = h.resolveButton(ctx, "btn_back", lang, btnBack)
 
 	markup := map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
@@ -668,11 +815,7 @@ func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.Ma
 		},
 	}
 
-	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, text, markup)
-	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, text, markup, threadID)
-	}
+	h.sendOrEditMessage(ctx, tg, chatID, messageID, text, markup, threadID)
 }
 
 // sendPreCheckGate renders the pre-check gate showing current balances and unlocking options
@@ -718,16 +861,17 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 	costCoins := config.Economics.CreditsCoinsPerCredit
 	formattedCost := formatNumberWithCommas(costCoins)
 
+	var defaultGateText string
 	switch lang {
 	case "fa":
-		gateText = fmt.Sprintf(`🔍 <b>تحلیل اولیه دارایی شناسایی شد</b>
+		defaultGateText = `🔍 <b>تحلیل اولیه دارایی شناسایی شد</b>
 
-دارایی: <b>%s</b>
-شناسه / مقدار: <code>%s</code>
+دارایی: <b>{type}</b>
+شناسه / مقدار: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>موجودی سکه ایردراپ:</b> <code>%.1f</code>
-⚡ <b>اعتبار تحلیلی (Intel Credits):</b> <code>%d</code>
+🪙 <b>موجودی سکه ایردراپ:</b> <code>{coins}</code>
+⚡ <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>در گزارش تحلیلی عمیق این دارایی چه مواردی می‌بینید؟</b>
@@ -736,33 +880,44 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 • تاریخچه آخرین معاملات ثبت‌شده مشابه در شبکه
 • شاخص نقدشوندگی و کشش تقاضا در بازار
 
-هزینه باز کردن گزارش کامل: <b>۱ کریدت تحلیلی</b>`,
-			assetNameFa, telegram.EscapeHTML(entityDisplay), airdropCoins, intelCredits)
+هزینه باز کردن گزارش کامل: <b>۱ کریدت تحلیلی</b>`
 		btnUnlock = "🔓 مشاهده گزارش تحلیلی (۱ کریدت)"
 		btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به ۱ کریدت", formattedCost)
 		btnStars = "⭐ خرید کریدت با Stars"
 		btnBack = "🔙 بازگشت"
 
-	case "ru":
-		var assetNameRu string
-		switch assetType {
-		case "username":
-			assetNameRu = "Юзернейм"
-		case "number":
-			assetNameRu = "Анонимный номер"
-		case "gift":
-			assetNameRu = "Подарок Telegram"
-		default:
-			assetNameRu = "Цифровой актив"
-		}
-		gateText = fmt.Sprintf(`🔍 <b>Актив успешно распознан для анализа</b>
+	case "ar":
+		defaultGateText = `🔍 <b>تم التعرف على الأصل وجاهز للتقييم</b>
 
-Категория: <b>%s</b>
-Идентификатор: <code>%s</code>
+فئة الأصل: <b>{type}</b>
+المعرف: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>Баланс Airdrop монет:</b> <code>%.1f</code>
-⚡ <b>Доступно кредитов (Intel Credits):</b> <code>%d</code>
+🪙 <b>رصيد عملات الإنزال:</b> <code>{coins}</code>
+⚡ <b>رصيد التحليل (Intel Credits):</b> <code>{credits}</code>
+━━━━━━━━━━━━━━━━━━━
+
+🔐 <b>ماذا يتضمن تقرير التحليل المتقدم؟</b>
+• التقييم العادل المعتمد بعملتي TON والدولار
+• فحص ندرة الصفات والخصائص الجينية
+• سجل أحدث الصفقات المشابهة المنفذة على الشبكة
+• مؤشرات السيولة وسرعة التداول المتوقعة
+
+تكلفة فتح التقرير الكامل: <b>رصيد تحليل واحد (1 Credit)</b>`
+		btnUnlock = "🔓 فتح التقرير الكامل (1 رصيد)"
+		btnExchange = fmt.Sprintf("🔄 تحويل %s عملة إلى 1 رصيد", formattedCost)
+		btnStars = "⭐ شراء أرصدة عبر Stars"
+		btnBack = "🔙 رجوع"
+
+	case "ru":
+		defaultGateText = `🔍 <b>Актив успешно распознан для анализа</b>
+
+Категория: <b>{type}</b>
+Идентификатор: <code>{entity}</code>
+
+━━━━━━━━━━━━━━━━━━━
+🪙 <b>Баланс Airdrop монет:</b> <code>{coins}</code>
+⚡ <b>Доступно кредитов (Intel Credits):</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>Что входит в детальный отчет?</b>
@@ -771,33 +926,21 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 • История реальных сопоставимых сделок на рынке
 • Метрики ликвидности и расчетное время продажи
 
-Стоимость открытия полного отчета: <b>1 Intel Credit</b>`,
-			assetNameRu, telegram.EscapeHTML(entityDisplay), airdropCoins, intelCredits)
+Стоимость открытия полного отчета: <b>1 Intel Credit</b>`
 		btnUnlock = "🔓 Открыть отчет (1 кредит)"
 		btnExchange = fmt.Sprintf("🔄 Обменять %s монет на 1 кредит", formattedCost)
 		btnStars = "⭐ Купить кредиты за Stars"
 		btnBack = "🔙 Назад"
 
 	case "zh":
-		var assetNameZh string
-		switch assetType {
-		case "username":
-			assetNameZh = "电报用户名"
-		case "number":
-			assetNameZh = "+888 匿名靓号"
-		case "gift":
-			assetNameZh = "电报礼物 NFT"
-		default:
-			assetNameZh = "数字资产"
-		}
-		gateText = fmt.Sprintf(`🔍 <b>已成功识别资产并准备评估</b>
+		defaultGateText = `🔍 <b>已成功识别资产并准备评估</b>
 
-资产类别: <b>%s</b>
-目标标识: <code>%s</code>
+资产类别: <b>{type}</b>
+目标标识: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>空投代币余额:</b> <code>%.1f</code>
-⚡ <b>分析信用点 (Intel Credits):</b> <code>%d</code> 点
+🪙 <b>空投代币余额:</b> <code>{coins}</code>
+⚡ <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>深度专业分析报告包含内容:</b>
@@ -806,22 +949,21 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 • 全网最新真实撮合交易参照对比
 • 市场流动性评级与预估出售周期
 
-解锁完整深度报告仅需: <b>1 个分析信用点</b>`,
-			assetNameZh, telegram.EscapeHTML(entityDisplay), airdropCoins, intelCredits)
+解锁完整深度报告仅需: <b>1 个分析信用点</b>`
 		btnUnlock = "🔓 解锁专业分析报告 (1 信用点)"
 		btnExchange = fmt.Sprintf("🔄 兑换 %s 代币为 1 信用点", formattedCost)
 		btnStars = "⭐ 使用 Stars 购买信用点"
 		btnBack = "🔙 返回"
 
 	default:
-		gateText = fmt.Sprintf(`🔍 <b>Asset Identified for Deep Intelligence</b>
+		defaultGateText = `🔍 <b>Asset Identified for Deep Intelligence</b>
 
-Asset Class: <b>%s</b>
-Identifier: <code>%s</code>
+Asset Class: <b>{type}</b>
+Identifier: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>Airdrop Coins Balance:</b> <code>%.1f</code>
-⚡ <b>Intel Credits Available:</b> <code>%d</code>
+🪙 <b>Airdrop Coins Balance:</b> <code>{coins}</code>
+⚡ <b>Intel Credits Available:</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>What's inside the deep intelligence report?</b>
@@ -830,13 +972,24 @@ Identifier: <code>%s</code>
 • Recent verified comparable on-chain sales
 • Liquidity velocity & expected turnaround time
 
-Unlock full report cost: <b>1 Intel Credit</b>`,
-			assetType, telegram.EscapeHTML(entityDisplay), airdropCoins, intelCredits)
+Unlock full report cost: <b>1 Intel Credit</b>`
 		btnUnlock = "🔓 Unlock Full Report (1 Credit)"
 		btnExchange = fmt.Sprintf("🔄 Exchange %s Coins for 1 Credit", formattedCost)
 		btnStars = "⭐ Buy Credits with Stars"
 		btnBack = "🔙 Back"
 	}
+
+	rawGate := h.resolveText(ctx, "precheck_gate", lang, defaultGateText)
+	gateText = strings.ReplaceAll(rawGate, "{type}", assetNameFa)
+	gateText = strings.ReplaceAll(gateText, "{entity}", telegram.EscapeHTML(entityDisplay))
+	gateText = strings.ReplaceAll(gateText, "{coins}", fmt.Sprintf("%.1f", airdropCoins))
+	gateText = strings.ReplaceAll(gateText, "{credits}", strconv.Itoa(intelCredits))
+	gateText = strings.ReplaceAll(gateText, "{cost_coins}", formattedCost)
+
+	btnUnlock = h.resolveButton(ctx, "btn_unlock", lang, btnUnlock)
+	btnExchange = h.resolveButton(ctx, "btn_exchange", lang, btnExchange)
+	btnStars = h.resolveButton(ctx, "btn_stars", lang, btnStars)
+	btnBack = h.resolveButton(ctx, "btn_back", lang, btnBack)
 
 	unlockCallback := fmt.Sprintf("unlock:%s:%s", assetType, entity)
 	exchangeCallback := fmt.Sprintf("exchange:%s:%s", assetType, entity)
@@ -871,11 +1024,7 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 		},
 	}
 
-	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, gateText, markup)
-	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, gateText, markup, threadID)
-	}
+	h.sendOrEditMessage(ctx, tg, chatID, messageID, gateText, markup, threadID)
 }
 
 // executeUnlockAndReport consumes 1 credit and produces the full rich appraisal
@@ -918,6 +1067,46 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 	idemKey := fmt.Sprintf("tg_report:%d:%s:%s:%s", userID, assetType, entity, time.Now().UTC().Format("2006-01-02"))
 	_, err := h.intelCreditService.ConsumeCredit(ctx, userID, "asset_valuation", fmt.Sprintf("%s:%s", assetType, entity), idemKey)
 	if err != nil {
+		if !errors.Is(err, repository.ErrInsufficientIntelCredits) {
+			slog.Error("Failed to consume intel credit for report unlock", "error", err, "user_id", userID, "asset_type", assetType, "entity", entity)
+			var retryMsg, btnRetry string
+			switch lang {
+			case "fa":
+				retryMsg = "⚠️ خطا در برقراری ارتباط با پایگاه داده اعتبارات. لطفاً چند لحظه دیگر دوباره تلاش فرمایید."
+				btnRetry = "🔄 تلاش مجدد"
+			case "ar":
+				retryMsg = "⚠️ خطأ في الاتصال بقاعدة بيانات الأرصدة. يُرجى إعادة المحاولة بعد لحظات."
+				btnRetry = "🔄 إعادة المحاولة"
+			case "ru":
+				retryMsg = "⚠️ Ошибка связи с базой данных кредитов. Пожалуйста, попробуйте еще раз."
+				btnRetry = "🔄 Повторить"
+			case "zh":
+				retryMsg = "⚠️ 信用数据库连接错误，请稍后重试。"
+				btnRetry = "🔄 重试"
+			default:
+				retryMsg = "⚠️ Database error processing credits. Please try again in a few moments."
+				btnRetry = "🔄 Retry"
+			}
+			retryMarkup := map[string]interface{}{
+				"inline_keyboard": [][]map[string]interface{}{
+					{
+						{
+							"text":          btnRetry,
+							"callback_data": fmt.Sprintf("unlock:%s:%s", assetType, entity),
+						},
+					},
+					{
+						{
+							"text":          "🔙",
+							"callback_data": fmt.Sprintf("precheck:%s:%s", assetType, entity),
+						},
+					},
+				},
+			}
+			h.sendOrEditMessage(ctx, tg, chatID, messageID, retryMsg, retryMarkup, threadID)
+			return
+		}
+
 		var errMsg string
 		var btnExchange, btnStars, btnBack string
 		costCoins := config.Economics.CreditsCoinsPerCredit
@@ -929,6 +1118,11 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 			btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به کریدت", formattedCost)
 			btnStars = "⭐ خرید با Stars"
 			btnBack = "🔙 بازگشت"
+		case "ar":
+			errMsg = "⚠️ <b>رصيد التحليل غير كافٍ!</b>\n\nتحتاج إلى <b>رصيد تحليل واحد (1 Intel Credit)</b> على الأقل لعرض هذا التقرير. يمكنك تحويل عملات الإنزال الجوي أو شراء أرصدة عبر Telegram Stars."
+			btnExchange = fmt.Sprintf("🔄 تحويل %s عملة إلى رصيد", formattedCost)
+			btnStars = "⭐ شراء عبر Stars"
+			btnBack = "🔙 رجوع"
 		case "ru":
 			errMsg = "⚠️ <b>Недостаточно кредитов (Intel Credits)!</b>\n\nДля просмотра этого отчета необходим минимум <b>1 кредит</b>. Вы можете обменять Airdrop монеты или приобрести кредиты через Telegram Stars."
 			btnExchange = fmt.Sprintf("🔄 Обменять %s монет", formattedCost)
@@ -968,17 +1162,17 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 				},
 			},
 		}
-		if messageID != nil {
-			_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, errMsg, markup)
-		} else {
-			_, _ = tg.SendMessageWithMarkup(ctx, chatID, errMsg, markup, threadID)
-		}
+		h.sendOrEditMessage(ctx, tg, chatID, messageID, errMsg, markup, threadID)
 		return
 	}
 
 	miniAppURL := os.Getenv("MINI_APP_URL")
 	if miniAppURL == "" {
-		miniAppURL = "https://t.me/iFragmentBot/iFragment"
+		if bot != nil && bot.BotUsername != "" {
+			miniAppURL = fmt.Sprintf("https://t.me/%s/iFragment", bot.BotUsername)
+		} else {
+			miniAppURL = "https://t.me/iFragmentBot/iFragment"
+		}
 	}
 
 	// Route valuation based on asset type
@@ -1334,6 +1528,29 @@ func (h *WebhookHandler) sendExchangeConfirmView(ctx context.Context, bot *repos
 		btnConfirm = fmt.Sprintf("✅ بله، تبدیل کن (%s سکه)", formattedCost)
 		btnCancel = "❌ انصراف / بازگشت"
 
+	case "ar":
+		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">🔄</tg-emoji> <b>تأكيد تحويل العملات إلى رصيد تحليلي | Confirmation</b>
+
+هل أنت متأكد من رغبتك في تحويل <b>%s عملة إنزال</b> إلى <b>رصيد تحليل واحد (1 Intel Credit)</b>؟
+
+━━━━━━━━━━━━━━━━━━━
+<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>تكلفة التحويل:</b> <code>%s</code> عملة
+<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>ما ستحصل عليه:</b> <code>+1</code> رصيد تحليلي
+💰 <b>رصيدك الحالي من العملات:</b> <code>%s</code> عملة
+📊 <b>رصيدك الحالي من الأرصدة:</b> <code>%d</code> رصيد
+📉 <b>الرصيد بعد الخصم:</b> <code>%s</code>
+━━━━━━━━━━━━━━━━━━━
+<i>ℹ️ ملاحظة: يتيح لك كل رصيد تحليلي فتح تقرير شامل ومفصل لتقييم الأصول ونسبة ندرتها في تيليجرام.</i>`,
+			CustomEmojiRefresh, formattedCost,
+			CustomEmojiCoin, formattedCost,
+			CustomEmojiBolt,
+			formattedBalance,
+			intelCredits,
+			formattedRemaining)
+
+		btnConfirm = fmt.Sprintf("✅ نعم، قم بالتحويل (%s عملة)", formattedCost)
+		btnCancel = "❌ إلغاء / رجوع"
+
 	case "ru":
 		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">🔄</tg-emoji> <b>Подтверждение обмена монет | Confirmation</b>
 
@@ -1404,6 +1621,13 @@ Are you sure you want to exchange <b>%s Airdrop Coins</b> for <b>1 Intel Credit<
 		btnCancel = "❌ Cancel / Back"
 	}
 
+	btnCancel = h.resolveButton(ctx, "btn_back", lang, btnCancel)
+
+	text = h.resolveText(ctx, "exchange_confirm", lang, text)
+	text = strings.ReplaceAll(text, "{coins}", formattedBalance)
+	text = strings.ReplaceAll(text, "{credits}", fmt.Sprintf("%d", intelCredits))
+	text = strings.ReplaceAll(text, "{cost_coins}", formattedCost)
+
 	confirmCallback := fmt.Sprintf("confirm_exchange:%s:%s", returnAssetType, returnEntity)
 	if returnAssetType == "" && returnEntity == "" {
 		confirmCallback = "confirm_exchange:profile"
@@ -1431,11 +1655,7 @@ Are you sure you want to exchange <b>%s Airdrop Coins</b> for <b>1 Intel Credit<
 		},
 	}
 
-	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, text, markup)
-	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, text, markup, threadID)
-	}
+	h.sendOrEditMessage(ctx, tg, chatID, messageID, text, markup, threadID)
 }
 
 // handleCreditExchange converts user's airdrop coins into 1 Intel Credit and updates view
@@ -1477,6 +1697,20 @@ func (h *WebhookHandler) handleCreditExchange(ctx context.Context, bot *reposito
 		btnBack = "🔙 بازگشت به منو"
 		btnUnlock = "🔓 باز کردن گزارش هم‌اکنون"
 		btnProfile = "👤 مشاهده پروفایل"
+	case "ar":
+		failMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">❌</tg-emoji> <b>رصيد العملات غير كافٍ!</b>
+
+لتحويل 1 رصيد تحليل، تحتاج إلى <b>%s عملة إنزال جوي</b> على الأقل. يمكنك كسب العملات عبر إنجاز المهام في التطبيق المصغر أو شراء الأرصدة عبر Stars.`,
+			CustomEmojiCross, formattedCost)
+		succMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">✅</tg-emoji> <b>تم تحويل العملات بنجاح!</b>
+
+تم خصم <b>%s عملة</b> وإضافة 1 رصيد تحليل إلى حسابك.
+⚡ رصيدك الحالي: <b>%d رصيد تحليلي</b>.`,
+			CustomEmojiCheck, formattedCost, newBalance)
+		btnStars = "⭐ شراء أرصدة عبر Telegram Stars"
+		btnBack = "🔙 العودة للقائمة"
+		btnUnlock = "🔓 فتح التقرير الآن"
+		btnProfile = "👤 الملف الشخصي"
 	case "ru":
 		failMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">❌</tg-emoji> <b>Недостаточно монет!</b>
 
@@ -1521,6 +1755,18 @@ Deducted <b>%s coins</b>. 1 Intel Credit added.
 		btnProfile = "👤 Profile"
 	}
 
+	btnStars = h.resolveButton(ctx, "btn_stars", lang, btnStars)
+	btnBack = h.resolveButton(ctx, "btn_back", lang, btnBack)
+	btnUnlock = h.resolveButton(ctx, "btn_unlock", lang, btnUnlock)
+	btnProfile = h.resolveButton(ctx, "btn_profile", lang, btnProfile)
+
+	failMsg = h.resolveText(ctx, "exchange_fail", lang, failMsg)
+	failMsg = strings.ReplaceAll(failMsg, "{cost_coins}", formattedCost)
+
+	succMsg = h.resolveText(ctx, "exchange_success", lang, succMsg)
+	succMsg = strings.ReplaceAll(succMsg, "{cost_coins}", formattedCost)
+	succMsg = strings.ReplaceAll(succMsg, "{credits}", fmt.Sprintf("%d", newBalance))
+
 	if err != nil {
 		backCallback := "nav:menu"
 		if returnAssetType != "" && returnEntity != "" {
@@ -1545,11 +1791,7 @@ Deducted <b>%s coins</b>. 1 Intel Credit added.
 				},
 			},
 		}
-		if messageID != nil {
-			_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, failMsg, markup)
-		} else {
-			_, _ = tg.SendMessageWithMarkup(ctx, chatID, failMsg, markup, threadID)
-		}
+		h.sendOrEditMessage(ctx, tg, chatID, messageID, failMsg, markup, threadID)
 		return
 	}
 
@@ -1590,11 +1832,7 @@ Deducted <b>%s coins</b>. 1 Intel Credit added.
 		}
 	}
 
-	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, succMsg, markup)
-	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, succMsg, markup, threadID)
-	}
+	h.sendOrEditMessage(ctx, tg, chatID, messageID, succMsg, markup, threadID)
 }
 
 // sendStarsPacksList shows available credit packs to purchase with Telegram Stars
@@ -1687,11 +1925,7 @@ Please select a credit pack:`
 		"inline_keyboard": inlineRows,
 	}
 
-	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, text, markup)
-	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, text, markup, threadID)
-	}
+	h.sendOrEditMessage(ctx, tg, chatID, messageID, text, markup, threadID)
 }
 
 // createAndSendStarsInvoice generates invoice link and provides it to the user
@@ -1792,9 +2026,23 @@ Click the payment button below to complete checkout. Credits will be deposited i
 		},
 	}
 
-	if messageID != nil {
-		_ = tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, text, markup)
-	} else {
-		_, _ = tg.SendMessageWithMarkup(ctx, chatID, text, markup, threadID)
+	h.sendOrEditMessage(ctx, tg, chatID, messageID, text, markup, threadID)
+}
+
+// sendOrEditMessage attempts to edit an existing message with markup. If the edit fails
+// (e.g. original message has photo/media, content unchanged, or markdown entity error),
+// it seamlessly falls back to sending a new message with markup so glass buttons never freeze.
+func (h *WebhookHandler) sendOrEditMessage(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, messageID *int, text string, markup interface{}, threadID *int) {
+	if tg == nil {
+		return
 	}
+	formattedText := FormatPremiumEmojiText(text)
+	if messageID != nil {
+		err := tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, formattedText, markup)
+		if err == nil {
+			return
+		}
+		slog.Debug("EditMessageTextWithMarkup returned non-nil error, falling back to SendMessageWithMarkup", "error", err, "chat_id", chatID, "message_id", *messageID)
+	}
+	_, _ = tg.SendMessageWithMarkup(ctx, chatID, formattedText, markup, threadID)
 }

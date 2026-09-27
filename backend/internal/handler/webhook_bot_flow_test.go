@@ -10,7 +10,7 @@ func TestBuildMainMenuMarkupLayout(t *testing.T) {
 	h := &WebhookHandler{}
 	miniAppURL := "https://t.me/iFragmentBot/iFragment"
 
-	languages := []string{"fa", "en", "ru", "zh"}
+	languages := []string{"fa", "en", "ru", "zh", "ar"}
 	for _, lang := range languages {
 		t.Run("lang_"+lang, func(t *testing.T) {
 			markup := h.buildMainMenuMarkup(lang, miniAppURL)

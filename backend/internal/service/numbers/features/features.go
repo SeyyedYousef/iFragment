@@ -14,6 +14,9 @@ import (
 var (
 	ErrInvalidNumberFormat = errors.New("invalid anonymous number format; Telegram numbers must be 8 digits or genesis 8888")
 	ErrNumberNotMinted     = errors.New("this number was not minted in the 136,566 Telegram Anonymous Numbers collection")
+
+	numberInputRe = regexp.MustCompile(`^[\s+\-().0-9۰-۹٠-٩]+$`)
+	reYear        = regexp.MustCompile(`(19[5-9][0-9]|20[0-3][0-9])`)
 )
 
 // NormalizeNumber parses and standardizes valid Telegram Anonymous Numbers.
@@ -22,7 +25,12 @@ var (
 // 2) Standard 8-digit numbers: 8 digits (e.g. 88880000, 01234567) -> "+888XXXXXXXX" (11 digits total with country code)
 // Numbers with other lengths (e.g. 1..3, 5, 6 like 715311, 9+) were NEVER minted by Telegram.
 func NormalizeNumber(raw string) (string, error) {
-	cleaned := CleanNumber(raw)
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || !numberInputRe.MatchString(trimmed) {
+		return "", ErrInvalidNumberFormat
+	}
+
+	cleaned := CleanNumber(trimmed)
 	if cleaned == "" {
 		return "", ErrInvalidNumberFormat
 	}
@@ -444,7 +452,6 @@ func detectRepeatedBlock(s string) string {
 
 func checkDateLike(s string) bool {
 	// Match year 1950-2035 anywhere in the string
-	reYear := regexp.MustCompile(`(19[5-9][0-9]|20[0-3][0-9])`)
 	return reYear.MatchString(s)
 }
 
@@ -517,20 +524,20 @@ func computeCompositeScore(fv FeatureVector) int {
 	if runToScore < fv.MaxRun {
 		runToScore = fv.MaxRun
 	}
-	switch runToScore {
-	case 8, 9:
+	switch {
+	case runToScore >= 8:
 		score += 50.0
-	case 7:
+	case runToScore == 7:
 		score += 42.0
-	case 6:
+	case runToScore == 6:
 		score += 35.0
-	case 5:
+	case runToScore == 5:
 		score += 26.0
-	case 4:
+	case runToScore == 4:
 		score += 18.0
-	case 3:
+	case runToScore == 3:
 		score += 10.0
-	case 2:
+	case runToScore == 2:
 		score += 4.0
 	}
 
@@ -642,16 +649,25 @@ func CalculateExactPercentiles(fv *FeatureVector, histograms map[string]map[stri
 		totalCount = registry.TotalSupply
 	}
 
+	runVal := fv.EffectiveMaxRun
+	if runVal < fv.MaxRun {
+		runVal = fv.MaxRun
+	}
+
 	// Calculate percentile for max_run
 	if runHist, ok := histograms["max_run"]; ok {
 		belowCount := 0
+		sameCount := 0
 		for bucket, cnt := range runHist {
 			bucketVal, _ := strconv.Atoi(bucket)
-			if bucketVal < fv.MaxRun {
+			if bucketVal < runVal {
 				belowCount += cnt
+			} else if bucketVal == runVal {
+				sameCount += cnt
 			}
 		}
-		// Exact percentile
-		fv.RarityPercentile = (float64(belowCount) / float64(totalCount)) * 100.0
+		// Exact percentile using mid-rank for ties
+		rank := float64(belowCount) + float64(sameCount)/2.0
+		fv.RarityPercentile = (rank / float64(totalCount)) * 100.0
 	}
 }

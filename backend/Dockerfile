@@ -21,7 +21,8 @@ WORKDIR /app
 COPY --from=builder /app/main .
 COPY --from=builder /app/migrations ./migrations
 
-RUN mkdir -p /app/sessions /app/uploads && \
+RUN mkdir -p /app/sessions /app/uploads/ads /app/static/shares && \
+    chmod -R 775 /app/uploads /app/static && \
     chown -R appuser:appgroup /app
 
 USER 10001:10001
