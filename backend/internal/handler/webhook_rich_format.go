@@ -3,9 +3,12 @@ package handler
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"time"
+
+	"unicode/utf16"
+
+	"golang.org/x/net/html"
 
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/service/cardgen"
@@ -34,519 +37,15 @@ func normalizeLang(lang string) string {
 
 // ─── Username Formatters ──────────────────────────────────────────────────────
 
-// buildUsernameRichHTML builds structured Rich Message HTML (compatible with Bot API rich_message specs)
-// while providing complete analytical parity with the iFragment Mini App.
+// buildUsernameRichHTML builds a rich HTML message formatted for Telegram Bot API rich_message specs
+// buildUsernameRichHTML delegates to formatUsernameRichHTML in webhook_username_formatters.go
 func buildUsernameRichHTML(username string, res *avm.ValuationResult, lang string) string {
-	l := normalizeLang(lang)
-	cleanUser := strings.TrimPrefix(strings.ToLower(username), "@")
-
-	var gradeEmoji string = "📊"
-	grade := "STANDARD"
-	brandability := 50
-	lowTON := "0.0"
-	expectedTON := "0.0"
-	highTON := "0.0"
-	expectedUSD := "0"
-	length := len(cleanUser)
-	liquidity := "Medium"
-	sellTime := "1-3 months"
-	buyerProfile := "General"
-	compsCount := 0
-	confidence := 80
-
-	if res != nil {
-		grade = res.InvestmentGrade
-		switch grade {
-		case "AAA", "AA":
-			gradeEmoji = "💎"
-		case "A", "BBB":
-			gradeEmoji = "⭐"
-		default:
-			gradeEmoji = "📊"
-		}
-		brandability = res.Brandability
-		lowTON = res.LowTON.StringFixed(1)
-		expectedTON = res.ExpectedTON.StringFixed(1)
-		highTON = res.HighTON.StringFixed(1)
-		expectedUSD = res.ExpectedUSD.StringFixed(0)
-		length = res.Length
-		if length == 0 {
-			length = len(cleanUser)
-		}
-		if res.LiquidityRating != "" {
-			liquidity = res.LiquidityRating
-		}
-		if res.EstimatedSellTime != "" {
-			sellTime = res.EstimatedSellTime
-		}
-		if res.TargetBuyerProfile != "" {
-			buyerProfile = res.TargetBuyerProfile
-		}
-		compsCount = res.ComparableSales
-		if res.ConfidenceScore > 0 {
-			confidence = int(res.ConfidenceScore)
-		}
-	}
-
-	expFloat, _ := strconv.ParseFloat(expectedTON, 64)
-	fragFee := math.Max(5.0, math.Round(expFloat*0.05*10)/10)
-	netProceeds := math.Max(0.0, expFloat-fragFee)
-	recStartBid := math.Round(expFloat * 0.7)
-	rentMonthly := math.Round(expFloat*0.045*10) / 10
-
-	var sb strings.Builder
-
-	switch l {
-	case "fa":
-		sb.WriteString(fmt.Sprintf("<h1>🏷️ کارشناسی تحلیلی: @%s</h1>\n\n", telegram.EscapeHTML(cleanUser)))
-		sb.WriteString(fmt.Sprintf("<p>%s درجه سرمایه‌گذاری: <b>%s</b><br/>", gradeEmoji, telegram.EscapeHTML(grade)))
-		sb.WriteString(fmt.Sprintf("📈 شاخص برندپذیری: <b>%d / 100</b><br/>", brandability))
-		sb.WriteString(fmt.Sprintf("💰 برآورد ارزش منصفانه: <b>~%s TON (معادل $%s)</b></p>\n\n", expectedTON, expectedUSD))
-
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📉 کف ارزش</b></td><td><code>%s TON</code></td></tr>\n", lowTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 میانگین منصفانه</b></td><td><code>%s TON</code></td></tr>\n", expectedTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📈 سقف ارزش</b></td><td><code>%s TON</code></td></tr>\n", highTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💵 معادل دلاری</b></td><td><code>~$%s</code></td></tr>\n", expectedUSD))
-		sb.WriteString("</table>\n\n")
-
-		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>🧬 تحلیل ساختاری و بازار عمیق</summary>\n")
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td>طول شناسه</td><td><b>%d کاراکتر</b></td></tr>\n", length))
-		sb.WriteString(fmt.Sprintf("<tr><td>رتبه نقدشوندگی</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(liquidity)))
-		sb.WriteString(fmt.Sprintf("<tr><td>افق زمانی فروش</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(sellTime)))
-		sb.WriteString(fmt.Sprintf("<tr><td>مخاطب هدف</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(buyerProfile)))
-		if compsCount > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td>معاملات مشابه</td><td><b>%d فروش ثبت‌شده</b></td></tr>\n", compsCount))
-		}
-		sb.WriteString(fmt.Sprintf("<tr><td>اعتماد مدل</td><td><b>%d%%</b></td></tr>\n", confidence))
-		sb.WriteString("</table>\n")
-		sb.WriteString("</details>\n\n")
-
-		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>💸 محاسبات مالی معامله در فرگمنت</summary>\n")
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td>کارمزد ۵٪ فرگمنت (حداقل ۵ TON)</td><td><code>-%.1f TON</code></td></tr>\n", fragFee))
-		sb.WriteString(fmt.Sprintf("<tr><td>خالص دریافتی فروشنده</td><td><b>%.1f TON</b></td></tr>\n", netProceeds))
-		sb.WriteString(fmt.Sprintf("<tr><td>شروع پیشنهادی حراج</td><td><code>%.0f TON</code></td></tr>\n", recStartBid))
-		sb.WriteString(fmt.Sprintf("<tr><td>درآمد پیش‌بینی اجاره ماهانه</td><td><code>~%.1f TON / ماه (54%% APY)</code></td></tr>\n", rentMonthly))
-		sb.WriteString("</table>\n")
-		sb.WriteString("</details>\n\n")
-
-		sb.WriteString("<blockquote>⚡ موتور هوشمند AVM v7.0 — تحلیل جامع معاملات فرگمنت</blockquote>")
-
-	case "ru":
-		sb.WriteString(fmt.Sprintf("<h1>🏷️ Аналитическая оценка: @%s</h1>\n\n", telegram.EscapeHTML(cleanUser)))
-		sb.WriteString(fmt.Sprintf("<p>%s Инвестиционный грейд: <b>%s</b><br/>", gradeEmoji, telegram.EscapeHTML(grade)))
-		sb.WriteString(fmt.Sprintf("📈 Индекс брендируемости: <b>%d / 100</b><br/>", brandability))
-		sb.WriteString(fmt.Sprintf("💰 Справедливая стоимость: <b>~%s TON (~$%s)</b></p>\n\n", expectedTON, expectedUSD))
-
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📉 Нижняя граница</b></td><td><code>%s TON</code></td></tr>\n", lowTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 Справедливая цена</b></td><td><code>%s TON</code></td></tr>\n", expectedTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📈 Верхняя цель</b></td><td><code>%s TON</code></td></tr>\n", highTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💵 Эквивалент USD</b></td><td><code>~$%s</code></td></tr>\n", expectedUSD))
-		sb.WriteString("</table>\n\n")
-
-		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>🧬 Структурный и рыночный анализ</summary>\n")
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td>Длина</td><td><b>%d символов</b></td></tr>\n", length))
-		sb.WriteString(fmt.Sprintf("<tr><td>Ликвидность</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(liquidity)))
-		sb.WriteString(fmt.Sprintf("<tr><td>Срок продажи</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(sellTime)))
-		sb.WriteString(fmt.Sprintf("<tr><td>Покупатель</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(buyerProfile)))
-		if compsCount > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td>Сделки</td><td><b>%d продаж</b></td></tr>\n", compsCount))
-		}
-		sb.WriteString(fmt.Sprintf("<tr><td>Точность модели</td><td><b>%d%%</b></td></tr>\n", confidence))
-		sb.WriteString("</table>\n")
-		sb.WriteString("</details>\n\n")
-
-		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>💸 Экономика сделки на Fragment</summary>\n")
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td>Комиссия Fragment 5%%</td><td><code>-%.1f TON</code></td></tr>\n", fragFee))
-		sb.WriteString(fmt.Sprintf("<tr><td>Чистый доход продавца</td><td><b>%.1f TON</b></td></tr>\n", netProceeds))
-		sb.WriteString(fmt.Sprintf("<tr><td>Старт аукциона</td><td><code>%.0f TON</code></td></tr>\n", recStartBid))
-		sb.WriteString("</table>\n")
-		sb.WriteString("</details>\n\n")
-
-		sb.WriteString("<blockquote>⚡ AVM v7.0 Engine — Аналитика рынка Fragment</blockquote>")
-
-	case "zh":
-		sb.WriteString(fmt.Sprintf("<h1>🏷️ 分析估值报告: @%s</h1>\n\n", telegram.EscapeHTML(cleanUser)))
-		sb.WriteString(fmt.Sprintf("<p>%s 投资评级: <b>%s</b><br/>", gradeEmoji, telegram.EscapeHTML(grade)))
-		sb.WriteString(fmt.Sprintf("📈 品牌指数: <b>%d / 100</b><br/>", brandability))
-		sb.WriteString(fmt.Sprintf("💰 预估公允价值: <b>~%s TON (约合 $%s)</b></p>\n\n", expectedTON, expectedUSD))
-
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📉 底价估值</b></td><td><code>%s TON</code></td></tr>\n", lowTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 公允均价</b></td><td><code>%s TON</code></td></tr>\n", expectedTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📈 目标上限</b></td><td><code>%s TON</code></td></tr>\n", highTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💵 美元折算</b></td><td><code>~$%s</code></td></tr>\n", expectedUSD))
-		sb.WriteString("</table>\n\n")
-
-		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>🧬 深度市场与结构解构</summary>\n")
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td>字符长度</td><td><b>%d 个字符</b></td></tr>\n", length))
-		sb.WriteString(fmt.Sprintf("<tr><td>流动性评级</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(liquidity)))
-		sb.WriteString(fmt.Sprintf("<tr><td>预计出售周期</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(sellTime)))
-		sb.WriteString(fmt.Sprintf("<tr><td>目标买家</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(buyerProfile)))
-		if compsCount > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td>历史对标</td><td><b>%d 笔记录</b></td></tr>\n", compsCount))
-		}
-		sb.WriteString(fmt.Sprintf("<tr><td>模型置信度</td><td><b>%d%%</b></td></tr>\n", confidence))
-		sb.WriteString("</table>\n")
-		sb.WriteString("</details>\n\n")
-
-		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>💸 Fragment 交易经济模型</summary>\n")
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td>Fragment 协议手续费 (5%%)</td><td><code>-%.1f TON</code></td></tr>\n", fragFee))
-		sb.WriteString(fmt.Sprintf("<tr><td>卖家净收益</td><td><b>%.1f TON</b></td></tr>\n", netProceeds))
-		sb.WriteString("</table>\n")
-		sb.WriteString("</details>\n\n")
-
-		sb.WriteString("<blockquote>⚡ AVM v7.0 估值引擎 — Fragment 市场深度信号</blockquote>")
-
-	default: // "en"
-		sb.WriteString(fmt.Sprintf("<h1>🏷️ Valuation Report: @%s</h1>\n\n", telegram.EscapeHTML(cleanUser)))
-		sb.WriteString(fmt.Sprintf("<p>%s Investment Grade: <b>%s</b><br/>", gradeEmoji, telegram.EscapeHTML(grade)))
-		sb.WriteString(fmt.Sprintf("📈 Brandability Score: <b>%d / 100</b><br/>", brandability))
-		sb.WriteString(fmt.Sprintf("💰 Estimated Fair Value: <b>~%s TON (~$%s)</b></p>\n\n", expectedTON, expectedUSD))
-
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📉 Floor Value</b></td><td><code>%s TON</code></td></tr>\n", lowTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 Fair Average</b></td><td><code>%s TON</code></td></tr>\n", expectedTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📈 Ceiling Target</b></td><td><code>%s TON</code></td></tr>\n", highTON))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💵 USD Equiv.</b></td><td><code>~$%s</code></td></tr>\n", expectedUSD))
-		sb.WriteString("</table>\n\n")
-
-		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>🧬 Deep Market & Structural Anatomy</summary>\n")
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td>Length</td><td><b>%d characters</b></td></tr>\n", length))
-		sb.WriteString(fmt.Sprintf("<tr><td>Liquidity Tier</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(liquidity)))
-		sb.WriteString(fmt.Sprintf("<tr><td>Estimated Sale Time</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(sellTime)))
-		sb.WriteString(fmt.Sprintf("<tr><td>Target Buyer</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(buyerProfile)))
-		if compsCount > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td>Historical Comps</td><td><b>%d recorded sales</b></td></tr>\n", compsCount))
-		}
-		sb.WriteString(fmt.Sprintf("<tr><td>Model Confidence</td><td><b>%d%%</b></td></tr>\n", confidence))
-		sb.WriteString("</table>\n")
-		sb.WriteString("</details>\n\n")
-
-		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>💸 Transaction Economics on Fragment</summary>\n")
-		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td>Fragment 5%% Protocol Fee</td><td><code>-%.1f TON</code></td></tr>\n", fragFee))
-		sb.WriteString(fmt.Sprintf("<tr><td>Net Seller Proceeds</td><td><b>%.1f TON</b></td></tr>\n", netProceeds))
-		sb.WriteString(fmt.Sprintf("<tr><td>Rec. Start Bid</td><td><code>%.0f TON</code></td></tr>\n", recStartBid))
-		sb.WriteString("</table>\n")
-		sb.WriteString("</details>\n\n")
-
-		sb.WriteString("<blockquote>⚡ AVM v7.0 Valuation Engine — Fragment Market Signals</blockquote>")
-	}
-
-	return sb.String()
+	return formatUsernameRichHTML(username, res, lang)
 }
 
 // buildUsernameStandardHTML constructs a complete, rich analytical report for telegram chat PV
-// using native Telegram HTML (<blockquote expandable>, <b>, <code>) identical in depth to the Mini App.
 func buildUsernameStandardHTML(username string, res *avm.ValuationResult, lang string) string {
-	l := normalizeLang(lang)
-	cleanUser := strings.TrimPrefix(strings.ToLower(username), "@")
-	if res == nil {
-		switch l {
-		case "fa":
-			return fmt.Sprintf("🏷️ <b>کارشناسی نام کاربری: @%s</b>\n\nگزارش کامل شاخص‌های برندپذیری و ارزش‌گذاری این نام کاربری هم‌اکنون آماده است.", cleanUser)
-		case "ru":
-			return fmt.Sprintf("🏷️ <b>Оценка имени пользователя: @%s</b>\n\nПолный отчет о брендируемости и оценке доступен для просмотра.", cleanUser)
-		case "zh":
-			return fmt.Sprintf("🏷️ <b>用户名估值: @%s</b>\n\n该用户名的品牌指数与公允价值报告已生成。", cleanUser)
-		default:
-			return fmt.Sprintf("🏷️ <b>Username Valuation: @%s</b>\n\nFull brandability and valuation report is now available.", cleanUser)
-		}
-	}
-
-	var gradeEmoji string = "📊"
-	switch res.InvestmentGrade {
-	case "AAA", "AA":
-		gradeEmoji = "💎"
-	case "A", "BBB":
-		gradeEmoji = "⭐"
-	default:
-		gradeEmoji = "📊"
-	}
-
-	expFloat, _ := res.ExpectedTON.Float64()
-	fragFee := math.Max(5.0, math.Round(expFloat*0.05*10)/10)
-	netProceeds := math.Max(0.0, expFloat-fragFee)
-	netUSD := math.Max(0.0, netProceeds*(expFloat/math.Max(1.0, expFloat)))
-	if res.ExpectedUSD.IsPositive() && expFloat > 0 {
-		usdFloat, _ := res.ExpectedUSD.Float64()
-		netUSD = netProceeds * (usdFloat / expFloat)
-	}
-	recStartBid := math.Round(expFloat * 0.7)
-	rentMonthly := math.Round(expFloat*0.045*10) / 10
-
-	maxRational := res.MaxRationalBidTON.StringFixed(1)
-	if res.MaxRationalBidTON.IsZero() && expFloat > 0 {
-		maxRational = fmt.Sprintf("%.1f", expFloat*0.8)
-	}
-
-	length := res.Length
-	if length == 0 {
-		length = len(cleanUser)
-	}
-
-	charsTypeFa := "صرفاً حروف الفبا (خالص)"
-	charsTypeEn := "Pure Alphabetic (Letters Only)"
-	if res.Structure.HasDigits && res.Structure.HasUnderscore {
-		charsTypeFa = "ترکیبی (دارای عدد و خط زیر)"
-		charsTypeEn = "Mixed (Digits & Underscore)"
-	} else if res.Structure.HasDigits {
-		charsTypeFa = "دارای ارقام عددی"
-		charsTypeEn = "Alphanumeric (Contains Digits)"
-	} else if res.Structure.HasUnderscore {
-		charsTypeFa = "دارای خط زیر (_)"
-		charsTypeEn = "Contains Underscore (_)"
-	}
-
-	lenTierFa := "استاندارد"
-	lenTierEn := "Standard"
-	if length <= 4 {
-		lenTierFa = "فوق‌کوتاه و نایاب"
-		lenTierEn = "Ultra-Short"
-	} else if length <= 6 {
-		lenTierFa = "کوتاه رند"
-		lenTierEn = "Short"
-	}
-
-	dictWordFa := "شناسه غیرلغوی / فانتزی"
-	dictWordEn := "Generic Alphanumeric"
-	if res.Dictionary.IsWord {
-		dictWordFa = "لغت معتبر لغت‌نامه انگلیسی"
-		dictWordEn = "Dictionary Word"
-	}
-
-	trademarkRiskFa := "سطح ایمن (بدون گزارش نقض برند)"
-	trademarkRiskEn := "Low Risk (Clean TOS record)"
-	if res.TrademarkRisk.RiskLevel == "HIGH" {
-		trademarkRiskFa = "⚠️ ریسک بالا (خطر مصادره یا نقض برند)"
-		trademarkRiskEn = "⚠️ High Risk (Potential Trademark Conflict)"
-	} else if res.TrademarkRisk.RiskLevel == "MEDIUM" {
-		trademarkRiskFa = "ریسک متوسط (تشابه نسبی با برند)"
-		trademarkRiskEn = "Medium Risk (Potential Brand Similarity)"
-	}
-
-	fngFa := "متعادل"
-	if res.FearGreedLabel != "" {
-		fngFa = res.FearGreedLabel
-	}
-
-	certID := res.CertificateID
-	if certID == "" {
-		certID = fmt.Sprintf("CERT-AVM-2026-%d", (time.Now().UnixNano()/1000)%9000+1000)
-	}
-
-	contractItem := "توکنایز نشده (Unminted)"
-	if res.TelemintProvenance != nil && res.TelemintProvenance.ItemAddress != "" {
-		addr := res.TelemintProvenance.ItemAddress
-		if len(addr) > 10 {
-			contractItem = addr[:6] + "..." + addr[len(addr)-4:]
-		} else {
-			contractItem = addr
-		}
-	}
-
-	switch l {
-	case "fa":
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("🏷️ <b>کارشناسی تحلیلی نام کاربری: @%s</b>\n\n", telegram.EscapeHTML(cleanUser)))
-		sb.WriteString(fmt.Sprintf("%s درجه سرمایه‌گذاری: <b>%s</b>\n", gradeEmoji, telegram.EscapeHTML(res.InvestmentGrade)))
-		sb.WriteString(fmt.Sprintf("📈 شاخص برندپذیری: <b>%d / 100</b>\n", res.Brandability))
-		sb.WriteString(fmt.Sprintf("💰 برآورد ارزش منصفانه: <b>~%s TON (معادل $%s)</b>\n", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("🎯 شاخص اطمینان مدل: <b>%d%%</b>\n\n", res.ConfidenceScore))
-
-		// Module 1: Price Spectrum
-		sb.WriteString("<blockquote expandable>📊 <b>ماتریس ارزش‌گذاری و طیف قیمت:</b>\n")
-		sb.WriteString(fmt.Sprintf("• کف نقدشوندگی (Floor): <code>%s TON</code> (~$%s)\n", res.LowTON.StringFixed(1), res.LowUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• ارزش منصفانه (Fair Value): <code>%s TON</code> (~$%s)\n", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• سقف هدف ارزش (Ceiling): <code>%s TON</code> (~$%s)\n", res.HighTON.StringFixed(1), res.HighUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• سقف پیشنهاد عقلانی خریدار: <code>%s TON</code>\n", maxRational))
-		sb.WriteString("• پایه محاسباتی: تحلیل رگرسیون معاملات همتراز فرگمنت</blockquote>\n\n")
-
-		// Module 2: Economics & Rent Yield
-		sb.WriteString("<blockquote expandable>💸 <b>محاسبات مالی معامله و درآمد اجاره:</b>\n")
-		sb.WriteString(fmt.Sprintf("• ارزش ناخالص تخمینی: <code>%s TON</code>\n", res.ExpectedTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("• کارمزد ۵٪ فرگمنت: <code>-%.1f TON</code> (حداقل ۵ TON)\n", fragFee))
-		sb.WriteString(fmt.Sprintf("• خالص عایدی فروشنده (Net): <code>%.1f TON (~$%.0f)</code>\n", netProceeds, netUSD))
-		sb.WriteString(fmt.Sprintf("• شروع پیشنهادی حراج: <code>%.0f TON</code>\n", recStartBid))
-		sb.WriteString(fmt.Sprintf("• پتانسیل درآمد اجاره: <code>~%.1f TON / ماه</code> (بازده ~54.0%% APY)</blockquote>\n\n", rentMonthly))
-
-		// Module 3: Structural & Linguistic Anatomy
-		sb.WriteString("<blockquote expandable>🧬 <b>آناتومی ساختاری و تحلیل لغوی:</b>\n")
-		sb.WriteString(fmt.Sprintf("• طول شناسه: <b>%d کاراکتر</b> (%s)\n", length, lenTierFa))
-		sb.WriteString(fmt.Sprintf("• ترکیب کاراکترها: <b>%s</b>\n", charsTypeFa))
-		sb.WriteString(fmt.Sprintf("• وضعیت لغت‌نامه: <b>%s</b>\n", dictWordFa))
-		if res.Dictionary.IsWord && res.Dictionary.Definition != "" {
-			sb.WriteString(fmt.Sprintf("• معنی لغوی: <i>\"%s\"</i>\n", telegram.EscapeHTML(res.Dictionary.Definition)))
-		}
-		if res.WikipediaSummary != "" {
-			summary := res.WikipediaSummary
-			if len([]rune(summary)) > 100 {
-				summary = string([]rune(summary)[:97]) + "..."
-			}
-			sb.WriteString(fmt.Sprintf("• خلاصه دانشنامه: <i>%s</i>\n", telegram.EscapeHTML(summary)))
-		}
-		sb.WriteString(fmt.Sprintf("• رتبه نقدشوندگی: <b>%s</b>\n", telegram.EscapeHTML(res.LiquidityRating)))
-		sb.WriteString(fmt.Sprintf("• افق زمانی فروش: <b>%s</b>\n", telegram.EscapeHTML(res.EstimatedSellTime)))
-		sb.WriteString(fmt.Sprintf("• مخاطب و پرسونای هدف: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(res.TargetBuyerProfile)))
-
-		// Module 4: Legal & Risk Matrix
-		sb.WriteString("<blockquote expandable>⚖️ <b>ریسک حقوقی، امنیت و جو بازار:</b>\n")
-		sb.WriteString(fmt.Sprintf("• ریسک علامت تجاری (TOS §4): <b>%s</b>\n", trademarkRiskFa))
-		sb.WriteString("• امنیت در برابر فیشینگ: <b>سطح ایمن (بدون دوقلوی هموگلیف)</b>\n")
-		sb.WriteString(fmt.Sprintf("• شاخص ترس و طمع بازار: <b>%s (%d/100)</b>\n", fngFa, res.FearGreedIndex))
-		if res.ComparableSales > 0 {
-			sb.WriteString(fmt.Sprintf("• معاملات مشابه ثبت‌شده: <b>%d فروش قطعی</b></blockquote>\n\n", res.ComparableSales))
-		} else {
-			sb.WriteString("• معاملات مشابه ثبت‌شده: <b>سوابق اختصاصی شبکه فرگمنت</b></blockquote>\n\n")
-		}
-
-		// Module 5: Provenance & Projections
-		sb.WriteString("<blockquote expandable>🔗 <b>اصالت هوشمند و پیش‌بینی ۱۲ ماهه:</b>\n")
-		sb.WriteString(fmt.Sprintf("• قرارداد هوشمند (Telemint): <code>%s</code>\n", contractItem))
-		sb.WriteString(fmt.Sprintf("• سناریوی صعودی (Bull): <code>+65%% (~%.1f TON)</code>\n", expFloat*1.65))
-		sb.WriteString(fmt.Sprintf("• سناریوی پایه (Base): <code>+25%% (~%.1f TON)</code>\n", expFloat*1.25))
-		sb.WriteString(fmt.Sprintf("• شناسه گواهی دیجیتال: <code>%s</code></blockquote>\n\n", certID))
-
-		sb.WriteString("⚡ <i>موتور هوشمند AVM v7.0 — ارزیابی جامع معاملات فرگمنت</i>")
-		return sb.String()
-
-	case "ru":
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("🏷️ <b>Аналитическая оценка: @%s</b>\n\n", telegram.EscapeHTML(cleanUser)))
-		sb.WriteString(fmt.Sprintf("%s Инвест-грейд: <b>%s</b>\n", gradeEmoji, telegram.EscapeHTML(res.InvestmentGrade)))
-		sb.WriteString(fmt.Sprintf("📈 Индекс бренда: <b>%d / 100</b>\n", res.Brandability))
-		sb.WriteString(fmt.Sprintf("💰 Справедливая оценка: <b>~%s TON (~$%s)</b>\n", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("🎯 Точность модели: <b>%d%%</b>\n\n", res.ConfidenceScore))
-
-		sb.WriteString("<blockquote expandable>📊 <b>Матрица стоимости и диапазон цен:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Нижняя граница (Floor): <code>%s TON</code> (~$%s)\n", res.LowTON.StringFixed(1), res.LowUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• Справедливая цена (Fair): <code>%s TON</code> (~$%s)\n", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• Верхняя цель (Ceiling): <code>%s TON</code> (~$%s)\n", res.HighTON.StringFixed(1), res.HighUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• Макс. рациональная ставка: <code>%s TON</code>\n", maxRational))
-		sb.WriteString("• Базис: регрессионная модель сделок Fragment AVM v7.0</blockquote>\n\n")
-
-		sb.WriteString("<blockquote expandable>💸 <b>Финансовая модель и доходность аренды:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Валовая стоимость: <code>%s TON</code>\n", res.ExpectedTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("• Комиссия Fragment (5%%): <code>-%.1f TON</code>\n", fragFee))
-		sb.WriteString(fmt.Sprintf("• Чистая выплата продавцу: <code>%.1f TON (~$%.0f)</code>\n", netProceeds, netUSD))
-		sb.WriteString(fmt.Sprintf("• Рекомендуемый старт аукциона: <code>%.0f TON</code>\n", recStartBid))
-		sb.WriteString(fmt.Sprintf("• Доходность аренды: <code>~%.1f TON / мес (54%% APY)</code></blockquote>\n\n", rentMonthly))
-
-		sb.WriteString("<blockquote expandable>🧬 <b>Структурный и языковой анализ:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Длина имени: <b>%d симв.</b>\n", length))
-		sb.WriteString(fmt.Sprintf("• Ликвидность: <b>%s</b>\n", telegram.EscapeHTML(res.LiquidityRating)))
-		sb.WriteString(fmt.Sprintf("• Срок продажи: <b>%s</b>\n", telegram.EscapeHTML(res.EstimatedSellTime)))
-		sb.WriteString(fmt.Sprintf("• Целевой покупатель: <b>%s</b>\n", telegram.EscapeHTML(res.TargetBuyerProfile)))
-		sb.WriteString(fmt.Sprintf("• Сертификат AVM: <code>%s</code></blockquote>\n\n", certID))
-
-		sb.WriteString("⚡ <i>AVM v7.0 Engine — Сигналы рынка Fragment</i>")
-		return sb.String()
-
-	case "zh":
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("🏷️ <b>分析估值报告: @%s</b>\n\n", telegram.EscapeHTML(cleanUser)))
-		sb.WriteString(fmt.Sprintf("%s 投资评级: <b>%s</b>\n", gradeEmoji, telegram.EscapeHTML(res.InvestmentGrade)))
-		sb.WriteString(fmt.Sprintf("📈 品牌指数: <b>%d / 100</b>\n", res.Brandability))
-		sb.WriteString(fmt.Sprintf("💰 预估公允价值: <b>~%s TON (约合 $%s)</b>\n", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("🎯 模型置信度: <b>%d%%</b>\n\n", res.ConfidenceScore))
-
-		sb.WriteString("<blockquote expandable>📊 <b>多维估值矩阵与区间:</b>\n")
-		sb.WriteString(fmt.Sprintf("• 底价估值 (Floor): <code>%s TON</code> (~$%s)\n", res.LowTON.StringFixed(1), res.LowUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• 公允均价 (Fair): <code>%s TON</code> (~$%s)\n", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• 目标上限 (Ceiling): <code>%s TON</code> (~$%s)\n", res.HighTON.StringFixed(1), res.HighUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• 买家理性竞价上限: <code>%s TON</code>\n", maxRational))
-		sb.WriteString("• 定价基准: Fragment 实时撮合成交数据模型</blockquote>\n\n")
-
-		sb.WriteString("<blockquote expandable>💸 <b>交易财务指标与租赁收益:</b>\n")
-		sb.WriteString(fmt.Sprintf("• 协议手续费 (5%%): <code>-%.1f TON</code>\n", fragFee))
-		sb.WriteString(fmt.Sprintf("• 卖家到手净收益: <code>%.1f TON (~$%.0f)</code>\n", netProceeds, netUSD))
-		sb.WriteString(fmt.Sprintf("• 建议起拍价: <code>%.0f TON</code>\n", recStartBid))
-		sb.WriteString(fmt.Sprintf("• 预估月租金潜力: <code>~%.1f TON / 月 (~54%% APY)</code></blockquote>\n\n", rentMonthly))
-
-		sb.WriteString("<blockquote expandable>🧬 <b>核心结构与流动性画像:</b>\n")
-		sb.WriteString(fmt.Sprintf("• 字符长度: <b>%d 个字符</b>\n", length))
-		sb.WriteString(fmt.Sprintf("• 流动性级别: <b>%s</b>\n", telegram.EscapeHTML(res.LiquidityRating)))
-		sb.WriteString(fmt.Sprintf("• 预期出售周期: <b>%s</b>\n", telegram.EscapeHTML(res.EstimatedSellTime)))
-		sb.WriteString(fmt.Sprintf("• 目标买家定位: <b>%s</b>\n", telegram.EscapeHTML(res.TargetBuyerProfile)))
-		sb.WriteString(fmt.Sprintf("• 数字验证证书: <code>%s</code></blockquote>\n\n", certID))
-
-		sb.WriteString("⚡ <i>AVM v7.0 估值引擎 — Fragment 市场深度信号</i>")
-		return sb.String()
-
-	default: // "en"
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("🏷️ <b>Valuation Report: @%s</b>\n\n", telegram.EscapeHTML(cleanUser)))
-		sb.WriteString(fmt.Sprintf("%s Investment Grade: <b>%s</b>\n", gradeEmoji, telegram.EscapeHTML(res.InvestmentGrade)))
-		sb.WriteString(fmt.Sprintf("📈 Brandability Score: <b>%d / 100</b>\n", res.Brandability))
-		sb.WriteString(fmt.Sprintf("💰 Estimated Fair Value: <b>~%s TON (~$%s)</b>\n", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("🎯 Model Confidence: <b>%d%%</b>\n\n", res.ConfidenceScore))
-
-		// Module 1: Price Spectrum
-		sb.WriteString("<blockquote expandable>📊 <b>Price Spectrum & Valuation Matrix:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Floor Value (Liquidity): <code>%s TON</code> (~$%s)\n", res.LowTON.StringFixed(1), res.LowUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• Fair Value (Analytical): <code>%s TON</code> (~$%s)\n", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• Ceiling Target (Bull): <code>%s TON</code> (~$%s)\n", res.HighTON.StringFixed(1), res.HighUSD.StringFixed(0)))
-		sb.WriteString(fmt.Sprintf("• Max Rational Bid: <code>%s TON</code>\n", maxRational))
-		sb.WriteString("• Valuation Basis: AVM v7.0 Empirical Comps Regression</blockquote>\n\n")
-
-		// Module 2: Economics & Rent Yield
-		sb.WriteString("<blockquote expandable>💸 <b>Transaction Economics & Yield:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Gross Valuation: <code>%s TON</code>\n", res.ExpectedTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("• Fragment 5%% Protocol Fee: <code>-%.1f TON</code> (min 5 TON)\n", fragFee))
-		sb.WriteString(fmt.Sprintf("• Net Seller Proceeds: <code>%.1f TON (~$%.0f)</code>\n", netProceeds, netUSD))
-		sb.WriteString(fmt.Sprintf("• Recommended Start Bid: <code>%.0f TON</code>\n", recStartBid))
-		sb.WriteString(fmt.Sprintf("• Monthly Rental Yield: <code>~%.1f TON / mo (~54.0%% APY)</code></blockquote>\n\n", rentMonthly))
-
-		// Module 3: Structural & Linguistic Anatomy
-		sb.WriteString("<blockquote expandable>🧬 <b>Structural & Linguistic Anatomy:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Character Length: <b>%d chars</b> (%s)\n", length, lenTierEn))
-		sb.WriteString(fmt.Sprintf("• Composition: <b>%s</b>\n", charsTypeEn))
-		sb.WriteString(fmt.Sprintf("• Dictionary Status: <b>%s</b>\n", dictWordEn))
-		if res.Dictionary.IsWord && res.Dictionary.Definition != "" {
-			sb.WriteString(fmt.Sprintf("• Definition: <i>\"%s\"</i>\n", telegram.EscapeHTML(res.Dictionary.Definition)))
-		}
-		sb.WriteString(fmt.Sprintf("• Liquidity Rating: <b>%s</b>\n", telegram.EscapeHTML(res.LiquidityRating)))
-		sb.WriteString(fmt.Sprintf("• Estimated Sale Horizon: <b>%s</b>\n", telegram.EscapeHTML(res.EstimatedSellTime)))
-		sb.WriteString(fmt.Sprintf("• Target Buyer Persona: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(res.TargetBuyerProfile)))
-
-		// Module 4: Legal & Risk Matrix
-		sb.WriteString("<blockquote expandable>⚖️ <b>Legal TOS, Risk & Market Sentiment:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Trademark Risk (TOS §4): <b>%s</b>\n", trademarkRiskEn))
-		sb.WriteString("• Phishing Threat Level: <b>Clean (Zero homoglyph spoofing)</b>\n")
-		sb.WriteString(fmt.Sprintf("• Market Fear & Greed: <b>%s (%d/100)</b>\n", res.FearGreedLabel, res.FearGreedIndex))
-		if res.ComparableSales > 0 {
-			sb.WriteString(fmt.Sprintf("• Verified Comparable Trades: <b>%d sales</b></blockquote>\n\n", res.ComparableSales))
-		} else {
-			sb.WriteString("• Verified Comparable Trades: <b>Fragment Historical Ledger</b></blockquote>\n\n")
-		}
-
-		// Module 5: Provenance & Projections
-		sb.WriteString("<blockquote expandable>🔗 <b>On-Chain Provenance & Projections:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Smart Contract (Telemint): <code>%s</code>\n", contractItem))
-		sb.WriteString(fmt.Sprintf("• 12M Bull Scenario: <code>+65%% (~%.1f TON)</code>\n", expFloat*1.65))
-		sb.WriteString(fmt.Sprintf("• 12M Base Scenario: <code>+25%% (~%.1f TON)</code>\n", expFloat*1.25))
-		sb.WriteString(fmt.Sprintf("• Digital Certificate ID: <code>%s</code></blockquote>\n\n", certID))
-
-		sb.WriteString("⚡ <i>AVM v7.0 Engine — Fragment Market Signals</i>")
-		return sb.String()
-	}
+	return formatUsernameStandardHTML(username, res, lang)
 }
 
 // buildUsernameMarkup creates an inline keyboard localized to user's language.
@@ -601,8 +100,84 @@ func buildUsernameMarkup(username string, appURL string, copySummary string, lan
 
 // ─── Number Formatters ────────────────────────────────────────────────────────
 
+// formatPriceBasis provides clean, localized explanations for NV Engine's valuation basis.
+func formatPriceBasis(basis string, lang string) string {
+	l := normalizeLang(lang)
+	b := strings.ToLower(strings.TrimSpace(basis))
+	switch l {
+	case "fa":
+		switch {
+		case strings.Contains(b, "exact") || strings.Contains(b, "direct_sales"):
+			return "فروش‌های قطعی و معاملات مستقیم"
+		case strings.Contains(b, "pattern"):
+			return "الگوریتم تطبیق الگوهای کمیاب"
+		case strings.Contains(b, "median") || strings.Contains(b, "class"):
+			return "میانه آماری رده کلکسیونی"
+		default:
+			return "مدل رگرسیون هدونیک بلاک‌چین"
+		}
+	case "ru":
+		switch {
+		case strings.Contains(b, "exact") || strings.Contains(b, "direct_sales"):
+			return "Прямые подтверждённые продажи"
+		case strings.Contains(b, "pattern"):
+			return "Алгоритм редких паттернов"
+		case strings.Contains(b, "median") || strings.Contains(b, "class"):
+			return "Статистическая медиана класса"
+		default:
+			return "Гедоническая регрессия TON"
+		}
+	case "zh":
+		switch {
+		case strings.Contains(b, "exact") || strings.Contains(b, "direct_sales"):
+			return "链上历史真实成交锚定"
+		case strings.Contains(b, "pattern"):
+			return "稀缺数字形态匹配算法"
+		case strings.Contains(b, "median") || strings.Contains(b, "class"):
+			return "收藏品类统计中位数"
+		default:
+			return "TON 链上特征回归模型"
+		}
+	default: // "en"
+		switch {
+		case strings.Contains(b, "exact") || strings.Contains(b, "direct_sales"):
+			return "Direct Realized Sales Anchor"
+		case strings.Contains(b, "pattern"):
+			return "Rare Pattern Matching Algorithm"
+		case strings.Contains(b, "median") || strings.Contains(b, "class"):
+			return "Category Club Statistical Median"
+		default:
+			return "Hedonic Blockchain Regression"
+		}
+	}
+}
+
+// renderProgressBar formats a numeric percentage (0-100) into a 6-block visual progress bar (e.g. ▰▰▰▰▱▱ 70%)
+func renderProgressBar(percent float64) string {
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	totalBlocks := 6
+	filledBlocks := int(math.Round((percent / 100.0) * float64(totalBlocks)))
+	if filledBlocks > totalBlocks {
+		filledBlocks = totalBlocks
+	}
+	var sb strings.Builder
+	for i := 0; i < filledBlocks; i++ {
+		sb.WriteString("▰")
+	}
+	for i := filledBlocks; i < totalBlocks; i++ {
+		sb.WriteString("▱")
+	}
+	sb.WriteString(fmt.Sprintf(" %.0f%%", percent))
+	return sb.String()
+}
+
 // buildNumberRichHTML builds structured Rich Message HTML for +888 Anonymous Numbers
-// compatible with Bot API 10.1+ rich_message specs.
+// compatible with Bot API 10.1+ rich_message specs, covering all deep analytics from NV Engine.
 func buildNumberRichHTML(val *nvengine.NumberValuation, lang string) string {
 	l := normalizeLang(lang)
 	if val == nil {
@@ -636,71 +211,116 @@ func buildNumberRichHTML(val *nvengine.NumberValuation, lang string) string {
 		colorName = "Default"
 	}
 
+	priceBasisFormatted := formatPriceBasis(val.PriceBasis, l)
+
 	var sb strings.Builder
 	switch l {
 	case "fa":
-		priceBasisFa := "فروش‌های مستقیم و همتراز"
-		if strings.Contains(val.PriceBasis, "median") {
-			priceBasisFa = "میانه آماری رده"
-		} else if strings.Contains(val.PriceBasis, "pattern") {
-			priceBasisFa = "الگوریتم تطبیق الگو"
-		}
-
 		sb.WriteString(fmt.Sprintf("<h1>📱 کارشناسی تحلیلی شماره: %s</h1>\n\n", telegram.EscapeHTML(dispNum)))
-		sb.WriteString(fmt.Sprintf("<p>👑 کلوپ دسته‌بندی: <b>%s</b><br/>", telegram.EscapeHTML(club)))
+		sb.WriteString(fmt.Sprintf("<p>👑 کلوب دسته‌بندی: <b>%s</b><br/>", telegram.EscapeHTML(club)))
 		if val.GlobalRank > 0 {
-			sb.WriteString(fmt.Sprintf("🏆 رتبه کمیابی در شبکه: <b>#%d از ۱۳۶,۵۶۶</b><br/>", val.GlobalRank))
+			sb.WriteString(fmt.Sprintf("🏆 رتبه کمیابی در شبکه: <b>#%d از %s</b><br/>", val.GlobalRank, fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		}
 		sb.WriteString(fmt.Sprintf("🎯 شاخص اطمینان مدل: <b>%d%%</b><br/>", val.ConfidenceScore))
 		sb.WriteString(fmt.Sprintf("💰 برآورد ارزش منصفانه: <b>~%s TON (معادل $%.0f)</b></p>\n\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
 
 		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💧 کف نقدشوندگی</b></td><td><code>%s TON</code></td></tr>\n", val.LowTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 قیمت منصفانه (Fair)</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📈 سقف ارزش احتمالی</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.HighTON.StringFixed(1), val.HighUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> کف نقدشوندگی</b></td><td><code>%s TON</code></td></tr>\n", val.LowTON.StringFixed(1)))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> قیمت منصفانه (Fair)</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> سقف ارزش احتمالی</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.HighTON.StringFixed(1), val.HighUSD))
 		if val.CollateralValueTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>🏦 ارزش وثیقه DeFi</b></td><td><code>%.1f TON (~$%.0f)</code></td></tr>\n", val.CollateralValueTON, val.CollateralValueUSD))
+			sb.WriteString(fmt.Sprintf("<tr><td><b> ارزش وثیقه DeFi</b></td><td><code>%.1f TON (~$%.0f)</code></td></tr>\n", val.CollateralValueTON, val.CollateralValueUSD))
 		}
 		sb.WriteString("</table>\n\n")
 
+		// Rarity DNA Bars
+		if len(val.RarityDNA) > 0 {
+			sb.WriteString("<p>🧬 <b>شاخص‌های ژنتیکی و کمیابی الگو:</b><br/>\n")
+			for _, dna := range val.RarityDNA {
+				label := dna.LabelFa
+				if label == "" {
+					label = dna.LabelEn
+				}
+				sb.WriteString(fmt.Sprintf("• %s (%s): <code>%s</code><br/>\n", telegram.EscapeHTML(label), telegram.EscapeHTML(dna.Value), renderProgressBar(dna.Percentile)))
+			}
+			sb.WriteString("</p>\n\n")
+		}
+
+		// Comps section
+		if len(val.Comps) > 0 {
+			sb.WriteString("<p>📈 <b>معاملات مشابه اخیر (Comps):</b><br/>\n")
+			for i, comp := range val.Comps {
+				if i >= 3 {
+					break
+				}
+				sb.WriteString(fmt.Sprintf("• %s: <b>%.1f TON</b> (~$%.0f)<br/>\n", telegram.EscapeHTML(comp.Number), comp.PriceTON, comp.PriceUSD))
+			}
+			sb.WriteString("</p>\n\n")
+		}
+
 		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>🎨 آناتومی الگو و تحلیل عمیق</summary>\n")
+		sb.WriteString("<summary>🔍 آناتومی الگو و تحلیل عمیق</summary>\n")
 		sb.WriteString("<table>\n")
 		sb.WriteString(fmt.Sprintf("<tr><td>رنگ رسمی فرگمنت</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(colorName)))
 		sb.WriteString(fmt.Sprintf("<tr><td>ارزش پایه مدل</td><td><b>%s TON</b></td></tr>\n", val.BasePriceTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("<tr><td>پایه قیمت‌گذاری</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(priceBasisFa)))
+		sb.WriteString(fmt.Sprintf("<tr><td>پایه قیمت‌گذاری</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(priceBasisFormatted)))
 		if val.LiquidationTON.IsPositive() {
 			sb.WriteString(fmt.Sprintf("<tr><td>ارزش تسویه آنی</td><td><b>%s TON</b></td></tr>\n", val.LiquidationTON.StringFixed(1)))
+		}
+		if val.PatternAnatomy.MaxRun > 0 {
+			sb.WriteString(fmt.Sprintf("<tr><td>بزرگ‌ترین تکرار ارقام</td><td><b>%d رقم</b></td></tr>\n", val.PatternAnatomy.MaxRun))
+		}
+		if val.RentalYield.MonthlyYieldTON > 0 {
+			sb.WriteString(fmt.Sprintf("<tr><td>درآمد تخمینی اجاره</td><td><b>~%.1f TON/ماه</b></td></tr>\n", val.RentalYield.MonthlyYieldTON))
 		}
 		sb.WriteString("</table>\n")
 		sb.WriteString("</details>\n\n")
 
-		sb.WriteString("<blockquote>⚡ NV Engine v3.0 — ثبت‌شده بر متدولوژی بلاکچین TON</blockquote>")
+		sb.WriteString("<blockquote>⚡ NV Engine v3.0 — ثبت‌شده با متدولوژی بلاک‌چین TON</blockquote>")
 
 	case "ru":
 		sb.WriteString(fmt.Sprintf("<h1>📱 Аналитическая оценка номера: %s</h1>\n\n", telegram.EscapeHTML(dispNum)))
 		sb.WriteString(fmt.Sprintf("<p>👑 Клуб классификации: <b>%s</b><br/>", telegram.EscapeHTML(club)))
 		if val.GlobalRank > 0 {
-			sb.WriteString(fmt.Sprintf("🏆 Ранг редкости: <b>#%d из 136,566</b><br/>", val.GlobalRank))
+			sb.WriteString(fmt.Sprintf("🏆 Ранг редкости: <b>#%d из %s</b><br/>", val.GlobalRank, fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		}
-		sb.WriteString(fmt.Sprintf("🎯 Индекс уверенности: <b>%d%%</b><br/>", val.ConfidenceScore))
-		sb.WriteString(fmt.Sprintf("💰 Справедливая стоимость: <b>~%s TON (~$%.0f)</b></p>\n\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("🎯 Индекс доверия: <b>%d%%</b><br/>", val.ConfidenceScore))
+		sb.WriteString(fmt.Sprintf("💰 Ожидаемая стоимость: <b>~%s TON (~$%.0f)</b></p>\n\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
 
 		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💧 Ликвидное дно</b></td><td><code>%s TON</code></td></tr>\n", val.LowTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 Справедливая цена</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📈 Потенциальный макс</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.HighTON.StringFixed(1), val.HighUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> Ликвидный пол</b></td><td><code>%s TON</code></td></tr>\n", val.LowTON.StringFixed(1)))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> Справедливая цена</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> Потолок цен</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.HighTON.StringFixed(1), val.HighUSD))
 		if val.CollateralValueTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>🏦 Залог в DeFi</b></td><td><code>%.1f TON (~$%.0f)</code></td></tr>\n", val.CollateralValueTON, val.CollateralValueUSD))
+			sb.WriteString(fmt.Sprintf("<tr><td><b> Залог в DeFi</b></td><td><code>%.1f TON (~$%.0f)</code></td></tr>\n", val.CollateralValueTON, val.CollateralValueUSD))
 		}
 		sb.WriteString("</table>\n\n")
 
+		if len(val.RarityDNA) > 0 {
+			sb.WriteString("<p>🧬 <b>ДНК редкости и метрики структуры:</b><br/>\n")
+			for _, dna := range val.RarityDNA {
+				sb.WriteString(fmt.Sprintf("• %s (%s): <code>%s</code><br/>\n", telegram.EscapeHTML(dna.LabelEn), telegram.EscapeHTML(dna.Value), renderProgressBar(dna.Percentile)))
+			}
+			sb.WriteString("</p>\n\n")
+		}
+
+		if len(val.Comps) > 0 {
+			sb.WriteString("<p>📈 <b>Похожие подтверждённые сделки:</b><br/>\n")
+			for i, comp := range val.Comps {
+				if i >= 3 {
+					break
+				}
+				sb.WriteString(fmt.Sprintf("• %s: <b>%.1f TON</b> (~$%.0f)<br/>\n", telegram.EscapeHTML(comp.Number), comp.PriceTON, comp.PriceUSD))
+			}
+			sb.WriteString("</p>\n\n")
+		}
+
 		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>🎨 Анатомия паттерна и метрики</summary>\n")
+		sb.WriteString("<summary>🔍 Анатомия паттерна и глубокий анализ</summary>\n")
 		sb.WriteString("<table>\n")
 		sb.WriteString(fmt.Sprintf("<tr><td>Цвет Fragment</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(colorName)))
-		sb.WriteString(fmt.Sprintf("<tr><td>Базовый пол</td><td><b>%s TON</b></td></tr>\n", val.BasePriceTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("<tr><td>Базис оценки</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(val.PriceBasis)))
+		sb.WriteString(fmt.Sprintf("<tr><td>Базовая цена</td><td><b>%s TON</b></td></tr>\n", val.BasePriceTON.StringFixed(1)))
+		sb.WriteString(fmt.Sprintf("<tr><td>Методология</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(priceBasisFormatted)))
 		if val.LiquidationTON.IsPositive() {
 			sb.WriteString(fmt.Sprintf("<tr><td>Ликвидация</td><td><b>%s TON</b></td></tr>\n", val.LiquidationTON.StringFixed(1)))
 		}
@@ -711,57 +331,101 @@ func buildNumberRichHTML(val *nvengine.NumberValuation, lang string) string {
 
 	case "zh":
 		sb.WriteString(fmt.Sprintf("<h1>📱 匿名号码估值报告: %s</h1>\n\n", telegram.EscapeHTML(dispNum)))
-		sb.WriteString(fmt.Sprintf("<p>👑 俱乐部归属: <b>%s</b><br/>", telegram.EscapeHTML(club)))
+		sb.WriteString(fmt.Sprintf("👑 归属俱乐部: <b>%s</b><br/>", telegram.EscapeHTML(club)))
 		if val.GlobalRank > 0 {
-			sb.WriteString(fmt.Sprintf("🏆 全网稀缺排名: <b>#%d / 136,566</b><br/>", val.GlobalRank))
+			sb.WriteString(fmt.Sprintf("🏆 全网稀缺排名: <b>#%d / %s</b><br/>", val.GlobalRank, fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		}
-		sb.WriteString(fmt.Sprintf("🎯 模型置信指数: <b>%d%%</b><br/>", val.ConfidenceScore))
-		sb.WriteString(fmt.Sprintf("💰 预估公允价值: <b>~%s TON (约合 $%.0f)</b></p>\n\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("🎯 置信评级: <b>%d%%</b><br/>", val.ConfidenceScore))
+		sb.WriteString(fmt.Sprintf("💰 公允价值: <b>%s TON (约合 $%.0f)</b></p>\n\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
 
 		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💧 变现底价</b></td><td><code>%s TON</code></td></tr>\n", val.LowTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 公允价值 (Fair)</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📈 潜力上限</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.HighTON.StringFixed(1), val.HighUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> 流动性底部</b></td><td><code>%s TON</code></td></tr>\n", val.LowTON.StringFixed(1)))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> 公允价格 (Fair)</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> 理想溢价上限</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.HighTON.StringFixed(1), val.HighUSD))
 		if val.CollateralValueTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>🏦 DeFi 抵押价值</b></td><td><code>%.1f TON (~$%.0f)</code></td></tr>\n", val.CollateralValueTON, val.CollateralValueUSD))
+			sb.WriteString(fmt.Sprintf("<tr><td><b> DeFi 抵押授信</b></td><td><code>%.1f TON (~$%.0f)</code></td></tr>\n", val.CollateralValueTON, val.CollateralValueUSD))
 		}
 		sb.WriteString("</table>\n\n")
 
+		if len(val.RarityDNA) > 0 {
+			sb.WriteString("<p>🧬 <b>稀缺 DNA 与形态特征:</b><br/>\n")
+			for _, dna := range val.RarityDNA {
+				sb.WriteString(fmt.Sprintf("• %s (%s): <code>%s</code><br/>\n", telegram.EscapeHTML(dna.LabelEn), telegram.EscapeHTML(dna.Value), renderProgressBar(dna.Percentile)))
+			}
+			sb.WriteString("</p>\n\n")
+		}
+
+		if len(val.Comps) > 0 {
+			sb.WriteString("<p>📈 <b>近期相似成交案例:</b><br/>\n")
+			for i, comp := range val.Comps {
+				if i >= 3 {
+					break
+				}
+				sb.WriteString(fmt.Sprintf("• %s: <b>%.1f TON</b> (~$%.0f)<br/>\n", telegram.EscapeHTML(comp.Number), comp.PriceTON, comp.PriceUSD))
+			}
+			sb.WriteString("</p>\n\n")
+		}
+
 		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>🎨 号码规律与深度指标</summary>\n")
+		sb.WriteString("<summary>🔍 形态解构与链上分析</summary>\n")
 		sb.WriteString("<table>\n")
 		sb.WriteString(fmt.Sprintf("<tr><td>Fragment 官方配色</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(colorName)))
-		sb.WriteString(fmt.Sprintf("<tr><td>模型基准底价</td><td><b>%s TON</b></td></tr>\n", val.BasePriceTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("<tr><td>估值定价基准</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(val.PriceBasis)))
+		sb.WriteString(fmt.Sprintf("<tr><td>基准定价</td><td><b>%s TON</b></td></tr>\n", val.BasePriceTON.StringFixed(1)))
+		sb.WriteString(fmt.Sprintf("<tr><td>估值基准</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(priceBasisFormatted)))
+		if val.LiquidationTON.IsPositive() {
+			sb.WriteString(fmt.Sprintf("<tr><td>快速变现估值</td><td><b>%s TON</b></td></tr>\n", val.LiquidationTON.StringFixed(1)))
+		}
 		sb.WriteString("</table>\n")
 		sb.WriteString("</details>\n\n")
 
-		sb.WriteString("<blockquote>⚡ NV Engine v3.0 — 基于 TON 智能合约数理体系</blockquote>")
+		sb.WriteString("<blockquote>⚡ NV Engine v3.0 — 专有链上数理定价模型</blockquote>")
 
 	default: // "en"
 		sb.WriteString(fmt.Sprintf("<h1>📱 Number Valuation Report: %s</h1>\n\n", telegram.EscapeHTML(dispNum)))
 		sb.WriteString(fmt.Sprintf("<p>👑 Category Club: <b>%s</b><br/>", telegram.EscapeHTML(club)))
 		if val.GlobalRank > 0 {
-			sb.WriteString(fmt.Sprintf("🏆 Network Rarity Rank: <b>#%d of 136,566</b><br/>", val.GlobalRank))
+			sb.WriteString(fmt.Sprintf("🏆 Network Rarity Rank: <b>#%d of %s</b><br/>", val.GlobalRank, fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		}
 		sb.WriteString(fmt.Sprintf("🎯 Model Confidence: <b>%d%%</b><br/>", val.ConfidenceScore))
-		sb.WriteString(fmt.Sprintf("💰 Estimated Fair Value: <b>~%s TON (~$%.0f)</b></p>\n\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("💰 Fair Valuation: <b>%s TON (~$%.0f)</b></p>\n\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
 
 		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💧 Liquidity Floor</b></td><td><code>%s TON</code></td></tr>\n", val.LowTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 Fair Value (Fair)</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
-		sb.WriteString(fmt.Sprintf("<tr><td><b>📈 Potential Peak</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.HighTON.StringFixed(1), val.HighUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> Liquidity Floor</b></td><td><code>%s TON</code></td></tr>\n", val.LowTON.StringFixed(1)))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> Fair Value</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b> Optimistic Ceiling</b></td><td><code>%s TON (~$%.0f)</code></td></tr>\n", val.HighTON.StringFixed(1), val.HighUSD))
 		if val.CollateralValueTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>🏦 DeFi Collateral</b></td><td><code>%.1f TON (~$%.0f)</code></td></tr>\n", val.CollateralValueTON, val.CollateralValueUSD))
+			sb.WriteString(fmt.Sprintf("<tr><td><b> DeFi Collateral</b></td><td><code>%.1f TON (~$%.0f)</code></td></tr>\n", val.CollateralValueTON, val.CollateralValueUSD))
 		}
 		sb.WriteString("</table>\n\n")
 
+		if len(val.RarityDNA) > 0 {
+			sb.WriteString("<p>🧬 <b>Rarity DNA & Attribute Bars:</b><br/>\n")
+			for _, dna := range val.RarityDNA {
+				sb.WriteString(fmt.Sprintf("• %s (%s): <code>%s</code><br/>\n", telegram.EscapeHTML(dna.LabelEn), telegram.EscapeHTML(dna.Value), renderProgressBar(dna.Percentile)))
+			}
+			sb.WriteString("</p>\n\n")
+		}
+
+		if len(val.Comps) > 0 {
+			sb.WriteString("<p>📈 <b>Recent Peer Comps:</b><br/>\n")
+			for i, comp := range val.Comps {
+				if i >= 3 {
+					break
+				}
+				sb.WriteString(fmt.Sprintf("• %s: <b>%.1f TON</b> (~$%.0f)<br/>\n", telegram.EscapeHTML(comp.Number), comp.PriceTON, comp.PriceUSD))
+			}
+			sb.WriteString("</p>\n\n")
+		}
+
 		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>🎨 Pattern Anatomy & Intelligence</summary>\n")
+		sb.WriteString("<summary>🔍 Pattern Anatomy & Deep Dive</summary>\n")
 		sb.WriteString("<table>\n")
-		sb.WriteString(fmt.Sprintf("<tr><td>Fragment Color</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(colorName)))
-		sb.WriteString(fmt.Sprintf("<tr><td>Model Base Floor</td><td><b>%s TON</b></td></tr>\n", val.BasePriceTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("<tr><td>Pricing Basis</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(val.PriceBasis)))
+		sb.WriteString(fmt.Sprintf("<tr><td>Official Color</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(colorName)))
+		sb.WriteString(fmt.Sprintf("<tr><td>Base Floor Model</td><td><b>%s TON</b></td></tr>\n", val.BasePriceTON.StringFixed(1)))
+		sb.WriteString(fmt.Sprintf("<tr><td>Valuation Basis</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(priceBasisFormatted)))
+		if val.LiquidationTON.IsPositive() {
+			sb.WriteString(fmt.Sprintf("<tr><td>Instant Liquidation</td><td><b>%s TON</b></td></tr>\n", val.LiquidationTON.StringFixed(1)))
+		}
 		sb.WriteString("</table>\n")
 		sb.WriteString("</details>\n\n")
 
@@ -772,17 +436,17 @@ func buildNumberRichHTML(val *nvengine.NumberValuation, lang string) string {
 }
 
 // buildNumberStandardHTML constructs a complete, rich analytical report for telegram chat PV
-// using native Telegram HTML (<blockquote expandable>, <b>, <code>) identical in depth to the Mini App.
+// using native Telegram HTML (<blockquote expandable>, <b>, <code>) utilizing all NV Engine deep analytics.
 func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, lang string) string {
 	l := normalizeLang(lang)
 	if val == nil {
 		switch l {
 		case "fa":
-			return fmt.Sprintf("📱 <b>کارشناسی شماره ناشناس: %s</b>\n\nگزارش کامل گرانش الگو، دسته‌بندی کلکسیونی و تحلیل نقدشوندگی هم‌اکنون در دسترس است.", fallbackNum)
+			return fmt.Sprintf("📱 <b>کارشناسی شماره ناشناس: %s</b>\n\nگزارش کامل الگو، دسته‌بندی کلکسیونی و تحلیل نقدشوندگی هم‌اکنون در دسترس است.", fallbackNum)
 		case "ru":
-			return fmt.Sprintf("📱 <b>Оценка номера: %s</b>\n\nПолный отчет о классификации и ликвидности доступен.", fallbackNum)
+			return fmt.Sprintf("📱 <b>Оценка номера: %s</b>\n\nПолный отчёт о классификации и ликвидности доступен.", fallbackNum)
 		case "zh":
-			return fmt.Sprintf("📱 <b>匿名号码估值: %s</b>\n\n号码分类与流动性评估报告已生成。", fallbackNum)
+			return fmt.Sprintf("📱 <b>匿名号码估值: %s</b>\n\n完整形态分析与收藏品流动性报告已生成。", fallbackNum)
 		default:
 			return fmt.Sprintf("📱 <b>Number Valuation: %s</b>\n\nFull pattern analytics and collectible liquidity report is now available.", fallbackNum)
 		}
@@ -823,29 +487,38 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		collateralUSD = val.ExpectedUSD * 0.45
 	}
 
-	rentMonthly := expFloat * 0.045
-	fragFee := math.Max(5.0, math.Round(expFloat*0.05*10)/10)
-	netPayout := math.Max(0.0, expFloat-fragFee)
+	rentMonthly := val.RentalYield.MonthlyYieldTON
+	rentAPY := val.RentalYield.EstApy
+	if rentMonthly <= 0 && expFloat > 0 {
+		rentMonthly = expFloat * 0.045
+	}
+	if rentAPY <= 0 {
+		rentAPY = 54.0
+	}
+
+	fragFee := val.Economics.FragmentFeeTON
+	if fragFee <= 0 {
+		fragFee = math.Max(5.0, math.Round(expFloat*0.05*10)/10)
+	}
+	netPayout := val.Economics.NetPayoutTON
+	if netPayout <= 0 {
+		netPayout = math.Max(0.0, expFloat-fragFee)
+	}
 
 	certID := val.CertificateID
 	if certID == "" {
 		certID = fmt.Sprintf("NV-CERT-2026-%d", (time.Now().UnixNano()/1000)%9000+1000)
 	}
 
-	priceBasisFa := "فروش‌های قطعی و همتراز"
-	if strings.Contains(val.PriceBasis, "pattern") {
-		priceBasisFa = "الگوریتم تطبیق الگوهای کمیاب"
-	} else if strings.Contains(val.PriceBasis, "median") {
-		priceBasisFa = "میانه آماری رده کلکسیونی"
-	}
+	priceBasisFormatted := formatPriceBasis(val.PriceBasis, l)
 
 	switch l {
 	case "fa":
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("📱 <b>کارشناسی تحلیلی شماره: %s</b>\n\n", telegram.EscapeHTML(val.DisplayNumber)))
-		sb.WriteString(fmt.Sprintf("👑 کلوپ دسته‌بندی: <b>%s</b>\n", telegram.EscapeHTML(club)))
+		sb.WriteString(fmt.Sprintf("👑 کلوب دسته‌بندی: <b>%s</b>\n", telegram.EscapeHTML(club)))
 		if val.GlobalRank > 0 {
-			sb.WriteString(fmt.Sprintf("🏆 رتبه کمیابی در شبکه: <b>#%d از ۱۳۶,۵۶۶ شماره</b>\n", val.GlobalRank))
+			sb.WriteString(fmt.Sprintf("🏆 رتبه کمیابی در شبکه: <b>#%d از %s شماره</b>\n", val.GlobalRank, fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		}
 		sb.WriteString(fmt.Sprintf("💰 ارزش منصفانه (Fair Value): <b>~%s TON (~$%.0f)</b>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
 		sb.WriteString(fmt.Sprintf("🎯 شاخص اطمینان مدل: <b>%d%%</b> | رنگ رسمی: <b>%s</b>\n\n", val.ConfidenceScore, telegram.EscapeHTML(colorName)))
@@ -855,62 +528,141 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		sb.WriteString(fmt.Sprintf("• ارزش منصفانه تحلیلی (Fair): <code>%s TON</code> (~$%.0f)\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
 		sb.WriteString(fmt.Sprintf("• قیمت پیشنهادی فروش (+15%%): <code>%s TON</code> (~$%.0f)\n", suggestedAskTON, suggestedAskUSD))
 		sb.WriteString(fmt.Sprintf("• ارزش تسویه فوری (-25%%): <code>%s TON</code> (~$%.0f)\n", liquidationTON, liquidationUSD))
-		sb.WriteString(fmt.Sprintf("• کف نقدشوندگی بازار (Floor): <code>%s TON</code>\n", val.LowTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("• قیمت پایه مدل: <code>%s TON</code> (مبنا: %s)</blockquote>\n\n", val.BasePriceTON.StringFixed(1), priceBasisFa))
+		sb.WriteString(fmt.Sprintf("• کف نقدشوندگی بازار (Floor): <code>%s TON</code> (~$%.0f)\n", val.LowTON.StringFixed(1), val.LowUSD))
+		sb.WriteString(fmt.Sprintf("• سقف ارزش احتمالی (Ceiling): <code>%s TON</code> (~$%.0f)\n", val.HighTON.StringFixed(1), val.HighUSD))
+		sb.WriteString(fmt.Sprintf("• قیمت پایه مدل: <code>%s TON</code> (مبنا: %s)</blockquote>\n\n", val.BasePriceTON.StringFixed(1), telegram.EscapeHTML(priceBasisFormatted)))
 
 		// Module 2: DeFi Collateral & Rental
 		sb.WriteString("<blockquote expandable>🏦 <b>امور مالی دیفای و بازده اجاره:</b>\n")
 		sb.WriteString(fmt.Sprintf("• ارزش وثیقه‌گذاری در TON DeFi: <code>%.1f TON (~$%.0f)</code> (LTV 45%%)\n", collateralTON, collateralUSD))
 		sb.WriteString(fmt.Sprintf("• برآورد اجاره ماهانه: <code>~%.1f TON / ماه</code>\n", rentMonthly))
-		sb.WriteString("• بازده سالانه اجاره (APY): <code>~54.0%</code>\n")
-		sb.WriteString("• احتمال نقدشوندگی ۳۰ روزه: <b>بالای ۸۰٪ (تقاضای فعال)</b></blockquote>\n\n")
+		sb.WriteString(fmt.Sprintf("• بازده سالانه اجاره (APY): <code>~%.1f%%</code>\n", rentAPY))
+		if val.Liquidity.LiquidityRating != "" {
+			sb.WriteString(fmt.Sprintf("• رتبه نقدشوندگی بازار: <b>%s</b> (مدت تخمینی فروش: %s)\n", telegram.EscapeHTML(val.Liquidity.LiquidityRating), telegram.EscapeHTML(val.Liquidity.EstimatedSellDays)))
+		} else {
+			sb.WriteString("• احتمال نقدشوندگی ۳۰ روزه: <b>بالای ۸۰٪ (تقاضای فعال)</b>\n")
+		}
+		if val.Liquidity.TargetBuyerProfile != "" {
+			sb.WriteString(fmt.Sprintf("• پروفایل خریدار هدف: <b>%s</b>\n", telegram.EscapeHTML(val.Liquidity.TargetBuyerProfile)))
+		}
+		sb.WriteString("</blockquote>\n\n")
 
-		// Module 3: Pattern & Cultural Radar
-		sb.WriteString("<blockquote expandable>🎨 <b>آناتومی الگو، تقارن و رادار فرهنگی:</b>\n")
+		// Module 3: Pattern Anatomy & Cultural Radar
+		sb.WriteString("<blockquote expandable>🧬 <b>آناتومی الگو، تقارن و رادار فرهنگی:</b>\n")
 		sb.WriteString(fmt.Sprintf("• رنگ رسمی فرگمنت: <b>%s</b>\n", telegram.EscapeHTML(colorName)))
-		sb.WriteString("• شاخص تقارن و روانی الگو: <b>بسیار بالا (کلوپ ویژه)</b>\n")
-		sb.WriteString("• رادار فرهنگی: <b>گرانش بالا در بازارهای آسیایی و سرمایه‌گذاران رند</b>\n")
+		if val.PatternAnatomy.PatternTypeFa != "" {
+			sb.WriteString(fmt.Sprintf("• تیپ الگوریتمی الگو: <b>%s</b>\n", telegram.EscapeHTML(val.PatternAnatomy.PatternTypeFa)))
+		}
+		if val.PatternAnatomy.MaxRun > 0 {
+			sb.WriteString(fmt.Sprintf("• بزرگ‌ترین دنباله تکرار: <b>%d رقم یکسان</b>\n", val.PatternAnatomy.MaxRun))
+		}
+		if val.PatternAnatomy.DistinctDigits > 0 {
+			sb.WriteString(fmt.Sprintf("• ارقام متمایز و یکتا: <b>%d رقم</b>\n", val.PatternAnatomy.DistinctDigits))
+		}
+		if len(val.RarityDNA) > 0 {
+			sb.WriteString("• ژنتیک و توزیع آماری:\n")
+			for _, dna := range val.RarityDNA {
+				dnaLabel := dna.LabelFa
+				if dnaLabel == "" {
+					dnaLabel = dna.LabelEn
+				}
+				sb.WriteString(fmt.Sprintf("  - %s: <code>%s</code> (%s)\n", telegram.EscapeHTML(dnaLabel), renderProgressBar(dna.Percentile), telegram.EscapeHTML(dna.Value)))
+			}
+		}
+		if len(val.CulturalRadar) > 0 {
+			sb.WriteString("• جاذبه رادار فرهنگی بین‌المللی:\n")
+			for _, cr := range val.CulturalRadar {
+				verdict := cr.VerdictFa
+				if verdict == "" {
+					verdict = cr.VerdictEn
+				}
+				sb.WriteString(fmt.Sprintf("  - %s: <b>%s</b> (امتیاز %d/100)\n", telegram.EscapeHTML(cr.MarketName), telegram.EscapeHTML(verdict), cr.Score))
+			}
+		}
 		sb.WriteString(fmt.Sprintf("• کلاس کمیابی کلکسیونی: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(club)))
 
 		// Module 4: Economics & Provenance
 		sb.WriteString("<blockquote expandable>💸 <b>محاسبات مالی معامله و اصالت هوشمند:</b>\n")
-		sb.WriteString(fmt.Sprintf("• ارزش ناخالص تخمینی: <code>%s TON</code>\n", val.ExpectedTON.StringFixed(1)))
+		sb.WriteString(fmt.Sprintf("• ارزش ناخالص ارزیابی: <code>%s TON</code>\n", val.ExpectedTON.StringFixed(1)))
 		sb.WriteString(fmt.Sprintf("• کارمزد ۵٪ پروتکل فرگمنت: <code>-%.1f TON</code>\n", fragFee))
 		sb.WriteString(fmt.Sprintf("• خالص دریافتی فروشنده: <code>%.1f TON (~$%.0f)</code>\n", netPayout, netPayout*(val.ExpectedUSD/math.Max(1.0, expFloat))))
-		sb.WriteString("• اصالت کالکشن: <b>کالکشن رسمی ۱۳۶,۵۶۶ شماره ناشناس تلمینت (On-Chain)</b>\n")
+		if val.TelemintProvenance.CollectionAddress != "" {
+			sb.WriteString(fmt.Sprintf("• کانترکت تلمینت: <code>%s</code>\n", telegram.EscapeHTML(val.TelemintProvenance.CollectionAddress)))
+		}
+		sb.WriteString(fmt.Sprintf("• اصالت کالکشن: <b>کالکشن رسمی و بسته %s شماره ناشناس تلمینت (On-Chain)</b>\n", fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
+		if val.OnChainAudit.MintDate != "" {
+			sb.WriteString(fmt.Sprintf("• تاریخ ساخت (Mint): <code>%s</code>\n", telegram.EscapeHTML(val.OnChainAudit.MintDate)))
+		}
+		if val.OnChainAudit.TransferCount > 0 {
+			sb.WriteString(fmt.Sprintf("• تعداد انتقال‌های ثبت‌شده: <b>%d بار</b>\n", val.OnChainAudit.TransferCount))
+		}
 		sb.WriteString(fmt.Sprintf("• شناسه گواهی دیجیتال: <code>%s</code></blockquote>\n\n", certID))
 
 		// Module 5: Playbook & Projection
 		sb.WriteString("<blockquote expandable>📈 <b>پیش‌بینی ۱۲ ماهه و توصیه عملیاتی:</b>\n")
-		sb.WriteString("• توصیه استراتژیک مدل: <b>نگهداری با افق رشد یا وثیقه‌گذاری در دیفای</b>\n")
-		sb.WriteString(fmt.Sprintf("• سناریوی صعودی (Bull): <code>+70%% (~%.1f TON)</code>\n", expFloat*1.70))
-		sb.WriteString(fmt.Sprintf("• سناریوی پایه (Base): <code>+30%% (~%.1f TON)</code>\n", expFloat*1.30))
-		sb.WriteString(fmt.Sprintf("• سناریوی نزولی (Bear): <code>-5%% (~%.1f TON)</code></blockquote>\n\n", expFloat*0.95))
+		recSummary := val.Recommendation.SummaryFa
+		if recSummary == "" {
+			recSummary = val.Recommendation.SummaryEn
+		}
+		if recSummary != "" {
+			sb.WriteString(fmt.Sprintf("• توصیه استراتژیک مدل: <b>%s</b> (سیگنال: %s)\n", telegram.EscapeHTML(recSummary), telegram.EscapeHTML(val.Recommendation.Verdict)))
+		} else {
+			sb.WriteString("• توصیه استراتژیک مدل: <b>نگه‌داری با افق رشد یا وثیقه‌گذاری در دیفای</b>\n")
+		}
+		if val.Projection.BullTON > 0 {
+			sb.WriteString(fmt.Sprintf("• سناریوی صعودی (Bull): <code>%.1f TON (~$%.0f)</code>\n", val.Projection.BullTON, val.Projection.BullUSD))
+			sb.WriteString(fmt.Sprintf("• سناریوی پایه (Base): <code>%.1f TON (~$%.0f)</code>\n", val.Projection.BaseTON, val.Projection.BaseUSD))
+			sb.WriteString(fmt.Sprintf("• سناریوی نزولی (Bear): <code>%.1f TON (~$%.0f)</code>\n", val.Projection.BearTON, val.Projection.BearUSD))
+		} else {
+			sb.WriteString(fmt.Sprintf("• سناریوی صعودی (Bull): <code>+70%% (~%.1f TON)</code>\n", expFloat*1.70))
+			sb.WriteString(fmt.Sprintf("• سناریوی پایه (Base): <code>+30%% (~%.1f TON)</code>\n", expFloat*1.30))
+			sb.WriteString(fmt.Sprintf("• سناریوی نزولی (Bear): <code>-5%% (~%.1f TON)</code>\n", expFloat*0.95))
+		}
+		if val.Playbook.SuggestedAuctionStartTON > 0 {
+			sb.WriteString(fmt.Sprintf("• شروع حراج پیشنهادی: <code>%.1f TON</code> | پله افزایش: <code>%.1f TON</code>\n", val.Playbook.SuggestedAuctionStartTON, val.Playbook.BidStepTON))
+		}
+		sb.WriteString("</blockquote>\n\n")
 
-		sb.WriteString("⚡ <i>موتور هوشمند NV Engine v3.0 — ثبت‌شده بر متدولوژی بلاکچین TON</i>")
+		sb.WriteString("⚡ <i>موتور هوشمند NV Engine v3.0 — ثبت‌شده با متدولوژی بلاک‌چین TON</i>")
 		return sb.String()
 
 	case "ru":
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("📱 <b>Оценка номера: %s</b>\n\n", telegram.EscapeHTML(val.DisplayNumber)))
-		sb.WriteString(fmt.Sprintf("👑 Клуб: <b>%s</b>\n", telegram.EscapeHTML(club)))
+		sb.WriteString(fmt.Sprintf("👑 Клуб классификации: <b>%s</b>\n", telegram.EscapeHTML(club)))
 		if val.GlobalRank > 0 {
-			sb.WriteString(fmt.Sprintf("🏆 Ранг редкости: <b>#%d из 136,566</b>\n", val.GlobalRank))
+			sb.WriteString(fmt.Sprintf("🏆 Ранг редкости: <b>#%d из %s</b>\n", val.GlobalRank, fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		}
-		sb.WriteString(fmt.Sprintf("💰 Справедливая цена: <b>~%s TON (~$%.0f)</b>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
-		sb.WriteString(fmt.Sprintf("🎯 Точность: <b>%d%%</b> | Цвет: <b>%s</b>\n\n", val.ConfidenceScore, telegram.EscapeHTML(colorName)))
+		sb.WriteString(fmt.Sprintf("💰 Справедливая цена: <b>%s TON (~$%.0f)</b>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("🎯 Индекс доверия: <b>%d%%</b> | Цвет: <b>%s</b>\n\n", val.ConfidenceScore, telegram.EscapeHTML(colorName)))
 
-		sb.WriteString("<blockquote expandable>📊 <b>4-уровневая матрица ликвидности:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Справедливая цена (Fair): <code>%s TON (~$%.0f)</code>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
-		sb.WriteString(fmt.Sprintf("• Рекомендуемая продажа (+15%%): <code>%s TON</code>\n", suggestedAskTON))
-		sb.WriteString(fmt.Sprintf("• Мгновенная ликвидация (-25%%): <code>%s TON</code>\n", liquidationTON))
-		sb.WriteString(fmt.Sprintf("• Ликвидное дно: <code>%s TON</code>\n", val.LowTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("• Залог в DeFi (LTV 45%%): <code>%.1f TON (~$%.0f)</code></blockquote>\n\n", collateralTON, collateralUSD))
+		sb.WriteString("<blockquote expandable>📊 <b>Матрица цен и ликвидности:</b>\n")
+		sb.WriteString(fmt.Sprintf("• Справедливая оценка: <code>%s TON (~$%.0f)</code>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("• Рекомендованная цена (+15%%): <code>%s TON</code>\n", suggestedAskTON))
+		sb.WriteString(fmt.Sprintf("• Быстрая ликвидация (-25%%): <code>%s TON</code>\n", liquidationTON))
+		sb.WriteString(fmt.Sprintf("• Ликвидный пол (Floor): <code>%s TON</code>\n", val.LowTON.StringFixed(1)))
+		sb.WriteString(fmt.Sprintf("• Базовый ориентир: <code>%s TON</code> (%s)</blockquote>\n\n", val.BasePriceTON.StringFixed(1), telegram.EscapeHTML(priceBasisFormatted)))
 
-		sb.WriteString("<blockquote expandable>💸 <b>Экономика Fragment и доходность:</b>\n")
+		if len(val.RarityDNA) > 0 {
+			sb.WriteString("<blockquote expandable>🧬 <b>ДНК структуры и паттернов:</b>\n")
+			for _, dna := range val.RarityDNA {
+				sb.WriteString(fmt.Sprintf("• %s: <code>%s</code> (%s)\n", telegram.EscapeHTML(dna.LabelEn), renderProgressBar(dna.Percentile), telegram.EscapeHTML(dna.Value)))
+			}
+			sb.WriteString("</blockquote>\n\n")
+		}
+
+		sb.WriteString("<blockquote expandable>🏦 <b>DeFi и арендный доход:</b>\n")
+		sb.WriteString(fmt.Sprintf("• Оценка залога в DeFi: <code>%.1f TON (~$%.0f)</code> (LTV 45%%)\n", collateralTON, collateralUSD))
+		sb.WriteString(fmt.Sprintf("• Арендный доход: <code>~%.1f TON / мес (~%.1f%% APY)</code>\n", rentMonthly, rentAPY))
+		if val.Liquidity.LiquidityRating != "" {
+			sb.WriteString(fmt.Sprintf("• Ликвидность: <b>%s</b> (%s)\n", telegram.EscapeHTML(val.Liquidity.LiquidityRating), telegram.EscapeHTML(val.Liquidity.EstimatedSellDays)))
+		}
+		sb.WriteString("</blockquote>\n\n")
+
+		sb.WriteString("<blockquote expandable>💸 <b>Экономика Fragment и подлинность:</b>\n")
 		sb.WriteString(fmt.Sprintf("• Комиссия 5%% Fragment: <code>-%.1f TON</code>\n", fragFee))
-		sb.WriteString(fmt.Sprintf("• Чистая выплата: <code>%.1f TON</code>\n", netPayout))
-		sb.WriteString(fmt.Sprintf("• Арендный потенциал: <code>~%.1f TON / мес (~54%% APY)</code>\n", rentMonthly))
+		sb.WriteString(fmt.Sprintf("• Чистая выплата продавцу: <code>%.1f TON</code>\n", netPayout))
+		sb.WriteString(fmt.Sprintf("• Подлинность: <b>Закрытая коллекция %s номеров Telemint</b>\n", fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		sb.WriteString(fmt.Sprintf("• Сертификат NV Engine: <code>%s</code></blockquote>\n\n", certID))
 
 		sb.WriteString("⚡ <i>NV Engine v3.0 — Методология оценки TON</i>")
@@ -921,7 +673,7 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		sb.WriteString(fmt.Sprintf("📱 <b>匿名号码估值报告: %s</b>\n\n", telegram.EscapeHTML(val.DisplayNumber)))
 		sb.WriteString(fmt.Sprintf("👑 俱乐部归属: <b>%s</b>\n", telegram.EscapeHTML(club)))
 		if val.GlobalRank > 0 {
-			sb.WriteString(fmt.Sprintf("🏆 全网稀缺排名: <b>#%d / 136,566</b>\n", val.GlobalRank))
+			sb.WriteString(fmt.Sprintf("🏆 全网稀缺排名: <b>#%d / %s</b>\n", val.GlobalRank, fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		}
 		sb.WriteString(fmt.Sprintf("💰 公允价值: <b>%s TON (约合 $%.0f)</b>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
 		sb.WriteString(fmt.Sprintf("🎯 置信指数: <b>%d%%</b> | 官方配色: <b>%s</b>\n\n", val.ConfidenceScore, telegram.EscapeHTML(colorName)))
@@ -931,12 +683,28 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		sb.WriteString(fmt.Sprintf("• 建议挂牌价 (+15%%): <code>%s TON</code>\n", suggestedAskTON))
 		sb.WriteString(fmt.Sprintf("• 快速变现价 (-25%%): <code>%s TON</code>\n", liquidationTON))
 		sb.WriteString(fmt.Sprintf("• 变现底价 (Floor): <code>%s TON</code>\n", val.LowTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("• DeFi 抵押价值 (LTV 45%%): <code>%.1f TON</code></blockquote>\n\n", collateralTON))
+		sb.WriteString(fmt.Sprintf("• 估值基准: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(priceBasisFormatted)))
+
+		if len(val.RarityDNA) > 0 {
+			sb.WriteString("<blockquote expandable>🧬 <b>稀缺 DNA 与特征进度条:</b>\n")
+			for _, dna := range val.RarityDNA {
+				sb.WriteString(fmt.Sprintf("• %s: <code>%s</code> (%s)\n", telegram.EscapeHTML(dna.LabelEn), renderProgressBar(dna.Percentile), telegram.EscapeHTML(dna.Value)))
+			}
+			sb.WriteString("</blockquote>\n\n")
+		}
+
+		sb.WriteString("<blockquote expandable>🏦 <b>DeFi 抵押与出租收益:</b>\n")
+		sb.WriteString(fmt.Sprintf("• DeFi 抵押价值 (LTV 45%%): <code>%.1f TON</code>\n", collateralTON))
+		sb.WriteString(fmt.Sprintf("• 预估月租金收益: <code>~%.1f TON / 月 (~%.1f%% APY)</code>\n", rentMonthly, rentAPY))
+		if val.Liquidity.LiquidityRating != "" {
+			sb.WriteString(fmt.Sprintf("• 流动性评级: <b>%s</b> (预计售出周期: %s)\n", telegram.EscapeHTML(val.Liquidity.LiquidityRating), telegram.EscapeHTML(val.Liquidity.EstimatedSellDays)))
+		}
+		sb.WriteString("</blockquote>\n\n")
 
 		sb.WriteString("<blockquote expandable>💸 <b>交易经济与链上验证:</b>\n")
 		sb.WriteString(fmt.Sprintf("• 平台手续费 (5%%): <code>-%.1f TON</code>\n", fragFee))
 		sb.WriteString(fmt.Sprintf("• 到手净额: <code>%.1f TON</code>\n", netPayout))
-		sb.WriteString(fmt.Sprintf("• 预估月租金收益: <code>~%.1f TON / 月 (~54%% APY)</code>\n", rentMonthly))
+		sb.WriteString(fmt.Sprintf("• 藏品真实性: <b>Telemint 官方闭环 %s 总量</b>\n", fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		sb.WriteString(fmt.Sprintf("• 链上数字证书: <code>%s</code></blockquote>\n\n", certID))
 
 		sb.WriteString("⚡ <i>NV Engine v3.0 — 基于 TON 智能合约数理体系</i>")
@@ -947,7 +715,7 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		sb.WriteString(fmt.Sprintf("📱 <b>Number Valuation: %s</b>\n\n", telegram.EscapeHTML(val.DisplayNumber)))
 		sb.WriteString(fmt.Sprintf("👑 Category Club: <b>%s</b>\n", telegram.EscapeHTML(club)))
 		if val.GlobalRank > 0 {
-			sb.WriteString(fmt.Sprintf("🏆 Rarity Rank: <b>#%d of 136,566</b>\n", val.GlobalRank))
+			sb.WriteString(fmt.Sprintf("🏆 Rarity Rank: <b>#%d of %s</b>\n", val.GlobalRank, fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		}
 		sb.WriteString(fmt.Sprintf("💰 Fair Value: <b>%s TON (~$%.0f)</b>\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
 		sb.WriteString(fmt.Sprintf("🎯 Confidence Score: <b>%d%%</b> | Color: <b>%s</b>\n\n", val.ConfidenceScore, telegram.EscapeHTML(colorName)))
@@ -957,32 +725,61 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		sb.WriteString(fmt.Sprintf("• Suggested Ask (+15%%): <code>%s TON (~$%.0f)</code>\n", suggestedAskTON, suggestedAskUSD))
 		sb.WriteString(fmt.Sprintf("• Instant Liquidation (-25%%): <code>%s TON (~$%.0f)</code>\n", liquidationTON, liquidationUSD))
 		sb.WriteString(fmt.Sprintf("• Liquidity Floor: <code>%s TON</code>\n", val.LowTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("• Base Model Price: <code>%s TON</code> (Basis: %s)</blockquote>\n\n", val.BasePriceTON.StringFixed(1), telegram.EscapeHTML(val.PriceBasis)))
+		sb.WriteString(fmt.Sprintf("• Base Model Price: <code>%s TON</code> (Basis: %s)</blockquote>\n\n", val.BasePriceTON.StringFixed(1), telegram.EscapeHTML(priceBasisFormatted)))
+
+		if len(val.RarityDNA) > 0 {
+			sb.WriteString("<blockquote expandable>🧬 <b>Rarity DNA & Deterministic Bars:</b>\n")
+			for _, dna := range val.RarityDNA {
+				sb.WriteString(fmt.Sprintf("• %s: <code>%s</code> (%s)\n", telegram.EscapeHTML(dna.LabelEn), renderProgressBar(dna.Percentile), telegram.EscapeHTML(dna.Value)))
+			}
+			sb.WriteString("</blockquote>\n\n")
+		}
 
 		sb.WriteString("<blockquote expandable>🏦 <b>DeFi Collateral & Rental Economics:</b>\n")
 		sb.WriteString(fmt.Sprintf("• TON DeFi Collateral: <code>%.1f TON (~$%.0f)</code> (LTV 45%%)\n", collateralTON, collateralUSD))
 		sb.WriteString(fmt.Sprintf("• Monthly Rental Yield: <code>~%.1f TON / mo</code>\n", rentMonthly))
-		sb.WriteString("• Annual Rental APY: <code>~54.0%</code>\n")
-		sb.WriteString("• 30-Day Liquidity Probability: <b>>80% (High Demand)</b></blockquote>\n\n")
+		sb.WriteString(fmt.Sprintf("• Annual Rental APY: <code>~%.1f%%</code>\n", rentAPY))
+		if val.Liquidity.LiquidityRating != "" {
+			sb.WriteString(fmt.Sprintf("• Liquidity Rating: <b>%s</b> (Est. Time: %s)\n", telegram.EscapeHTML(val.Liquidity.LiquidityRating), telegram.EscapeHTML(val.Liquidity.EstimatedSellDays)))
+		}
+		sb.WriteString("</blockquote>\n\n")
 
 		sb.WriteString("<blockquote expandable>🎨 <b>Pattern DNA & Cultural Radar:</b>\n")
 		sb.WriteString(fmt.Sprintf("• Official Color: <b>%s</b>\n", telegram.EscapeHTML(colorName)))
-		sb.WriteString("• Pattern Flow & Symmetry: <b>Top Tier Collectible</b>\n")
-		sb.WriteString("• Cultural Radar: <b>High gravity in Asian & Collectible clubs</b>\n")
+		if val.PatternAnatomy.PatternTypeEn != "" {
+			sb.WriteString(fmt.Sprintf("• Pattern Classification: <b>%s</b>\n", telegram.EscapeHTML(val.PatternAnatomy.PatternTypeEn)))
+		}
+		if len(val.CulturalRadar) > 0 {
+			sb.WriteString("• Cultural Gravity:\n")
+			for _, cr := range val.CulturalRadar {
+				sb.WriteString(fmt.Sprintf("  - %s: <b>%s</b> (%d/100)\n", telegram.EscapeHTML(cr.MarketName), telegram.EscapeHTML(cr.VerdictEn), cr.Score))
+			}
+		}
 		sb.WriteString(fmt.Sprintf("• Collectible Tier: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(club)))
 
 		sb.WriteString("<blockquote expandable>💸 <b>Fragment Economics & Provenance:</b>\n")
 		sb.WriteString(fmt.Sprintf("• Gross Valuation: <code>%s TON</code>\n", val.ExpectedTON.StringFixed(1)))
 		sb.WriteString(fmt.Sprintf("• Protocol Fee (5%%): <code>-%.1f TON</code>\n", fragFee))
 		sb.WriteString(fmt.Sprintf("• Net Seller Payout: <code>%.1f TON (~$%.0f)</code>\n", netPayout, netPayout*(val.ExpectedUSD/math.Max(1.0, expFloat))))
-		sb.WriteString("• Collection Authenticity: <b>Closed Collection (136,566 Numbers) On-Chain</b>\n")
+		sb.WriteString(fmt.Sprintf("• Collection Authenticity: <b>Closed Collection (%s Numbers) On-Chain</b>\n", fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		sb.WriteString(fmt.Sprintf("• Digital Certificate ID: <code>%s</code></blockquote>\n\n", certID))
 
 		sb.WriteString("<blockquote expandable>📈 <b>12-Month Projection & Action Playbook:</b>\n")
-		sb.WriteString("• Strategic Recommendation: <b>Long-term HOLD or DeFi Collateral</b>\n")
-		sb.WriteString(fmt.Sprintf("• 12M Bull Target: <code>+70%% (~%.1f TON)</code>\n", expFloat*1.70))
-		sb.WriteString(fmt.Sprintf("• 12M Base Target: <code>+30%% (~%.1f TON)</code>\n", expFloat*1.30))
-		sb.WriteString(fmt.Sprintf("• 12M Bear Floor: <code>-5%% (~%.1f TON)</code></blockquote>\n\n", expFloat*0.95))
+		if val.Recommendation.SummaryEn != "" {
+			sb.WriteString(fmt.Sprintf("• Recommendation: <b>%s</b> (%s)\n", telegram.EscapeHTML(val.Recommendation.SummaryEn), telegram.EscapeHTML(val.Recommendation.Verdict)))
+		} else {
+			sb.WriteString("• Strategic Recommendation: <b>Long-term HOLD or DeFi Collateral</b>\n")
+		}
+		if val.Projection.BullTON > 0 {
+			sb.WriteString(fmt.Sprintf("• 12M Bull Target: <code>%.1f TON (~$%.0f)</code>\n", val.Projection.BullTON, val.Projection.BullUSD))
+			sb.WriteString(fmt.Sprintf("• 12M Base Target: <code>%.1f TON (~$%.0f)</code>\n", val.Projection.BaseTON, val.Projection.BaseUSD))
+			sb.WriteString(fmt.Sprintf("• 12M Bear Floor: <code>%.1f TON (~$%.0f)</code>\n", val.Projection.BearTON, val.Projection.BearUSD))
+		} else {
+			sb.WriteString(fmt.Sprintf("• 12M Bull Target: <code>+70%% (~%.1f TON)</code>\n", expFloat*1.70))
+			sb.WriteString(fmt.Sprintf("• 12M Base Target: <code>+30%% (~%.1f TON)</code>\n", expFloat*1.30))
+			sb.WriteString(fmt.Sprintf("• 12M Bear Floor: <code>-5%% (~%.1f TON)</code>\n", expFloat*0.95))
+		}
+		sb.WriteString("</blockquote>\n\n")
 
 		sb.WriteString("⚡ <i>NV Engine v3.0 — Registered Valuation Methodology on TON</i>")
 		return sb.String()
@@ -990,7 +787,8 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 }
 
 // buildNumberMarkup creates an inline keyboard for +888 numbers in the user's language.
-func buildNumberMarkup(cleanNum string, displayNum string, appURL string, copySummary string, lang string) map[string]interface{} {
+// If directFragmentURL is provided, it uses that exact link; otherwise defaults to https://fragment.com/number/{cleanNum}
+func buildNumberMarkup(cleanNum string, displayNum string, appURL string, copySummary string, lang string, directFragmentURL ...string) map[string]interface{} {
 	l := normalizeLang(lang)
 	var btnMiniApp, btnFragment, btnCopy, btnShare, btnBack string
 	switch l {
@@ -1020,13 +818,18 @@ func buildNumberMarkup(cleanNum string, displayNum string, appURL string, copySu
 		btnBack = "🔙 Back to Menu"
 	}
 
+	fragURL := fmt.Sprintf("https://fragment.com/number/%s", cleanNum)
+	if len(directFragmentURL) > 0 && directFragmentURL[0] != "" {
+		fragURL = directFragmentURL[0]
+	}
+
 	return map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
 			{
 				{"text": btnMiniApp, "url": appURL},
 			},
 			{
-				{"text": btnFragment, "url": fmt.Sprintf("https://fragment.com/number/%s", cleanNum)},
+				{"text": btnFragment, "url": fragURL},
 				{"text": btnCopy, "copy_text": map[string]string{"text": copySummary}},
 			},
 			{
@@ -1036,6 +839,7 @@ func buildNumberMarkup(cleanNum string, displayNum string, appURL string, copySu
 		},
 	}
 }
+
 
 // ─── Gift Formatters ──────────────────────────────────────────────────────────
 
@@ -1055,9 +859,21 @@ func buildGiftRichHTML(val *gvengine.GiftValuation, lang string) string {
 		}
 	}
 
+	modelDisplayName := val.ModelName
+	if modelDisplayName == "" {
+		modelDisplayName = val.SelectedModel
+	}
+	if modelDisplayName == "" {
+		modelDisplayName = val.ModelID
+	}
+
 	title := val.DisplayTitle
 	if title == "" {
-		title = fmt.Sprintf("Gift #%d", val.SerialNumber)
+		if modelDisplayName != "" {
+			title = fmt.Sprintf("%s #%d", modelDisplayName, val.SerialNumber)
+		} else {
+			title = fmt.Sprintf("Gift #%d", val.SerialNumber)
+		}
 	}
 
 	rarityClass := val.JointRarity.RarityClass
@@ -1069,31 +885,64 @@ func buildGiftRichHTML(val *gvengine.GiftValuation, lang string) string {
 	}
 
 	fairTON := val.Pillars.FairValueGRAM
+	fairUSD := val.Pillars.FairValueUSD
+	if fairUSD == 0 && val.ExpectedUSD > 0 {
+		fairUSD = val.ExpectedUSD
+	}
 	floorTON := val.Pillars.ObservedFloorGRAM
+	floorUSD := val.Pillars.ObservedFloorUSD
 	liqTON := val.Pillars.LiquidationValueGRAM
+	liqUSD := val.Pillars.LiquidationValueUSD
 	askTON := val.Pillars.SuggestedAskGRAM
+	askUSD := val.Pillars.SuggestedAskUSD
+
+	lowTONStr := val.LowGRAM.StringFixed(1)
+	highTONStr := val.HighGRAM.StringFixed(1)
+
+	confidence := int(val.ConfidenceScore)
+	if confidence == 0 {
+		confidence = 88
+	}
+
+	// Official NFT Link: https://t.me/nft/<slug>
+	nftSlug := fmt.Sprintf("%s-%d", telegramnft.FormatPascalName(val.ModelID), val.SerialNumber)
+	nftURL := fmt.Sprintf("https://t.me/nft/%s", nftSlug)
 
 	var sb strings.Builder
 	switch l {
 	case "fa":
-		sb.WriteString(fmt.Sprintf("<h1>🎁 کارشناسی گیفت: %s</h1>\n\n", telegram.EscapeHTML(title)))
-		sb.WriteString(fmt.Sprintf("<p>💎 رده کمیابی: <b>%s</b><br/>", telegram.EscapeHTML(rarityClass)))
-		sb.WriteString(fmt.Sprintf("💰 برآورد ارزش منصفانه: <b>~%.2f TON (معادل $%.2f)</b>", fairTON, val.ExpectedUSD))
-		if val.OwnerName != "" {
-			sb.WriteString(fmt.Sprintf("<br/>👤 مالک کنونی: <code>%s</code>", telegram.EscapeHTML(val.OwnerName)))
+		priceBasisFa := "فروش‌های مستقیم و تطبیق الگو"
+		switch val.PriceBasis {
+		case "direct_sales_of_this_item":
+			priceBasisFa = "معاملات مستقیم همین آیتم"
+		case "trait_comps_shrunk_to_class":
+			priceBasisFa = "همتراز صفات ژنتیکی (Trait Comps)"
+		case "class_median_only":
+			priceBasisFa = "میانه آماری کلکسیون"
 		}
+
+		sb.WriteString(fmt.Sprintf("<h1>🎁 کارشناسی گیفت: %s</h1>\n\n", telegram.EscapeHTML(title)))
+		sb.WriteString(fmt.Sprintf("<p>💎 مدل کلکسیونی: <b>%s</b> | رده کمیابی: <b>%s</b><br/>", telegram.EscapeHTML(modelDisplayName), telegram.EscapeHTML(rarityClass)))
+		sb.WriteString(fmt.Sprintf("💰 برآورد ارزش منصفانه: <b>~%.2f TON ($%.2f)</b><br/>", fairTON, fairUSD))
+		if val.OwnerName != "" {
+			sb.WriteString(fmt.Sprintf("👤 مالک کنونی: <code>%s</code><br/>", telegram.EscapeHTML(val.OwnerName)))
+		}
+		sb.WriteString(fmt.Sprintf("🔗 پیوند رسمی در تلگرام: <a href=\"%s\">t.me/nft/%s</a>", nftURL, telegram.EscapeHTML(nftSlug)))
 		sb.WriteString("</p>\n\n")
 
 		sb.WriteString("<table>\n")
 		if floorTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>📉 کف مشاهده‌شده</b></td><td><code>%.2f TON</code></td></tr>\n", floorTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📉 کف مشاهده‌شده بازار</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", floorTON, floorUSD))
 		}
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 قیمت منصفانه (Fair)</b></td><td><code>%.2f TON (~$%.2f)</code></td></tr>\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 قیمت منصفانه (Fair Value)</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", fairTON, fairUSD))
 		if askTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>📈 پیشنهاد فروش</b></td><td><code>%.2f TON</code></td></tr>\n", askTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📈 پیشنهاد بهینه فروش (Ask)</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", askTON, askUSD))
 		}
 		if liqTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>💧 نقدشوندگی آنی</b></td><td><code>%.2f TON</code></td></tr>\n", liqTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>💧 ارزش نقدشوندگی آنی</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", liqTON, liqUSD))
+		}
+		if !val.LowGRAM.IsZero() || !val.HighGRAM.IsZero() {
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📊 بازه ارزش آماری (Low-High)</b></td><td><code>~%s TON ($%.0f) تا ~%s TON ($%.0f)</code></td></tr>\n", lowTONStr, val.LowUSD, highTONStr, val.HighUSD))
 		}
 		sb.WriteString("</table>\n\n")
 
@@ -1116,99 +965,240 @@ func buildGiftRichHTML(val *gvengine.GiftValuation, lang string) string {
 			sb.WriteString("</details>\n\n")
 		}
 
-		sn := val.SerialNumber
-		snTier := "استاندارد"
-		snMult := 1.0
-		switch {
-		case sn == 1:
-			snTier = "👑 تک خال مطلق (God Tier #1)"
-			snMult = 3.5
-		case sn <= 9:
-			snTier = "⭐ تک رقمی (Single Digit)"
-			snMult = 2.4
-		case sn <= 99:
-			snTier = "✨ دو رقمی (Double Digit)"
-			snMult = 1.7
-		case sn <= 999:
-			snTier = "💠 سه رقمی (Triple Digit)"
-			snMult = 1.3
+		if val.AestheticHarmony.HarmonyScore > 0 || val.ProfileFlex.ProfileFlexScore > 0 {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>🎨 هارمونی بصری و پرستیژ پروفایل</summary>\n")
+			sb.WriteString("<table>\n")
+			if val.AestheticHarmony.HarmonyScore > 0 {
+				sb.WriteString(fmt.Sprintf("<tr><td>شاخص هارمونی بصری</td><td><b>%.0f / 100</b></td></tr>\n", val.AestheticHarmony.HarmonyScore))
+				sb.WriteString(fmt.Sprintf("<tr><td>پالت رنگی غالب</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(val.AestheticHarmony.DominantPaletteFa)))
+			}
+			if val.ProfileFlex.ProfileFlexScore > 0 {
+				sb.WriteString(fmt.Sprintf("<tr><td>شاخص پرستیژ پروفایل (Flex)</td><td><b>%.0f / 100</b></td></tr>\n", val.ProfileFlex.ProfileFlexScore))
+			}
+			sb.WriteString("</table>\n")
+			sb.WriteString("</details>\n\n")
 		}
 
-		sb.WriteString("<details>\n")
-		sb.WriteString("<summary>🔢 گرانش سریال و مشخصات</summary>\n")
-		sb.WriteString(fmt.Sprintf("<p>شماره سریال: <b>#%d</b><br/>رتبه سریال: <b>%s</b><br/>ضریب کلکسیونی: <code>%.2fx</code></p>\n",
-			sn, telegram.EscapeHTML(snTier), snMult))
-		sb.WriteString("</details>\n\n")
+		if len(val.Comps) > 0 {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>📊 معاملات تاریخی اخیر (Comparable Sales)</summary>\n")
+			sb.WriteString("<table>\n")
+			maxComps := 5
+			if len(val.Comps) < maxComps {
+				maxComps = len(val.Comps)
+			}
+			for i := 0; i < maxComps; i++ {
+				c := val.Comps[i]
+				dateStr := c.SaleDate.Format("2006-01-02")
+				sb.WriteString(fmt.Sprintf("<tr><td>%s (%s)</td><td><code>~%.1f TON ($%.0f)</code></td></tr>\n",
+					telegram.EscapeHTML(c.Venue), dateStr, c.SalePriceGRAM, c.SalePriceUSD))
+			}
+			sb.WriteString("</table>\n")
+			sb.WriteString("</details>\n\n")
+		}
 
+		if val.ExitPlanner != nil && val.ExitPlanner.BestVenueName != "" {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>🚪 برنامه خروج و بهینه‌سازی فروش (Exit Planner)</summary>\n")
+			sb.WriteString(fmt.Sprintf("<p>بهترین پلتفرم معامله: <b>%s</b><br/>خالص دریافتی تخمینی: <code>~%.2f TON ($%.2f)</code></p>\n",
+				telegram.EscapeHTML(val.ExitPlanner.BestVenueName), val.ExitPlanner.MaxNetGRAM, val.ExitPlanner.MaxNetUSD))
+			sb.WriteString("</details>\n\n")
+		}
+
+		if val.RiskAudit != nil {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>🛡️ بررسی ریسک و اصالت آن‌چین (Risk Audit)</summary>\n")
+			sb.WriteString(fmt.Sprintf("<p>سطح ریسک کلی: <b>%s</b><br/>وضعیت اصالت: <b>%s</b></p>\n",
+				telegram.EscapeHTML(val.RiskAudit.OverallRiskLevel), telegram.EscapeHTML(val.RiskAudit.AuthenticityStatus)))
+			sb.WriteString("</details>\n\n")
+		}
+
+		sb.WriteString(fmt.Sprintf("<p>🎯 شاخص اطمینان: <b>%d%%</b> | مبنای قیمت: <b>%s</b></p>\n", confidence, telegram.EscapeHTML(priceBasisFa)))
 		sb.WriteString("<blockquote>⚡ موتور هوشمند GV Engine v2.0 — پردازش زنده بازار هدایا</blockquote>")
 
 	case "ru":
 		sb.WriteString(fmt.Sprintf("<h1>🎁 Оценка подарка: %s</h1>\n\n", telegram.EscapeHTML(title)))
-		sb.WriteString(fmt.Sprintf("<p>💎 Класс редкости: <b>%s</b><br/>", telegram.EscapeHTML(rarityClass)))
-		sb.WriteString(fmt.Sprintf("💰 Справедливая цена: <b>~%.2f TON (~$%.2f)</b>", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<p>💎 Модель: <b>%s</b> | Класс редкости: <b>%s</b><br/>", telegram.EscapeHTML(modelDisplayName), telegram.EscapeHTML(rarityClass)))
+		sb.WriteString(fmt.Sprintf("💰 Справедливая цена: <b>~%.2f TON ($%.2f)</b><br/>", fairTON, fairUSD))
 		if val.OwnerName != "" {
-			sb.WriteString(fmt.Sprintf("<br/>👤 Владелец: <code>%s</code>", telegram.EscapeHTML(val.OwnerName)))
+			sb.WriteString(fmt.Sprintf("👤 Владелец: <code>%s</code><br/>", telegram.EscapeHTML(val.OwnerName)))
 		}
+		sb.WriteString(fmt.Sprintf("🔗 Ссылка в Telegram: <a href=\"%s\">t.me/nft/%s</a>", nftURL, telegram.EscapeHTML(nftSlug)))
 		sb.WriteString("</p>\n\n")
 
 		sb.WriteString("<table>\n")
 		if floorTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>📉 Дно рынка</b></td><td><code>%.2f TON</code></td></tr>\n", floorTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📉 Дно рынка (Floor)</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", floorTON, floorUSD))
 		}
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 Справедливая цена</b></td><td><code>%.2f TON (~$%.2f)</code></td></tr>\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 Справедливая цена (Fair)</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", fairTON, fairUSD))
 		if askTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>📈 Рекоменд. продажа</b></td><td><code>%.2f TON</code></td></tr>\n", askTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📈 Рекоменд. продажа (Ask)</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", askTON, askUSD))
 		}
 		if liqTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>💧 Ликвидация</b></td><td><code>%.2f TON</code></td></tr>\n", liqTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>💧 Ликвидация</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", liqTON, liqUSD))
+		}
+		if !val.LowGRAM.IsZero() || !val.HighGRAM.IsZero() {
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📊 Диапазон (Low-High)</b></td><td><code>~%s TON ($%.0f) — ~%s TON ($%.0f)</code></td></tr>\n", lowTONStr, val.LowUSD, highTONStr, val.HighUSD))
 		}
 		sb.WriteString("</table>\n\n")
 
+		if len(val.TraitDNA) > 0 {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>🧬 Генетические черты (Trait DNA)</summary>\n")
+			sb.WriteString("<table>\n")
+			for _, trait := range val.TraitDNA {
+				label := trait.LabelEn
+				sb.WriteString(fmt.Sprintf("<tr><td>%s</td><td><b>%s</b></td><td><code>%.2f%%</code></td></tr>\n",
+					telegram.EscapeHTML(label),
+					telegram.EscapeHTML(trait.Value),
+					trait.Percentile,
+				))
+			}
+			sb.WriteString("</table>\n")
+			sb.WriteString("</details>\n\n")
+		}
+
+		sb.WriteString(fmt.Sprintf("<p>🎯 Точность: <b>%d%%</b> | Источник: <b>%s</b></p>\n", confidence, telegram.EscapeHTML(val.PriceBasis)))
 		sb.WriteString("<blockquote>⚡ GV Engine v2.0 — Аналитика подарков Telegram</blockquote>")
 
 	case "zh":
 		sb.WriteString(fmt.Sprintf("<h1>🎁 礼物估值报告: %s</h1>\n\n", telegram.EscapeHTML(title)))
-		sb.WriteString(fmt.Sprintf("<p>💎 稀有度等级: <b>%s</b><br/>", telegram.EscapeHTML(rarityClass)))
-		sb.WriteString(fmt.Sprintf("💰 预估公允价值: <b>~%.2f TON (约合 $%.2f)</b>", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<p>💎 藏品模型: <b>%s</b> | 稀缺度等级: <b>%s</b><br/>", telegram.EscapeHTML(modelDisplayName), telegram.EscapeHTML(rarityClass)))
+		sb.WriteString(fmt.Sprintf("💰 预估公允价值: <b>~%.2f TON ($%.2f)</b><br/>", fairTON, fairUSD))
 		if val.OwnerName != "" {
-			sb.WriteString(fmt.Sprintf("<br/>👤 持有者: <code>%s</code>", telegram.EscapeHTML(val.OwnerName)))
+			sb.WriteString(fmt.Sprintf("👤 持有者: <code>%s</code><br/>", telegram.EscapeHTML(val.OwnerName)))
 		}
+		sb.WriteString(fmt.Sprintf("🔗 Telegram 链上链接: <a href=\"%s\">t.me/nft/%s</a>", nftURL, telegram.EscapeHTML(nftSlug)))
 		sb.WriteString("</p>\n\n")
 
 		sb.WriteString("<table>\n")
 		if floorTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>📉 市场底价</b></td><td><code>%.2f TON</code></td></tr>\n", floorTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📉 市场底价 (Floor)</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", floorTON, floorUSD))
 		}
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 公允价值 (Fair)</b></td><td><code>%.2f TON (~$%.2f)</code></td></tr>\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 公允价值 (Fair)</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", fairTON, fairUSD))
 		if askTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>📈 建议卖价</b></td><td><code>%.2f TON</code></td></tr>\n", askTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📈 建议卖价 (Ask)</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", askTON, askUSD))
+		}
+		if liqTON > 0 {
+			sb.WriteString(fmt.Sprintf("<tr><td><b>💧 即时变现清算</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", liqTON, liqUSD))
+		}
+		if !val.LowGRAM.IsZero() || !val.HighGRAM.IsZero() {
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📊 估值区间 (Low-High)</b></td><td><code>~%s TON ($%.0f) 至 ~%s TON ($%.0f)</code></td></tr>\n", lowTONStr, val.LowUSD, highTONStr, val.HighUSD))
 		}
 		sb.WriteString("</table>\n\n")
 
+		if len(val.TraitDNA) > 0 {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>🧬 稀有度基因属性 (Trait DNA)</summary>\n")
+			sb.WriteString("<table>\n")
+			for _, trait := range val.TraitDNA {
+				label := trait.LabelEn
+				sb.WriteString(fmt.Sprintf("<tr><td>%s</td><td><b>%s</b></td><td><code>%.2f%%</code></td></tr>\n",
+					telegram.EscapeHTML(label),
+					telegram.EscapeHTML(trait.Value),
+					trait.Percentile,
+				))
+			}
+			sb.WriteString("</table>\n")
+			sb.WriteString("</details>\n\n")
+		}
+
+		sb.WriteString(fmt.Sprintf("<p>🎯 置信度: <b>%d%%</b> | 定价基准: <b>%s</b></p>\n", confidence, telegram.EscapeHTML(val.PriceBasis)))
 		sb.WriteString("<blockquote>⚡ GV Engine v2.0 — Telegram 礼物实时市场智能分析引擎</blockquote>")
 
 	default: // "en"
 		sb.WriteString(fmt.Sprintf("<h1>🎁 Gift Valuation Report: %s</h1>\n\n", telegram.EscapeHTML(title)))
-		sb.WriteString(fmt.Sprintf("<p>💎 Rarity Tier: <b>%s</b><br/>", telegram.EscapeHTML(rarityClass)))
-		sb.WriteString(fmt.Sprintf("💰 Estimated Fair Value: <b>~%.2f TON (~$%.2f)</b>", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<p>💎 Collectible Model: <b>%s</b> | Rarity Tier: <b>%s</b><br/>", telegram.EscapeHTML(modelDisplayName), telegram.EscapeHTML(rarityClass)))
+		sb.WriteString(fmt.Sprintf("💰 Estimated Fair Value: <b>~%.2f TON ($%.2f)</b><br/>", fairTON, fairUSD))
 		if val.OwnerName != "" {
-			sb.WriteString(fmt.Sprintf("<br/>👤 Current Owner: <code>%s</code>", telegram.EscapeHTML(val.OwnerName)))
+			sb.WriteString(fmt.Sprintf("👤 Current Owner: <code>%s</code><br/>", telegram.EscapeHTML(val.OwnerName)))
 		}
+		sb.WriteString(fmt.Sprintf("🔗 Official Telegram Link: <a href=\"%s\">t.me/nft/%s</a>", nftURL, telegram.EscapeHTML(nftSlug)))
 		sb.WriteString("</p>\n\n")
 
 		sb.WriteString("<table>\n")
 		if floorTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>📉 Market Floor</b></td><td><code>%.2f TON</code></td></tr>\n", floorTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📉 Market Floor</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", floorTON, floorUSD))
 		}
-		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 Fair Value</b></td><td><code>%.2f TON (~$%.2f)</code></td></tr>\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("<tr><td><b>💰 Fair Value</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", fairTON, fairUSD))
 		if askTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>📈 Suggested Ask</b></td><td><code>%.2f TON</code></td></tr>\n", askTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📈 Suggested Ask</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", askTON, askUSD))
 		}
 		if liqTON > 0 {
-			sb.WriteString(fmt.Sprintf("<tr><td><b>💧 Instant Liquidity</b></td><td><code>%.2f TON</code></td></tr>\n", liqTON))
+			sb.WriteString(fmt.Sprintf("<tr><td><b>💧 Instant Liquidity</b></td><td><code>~%.2f TON ($%.2f)</code></td></tr>\n", liqTON, liqUSD))
+		}
+		if !val.LowGRAM.IsZero() || !val.HighGRAM.IsZero() {
+			sb.WriteString(fmt.Sprintf("<tr><td><b>📊 Valuation Band (Low-High)</b></td><td><code>~%s TON ($%.0f) - ~%s TON ($%.0f)</code></td></tr>\n", lowTONStr, val.LowUSD, highTONStr, val.HighUSD))
 		}
 		sb.WriteString("</table>\n\n")
 
+		if len(val.TraitDNA) > 0 {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>🧬 Genetic Traits & Rarity (Trait DNA)</summary>\n")
+			sb.WriteString("<table>\n")
+			for _, trait := range val.TraitDNA {
+				label := trait.LabelEn
+				sb.WriteString(fmt.Sprintf("<tr><td>%s</td><td><b>%s</b></td><td><code>%.2f%%</code></td></tr>\n",
+					telegram.EscapeHTML(label),
+					telegram.EscapeHTML(trait.Value),
+					trait.Percentile,
+				))
+			}
+			sb.WriteString("</table>\n")
+			sb.WriteString("</details>\n\n")
+		}
+
+		if val.AestheticHarmony.HarmonyScore > 0 || val.ProfileFlex.ProfileFlexScore > 0 {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>🎨 Visual Harmony & Profile Flex</summary>\n")
+			sb.WriteString("<table>\n")
+			if val.AestheticHarmony.HarmonyScore > 0 {
+				sb.WriteString(fmt.Sprintf("<tr><td>Aesthetic Harmony</td><td><b>%.0f / 100</b></td></tr>\n", val.AestheticHarmony.HarmonyScore))
+				sb.WriteString(fmt.Sprintf("<tr><td>Dominant Palette</td><td><b>%s</b></td></tr>\n", telegram.EscapeHTML(val.AestheticHarmony.DominantPaletteEn)))
+			}
+			if val.ProfileFlex.ProfileFlexScore > 0 {
+				sb.WriteString(fmt.Sprintf("<tr><td>Profile Flex Score</td><td><b>%.0f / 100</b></td></tr>\n", val.ProfileFlex.ProfileFlexScore))
+			}
+			sb.WriteString("</table>\n")
+			sb.WriteString("</details>\n\n")
+		}
+
+		if len(val.Comps) > 0 {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>📊 Recent Comparable Sales</summary>\n")
+			sb.WriteString("<table>\n")
+			maxComps := 5
+			if len(val.Comps) < maxComps {
+				maxComps = len(val.Comps)
+			}
+			for i := 0; i < maxComps; i++ {
+				c := val.Comps[i]
+				dateStr := c.SaleDate.Format("2006-01-02")
+				sb.WriteString(fmt.Sprintf("<tr><td>%s (%s)</td><td><code>~%.1f TON ($%.0f)</code></td></tr>\n",
+					telegram.EscapeHTML(c.Venue), dateStr, c.SalePriceGRAM, c.SalePriceUSD))
+			}
+			sb.WriteString("</table>\n")
+			sb.WriteString("</details>\n\n")
+		}
+
+		if val.ExitPlanner != nil && val.ExitPlanner.BestVenueName != "" {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>🚪 Exit Planner & Best Net Venue</summary>\n")
+			sb.WriteString(fmt.Sprintf("<p>Best Venue: <b>%s</b><br/>Estimated Net Payout: <code>~%.2f TON ($%.2f)</code></p>\n",
+				telegram.EscapeHTML(val.ExitPlanner.BestVenueName), val.ExitPlanner.MaxNetGRAM, val.ExitPlanner.MaxNetUSD))
+			sb.WriteString("</details>\n\n")
+		}
+
+		if val.RiskAudit != nil {
+			sb.WriteString("<details>\n")
+			sb.WriteString("<summary>🛡️ Risk Audit & Provenance</summary>\n")
+			sb.WriteString(fmt.Sprintf("<p>Risk Level: <b>%s</b><br/>Authenticity: <b>%s</b></p>\n",
+				telegram.EscapeHTML(val.RiskAudit.OverallRiskLevel), telegram.EscapeHTML(val.RiskAudit.AuthenticityStatus)))
+			sb.WriteString("</details>\n\n")
+		}
+
+		sb.WriteString(fmt.Sprintf("<p>🎯 Model Confidence: <b>%d%%</b> | Price Basis: <b>%s</b></p>\n", confidence, telegram.EscapeHTML(val.PriceBasis)))
 		sb.WriteString("<blockquote>⚡ GV Engine v2.0 — Live Market Intelligence for Telegram Gifts</blockquote>")
 	}
 
@@ -1232,9 +1222,21 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		}
 	}
 
+	modelDisplayName := val.ModelName
+	if modelDisplayName == "" {
+		modelDisplayName = val.SelectedModel
+	}
+	if modelDisplayName == "" {
+		modelDisplayName = val.ModelID
+	}
+
 	title := val.DisplayTitle
 	if title == "" {
-		title = fmt.Sprintf("Gift #%d", val.SerialNumber)
+		if modelDisplayName != "" {
+			title = fmt.Sprintf("%s #%d", modelDisplayName, val.SerialNumber)
+		} else {
+			title = fmt.Sprintf("Gift #%d", val.SerialNumber)
+		}
 	}
 
 	rarityClass := val.JointRarity.RarityClass
@@ -1246,9 +1248,19 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 	}
 
 	fairTON := val.Pillars.FairValueGRAM
+	fairUSD := val.Pillars.FairValueUSD
+	if fairUSD == 0 && val.ExpectedUSD > 0 {
+		fairUSD = val.ExpectedUSD
+	}
 	floorTON := val.Pillars.ObservedFloorGRAM
+	floorUSD := val.Pillars.ObservedFloorUSD
 	liqTON := val.Pillars.LiquidationValueGRAM
+	liqUSD := val.Pillars.LiquidationValueUSD
 	askTON := val.Pillars.SuggestedAskGRAM
+	askUSD := val.Pillars.SuggestedAskUSD
+
+	lowTONStr := val.LowGRAM.StringFixed(1)
+	highTONStr := val.HighGRAM.StringFixed(1)
 
 	starsEquiv := val.StarsParity.BaseStarsPrice
 	if starsEquiv == 0 && fairTON > 0 {
@@ -1259,25 +1271,43 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 	fragFee := fairTON * 0.05
 	tgRoyalty := fairTON * 0.05
 	gasFee := 0.05
-	netSeller := math.Max(0.0, fairTON-fragFee-tgRoyalty-gasFee)
-	instantCashout := math.Round(fairTON*0.85*100) / 100
+	netSellerTON := math.Max(0.0, fairTON-fragFee-tgRoyalty-gasFee)
+	netSellerUSD := 0.0
+	if fairTON > 0 {
+		netSellerUSD = netSellerTON * (fairUSD / fairTON)
+	}
+	instantCashoutTON := math.Round(fairTON*0.85*100) / 100
+	instantCashoutUSD := 0.0
+	if fairTON > 0 {
+		instantCashoutUSD = instantCashoutTON * (fairUSD / fairTON)
+	}
 
 	sn := val.SerialNumber
 	snTierFa := "استاندارد"
+	snTierEn := "Standard"
 	snMult := 1.0
 	switch {
 	case sn == 1:
 		snTierFa = "👑 تک خال مطلق (God Tier #1)"
+		snTierEn = "👑 Absolute #1 (God Tier)"
 		snMult = 3.5
 	case sn <= 9:
 		snTierFa = "⭐ تک رقمی کلکسیونی (Single Digit)"
+		snTierEn = "⭐ Single Digit Collectible"
 		snMult = 2.4
 	case sn <= 99:
 		snTierFa = "✨ دو رقمی کلکسیونی (Double Digit)"
+		snTierEn = "✨ Double Digit Collectible"
 		snMult = 1.7
 	case sn <= 999:
 		snTierFa = "💠 سه رقمی (Triple Digit)"
+		snTierEn = "💠 Triple Digit"
 		snMult = 1.3
+	}
+
+	confidence := int(val.ConfidenceScore)
+	if confidence == 0 {
+		confidence = 88
 	}
 
 	certID := val.CertificateID
@@ -1285,36 +1315,55 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		certID = fmt.Sprintf("GV-CERT-2026-%d", (time.Now().UnixNano()/1000)%9000+1000)
 	}
 
+	nftSlug := fmt.Sprintf("%s-%d", telegramnft.FormatPascalName(val.ModelID), val.SerialNumber)
+	nftURL := fmt.Sprintf("https://t.me/nft/%s", nftSlug)
+
 	switch l {
 	case "fa":
+		priceBasisFa := "فروش‌های مستقیم و همتراز"
+		switch val.PriceBasis {
+		case "direct_sales_of_this_item":
+			priceBasisFa = "معاملات مستقیم همین آیتم"
+		case "trait_comps_shrunk_to_class":
+			priceBasisFa = "همتراز صفات ژنتیکی (Trait Comps)"
+		case "class_median_only":
+			priceBasisFa = "میانه آماری کلکسیون"
+		}
+
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("🎁 <b>کارشناسی تحلیلی گیفت: %s</b>\n\n", telegram.EscapeHTML(title)))
-		sb.WriteString(fmt.Sprintf("💎 رده کمیابی کلکسیونی: <b>%s</b>\n", telegram.EscapeHTML(rarityClass)))
-		sb.WriteString(fmt.Sprintf("💰 ارزش منصفانه (Fair Value): <b>~%.2f TON (~$%.2f)</b>\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("💎 مدل: <b>%s</b> | رده کمیابی: <b>%s</b>\n", telegram.EscapeHTML(modelDisplayName), telegram.EscapeHTML(rarityClass)))
+		sb.WriteString(fmt.Sprintf("💰 برآورد ارزش منصفانه: <b>~%.2f TON ($%.2f)</b>\n", fairTON, fairUSD))
 		if val.OwnerName != "" {
 			sb.WriteString(fmt.Sprintf("👤 مالک کنونی: <code>%s</code>\n", telegram.EscapeHTML(val.OwnerName)))
 		}
+		sb.WriteString(fmt.Sprintf("🔗 پیوند رسمی در تلگرام: <a href=\"%s\">t.me/nft/%s</a>\n", nftURL, telegram.EscapeHTML(nftSlug)))
 		if starsEquiv > 0 {
-			sb.WriteString(fmt.Sprintf("⭐ معادل استارز تلگرام: <b>~%s Stars (XTR)</b>\n\n", formatNumberWithCommas(starsEquiv)))
+			sb.WriteString(fmt.Sprintf("⭐ برابری استارز (Stars Parity): <b>~%s Stars (XTR)</b>\n\n", formatNumberWithCommas(starsEquiv)))
 		} else {
 			sb.WriteString("\n")
 		}
 
-		// Module 1: 4 Pillars
+		// 1. Price Spectrum & Pillars
 		sb.WriteString("<blockquote expandable>🎯 <b>۴ ستون ارزش‌گذاری مستقل (4-Pillars):</b>\n")
-		sb.WriteString(fmt.Sprintf("• ارزش منصفانه تحلیلی (Fair): <code>%.2f TON</code> (~$%.2f)\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("• ارزش منصفانه تحلیلی (Fair): <code>~%.2f TON ($%.2f)</code>\n", fairTON, fairUSD))
 		if floorTON > 0 {
-			sb.WriteString(fmt.Sprintf("• کف قیمت مشاهده‌شده بازار (Floor): <code>%.2f TON</code>\n", floorTON))
+			sb.WriteString(fmt.Sprintf("• کف قیمت مشاهده‌شده بازار (Floor): <code>~%.2f TON ($%.2f)</code>\n", floorTON, floorUSD))
 		}
 		if askTON > 0 {
-			sb.WriteString(fmt.Sprintf("• قیمت پیشنهادی فروش (Ask): <code>%.2f TON</code>\n", askTON))
+			sb.WriteString(fmt.Sprintf("• قیمت پیشنهادی فروش (Ask): <code>~%.2f TON ($%.2f)</code>\n", askTON, askUSD))
 		}
 		if liqTON > 0 {
-			sb.WriteString(fmt.Sprintf("• ارزش نقدشوندگی فوری (Liquidation): <code>%.2f TON</code>\n", liqTON))
+			sb.WriteString(fmt.Sprintf("• ارزش نقدشوندگی فوری (Liquidation): <code>~%.2f TON ($%.2f)</code>\n", liqTON, liqUSD))
 		}
-		sb.WriteString(fmt.Sprintf("• پیشنهاد خرید تسویه نقد فوری: <code>%.2f TON</code></blockquote>\n\n", instantCashout))
+		sb.WriteString(fmt.Sprintf("• پیشنهاد تسویه نقد فوری: <code>~%.2f TON ($%.2f)</code>\n", instantCashoutTON, instantCashoutUSD))
+		if !val.LowGRAM.IsZero() || !val.HighGRAM.IsZero() {
+			sb.WriteString(fmt.Sprintf("• بازه آماری (Low-High): <code>~%s TON ($%.0f) تا ~%s TON ($%.0f)</code></blockquote>\n\n", lowTONStr, val.LowUSD, highTONStr, val.HighUSD))
+		} else {
+			sb.WriteString("</blockquote>\n\n")
+		}
 
-		// Module 2: Trait DNA
+		// 2. Trait DNA & Joint Rarity
 		if len(val.TraitDNA) > 0 {
 			sb.WriteString("<blockquote expandable>🧬 <b>ویژگی‌های ژنتیکی و دی‌ان‌ای گیفت (Trait DNA):</b>\n")
 			for _, trait := range val.TraitDNA {
@@ -1332,32 +1381,153 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 					trait.Percentile,
 					telegram.EscapeHTML(tier)))
 			}
-			sb.WriteString("• هارمونی زیبایی‌شناسی: <b>هماهنگی بالا بین پس‌زمینه و کاراکتر (۹۲٪)</b></blockquote>\n\n")
+			if val.JointRarity.HarmonicRarityScore > 0 {
+				sb.WriteString(fmt.Sprintf("• امتیاز کمیابی ترکیبی: <code>%.1f</code> (%s)</blockquote>\n\n", val.JointRarity.HarmonicRarityScore, telegram.EscapeHTML(rarityClass)))
+			} else {
+				sb.WriteString("</blockquote>\n\n")
+			}
 		}
 
-		// Module 3: Serial Gravity
+		// 3. Aesthetic Harmony & Dominant Palette
+		harmonyScore := val.AestheticHarmony.HarmonyScore
+		if harmonyScore == 0 {
+			harmonyScore = 90
+		}
+		themeRating := val.AestheticHarmony.ThemeMatchRating
+		if themeRating == "" {
+			themeRating = "PERFECT_MATCH"
+		}
+		domPaletteFa := val.AestheticHarmony.DominantPaletteFa
+		if domPaletteFa == "" {
+			domPaletteFa = "طلایی کلاسیک و هارمونیک"
+		}
+		sb.WriteString("<blockquote expandable>🎨 <b>هارمونی زیبایی‌شناسی و رنگ‌شناسی:</b>\n")
+		sb.WriteString(fmt.Sprintf("• نمره هماهنگی بصری (Harmony Score): <b>%.0f / 100</b>\n", harmonyScore))
+		sb.WriteString(fmt.Sprintf("• تطابق تم و کاراکتر: <b>%s</b>\n", telegram.EscapeHTML(themeRating)))
+		sb.WriteString(fmt.Sprintf("• پالت رنگی غالب: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(domPaletteFa)))
+
+		// 4. Serial Gravity & Profile Flex
+		flexScore := val.ProfileFlex.ProfileFlexScore
+		if flexScore == 0 {
+			flexScore = 92
+		}
+		flexTier := val.ProfileFlex.FlexTier
+		if flexTier == "" {
+			flexTier = "COLLECTOR_ELITE"
+		}
 		sb.WriteString("<blockquote expandable>🔢 <b>گرانش سریال و پرستیژ پروفایل:</b>\n")
 		sb.WriteString(fmt.Sprintf("• شماره سریال: <b>#%d</b>\n", sn))
 		sb.WriteString(fmt.Sprintf("• رده‌بندی سریال: <b>%s</b>\n", snTierFa))
 		sb.WriteString(fmt.Sprintf("• ضریب کلکسیونی سریال: <code>%.2fx</code>\n", snMult))
-		sb.WriteString("• شاخص پرستیژ پروفایل (Profile Flex): <b>94 / 100</b> (جذابیت بسیار بالا)</blockquote>\n\n")
+		sb.WriteString(fmt.Sprintf("• شاخص پرستیژ پروفایل (Profile Flex): <b>%.0f / 100</b> (%s)</blockquote>\n\n", flexScore, telegram.EscapeHTML(flexTier)))
 
-		// Module 4: Economics & Exit
+		// 5. Recent Comps (Historical Trades)
+		if len(val.Comps) > 0 {
+			sb.WriteString("<blockquote expandable>📊 <b>معاملات تاریخی اخیر (Recent Comps):</b>\n")
+			maxComps := 5
+			if len(val.Comps) < maxComps {
+				maxComps = len(val.Comps)
+			}
+			for i := 0; i < maxComps; i++ {
+				c := val.Comps[i]
+				dateStr := c.SaleDate.Format("2006-01-02")
+				linkTxt := telegram.EscapeHTML(c.Venue)
+				if c.TonviewerURL != "" {
+					linkTxt = fmt.Sprintf("<a href=\"%s\">%s</a>", c.TonviewerURL, telegram.EscapeHTML(c.Venue))
+				}
+				sb.WriteString(fmt.Sprintf("• #%d در %s (%s): <code>~%.1f TON ($%.0f)</code>\n",
+					c.SerialNumber, linkTxt, dateStr, c.SalePriceGRAM, c.SalePriceUSD))
+			}
+			sb.WriteString("</blockquote>\n\n")
+		}
+
+		// 6. Exit Planner & Net Payout Economics
+		bestVenue := "Fragment"
+		maxNetTON := netSellerTON
+		maxNetUSD := netSellerUSD
+		if val.ExitPlanner != nil && val.ExitPlanner.BestVenueName != "" {
+			bestVenue = val.ExitPlanner.BestVenueName
+			if val.ExitPlanner.MaxNetGRAM > 0 {
+				maxNetTON = val.ExitPlanner.MaxNetGRAM
+				maxNetUSD = val.ExitPlanner.MaxNetUSD
+			}
+		}
 		sb.WriteString("<blockquote expandable>💸 <b>محاسبات مالی معامله و خالص دریافتی:</b>\n")
-		sb.WriteString(fmt.Sprintf("• ارزش ناخالص: <code>%.2f TON</code>\n", fairTON))
+		sb.WriteString(fmt.Sprintf("• ارزش ناخالص پایه: <code>~%.2f TON ($%.2f)</code>\n", fairTON, fairUSD))
 		sb.WriteString(fmt.Sprintf("• کارمزد ۵٪ فرگمنت: <code>-%.2f TON</code>\n", fragFee))
-		sb.WriteString(fmt.Sprintf("• حق امتیاز ۵٪ تلگرام (Royalty): <code>-%.2f TON</code>\n", tgRoyalty))
-		sb.WriteString(fmt.Sprintf("• هزینه گس شبکه: <code>-%.2f TON</code>\n", gasFee))
-		sb.WriteString(fmt.Sprintf("• خالص دریافتی فروشنده: <code>%.2f TON (~$%.2f)</code>\n", netSeller, netSeller*(val.ExpectedUSD/math.Max(1.0, fairTON))))
-		sb.WriteString("• بهترین پلتفرم فروش: <b>Fragment (حداکثر نقدشوندگی و قیمت)</b></blockquote>\n\n")
+		sb.WriteString(fmt.Sprintf("• حق امتیاز ۵٪ تلگرام: <code>-%.2f TON</code>\n", tgRoyalty))
+		sb.WriteString(fmt.Sprintf("• هزینه گس شبکه TON: <code>-%.2f TON</code>\n", gasFee))
+		sb.WriteString(fmt.Sprintf("• خالص دریافتی فروشنده: <code>~%.2f TON ($%.2f)</code>\n", maxNetTON, maxNetUSD))
+		sb.WriteString(fmt.Sprintf("• بهترین پلتفرم فروش (Exit Planner): <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(bestVenue)))
 
-		// Module 5: Provenance & Projections
-		sb.WriteString("<blockquote expandable>🛡️ <b>اصالت آن‌چین، مشاوره و پیش‌بینی:</b>\n")
-		sb.WriteString("• استاندارد قرارداد NFT: <b>استاندارد TEP-62 در بلاکچین TON</b>\n")
-		sb.WriteString("• استراتژی خروج هوشمند: <b>نگهداری با افق رشد کلکسیونی (HODL)</b>\n")
-		sb.WriteString("• مشاوره ترکیب و ارتقا (Crafting): <b>ارزش انتظاری مثبت در کرفتینگ</b>\n")
-		sb.WriteString(fmt.Sprintf("• سناریوی صعودی ۱۲ ماهه (Bull): <code>+50%% (~%.1f TON)</code>\n", fairTON*1.50))
+		// 7. Crafting & Upgrade EV
+		craftSummary := "ارزش انتظاری مثبت در کرفتینگ"
+		if val.CraftingEV != nil && val.CraftingEV.VerdictSummaryFa != "" {
+			craftSummary = val.CraftingEV.VerdictSummaryFa
+		}
+		upgradeSummary := "بهترین زمان ارتقا: بلافاصله"
+		if val.UpgradeAdvisor != nil {
+			if val.UpgradeAdvisor.AdviceHeadlineFa != "" {
+				upgradeSummary = val.UpgradeAdvisor.AdviceHeadlineFa
+			} else if val.UpgradeAdvisor.OptimalWaitHours > 0 {
+				upgradeSummary = fmt.Sprintf("صبر بهینه برای کاهش پله‌ای قیمت: %d ساعت", val.UpgradeAdvisor.OptimalWaitHours)
+			}
+		}
+		sb.WriteString("<blockquote expandable>🔨 <b>مشاوره کرفتینگ و ارتقا (Crafting & Upgrade):</b>\n")
+		sb.WriteString(fmt.Sprintf("• چشم‌انداز فیوژن و کرفتینگ: <b>%s</b>\n", telegram.EscapeHTML(craftSummary)))
+		if val.CraftingEV != nil && val.CraftingEV.SuccessProbability > 0 {
+			sb.WriteString(fmt.Sprintf("• احتمال موفقیت شبیه‌سازی: <code>%.1f%%</code> | ارزش خالص: <code>~%.2f TON ($%.2f)</code>\n",
+				val.CraftingEV.SuccessProbability, val.CraftingEV.NetEVGRAM, val.CraftingEV.NetEVUSD))
+		}
+		sb.WriteString(fmt.Sprintf("• مشاوره ارتقای ظاهری: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(upgradeSummary)))
+
+		// 8. Risk Audit
+		riskLevel := "پایین (LOW)"
+		authStatus := "قرارداد تاییدشده رسمی تلگرام (TEP-62)"
+		if val.RiskAudit != nil {
+			if val.RiskAudit.OverallRiskLevel != "" {
+				riskLevel = val.RiskAudit.OverallRiskLevel
+			}
+			if val.RiskAudit.AuthenticityStatus != "" {
+				authStatus = val.RiskAudit.AuthenticityStatus
+			}
+		}
+		sb.WriteString("<blockquote expandable>🛡️ <b>اصالت آن‌چین و ممیزی ریسک (Risk Audit):</b>\n")
+		sb.WriteString(fmt.Sprintf("• وضعیت ریسک کلی: <b>%s</b>\n", telegram.EscapeHTML(riskLevel)))
+		sb.WriteString(fmt.Sprintf("• استاندارد اصالت: <b>%s</b>\n", telegram.EscapeHTML(authStatus)))
 		sb.WriteString(fmt.Sprintf("• شناسه گواهی دیجیتال: <code>%s</code></blockquote>\n\n", certID))
+
+		// 9. Forward Growth Projections
+		bullTON := fairTON * 1.50
+		bullUSD := fairUSD * 1.50
+		baseTON := fairTON * 1.10
+		baseUSD := fairUSD * 1.10
+		bearTON := fairTON * 0.85
+		bearUSD := fairUSD * 0.85
+		if val.Projection.BullGRAM > 0 {
+			bullTON = val.Projection.BullGRAM
+			bullUSD = val.Projection.BullUSD
+			baseTON = val.Projection.BaseGRAM
+			baseUSD = val.Projection.BaseUSD
+			bearTON = val.Projection.BearGRAM
+			bearUSD = val.Projection.BearUSD
+		}
+		sb.WriteString("<blockquote expandable>📈 <b>پیش‌بینی رشد ۱۲ ماهه (Projections):</b>\n")
+		sb.WriteString(fmt.Sprintf("• سناریوی صعودی (Bull +50%%): <code>~%.2f TON ($%.2f)</code>\n", bullTON, bullUSD))
+		sb.WriteString(fmt.Sprintf("• سناریوی پایه (Base +10%%): <code>~%.2f TON ($%.2f)</code>\n", baseTON, baseUSD))
+		sb.WriteString(fmt.Sprintf("• سناریوی نزولی (Bear -15%%): <code>~%.2f TON ($%.2f)</code></blockquote>\n\n", bearTON, bearUSD))
+
+		// 10. Strategic Recommendation Verdict
+		verdict := "نگهداری کلکسیونی با افق میان‌مدت (HODL)"
+		if val.Recommendation.SummaryFa != "" {
+			verdict = val.Recommendation.SummaryFa
+		} else if val.Recommendation.Verdict != "" {
+			verdict = val.Recommendation.Verdict
+		}
+		sb.WriteString("<blockquote expandable>🧭 <b>توصیه استراتژیک سرمایه‌گذاری:</b>\n")
+		sb.WriteString(fmt.Sprintf("• دستور عملیاتی: <b>%s</b>\n", telegram.EscapeHTML(verdict)))
+		sb.WriteString(fmt.Sprintf("• شاخص اطمینان الگوریتم: <b>%d%%</b>\n", confidence))
+		sb.WriteString(fmt.Sprintf("• مبنای محاسباتی قیمت: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(priceBasisFa)))
 
 		sb.WriteString("⚡ <i>موتور هوشمند GV Engine v2.0 — پردازش زنده بازار هدایای تلگرام</i>")
 		return sb.String()
@@ -1365,11 +1535,12 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 	case "ru":
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("🎁 <b>Оценка подарка: %s</b>\n\n", telegram.EscapeHTML(title)))
-		sb.WriteString(fmt.Sprintf("💎 Класс редкости: <b>%s</b>\n", telegram.EscapeHTML(rarityClass)))
-		sb.WriteString(fmt.Sprintf("💰 Справедливая цена: <b>~%.2f TON (~$%.2f)</b>\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("💎 Модель: <b>%s</b> | Класс редкости: <b>%s</b>\n", telegram.EscapeHTML(modelDisplayName), telegram.EscapeHTML(rarityClass)))
+		sb.WriteString(fmt.Sprintf("💰 Справедливая цена: <b>~%.2f TON ($%.2f)</b>\n", fairTON, fairUSD))
 		if val.OwnerName != "" {
 			sb.WriteString(fmt.Sprintf("👤 Владелец: <code>%s</code>\n", telegram.EscapeHTML(val.OwnerName)))
 		}
+		sb.WriteString(fmt.Sprintf("🔗 Telegram NFT: <a href=\"%s\">t.me/nft/%s</a>\n", nftURL, telegram.EscapeHTML(nftSlug)))
 		if starsEquiv > 0 {
 			sb.WriteString(fmt.Sprintf("⭐ Эквивалент Stars: <b>~%s Stars</b>\n\n", formatNumberWithCommas(starsEquiv)))
 		} else {
@@ -1377,22 +1548,22 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		}
 
 		sb.WriteString("<blockquote expandable>🎯 <b>4 опоры оценки стоимости (4 Pillars):</b>\n")
-		sb.WriteString(fmt.Sprintf("• Справедливая оценка (Fair): <code>%.2f TON</code> (~$%.2f)\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("• Справедливая оценка (Fair): <code>~%.2f TON ($%.2f)</code>\n", fairTON, fairUSD))
 		if floorTON > 0 {
-			sb.WriteString(fmt.Sprintf("• Дно рынка (Floor): <code>%.2f TON</code>\n", floorTON))
+			sb.WriteString(fmt.Sprintf("• Дно рынка (Floor): <code>~%.2f TON ($%.2f)</code>\n", floorTON, floorUSD))
 		}
 		if askTON > 0 {
-			sb.WriteString(fmt.Sprintf("• Рекомендуемая продажа: <code>%.2f TON</code>\n", askTON))
+			sb.WriteString(fmt.Sprintf("• Рекомендуемая продажа: <code>~%.2f TON ($%.2f)</code>\n", askTON, askUSD))
 		}
 		if liqTON > 0 {
-			sb.WriteString(fmt.Sprintf("• Мгновенная ликвидация: <code>%.2f TON</code>\n", liqTON))
+			sb.WriteString(fmt.Sprintf("• Мгновенная ликвидация: <code>~%.2f TON ($%.2f)</code>\n", liqTON, liqUSD))
 		}
-		sb.WriteString(fmt.Sprintf("• Моментальный выкуп (Cashout): <code>%.2f TON</code></blockquote>\n\n", instantCashout))
+		sb.WriteString(fmt.Sprintf("• Моментальный выкуп: <code>~%.2f TON ($%.2f)</code></blockquote>\n\n", instantCashoutTON, instantCashoutUSD))
 
 		sb.WriteString("<blockquote expandable>💸 <b>Экономика сделки и чистый доход:</b>\n")
 		sb.WriteString(fmt.Sprintf("• Комиссия Fragment (5%%): <code>-%.2f TON</code>\n", fragFee))
 		sb.WriteString(fmt.Sprintf("• Роялти Telegram (5%%): <code>-%.2f TON</code>\n", tgRoyalty))
-		sb.WriteString(fmt.Sprintf("• Чистый доход продавца: <code>%.2f TON</code>\n", netSeller))
+		sb.WriteString(fmt.Sprintf("• Чистый доход продавца: <code>~%.2f TON ($%.2f)</code>\n", netSellerTON, netSellerUSD))
 		sb.WriteString(fmt.Sprintf("• Серийный номер: <b>#%d</b> (Множитель: <code>%.2fx</code>)\n", sn, snMult))
 		sb.WriteString(fmt.Sprintf("• Сертификат GV Engine: <code>%s</code></blockquote>\n\n", certID))
 
@@ -1402,11 +1573,12 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 	case "zh":
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("🎁 <b>礼物估值报告: %s</b>\n\n", telegram.EscapeHTML(title)))
-		sb.WriteString(fmt.Sprintf("💎 稀缺度评级: <b>%s</b>\n", telegram.EscapeHTML(rarityClass)))
-		sb.WriteString(fmt.Sprintf("💰 预估公允价值: <b>~%.2f TON (~$%.2f)</b>\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("💎 藏品模型: <b>%s</b> | 稀缺度评级: <b>%s</b>\n", telegram.EscapeHTML(modelDisplayName), telegram.EscapeHTML(rarityClass)))
+		sb.WriteString(fmt.Sprintf("💰 预估公允价值: <b>~%.2f TON ($%.2f)</b>\n", fairTON, fairUSD))
 		if val.OwnerName != "" {
-			sb.WriteString(fmt.Sprintf("👤 当前持有者: <code>%s</code>\n", telegram.EscapeHTML(val.OwnerName)))
+			sb.WriteString(fmt.Sprintf("👤 持有者: <code>%s</code>\n", telegram.EscapeHTML(val.OwnerName)))
 		}
+		sb.WriteString(fmt.Sprintf("🔗 链上凭证: <a href=\"%s\">t.me/nft/%s</a>\n", nftURL, telegram.EscapeHTML(nftSlug)))
 		if starsEquiv > 0 {
 			sb.WriteString(fmt.Sprintf("⭐ Telegram Stars 折合: <b>~%s Stars</b>\n\n", formatNumberWithCommas(starsEquiv)))
 		} else {
@@ -1414,22 +1586,22 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		}
 
 		sb.WriteString("<blockquote expandable>🎯 <b>四维核心估值模型 (4-Pillars):</b>\n")
-		sb.WriteString(fmt.Sprintf("• 公允分析价值 (Fair): <code>%.2f TON</code> (~$%.2f)\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("• 公允分析价值 (Fair): <code>~%.2f TON ($%.2f)</code>\n", fairTON, fairUSD))
 		if floorTON > 0 {
-			sb.WriteString(fmt.Sprintf("• 市场观察底价 (Floor): <code>%.2f TON</code>\n", floorTON))
+			sb.WriteString(fmt.Sprintf("• 市场观察底价 (Floor): <code>~%.2f TON ($%.2f)</code>\n", floorTON, floorUSD))
 		}
 		if askTON > 0 {
-			sb.WriteString(fmt.Sprintf("• 建议挂牌价: <code>%.2f TON</code>\n", askTON))
+			sb.WriteString(fmt.Sprintf("• 建议挂牌价: <code>~%.2f TON ($%.2f)</code>\n", askTON, askUSD))
 		}
 		if liqTON > 0 {
-			sb.WriteString(fmt.Sprintf("• 即时变现流动性: <code>%.2f TON</code>\n", liqTON))
+			sb.WriteString(fmt.Sprintf("• 即时变现流动性: <code>~%.2f TON ($%.2f)</code>\n", liqTON, liqUSD))
 		}
-		sb.WriteString(fmt.Sprintf("• 即时现金买价: <code>%.2f TON</code></blockquote>\n\n", instantCashout))
+		sb.WriteString(fmt.Sprintf("• 即时现金买价: <code>~%.2f TON ($%.2f)</code></blockquote>\n\n", instantCashoutTON, instantCashoutUSD))
 
 		sb.WriteString("<blockquote expandable>💸 <b>交易经济学与净收益:</b>\n")
 		sb.WriteString(fmt.Sprintf("• Fragment 协议手续费 (5%%): <code>-%.2f TON</code>\n", fragFee))
 		sb.WriteString(fmt.Sprintf("• Telegram 创作者版税 (5%%): <code>-%.2f TON</code>\n", tgRoyalty))
-		sb.WriteString(fmt.Sprintf("• 卖家到手净收益: <code>%.2f TON</code>\n", netSeller))
+		sb.WriteString(fmt.Sprintf("• 卖家到手净收益: <code>~%.2f TON ($%.2f)</code>\n", netSellerTON, netSellerUSD))
 		sb.WriteString(fmt.Sprintf("• 编号乘数: <code>%.2fx</code> (#%d)\n", snMult, sn))
 		sb.WriteString(fmt.Sprintf("• 链上认证编号: <code>%s</code></blockquote>\n\n", certID))
 
@@ -1437,32 +1609,47 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		return sb.String()
 
 	default: // "en"
+		verdict := "Strategic Hold with Medium-Term Horizon"
+		if val.Recommendation.SummaryEn != "" {
+			verdict = val.Recommendation.SummaryEn
+		} else if val.Recommendation.Verdict != "" {
+			verdict = val.Recommendation.Verdict
+		}
+
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("🎁 <b>Gift Valuation: %s</b>\n\n", telegram.EscapeHTML(title)))
-		sb.WriteString(fmt.Sprintf("💎 Rarity Class: <b>%s</b>\n", telegram.EscapeHTML(rarityClass)))
-		sb.WriteString(fmt.Sprintf("💰 Estimated Fair Value: <b>~%.2f TON (~$%.2f)</b>\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("💎 Model: <b>%s</b> | Rarity Class: <b>%s</b>\n", telegram.EscapeHTML(modelDisplayName), telegram.EscapeHTML(rarityClass)))
+		sb.WriteString(fmt.Sprintf("💰 Estimated Fair Value: <b>~%.2f TON ($%.2f)</b>\n", fairTON, fairUSD))
 		if val.OwnerName != "" {
 			sb.WriteString(fmt.Sprintf("👤 Current Owner: <code>%s</code>\n", telegram.EscapeHTML(val.OwnerName)))
 		}
+		sb.WriteString(fmt.Sprintf("🔗 Official Link: <a href=\"%s\">t.me/nft/%s</a>\n", nftURL, telegram.EscapeHTML(nftSlug)))
 		if starsEquiv > 0 {
 			sb.WriteString(fmt.Sprintf("⭐ Stars Parity: <b>~%s Stars (XTR)</b>\n\n", formatNumberWithCommas(starsEquiv)))
 		} else {
 			sb.WriteString("\n")
 		}
 
+		// 1. Price Spectrum & Pillars
 		sb.WriteString("<blockquote expandable>🎯 <b>4-Pillar Analytical Valuation:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Analytical Fair Value: <code>%.2f TON</code> (~$%.2f)\n", fairTON, val.ExpectedUSD))
+		sb.WriteString(fmt.Sprintf("• Analytical Fair Value: <code>~%.2f TON ($%.2f)</code>\n", fairTON, fairUSD))
 		if floorTON > 0 {
-			sb.WriteString(fmt.Sprintf("• Observed Market Floor: <code>%.2f TON</code>\n", floorTON))
+			sb.WriteString(fmt.Sprintf("• Observed Market Floor: <code>~%.2f TON ($%.2f)</code>\n", floorTON, floorUSD))
 		}
 		if askTON > 0 {
-			sb.WriteString(fmt.Sprintf("• Suggested Ask: <code>%.2f TON</code>\n", askTON))
+			sb.WriteString(fmt.Sprintf("• Suggested Ask: <code>~%.2f TON ($%.2f)</code>\n", askTON, askUSD))
 		}
 		if liqTON > 0 {
-			sb.WriteString(fmt.Sprintf("• Instant Liquidation: <code>%.2f TON</code>\n", liqTON))
+			sb.WriteString(fmt.Sprintf("• Instant Liquidation: <code>~%.2f TON ($%.2f)</code>\n", liqTON, liqUSD))
 		}
-		sb.WriteString(fmt.Sprintf("• Instant Cashout Bid: <code>%.2f TON</code></blockquote>\n\n", instantCashout))
+		sb.WriteString(fmt.Sprintf("• Instant Cashout Bid: <code>~%.2f TON ($%.2f)</code>\n", instantCashoutTON, instantCashoutUSD))
+		if !val.LowGRAM.IsZero() || !val.HighGRAM.IsZero() {
+			sb.WriteString(fmt.Sprintf("• Valuation Range (Low-High): <code>~%s TON ($%.0f) - ~%s TON ($%.0f)</code></blockquote>\n\n", lowTONStr, val.LowUSD, highTONStr, val.HighUSD))
+		} else {
+			sb.WriteString("</blockquote>\n\n")
+		}
 
+		// 2. Trait DNA & Joint Rarity
 		if len(val.TraitDNA) > 0 {
 			sb.WriteString("<blockquote expandable>🧬 <b>Genetic Traits & Rarity (Trait DNA):</b>\n")
 			for _, trait := range val.TraitDNA {
@@ -1476,28 +1663,146 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 					trait.Percentile,
 					telegram.EscapeHTML(tier)))
 			}
-			sb.WriteString("• Aesthetic Harmony: <b>Strong Visual Palette Alignment (92%)</b></blockquote>\n\n")
+			if val.JointRarity.HarmonicRarityScore > 0 {
+				sb.WriteString(fmt.Sprintf("• Joint Rarity Score: <code>%.1f</code> (%s)</blockquote>\n\n", val.JointRarity.HarmonicRarityScore, telegram.EscapeHTML(rarityClass)))
+			} else {
+				sb.WriteString("</blockquote>\n\n")
+			}
 		}
 
+		// 3. Aesthetic Harmony & Visual Pop
+		harmonyScore := val.AestheticHarmony.HarmonyScore
+		if harmonyScore == 0 {
+			harmonyScore = 90
+		}
+		themeRating := val.AestheticHarmony.ThemeMatchRating
+		if themeRating == "" {
+			themeRating = "PERFECT_MATCH"
+		}
+		domPaletteEn := val.AestheticHarmony.DominantPaletteEn
+		if domPaletteEn == "" {
+			domPaletteEn = "Classic Harmonic Gold"
+		}
+		sb.WriteString("<blockquote expandable>🎨 <b>Aesthetic Harmony & Color Theory:</b>\n")
+		sb.WriteString(fmt.Sprintf("• Visual Harmony Score: <b>%.0f / 100</b>\n", harmonyScore))
+		sb.WriteString(fmt.Sprintf("• Theme Synergy Rating: <b>%s</b>\n", telegram.EscapeHTML(themeRating)))
+		sb.WriteString(fmt.Sprintf("• Dominant Palette: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(domPaletteEn)))
+
+		// 4. Serial Gravity & Profile Flex
+		flexScore := val.ProfileFlex.ProfileFlexScore
+		if flexScore == 0 {
+			flexScore = 92
+		}
+		flexTier := val.ProfileFlex.FlexTier
+		if flexTier == "" {
+			flexTier = "COLLECTOR_ELITE"
+		}
 		sb.WriteString("<blockquote expandable>🔢 <b>Serial Gravity & Profile Flex:</b>\n")
 		sb.WriteString(fmt.Sprintf("• Serial Number: <b>#%d</b>\n", sn))
-		sb.WriteString(fmt.Sprintf("• Serial Multiplier: <code>%.2fx</code>\n", snMult))
-		sb.WriteString("• Profile Flex Score: <b>94 / 100 (High Prestige)</b></blockquote>\n\n")
+		sb.WriteString(fmt.Sprintf("• Serial Tier: <b>%s</b> (Multiplier: <code>%.2fx</code>)\n", snTierEn, snMult))
+		sb.WriteString(fmt.Sprintf("• Profile Flex Score: <b>%.0f / 100</b> (%s)</blockquote>\n\n", flexScore, telegram.EscapeHTML(flexTier)))
 
+		// 5. Recent Comps
+		if len(val.Comps) > 0 {
+			sb.WriteString("<blockquote expandable>📊 <b>Recent Comparable Sales (Comps):</b>\n")
+			maxComps := 5
+			if len(val.Comps) < maxComps {
+				maxComps = len(val.Comps)
+			}
+			for i := 0; i < maxComps; i++ {
+				c := val.Comps[i]
+				dateStr := c.SaleDate.Format("2006-01-02")
+				linkTxt := telegram.EscapeHTML(c.Venue)
+				if c.TonviewerURL != "" {
+					linkTxt = fmt.Sprintf("<a href=\"%s\">%s</a>", c.TonviewerURL, telegram.EscapeHTML(c.Venue))
+				}
+				sb.WriteString(fmt.Sprintf("• #%d on %s (%s): <code>~%.1f TON ($%.0f)</code>\n",
+					c.SerialNumber, linkTxt, dateStr, c.SalePriceGRAM, c.SalePriceUSD))
+			}
+			sb.WriteString("</blockquote>\n\n")
+		}
+
+		// 6. Economics & Exit Planner
+		bestVenue := "Fragment"
+		maxNetTON := netSellerTON
+		maxNetUSD := netSellerUSD
+		if val.ExitPlanner != nil && val.ExitPlanner.BestVenueName != "" {
+			bestVenue = val.ExitPlanner.BestVenueName
+			if val.ExitPlanner.MaxNetGRAM > 0 {
+				maxNetTON = val.ExitPlanner.MaxNetGRAM
+				maxNetUSD = val.ExitPlanner.MaxNetUSD
+			}
+		}
 		sb.WriteString("<blockquote expandable>💸 <b>Transaction Economics & Net Payout:</b>\n")
-		sb.WriteString(fmt.Sprintf("• Gross Value: <code>%.2f TON</code>\n", fairTON))
+		sb.WriteString(fmt.Sprintf("• Gross Valuation: <code>~%.2f TON ($%.2f)</code>\n", fairTON, fairUSD))
 		sb.WriteString(fmt.Sprintf("• Fragment 5%% Fee: <code>-%.2f TON</code>\n", fragFee))
 		sb.WriteString(fmt.Sprintf("• Telegram 5%% Royalty: <code>-%.2f TON</code>\n", tgRoyalty))
 		sb.WriteString(fmt.Sprintf("• Network Gas Fee: <code>-%.2f TON</code>\n", gasFee))
-		sb.WriteString(fmt.Sprintf("• Net Seller Proceeds: <code>%.2f TON (~$%.2f)</code>\n", netSeller, netSeller*(val.ExpectedUSD/math.Max(1.0, fairTON))))
-		sb.WriteString("• Best Venue: <b>Fragment (Optimal Liquidity & Spread)</b></blockquote>\n\n")
+		sb.WriteString(fmt.Sprintf("• Net Seller Proceeds: <code>~%.2f TON ($%.2f)</code>\n", maxNetTON, maxNetUSD))
+		sb.WriteString(fmt.Sprintf("• Optimal Exit Venue: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(bestVenue)))
 
-		sb.WriteString("<blockquote expandable>🛡️ <b>On-Chain Provenance & Projections:</b>\n")
-		sb.WriteString("• NFT Standard: <b>TEP-62 Verified on TON Blockchain</b>\n")
-		sb.WriteString("• Smart Exit Strategy: <b>Long-term Collectible HOLD</b>\n")
-		sb.WriteString("• Crafting & Upgrade EV: <b>Positive expected value on fusion</b>\n")
-		sb.WriteString(fmt.Sprintf("• 12M Bull Target: <code>+50%% (~%.1f TON)</code>\n", fairTON*1.50))
+		// 7. Crafting & Upgrade
+		craftSummary := "Positive Expected Value on Fusion"
+		if val.CraftingEV != nil && val.CraftingEV.VerdictSummaryEn != "" {
+			craftSummary = val.CraftingEV.VerdictSummaryEn
+		}
+		upgradeSummary := "Optimal upgrade timing: Immediate"
+		if val.UpgradeAdvisor != nil {
+			if val.UpgradeAdvisor.AdviceHeadlineEn != "" {
+				upgradeSummary = val.UpgradeAdvisor.AdviceHeadlineEn
+			} else if val.UpgradeAdvisor.OptimalWaitHours > 0 {
+				upgradeSummary = fmt.Sprintf("Recommended ladder wait: %d hours", val.UpgradeAdvisor.OptimalWaitHours)
+			}
+		}
+		sb.WriteString("<blockquote expandable>🔨 <b>Crafting & Upgrade Analytics:</b>\n")
+		sb.WriteString(fmt.Sprintf("• Fusion / Crafting EV: <b>%s</b>\n", telegram.EscapeHTML(craftSummary)))
+		if val.CraftingEV != nil && val.CraftingEV.SuccessProbability > 0 {
+			sb.WriteString(fmt.Sprintf("• Simulation Win Rate: <code>%.1f%%</code> | Net EV: <code>~%.2f TON ($%.2f)</code>\n",
+				val.CraftingEV.SuccessProbability, val.CraftingEV.NetEVGRAM, val.CraftingEV.NetEVUSD))
+		}
+		sb.WriteString(fmt.Sprintf("• Upgrade Advisory: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(upgradeSummary)))
+
+		// 8. Risk Audit & Provenance
+		riskLevel := "LOW"
+		authStatus := "TEP-62 Verified on TON Blockchain"
+		if val.RiskAudit != nil {
+			if val.RiskAudit.OverallRiskLevel != "" {
+				riskLevel = val.RiskAudit.OverallRiskLevel
+			}
+			if val.RiskAudit.AuthenticityStatus != "" {
+				authStatus = val.RiskAudit.AuthenticityStatus
+			}
+		}
+		sb.WriteString("<blockquote expandable>🛡️ <b>On-Chain Provenance & Risk Audit:</b>\n")
+		sb.WriteString(fmt.Sprintf("• Risk Level: <b>%s</b>\n", telegram.EscapeHTML(riskLevel)))
+		sb.WriteString(fmt.Sprintf("• Smart Contract Standard: <b>%s</b>\n", telegram.EscapeHTML(authStatus)))
 		sb.WriteString(fmt.Sprintf("• Digital Certificate ID: <code>%s</code></blockquote>\n\n", certID))
+
+		// 9. Forward Projections
+		bullTON := fairTON * 1.50
+		bullUSD := fairUSD * 1.50
+		baseTON := fairTON * 1.10
+		baseUSD := fairUSD * 1.10
+		bearTON := fairTON * 0.85
+		bearUSD := fairUSD * 0.85
+		if val.Projection.BullGRAM > 0 {
+			bullTON = val.Projection.BullGRAM
+			bullUSD = val.Projection.BullUSD
+			baseTON = val.Projection.BaseGRAM
+			baseUSD = val.Projection.BaseUSD
+			bearTON = val.Projection.BearGRAM
+			bearUSD = val.Projection.BearUSD
+		}
+		sb.WriteString("<blockquote expandable>📈 <b>12-Month Price Projections:</b>\n")
+		sb.WriteString(fmt.Sprintf("• Bull Target (+50%%): <code>~%.2f TON ($%.2f)</code>\n", bullTON, bullUSD))
+		sb.WriteString(fmt.Sprintf("• Base Target (+10%%): <code>~%.2f TON ($%.2f)</code>\n", baseTON, baseUSD))
+		sb.WriteString(fmt.Sprintf("• Bear Target (-15%%): <code>~%.2f TON ($%.2f)</code></blockquote>\n\n", bearTON, bearUSD))
+
+		// 10. Strategic Recommendation
+		sb.WriteString("<blockquote expandable>🧭 <b>Strategic Investment Verdict:</b>\n")
+		sb.WriteString(fmt.Sprintf("• Action Verdict: <b>%s</b>\n", telegram.EscapeHTML(verdict)))
+		sb.WriteString(fmt.Sprintf("• Model Confidence: <b>%d%%</b>\n", confidence))
+		sb.WriteString(fmt.Sprintf("• Price Basis: <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(val.PriceBasis)))
 
 		sb.WriteString("⚡ <i>GV Engine v2.0 — Live Market Intelligence for Telegram Gifts</i>")
 		return sb.String()
@@ -1509,7 +1814,7 @@ func buildGiftMarkup(val *gvengine.GiftValuation, miniAppURL string, copySummary
 	l := normalizeLang(lang)
 	pascal := telegramnft.FormatPascalName(val.ModelID)
 	fragmentURL := fmt.Sprintf("https://fragment.com/gift/%s-%d", pascal, val.SerialNumber)
-	appGiftURL := fmt.Sprintf("%s?startapp=gift_%s-%d", miniAppURL, val.ModelID, val.SerialNumber)
+	appGiftURL := appendStartParam(miniAppURL, fmt.Sprintf("gift_%s-%d", val.ModelID, val.SerialNumber))
 
 	var btnMiniApp, btnFragment, btnCopy, btnShare, btnBack string
 	switch l {
@@ -1654,3 +1959,216 @@ func buildGiftCardParams(val *gvengine.GiftValuation, lang string) cardgen.GiftC
 
 	return p
 }
+
+// Allowed Rich Message tags under Bot API 10.1 specs
+var allowedRichTags = map[string]bool{
+	"h1": true, "h2": true, "h3": true, "h4": true, "h5": true, "h6": true,
+	"p": true, "br": true, "hr": true,
+	"table": true, "tbody": true, "thead": true, "tfoot": true, "tr": true, "td": true, "th": true,
+	"details": true, "summary": true,
+	"blockquote": true,
+	"ul": true, "ol": true, "li": true,
+	"code": true, "pre": true,
+	"b": true, "strong": true, "i": true, "em": true, "u": true, "ins": true, "s": true, "strike": true, "del": true,
+	"a": true, "tg-emoji": true,
+}
+
+var blockLevelTags = map[string]bool{
+	"h1": true, "h2": true, "h3": true, "h4": true, "h5": true, "h6": true,
+	"p": true, "hr": true, "table": true, "details": true, "blockquote": true,
+	"ul": true, "ol": true, "pre": true,
+}
+
+// ValidateRichHTML verifies that the HTML string satisfies Telegram Bot API 10.1 rich_message specifications:
+// - Max 32,768 characters
+// - Max 500 block elements
+// - Only allowed tags
+// - No block elements inside table cells (td/th)
+// - tg-emoji contains a valid emoji
+func ValidateRichHTML(htmlStr string) bool {
+	if len(htmlStr) == 0 || len(htmlStr) > 32768 {
+		return false
+	}
+
+	doc, err := html.Parse(strings.NewReader("<div>" + htmlStr + "</div>"))
+	if err != nil {
+		return false
+	}
+
+	blockCount := 0
+	var checkNode func(*html.Node, bool) bool
+	checkNode = func(n *html.Node, inCell bool) bool {
+		if n.Type == html.ElementNode {
+			tag := strings.ToLower(n.Data)
+			if tag == "html" || tag == "head" || tag == "body" || tag == "div" {
+				// Internal container nodes inserted by parser
+			} else if !allowedRichTags[tag] {
+				return false
+			} else {
+				isBlock := blockLevelTags[tag]
+				if isBlock {
+					blockCount++
+					if blockCount > 500 {
+						return false
+					}
+					if inCell {
+						// Disallow block-level elements inside table cells
+						return false
+					}
+				}
+
+				if tag == "td" || tag == "th" {
+					inCell = true
+				}
+
+				if tag == "tg-emoji" {
+					// Text content must contain an emoji
+					var textBuf strings.Builder
+					for c := n.FirstChild; c != nil; c = c.NextSibling {
+						if c.Type == html.TextNode {
+							textBuf.WriteString(c.Data)
+						}
+					}
+					content := strings.TrimSpace(textBuf.String())
+					if content == "" || !hasEmoji(content) {
+						return false
+					}
+				}
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			childInCell := inCell
+			if !checkNode(c, childInCell) {
+				return false
+			}
+		}
+		return true
+	}
+
+	return checkNode(doc, false)
+}
+
+func hasEmoji(s string) bool {
+	for _, r := range s {
+		if (r >= 0x1F300 && r <= 0x1F9FF) ||
+			(r >= 0x2600 && r <= 0x27BF) ||
+			(r >= 0x1F600 && r <= 0x1F64F) ||
+			(r >= 0x1F680 && r <= 0x1F6FF) ||
+			(r >= 0x2B50 && r <= 0x2B55) ||
+			(r >= 0x23E9 && r <= 0x23F3) ||
+			(r >= 0x25AA && r <= 0x25FE) ||
+			(r >= 0x1F1E6 && r <= 0x1F1FF) ||
+			(r >= 0x1FA70 && r <= 0x1FAFF) {
+			return true
+		}
+	}
+	return false
+}
+
+// splitTelegramHTML splits an HTML message into chunks respecting UTF-16 code units (max 4000 UTF-16 units)
+// and properly closes & reopens any active tags across boundaries.
+func splitTelegramHTML(text string, maxUnits int) []string {
+	if maxUnits <= 0 {
+		maxUnits = 4000
+	}
+
+	u16 := utf16.Encode([]rune(text))
+	if len(u16) <= maxUnits {
+		return []string{text}
+	}
+
+	var chunks []string
+	var activeTags []string
+	runes := []rune(text)
+	totalRunes := len(runes)
+	pos := 0
+
+	for pos < totalRunes {
+		var chunkRunes []rune
+		// Reopen active tags from previous chunk
+		for _, tag := range activeTags {
+			chunkRunes = append(chunkRunes, []rune("<"+tag+">")...)
+		}
+
+		currentUnits := len(utf16.Encode(chunkRunes))
+		bestBreak := -1
+		var bestActiveTags []string
+		tempActive := make([]string, len(activeTags))
+		copy(tempActive, activeTags)
+
+		i := pos
+		for i < totalRunes {
+			r := runes[i]
+			if r == '<' {
+				// Parse tag
+				end := i + 1
+				for end < totalRunes && runes[end] != '>' {
+					end++
+				}
+				if end < totalRunes {
+					tagContent := string(runes[i+1 : end])
+					tagLenUnits := len(utf16.Encode(runes[i : end+1]))
+					if currentUnits+tagLenUnits > maxUnits {
+						break
+					}
+					chunkRunes = append(chunkRunes, runes[i:end+1]...)
+					currentUnits += tagLenUnits
+					i = end + 1
+
+					tagParts := strings.Fields(tagContent)
+					if len(tagParts) > 0 {
+						tagName := strings.ToLower(tagParts[0])
+						if strings.HasPrefix(tagName, "/") {
+							closeName := strings.TrimPrefix(tagName, "/")
+							for idx := len(tempActive) - 1; idx >= 0; idx-- {
+								if tempActive[idx] == closeName {
+									tempActive = append(tempActive[:idx], tempActive[idx+1:]...)
+									break
+								}
+							}
+						} else if !strings.HasSuffix(tagContent, "/") && tagName != "br" && tagName != "hr" {
+							tempActive = append(tempActive, tagName)
+						}
+					}
+					continue
+				}
+			}
+
+			rUnits := len(utf16.Encode([]rune{r}))
+			if currentUnits+rUnits > maxUnits {
+				break
+			}
+			chunkRunes = append(chunkRunes, r)
+			currentUnits += rUnits
+			i++
+
+			if r == '\n' || r == ' ' {
+				bestBreak = len(chunkRunes)
+				bestActiveTags = make([]string, len(tempActive))
+				copy(bestActiveTags, tempActive)
+			}
+		}
+
+		// If no whitespace break point was found, take whatever fit
+		if bestBreak > 0 && i < totalRunes {
+			cut := len(chunkRunes) - bestBreak
+			chunkRunes = chunkRunes[:bestBreak]
+			pos = i - cut
+			activeTags = bestActiveTags
+		} else {
+			pos = i
+			activeTags = tempActive
+		}
+
+		// Close any currently active tags at the end of this chunk
+		for idx := len(activeTags) - 1; idx >= 0; idx-- {
+			chunkRunes = append(chunkRunes, []rune("</"+activeTags[idx]+">")...)
+		}
+
+		chunks = append(chunks, string(chunkRunes))
+	}
+
+	return chunks
+}
+

@@ -63,32 +63,35 @@ func (r *IntelCreditRepo) GetUserBalance(ctx context.Context, userID int64) (*In
 	return &bal, nil
 }
 
-// ConsumeCreditFIFO performs an atomic FIFO credit deduction with strict row locking and idempotency protection
-func (r *IntelCreditRepo) ConsumeCreditFIFO(ctx context.Context, userID int64, reason, entity, idemKey string) (int, error) {
+// ConsumeCreditFIFO performs an atomic FIFO credit deduction with strict row locking and idempotency protection.
+// It returns (remainingBalance, isDuplicate, error).
+func (r *IntelCreditRepo) ConsumeCreditFIFO(ctx context.Context, userID int64, reason, entity, idemKey string) (int, bool, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return 0, fmt.Errorf("database unavailable")
+		return 0, false, fmt.Errorf("database unavailable")
 	}
 
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("failed to start transaction: %w", err)
+		return 0, false, fmt.Errorf("failed to start transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	bal, err := r.ConsumeCreditFIFOTx(ctx, tx, userID, reason, entity, idemKey)
+	bal, isDuplicate, err := r.ConsumeCreditFIFOTx(ctx, tx, userID, reason, entity, idemKey)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+		return 0, false, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	return bal, nil
+	return bal, isDuplicate, nil
 }
 
-// ConsumeCreditFIFOTx performs FIFO credit deduction within an existing transaction
-func (r *IntelCreditRepo) ConsumeCreditFIFOTx(ctx context.Context, tx pgx.Tx, userID int64, reason, entity, idemKey string) (int, error) {
+// ConsumeCreditFIFOTx performs FIFO credit deduction within an existing transaction.
+// It returns (remainingBalance, isDuplicate, error). If the idemKey was already recorded,
+// it returns isDuplicate = true without deducting further credits.
+func (r *IntelCreditRepo) ConsumeCreditFIFOTx(ctx context.Context, tx pgx.Tx, userID int64, reason, entity, idemKey string) (int, bool, error) {
 	// 1. Check idempotency key if provided
 	if idemKey != "" {
 		var existingID int64
@@ -100,9 +103,9 @@ func (r *IntelCreditRepo) ConsumeCreditFIFOTx(ctx context.Context, tx pgx.Tx, us
 				SELECT COALESCE(SUM(remaining), 0) FROM intel_credit_batches
 				WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
 			`, userID).Scan(&bal)
-			return bal, nil
+			return bal, true, nil
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			return 0, fmt.Errorf("idempotency check error: %w", err)
+			return 0, false, fmt.Errorf("idempotency check error: %w", err)
 		}
 	}
 
@@ -125,9 +128,9 @@ func (r *IntelCreditRepo) ConsumeCreditFIFOTx(ctx context.Context, tx pgx.Tx, us
 	err := tx.QueryRow(ctx, querySelect, userID).Scan(&batchID, &batchRemaining)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, ErrInsufficientIntelCredits
+			return 0, false, ErrInsufficientIntelCredits
 		}
-		return 0, fmt.Errorf("failed to deduct intel credit: %w", err)
+		return 0, false, fmt.Errorf("failed to deduct intel credit: %w", err)
 	}
 
 	// 3. Record entry into ledger
@@ -142,7 +145,7 @@ func (r *IntelCreditRepo) ConsumeCreditFIFOTx(ctx context.Context, tx pgx.Tx, us
 
 	_, err = tx.Exec(ctx, queryLedger, userID, reason, entity, batchID, idemVal)
 	if err != nil {
-		return 0, fmt.Errorf("failed to insert ledger entry: %w", err)
+		return 0, false, fmt.Errorf("failed to insert ledger entry: %w", err)
 	}
 
 	// 4. Calculate total remaining balance
@@ -152,10 +155,10 @@ func (r *IntelCreditRepo) ConsumeCreditFIFOTx(ctx context.Context, tx pgx.Tx, us
 		WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
 	`, userID).Scan(&totalRemaining)
 	if err != nil {
-		return 0, fmt.Errorf("failed to fetch updated balance: %w", err)
+		return 0, false, fmt.Errorf("failed to fetch updated balance: %w", err)
 	}
 
-	return totalRemaining, nil
+	return totalRemaining, false, nil
 }
 
 // ConsumeCreditsBatchTx performs an atomic FIFO multi-credit deduction on an existing transaction.
@@ -340,7 +343,10 @@ func (r *IntelCreditRepo) GrantCredits(ctx context.Context, userID int64, kind s
 	return batchID, nil
 }
 
-// RefundCredit refunds 1 consumed credit back to the earliest active batch or creates a refund batch
+// RefundCredit refunds 1 consumed credit back to the user's latest unexpired batch, or creates a refund batch.
+// Note on batch selection: The query selects the latest non-expired batch (expires_at IS NULL OR expires_at > now())
+// ordered by created_at DESC. This may select a batch where remaining == 0 (fully depleted), which is completely
+// valid and intended: since the batch itself has not expired, restoring remaining += 1 safely reactivates that credit.
 func (r *IntelCreditRepo) RefundCredit(ctx context.Context, userID int64, reason, entity string) error {
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("database unavailable")
@@ -352,7 +358,7 @@ func (r *IntelCreditRepo) RefundCredit(ctx context.Context, userID int64, reason
 	}
 	defer tx.Rollback(ctx)
 
-	// Add 1 back to the latest batch for this user, or insert a refund batch
+	// Add 1 back to the latest unexpired batch for this user, or insert a refund batch
 	var batchID uuid.UUID
 	err = tx.QueryRow(ctx, `
 		SELECT id FROM intel_credit_batches
@@ -361,7 +367,10 @@ func (r *IntelCreditRepo) RefundCredit(ctx context.Context, userID int64, reason
 	`, userID).Scan(&batchID)
 
 	if err == nil {
-		_, _ = tx.Exec(ctx, `UPDATE intel_credit_batches SET remaining = remaining + 1 WHERE id = $1`, batchID)
+		_, err = tx.Exec(ctx, `UPDATE intel_credit_batches SET remaining = remaining + 1 WHERE id = $1`, batchID)
+		if err != nil {
+			return fmt.Errorf("failed to refund credit to existing batch: %w", err)
+		}
 	} else {
 		err = tx.QueryRow(ctx, `
 			INSERT INTO intel_credit_batches (user_id, kind, amount, remaining, source, created_at)
@@ -369,7 +378,7 @@ func (r *IntelCreditRepo) RefundCredit(ctx context.Context, userID int64, reason
 			RETURNING id
 		`, userID).Scan(&batchID)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to insert refund credit batch: %w", err)
 		}
 	}
 
@@ -378,7 +387,7 @@ func (r *IntelCreditRepo) RefundCredit(ctx context.Context, userID int64, reason
 		VALUES ($1, 1, $2, $3, $4, now())
 	`, userID, "refund:"+reason, entity, batchID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to insert refund ledger entry: %w", err)
 	}
 
 	return tx.Commit(ctx)
@@ -390,65 +399,79 @@ func (r *IntelCreditRepo) DB() *Database { return r.db }
 // ErrInsufficientCoins is returned when the Airdrop coin balance cannot cover an exchange.
 var ErrInsufficientCoins = errors.New("insufficient airdrop coins")
 
-// ExchangeCoinsForCredit atomically deducts Airdrop Coins and grants exactly one
-// purchased Intel Credit batch inside a single transaction. Returns the new credit balance.
-func (r *IntelCreditRepo) ExchangeCoinsForCredit(ctx context.Context, userID int64, coinsCost float64, expiresAt *time.Time) (int, error) {
+// ExchangeCoinsForCredit atomically deducts Airdrop Coins and grants n
+// purchased Intel Credits in a single batch inside a single transaction.
+// Returns the created batch ID, new credit balance, and new coin balance.
+func (r *IntelCreditRepo) ExchangeCoinsForCredit(ctx context.Context, userID int64, n int, coinsCost float64, expiresAt *time.Time) (uuid.UUID, int, float64, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return 0, fmt.Errorf("database unavailable")
+		return uuid.Nil, 0, 0, fmt.Errorf("database unavailable")
+	}
+	if n <= 0 {
+		n = 1
 	}
 	if coinsCost <= 0 {
-		return 0, fmt.Errorf("coin cost must be positive")
+		return uuid.Nil, 0, 0, fmt.Errorf("coin cost must be positive")
 	}
 
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("failed to start transaction: %w", err)
+		return uuid.Nil, 0, 0, fmt.Errorf("failed to start transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
 	// 1. Deduct Airdrop Coins (FIFO across user_credit_batches)
 	if err := r.db.DeductCreditsFIFO(ctx, tx, userID, coinsCost); err != nil {
 		if strings.Contains(err.Error(), "insufficient active credits") {
-			return 0, ErrInsufficientCoins
+			return uuid.Nil, 0, 0, ErrInsufficientCoins
 		}
-		return 0, fmt.Errorf("failed to deduct coins: %w", err)
+		return uuid.Nil, 0, 0, fmt.Errorf("failed to deduct coins: %w", err)
 	}
 
-	// 2. Grant exactly one purchased credit batch
+	// 2. Grant purchased credit batch with amount = n
 	var batchID uuid.UUID
 	err = tx.QueryRow(ctx, `
 		INSERT INTO intel_credit_batches (user_id, kind, amount, remaining, source, expires_at, created_at)
-		VALUES ($1, 'purchased', 1, 1, 'coins_exchange', $2, now())
+		VALUES ($1, 'purchased', $2, $2, 'coins_exchange', $3, now())
 		RETURNING id
-	`, userID, expiresAt).Scan(&batchID)
+	`, userID, n, expiresAt).Scan(&batchID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create credit batch: %w", err)
+		return uuid.Nil, 0, 0, fmt.Errorf("failed to create credit batch: %w", err)
 	}
 
 	// 3. Ledger entry
 	_, err = tx.Exec(ctx, `
 		INSERT INTO intel_credit_ledger (user_id, delta, reason, entity, batch_id, created_at)
-		VALUES ($1, 1, 'grant:coins_exchange', 'coins_exchange', $2, now())
-	`, userID, batchID)
+		VALUES ($1, $2, 'grant:coins_exchange', 'coins_exchange', $3, now())
+	`, userID, n, batchID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to log exchange ledger: %w", err)
+		return uuid.Nil, 0, 0, fmt.Errorf("failed to log exchange ledger: %w", err)
 	}
 
-	// 4. New balance
+	// 4. New credit balance
 	var bal int
 	err = tx.QueryRow(ctx, `
 		SELECT COALESCE(SUM(remaining), 0) FROM intel_credit_batches
 		WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
 	`, userID).Scan(&bal)
 	if err != nil {
-		return 0, fmt.Errorf("failed to compute balance: %w", err)
+		return uuid.Nil, 0, 0, fmt.Errorf("failed to compute balance: %w", err)
+	}
+
+	// 5. Read new coin balance from user_stats
+	var newCoinBal float64
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1
+	`, userID).Scan(&newCoinBal)
+	if err != nil {
+		return uuid.Nil, 0, 0, fmt.Errorf("failed to read coin balance: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return 0, err
+		return uuid.Nil, 0, 0, err
 	}
-	return bal, nil
+	return batchID, bal, newCoinBal, nil
 }
+
 
 // GrantPackOnce grants a pack of credits exactly once per reference ID (Telegram charge ID).
 // Returns false when the reference was already fulfilled (idempotent duplicate delivery).

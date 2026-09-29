@@ -19,6 +19,7 @@ type CryptoPriceService struct {
 	mu         sync.RWMutex
 	prices     map[string]float64
 	lastFetch  time.Time
+	lastSource string
 }
 
 func NewCryptoPriceService(cache *repository.Cache) *CryptoPriceService {
@@ -64,10 +65,14 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 
 	var usdPrice float64
 	var fetchErr error
+	var source string
 
 	// 1. Primary: Use TonAPI to fetch official TON rate
 	tonClient := tonapi.NewClient()
 	usdPrice, fetchErr = tonClient.GetTONRates(ctx)
+	if fetchErr == nil && usdPrice > 0 {
+		source = "TonAPI"
+	}
 
 	// 2. Secondary: If TonAPI fails, fallback to CoinGecko
 	if fetchErr != nil || usdPrice <= 0 {
@@ -85,6 +90,7 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 				if json.NewDecoder(resp.Body).Decode(&cgResp) == nil && cgResp.TheOpenNetwork.USD > 0 {
 					usdPrice = cgResp.TheOpenNetwork.USD
 					fetchErr = nil
+					source = "CoinGecko"
 					slog.Info("Successfully fetched TON rate from CoinGecko fallback", "price", usdPrice)
 				}
 				resp.Body.Close()
@@ -92,24 +98,80 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 		}
 	}
 
+	// 3. Tertiary: Public Exchange TONUSDT ticker fallback (OKX / Binance)
 	if fetchErr != nil || usdPrice <= 0 {
-		slog.Error("Failed to fetch crypto price from all providers", "error", fetchErr)
+		slog.Warn("CoinGecko rate fetch failed, trying OKX TON-USDT public ticker...", "error", fetchErr)
+		req, err := http.NewRequestWithContext(ctx, "GET", "https://www.okx.com/api/v5/market/ticker?instId=TON-USDT", nil)
+		if err == nil {
+			req.Header.Set("User-Agent", "iFragment/1.0")
+			resp, httpErr := s.httpClient.Do(req)
+			if httpErr == nil && resp.StatusCode == http.StatusOK {
+				var okxResp struct {
+					Code string `json:"code"`
+					Data []struct {
+						Last string `json:"last"`
+					} `json:"data"`
+				}
+				if json.NewDecoder(resp.Body).Decode(&okxResp) == nil && len(okxResp.Data) > 0 {
+					var p float64
+					if _, scanErr := fmt.Sscanf(okxResp.Data[0].Last, "%f", &p); scanErr == nil && p > 0 {
+						usdPrice = p
+						fetchErr = nil
+						source = "OKX (TON/USDT)"
+						slog.Info("Successfully fetched TON rate from OKX ticker", "price", usdPrice)
+					}
+				}
+				resp.Body.Close()
+			}
+		}
+	}
+
+	// 4. Binance public ticker fallback
+	if fetchErr != nil || usdPrice <= 0 {
+		slog.Warn("OKX ticker fetch failed, trying Binance TONUSDT public ticker...", "error", fetchErr)
+		req, err := http.NewRequestWithContext(ctx, "GET", "https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT", nil)
+		if err == nil {
+			req.Header.Set("User-Agent", "iFragment/1.0")
+			resp, httpErr := s.httpClient.Do(req)
+			if httpErr == nil && resp.StatusCode == http.StatusOK {
+				var bnResp struct {
+					Price string `json:"price"`
+				}
+				if json.NewDecoder(resp.Body).Decode(&bnResp) == nil {
+					var p float64
+					if _, scanErr := fmt.Sscanf(bnResp.Price, "%f", &p); scanErr == nil && p > 0 {
+						usdPrice = p
+						fetchErr = nil
+						source = "Binance (TONUSDT)"
+						slog.Info("Successfully fetched TON rate from Binance ticker", "price", usdPrice)
+					}
+				}
+				resp.Body.Close()
+			}
+		}
+	}
+
+	if fetchErr != nil || usdPrice <= 0 {
+		slog.Error("Failed to fetch crypto price from all live providers", "error", fetchErr)
 		return
 	}
 
 	now := time.Now()
 	s.mu.Lock()
 	s.prices["the-open-network"] = usdPrice
+	s.lastSource = source
 	s.lastFetch = now
 	s.mu.Unlock()
 
-	// Cache to Redis with timestamp
+	// Cache to Redis with timestamp and source (without aggressive TTL, 30 days retention)
 	if s.cache != nil && s.cache.Client != nil {
 		s.mu.RLock()
 		cachedData, _ := json.Marshal(s.prices)
 		s.mu.RUnlock()
-		_ = s.cache.Client.Set(ctx, "crypto:prices", cachedData, 24*time.Hour).Err()
-		_ = s.cache.Client.Set(ctx, "crypto:prices:ts", now.Unix(), 24*time.Hour).Err()
+		_ = s.cache.Client.Set(ctx, "crypto:prices", cachedData, 30*24*time.Hour).Err()
+		_ = s.cache.Client.Set(ctx, "crypto:prices:ts", now.Unix(), 30*24*time.Hour).Err()
+		_ = s.cache.Client.Set(ctx, "crypto:prices:source", source, 30*24*time.Hour).Err()
+		_ = s.cache.Client.Set(ctx, "crypto:prices:ton_usdt", fmt.Sprintf("%.6f", usdPrice), 30*24*time.Hour).Err()
 	}
 }
 
@@ -127,10 +189,66 @@ func (s *CryptoPriceService) loadFromRedis() {
 						s.lastFetch = time.Unix(tsSec, 0)
 					}
 				}
+				if srcStr, srcErr := s.cache.Client.Get(context.Background(), "crypto:prices:source").Result(); srcErr == nil && srcStr != "" {
+					s.lastSource = srcStr
+				}
 				s.mu.Unlock()
 			}
 		}
 	}
+}
+
+// GetTONUSDT returns the single unified TON rate in USDT/USD, its origin source, fetch timestamp, and staleness.
+// If no rate is available anywhere (API and persistence both empty), it returns rate=0, ok=false.
+// Sources in order of preference:
+// 1. TonAPI
+// 2. CoinGecko (the-open-network)
+// 3. Direct Public Exchange TONUSDT ticker (OKX, Binance)
+// 4. Last known persistent rate in Redis/Postgres
+func (s *CryptoPriceService) GetTONUSDT(ctx context.Context) (rate float64, source string, fetchedAt time.Time, isStale bool, ok bool) {
+	s.mu.RLock()
+	rate = s.prices["the-open-network"]
+	source = s.lastSource
+	fetchedAt = s.lastFetch
+	s.mu.RUnlock()
+
+	// If in-memory rate is available
+	if rate > 0 {
+		isStale = time.Since(fetchedAt) > 15*time.Minute
+		if source == "" {
+			source = "TonAPI"
+		}
+		return rate, source, fetchedAt, isStale, true
+	}
+
+	// Try reading directly from Redis fallback storage without TTL restriction
+	if s.cache != nil && s.cache.Client != nil {
+		val, err := s.cache.Client.Get(ctx, "crypto:prices:ton_usdt").Result()
+		if err == nil {
+			var r float64
+			if _, scanErr := fmt.Sscanf(val, "%f", &r); scanErr == nil && r > 0 {
+				var ts time.Time
+				if tsStr, tsErr := s.cache.Client.Get(ctx, "crypto:prices:ts").Result(); tsErr == nil {
+					var tsSec int64
+					if n, _ := fmt.Sscanf(tsStr, "%d", &tsSec); n > 0 {
+						ts = time.Unix(tsSec, 0)
+					}
+				}
+				src := "Redis Cache Fallback"
+				if srcStr, srcErr := s.cache.Client.Get(ctx, "crypto:prices:source").Result(); srcErr == nil && srcStr != "" {
+					src = srcStr + " (cached)"
+				}
+				stale := true
+				if !ts.IsZero() && time.Since(ts) <= 15*time.Minute {
+					stale = false
+				}
+				return r, src, ts, stale, true
+			}
+		}
+	}
+
+	// No price available anywhere
+	return 0, "", time.Time{}, true, false
 }
 
 // GetPriceWithFreshness returns price, existence, staleness (> 15m), and fetch timestamp

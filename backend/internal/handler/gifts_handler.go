@@ -684,7 +684,7 @@ func (h *GiftsHandler) deliverGiftReportToUser(r *http.Request, userID int64, va
 					} else {
 						publicURL = h.cardGen.GetPublicCardURL(fileID, nil)
 					}
-					if _, err := tg.SendPhotoWithMarkup(ctx, userID, publicURL, reportText, markup); err == nil {
+					if _, err := tg.SendPhotoWithMarkup(ctx, userID, publicURL, reportText, markup, nil); err == nil {
 						return
 					}
 				}

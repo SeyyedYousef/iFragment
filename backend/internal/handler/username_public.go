@@ -625,8 +625,7 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	rateInfo, err := h.reportService.GetTONRateInfo(ctx)
 	tonRate := rateInfo.Rate
 	if err != nil || tonRate <= 0 {
-		slog.Warn("AVM: TON rate fetch failed, using fallback", "error", err)
-		tonRate = 7.25
+		slog.Warn("AVM: TON rate fetch failed or non-positive", "error", err)
 	}
 
 	result, err := h.avmService.Valuate(ctx, u, tonRate)

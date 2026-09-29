@@ -722,7 +722,7 @@ func (s *NumbersService) UnlockWithCredit(ctx context.Context, userID int64, num
 		return nil, ErrInsufficientCredit
 	}
 	idemKey := fmt.Sprintf("report:number:%d:%s", userID, norm)
-	_, err = s.creditRepo.ConsumeCreditFIFOTx(ctx, tx, userID, "report:number", norm, idemKey)
+	_, _, err = s.creditRepo.ConsumeCreditFIFOTx(ctx, tx, userID, "report:number", norm, idemKey)
 	if err != nil {
 		return nil, ErrInsufficientCredit
 	}
@@ -740,6 +740,10 @@ func (s *NumbersService) UnlockWithCredit(ctx context.Context, userID int64, num
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit unlock transaction: %w", err)
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 	}
 
 	return val, nil

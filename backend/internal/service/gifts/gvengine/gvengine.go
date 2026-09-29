@@ -215,6 +215,8 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 	if e.cryptoPriceSvc != nil {
 		if rate, ok := e.cryptoPriceSvc.GetFloatPrice("the-open-network"); ok && rate > 0 {
 			gramUsdRate = rate
+		} else if rate, _, _, _, ok := e.cryptoPriceSvc.GetTONUSDT(ctx); ok && rate > 0 {
+			gramUsdRate = rate
 		}
 	}
 
@@ -357,6 +359,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	gramUsdRate := 0.0
 	if e.cryptoPriceSvc != nil {
 		if rate, ok := e.cryptoPriceSvc.GetFloatPrice("the-open-network"); ok && rate > 0 {
+			gramUsdRate = rate
+		} else if rate, _, _, _, ok := e.cryptoPriceSvc.GetTONUSDT(ctx); ok && rate > 0 {
 			gramUsdRate = rate
 		}
 	}

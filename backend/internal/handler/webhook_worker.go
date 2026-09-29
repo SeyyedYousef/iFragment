@@ -108,3 +108,25 @@ func EnqueueWebhookJob(job WebhookJob) bool {
 		return false
 	}
 }
+
+// GetShardQueueLengths returns the current buffer length for each of the 32 shards.
+func GetShardQueueLengths() []int {
+	lengths := make([]int, numShards)
+	for i := 0; i < numShards; i++ {
+		if shards[i] != nil {
+			lengths[i] = len(shards[i])
+		}
+	}
+	return lengths
+}
+
+// GetTotalShardQueueLength returns the sum of pending jobs across all 32 shards.
+func GetTotalShardQueueLength() int {
+	total := 0
+	for i := 0; i < numShards; i++ {
+		if shards[i] != nil {
+			total += len(shards[i])
+		}
+	}
+	return total
+}

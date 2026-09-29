@@ -14,16 +14,18 @@ import (
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/cardgen"
+	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/username/avm"
 )
 
 type IntelCreditHandler struct {
-	service    *intelcredit.IntelCreditService
-	cache      *repository.Cache
-	cardGen    *cardgen.CardGenerator
-	tgClient   *telegram.BotAPIClient
-	avmService *avm.ValuationService
+	service     *intelcredit.IntelCreditService
+	cache       *repository.Cache
+	cardGen     *cardgen.CardGenerator
+	tgClient    *telegram.BotAPIClient
+	avmService  *avm.ValuationService
+	cryptoPrice *cryptoprice.CryptoPriceService
 }
 
 func NewIntelCreditHandler(service *intelcredit.IntelCreditService, cache *repository.Cache) *IntelCreditHandler {
@@ -40,6 +42,10 @@ func (h *IntelCreditHandler) SetTelegramClient(tg *telegram.BotAPIClient) {
 
 func (h *IntelCreditHandler) SetAVMService(avm *avm.ValuationService) {
 	h.avmService = avm
+}
+
+func (h *IntelCreditHandler) SetCryptoPriceService(cps *cryptoprice.CryptoPriceService) {
+	h.cryptoPrice = cps
 }
 
 type ConsumeCreditRequest struct {
@@ -93,7 +99,7 @@ func (h *IntelCreditHandler) Consume(w http.ResponseWriter, r *http.Request) {
 		req.Reason = "report:intel"
 	}
 
-	remaining, err := h.service.ConsumeCredit(ctx, userID, req.Reason, req.Entity, req.IdemKey)
+	remaining, _, err := h.service.ConsumeCredit(ctx, userID, req.Reason, req.Entity, req.IdemKey)
 	if err != nil {
 		if errors.Is(err, repository.ErrInsufficientIntelCredits) {
 			w.Header().Set("Content-Type", "application/json")
@@ -118,6 +124,10 @@ func (h *IntelCreditHandler) Consume(w http.ResponseWriter, r *http.Request) {
 			}
 			h.deliverUsernameReportToUser(r, userID, cleanEntity)
 		}
+	}
+
+	if h.cache != nil && h.cache.Client != nil {
+		h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]interface{}{
@@ -197,6 +207,10 @@ func (h *IntelCreditHandler) ExchangeCoins(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if h.cache != nil && h.cache.Client != nil {
+		h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	}
+
 	RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"balance": balance,
@@ -248,11 +262,26 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 		expectedUSDStr := "0"
 
 		if h.avmService != nil {
-			res, err := h.avmService.Valuate(ctx, cleanUser, 0)
+			var tonRate float64
+			var rateSource string
+			var rateFetchedAt time.Time
+			var rateStale bool
+			var rateOk bool
+			if h.cryptoPrice != nil {
+				tonRate, rateSource, rateFetchedAt, rateStale, rateOk = h.cryptoPrice.GetTONUSDT(ctx)
+			}
+
+			res, err := h.avmService.Valuate(ctx, cleanUser, tonRate)
 			if err == nil && res != nil {
 				tier = res.InvestmentGrade
 				expectedTONStr = res.ExpectedTON.StringFixed(1)
-				expectedUSDStr = res.ExpectedUSD.StringFixed(0)
+				if tonRate <= 0 && res.TONUSDRate > 0 {
+					tonRate = res.TONUSDRate
+					rateOk = true
+				}
+				expectedUSDFloat, _ := res.ExpectedUSD.Float64()
+				expectedUSDStr = formatUSDT(expectedUSDFloat, rateOk && tonRate > 0, "fa")
+				rateRefLine := buildRateReferenceLine(tonRate, rateSource, rateFetchedAt, rateStale, rateOk && tonRate > 0, "fa")
 
 				var gradeEmoji string
 				switch res.InvestmentGrade {
@@ -269,7 +298,8 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 %s درجه سرمایه‌گذاری: <b>%s</b>
 📈 شاخص برندپذیری: <b>%d / 100</b>
 📉 بازه برآورد ارزش: <b>%s الی %s TON</b>
-💰 میانگین برآورد منصفانه: <b>~%s TON (معادل $%s)</b>
+💰 میانگین برآورد منصفانه: <b>~%s TON (معادل %s)</b>
+%s
 
 ━━━━━━━━━━━━━━━━━━━
 🧬 <b>ویژگی‌های ساختاری:</b>
@@ -284,7 +314,8 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 					gradeEmoji, res.InvestmentGrade,
 					res.Brandability,
 					res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
-					res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0),
+					res.ExpectedTON.StringFixed(1), expectedUSDStr,
+					rateRefLine,
 					res.Length,
 					res.LiquidityRating,
 					res.EstimatedSellTime,
@@ -319,7 +350,7 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 					} else {
 						publicURL = h.cardGen.GetPublicCardURL(fileID, nil)
 					}
-					if _, err := tg.SendPhotoWithMarkup(ctx, userID, publicURL, reportText, markup); err == nil {
+					if _, err := tg.SendPhotoWithMarkup(ctx, userID, publicURL, reportText, markup, nil); err == nil {
 						return
 					}
 				}

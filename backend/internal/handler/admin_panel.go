@@ -7,10 +7,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/config"
 	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service/intelcredit"
 )
 
 // Supported languages for bot texts & buttons
@@ -21,7 +24,6 @@ var supportedLanguages = []struct {
 }{
 	{"fa", "فارسی", "🇮🇷"},
 	{"en", "English", "🇺🇸"},
-	{"ar", "العربية", "🇸🇦"},
 	{"ru", "Русский", "🇷🇺"},
 	{"zh", "中文", "🇨🇳"},
 }
@@ -115,7 +117,10 @@ var botButtonDefs = []BotButtonDef{
 	{Key: "btn_exchange", Title: "دکمه تبدیل سکه به کردیت", Description: "دکمه اکشن تبدیل سکه در پروفایل"},
 	{Key: "btn_stars", Title: "دکمه خرید با Stars", Description: "دکمه بسته‌های تلگرام استارز"},
 	{Key: "btn_unlock", Title: "دکمه بازکردن گزارش (Unlock)", Description: "دکمه مصرف ۱ کردیت برای گزارش"},
-	{Key: "btn_back", Title: "دکمه بازگشت", Description: "دکمه بازگشت به منوی قبل"},
+	{Key: "btn_back", Title: "دکمه بازگشت (عمومی)", Description: "دکمه بازگشت پیش‌فرض"},
+	{Key: "btn_back_menu", Title: "دکمه بازگشت به منو", Description: "دکمه بازگشت به منوی اصلی"},
+	{Key: "btn_back_gate", Title: "دکمه بازگشت به گیت", Description: "دکمه بازگشت به تأییدیه ارزیابی"},
+	{Key: "btn_cancel", Title: "دکمه انصراف", Description: "دکمه لغو عملیات"},
 }
 
 // isBotOwner checks if the given Telegram user ID has owner permissions.
@@ -353,14 +358,15 @@ func (h *WebhookHandler) sendItemDetail(ctx context.Context, tg *telegram.BotAPI
 		stateLabel = "✏️ سفارشی‌سازی شده توسط شما"
 	}
 
+	escapedContent := telegram.EscapeHTML(currentContent)
 	text := fmt.Sprintf(`⚙️ <b>تنظیمات %s</b>
 زبان: <b>%s</b> | وضعیت: <b>%s</b>
 توضیح: <i>%s</i>
 
 مقدار فعلی:
 ━━━━━━━━━━━━━━━━━━━
-%s
-━━━━━━━━━━━━━━━━━━━`, title, strings.ToUpper(lang), stateLabel, desc, currentContent)
+<pre>%s</pre>
+━━━━━━━━━━━━━━━━━━━`, title, strings.ToUpper(lang), stateLabel, desc, escapedContent)
 
 	if vars != "" {
 		text += fmt.Sprintf("\n💡 <b>متغیرهای قابل استفاده در متن:</b>\n<code>%s</code>", vars)
@@ -378,6 +384,10 @@ func (h *WebhookHandler) sendItemDetail(ctx context.Context, tg *telegram.BotAPI
 			{
 				"text":          "✍️ ارسال مقدار جدید",
 				"callback_data": fmt.Sprintf("panel:edit:%s:%s:%s", itemType, lang, key),
+			},
+			{
+				"text":          "👁 پیش‌نمایش",
+				"callback_data": fmt.Sprintf("panel:preview:%s:%s:%s", itemType, lang, key),
 			},
 		},
 	}
@@ -401,6 +411,14 @@ func (h *WebhookHandler) sendItemDetail(ctx context.Context, tg *telegram.BotAPI
 	markup := map[string]interface{}{
 		"inline_keyboard": rows,
 	}
+
+	if len(escapedContent) > 3500 && tg != nil {
+		docBytes := []byte(currentContent)
+		fileName := fmt.Sprintf("%s_%s.txt", key, lang)
+		caption := fmt.Sprintf("📄 متن کامل قالب <code>%s</code> (%s) به پیوست ارسال شد.", key, strings.ToUpper(lang))
+		_ = tg.SendDocumentBytes(ctx, chatID, fileName, docBytes, caption, messageID, threadID)
+	}
+
 	h.sendOrEditMessage(ctx, tg, chatID, messageID, text, markup, threadID)
 }
 
@@ -436,6 +454,15 @@ func (h *WebhookHandler) handleAdminPanelCallback(ctx context.Context, bot *repo
 
 	if data == "panel:main" {
 		h.sendAdminPanelMenu(ctx, bot, chatID, cq.From.ID, msgID, threadID)
+		return
+	}
+
+	// Preview template: panel:preview:<type>:<lang>:<key>
+	if strings.HasPrefix(data, "panel:preview:") {
+		parts := strings.Split(data, ":")
+		if len(parts) >= 5 {
+			h.handleAdminPanelPreview(ctx, tg, chatID, cq.ID, parts[2], parts[3], parts[4], threadID)
+		}
 		return
 	}
 
@@ -542,20 +569,54 @@ func (h *WebhookHandler) handleAdminPanelCallback(ctx context.Context, bot *repo
 
 	case "panel:stats":
 		var userCount int64 = 0
+		var active24h int64 = 0
+		var active7d int64 = 0
 		if h.ownerRepo != nil {
 			cnt, err := h.ownerRepo.GetAudienceCount(ctx, "all")
 			if err == nil {
 				userCount = cnt
 			}
+			cnt24, err24 := h.ownerRepo.GetAudienceCount(ctx, "active_24h")
+			if err24 == nil {
+				active24h = cnt24
+			}
+			cnt7d, err7d := h.ownerRepo.GetAudienceCount(ctx, "active_7d")
+			if err7d == nil {
+				active7d = cnt7d
+			}
 		}
 
-		text := fmt.Sprintf(`📊 <b>آمار زنده ربات و کاربران</b>
+		// Webhook shard queue metrics
+		shardQueues := GetShardQueueLengths()
+		totalQueue := GetTotalShardQueueLength()
+		shardDetails := ""
+		if len(shardQueues) > 0 {
+			var qParts []string
+			for idx, qLen := range shardQueues {
+				qParts = append(qParts, fmt.Sprintf("شارد %d: <code>%d</code>", idx+1, qLen))
+			}
+			shardDetails = fmt.Sprintf("\n⚡ <b>صف پردازش ورودی:</b> مجموع <code>%d</code> پیام\n%s", totalQueue, strings.Join(qParts, " | "))
+		}
 
-👥 <b>تعداد کل کاربران ثبت‌شده:</b> <code>%d</code>
+		// TON live rate
+		var tonRateStr string = "—"
+		if h.cryptoPrice != nil {
+			rate, src, _, _, ok := h.cryptoPrice.GetTONUSDT(ctx)
+			if ok && rate > 0 {
+				tonRateStr = fmt.Sprintf("$%.2f (%s)", rate, src)
+			}
+		}
+
+		text := fmt.Sprintf(`📊 <b>آمار زنده، عملکرد و مانیتورینگ ربات</b>
+
+👥 <b>کاربران کل:</b> <code>%d</code>
+🔥 <b>فعال ۲۴ ساعت:</b> <code>%d</code> | <b>فعال ۷ روز:</b> <code>%d</code>
+💵 <b>نرخ زنده TON/USDT:</b> <code>%s</code>
+%s
+
 💎 <b>وضعیت ربات:</b> آنلاین و فعال (Operational)
 ⚡ <b>موتور نرخ و هوش مصنوعی:</b> متصل به شبکه اصلی TON و وب‌سرویس Fragment
-
-تمام دکمه‌های اینلاین و شیشه‌ای دارای مکانیزم ایمن Fallback بوده و بدون توقف پاسخ می‌دهند.`, userCount)
+🛡️ <b>سیستم Fallback:</b> پایدار و پاسخگو`, userCount, active24h, active7d, tonRateStr, shardDetails)
 
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
@@ -571,13 +632,28 @@ func (h *WebhookHandler) handleAdminPanelCallback(ctx context.Context, bot *repo
 		return
 
 	case "panel:credits":
-		text := `⚡ <b>سیستم اعتبارات تحلیلی (Intel Credits) و تبدیل سکه</b>
+		costCoins := config.Economics.CreditsCoinsPerCredit
+		formattedCost := formatNumberWithCommas(costCoins)
+
+		// Catalog packs
+		packs := intelcredit.Packs()
+		var packLines []string
+		for _, p := range packs {
+			packLines = append(packLines, fmt.Sprintf("• بسته <b>%d کریدتی</b>: <code>%d Stars</code>", p.TotalCredits(), p.StarsPrice))
+		}
+		packCatalog := strings.Join(packLines, "\n")
+
+		text := fmt.Sprintf(`⚡ <b>سیستم اعتبارات تحلیلی (Intel Credits) و اقتصاد داخلی</b>
 
 ⚙️ <b>پارامترهای اقتصادی فعال:</b>
-• هزینه تبدیل هر ۱ کردیت تحلیلی: <b>150,000 سکه ایردراپ</b>
-• هزینه گزارش تحلیلی عمیق: <b>۱ کردیت</b>
-• بازه زمانی Idempotency گزارش: <b>۲۴ ساعت برای هر دارایی</b>
-• اتصال فروشگاه ستاره‌های تلگرام (Stars): فعال با قابلیت استرداد خودکار در صورت بروز خطا.`
+• هزینه تبدیل هر ۱ کردیت تحلیلی: <b>%s سکه ایردراپ</b>
+• هزینه استعلام عمیق هر دارایی: <b>۱ کردیت</b>
+• بازه Idempotency استعلام: <b>۲۴ ساعت برای هر دارایی</b>
+
+⭐ <b>بسته‌های فعال تلگرام استارز (Stars):</b>
+%s
+
+<i>نکته:</i> تمامی کسرها و تبدیل‌ها بر اساس معماری چندلایه و بدون بن‌بست پردازش می‌شوند.`, formattedCost, packCatalog)
 
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
@@ -610,7 +686,7 @@ func (h *WebhookHandler) processOwnerInput(ctx context.Context, bot *repository.
 		return false
 	}
 
-	// Consume state
+	// Consume state immediately
 	_ = h.cache.Client.Del(ctx, stateKey).Err()
 
 	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
@@ -631,23 +707,91 @@ func (h *WebhookHandler) processOwnerInput(ctx context.Context, bot *repository.
 	}
 	itemType, lang, key := parts[0], parts[1], parts[2]
 
-	newContent := strings.TrimSpace(m.Text)
-	if newContent == "" {
-		newContent = strings.TrimSpace(m.Caption)
-	}
+	var newContent string
 
-	if newContent == "" {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ متن ارسالی خالی است. ویرایش لغو شد.", &m.MessageID, m.MessageThreadID)
-		return true
+	if itemType == "button" || itemType == "btn" {
+		rawBtn := strings.TrimSpace(m.Text)
+		if rawBtn == "" {
+			rawBtn = strings.TrimSpace(m.Caption)
+		}
+		runeCount := utf8.RuneCountInString(rawBtn)
+		if runeCount < 1 || runeCount > 64 {
+			errMsg := fmt.Sprintf("⚠️ <b>طول متن دکمه نامعتبر است!</b>\n\nمتن دکمه‌های تلگرام باید بین ۱ تا ۶۴ کاراکتر باشد (طول وارد شده: %d کاراکتر). ویرایش لغو شد.", runeCount)
+			_ = tg.SendMessage(ctx, m.Chat.ID, errMsg, &m.MessageID, m.MessageThreadID)
+			return true
+		}
+		newContent = rawBtn
+
+		// Test-render button with Bot API markup
+		testBtn := telegram.InlineButton{Text: newContent, CallbackData: "panel:noop"}
+		if customEmojiID := extractCustomEmojiID(newContent); customEmojiID != "" {
+			testBtn.IconCustomEmojiID = customEmojiID
+		}
+		testMarkup := telegram.BuildInlineKeyboard([][]telegram.InlineButton{{testBtn}})
+		testResp, testErr := tg.SendMessageWithMarkup(ctx, m.Chat.ID, "🧪 <i>در حال بررسی ساختار دکمه در تلگرام...</i>", testMarkup, m.MessageThreadID)
+		if testErr != nil {
+			errText := fmt.Sprintf("❌ <b>خطا در اعتبارسنجی دکمه تلگرام:</b>\n<code>%s</code>\n\nویرایش ذخیره نشد. لطفاً قالب را اصلاح و مجدداً ارسال نمایید.", telegram.EscapeHTML(testErr.Error()))
+			_ = tg.SendMessage(ctx, m.Chat.ID, errText, &m.MessageID, m.MessageThreadID)
+			return true
+		}
+		if testResp != nil && testResp.MessageID > 0 {
+			_ = tg.DeleteMessage(ctx, m.Chat.ID, testResp.MessageID)
+		}
+	} else {
+		// Text template: format message entities into clean Telegram HTML
+		rawText := m.Text
+		entities := m.Entities
+		if rawText == "" && m.Caption != "" {
+			rawText = m.Caption
+			entities = m.CaptionEntities
+		}
+		rawText = strings.TrimSpace(rawText)
+		if rawText == "" {
+			_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ متن ارسالی خالی است. ویرایش لغو شد.", &m.MessageID, m.MessageThreadID)
+			return true
+		}
+
+		if len(entities) > 0 {
+			newContent = entitiesToHTML(rawText, entities)
+		} else {
+			newContent = telegram.EscapeHTML(rawText)
+		}
+
+		// Convert bracketed custom emoji IDs to <tg-emoji> tags
+		newContent = FormatPremiumEmojiText(newContent)
+
+		// Test-render template with sample variables to detect entity parsing errors
+		sampleContent := newContent
+		sampleContent = strings.ReplaceAll(sampleContent, "{name}", "کاربر نمونه")
+		sampleContent = strings.ReplaceAll(sampleContent, "{diamond}", fmt.Sprintf(`<tg-emoji emoji-id="%s">💎</tg-emoji>`, CustomEmojiDiamond))
+		sampleContent = strings.ReplaceAll(sampleContent, "{id}", "12345678")
+		sampleContent = strings.ReplaceAll(sampleContent, "{level}", "1")
+		sampleContent = strings.ReplaceAll(sampleContent, "{rank}", "1")
+		sampleContent = strings.ReplaceAll(sampleContent, "{coins}", "150,000")
+		sampleContent = strings.ReplaceAll(sampleContent, "{credits}", "5")
+		sampleContent = strings.ReplaceAll(sampleContent, "{cost_coins}", "150,000")
+		sampleContent = strings.ReplaceAll(sampleContent, "{reflink}", "https://t.me/iFragmentBot?start=ref123")
+		sampleContent = strings.ReplaceAll(sampleContent, "{type}", "نام کاربری")
+		sampleContent = strings.ReplaceAll(sampleContent, "{entity}", "durov")
+
+		testResp, testErr := tg.SendMessageWithResult(ctx, m.Chat.ID, "🧪 <i>در حال اعتبارسنجی قالب HTML...</i>\n\n"+sampleContent, &m.MessageID, m.MessageThreadID)
+		if testErr != nil {
+			errText := fmt.Sprintf("❌ <b>خطای گرامری HTML در قالب (Telegram Entity Error):</b>\n<code>%s</code>\n\nمقدار ذخیره نشد. لطفاً ساختار تگ‌ها را بررسی فرمایید.", telegram.EscapeHTML(testErr.Error()))
+			_ = tg.SendMessage(ctx, m.Chat.ID, errText, &m.MessageID, m.MessageThreadID)
+			return true
+		}
+		if testResp != nil && testResp.MessageID > 0 {
+			_ = tg.DeleteMessage(ctx, m.Chat.ID, testResp.MessageID)
+		}
 	}
 
 	saveErr := h.templateRepo.SetTemplate(ctx, key, lang, itemType, newContent)
 	if saveErr != nil {
-		_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("❌ خطا در ذخیره: %v", saveErr), &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("❌ خطا در ذخیره در پایگاه داده: %v", saveErr), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
-	succMsg := fmt.Sprintf("✅ <b>مقدار جدید با موفقیت ذخیره و اعمال شد!</b>\n\nکلید: <code>%s</code>\nزبان: <code>%s</code>", key, strings.ToUpper(lang))
+	succMsg := fmt.Sprintf("✅ <b>مقدار جدید با موفقیت اعتبارسنجی و ذخیره شد!</b>\n\nکلید: <code>%s</code>\nزبان: <code>%s</code>", key, strings.ToUpper(lang))
 	markup := map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
 			{
@@ -666,200 +810,77 @@ func (h *WebhookHandler) processOwnerInput(ctx context.Context, bot *repository.
 	return true
 }
 
-// getDefaultText returns system standard text for a key and language
+// getDefaultText returns system standard text for a key and language from centralized repository
 func (h *WebhookHandler) getDefaultText(key, lang string) string {
-	switch key {
-	case "start_menu":
-		switch lang {
-		case "fa":
-			return `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>ترمینال تحلیل دارایی‌های تلگرام | iFragment</b>
-
-سلام <b>{name}</b> عزیز؛ به دستیار هوشمند کارشناسی و ارزیابی دارایی‌های دیجیتال تلگرام خوش آمدید.
-
-یکی از بخش‌های زیر را انتخاب کنید، یا مستقیماً <b>نام کاربری</b>، <b>شماره ناشناس (+888)</b> یا <b>لینک گیفت</b> را در چت ارسال فرمایید:`
-		case "ru":
-			return `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Терминал аналитики активов Telegram | iFragment</b>
-
-Здравствуйте, <b>{name}</b>! Добро пожаловать в интеллектуальный ассистент оценки активов Telegram.
-
-Выберите категорию или отправьте <b>юзернейм</b>, <b>номер (+888)</b> или <b>ссылку на подарок</b> прямо в чат:`
-		case "zh":
-			return `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Telegram 资产智能分析终端 | iFragment</b>
-
-您好 <b>{name}</b>！欢迎使用 Telegram 数字资产专业估值与市场洞察终端。
-
-请选择下方的资产类别，或直接在聊天中发送<b>用户名</b>、<b>+888 匿名靓号</b>或<b>礼物链接</b>：`
-		default:
-			return `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Telegram Asset Intelligence Terminal | iFragment</b>
-
-Welcome <b>{name}</b>! I am your institutional analytics engine for Telegram Digital Assets.
-
-Select an asset class below or simply send any <b>username</b>, <b>anonymous number (+888)</b>, or <b>gift link</b> in chat:`
-		}
-
-	case "prompt_username":
-		switch lang {
-		case "fa":
-			return "🏷️ <b>تحلیل و کارشناسی نام کاربری (Username)</b>\n\nلطفاً نام کاربری مد نظر خود را به صورت متن یا با @ ارسال کنید:\n\nنمونه: <code>@crypto</code> ، <code>wallet</code> ، <code>ton_holder</code>"
-		case "ru":
-			return "🏷️ <b>Оценка и анализ юзернейма Telegram</b>\n\nПожалуйста, отправьте тег или имя пользователя:\n\nПример: <code>@crypto</code>, <code>wallet</code>"
-		case "zh":
-			return "🏷️ <b>Telegram 用户名专业估值分析</b>\n\n请输入您想要评估的 Telegram 用户名或链接：\n\n示例: <code>@crypto</code>, <code>wallet</code>"
-		default:
-			return "🏷️ <b>Telegram Username Valuation</b>\n\nPlease enter the username handle you wish to valuate:\n\nExample: <code>@crypto</code>, <code>wallet</code>"
-		}
-
-	case "prompt_number":
-		switch lang {
-		case "fa":
-			return "📱 <b>تحلیل شماره کلکسیونی ناشناس (+888)</b>\n\nلطفاً شماره کلکسیونی ۸ رقمی یا رند ۴ رقمی مد نظر را وارد نمایید:\n\nنمونه: <code>+888 8888 8888</code> یا <code>+88801234567</code> یا <code>8888</code>"
-		case "ru":
-			return "📱 <b>Анализ анонимного номера (+888)</b>\n\nВведите анонимный 8-значный или генезис 4-значный номер:\n\nПример: <code>+888 8888 8888</code> или <code>8888</code>"
-		case "zh":
-			return "📱 <b>Telegram +888 匿名靓号价值分析</b>\n\n请输入您想要分析的 8 位或 4 位 +888 靓号：\n\n示例: <code>+888 8888 8888</code> 或 <code>8888</code>"
-		default:
-			return "📱 <b>Telegram Anonymous Numbers (+888)</b>\n\nPlease enter the anonymous +888 number to analyze:\n\nExample: <code>+888 8888 8888</code> or <code>8888</code>"
-		}
-
-	case "prompt_gift":
-		switch lang {
-		case "fa":
-			return "🎁 <b>کارشناسی گیفت و کالکشن‌های تلگرام</b>\n\nلطفاً لینک گیفت در تلگرام یا فرگمنت، یا نام و شماره آن را ارسال کنید:\n\nنمونه: <code>https://t.me/nft/PlushPepe-42</code> یا <code>PlushPepe-42</code>"
-		case "ru":
-			return "🎁 <b>Оценка и анализ подарков Telegram</b>\n\nОтправьте ссылку на NFT-подарок یا название и номер:\n\nПример: <code>https://t.me/nft/PlushPepe-42</code> или <code>PlushPepe-42</code>"
-		case "zh":
-			return "🎁 <b>Telegram 礼物 NFT 稀缺度与估值鉴定</b>\n\n请发送礼物 NFT 链接或模型名称及编号：\n\n示例: <code>https://t.me/nft/PlushPepe-42</code> 或 <code>PlushPepe-42</code>"
-		default:
-			return "🎁 <b>Telegram Gifts Appraisal</b>\n\nPlease send the Telegram Gift link or model-serial:\n\nExample: <code>https://t.me/nft/PlushPepe-42</code>"
-		}
-	}
-	return "Standard Content"
+	return GetDefaultText(key, lang)
 }
 
-// getDefaultButton returns system standard button label for a key and language
+// getDefaultButton returns system standard button label for a key and language from centralized repository
 func (h *WebhookHandler) getDefaultButton(key, lang string) string {
-	switch key {
-	case "btn_mini_app":
-		switch lang {
-		case "fa":
-			return "💎 ورود به مینی‌اپ iFragment"
-		case "ru":
-			return "💎 Открыть iFragment Mini App"
-		case "zh":
-			return "💎 进入 iFragment 小程序"
-		default:
-			return "💎 Launch iFragment Mini App"
-		}
-	case "btn_usernames":
-		switch lang {
-		case "fa":
-			return "🏷️ نام‌های کاربری"
-		case "ru":
-			return "🏷️ Юзернеймы"
-		case "zh":
-			return "🏷️ 用户名"
-		default:
-			return "🏷️ Usernames"
-		}
-	case "btn_numbers":
-		switch lang {
-		case "fa":
-			return "📱 شماره‌های رند (+888)"
-		case "ru":
-			return "📱 Номера (+888)"
-		case "zh":
-			return "📱 匿名靓号 (+888)"
-		default:
-			return "📱 Numbers (+888)"
-		}
-	case "btn_gifts":
-		switch lang {
-		case "fa":
-			return "🎁 گیفت‌های تلگرام"
-		case "ru":
-			return "🎁 Подарки (NFT)"
-		case "zh":
-			return "🎁 电报礼物 (NFT)"
-		default:
-			return "🎁 Telegram Gifts"
-		}
-	case "btn_profile":
-		switch lang {
-		case "fa":
-			return "👤 پروفایل و دارایی‌ها"
-		case "ru":
-			return "👤 Мой профиль"
-		case "zh":
-			return "👤 个人中心与资产"
-		default:
-			return "👤 Profile & Balances"
-		}
-	case "btn_language":
-		switch lang {
-		case "fa":
-			return "🌐 تغییر زبان"
-		case "ru":
-			return "🌐 Сменить язык"
-		case "zh":
-			return "🌐 切换语言"
-		default:
-			return "🌐 Language"
-		}
-	case "btn_help":
-		switch lang {
-		case "fa":
-			return "📖 راهنمای ربات"
-		case "ru":
-			return "📖 Инструкция"
-		case "zh":
-			return "📖 使用指南"
-		default:
-			return "📖 Help & Guide"
-		}
-	case "btn_exchange":
-		switch lang {
-		case "fa":
-			return "🔄 تبدیل سکه به ۱ کردیت"
-		case "ru":
-			return "🔄 Обменять монеты"
-		case "zh":
-			return "🔄 兑换代币为信用点"
-		default:
-			return "🔄 Exchange Coins"
-		}
-	case "btn_stars":
-		switch lang {
-		case "fa":
-			return "⭐ خرید کردیت با Stars"
-		case "ru":
-			return "⭐ Купить за Stars"
-		case "zh":
-			return "⭐ 使用 Stars 购买"
-		default:
-			return "⭐ Buy with Stars"
-		}
-	case "btn_unlock":
-		switch lang {
-		case "fa":
-			return "🔓 باز کردن گزارش کامل (۱ کریدت)"
-		case "ru":
-			return "🔓 Открыть полный отчет (1 кредит)"
-		case "zh":
-			return "🔓 解锁完整分析报告 (1 信用点)"
-		default:
-			return "🔓 Unlock Full Report (1 Credit)"
-		}
-	case "btn_back":
-		switch lang {
-		case "fa":
-			return "🔙 بازگشت به منو"
-		case "ru":
-			return "🔙 В меню"
-		case "zh":
-			return "🔙 返回主菜单"
-		default:
-			return "🔙 Back to Menu"
-		}
+	return GetDefaultButton(key, lang)
+}
+
+// handleAdminPanelPreview sends a live rendered preview of a text or button template
+func (h *WebhookHandler) handleAdminPanelPreview(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, callbackID string, itemType, lang, key string, threadID *int) {
+	if tg == nil {
+		return
 	}
-	return "Button"
+	_ = tg.AnswerCallbackQuery(ctx, callbackID, "👀 در حال بارگذاری پیش‌نمایش...", false)
+
+	if itemType == "button" || itemType == "btn" {
+		content := h.resolveButton(ctx, key, lang, h.getDefaultButton(key, lang))
+		previewMsg := fmt.Sprintf("👀 <b>پیش‌نمایش دکمه:</b>\n\nکلید: <code>%s</code> (%s)\nمتن: <code>%s</code>", key, strings.ToUpper(lang), telegram.EscapeHTML(content))
+
+		btn := telegram.InlineButton{Text: content, CallbackData: "panel:noop"}
+		if emojiID := extractCustomEmojiID(content); emojiID != "" {
+			btn.IconCustomEmojiID = emojiID
+		}
+		backBtn := telegram.InlineButton{Text: "🔙 بازگشت به جزئیات", CallbackData: fmt.Sprintf("panel:view:%s:%s:%s", itemType, lang, key)}
+
+		markup := telegram.BuildInlineKeyboard([][]telegram.InlineButton{
+			{btn},
+			{backBtn},
+		})
+		_, _ = tg.SendMessageWithMarkup(ctx, chatID, previewMsg, markup, threadID)
+		return
+	}
+
+	content := h.resolveText(ctx, key, lang, h.getDefaultText(key, lang))
+	content = FormatPremiumEmojiText(content)
+	content = strings.ReplaceAll(content, "{name}", "سید یوسف")
+	content = strings.ReplaceAll(content, "{diamond}", fmt.Sprintf(`<tg-emoji emoji-id="%s">💎</tg-emoji>`, CustomEmojiDiamond))
+	content = strings.ReplaceAll(content, "{id}", "12345678")
+	content = strings.ReplaceAll(content, "{level}", "1")
+	content = strings.ReplaceAll(content, "{rank}", "1")
+	content = strings.ReplaceAll(content, "{coins}", "150,000")
+	content = strings.ReplaceAll(content, "{credits}", "5")
+	content = strings.ReplaceAll(content, "{cost_coins}", "150,000")
+	content = strings.ReplaceAll(content, "{reflink}", "https://t.me/iFragmentBot?start=ref123")
+	content = strings.ReplaceAll(content, "{type}", "نام کاربری")
+	content = strings.ReplaceAll(content, "{entity}", "durov")
+
+	previewHeader := fmt.Sprintf("👀 <b>پیش‌نمایش زنده قالب <code>%s</code> (%s):</b>\n— — — — — — — — — — — — — — —\n", key, strings.ToUpper(lang))
+	fullMsg := previewHeader + content
+
+	markup := map[string]interface{}{
+		"inline_keyboard": [][]map[string]interface{}{
+			{
+				{"text": "🔙 بازگشت به جزئیات", "callback_data": fmt.Sprintf("panel:view:%s:%s:%s", itemType, lang, key)},
+			},
+		},
+	}
+	_, _ = tg.SendMessageWithMarkup(ctx, chatID, fullMsg, markup, threadID)
+}
+
+// extractCustomEmojiID parses custom emoji IDs like [5368324170671202286] or [emoji:5368324170671202286]
+// from button text for Bot API 9.3+ icon_custom_emoji_id.
+func extractCustomEmojiID(text string) string {
+	m := premiumEmojiIDRe.FindStringSubmatch(text)
+	if len(m) > 1 && m[1] != "" {
+		return m[1]
+	}
+	if len(m) > 2 && m[2] != "" {
+		return m[2]
+	}
+	return ""
 }

@@ -35,6 +35,8 @@ func (r *BotTemplateRepo) cacheKey(key, lang string) string {
 	return fmt.Sprintf("bot_tpl:%s:%s", lang, key)
 }
 
+const negativeCacheSentinel = "\x00"
+
 // GetTemplate retrieves custom content if configured, or empty string if not found.
 func (r *BotTemplateRepo) GetTemplate(ctx context.Context, key, lang string) (string, error) {
 	if r == nil {
@@ -45,6 +47,9 @@ func (r *BotTemplateRepo) GetTemplate(ctx context.Context, key, lang string) (st
 	if r.cache != nil && r.cache.Client != nil {
 		val, err := r.cache.Client.Get(ctx, cKey).Result()
 		if err == nil {
+			if val == negativeCacheSentinel {
+				return "", nil
+			}
 			return val, nil
 		}
 	}
@@ -58,6 +63,9 @@ func (r *BotTemplateRepo) GetTemplate(ctx context.Context, key, lang string) (st
 	err := r.db.Pool.QueryRow(ctx, query, key, lang).Scan(&content)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			if r.cache != nil && r.cache.Client != nil {
+				_ = r.cache.Client.Set(ctx, cKey, negativeCacheSentinel, 10*time.Minute).Err()
+			}
 			return "", nil
 		}
 		return "", err
@@ -96,7 +104,7 @@ func (r *BotTemplateRepo) SetTemplate(ctx context.Context, key, lang, templateTy
 	return nil
 }
 
-// DeleteTemplate removes a custom template, reverting to system defaults.
+// DeleteTemplate removes a custom template, reverting to system defaults and resetting cache with sentinel.
 func (r *BotTemplateRepo) DeleteTemplate(ctx context.Context, key, lang string) error {
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("database unavailable")
@@ -109,7 +117,7 @@ func (r *BotTemplateRepo) DeleteTemplate(ctx context.Context, key, lang string) 
 	}
 
 	if r.cache != nil && r.cache.Client != nil {
-		_ = r.cache.Client.Del(ctx, r.cacheKey(key, lang)).Err()
+		_ = r.cache.Client.Set(ctx, r.cacheKey(key, lang), negativeCacheSentinel, 10*time.Minute).Err()
 	}
 
 	return nil

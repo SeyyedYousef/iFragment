@@ -2,6 +2,7 @@ package cardgen
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"errors"
 	"fmt"
@@ -118,6 +119,81 @@ func (cg *CardGenerator) GetPublicCardURL(fileID string, r *http.Request) string
 	return fmt.Sprintf("%s://%s/static/shares/%s.png", scheme, host, fileID)
 }
 
+// StartSharesCleanupJob runs a background loop removing files older than maxAge from ./static/shares
+func StartSharesCleanupJob(ctx context.Context, checkInterval, maxAge time.Duration) {
+	ticker := time.NewTicker(checkInterval)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				dir := "./static/shares"
+				entries, err := os.ReadDir(dir)
+				if err != nil {
+					continue
+				}
+				threshold := time.Now().Add(-maxAge)
+				for _, e := range entries {
+					if e.IsDir() || !strings.HasSuffix(e.Name(), ".png") {
+						continue
+					}
+					info, err := e.Info()
+					if err != nil {
+						continue
+					}
+					if info.ModTime().Before(threshold) {
+						_ = os.Remove(filepath.Join(dir, e.Name()))
+					}
+				}
+			}
+		}
+	}()
+}
+
+// containsArabicScript detects Arabic/Persian unicode characters
+func containsArabicScript(s string) bool {
+	for _, r := range s {
+		if (r >= 0x0600 && r <= 0x06FF) ||
+			(r >= 0x0750 && r <= 0x077F) ||
+			(r >= 0x08A0 && r <= 0x08FF) ||
+			(r >= 0xFB50 && r <= 0xFDFF) ||
+			(r >= 0xFE70 && r <= 0xFEFF) {
+			return true
+		}
+	}
+	return false
+}
+
+// formatUSDTAmount formats a numeric USD/USDT string with comma grouping
+func formatUSDTAmount(val string) string {
+	clean := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(val, "≈"), "$"))
+	if clean == "" || clean == "0" || clean == "0.0" {
+		return ""
+	}
+	parts := strings.Split(clean, ".")
+	intPart := parts[0]
+	if len(intPart) == 0 {
+		return ""
+	}
+	num, err := strconv.ParseInt(intPart, 10, 64)
+	if err != nil || num <= 0 {
+		return ""
+	}
+
+	str := strconv.FormatInt(num, 10)
+	var res []byte
+	n := len(str)
+	for i := 0; i < n; i++ {
+		if i > 0 && (n-i)%3 == 0 {
+			res = append(res, ',')
+		}
+		res = append(res, str[i])
+	}
+	return string(res)
+}
+
 // TierTheme defines color styling for card borders and glowing auras
 type TierTheme struct {
 	Border color.RGBA
@@ -188,6 +264,119 @@ func (cg *CardGenerator) GenerateUsernameCardLang(username string, tier string, 
 	})
 }
 
+// UsernameCardParams defines parameters for rich Username card generation
+type UsernameCardParams struct {
+	Username     string
+	Grade        string
+	LowTON       string
+	FairTON      string
+	HighTON      string
+	USDT         string
+	Brandability int
+	Length       int
+	MarketStatus string
+	CompsCount   int
+	Confidence   int
+	Lang         string
+}
+
+// NumberCardParams defines parameters for rich Number card generation
+type NumberCardParams struct {
+	Number       string
+	Club         string
+	Rank         int
+	LowTON       string
+	FairTON      string
+	HighTON      string
+	USDT         string
+	ColorPattern string
+	Supply       int
+	Lang         string
+}
+
+// GenerateRichUsernameCard renders a modern 600x600 visual card for Telegram Usernames
+func (cg *CardGenerator) GenerateRichUsernameCard(p UsernameCardParams) ([]byte, error) {
+	theme := getTierTheme(p.Grade)
+	if p.Grade != "" {
+		theme.Badge = strings.ToUpper(strings.TrimSpace(p.Grade))
+	}
+	cleanUser := "@" + strings.TrimPrefix(strings.TrimSpace(p.Username), "@")
+
+	var chips []cardChip
+	if p.Brandability > 0 {
+		chips = append(chips, cardChip{Label: fmt.Sprintf("BRAND: %d/100", p.Brandability)})
+	}
+	if p.Length > 0 {
+		chips = append(chips, cardChip{Label: fmt.Sprintf("LEN: %d", p.Length)})
+	}
+	if p.MarketStatus != "" {
+		chips = append(chips, cardChip{Label: strings.ToUpper(p.MarketStatus)})
+	}
+	if p.CompsCount > 0 {
+		chips = append(chips, cardChip{Label: fmt.Sprintf("COMPS: %d", p.CompsCount)})
+	}
+	if p.Confidence > 0 {
+		chips = append(chips, cardChip{Label: fmt.Sprintf("CONF: %d%%", p.Confidence)})
+	}
+
+	return cg.renderFlexCard(cardParams{
+		leftPill:    "I F R A G M E N T",
+		rightPill:   theme.Badge,
+		theme:       theme,
+		identifier:  cleanUser,
+		subLabel:    "ON-CHAIN TELEGRAM USERNAME",
+		expectedTON: p.FairTON,
+		expectedUSD: p.USDT,
+		lowTON:      p.LowTON,
+		highTON:     p.HighTON,
+		chips:       chips,
+		lang:        p.Lang,
+	})
+}
+
+// GenerateRichNumberCard renders a modern 600x600 visual card for Telegram Anonymous Numbers (+888)
+func (cg *CardGenerator) GenerateRichNumberCard(p NumberCardParams) ([]byte, error) {
+	theme := getTierTheme(p.Club)
+	rightBadge := "RANK #1"
+	if p.Rank > 0 {
+		rightBadge = fmt.Sprintf("RANK #%d", p.Rank)
+	}
+
+	clubLabel := p.Club
+	if containsArabicScript(clubLabel) {
+		clubLabel = "COLLECTIBLE NUMBER"
+	} else if clubLabel == "" {
+		clubLabel = "TELEGRAM ANONYMOUS NUMBER"
+	} else {
+		clubLabel = strings.ToUpper(clubLabel)
+	}
+
+	var chips []cardChip
+	if p.Rank > 0 {
+		chips = append(chips, cardChip{Label: fmt.Sprintf("GLOBAL #%d/136,566", p.Rank)})
+	}
+	if p.ColorPattern != "" && !containsArabicScript(p.ColorPattern) {
+		chips = append(chips, cardChip{Label: strings.ToUpper(p.ColorPattern)})
+	}
+	if p.Supply > 0 {
+		chips = append(chips, cardChip{Label: fmt.Sprintf("SUPPLY: %d", p.Supply)})
+	}
+
+	return cg.renderFlexCard(cardParams{
+		leftPill:    "I F R A G M E N T",
+		rightPill:   rightBadge,
+		theme:       theme,
+		identifier:  p.Number,
+		subLabel:    clubLabel,
+		expectedTON: p.FairTON,
+		expectedUSD: p.USDT,
+		lowTON:      p.LowTON,
+		highTON:     p.HighTON,
+		chips:       chips,
+		lang:        p.Lang,
+	})
+}
+
 // GenerateNumberCard creates a high-fidelity 600x600 Flex Card for Telegram Anonymous Numbers (+888)
 func (cg *CardGenerator) GenerateNumberCard(displayNum string, club string, rank int, expectedTON string, expectedUSD string) ([]byte, error) {
 	return cg.GenerateNumberCardLang(displayNum, club, rank, expectedTON, expectedUSD, "fa")
@@ -201,7 +390,7 @@ func (cg *CardGenerator) GenerateNumberCardLang(displayNum string, club string, 
 	}
 
 	subLabel := "TELEGRAM ANONYMOUS NUMBER"
-	if club != "" {
+	if club != "" && !containsArabicScript(club) {
 		subLabel = strings.ToUpper(club)
 	}
 
@@ -478,11 +667,10 @@ func (cg *CardGenerator) GenerateRichGiftCard(p GiftCardParams) ([]byte, error) 
 			color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xCC}, alignLeft)
 	}
 
-	usdDisplay := "$0"
-	if p.ExpectedUSD != "" {
-		usdDisplay = fmt.Sprintf("$%s", strings.TrimPrefix(strings.TrimPrefix(p.ExpectedUSD, "≈"), "$"))
+	formattedUSDT := formatUSDTAmount(p.ExpectedUSD)
+	if formattedUSDT != "" {
+		cg.drawText(img, cg.fontOutfitBlack, 22.0, 48, 528, fmt.Sprintf("≈ %s USDT", formattedUSDT), color.White, alignLeft)
 	}
-	cg.drawText(img, cg.fontOutfitBlack, 27.0, 48, 528, usdDisplay, color.White, alignLeft)
 
 	// 9. Bottom Row: Right side (TON Diamond Icon + TON Amount + ≈TON)
 	iconCenterX := 526
@@ -754,6 +942,10 @@ func fetchOGImageURL(pageURL string, timeout time.Duration) string {
 	return ""
 }
 
+type cardChip struct {
+	Label string
+}
+
 type cardParams struct {
 	leftPill    string
 	rightPill   string
@@ -762,6 +954,9 @@ type cardParams struct {
 	subLabel    string
 	expectedTON string
 	expectedUSD string
+	lowTON      string
+	highTON     string
+	chips       []cardChip
 	lang        string
 }
 
@@ -830,7 +1025,7 @@ func (cg *CardGenerator) renderFlexCard(p cardParams) ([]byte, error) {
 
 			// Ambient radial glow behind the center text
 			dx := (fx - 300.0) / 190.0
-			dy := (fy - 275.0) / 130.0
+			dy := (fy - 250.0) / 130.0
 			centerDist := math.Hypot(dx, dy)
 			if centerDist < 1.0 {
 				ambientFactor := 1.0 - centerDist
@@ -880,16 +1075,16 @@ func (cg *CardGenerator) renderFlexCard(p cardParams) ([]byte, error) {
 
 	// 4. Center Hero: Sparkles + Main Identifier in OUTFIT-BLACK!
 	identLen := len(p.identifier)
-	identSize := 54.0
+	identSize := 50.0
 	if identLen > 18 {
-		identSize = 30.0
+		identSize = 28.0
 	} else if identLen > 12 {
-		identSize = 42.0
+		identSize = 38.0
 	}
 	identFace, _ := cg.getFace(cg.fontOutfitBlack, identSize)
 	identW := font.MeasureString(identFace, p.identifier).Ceil()
 
-	centerY := 250
+	centerY := 220
 	// Drop shadow for 3D pop (2px offset)
 	cg.drawText(img, cg.fontOutfitBlack, identSize, 300, centerY+2, p.identifier,
 		color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xB0}, alignCenter)
@@ -901,27 +1096,99 @@ func (cg *CardGenerator) renderFlexCard(p cardParams) ([]byte, error) {
 	sparkleXLeft := 300 - identW/2 - 32
 	sparkleXRight := 300 + identW/2 + 32
 	sparkleY := centerY - int(identSize*0.22)
-	drawSparkle(img, sparkleXLeft, sparkleY, 18, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
-	drawSparkle(img, sparkleXRight, sparkleY, 18, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
+	drawSparkle(img, sparkleXLeft, sparkleY, 16, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
+	drawSparkle(img, sparkleXRight, sparkleY, 16, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
 
-	// Sub-label below identifier (only if custom and meaningful)
+	// Sub-label below identifier (only if custom and non-Arabic script)
 	cleanSubLabel := strings.Trim(p.subLabel, " ✦\t\r\n")
-	if cleanSubLabel != "" && cleanSubLabel != "ON-CHAIN TELEGRAM USERNAME" && cleanSubLabel != "TELEGRAM ANONYMOUS NUMBER" && cleanSubLabel != "TELEGRAM STAR GIFT NFT" {
-		cg.drawText(img, cg.fontOutfitBold, 11.0, 300, 300, cleanSubLabel,
+	if cleanSubLabel != "" && !containsArabicScript(cleanSubLabel) &&
+		cleanSubLabel != "ON-CHAIN TELEGRAM USERNAME" &&
+		cleanSubLabel != "TELEGRAM ANONYMOUS NUMBER" &&
+		cleanSubLabel != "TELEGRAM STAR GIFT NFT" {
+		cg.drawText(img, cg.fontOutfitBold, 11.0, 300, 260, cleanSubLabel,
 			color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xBB}, alignCenter)
 	}
 
-	// 5. Horizontal divider line
+	// 5. Zone y=285..415: 3-column Low/Fair/High TON & Analytics Chips
+	if p.lowTON != "" || p.highTON != "" {
+		boxW := 154
+		boxH := 52
+		gap := 18
+		startX := 52
+		boxY := 286
+
+		cols := []struct {
+			Title string
+			Val   string
+			Col   color.RGBA
+		}{
+			{"LOW ESTIMATE", p.lowTON + " TON", color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xEE}},
+			{"FAIR VALUE", p.expectedTON + " TON", color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF}},
+			{"HIGH TARGET", p.highTON + " TON", color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}},
+		}
+
+		for i, c := range cols {
+			bx := startX + i*(boxW+gap)
+			bgFill := color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x08}
+			borderFill := color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x18}
+			if i == 1 {
+				bgFill = color.RGBA{R: p.theme.Border.R, G: p.theme.Border.G, B: p.theme.Border.B, A: 0x15}
+				borderFill = color.RGBA{R: p.theme.Border.R, G: p.theme.Border.G, B: p.theme.Border.B, A: 0x55}
+			}
+			drawPill(img, bx, boxY, boxW, boxH, 8, bgFill, borderFill)
+
+			cg.drawText(img, cg.fontOutfitBold, 8.5, bx+boxW/2, boxY+18, c.Title,
+				color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xCC}, alignCenter)
+
+			cg.drawText(img, cg.fontOutfitBlack, 13.5, bx+boxW/2, boxY+40, c.Val,
+				c.Col, alignCenter)
+		}
+	}
+
+	// Badges & Chips row
+	if len(p.chips) > 0 {
+		chipY := 365
+		chipH := 26
+		chipPad := 12
+		gap := 8
+
+		totalW := 0
+		var chipWidths []int
+		for _, chip := range p.chips {
+			f, _ := cg.getFace(cg.fontOutfitBold, 9.5)
+			tw := font.MeasureString(f, chip.Label).Ceil()
+			cw := tw + (chipPad * 2)
+			chipWidths = append(chipWidths, cw)
+			totalW += cw
+		}
+		totalW += (len(p.chips) - 1) * gap
+
+		curX := 300 - totalW/2
+		if curX < 48 {
+			curX = 48
+		}
+		for i, chip := range p.chips {
+			cw := chipWidths[i]
+			drawPill(img, curX, chipY, cw, chipH, 8,
+				color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0A},
+				color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x20})
+			cg.drawText(img, cg.fontOutfitBold, 9.5, curX+cw/2, chipY+17, chip.Label,
+				color.RGBA{R: 0xCF, G: 0xD8, B: 0xDC, A: 0xEE}, alignCenter)
+			curX += cw + gap
+		}
+	}
+
+	// 6. Horizontal divider line
 	dividerY := 432
 	for x := 48; x <= 552; x++ {
 		img.Set(x, dividerY, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x18})
 	}
 
-	// 6. Bottom Row: Left side (Verified + Market Value + USD)
+	// 7. Bottom Row: Left side (Verified + Market Value + USD)
 	isFa := p.lang == "fa" || p.lang == ""
 
 	if isFa && cg.fontVazirBold != nil {
-		// 2-line Persian Green Verified Pill matching Image 1: [ تایید \n شده  ● ]
+		// 2-line Persian Green Verified Pill: [ تایید \n شده  ● ]
 		drawPill(img, 48, 452, 68, 36, 12,
 			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x24},
 			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x77})
@@ -949,14 +1216,13 @@ func (cg *CardGenerator) renderFlexCard(p cardParams) ([]byte, error) {
 			color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xCC}, alignLeft)
 	}
 
-	// USD Price (Outfit-Black 27pt, baseline at y = 528)
-	usdDisplay := "$0"
-	if p.expectedUSD != "" {
-		usdDisplay = fmt.Sprintf("$%s", strings.TrimPrefix(strings.TrimPrefix(p.expectedUSD, "≈"), "$"))
+	// USDT Price display
+	formattedUSDT := formatUSDTAmount(p.expectedUSD)
+	if formattedUSDT != "" {
+		cg.drawText(img, cg.fontOutfitBlack, 22.0, 48, 528, fmt.Sprintf("≈ %s USDT", formattedUSDT), color.White, alignLeft)
 	}
-	cg.drawText(img, cg.fontOutfitBlack, 27.0, 48, 528, usdDisplay, color.White, alignLeft)
 
-	// 7. Bottom Row: Right side (TON Diamond Icon + TON Amount + ≈TON)
+	// 8. Bottom Row: Right side (TON Diamond Icon + TON Amount + ≈TON)
 	iconCenterX := 526
 	iconCenterY := 498
 	drawTonDiamondIcon(img, iconCenterX, iconCenterY, 24)

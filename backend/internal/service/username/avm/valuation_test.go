@@ -8,6 +8,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestClassifyUsername(t *testing.T) {
@@ -408,6 +409,54 @@ func TestModelCalibrationRun(t *testing.T) {
 	}
 	if summary.UncertaintyMult != 1.5 {
 		t.Errorf("Expected default uncertainty multiplier 1.5, got %f", summary.UncertaintyMult)
+	}
+}
+
+type mockPriceProvider struct {
+	rate float64
+}
+
+func (m *mockPriceProvider) GetTONUSDT(ctx context.Context) (float64, string, time.Time, bool, bool) {
+	return m.rate, "mock_source", time.Now(), false, true
+}
+
+func TestValuation_TONUSDTResolution(t *testing.T) {
+	svc := NewValuationService(nil, nil, nil)
+	svc.SetCryptoPriceService(&mockPriceProvider{rate: 3.2})
+
+	ctx := context.Background()
+	// Test passing rate 0 -> service resolves to 3.2 and computes ExpectedUSD > 0
+	res, err := svc.Valuate(ctx, "gold", 0)
+	if err != nil {
+		t.Fatalf("Valuate failed: %v", err)
+	}
+	if res == nil {
+		t.Fatal("Expected non-nil valuation result")
+	}
+
+	if res.TONUSDRate != 3.2 {
+		t.Errorf("Expected TONUSDRate 3.2, got %f", res.TONUSDRate)
+	}
+
+	expTon, _ := res.ExpectedTON.Float64()
+	expUSD, _ := res.ExpectedUSD.Float64()
+	if expTon <= 0 {
+		t.Fatalf("Expected expectedTON > 0, got %f", expTon)
+	}
+
+	expectedUSDCalculated := expTon * 3.2
+	if math.Abs(expUSD-expectedUSDCalculated) > 0.01 {
+		t.Errorf("Expected expectedUSD %.2f, got %.2f", expectedUSDCalculated, expUSD)
+	}
+
+	// Direct check: if ExpectedTON = 100 with rate 3.2 -> ExpectedUSD = 320
+	res2, err := svc.Valuate(ctx, "gold", 3.2)
+	if err != nil {
+		t.Fatalf("Valuate with explicit rate failed: %v", err)
+	}
+	expUSD2, _ := res2.ExpectedUSD.Float64()
+	if expUSD2 <= 0 {
+		t.Errorf("Expected positive ExpectedUSD with rate 3.2, got %f", expUSD2)
 	}
 }
 

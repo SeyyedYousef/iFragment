@@ -36,6 +36,16 @@ func NewProfileService(db *repository.Database, cache *repository.Cache) *Profil
 	}
 }
 
+// FlushUserPendingTaps flushes pending taps for the specified user
+func (s *ProfileService) FlushUserPendingTaps(ctx context.Context, userID int64) error {
+	if s.cache == nil || s.cache.Client == nil || s.db == nil || s.db.Pool == nil {
+		return nil
+	}
+	// Delegate directly to the atomic Lua + DB transaction logic
+	gameSvc := NewGamificationService(s.db, s.cache)
+	return gameSvc.FlushUserPendingTaps(ctx, userID)
+}
+
 // UpdateLanguage manually updates the user's language setting
 func (s *ProfileService) UpdateLanguage(ctx context.Context, telegramID int64, lang string) error {
 	return s.db.UpdateUserLanguage(ctx, telegramID, lang)

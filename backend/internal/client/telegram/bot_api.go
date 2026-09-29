@@ -188,6 +188,134 @@ func (c *BotAPIClient) Request(ctx context.Context, method string, payload inter
 	return result.(json.RawMessage), nil
 }
 
+func (c *BotAPIClient) RequestMultipart(ctx context.Context, method string, fields map[string]string, files map[string][]byte) (json.RawMessage, error) {
+	result, err := c.cb.Execute(func() (interface{}, error) {
+		return c.doMultipartRequestWithRetry(ctx, method, fields, files)
+	})
+	if err != nil {
+		return nil, c.maskTokenInError(err)
+	}
+	return result.(json.RawMessage), nil
+}
+
+func (c *BotAPIClient) doMultipartRequestWithRetry(ctx context.Context, method string, fields map[string]string, files map[string][]byte) (json.RawMessage, error) {
+	apiURL := fmt.Sprintf("%s/bot%s/%s", c.baseURL, c.token, method)
+
+	const maxRetries = 3
+	skipNextBackoff := false
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 && !skipNextBackoff {
+			backoff := time.Duration(500*math.Pow(2, float64(attempt-1))) * time.Millisecond
+			slog.Info("Retrying Telegram API multipart request",
+				"method", method,
+				"attempt", attempt+1,
+				"backoff", backoff,
+			)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
+		skipNextBackoff = false
+
+		var body bytes.Buffer
+		writer := multipart.NewWriter(&body)
+
+		for k, v := range fields {
+			if err := writer.WriteField(k, v); err != nil {
+				return nil, fmt.Errorf("failed to write multipart field %s: %w", k, err)
+			}
+		}
+
+		for fieldName, data := range files {
+			part, err := writer.CreateFormFile(fieldName, "card.png")
+			if err != nil {
+				return nil, fmt.Errorf("failed to create multipart form file %s: %w", fieldName, err)
+			}
+			if _, err := part.Write(data); err != nil {
+				return nil, fmt.Errorf("failed to write multipart file data %s: %w", fieldName, err)
+			}
+		}
+
+		if err := writer.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close multipart writer: %w", err)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, &body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create multipart request: %w", err)
+		}
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+
+		resp, err := c.client.Do(req)
+		if err != nil {
+			if attempt < maxRetries-1 {
+				continue
+			}
+			return nil, fmt.Errorf("telegram api network error after %d attempts: %w", maxRetries, err)
+		}
+
+		var result apiResponse
+		decodeErr := json.NewDecoder(resp.Body).Decode(&result)
+		resp.Body.Close()
+
+		if decodeErr != nil {
+			if attempt < maxRetries-1 {
+				continue
+			}
+			return nil, fmt.Errorf("failed to decode telegram response: %w", decodeErr)
+		}
+
+		if result.OK {
+			return result.Result, nil
+		}
+
+		if result.ErrorCode == 429 {
+			if result.Parameters != nil && result.Parameters.RetryAfter > 0 {
+				retryAfter := time.Duration(result.Parameters.RetryAfter) * time.Second
+				slog.Warn("Telegram rate limit hit, waiting retry_after",
+					"method", method,
+					"retry_after_seconds", result.Parameters.RetryAfter,
+				)
+				if attempt < maxRetries-1 {
+					select {
+					case <-ctx.Done():
+						return nil, &APIError{Code: 429, Message: fmt.Sprintf("rate limit hit, context cancelled while waiting: %v", ctx.Err())}
+					case <-time.After(retryAfter):
+					}
+					skipNextBackoff = true
+					continue
+				}
+			} else {
+				slog.Warn("Telegram rate limit hit (no retry_after), will use exponential backoff", "method", method)
+				if attempt < maxRetries-1 {
+					continue
+				}
+			}
+		}
+
+		if result.ErrorCode >= 500 && attempt < maxRetries-1 {
+			continue
+		}
+
+		if result.ErrorCode == 401 {
+			return nil, fmt.Errorf("%w: %s", ErrUnauthorized, result.Description)
+		}
+		if result.ErrorCode == 403 {
+			return nil, fmt.Errorf("%w: %s", ErrForbidden, result.Description)
+		}
+		if result.ErrorCode == 404 {
+			return nil, fmt.Errorf("%w: %s", ErrNotFound, result.Description)
+		}
+		return nil, &APIError{Code: result.ErrorCode, Message: result.Description}
+	}
+
+	return nil, fmt.Errorf("telegram api: max retries exceeded for method %s", method)
+}
+
+
 func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, payload interface{}) (json.RawMessage, error) {
 	url := fmt.Sprintf("%s/bot%s/%s", c.baseURL, c.token, method)
 
@@ -579,6 +707,8 @@ func (c *BotAPIClient) SendMessageWithReplyAndMarkup(ctx context.Context, chatID
 	return &res, nil
 }
 
+
+
 func (c *BotAPIClient) AnswerCallbackQuery(ctx context.Context, queryID string, text string, showAlert bool) error {
 	_, err := c.Request(ctx, "answerCallbackQuery", map[string]interface{}{
 		"callback_query_id": queryID,
@@ -889,6 +1019,61 @@ func (c *BotAPIClient) SetChatPhoto(ctx context.Context, chatID interface{}, pho
 	return nil
 }
 
+// SendDocumentBytes sends a document file from in-memory byte slice using multipart/form-data.
+func (c *BotAPIClient) SendDocumentBytes(ctx context.Context, chatID int64, filename string, data []byte, caption string, replyToID *int, threadID *int) error {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	_ = writer.WriteField("chat_id", strconv.FormatInt(chatID, 10))
+	if caption != "" {
+		_ = writer.WriteField("caption", caption)
+		_ = writer.WriteField("parse_mode", "HTML")
+	}
+	if replyToID != nil {
+		_ = writer.WriteField("reply_to_message_id", strconv.Itoa(*replyToID))
+	}
+	if threadID != nil {
+		_ = writer.WriteField("message_thread_id", strconv.Itoa(*threadID))
+	}
+
+	part, err := writer.CreateFormFile("document", filename)
+	if err != nil {
+		return fmt.Errorf("failed to create document form field: %w", err)
+	}
+
+	if _, err := io.Copy(part, bytes.NewReader(data)); err != nil {
+		return fmt.Errorf("failed to copy document bytes: %w", err)
+	}
+
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("failed to close multipart writer: %w", err)
+	}
+
+	tgURL := fmt.Sprintf("%s/bot%s/sendDocument", c.baseURL, c.token)
+	tgReq, err := http.NewRequestWithContext(ctx, http.MethodPost, tgURL, body)
+	if err != nil {
+		return fmt.Errorf("failed to create telegram request: %w", err)
+	}
+	tgReq.Header.Set("Content-Type", writer.FormDataContentType())
+
+	tgResp, err := c.client.Do(tgReq)
+	if err != nil {
+		return c.maskTokenInError(fmt.Errorf("telegram sendDocument request failed: %w", err))
+	}
+	defer tgResp.Body.Close()
+
+	var tgResult apiResponse
+	if err := json.NewDecoder(tgResp.Body).Decode(&tgResult); err != nil {
+		return c.maskTokenInError(fmt.Errorf("failed to decode sendDocument response: %w", err))
+	}
+
+	if !tgResult.OK {
+		return c.maskTokenInError(fmt.Errorf("sendDocument failed: %s", tgResult.Description))
+	}
+
+	return nil
+}
+
 // ForwardMessage forwards a Telegram message from one chat to another
 func (c *BotAPIClient) ForwardMessage(ctx context.Context, targetChatID interface{}, fromChatID int64, messageID int) error {
 	_, err := c.Request(ctx, "forwardMessage", map[string]interface{}{
@@ -1132,8 +1317,8 @@ func (c *BotAPIClient) SendPhoto(ctx context.Context, chatID int64, photoURL str
 	return &res, nil
 }
 
-// SendPhotoWithMarkup sends a photo by URL or file_id along with inline keyboard markup
-func (c *BotAPIClient) SendPhotoWithMarkup(ctx context.Context, chatID int64, photoURL string, caption string, markup interface{}, parseMode ...string) (*MessageResult, error) {
+// SendPhotoWithMarkup sends a photo by URL or file_id along with inline keyboard markup and optional threadID.
+func (c *BotAPIClient) SendPhotoWithMarkup(ctx context.Context, chatID int64, photoURL string, caption string, markup interface{}, threadID *int, parseMode ...string) (*MessageResult, error) {
 	mode := "HTML"
 	if len(parseMode) > 0 {
 		mode = parseMode[0]
@@ -1151,6 +1336,9 @@ func (c *BotAPIClient) SendPhotoWithMarkup(ctx context.Context, chatID int64, ph
 	if mode != "" {
 		payload["parse_mode"] = mode
 	}
+	if threadID != nil && *threadID != 0 {
+		payload["message_thread_id"] = *threadID
+	}
 
 	resp, err := c.Request(ctx, "sendPhoto", payload)
 	if err != nil && mode != "" && (strings.Contains(strings.ToLower(err.Error()), "can't parse entities") || strings.Contains(strings.ToLower(err.Error()), "bad request")) {
@@ -1167,6 +1355,53 @@ func (c *BotAPIClient) SendPhotoWithMarkup(ctx context.Context, chatID int64, ph
 	}
 	return &res, nil
 }
+
+// SendPhotoBytesWithMarkup uploads photo bytes directly using multipart/form-data with optional inline keyboard markup and threadID.
+func (c *BotAPIClient) SendPhotoBytesWithMarkup(ctx context.Context, chatID int64, photoBytes []byte, caption string, markup interface{}, threadID *int, parseMode ...string) (*MessageResult, error) {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
+
+	fields := map[string]string{
+		"chat_id": strconv.FormatInt(chatID, 10),
+	}
+	if caption != "" {
+		fields["caption"] = caption
+	}
+	if mode != "" {
+		fields["parse_mode"] = mode
+	}
+	if threadID != nil && *threadID != 0 {
+		fields["message_thread_id"] = strconv.Itoa(*threadID)
+	}
+	if !IsNil(markup) {
+		markupBytes, err := json.Marshal(markup)
+		if err == nil {
+			fields["reply_markup"] = string(markupBytes)
+		}
+	}
+
+	files := map[string][]byte{
+		"photo": photoBytes,
+	}
+
+	resp, err := c.RequestMultipart(ctx, "sendPhoto", fields, files)
+	if err != nil && mode != "" && (strings.Contains(strings.ToLower(err.Error()), "can't parse entities") || strings.Contains(strings.ToLower(err.Error()), "bad request")) {
+		delete(fields, "parse_mode")
+		resp, err = c.RequestMultipart(ctx, "sendPhoto", fields, files)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var res MessageResult
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse sendPhotoBytesWithMarkup result: %w", err)
+	}
+	return &res, nil
+}
+
 
 
 // FlexibleString handles unmarshaling JSON values that can be either numbers or strings.

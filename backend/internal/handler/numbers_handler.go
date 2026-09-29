@@ -762,7 +762,7 @@ func (h *NumbersHandler) deliverNumberReportToUser(r *http.Request, userID int64
 					} else {
 						publicURL = h.cardGen.GetPublicCardURL(fileID, nil)
 					}
-					if _, err := tg.SendPhotoWithMarkup(ctx, userID, publicURL, reportText, markup); err == nil {
+					if _, err := tg.SendPhotoWithMarkup(ctx, userID, publicURL, reportText, markup, nil); err == nil {
 						return
 					}
 				}

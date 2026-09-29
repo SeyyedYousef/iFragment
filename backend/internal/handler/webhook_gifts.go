@@ -40,13 +40,23 @@ func (h *WebhookHandler) handleGiftCommand(ctx context.Context, bot *repository.
 		arg = strings.Join(parts[1:], " ")
 	}
 
-	miniAppURL := os.Getenv("MINI_APP_URL")
-	if miniAppURL == "" {
-		miniAppURL = "https://t.me/iFragmentBot/iFragment"
+	miniAppURL := h.getMiniAppURL(bot)
+
+	userLang := "en"
+	if m.From != nil {
+		if dbLang, err := h.db.GetUserLanguage(ctx, m.From.ID); err == nil && dbLang != "" {
+			userLang = dbLang
+		} else if m.From.LanguageCode != "" {
+			userLang = m.From.LanguageCode
+		}
 	}
+	lang := normalizeLang(userLang)
 
 	if arg == "" {
-		helpMsg := `🎁 <b>کارشناسی هوشمند گیفت تلگرام (Day-0 Telegram Engine)</b>
+		var helpMsg, btnText string
+		switch lang {
+		case "fa":
+			helpMsg = `🎁 <b>کارشناسی هوشمند گیفت تلگرام (Day-0 Telegram Engine)</b>
 
 برای دریافت ارزیابی دقیق قیمت، کمیابی و هویت بلاکچینی هر گیفت، شناسه یا نام آن را بنویسید:
 
@@ -57,11 +67,52 @@ func (h *WebhookHandler) handleGiftCommand(ctx context.Context, bot *repository.
 • یا ارسال مستقیم لینک: <code>https://t.me/nft/...</code>
 
 💡 <i>همچنین می‌توانید در هر چتی با نوشتن <code>@iFragmentBot gift pepe</code> کارت قیمت را اینلاین بفرستید!</i>`
+			btnText = "🚀 ورود به بازار گیفت‌ها در مینی‌اپ"
+		case "ru":
+			helpMsg = `🎁 <b>Умная оценка подарков Telegram (Day-0 Engine)</b>
+
+Чтобы получить оценку стоимости, анализ редкости атрибутов и он-чейн статус подарка, укажите его название или ссылку:
+
+📌 <b>Примеры команд:</b>
+• <code>/gift CelestialStar-1</code>
+• <code>/gift plush_pepe 42</code>
+• <code>/gift DurovsBlackCap-100</code>
+• Или отправьте ссылку: <code>https://t.me/nft/...</code>
+
+💡 <i>Вы также можете написать <code>@iFragmentBot gift pepe</code> в любом чате для инлайн-оценки!</i>`
+			btnText = "🚀 Открыть рынок подарков в Mini App"
+		case "zh":
+			helpMsg = `🎁 <b>Telegram 礼物智能估值 (Day-0 Telegram 引擎)</b>
+
+获取礼物的公允价值、稀缺度基因与链上 TEP-62 身份，请输入其编号或发送链接:
+
+📌 <b>使用示例:</b>
+• <code>/gift CelestialStar-1</code>
+• <code>/gift plush_pepe 42</code>
+• <code>/gift DurovsBlackCap-100</code>
+• 或直接发送链接: <code>https://t.me/nft/...</code>
+
+💡 <i>您也可以在任意聊天中输入 <code>@iFragmentBot gift pepe</code> 发送实时估值卡片！</i>`
+			btnText = "🚀 在小程序中进入礼物市场"
+		default:
+			helpMsg = `🎁 <b>Smart Telegram Gift Valuation (Day-0 Engine)</b>
+
+Get fair valuation, trait genetics, and on-chain verified status for any Telegram Gift:
+
+📌 <b>Command Examples:</b>
+• <code>/gift CelestialStar-1</code>
+• <code>/gift plush_pepe 42</code>
+• <code>/gift DurovsBlackCap-100</code>
+• Or send a direct link: <code>https://t.me/nft/...</code>
+
+💡 <i>You can also type <code>@iFragmentBot gift pepe</code> in any chat for instant inline valuation!</i>`
+			btnText = "🚀 Explore Gifts in Mini App"
+		}
 
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
 				{
-					{"text": "🚀 ورود به بازار گیفت‌ها در مینی‌اپ", "url": miniAppURL + "?startapp=gifts"},
+					{"text": btnText, "url": miniAppURL + "?startapp=gifts"},
 				},
 			},
 		}
@@ -91,59 +142,191 @@ func (h *WebhookHandler) handleGiftsCommand(ctx context.Context, bot *repository
 	}
 	tg := telegram.NewBotAPIClient(token)
 
-	miniAppURL := os.Getenv("MINI_APP_URL")
-	if miniAppURL == "" {
-		miniAppURL = "https://t.me/iFragmentBot/iFragment"
+	miniAppURL := h.getMiniAppURL(bot)
+
+	userLang := "en"
+	if m.From != nil {
+		if dbLang, err := h.db.GetUserLanguage(ctx, m.From.ID); err == nil && dbLang != "" {
+			userLang = dbLang
+		} else if m.From.LanguageCode != "" {
+			userLang = m.From.LanguageCode
+		}
 	}
+	lang := normalizeLang(userLang)
 
 	if h.giftsService == nil {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ بخش خدمات گیفت در حال بارگذاری است.", &m.MessageID, m.MessageThreadID)
+		var loadingMsg string
+		switch lang {
+		case "fa":
+			loadingMsg = "⚠️ بخش خدمات گیفت در حال بارگذاری است."
+		case "ru":
+			loadingMsg = "⚠️ Сервис подарков загружается."
+		case "zh":
+			loadingMsg = "⚠️ 礼物服务正在初始化。"
+		default:
+			loadingMsg = "⚠️ Gift service is currently loading."
+		}
+		_ = tg.SendMessage(ctx, m.Chat.ID, loadingMsg, &m.MessageID, m.MessageThreadID)
 		return
 	}
 
 	intel, err := h.giftsService.GetGiftsIntel(ctx)
 	if err != nil || intel == nil {
-		msg := "⚠️ در حال حاضر امکان دریافت نبض بازار گیفت‌ها وجود ندارد."
-		_ = tg.SendMessage(ctx, m.Chat.ID, msg, &m.MessageID, m.MessageThreadID)
+		var errMsg string
+		switch lang {
+		case "fa":
+			errMsg = "⚠️ در حال حاضر امکان دریافت نبض بازار گیفت‌ها وجود ندارد."
+		case "ru":
+			errMsg = "⚠️ Не удалось получить данные о пульсе рынка подарков."
+		case "zh":
+			errMsg = "⚠️ 暂无法获取礼物市场脉搏数据。"
+		default:
+			errMsg = "⚠️ Unable to retrieve gift market pulse right now."
+		}
+		_ = tg.SendMessage(ctx, m.Chat.ID, errMsg, &m.MessageID, m.MessageThreadID)
 		return
 	}
 
 	var sb strings.Builder
-	sb.WriteString("📊 <b>نبض بازار تلگرام گیفت (Market Pulse)</b>\n")
-	sb.WriteString(fmt.Sprintf("🔥 <b>شاخص احساسات (F&G):</b> %d/100 (%s)\n\n", intel.FnGIndex, intel.FnGLabel))
-	sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
-	sb.WriteString("💰 <b>آمار کلان و حجم نقدینگی:</b>\n")
-	if intel.TotalCumulativeVolumeUSD > 0 {
-		sb.WriteString(fmt.Sprintf("• <b>حجم کل معاملات:</b> <code>$%.2fM</code>\n", intel.TotalCumulativeVolumeUSD/1_000_000))
-	}
-	if intel.TotalMarketCapUSD > 0 {
-		sb.WriteString(fmt.Sprintf("• <b>ارزش کل بازار (Market Cap):</b> <code>$%.2fM</code>\n", intel.TotalMarketCapUSD/1_000_000))
-	}
-	if intel.TotalActiveWallets > 0 {
-		sb.WriteString(fmt.Sprintf("• <b>کیف‌پول‌های فعال خریدار/فروشنده:</b> <code>%s</code>\n", formatNumberWithCommas(intel.TotalActiveWallets)))
-	}
-	if intel.TotalGiftsMinted > 0 {
-		sb.WriteString(fmt.Sprintf("• <b>کل گیفت‌های ارتقا یافته:</b> <code>%s</code>\n", formatNumberWithCommas(intel.TotalGiftsMinted)))
-	}
-
-	if len(intel.UnifiedFloorBoard) > 0 {
-		sb.WriteString("\n🏆 <b>کالکشن‌های برتر (کف قیمت):</b>\n")
-		limit := 5
-		if len(intel.UnifiedFloorBoard) < limit {
-			limit = len(intel.UnifiedFloorBoard)
+	var btnMarket string
+	switch lang {
+	case "fa":
+		sb.WriteString("📊 <b>نبض بازار تلگرام گیفت (Market Pulse)</b>\n")
+		sb.WriteString(fmt.Sprintf("🔥 <b>شاخص احساسات (F&G):</b> %d/100 (%s)\n\n", intel.FnGIndex, intel.FnGLabel))
+		sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
+		sb.WriteString("💰 <b>آمار کلان و حجم نقدینگی:</b>\n")
+		if intel.TotalCumulativeVolumeUSD > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>حجم کل معاملات:</b> <code>$%.2fM</code>\n", intel.TotalCumulativeVolumeUSD/1_000_000))
 		}
-		for i := 0; i < limit; i++ {
-			item := intel.UnifiedFloorBoard[i]
-			sb.WriteString(fmt.Sprintf("%d. <b>%s:</b> <code>%.1f TON</code> ($%.0f)\n", i+1, item.Name, item.BestFloorGRAM, item.BestFloorUSD))
+		if intel.TotalMarketCapUSD > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>ارزش کل بازار (Market Cap):</b> <code>$%.2fM</code>\n", intel.TotalMarketCapUSD/1_000_000))
 		}
-	}
+		if intel.TotalActiveWallets > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>کیف‌پول‌های فعال خریدار/فروشنده:</b> <code>%s</code>\n", formatNumberWithCommas(intel.TotalActiveWallets)))
+		}
+		if intel.TotalGiftsMinted > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>کل گیفت‌های ارتقا یافته:</b> <code>%s</code>\n", formatNumberWithCommas(intel.TotalGiftsMinted)))
+		}
 
-	sb.WriteString("\n⚡ <i>داده‌های ۱۰۰٪ نیتیو تلگرام، فرگمنت و گت‌جمز بدون وابستگی به اسکرپر</i>")
+		if len(intel.UnifiedFloorBoard) > 0 {
+			sb.WriteString("\n🏆 <b>کالکشن‌های برتر (کف قیمت):</b>\n")
+			limit := 5
+			if len(intel.UnifiedFloorBoard) < limit {
+				limit = len(intel.UnifiedFloorBoard)
+			}
+			for i := 0; i < limit; i++ {
+				item := intel.UnifiedFloorBoard[i]
+				sb.WriteString(fmt.Sprintf("%d. <b>%s:</b> <code>%.1f TON</code> ($%.0f)\n", i+1, item.Name, item.BestFloorGRAM, item.BestFloorUSD))
+			}
+		}
+
+		sb.WriteString("\n⚡ <i>داده‌های ۱۰۰٪ نیتیو تلگرام، فرگمنت و گت‌جمز بدون وابستگی به اسکرپر</i>")
+		btnMarket = "🚀 مشاهده نقشه ژنتیکی و بازار در مینی‌اپ"
+
+	case "ru":
+		sb.WriteString("📊 <b>Пульс рынка подарков Telegram (Market Pulse)</b>\n")
+		sb.WriteString(fmt.Sprintf("🔥 <b>Индекс настроений (F&G):</b> %d/100 (%s)\n\n", intel.FnGIndex, intel.FnGLabel))
+		sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
+		sb.WriteString("💰 <b>Макростатистика и ликвидность:</b>\n")
+		if intel.TotalCumulativeVolumeUSD > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>Совокупный объем торгов:</b> <code>$%.2fM</code>\n", intel.TotalCumulativeVolumeUSD/1_000_000))
+		}
+		if intel.TotalMarketCapUSD > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>Капитализация рынка:</b> <code>$%.2fM</code>\n", intel.TotalMarketCapUSD/1_000_000))
+		}
+		if intel.TotalActiveWallets > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>Активные кошельки:</b> <code>%s</code>\n", formatNumberWithCommas(intel.TotalActiveWallets)))
+		}
+		if intel.TotalGiftsMinted > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>Всего минтингов:</b> <code>%s</code>\n", formatNumberWithCommas(intel.TotalGiftsMinted)))
+		}
+
+		if len(intel.UnifiedFloorBoard) > 0 {
+			sb.WriteString("\n🏆 <b>Топ коллекций (Floor):</b>\n")
+			limit := 5
+			if len(intel.UnifiedFloorBoard) < limit {
+				limit = len(intel.UnifiedFloorBoard)
+			}
+			for i := 0; i < limit; i++ {
+				item := intel.UnifiedFloorBoard[i]
+				sb.WriteString(fmt.Sprintf("%d. <b>%s:</b> <code>%.1f TON</code> ($%.0f)\n", i+1, item.Name, item.BestFloorGRAM, item.BestFloorUSD))
+			}
+		}
+
+		sb.WriteString("\n⚡ <i>Нативные он-чейн данные Telegram, Fragment и Getgems</i>")
+		btnMarket = "🚀 Открыть карту рынка в Mini App"
+
+	case "zh":
+		sb.WriteString("📊 <b>Telegram 礼物市场脉搏 (Market Pulse)</b>\n")
+		sb.WriteString(fmt.Sprintf("🔥 <b>市场情绪指数 (F&G):</b> %d/100 (%s)\n\n", intel.FnGIndex, intel.FnGLabel))
+		sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
+		sb.WriteString("💰 <b>宏观流动性与交易指标:</b>\n")
+		if intel.TotalCumulativeVolumeUSD > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>累计成交总额:</b> <code>$%.2fM</code>\n", intel.TotalCumulativeVolumeUSD/1_000_000))
+		}
+		if intel.TotalMarketCapUSD > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>全网总市值:</b> <code>$%.2fM</code>\n", intel.TotalMarketCapUSD/1_000_000))
+		}
+		if intel.TotalActiveWallets > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>活跃交易钱包:</b> <code>%s</code>\n", formatNumberWithCommas(intel.TotalActiveWallets)))
+		}
+		if intel.TotalGiftsMinted > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>铸造/升级总数:</b> <code>%s</code>\n", formatNumberWithCommas(intel.TotalGiftsMinted)))
+		}
+
+		if len(intel.UnifiedFloorBoard) > 0 {
+			sb.WriteString("\n🏆 <b>热门头部系列 (底价):</b>\n")
+			limit := 5
+			if len(intel.UnifiedFloorBoard) < limit {
+				limit = len(intel.UnifiedFloorBoard)
+			}
+			for i := 0; i < limit; i++ {
+				item := intel.UnifiedFloorBoard[i]
+				sb.WriteString(fmt.Sprintf("%d. <b>%s:</b> <code>%.1f TON</code> ($%.0f)\n", i+1, item.Name, item.BestFloorGRAM, item.BestFloorUSD))
+			}
+		}
+
+		sb.WriteString("\n⚡ <i>基于 Telegram、Fragment 与 Getgems 官方原生聚合数据</i>")
+		btnMarket = "🚀 在小程序中探索基因图谱与市场"
+
+	default:
+		sb.WriteString("📊 <b>Telegram Gifts Market Pulse</b>\n")
+		sb.WriteString(fmt.Sprintf("🔥 <b>Market Sentiment (F&G):</b> %d/100 (%s)\n\n", intel.FnGIndex, intel.FnGLabel))
+		sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
+		sb.WriteString("💰 <b>Macro Volume & Liquidity:</b>\n")
+		if intel.TotalCumulativeVolumeUSD > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>Cumulative Volume:</b> <code>$%.2fM</code>\n", intel.TotalCumulativeVolumeUSD/1_000_000))
+		}
+		if intel.TotalMarketCapUSD > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>Total Market Cap:</b> <code>$%.2fM</code>\n", intel.TotalMarketCapUSD/1_000_000))
+		}
+		if intel.TotalActiveWallets > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>Active Trader Wallets:</b> <code>%s</code>\n", formatNumberWithCommas(intel.TotalActiveWallets)))
+		}
+		if intel.TotalGiftsMinted > 0 {
+			sb.WriteString(fmt.Sprintf("• <b>Total Minted/Upgraded:</b> <code>%s</code>\n", formatNumberWithCommas(intel.TotalGiftsMinted)))
+		}
+
+		if len(intel.UnifiedFloorBoard) > 0 {
+			sb.WriteString("\n🏆 <b>Leading Collections (Floor):</b>\n")
+			limit := 5
+			if len(intel.UnifiedFloorBoard) < limit {
+				limit = len(intel.UnifiedFloorBoard)
+			}
+			for i := 0; i < limit; i++ {
+				item := intel.UnifiedFloorBoard[i]
+				sb.WriteString(fmt.Sprintf("%d. <b>%s:</b> <code>%.1f TON</code> ($%.0f)\n", i+1, item.Name, item.BestFloorGRAM, item.BestFloorUSD))
+			}
+		}
+
+		sb.WriteString("\n⚡ <i>Native on-chain data from Telegram, Fragment & Getgems</i>")
+		btnMarket = "🚀 Explore Genetic Map & Market in Mini App"
+	}
 
 	markup := map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
 			{
-				{"text": "🚀 مشاهده نقشه ژنتیکی و بازار در مینی‌اپ", "url": miniAppURL + "?startapp=gifts"},
+				{"text": btnMarket, "url": miniAppURL + "?startapp=gifts"},
 			},
 		},
 	}

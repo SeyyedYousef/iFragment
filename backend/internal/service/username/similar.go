@@ -206,9 +206,6 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 
 	rateInfo, _ := s.GetTONRateInfo(ctx)
 	tonRate := rateInfo.Rate
-	if tonRate <= 0 {
-		tonRate = 7.25
-	}
 
 	// Enforce strict fast timeout of 1.2s for similar username enrichment to ensure ultra-fast response times
 	fastCtx, cancelFast := context.WithTimeout(ctx, 1200*time.Millisecond)

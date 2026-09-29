@@ -29,6 +29,7 @@ import (
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service"
 	"ifragment-backend/internal/service/cardgen"
+	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts"
 	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/notification"
@@ -55,6 +56,7 @@ type WebhookHandler struct {
 	webhookInbox       *repository.WebhookInboxRepo
 	numbersService     *numbers.NumbersService
 	avmService         *avm.ValuationService
+	cryptoPrice        *cryptoprice.CryptoPriceService
 	intelCreditService *intelcredit.IntelCreditService
 	intelStoreService  *intelcredit.StoreService
 	profileService     *service.ProfileService
@@ -64,6 +66,7 @@ type WebhookHandler struct {
 	templateRepo       *repository.BotTemplateRepo
 	botClients         sync.Map // map[string]*telegram.BotAPIClient keyed by bot token
 }
+
 
 // getBotClient returns a cached *telegram.BotAPIClient or creates and stores a new one thread-safely
 func (h *WebhookHandler) getBotClient(bot *repository.ManagedBot) *telegram.BotAPIClient {
@@ -102,6 +105,10 @@ func (h *WebhookHandler) SetNumbersService(s *numbers.NumbersService) {
 
 func (h *WebhookHandler) SetAVMService(s *avm.ValuationService) {
 	h.avmService = s
+}
+
+func (h *WebhookHandler) SetCryptoPriceService(s *cryptoprice.CryptoPriceService) {
+	h.cryptoPrice = s
 }
 
 func (h *WebhookHandler) SetIntelCreditService(s *intelcredit.IntelCreditService) {
@@ -816,14 +823,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			}
 		}
 
-		targetURL := miniAppURL
-		if startParam != "" {
-			if strings.Contains(miniAppURL, "?") {
-				targetURL = fmt.Sprintf("%s&startapp=%s", miniAppURL, startParam)
-			} else {
-				targetURL = fmt.Sprintf("%s?startapp=%s", miniAppURL, startParam)
-			}
-		}
+		targetURL := appendStartParam(miniAppURL, startParam)
 
 		// Send Main Interactive Menu
 		firstName := m.From.FirstName
@@ -868,6 +868,12 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		h.handleGiftsCommand(ctx, bot, m)
 	} else if strings.HasPrefix(m.Text, "/panel") || strings.HasPrefix(m.Text, "/admin") {
 		h.handleAdminPanelCommand(ctx, bot, m)
+	} else if strings.HasPrefix(m.Text, "/cancel") {
+		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
+		tg := telegram.NewBotAPIClient(token)
+		if tg != nil {
+			_ = tg.SendMessage(ctx, m.Chat.ID, "عملیات فعالی برای لغو وجود ندارد.", &m.MessageID, m.MessageThreadID)
+		}
 	} else if strings.HasPrefix(m.Text, "/ping") {
 		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
 		tg := telegram.NewBotAPIClient(token)
@@ -941,8 +947,12 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		return
 	}
 
-	// Always acknowledge callback query early to dismiss Telegram's loading spinner instantly
-	_ = tg.AnswerCallbackQuery(ctx, cq.ID, "", false)
+	// Acknowledge callback query early to dismiss Telegram's loading spinner instantly,
+	// EXCEPT for exchange confirmation actions which require answering with a specific alert modal (showAlert=true).
+	data := cq.Data
+	if !strings.HasPrefix(data, "confirm_exchange:") && !strings.HasPrefix(data, "confirm_exchange_n:") {
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "", false)
+	}
 
 	var msgID *int
 	var chatID int64
@@ -954,8 +964,6 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 	} else {
 		chatID = cq.From.ID
 	}
-
-	data := cq.Data
 
 	// 1. Navigation callbacks
 	switch data {
@@ -1035,14 +1043,32 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		return
 	}
 
-	// 4b. Confirm Exchange Execution callback: confirm_exchange:<type>:<entity> or confirm_exchange:profile
-	if strings.HasPrefix(data, "confirm_exchange:") {
-		parts := strings.SplitN(data, ":", 3)
-		if len(parts) == 3 {
-			h.handleCreditExchange(ctx, bot, chatID, cq.From.ID, parts[1], parts[2], msgID, threadID)
-		} else if data == "confirm_exchange:profile" {
-			h.handleCreditExchange(ctx, bot, chatID, cq.From.ID, "", "", msgID, threadID)
+	// 4b. Confirm Exchange Execution callback: confirm_exchange:... or confirm_exchange_n:<count>:...
+	if strings.HasPrefix(data, "confirm_exchange:") || strings.HasPrefix(data, "confirm_exchange_n:") {
+		count := 1
+		var assetType, entity string
+		if strings.HasPrefix(data, "confirm_exchange_n:") {
+			parts := strings.Split(data, ":")
+			if len(parts) >= 3 {
+				if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
+					count = n
+				}
+				if len(parts) == 3 && parts[2] == "profile" {
+					assetType = ""
+					entity = ""
+				} else if len(parts) >= 4 {
+					assetType = parts[2]
+					entity = parts[3]
+				}
+			}
+		} else {
+			parts := strings.SplitN(data, ":", 3)
+			if len(parts) == 3 {
+				assetType = parts[1]
+				entity = parts[2]
+			}
 		}
+		h.handleCreditExchange(ctx, bot, chatID, cq.From.ID, assetType, entity, msgID, threadID, cq.ID, count)
 		return
 	}
 
@@ -1185,4 +1211,28 @@ func logIfErr(err error, msg string, args ...interface{}) {
 	if err != nil {
 		slog.Error(msg, append(args, "error", err)...)
 	}
+}
+
+
+// getMiniAppURL determines the full Telegram Mini App link
+func (h *WebhookHandler) getMiniAppURL(bot *repository.ManagedBot) string {
+	miniAppURL := os.Getenv("MINI_APP_URL")
+	if miniAppURL != "" {
+		return miniAppURL
+	}
+	if bot != nil && bot.BotUsername != "" {
+		return fmt.Sprintf("https://t.me/%s/iFragment", bot.BotUsername)
+	}
+	return "https://t.me/iFragmentBot/iFragment"
+}
+
+// appendStartParam attaches ?startapp=... or &startapp=... to the base URL cleanly.
+func appendStartParam(base, param string) string {
+	if param == "" {
+		return base
+	}
+	if strings.Contains(base, "?") {
+		return fmt.Sprintf("%s&startapp=%s", base, param)
+	}
+	return fmt.Sprintf("%s?startapp=%s", base, param)
 }

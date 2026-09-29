@@ -104,13 +104,43 @@ func (s *StoreService) GetConfig() StoreConfig {
 	}
 }
 
+// ExchangeCoinsResult represents the detailed result of an exchange operation.
+type ExchangeCoinsResult struct {
+	BatchID          uuid.UUID
+	NewCreditBalance int
+	NewCoinBalance   float64
+}
+
 // ExchangeCoins atomically converts Airdrop Coins into exactly 1 Intel Credit.
-// Returns the resulting credit balance.
+// Returns the resulting credit balance for backward compatibility.
 func (s *StoreService) ExchangeCoins(ctx context.Context, userID int64) (int, error) {
-	if s.repo == nil || s.repo.DB() == nil {
-		return 0, fmt.Errorf("database unavailable")
+	res, err := s.ExchangeCoinsN(ctx, userID, 1)
+	if err != nil {
+		return 0, err
 	}
-	return s.repo.ExchangeCoinsForCredit(ctx, userID, float64(config.Economics.CreditsCoinsPerCredit), purchasedCreditsExpiry())
+	return res.NewCreditBalance, nil
+}
+
+// ExchangeCoinsN atomically converts Airdrop Coins into n Intel Credits.
+func (s *StoreService) ExchangeCoinsN(ctx context.Context, userID int64, n int) (*ExchangeCoinsResult, error) {
+	if s.repo == nil || s.repo.DB() == nil {
+		return nil, fmt.Errorf("database unavailable")
+	}
+	if n <= 0 {
+		n = 1
+	}
+	costPerCredit := float64(config.Economics.CreditsCoinsPerCredit)
+	totalCost := costPerCredit * float64(n)
+
+	batchID, credBal, coinBal, err := s.repo.ExchangeCoinsForCredit(ctx, userID, n, totalCost, purchasedCreditsExpiry())
+	if err != nil {
+		return nil, err
+	}
+	return &ExchangeCoinsResult{
+		BatchID:          batchID,
+		NewCreditBalance: credBal,
+		NewCoinBalance:   coinBal,
+	}, nil
 }
 
 // CreateStarsInvoice creates the pending order and returns the Telegram Stars invoice link.

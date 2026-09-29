@@ -330,6 +330,10 @@ func main() {
 	}
 
 	avmService := avm.NewValuationService(db, cache, tonClient)
+	if cryptoPriceService != nil {
+		avmService.SetCryptoPriceService(cryptoPriceService)
+		analysisService.SetCryptoPriceService(cryptoPriceService)
+	}
 
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, analysisService, mtprotoClient, cache, avmService, db, paymentService)
 
@@ -493,6 +497,8 @@ func main() {
 
 	// Initialize Visual Asset Card Generator and inject into handlers for DM & Bot delivery
 	cardGen := cardgen.NewCardGenerator()
+	cardgen.StartSharesCleanupJob(ctx, 24*time.Hour, 7*24*time.Hour)
+
 	var mainTgClient *telegram.BotAPIClient
 	if botToken != "" {
 		mainTgClient = telegram.NewBotAPIClient(botToken)
@@ -513,11 +519,15 @@ func main() {
 		intelCreditHandler.SetTelegramClient(mainTgClient)
 	}
 	intelCreditHandler.SetAVMService(avmService)
+	if cryptoPriceService != nil {
+		intelCreditHandler.SetCryptoPriceService(cryptoPriceService)
+	}
 
 	if webhookHandler != nil {
 		webhookHandler.SetCardGenerator(cardGen)
 		webhookHandler.SetNumbersService(numbersService)
 		webhookHandler.SetAVMService(avmService)
+		webhookHandler.SetCryptoPriceService(cryptoPriceService)
 		webhookHandler.SetIntelCreditService(intelCreditService)
 		webhookHandler.SetProfileService(profileService)
 		webhookHandler.SetSettingsRepo(settingsRepo)

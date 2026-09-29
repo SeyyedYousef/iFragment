@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/crypto"
@@ -120,6 +121,15 @@ func (h *WebhookHandler) handleGuestMessage(ctx context.Context, bot *repository
 
 	var article map[string]interface{}
 	if sniff != nil {
+		var tonRate float64
+		var rateSource string
+		var rateFetchedAt time.Time
+		var rateStale bool
+		var rateOk bool
+		if h.cryptoPrice != nil {
+			tonRate, rateSource, rateFetchedAt, rateStale, rateOk = h.cryptoPrice.GetTONUSDT(ctx)
+		}
+
 		switch sniff.Type {
 		case "username":
 			normUser := strings.TrimPrefix(strings.ToLower(sniff.Entity), "@")
@@ -127,16 +137,21 @@ func (h *WebhookHandler) handleGuestMessage(ctx context.Context, bot *repository
 			desc := "مشاهده برآورد ارزش، کمیابی و نقدشوندگی در iFragment"
 
 			if h.avmService != nil {
-				res, err := h.avmService.Valuate(ctx, normUser, 0)
+				res, err := h.avmService.Valuate(ctx, normUser, tonRate)
 				if err == nil && res != nil {
-					valText = fmt.Sprintf("🏷️ <b>کارشناسی نام کاربری: @%s</b>\n\n💎 درجه سرمایه‌گذاری: <b>%s</b>\n💰 برآورد منصفانه: <b>~%s TON (معادل $%s)</b>\n📈 شاخص برندپذیری: <b>%d / 100</b>\n⚡ رتبه نقدشوندگی: <b>%s</b>\n\n🔍 <i>تحلیل دقیق الگوریتمی موتور هوشمند AVM در فرگمنت</i>",
+					expectedUSDFloat, _ := res.ExpectedUSD.Float64()
+					usdFormatted := formatUSDT(expectedUSDFloat, rateOk && tonRate > 0, "fa")
+					rateRefLine := buildRateReferenceLine(tonRate, rateSource, rateFetchedAt, rateStale, rateOk && tonRate > 0, "fa")
+
+					valText = fmt.Sprintf("🏷️ <b>کارشناسی نام کاربری: @%s</b>\n\n💎 درجه سرمایه‌گذاری: <b>%s</b>\n💰 برآورد منصفانه: <b>~%s TON (معادل %s)</b>\n📈 شاخص برندپذیری: <b>%d / 100</b>\n⚡ رتبه نقدشوندگی: <b>%s</b>\n%s\n\n🔍 <i>تحلیل دقیق الگوریتمی موتور هوشمند AVM در فرگمنت</i>",
 						normUser,
 						res.InvestmentGrade,
-						res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0),
+						res.ExpectedTON.StringFixed(1), usdFormatted,
 						res.Brandability,
 						res.LiquidityRating,
+						rateRefLine,
 					)
-					desc = fmt.Sprintf("ارزش منصفانه: ~%s TON ($%s) | درجه: %s", res.ExpectedTON.StringFixed(1), res.ExpectedUSD.StringFixed(0), res.InvestmentGrade)
+					desc = fmt.Sprintf("ارزش منصفانه: ~%s TON (%s) | درجه: %s", res.ExpectedTON.StringFixed(1), usdFormatted, res.InvestmentGrade)
 				}
 			}
 
@@ -173,14 +188,18 @@ func (h *WebhookHandler) handleGuestMessage(ctx context.Context, bot *repository
 					if club == "" {
 						club = val.CategoryClub
 					}
-					valText = fmt.Sprintf("📱 <b>کارشناسی شماره کلکسیونی: %s</b>\n\n👑 کلوپ: <b>%s</b>\n🏆 رتبه کمیابی: <b>#%d از ۱۳۶,۵۶۶</b>\n💰 قیمت منصفانه (Fair): <b>%s TON (~$%.0f)</b>\n🎯 ضریب اطمینان: <b>%d%%</b>\n\n⚡ <i>ارزیابی دقیق موتور NV Engine بر اساس متدولوژی ثبت‌شده در TON</i>",
+					usdFormatted := formatUSDT(val.ExpectedUSD, rateOk && tonRate > 0, "fa")
+					rateRefLine := buildRateReferenceLine(tonRate, rateSource, rateFetchedAt, rateStale, rateOk && tonRate > 0, "fa")
+
+					valText = fmt.Sprintf("📱 <b>کارشناسی شماره کلکسیونی: %s</b>\n\n👑 کلوپ: <b>%s</b>\n🏆 رتبه کمیابی: <b>#%d از ۱۳۶,۵۶۶</b>\n💰 قیمت منصفانه (Fair): <b>%s TON (%s)</b>\n🎯 ضریب اطمینان: <b>%d%%</b>\n%s\n\n⚡ <i>ارزیابی دقیق موتور NV Engine بر اساس متدولوژی ثبت‌شده در TON</i>",
 						val.DisplayNumber,
 						club,
 						val.GlobalRank,
-						val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
+						val.ExpectedTON.StringFixed(1), usdFormatted,
 						val.ConfidenceScore,
+						rateRefLine,
 					)
-					desc = fmt.Sprintf("کلوپ: %s | قیمت منصفانه: %s TON (~$%.0f)", club, val.ExpectedTON.StringFixed(1), val.ExpectedUSD)
+					desc = fmt.Sprintf("کلوپ: %s | قیمت منصفانه: %s TON (%s)", club, val.ExpectedTON.StringFixed(1), usdFormatted)
 				}
 			}
 
@@ -214,14 +233,18 @@ func (h *WebhookHandler) handleGuestMessage(ctx context.Context, bot *repository
 				if err == nil && appraisal != nil {
 					fairTON := appraisal.Pillars.FairValueGRAM
 					floorTON := appraisal.Pillars.ObservedFloorGRAM
-					valText = fmt.Sprintf("🎁 <b>کارشناسی گیفت تلگرام: %s</b>\n\n💎 ارزش منصفانه: <b>%.1f TON (~$%.0f)</b>\n🌊 کف قیمت بازار: <b>%.1f TON</b>\n#️⃣ شماره سریال: <b>#%d</b>\n🎯 ضریب اطمینان: <b>%d%%</b>\n\n⚡ <i>ارزیابی ۴ پایه‌ای موتور GV Engine بر پایه داده‌های آن‌چین</i>",
+					usdFormatted := formatUSDT(appraisal.ExpectedUSD, rateOk && tonRate > 0, "fa")
+					rateRefLine := buildRateReferenceLine(tonRate, rateSource, rateFetchedAt, rateStale, rateOk && tonRate > 0, "fa")
+
+					valText = fmt.Sprintf("🎁 <b>کارشناسی گیفت تلگرام: %s</b>\n\n💎 ارزش منصفانه: <b>%.1f TON (%s)</b>\n🌊 کف قیمت بازار: <b>%.1f TON</b>\n#️⃣ شماره سریال: <b>#%d</b>\n🎯 ضریب اطمینان: <b>%d%%</b>\n%s\n\n⚡ <i>ارزیابی ۴ پایه‌ای موتور GV Engine بر پایه داده‌های آن‌چین</i>",
 						appraisal.DisplayTitle,
-						fairTON, appraisal.ExpectedUSD,
+						fairTON, usdFormatted,
 						floorTON,
 						appraisal.SerialNumber,
 						appraisal.ConfidenceScore,
+						rateRefLine,
 					)
-					desc = fmt.Sprintf("ارزش منصفانه: %.1f TON | کف: %.1f TON | سریال #%d", fairTON, floorTON, appraisal.SerialNumber)
+					desc = fmt.Sprintf("ارزش منصفانه: %.1f TON (%s) | کف: %.1f TON | سریال #%d", fairTON, usdFormatted, floorTON, appraisal.SerialNumber)
 				}
 			}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 )
 
 // ============================================================================
@@ -59,9 +60,19 @@ func (c *BotAPIClient) GetChatMemberTag(ctx context.Context, chatID interface{},
 
 // ─── Rich Messages (Bot API 10.1–10.3, June–August 2026) ──────────────────
 
+// InputRichMessage represents a structured rich message payload (Bot API 10.1+).
+type InputRichMessage struct {
+	HTML                string      `json:"html,omitempty"`
+	Markdown            string      `json:"markdown,omitempty"`
+	Blocks              interface{} `json:"blocks,omitempty"`
+	Media               interface{} `json:"media,omitempty"`
+	IsRTL               bool        `json:"is_rtl,omitempty"`
+	SkipEntityDetection bool        `json:"skip_entity_detection,omitempty"`
+}
+
 // SendRichMessage sends a highly structured rich message (blocks/tables/
-// collapsible sections). richMessage is the InputRichMessage object.
-func (c *BotAPIClient) SendRichMessage(ctx context.Context, chatID int64, richMessage map[string]interface{}) (*EphemeralMessageResult, error) {
+// collapsible sections). richMessage can be an *InputRichMessage, InputRichMessage, or map[string]interface{}.
+func (c *BotAPIClient) SendRichMessage(ctx context.Context, chatID int64, richMessage interface{}) (*EphemeralMessageResult, error) {
 	payload := map[string]interface{}{
 		"chat_id":      chatID,
 		"rich_message": richMessage,
@@ -72,7 +83,8 @@ func (c *BotAPIClient) SendRichMessage(ctx context.Context, chatID int64, richMe
 	}
 	var msg EphemeralMessageResult
 	if err := json.Unmarshal(raw, &msg); err != nil {
-		return nil, fmt.Errorf("failed to parse rich message result: %w", err)
+		slog.Warn("Telegram sendRichMessage succeeded but unmarshaling result failed; returning empty result to prevent duplicate delivery", "error", err)
+		return &EphemeralMessageResult{}, nil
 	}
 	return &msg, nil
 }
@@ -104,7 +116,8 @@ func (c *BotAPIClient) SendMessageDraft(ctx context.Context, chatID int64, text 
 
 // SendRichMessageWithMarkup sends a rich message along with an inline keyboard or reply markup.
 // If threadID is non-nil, it will be directed to that topic/thread.
-func (c *BotAPIClient) SendRichMessageWithMarkup(ctx context.Context, chatID int64, richMessage map[string]interface{}, markup interface{}, threadID *int) (*EphemeralMessageResult, error) {
+// If replyToID is non-nil, it links as a reply to that message.
+func (c *BotAPIClient) SendRichMessageWithMarkup(ctx context.Context, chatID int64, richMessage interface{}, markup interface{}, threadID *int, replyToID ...*int) (*EphemeralMessageResult, error) {
 	payload := map[string]interface{}{
 		"chat_id":      chatID,
 		"rich_message": richMessage,
@@ -115,20 +128,26 @@ func (c *BotAPIClient) SendRichMessageWithMarkup(ctx context.Context, chatID int
 	if threadID != nil {
 		payload["message_thread_id"] = *threadID
 	}
+	if len(replyToID) > 0 && replyToID[0] != nil {
+		payload["reply_parameters"] = map[string]interface{}{
+			"message_id": *replyToID[0],
+		}
+	}
 	raw, err := c.Request(ctx, "sendRichMessage", payload)
 	if err != nil {
 		return nil, err
 	}
 	var msg EphemeralMessageResult
 	if err := json.Unmarshal(raw, &msg); err != nil {
-		return nil, fmt.Errorf("failed to parse rich message result: %w", err)
+		slog.Warn("Telegram sendRichMessage succeeded but unmarshaling result failed; returning empty result to prevent duplicate delivery", "error", err)
+		return &EphemeralMessageResult{}, nil
 	}
 	return &msg, nil
 }
 
 // EditRichMessage edits an existing message's content into / as a rich
 // message (rich_message parameter of editMessageText).
-func (c *BotAPIClient) EditRichMessage(ctx context.Context, chatID interface{}, messageID int, richMessage map[string]interface{}) error {
+func (c *BotAPIClient) EditRichMessage(ctx context.Context, chatID interface{}, messageID int, richMessage interface{}) error {
 	payload := map[string]interface{}{
 		"chat_id":      chatID,
 		"message_id":   messageID,
@@ -140,7 +159,7 @@ func (c *BotAPIClient) EditRichMessage(ctx context.Context, chatID interface{}, 
 
 // EditRichMessageWithMarkup edits an existing message's content into / as a rich message
 // and updates its reply markup.
-func (c *BotAPIClient) EditRichMessageWithMarkup(ctx context.Context, chatID interface{}, messageID int, richMessage map[string]interface{}, markup interface{}) error {
+func (c *BotAPIClient) EditRichMessageWithMarkup(ctx context.Context, chatID interface{}, messageID int, richMessage interface{}, markup interface{}) error {
 	payload := map[string]interface{}{
 		"chat_id":      chatID,
 		"message_id":   messageID,

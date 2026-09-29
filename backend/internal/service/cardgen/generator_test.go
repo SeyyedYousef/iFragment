@@ -1,6 +1,7 @@
 package cardgen
 
 import (
+	"bytes"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -207,6 +208,161 @@ func TestCardGenerator_GenerateRichGiftCard_Langs(t *testing.T) {
 		if len(data) == 0 {
 			t.Fatalf("expected non-empty byte slice for lang=%s", lang)
 		}
+	}
+}
+
+func TestCardGenerator_Dimensions(t *testing.T) {
+	cg := NewCardGenerator()
+
+	t.Run("Rich Username Card 600x600", func(t *testing.T) {
+		p := UsernameCardParams{
+			Username:     "crypto",
+			Grade:        "EXCLUSIVE",
+			LowTON:       "1200.0",
+			FairTON:      "1500.0",
+			HighTON:      "1800.0",
+			USDT:         "7500",
+			Brandability: 98,
+			Length:       6,
+			MarketStatus: "CLAIMED",
+			CompsCount:   14,
+			Confidence:   92,
+			Lang:         "fa",
+		}
+		data, err := cg.GenerateRichUsernameCard(p)
+		if err != nil {
+			t.Fatalf("GenerateRichUsernameCard failed: %v", err)
+		}
+		img, err := png.Decode(bytes.NewReader(data))
+		if err != nil {
+			t.Fatalf("failed to decode PNG: %v", err)
+		}
+		if img.Bounds().Dx() != 600 || img.Bounds().Dy() != 600 {
+			t.Fatalf("expected 600x600, got %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
+		}
+	})
+
+	t.Run("Rich Number Card 600x600", func(t *testing.T) {
+		p := NumberCardParams{
+			Number:       "+888 8888 8888",
+			Club:         "Grail Monodigit",
+			Rank:         1,
+			LowTON:       "80000.0",
+			FairTON:      "100000.0",
+			HighTON:      "125000.0",
+			USDT:         "500000",
+			ColorPattern: "Radiant Gold",
+			Supply:       1,
+			Lang:         "fa",
+		}
+		data, err := cg.GenerateRichNumberCard(p)
+		if err != nil {
+			t.Fatalf("GenerateRichNumberCard failed: %v", err)
+		}
+		img, err := png.Decode(bytes.NewReader(data))
+		if err != nil {
+			t.Fatalf("failed to decode PNG: %v", err)
+		}
+		if img.Bounds().Dx() != 600 || img.Bounds().Dy() != 600 {
+			t.Fatalf("expected 600x600, got %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
+		}
+	})
+
+	t.Run("Rich Gift Card 600x600", func(t *testing.T) {
+		p := GiftCardParams{
+			Title:        "Plush Pepe #42",
+			ModelName:    "Plush Pepe",
+			SerialNumber: 42,
+			RarityTier:   "LEGENDARY",
+			ExpectedTON:  "145.0",
+			ExpectedUSD:  "725",
+			Lang:         "fa",
+		}
+		data, err := cg.GenerateRichGiftCard(p)
+		if err != nil {
+			t.Fatalf("GenerateRichGiftCard failed: %v", err)
+		}
+		img, err := png.Decode(bytes.NewReader(data))
+		if err != nil {
+			t.Fatalf("failed to decode PNG: %v", err)
+		}
+		if img.Bounds().Dx() != 600 || img.Bounds().Dy() != 600 {
+			t.Fatalf("expected 600x600, got %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
+		}
+	})
+}
+
+func TestExportSampleCards(t *testing.T) {
+	cg := NewCardGenerator()
+	sampleDir := "./static/sample_cards"
+	_ = os.MkdirAll(sampleDir, 0755)
+
+	uParams := UsernameCardParams{
+		Username:     "crypto",
+		Grade:        "EXCLUSIVE",
+		LowTON:       "1200.0",
+		FairTON:      "1500.0",
+		HighTON:      "1800.0",
+		USDT:         "7500",
+		Brandability: 98,
+		Length:       6,
+		MarketStatus: "CLAIMED",
+		CompsCount:   14,
+		Confidence:   92,
+		Lang:         "fa",
+	}
+	if uData, err := cg.GenerateRichUsernameCard(uParams); err == nil {
+		_ = os.WriteFile(filepath.Join(sampleDir, "sample_username_card.png"), uData, 0644)
+	}
+
+	nParams := NumberCardParams{
+		Number:       "+888 8888 8888",
+		Club:         "Grail Monodigit",
+		Rank:         1,
+		LowTON:       "80000.0",
+		FairTON:      "100000.0",
+		HighTON:      "125000.0",
+		USDT:         "500000",
+		ColorPattern: "Radiant Gold",
+		Supply:       1,
+		Lang:         "fa",
+	}
+	if nData, err := cg.GenerateRichNumberCard(nParams); err == nil {
+		_ = os.WriteFile(filepath.Join(sampleDir, "sample_number_card.png"), nData, 0644)
+	}
+
+	gParams := GiftCardParams{
+		Title:        "Plush Pepe #42",
+		ModelName:    "Plush Pepe",
+		SerialNumber: 42,
+		RarityTier:   "LEGENDARY",
+		ExpectedTON:  "145.0",
+		ExpectedUSD:  "725",
+		Lang:         "fa",
+	}
+	if gData, err := cg.GenerateRichGiftCard(gParams); err == nil {
+		_ = os.WriteFile(filepath.Join(sampleDir, "sample_gift_card.png"), gData, 0644)
+	}
+}
+
+func TestContainsArabicScript(t *testing.T) {
+	if !containsArabicScript("شماره رند") {
+		t.Errorf("expected true for Persian text")
+	}
+	if containsArabicScript("LADDER") {
+		t.Errorf("expected false for Latin text")
+	}
+}
+
+func TestFormatUSDTAmount(t *testing.T) {
+	if res := formatUSDTAmount("12450"); res != "12,450" {
+		t.Errorf("expected 12,450, got %s", res)
+	}
+	if res := formatUSDTAmount("0"); res != "" {
+		t.Errorf("expected empty string for 0, got %s", res)
+	}
+	if res := formatUSDTAmount("$2500.50"); res != "2,500" {
+		t.Errorf("expected 2,500, got %s", res)
 	}
 }
 

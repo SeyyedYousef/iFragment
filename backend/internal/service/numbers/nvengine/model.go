@@ -8,6 +8,11 @@ import (
 	"ifragment-backend/internal/service/numbers/registry"
 )
 
+const (
+	// TotalNumbersSupply is the fixed total supply of Telegram Anonymous Numbers (136,566)
+	TotalNumbersSupply = registry.TotalSupply
+)
+
 // NumberValuation is the complete, comprehensive evaluation output of NV Engine
 type NumberValuation struct {
 	RunID                int64                    `json:"run_id"`

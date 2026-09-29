@@ -27,6 +27,10 @@ import (
 )
 
 // ValuationService orchestrates the AVM pipeline:
+type TONUSDTPriceProvider interface {
+	GetTONUSDT(ctx context.Context) (rate float64, source string, fetchedAt time.Time, isStale bool, ok bool)
+}
+
 // Classify → Fetch → Compute → Audit → Return
 type ValuationService struct {
 	db              *repository.Database
@@ -36,6 +40,7 @@ type ValuationService struct {
 	marketappClient *marketapp.Client
 	cfg             EngineConfig
 	semanticEngine  *SemanticEngine
+	cryptoPriceSvc  TONUSDTPriceProvider
 	sfGroup         singleflight.Group
 }
 
@@ -50,6 +55,10 @@ func NewValuationService(db *repository.Database, cache *repository.Cache, tonCl
 		cfg:             DefaultEngineConfig(),
 		semanticEngine:  NewSemanticEngine(db),
 	}
+}
+
+func (s *ValuationService) SetCryptoPriceService(cps TONUSDTPriceProvider) {
+	s.cryptoPriceSvc = cps
 }
 
 type DictionaryData struct {
@@ -826,16 +835,85 @@ func isDictionaryWord(lower string) bool {
 }
 
 // Valuate executes the full AVM pipeline for a username with SingleFlight deduplication.
+// Defensive behavior:
+// 1. If tonRate <= 0, automatically resolves the latest rate from cryptoPriceSvc.
+// 2. SingleFlight cache key is val:%s (without rate) so cache remains valid across rate updates.
+// 3. USD fields and dollar projections are dynamically calculated from the effective tonRate.
 func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate float64) (*ValuationResult, error) {
 	cleanU := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(username), "@"))
-	key := fmt.Sprintf("val:%s:%.4f", cleanU, tonRate)
+
+	effectiveRate := tonRate
+	if effectiveRate <= 0 && s.cryptoPriceSvc != nil {
+		if rate, _, _, _, ok := s.cryptoPriceSvc.GetTONUSDT(ctx); ok && rate > 0 {
+			effectiveRate = rate
+		}
+	}
+
+	key := fmt.Sprintf("val:%s", cleanU)
 	val, err, _ := s.sfGroup.Do(key, func() (interface{}, error) {
-		return s.valuateInternal(ctx, username, tonRate)
+		return s.valuateInternal(ctx, username, effectiveRate)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return val.(*ValuationResult), nil
+
+	res := val.(*ValuationResult)
+
+	// Clone result to avoid mutation across concurrent callers
+	cloned := *res
+	if effectiveRate > 0 {
+		cloned.TONUSDRate = effectiveRate
+		tonRateDec := decimal.NewFromFloat(effectiveRate)
+		cloned.ExpectedUSD = cloned.ExpectedTON.Mul(tonRateDec).Round(4)
+		cloned.LowUSD = cloned.LowTON.Mul(tonRateDec).Round(4)
+		cloned.HighUSD = cloned.HighTON.Mul(tonRateDec).Round(4)
+
+		p10Val := cloned.EmpiricalBand.ModelLowTON
+		p50Val := cloned.EmpiricalBand.ModelMidTON
+		p90Val := cloned.EmpiricalBand.ModelHighTON
+		cloned.EmpiricalBand.ModelLowUSD = math.Round(p10Val*effectiveRate*100) / 100
+		cloned.EmpiricalBand.ModelMidUSD = math.Round(p50Val*effectiveRate*100) / 100
+		cloned.EmpiricalBand.ModelHighUSD = math.Round(p90Val*effectiveRate*100) / 100
+		cloned.EmpiricalBand.P10USD = cloned.EmpiricalBand.ModelLowUSD
+		cloned.EmpiricalBand.P50USD = cloned.EmpiricalBand.ModelMidUSD
+		cloned.EmpiricalBand.P90USD = cloned.EmpiricalBand.ModelHighUSD
+
+		cloned.ProjectedGrowth.BullUSD = math.Round(cloned.ProjectedGrowth.BullTON * effectiveRate)
+		cloned.ProjectedGrowth.BaseUSD = math.Round(cloned.ProjectedGrowth.BaseTON * effectiveRate)
+		cloned.ProjectedGrowth.BearUSD = math.Round(cloned.ProjectedGrowth.BearTON * effectiveRate)
+
+		if cloned.TransactionEconomics != nil {
+			te := *cloned.TransactionEconomics
+			te.NetPayoutUSD = math.Max(0.0, ToFloat64(cloned.ExpectedUSD)-(te.FragmentFeeTON*effectiveRate))
+			cloned.TransactionEconomics = &te
+		}
+		if cloned.LiveMarket != nil {
+			lm := *cloned.LiveMarket
+			if lm.CurrentBidTON > 0 {
+				lm.CurrentBidUSD = math.Round(lm.CurrentBidTON * effectiveRate * 100) / 100
+			}
+			if lm.BuyNowTON > 0 {
+				lm.BuyNowUSD = math.Round(lm.BuyNowTON * effectiveRate * 100) / 100
+			}
+			cloned.LiveMarket = &lm
+		}
+	} else {
+		cloned.TONUSDRate = 0
+		cloned.ExpectedUSD = decimal.Zero
+		cloned.LowUSD = decimal.Zero
+		cloned.HighUSD = decimal.Zero
+		cloned.EmpiricalBand.ModelLowUSD = 0
+		cloned.EmpiricalBand.ModelMidUSD = 0
+		cloned.EmpiricalBand.ModelHighUSD = 0
+		cloned.EmpiricalBand.P10USD = 0
+		cloned.EmpiricalBand.P50USD = 0
+		cloned.EmpiricalBand.P90USD = 0
+		cloned.ProjectedGrowth.BullUSD = 0
+		cloned.ProjectedGrowth.BaseUSD = 0
+		cloned.ProjectedGrowth.BearUSD = 0
+	}
+
+	return &cloned, nil
 }
 
 // valuateInternal executes the mathematical evaluation DAG for AVM v7.0.

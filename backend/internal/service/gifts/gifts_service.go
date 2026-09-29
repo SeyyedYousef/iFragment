@@ -833,7 +833,7 @@ func (s *GiftsService) UnlockWithCredit(ctx context.Context, userID int64, raw s
 		defer tx.Rollback(ctx)
 
 		idemKey := fmt.Sprintf("report:gift:%d:%s", userID, ref.GiftID)
-		_, err = s.creditRepo.ConsumeCreditFIFOTx(ctx, tx, userID, "report:gift", ref.GiftID, idemKey)
+		_, _, err = s.creditRepo.ConsumeCreditFIFOTx(ctx, tx, userID, "report:gift", ref.GiftID, idemKey)
 		if err != nil {
 			return nil, ErrInsufficientCredit
 		}
@@ -849,6 +849,10 @@ func (s *GiftsService) UnlockWithCredit(ctx context.Context, userID int64, raw s
 
 		if err := tx.Commit(ctx); err != nil {
 			return nil, err
+		}
+
+		if s.cache != nil && s.cache.Client != nil {
+			s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 		}
 
 		return val, nil

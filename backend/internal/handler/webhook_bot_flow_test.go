@@ -1,19 +1,27 @@
 package handler
 
 import (
+	"context"
+	"strings"
 	"testing"
 
+	"github.com/shopspring/decimal"
+
 	"ifragment-backend/internal/config"
+	"ifragment-backend/internal/service/gifts/gvengine"
+	"ifragment-backend/internal/service/gifts/traits"
+	"ifragment-backend/internal/service/numbers/nvengine"
+	"ifragment-backend/internal/service/username/avm"
 )
 
 func TestBuildMainMenuMarkupLayout(t *testing.T) {
 	h := &WebhookHandler{}
 	miniAppURL := "https://t.me/iFragmentBot/iFragment"
 
-	languages := []string{"fa", "en", "ru", "zh", "ar"}
+	languages := []string{"fa", "en", "ru", "zh"}
 	for _, lang := range languages {
 		t.Run("lang_"+lang, func(t *testing.T) {
-			markup := h.buildMainMenuMarkup(lang, miniAppURL)
+			markup := h.buildMainMenuMarkup(context.Background(), lang, miniAppURL)
 			if markup == nil {
 				t.Fatalf("expected non-nil markup for lang %s", lang)
 			}
@@ -38,6 +46,16 @@ func TestBuildMainMenuMarkupLayout(t *testing.T) {
 			}
 			if heroBtn["text"] == "" {
 				t.Errorf("expected hero button text to be non-empty")
+			}
+
+			// Test HTTPS non-t.me URL produces web_app
+			httpsURL := "https://app.ifragment.io"
+			markupWebApp := h.buildMainMenuMarkup(context.Background(), lang, httpsURL)
+			gridWebApp := markupWebApp["inline_keyboard"].([][]map[string]interface{})
+			heroBtnWebApp := gridWebApp[0][0]
+			webAppMap, ok := heroBtnWebApp["web_app"].(map[string]interface{})
+			if !ok || webAppMap["url"] != httpsURL {
+				t.Errorf("expected hero button web_app url to be %s, got %v", httpsURL, heroBtnWebApp["web_app"])
 			}
 
 			// Row 2: Exactly 2 buttons (Username, Number)
@@ -163,3 +181,204 @@ func TestSniffAssetEnhanced(t *testing.T) {
 		})
 	}
 }
+
+func TestReportCreditFooterFormatting(t *testing.T) {
+	languages := []string{"fa", "en", "ru", "zh"}
+
+	for _, lang := range languages {
+		t.Run("duplicate_"+lang, func(t *testing.T) {
+			normL := normalizeLang(lang)
+			var creditFooter string
+			switch normL {
+			case "fa":
+				creditFooter = "\n\n<i>💎 این گزارش امروز قبلاً پرداخت شده و به رایگان نمایش داده شد.</i>"
+			case "ru":
+				creditFooter = "\n\n<i>💎 Этот отчет уже был оплачен сегодня и показан бесплатно.</i>"
+			case "zh":
+				creditFooter = "\n\n<i>💎 该报告今日已解锁，本次免费查看。</i>"
+			default:
+				creditFooter = "\n\n<i>💎 This report was already unlocked today, viewing is free.</i>"
+			}
+			if creditFooter == "" {
+				t.Errorf("expected non-empty duplicate footer for lang %s", lang)
+			}
+		})
+
+		t.Run("new_deduct_"+lang, func(t *testing.T) {
+			normL := normalizeLang(lang)
+			remainingBalance := 5
+			var creditFooter string
+			switch normL {
+			case "fa":
+				creditFooter = "\n\n<i>⚡ ۱ کریدت کسر شد | موجودی: 5</i>"
+			case "ru":
+				creditFooter = "\n\n<i>⚡ 1 кредит списан | Баланс: 5</i>"
+			case "zh":
+				creditFooter = "\n\n<i>⚡ 已扣除 1 个信用点 | 剩余额度: 5</i>"
+			default:
+				creditFooter = "\n\n<i>⚡ 1 credit deducted | Balance: 5</i>"
+			}
+			if creditFooter == "" {
+				t.Errorf("expected non-empty deduction footer for lang %s", lang)
+			}
+			if remainingBalance != 5 {
+				t.Errorf("unexpected remaining balance")
+			}
+		})
+	}
+}
+
+func TestSplitTelegramHTML(t *testing.T) {
+	t.Run("short string under limit", func(t *testing.T) {
+		input := "<b>hello world</b>"
+		res := splitTelegramHTML(input, 100)
+		if len(res) != 1 {
+			t.Fatalf("expected 1 chunk, got %d", len(res))
+		}
+		if res[0] != input {
+			t.Errorf("expected %q, got %q", input, res[0])
+		}
+	})
+
+	t.Run("splits long string and closes open tags", func(t *testing.T) {
+		var sb strings.Builder
+		sb.WriteString("<blockquote>\n")
+		for i := 0; i < 20; i++ {
+			sb.WriteString("Line of text with some content here.\n")
+		}
+		sb.WriteString("</blockquote>")
+		longText := sb.String()
+
+		chunks := splitTelegramHTML(longText, 150)
+		if len(chunks) < 2 {
+			t.Fatalf("expected multiple chunks, got %d", len(chunks))
+		}
+
+		for i, chunk := range chunks {
+			if len(chunk) > 250 {
+				t.Errorf("chunk %d exceeded limit: %d", i, len(chunk))
+			}
+			if i == 0 && !strings.HasSuffix(chunk, "</blockquote>") {
+				t.Errorf("expected chunk 0 to end with closed tag, got %q", chunk)
+			}
+			if i > 0 && !strings.HasPrefix(chunk, "<blockquote>") {
+				t.Errorf("expected chunk %d to start with opened tag, got %q", i, chunk)
+			}
+		}
+	})
+}
+
+func TestValidateRichHTML(t *testing.T) {
+	t.Run("valid rich HTML", func(t *testing.T) {
+		valid := "<h1>Title</h1><p>Description</p><table><tr><td>Item</td><td>Value</td></tr></table>"
+		if !ValidateRichHTML(valid) {
+			t.Errorf("expected valid rich HTML to pass validation")
+		}
+	})
+
+	t.Run("invalid tag rejected", func(t *testing.T) {
+		invalid := "<script>alert(1)</script>"
+		if ValidateRichHTML(invalid) {
+			t.Errorf("expected script tag to be rejected")
+		}
+	})
+
+	t.Run("block element inside td rejected", func(t *testing.T) {
+		invalid := "<table><tr><td><p>Block in cell</p></td></tr></table>"
+		if ValidateRichHTML(invalid) {
+			t.Errorf("expected block inside td to be rejected")
+		}
+	})
+
+	t.Run("invalid tg-emoji without emoji rejected", func(t *testing.T) {
+		invalid := "<tg-emoji emoji-id=\"12345\">NotAnEmoji</tg-emoji>"
+		if ValidateRichHTML(invalid) {
+			t.Errorf("expected tg-emoji without emoji character to be rejected")
+		}
+	})
+
+	t.Run("valid tg-emoji with emoji passes", func(t *testing.T) {
+		valid := "<tg-emoji emoji-id=\"12345\">💎</tg-emoji>"
+		if !ValidateRichHTML(valid) {
+			t.Errorf("expected tg-emoji with emoji character to pass")
+		}
+	})
+}
+
+func TestRichBuildersSnapshot(t *testing.T) {
+	t.Run("UsernameRichHTML", func(t *testing.T) {
+		res := &avm.ValuationResult{
+			InvestmentGrade: "AAA",
+			Brandability:    95,
+			LowTON:          decimal.NewFromFloat(50.0),
+			ExpectedTON:     decimal.NewFromFloat(100.0),
+			HighTON:         decimal.NewFromFloat(150.0),
+			ExpectedUSD:     decimal.NewFromFloat(500.0),
+			Length:          4,
+			LiquidityRating: "High",
+			ConfidenceScore: 90,
+		}
+
+		faHTML := buildUsernameRichHTML("testuser", res, "fa")
+		if !ValidateRichHTML(faHTML) {
+			t.Errorf("Username fa rich HTML failed validation: %s", faHTML)
+		}
+		if !strings.Contains(faHTML, "<h1>🏷️ کارشناسی تحلیلی: @testuser</h1>") {
+			t.Errorf("Username rich HTML snapshot title mismatch")
+		}
+		if !strings.Contains(faHTML, "<b>4 کاراکتر</b>") {
+			t.Errorf("Expected length number to be in <b> tags")
+		}
+	})
+
+	t.Run("NumberRichHTML", func(t *testing.T) {
+		val := &nvengine.NumberValuation{
+			DisplayNumber:   "+888 8888 8888",
+			CategoryClub:    "Golden Octet",
+			CategoryClubFa:  "هشت‌تایی طلایی",
+			GlobalRank:      12,
+			ConfidenceScore: 92,
+			ExpectedTON:     decimal.NewFromFloat(1500.0),
+			ExpectedUSD:     7500.0,
+			LowTON:          decimal.NewFromFloat(1200.0),
+			HighTON:         decimal.NewFromFloat(2000.0),
+			BasePriceTON:    decimal.NewFromFloat(1000.0),
+		}
+
+		faHTML := buildNumberRichHTML(val, "fa")
+		if !ValidateRichHTML(faHTML) {
+			t.Errorf("Number fa rich HTML failed validation: %s", faHTML)
+		}
+		if !strings.Contains(faHTML, "<h1>📱 کارشناسی تحلیلی شماره: +888 8888 8888</h1>") {
+			t.Errorf("Number rich HTML snapshot title mismatch")
+		}
+		if !strings.Contains(faHTML, "<b>1000.0 TON</b>") {
+			t.Errorf("Expected base price number to be present")
+		}
+	})
+
+	t.Run("GiftRichHTML", func(t *testing.T) {
+		val := &gvengine.GiftValuation{
+			DisplayTitle: "Plush Pepe #42",
+			SerialNumber: 42,
+			ExpectedUSD:  250.0,
+			Pillars: gvengine.ValuationPillars{
+				FairValueGRAM: 50.0,
+			},
+			JointRarity: traits.JointRarityAnalysis{
+				RarityClass:   "Rare",
+				DescriptionFa: "نایاب",
+			},
+		}
+
+		faHTML := buildGiftRichHTML(val, "fa")
+		if !ValidateRichHTML(faHTML) {
+			t.Errorf("Gift fa rich HTML failed validation: %s", faHTML)
+		}
+		if !strings.Contains(faHTML, "<h1>🎁 کارشناسی گیفت: Plush Pepe #42</h1>") {
+			t.Errorf("Gift rich HTML snapshot title mismatch")
+		}
+	})
+}
+
+

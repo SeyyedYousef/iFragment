@@ -194,15 +194,24 @@ var DefaultPricingHeuristicsConfig = PricingHeuristicsConfig{
 	ExchangeRateConfidenceBonus: 0.04,
 }
 
+type TONUSDTPriceProvider interface {
+	GetTONUSDT(ctx context.Context) (rate float64, source string, fetchedAt time.Time, isStale bool, ok bool)
+}
+
 type AnalysisService struct {
 	db            *repository.Database
 	cache         *repository.Cache
 	tonClient     *tonapi.Client
 	mtprotoClient mtproto.Client
+	cryptoPrice   TONUSDTPriceProvider
 	rarityConfig  RarityConfig
 	pricingConfig PricingHeuristicsConfig
 	sfGroup       singleflight.Group
 	mtprotoSem    chan struct{}
+}
+
+func (s *AnalysisService) SetCryptoPriceService(cp TONUSDTPriceProvider) {
+	s.cryptoPrice = cp
 }
 
 func NewAnalysisService(
@@ -1564,6 +1573,19 @@ func (s *AnalysisService) GetTONRateInfo(ctx context.Context) (CurrencyRate, err
 	cacheKey := "ton_rate_usd"
 	now := time.Now().UTC()
 
+	// 1. Try unified CryptoPriceService if provided
+	if s.cryptoPrice != nil {
+		if rate, source, fetchedAt, isStale, ok := s.cryptoPrice.GetTONUSDT(ctx); ok && rate > 0 {
+			return CurrencyRate{
+				Rate:       rate,
+				Source:     source,
+				IsStale:    isStale,
+				ObservedAt: fetchedAt,
+			}, nil
+		}
+	}
+
+	// 2. Try Redis Cache
 	if s.cache != nil {
 		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
 		if err == nil {
@@ -1579,6 +1601,7 @@ func (s *AnalysisService) GetTONRateInfo(ctx context.Context) (CurrencyRate, err
 		}
 	}
 
+	// 3. Try Direct TonAPI
 	if s.tonClient != nil {
 		price, err := s.tonClient.GetTONRates(ctx)
 		if err == nil && price > 0 {
@@ -1594,13 +1617,13 @@ func (s *AnalysisService) GetTONRateInfo(ctx context.Context) (CurrencyRate, err
 		}
 	}
 
-	// Fallback rate with explicit staleness provenance
+	// Rate completely unavailable
 	return CurrencyRate{
-		Rate:       7.25,
-		Source:     "fallback",
+		Rate:       0,
+		Source:     "unavailable",
 		IsStale:    true,
 		ObservedAt: now,
-	}, nil
+	}, fmt.Errorf("TON rate currently unavailable across all sources")
 }
 
 // GetTONRate fetches the current TON to USD exchange rate from TonAPI with caching (returns scalar)

@@ -26,7 +26,7 @@ func (s *IntelCreditService) GetBalance(ctx context.Context, userID int64) (*rep
 	return s.repo.GetUserBalance(ctx, userID)
 }
 
-func (s *IntelCreditService) ConsumeCredit(ctx context.Context, userID int64, reason, entity, idemKey string) (int, error) {
+func (s *IntelCreditService) ConsumeCredit(ctx context.Context, userID int64, reason, entity, idemKey string) (int, bool, error) {
 	return s.repo.ConsumeCreditFIFO(ctx, userID, reason, entity, idemKey)
 }
 

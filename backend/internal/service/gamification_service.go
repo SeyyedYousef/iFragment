@@ -192,7 +192,106 @@ func (s *GamificationService) flushTapBatches(ctx context.Context) {
 	}
 }
 
-// StartCoinDecayWorker periodically checks and applies a 2% penalty to inactive users' airdrop coins
+// FlushUserPendingTaps atomically claims and clears the user's pending batched taps from Redis
+// (both profile:taps:batch and profile:taps:batch:processing) and commits them to PostgreSQL user_stats,
+// updating leaderboard and invalidating profile cache.
+func (s *GamificationService) FlushUserPendingTaps(ctx context.Context, userID int64) error {
+	if s.cache == nil || s.cache.Client == nil || s.db == nil || s.db.Pool == nil {
+		return nil
+	}
+
+	userIDStr := strconv.FormatInt(userID, 10)
+	luaScript := `
+		local batchKey = KEYS[1]
+		local procKey = KEYS[2]
+		local uid = ARGV[1]
+		local total = 0
+
+		local v1 = redis.call("HGET", batchKey, uid)
+		if v1 then
+			total = total + tonumber(v1)
+			redis.call("HDEL", batchKey, uid)
+		end
+
+		local v2 = redis.call("HGET", procKey, uid)
+		if v2 then
+			total = total + tonumber(v2)
+			redis.call("HDEL", procKey, uid)
+		end
+
+		return total
+	`
+
+	res, err := s.cache.Client.Eval(ctx, luaScript, []string{"profile:taps:batch", "profile:taps:batch:processing"}, userIDStr).Result()
+	if err != nil && err != redis.Nil {
+		slog.Error("failed to eval flush user pending taps lua", "user_id", userID, "err", err)
+		return err
+	}
+
+	var pendingTaps int64
+	if res != nil {
+		switch v := res.(type) {
+		case int64:
+			pendingTaps = v
+		case float64:
+			pendingTaps = int64(v)
+		case string:
+			pendingTaps, _ = strconv.ParseInt(v, 10, 64)
+		}
+	}
+
+	if pendingTaps <= 0 {
+		return nil
+	}
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		slog.Error("failed to begin tx in FlushUserPendingTaps", "user_id", userID, "err", err)
+		// Restore taps to batchKey so coins are not lost on DB error
+		_ = s.cache.Client.HIncrBy(ctx, "profile:taps:batch", userIDStr, pendingTaps).Err()
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	stmt := `
+		UPDATE user_stats 
+		SET airdrop_coins = airdrop_coins + $2,
+			xp = xp + $2,
+			total_coins_earned = total_coins_earned + $2
+		WHERE user_id = $1
+	`
+	_, err = tx.Exec(ctx, stmt, userID, pendingTaps)
+	if err != nil {
+		slog.Error("failed to update user_stats in FlushUserPendingTaps", "user_id", userID, "err", err)
+		_ = s.cache.Client.HIncrBy(ctx, "profile:taps:batch", userIDStr, pendingTaps).Err()
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		slog.Error("failed to commit tx in FlushUserPendingTaps", "user_id", userID, "err", err)
+		_ = s.cache.Client.HIncrBy(ctx, "profile:taps:batch", userIDStr, pendingTaps).Err()
+		return err
+	}
+
+	// Update leaderboards and bust profile stats cache
+	now := time.Now().UTC()
+	dayKey := fmt.Sprintf("leaderboard:daily:%s", now.Format("2006-01-02"))
+	year, week := now.ISOWeek()
+	weekKey := fmt.Sprintf("leaderboard:weekly:%d-W%02d", year, week)
+
+	pipe := s.cache.Client.Pipeline()
+	pipe.ZIncrBy(ctx, "leaderboard", float64(pendingTaps), userIDStr)
+	pipe.ZIncrBy(ctx, "leaderboard:all", float64(pendingTaps), userIDStr)
+	pipe.ZIncrBy(ctx, dayKey, float64(pendingTaps), userIDStr)
+	pipe.ZIncrBy(ctx, weekKey, float64(pendingTaps), userIDStr)
+	pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	pipe.Expire(ctx, dayKey, 48*time.Hour)
+	pipe.Expire(ctx, weekKey, 14*24*time.Hour)
+	_, _ = pipe.Exec(ctx)
+
+	return nil
+}
+
 func (s *GamificationService) StartCoinDecayWorker(ctx context.Context) {
 	ticker := time.NewTicker(6 * time.Hour) // Run every 6 hours
 	defer ticker.Stop()

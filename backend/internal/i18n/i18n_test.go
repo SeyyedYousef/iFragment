@@ -18,8 +18,8 @@ func TestDetectLanguage(t *testing.T) {
 		{"zh", "zh"},
 		{"zh-CN", "zh"},
 		{"zh-Hans", "zh"},
-		{"ar", "ar"},
-		{"ar-SA", "ar"},
+		{"ar", "en"}, // fallback to en
+		{"ar-SA", "en"},
 		{"en", "en"},
 		{"en-US", "en"},
 		{"fr", "en"}, // fallback to en
@@ -233,7 +233,6 @@ func TestNoPersianDigitsInDicts(t *testing.T) {
 		"fa": faDict,
 		"ru": ruDict,
 		"zh": zhDict,
-		"ar": arDict,
 	}
 
 	persianDigits := "۰۱۲۳۴۵۶۷۸۹"
