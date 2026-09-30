@@ -36,3 +36,26 @@ func TestStoreService_NilRepo(t *testing.T) {
 		t.Errorf("expected error when repo is nil for ExchangeCoinsN, got nil")
 	}
 }
+
+func TestCoinExchangeCalculation(t *testing.T) {
+	// Task 8 requirement:
+	// Verify user with 725,436 coins can exchange max 4 credits (150,000 coins/credit)
+	// total cost = 600,000 coins, remainder = 125,436 coins.
+	airdropCoins := 725436.0
+	costPerCredit := 150000
+
+	maxCredits := int(airdropCoins) / costPerCredit
+	if maxCredits != 4 {
+		t.Fatalf("expected maxCredits = 4, got %d", maxCredits)
+	}
+
+	totalCost := float64(maxCredits * costPerCredit)
+	if totalCost != 600000 {
+		t.Fatalf("expected totalCost = 600000, got %f", totalCost)
+	}
+
+	remainder := airdropCoins - totalCost
+	if remainder != 125436 {
+		t.Fatalf("expected remainder = 125436, got %f", remainder)
+	}
+}

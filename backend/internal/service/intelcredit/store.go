@@ -113,8 +113,8 @@ type ExchangeCoinsResult struct {
 
 // ExchangeCoins atomically converts Airdrop Coins into exactly 1 Intel Credit.
 // Returns the resulting credit balance for backward compatibility.
-func (s *StoreService) ExchangeCoins(ctx context.Context, userID int64) (int, error) {
-	res, err := s.ExchangeCoinsN(ctx, userID, 1)
+func (s *StoreService) ExchangeCoins(ctx context.Context, userID int64, idemKey ...string) (int, error) {
+	res, err := s.ExchangeCoinsN(ctx, userID, 1, idemKey...)
 	if err != nil {
 		return 0, err
 	}
@@ -122,7 +122,7 @@ func (s *StoreService) ExchangeCoins(ctx context.Context, userID int64) (int, er
 }
 
 // ExchangeCoinsN atomically converts Airdrop Coins into n Intel Credits.
-func (s *StoreService) ExchangeCoinsN(ctx context.Context, userID int64, n int) (*ExchangeCoinsResult, error) {
+func (s *StoreService) ExchangeCoinsN(ctx context.Context, userID int64, n int, idemKey ...string) (*ExchangeCoinsResult, error) {
 	if s.repo == nil || s.repo.DB() == nil {
 		return nil, fmt.Errorf("database unavailable")
 	}
@@ -132,7 +132,7 @@ func (s *StoreService) ExchangeCoinsN(ctx context.Context, userID int64, n int) 
 	costPerCredit := float64(config.Economics.CreditsCoinsPerCredit)
 	totalCost := costPerCredit * float64(n)
 
-	batchID, credBal, coinBal, err := s.repo.ExchangeCoinsForCredit(ctx, userID, n, totalCost, purchasedCreditsExpiry())
+	batchID, credBal, coinBal, err := s.repo.ExchangeCoinsForCredit(ctx, userID, n, totalCost, purchasedCreditsExpiry(), idemKey...)
 	if err != nil {
 		return nil, err
 	}

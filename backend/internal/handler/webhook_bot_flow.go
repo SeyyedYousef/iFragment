@@ -10,11 +10,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/config"
-	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/cardgen"
@@ -25,6 +25,7 @@ import (
 	"ifragment-backend/internal/service/numbers/nvengine"
 	"ifragment-backend/internal/service/username/avm"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
 
@@ -45,6 +46,61 @@ const (
 	CustomEmojiRefresh = "5445124018330758412" // 🔄 Convert / Exchange (distinct from Bolt)
 )
 
+// AllCustomEmojiIDs lists all custom emoji constants used across iFragment bot.
+var AllCustomEmojiIDs = []string{
+	CustomEmojiDiamond,
+	CustomEmojiTag,
+	CustomEmojiPhone,
+	CustomEmojiGift,
+	CustomEmojiUser,
+	CustomEmojiGlobe,
+	CustomEmojiBook,
+	CustomEmojiCheck,
+	CustomEmojiCross,
+	CustomEmojiStar,
+	CustomEmojiBolt,
+	CustomEmojiCoin,
+	CustomEmojiRefresh,
+}
+
+// customEmojiDenylist tracks invalid/unauthorized custom emoji IDs so they are stripped/fallback to normal character.
+var customEmojiDenylist sync.Map
+
+// IsCustomEmojiDenylisted checks if a custom emoji ID is denylisted.
+func IsCustomEmojiDenylisted(id string) bool {
+	_, denylisted := customEmojiDenylist.Load(id)
+	return denylisted
+}
+
+// DenylistCustomEmoji adds an emoji ID to the denylist.
+func DenylistCustomEmoji(id string) {
+	customEmojiDenylist.Store(id, true)
+}
+
+// ValidateCustomEmojis calls getCustomEmojiStickers with all IDs, logs invalid ones, and denylists them.
+func ValidateCustomEmojis(ctx context.Context, tg *telegram.BotAPIClient) {
+	if tg == nil {
+		return
+	}
+	stickers, err := tg.GetCustomEmojiStickers(ctx, AllCustomEmojiIDs)
+	if err != nil {
+		slog.Warn("ValidateCustomEmojis: failed to fetch custom emoji stickers from Telegram", "error", err)
+		return
+	}
+
+	validMap := make(map[string]bool)
+	for _, s := range stickers {
+		validMap[s.CustomEmojiID] = true
+	}
+
+	for _, id := range AllCustomEmojiIDs {
+		if !validMap[id] {
+			slog.Error("Custom Emoji ID is invalid or unauthorized on Telegram, adding to denylist", "custom_emoji_id", id)
+			DenylistCustomEmoji(id)
+		}
+	}
+}
+
 // SmartSniffResult holds the recognized asset type and normalized query.
 type SmartSniffResult struct {
 	Type   string // "username", "number", "gift"
@@ -53,10 +109,11 @@ type SmartSniffResult struct {
 }
 
 var (
-	giftSlugRegex    = regexp.MustCompile(`(?i)^[a-zA-Z0-9_]+-\d+$`)
-	usernameRe       = regexp.MustCompile(`^[a-zA-Z](?:[a-zA-Z0-9_]{2,30})[a-zA-Z0-9]$`)
-	premiumEmojiIDRe = regexp.MustCompile(`\[emoji:(\d{10,21})\]|\[(\d{10,21})\]`)
-	tgEmojiTagRe     = regexp.MustCompile(`(?i)<tg-emoji[^>]*>(.*?)</tg-emoji>`)
+	giftSlugRegex        = regexp.MustCompile(`(?i)^[a-zA-Z0-9_]+-\d+$`)
+	usernameRe           = regexp.MustCompile(`^[a-zA-Z](?:[a-zA-Z0-9_]{2,30})[a-zA-Z0-9]$`)
+	premiumEmojiIDRe     = regexp.MustCompile(`\[emoji:(\d{10,21})\]|\[(\d{10,21})\]`)
+	tgEmojiTagRe         = regexp.MustCompile(`(?i)<tg-emoji[^>]*>(.*?)</tg-emoji>`)
+	tgEmojiWithIDRe      = regexp.MustCompile(`(?i)<tg-emoji[^>]*emoji-id="([^"]+)"[^>]*>(.*?)</tg-emoji>`)
 )
 
 // isPremiumEmojiEnabled checks if custom emojis are supported/enabled in this deployment.
@@ -80,6 +137,24 @@ func stripCustomEmoji(html string) string {
 	return tgEmojiTagRe.ReplaceAllString(html, "$1")
 }
 
+// filterDenylistedCustomEmojis replaces only denylisted <tg-emoji emoji-id="id">X</tg-emoji> tags with X.
+func filterDenylistedCustomEmojis(html string) string {
+	if html == "" {
+		return html
+	}
+	return tgEmojiWithIDRe.ReplaceAllStringFunc(html, func(m string) string {
+		sub := tgEmojiWithIDRe.FindStringSubmatch(m)
+		if len(sub) == 3 {
+			id := sub[1]
+			fallbackChar := sub[2]
+			if IsCustomEmojiDenylisted(id) {
+				return fallbackChar
+			}
+		}
+		return m
+	})
+}
+
 // FormatPremiumEmojiText replaces bracketed emoji IDs like [5368324170671202286] or [emoji:5368324170671202286]
 // with standard Telegram Bot API custom emoji markup: <tg-emoji emoji-id="ID">✨</tg-emoji>
 // If PREMIUM_EMOJI_ENABLED=false, it preserves only regular text/emoji.
@@ -94,25 +169,36 @@ func FormatPremiumEmojiText(input string) string {
 			id = sub[2]
 		}
 		if id != "" {
+			if IsCustomEmojiDenylisted(id) {
+				return "✨"
+			}
 			return fmt.Sprintf(`<tg-emoji emoji-id="%s">✨</tg-emoji>`, id)
 		}
 		return m
 	})
 	if !isPremiumEmojiEnabled() {
 		out = stripCustomEmoji(out)
+	} else {
+		out = filterDenylistedCustomEmojis(out)
 	}
 	return out
 }
 
-// resolveText retrieves a custom text if defined by owner, or falls back to default.
 func (h *WebhookHandler) resolveText(ctx context.Context, key, lang, defaultText string) string {
+	res := defaultText
 	if h.templateRepo != nil {
 		custom, err := h.templateRepo.GetTemplate(ctx, key, lang)
 		if err == nil && custom != "" {
-			return custom
+			if err := ValidateTelegramHTML(custom); err != nil {
+				slog.Warn("DB template contains invalid Telegram HTML tags or unclosed tags, falling back to default",
+					"key", key, "lang", lang, "error", err)
+				res = defaultText
+			} else {
+				res = custom
+			}
 		}
 	}
-	return defaultText
+	return FormatPremiumEmojiText(res)
 }
 
 // resolveButton retrieves a custom button label if defined by owner, or falls back to default.
@@ -245,8 +331,7 @@ func (h *WebhookHandler) sendMainMenu(ctx context.Context, bot *repository.Manag
 
 // sendMainMenuWithURL renders the interactive Glass-style dashboard with custom target URL
 func (h *WebhookHandler) sendMainMenuWithURL(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, firstName string, targetURL string, messageID *int, threadID *int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -411,8 +496,7 @@ func (h *WebhookHandler) buildMainMenuMarkup(ctx context.Context, lang string, m
 
 // sendProfileView renders the user profile with airdrop coins, credits, rank, and referral
 func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, messageID *int, threadID *int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -439,6 +523,15 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 		}
 	}
 
+	if h.intelCreditService == nil && h.db != nil {
+		h.intelCreditService = intelcredit.NewIntelCreditService(h.db)
+	}
+	if h.intelCreditService != nil {
+		if bal, err := h.intelCreditService.GetBalance(ctx, userID); err == nil && bal != nil {
+			intelCredits = bal.Balance
+		}
+	}
+
 	botUsername := "iFragmentBot"
 	if bot != nil && bot.BotUsername != "" {
 		botUsername = bot.BotUsername
@@ -447,91 +540,7 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 
 	formattedAirdropCoins := formatNumberWithCommas(int(airdropCoins))
 
-	var defaultProfileText string
-	switch lang {
-	case "fa":
-		defaultProfileText = `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>پروفایل سرمایه‌گذار | iFragment</b>
-
-کاربر: <b>{name}</b> (شناسه: <code>{id}</code>)
-سطح کاربری: <b>سطح {level}</b>
-رتبه جهانی در شبکه: <b>#{rank}</b>
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5406830500155238210">🪙</tg-emoji> <b>موجودی سکه ایردراپ:</b> <code>{coins}</code> سکه
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code> کریدت
-━━━━━━━━━━━━━━━━━━━
-
-🔗 <b>لینک دعوت اختصاصی شما:</b>
-<code>{reflink}</code>
-<i>با دعوت از هر دوست، سکه ایردراپ و اعتبار تحلیل هدیه بگیرید!</i>`
-	case "ar":
-		defaultProfileText = `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>الملف الشخصي للمستثمر | iFragment</b>
-
-المستخدم: <b>{name}</b> (المعرف: <code>{id}</code>)
-المستوى: <b>المستوى {level}</b>
-الترتيب العالمي: <b>#{rank}</b>
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5406830500155238210">🪙</tg-emoji> <b>رصيد عملات الإنزال:</b> <code>{coins}</code> عملة
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>رصيد التحليل (Intel Credits):</b> <code>{credits}</code> رصيد
-━━━━━━━━━━━━━━━━━━━
-
-🔗 <b>رابط الدعوة الخاص بك:</b>
-<code>{reflink}</code>
-<i>اربح عملات وأرصدة تحليلية مجانية عند دعوة أصدقائك!</i>`
-	case "ru":
-		defaultProfileText = `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>Профиль пользователя | iFragment</b>
-
-Пользователь: <b>{name}</b> (ID: <code>{id}</code>)
-Уровень: <b>Level {level}</b>
-Глобальный ранг: <b>#{rank}</b>
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5406830500155238210">🪙</tg-emoji> <b>Airdrop монеты:</b> <code>{coins}</code>
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Intel Credits (кредиты отчетов):</b> <code>{credits}</code>
-━━━━━━━━━━━━━━━━━━━
-
-🔗 <b>Ваша реферальная ссылка:</b>
-<code>{reflink}</code>`
-	case "zh":
-		defaultProfileText = `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>个人中心与资产 | iFragment</b>
-
-用户: <b>{name}</b> (ID: <code>{id}</code>)
-等级: <b>Level {level}</b>
-全网排名: <b>#{rank}</b>
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5406830500155238210">🪙</tg-emoji> <b>空投代币余额:</b> <code>{coins}</code>
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
-━━━━━━━━━━━━━━━━━━━
-
-🔗 <b>您的专属邀请链接:</b>
-<code>{reflink}</code>
-<i>邀请好友加入，双方均可获得代币与分析信用点奖励！</i>`
-	default:
-		defaultProfileText = `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>Investor Profile | iFragment</b>
-
-Account: <b>{name}</b> (ID: <code>{id}</code>)
-Tier Level: <b>Level {level}</b>
-Global Rank: <b>#{rank}</b>
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5406830500155238210">🪙</tg-emoji> <b>Airdrop Coins Balance:</b> <code>{coins}</code>
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Intel Credits Available:</b> <code>{credits}</code>
-━━━━━━━━━━━━━━━━━━━
-
-🔗 <b>Your Exclusive Referral Link:</b>
-<code>{reflink}</code>`
-	}
-
-	rawProfile := h.resolveText(ctx, "profile_view", lang, defaultProfileText)
-	text := strings.ReplaceAll(rawProfile, "{name}", telegram.EscapeHTML(firstName))
-	text = strings.ReplaceAll(text, "{id}", strconv.FormatInt(userID, 10))
-	text = strings.ReplaceAll(text, "{level}", strconv.Itoa(level))
-	text = strings.ReplaceAll(text, "{rank}", strconv.Itoa(globalRank))
-	text = strings.ReplaceAll(text, "{coins}", formattedAirdropCoins)
-	text = strings.ReplaceAll(text, "{credits}", strconv.Itoa(intelCredits))
-	text = strings.ReplaceAll(text, "{reflink}", refLink)
+	text := h.renderProfileText(ctx, lang, firstName, userID, level, globalRank, formattedAirdropCoins, intelCredits, refLink)
 
 	var btnExchange, btnStars, btnLang, btnBack string
 	costCoins := config.Economics.CreditsCoinsPerCredit
@@ -600,10 +609,99 @@ Global Rank: <b>#{rank}</b>
 	h.sendOrEditMessage(ctx, tg, chatID, messageID, text, markup, threadID)
 }
 
+// renderProfileText renders the profile view HTML text with placeholders substituted.
+func (h *WebhookHandler) renderProfileText(ctx context.Context, lang string, firstName string, userID int64, level int, globalRank int, formattedAirdropCoins string, intelCredits int, refLink string) string {
+	var defaultProfileText string
+	switch lang {
+	case "fa":
+		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>پروفایل سرمایه‌گذار | iFragment</b>
+
+کاربر: <b>{name}</b> (شناسه: <code>{id}</code>)
+سطح کاربری: <b>سطح {level}</b>
+رتبه جهانی در شبکه: <b>#{rank}</b>
+
+━━━━━━━━━━━━━━━━━━━
+<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>موجودی سکه ایردراپ:</b> <code>{coins}</code> سکه
+<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code> کریدت
+━━━━━━━━━━━━━━━━━━━
+
+🔗 <b>لینک دعوت اختصاصی شما:</b>
+<code>{reflink}</code>
+<i>با دعوت از هر دوست، سکه ایردراپ و اعتبار تحلیل هدیه بگیرید!</i>`, CustomEmojiUser, CustomEmojiCoin, CustomEmojiBolt)
+	case "ar":
+		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>الملف الشخصي للمستثمر | iFragment</b>
+
+المستخدم: <b>{name}</b> (المعرف: <code>{id}</code>)
+المستوى: <b>المستوى {level}</b>
+الترتيب العالمي: <b>#{rank}</b>
+
+━━━━━━━━━━━━━━━━━━━
+<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>رصيد عملات الإنزال:</b> <code>{coins}</code> عملة
+<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>رصيد التحليل (Intel Credits):</b> <code>{credits}</code> رصيد
+━━━━━━━━━━━━━━━━━━━
+
+🔗 <b>رابط الدعوة الخاص بك:</b>
+<code>{reflink}</code>
+<i>اربح عملات وأرصدة تحليلية مجانية عند دعوة أصدقائك!</i>`, CustomEmojiUser, CustomEmojiCoin, CustomEmojiBolt)
+	case "ru":
+		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>Профиль пользователя | iFragment</b>
+
+Пользователь: <b>{name}</b> (ID: <code>{id}</code>)
+Уровень: <b>Level {level}</b>
+Глобальный ранг: <b>#{rank}</b>
+
+━━━━━━━━━━━━━━━━━━━
+<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>Airdrop монеты:</b> <code>{coins}</code>
+<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Intel Credits (кредиты отчетов):</b> <code>{credits}</code>
+━━━━━━━━━━━━━━━━━━━
+
+🔗 <b>Ваша реферальная ссылка:</b>
+<code>{reflink}</code>`, CustomEmojiUser, CustomEmojiCoin, CustomEmojiBolt)
+	case "zh":
+		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>个人中心与资产 | iFragment</b>
+
+用户: <b>{name}</b> (ID: <code>{id}</code>)
+等级: <b>Level {level}</b>
+全网排名: <b>#{rank}</b>
+
+━━━━━━━━━━━━━━━━━━━
+<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>空投代币余额:</b> <code>{coins}</code>
+<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
+━━━━━━━━━━━━━━━━━━━
+
+🔗 <b>您的专属邀请链接:</b>
+<code>{reflink}</code>
+<i>邀请好友加入，双方均可获得代币与分析信用点奖励！</i>`, CustomEmojiUser, CustomEmojiCoin, CustomEmojiBolt)
+	default:
+		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>Investor Profile | iFragment</b>
+
+Account: <b>{name}</b> (ID: <code>{id}</code>)
+Tier Level: <b>Level {level}</b>
+Global Rank: <b>#{rank}</b>
+
+━━━━━━━━━━━━━━━━━━━
+<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>Airdrop Coins Balance:</b> <code>{coins}</code>
+<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Intel Credits Available:</b> <code>{credits}</code>
+━━━━━━━━━━━━━━━━━━━
+
+🔗 <b>Your Exclusive Referral Link:</b>
+<code>{reflink}</code>`, CustomEmojiUser, CustomEmojiCoin, CustomEmojiBolt)
+	}
+
+	rawProfile := h.resolveText(ctx, "profile_view", lang, defaultProfileText)
+	text := strings.ReplaceAll(rawProfile, "{name}", telegram.EscapeHTML(firstName))
+	text = strings.ReplaceAll(text, "{id}", strconv.FormatInt(userID, 10))
+	text = strings.ReplaceAll(text, "{level}", strconv.Itoa(level))
+	text = strings.ReplaceAll(text, "{rank}", strconv.Itoa(globalRank))
+	text = strings.ReplaceAll(text, "{coins}", formattedAirdropCoins)
+	text = strings.ReplaceAll(text, "{credits}", strconv.Itoa(intelCredits))
+	text = strings.ReplaceAll(text, "{reflink}", refLink)
+	return text
+}
+
 // sendHelpView displays instructions and examples for analyzing assets
 func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, messageID *int, threadID *int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -747,8 +845,7 @@ Send any NFT gift link or slug:
 
 // sendAssetPrompt asks the user to input the specific asset
 func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, assetType string, messageID *int, threadID *int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -870,8 +967,7 @@ func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.Ma
 
 // sendPreCheckGate renders the pre-check gate showing current balances and unlocking options
 func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, assetType string, entity string, messageID *int, threadID *int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -972,6 +1068,14 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 		entity = normNum
 	}
 
+	// Flush pending taps and clear cached stats to show authoritative real-time numbers
+	if h.profileService != nil {
+		_ = h.profileService.FlushUserPendingTaps(ctx, userID)
+	}
+	if h.cache != nil && h.cache.Client != nil {
+		_ = h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID)).Err()
+	}
+
 	var airdropCoins float64 = 0
 	var intelCredits int = 0
 	if h.profileService != nil {
@@ -979,6 +1083,15 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 		if err == nil && stats != nil {
 			airdropCoins = stats.AirdropCoins
 			intelCredits = stats.IntelCredits
+		}
+	}
+
+	if h.intelCreditService == nil && h.db != nil {
+		h.intelCreditService = intelcredit.NewIntelCreditService(h.db)
+	}
+	if h.intelCreditService != nil {
+		if bal, err := h.intelCreditService.GetBalance(ctx, userID); err == nil && bal != nil {
+			intelCredits = bal.Balance
 		}
 	}
 
@@ -1216,8 +1329,7 @@ Unlock full report cost: <b>1 Intel Credit</b>`
 
 // executeUnlockAndReport consumes 1 credit and produces the full rich appraisal
 func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, assetType string, entity string, messageID *int, threadID *int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -1915,8 +2027,7 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 
 // sendExchangeConfirmView displays an explicit institutional confirmation screen before converting 150,000 Airdrop Coins into 1 Intel Credit.
 func (h *WebhookHandler) sendExchangeConfirmView(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, returnAssetType string, returnEntity string, messageID *int, threadID *int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -1928,6 +2039,9 @@ func (h *WebhookHandler) sendExchangeConfirmView(ctx context.Context, bot *repos
 	if h.profileService != nil {
 		_ = h.profileService.FlushUserPendingTaps(ctx, userID)
 	}
+	if h.cache != nil && h.cache.Client != nil {
+		_ = h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID)).Err()
+	}
 
 	var airdropCoins float64 = 0
 	var intelCredits int = 0
@@ -1936,6 +2050,15 @@ func (h *WebhookHandler) sendExchangeConfirmView(ctx context.Context, bot *repos
 		if err == nil && stats != nil {
 			airdropCoins = stats.AirdropCoins
 			intelCredits = stats.IntelCredits
+		}
+	}
+
+	if h.intelCreditService == nil && h.db != nil {
+		h.intelCreditService = intelcredit.NewIntelCreditService(h.db)
+	}
+	if h.intelCreditService != nil {
+		if bal, err := h.intelCreditService.GetBalance(ctx, userID); err == nil && bal != nil {
+			intelCredits = bal.Balance
 		}
 	}
 
@@ -2134,7 +2257,20 @@ Are you sure you want to exchange Airdrop Coins for <b>Intel Credits</b>?
 
 		makeCallback := func(n int) string {
 			if returnAssetType != "" && returnEntity != "" {
-				return fmt.Sprintf("confirm_exchange_n:%d:%s:%s", n, returnAssetType, returnEntity)
+				// Task 7: callback_data must be <= 64 bytes.
+				// Store assetType and entity in Redis for 10 min under an 8-char short token.
+				if h.cache != nil && h.cache.Client != nil {
+					shortToken := uuid.New().String()[:8]
+					redisKey := fmt.Sprintf("ex_tok:%s", shortToken)
+					dataVal := fmt.Sprintf("%s:%s", returnAssetType, returnEntity)
+					if setErr := h.cache.Client.Set(ctx, redisKey, dataVal, 10*time.Minute).Err(); setErr == nil {
+						return fmt.Sprintf("confirm_exchange_n:%d:t:%s", n, shortToken)
+					}
+				}
+				cb := fmt.Sprintf("confirm_exchange_n:%d:%s:%s", n, returnAssetType, returnEntity)
+				if len(cb) <= 64 {
+					return cb
+				}
 			}
 			return fmt.Sprintf("confirm_exchange_n:%d:profile", n)
 		}
@@ -2206,8 +2342,7 @@ Are you sure you want to exchange Airdrop Coins for <b>Intel Credits</b>?
 
 // handleCreditExchange converts user's airdrop coins into n Intel Credits and updates view
 func (h *WebhookHandler) handleCreditExchange(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, returnAssetType string, returnEntity string, messageID *int, threadID *int, callbackQueryID string, count int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -2223,19 +2358,25 @@ func (h *WebhookHandler) handleCreditExchange(ctx context.Context, bot *reposito
 	totalCostCoins := costPerCredit * count
 	formattedTotalCost := formatNumberWithCommas(totalCostCoins)
 
-	// 1. Double-click prevention: Redis SETNX with 60-second TTL
-	if h.cache != nil && h.cache.Client != nil && callbackQueryID != "" {
-		lockKey := fmt.Sprintf("exchange:%d:%s", userID, callbackQueryID)
-		acquired, setErr := h.cache.Client.SetNX(ctx, lockKey, 1, 60*time.Second).Result()
+	// 1. Double-click prevention: Redis SETNX with 5-second TTL per user
+	if h.cache != nil && h.cache.Client != nil {
+		lockKey := fmt.Sprintf("exchange_lock:%d", userID)
+		acquired, setErr := h.cache.Client.SetNX(ctx, lockKey, 1, 5*time.Second).Result()
 		if setErr == nil && !acquired {
-			// Query already processed or in-flight
+			// Double-click prevented within 5s window
+			if callbackQueryID != "" {
+				_ = tg.AnswerCallbackQuery(ctx, callbackQueryID, "⏳ در حال پردازش تبدیل...", false)
+			}
 			return
 		}
 	}
 
-	// 2. Flush pending Redis batch taps to DB before balance check / deduction
+	// 2. Flush pending Redis batch taps to DB and invalidate profile cache before balance check / deduction
 	if h.profileService != nil {
 		_ = h.profileService.FlushUserPendingTaps(ctx, userID)
+	}
+	if h.cache != nil && h.cache.Client != nil {
+		_ = h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID)).Err()
 	}
 
 	storeSvc := h.intelStoreService
@@ -2243,8 +2384,12 @@ func (h *WebhookHandler) handleCreditExchange(ctx context.Context, bot *reposito
 		storeSvc = intelcredit.NewStoreService(h.db)
 	}
 
-	// 3. Atomically perform FIFO coin deduction and batch creation
-	res, err := storeSvc.ExchangeCoinsN(ctx, userID, count)
+	// 3. Atomically perform FIFO coin deduction and batch creation with idempotency key
+	idemKey := callbackQueryID
+	if idemKey == "" {
+		idemKey = fmt.Sprintf("ex:%d:%d:%d", userID, count, time.Now().Unix())
+	}
+	res, err := storeSvc.ExchangeCoinsN(ctx, userID, count, idemKey)
 
 	var btnStars, btnBack, btnUnlock, btnProfile, btnRetry string
 	switch lang {
@@ -2438,22 +2583,20 @@ You need <b>%s coins</b> for <b>%d Intel Credits</b>.
 	}
 
 	// 5. Answer callback query with alert popup (showAlert=true)
+	// Task 6 format: "✅ +N credit | New balance: X | Coins left: Y"
 	if callbackQueryID != "" {
-		var succAlert string
-		switch lang {
-		case "fa":
-			succAlert = fmt.Sprintf("✅ تبدیل انجام شد! +%d کریدت | موجودی: %d", count, res.NewCreditBalance)
-		case "ru":
-			succAlert = fmt.Sprintf("✅ Обмен выполнен! +%d кредитов | Баланс: %d", count, res.NewCreditBalance)
-		case "zh":
-			succAlert = fmt.Sprintf("✅ 兑换成功！+%d 信用点 | 当前余额: %d", count, res.NewCreditBalance)
-		default:
-			succAlert = fmt.Sprintf("✅ Exchange completed! +%d Credits | Balance: %d", count, res.NewCreditBalance)
-		}
+		coinsLeftFormatted := formatNumberWithCommas(int(res.NewCoinBalance))
+		succAlert := fmt.Sprintf("✅ +%d credit | New balance: %d | Coins left: %s", count, res.NewCreditBalance, coinsLeftFormatted)
 		_ = tg.AnswerCallbackQuery(ctx, callbackQueryID, succAlert, true)
 	}
 
-	// 6. Build detailed receipt message
+	// 6. If exchange was triggered from an asset pre-check gate, re-render the precheck gate directly with updated numbers!
+	if returnAssetType != "" && returnEntity != "" {
+		h.sendPreCheckGate(ctx, bot, chatID, userID, returnAssetType, returnEntity, messageID, threadID)
+		return
+	}
+
+	// Otherwise, build detailed receipt message for profile exchange
 	nowFormatted := time.Now().UTC().Format("2006-01-02 15:04:05 UTC")
 	batchShort := res.BatchID.String()
 	if len(batchShort) > 8 {
@@ -2545,41 +2688,21 @@ Operation successfully processed:
 			nowFormatted)
 	}
 
-	var markup map[string]interface{}
-	if returnAssetType != "" && returnEntity != "" {
-		markup = map[string]interface{}{
-			"inline_keyboard": [][]map[string]interface{}{
+	markup := map[string]interface{}{
+		"inline_keyboard": [][]map[string]interface{}{
+			{
 				{
-					{
-						"text":          btnUnlock,
-						"callback_data": fmt.Sprintf("unlock:%s:%s", returnAssetType, returnEntity),
-					},
-				},
-				{
-					{
-						"text":          btnBack,
-						"callback_data": "nav:menu",
-					},
+					"text":          btnProfile,
+					"callback_data": "nav:profile",
 				},
 			},
-		}
-	} else {
-		markup = map[string]interface{}{
-			"inline_keyboard": [][]map[string]interface{}{
+			{
 				{
-					{
-						"text":          btnProfile,
-						"callback_data": "nav:profile",
-					},
-				},
-				{
-					{
-						"text":          btnBack,
-						"callback_data": "nav:menu",
-					},
+					"text":          btnBack,
+					"callback_data": "nav:menu",
 				},
 			},
-		}
+		},
 	}
 
 	h.sendOrEditMessage(ctx, tg, chatID, messageID, succMsg, markup, threadID)
@@ -2587,8 +2710,7 @@ Operation successfully processed:
 
 // sendStarsPacksList shows available credit packs to purchase with Telegram Stars
 func (h *WebhookHandler) sendStarsPacksList(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, returnAssetType string, returnEntity string, messageID *int, threadID *int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -2680,8 +2802,7 @@ Please select a credit pack:`
 
 // createAndSendStarsInvoice generates invoice link and provides it to the user
 func (h *WebhookHandler) createAndSendStarsInvoice(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, packID string, returnAssetType string, returnEntity string, messageID *int, threadID *int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -2782,20 +2903,99 @@ Click the payment button below to complete checkout. Credits will be deposited i
 // sendOrEditMessage attempts to edit an existing message with markup. If the edit fails
 // (e.g. original message has photo/media, content unchanged, or markdown entity error),
 // it seamlessly falls back to sending a new message with markup so glass buttons never freeze.
+// If telegram rejects due to custom emojis or entity formatting, it retries with stripped custom emoji,
+// and finally with plain text (stripped HTML) to ensure delivery.
 func (h *WebhookHandler) sendOrEditMessage(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, messageID *int, text string, markup interface{}, threadID *int) {
 	if tg == nil {
 		return
 	}
-	formattedText := FormatPremiumEmojiText(text)
+	formattedText := text
 	if !isPremiumEmojiEnabled() {
 		formattedText = stripCustomEmoji(formattedText)
+	} else {
+		formattedText = filterDenylistedCustomEmojis(formattedText)
 	}
+
+	isEntityOrEmojiError := func(err error) bool {
+		if err == nil {
+			return false
+		}
+		errMsg := strings.ToLower(err.Error())
+		return strings.Contains(errMsg, "entity") ||
+			strings.Contains(errMsg, "entities") ||
+			strings.Contains(errMsg, "emoji") ||
+			strings.Contains(errMsg, "document_invalid") ||
+			strings.Contains(errMsg, "can't parse") ||
+			strings.Contains(errMsg, "cant parse")
+	}
+
+	isNotModifiedError := func(err error) bool {
+		if err == nil {
+			return false
+		}
+		return strings.Contains(strings.ToLower(err.Error()), "message is not modified")
+	}
+
+	// 1. Attempt Edit if messageID is provided
 	if messageID != nil {
 		err := tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, formattedText, markup)
 		if err == nil {
 			return
 		}
-		slog.Debug("EditMessageTextWithMarkup returned non-nil error, falling back to SendMessageWithMarkup", "error", err, "chat_id", chatID, "message_id", *messageID)
+
+		if isNotModifiedError(err) {
+			// Message content hasn't changed; return silently as requested
+			return
+		}
+
+		slog.Error("Telegram EditMessageTextWithMarkup failed", "error", err, "chat_id", chatID, "message_id", *messageID)
+
+		if isEntityOrEmojiError(err) {
+			// Retry 1: Strip custom emojis
+			stripped := stripCustomEmoji(formattedText)
+			if retryErr := tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, stripped, markup); retryErr == nil {
+				return
+			} else if isNotModifiedError(retryErr) {
+				return
+			} else {
+				slog.Error("Telegram EditMessageTextWithMarkup retry without custom emoji failed", "error", retryErr, "chat_id", chatID, "message_id", *messageID)
+				// Retry 2: Plain text (all HTML stripped)
+				plainText := StripHTML(stripped)
+				if plainErr := tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, plainText, markup, ""); plainErr == nil {
+					return
+				} else if isNotModifiedError(plainErr) {
+					return
+				} else {
+					slog.Error("Telegram EditMessageTextWithMarkup retry with plain text failed", "error", plainErr, "chat_id", chatID, "message_id", *messageID)
+				}
+			}
+		}
 	}
-	_, _ = tg.SendMessageWithMarkup(ctx, chatID, formattedText, markup, threadID)
+
+	// 2. Fallback to SendMessageWithMarkup
+	res, sendErr := tg.SendMessageWithMarkup(ctx, chatID, formattedText, markup, threadID)
+	if sendErr == nil && res != nil {
+		return
+	}
+
+	if sendErr != nil {
+		slog.Error("Telegram SendMessageWithMarkup failed", "error", sendErr, "chat_id", chatID)
+		if isEntityOrEmojiError(sendErr) {
+			// Retry 1: Strip custom emojis
+			stripped := stripCustomEmoji(formattedText)
+			resRetry, errRetry := tg.SendMessageWithMarkup(ctx, chatID, stripped, markup, threadID)
+			if errRetry == nil && resRetry != nil {
+				return
+			}
+			slog.Error("Telegram SendMessageWithMarkup retry without custom emoji failed", "error", errRetry, "chat_id", chatID)
+
+			// Retry 2: Plain text fallback (all HTML stripped, parse_mode disabled)
+			plainText := StripHTML(stripped)
+			_, errPlain := tg.SendMessageWithMarkup(ctx, chatID, plainText, markup, threadID, "")
+			if errPlain != nil {
+				slog.Error("Telegram SendMessageWithMarkup plain text fallback failed", "error", errPlain, "chat_id", chatID)
+			}
+		}
+	}
 }
+

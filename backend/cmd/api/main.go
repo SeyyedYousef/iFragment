@@ -502,6 +502,8 @@ func main() {
 	var mainTgClient *telegram.BotAPIClient
 	if botToken != "" {
 		mainTgClient = telegram.NewBotAPIClient(botToken)
+		// Validate all CustomEmoji* constants at startup
+		handler.ValidateCustomEmojis(ctx, mainTgClient)
 	}
 
 	numbersHandler.SetCardGenerator(cardGen)

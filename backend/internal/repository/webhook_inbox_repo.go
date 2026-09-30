@@ -132,6 +132,7 @@ func (r *WebhookInboxRepo) MarkProcessed(ctx context.Context, botID uuid.UUID, u
 }
 
 // MarkFailedOrDLQ updates the record on failure, moving to DLQ if max attempts reached.
+// If attempts < max_attempts, it keeps status = 'failed' and schedules exponential backoff (e.g. 5s, 20s, 60s).
 func (r *WebhookInboxRepo) MarkFailedOrDLQ(ctx context.Context, botID uuid.UUID, updateID int64, lastErr string) error {
 	if r.db == nil || r.db.Pool == nil {
 		return nil
@@ -141,6 +142,10 @@ func (r *WebhookInboxRepo) MarkFailedOrDLQ(ctx context.Context, botID uuid.UUID,
 		UPDATE telegram_webhook_inbox
 		SET status = CASE WHEN attempts >= max_attempts THEN 'dlq' ELSE 'failed' END,
 		    last_error = $3,
+		    lease_expires_at = CASE 
+		        WHEN attempts >= max_attempts THEN NULL 
+		        ELSE NOW() + (POWER(2, GREATEST(attempts, 1)) * INTERVAL '5 seconds')
+		    END,
 		    updated_at = NOW()
 		WHERE bot_id = $1 AND update_id = $2;
 	`
@@ -150,3 +155,4 @@ func (r *WebhookInboxRepo) MarkFailedOrDLQ(ctx context.Context, botID uuid.UUID,
 	}
 	return err
 }
+

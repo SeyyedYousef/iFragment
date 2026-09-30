@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -379,6 +380,79 @@ func TestRichBuildersSnapshot(t *testing.T) {
 			t.Errorf("Gift rich HTML snapshot title mismatch")
 		}
 	})
+}
+
+func TestSendProfileViewRenderingAllLanguages(t *testing.T) {
+	h := &WebhookHandler{}
+	ctx := context.Background()
+
+	languages := []string{"fa", "ar", "ru", "zh", "en"}
+	firstName := "Seyyed Yousef"
+	userID := int64(123456789)
+	level := 3
+	globalRank := 42
+	formattedCoins := "250,000"
+	intelCredits := 15
+	refLink := "https://t.me/iFragmentBot?start=ref_123456789"
+
+	for _, lang := range languages {
+		t.Run("lang_"+lang, func(t *testing.T) {
+			rendered := h.renderProfileText(ctx, lang, firstName, userID, level, globalRank, formattedCoins, intelCredits, refLink)
+
+			// 1. Assert HTML parses cleanly and strictly with Telegram's allowed tags
+			if err := ValidateTelegramHTML(rendered); err != nil {
+				t.Fatalf("Language %s: rendered HTML failed Telegram HTML validation: %v\nContent:\n%s", lang, err, rendered)
+			}
+
+			// 2. Assert all placeholders have been replaced completely
+			placeholders := []string{"{name}", "{id}", "{level}", "{rank}", "{coins}", "{credits}", "{reflink}"}
+			for _, p := range placeholders {
+				if strings.Contains(rendered, p) {
+					t.Errorf("Language %s: unreplaced placeholder %s found in rendered text", lang, p)
+				}
+			}
+
+			// 3. Assert dynamic values exist in the output
+			if !strings.Contains(rendered, firstName) {
+				t.Errorf("Language %s: firstName %q not found in output", lang, firstName)
+			}
+			if !strings.Contains(rendered, "123456789") {
+				t.Errorf("Language %s: userID not found in output", lang)
+			}
+			if !strings.Contains(rendered, formattedCoins) {
+				t.Errorf("Language %s: formatted coins not found in output", lang)
+			}
+			if !strings.Contains(rendered, refLink) {
+				t.Errorf("Language %s: refLink not found in output", lang)
+			}
+
+			// 4. Assert CustomEmojiCoin is used instead of Phone emoji
+			if !strings.Contains(rendered, CustomEmojiCoin) {
+				t.Errorf("Language %s: CustomEmojiCoin (%s) not found in profile text", lang, CustomEmojiCoin)
+			}
+			if strings.Contains(rendered, CustomEmojiPhone) {
+				t.Errorf("Language %s: CustomEmojiPhone (%s) mistakenly found in profile text for coins!", lang, CustomEmojiPhone)
+			}
+		})
+	}
+}
+
+func TestCustomEmojiDenylistAndFilter(t *testing.T) {
+	fakeInvalidID := "9999999999999999999"
+	DenylistCustomEmoji(fakeInvalidID)
+
+	if !IsCustomEmojiDenylisted(fakeInvalidID) {
+		t.Errorf("Expected fakeInvalidID to be denylisted")
+	}
+
+	testHTML := fmt.Sprintf(`<tg-emoji emoji-id="%s">🪙</tg-emoji> Balance`, fakeInvalidID)
+	filtered := filterDenylistedCustomEmojis(testHTML)
+	if strings.Contains(filtered, fakeInvalidID) {
+		t.Errorf("Expected denylisted emoji tag to be replaced by fallback character, got: %s", filtered)
+	}
+	if !strings.Contains(filtered, "🪙 Balance") {
+		t.Errorf("Expected fallback char 🪙 to remain, got: %s", filtered)
+	}
 }
 
 

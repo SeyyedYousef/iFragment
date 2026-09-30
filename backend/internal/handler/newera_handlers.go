@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"ifragment-backend/internal/client/telegram"
-	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/numbers/features"
 )
@@ -45,12 +43,11 @@ func (h *WebhookHandler) handleBotSubscriptionUpdated(ctx context.Context, bot *
 	}
 	sub := upd.Subscription
 
-	token, err := crypto.DecryptToken(bot.BotTokenEncrypted)
-	if err != nil {
-		slog.Warn("bot_subscription_updated: cannot decrypt token", "error", err)
+	tg := h.getBotClient(bot)
+	if tg == nil {
+		slog.Warn("bot_subscription_updated: cannot get bot client")
 		return
 	}
-	tg := telegram.NewBotAPIClient(token)
 
 	var userID int64
 	if sub.UserID != 0 {
@@ -95,11 +92,10 @@ func (h *WebhookHandler) handleGuestMessage(ctx context.Context, bot *repository
 		return
 	}
 
-	token, err := crypto.DecryptToken(bot.BotTokenEncrypted)
-	if err != nil {
+	tg := h.getBotClient(bot)
+	if tg == nil {
 		return
 	}
-	tg := telegram.NewBotAPIClient(token)
 
 	miniAppURL := os.Getenv("MINI_APP_URL")
 	if miniAppURL == "" {

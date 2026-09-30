@@ -11,7 +11,6 @@ import (
 
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/config"
-	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/intelcredit"
 )
@@ -148,8 +147,7 @@ func (h *WebhookHandler) isBotOwner(ctx context.Context, bot *repository.Managed
 // handleAdminPanelCommand processes the /panel or /admin command for the bot owner
 func (h *WebhookHandler) handleAdminPanelCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) {
 	if !h.isBotOwner(ctx, bot, m.From.ID) {
-		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-		tg := telegram.NewBotAPIClient(token)
+		tg := h.getBotClient(bot)
 		if tg != nil {
 			_ = tg.SendMessage(ctx, m.Chat.ID, "⛔ شما به این بخش دسترسی ندارید.", &m.MessageID, m.MessageThreadID)
 		}
@@ -161,8 +159,7 @@ func (h *WebhookHandler) handleAdminPanelCommand(ctx context.Context, bot *repos
 
 // sendAdminPanelMenu renders the main /panel dashboard for the owner
 func (h *WebhookHandler) sendAdminPanelMenu(ctx context.Context, bot *repository.ManagedBot, chatID int64, _ int64, messageID *int, threadID *int) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -425,16 +422,14 @@ func (h *WebhookHandler) sendItemDetail(ctx context.Context, tg *telegram.BotAPI
 // handleAdminPanelCallback handles callbacks starting with panel:
 func (h *WebhookHandler) handleAdminPanelCallback(ctx context.Context, bot *repository.ManagedBot, cq *CallbackQuery) {
 	if !h.isBotOwner(ctx, bot, cq.From.ID) {
-		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-		tg := telegram.NewBotAPIClient(token)
+		tg := h.getBotClient(bot)
 		if tg != nil {
 			_ = tg.AnswerCallbackQuery(ctx, cq.ID, "⛔ عدم دسترسی", true)
 		}
 		return
 	}
 
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
@@ -550,7 +545,7 @@ func (h *WebhookHandler) handleAdminPanelCallback(ctx context.Context, bot *repo
 • 🎁 گیفت‌ها: <code>5429184518776953457</code>
 • 👤 پروفایل: <code>5373141891321699086</code>
 • ⚡ کردیت تحلیلی: <code>5445284980978654454</code>
-• 🪙 سکه ایردراپ: <code>5406830500155238210</code>
+• 🪙 سکه ایردراپ: <code>5407005610518534015</code>
 
 <i>نکته:</i> در تمامی متون و دکمه‌های ربات می‌توانید شناسه‌ها را به صورت <code>[5368324170671202286]</code> درج کنید تا ربات آنها را به ایموجی پرمیوم زنده تبدیل نماید.`
 
@@ -689,8 +684,7 @@ func (h *WebhookHandler) processOwnerInput(ctx context.Context, bot *repository.
 	// Consume state immediately
 	_ = h.cache.Client.Del(ctx, stateKey).Err()
 
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg := h.getBotClient(bot)
 	if tg == nil {
 		return false
 	}

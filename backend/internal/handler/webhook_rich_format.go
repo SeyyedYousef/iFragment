@@ -28,8 +28,6 @@ func normalizeLang(lang string) string {
 		return "ru"
 	case strings.HasPrefix(l, "zh"):
 		return "zh"
-	case strings.HasPrefix(l, "ar"):
-		return "ar"
 	default:
 		return "en"
 	}

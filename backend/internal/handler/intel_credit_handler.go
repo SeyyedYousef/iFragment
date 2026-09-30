@@ -191,8 +191,17 @@ func (h *IntelCreditHandler) ExchangeCoins(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if h.cache != nil && h.cache.Client != nil {
+		h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	}
+
+	idemKey := r.Header.Get("Idempotency-Key")
+	if idemKey == "" {
+		idemKey = r.Header.Get("X-Idempotency-Key")
+	}
+
 	store := intelcredit.NewStoreService(h.service.DB())
-	balance, err := store.ExchangeCoins(ctx, userID)
+	balance, err := store.ExchangeCoins(ctx, userID, idemKey)
 	if err != nil {
 		if errors.Is(err, repository.ErrInsufficientCoins) {
 			w.Header().Set("Content-Type", "application/json")

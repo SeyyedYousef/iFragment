@@ -429,11 +429,6 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 			stats.TurboExpiresAt = turboExpiresAt
 		}
 
-		// Calculate free valuation credits (1 credit per 3 verified invited frens)
-		var refCount int
-		_ = s.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE referred_by = $1`, userID).Scan(&refCount)
-		stats.ValuationCredits = refCount / 3
-
 		// Fetch wallet expiry summary
 		if expirySummary, err := s.db.GetWalletExpirySummary(ctx, userID); err == nil && expirySummary != nil {
 			stats.EarliestExpiringCoins = expirySummary.EarliestExpiringCoins
@@ -657,6 +652,25 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 			INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
 			VALUES ($1, $2, $2, 'referral_invite', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '30 days', FALSE)
 		`, referrerID, ReferrerReward)
+
+		// Task 1: When referrer reaches every 3rd referral (totalReferrals % 3 == 0), grant 1 Intel Credit
+		if totalReferrals > 0 && totalReferrals%3 == 0 {
+			milestone := totalReferrals
+			refID := fmt.Sprintf("ref:%d:%d", referrerID, milestone)
+			var batchID string
+			grantErr := tx.QueryRow(ctx, `
+				INSERT INTO intel_credit_batches (user_id, kind, amount, remaining, source, reference_id, expires_at, created_at)
+				VALUES ($1, 'intel_report', 1, 1, 'referral', $2, NULL, now())
+				ON CONFLICT (source, reference_id) DO NOTHING
+				RETURNING id::text
+			`, referrerID, refID).Scan(&batchID)
+			if grantErr == nil && batchID != "" {
+				_, _ = tx.Exec(ctx, `
+					INSERT INTO intel_credit_ledger (user_id, delta, reason, entity, batch_id, created_at)
+					VALUES ($1, 1, 'grant:referral', $2, $3::uuid, now())
+				`, referrerID, refID, batchID)
+			}
+		}
 	}
 
 	var userBeforeCoins float64

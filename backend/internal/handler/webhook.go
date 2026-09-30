@@ -444,34 +444,33 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 }
 
 func (h *WebhookHandler) handlePreCheckoutUpdate(ctx context.Context, bot *repository.ManagedBot, pq *PreCheckoutQuery) {
-	botToken, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
 	if strings.HasPrefix(pq.InvoicePayload, "sub_stars_") {
 		if pq.Currency != "XTR" {
-			h.answerPreCheckout(botToken, pq.ID, false, "Invalid currency")
+			h.answerPreCheckout(bot, pq.ID, false, "Invalid currency")
 			return
 		}
-		h.answerPreCheckout(botToken, pq.ID, true, "")
+		h.answerPreCheckout(bot, pq.ID, true, "")
 		return
 	}
 
 	order, err := h.db.GetOrderByPayload(ctx, pq.InvoicePayload)
 	if err != nil {
 		slog.Warn("Pre-checkout failed: Order not found for payload", "payload", pq.InvoicePayload)
-		h.answerPreCheckout(botToken, pq.ID, false, "Order verification failed")
+		h.answerPreCheckout(bot, pq.ID, false, "Order verification failed")
 	} else if order.Status == "paid" {
 		slog.Warn("Pre-checkout failed: Order already paid", "payload", pq.InvoicePayload)
-		h.answerPreCheckout(botToken, pq.ID, false, "Order already paid")
+		h.answerPreCheckout(bot, pq.ID, false, "Order already paid")
 	} else if pq.Currency != "XTR" {
 		slog.Warn("Pre-checkout failed: Invalid currency", "expected", "XTR", "got", pq.Currency)
-		h.answerPreCheckout(botToken, pq.ID, false, "Invalid currency")
+		h.answerPreCheckout(bot, pq.ID, false, "Invalid currency")
 	} else if order.Amount != pq.TotalAmount {
 		slog.Warn("Pre-checkout failed: Amount mismatch", "expected", order.Amount, "got", pq.TotalAmount)
-		h.answerPreCheckout(botToken, pq.ID, false, "Price mismatch")
+		h.answerPreCheckout(bot, pq.ID, false, "Price mismatch")
 	} else if pq.From == nil || pq.From.ID != order.UserID {
 		slog.Warn("Pre-checkout failed: User mismatch", "payload", pq.InvoicePayload)
-		h.answerPreCheckout(botToken, pq.ID, false, "User mismatch")
+		h.answerPreCheckout(bot, pq.ID, false, "User mismatch")
 	} else {
-		h.answerPreCheckout(botToken, pq.ID, true, "")
+		h.answerPreCheckout(bot, pq.ID, true, "")
 	}
 }
 
@@ -494,12 +493,14 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				auditRepo := repository.NewAuditRepo(h.db)
 				targetType := "user"
 				targetID := strconv.FormatInt(userID, 10)
-				_ = auditRepo.Log(ctx, &repository.AuditLog{
+				if err := auditRepo.Log(ctx, &repository.AuditLog{
 					ActorID:    userID,
 					Action:     "premium.grant",
 					TargetType: &targetType,
 					TargetID:   &targetID,
-				})
+				}); err != nil {
+					slog.Error("Failed to log audit for premium grant", "user_id", userID, "operation", "premium.grant", "error", err)
+				}
 			}
 		}
 	} else if strings.HasPrefix(pay.InvoicePayload, "val_pro:") {
@@ -530,8 +531,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 
 						userLang, _ := h.db.GetUserLanguage(ctx, userID)
 						lang := i18n.DetectLanguage(userLang)
-						token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-						tg := telegram.NewBotAPIClient(token)
+						tg := h.getBotClient(bot)
 						if tg != nil {
 							failMsg := i18n.T(lang, "payments.credit_deduct_failed", nil)
 							if failMsg == "" || failMsg == "payments.credit_deduct_failed" {
@@ -544,7 +544,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				}
 
 				if err := h.db.CompleteStarsPremiumPaymentTx(ctx, tx, pay.InvoicePayload, pay.TelegramPaymentChargeID, userID, config.Economics.ProValuationDuration); err != nil {
-					slog.Error("CRITICAL: Failed to complete Stars pro valuation payment atomically", "error", err, "user_id", userID, "payload", pay.InvoicePayload)
+					slog.Error("CRITICAL: Failed to complete Stars pro valuation payment atomically", "error", err, "user_id", userID, "operation", "payment.complete_stars_val_pro", "payload", pay.InvoicePayload)
 					_ = tx.Rollback(ctx)
 					h.pushPaymentDLQ(ctx, "complete_order_failed", pay.InvoicePayload, err)
 					notification.GetAdminNotifier().NotifyPayment(ctx, fmt.Sprintf("🚨 <b>Order Completion Failed</b>\nUser %d payload %s: %v", userID, pay.InvoicePayload, err))
@@ -552,7 +552,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				}
 
 				if err := tx.Commit(ctx); err != nil {
-					slog.Error("CRITICAL: Failed to commit transaction for val_pro payment", "error", err, "user_id", userID)
+					slog.Error("CRITICAL: Failed to commit transaction for val_pro payment", "error", err, "user_id", userID, "operation", "payment.commit_val_pro")
 					h.pushPaymentDLQ(ctx, "commit_tx_failed", pay.InvoicePayload, err)
 					notification.GetAdminNotifier().NotifyPayment(ctx, fmt.Sprintf("🚨 <b>TX Commit Failed</b>\nUser %d payload %s: %v", userID, pay.InvoicePayload, err))
 					return
@@ -566,8 +566,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 
 				userLang, _ := h.db.GetUserLanguage(ctx, userID)
 				lang := i18n.DetectLanguage(userLang)
-				token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-				tg := telegram.NewBotAPIClient(token)
+				tg := h.getBotClient(bot)
 				if tg != nil {
 					welcomeMsg := i18n.T(lang, "notifications.pro_pass_activated", nil)
 					if welcomeMsg == "" || welcomeMsg == "notifications.pro_pass_activated" {
@@ -579,12 +578,14 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				auditRepo := repository.NewAuditRepo(h.db)
 				targetType := "user"
 				targetID := strconv.FormatInt(userID, 10)
-				_ = auditRepo.Log(ctx, &repository.AuditLog{
+				if err := auditRepo.Log(ctx, &repository.AuditLog{
 					ActorID:    userID,
 					Action:     "valuation.pro.grant",
 					TargetType: &targetType,
 					TargetID:   &targetID,
-				})
+				}); err != nil {
+					slog.Error("Failed to log audit for pro valuation grant", "user_id", userID, "operation", "valuation.pro.grant", "error", err)
+				}
 			}
 		}
 	} else if strings.HasPrefix(pay.InvoicePayload, "intel_credits:") {
@@ -599,12 +600,11 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				}
 				fulfilled, err := storeSvc.FulfillStarsPurchase(ctx, userID, packID, pay.TelegramPaymentChargeID)
 				if err != nil {
-					slog.Error("CRITICAL: Failed to fulfill Intel Credits Stars purchase", "error", err, "user_id", userID, "pack_id", packID, "charge_id", pay.TelegramPaymentChargeID)
+					slog.Error("CRITICAL: Failed to fulfill Intel Credits Stars purchase", "error", err, "user_id", userID, "operation", "payment.fulfill_intel_credits", "pack_id", packID, "charge_id", pay.TelegramPaymentChargeID)
 					h.pushPaymentDLQ(ctx, "fulfill_intel_credits_failed", pay.InvoicePayload, err)
 					notification.GetAdminNotifier().NotifyPayment(ctx, fmt.Sprintf("🚨 <b>Intel Credits Fulfillment Failed</b>\nUser %d pack %s charge %s: %v", userID, packID, pay.TelegramPaymentChargeID, err))
 
-					token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-					tg := telegram.NewBotAPIClient(token)
+					tg := h.getBotClient(bot)
 					if tg != nil {
 						// Attempt immediate refund via Telegram Stars API
 						refundErr := tg.RefundStarPayment(ctx, userID, pay.TelegramPaymentChargeID)
@@ -635,10 +635,11 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 					slog.Info("Successfully granted Intel Credits via Stars", "user_id", userID, "credits", creditsGranted, "pack_id", packID)
 
 					// Update order status if order exists
-					_ = h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
+					if err := h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID); err != nil {
+						slog.Error("Failed to update order status to paid", "user_id", userID, "operation", "order.update_status_paid", "payload", pay.InvoicePayload, "error", err)
+					}
 
-					token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-					tg := telegram.NewBotAPIClient(token)
+					tg := h.getBotClient(bot)
 					if tg != nil {
 						userLang, _ := h.db.GetUserLanguage(ctx, userID)
 						lang := i18n.DetectLanguage(userLang)
@@ -702,9 +703,8 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 	// 3. Paid-message raffle ticket registration for @FragmentInvestors group
 	if raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username) && msg.From != nil {
 		if !msg.From.IsBot && h.raffleSvc != nil {
-			token, err := crypto.DecryptToken(bot.BotTokenEncrypted)
-			if err == nil && token != "" {
-				tgClient := telegram.NewBotAPIClient(token)
+			tgClient := h.getBotClient(bot)
+			if tgClient != nil {
 				uComp := raffle.UserCompact{
 					ID:        msg.From.ID,
 					IsBot:     msg.From.IsBot,
@@ -840,8 +840,10 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 	} else if cmdText == "/profile" || strings.HasPrefix(cmdText, "/profile ") || strings.HasPrefix(cmdText, "/profile@") {
 		h.sendProfileView(ctx, bot, m.Chat.ID, m.From.ID, nil, m.MessageThreadID)
 	} else if cmdText == "/language" || strings.HasPrefix(cmdText, "/language ") || strings.HasPrefix(cmdText, "/language@") {
-		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-		tg := telegram.NewBotAPIClient(token)
+		tg := h.getBotClient(bot)
+		if tg == nil {
+			return
+		}
 
 		msgText := i18n.T("en", "language.prompt")
 		markup := map[string]interface{}{
@@ -853,9 +855,6 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 				{
 					{"text": "🇷🇺 Русский", "callback_data": "lang:ru"},
 					{"text": "🇨🇳 中文", "callback_data": "lang:zh"},
-				},
-				{
-					{"text": "🇸🇦 العربية", "callback_data": "lang:ar"},
 				},
 			},
 		}
@@ -869,14 +868,15 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 	} else if strings.HasPrefix(m.Text, "/panel") || strings.HasPrefix(m.Text, "/admin") {
 		h.handleAdminPanelCommand(ctx, bot, m)
 	} else if strings.HasPrefix(m.Text, "/cancel") {
-		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-		tg := telegram.NewBotAPIClient(token)
+		tg := h.getBotClient(bot)
 		if tg != nil {
 			_ = tg.SendMessage(ctx, m.Chat.ID, "عملیات فعالی برای لغو وجود ندارد.", &m.MessageID, m.MessageThreadID)
 		}
 	} else if strings.HasPrefix(m.Text, "/ping") {
-		token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-		tg := telegram.NewBotAPIClient(token)
+		tg := h.getBotClient(bot)
+		if tg == nil {
+			return
+		}
 
 		msgTime := time.Unix(int64(m.Date), 0)
 		latency := time.Since(msgTime).Milliseconds()
@@ -917,7 +917,7 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		if len(parts) >= 2 {
 			newLang := parts[1]
 			// Strict whitelist for supported languages
-			validLangs := map[string]bool{"en": true, "fa": true, "ru": true, "zh": true, "ar": true}
+			validLangs := map[string]bool{"en": true, "fa": true, "ru": true, "zh": true}
 			if !validLangs[newLang] {
 				_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Invalid language", false)
 				return
@@ -1002,9 +1002,6 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 					{"text": "🇨🇳 中文", "callback_data": "lang:zh"},
 				},
 				{
-					{"text": "🇸🇦 العربية", "callback_data": "lang:ar"},
-				},
-				{
 					{"text": "🔙 بازگشت / Back", "callback_data": "nav:menu"},
 				},
 			},
@@ -1056,6 +1053,18 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 				if len(parts) == 3 && parts[2] == "profile" {
 					assetType = ""
 					entity = ""
+				} else if len(parts) == 4 && parts[2] == "t" {
+					// Task 7: Short token lookup in Redis
+					shortToken := parts[3]
+					if h.cache != nil && h.cache.Client != nil {
+						if stored, err := h.cache.Client.Get(ctx, fmt.Sprintf("ex_tok:%s", shortToken)).Result(); err == nil && stored != "" {
+							tokParts := strings.SplitN(stored, ":", 2)
+							if len(tokParts) == 2 {
+								assetType = tokParts[0]
+								entity = tokParts[1]
+							}
+						}
+					}
 				} else if len(parts) >= 4 {
 					assetType = parts[2]
 					entity = parts[3]
@@ -1161,8 +1170,12 @@ func (h *WebhookHandler) HandleTonAPIWebhook(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *WebhookHandler) answerPreCheckout(botToken string, id string, ok bool, errorMessage string) {
-	tg := telegram.NewBotAPIClient(botToken)
+func (h *WebhookHandler) answerPreCheckout(bot *repository.ManagedBot, id string, ok bool, errorMessage string) {
+	tg := h.getBotClient(bot)
+	if tg == nil {
+		slog.Error("answerPreCheckout: cannot get bot client", "query_id", id)
+		return
+	}
 	payload := map[string]interface{}{
 		"pre_checkout_query_id": id,
 		"ok":                    ok,

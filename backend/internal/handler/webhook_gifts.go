@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"ifragment-backend/internal/client/telegram"
-	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/gifts/gvengine"
 )
@@ -18,11 +17,10 @@ var giftLinkRegex = regexp.MustCompile(`(?i)(?:https?://)?(?:t\.me/nft/|fragment
 
 // handleGiftCommand processes /gift [id/name] [serial]
 func (h *WebhookHandler) handleGiftCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	if token == "" {
+	tg := h.getBotClient(bot)
+	if tg == nil {
 		return
 	}
-	tg := telegram.NewBotAPIClient(token)
 
 	raw := strings.TrimSpace(m.Text)
 	if raw == "" {
@@ -136,11 +134,10 @@ Get fair valuation, trait genetics, and on-chain verified status for any Telegra
 
 // handleGiftsCommand processes /gifts - displays Telegram Gifts market pulse
 func (h *WebhookHandler) handleGiftsCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) {
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	if token == "" {
+	tg := h.getBotClient(bot)
+	if tg == nil {
 		return
 	}
-	tg := telegram.NewBotAPIClient(token)
 
 	miniAppURL := h.getMiniAppURL(bot)
 
@@ -353,11 +350,10 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 		return
 	}
 
-	token, _ := crypto.DecryptToken(bot.BotTokenEncrypted)
-	if token == "" {
+	tg := h.getBotClient(bot)
+	if tg == nil {
 		return
 	}
-	tg := telegram.NewBotAPIClient(token)
 
 	query := strings.TrimSpace(iq.Query)
 	miniAppURL := os.Getenv("MINI_APP_URL")

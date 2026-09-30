@@ -1695,3 +1695,36 @@ func (c *BotAPIClient) AnswerInlineQueryWithButton(ctx context.Context, inlineQu
 	_, err := c.Request(ctx, "answerInlineQuery", payload)
 	return err
 }
+
+// CustomEmojiSticker represents custom emoji sticker information from getCustomEmojiStickers
+type CustomEmojiSticker struct {
+	FileID          string `json:"file_id"`
+	FileUniqueID    string `json:"file_unique_id"`
+	CustomEmojiID   string `json:"custom_emoji_id"`
+	Type            string `json:"type"`
+	Width           int    `json:"width"`
+	Height          int    `json:"height"`
+	IsAnimated      bool   `json:"is_animated"`
+	IsVideo         bool   `json:"is_video"`
+	Emoji           string `json:"emoji"`
+	SetName         string `json:"set_name"`
+}
+
+// GetCustomEmojiStickers fetches information about custom emoji stickers by their identifiers (Bot API 6.2+)
+func (c *BotAPIClient) GetCustomEmojiStickers(ctx context.Context, customEmojiIDs []string) ([]CustomEmojiSticker, error) {
+	if len(customEmojiIDs) == 0 {
+		return nil, nil
+	}
+	payload := map[string]interface{}{
+		"custom_emoji_ids": customEmojiIDs,
+	}
+	resp, err := c.Request(ctx, "getCustomEmojiStickers", payload)
+	if err != nil {
+		return nil, err
+	}
+	var stickers []CustomEmojiSticker
+	if err := json.Unmarshal(resp, &stickers); err != nil {
+		return nil, fmt.Errorf("failed to parse custom emoji stickers: %w", err)
+	}
+	return stickers, nil
+}

@@ -177,14 +177,13 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		}
 	}
 
-	// Calculate Intel Credits (1 referral grant per 3 referrals + paid orders)
+	// Calculate Intel Credits directly from active batches (single source of truth)
 	var intelCredits int
-	var totalInvited int
-	_ = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&totalInvited)
-	intelCredits = totalInvited / 3
-	// Also check paid report orders in last 30 days
-	var paidReports int
-	_ = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM username_reports WHERE user_id = $1", userID).Scan(&paidReports)
+	queryCredits := `
+		SELECT COALESCE(SUM(remaining), 0)
+		FROM intel_credit_batches
+		WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())`
+	_ = db.Pool.QueryRow(ctx, queryCredits, userID).Scan(&intelCredits)
 
 	return &model.ProfileStats{
 		TelegramID:          targetTelegramID,
@@ -909,32 +908,8 @@ func (db *Database) DeductCreditsFIFO(ctx context.Context, tx pgx.Tx, userID int
 	}
 	rows.Close()
 
-	// Check if user has available balance in user_stats.airdrop_coins
-	var statCoins float64
-	_ = tx.QueryRow(ctx, `SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&statCoins)
-
-	if totalAvailable < requiredCoins && statCoins < requiredCoins {
-		have := totalAvailable
-		if statCoins > have {
-			have = statCoins
-		}
-		return fmt.Errorf("insufficient active credits: have %.0f, need %.0f", have, requiredCoins)
-	}
-
-	// If totalAvailable in active unexpired batches is less than required, but statCoins is sufficient,
-	// create a reconciled batch for the difference so FIFO deduction can proceed cleanly.
-	if totalAvailable < requiredCoins && statCoins >= requiredCoins {
-		diff := requiredCoins - totalAvailable
-		var newBatchID string
-		err := tx.QueryRow(ctx, `
-			INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
-			VALUES ($1, $2, $2, 'reconciled_balance', now(), now() + INTERVAL '30 days', FALSE)
-			RETURNING id::text
-		`, userID, diff).Scan(&newBatchID)
-		if err == nil {
-			batches = append(batches, BatchRow{ID: newBatchID, Remaining: diff})
-			totalAvailable += diff
-		}
+	if totalAvailable < requiredCoins {
+		return fmt.Errorf("insufficient active credits: have %.0f, need %.0f", totalAvailable, requiredCoins)
 	}
 
 	toDeduct := requiredCoins

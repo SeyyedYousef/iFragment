@@ -402,7 +402,7 @@ var ErrInsufficientCoins = errors.New("insufficient airdrop coins")
 // ExchangeCoinsForCredit atomically deducts Airdrop Coins and grants n
 // purchased Intel Credits in a single batch inside a single transaction.
 // Returns the created batch ID, new credit balance, and new coin balance.
-func (r *IntelCreditRepo) ExchangeCoinsForCredit(ctx context.Context, userID int64, n int, coinsCost float64, expiresAt *time.Time) (uuid.UUID, int, float64, error) {
+func (r *IntelCreditRepo) ExchangeCoinsForCredit(ctx context.Context, userID int64, n int, coinsCost float64, expiresAt *time.Time, idemKey ...string) (uuid.UUID, int, float64, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return uuid.Nil, 0, 0, fmt.Errorf("database unavailable")
 	}
@@ -413,11 +413,39 @@ func (r *IntelCreditRepo) ExchangeCoinsForCredit(ctx context.Context, userID int
 		return uuid.Nil, 0, 0, fmt.Errorf("coin cost must be positive")
 	}
 
+	var ik string
+	if len(idemKey) > 0 && idemKey[0] != "" {
+		ik = idemKey[0]
+	}
+
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, 0, 0, fmt.Errorf("failed to start transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
+
+	// Check idempotency key if provided
+	if ik != "" {
+		var existingBatchID *uuid.UUID
+		err := tx.QueryRow(ctx, `SELECT batch_id FROM intel_credit_ledger WHERE idem_key = $1`, ik).Scan(&existingBatchID)
+		if err == nil {
+			// Idempotent duplicate: fetch current balances and return without re-charging
+			var credBal int
+			var coinBal float64
+			_ = tx.QueryRow(ctx, `
+				SELECT COALESCE(SUM(remaining), 0) FROM intel_credit_batches
+				WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
+			`, userID).Scan(&credBal)
+			_ = tx.QueryRow(ctx, `SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1`, userID).Scan(&coinBal)
+			var bID uuid.UUID
+			if existingBatchID != nil {
+				bID = *existingBatchID
+			}
+			return bID, credBal, coinBal, nil
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, 0, 0, fmt.Errorf("idempotency check error: %w", err)
+		}
+	}
 
 	// 1. Deduct Airdrop Coins (FIFO across user_credit_batches)
 	if err := r.db.DeductCreditsFIFO(ctx, tx, userID, coinsCost); err != nil {
@@ -438,11 +466,15 @@ func (r *IntelCreditRepo) ExchangeCoinsForCredit(ctx context.Context, userID int
 		return uuid.Nil, 0, 0, fmt.Errorf("failed to create credit batch: %w", err)
 	}
 
-	// 3. Ledger entry
+	// 3. Ledger entry with idem_key
+	var idemVal *string
+	if ik != "" {
+		idemVal = &ik
+	}
 	_, err = tx.Exec(ctx, `
-		INSERT INTO intel_credit_ledger (user_id, delta, reason, entity, batch_id, created_at)
-		VALUES ($1, $2, 'grant:coins_exchange', 'coins_exchange', $3, now())
-	`, userID, n, batchID)
+		INSERT INTO intel_credit_ledger (user_id, delta, reason, entity, batch_id, idem_key, created_at)
+		VALUES ($1, $2, 'grant:coins_exchange', 'coins_exchange', $3, $4, now())
+	`, userID, n, batchID, idemVal)
 	if err != nil {
 		return uuid.Nil, 0, 0, fmt.Errorf("failed to log exchange ledger: %w", err)
 	}
