@@ -75,6 +75,7 @@ func (h *WebhookHandler) getBotClient(bot *repository.ManagedBot) *telegram.BotA
 	}
 	token, err := crypto.DecryptToken(bot.BotTokenEncrypted)
 	if err != nil || token == "" {
+		slog.Error("getBotClient: failed to decrypt bot token", "bot_id", bot.ID, "error", err)
 		return nil
 	}
 	if client, ok := h.botClients.Load(token); ok {
@@ -156,37 +157,60 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 
 	cacheKey := fmt.Sprintf("update:%s:%d", bot.ID.String(), update.UpdateID)
 
-	if update.CallbackQuery != nil {
-		h.handleCallbackQuery(ctx, bot, update.CallbackQuery)
-	} else if update.InlineQuery != nil {
-		h.handleInlineQuery(ctx, bot, update.InlineQuery)
-	} else if update.ManagedBotUpdated != nil {
-		h.handleManagedBotUpdated(ctx, bot, update.ManagedBotUpdated)
-	} else if update.BotSubscriptionUpdated != nil {
-		h.handleBotSubscriptionUpdated(ctx, bot, update.BotSubscriptionUpdated)
-	} else if update.GuestMessage != nil {
-		h.handleGuestMessage(ctx, bot, update.GuestMessage)
-	} else if update.Message != nil {
-		if update.Message.GuestQueryID != "" {
-			h.handleGuestMessage(ctx, bot, &GuestMessageUpdate{
-				GuestQueryID: update.Message.GuestQueryID,
-				From:         *update.Message.From,
-				Message:      *update.Message,
-			})
-		} else if update.Message.SuccessfulPayment != nil {
-			h.handleSuccessfulPaymentUpdate(ctx, bot, update.Message)
-		} else {
-			h.handleRegularMessageUpdate(ctx, bot, update.Message, false)
+	var processErr error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				processErr = fmt.Errorf("panic during update processing: %v", r)
+				slog.Error("Panic recovered in processUpdateAsync", "bot_id", bot.ID, "update_id", update.UpdateID, "panic", r)
+			}
+		}()
+
+		if update.CallbackQuery != nil {
+			h.handleCallbackQuery(ctx, bot, update.CallbackQuery)
+		} else if update.InlineQuery != nil {
+			h.handleInlineQuery(ctx, bot, update.InlineQuery)
+		} else if update.ManagedBotUpdated != nil {
+			h.handleManagedBotUpdated(ctx, bot, update.ManagedBotUpdated)
+		} else if update.BotSubscriptionUpdated != nil {
+			h.handleBotSubscriptionUpdated(ctx, bot, update.BotSubscriptionUpdated)
+		} else if update.GuestMessage != nil {
+			h.handleGuestMessage(ctx, bot, update.GuestMessage)
+		} else if update.Message != nil {
+			if update.Message.GuestQueryID != "" {
+				h.handleGuestMessage(ctx, bot, &GuestMessageUpdate{
+					GuestQueryID: update.Message.GuestQueryID,
+					From:         *update.Message.From,
+					Message:      *update.Message,
+				})
+			} else if update.Message.SuccessfulPayment != nil {
+				h.handleSuccessfulPaymentUpdate(ctx, bot, update.Message)
+			} else {
+				h.handleRegularMessageUpdate(ctx, bot, update.Message, false)
+			}
+		} else if update.EditedMessage != nil {
+			h.handleRegularMessageUpdate(ctx, bot, update.EditedMessage, true)
 		}
-	} else if update.EditedMessage != nil {
-		h.handleRegularMessageUpdate(ctx, bot, update.EditedMessage, true)
+	}()
+
+	if processErr != nil {
+		// On error, delete processing lease from Redis so Telegram / webhook retries can be processed
+		if h.cache != nil && h.cache.Client != nil {
+			h.cache.Client.Del(context.Background(), cacheKey)
+		}
+		if h.webhookInbox != nil {
+			_ = h.webhookInbox.MarkFailedOrDLQ(context.Background(), bot.ID, int64(update.UpdateID), processErr.Error())
+		}
+		return
 	}
 
 	if h.cache != nil && h.cache.Client != nil {
 		h.cache.Client.Set(context.Background(), cacheKey, "processed", 7*24*time.Hour)
 	}
 	if h.webhookInbox != nil {
-		_ = h.webhookInbox.MarkProcessed(context.Background(), bot.ID, int64(update.UpdateID))
+		if err := h.webhookInbox.MarkProcessed(context.Background(), bot.ID, int64(update.UpdateID)); err != nil {
+			slog.Error("Failed to mark update as processed in durable inbox", "bot_id", bot.ID, "update_id", update.UpdateID, "error", err)
+		}
 	}
 	cleanExit = true
 }
@@ -669,13 +693,15 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 
 	// Always ensure user exists in repository so foreign key references never fail
 	if msg.From != nil && !msg.From.IsBot && h.db != nil {
-		_ = h.db.UpsertUser(ctx, repository.User{
+		if err := h.db.UpsertUser(ctx, repository.User{
 			TelegramID:   msg.From.ID,
 			Username:     msg.From.Username,
 			FirstName:    msg.From.FirstName,
 			LastName:     msg.From.LastName,
 			LanguageCode: msg.From.LanguageCode,
-		})
+		}); err != nil {
+			slog.Error("Failed to upsert user on message", "user_id", msg.From.ID, "operation", "user.upsert", "error", err)
+		}
 	}
 
 	// Edited messages should not re-trigger gate, commands, or automated sniffing
@@ -898,13 +924,15 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 
 func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repository.ManagedBot, cq *CallbackQuery) {
 	if cq.From.ID != 0 && h.db != nil {
-		_ = h.db.UpsertUser(ctx, repository.User{
+		if err := h.db.UpsertUser(ctx, repository.User{
 			TelegramID:   cq.From.ID,
 			Username:     cq.From.Username,
 			FirstName:    cq.From.FirstName,
 			LastName:     cq.From.LastName,
 			LanguageCode: cq.From.LanguageCode,
-		})
+		}); err != nil {
+			slog.Error("Failed to upsert user on callback query", "user_id", cq.From.ID, "operation", "user.upsert", "error", err)
+		}
 	}
 
 	tg := h.getBotClient(bot)
@@ -928,6 +956,7 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			if err == nil {
 				msg = i18n.T(newLang, "profile.languageSettings") + " ✅"
 			} else {
+				slog.Error("Failed to update user language", "user_id", cq.From.ID, "operation", "user.update_language", "error", err)
 				msg = "Error updating language"
 			}
 

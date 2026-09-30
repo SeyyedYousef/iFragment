@@ -426,9 +426,15 @@ func TestSendProfileViewRenderingAllLanguages(t *testing.T) {
 				t.Errorf("Language %s: refLink not found in output", lang)
 			}
 
-			// 4. Assert CustomEmojiCoin is used instead of Phone emoji
-			if !strings.Contains(rendered, CustomEmojiCoin) {
-				t.Errorf("Language %s: CustomEmojiCoin (%s) not found in profile text", lang, CustomEmojiCoin)
+			// 4. Assert Coin emoji is used instead of Phone emoji
+			if isPremiumEmojiEnabled() {
+				if !strings.Contains(rendered, CustomEmojiCoin) {
+					t.Errorf("Language %s: CustomEmojiCoin (%s) not found in profile text", lang, CustomEmojiCoin)
+				}
+			} else {
+				if !strings.Contains(rendered, "🪙") {
+					t.Errorf("Language %s: Coin emoji 🪙 not found in profile text", lang)
+				}
 			}
 			if strings.Contains(rendered, CustomEmojiPhone) {
 				t.Errorf("Language %s: CustomEmojiPhone (%s) mistakenly found in profile text for coins!", lang, CustomEmojiPhone)

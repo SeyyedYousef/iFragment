@@ -112,19 +112,20 @@ var (
 	giftSlugRegex        = regexp.MustCompile(`(?i)^[a-zA-Z0-9_]+-\d+$`)
 	usernameRe           = regexp.MustCompile(`^[a-zA-Z](?:[a-zA-Z0-9_]{2,30})[a-zA-Z0-9]$`)
 	premiumEmojiIDRe     = regexp.MustCompile(`\[emoji:(\d{10,21})\]|\[(\d{10,21})\]`)
-	tgEmojiTagRe         = regexp.MustCompile(`(?i)<tg-emoji[^>]*>(.*?)</tg-emoji>`)
-	tgEmojiWithIDRe      = regexp.MustCompile(`(?i)<tg-emoji[^>]*emoji-id="([^"]+)"[^>]*>(.*?)</tg-emoji>`)
+	tgEmojiTagRe         = regexp.MustCompile(`(?is)<tg-emoji[^>]*>(.*?)</tg-emoji>|<tg-emoji[^>]*/>`)
+	tgEmojiWithIDRe      = regexp.MustCompile(`(?is)<tg-emoji[^>]*emoji-id="([^"]+)"[^>]*>(.*?)</tg-emoji>`)
 )
 
 // isPremiumEmojiEnabled checks if custom emojis are supported/enabled in this deployment.
+// Defaults to false to ensure 100% compatibility with Telegram Bot API (preventing DOCUMENT_INVALID).
 func isPremiumEmojiEnabled() bool {
 	val := strings.TrimSpace(os.Getenv("PREMIUM_EMOJI_ENABLED"))
 	if val == "" {
-		return true // Default enabled
+		return false
 	}
 	b, err := strconv.ParseBool(val)
 	if err != nil {
-		return true
+		return false
 	}
 	return b
 }
@@ -2950,24 +2951,27 @@ func (h *WebhookHandler) sendOrEditMessage(ctx context.Context, tg *telegram.Bot
 
 		slog.Error("Telegram EditMessageTextWithMarkup failed", "error", err, "chat_id", chatID, "message_id", *messageID)
 
-		if isEntityOrEmojiError(err) {
-			// Retry 1: Strip custom emojis
-			stripped := stripCustomEmoji(formattedText)
+		// Always attempt fallback with stripped custom emojis first if formattedText had any
+		stripped := stripCustomEmoji(formattedText)
+		if stripped != formattedText {
 			if retryErr := tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, stripped, markup); retryErr == nil {
 				return
 			} else if isNotModifiedError(retryErr) {
 				return
 			} else {
 				slog.Error("Telegram EditMessageTextWithMarkup retry without custom emoji failed", "error", retryErr, "chat_id", chatID, "message_id", *messageID)
-				// Retry 2: Plain text (all HTML stripped)
-				plainText := StripHTML(stripped)
-				if plainErr := tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, plainText, markup, ""); plainErr == nil {
-					return
-				} else if isNotModifiedError(plainErr) {
-					return
-				} else {
-					slog.Error("Telegram EditMessageTextWithMarkup retry with plain text failed", "error", plainErr, "chat_id", chatID, "message_id", *messageID)
-				}
+			}
+		}
+
+		if isEntityOrEmojiError(err) {
+			// Retry 2: Plain text (all HTML stripped)
+			plainText := StripHTML(stripped)
+			if plainErr := tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, plainText, markup, ""); plainErr == nil {
+				return
+			} else if isNotModifiedError(plainErr) {
+				return
+			} else {
+				slog.Error("Telegram EditMessageTextWithMarkup retry with plain text failed", "error", plainErr, "chat_id", chatID, "message_id", *messageID)
 			}
 		}
 	}
@@ -2980,15 +2984,16 @@ func (h *WebhookHandler) sendOrEditMessage(ctx context.Context, tg *telegram.Bot
 
 	if sendErr != nil {
 		slog.Error("Telegram SendMessageWithMarkup failed", "error", sendErr, "chat_id", chatID)
-		if isEntityOrEmojiError(sendErr) {
-			// Retry 1: Strip custom emojis
-			stripped := stripCustomEmoji(formattedText)
+		stripped := stripCustomEmoji(formattedText)
+		if stripped != formattedText {
 			resRetry, errRetry := tg.SendMessageWithMarkup(ctx, chatID, stripped, markup, threadID)
 			if errRetry == nil && resRetry != nil {
 				return
 			}
 			slog.Error("Telegram SendMessageWithMarkup retry without custom emoji failed", "error", errRetry, "chat_id", chatID)
+		}
 
+		if isEntityOrEmojiError(sendErr) {
 			// Retry 2: Plain text fallback (all HTML stripped, parse_mode disabled)
 			plainText := StripHTML(stripped)
 			_, errPlain := tg.SendMessageWithMarkup(ctx, chatID, plainText, markup, threadID, "")
