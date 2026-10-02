@@ -83,7 +83,8 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 
 	const filteredEvents = () => {
 		const f = filterType();
-		if (f === 'sales') return sampleEvents.filter((e) => e.type === 'sale' || e.type === 'auction_settled');
+		if (f === 'sales')
+			return sampleEvents.filter((e) => e.type === 'sale' || e.type === 'auction_settled');
 		if (f === 'transfers') return sampleEvents.filter((e) => e.type === 'transfer');
 		return sampleEvents;
 	};
@@ -108,13 +109,22 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 	const getEventBadge = (type: ActivityEvent['type']) => {
 		switch (type) {
 			case 'sale':
-				return { label: 'فروش قطعی آن‌چین', bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' };
+				return {
+					label: 'فروش قطعی آن‌چین',
+					bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+				};
 			case 'auction_settled':
-				return { label: 'تسویه حراج تلمینت', bg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' };
+				return {
+					label: 'تسویه حراج تلمینت',
+					bg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+				};
 			case 'listing':
 				return { label: 'ثبت قیمت فروش', bg: 'bg-[#0098EA]/15 text-[#0098EA] border-[#0098EA]/30' };
 			case 'transfer':
-				return { label: 'انتقال ساده (بدون حجم)', bg: 'bg-white/[0.06] text-white/60 border-white/10' };
+				return {
+					label: 'انتقال ساده (بدون حجم)',
+					bg: 'bg-white/[0.06] text-white/60 border-white/10',
+				};
 		}
 	};
 
@@ -165,9 +175,7 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 								<div class="space-y-1 min-w-0">
 									<div class="flex items-center gap-2 flex-wrap">
 										<span class="text-xs font-black text-white font-mono">{ev.displayNumber}</span>
-										<span
-											class={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${badge.bg}`}
-										>
+										<span class={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${badge.bg}`}>
 											{badge.label}
 										</span>
 									</div>

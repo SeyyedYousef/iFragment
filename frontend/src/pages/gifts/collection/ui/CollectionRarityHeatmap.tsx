@@ -2,7 +2,8 @@ import { useNavigate } from '@solidjs/router';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import type { RarityHeatmapCell } from '@/entities/gifts/index.js';
 import { GiftThumbnail } from '@/entities/gifts/index.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
+import { HEATMAP_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
@@ -166,7 +167,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 							</span>
 						</h3>
 						<span class="text-[10px] text-white/40 block">
-							{isRtl() ? 'چگالی آماری ترکیب مدل و پس‌زمینه' : 'Model × Backdrop statistical density'}
+							{layaT(HEATMAP_I18N.statisticalDensity)}
 						</span>
 					</div>
 				</div>
@@ -188,7 +189,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 						}`}
 					>
 						<span class="material-symbols-outlined text-xs">table_chart</span>
-						<span>{isRtl() ? 'ماتریس' : 'Matrix'}</span>
+						<span>{layaT(HEATMAP_I18N.matrixTab)}</span>
 					</button>
 					<button
 						type="button"
@@ -205,7 +206,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 						}`}
 					>
 						<span class="material-symbols-outlined text-xs">view_agenda</span>
-						<span>{isRtl() ? 'کارت‌ها' : 'Cards'}</span>
+						<span>{layaT(HEATMAP_I18N.cardsTab)}</span>
 					</button>
 				</div>
 			</div>
@@ -214,7 +215,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 			<div class="grid grid-cols-3 gap-2 text-center text-xs">
 				<div class="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-2.5">
 					<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">
-						{isRtl() ? 'کل ترکیبات' : 'Total Combos'}
+						{layaT(HEATMAP_I18N.totalCombos)}
 					</span>
 					<div class="font-mono font-black text-white text-sm">{stats().total}</div>
 					<span class="text-[9px] text-emerald-400 font-bold block mt-0.5">
@@ -224,7 +225,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 
 				<div class="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-2.5">
 					<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">
-						{isRtl() ? 'کمیاب‌ترین ترکیب' : 'Rarest Combo'}
+						{layaT(HEATMAP_I18N.rarestCombo)}
 					</span>
 					<div
 						class="font-bold text-cyan-300 text-[11px] truncate"
@@ -239,7 +240,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 
 				<div class="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-2.5">
 					<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">
-						{isRtl() ? 'بالاترین کف' : 'Top Floor'}
+						{layaT(HEATMAP_I18N.topFloor)}
 					</span>
 					<div class="font-mono font-black text-amber-400 text-sm truncate">
 						{fmt(stats().highestFloor?.floor_gram)} T
@@ -257,21 +258,17 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 					fallback={
 						<div class="py-12 text-center text-xs text-white/40 border border-white/[0.06] rounded-2xl bg-black/20">
 							<span class="material-symbols-outlined text-3xl mb-2 block opacity-40">grid_off</span>
-							{isRtl()
-								? 'ماتریس صفات برای این کالکشن در دسترس نیست'
-								: 'Trait matrix unavailable for this collection'}
+							{layaT(HEATMAP_I18N.traitMatrixUnavailable)}
 						</div>
 					}
 				>
 					<div class="space-y-2.5">
 						<div class="text-[10px] text-white/40 flex items-center justify-between px-1">
 							<span>
-								{isRtl()
-									? 'سطرها: مدل‌های گیفت | ستون‌ها: پس‌زمینه‌ها'
-									: 'Rows: Models | Columns: Backdrops'}
+								{layaT(HEATMAP_I18N.rowsColsDesc)}
 							</span>
 							<span class="text-[#0098EA] font-semibold">
-								{isRtl() ? 'لمس برای بررسی' : 'Tap to inspect'}
+								{layaT(HEATMAP_I18N.tapToInspect)}
 							</span>
 						</div>
 
@@ -280,7 +277,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 								<thead>
 									<tr>
 										<th class="p-2 text-[10px] font-bold text-white/40 text-start uppercase tracking-wider min-w-[70px]">
-											{isRtl() ? 'مدل' : 'Model'}
+											{layaT(HEATMAP_I18N.modelCol)}
 										</th>
 										<For each={uniqueBackdrops()}>
 											{(backdrop) => (
@@ -401,7 +398,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 						fallback={
 							<div class="py-12 text-center text-xs text-white/40 border border-white/[0.06] rounded-2xl bg-black/20">
 								<span class="material-symbols-outlined text-3xl mb-2 block opacity-40">inbox</span>
-								{isRtl() ? 'ترکیبی در این سطح یافت نشد' : 'No combinations found'}
+								{layaT(HEATMAP_I18N.noCombinationsFound)}
 							</div>
 						}
 					>
@@ -483,7 +480,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 							<div class="grid grid-cols-2 gap-2 text-xs">
 								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 									<span class="text-[9px] text-white/40 uppercase block mb-0.5">
-										{isRtl() ? 'کف قیمت تخمینی' : 'Estimated Floor'}
+										{layaT(HEATMAP_I18N.estimatedFloor)}
 									</span>
 									<div class="font-mono font-black text-white text-sm">{fmt(c.floor_gram)} TON</div>
 									<span class="text-[10px] text-white/40 font-mono">
@@ -493,7 +490,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 
 								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 									<span class="text-[9px] text-white/40 uppercase block mb-0.5">
-										{isRtl() ? 'کمیابی ترکیبی' : 'Combined Rarity'}
+										{layaT(HEATMAP_I18N.combinedRarity)}
 									</span>
 									<div class="font-mono font-black text-sky-400 text-sm">
 										{c.combined_rarity_pct.toFixed(3)}%
@@ -517,7 +514,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 								class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#0081C8] hover:brightness-110 text-white font-black text-xs text-center shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
 							>
 								<span>
-									{isRtl() ? 'کارشناسی و صدور شناسنامه این مدل' : 'Inspect & Certify Model'}
+									{layaT(HEATMAP_I18N.inspectCertifyModel)}
 								</span>
 								<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_forward</span>
 							</button>

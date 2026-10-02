@@ -1,6 +1,6 @@
 import { type Component, createMemo, For, Show } from 'solid-js';
-import { layaT, GIFTS_I18N } from '@/shared/i18n/laya-i18n.js';
-import type { MarketVenueFloor, CrossMarketArbitrage } from '@/entities/gifts/model/types.js';
+import type { CrossMarketArbitrage, MarketVenueFloor } from '@/entities/gifts/model/types.js';
+import { GIFTS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	collectionName: string;
@@ -176,9 +176,13 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 							</span>
 						</div>
 						<div class="text-[11px] text-white/80 font-mono">
-							{layaT(GIFTS_I18N.buyOn)} <span class="text-cyan-400 font-bold">{cheapestVenue()?.name}</span> ({fmt(cheapestVenue()!.floorTon)} TON)
+							{layaT(GIFTS_I18N.buyOn)}{' '}
+							<span class="text-cyan-400 font-bold">{cheapestVenue()?.name}</span> (
+							{fmt(cheapestVenue()!.floorTon)} TON)
 							{' ➔ '}
-							{layaT(GIFTS_I18N.sellOn)} <span class="text-emerald-400 font-bold">{expensiveVenue()?.name}</span> ({fmt(expensiveVenue()!.floorTon)} TON)
+							{layaT(GIFTS_I18N.sellOn)}{' '}
+							<span class="text-emerald-400 font-bold">{expensiveVenue()?.name}</span> (
+							{fmt(expensiveVenue()!.floorTon)} TON)
 						</div>
 					</div>
 
@@ -188,10 +192,14 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 								{layaT(GIFTS_I18N.netRoi)}
 							</span>
 							<div class="flex items-baseline gap-1 font-mono">
-								<span class="text-[16px] font-black text-cyan-400">+{fmt(netArbitrage().netTon)}</span>
+								<span class="text-[16px] font-black text-cyan-400">
+									+{fmt(netArbitrage().netTon)}
+								</span>
 								<span class="text-[10px] font-bold text-cyan-400">TON</span>
 							</div>
-							<span class="text-[9px] font-mono text-white/40">≈ +${fmt(netArbitrage().netUsd)} ({netArbitrage().netRoiPct}%)</span>
+							<span class="text-[9px] font-mono text-white/40">
+								≈ +${fmt(netArbitrage().netUsd)} ({netArbitrage().netRoiPct}%)
+							</span>
 						</div>
 					</div>
 				</div>
@@ -239,15 +247,19 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 							const isTopSell = () => v.id === expensiveVenue()?.id;
 
 							return (
-								<div class={`p-3 rounded-[16px] border flex items-center justify-between transition-all ${
-									isCheapest()
-										? 'bg-cyan-950/20 border-cyan-500/30'
-										: isTopSell()
-											? 'bg-emerald-950/20 border-emerald-500/30'
-											: 'bg-white/[0.02] border-white/5'
-								}`}>
+								<div
+									class={`p-3 rounded-[16px] border flex items-center justify-between transition-all ${
+										isCheapest()
+											? 'bg-cyan-950/20 border-cyan-500/30'
+											: isTopSell()
+												? 'bg-emerald-950/20 border-emerald-500/30'
+												: 'bg-white/[0.02] border-white/5'
+									}`}
+								>
 									<div class="flex items-center gap-3">
-										<div class={`w-2 h-2 rounded-full ${v.isOrganic ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+										<div
+											class={`w-2 h-2 rounded-full ${v.isOrganic ? 'bg-emerald-400' : 'bg-amber-400'}`}
+										/>
 										<div class="flex flex-col">
 											<div class="flex items-center gap-2">
 												<span class="text-xs font-bold text-white">{v.name}</span>

@@ -136,4 +136,3 @@ export function validateAnonymousNumber(raw?: string | null): {
 		error: 'طول شماره نامعتبر است (باید ۴ رقمی جنسیس یا ۸ رقمی استاندارد باشد)',
 	};
 }
-

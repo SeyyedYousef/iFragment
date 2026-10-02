@@ -39,9 +39,7 @@ export const NumberPatternsView: Component<PatternsViewProps> = (props) => {
 			<div class="bg-gradient-to-r from-[#0098EA]/15 via-cyan-500/10 to-transparent border border-[#0098EA]/20 rounded-2xl p-3.5 backdrop-blur-md">
 				<div class="flex items-center gap-2 mb-1">
 					<span class="material-symbols-outlined text-[#0098EA] text-lg">category</span>
-					<h3 class="text-xs font-black text-white">
-						رده‌بندی قطعی و پریمیوم الگوهای شماره تلگرام
-					</h3>
+					<h3 class="text-xs font-black text-white">رده‌بندی قطعی و پریمیوم الگوهای شماره تلگرام</h3>
 				</div>
 				<p class="text-[11px] text-white/60 leading-relaxed">
 					تمام ضرایب نایابی و پریمیوم‌ها از معاملات قطعی آن‌چین استخراج شده و با عرضه منجمد ۱۳۶,۵۶۶
@@ -57,12 +55,8 @@ export const NumberPatternsView: Component<PatternsViewProps> = (props) => {
 							<div class="flex items-start justify-between gap-3 mb-2.5">
 								<div class="space-y-0.5 min-w-0">
 									<div class="flex items-center gap-2 flex-wrap">
-										<span class="text-xs font-black text-white font-sans">
-											{p.pattern_name_fa}
-										</span>
-										<span class="text-[9px] font-mono text-white/40">
-											({p.pattern_name_en})
-										</span>
+										<span class="text-xs font-black text-white font-sans">{p.pattern_name_fa}</span>
+										<span class="text-[9px] font-mono text-white/40">({p.pattern_name_en})</span>
 									</div>
 									<div class="flex items-center gap-2">
 										<span class="text-xs font-mono font-black text-[#0098EA] bg-[#0098EA]/10 px-2 py-0.5 rounded-lg border border-[#0098EA]/20">
@@ -102,9 +96,7 @@ export const NumberPatternsView: Component<PatternsViewProps> = (props) => {
 									<span class="text-emerald-400 font-bold block mt-0.5">
 										{formatTon(p.median_sale_nano_ton)} TON
 									</span>
-									<span class="text-white/30 text-[9px] block">
-										بر مبنای {p.sample_size} فروش
-									</span>
+									<span class="text-white/30 text-[9px] block">بر مبنای {p.sample_size} فروش</span>
 								</div>
 
 								<div class="bg-white/[0.02] p-2 rounded-xl">

@@ -24,9 +24,7 @@ export const NumberExportModal: Component<ExportModalProps> = (props) => {
 				<div class="bg-[#0e121d] border border-white/10 rounded-3xl p-5 max-w-sm w-full shadow-2xl relative text-start">
 					<div class="flex items-center justify-between mb-4 pb-2 border-b border-white/[0.08]">
 						<div class="flex items-center gap-2">
-							<span class="material-symbols-outlined text-emerald-400 text-xl">
-								file_download
-							</span>
+							<span class="material-symbols-outlined text-emerald-400 text-xl">file_download</span>
 							<h3 class="text-sm font-black text-white">استخراج اسنپ‌شات کالکشن</h3>
 						</div>
 						<button
@@ -39,8 +37,8 @@ export const NumberExportModal: Component<ExportModalProps> = (props) => {
 					</div>
 
 					<p class="text-xs text-white/70 leading-relaxed mb-4">
-						اسنپ‌شات کامل شامل شناسه رهگیری (Snapshot ID)، تایم‌استمپ رسمی UTC، وضعیت احراز اصالت آن‌چین
-						و تمام متریک‌های نقدشوندگی است.
+						اسنپ‌شات کامل شامل شناسه رهگیری (Snapshot ID)، تایم‌استمپ رسمی UTC، وضعیت احراز اصالت
+						آن‌چین و تمام متریک‌های نقدشوندگی است.
 					</p>
 
 					<div class="space-y-2.5">
@@ -50,9 +48,7 @@ export const NumberExportModal: Component<ExportModalProps> = (props) => {
 							class="w-full p-3.5 rounded-2xl bg-white/[0.03] hover:bg-emerald-500/15 border border-white/[0.08] hover:border-emerald-500/30 flex items-center justify-between transition-all group"
 						>
 							<div class="flex items-center gap-3">
-								<span class="material-symbols-outlined text-emerald-400 text-2xl">
-									table_chart
-								</span>
+								<span class="material-symbols-outlined text-emerald-400 text-2xl">table_chart</span>
 								<div class="text-start">
 									<span class="text-xs font-black text-white block group-hover:text-emerald-400">
 										فرمت جدول اکسل (CSV)
@@ -73,9 +69,7 @@ export const NumberExportModal: Component<ExportModalProps> = (props) => {
 							class="w-full p-3.5 rounded-2xl bg-white/[0.03] hover:bg-cyan-500/15 border border-white/[0.08] hover:border-cyan-500/30 flex items-center justify-between transition-all group"
 						>
 							<div class="flex items-center gap-3">
-								<span class="material-symbols-outlined text-cyan-400 text-2xl">
-									data_object
-								</span>
+								<span class="material-symbols-outlined text-cyan-400 text-2xl">data_object</span>
 								<div class="text-start">
 									<span class="text-xs font-black text-white block group-hover:text-cyan-400">
 										فرمت استاندارد برنامه‌نویسی (JSON)

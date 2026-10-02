@@ -14,14 +14,20 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 	const [currency, setCurrency] = createSignal<'TON' | 'USD'>('TON');
 	const [hoveredPoint, setHoveredPoint] = createSignal<NumberCollectionHistoryPoint | null>(null);
 
-	const timeframes: Array<'24h' | '7d' | '30d' | '90d' | 'all'> = ['24h', '7d', '30d', '90d', 'all'];
+	const timeframes: Array<'24h' | '7d' | '30d' | '90d' | 'all'> = [
+		'24h',
+		'7d',
+		'30d',
+		'90d',
+		'all',
+	];
 
 	const getVal = (pt: NumberCollectionHistoryPoint, key: 'floor' | 'median' | 'volume') => {
 		const isUsd = currency() === 'USD';
 		if (key === 'floor') return isUsd ? pt.floor_usd : pt.floor_ton;
 		if (key === 'median') {
 			if (!pt.median_sale_ton) return isUsd ? pt.floor_usd : pt.floor_ton;
-			return isUsd ? (pt.median_sale_usd || pt.median_sale_ton * props.rate) : pt.median_sale_ton;
+			return isUsd ? pt.median_sale_usd || pt.median_sale_ton * props.rate : pt.median_sale_ton;
 		}
 		if (key === 'volume') return isUsd ? pt.volume_usd : pt.volume_ton;
 		return 0;
@@ -140,7 +146,9 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 						<div class="text-center py-8">
 							<Show when={props.isLoading}>
 								<div class="w-6 h-6 border-2 border-[#0098EA]/30 border-t-[#0098EA] rounded-full animate-spin mx-auto mb-2" />
-								<span class="text-xs text-white/40 font-mono">در حال دریافت داده‌های تاییدشده...</span>
+								<span class="text-xs text-white/40 font-mono">
+									در حال دریافت داده‌های تاییدشده...
+								</span>
 							</Show>
 							<Show when={!props.isLoading && (!props.points || props.points.length === 0)}>
 								<span class="material-symbols-outlined text-3xl text-white/20 mb-1 block">
@@ -212,7 +220,9 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 						<div class="absolute bottom-2 left-3 bg-[#121622]/95 border border-white/10 backdrop-blur-md rounded-xl p-2.5 shadow-2xl text-[10px] pointer-events-none z-20 space-y-1">
 							<div class="flex items-center justify-between gap-4 font-mono text-white/50 border-b border-white/10 pb-1">
 								<span>{new Date(hoveredPoint()!.timestamp).toUTCString().slice(0, 22)}</span>
-								<span class="text-emerald-400 font-bold uppercase">{hoveredPoint()!.provenance}</span>
+								<span class="text-emerald-400 font-bold uppercase">
+									{hoveredPoint()!.provenance}
+								</span>
 							</div>
 
 							<div class="flex items-center justify-between gap-4">

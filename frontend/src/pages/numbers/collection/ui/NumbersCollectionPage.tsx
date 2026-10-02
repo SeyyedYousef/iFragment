@@ -6,18 +6,18 @@ import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { NumberActivityTape } from './components/NumberActivityTape.js';
 import { NumberAlertsModal } from './components/NumberAlertsModal.js';
+import { NumberClubFloorsTracker } from './components/NumberClubFloorsTracker.js';
 import { NumberCollectionChart } from './components/NumberCollectionChart.js';
 import { NumberCollectionHeader } from './components/NumberCollectionHeader.js';
 import { NumberCollectionKpis } from './components/NumberCollectionKpis.js';
+import { NumberCulturalRadarHeatmap } from './components/NumberCulturalRadarHeatmap.js';
+import { NumberDeFiFinancials } from './components/NumberDeFiFinancials.js';
+import { NumberDialpadErgonomics } from './components/NumberDialpadErgonomics.js';
 import { NumberExportModal } from './components/NumberExportModal.js';
 import { NumberHoldersView } from './components/NumberHoldersView.js';
 import { NumberMarketView } from './components/NumberMarketView.js';
 import { NumberPatternsView } from './components/NumberPatternsView.js';
 import { NumberRiskMethodology } from './components/NumberRiskMethodology.js';
-import { NumberClubFloorsTracker } from './components/NumberClubFloorsTracker.js';
-import { NumberCulturalRadarHeatmap } from './components/NumberCulturalRadarHeatmap.js';
-import { NumberDeFiFinancials } from './components/NumberDeFiFinancials.js';
-import { NumberDialpadErgonomics } from './components/NumberDialpadErgonomics.js';
 
 export type CollectionTabKey = 'overview' | 'market' | 'patterns' | 'holders' | 'activity' | 'risk';
 
@@ -214,9 +214,9 @@ export const NumbersCollectionPage: Component = () => {
 								درباره شماره‌های کلکسیونی تلگرام (+888)
 							</h3>
 							<p class="text-xs text-white/70 leading-relaxed">
-								شماره‌های ناشناس تلگرام دارایی‌های غیرمتمرکز NFT بر بستر استاندارد تلمینت (Telemint) در
-								بلاکچین TON هستند. این مجموعه در دسامبر ۲۰۲۲ منجمد شده و عرضه کل آن دقیقاً ۱۳۶,۵۶۶ عدد
-								است؛ بنابراین هیچ شماره جدیدی مینت نخواهد شد و تمامی معاملات ثانویه هستند.
+								شماره‌های ناشناس تلگرام دارایی‌های غیرمتمرکز NFT بر بستر استاندارد تلمینت (Telemint)
+								در بلاکچین TON هستند. این مجموعه در دسامبر ۲۰۲۲ منجمد شده و عرضه کل آن دقیقاً ۱۳۶,۵۶۶
+								عدد است؛ بنابراین هیچ شماره جدیدی مینت نخواهد شد و تمامی معاملات ثانویه هستند.
 							</p>
 						</div>
 

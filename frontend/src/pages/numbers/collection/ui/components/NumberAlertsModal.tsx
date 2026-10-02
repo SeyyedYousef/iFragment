@@ -72,9 +72,7 @@ export const NumberAlertsModal: Component<AlertsModalProps> = (props) => {
 						<div class="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
 							<div>
 								<span class="text-xs font-bold text-white block">خرید و فروش نهنگ‌ها</span>
-								<span class="text-[10px] text-white/40 block mt-0.5">
-									معاملات بالای ۱۰,۰۰۰ TON
-								</span>
+								<span class="text-[10px] text-white/40 block mt-0.5">معاملات بالای ۱۰,۰۰۰ TON</span>
 							</div>
 							<button
 								type="button"

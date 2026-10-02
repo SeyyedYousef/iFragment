@@ -1,7 +1,6 @@
 import { type Component, createSignal, For, Show } from 'solid-js';
-import { locale } from '@/shared/i18n/index.js';
+import { BUYER_PERSONAS, layaT, USERNAME_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { layaT, USERNAME_I18N, BUYER_PERSONAS } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	matchedArchetype?: string;
@@ -28,7 +27,8 @@ export const TargetBuyerPersonaCard: Component<Props> = (props) => {
 
 		const u = (props.username || '').toLowerCase();
 		if (['ton', 'crypto', 'whale', 'dex', 'dao'].some((k) => u.includes(k))) return 'ton_whale';
-		if (['pay', 'bank', 'cash', 'card', 'fund'].some((k) => u.includes(k))) return 'fintech_neobank';
+		if (['pay', 'bank', 'cash', 'card', 'fund'].some((k) => u.includes(k)))
+			return 'fintech_neobank';
 		if (['news', 'media', 'daily', 'live', 'tv'].some((k) => u.includes(k))) return 'media_network';
 		if (['bot', 'app', 'game', 'play', 'tap'].some((k) => u.includes(k))) return 'miniapp_operator';
 		if (['guard', 'sec', 'shield', 'safe'].some((k) => u.includes(k))) return 'cyber_security';
@@ -39,19 +39,8 @@ export const TargetBuyerPersonaCard: Component<Props> = (props) => {
 	const matchedPersona = () =>
 		BUYER_PERSONAS.find((p) => p.id === matchedId()) || BUYER_PERSONAS[0];
 
-	const expandButtonText = () => {
-		const loc = locale();
-		if (expanded()) {
-			if (loc === 'fa') return 'بستن لیست کامل پرسوناها';
-			if (loc === 'ru') return 'Свернуть список покупателей';
-			if (loc === 'zh') return '收起完整画像列表';
-			return 'Collapse Full Personas';
-		}
-		if (loc === 'fa') return 'مشاهده تحلیل جامع ۸ پرسونای خریدار واقعی';
-		if (loc === 'ru') return 'Показать все 8 профилей покупателей';
-		if (loc === 'zh') return '查看全部 8 类真实买家画像';
-		return 'View All 8 Buyer Personas Matrix';
-	};
+	const expandButtonText = () =>
+		expanded() ? layaT(USERNAME_I18N.collapsePersonas) : layaT(USERNAME_I18N.viewAllPersonas);
 
 	return (
 		<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 flex flex-col gap-4 text-start shadow-xl relative overflow-hidden">

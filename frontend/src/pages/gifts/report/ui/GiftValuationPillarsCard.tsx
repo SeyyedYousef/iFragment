@@ -1,6 +1,6 @@
 import { type Component, createMemo, createSignal, Show } from 'solid-js';
 import type { GiftValuationReport } from '@/entities/gifts/index.js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { GIFT_PILLARS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
@@ -75,12 +75,10 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 					</div>
 					<div>
 						<h3 class="text-xs sm:text-sm font-black text-white">
-							{isRtl() ? '۴ ستون ارزش‌گذاری GV Engine' : '4 Core Valuation Pillars'}
+							{layaT(GIFT_PILLARS_I18N.pillarsTitle)}
 						</h3>
 						<span class="text-[10px] text-white/40 block">
-							{isRtl()
-								? 'ارزیابی مستقل چندبعدی قیمت و نقدشوندگی'
-								: 'Multi-dimensional price & liquidity framework'}
+							{layaT(GIFT_PILLARS_I18N.pillarsSubtitle)}
 						</span>
 					</div>
 				</div>
@@ -100,7 +98,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 				>
 					<div class="flex items-center justify-between mb-1.5">
 						<span class="text-[9px] sm:text-[10px] uppercase font-black tracking-wider text-[#0098EA]">
-							{isRtl() ? '۱. ارزش منصفانه' : '1. Fair Value'}
+							{layaT(GIFT_PILLARS_I18N.fairValue)}
 						</span>
 						<span class="material-symbols-outlined text-[#0098EA] text-sm">balance</span>
 					</div>
@@ -111,7 +109,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 						{fmtUsd(pillars().fair_value_usd)}
 					</div>
 					<div class="mt-2 text-[8.5px] text-[#0098EA]/80 font-bold bg-[#0098EA]/10 px-1.5 py-0.5 rounded border border-[#0098EA]/20 inline-block">
-						{isRtl() ? 'تعادل ریاضی' : 'Equilibrium'}
+						{layaT(GIFT_PILLARS_I18N.equilibrium)}
 					</div>
 				</div>
 
@@ -122,7 +120,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 				>
 					<div class="flex items-center justify-between mb-1.5">
 						<span class="text-[9px] sm:text-[10px] uppercase font-black tracking-wider text-amber-400">
-							{isRtl() ? '۲. نقدشوندگی سریع' : '2. Instant Liquidity'}
+							{layaT(GIFT_PILLARS_I18N.instantLiquidity)}
 						</span>
 						<span class="material-symbols-outlined text-amber-400 text-sm">bolt</span>
 					</div>
@@ -134,7 +132,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 						{fmtUsd(pillars().liquidation_value_usd)}
 					</div>
 					<div class="mt-2 text-[8.5px] text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 inline-block">
-						{isRtl() ? 'تسویه بدون معطلی' : 'Fast Cashout'}
+						{layaT(GIFT_PILLARS_I18N.fastCashout)}
 					</div>
 				</div>
 
@@ -145,7 +143,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 				>
 					<div class="flex items-center justify-between mb-1.5">
 						<span class="text-[9px] sm:text-[10px] uppercase font-black tracking-wider text-emerald-400">
-							{isRtl() ? '۳. قیمت پیشنهادی فروش' : '3. Suggested Ask'}
+							{layaT(GIFT_PILLARS_I18N.suggestedAsk)}
 						</span>
 						<span class="material-symbols-outlined text-emerald-400 text-sm">sell</span>
 					</div>
@@ -157,7 +155,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 						{fmtUsd(pillars().suggested_ask_usd)}
 					</div>
 					<div class="mt-2 text-[8.5px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 inline-block">
-						{isRtl() ? 'لیستینگ بهینه' : 'Optimal Ask'}
+						{layaT(GIFT_PILLARS_I18N.optimalAsk)}
 					</div>
 				</div>
 
@@ -168,7 +166,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 				>
 					<div class="flex items-center justify-between mb-1.5">
 						<span class="text-[9px] sm:text-[10px] uppercase font-black tracking-wider text-teal-400">
-							{isRtl() ? '۴. کف زنده مارکت' : '4. Observed Floor'}
+							{layaT(GIFT_PILLARS_I18N.observedFloor)}
 						</span>
 						<span class="material-symbols-outlined text-teal-400 text-sm">layers</span>
 					</div>
@@ -179,7 +177,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 						{fmtUsd(pillars().observed_floor_usd)}
 					</div>
 					<div class="mt-2 text-[8.5px] text-teal-400 font-bold bg-teal-500/10 px-1.5 py-0.5 rounded border border-teal-500/20 inline-block">
-						{isRtl() ? 'کف واقعی صرافی‌ها' : 'Venue Floor'}
+						{layaT(GIFT_PILLARS_I18N.venueFloor)}
 					</div>
 				</div>
 			</div>
@@ -189,35 +187,27 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 				<div class="p-3 rounded-2xl bg-black/60 border border-white/10 text-[11px] leading-relaxed text-white/80 animate-in fade-in slide-in-from-top-1">
 					<Show when={activeTooltip() === 'fair'}>
 						<strong class="text-[#0098EA] block mb-0.5">
-							{isRtl() ? 'ارزش منصفانه (Fair Value):' : 'Fair Value:'}
+							{layaT(GIFT_PILLARS_I18N.fairValue)}:
 						</strong>
-						{isRtl()
-							? 'برآورد بنیادی بدون حباب ناشی از هیجان بازار. محاسبه‌شده بر اساس میانگین هارمونیک صفات نایاب، تاریخچه فروش‌های محقق‌شده و همبستگی مدل با مارکت کل.'
-							: 'Fundamental equilibrium value free of market FOMO. Derived from harmonic rarity of traits, realized sales, and macroeconomic correlation.'}
+						{layaT(GIFT_PILLARS_I18N.fairTooltip)}
 					</Show>
 					<Show when={activeTooltip() === 'liquidation'}>
 						<strong class="text-amber-400 block mb-0.5">
-							{isRtl() ? 'ارزش نقدشوندگی فوری (Instant Liquidation):' : 'Liquidation Value:'}
+							{layaT(GIFT_PILLARS_I18N.instantLiquidity)}:
 						</strong>
-						{isRtl()
-							? 'مبلغی که در صورت نیاز به پول نقد در همان روز می‌توانید با پذیرش بیست درصد هیرکات به خریداران فوری اوردربوک بفروشید.'
-							: 'The cashout price attainable within minutes on major venue orderbooks by accepting orderbook depth haircuts.'}
+						{layaT(GIFT_PILLARS_I18N.liquidationTooltip)}
 					</Show>
 					<Show when={activeTooltip() === 'ask'}>
 						<strong class="text-emerald-400 block mb-0.5">
-							{isRtl() ? 'قیمت پیشنهادی فروش (Suggested Ask):' : 'Suggested Ask:'}
+							{layaT(GIFT_PILLARS_I18N.suggestedAsk)}:
 						</strong>
-						{isRtl()
-							? 'قیمتی که توصیه می‌کنیم در صرافی لیست کنید تا با کمی صبوری حداکثر سود را با در نظر گرفتن پرمیوم چانه‌زنی به دست آورید.'
-							: 'Optimal listing price recommended on venues, incorporating bargaining premium for patient sellers.'}
+						{layaT(GIFT_PILLARS_I18N.askTooltip)}
 					</Show>
 					<Show when={activeTooltip() === 'floor'}>
 						<strong class="text-teal-400 block mb-0.5">
-							{isRtl() ? 'کف مشاهده‌شده (Observed Floor):' : 'Observed Floor:'}
+							{layaT(GIFT_PILLARS_I18N.observedFloor)}:
 						</strong>
-						{isRtl()
-							? 'پایین‌ترین قیمت لیست‌شده فعال در میان صرافی‌های متصل و تاییدشده (شامل Fragment، Getgems و منابع تلگرام).'
-							: 'Lowest active listing observed across connected and verified venues.'}
+						{layaT(GIFT_PILLARS_I18N.floorTooltip)}
 					</Show>
 				</div>
 			</Show>
@@ -228,9 +218,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 					<span class="text-[10px] uppercase font-black text-white/50 tracking-wider flex items-center gap-1.5">
 						<span class="material-symbols-outlined text-sm text-cyan-400">query_stats</span>
 						<span>
-							{isRtl()
-								? 'آنتروپی اطلاعاتی و کوواریانس کمیابی'
-								: 'Information Entropy & Rarity Covariance'}
+							{layaT(GIFT_PILLARS_I18N.infoEntropyTitle)}
 						</span>
 					</span>
 					<span class="text-[10px] font-black text-amber-300 bg-amber-400/15 px-2 py-0.5 rounded-md border border-amber-400/30">
@@ -242,7 +230,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 					{/* Surprisal Bits */}
 					<div class="p-2.5 rounded-2xl bg-black/40 border border-white/5">
 						<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">
-							{isRtl() ? 'بیت غافلگیری' : 'Surprisal'}
+							{layaT(GIFT_PILLARS_I18N.surprisalBits)}
 						</span>
 						<span class="font-mono font-black text-cyan-400 text-sm">
 							{rarityInfo().surprisal}{' '}
@@ -253,7 +241,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 					{/* Covariance Coupling */}
 					<div class="p-2.5 rounded-2xl bg-black/40 border border-white/5">
 						<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">
-							{isRtl() ? 'کوواریانس تریت' : 'Covariance'}
+							{layaT(GIFT_PILLARS_I18N.traitCovariance)}
 						</span>
 						<span class="font-mono font-black text-teal-400 text-sm">
 							{rarityInfo().covariance}x
@@ -263,7 +251,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 					{/* Harmonic Rarity */}
 					<div class="p-2.5 rounded-2xl bg-black/40 border border-white/5">
 						<span class="text-[9px] text-white/40 uppercase block font-bold mb-0.5">
-							{isRtl() ? 'امتیاز هارمونیک' : 'Harmonic Rarity'}
+							{layaT(GIFT_PILLARS_I18N.harmonicRarity)}
 						</span>
 						<span class="font-mono font-black text-emerald-400 text-sm">
 							{rarityInfo().harmonic}{' '}

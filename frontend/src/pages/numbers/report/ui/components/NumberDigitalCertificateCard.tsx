@@ -1,7 +1,7 @@
 import { type Component, createSignal } from 'solid-js';
 import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
-import { copyToClipboard } from '@/shared/lib/telegram-native.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { copyToClipboard } from '@/shared/lib/telegram-native.js';
 
 interface Props {
 	certificateId?: string;
@@ -13,7 +13,9 @@ interface Props {
 export const NumberDigitalCertificateCard: Component<Props> = (props) => {
 	const [copied, setCopied] = createSignal(false);
 
-	const certId = () => props.certificateId || `CERT-NUM-${(props.number || '').replace(/\D/g, '').slice(-6)}-${Date.now().toString(36).toUpperCase()}`;
+	const certId = () =>
+		props.certificateId ||
+		`CERT-NUM-${(props.number || '').replace(/\D/g, '').slice(-6)}-${Date.now().toString(36).toUpperCase()}`;
 
 	const handleCopy = async () => {
 		try {

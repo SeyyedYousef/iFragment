@@ -347,13 +347,121 @@ func (e *IngestionEngine) syncOneCollection(ctx context.Context, slug string) {
 }
 
 func (e *IngestionEngine) computeArbitrageOpportunities(ctx context.Context, slugs []string) {
-	// RB-P0-001, DEL-P0-001: Zero synthetic arbitrage generation
-	// Real arbitrage opportunities are only computed from genuine live venue_snapshots in database
+	if e.repo == nil || e.repo.DB() == nil || e.repo.DB().Pool == nil {
+		return
+	}
+
+	query := `
+		SELECT s1.model_id, s1.venue, s1.floor_price_gram, s1.venue_fee_pct,
+		       s2.venue, s2.floor_price_gram, s2.venue_fee_pct
+		FROM venue_snapshots s1
+		JOIN venue_snapshots s2 ON s1.model_id = s2.model_id AND s1.venue != s2.venue
+		WHERE s1.floor_price_gram > 0 AND s2.floor_price_gram > s1.floor_price_gram
+	`
+	rows, err := e.repo.DB().Pool.Query(ctx, query)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var modelID, v1, v2 string
+		var p1, fee1, p2, fee2 decimal.Decimal
+		if err := rows.Scan(&modelID, &v1, &p1, &fee1, &v2, &p2, &fee2); err == nil {
+			fee1Factor := decimal.NewFromInt(1).Add(fee1.Div(decimal.NewFromInt(100)))
+			cost := p1.Mul(fee1Factor)
+
+			fee2Factor := decimal.NewFromInt(1).Sub(fee2.Div(decimal.NewFromInt(100)))
+			revenue := p2.Mul(fee2Factor)
+
+			netProfit := revenue.Sub(cost)
+			if netProfit.GreaterThan(decimal.Zero) {
+				roi := netProfit.Div(cost).Mul(decimal.NewFromInt(100)).Round(2)
+				grossSpread := p2.Sub(p1)
+
+				slug := strings.ReplaceAll(modelID, "_", "-")
+				srcURL := getVenueDeepLink(venues.VenueID(v1), slug)
+				tgtURL := getVenueDeepLink(venues.VenueID(v2), slug)
+
+				rec := repository.ArbitrageOpportunityRecord{
+					ModelID:         modelID,
+					SourceVenue:     v1,
+					TargetVenue:     v2,
+					SourceFloorGRAM: p1,
+					TargetFloorGRAM: p2,
+					GrossSpreadGRAM: grossSpread,
+					NetProfitGRAM:   netProfit.Round(2),
+					NetROIPct:       roi,
+					SourceURL:       srcURL,
+					TargetURL:       tgtURL,
+					UpdatedAt:       time.Now().UTC(),
+				}
+				_ = e.repo.UpsertArbitrageOpportunity(ctx, rec)
+			}
+		}
+	}
+}
+
+func getVenueDeepLink(vID venues.VenueID, slug string) string {
+	switch vID {
+	case venues.VenueFragment:
+		return "https://fragment.com/gifts/" + slug
+	case venues.VenueGetgems:
+		return "https://getgems.io/collection/" + slug
+	case venues.VenueMarketApp:
+		return "https://marketapp.ws/gifts/" + slug
+	case venues.VenuePortals:
+		return "https://portals.market/gift/" + slug
+	case venues.VenueTonnel:
+		return "https://t.me/tonnel_gift_bot?start=" + slug
+	case venues.VenueMRKT:
+		return "https://mrkt.tg/gifts/" + slug
+	case venues.VenueTelegramStars:
+		return "https://t.me/nft/" + slug
+	default:
+		return "https://fragment.com/gifts/" + slug
+	}
 }
 
 func (e *IngestionEngine) syncWhaleHolders(ctx context.Context) {
-	// RB-P0-001, DEL-P0-001: Zero synthetic whale wallet generation
-	// Whale analytics must be populated solely from real on-chain indexer events
+	if e.repo == nil || e.repo.DB() == nil || e.repo.DB().Pool == nil {
+		return
+	}
+
+	query := `
+		SELECT buyer_address, COUNT(*) as cnt, COUNT(DISTINCT model_id) as uniq_cols, COALESCE(SUM(sale_price_gram), 0) as tot_val
+		FROM gift_sales
+		WHERE buyer_address IS NOT NULL AND buyer_address != '' AND COALESCE(is_reorged, FALSE) = FALSE
+		GROUP BY buyer_address
+		ORDER BY tot_val DESC
+		LIMIT 25
+	`
+	rows, err := e.repo.DB().Pool.Query(ctx, query)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var addr string
+		var count, uniq int
+		var totVal decimal.Decimal
+		if err := rows.Scan(&addr, &count, &uniq, &totVal); err == nil {
+			label := addr
+			if len(addr) > 10 {
+				label = fmt.Sprintf("%s...%s", addr[:4], addr[len(addr)-4:])
+			}
+			_ = e.repo.UpsertWhaleWallet(ctx, repository.WhaleWalletRecord{
+				WalletAddress:     addr,
+				Label:             label,
+				GiftsCount:        count,
+				UniqueCollections: uniq,
+				TotalEstValueGRAM: totVal,
+				TopAssetName:      "Telegram Gift",
+				LastActiveAt:      time.Now().UTC(),
+			})
+		}
+	}
 }
 
 func round(val float64) float64 {

@@ -381,19 +381,17 @@ export const numbersApi = {
 		return data;
 	},
 
-	getPatternAnalytics: async (): Promise<
-		import('../model/types.js').NumberPatternAnalytics[]
-	> => {
-		const { data } = await apiClient.get<
-			import('../model/types.js').NumberPatternAnalytics[]
-		>('/numbers/patterns');
+	getPatternAnalytics: async (): Promise<import('../model/types.js').NumberPatternAnalytics[]> => {
+		const { data } =
+			await apiClient.get<import('../model/types.js').NumberPatternAnalytics[]>(
+				'/numbers/patterns',
+			);
 		return data;
 	},
 
 	getColors: async (): Promise<import('../model/types.js').NFTColorInfo[]> => {
-		const { data } = await apiClient.get<import('../model/types.js').NFTColorInfo[]>('/numbers/colors');
+		const { data } =
+			await apiClient.get<import('../model/types.js').NFTColorInfo[]>('/numbers/colors');
 		return data;
 	},
 };
-
-

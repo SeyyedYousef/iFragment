@@ -38,7 +38,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 		if (raw.length === 0) {
 			// If no time series history yet, fallback to single live point if current market cap exists
 			const curUsd = mcapUsd();
-			const curGram = mcapGram() > 0 ? mcapGram() : (tonRate() > 0 ? curUsd / tonRate() : 0);
+			const curGram = mcapGram() > 0 ? mcapGram() : tonRate() > 0 ? curUsd / tonRate() : 0;
 			if (curUsd > 0) {
 				return [
 					{
@@ -47,7 +47,8 @@ export const GiftsChartView: Component<Props> = (props) => {
 						mcapUsd: curUsd,
 						mcapGram: curGram,
 						volumeUsd: volumeUsd(),
-						volumeGram: volumeGram() > 0 ? volumeGram() : (tonRate() > 0 ? volumeUsd() / tonRate() : 0),
+						volumeGram:
+							volumeGram() > 0 ? volumeGram() : tonRate() > 0 ? volumeUsd() / tonRate() : 0,
 					},
 				];
 			}
@@ -224,14 +225,16 @@ export const GiftsChartView: Component<Props> = (props) => {
 									}`}
 								/>
 								<span>
-									{props.intel?.data_status
-										? props.intel.data_status.toUpperCase()
-										: 'SNAPSHOT'}
+									{props.intel?.data_status ? props.intel.data_status.toUpperCase() : 'SNAPSHOT'}
 								</span>
 							</span>
 							<Show when={props.intel?.updated_at}>
 								<span class="text-[9px] text-white/40 font-mono">
-									as of {new Date(props.intel!.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+									as of{' '}
+									{new Date(props.intel!.updated_at).toLocaleTimeString([], {
+										hour: '2-digit',
+										minute: '2-digit',
+									})}
 								</span>
 							</Show>
 						</div>
@@ -240,8 +243,12 @@ export const GiftsChartView: Component<Props> = (props) => {
 								{formatVal(
 									currentPoint()?.value ||
 										(chartCurrency() === 'gram'
-											? (mcapGram() > 0 ? mcapGram() : (tonRate() > 0 ? mcapUsd() / tonRate() : 0))
-											: mcapUsd())
+											? mcapGram() > 0
+												? mcapGram()
+												: tonRate() > 0
+													? mcapUsd() / tonRate()
+													: 0
+											: mcapUsd()),
 								)}
 							</span>
 							<Show when={deltaPercent() !== 0}>
@@ -263,8 +270,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 								<strong class="text-white/80">
 									{formatVol(
 										chartCurrency() === 'gram'
-											? (currentPoint()?.volumeGram || (volumeGram() > 0 ? volumeGram() : (tonRate() > 0 ? volumeUsd() / tonRate() : 0)))
-											: (currentPoint()?.volumeUsd || volumeUsd())
+											? currentPoint()?.volumeGram ||
+													(volumeGram() > 0
+														? volumeGram()
+														: tonRate() > 0
+															? volumeUsd() / tonRate()
+															: 0)
+											: currentPoint()?.volumeUsd || volumeUsd(),
 									)}
 								</strong>
 							</span>
@@ -563,7 +575,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 												>
 													<span>{item.name}</span>
 													<Show when={item.has_real_volume_badge}>
-														<span class="material-symbols-outlined text-[12px] text-emerald-400" title="Verified Volume in 7d">
+														<span
+															class="material-symbols-outlined text-[12px] text-emerald-400"
+															title="Verified Volume in 7d"
+														>
 															verified
 														</span>
 													</Show>
@@ -626,9 +641,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 						<div>
 							<div class="font-bold text-white flex items-center gap-1.5">
 								<span>Fragment</span>
-								<span class="text-[9px] text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">On-Chain</span>
+								<span class="text-[9px] text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">
+									On-Chain
+								</span>
 							</div>
-							<div class="text-[10px] text-white/40 font-mono mt-0.5">Custody: Smart Contract (TEP-62)</div>
+							<div class="text-[10px] text-white/40 font-mono mt-0.5">
+								Custody: Smart Contract (TEP-62)
+							</div>
 						</div>
 						<span class="text-[10px] text-emerald-400 font-mono font-bold">Connected</span>
 					</div>
@@ -637,9 +656,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 						<div>
 							<div class="font-bold text-white flex items-center gap-1.5">
 								<span>Getgems</span>
-								<span class="text-[9px] text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">On-Chain</span>
+								<span class="text-[9px] text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">
+									On-Chain
+								</span>
 							</div>
-							<div class="text-[10px] text-white/40 font-mono mt-0.5">Custody: Non-Custodial Marketplace</div>
+							<div class="text-[10px] text-white/40 font-mono mt-0.5">
+								Custody: Non-Custodial Marketplace
+							</div>
 						</div>
 						<span class="text-[10px] text-emerald-400 font-mono font-bold">Connected</span>
 					</div>
@@ -648,9 +671,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 						<div>
 							<div class="font-bold text-white/50 flex items-center gap-1.5">
 								<span>Portals / Tonnel / MRKT</span>
-								<span class="text-[9px] text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">Mini App</span>
+								<span class="text-[9px] text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+									Mini App
+								</span>
 							</div>
-							<div class="text-[10px] text-white/30 font-mono mt-0.5">Custody: Telegram Escrow / App</div>
+							<div class="text-[10px] text-white/30 font-mono mt-0.5">
+								Custody: Telegram Escrow / App
+							</div>
 						</div>
 						<span class="text-[10px] text-white/40 font-mono">Adapter Inactive</span>
 					</div>
@@ -659,9 +686,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 						<div>
 							<div class="font-bold text-white flex items-center gap-1.5">
 								<span>Telegram Internal</span>
-								<span class="text-[9px] text-purple-400 bg-purple-500/10 px-1.5 py-0.2 rounded border border-purple-500/20">Native</span>
+								<span class="text-[9px] text-purple-400 bg-purple-500/10 px-1.5 py-0.2 rounded border border-purple-500/20">
+									Native
+								</span>
 							</div>
-							<div class="text-[10px] text-white/40 font-mono mt-0.5">Custody: Telegram MTProto Profile</div>
+							<div class="text-[10px] text-white/40 font-mono mt-0.5">
+								Custody: Telegram MTProto Profile
+							</div>
 						</div>
 						<span class="text-[10px] text-emerald-400 font-mono font-bold">Connected</span>
 					</div>
@@ -675,8 +706,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 					<span>متدولوژی و شفافیت داده‌ها (Methodology & Provenance)</span>
 				</div>
 				<p class="text-white/40 text-[10px] leading-relaxed">
-					ارزش بازار تخمینی (Implied Market Cap) بر اساس ضرب پایین‌ترین کف قیمت معتبر در عرضه کل کاتالوگ محاسبه شده و نشان‌دهنده نقدشوندگی کل نیست.
-					ارقام حجم معاملات صرفاً معاملات تاییدشده بدون reorg را لحاظ می‌کنند و نقل و انتقالات عادی (Transfer) به عنوان معامله ثبت نمی‌شوند.
+					ارزش بازار تخمینی (Implied Market Cap) بر اساس ضرب پایین‌ترین کف قیمت معتبر در عرضه کل
+					کاتالوگ محاسبه شده و نشان‌دهنده نقدشوندگی کل نیست. ارقام حجم معاملات صرفاً معاملات تاییدشده
+					بدون reorg را لحاظ می‌کنند و نقل و انتقالات عادی (Transfer) به عنوان معامله ثبت نمی‌شوند.
 				</p>
 			</div>
 		</div>

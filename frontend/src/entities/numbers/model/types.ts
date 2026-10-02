@@ -606,5 +606,3 @@ export interface NFTColorInfo {
 	multiplier: number;
 	description: string;
 }
-
-

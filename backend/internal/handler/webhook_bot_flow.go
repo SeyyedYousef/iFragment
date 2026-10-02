@@ -19,6 +19,7 @@ import (
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/cardgen"
 	"ifragment-backend/internal/service/gifts/gvengine"
+	"ifragment-backend/internal/service/gifts/telegramnft"
 	"ifragment-backend/internal/service/gifts/traits"
 	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/numbers/features"
@@ -1162,10 +1163,144 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 	costCoins := config.Economics.CreditsCoinsPerCredit
 	formattedCost := formatNumberWithCommas(costCoins)
 
+	var giftGate *gvengine.CuriosityGateResponse
+	if assetType == "gift" && h.giftsService != nil {
+		if gRes, err := h.giftsService.GetCuriosityGate(ctx, entity); err == nil && gRes != nil {
+			giftGate = gRes
+			entityDisplay = fmt.Sprintf("%s #%d", gRes.ModelName, gRes.SerialNumber)
+		}
+	}
+
 	var defaultGateText string
-	switch lang {
-	case "fa":
-		defaultGateText = `🔍 <b>تحلیل اولیه دارایی شناسایی شد</b>
+	if giftGate != nil {
+		switch normalizeLang(lang) {
+		case "fa":
+			defaultGateText = fmt.Sprintf(`🎁 <b>تحلیل اولیه گیفت: %s #%d</b>
+
+💎 مدل کلکسیونی: <b>%s</b>
+🌊 کف مشاهده‌شده بازار (Floor): <b>~%.1f TON ($%.0f)</b>
+📊 سیگنال‌های پایش‌شده: <b>%d سیگنال بازار و بلاکچین</b>
+
+━━━━━━━━━━━━━━━━━━━
+🪙 <b>موجودی سکه ایردراپ:</b> <code>{coins}</code>
+⚡ <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code>
+━━━━━━━━━━━━━━━━━━━
+
+🔐 <b>در گزارش تحلیلی عمیق این گیفت چه مواردی می‌بینید؟</b>
+• ارزش‌گذاری منصفانه با مدل هدانیک کوانتومی (Fair Value)
+• تفکیک ژنتیکی صفات (Model, Backdrop 4-Hex, Symbol) و درصد نایابی
+• ارزش نقدشوندگی فوری (Liquidation) و پیشنهاد بهینه فروش (Ask)
+• مقایسه معاملات قطعی اخیر در فرگمنت و تلگرام
+• سرتیفیکیت رمزنگاری‌شده و تحلیل برابری Stars
+
+هزینه باز کردن گزارش کامل: <b>۱ کریدت تحلیلی</b>`,
+				telegram.EscapeHTML(giftGate.ModelName), giftGate.SerialNumber,
+				telegram.EscapeHTML(giftGate.SelectedModel),
+				giftGate.FloorPriceGRAM, giftGate.FloorPriceUSD,
+				giftGate.SignalsAnalyzed,
+			)
+		case "ru":
+			defaultGateText = fmt.Sprintf(`🎁 <b>Предварительный анализ подарка: %s #%d</b>
+
+💎 Модель: <b>%s</b>
+🌊 Floor-цена на рынке: <b>~%.1f TON ($%.0f)</b>
+📊 Отслеживаемых сигналов: <b>%d он-чейн и рыночных сигналов</b>
+
+━━━━━━━━━━━━━━━━━━━
+🪙 <b>Баланс Airdrop монет:</b> <code>{coins}</code>
+⚡ <b>Доступно кредитов (Intel Credits):</b> <code>{credits}</code>
+━━━━━━━━━━━━━━━━━━━
+
+🔐 <b>Что входит в детальный отчет?</b>
+• Справедливая оценка по квантово-гедонической модели (Fair Value)
+• Генетический расклад атрибутов (Model, Backdrop, Symbol) и их редкость
+• Ликвидационная стоимость и оптимальный Ask
+• Сравнение с реальными сделками на Fragment и в Telegram
+• Криптографический сертификат подлинности
+
+Стоимость открытия полного отчета: <b>1 Intel Credit</b>`,
+				telegram.EscapeHTML(giftGate.ModelName), giftGate.SerialNumber,
+				telegram.EscapeHTML(giftGate.SelectedModel),
+				giftGate.FloorPriceGRAM, giftGate.FloorPriceUSD,
+				giftGate.SignalsAnalyzed,
+			)
+		case "zh":
+			defaultGateText = fmt.Sprintf(`🎁 <b>Telegram 礼物初探分析: %s #%d</b>
+
+💎 藏品模型: <b>%s</b>
+🌊 当前市场底价 (Floor): <b>~%.1f TON ($%.0f)</b>
+📊 监控数据维度: <b>%d 项链上与市场信号</b>
+
+━━━━━━━━━━━━━━━━━━━
+🪙 <b>空投代币余额:</b> <code>{coins}</code>
+⚡ <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
+━━━━━━━━━━━━━━━━━━━
+
+🔐 <b>深度专业分析报告包含内容:</b>
+• 基于量子特征定价模型的公允估值 (Fair Value)
+• 基因特征稀缺度详测 (Model, Backdrop 4-Hex, Symbol)
+• 即时清算底价与最佳挂单建议 (Ask)
+• Fragment 与 Telegram 链上撮合成交对比
+• 防伪加密认证证书
+
+解锁完整深度报告仅需: <b>1 个分析信用点</b>`,
+				telegram.EscapeHTML(giftGate.ModelName), giftGate.SerialNumber,
+				telegram.EscapeHTML(giftGate.SelectedModel),
+				giftGate.FloorPriceGRAM, giftGate.FloorPriceUSD,
+				giftGate.SignalsAnalyzed,
+			)
+		default:
+			defaultGateText = fmt.Sprintf(`🎁 <b>Telegram Gift Preliminary Intel: %s #%d</b>
+
+💎 Collectible Model: <b>%s</b>
+🌊 Observed Market Floor: <b>~%.1f TON ($%.0f)</b>
+📊 Analyzed Signals: <b>%d on-chain & market signals</b>
+
+━━━━━━━━━━━━━━━━━━━
+🪙 <b>Airdrop Coins Balance:</b> <code>{coins}</code>
+⚡ <b>Intel Credits Available:</b> <code>{credits}</code>
+━━━━━━━━━━━━━━━━━━━
+
+🔐 <b>What's inside the deep intelligence report?</b>
+• Fair value appraisal via Quantum-Hedonic model
+• Trait DNA breakdown (Model, Backdrop 4-Hex, Symbol) & rarity
+• Instant liquidation value & optimal ask recommendation
+• Recent verified comparable on-chain sales
+• Cryptographic verification certificate
+
+Unlock full report cost: <b>1 Intel Credit</b>`,
+				telegram.EscapeHTML(giftGate.ModelName), giftGate.SerialNumber,
+				telegram.EscapeHTML(giftGate.SelectedModel),
+				giftGate.FloorPriceGRAM, giftGate.FloorPriceUSD,
+				giftGate.SignalsAnalyzed,
+			)
+		}
+		switch normalizeLang(lang) {
+		case "ru":
+			btnUnlock = "🔓 Открыть отчет (1 кредит)"
+			btnExchange = fmt.Sprintf("🔄 Обменять %s монет на 1 кредит", formattedCost)
+			btnStars = "⭐ Купить кредиты за Stars"
+			btnBack = "🔙 Назад"
+		case "zh":
+			btnUnlock = "🔓 解锁专业分析报告 (1 信用点)"
+			btnExchange = fmt.Sprintf("🔄 兑换 %s 代币为 1 信用点", formattedCost)
+			btnStars = "⭐ 使用 Stars 购买信用点"
+			btnBack = "🔙 返回"
+		case "en":
+			btnUnlock = "🔓 Unlock Full Report (1 Credit)"
+			btnExchange = fmt.Sprintf("🔄 Exchange %s Coins for 1 Credit", formattedCost)
+			btnStars = "⭐ Buy Credits with Stars"
+			btnBack = "🔙 Back"
+		default: // "fa"
+			btnUnlock = "🔓 مشاهده گزارش تحلیلی (۱ کریدت)"
+			btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به ۱ کریدت", formattedCost)
+			btnStars = "⭐ خرید کریدت با Stars"
+			btnBack = "🔙 بازگشت"
+		}
+	} else {
+		switch lang {
+		case "fa":
+			defaultGateText = `🔍 <b>تحلیل اولیه دارایی شناسایی شد</b>
 
 دارایی: <b>{type}</b>
 شناسه / مقدار: <code>{entity}</code>
@@ -1182,13 +1317,13 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 • شاخص نقدشوندگی و کشش تقاضا در بازار
 
 هزینه باز کردن گزارش کامل: <b>۱ کریدت تحلیلی</b>`
-		btnUnlock = "🔓 مشاهده گزارش تحلیلی (۱ کریدت)"
-		btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به ۱ کریدت", formattedCost)
-		btnStars = "⭐ خرید کریدت با Stars"
-		btnBack = "🔙 بازگشت"
+			btnUnlock = "🔓 مشاهده گزارش تحلیلی (۱ کریدت)"
+			btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به ۱ کریدت", formattedCost)
+			btnStars = "⭐ خرید کریدت با Stars"
+			btnBack = "🔙 بازگشت"
 
-	case "ar":
-		defaultGateText = `🔍 <b>تم التعرف على الأصل وجاهز للتقييم</b>
+		case "ar":
+			defaultGateText = `🔍 <b>تم التعرف على الأصل وجاهز للتقييم</b>
 
 فئة الأصل: <b>{type}</b>
 المعرف: <code>{entity}</code>
@@ -1205,13 +1340,13 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 • مؤشرات السيولة وسرعة التداول المتوقعة
 
 تكلفة فتح التقرير الكامل: <b>رصيد تحليل واحد (1 Credit)</b>`
-		btnUnlock = "🔓 فتح التقرير الكامل (1 رصيد)"
-		btnExchange = fmt.Sprintf("🔄 تحويل %s عملة إلى 1 رصيد", formattedCost)
-		btnStars = "⭐ شراء أرصدة عبر Stars"
-		btnBack = "🔙 رجوع"
+			btnUnlock = "🔓 فتح التقرير الكامل (1 رصيد)"
+			btnExchange = fmt.Sprintf("🔄 تحويل %s عملة إلى 1 رصيد", formattedCost)
+			btnStars = "⭐ شراء أرصدة عبر Stars"
+			btnBack = "🔙 رجوع"
 
-	case "ru":
-		defaultGateText = `🔍 <b>Актив успешно распознан для анализа</b>
+		case "ru":
+			defaultGateText = `🔍 <b>Актив успешно распознан для анализа</b>
 
 Категория: <b>{type}</b>
 Идентификатор: <code>{entity}</code>
@@ -1228,13 +1363,13 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 • Метрики ликвидности и расчетное время продажи
 
 Стоимость открытия полного отчета: <b>1 Intel Credit</b>`
-		btnUnlock = "🔓 Открыть отчет (1 кредит)"
-		btnExchange = fmt.Sprintf("🔄 Обменять %s монет на 1 кредит", formattedCost)
-		btnStars = "⭐ Купить кредиты за Stars"
-		btnBack = "🔙 Назад"
+			btnUnlock = "🔓 Открыть отчет (1 кредит)"
+			btnExchange = fmt.Sprintf("🔄 Обменять %s монет на 1 кредит", formattedCost)
+			btnStars = "⭐ Купить кредиты за Stars"
+			btnBack = "🔙 Назад"
 
-	case "zh":
-		defaultGateText = `🔍 <b>已成功识别资产并准备评估</b>
+		case "zh":
+			defaultGateText = `🔍 <b>已成功识别资产并准备评估</b>
 
 资产类别: <b>{type}</b>
 目标标识: <code>{entity}</code>
@@ -1251,13 +1386,13 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 • 市场流动性评级与预估出售周期
 
 解锁完整深度报告仅需: <b>1 个分析信用点</b>`
-		btnUnlock = "🔓 解锁专业分析报告 (1 信用点)"
-		btnExchange = fmt.Sprintf("🔄 兑换 %s 代币为 1 信用点", formattedCost)
-		btnStars = "⭐ 使用 Stars 购买信用点"
-		btnBack = "🔙 返回"
+			btnUnlock = "🔓 解锁专业分析报告 (1 信用点)"
+			btnExchange = fmt.Sprintf("🔄 兑换 %s 代币为 1 信用点", formattedCost)
+			btnStars = "⭐ 使用 Stars 购买信用点"
+			btnBack = "🔙 返回"
 
-	default:
-		defaultGateText = `🔍 <b>Asset Identified for Deep Intelligence</b>
+		default:
+			defaultGateText = `🔍 <b>Asset Identified for Deep Intelligence</b>
 
 Asset Class: <b>{type}</b>
 Identifier: <code>{entity}</code>
@@ -1274,13 +1409,17 @@ Identifier: <code>{entity}</code>
 • Liquidity velocity & expected turnaround time
 
 Unlock full report cost: <b>1 Intel Credit</b>`
-		btnUnlock = "🔓 Unlock Full Report (1 Credit)"
-		btnExchange = fmt.Sprintf("🔄 Exchange %s Coins for 1 Credit", formattedCost)
-		btnStars = "⭐ Buy Credits with Stars"
-		btnBack = "🔙 Back"
+			btnUnlock = "🔓 Unlock Full Report (1 Credit)"
+			btnExchange = fmt.Sprintf("🔄 Exchange %s Coins for 1 Credit", formattedCost)
+			btnStars = "⭐ Buy Credits with Stars"
+			btnBack = "🔙 Back"
+		}
 	}
 
-	rawGate := h.resolveText(ctx, "precheck_gate", lang, defaultGateText)
+	rawGate := defaultGateText
+	if giftGate == nil {
+		rawGate = h.resolveText(ctx, "precheck_gate", lang, defaultGateText)
+	}
 	gateText = strings.ReplaceAll(rawGate, "{type}", assetName)
 	gateText = strings.ReplaceAll(gateText, "{entity}", telegram.EscapeHTML(entityDisplay))
 	gateText = strings.ReplaceAll(gateText, "{coins}", formatNumberWithCommas(int(airdropCoins)))
@@ -1296,33 +1435,57 @@ Unlock full report cost: <b>1 Intel Credit</b>`
 	exchangeCallback := fmt.Sprintf("exchange:%s:%s", assetType, entity)
 	starsCallback := fmt.Sprintf("stars_pack:%s:%s", assetType, entity)
 
-	markup := map[string]interface{}{
-		"inline_keyboard": [][]map[string]interface{}{
+	keyboard := [][]map[string]interface{}{
+		{
 			{
-				{
-					"text":          btnUnlock,
-					"callback_data": unlockCallback,
-				},
-			},
-			{
-				{
-					"text":          btnExchange,
-					"callback_data": exchangeCallback,
-				},
-			},
-			{
-				{
-					"text":          btnStars,
-					"callback_data": starsCallback,
-				},
-			},
-			{
-				{
-					"text":          btnBack,
-					"callback_data": "nav:menu",
-				},
+				"text":          btnUnlock,
+				"callback_data": unlockCallback,
 			},
 		},
+	}
+
+	if giftGate != nil {
+		miniAppURL := h.getMiniAppURL(bot)
+		giftAppURL := appendStartParam(miniAppURL, fmt.Sprintf("gift_%s", giftGate.GiftID))
+		pascalName := telegramnft.FormatPascalName(giftGate.ModelID)
+		giftTelegramURL := fmt.Sprintf("https://t.me/nft/%s-%d", pascalName, giftGate.SerialNumber)
+
+		var btnMiniApp, btnTelegram string
+		switch normalizeLang(lang) {
+		case "fa":
+			btnMiniApp = "📊 مشاهده نقشه ژنتیکی در مینی‌اپ"
+			btnTelegram = "🔗 پیوند رسمی در تلگرام"
+		case "ru":
+			btnMiniApp = "📊 Открыть в Mini App"
+			btnTelegram = "🔗 Официальная ссылка"
+		case "zh":
+			btnMiniApp = "📊 在小程序中探索"
+			btnTelegram = "🔗 Telegram 官方链接"
+		default:
+			btnMiniApp = "📊 Explore in Mini App"
+			btnTelegram = "🔗 Official Link on Telegram"
+		}
+
+		keyboard = append(keyboard, []map[string]interface{}{
+			{"text": btnMiniApp, "url": giftAppURL},
+			{"text": btnTelegram, "url": giftTelegramURL},
+		})
+	}
+
+	keyboard = append(keyboard,
+		[]map[string]interface{}{{"text": btnExchange, "callback_data": exchangeCallback}},
+		[]map[string]interface{}{{"text": btnStars, "callback_data": starsCallback}},
+		[]map[string]interface{}{{"text": btnBack, "callback_data": "nav:menu"}},
+	)
+
+	markup := map[string]interface{}{
+		"inline_keyboard": keyboard,
+	}
+
+	if messageID == nil && giftGate != nil && giftGate.ImageURL != "" {
+		if _, err := tg.SendPhotoWithMarkup(ctx, chatID, giftGate.ImageURL, gateText, markup, threadID, "HTML"); err == nil {
+			return
+		}
 	}
 
 	h.sendOrEditMessage(ctx, tg, chatID, messageID, gateText, markup, threadID)
@@ -1965,6 +2128,26 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 					return nil
 				}
 				return errors.New("failed to deliver gift report")
+			}
+		}
+
+		if !photoSent && appraisal.ImageURL != "" && tg != nil {
+			var photoCaption string
+			switch normalizeLang(lang) {
+			case "fa":
+				photoCaption = fmt.Sprintf("🎁 <b>کارت تحلیلی: %s</b>\n💎 رده: <b>%s</b>\n💰 برآورد منصفانه: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+			case "ru":
+				photoCaption = fmt.Sprintf("🎁 <b>Карта оценки подарка: %s</b>\n💎 Класс: <b>%s</b>\n💰 Справедливая цена: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+			case "zh":
+				photoCaption = fmt.Sprintf("🎁 <b>礼物估值卡: %s</b>\n💎 评级: <b>%s</b>\n💰 公允价值: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+			default:
+				photoCaption = fmt.Sprintf("🎁 <b>Gift Valuation Card: %s</b>\n💎 Tier: <b>%s</b>\n💰 Fair Value: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+			}
+			if messageID != nil {
+				_ = tg.DeleteMessage(ctx, chatID, *messageID)
+			}
+			if _, photoErr := tg.SendPhotoWithMarkup(ctx, chatID, appraisal.ImageURL, photoCaption, nil, threadID); photoErr == nil {
+				photoSent = true
 			}
 		}
 

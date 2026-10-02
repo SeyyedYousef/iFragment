@@ -1,6 +1,7 @@
 import { type Component, For } from 'solid-js';
 import type { GiftsIntelResponse } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
+import { GIFTS_MACRO_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	data?: GiftsIntelResponse;
@@ -31,10 +32,10 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 			const rate = props.data?.ton_usd_rate || 0;
 			const u = props.data?.total_market_cap_usd || 0;
 			if (rate > 0 && u > 0) return `${(u / rate / 1_000_000).toFixed(1)}M TON`;
-			return 'پایش زنده';
+			return layaT(GIFTS_MACRO_I18N.liveMonitoring);
 		}
 		const u = props.data?.total_market_cap_usd;
-		if (!u || u <= 0) return 'پایش زنده';
+		if (!u || u <= 0) return layaT(GIFTS_MACRO_I18N.liveMonitoring);
 		return `$${(u / 1_000_000).toFixed(1)}M`;
 	};
 
@@ -45,16 +46,16 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 			const rate = props.data?.ton_usd_rate || 0;
 			const u = props.data?.total_cumulative_volume_usd || 0;
 			if (rate > 0 && u > 0) return `${(u / rate / 1_000_000).toFixed(1)}M TON`;
-			return 'پایش زنده';
+			return layaT(GIFTS_MACRO_I18N.liveMonitoring);
 		}
 		const u = props.data?.total_cumulative_volume_usd;
-		if (!u || u <= 0) return 'پایش زنده';
+		if (!u || u <= 0) return layaT(GIFTS_MACRO_I18N.liveMonitoring);
 		return `$${(u / 1_000_000).toFixed(1)}M`;
 	};
 
 	const macroSections = (): MacroSection[] => [
 		{
-			title: 'دارایی‌ها و متادیتا (Supply & Assets)',
+			title: layaT(GIFTS_MACRO_I18N.supplyAndAssets),
 			badge: 'api.changes.tg',
 			items: [
 				{
@@ -62,7 +63,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					value:
 						props.data?.total_gifts_minted && props.data.total_gifts_minted > 0
 							? props.data.total_gifts_minted.toLocaleString()
-							: '۱۵۱',
+							: '151',
 					sub: 'Official Catalog Registry',
 					icon: 'inventory_2',
 				},
@@ -71,7 +72,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					value:
 						props.data?.macro_stats?.upgradable_gifts && props.data.macro_stats.upgradable_gifts > 0
 							? props.data.macro_stats.upgradable_gifts.toLocaleString()
-							: '۱۲۰',
+							: '120',
 					sub: 'TEP-62 Standard',
 					icon: 'auto_awesome',
 				},
@@ -79,7 +80,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					label: t('gifts.uniqueModelsCount') || 'Unique 3D Models',
 					value: props.data?.macro_stats?.total_unique_models
 						? props.data.macro_stats.total_unique_models.toLocaleString()
-						: '۷,۵۷۶',
+						: '7,576',
 					sub: 'High-Poly Renderings',
 					icon: 'view_in_ar',
 				},
@@ -88,7 +89,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					value:
 						props.data?.macro_stats?.total_backdrops && props.data.macro_stats.total_backdrops > 0
 							? props.data.macro_stats.total_backdrops.toLocaleString()
-							: '۸۰',
+							: '80',
 					sub: 'Metallic & Gradient',
 					icon: 'palette',
 				},
@@ -96,7 +97,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					label: t('gifts.patternsCount') || 'Symbols & Textures',
 					value: props.data?.macro_stats?.total_patterns
 						? props.data.macro_stats.total_patterns.toLocaleString()
-						: '۲۵,۳۷۳',
+						: '25,373',
 					sub: 'Pattern DNA',
 					icon: 'texture',
 				},
@@ -105,16 +106,16 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					value:
 						props.data?.total_circulating_gifts && props.data.total_circulating_gifts > 0
 							? props.data.total_circulating_gifts.toLocaleString()
-							: (props.data?.total_gifts_minted && props.data.total_gifts_minted > 0
+							: props.data?.total_gifts_minted && props.data.total_gifts_minted > 0
 								? props.data.total_gifts_minted.toLocaleString()
-								: 'پایش زنده'),
+								: layaT(GIFTS_MACRO_I18N.liveMonitoring),
 					sub: 'Circulating on TON',
 					icon: 'layers',
 				},
 			],
 		},
 		{
-			title: 'اقتصاد و بازار (Market Economics)',
+			title: layaT(GIFTS_MACRO_I18N.marketEconomicsSection),
 			badge: 'Market Telemetry',
 			items: [
 				{
@@ -136,7 +137,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					value:
 						props.data?.total_active_wallets && props.data.total_active_wallets > 0
 							? props.data.total_active_wallets.toLocaleString()
-							: 'پایش زنده',
+							: layaT(GIFTS_MACRO_I18N.liveMonitoring),
 					sub: 'Monthly Active',
 					icon: 'wallet',
 				},
@@ -145,7 +146,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					value:
 						props.data?.total_holder_users && props.data.total_holder_users > 0
 							? `${(props.data.total_holder_users / 1_000_000).toFixed(2)}M+`
-							: 'پایش زنده',
+							: layaT(GIFTS_MACRO_I18N.liveMonitoring),
 					sub: 'Telegram & Non-Custodial',
 					icon: 'group',
 				},

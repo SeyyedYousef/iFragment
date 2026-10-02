@@ -1,5 +1,5 @@
 import { type Component, createMemo, For, Show } from 'solid-js';
-import { layaT, GIFTS_I18N } from '@/shared/i18n/laya-i18n.js';
+import { GIFTS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	expectedTon: number;
@@ -140,20 +140,18 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 							{layaT(GIFTS_I18N.optimalVenue)}
 						</span>
 					</div>
-					<span class="text-sm font-black text-white">
-						{bestVenue()?.name}
-					</span>
+					<span class="text-sm font-black text-white">{bestVenue()?.name}</span>
 					<span class="text-[10px] text-white/50 font-mono">
 						{bestVenue()?.feePct}% · -{fmt(bestVenue()?.totalCostTon || 0)} TON
 					</span>
 				</div>
 
 				<div class="flex flex-col items-end font-mono bg-[#050D08] border border-emerald-500/30 px-3.5 py-2 rounded-[16px] shrink-0">
-					<span class="text-[8px] text-white/40 uppercase">
-						{layaT(GIFTS_I18N.netProceeds)}
-					</span>
+					<span class="text-[8px] text-white/40 uppercase">{layaT(GIFTS_I18N.netProceeds)}</span>
 					<div class="flex items-baseline gap-1">
-						<span class="text-[18px] font-black text-emerald-400">{fmt(bestVenue()?.netTon || 0)}</span>
+						<span class="text-[18px] font-black text-emerald-400">
+							{fmt(bestVenue()?.netTon || 0)}
+						</span>
 						<span class="text-[10px] font-bold text-emerald-400">TON</span>
 					</div>
 					<span class="text-[9px] text-white/40">≈ ${bestVenue()?.netUsd}</span>
@@ -164,11 +162,13 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 			<div class="flex flex-col gap-2">
 				<For each={options()}>
 					{(venue) => (
-						<div class={`p-3.5 rounded-[18px] border flex items-center justify-between transition-all ${
-							venue.isRecommended
-								? 'bg-emerald-950/20 border-emerald-500/30'
-								: 'bg-white/[0.02] border-white/5'
-						}`}>
+						<div
+							class={`p-3.5 rounded-[18px] border flex items-center justify-between transition-all ${
+								venue.isRecommended
+									? 'bg-emerald-950/20 border-emerald-500/30'
+									: 'bg-white/[0.02] border-white/5'
+							}`}
+						>
 							<div class="flex flex-col gap-0.5">
 								<div class="flex items-center gap-2">
 									<span class="text-xs font-bold text-white">{venue.name}</span>
@@ -179,7 +179,8 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 									</Show>
 								</div>
 								<span class="text-[9px] font-mono text-white/40">
-									Fee: {venue.feePct}% {venue.minFeeTon > 0 ? `(min ${venue.minFeeTon} TON)` : ''} · Gas: ~{venue.gasTon} TON
+									Fee: {venue.feePct}% {venue.minFeeTon > 0 ? `(min ${venue.minFeeTon} TON)` : ''} ·
+									Gas: ~{venue.gasTon} TON
 								</span>
 							</div>
 

@@ -8,6 +8,7 @@ import { formatLiveNumberInput } from '@/entities/numbers/lib/formatNumber.js';
 import { useUsernameSearch } from '@/entities/username/model/index.js';
 import { getRandomTrending } from '@/entities/username/model/trendingList.js';
 import { type DictPaths, t } from '@/shared/i18n/index.js';
+import { GIFTS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface ActionAreaProps {
@@ -279,8 +280,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 			const subtitle =
 				floorTon > 0
-					? `کف قیمت: ${floorTon.toLocaleString()} TON (≈ $${(floorTon * 3.2).toLocaleString(undefined, { maximumFractionDigits: 0 })}) · تیراژ: ${supply.toLocaleString()} هدیه`
-					: 'آماده ارزیابی AVM و شجره‌نامه آن‌چین';
+					? `${layaT(GIFTS_I18N.floorPricePrefix)}: ${floorTon.toLocaleString()} TON (≈ $${(floorTon * 3.2).toLocaleString(undefined, { maximumFractionDigits: 0 })}) · ${layaT(GIFTS_I18N.supplyLabel)}: ${supply.toLocaleString()} ${layaT(GIFTS_I18N.giftsWord)}`
+					: layaT(GIFTS_I18N.readyToValuate);
 
 			return {
 				isValid: true,
@@ -318,7 +319,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				isWallet: false,
 				isUser: false,
 				title: `${catalogItem.name} #1`,
-				subtitle: `تیراژ: ${catalogItem.supply.toLocaleString()} هدیه · آماده ارزیابی AVM`,
+				subtitle: `${layaT(GIFTS_I18N.supplyLabel)}: ${catalogItem.supply.toLocaleString()} ${layaT(GIFTS_I18N.giftsWord)} · ${layaT(GIFTS_I18N.readyToValuate)}`,
 				slug: `${catalogItem.slug}-1`,
 				serial: 1,
 				emoji: catalogItem.emoji || '🎁',
@@ -734,13 +735,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				return t('numbers.tabPortfolio') || 'Scan Wallet Portfolio';
 			}
 			if (v.isValid) {
-				return 'کشف ارزش و تحلیل آن‌چین';
+				return t('action.collectibles.analyzeBtn');
 			}
 			return t('action.collectibles.analyzeBtn');
 		}
 		if (props.activeTab === 'gifts') {
 			const v = giftsValidation();
-			if (v.isValid && v.title) return `ارزش‌گذاری و تحلیل ${v.title}`;
+			if (v.isValid && v.title) return `${t('action.gifts.analyzeBtn')} · ${v.title}`;
 			return t('action.gifts.analyzeBtn');
 		}
 		if (props.activeTab === 'username') return t('action.username.analyzeMarketBtn');
@@ -1034,7 +1035,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 												} catch {}
 											}}
 											class="px-2.5 py-1 rounded-xl bg-white/[0.05] hover:bg-white/10 border border-white/10 text-white/60 hover:text-white text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95"
-											title="جاگذاری از کلیپ‌بورد"
+											title={t('common.pasteBtn') || 'Paste'}
 										>
 											<span class="material-symbols-outlined text-[14px] text-[#0098EA]">
 												content_paste
@@ -1095,7 +1096,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 											<span class="truncate">{giftsValidation().subtitle}</span>
 											<span class="text-emerald-400 font-bold text-[10px] shrink-0 flex items-center gap-1">
 												<span class="material-symbols-outlined text-[13px]">verified</span>
-												<span>تایید شده</span>
+												<span>{layaT(GIFTS_I18N.verifiedBadge)}</span>
 											</span>
 										</div>
 									</div>
@@ -1401,7 +1402,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							onClick={() => setShowNumberGuide(false)}
 							class="w-full py-3 px-6 rounded-2xl bg-[#0098EA] hover:bg-[#0087d1] text-white font-bold text-xs active:scale-98 transition-all shadow-[0_0_20px_rgba(0,152,234,0.3)]"
 						>
-							{t('common.close') || 'متوجه شدم'}
+							{t('common.close')}
 						</button>
 					</div>
 				</div>

@@ -57,19 +57,52 @@ const DeepLinkHandler = () => {
 
 	createEffect(() => {
 		try {
-			const launchParams = retrieveLaunchParams();
-			const startParam = launchParams.tgWebAppStartParam;
+			let startParam = '';
+			try {
+				const launchParams = retrieveLaunchParams();
+				startParam = launchParams.tgWebAppStartParam || '';
+			} catch {}
+
+			if (!startParam && typeof window !== 'undefined') {
+				const urlParams = new URLSearchParams(window.location.search);
+				startParam =
+					urlParams.get('tgWebAppStartParam') ||
+					urlParams.get('startapp') ||
+					'';
+				if (!startParam && window.location.hash.includes('?')) {
+					const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
+					startParam =
+						hashParams.get('tgWebAppStartParam') ||
+						hashParams.get('startapp') ||
+						'';
+				}
+			}
+
 			if (startParam) {
-				if (startParam.startsWith('username_')) {
+				if (startParam.startsWith('gift_')) {
+					const giftId = startParam.substring(5);
+					if (giftId) navigate(`/gifts/report?g=${encodeURIComponent(giftId)}`, { replace: true });
+				} else if (startParam.startsWith('g_')) {
+					const giftId = startParam.substring(2);
+					if (giftId) navigate(`/gifts/report?g=${encodeURIComponent(giftId)}`, { replace: true });
+				} else if (startParam.startsWith('num_')) {
+					const num = startParam.substring(4);
+					if (num) navigate(`/numbers/report?n=${encodeURIComponent(num)}`, { replace: true });
+				} else if (startParam.startsWith('number_')) {
+					const num = startParam.substring(7);
+					if (num) navigate(`/numbers/report?n=${encodeURIComponent(num)}`, { replace: true });
+				} else if (startParam.startsWith('col_')) {
+					const col = startParam.substring(4);
+					if (col) navigate(`/gifts/collection?c=${encodeURIComponent(col)}`, { replace: true });
+				} else if (startParam.startsWith('collection_')) {
+					const col = startParam.substring(11);
+					if (col) navigate(`/gifts/collection?c=${encodeURIComponent(col)}`, { replace: true });
+				} else if (startParam.startsWith('username_')) {
 					const username = startParam.substring(9);
-					if (username) {
-						navigate(`/username/report?u=${username}`, { replace: true });
-					}
+					if (username) navigate(`/username/report?u=${encodeURIComponent(username)}`, { replace: true });
 				} else if (startParam.startsWith('val_')) {
 					const username = startParam.substring(4);
-					if (username) {
-						navigate(`/username/report?u=${username}`, { replace: true });
-					}
+					if (username) navigate(`/username/report?u=${encodeURIComponent(username)}`, { replace: true });
 				} else if (startParam.startsWith('clan_')) {
 					const clanName = startParam.substring(5);
 					if (clanName) {

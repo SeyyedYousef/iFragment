@@ -52,7 +52,10 @@ export const NumberCulturalRadarHeatmap: Component = () => {
 							>
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-[16px]" style={{ color: reg.color }}>
+										<span
+											class="material-symbols-outlined text-[16px]"
+											style={{ color: reg.color }}
+										>
 											{reg.icon}
 										</span>
 										<span class="text-[11px] font-black text-white font-mono truncate">
@@ -80,7 +83,10 @@ export const NumberCulturalRadarHeatmap: Component = () => {
 			<div class="w-full bg-[#08090D] border border-white/5 rounded-[20px] p-4 flex flex-col gap-3 relative shadow-inner">
 				<div class="flex items-center justify-between border-b border-white/5 pb-2">
 					<div class="flex items-center gap-2">
-						<span class="w-2.5 h-2.5 rounded-full animate-ping" style={{ 'background-color': current().color }} />
+						<span
+							class="w-2.5 h-2.5 rounded-full animate-ping"
+							style={{ 'background-color': current().color }}
+						/>
 						<span class="text-[12px] font-mono font-black text-white">
 							{layaT(current().region)}
 						</span>
@@ -97,9 +103,7 @@ export const NumberCulturalRadarHeatmap: Component = () => {
 				{/* Fav / Avoid Digits & Sample Pattern */}
 				<div class="grid grid-cols-2 gap-2 text-[10px] font-mono pt-1">
 					<div class="bg-white/[0.02] border border-white/5 rounded-[12px] p-2 flex flex-col gap-1">
-						<span class="text-white/40 uppercase">
-							{layaT(NUMBERS_I18N.auspiciousDigits)}
-						</span>
+						<span class="text-white/40 uppercase">{layaT(NUMBERS_I18N.auspiciousDigits)}</span>
 						<div class="flex items-center gap-1">
 							<For each={current().favoriteDigits}>
 								{(d) => (
@@ -112,9 +116,7 @@ export const NumberCulturalRadarHeatmap: Component = () => {
 					</div>
 
 					<div class="bg-white/[0.02] border border-white/5 rounded-[12px] p-2 flex flex-col gap-1">
-						<span class="text-white/40 uppercase">
-							{layaT(NUMBERS_I18N.avoidedDigits)}
-						</span>
+						<span class="text-white/40 uppercase">{layaT(NUMBERS_I18N.avoidedDigits)}</span>
 						<div class="flex items-center gap-1">
 							<Show
 								when={current().avoidDigits.length > 0}

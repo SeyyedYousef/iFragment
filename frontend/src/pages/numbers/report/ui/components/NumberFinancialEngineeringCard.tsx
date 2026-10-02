@@ -1,4 +1,4 @@
-import { type Component } from 'solid-js';
+import type { Component } from 'solid-js';
 import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
@@ -72,9 +72,7 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 						<span class="text-[16px] font-black text-amber-400">-{fmt(feeTon())}</span>
 						<span class="text-[10px] font-bold text-amber-400">TON</span>
 					</div>
-					<span class="text-[9px] font-mono text-white/40">
-						{layaT(NUMBERS_I18N.minFeeNotice)}
-					</span>
+					<span class="text-[9px] font-mono text-white/40">{layaT(NUMBERS_I18N.minFeeNotice)}</span>
 				</div>
 
 				{/* 3. Net Seller Proceeds (Highlighted) */}
@@ -87,9 +85,7 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 							<span class="text-[20px] font-black text-emerald-400">{fmt(netProceedsTon())}</span>
 							<span class="text-[11px] font-bold text-emerald-400">TON</span>
 						</div>
-						<span class="text-[10px] font-mono text-white/50">
-							≈ ${fmt(netProceedsUsd())} USD
-						</span>
+						<span class="text-[10px] font-mono text-white/50">≈ ${fmt(netProceedsUsd())} USD</span>
 					</div>
 
 					<div class="flex flex-col items-end gap-1">
@@ -99,18 +95,14 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 						<span class="text-[12px] font-mono font-black text-white bg-white/5 border border-white/10 px-2 py-0.5 rounded-[8px]">
 							{fmt(maxRationalBidTon())} TON
 						</span>
-						<span class="text-[9px] font-mono text-white/40">
-							≈ ${fmt(maxRationalBidUsd())}
-						</span>
+						<span class="text-[9px] font-mono text-white/40">≈ ${fmt(maxRationalBidUsd())}</span>
 					</div>
 				</div>
 			</div>
 
 			{/* Recommended Start Bid Advice */}
 			<div class="bg-white/[0.02] border border-white/5 rounded-[16px] p-3 flex items-center justify-between text-[10px] font-mono">
-				<span class="text-white/50">
-					{layaT(NUMBERS_I18N.recStartBid)}
-				</span>
+				<span class="text-white/50">{layaT(NUMBERS_I18N.recStartBid)}</span>
 				<span class="text-white font-black bg-white/10 px-2 py-0.5 rounded border border-white/10">
 					{fmt(recStartBidTon())} TON
 				</span>

@@ -1,5 +1,5 @@
 import { type Component, createSignal, For } from 'solid-js';
-import { layaT, NUMBERS_I18N, NUMBER_CLUB_TIERS } from '@/shared/i18n/laya-i18n.js';
+import { layaT, NUMBER_CLUB_TIERS, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {

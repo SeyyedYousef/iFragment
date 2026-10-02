@@ -329,8 +329,7 @@ export const dict = {
 		coins_grind_note:
 			'金币可通过日常任务与挖掘产出。如需立即获取深度估值，可直接使用 Telegram Stars 购买。',
 		plan_utility_title: '1 分析积分 = 1 份深度资产估值报告',
-		plan_utility_desc:
-			'每个分析积分提供对数学估值模型、稀缺度评级及市场流动性信号的完整访问权限。',
+		plan_utility_desc: '每个分析积分提供对数学估值模型、稀缺度评级及市场流动性信号的完整访问权限。',
 		title: {
 			username: '用户名深度情报分析报告',
 			number: '+888 匿名号码深度情报分析报告',

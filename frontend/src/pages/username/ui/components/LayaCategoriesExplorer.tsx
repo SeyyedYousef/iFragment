@@ -1,5 +1,5 @@
 import { type Component, createSignal, For } from 'solid-js';
-import { layaT, USERNAME_I18N, SEMANTIC_CATEGORIES } from '@/shared/i18n/laya-i18n.js';
+import { layaT, SEMANTIC_CATEGORIES, USERNAME_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
@@ -102,9 +102,7 @@ export const LayaCategoriesExplorer: Component<Props> = (props) => {
 
 				{/* Persona Fit Pill */}
 				<div class="flex items-center justify-between text-[10px] font-mono bg-[#08090D] border border-white/5 rounded-[12px] px-3 py-2">
-					<span class="text-white/40">
-						{layaT(USERNAME_I18N.targetBuyerPersona)}
-					</span>
+					<span class="text-white/40">{layaT(USERNAME_I18N.targetBuyerPersona)}</span>
 					<span class="text-amber-400 font-bold truncate max-w-[60%]">
 						{layaT(currentCat().targetPersona)}
 					</span>
@@ -125,7 +123,10 @@ export const LayaCategoriesExplorer: Component<Props> = (props) => {
 								class="p-2.5 rounded-[16px] bg-[#08090D] hover:bg-[#0098EA]/10 border border-white/5 hover:border-[#0098EA]/40 text-start flex flex-col gap-1 transition-all active:scale-[0.97] group cursor-pointer"
 							>
 								<div class="flex items-center justify-between w-full">
-									<span class="text-white font-mono font-black text-[13px] group-hover:text-[#0098EA] transition-colors" dir="ltr">
+									<span
+										class="text-white font-mono font-black text-[13px] group-hover:text-[#0098EA] transition-colors"
+										dir="ltr"
+									>
 										@{item.name}
 									</span>
 									<span class="text-[8px] font-mono text-white/40 bg-white/5 px-1.5 py-0.5 rounded">

@@ -21,6 +21,10 @@ func NewGiftsRepo(db *Database) *GiftsRepo {
 	return &GiftsRepo{db: db}
 }
 
+func (r *GiftsRepo) DB() *Database {
+	return r.db
+}
+
 type GiftReportRecord struct {
 	ReportID        uuid.UUID
 	UserID          int64

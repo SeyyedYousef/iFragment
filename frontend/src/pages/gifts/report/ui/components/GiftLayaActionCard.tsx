@@ -1,5 +1,5 @@
 import { type Component, createMemo } from 'solid-js';
-import { layaT, GIFTS_I18N, type LocalizedText } from '@/shared/i18n/laya-i18n.js';
+import { GIFTS_I18N, type LocalizedText, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	expectedTon: number;
@@ -166,7 +166,8 @@ export const GiftLayaActionCard: Component<Props> = (props) => {
 						color: action().color,
 					}}
 				>
-					{confidence()}{layaT(GIFTS_I18N.actionCertaintySuffix)}
+					{confidence()}
+					{layaT(GIFTS_I18N.actionCertaintySuffix)}
 				</span>
 			</div>
 
@@ -182,31 +183,21 @@ export const GiftLayaActionCard: Component<Props> = (props) => {
 						>
 							{action().type}
 						</span>
-						<span class="text-sm font-black text-white">
-							{layaT(action().badge)}
-						</span>
+						<span class="text-sm font-black text-white">{layaT(action().badge)}</span>
 					</div>
 				</div>
 
-				<p class="text-xs text-white/80 leading-relaxed font-sans">
-					{layaT(action().rationale)}
-				</p>
+				<p class="text-xs text-white/80 leading-relaxed font-sans">{layaT(action().rationale)}</p>
 
 				{/* Two Metrics in Callout */}
 				<div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 font-mono text-[10px]">
 					<div class="flex flex-col">
-						<span class="text-white/40 uppercase">
-							{layaT(GIFTS_I18N.executionHorizon)}
-						</span>
-						<span class="text-white font-bold mt-0.5">
-							{layaT(action().timeframe)}
-						</span>
+						<span class="text-white/40 uppercase">{layaT(GIFTS_I18N.executionHorizon)}</span>
+						<span class="text-white font-bold mt-0.5">{layaT(action().timeframe)}</span>
 					</div>
 
 					<div class="flex flex-col items-end">
-						<span class="text-white/40 uppercase">
-							{layaT(GIFTS_I18N.targetNetRealization)}
-						</span>
+						<span class="text-white/40 uppercase">{layaT(GIFTS_I18N.targetNetRealization)}</span>
 						<div class="flex items-baseline gap-1 mt-0.5">
 							<span class="text-sm font-black" style={{ color: action().color }}>
 								{fmt(action().expectedNetTon)}

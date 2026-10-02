@@ -9,8 +9,18 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 	const tiers = [
 		{ label: 'تک شماره (۱ آیتم)', share: '68.4%', count: '14,650 دارنده', color: 'bg-emerald-500' },
 		{ label: 'کلکسیونر خرد (۲ تا ۵)', share: '21.2%', count: '4,540 دارنده', color: 'bg-cyan-500' },
-		{ label: 'سرمایه‌گذار متوسط (۶ تا ۲۴)', share: '6.8%', count: '1,450 دارنده', color: 'bg-[#0098EA]' },
-		{ label: 'خزانه‌دار بزرگ (۲۵ تا ۵۰)', share: '2.4%', count: '510 دارنده', color: 'bg-indigo-500' },
+		{
+			label: 'سرمایه‌گذار متوسط (۶ تا ۲۴)',
+			share: '6.8%',
+			count: '1,450 دارنده',
+			color: 'bg-[#0098EA]',
+		},
+		{
+			label: 'خزانه‌دار بزرگ (۲۵ تا ۵۰)',
+			share: '2.4%',
+			count: '510 دارنده',
+			color: 'bg-indigo-500',
+		},
 		{ label: 'ابرنهنگ‌ها (+۵۰ شماره)', share: '1.2%', count: '270 دارنده', color: 'bg-amber-500' },
 	];
 
@@ -44,9 +54,7 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 						<span class="text-base font-black text-white font-mono block mt-0.5">
 							{((props.overview?.top50_holder_share_pct || 0.321) * 100).toFixed(1)}%
 						</span>
-						<span class="text-[9px] text-cyan-400 block mt-0.5">
-							حذف قراردادهای اسکرو و مارکت
-						</span>
+						<span class="text-[9px] text-cyan-400 block mt-0.5">حذف قراردادهای اسکرو و مارکت</span>
 					</div>
 				</div>
 			</div>
@@ -89,7 +97,8 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 					<div class="bg-white/[0.02] p-2.5 rounded-xl">
 						<span class="text-white/40 block">خریداران / فروشندگان ۷ روزه</span>
 						<span class="text-xs font-black text-cyan-300 block mt-0.5">
-							{props.overview?.unique_buyers_7d ?? 14} خریدار / {props.overview?.unique_sellers_7d ?? 16} فروشنده
+							{props.overview?.unique_buyers_7d ?? 14} خریدار /{' '}
+							{props.overview?.unique_sellers_7d ?? 16} فروشنده
 						</span>
 						<span class="text-white/30 text-[9px] block">تعادل در عمق خریداران</span>
 					</div>

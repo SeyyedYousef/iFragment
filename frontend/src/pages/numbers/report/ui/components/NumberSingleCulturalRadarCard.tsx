@@ -1,6 +1,6 @@
 import { type Component, For } from 'solid-js';
-import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 import type { CulturalScore } from '@/entities/numbers/model/types.js';
+import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	radar?: CulturalScore[];
@@ -36,7 +36,12 @@ export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 			{ region: 'China / East Asia', score: cn, badge: 'Wealth & 8-Affinity', color: '#ef4444' },
 			{ region: 'Middle East / Arab', score: mena, badge: 'Symmetric VIP Code', color: '#0098EA' },
 			{ region: 'Russia / Eastern Europe', score: ru, badge: 'Telecom Mirror', color: '#10b981' },
-			{ region: 'Western & Web3 Natives', score: west, badge: 'Binary / Minimalist', color: '#f59e0b' },
+			{
+				region: 'Western & Web3 Natives',
+				score: west,
+				badge: 'Binary / Minimalist',
+				color: '#f59e0b',
+			},
 		];
 	};
 
@@ -95,9 +100,7 @@ export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 								/>
 							</div>
 
-							<span class="text-[8px] font-mono text-white/40 truncate">
-								{r.badge}
-							</span>
+							<span class="text-[8px] font-mono text-white/40 truncate">{r.badge}</span>
 						</div>
 					)}
 				</For>

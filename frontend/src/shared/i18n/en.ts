@@ -1013,7 +1013,8 @@ export const dict = {
 	autoTapBot: {
 		claim: 'Claim Mined Coins',
 		collected: 'MINED',
-		description: 'The offline miner was active while you were away. Your mined share is ready to claim.',
+		description:
+			'The offline miner was active while you were away. Your mined share is ready to claim.',
 		miningFor: '12-hour offline mining capacity',
 		title: 'Offline Miner',
 	},
@@ -1198,7 +1199,8 @@ export const dict = {
 	},
 	clan: {
 		joinSquad: 'Join Squad',
-		joinSquadDesc: 'You have been invited to join this squad and pool your mining rewards together.',
+		joinSquadDesc:
+			'You have been invited to join this squad and pool your mining rewards together.',
 		joinSquadInvite: 'Join Squad via Invite Link',
 	},
 	collectionInfo: {

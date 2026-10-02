@@ -1,4 +1,4 @@
-import { type Component } from 'solid-js';
+import type { Component } from 'solid-js';
 import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
@@ -11,7 +11,7 @@ export const NumberDeFiFinancials: Component<Props> = (props) => {
 	const rate = () => props.tonUsdRate || 5.5;
 
 	// Monthly rental yield based on 54% APY
-	const monthlyYieldTon = () => Math.round((floorTon() * 0.54) / 12 * 10) / 10;
+	const monthlyYieldTon = () => Math.round(((floorTon() * 0.54) / 12) * 10) / 10;
 	const monthlyYieldUsd = () => Math.round(monthlyYieldTon() * rate());
 
 	// Max borrowing LTV (60%)
@@ -56,7 +56,9 @@ export const NumberDeFiFinancials: Component<Props> = (props) => {
 					<div class="flex flex-col gap-0.5">
 						<div class="flex items-baseline gap-1.5 font-mono">
 							<span class="text-[22px] font-black text-white">~{monthlyYieldTon()}</span>
-							<span class="text-[12px] font-bold text-emerald-400">TON {layaT(NUMBERS_I18N.perMonth)}</span>
+							<span class="text-[12px] font-bold text-emerald-400">
+								TON {layaT(NUMBERS_I18N.perMonth)}
+							</span>
 						</div>
 						<span class="text-[10px] font-mono text-white/40">
 							≈ ${monthlyYieldUsd()} USD {layaT(NUMBERS_I18N.perMonth)}

@@ -6,13 +6,14 @@ import {
 	numbersApi,
 } from '@/entities/numbers/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { layaT, NUMBER_REPORT_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { CreditStoreSheet, UnifiedPaywallGate, useWallet } from '@/widgets/paywall/index.js';
-import { NumberSingleCulturalRadarCard } from './components/NumberSingleCulturalRadarCard.js';
-import { NumberFinancialEngineeringCard } from './components/NumberFinancialEngineeringCard.js';
 import { NumberDigitalCertificateCard } from './components/NumberDigitalCertificateCard.js';
+import { NumberFinancialEngineeringCard } from './components/NumberFinancialEngineeringCard.js';
+import { NumberSingleCulturalRadarCard } from './components/NumberSingleCulturalRadarCard.js';
 
 interface NumberValidation {
 	isValid: boolean;
@@ -187,7 +188,7 @@ export const NumberReportPage: Component = () => {
 	const wallet = useWallet();
 
 	// Search & Input state
-	const [inputNumber, setInputNumber] = createSignal(searchParams.n || '+888 8888 8888');
+	const [inputNumber, setInputNumber] = createSignal(searchParams.n || searchParams.number || searchParams.num || '+888 8888 8888');
 	const [isAnalyzing, setIsAnalyzing] = createSignal(false);
 	const [analysisStep, setAnalysisStep] = createSignal(0);
 	const [copiedHeroNumber, setCopiedHeroNumber] = createSignal(false);
@@ -581,30 +582,28 @@ export const NumberReportPage: Component = () => {
 							<div class="grid grid-cols-3 gap-2 text-center mb-3.5">
 								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
 									<span class="text-[9px] text-white/40 block mb-0.5">
-										{isRtl() ? 'سیگنال‌ها' : 'Signals'}
+										{layaT(NUMBER_REPORT_I18N.signals)}
 									</span>
 									<span class="text-xs font-black text-cyan-300 font-mono">
-										{gateData()?.signals_analyzed || 27} {isRtl() ? 'مورد' : 'Pts'}
+										{gateData()?.signals_analyzed || 27} {layaT(NUMBER_REPORT_I18N.pts)}
 									</span>
 								</div>
 								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
 									<span class="text-[9px] text-white/40 block mb-0.5">
-										{isRtl() ? 'ریسک آنچین' : 'On-Chain Risk'}
+										{layaT(NUMBER_REPORT_I18N.onChainRisk)}
 									</span>
 									<span class="text-xs font-black text-emerald-400 font-mono">
 										{gateData()?.risks_identified === 0
-											? isRtl()
-												? 'صفر (پاک)'
-												: '0 (Clean)'
+											? layaT(NUMBER_REPORT_I18N.cleanRisk)
 											: `${gateData()?.risks_identified} Warning`}
 									</span>
 								</div>
 								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
 									<span class="text-[9px] text-white/40 block mb-0.5">
-										{isRtl() ? 'منابع تطبیق' : 'Sources'}
+										{layaT(NUMBER_REPORT_I18N.sources)}
 									</span>
 									<span class="text-xs font-black text-amber-300 font-mono">
-										{gateData()?.data_sources_count || 4} {isRtl() ? 'مرجع' : 'APIs'}
+										{gateData()?.data_sources_count || 4} {layaT(NUMBER_REPORT_I18N.apis)}
 									</span>
 								</div>
 							</div>
@@ -629,7 +628,7 @@ export const NumberReportPage: Component = () => {
 									<span class="text-[10px] font-black text-white/90 bg-white/10 px-3 py-1 rounded-full border border-white/20 flex items-center gap-1">
 										<span class="material-symbols-outlined text-xs text-amber-400">lock</span>
 										<span>
-											{isRtl() ? 'بازگشایی با ۱ کریدیت iFragment' : 'Unlock with 1 Credit'}
+											{layaT(NUMBER_REPORT_I18N.unlock1Credit)}
 										</span>
 									</span>
 								</div>
@@ -808,7 +807,10 @@ export const NumberReportPage: Component = () => {
 
 									<div class="flex flex-col items-end gap-1 flex-shrink-0">
 										<Show
-											when={reportData()?.telemint_provenance?.collection_verified && reportData()?.telemint_provenance?.data_status === 'live'}
+											when={
+												reportData()?.telemint_provenance?.collection_verified &&
+												reportData()?.telemint_provenance?.data_status === 'live'
+											}
 											fallback={
 												<div class="flex items-center gap-1.5 bg-amber-500/15 px-2.5 py-1 rounded-[8px] border border-amber-500/40 text-amber-400 font-bold uppercase tracking-wider text-[9px]">
 													<div class="w-1.5 h-1.5 bg-amber-400 rounded-full" />
@@ -888,7 +890,7 @@ export const NumberReportPage: Component = () => {
 								<h3 class="text-xs font-black text-white flex items-center gap-2">
 									<span class="material-symbols-outlined text-[#0098EA] text-base">monitoring</span>
 									<span>
-										{isRtl() ? 'ماتریس ۴ رقمی ارزش‌گذاری هوشمند' : '4-Figure Valuation Matrix'}
+										{layaT(NUMBER_REPORT_I18N.fourFigureMatrix)}
 									</span>
 								</h3>
 								<span
@@ -905,7 +907,7 @@ export const NumberReportPage: Component = () => {
 								<div class="p-3.5 rounded-2xl bg-gradient-to-br from-[#0098EA]/15 via-black/40 to-black/60 border border-[#0098EA]/40 shadow-lg shadow-[#0098EA]/10 flex flex-col justify-between">
 									<div class="flex items-center justify-between mb-1">
 										<span class="text-[9px] uppercase font-black text-[#0098EA]">
-											{isRtl() ? 'ارزش منصفانه (Fair Value)' : 'Fair Value'}
+											{layaT(NUMBER_REPORT_I18N.fairValue)}
 										</span>
 										<span class="w-2 h-2 rounded-full bg-[#0098EA] animate-pulse" />
 									</div>
@@ -922,7 +924,7 @@ export const NumberReportPage: Component = () => {
 								<div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-between">
 									<div class="flex items-center justify-between mb-1">
 										<span class="text-[9px] uppercase font-black text-amber-300">
-											{isRtl() ? 'قیمت پیشنهادی فروش' : 'Suggested Ask (+15%)'}
+											{layaT(NUMBER_REPORT_I18N.suggestedAsk)}
 										</span>
 										<span class="material-symbols-outlined text-xs text-amber-400">sell</span>
 									</div>
@@ -936,7 +938,9 @@ export const NumberReportPage: Component = () => {
 										</Show>
 									</div>
 									<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
-										{reportData()?.suggested_ask_usd ? `≈ ${formatUsd(reportData()?.suggested_ask_usd)}` : '—'}
+										{reportData()?.suggested_ask_usd
+											? `≈ ${formatUsd(reportData()?.suggested_ask_usd)}`
+											: '—'}
 									</span>
 								</div>
 
@@ -944,7 +948,7 @@ export const NumberReportPage: Component = () => {
 								<div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-between">
 									<div class="flex items-center justify-between mb-1">
 										<span class="text-[9px] uppercase font-black text-rose-400">
-											{isRtl() ? 'ارزش نقدشوندگی فوری' : 'Liquidation (-25%)'}
+											{layaT(NUMBER_REPORT_I18N.liquidation)}
 										</span>
 										<span class="material-symbols-outlined text-xs text-rose-400">flash_on</span>
 									</div>
@@ -958,7 +962,9 @@ export const NumberReportPage: Component = () => {
 										</Show>
 									</div>
 									<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
-										{reportData()?.liquidation_usd ? `≈ ${formatUsd(reportData()?.liquidation_usd)}` : '—'}
+										{reportData()?.liquidation_usd
+											? `≈ ${formatUsd(reportData()?.liquidation_usd)}`
+											: '—'}
 									</span>
 								</div>
 
@@ -966,7 +972,7 @@ export const NumberReportPage: Component = () => {
 								<div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-between">
 									<div class="flex items-center justify-between mb-1">
 										<span class="text-[9px] uppercase font-black text-emerald-400">
-											{isRtl() ? 'بازه مجاز نوسان' : 'Uncertainty Band'}
+											{layaT(NUMBER_REPORT_I18N.uncertaintyBand)}
 										</span>
 										<span class="material-symbols-outlined text-xs text-emerald-400">sync_alt</span>
 									</div>
@@ -978,7 +984,7 @@ export const NumberReportPage: Component = () => {
 										<span class="text-[10px] text-emerald-400">TON</span>
 									</div>
 									<span class="text-[9px] text-white/40 mt-0.5">
-										{isRtl() ? 'دامنه انحراف معیار MAD' : 'MAD Sigma Bounds'}
+										{layaT(NUMBER_REPORT_I18N.madSigmaBounds)}
 									</span>
 								</div>
 							</div>
@@ -1039,7 +1045,8 @@ export const NumberReportPage: Component = () => {
 											{t('numbers.uniqueDigitsLabel')}
 										</span>
 										<span class="font-mono font-black text-white text-xs block truncate" dir="ltr">
-											{reportData()?.pattern_anatomy?.distinct_digits ?? '—'} {t('numbers.digitUnit')}
+											{reportData()?.pattern_anatomy?.distinct_digits ?? '—'}{' '}
+											{t('numbers.digitUnit')}
 										</span>
 									</div>
 
@@ -1051,7 +1058,9 @@ export const NumberReportPage: Component = () => {
 											class="font-mono font-black text-emerald-400 text-xs block truncate"
 											dir="ltr"
 										>
-											{reportData()?.pattern_anatomy?.symmetry_score != null ? `${reportData()?.pattern_anatomy?.symmetry_score}%` : '—'}
+											{reportData()?.pattern_anatomy?.symmetry_score != null
+												? `${reportData()?.pattern_anatomy?.symmetry_score}%`
+												: '—'}
 										</span>
 									</div>
 
@@ -1063,7 +1072,9 @@ export const NumberReportPage: Component = () => {
 											class="font-mono font-black text-[#0098EA] text-xs block truncate"
 											dir="ltr"
 										>
-											{reportData()?.pattern_anatomy?.memorability_score != null ? `${reportData()?.pattern_anatomy?.memorability_score} / 100` : '—'}
+											{reportData()?.pattern_anatomy?.memorability_score != null
+												? `${reportData()?.pattern_anatomy?.memorability_score} / 100`
+												: '—'}
 										</span>
 									</div>
 								</div>
@@ -1088,7 +1099,11 @@ export const NumberReportPage: Component = () => {
 									<span>{t('numbers.rentalYieldTitle')}</span>
 								</h3>
 								<span class="text-[9px] uppercase font-mono font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-md">
-									{reportData()?.rental_yield?.est_apy != null ? `~${reportData()?.rental_yield?.est_apy}% APY` : (isRtl() ? 'شبیه‌سازی تحلیلی' : 'Simulation')}
+									{reportData()?.rental_yield?.est_apy != null
+										? `~${reportData()?.rental_yield?.est_apy}% APY`
+										: isRtl()
+											? 'شبیه‌سازی تحلیلی'
+											: 'Simulation'}
 								</span>
 							</div>
 
@@ -1111,7 +1126,9 @@ export const NumberReportPage: Component = () => {
 										{t('numbers.estApyLabel')}
 									</span>
 									<span class="text-base font-mono font-black text-[#0098EA] block">
-										{reportData()?.rental_yield?.est_apy != null ? `~${reportData()?.rental_yield?.est_apy}%` : '—'}
+										{reportData()?.rental_yield?.est_apy != null
+											? `~${reportData()?.rental_yield?.est_apy}%`
+											: '—'}
 									</span>
 								</div>
 							</div>
@@ -1201,19 +1218,25 @@ export const NumberReportPage: Component = () => {
 									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
 										<span class="text-[9px] text-white/40 block mb-0.5">7 Days</span>
 										<span class="text-xs font-black font-mono text-amber-400">
-											{reportData()?.selling_probabilities?.p_7d != null ? `${reportData()?.selling_probabilities?.p_7d}%` : '—'}
+											{reportData()?.selling_probabilities?.p_7d != null
+												? `${reportData()?.selling_probabilities?.p_7d}%`
+												: '—'}
 										</span>
 									</div>
 									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
 										<span class="text-[9px] text-white/40 block mb-0.5">30 Days</span>
 										<span class="text-xs font-black font-mono text-cyan-400">
-											{reportData()?.selling_probabilities?.p_30d != null ? `${reportData()?.selling_probabilities?.p_30d}%` : '—'}
+											{reportData()?.selling_probabilities?.p_30d != null
+												? `${reportData()?.selling_probabilities?.p_30d}%`
+												: '—'}
 										</span>
 									</div>
 									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
 										<span class="text-[9px] text-white/40 block mb-0.5">90 Days</span>
 										<span class="text-xs font-black font-mono text-emerald-400">
-											{reportData()?.selling_probabilities?.p_90d != null ? `${reportData()?.selling_probabilities?.p_90d}%` : '—'}
+											{reportData()?.selling_probabilities?.p_90d != null
+												? `${reportData()?.selling_probabilities?.p_90d}%`
+												: '—'}
 										</span>
 									</div>
 								</div>

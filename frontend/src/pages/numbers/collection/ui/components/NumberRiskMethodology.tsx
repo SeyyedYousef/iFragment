@@ -1,5 +1,8 @@
 import { type Component, For, Show } from 'solid-js';
-import type { CollectionRiskFlag, NumbersInstitutionalCollectionOverview } from '@/entities/numbers/model/types.js';
+import type {
+	CollectionRiskFlag,
+	NumbersInstitutionalCollectionOverview,
+} from '@/entities/numbers/model/types.js';
 
 interface RiskMethodologyProps {
 	overview?: NumbersInstitutionalCollectionOverview;
@@ -42,7 +45,8 @@ export const NumberRiskMethodology: Component<RiskMethodologyProps> = (props) =>
 	const methodologyItems = [
 		{
 			title: '۱. کف قیمت بازار (Floor Ask)',
-			formula: 'MIN(AskPrice) WHERE IsActive = TRUE AND IsInitialized = TRUE AND ContractAddress = Canonical',
+			formula:
+				'MIN(AskPrice) WHERE IsActive = TRUE AND IsInitialized = TRUE AND ContractAddress = Canonical',
 			desc: 'کمترین پیشنهاد فروش فعال و تاییدشده آن‌چین در مارکت‌پلیس‌های رسمی فرگمنت و گت‌جمز. لیستینگ‌های کنسل‌شده یا اسپم فیلتر می‌شوند.',
 		},
 		{
@@ -101,8 +105,8 @@ export const NumberRiskMethodology: Component<RiskMethodologyProps> = (props) =>
 									r.severity === 'warning'
 										? 'bg-amber-500/10 border-amber-500/30'
 										: r.severity === 'alert'
-										? 'bg-rose-500/10 border-rose-500/30'
-										: 'bg-[#0098EA]/10 border-[#0098EA]/30'
+											? 'bg-rose-500/10 border-rose-500/30'
+											: 'bg-[#0098EA]/10 border-[#0098EA]/30'
 								}`}
 							>
 								<div class="flex items-center gap-2 mb-1">
@@ -111,8 +115,8 @@ export const NumberRiskMethodology: Component<RiskMethodologyProps> = (props) =>
 											r.severity === 'warning'
 												? 'text-amber-300'
 												: r.severity === 'alert'
-												? 'text-rose-300'
-												: 'text-[#0098EA]'
+													? 'text-rose-300'
+													: 'text-[#0098EA]'
 										}`}
 									>
 										{r.title}

@@ -86,7 +86,7 @@ export const NumbersChartView: Component<Props> = (props) => {
 			} else if (props.floor?.usd && props.floor?.ton && props.floor.ton > 0) {
 				effectiveRate = props.floor.usd / props.floor.ton;
 			} else {
-				effectiveRate = (props.rate && props.rate > 0) ? props.rate : 0;
+				effectiveRate = props.rate && props.rate > 0 ? props.rate : 0;
 			}
 		}
 

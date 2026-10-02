@@ -1226,7 +1226,7 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 	}
 
 	// Fallback to on-demand Fragment recent sales fetch if DB has none yet
-	if len(salesHistory) == 0 {
+	if len(salesHistory) == 0 && s.repo != nil {
 		fragAdapter := venues.NewFragmentAdapter()
 		fetchCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
 		if fSales, err := fragAdapter.FetchRecentSales(fetchCtx, normSlug); err == nil && len(fSales) > 0 {

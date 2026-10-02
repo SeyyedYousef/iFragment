@@ -6,12 +6,19 @@ import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { CollectionRarityHeatmap } from './CollectionRarityHeatmap.js';
-import { GiftFloorChart } from './GiftFloorChart.js';
 import { GiftArbitrageRadar } from './components/GiftArbitrageRadar.js';
 import { GiftDeltaEHeatmap } from './components/GiftDeltaEHeatmap.js';
 import { GiftWhaleTracker } from './components/GiftWhaleTracker.js';
+import { GiftFloorChart } from './GiftFloorChart.js';
 
-export type CollectionTabKey = 'market' | 'sales' | 'items' | 'attributes' | 'venues' | 'heatmap' | 'laya';
+export type CollectionTabKey =
+	| 'market'
+	| 'sales'
+	| 'items'
+	| 'attributes'
+	| 'venues'
+	| 'heatmap'
+	| 'laya';
 
 export const GiftCollectionPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -512,9 +519,9 @@ export const GiftCollectionPage: Component = () => {
 							<div class="text-base font-black text-white font-mono">
 								{data()?.volume_24h_usd && data()!.volume_24h_usd! > 0
 									? fmtUsd(data()!.volume_24h_usd)
-									: (data()?.volume_24h_gram && data()!.volume_24h_gram > 0
+									: data()?.volume_24h_gram && data()!.volume_24h_gram > 0
 										? `${fmt(data()!.volume_24h_gram, 0)} TON`
-										: 'پایش ۲۴س')}
+										: 'پایش ۲۴س'}
 							</div>
 							<span class="text-[10px] text-white/40 font-mono block mt-0.5">
 								{data()?.volume_24h_gram && data()!.volume_24h_gram > 0
@@ -530,12 +537,14 @@ export const GiftCollectionPage: Component = () => {
 							<div class="text-base font-black text-white font-mono">
 								{data()?.market_cap_usd && data()!.market_cap_usd! > 0
 									? fmtUsd(data()!.market_cap_usd)
-									: (data()?.best_floor_usd && data()?.total_supply
+									: data()?.best_floor_usd && data()?.total_supply
 										? fmtUsd(data()!.best_floor_usd! * data()!.total_supply!)
-										: 'پایش زنده')}
+										: 'پایش زنده'}
 							</div>
 							<span class="text-[10px] text-emerald-400 font-bold block mt-0.5">
-								{data()?.listed_count ? t('gifts.activeItemsCount', { count: data()!.listed_count }) : 'Live Market'}
+								{data()?.listed_count
+									? t('gifts.activeItemsCount', { count: data()!.listed_count })
+									: 'Live Market'}
 							</span>
 						</div>
 					</div>
@@ -795,7 +804,9 @@ export const GiftCollectionPage: Component = () => {
 									<div class="flex flex-col">
 										<div class="flex items-center gap-2">
 											<span class="text-xs font-black text-white">
-												{isRtl() ? 'رادار تصمیم‌گیری هوشمند لایا فعال است' : 'LAYA System 1 Intelligence Active'}
+												{isRtl()
+													? 'رادار تصمیم‌گیری هوشمند لایا فعال است'
+													: 'LAYA System 1 Intelligence Active'}
 											</span>
 											<span class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
 												REAL-TIME
@@ -820,7 +831,9 @@ export const GiftCollectionPage: Component = () => {
 									class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-mono text-[11px] font-black shrink-0 shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-1.5"
 								>
 									<span>{isRtl() ? 'مشاهده' : 'Explore'}</span>
-									<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_forward</span>
+									<span class="material-symbols-outlined text-sm rtl:rotate-180">
+										arrow_forward
+									</span>
 								</button>
 							</div>
 

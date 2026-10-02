@@ -11,15 +11,16 @@ import {
 	OFFICIAL_GIFTS_120,
 } from '@/entities/gifts/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { GIFT_REPORT_DETAILS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { UnifiedPaywallGate } from '@/widgets/paywall/index.js';
-import { GiftValuationPillarsCard } from './GiftValuationPillarsCard.js';
-import { GiftLayaActionCard } from './components/GiftLayaActionCard.js';
-import { GiftTraitSynergyCard } from './components/GiftTraitSynergyCard.js';
-import { GiftStarsParityCard } from './components/GiftStarsParityCard.js';
 import { GiftExitPlannerCard } from './components/GiftExitPlannerCard.js';
+import { GiftLayaActionCard } from './components/GiftLayaActionCard.js';
+import { GiftStarsParityCard } from './components/GiftStarsParityCard.js';
+import { GiftTraitSynergyCard } from './components/GiftTraitSynergyCard.js';
+import { GiftValuationPillarsCard } from './GiftValuationPillarsCard.js';
 
 export const GiftReportPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -40,7 +41,7 @@ export const GiftReportPage: Component = () => {
 
 	const getGiftParam = () => {
 		const params = new URLSearchParams(location.search);
-		return params.get('g') || 'plush_pepe-42';
+		return params.get('g') || params.get('id') || params.get('gift') || 'plush_pepe-42';
 	};
 
 	const giftID = () => getGiftParam();
@@ -574,7 +575,7 @@ export const GiftReportPage: Component = () => {
 									<div>
 										<div class="flex items-center gap-1.5">
 											<h4 class="text-xs font-black text-white">
-												{isRtl() ? 'جاذبه شماره سریال' : 'Serial Gravity'}: #
+												{layaT(GIFT_REPORT_DETAILS_I18N.serialGravity)}: #
 												{(enrichedQuery.data as any)?.serial_intel?.serial_number}
 											</h4>
 											<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
@@ -582,7 +583,7 @@ export const GiftReportPage: Component = () => {
 											</span>
 										</div>
 										<p class="text-[10px] text-white/50 mt-0.5">
-											{(enrichedQuery.data as any)?.serial_intel?.description} (ضریب ارزش: ×
+											{(enrichedQuery.data as any)?.serial_intel?.description} ({layaT(GIFT_REPORT_DETAILS_I18N.valueMultiplier)} ×
 											{(enrichedQuery.data as any)?.serial_intel?.multiplier})
 										</p>
 									</div>
@@ -620,8 +621,12 @@ export const GiftReportPage: Component = () => {
 						<GiftTraitSynergyCard
 							baseExpectedTon={Number(currentReport()?.expected_gram) || 0}
 							modelName={currentReport()?.model_name || currentReport()?.selected_model}
-							backdropName={currentReport()?.trait_dna?.find((t: any) => t.axis_key === 'backdrop')?.value}
-							symbolName={currentReport()?.trait_dna?.find((t: any) => t.axis_key === 'symbol')?.value}
+							backdropName={
+								currentReport()?.trait_dna?.find((t: any) => t.axis_key === 'backdrop')?.value
+							}
+							symbolName={
+								currentReport()?.trait_dna?.find((t: any) => t.axis_key === 'symbol')?.value
+							}
 							rarityTier={currentReport()?.trait_dna?.[0]?.rarity_tier}
 							backdropColors={
 								(enrichedQuery.data as any)?.backdrop_colors ||
@@ -653,7 +658,7 @@ export const GiftReportPage: Component = () => {
 								<div class="flex items-center gap-2">
 									<span class="material-symbols-outlined text-cyan-400 text-base">token</span>
 									<h4 class="text-xs font-black text-white">
-										{isRtl() ? 'معماری دوجهانه گیفت تلگرام' : 'Dual-World Architecture'}
+										{layaT(GIFT_REPORT_DETAILS_I18N.dualWorldTitle)}
 									</h4>
 								</div>
 								<span class="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
@@ -675,14 +680,12 @@ export const GiftReportPage: Component = () => {
 								>
 									<div class="flex items-center justify-between mb-1">
 										<span class="font-black">
-											{isRtl() ? 'بلاکچین TON (TEP-62)' : 'On-Chain TEP-62'}
+											{layaT(GIFT_REPORT_DETAILS_I18N.onChainTep62)}
 										</span>
 										<span class="text-[9px] text-cyan-400 font-bold">Non-Custodial</span>
 									</div>
 									<p class="text-[9px] text-white/60 leading-tight">
-										{isRtl()
-											? 'دارایی مستقل در والت با قابلیت انتقال و فروش در مارکت‌ها'
-											: 'Decentralized asset in private wallet'}
+										{layaT(GIFT_REPORT_DETAILS_I18N.onChainDesc)}
 									</p>
 								</div>
 
@@ -696,14 +699,12 @@ export const GiftReportPage: Component = () => {
 								>
 									<div class="flex items-center justify-between mb-1">
 										<span class="font-black">
-											{isRtl() ? 'درون‌برنامه‌ای (Stars)' : 'In-App Stars'}
+											{layaT(GIFT_REPORT_DETAILS_I18N.inAppStars)}
 										</span>
 										<span class="text-[9px] text-amber-400 font-bold">Custodial</span>
 									</div>
 									<p class="text-[9px] text-white/60 leading-tight">
-										{isRtl()
-											? 'ثبت در سرور تلگرام، قابل ارتقا به NFT با پرداخت استارز'
-											: 'Held on Telegram servers, upgradable to NFT'}
+										{layaT(GIFT_REPORT_DETAILS_I18N.inAppDesc)}
 									</p>
 								</div>
 							</div>
@@ -715,9 +716,7 @@ export const GiftReportPage: Component = () => {
 								<div class="flex items-center gap-2">
 									<span class="material-symbols-outlined text-cyan-400 text-base">badge</span>
 									<h4 class="text-xs font-black text-white">
-										{isRtl()
-											? 'تفکیک نمایش‌دهنده پروفایل از مالک والت'
-											: 'Showcaser vs Wallet Owner'}
+										{layaT(GIFT_REPORT_DETAILS_I18N.custodySeparationTitle)}
 									</h4>
 								</div>
 								<span class="text-[9px] font-mono text-white/40">PROVENANCE</span>
@@ -726,7 +725,7 @@ export const GiftReportPage: Component = () => {
 							<div class="grid grid-cols-2 gap-2 text-[10px]">
 								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 									<span class="text-white/40 block text-[9px] mb-0.5">
-										{isRtl() ? 'نمایش‌دهنده در پروفایل (Host)' : 'Profile Showcaser'}
+										{layaT(GIFT_REPORT_DETAILS_I18N.profileShowcaser)}
 									</span>
 									<span class="font-black text-white truncate block">
 										{enrichedQuery.data?.host_profile?.host_name ||
@@ -737,7 +736,7 @@ export const GiftReportPage: Component = () => {
 
 								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 									<span class="text-white/40 block text-[9px] mb-0.5">
-										{isRtl() ? 'والت مالک حقیقی بلاکچین' : 'On-Chain Owner Wallet'}
+										{layaT(GIFT_REPORT_DETAILS_I18N.onChainOwnerWallet)}
 									</span>
 									<span
 										class={`font-mono font-black truncate block ${
@@ -755,9 +754,7 @@ export const GiftReportPage: Component = () => {
 							</div>
 
 							<p class="text-[9px] text-white/50 leading-normal">
-								{isRtl()
-									? 'نکته: نمایش گیفت در ویترین پروفایل لزوماً به معنای مالکیت والت نیست؛ ممکن است گیفت در امانت مارکت‌پلیس (اسکرو) باشد.'
-									: 'Notice: Displaying a gift on a profile does not prove direct wallet custody; it may be locked in escrow.'}
+								{layaT(GIFT_REPORT_DETAILS_I18N.custodyNote)}
 							</p>
 						</div>
 
@@ -767,9 +764,7 @@ export const GiftReportPage: Component = () => {
 								<div class="flex items-center gap-2">
 									<span class="material-symbols-outlined text-emerald-400 text-base">payments</span>
 									<h4 class="text-xs font-black text-white">
-										{isRtl()
-											? 'ماتریس کارمزد و عایدی خالص در بازارهای مختلف'
-											: 'Cross-Venue Net Proceeds Matrix'}
+										{layaT(GIFT_REPORT_DETAILS_I18N.feeMatrixTitle)}
 									</h4>
 								</div>
 								<span class="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
@@ -781,11 +776,11 @@ export const GiftReportPage: Component = () => {
 								<table class="w-full text-[10px] text-center">
 									<thead>
 										<tr class="text-white/40 border-b border-white/5">
-											<th class="pb-1.5 text-start font-bold">{isRtl() ? 'مارکت‌پلیس' : 'Venue'}</th>
-											<th class="pb-1.5 font-bold">{isRtl() ? 'کارمزد' : 'Fee %'}</th>
-											<th class="pb-1.5 font-bold">{isRtl() ? 'گس' : 'Gas'}</th>
+											<th class="pb-1.5 text-start font-bold">{layaT(GIFT_REPORT_DETAILS_I18N.venueCol)}</th>
+											<th class="pb-1.5 font-bold">{layaT(GIFT_REPORT_DETAILS_I18N.feeCol)}</th>
+											<th class="pb-1.5 font-bold">{layaT(GIFT_REPORT_DETAILS_I18N.gasCol)}</th>
 											<th class="pb-1.5 text-end font-bold text-emerald-400">
-												{isRtl() ? 'عایدی خالص (TON)' : 'Net Proceeds'}
+												{layaT(GIFT_REPORT_DETAILS_I18N.netProceedsCol)}
 											</th>
 										</tr>
 									</thead>
@@ -932,13 +927,13 @@ export const GiftReportPage: Component = () => {
 									<Show when={currentReport()?.price_basis === 'direct_last_sale_anchored'}>
 										<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-[9px] flex items-center gap-1">
 											<span class="material-symbols-outlined text-[11px]">verified</span>
-											<span>تضمین عدم افت از آخرین فروش</span>
+											<span>{layaT(GIFT_REPORT_DETAILS_I18N.lastSaleProtection)}</span>
 										</span>
 									</Show>
 									<Show when={currentReport()?.price_basis === 'market_floor_guaranteed'}>
 										<span class="px-2 py-0.5 rounded-full bg-[#0098EA]/20 border border-[#0098EA]/40 text-sky-300 font-bold text-[9px] flex items-center gap-1">
 											<span class="material-symbols-outlined text-[11px]">shield</span>
-											<span>تضمین کف بازار</span>
+											<span>{layaT(GIFT_REPORT_DETAILS_I18N.marketFloorProtection)}</span>
 										</span>
 									</Show>
 								</div>
@@ -991,10 +986,8 @@ export const GiftReportPage: Component = () => {
 										</span>
 										<p class="text-[10px] text-white/50 mt-0.5">
 											{ownerInfo().isOnChain
-												? t('gifts.onChainOwnerDesc') ||
-													'مالکیت این آیتم بر روی بلاکچین TON ثبت گردیده است.'
-												: t('gifts.telegramCustodyDesc') ||
-													'هدیه در حال حاضر در کیف‌پول درون‌برنامه‌ای تلگرام نگهداری می‌شود.'}
+												? layaT(GIFT_REPORT_DETAILS_I18N.onChainProvenanceConfirmed)
+												: layaT(GIFT_REPORT_DETAILS_I18N.inAppCustodyConfirmed)}
 										</p>
 									</div>
 									<Show when={ownerInfo().username}>
@@ -1005,7 +998,7 @@ export const GiftReportPage: Component = () => {
 											}
 											class="p-2 rounded-xl bg-[#0098EA]/20 hover:bg-[#0098EA]/30 text-[#0098EA] border border-[#0098EA]/40 shrink-0 transition-all flex items-center gap-1 text-[11px] font-bold"
 										>
-											<span>{t('gifts.tgProfile') || 'پروفایل'}</span>
+											<span>{t('gifts.tgProfile')}</span>
 											<span class="material-symbols-outlined text-xs">open_in_new</span>
 										</button>
 									</Show>
@@ -1851,12 +1844,10 @@ export const GiftReportPage: Component = () => {
 						<div class="bg-white/[0.02] border border-white/[0.08] rounded-[24px] p-4 text-center space-y-1.5">
 							<div class="flex items-center justify-center gap-1.5 text-amber-400 text-xs font-bold">
 								<span class="material-symbols-outlined text-sm">info</span>
-								<span>سلب مسئولیت مالی و سرمایه‌گذاری (Financial Disclaimer)</span>
+								<span>{layaT(GIFT_REPORT_DETAILS_I18N.financialDisclaimerTitle)}</span>
 							</div>
 							<p class="text-[11px] text-white/40 leading-relaxed max-w-md mx-auto">
-								این گزارش و تحلیل‌های ارزش‌گذاری صرفاً حاصل پردازش‌های الگوریتمی متادیتای عمومی اکوسیستم
-								تلگرام بوده و به هیچ وجه به عنوان مشاوره مالی، تعهد بازدهی، یا پیشنهاد خرید و فروش
-								تلقی نمی‌شود. مسئولیت تصمیمات معاملاتی تماماً بر عهده کاربر است.
+								{layaT(GIFT_REPORT_DETAILS_I18N.financialDisclaimerText)}
 							</p>
 						</div>
 

@@ -8,6 +8,8 @@ username_files*.txt
 .vscode/settings.json
 *.log
 *.pyc
+*.exe
 __pycache__/
 graphify-out/
+**/graphify-out/
 .graphify/

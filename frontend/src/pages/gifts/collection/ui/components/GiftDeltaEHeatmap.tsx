@@ -1,6 +1,9 @@
 import { type Component, createMemo, For } from 'solid-js';
-import { layaT, GIFTS_I18N, type LocalizedText } from '@/shared/i18n/laya-i18n.js';
-import type { CollectionBackdropSummary, CollectionModelFloor } from '@/entities/gifts/model/types.js';
+import type {
+	CollectionBackdropSummary,
+	CollectionModelFloor,
+} from '@/entities/gifts/model/types.js';
+import { GIFTS_I18N, type LocalizedText, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	collectionName: string;
@@ -30,21 +33,102 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 		const bf = baseFloor();
 
 		// Benchmark fallback backdrops if none supplied
-		const sampleBackdrops = bList.length > 0 ? bList : [
-			{ name: 'Royal Obsidian', rarity_permille: 12, center_hex: '#0d1117', edge_hex: '#161b22', pattern_hex: '#30363d', text_hex: '#f0f6fc' },
-			{ name: 'Celestial Gold', rarity_permille: 18, center_hex: '#2b2100', edge_hex: '#ffd700', pattern_hex: '#d4af37', text_hex: '#ffffff' },
-			{ name: 'Cyber Neon Cyan', rarity_permille: 25, center_hex: '#002b36', edge_hex: '#00f7ff', pattern_hex: '#2aa198', text_hex: '#ffffff' },
-			{ name: 'Amethyst Velvet', rarity_permille: 32, center_hex: '#1e102d', edge_hex: '#8a2be2', pattern_hex: '#4b0082', text_hex: '#e6e6fa' },
-			{ name: 'Midnight Aurora', rarity_permille: 45, center_hex: '#0a192f', edge_hex: '#10b981', pattern_hex: '#059669', text_hex: '#e2e8f0' },
-		];
+		const sampleBackdrops =
+			bList.length > 0
+				? bList
+				: [
+						{
+							name: 'Royal Obsidian',
+							rarity_permille: 12,
+							center_hex: '#0d1117',
+							edge_hex: '#161b22',
+							pattern_hex: '#30363d',
+							text_hex: '#f0f6fc',
+						},
+						{
+							name: 'Celestial Gold',
+							rarity_permille: 18,
+							center_hex: '#2b2100',
+							edge_hex: '#ffd700',
+							pattern_hex: '#d4af37',
+							text_hex: '#ffffff',
+						},
+						{
+							name: 'Cyber Neon Cyan',
+							rarity_permille: 25,
+							center_hex: '#002b36',
+							edge_hex: '#00f7ff',
+							pattern_hex: '#2aa198',
+							text_hex: '#ffffff',
+						},
+						{
+							name: 'Amethyst Velvet',
+							rarity_permille: 32,
+							center_hex: '#1e102d',
+							edge_hex: '#8a2be2',
+							pattern_hex: '#4b0082',
+							text_hex: '#e6e6fa',
+						},
+						{
+							name: 'Midnight Aurora',
+							rarity_permille: 45,
+							center_hex: '#0a192f',
+							edge_hex: '#10b981',
+							pattern_hex: '#059669',
+							text_hex: '#e2e8f0',
+						},
+					];
 
-		const sampleModels = mList.length > 0 ? mList.slice(0, 5) : [
-			{ model_id: 'm1', model_name: 'Crown Monarch', rarity_permille: 15, total_supply: 200, upgraded_count: 85, floor_gram: bf * 2.4, floor_usd: bf * 2.4 * 5.5 },
-			{ model_id: 'm2', model_name: 'Cybernetic Skull', rarity_permille: 28, total_supply: 350, upgraded_count: 140, floor_gram: bf * 1.8, floor_usd: bf * 1.8 * 5.5 },
-			{ model_id: 'm3', model_name: 'Golden Chalice', rarity_permille: 35, total_supply: 500, upgraded_count: 210, floor_gram: bf * 1.5, floor_usd: bf * 1.5 * 5.5 },
-			{ model_id: 'm4', model_name: 'Diamond Lotus', rarity_permille: 42, total_supply: 650, upgraded_count: 280, floor_gram: bf * 1.3, floor_usd: bf * 1.3 * 5.5 },
-			{ model_id: 'm5', model_name: 'Mystic Orb', rarity_permille: 60, total_supply: 900, upgraded_count: 360, floor_gram: bf * 1.1, floor_usd: bf * 1.1 * 5.5 },
-		];
+		const sampleModels =
+			mList.length > 0
+				? mList.slice(0, 5)
+				: [
+						{
+							model_id: 'm1',
+							model_name: 'Crown Monarch',
+							rarity_permille: 15,
+							total_supply: 200,
+							upgraded_count: 85,
+							floor_gram: bf * 2.4,
+							floor_usd: bf * 2.4 * 5.5,
+						},
+						{
+							model_id: 'm2',
+							model_name: 'Cybernetic Skull',
+							rarity_permille: 28,
+							total_supply: 350,
+							upgraded_count: 140,
+							floor_gram: bf * 1.8,
+							floor_usd: bf * 1.8 * 5.5,
+						},
+						{
+							model_id: 'm3',
+							model_name: 'Golden Chalice',
+							rarity_permille: 35,
+							total_supply: 500,
+							upgraded_count: 210,
+							floor_gram: bf * 1.5,
+							floor_usd: bf * 1.5 * 5.5,
+						},
+						{
+							model_id: 'm4',
+							model_name: 'Diamond Lotus',
+							rarity_permille: 42,
+							total_supply: 650,
+							upgraded_count: 280,
+							floor_gram: bf * 1.3,
+							floor_usd: bf * 1.3 * 5.5,
+						},
+						{
+							model_id: 'm5',
+							model_name: 'Mystic Orb',
+							rarity_permille: 60,
+							total_supply: 900,
+							upgraded_count: 360,
+							floor_gram: bf * 1.1,
+							floor_usd: bf * 1.1 * 5.5,
+						},
+					];
 
 		const pairs: HarmonicPair[] = [
 			{
@@ -104,7 +188,7 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 					ru: 'Северное сияние в холодной гамме',
 					zh: '午夜极光清冷雅致协同',
 				},
-				aestheticMultiplier: 1.10,
+				aestheticMultiplier: 1.1,
 				estValueTon: Math.round(bf * 1.4 * 10) / 10,
 			},
 			{
@@ -182,9 +266,12 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 							<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 								<div class="flex items-center gap-3">
 									{/* Palette preview badge */}
-									<div class="relative w-11 h-11 rounded-[12px] border border-white/10 overflow-hidden flex items-center justify-center shrink-0 shadow-inner" style={{
-										background: `radial-gradient(circle, ${pair.edgeHex} 0%, ${pair.centerHex} 100%)`
-									}}>
+									<div
+										class="relative w-11 h-11 rounded-[12px] border border-white/10 overflow-hidden flex items-center justify-center shrink-0 shadow-inner"
+										style={{
+											background: `radial-gradient(circle, ${pair.edgeHex} 0%, ${pair.centerHex} 100%)`,
+										}}
+									>
 										<span class="text-[10px] font-mono font-black text-white drop-shadow">
 											#{idx() + 1}
 										</span>
@@ -215,7 +302,9 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 											<span class="text-xs font-black text-white">{fmt(pair.estValueTon)}</span>
 											<span class="text-[9px] text-[#0098EA] font-bold">TON</span>
 										</div>
-										<span class="text-[8px] text-emerald-400 font-bold">+{Math.round((pair.aestheticMultiplier - 1) * 100)}% Boost</span>
+										<span class="text-[8px] text-emerald-400 font-bold">
+											+{Math.round((pair.aestheticMultiplier - 1) * 100)}% Boost
+										</span>
 									</div>
 								</div>
 							</div>

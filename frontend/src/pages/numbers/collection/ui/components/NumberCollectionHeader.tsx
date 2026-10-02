@@ -1,5 +1,6 @@
 import { type Component, createSignal, Show } from 'solid-js';
 import type { NumbersInstitutionalCollectionOverview } from '@/entities/numbers/model/types.js';
+import { layaT, NUMBERS_COLLECTION_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface HeaderProps {
@@ -15,7 +16,8 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 	const [copied, setCopied] = createSignal(false);
 
 	const copyContract = () => {
-		const addr = props.overview?.collection_address || 'EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N';
+		const addr =
+			props.overview?.collection_address || 'EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N';
 		try {
 			navigator.clipboard.writeText(addr);
 			setCopied(true);
@@ -25,14 +27,14 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 	};
 
 	const formatTimeAgo = (isoStr?: string) => {
-		if (!isoStr) return 'هم‌اکنون';
+		if (!isoStr) return layaT(NUMBERS_COLLECTION_I18N.justNow);
 		const diffMs = Date.now() - new Date(isoStr).getTime();
 		const diffMin = Math.floor(diffMs / 60000);
-		if (diffMin <= 1) return 'هم‌اکنون';
-		if (diffMin < 60) return `${diffMin} دقیقه قبل`;
+		if (diffMin <= 1) return layaT(NUMBERS_COLLECTION_I18N.justNow);
+		if (diffMin < 60) return layaT(NUMBERS_COLLECTION_I18N.minAgo).replace('{min}', String(diffMin));
 		const diffHr = Math.floor(diffMin / 60);
-		if (diffHr < 24) return `${diffHr} ساعت قبل`;
-		return `${Math.floor(diffHr / 24)} روز قبل`;
+		if (diffHr < 24) return layaT(NUMBERS_COLLECTION_I18N.hrAgo).replace('{hr}', String(diffHr));
+		return layaT(NUMBERS_COLLECTION_I18N.dayAgo).replace('{day}', String(Math.floor(diffHr / 24)));
 	};
 
 	return (
@@ -43,7 +45,7 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 					type="button"
 					onClick={props.onBack}
 					class="w-10 h-10 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-95 shrink-0"
-					aria-label="بازگشت"
+					aria-label={layaT(NUMBERS_COLLECTION_I18N.backLabel)}
 				>
 					<span class="material-symbols-outlined text-xl rtl:rotate-180">arrow_back</span>
 				</button>
@@ -51,7 +53,7 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 				<div class="flex-1 min-w-0 px-2 text-start">
 					<div class="flex items-center gap-1.5 flex-wrap">
 						<h1 class="text-sm font-black text-white truncate font-sans">
-							شماره‌های کلکسیونی تلگرام
+							{layaT(NUMBERS_COLLECTION_I18N.headerTitle)}
 						</h1>
 						<span class="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
 							+888
@@ -68,7 +70,7 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 						type="button"
 						onClick={props.onOpenAlerts}
 						class="w-9 h-9 rounded-2xl bg-white/[0.04] hover:bg-amber-500/10 border border-white/[0.08] hover:border-amber-500/30 flex items-center justify-center text-white/70 hover:text-amber-400 transition-all active:scale-95"
-						title="تنظیم هشدارهای قیمت و الگو"
+						title={layaT(NUMBERS_COLLECTION_I18N.alertsTooltip)}
 					>
 						<span class="material-symbols-outlined text-lg">notifications_active</span>
 					</button>
@@ -78,7 +80,7 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 						type="button"
 						onClick={props.onOpenExport}
 						class="w-9 h-9 rounded-2xl bg-white/[0.04] hover:bg-emerald-500/10 border border-white/[0.08] hover:border-emerald-500/30 flex items-center justify-center text-white/70 hover:text-emerald-400 transition-all active:scale-95"
-						title="دانلود خروجی CSV / JSON"
+						title={layaT(NUMBERS_COLLECTION_I18N.exportTooltip)}
 					>
 						<span class="material-symbols-outlined text-lg">ios_share</span>
 					</button>
@@ -88,7 +90,7 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 						type="button"
 						onClick={props.onOpenMethodology}
 						class="w-9 h-9 rounded-2xl bg-white/[0.04] hover:bg-[#0098EA]/10 border border-white/[0.08] hover:border-[#0098EA]/30 flex items-center justify-center text-white/70 hover:text-[#0098EA] transition-all active:scale-95"
-						title="متدولوژی و منابع داده"
+						title={layaT(NUMBERS_COLLECTION_I18N.methodologyTooltip)}
 					>
 						<span class="material-symbols-outlined text-lg">verified_user</span>
 					</button>
@@ -105,13 +107,15 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 							</span>
 							<span class="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-extrabold flex items-center gap-1">
 								<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-								تأییدشده تلمینت
+								{layaT(NUMBERS_COLLECTION_I18N.telemintVerified)}
 							</span>
 						</div>
 
 						{/* Contract Address with Copy */}
 						<div class="flex items-center gap-2 pt-0.5">
-							<span class="text-[10px] text-white/40 font-mono">قرارداد:</span>
+							<span class="text-[10px] text-white/40 font-mono">
+								{layaT(NUMBERS_COLLECTION_I18N.contractLabel)}
+							</span>
 							<button
 								type="button"
 								onClick={copyContract}
@@ -126,7 +130,9 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 									{copied() ? 'done' : 'content_copy'}
 								</span>
 								<Show when={copied()}>
-									<span class="text-emerald-400 text-[9px] font-bold">کپی شد</span>
+									<span class="text-emerald-400 text-[9px] font-bold">
+										{layaT(NUMBERS_COLLECTION_I18N.copiedSuccess)}
+									</span>
 								</Show>
 							</button>
 						</div>
@@ -134,12 +140,14 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 
 					{/* Supply Badge */}
 					<div class="text-end shrink-0">
-						<span class="text-[10px] text-white/40 block">عرضه کل (منجمد)</span>
+						<span class="text-[10px] text-white/40 block">
+							{layaT(NUMBERS_COLLECTION_I18N.totalSupplyFrozen)}
+						</span>
 						<span class="text-xs font-black text-white font-mono block mt-0.5">
-							136,566 <span class="text-[10px] text-white/50">آیتم</span>
+							136,566 <span class="text-[10px] text-white/50">{layaT(NUMBERS_COLLECTION_I18N.items)}</span>
 						</span>
 						<span class="text-[9px] text-cyan-400/80 font-mono block mt-0.5">
-							1,000 جنسیس ۴رقمی
+							{layaT(NUMBERS_COLLECTION_I18N.genesis4d)}
 						</span>
 					</div>
 				</div>
@@ -159,16 +167,16 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 									props.overview?.is_live ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
 								}`}
 							/>
-							{props.overview?.is_live ? 'داده زنده آن‌چین' : 'آخرین اسنپ‌شات معتبر'}
+							{props.overview?.is_live
+								? layaT(NUMBERS_COLLECTION_I18N.liveOnChainData)
+								: layaT(NUMBERS_COLLECTION_I18N.latestSnapshot)}
 						</span>
 
-						<span class="font-mono text-[9px]">
-							{formatTimeAgo(props.overview?.observed_at)}
-						</span>
+						<span class="font-mono text-[9px]">{formatTimeAgo(props.overview?.observed_at)}</span>
 					</div>
 
 					<div class="flex items-center gap-1.5 font-mono text-[9px] text-white/40">
-						<span>منابع: Fragment + TON</span>
+						<span>{layaT(NUMBERS_COLLECTION_I18N.sourcesFragmentTon)}</span>
 						<Show when={props.overview?.snapshot_id}>
 							<span>· ID: {props.overview!.snapshot_id.slice(-6)}</span>
 						</Show>

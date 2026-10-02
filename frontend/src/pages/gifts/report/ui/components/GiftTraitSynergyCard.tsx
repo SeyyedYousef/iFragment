@@ -1,5 +1,5 @@
 import { type Component, createMemo } from 'solid-js';
-import { layaT, GIFTS_I18N } from '@/shared/i18n/laya-i18n.js';
+import { GIFTS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	baseExpectedTon: number;
@@ -30,8 +30,16 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 		else if (tier.includes('epic') || tier.includes('rare')) score += 10;
 
 		// Premium keyword synergy
-		if (m.includes('gold') || m.includes('crown') || m.includes('diamond') || m.includes('pepe')) score += 8;
-		if (b.includes('gold') || b.includes('black') || b.includes('royal') || b.includes('neon') || b.includes('aurora')) score += 6;
+		if (m.includes('gold') || m.includes('crown') || m.includes('diamond') || m.includes('pepe'))
+			score += 8;
+		if (
+			b.includes('gold') ||
+			b.includes('black') ||
+			b.includes('royal') ||
+			b.includes('neon') ||
+			b.includes('aurora')
+		)
+			score += 6;
 
 		if (score > 98) score = 98;
 		if (score < 45) score = 45;
@@ -73,7 +81,8 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 					</div>
 				</div>
 				<span class="text-[11px] font-mono font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-lg">
-					{synergy().multiplier}{layaT(GIFTS_I18N.synergyMultiplierSuffix)}
+					{synergy().multiplier}
+					{layaT(GIFTS_I18N.synergyMultiplierSuffix)}
 				</span>
 			</div>
 
@@ -99,11 +108,15 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 						{layaT(GIFTS_I18N.synergyAdjusted)}
 					</span>
 					<div class="flex items-baseline gap-1 font-mono">
-						<span class="text-base font-black text-amber-300">{fmt(synergy().adjustedValueTon)}</span>
+						<span class="text-base font-black text-amber-300">
+							{fmt(synergy().adjustedValueTon)}
+						</span>
 						<span class="text-[10px] font-bold text-amber-400">TON</span>
 					</div>
 					<span class="text-[8px] font-mono text-emerald-400 font-bold">
-						{synergy().bonusTon >= 0 ? `+${fmt(synergy().bonusTon)} TON (${Math.round((synergy().multiplier - 1) * 100)}%)` : `${fmt(synergy().bonusTon)} TON`}
+						{synergy().bonusTon >= 0
+							? `+${fmt(synergy().bonusTon)} TON (${Math.round((synergy().multiplier - 1) * 100)}%)`
+							: `${fmt(synergy().bonusTon)} TON`}
 					</span>
 				</div>
 			</div>
@@ -113,9 +126,7 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 				{/* Bar 1: Chromatic Balance */}
 				<div class="flex flex-col gap-1">
 					<div class="flex items-center justify-between text-[10px] font-mono">
-						<span class="text-white/60">
-							{layaT(GIFTS_I18N.modelBackdropResonance)}
-						</span>
+						<span class="text-white/60">{layaT(GIFTS_I18N.modelBackdropResonance)}</span>
 						<span class="text-amber-400 font-bold">{synergy().score}%</span>
 					</div>
 					<div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -129,13 +140,14 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 				{/* Bar 2: Symbol Integration */}
 				<div class="flex flex-col gap-1">
 					<div class="flex items-center justify-between text-[10px] font-mono">
-						<span class="text-white/60">
-							{layaT(GIFTS_I18N.symbolPatternCohesion)}
-						</span>
+						<span class="text-white/60">{layaT(GIFTS_I18N.symbolPatternCohesion)}</span>
 						<span class="text-amber-400 font-bold">85%</span>
 					</div>
 					<div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-						<div class="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full" style={{ width: '85%' }} />
+						<div
+							class="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full"
+							style={{ width: '85%' }}
+						/>
 					</div>
 				</div>
 			</div>

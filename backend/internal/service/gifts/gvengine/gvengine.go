@@ -211,6 +211,15 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 		}
 	}
 
+	if imageURL == "" {
+		slugParam := strings.ReplaceAll(col.ModelID, "_", "-")
+		modelParam := selectedModel
+		if modelParam == "" {
+			modelParam = "1"
+		}
+		imageURL = fmt.Sprintf("https://api.changes.tg/model/%s/%s.png?size=256", slugParam, modelParam)
+	}
+
 	gramUsdRate := 0.0
 	if e.cryptoPriceSvc != nil {
 		if rate, ok := e.cryptoPriceSvc.GetFloatPrice("the-open-network"); ok && rate > 0 {
@@ -779,6 +788,14 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	if liveNFT != nil {
 		ownerName = liveNFT.OwnerName
 		imageURL = liveNFT.ImageURL
+	}
+	if imageURL == "" {
+		slugParam := strings.ReplaceAll(col.ModelID, "_", "-")
+		modelParam := selectedModel
+		if modelParam == "" {
+			modelParam = "1"
+		}
+		imageURL = fmt.Sprintf("https://api.changes.tg/model/%s/%s.png?size=256", slugParam, modelParam)
 	}
 
 	// 15. Valuation Pillars (Fair Value, Liquidation Value, Suggested Ask, Observed Floor)

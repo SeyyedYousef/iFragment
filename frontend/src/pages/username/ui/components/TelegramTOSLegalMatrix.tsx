@@ -164,10 +164,10 @@ export const TelegramTOSLegalMatrix: Component<Props> = (props) => {
 				<div class="flex flex-col gap-2 text-[11px] leading-relaxed">
 					{/* Official Excerpt in User Language */}
 					<div class="p-2.5 rounded-[12px] bg-white/[0.03] border border-white/5 font-mono text-[10px] text-white/80">
-						<strong class="text-white block mb-0.5">{layaT(USERNAME_I18N.section4QuoteTitle)}</strong>
-						<p class="italic">
-							{layaT(USERNAME_I18N.section4Quote)}
-						</p>
+						<strong class="text-white block mb-0.5">
+							{layaT(USERNAME_I18N.section4QuoteTitle)}
+						</strong>
+						<p class="italic">{layaT(USERNAME_I18N.section4Quote)}</p>
 					</div>
 
 					{/* Legal Analysis */}

@@ -414,9 +414,7 @@ export const CollectionInfoPage: Component = () => {
 											<span class="text-[22px] font-black font-mono text-white tracking-tight">
 												{usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim()}
 											</span>
-											<span class="text-[11px] text-[#0098EA] font-black">
-												{t('common.ton')}
-											</span>
+											<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
 										</div>
 									</Show>
 								</div>
@@ -427,8 +425,7 @@ export const CollectionInfoPage: Component = () => {
 									usernameQuery.data.stats.floor_price !== '—'
 										? `≈ $${(
 												parseFloat(
-													usernameQuery.data.stats.floor_price.replace(/[^0-9.]/g, '') ||
-														'0',
+													usernameQuery.data.stats.floor_price.replace(/[^0-9.]/g, '') || '0',
 												) * tonUsdRate()!
 											).toFixed(2)}`
 										: 'Rate verified'}
@@ -459,9 +456,7 @@ export const CollectionInfoPage: Component = () => {
 											<span class="text-[22px] font-black font-mono text-white tracking-tight">
 												{usernameQuery.data?.stats?.total_volume?.replace('TON', '').trim()}
 											</span>
-											<span class="text-[11px] text-[#0098EA] font-black">
-												{t('common.ton')}
-											</span>
+											<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
 										</div>
 									</Show>
 								</div>
@@ -482,9 +477,7 @@ export const CollectionInfoPage: Component = () => {
 										usernameQuery.data.stats.items_count !== '—'
 									}
 									fallback={
-										<span class="text-[18px] font-bold font-mono text-white/40">
-											582.8K
-										</span>
+										<span class="text-[18px] font-bold font-mono text-white/40">582.8K</span>
 									}
 								>
 									<span class="text-[22px] font-black font-mono text-white tracking-tight">
@@ -504,9 +497,7 @@ export const CollectionInfoPage: Component = () => {
 										usernameQuery.data.stats.owners_count !== '—'
 									}
 									fallback={
-										<span class="text-[18px] font-bold font-mono text-white/40">
-											164.6K
-										</span>
+										<span class="text-[18px] font-bold font-mono text-white/40">164.6K</span>
 									}
 								>
 									<span class="text-[22px] font-black font-mono text-white tracking-tight">
@@ -520,9 +511,7 @@ export const CollectionInfoPage: Component = () => {
 						<UsernameCollectionChart
 							currentFloorTon={
 								usernameQuery.data?.stats?.floor_price
-									? parseFloat(
-											usernameQuery.data.stats.floor_price.replace(/[^0-9.]/g, '') || '0',
-										)
+									? parseFloat(usernameQuery.data.stats.floor_price.replace(/[^0-9.]/g, '') || '0')
 									: undefined
 							}
 							totalVolumeTon={usernameQuery.data?.stats?.total_volume}

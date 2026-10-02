@@ -1,7 +1,7 @@
 import { type Component, createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import { apiClient as api } from '@/shared/api/axios.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { apiClient as api } from '@/shared/api/axios.js';
 
 interface Props {
 	currentFloorTon?: number;

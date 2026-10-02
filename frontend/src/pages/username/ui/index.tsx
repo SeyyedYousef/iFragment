@@ -14,6 +14,7 @@ import { creditsApi } from '@/entities/intel/api/creditsApi.js';
 import { valuationApi } from '@/entities/username/index.js';
 import { apiFetch } from '@/shared/api/base.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { layaT, USERNAME_I18N } from '@/shared/i18n/laya-i18n.js';
 import { cloudStorage } from '@/shared/lib/cloud-storage.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import {
@@ -887,12 +888,10 @@ export const UsernamePage: Component = () => {
 											<span>TEP-62 TELEMINT · AVM v7.0</span>
 										</div>
 										<h1 class="text-[26px] font-black tracking-tight text-white font-mono drop-shadow-md">
-											{isRtl() ? 'رادار هوشمند نام‌های کاربری' : 'TELEGRAM USERNAMES'}
+											{layaT(USERNAME_I18N.radarTitle)}
 										</h1>
 										<p class="text-[12px] text-white/60 font-medium max-w-[320px] leading-relaxed">
-											{isRtl()
-												? 'ارزیابی ارزش منصفانه با مدل بیزی، اصالت‌سنجی آن‌چین قراردادهای Telemint و ردیابی فیشینگ'
-												: 'Empirical Bayesian valuation, on-chain Telemint provenance audit, and anti-phishing twins radar.'}
+											{layaT(USERNAME_I18N.radarDesc)}
 										</p>
 									</div>
 
@@ -901,7 +900,7 @@ export const UsernamePage: Component = () => {
 										<div class="absolute inset-0 bg-gradient-to-br from-[#0098EA]/5 via-transparent to-emerald-500/5 pointer-events-none" />
 
 										<div class="flex items-center justify-between text-[11px] font-mono font-bold text-white/50 px-1">
-											<span>{isRtl() ? 'جستجو یا ارزیابی شناسه' : 'SEARCH & VALUATE HANDLE'}</span>
+											<span>{layaT(USERNAME_I18N.searchHandle)}</span>
 											<Show when={searchTerm().length > 0}>
 												<span
 													class={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold ${
@@ -912,18 +911,12 @@ export const UsernamePage: Component = () => {
 																: 'bg-emerald-400/15 text-emerald-400 border border-emerald-400/30'
 													}`}
 												>
-													{searchTerm().length} {isRtl() ? 'کاراکتر' : 'chars'} ·{' '}
+													{searchTerm().length} {layaT(USERNAME_I18N.charsLabel)} ·{' '}
 													{searchTerm().length < 4
-														? isRtl()
-															? 'کوتاه‌تر از ۴'
-															: 'Min 4 for Fragment'
+														? layaT(USERNAME_I18N.charShort)
 														: searchTerm().length === 4
-															? isRtl()
-																? 'کلکسیونی ویژه'
-																: 'Grail Collectible'
-															: isRtl()
-																? 'استاندارد'
-																: 'Standard'}
+															? layaT(USERNAME_I18N.charGrail)
+															: layaT(USERNAME_I18N.charStandard)}
 												</span>
 											</Show>
 										</div>
@@ -946,9 +939,7 @@ export const UsernamePage: Component = () => {
 														openReport(searchTerm());
 													}
 												}}
-												placeholder={
-													isRtl() ? 'نام کاربری مثلاً durov یا rare' : 'e.g. durov, rare, crypto'
-												}
+												placeholder={layaT(USERNAME_I18N.inputPlaceholder)}
 												class="w-full h-14 bg-[#08090D] border border-white/10 focus:border-[#0098EA]/70 rounded-[18px] pl-10 pr-10 text-white font-mono font-bold text-[16px] tracking-wide placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-[#0098EA]/30 transition-all shadow-inner"
 												dir="ltr"
 											/>
@@ -972,7 +963,7 @@ export const UsernamePage: Component = () => {
 												class="h-12 rounded-[16px] bg-gradient-to-r from-[#0098EA] to-[#0070BA] hover:from-[#00a6ff] hover:to-[#0080d0] disabled:opacity-40 disabled:pointer-events-none text-white font-mono font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(0,152,234,0.4)] active:scale-[0.98] transition-all"
 											>
 												<span class="material-symbols-outlined text-[18px]">query_stats</span>
-												<span>{isRtl() ? 'ارزیابی ارزش' : 'VALUATE'}</span>
+												<span>{layaT(USERNAME_I18N.btnValuate)}</span>
 											</button>
 											<button
 												type="button"
@@ -985,7 +976,7 @@ export const UsernamePage: Component = () => {
 												>
 													{verifyingOnChain() ? 'sync' : 'verified'}
 												</span>
-												<span>{isRtl() ? 'استعلام آن‌چین' : 'VERIFY ON-CHAIN'}</span>
+												<span>{layaT(USERNAME_I18N.btnVerifyOnChain)}</span>
 											</button>
 										</div>
 									</div>
@@ -1019,27 +1010,19 @@ export const UsernamePage: Component = () => {
 														}`}
 													>
 														{ver().is_minted_nft && ver().collection_verified
-															? isRtl()
-																? 'تاییدشده Telemint'
-																: 'TELEMINT NFT'
-															: isRtl()
-																? 'توکنایز نشده'
-																: 'UNMINTED'}
+															? layaT(USERNAME_I18N.statusTelemint)
+															: layaT(USERNAME_I18N.statusNotTokenized)}
 													</span>
 												</div>
 
 												<div class="flex flex-col gap-1.5 text-[11px] font-mono text-white/70">
 													<div class="flex justify-between items-center">
-														<span class="text-white/40">
-															{isRtl() ? 'وضعیت تلگرام:' : 'Telegram Status:'}
-														</span>
+														<span class="text-white/40">{layaT(USERNAME_I18N.telegramStatus)}</span>
 														<span class="text-white font-bold">{ver().telegram_status}</span>
 													</div>
 													<Show when={ver().telemint_provenance?.item_address}>
 														<div class="flex justify-between items-center">
-															<span class="text-white/40">
-																{isRtl() ? 'کانترکت آیتم:' : 'Item Contract:'}
-															</span>
+															<span class="text-white/40">{layaT(USERNAME_I18N.itemContract)}</span>
 															<a
 																href={`https://tonviewer.com/${ver().telemint_provenance.item_address}`}
 																target="_blank"
@@ -1058,11 +1041,7 @@ export const UsernamePage: Component = () => {
 													onClick={() => openReport(ver().username)}
 													class="w-full h-10 rounded-[14px] bg-[#0098EA]/20 hover:bg-[#0098EA]/30 border border-[#0098EA]/40 text-[#0098EA] font-mono font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all mt-1"
 												>
-													<span>
-														{isRtl()
-															? 'مشاهده گزارش کامل و ارزش‌گذاری'
-															: 'VIEW FULL VALUATION REPORT'}
-													</span>
+													<span>{layaT(USERNAME_I18N.viewFullReport)}</span>
 													<span class="material-symbols-outlined text-[15px]">arrow_forward</span>
 												</button>
 											</div>
@@ -1076,10 +1055,10 @@ export const UsernamePage: Component = () => {
 												<span class="material-symbols-outlined text-[16px] text-amber-400">
 													local_fire_department
 												</span>
-												{isRtl() ? 'شناسه‌های داغ و برگزیده' : 'TRENDING & NOTABLE HANDLES'}
+												{layaT(USERNAME_I18N.trendingHandles)}
 											</span>
 											<span class="text-[10px] font-mono text-white/30">
-												{isRtl() ? 'کلیک برای بررسی' : 'Tap to inspect'}
+												{layaT(USERNAME_I18N.tapToInspect)}
 											</span>
 										</div>
 										<div class="flex flex-wrap gap-2">
@@ -1124,12 +1103,10 @@ export const UsernamePage: Component = () => {
 													<span class="material-symbols-outlined text-[16px] text-[#0098EA]">
 														history
 													</span>
-													{isRtl()
-														? 'آخرین ارزیابی‌های شما (۲۴ ساعته)'
-														: 'RECENT APPRAISALS (24H CACHE)'}
+													{layaT(USERNAME_I18N.recentAudits)}
 												</span>
 												<span class="text-[10px] font-mono text-white/30">
-													{recents().length} {isRtl() ? 'مورد' : 'saved'}
+													{recents().length} {layaT(USERNAME_I18N.itemsCount)}
 												</span>
 											</div>
 											<div class="grid grid-cols-1 xs:grid-cols-2 gap-2 w-full">
@@ -1172,7 +1149,7 @@ export const UsernamePage: Component = () => {
 									<div class="w-full grid grid-cols-2 gap-2.5 pt-2">
 										<div class="p-3.5 rounded-[20px] bg-[#12141C]/80 border border-white/5 flex flex-col gap-1 text-start">
 											<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-widest">
-												{isRtl() ? 'رکورد بالاترین معامله' : 'ALL-TIME RECORD SALE'}
+												{layaT(USERNAME_I18N.allTimeRecord)}
 											</span>
 											<span class="text-white font-mono font-black text-[15px] text-amber-400">
 												994,000 TON
@@ -1183,13 +1160,13 @@ export const UsernamePage: Component = () => {
 										</div>
 										<div class="p-3.5 rounded-[20px] bg-[#12141C]/80 border border-white/5 flex flex-col gap-1 text-start">
 											<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-widest">
-												{isRtl() ? 'استاندارد قرارداد هوشمند' : 'SMART CONTRACT'}
+												{layaT(USERNAME_I18N.smartContract)}
 											</span>
 											<span class="text-white font-mono font-black text-[15px] text-cyan-400">
 												TEP-62 Telemint
 											</span>
 											<span class="text-[10px] font-mono text-white/50">
-												{isRtl() ? 'بلاکچین TON' : 'TON Blockchain'}
+												{layaT(USERNAME_I18N.tonBlockchain)}
 											</span>
 										</div>
 									</div>
@@ -1426,11 +1403,7 @@ export const UsernamePage: Component = () => {
 										<span class="material-symbols-outlined text-lg text-amber-400 shrink-0">
 											warning
 										</span>
-										<span>
-											{isRtl()
-												? 'توجه: نرخ برابری TON به USD به دلیل اختلال موقت شبکه بر مبنای آخرین نرخ آفلاین (Stale Fallback) محاسبه شده است.'
-												: 'Notice: TON/USD exchange rate is calculated based on an offline fallback rate due to upstream provider latency.'}
-										</span>
+										<span>{layaT(USERNAME_I18N.staleFallbackRate)}</span>
 									</div>
 								</Show>
 
@@ -1449,12 +1422,10 @@ export const UsernamePage: Component = () => {
 											</div>
 											<div class="flex flex-col">
 												<h4 class="text-[13px] font-black text-white uppercase tracking-wider">
-													{isRtl() ? 'محاسبات مالی معامله در فرگمنت' : 'TRANSACTION ECONOMICS'}
+													{layaT(USERNAME_I18N.txEconomics)}
 												</h4>
 												<span class="text-[10px] text-white/40 font-mono">
-													{isRtl()
-														? 'کسر کارمزد پروتکل ۵٪ (حداقل ۵ TON) و خالص دریافتی'
-														: 'Net seller proceeds after 5% protocol fee (min 5 TON)'}
+													{layaT(USERNAME_I18N.txEconomicsSub)}
 												</span>
 											</div>
 										</div>
@@ -1467,7 +1438,7 @@ export const UsernamePage: Component = () => {
 										{/* Estimated Fair Value */}
 										<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex flex-col gap-1">
 											<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-												{isRtl() ? 'ارزش ناخالص تخمینی' : 'GROSS VALUATION'}
+												{layaT(USERNAME_I18N.grossValuation)}
 											</span>
 											<span class="text-white font-mono font-black text-[15px]">
 												{fmtTon(expectedTon())} TON
@@ -1480,13 +1451,13 @@ export const UsernamePage: Component = () => {
 										{/* Fragment Fee */}
 										<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex flex-col gap-1">
 											<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
-												{isRtl() ? 'کارمزد فرگمنت (۵٪)' : 'FRAGMENT 5% FEE'}
+												{layaT(USERNAME_I18N.fragmentFee)}
 											</span>
 											<span class="text-amber-400 font-mono font-black text-[15px]">
 												-{fmtTon(Math.max(5, Math.round(expectedTon() * 0.05)))} TON
 											</span>
 											<span class="text-[10px] font-mono text-white/40">
-												{isRtl() ? 'حداقل ۵ TON بر معامله' : 'Min 5 TON per sale'}
+												{layaT(USERNAME_I18N.minFeePerSale)}
 											</span>
 										</div>
 
@@ -1494,7 +1465,7 @@ export const UsernamePage: Component = () => {
 										<div class="col-span-2 bg-gradient-to-r from-emerald-950/30 to-[#08090D] border border-emerald-500/20 rounded-[18px] p-3.5 flex items-center justify-between">
 											<div class="flex flex-col">
 												<span class="text-[9px] font-mono font-black text-emerald-400 uppercase tracking-wider">
-													{isRtl() ? 'خالص دریافتی فروشنده' : 'NET SELLER PROCEEDS'}
+													{layaT(USERNAME_I18N.netSellerProceeds)}
 												</span>
 												<span class="text-emerald-400 font-mono font-black text-[17px]">
 													{fmtTon(Math.max(0, expectedTon() - Math.max(5, expectedTon() * 0.05)))}{' '}
@@ -1507,7 +1478,7 @@ export const UsernamePage: Component = () => {
 											</div>
 											<div class="flex flex-col items-end gap-1">
 												<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
-													{isRtl() ? 'شروع پیشنهادی حراج' : 'REC. START BID'}
+													{layaT(USERNAME_I18N.recStartBid)}
 												</span>
 												<span class="text-white font-mono font-black text-[13px] bg-white/5 px-2.5 py-1 rounded-[8px] border border-white/10">
 													{fmtTon(Math.round(expectedTon() * 0.7))} TON
@@ -1646,7 +1617,9 @@ export const UsernamePage: Component = () => {
 
 								{/* 👥 TARGET BUYER PERSONAS (8 ARCHETYPES) */}
 								<TargetBuyerPersonaCard
-									detectedPersona={data()?.target_buyer_profile || data()?.laya_system_one?.buyer_archetype}
+									detectedPersona={
+										data()?.target_buyer_profile || data()?.laya_system_one?.buyer_archetype
+									}
 									username={data()?.username || username()}
 								/>
 
@@ -2160,7 +2133,7 @@ export const UsernamePage: Component = () => {
 														: 'bg-white/5 border-white/10 text-white/50 hover:text-white'
 												}`}
 											>
-												{isRtl() ? 'همه' : 'All'}
+												{layaT(USERNAME_I18N.allFilter)}
 											</button>
 											<button
 												type="button"
@@ -2171,7 +2144,7 @@ export const UsernamePage: Component = () => {
 														: 'bg-white/5 border-white/10 text-white/50 hover:text-white'
 												}`}
 											>
-												{isRtl() ? 'معنایی / لغوی' : 'Semantic'}
+												{layaT(USERNAME_I18N.semanticFilter)}
 											</button>
 											<button
 												type="button"
@@ -2182,7 +2155,7 @@ export const UsernamePage: Component = () => {
 														: 'bg-white/5 border-white/10 text-white/50 hover:text-white'
 												}`}
 											>
-												{isRtl() ? 'ساختاری / هم‌طول' : 'Structural'}
+												{layaT(USERNAME_I18N.structuralFilter)}
 											</button>
 											<button
 												type="button"
@@ -2193,7 +2166,7 @@ export const UsernamePage: Component = () => {
 														: 'bg-white/5 border-white/10 text-white/50 hover:text-white'
 												}`}
 											>
-												{isRtl() ? 'دارای معامله' : 'With Sales'}
+												{layaT(USERNAME_I18N.withSalesFilter)}
 											</button>
 										</div>
 

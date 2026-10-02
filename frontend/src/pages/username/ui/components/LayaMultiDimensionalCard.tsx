@@ -1,4 +1,4 @@
-import { type Component } from 'solid-js';
+import type { Component } from 'solid-js';
 import { layaT, USERNAME_I18N } from '@/shared/i18n/laya-i18n.js';
 
 export interface LayaUsernameDecision {
@@ -34,11 +34,16 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 	};
 
 	const commercialIntent = () => {
-		if (props.decision?.commercial_intent !== undefined && props.decision.commercial_intent !== null) {
+		if (
+			props.decision?.commercial_intent !== undefined &&
+			props.decision.commercial_intent !== null
+		) {
 			return Math.round(props.decision.commercial_intent * 100);
 		}
 		const u = (props.username || '').toLowerCase();
-		if (['bank', 'pay', 'crypto', 'ton', 'market', 'trade', 'shop', 'vip'].some((k) => u.includes(k))) {
+		if (
+			['bank', 'pay', 'crypto', 'ton', 'market', 'trade', 'shop', 'vip'].some((k) => u.includes(k))
+		) {
 			return 94;
 		}
 		return u.length <= 5 ? 78 : 55;
@@ -103,7 +108,9 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 						<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
 							{layaT(USERNAME_I18N.phoneticTitle)}
 						</span>
-						<span class="material-symbols-outlined text-[15px] text-[#0098EA]">record_voice_over</span>
+						<span class="material-symbols-outlined text-[15px] text-[#0098EA]">
+							record_voice_over
+						</span>
 					</div>
 					<div class="flex items-baseline gap-1.5">
 						<span class="text-[24px] font-mono font-black text-white leading-none">
@@ -205,9 +212,7 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 						{culturalResonance()}
 					</span>
 				</div>
-				<p class="text-[11px] text-white/80 font-medium leading-relaxed">
-					{auctionTactics()}
-				</p>
+				<p class="text-[11px] text-white/80 font-medium leading-relaxed">{auctionTactics()}</p>
 			</div>
 		</div>
 	);

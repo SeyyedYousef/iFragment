@@ -1,5 +1,5 @@
 import { type Component, createMemo } from 'solid-js';
-import { layaT, GIFTS_I18N } from '@/shared/i18n/laya-i18n.js';
+import { GIFTS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	expectedTon: number;
@@ -15,7 +15,7 @@ export const GiftStarsParityCard: Component<Props> = (props) => {
 	// In Telegram ecosystem, 1000 Stars ≈ $20.00 USD ≈ 3.63 TON
 	// Dynamic Stars benchmark calculation:
 	const starsAmount = () => props.starsPrice || Math.max(1000, Math.round(secondaryTon() * 250));
-	const starsUsd = () => Math.round((starsAmount() * 0.02) * 100) / 100;
+	const starsUsd = () => Math.round(starsAmount() * 0.02 * 100) / 100;
 	const starsTon = () => Math.round((starsUsd() / rate()) * 100) / 100;
 
 	// Parity difference: Secondary vs Stars
@@ -55,7 +55,9 @@ export const GiftStarsParityCard: Component<Props> = (props) => {
 						{layaT(GIFTS_I18N.telegramStarsCost)}
 					</span>
 					<div class="flex items-baseline gap-1 font-mono">
-						<span class="text-base font-black text-yellow-300">{starsAmount().toLocaleString()}</span>
+						<span class="text-base font-black text-yellow-300">
+							{starsAmount().toLocaleString()}
+						</span>
 						<span class="text-[10px] font-bold text-yellow-400">Stars</span>
 					</div>
 					<span class="text-[9px] font-mono text-white/40">
@@ -72,18 +74,18 @@ export const GiftStarsParityCard: Component<Props> = (props) => {
 						<span class="text-base font-black text-white">{fmt(secondaryTon())}</span>
 						<span class="text-[10px] font-bold text-[#0098EA]">TON</span>
 					</div>
-					<span class="text-[9px] font-mono text-white/40">
-						≈ ${fmt(secondaryTon() * rate())}
-					</span>
+					<span class="text-[9px] font-mono text-white/40">≈ ${fmt(secondaryTon() * rate())}</span>
 				</div>
 			</div>
 
 			{/* Arbitrage Spread Verdict */}
-			<div class={`rounded-[20px] p-3.5 border flex items-center justify-between gap-3 ${
-				starsIsCheaper()
-					? 'bg-gradient-to-r from-emerald-950/30 via-[#0A140F] to-[#08090D] border-emerald-500/30'
-					: 'bg-gradient-to-r from-sky-950/30 via-[#0A101A] to-[#08090D] border-sky-500/30'
-			}`}>
+			<div
+				class={`rounded-[20px] p-3.5 border flex items-center justify-between gap-3 ${
+					starsIsCheaper()
+						? 'bg-gradient-to-r from-emerald-950/30 via-[#0A140F] to-[#08090D] border-emerald-500/30'
+						: 'bg-gradient-to-r from-sky-950/30 via-[#0A101A] to-[#08090D] border-sky-500/30'
+				}`}
+			>
 				<div class="flex flex-col gap-0.5">
 					<div class="flex items-center gap-2">
 						<span class="text-[10px] font-mono font-black uppercase text-white">
@@ -104,7 +106,9 @@ export const GiftStarsParityCard: Component<Props> = (props) => {
 
 				<div class="bg-[#050B11] border border-white/10 px-3 py-2 rounded-[14px] shrink-0 text-center font-mono">
 					<span class="text-[8px] text-white/40 block uppercase">DELTA</span>
-					<span class={`text-[14px] font-black ${starsIsCheaper() ? 'text-emerald-400' : 'text-[#0098EA]'}`}>
+					<span
+						class={`text-[14px] font-black ${starsIsCheaper() ? 'text-emerald-400' : 'text-[#0098EA]'}`}
+					>
 						{starsIsCheaper() ? `-${fmt(diffTon())}` : `+${fmt(Math.abs(diffTon()))}`}
 					</span>
 					<span class="text-[8px] text-white/40 block">TON</span>

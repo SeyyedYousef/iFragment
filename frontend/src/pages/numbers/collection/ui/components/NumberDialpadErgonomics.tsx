@@ -22,7 +22,9 @@ const DIALPAD_KEYS = [
 ];
 
 export const NumberDialpadErgonomics: Component<Props> = (props) => {
-	const [activeNumber, setActiveNumber] = createSignal<string>(props.initialNumber || '+888 8888 8888');
+	const [activeNumber, setActiveNumber] = createSignal<string>(
+		props.initialNumber || '+888 8888 8888',
+	);
 
 	// Clean digits only
 	const rawDigits = () => activeNumber().replace(/\D/g, '').replace(/^888/, '');
@@ -126,7 +128,9 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 											: 'bg-white/[0.02] border-white/5 text-white/30'
 									}`}
 								>
-									<span class={`text-[16px] font-mono font-black ${isHit() ? 'text-cyan-300' : 'text-white/60'}`}>
+									<span
+										class={`text-[16px] font-mono font-black ${isHit() ? 'text-cyan-300' : 'text-white/60'}`}
+									>
 										{key.digit}
 									</span>
 									<Show when={key.letters}>
@@ -135,9 +139,7 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 										</span>
 									</Show>
 									<Show when={isHit()}>
-										<span class="text-[8px] font-mono font-bold text-amber-400">
-											×{hits()}
-										</span>
+										<span class="text-[8px] font-mono font-bold text-amber-400">×{hits()}</span>
 									</Show>
 								</div>
 							);
@@ -163,9 +165,7 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 								style={{ width: `${ergonomicsScore()}%` }}
 							/>
 						</div>
-						<span class="text-[10px] font-mono text-white/60 mt-1">
-							{travelMetric()}
-						</span>
+						<span class="text-[10px] font-mono text-white/60 mt-1">{travelMetric()}</span>
 					</div>
 
 					<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 flex flex-col gap-1 text-[10px] font-mono text-white/70">
