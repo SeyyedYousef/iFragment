@@ -366,3 +366,76 @@ func TestFormatUSDTAmount(t *testing.T) {
 	}
 }
 
+func TestIsUnsupportedFontScript(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected bool
+	}{
+		{"VERIFIED", false},
+		{"RANK #42", false},
+		{"Plush Pepe #42", false},
+		{"BRAND: 85/100", false},
+		{"شماره رند", true},     // Persian
+		{"هدایا تلگرام", true},    // Persian
+		{"ЭПИЧЕСКИЙ", true},    // Russian (Cyrillic)
+		{"Редкий подарок", true}, // Russian
+		{"史诗级礼物", true},      // Chinese
+		{"@durov", false},
+		{"@نام_کاربری", true},
+	}
+
+	for _, c := range cases {
+		got := isUnsupportedFontScript(c.input)
+		if got != c.expected {
+			t.Errorf("isUnsupportedFontScript(%q) = %v; want %v", c.input, got, c.expected)
+		}
+	}
+}
+
+func TestCardGenerator_NonLatinInputsDoNotFailOrCrash(t *testing.T) {
+	cg := NewCardGenerator()
+
+	// 1. Rich Username Card with localized/Persian values
+	uBytes, err := cg.GenerateRichUsernameCard(UsernameCardParams{
+		Username:     "نام_کاربری",
+		Grade:        "حماسی",
+		FairTON:      "150.0",
+		USDT:         "750",
+		MarketStatus: "فروخته شده",
+		Brandability: 85,
+		Lang:         "fa",
+	})
+	if err != nil || len(uBytes) == 0 {
+		t.Fatalf("GenerateRichUsernameCard failed for Persian inputs: %v", err)
+	}
+
+	// 2. Rich Number Card with localized/Russian values
+	nBytes, err := cg.GenerateRichNumberCard(NumberCardParams{
+		Number:       "+888 0123 4567",
+		Club:         "Клуб Легенд",
+		Rank:         12,
+		FairTON:      "320.0",
+		USDT:         "1600",
+		ColorPattern: "Золотой",
+		Lang:         "ru",
+	})
+	if err != nil || len(nBytes) == 0 {
+		t.Fatalf("GenerateRichNumberCard failed for Russian inputs: %v", err)
+	}
+
+	// 3. Rich Gift Card with Chinese values
+	gBytes, err := cg.GenerateRichGiftCard(GiftCardParams{
+		Title:        "稀有礼物",
+		ModelName:    "米兰之心",
+		SerialNumber: 88,
+		RarityTier:   "史诗",
+		ExpectedTON:  "99.0",
+		ExpectedUSD:  "495",
+		Lang:         "zh",
+	})
+	if err != nil || len(gBytes) == 0 {
+		t.Fatalf("GenerateRichGiftCard failed for Chinese inputs: %v", err)
+	}
+}
+
+

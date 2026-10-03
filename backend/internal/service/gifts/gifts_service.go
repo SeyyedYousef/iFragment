@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -50,6 +52,9 @@ type GiftsService struct {
 	snapshotWorker     *venues.VenueSnapshotWorker
 	ingestorEngine     *ingestor.IngestionEngine
 	workerOnce         sync.Once
+	imgMu              sync.RWMutex
+	imgBytesCache      map[string][]byte
+	imgTypeCache       map[string]string
 }
 
 func NewGiftsService(
@@ -77,6 +82,8 @@ func NewGiftsService(
 		cryptoPrice:       cryptoPrice,
 		giftchangesClient: giftchanges.NewClient(),
 		ingestorEngine:    ingestor.NewIngestionEngine(repo, cache, cryptoPrice, 6*time.Hour),
+		imgBytesCache:     make(map[string][]byte),
+		imgTypeCache:      make(map[string]string),
 	}
 }
 
@@ -1446,8 +1453,105 @@ func (s *GiftsService) GetWatchlist(ctx context.Context, userID int64) ([]reposi
 
 // GetGiftImageBytes returns cached PNG image bytes for a given gift and optional model
 func (s *GiftsService) GetGiftImageBytes(ctx context.Context, slug, model string) ([]byte, error) {
-	if s.giftchangesClient == nil {
-		return nil, errors.New("giftchanges client not initialized")
-	}
-	return s.giftchangesClient.GetGiftImageBytes(ctx, slug, model)
+	b, _, err := s.GetGiftImageBytesDetailed(ctx, slug, model, 0)
+	return b, err
 }
+
+// GetGiftImageBytesDetailed returns cached image bytes and content-type for a gift, model, and optional serial number
+func (s *GiftsService) GetGiftImageBytesDetailed(ctx context.Context, slug, model string, serial int) ([]byte, string, error) {
+	cleanSlug := strings.ToLower(strings.TrimSpace(slug))
+	cleanSlug = strings.ReplaceAll(cleanSlug, "_", "-")
+
+	// 1. Check in-memory cache
+	cacheKey := fmt.Sprintf("%s:%s:%d", cleanSlug, model, serial)
+	s.imgMu.RLock()
+	if b, ok := s.imgBytesCache[cacheKey]; ok && len(b) > 0 {
+		ct := s.imgTypeCache[cacheKey]
+		s.imgMu.RUnlock()
+		return b, ct, nil
+	}
+	s.imgMu.RUnlock()
+
+	// 2. If serial > 0, resolve live Telegram NFT image (fetches telesco.pe on VPS, immune to local blocks)
+	if serial > 0 && s.engine != nil && s.engine.GetNFTResolver() != nil {
+		if nft, err := s.engine.GetNFTResolver().ResolveGiftNFT(ctx, cleanSlug, serial); err == nil && nft != nil && nft.ImageURL != "" {
+			if b, ct, err := downloadImageBytes(ctx, nft.ImageURL); err == nil && len(b) > 0 {
+				s.storeImageInCache(cacheKey, b, ct)
+				return b, ct, nil
+			}
+		}
+	}
+
+	// 3. Query GiftChanges client (backed by api.changes.tg and memory-cached)
+	if s.giftchangesClient != nil {
+		if b, err := s.giftchangesClient.GetGiftImageBytes(ctx, cleanSlug, model); err == nil && len(b) > 0 {
+			ct := "image/png"
+			s.storeImageInCache(cacheKey, b, ct)
+			return b, ct, nil
+		}
+	}
+
+	// 4. Fallback: try serial 1 on official Telegram OpenGraph CDN
+	if s.engine != nil && s.engine.GetNFTResolver() != nil {
+		if nft, err := s.engine.GetNFTResolver().ResolveGiftNFT(ctx, cleanSlug, 1); err == nil && nft != nil && nft.ImageURL != "" {
+			if b, ct, err := downloadImageBytes(ctx, nft.ImageURL); err == nil && len(b) > 0 {
+				s.storeImageInCache(cacheKey, b, ct)
+				return b, ct, nil
+			}
+		}
+	}
+
+	return nil, "", errors.New("gift image not found")
+}
+
+func (s *GiftsService) storeImageInCache(key string, b []byte, ct string) {
+	s.imgMu.Lock()
+	defer s.imgMu.Unlock()
+	if len(s.imgBytesCache) > 500 {
+		count := 0
+		for k := range s.imgBytesCache {
+			delete(s.imgBytesCache, k)
+			delete(s.imgTypeCache, k)
+			count++
+			if count > 200 {
+				break
+			}
+		}
+	}
+	s.imgBytesCache[key] = b
+	s.imgTypeCache[key] = ct
+}
+
+func downloadImageBytes(ctx context.Context, imageURL string) ([]byte, string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) iFragmentBot/1.0 (+https://ifragment.app)")
+	client := &http.Client{Timeout: 6 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+
+	ct := resp.Header.Get("Content-Type")
+	if ct == "" {
+		if len(b) > 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF {
+			ct = "image/jpeg"
+		} else {
+			ct = "image/png"
+		}
+	}
+	return b, ct, nil
+}
+

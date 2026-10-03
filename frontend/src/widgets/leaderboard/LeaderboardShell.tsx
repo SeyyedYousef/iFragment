@@ -115,13 +115,19 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 							<span class="px-2 py-0.5 rounded-full bg-slate-400/20 border border-slate-400/40 text-slate-300 text-[10px] font-black font-mono">
 								#2
 							</span>
-							<div class="w-12 h-12 rounded-full bg-slate-700/50 border-2 border-slate-400 flex items-center justify-center text-base font-black text-white overflow-hidden">
-								<Show when={topThree()[1]?.avatarUrl} fallback={topThree()[1]?.name?.[0] || '2'}>
+							<div class="w-12 h-12 rounded-full bg-slate-700/50 border-2 border-slate-400 flex items-center justify-center text-base font-black text-white overflow-hidden relative">
+								<span class="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-slate-200 font-bold">
+									{topThree()[1]?.name?.[0]?.toUpperCase() || '2'}
+								</span>
+								<Show when={topThree()[1]?.avatarUrl}>
 									<img
 										loading="lazy"
 										src={topThree()[1].avatarUrl}
 										alt=""
-										class="w-full h-full object-cover"
+										class="w-full h-full object-cover relative z-10"
+										onError={(e) => {
+											e.currentTarget.style.display = 'none';
+										}}
 									/>
 								</Show>
 							</div>
@@ -136,13 +142,19 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 							<span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-400 text-[10px] font-black font-mono">
 								👑 #1
 							</span>
-							<div class="w-14 h-14 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-lg font-black text-white overflow-hidden">
-								<Show when={topThree()[0]?.avatarUrl} fallback={topThree()[0]?.name?.[0] || '1'}>
+							<div class="w-14 h-14 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-lg font-black text-white overflow-hidden relative">
+								<span class="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-amber-300 font-black">
+									{topThree()[0]?.name?.[0]?.toUpperCase() || '1'}
+								</span>
+								<Show when={topThree()[0]?.avatarUrl}>
 									<img
 										loading="lazy"
 										src={topThree()[0].avatarUrl}
 										alt=""
-										class="w-full h-full object-cover"
+										class="w-full h-full object-cover relative z-10"
+										onError={(e) => {
+											e.currentTarget.style.display = 'none';
+										}}
 									/>
 								</Show>
 							</div>
@@ -157,13 +169,19 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 							<span class="px-2 py-0.5 rounded-full bg-amber-700/20 border border-amber-700/40 text-amber-500 text-[10px] font-black font-mono">
 								#3
 							</span>
-							<div class="w-12 h-12 rounded-full bg-amber-900/30 border-2 border-amber-700 flex items-center justify-center text-base font-black text-white overflow-hidden">
-								<Show when={topThree()[2]?.avatarUrl} fallback={topThree()[2]?.name?.[0] || '3'}>
+							<div class="w-12 h-12 rounded-full bg-amber-900/30 border-2 border-amber-700 flex items-center justify-center text-base font-black text-white overflow-hidden relative">
+								<span class="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-amber-400 font-bold">
+									{topThree()[2]?.name?.[0]?.toUpperCase() || '3'}
+								</span>
+								<Show when={topThree()[2]?.avatarUrl}>
 									<img
 										loading="lazy"
 										src={topThree()[2].avatarUrl}
 										alt=""
-										class="w-full h-full object-cover"
+										class="w-full h-full object-cover relative z-10"
+										onError={(e) => {
+											e.currentTarget.style.display = 'none';
+										}}
 									/>
 								</Show>
 							</div>
@@ -190,18 +208,19 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 									<span class="w-6 text-center font-mono text-xs font-bold text-white/50">
 										#{entry.rank}
 									</span>
-									<div class="w-9 h-9 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shrink-0">
-										<Show
-											when={entry.avatarUrl}
-											fallback={
-												<span class="text-xs font-bold text-white">{entry.name?.[0] || '?'}</span>
-											}
-										>
+									<div class="w-9 h-9 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shrink-0 relative">
+										<span class="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-xs font-bold text-white/80">
+											{entry.name?.[0]?.toUpperCase() || '?'}
+										</span>
+										<Show when={entry.avatarUrl}>
 											<img
 												loading="lazy"
 												src={entry.avatarUrl}
 												alt=""
-												class="w-full h-full object-cover"
+												class="w-full h-full object-cover relative z-10"
+												onError={(e) => {
+													e.currentTarget.style.display = 'none';
+												}}
 											/>
 										</Show>
 									</div>

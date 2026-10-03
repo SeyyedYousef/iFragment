@@ -1930,9 +1930,6 @@ func buildGiftCardParams(val *gvengine.GiftValuation, lang string) cardgen.GiftC
 	}
 
 	rarityTier := val.JointRarity.RarityClass
-	if normalizeLang(lang) == "fa" && val.JointRarity.DescriptionFa != "" {
-		rarityTier = val.JointRarity.DescriptionFa
-	}
 	if rarityTier == "" {
 		rarityTier = "Collectible"
 	}

@@ -271,15 +271,17 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 										return (
 											<div class="flex flex-col items-center w-[31%] h-[160px] bg-gradient-to-t from-[#12141C] to-[#1a202c] border border-slate-400/30 rounded-t-[24px] rounded-b-[16px] p-2 relative shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
 												<div class="relative w-14 h-14 mb-3 mt-[-28px]">
-													<div class="w-full h-full rounded-[16px] bg-[#08090D] border-[2px] border-slate-300 flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(203,213,225,0.3)]">
-														{clan().channel_photo ? (
+													<div class="w-full h-full rounded-[16px] bg-[#08090D] border-[2px] border-slate-300 flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(203,213,225,0.3)] relative">
+														<span class="material-symbols-outlined text-slate-300 absolute inset-0 flex items-center justify-center pointer-events-none">shield</span>
+														{clan().channel_photo && (
 															<img
 																src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
 																alt={clan().chat_title || 'Clan Logo'}
-																class="w-full h-full object-cover"
+																class="w-full h-full object-cover relative z-10"
+																onError={(e) => {
+																	e.currentTarget.style.display = 'none';
+																}}
 															/>
-														) : (
-															<span class="material-symbols-outlined text-slate-300">shield</span>
 														)}
 													</div>
 													{/* Rank Badge */}
@@ -323,16 +325,18 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 														👑
 													</div>
 													<div class="w-full h-full rounded-[18px] bg-[#08090D] border-[2px] border-amber-400 flex items-center justify-center overflow-hidden shadow-[0_0_20px_rgba(251,191,36,0.4)] relative z-10">
-														{clan().channel_photo ? (
+														<span class="material-symbols-outlined text-amber-400 text-2xl absolute inset-0 flex items-center justify-center pointer-events-none">
+															shield
+														</span>
+														{clan().channel_photo && (
 															<img
 																src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
 																alt={clan().chat_title || 'Clan Logo'}
-																class="w-full h-full object-cover"
+																class="w-full h-full object-cover relative z-10"
+																onError={(e) => {
+																	e.currentTarget.style.display = 'none';
+																}}
 															/>
-														) : (
-															<span class="material-symbols-outlined text-amber-400 text-2xl">
-																shield
-															</span>
 														)}
 													</div>
 													{/* Rank Badge */}
@@ -368,15 +372,17 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 										return (
 											<div class="flex flex-col items-center w-[31%] h-[150px] bg-gradient-to-t from-[#12141C] to-[#261811] border border-orange-500/30 rounded-t-[24px] rounded-b-[16px] p-2 relative shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
 												<div class="relative w-12 h-12 mb-3 mt-[-24px]">
-													<div class="w-full h-full rounded-[14px] bg-[#08090D] border-[2px] border-orange-500 flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(249,115,22,0.3)]">
-														{clan().channel_photo ? (
+													<div class="w-full h-full rounded-[14px] bg-[#08090D] border-[2px] border-orange-500 flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(249,115,22,0.3)] relative">
+														<span class="material-symbols-outlined text-orange-500 absolute inset-0 flex items-center justify-center pointer-events-none">shield</span>
+														{clan().channel_photo && (
 															<img
 																src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
 																alt={clan().chat_title || 'Clan Logo'}
-																class="w-full h-full object-cover"
+																class="w-full h-full object-cover relative z-10"
+																onError={(e) => {
+																	e.currentTarget.style.display = 'none';
+																}}
 															/>
-														) : (
-															<span class="material-symbols-outlined text-orange-500">shield</span>
 														)}
 													</div>
 													{/* Rank Badge */}
@@ -489,15 +495,17 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 													<div class="w-8 h-8 rounded-[12px] bg-white/5 text-white/50 flex items-center justify-center font-mono font-black text-[13px] shrink-0 border border-white/10">
 														{rankNum < 10 ? `0${rankNum}` : rankNum}
 													</div>
-													<div class="w-10 h-10 rounded-[14px] bg-[#08090D] border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-inner group-hover:scale-105 transition-transform">
-														{clan.channel_photo ? (
+													<div class="w-10 h-10 rounded-[14px] bg-[#08090D] border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-inner group-hover:scale-105 transition-transform relative">
+														<span class="material-symbols-outlined text-white/40 absolute inset-0 flex items-center justify-center pointer-events-none">shield</span>
+														{clan.channel_photo && (
 															<img
 																src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
 																alt={clan.chat_title || 'Clan Logo'}
-																class="w-full h-full object-cover"
+																class="w-full h-full object-cover relative z-10"
+																onError={(e) => {
+																	e.currentTarget.style.display = 'none';
+																}}
 															/>
-														) : (
-															<span class="material-symbols-outlined text-white/40">shield</span>
 														)}
 													</div>
 													<div class="flex flex-col min-w-0">
@@ -546,15 +554,17 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 												<div class="w-9 h-9 rounded-[12px] bg-amber-400 text-black font-mono font-black text-[13px] flex items-center justify-center shrink-0 shadow-md">
 													#{info().rank}
 												</div>
-												<div class="w-11 h-11 rounded-[14px] bg-[#08090D] border-[1.5px] border-amber-400/40 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-													{info().clan.channel_photo ? (
+												<div class="w-11 h-11 rounded-[14px] bg-[#08090D] border-[1.5px] border-amber-400/40 flex items-center justify-center overflow-hidden shrink-0 shadow-inner relative">
+													<span class="material-symbols-outlined text-amber-400 absolute inset-0 flex items-center justify-center pointer-events-none">shield</span>
+													{info().clan.channel_photo && (
 														<img
 															src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${info().clan.channel_username}`}
 															alt={info().clan.chat_title || 'Clan Logo'}
-															class="w-full h-full object-cover"
+															class="w-full h-full object-cover relative z-10"
+															onError={(e) => {
+																e.currentTarget.style.display = 'none';
+															}}
 														/>
-													) : (
-														<span class="material-symbols-outlined text-amber-400">shield</span>
 													)}
 												</div>
 												<div class="flex flex-col min-w-0">

@@ -413,14 +413,35 @@ func (h *GiftsHandler) GetGiftImage(w http.ResponseWriter, r *http.Request) {
 		model = r.URL.Query().Get("model")
 	}
 
-	bytes, err := h.service.GetGiftImageBytes(ctx, slug, model)
+	serial := 0
+	if sStr := r.URL.Query().Get("s"); sStr != "" {
+		serial, _ = strconv.Atoi(sStr)
+	} else if sStr := r.URL.Query().Get("serial"); sStr != "" {
+		serial, _ = strconv.Atoi(sStr)
+	}
+
+	// Also check if slug contains serial, e.g. "plush-pepe-1"
+	if serial <= 0 {
+		if lastIdx := strings.LastIndex(slug, "-"); lastIdx > 0 {
+			if num, err := strconv.Atoi(slug[lastIdx+1:]); err == nil && num > 0 {
+				serial = num
+				slug = slug[:lastIdx]
+			}
+		}
+	}
+
+	bytes, contentType, err := h.service.GetGiftImageBytesDetailed(ctx, slug, model, serial)
 	if err != nil || len(bytes) == 0 {
 		http.Error(w, "image not found", http.StatusNotFound)
 		return
 	}
 
-	w.Header().Set("Content-Type", "image/png")
-	w.Header().Set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800")
+	if contentType == "" {
+		contentType = "image/png"
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(bytes)
 }
@@ -484,13 +505,7 @@ func (h *GiftsHandler) sendGiftNotification(r *http.Request, val *gvengine.GiftV
 	appLink := fmt.Sprintf("%s?startapp=gift_%s", miniAppURL, val.GiftID)
 	fragmentGiftsLink := "https://fragment.com/gifts"
 
-	rarityTier := val.JointRarity.DescriptionFa
-	if rarityTier == "" {
-		rarityTier = val.JointRarity.RarityClass
-	}
-	if rarityTier == "" {
-		rarityTier = "استاندارد"
-	}
+	rarityTier := localizeGiftRarityFa(val.JointRarity.RarityClass)
 
 	badge := "🎁"
 	if val.SerialNumber <= 100 || val.ExpectedUSD >= 200 {
@@ -633,13 +648,7 @@ func (h *GiftsHandler) deliverGiftReportToUser(r *http.Request, userID int64, va
 		appLink := fmt.Sprintf("%s?startapp=gift_%s", miniAppURL, val.GiftID)
 		fragmentLink := "https://fragment.com/gifts"
 
-		rarityTier := val.JointRarity.DescriptionFa
-		if rarityTier == "" {
-			rarityTier = val.JointRarity.RarityClass
-		}
-		if rarityTier == "" {
-			rarityTier = "کلکسیونی"
-		}
+		rarityTier := localizeGiftRarityFa(val.JointRarity.RarityClass)
 
 		reportText := fmt.Sprintf(`🎁 <b>کارشناسی تحلیلی گیفت تلگرام: %s</b>
 
@@ -693,6 +702,22 @@ func (h *GiftsHandler) deliverGiftReportToUser(r *http.Request, userID int64, va
 
 		_, _ = tg.SendMessageWithMarkup(ctx, userID, reportText, markup, nil)
 	}()
+}
+
+func localizeGiftRarityFa(rc string) string {
+	norm := strings.ToLower(strings.TrimSpace(rc))
+	switch {
+	case strings.Contains(norm, "legendary"), strings.Contains(norm, "exclusive"), strings.Contains(norm, "genesis"):
+		return "افسانه‌ای (Exclusive)"
+	case strings.Contains(norm, "epic"), strings.Contains(norm, "flame"):
+		return "حماسی (Epic)"
+	case strings.Contains(norm, "unique"), strings.Contains(norm, "minted"):
+		return "منحصربه‌فرد (Unique)"
+	case strings.Contains(norm, "rare"), strings.Contains(norm, "apex"):
+		return "کمیاب (Rare)"
+	default:
+		return "کلکسیونی (Collectible)"
+	}
 }
 
 

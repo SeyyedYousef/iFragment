@@ -24,13 +24,16 @@ export function getGiftCdnImageUrl(slugOrName: string, modelName?: string): stri
 	return `https://api.changes.tg/model/${realSlug}/${encodeURIComponent(model)}.png?size=256`;
 }
 
-export function getGiftProxyImageUrl(slugOrName: string, modelName?: string): string {
+export function getGiftProxyImageUrl(slugOrName: string, modelName?: string, serialNumber?: number): string {
 	if (!slugOrName) return '';
 	const cleanSlug = slugOrName
 		.toLowerCase()
 		.replace(/_/g, '-')
 		.replace(/[^a-z0-9-]/g, '');
-	const query = modelName ? `?m=${encodeURIComponent(modelName)}` : '';
+	const params = new URLSearchParams();
+	if (modelName) params.set('m', modelName);
+	if (serialNumber && serialNumber > 0) params.set('s', String(serialNumber));
+	const query = params.toString() ? `?${params.toString()}` : '';
 	return `${API_CONFIG.BASE_URL}/gifts/image/${cleanSlug}${query}`;
 }
 

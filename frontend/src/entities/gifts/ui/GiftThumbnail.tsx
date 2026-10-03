@@ -1,4 +1,4 @@
-import { type Component, createSignal, Show } from 'solid-js';
+import { type Component, createEffect, createMemo, createSignal, Show } from 'solid-js';
 import { getGiftCdnImageUrl, getGiftProxyImageUrl } from '../lib/cdn.js';
 import { OFFICIAL_GIFTS_120 } from '../model/catalog120.js';
 
@@ -6,6 +6,7 @@ interface Props {
 	slug: string;
 	name?: string;
 	model?: string;
+	serialNumber?: number;
 	customImageUrl?: string;
 	class?: string;
 	imgClass?: string;
@@ -13,9 +14,9 @@ interface Props {
 }
 
 export const GiftThumbnail: Component<Props> = (props) => {
+	const [attemptIndex, setAttemptIndex] = createSignal(0);
 	const [imageLoaded, setImageLoaded] = createSignal(false);
 	const [imageError, setImageError] = createSignal(false);
-	const [useFallbackProxy, setUseFallbackProxy] = createSignal(false);
 
 	const cleanSlug = () =>
 		(props.slug || '')
@@ -30,21 +31,53 @@ export const GiftThumbnail: Component<Props> = (props) => {
 
 	const emoji = () => giftItem()?.emoji || '🎁';
 
-	const imgSrc = () => {
-		if (props.customImageUrl) {
-			return props.customImageUrl;
+	// Multi-stage cascading candidates:
+	// Prioritizes backend VPS proxy when customImageUrl is from a filtered Telegram CDN (telesco.pe)
+	const candidates = createMemo(() => {
+		const list: string[] = [];
+		const proxyUrl = getGiftProxyImageUrl(cleanSlug(), props.model, props.serialNumber);
+		const cdnUrl = getGiftCdnImageUrl(cleanSlug(), props.model || giftItem()?.primaryModel);
+		const custom = props.customImageUrl;
+
+		const isTelegramDomain =
+			!!custom &&
+			(custom.includes('telesco.pe') || custom.includes('t.me') || custom.includes('telegram.org'));
+
+		if (custom && !isTelegramDomain) {
+			list.push(custom);
 		}
-		if (useFallbackProxy()) {
-			return getGiftCdnImageUrl(cleanSlug(), props.model || giftItem()?.primaryModel);
+		if (proxyUrl && !list.includes(proxyUrl)) {
+			list.push(proxyUrl);
 		}
-		// Primary: High-speed European VPS proxy with 7-day cache
-		return getGiftProxyImageUrl(cleanSlug(), props.model);
+		if (custom && isTelegramDomain && !list.includes(custom)) {
+			list.push(custom);
+		}
+		if (cdnUrl && !list.includes(cdnUrl)) {
+			list.push(cdnUrl);
+		}
+		return list;
+	});
+
+	createEffect(() => {
+		void cleanSlug();
+		void props.model;
+		void props.serialNumber;
+		void props.customImageUrl;
+		setAttemptIndex(0);
+		setImageLoaded(false);
+		setImageError(false);
+	});
+
+	const currentSrc = () => {
+		const c = candidates();
+		const idx = attemptIndex();
+		return idx < c.length ? c[idx] : '';
 	};
 
 	const handleImgError = () => {
-		if (!useFallbackProxy() && !props.customImageUrl) {
-			// Fallback to direct CDN if proxy fails
-			setUseFallbackProxy(true);
+		const next = attemptIndex() + 1;
+		if (next < candidates().length) {
+			setAttemptIndex(next);
 		} else {
 			setImageError(true);
 		}
@@ -70,7 +103,7 @@ export const GiftThumbnail: Component<Props> = (props) => {
 				props.class || ''
 			}`}
 		>
-			{/* Fallback 3D Emoji Badge: visible while image is loading or if failed */}
+			{/* Fallback 3D Emoji Badge: visible while image is loading or if all sources fail */}
 			<Show when={!imageLoaded() || imageError()}>
 				<div class="absolute inset-0 flex items-center justify-center pointer-events-none drop-shadow-md">
 					<span>{emoji()}</span>
@@ -78,9 +111,9 @@ export const GiftThumbnail: Component<Props> = (props) => {
 			</Show>
 
 			{/* Official High-Res Model Image */}
-			<Show when={!imageError()}>
+			<Show when={!imageError() && currentSrc()}>
 				<img
-					src={imgSrc()}
+					src={currentSrc()}
 					alt={props.name || cleanSlug()}
 					onLoad={() => setImageLoaded(true)}
 					onError={handleImgError}

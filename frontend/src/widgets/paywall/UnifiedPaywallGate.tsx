@@ -1,4 +1,5 @@
 import { type Component, createSignal, Show } from 'solid-js';
+import { GiftThumbnail } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { CreditStoreSheet } from './CreditStoreSheet.js';
@@ -13,6 +14,9 @@ interface UnifiedPaywallGateProps {
 	targetBadge?: string;
 	targetIcon?: string;
 	targetImage?: string;
+	targetGiftSlug?: string;
+	targetGiftModel?: string;
+	targetGiftSerial?: number;
 	unlockCtaText?: string;
 	/** Executes the vertical-specific unlock-with-credit call */
 	onUnlock: () => Promise<void>;
@@ -31,6 +35,8 @@ interface UnifiedPaywallGateProps {
 export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) => {
 	const wallet = useWallet();
 	const [storeOpen, setStoreOpen] = createSignal(false);
+	const [imgErr, setImgErr] = createSignal(false);
+	const [imgLoaded, setImgLoaded] = createSignal(false);
 	const theme = () => verticalThemes[props.vertical];
 
 	const canAfford = () => {
@@ -69,21 +75,39 @@ export const UnifiedPaywallGate: Component<UnifiedPaywallGateProps> = (props) =>
 						}}
 					>
 						<Show
-							when={props.targetImage}
+							when={props.vertical === 'gift' && (props.targetGiftSlug || props.targetImage)}
 							fallback={
-								<span
-									class="material-symbols-outlined text-[36px] drop-shadow-md"
-									style={{ color: theme().accent }}
+								<Show
+									when={props.targetImage && !imgErr()}
+									fallback={
+										<span
+											class="material-symbols-outlined text-[36px] drop-shadow-md"
+											style={{ color: theme().accent }}
+										>
+											{props.targetIcon || theme().glyph}
+										</span>
+									}
 								>
-									{props.targetIcon || theme().glyph}
-								</span>
+									<img
+										src={props.targetImage}
+										alt={props.targetTitle || 'Asset'}
+										referrerpolicy="no-referrer"
+										onLoad={() => setImgLoaded(true)}
+										onError={() => setImgErr(true)}
+										class={`h-full w-full object-contain p-1.5 drop-shadow-lg transition-all duration-300 hover:scale-105 ${
+											imgLoaded() ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+										}`}
+									/>
+								</Show>
 							}
 						>
-							<img
-								src={props.targetImage}
-								alt={props.targetTitle || 'Asset'}
-								referrerpolicy="no-referrer"
-								class="h-full w-full object-contain p-1.5 drop-shadow-lg transition-transform duration-300 hover:scale-105"
+							<GiftThumbnail
+								slug={props.targetGiftSlug || ''}
+								name={props.targetTitle}
+								model={props.targetGiftModel}
+								serialNumber={props.targetGiftSerial}
+								customImageUrl={props.targetImage}
+								class="w-full h-full object-contain p-1 border-0 bg-transparent shadow-none"
 							/>
 						</Show>
 

@@ -356,11 +356,17 @@ export const GiftReportPage: Component = () => {
 		);
 
 	const giftImageUrl = () => {
-		if (gateQuery.data?.image_url) return gateQuery.data.image_url;
-		if (currentReport()?.image_url) return currentReport()!.image_url;
 		const slug = resolvedModelSlug();
 		const model = gateQuery.data?.selected_model || currentReport()?.selected_model;
-		return getGiftProxyImageUrl(slug, model) || getGiftCdnImageUrl(slug, model);
+		const serial = gateQuery.data?.serial_number || currentReport()?.serial_number;
+		const raw = gateQuery.data?.image_url || currentReport()?.image_url;
+
+		// Prioritize backend VPS proxy when image comes from a filtered Telegram CDN (telesco.pe)
+		if (raw && (raw.includes('telesco.pe') || raw.includes('telegram.org') || raw.includes('t.me'))) {
+			return getGiftProxyImageUrl(slug, model, serial) || raw;
+		}
+		if (raw) return raw;
+		return getGiftProxyImageUrl(slug, model, serial) || getGiftCdnImageUrl(slug, model);
 	};
 
 	const giftSubtitle = () => {
@@ -440,6 +446,9 @@ export const GiftReportPage: Component = () => {
 							targetTitle={giftName()}
 							targetSubtitle={giftSubtitle()}
 							targetImage={giftImageUrl()}
+							targetGiftSlug={resolvedModelSlug()}
+							targetGiftModel={gateQuery.data?.selected_model || currentReport()?.selected_model}
+							targetGiftSerial={gateQuery.data?.serial_number || currentReport()?.serial_number}
 							targetIcon="featured_seasonal_and_gifts"
 							targetBadge={t('paywall.ready_for_appraisal')}
 							unlockCtaText={t('paywall.cta_unlock_specific', { target: giftName() })}
@@ -520,6 +529,7 @@ export const GiftReportPage: Component = () => {
 											model={
 												currentReport()?.selected_model || currentReport()?.trait_dna?.[0]?.value
 											}
+											serialNumber={currentReport()?.serial_number || gateQuery.data?.serial_number}
 											customImageUrl={currentReport()?.image_url || gateQuery.data?.image_url}
 											class="w-full h-full object-contain p-2 drop-shadow-xl"
 										/>

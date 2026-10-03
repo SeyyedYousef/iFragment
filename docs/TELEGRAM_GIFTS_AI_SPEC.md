@@ -98,11 +98,18 @@ CREATE TABLE IF NOT EXISTS gift_sales (
     buyer_address       TEXT,
     seller_address      TEXT,
     tx_hash             TEXT,
+    event_index         INT NOT NULL DEFAULT 0,
+    ton_usd_at_sale     NUMERIC(18,4),
+    backdrop_name       VARCHAR(128),
+    symbol_name         VARCHAR(128),
+    trait_rarity_score  NUMERIC(5,2),
     indexed_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_gift_sales_gift_date ON gift_sales(gift_id, sale_date DESC);
 CREATE INDEX IF NOT EXISTS idx_gift_sales_model_date ON gift_sales(model_id, sale_date DESC);
+CREATE INDEX IF NOT EXISTS idx_gift_sales_model_backdrop_date ON gift_sales(model_id, backdrop_name, sale_date DESC);
+CREATE INDEX IF NOT EXISTS idx_gift_sales_model_backdrop_serial ON gift_sales(model_id, backdrop_name, serial_number);
 ```
 
 ### 3.2 `gift_valuations` (Mandatory Audit Trail)
@@ -199,7 +206,12 @@ if lastSaleRecord != nil && lastSaleRecord.SalePriceGRAM > 0 {
     isLastSaleAnchored = true
 }
 
-// Hard Invariant Clamping:
+// Apply Laya AI Visual Synergy Multiplier (System One Collector Alpha)
+if layaRes != nil && layaRes.SynergyMultiplier > 0 {
+    rawEstimateGRAM = rawEstimateGRAM * layaRes.SynergyMultiplier
+}
+
+// Hard Invariant Clamping (guarantees Laya penalty can NEVER drop below floor or last sale):
 if rawEstimateGRAM < effectiveFloor {
     rawEstimateGRAM = effectiveFloor
     if isLastSaleAnchored {
@@ -217,6 +229,11 @@ if lowBound < baseFloor {
     lowBound = baseFloor
 }
 ```
+
+### 4.4 Trait-Aware Comparable Sales & Cold-Start Isolation
+- **Exact Trait Matching:** When resolving comps, `GetTraitAwareCompsForGift` matches on `(model_id, backdrop_name)` to eliminate trait-blindness contamination (e.g. preventing a common floor item from dragging down an ultra-rare grail).
+- **Cold-Start Isolation:** When no sales of the specific rare trait exist, the engine does NOT shrink towards unrelated floor sales. Instead, it relies 100% on the theoretical hedonic model (`price_basis = "hedonic_pure_trait_basis"`).
+- **Laya Visual Synergy Multiplier:** Applies AI System One visual harmony multiplier ($0.90\times$ to $1.35\times$) while guaranteeing strict Floor Invariant clamping.
 
 ---
 

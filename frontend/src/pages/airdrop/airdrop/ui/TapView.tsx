@@ -343,27 +343,26 @@ export const TapView: Component<{
 									<div class="flex items-center gap-3 min-w-0 flex-1">
 										<div class="w-11 h-11 rounded-[14px] p-[1.5px] bg-gradient-to-br from-white/20 via-white/5 to-transparent shadow-lg shrink-0 overflow-hidden">
 											<div class="w-full h-full bg-[#08090D] rounded-[12.5px] overflow-hidden flex items-center justify-center relative">
-												<Show
-													when={clan().channel_photo}
-													fallback={
-														<div class="w-full h-full bg-gradient-to-br from-[#1c2230] to-[#0f1117] flex items-center justify-center p-2.5">
-															<svg
-																viewBox="0 0 100 100"
-																class="w-full h-full text-white fill-current drop-shadow"
-																aria-hidden="true"
-															>
-																<path d="M 11 14 L 89 14 L 50 36 Z" />
-																<path d="M 7 19 L 47 42 L 47 88 Z" />
-																<path d="M 93 19 L 53 42 L 53 88 Z" />
-															</svg>
-														</div>
-													}
-												>
+												<div class="absolute inset-0 bg-gradient-to-br from-[#1c2230] to-[#0f1117] flex items-center justify-center p-2.5 pointer-events-none">
+													<svg
+														viewBox="0 0 100 100"
+														class="w-full h-full text-white fill-current drop-shadow"
+														aria-hidden="true"
+													>
+														<path d="M 11 14 L 89 14 L 50 36 Z" />
+														<path d="M 7 19 L 47 42 L 47 88 Z" />
+														<path d="M 93 19 L 53 42 L 53 88 Z" />
+													</svg>
+												</div>
+												<Show when={clan().channel_photo}>
 													<img
 														loading="lazy"
 														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
 														alt={clan().chat_title}
-														class="w-full h-full object-cover"
+														class="w-full h-full object-cover relative z-10"
+														onError={(e) => {
+															e.currentTarget.style.display = 'none';
+														}}
 													/>
 												</Show>
 											</div>

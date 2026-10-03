@@ -536,10 +536,29 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// Sum Log prior (Hedonic Quantum-Hedonic v6.0)
 	hedonicLogP := beta0 + betaModel + betaBackdrop + betaSymbol + betaSerial + betaOriginal + aestheticHarmony.BetaAesthetic + jointRarity.BetaSynergy + math.Log(fngMult)
 
+	// Laya AI System One Pre-Evaluation (Trait synergy, aesthetic appeal, action advice)
+	var layaRes *LayaGiftResult
+	if defaultLayaGiftEvaluator != nil {
+		layaRes = defaultLayaGiftEvaluator.EvaluateGift(ctx, col.Name, backdropKey, symbolKey, ref.SerialNumber)
+	}
+
 	// 4. Fetch Real Comparable Sales from Database and blend with Bayesian Shrinkage
 	comps, finalLogP, mad, priceBasis := e.resolveComps(ctx, ref, backdropKey, gramUsdRate, hedonicLogP)
 
 	rawEstimateGRAM := math.Exp(finalLogP)
+
+	// Apply Laya AI Visual Synergy Multiplier (System One Collector Alpha)
+	layaMult := 1.0
+	layaScore := 7
+	layaAppeal := "aesthetic_elite"
+	if layaRes != nil {
+		layaScore = layaRes.TraitSynergyScore
+		layaAppeal = layaRes.CollectorAppeal
+		if layaRes.SynergyMultiplier > 0 {
+			layaMult = layaRes.SynergyMultiplier
+			rawEstimateGRAM = rawEstimateGRAM * layaMult
+		}
+	}
 
 	// Fetch exact last realized sale for this gift (model + serial)
 	var lastSaleRecord *repository.GiftSaleRecord
@@ -724,7 +743,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	// 13. Recommendation (Laya System One Enhanced)
-	recommendation := buildGiftRecommendation(ctx, col.Name, backdropKey, symbolKey, ref.SerialNumber, expectedGRAM, exitPlanner, craftingEV)
+	recommendation := buildGiftRecommendation(ctx, col.Name, backdropKey, symbolKey, ref.SerialNumber, expectedGRAM, exitPlanner, craftingEV, layaRes)
 
 	// 14. Deterministic Certificate Hash ID
 	certPayload := fmt.Sprintf("%s:%s:%.2f:%.2f:%.2f", ref.GiftID, ModelVersion, expectedGRAM, lowGRAM, highGRAM)
@@ -743,43 +762,49 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	configSnapshot := map[string]interface{}{
-		"base_floor_gram":        baseFloor,
-		"effective_floor_gram":   effectiveFloor,
-		"last_sale_price_gram":   lastSalePriceGRAM,
-		"is_last_sale_anchored":  isLastSaleAnchored,
-		"model_supply":           col.TotalSupply,
-		"beta_serial":            betaSerial,
-		"beta_backdrop":          betaBackdrop,
-		"beta_symbol":            betaSymbol,
-		"beta_aesthetic":         aestheticHarmony.BetaAesthetic,
-		"beta_synergy":           jointRarity.BetaSynergy,
-		"backdrop_permille":      backdropPermille,
-		"symbol_permille":        symbolPermille,
+		"base_floor_gram":         baseFloor,
+		"effective_floor_gram":    effectiveFloor,
+		"last_sale_price_gram":    lastSalePriceGRAM,
+		"is_last_sale_anchored":   isLastSaleAnchored,
+		"model_supply":            col.TotalSupply,
+		"beta_serial":             betaSerial,
+		"beta_backdrop":           betaBackdrop,
+		"beta_symbol":             betaSymbol,
+		"beta_aesthetic":          aestheticHarmony.BetaAesthetic,
+		"beta_synergy":            jointRarity.BetaSynergy,
+		"backdrop_permille":       backdropPermille,
+		"symbol_permille":         symbolPermille,
+		"laya_synergy_multiplier": layaMult,
+		"laya_synergy_score":      layaScore,
+		"laya_collector_appeal":   layaAppeal,
 	}
 
 	reasoningLog := map[string]interface{}{
-		"model_version":          ModelVersion,
-		"beta0_floor":            beta0,
-		"beta_model":             betaModel,
-		"beta_backdrop":          betaBackdrop,
-		"beta_symbol":            betaSymbol,
-		"beta_serial":            betaSerial,
-		"beta_original":          betaOriginal,
-		"beta_aesthetic":         aestheticHarmony.BetaAesthetic,
-		"beta_synergy":           jointRarity.BetaSynergy,
-		"fng_multiplier":         fngMult,
-		"bayesian_k":             ShrinkageK,
-		"price_basis":            priceBasis,
-		"effective_floor_gram":   effectiveFloor,
-		"last_sale_price_gram":   lastSalePriceGRAM,
-		"is_last_sale_anchored":  isLastSaleAnchored,
-		"last_sale_date":         lastSaleDate,
-		"last_sale_venue":        lastSaleVenue,
-		"narrative_only":         true, // Sacred Rule 11
-		"signals_count":          42,
-		"comparables":            compSummaries,
-		"recommendation_verdict": recommendation.Verdict,
-		"recommendation_summary": recommendation.SummaryEn,
+		"model_version":           ModelVersion,
+		"beta0_floor":             beta0,
+		"beta_model":              betaModel,
+		"beta_backdrop":           betaBackdrop,
+		"beta_symbol":             betaSymbol,
+		"beta_serial":             betaSerial,
+		"beta_original":           betaOriginal,
+		"beta_aesthetic":          aestheticHarmony.BetaAesthetic,
+		"beta_synergy":            jointRarity.BetaSynergy,
+		"fng_multiplier":          fngMult,
+		"bayesian_k":              ShrinkageK,
+		"price_basis":             priceBasis,
+		"effective_floor_gram":    effectiveFloor,
+		"last_sale_price_gram":    lastSalePriceGRAM,
+		"is_last_sale_anchored":   isLastSaleAnchored,
+		"last_sale_date":          lastSaleDate,
+		"last_sale_venue":         lastSaleVenue,
+		"laya_synergy_multiplier": layaMult,
+		"laya_synergy_score":      layaScore,
+		"laya_collector_appeal":   layaAppeal,
+		"narrative_only":          true, // Sacred Rule 11
+		"signals_count":           42,
+		"comparables":             compSummaries,
+		"recommendation_verdict":  recommendation.Verdict,
+		"recommendation_summary":  recommendation.SummaryEn,
 	}
 
 	selectedModel := modelKey
@@ -964,7 +989,8 @@ func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, 
 	mad := 0.16 // default MAD baseline
 
 	if e.giftsRepo != nil {
-		sales, err := e.giftsRepo.GetCompsForGift(ctx, ref.ModelID, ref.SerialNumber, 5)
+		// Tier 1: Seek Trait-Aware Comparable Sales (same model + exact backdrop)
+		sales, err := e.giftsRepo.GetTraitAwareCompsForGift(ctx, ref.ModelID, ref.SerialNumber, backdrop, 5)
 		if err == nil && len(sales) > 0 {
 			now := time.Now()
 			compsForMath := make([]core.ComparableSale, 0, len(sales))
@@ -1022,11 +1048,13 @@ func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, 
 					TonviewerURL:  tonviewer,
 				})
 			}
-			return comps, finalLogP, mad, "gift_market_comps_bayesian_shrunk"
+			return comps, finalLogP, mad, "gift_market_trait_comps_bayesian_shrunk"
 		}
 	}
 
-	return comps, finalLogP, mad, "hedonic_model_floor_basis"
+	// Decision 1: When no trait-matched comps exist (Cold Start for rare traits),
+	// rely 100% on the theoretical Hedonic prior without shrinkage towards unrelated common comps.
+	return comps, finalLogP, mad, "hedonic_pure_trait_basis"
 }
 
 func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, modelName string, modelPct float64, backdropName string, backdropPermille int, colors traits.BackdropColorSet, symbolName string, symbolPermille int, backdropCert, symbolCert string) []TraitDNABar {
@@ -1119,14 +1147,13 @@ func buildTraitDNA(col traits.CollectionMeta, serial int, backdropName string, b
 
 var defaultLayaGiftEvaluator = NewLayaGiftEvaluator()
 
-func buildGiftRecommendation(ctx context.Context, modelName, backdrop, symbol string, serial int, expectedGRAM float64, exitPlan *venues.ExitPlannerPlan, craftEV *crafting.CraftingEVResult) ValuationActionVerdict {
+func buildGiftRecommendation(ctx context.Context, modelName, backdrop, symbol string, serial int, expectedGRAM float64, exitPlan *venues.ExitPlannerPlan, craftEV *crafting.CraftingEVResult, layaRes *LayaGiftResult) ValuationActionVerdict {
 	verdict := "HOLD"
 	conf := "Strong Scarcity Hold"
 	sumEn := "Deflationary tokenomics and high trait rarity make holding optimal for medium-term yield."
 	sumFa := "به دلیل کمیابی بالای صفات و عرضه محدود، نگهداری دارایی برای رشد ارزش میان‌مدت پیشنهاد می‌شود."
 
-	var layaRes *LayaGiftResult
-	if defaultLayaGiftEvaluator != nil {
+	if layaRes == nil && defaultLayaGiftEvaluator != nil {
 		layaRes = defaultLayaGiftEvaluator.EvaluateGift(ctx, modelName, backdrop, symbol, serial)
 	}
 

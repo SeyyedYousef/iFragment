@@ -239,16 +239,17 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 								{(clan) => (
 									<div class="group bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[24px] p-4 flex items-center justify-between transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
 										<div class="flex items-center gap-3.5 flex-1 min-w-0">
-											<div class="w-12 h-12 rounded-[16px] bg-gradient-to-br from-[#1c2230] to-[#08090D] border border-white/10 overflow-hidden flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-300">
-												<Show
-													when={clan.channel_photo}
-													fallback={<span class="text-amber-400 font-bold text-lg">🛡️</span>}
-												>
+											<div class="w-12 h-12 rounded-[16px] bg-gradient-to-br from-[#1c2230] to-[#08090D] border border-white/10 overflow-hidden flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-300 relative">
+												<span class="text-amber-400 font-bold text-lg absolute inset-0 flex items-center justify-center pointer-events-none">🛡️</span>
+												<Show when={clan.channel_photo}>
 													<img
 														loading="lazy"
 														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
 														alt=""
-														class="w-full h-full object-cover"
+														class="w-full h-full object-cover relative z-10"
+														onError={(e) => {
+															e.currentTarget.style.display = 'none';
+														}}
 													/>
 												</Show>
 											</div>

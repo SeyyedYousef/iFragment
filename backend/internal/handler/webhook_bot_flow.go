@@ -2069,13 +2069,7 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 
 		tonStr := fmt.Sprintf("%.1f", appraisal.Pillars.FairValueGRAM)
 		usdStr := expectedUSDFormatted
-		rarityTier := appraisal.JointRarity.RarityClass
-		if normalizeLang(lang) == "fa" && appraisal.JointRarity.DescriptionFa != "" {
-			rarityTier = appraisal.JointRarity.DescriptionFa
-		}
-		if rarityTier == "" {
-			rarityTier = "Collectible"
-		}
+		rarityTier := formatLocalizedRarityTier(appraisal.JointRarity.RarityClass, lang)
 
 		var extraInfo string
 		switch normalizeLang(lang) {
@@ -3186,4 +3180,55 @@ func (h *WebhookHandler) sendOrEditMessage(ctx context.Context, tg *telegram.Bot
 		}
 	}
 }
+
+func formatLocalizedRarityTier(rc, lang string) string {
+	norm := strings.ToLower(strings.TrimSpace(rc))
+	switch normalizeLang(lang) {
+	case "fa":
+		switch {
+		case strings.Contains(norm, "legendary"), strings.Contains(norm, "exclusive"), strings.Contains(norm, "genesis"):
+			return "افسانه‌ای (Exclusive)"
+		case strings.Contains(norm, "epic"), strings.Contains(norm, "flame"):
+			return "حماسی (Epic)"
+		case strings.Contains(norm, "unique"), strings.Contains(norm, "minted"):
+			return "منحصربه‌فرد (Unique)"
+		case strings.Contains(norm, "rare"), strings.Contains(norm, "apex"):
+			return "کمیاب (Rare)"
+		default:
+			return "کلکسیونی (Collectible)"
+		}
+	case "ru":
+		switch {
+		case strings.Contains(norm, "legendary"), strings.Contains(norm, "exclusive"), strings.Contains(norm, "genesis"):
+			return "Легендарный (Exclusive)"
+		case strings.Contains(norm, "epic"), strings.Contains(norm, "flame"):
+			return "Эпический (Epic)"
+		case strings.Contains(norm, "unique"), strings.Contains(norm, "minted"):
+			return "Уникальный (Unique)"
+		case strings.Contains(norm, "rare"), strings.Contains(norm, "apex"):
+			return "Редкий (Rare)"
+		default:
+			return "Коллекционный (Collectible)"
+		}
+	case "zh":
+		switch {
+		case strings.Contains(norm, "legendary"), strings.Contains(norm, "exclusive"), strings.Contains(norm, "genesis"):
+			return "传奇 (Exclusive)"
+		case strings.Contains(norm, "epic"), strings.Contains(norm, "flame"):
+			return "史诗 (Epic)"
+		case strings.Contains(norm, "unique"), strings.Contains(norm, "minted"):
+			return "独特 (Unique)"
+		case strings.Contains(norm, "rare"), strings.Contains(norm, "apex"):
+			return "稀有 (Rare)"
+		default:
+			return "收藏级 (Collectible)"
+		}
+	default:
+		if rc != "" {
+			return rc
+		}
+		return "Collectible"
+	}
+}
+
 

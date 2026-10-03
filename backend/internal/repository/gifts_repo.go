@@ -67,6 +67,9 @@ type GiftSaleRecord struct {
 	TxHash          string           `json:"tx_hash"`
 	EventIndex      int              `json:"event_index"`
 	TonUsdAtSale    *decimal.Decimal `json:"ton_usd_at_sale,omitempty"`
+	BackdropName    string           `json:"backdrop_name,omitempty"`
+	SymbolName      string           `json:"symbol_name,omitempty"`
+	TraitRarityScore *decimal.Decimal `json:"trait_rarity_score,omitempty"`
 }
 
 type VenueSnapshotRecord struct {
@@ -268,8 +271,8 @@ func (r *GiftsRepo) InsertGiftSale(ctx context.Context, s GiftSaleRecord) (int64
 			gift_id, model_id, serial_number, venue, currency,
 			sale_price_raw, sale_price_gram, sale_price_usd, venue_fee_pct,
 			price_confidence, sale_date, buyer_address, seller_address, tx_hash,
-			event_index, ton_usd_at_sale
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+			event_index, ton_usd_at_sale, backdrop_name, symbol_name, trait_rarity_score
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		ON CONFLICT (venue, tx_hash, event_index) WHERE tx_hash IS NOT NULL AND tx_hash != ''
 		DO NOTHING
 		RETURNING id`
@@ -279,7 +282,7 @@ func (r *GiftsRepo) InsertGiftSale(ctx context.Context, s GiftSaleRecord) (int64
 		s.GiftID, s.ModelID, s.SerialNumber, s.Venue, s.Currency,
 		s.SalePriceRaw, s.SalePriceGRAM, s.SalePriceUSD, s.VenueFeePct,
 		s.PriceConfidence, s.SaleDate, s.BuyerAddress, s.SellerAddress, s.TxHash,
-		s.EventIndex, s.TonUsdAtSale,
+		s.EventIndex, s.TonUsdAtSale, s.BackdropName, s.SymbolName, s.TraitRarityScore,
 	).Scan(&id)
 	if err != nil && (err.Error() == "no rows in result set" || strings.Contains(err.Error(), "no rows")) {
 		return 0, nil
@@ -386,6 +389,65 @@ func (r *GiftsRepo) GetCompsForGift(ctx context.Context, modelID string, serialN
 		}
 	}
 	return comps, nil
+}
+
+// GetTraitAwareCompsForGift fetches closest comparable sales matching the specific trait (backdrop)
+// to eliminate trait-blindness contamination (e.g. comparing a rare grail with common floor sales).
+// If no trait-matched sales exist, it intentionally returns an empty slice to isolate the pure hedonic model (Decision 1).
+func (r *GiftsRepo) GetTraitAwareCompsForGift(ctx context.Context, modelID string, serialNumber int, backdrop string, limit int) ([]GiftSaleRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []GiftSaleRecord{}, nil
+	}
+	if limit <= 0 {
+		limit = 5
+	}
+
+	altModel := strings.ReplaceAll(modelID, "_", "-")
+	if altModel == modelID {
+		altModel = strings.ReplaceAll(modelID, "-", "_")
+	}
+
+	trimmedBackdrop := strings.TrimSpace(backdrop)
+	if trimmedBackdrop != "" {
+		queryWithTrait := `
+			SELECT id, gift_id, model_id, serial_number, venue, currency,
+			       sale_price_raw, sale_price_gram, sale_price_usd, venue_fee_pct,
+			       price_confidence, sale_date, buyer_address, seller_address, tx_hash,
+			       COALESCE(event_index, 0), ton_usd_at_sale,
+			       COALESCE(backdrop_name, ''), COALESCE(symbol_name, ''), trait_rarity_score
+			FROM gift_sales
+			WHERE (model_id = $1 OR model_id = $2)
+			  AND COALESCE(is_reorged, FALSE) = FALSE
+			  AND LOWER(TRIM(backdrop_name)) = LOWER($3)
+			ORDER BY ABS(serial_number - $4) ASC, sale_date DESC
+			LIMIT $5`
+
+		rows, err := r.db.Pool.Query(ctx, queryWithTrait, modelID, altModel, trimmedBackdrop, serialNumber, limit)
+		if err == nil {
+			defer rows.Close()
+			var comps []GiftSaleRecord
+			for rows.Next() {
+				var s GiftSaleRecord
+				if err := rows.Scan(
+					&s.ID, &s.GiftID, &s.ModelID, &s.SerialNumber, &s.Venue, &s.Currency,
+					&s.SalePriceRaw, &s.SalePriceGRAM, &s.SalePriceUSD, &s.VenueFeePct,
+					&s.PriceConfidence, &s.SaleDate, &s.BuyerAddress, &s.SellerAddress, &s.TxHash,
+					&s.EventIndex, &s.TonUsdAtSale,
+					&s.BackdropName, &s.SymbolName, &s.TraitRarityScore,
+				); err == nil {
+					comps = append(comps, s)
+				}
+			}
+			if len(comps) > 0 {
+				return comps, nil
+			}
+		}
+	}
+
+	// Decision 1: When no trait-matched comps exist for this backdrop (Cold Start),
+	// return empty slice so caller isolates the pure hedonic model
+	// and does not poison/drag down valuation with common unrelated floor sales.
+	return []GiftSaleRecord{}, nil
 }
 
 // GetRecentSalesByModel fetches recent sales for a collection model

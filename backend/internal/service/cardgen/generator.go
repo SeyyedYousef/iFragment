@@ -166,6 +166,22 @@ func containsArabicScript(s string) bool {
 	return false
 }
 
+// isUnsupportedFontScript returns true if the string contains characters outside Latin/ASCII printable
+// which would fail to render and cause tofu boxes (□) in Latin-only fonts (Outfit).
+func isUnsupportedFontScript(s string) bool {
+	for _, r := range s {
+		if r >= 0x20 && r <= 0x7E {
+			continue
+		}
+		if r >= 0x00A0 && r <= 0x024F {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+
 // formatUSDTAmount formats a numeric USD/USDT string with comma grouping
 func formatUSDTAmount(val string) string {
 	clean := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(val, "≈"), "$"))
@@ -225,10 +241,16 @@ func getTierTheme(tier string) TierTheme {
 			Glow:   color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xAA},
 			Badge:  "UNIQUE",
 		}
+	case strings.Contains(norm, "RARE"), strings.Contains(norm, "APEX"):
+		return TierTheme{
+			Border: color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF},
+			Glow:   color.RGBA{R: 0x00, G: 0x98, B: 0xEA, A: 0xBB},
+			Badge:  "RARE",
+		}
 	default:
-		// Signature iFragment Electric Cyan (#00A3FF) - exactly matching Image 1 (APEX, RARE, STANDARD)
-		badge := "STANDARD"
-		if norm != "" {
+		// Default to clean English badge, NEVER allow non-ASCII or long text to break font rendering
+		badge := "COLLECTIBLE"
+		if norm != "" && !isUnsupportedFontScript(norm) && len(norm) <= 12 {
 			badge = norm
 		}
 		return TierTheme{
@@ -246,7 +268,7 @@ func (cg *CardGenerator) GenerateUsernameCard(username string, tier string, expe
 
 func (cg *CardGenerator) GenerateUsernameCardLang(username string, tier string, expectedTON string, expectedUSD string, lang string) ([]byte, error) {
 	theme := getTierTheme(tier)
-	if tier != "" {
+	if tier != "" && !isUnsupportedFontScript(tier) && len(tier) <= 12 {
 		theme.Badge = strings.ToUpper(strings.TrimSpace(tier))
 	}
 
@@ -297,7 +319,7 @@ type NumberCardParams struct {
 // GenerateRichUsernameCard renders a modern 600x600 visual card for Telegram Usernames
 func (cg *CardGenerator) GenerateRichUsernameCard(p UsernameCardParams) ([]byte, error) {
 	theme := getTierTheme(p.Grade)
-	if p.Grade != "" {
+	if p.Grade != "" && !isUnsupportedFontScript(p.Grade) && len(p.Grade) <= 12 {
 		theme.Badge = strings.ToUpper(strings.TrimSpace(p.Grade))
 	}
 	cleanUser := "@" + strings.TrimPrefix(strings.TrimSpace(p.Username), "@")
@@ -309,7 +331,7 @@ func (cg *CardGenerator) GenerateRichUsernameCard(p UsernameCardParams) ([]byte,
 	if p.Length > 0 {
 		chips = append(chips, cardChip{Label: fmt.Sprintf("LEN: %d", p.Length)})
 	}
-	if p.MarketStatus != "" {
+	if p.MarketStatus != "" && !isUnsupportedFontScript(p.MarketStatus) && len(p.MarketStatus) <= 16 {
 		chips = append(chips, cardChip{Label: strings.ToUpper(p.MarketStatus)})
 	}
 	if p.CompsCount > 0 {
@@ -343,7 +365,7 @@ func (cg *CardGenerator) GenerateRichNumberCard(p NumberCardParams) ([]byte, err
 	}
 
 	clubLabel := p.Club
-	if containsArabicScript(clubLabel) {
+	if isUnsupportedFontScript(clubLabel) {
 		clubLabel = "COLLECTIBLE NUMBER"
 	} else if clubLabel == "" {
 		clubLabel = "TELEGRAM ANONYMOUS NUMBER"
@@ -355,7 +377,7 @@ func (cg *CardGenerator) GenerateRichNumberCard(p NumberCardParams) ([]byte, err
 	if p.Rank > 0 {
 		chips = append(chips, cardChip{Label: fmt.Sprintf("GLOBAL #%d/136,566", p.Rank)})
 	}
-	if p.ColorPattern != "" && !containsArabicScript(p.ColorPattern) {
+	if p.ColorPattern != "" && !isUnsupportedFontScript(p.ColorPattern) && len(p.ColorPattern) <= 16 {
 		chips = append(chips, cardChip{Label: strings.ToUpper(p.ColorPattern)})
 	}
 	if p.Supply > 0 {
@@ -390,7 +412,7 @@ func (cg *CardGenerator) GenerateNumberCardLang(displayNum string, club string, 
 	}
 
 	subLabel := "TELEGRAM ANONYMOUS NUMBER"
-	if club != "" && !containsArabicScript(club) {
+	if club != "" && !isUnsupportedFontScript(club) {
 		subLabel = strings.ToUpper(club)
 	}
 
@@ -527,11 +549,21 @@ func (cg *CardGenerator) GenerateRichGiftCard(p GiftCardParams) ([]byte, error) 
 	cg.drawText(img, cg.fontOutfitBold, 11.5, 48+75, 71, "I F R A G M E N T",
 		color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xFF}, alignCenter)
 
+	if isUnsupportedFontScript(rightBadge) || len(rightBadge) > 20 {
+		if p.SerialNumber > 0 {
+			rightBadge = fmt.Sprintf("COLLECTIBLE #%d", p.SerialNumber)
+		} else {
+			rightBadge = "COLLECTIBLE"
+		}
+	}
 	rightFace, _ := cg.getFace(cg.fontOutfitBlack, 12.0)
 	rightTextW := font.MeasureString(rightFace, rightBadge).Ceil()
 	pillW := rightTextW + 36
 	if pillW < 96 {
 		pillW = 96
+	}
+	if pillW > 220 {
+		pillW = 220
 	}
 	pillX := 552 - pillW
 	drawPill(img, pillX, 48, pillW, 36, 12,
@@ -578,10 +610,14 @@ func (cg *CardGenerator) GenerateRichGiftCard(p GiftCardParams) ([]byte, error) 
 		drawFallbackGiftVector(img, 300, boxY+boxSize/2, theme.Border)
 	}
 
-	// 5. Gift Title below the image
+	// 5. Gift Title below the image (must be Latin for Outfit font)
 	title := p.Title
-	if title == "" {
-		title = "TELEGRAM GIFT"
+	if isUnsupportedFontScript(title) || title == "" {
+		if p.SerialNumber > 0 {
+			title = fmt.Sprintf("TELEGRAM GIFT #%d", p.SerialNumber)
+		} else {
+			title = "TELEGRAM GIFT"
+		}
 	}
 	titleSize := 28.0
 	if len(title) > 22 {
@@ -608,13 +644,13 @@ func (cg *CardGenerator) GenerateRichGiftCard(p GiftCardParams) ([]byte, error) 
 
 	// 6. Traits Badge Pill below title
 	var traitsParts []string
-	if p.ModelName != "" {
+	if p.ModelName != "" && !isUnsupportedFontScript(p.ModelName) {
 		traitsParts = append(traitsParts, fmt.Sprintf("MODEL: %s", strings.ToUpper(p.ModelName)))
 	}
-	if p.BackdropName != "" {
+	if p.BackdropName != "" && !isUnsupportedFontScript(p.BackdropName) {
 		traitsParts = append(traitsParts, fmt.Sprintf("BACKDROP: %s", strings.ToUpper(p.BackdropName)))
 	}
-	if p.SymbolName != "" {
+	if p.SymbolName != "" && !isUnsupportedFontScript(p.SymbolName) {
 		traitsParts = append(traitsParts, fmt.Sprintf("SYMBOL: %s", strings.ToUpper(p.SymbolName)))
 	}
 
@@ -1059,22 +1095,33 @@ func (cg *CardGenerator) renderFlexCard(p cardParams) ([]byte, error) {
 	cg.drawText(img, cg.fontOutfitBold, 11.5, 48+75, 71, p.leftPill,
 		color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xFF}, alignCenter)
 
-	// Measure right pill width
+	// Measure right pill width with font safety and strict width clamping
+	rightBadge := p.rightPill
+	if isUnsupportedFontScript(rightBadge) || len(rightBadge) > 18 {
+		rightBadge = "VERIFIED"
+	}
 	rightFace, _ := cg.getFace(cg.fontOutfitBlack, 12.0)
-	rightTextW := font.MeasureString(rightFace, p.rightPill).Ceil()
+	rightTextW := font.MeasureString(rightFace, rightBadge).Ceil()
 	pillW := rightTextW + 36
 	if pillW < 96 {
 		pillW = 96
+	}
+	if pillW > 220 {
+		pillW = 220
 	}
 	pillX := 552 - pillW
 	drawPill(img, pillX, 48, pillW, 36, 12,
 		color.RGBA{R: p.theme.Border.R, G: p.theme.Border.G, B: p.theme.Border.B, A: 0x22},
 		p.theme.Border)
-	cg.drawText(img, cg.fontOutfitBlack, 12.0, pillX+pillW/2, 71, p.rightPill,
+	cg.drawText(img, cg.fontOutfitBlack, 12.0, pillX+pillW/2, 71, rightBadge,
 		p.theme.Border, alignCenter)
 
 	// 4. Center Hero: Sparkles + Main Identifier in OUTFIT-BLACK!
-	identLen := len(p.identifier)
+	identText := p.identifier
+	if isUnsupportedFontScript(identText) {
+		identText = "@TELEGRAM"
+	}
+	identLen := len(identText)
 	identSize := 50.0
 	if identLen > 18 {
 		identSize = 28.0
@@ -1082,14 +1129,14 @@ func (cg *CardGenerator) renderFlexCard(p cardParams) ([]byte, error) {
 		identSize = 38.0
 	}
 	identFace, _ := cg.getFace(cg.fontOutfitBlack, identSize)
-	identW := font.MeasureString(identFace, p.identifier).Ceil()
+	identW := font.MeasureString(identFace, identText).Ceil()
 
 	centerY := 220
 	// Drop shadow for 3D pop (2px offset)
-	cg.drawText(img, cg.fontOutfitBlack, identSize, 300, centerY+2, p.identifier,
+	cg.drawText(img, cg.fontOutfitBlack, identSize, 300, centerY+2, identText,
 		color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xB0}, alignCenter)
 	// Crisp White Text
-	cg.drawText(img, cg.fontOutfitBlack, identSize, 300, centerY, p.identifier,
+	cg.drawText(img, cg.fontOutfitBlack, identSize, 300, centerY, identText,
 		color.White, alignCenter)
 
 	// Draw diamond sparkles on both sides (aligned with center of text)
@@ -1099,9 +1146,9 @@ func (cg *CardGenerator) renderFlexCard(p cardParams) ([]byte, error) {
 	drawSparkle(img, sparkleXLeft, sparkleY, 16, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
 	drawSparkle(img, sparkleXRight, sparkleY, 16, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
 
-	// Sub-label below identifier (only if custom and non-Arabic script)
+	// Sub-label below identifier (only if custom and supported Latin script)
 	cleanSubLabel := strings.Trim(p.subLabel, " ✦\t\r\n")
-	if cleanSubLabel != "" && !containsArabicScript(cleanSubLabel) &&
+	if cleanSubLabel != "" && !isUnsupportedFontScript(cleanSubLabel) &&
 		cleanSubLabel != "ON-CHAIN TELEGRAM USERNAME" &&
 		cleanSubLabel != "TELEGRAM ANONYMOUS NUMBER" &&
 		cleanSubLabel != "TELEGRAM STAR GIFT NFT" {
@@ -1145,8 +1192,16 @@ func (cg *CardGenerator) renderFlexCard(p cardParams) ([]byte, error) {
 		}
 	}
 
+	// Filter chips to ensure Latin-only fonts and safe length
+	var validChips []cardChip
+	for _, chip := range p.chips {
+		if !isUnsupportedFontScript(chip.Label) && len(chip.Label) <= 28 {
+			validChips = append(validChips, chip)
+		}
+	}
+
 	// Badges & Chips row
-	if len(p.chips) > 0 {
+	if len(validChips) > 0 {
 		chipY := 365
 		chipH := 26
 		chipPad := 12
@@ -1154,20 +1209,20 @@ func (cg *CardGenerator) renderFlexCard(p cardParams) ([]byte, error) {
 
 		totalW := 0
 		var chipWidths []int
-		for _, chip := range p.chips {
+		for _, chip := range validChips {
 			f, _ := cg.getFace(cg.fontOutfitBold, 9.5)
 			tw := font.MeasureString(f, chip.Label).Ceil()
 			cw := tw + (chipPad * 2)
 			chipWidths = append(chipWidths, cw)
 			totalW += cw
 		}
-		totalW += (len(p.chips) - 1) * gap
+		totalW += (len(validChips) - 1) * gap
 
 		curX := 300 - totalW/2
 		if curX < 48 {
 			curX = 48
 		}
-		for i, chip := range p.chips {
+		for i, chip := range validChips {
 			cw := chipWidths[i]
 			drawPill(img, curX, chipY, cw, chipH, 8,
 				color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0A},
