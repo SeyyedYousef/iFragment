@@ -96,3 +96,84 @@ func TestGVEngine_LayaSynergyMultiplierAestheticBoost(t *testing.T) {
 		t.Errorf("expected fallback trait synergy score 6, got %d", resFallback.TraitSynergyScore)
 	}
 }
+
+// TestGVEngine_VanitySerialsEngine verifies that numerical genetic vanity patterns
+// (Ladders, Doublets, Milestone Years) receive higher valuation than standard non-premium serials.
+func TestGVEngine_VanitySerialsEngine(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	ctx := context.Background()
+
+	// 1. Compare Ladder #1234 vs Standard #1247
+	valLadder, err := engine.Valuate(ctx, "durov_cap-1234")
+	if err != nil {
+		t.Fatalf("failed to valuate ladder: %v", err)
+	}
+	valStd, err := engine.Valuate(ctx, "durov_cap-1247")
+	if err != nil {
+		t.Fatalf("failed to valuate standard: %v", err)
+	}
+
+	if cat, ok := valLadder.ReasoningLog["serial_category"].(string); !ok || cat != "ladder" {
+		t.Errorf("expected ladder serial_category 'ladder', got %v", valLadder.ReasoningLog["serial_category"])
+	}
+	if !valLadder.ExpectedGRAM.GreaterThan(valStd.ExpectedGRAM) {
+		t.Errorf("expected ladder #1234 (%s) to exceed standard #1247 (%s)",
+			valLadder.ExpectedGRAM.String(), valStd.ExpectedGRAM.String())
+	}
+
+	// 2. Compare Doublet #2020 vs Standard #2019
+	valDoublet, err := engine.Valuate(ctx, "durov_cap-2020")
+	if err != nil {
+		t.Fatalf("failed to valuate doublet: %v", err)
+	}
+	valStd2, err := engine.Valuate(ctx, "durov_cap-2019")
+	if err != nil {
+		t.Fatalf("failed to valuate standard: %v", err)
+	}
+
+	if cat, ok := valDoublet.ReasoningLog["serial_category"].(string); !ok || cat != "doublet" {
+		t.Errorf("expected doublet serial_category 'doublet', got %v", valDoublet.ReasoningLog["serial_category"])
+	}
+	if !valDoublet.ExpectedGRAM.GreaterThan(valStd2.ExpectedGRAM) {
+		t.Errorf("expected doublet #2020 (%s) to exceed standard #2019 (%s)",
+			valDoublet.ExpectedGRAM.String(), valStd2.ExpectedGRAM.String())
+	}
+
+	// 3. Compare Telegram Gifts Launch Genesis Year #2024 vs Standard #2035
+	valYear2024, err := engine.Valuate(ctx, "santa_hat-2024")
+	if err != nil {
+		t.Fatalf("failed to valuate year 2024: %v", err)
+	}
+	valStd3, err := engine.Valuate(ctx, "santa_hat-2035")
+	if err != nil {
+		t.Fatalf("failed to valuate standard: %v", err)
+	}
+
+	if cat, ok := valYear2024.ReasoningLog["serial_category"].(string); !ok || cat != "milestone_year" {
+		t.Errorf("expected milestone_year serial_category, got %v", valYear2024.ReasoningLog["serial_category"])
+	}
+	if !valYear2024.ExpectedGRAM.GreaterThan(valStd3.ExpectedGRAM) {
+		t.Errorf("expected year #2024 (%s) to exceed standard #2035 (%s)",
+			valYear2024.ExpectedGRAM.String(), valStd3.ExpectedGRAM.String())
+	}
+}
+
+// TestGVEngine_PrestigeColorTierMatrix verifies that Tier S colors (Obsidian, Gold, Cyberpunk)
+// receive higher prestige beta and valuation than neutral / earth Tier C colors.
+func TestGVEngine_PrestigeColorTierMatrix(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	ctx := context.Background()
+
+	valObsidian, err := engine.Valuate(ctx, "plush_pepe-500")
+	if err != nil {
+		t.Fatalf("failed to valuate obsidian: %v", err)
+	}
+
+	// Verify prestige keys are properly registered
+	if tier, ok := valObsidian.ReasoningLog["color_prestige_tier"].(string); !ok || tier == "" {
+		t.Errorf("expected valid color_prestige_tier in reasoning log, got %v", valObsidian.ReasoningLog["color_prestige_tier"])
+	}
+	if beta, ok := valObsidian.ReasoningLog["beta_color_prestige"].(float64); !ok || beta < 0 {
+		t.Errorf("expected valid beta_color_prestige in reasoning log, got %v", valObsidian.ReasoningLog["beta_color_prestige"])
+	}
+}

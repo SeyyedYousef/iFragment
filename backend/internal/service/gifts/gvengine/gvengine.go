@@ -20,6 +20,7 @@ import (
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts/crafting"
 	"ifragment-backend/internal/service/gifts/risk"
+	"ifragment-backend/internal/service/gifts/serials"
 	"ifragment-backend/internal/service/gifts/starsrate"
 	"ifragment-backend/internal/service/gifts/telegramnft"
 	"ifragment-backend/internal/service/gifts/traits"
@@ -510,14 +511,16 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		betaSymbol = 0.05
 	}
 
-	// Axis 4: Serial smooth non-linear curve f(rank / supply) with sacred jumps
-	betaSerial := computeSerialExponent(ref.SerialNumber, col.TotalSupply)
+	// Axis 4: Serial smooth non-linear curve f(rank / supply) with vanity serials genetic classification
+	classifiedSerial := serials.ClassifySerial(ref.SerialNumber, baseFloor)
+	betaSerial := computeSerialExponent(ref.SerialNumber, col.TotalSupply, classifiedSerial)
 
 	// Axis 5: Keep Original Details
 	betaOriginal := 0.08
 
-	// Axis 6: Delta-E Chromatic Harmony & Theme Matching
+	// Axis 6: Delta-E Chromatic Harmony, Theme Matching & Prestige Color Matrix
 	aestheticHarmony := traits.EvaluateAestheticHarmony(col.ModelID, backdropKey, &backdropColors)
+	betaColorPrestige := aestheticHarmony.BetaColorPrestige
 
 	// Axis 7: Multi-Dimensional Joint Statistical Rarity & Surprisal
 	jointRarity := traits.ComputeJointRarity(col.TotalSupply, ref.SerialNumber, backdropPermille, symbolPermille, col.CraftedFlag)
@@ -534,7 +537,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	starsParity := starsrate.CalculateStarsParity(baseStarsPrice, gramUsdRate, baseFloor)
 
 	// Sum Log prior (Hedonic Quantum-Hedonic v6.0)
-	hedonicLogP := beta0 + betaModel + betaBackdrop + betaSymbol + betaSerial + betaOriginal + aestheticHarmony.BetaAesthetic + jointRarity.BetaSynergy + math.Log(fngMult)
+	hedonicLogP := beta0 + betaModel + betaBackdrop + betaColorPrestige + betaSymbol + betaSerial + betaOriginal + aestheticHarmony.BetaAesthetic + jointRarity.BetaSynergy + math.Log(fngMult)
 
 	// Laya AI System One Pre-Evaluation (Trait synergy, aesthetic appeal, action advice)
 	var layaRes *LayaGiftResult
@@ -769,6 +772,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		"model_supply":            col.TotalSupply,
 		"beta_serial":             betaSerial,
 		"beta_backdrop":           betaBackdrop,
+		"beta_color_prestige":     betaColorPrestige,
+		"color_prestige_tier":     aestheticHarmony.PrestigeTier,
+		"serial_category":         string(classifiedSerial.Category),
+		"serial_label":            classifiedSerial.Label,
+		"serial_multiplier":       classifiedSerial.Multiplier,
 		"beta_symbol":             betaSymbol,
 		"beta_aesthetic":          aestheticHarmony.BetaAesthetic,
 		"beta_synergy":            jointRarity.BetaSynergy,
@@ -784,6 +792,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		"beta0_floor":             beta0,
 		"beta_model":              betaModel,
 		"beta_backdrop":           betaBackdrop,
+		"beta_color_prestige":     betaColorPrestige,
+		"color_prestige_tier":     aestheticHarmony.PrestigeTier,
+		"serial_category":         string(classifiedSerial.Category),
+		"serial_label":            classifiedSerial.Label,
+		"serial_multiplier":       classifiedSerial.Multiplier,
 		"beta_symbol":             betaSymbol,
 		"beta_serial":             betaSerial,
 		"beta_original":           betaOriginal,
@@ -915,7 +928,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	return valuation, nil
 }
 
-func computeSerialExponent(serial, supply int) float64 {
+func computeSerialExponent(serial, supply int, classified serials.ClassificationResult) float64 {
 	if serial <= 0 {
 		serial = 1
 	}
@@ -947,16 +960,60 @@ func computeSerialExponent(serial, supply int) float64 {
 		betaAbs = 0.02
 	}
 
-	// Sacred milestone repdigits and round numbers bonus (smooth additive bump)
-	if isRepdigit(serial) {
-		betaAbs += 0.22 // e.g. 77, 88, 99, 777, 888, 999, 7777, 8888
-	} else if serial%1000 == 0 {
-		betaAbs += 0.15
-	} else if serial%100 == 0 {
-		betaAbs += 0.10
+	// 2. Numerical Genetics & Vanity Patterns (Ladders, Doublets, Milestones, Repdigits)
+	switch classified.Category {
+	case serials.CategoryRepDigit:
+		s := strconv.Itoa(serial)
+		if stringsContainsAllChars(s, '7') {
+			betaAbs += 0.35 // Lucky 7s (e.g. 777, 7777)
+		} else if stringsContainsAllChars(s, '8') {
+			betaAbs += 0.30 // Prosperity 8s (e.g. 888, 8888)
+		} else {
+			betaAbs += 0.25
+		}
+	case serials.CategoryLadder:
+		s := strconv.Itoa(serial)
+		if len(s) >= 4 {
+			betaAbs += 0.28 // 4-digit ladder (e.g. 1234, 4321, 6789)
+		} else {
+			betaAbs += 0.20 // 3-digit ladder (e.g. 123, 321, 789)
+		}
+	case serials.CategoryDoublet:
+		if serial == 6969 {
+			betaAbs += 0.32 // Apex meme doublet
+		} else {
+			betaAbs += 0.22 // ABAB (e.g. 2020, 1212, 2424)
+		}
+	case serials.CategoryMilestoneYear:
+		if serial == 2024 {
+			betaAbs += 0.26 // Telegram Gifts Genesis Launch Year
+		} else if serial == 2025 || serial == 2026 {
+			betaAbs += 0.20 // Active ecosystem expansion era
+		} else if serial == 2000 || serial == 1999 {
+			betaAbs += 0.18 // Millennium milestone
+		} else {
+			betaAbs += 0.12
+		}
+	case serials.CategoryPalindrome:
+		s := strconv.Itoa(serial)
+		if len(s) >= 4 {
+			betaAbs += 0.20 // e.g. 1221, 5005, 7007
+		} else {
+			betaAbs += 0.14 // e.g. 101, 707
+		}
+	case serials.CategoryRoundNumber:
+		if serial%1000 == 0 {
+			betaAbs += 0.18
+		} else if serial%100 == 0 {
+			betaAbs += 0.10
+		}
+	default:
+		if serial == 420 || serial == 1337 {
+			betaAbs += 0.22
+		}
 	}
 
-	// 2. Relative Percentile Rarity relative to total model supply
+	// 3. Relative Percentile Rarity relative to total model supply
 	rankPct := float64(serial) / float64(supply)
 	var betaRel float64
 	if rankPct > 0.80 {
@@ -968,6 +1025,15 @@ func computeSerialExponent(serial, supply int) float64 {
 	}
 
 	return betaAbs + betaRel
+}
+
+func stringsContainsAllChars(s string, ch rune) bool {
+	for _, r := range s {
+		if r != ch {
+			return false
+		}
+	}
+	return true
 }
 
 func isRepdigit(n int) bool {

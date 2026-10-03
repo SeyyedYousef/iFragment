@@ -1063,13 +1063,53 @@ var OfficialBackdrops = map[string]struct {
 	Permille int
 	Colors   BackdropColorSet
 }{
-	"Midnight Blue": {
-		Permille: 150,
-		Colors:   BackdropColorSet{CenterHex: "#0D1B2A", EdgeHex: "#1B263B", PatternHex: "#415A77", TextHex: "#E0E1DD"},
+	"Black": {
+		Permille: 20,
+		Colors:   BackdropColorSet{CenterHex: "#363738", EdgeHex: "#0E0F0F", PatternHex: "#6C6868", TextHex: "#8C8F91"},
 	},
 	"Obsidian Matrix": {
 		Permille: 25,
 		Colors:   BackdropColorSet{CenterHex: "#111111", EdgeHex: "#1A1A1A", PatternHex: "#333333", TextHex: "#FFFFFF"},
+	},
+	"Astral Gold": {
+		Permille: 25,
+		Colors:   BackdropColorSet{CenterHex: "#FFD700", EdgeHex: "#8B6508", PatternHex: "#FFE87C", TextHex: "#FFFDF0"},
+	},
+	"Cyberpunk": {
+		Permille: 15,
+		Colors:   BackdropColorSet{CenterHex: "#858FF3", EdgeHex: "#865FD3", PatternHex: "#4318A6", TextHex: "#E0D9FF"},
+	},
+	"Cyber Neon": {
+		Permille: 15,
+		Colors:   BackdropColorSet{CenterHex: "#00F5D4", EdgeHex: "#7B2CBF", PatternHex: "#F72585", TextHex: "#FFFFFF"},
+	},
+	"Electric Purple": {
+		Permille: 30,
+		Colors:   BackdropColorSet{CenterHex: "#CA70C6", EdgeHex: "#9662D4", PatternHex: "#620FB4", TextHex: "#EBCEFF"},
+	},
+	"Lavender": {
+		Permille: 40,
+		Colors:   BackdropColorSet{CenterHex: "#B789E4", EdgeHex: "#8A5ABC", PatternHex: "#5B10AB", TextHex: "#E8D1FF"},
+	},
+	"Electric Indigo": {
+		Permille: 25,
+		Colors:   BackdropColorSet{CenterHex: "#A980F3", EdgeHex: "#5B62D8", PatternHex: "#3722AB", TextHex: "#D8D8FF"},
+	},
+	"Emerald Velvet": {
+		Permille: 35,
+		Colors:   BackdropColorSet{CenterHex: "#007A5E", EdgeHex: "#00251A", PatternHex: "#00A86B", TextHex: "#E0F2F1"},
+	},
+	"Emerald Forest": {
+		Permille: 80,
+		Colors:   BackdropColorSet{CenterHex: "#004D40", EdgeHex: "#00251A", PatternHex: "#00796B", TextHex: "#E0F2F1"},
+	},
+	"Midnight Blue": {
+		Permille: 150,
+		Colors:   BackdropColorSet{CenterHex: "#0D1B2A", EdgeHex: "#1B263B", PatternHex: "#415A77", TextHex: "#E0E1DD"},
+	},
+	"Royal Sapphire": {
+		Permille: 50,
+		Colors:   BackdropColorSet{CenterHex: "#1A365D", EdgeHex: "#0A192F", PatternHex: "#2B6CB0", TextHex: "#EBF8FF"},
 	},
 	"Royal Purple": {
 		Permille: 60,
@@ -1079,17 +1119,33 @@ var OfficialBackdrops = map[string]struct {
 		Permille: 45,
 		Colors:   BackdropColorSet{CenterHex: "#8B0000", EdgeHex: "#4A0000", PatternHex: "#FF0000", TextHex: "#FFF0F5"},
 	},
-	"Emerald Forest": {
-		Permille: 80,
-		Colors:   BackdropColorSet{CenterHex: "#004D40", EdgeHex: "#00251A", PatternHex: "#00796B", TextHex: "#E0F2F1"},
+	"Ruby Velvet": {
+		Permille: 30,
+		Colors:   BackdropColorSet{CenterHex: "#9C1A24", EdgeHex: "#36080D", PatternHex: "#FF2D55", TextHex: "#FFF0F5"},
 	},
 	"Solar Flare": {
 		Permille: 35,
 		Colors:   BackdropColorSet{CenterHex: "#FF8C00", EdgeHex: "#B8860B", PatternHex: "#FFD700", TextHex: "#FFFFE0"},
 	},
-	"Cyber Neon": {
-		Permille: 15,
-		Colors:   BackdropColorSet{CenterHex: "#00F5D4", EdgeHex: "#7B2CBF", PatternHex: "#F72585", TextHex: "#FFFFFF"},
+	"Charcoal Stealth": {
+		Permille: 40,
+		Colors:   BackdropColorSet{CenterHex: "#212529", EdgeHex: "#0D1117", PatternHex: "#495057", TextHex: "#CED4DA"},
+	},
+	"Arctic Ice": {
+		Permille: 70,
+		Colors:   BackdropColorSet{CenterHex: "#E2E8F0", EdgeHex: "#94A3B8", PatternHex: "#38BDF8", TextHex: "#0F172A"},
+	},
+	"Cherry Blossom": {
+		Permille: 55,
+		Colors:   BackdropColorSet{CenterHex: "#FBCFE8", EdgeHex: "#DB2777", PatternHex: "#F472B6", TextHex: "#831843"},
+	},
+	"Warm Taupe": {
+		Permille: 180,
+		Colors:   BackdropColorSet{CenterHex: "#78716C", EdgeHex: "#44403C", PatternHex: "#A8A29E", TextHex: "#F5F5F4"},
+	},
+	"Muted Gray": {
+		Permille: 200,
+		Colors:   BackdropColorSet{CenterHex: "#64748B", EdgeHex: "#334155", PatternHex: "#94A3B8", TextHex: "#F8FAFC"},
 	},
 }
 
@@ -1130,11 +1186,27 @@ var OfficialSymbols = map[string]struct {
 
 // ResolveBackdrop returns backdrop metadata and whether it was an exact catalog match
 func ResolveBackdrop(name string) (string, int, BackdropColorSet, bool) {
+	// 1. Direct match in OfficialBackdrops
 	if bd, ok := OfficialBackdrops[name]; ok {
 		return name, bd.Permille, bd.Colors, true
 	}
 
-	// Fallback to Midnight Blue default
+	// 2. Case-insensitive / normalized lookup in OfficialBackdrops
+	normTarget := strings.ToLower(strings.TrimSpace(name))
+	for k, bd := range OfficialBackdrops {
+		if strings.ToLower(k) == normTarget {
+			return k, bd.Permille, bd.Colors, true
+		}
+	}
+
+	// 3. Fallback to Dynamic Catalog if available
+	if GlobalCatalog != nil {
+		if matchedName, perm, colors, ok := GlobalCatalog.ResolveBackdrop(name); ok {
+			return matchedName, perm, colors, true
+		}
+	}
+
+	// 4. Default fallback to Midnight Blue
 	def := OfficialBackdrops["Midnight Blue"]
 	return "Midnight Blue", def.Permille, def.Colors, false
 }

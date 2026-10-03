@@ -337,12 +337,23 @@ func main() {
 
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, analysisService, mtprotoClient, cache, avmService, db, paymentService)
 
-	// Initialize Raffle Handler
+	// Initialize Raffle & Premium Group Gate Services for @FragmentInvestors
 	raffleRepo := repository.NewRaffleRepo(db)
 	raffleSvc := raffle.NewRaffleService(raffleRepo, cache)
+	premiumGroupSvc := raffle.NewPremiumGroupService(raffleRepo)
 	raffleHandler := handler.NewRaffleHandler(raffleSvc)
 
-	webhookHandler := handler.NewWebhookHandler(db, cache, botRepo, raffleSvc)
+	// Start Background Daily Workers for @FragmentInvestors (00:00 UTC)
+	getMainTgClient := func() *telegram.BotAPIClient {
+		if botToken != "" {
+			return telegram.NewBotAPIClient(botToken)
+		}
+		return nil
+	}
+	raffleSvc.StartDailyDrawWorker(ctx, getMainTgClient)
+	premiumGroupSvc.StartDailyAuditWorker(ctx, getMainTgClient)
+
+	webhookHandler := handler.NewWebhookHandler(db, cache, botRepo, raffleSvc, premiumGroupSvc)
 	profileService := service.NewProfileService(db, cache)
 	// 🚀 Warm up Redis leaderboard at startup and periodically
 	go func() {

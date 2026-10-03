@@ -8,10 +8,10 @@ func TestClassifySerial(t *testing.T) {
 	baseFloor := 100.0
 
 	tests := []struct {
-		name         string
-		serial       int
-		expectedCat  Category
-		minMult      float64
+		name        string
+		serial      int
+		expectedCat Category
+		minMult     float64
 	}{
 		{"Genesis #1", 1, CategorySingleDigit, 30.0},
 		{"Lucky #7", 7, CategorySingleDigit, 20.0},
@@ -20,6 +20,14 @@ func TestClassifySerial(t *testing.T) {
 		{"Repeating #777", 777, CategoryRepDigit, 10.0},
 		{"Repeating #888", 888, CategoryRepDigit, 9.0},
 		{"Repeating #1111", 1111, CategoryRepDigit, 6.0},
+		{"Ascending Ladder #1234", 1234, CategoryLadder, 4.0},
+		{"Descending Ladder #4321", 4321, CategoryLadder, 4.0},
+		{"Ladder #789", 789, CategoryLadder, 3.0},
+		{"Doublet #2020", 2020, CategoryDoublet, 3.5},
+		{"Apex Meme Doublet #6969", 6969, CategoryDoublet, 5.5},
+		{"Genesis Year #2024", 2024, CategoryMilestoneYear, 3.8},
+		{"Milestone Year #2025", 2025, CategoryMilestoneYear, 3.0},
+		{"Millennium Year #2000", 2000, CategoryMilestoneYear, 2.8},
 		{"Palindrome #1221", 1221, CategoryPalindrome, 2.5},
 		{"Palindrome #5005", 5005, CategoryPalindrome, 2.5},
 		{"Round #1000", 1000, CategoryRoundNumber, 2.0},

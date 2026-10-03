@@ -38,33 +38,28 @@ func (m *MockEvaluator) Evaluate(_ context.Context, state any, questions map[str
 				keys = append(keys, k)
 			}
 			if len(keys) > 0 {
-				idx := int(seed % uint64(len(keys)))
-				ans.Choice = keys[idx]
-
-				probs := make(map[string]float64, len(keys))
-				sum := 0.0
-				for _, k := range keys {
-					p := 0.1 + float64((seed^uint64(len(k)))%80)/100.0
-					probs[k] = p
-					sum += p
+				ans.Choice = keys[0]
+				if _, ok := q.Criteria["aesthetic_elite"]; ok {
+					ans.Choice = "aesthetic_elite"
+				} else if _, ok := q.Criteria["HOLD"]; ok {
+					ans.Choice = "HOLD"
+				} else if _, ok := q.Criteria["high_turnover"]; ok {
+					ans.Choice = "high_turnover"
 				}
-				for k := range probs {
-					probs[k] = float64(int((probs[k]/sum)*100)) / 100.0
-				}
-				ans.Probabilities = probs
+				ans.Probabilities = map[string]float64{ans.Choice: 0.92}
 			} else {
 				ans.Choice = "standard"
 			}
 
 		case TypeScore:
 			if strings.Contains(strings.ToLower(q.Instructions), "1-100") || strings.Contains(strings.ToLower(q.Instructions), "0-100") {
-				ans.Score = 45 + int(seed%52) // 45-96
+				ans.Score = 75
 			} else {
-				ans.Score = 5 + int(seed%6) // 5-10
+				ans.Score = 7
 			}
 
 		case TypeNoul:
-			ans.Noul = float64(seed%100) / 100.0
+			ans.Noul = 0.05
 		}
 
 		answers[qName] = ans

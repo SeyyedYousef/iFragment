@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strconv"
 	"time"
 )
 
@@ -275,4 +276,36 @@ func (r *RaffleRepo) GetUserRaffleWins(ctx context.Context, userID int64) ([]Dai
 		wins = append(wins, d)
 	}
 	return wins, rows.Err()
+}
+
+// GetActiveParticipantUserIDs retrieves distinct user IDs who participated in the group within sinceDays days, and the chat ID.
+func (r *RaffleRepo) GetActiveParticipantUserIDs(ctx context.Context, sinceDays int) ([]int64, int64, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, 0, nil
+	}
+	if sinceDays <= 0 {
+		sinceDays = 30
+	}
+
+	var chatID int64
+	_ = r.db.Pool.QueryRow(ctx, `SELECT chat_id FROM fragment_investors_raffle_tickets ORDER BY id DESC LIMIT 1`).Scan(&chatID)
+
+	query := `SELECT DISTINCT user_id 
+	FROM fragment_investors_raffle_tickets 
+	WHERE created_at >= NOW() - ($1 || ' days')::INTERVAL`
+
+	rows, err := r.db.Pool.Query(ctx, query, strconv.Itoa(sinceDays))
+	if err != nil {
+		return nil, chatID, err
+	}
+	defer rows.Close()
+
+	var userIDs []int64
+	for rows.Next() {
+		var uid int64
+		if err := rows.Scan(&uid); err == nil {
+			userIDs = append(userIDs, uid)
+		}
+	}
+	return userIDs, chatID, rows.Err()
 }

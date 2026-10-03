@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -48,4 +49,25 @@ func TestIsFragmentInvestorsGroup(t *testing.T) {
 			t.Errorf("IsFragmentInvestorsGroup(%q, %q) = %v; want %v", tt.title, tt.username, got, tt.expected)
 		}
 	}
+}
+
+func TestFragmentInvestors_PremiumGateAndJoinRequest(t *testing.T) {
+	h := &WebhookHandler{}
+	premiumSvc := raffle.NewPremiumGroupService(nil)
+	h.SetPremiumGroupService(premiumSvc)
+
+	ctx := context.Background()
+
+	// 1. Non-nil check and nil safety for ChatJoinRequest
+	h.handleChatJoinRequest(ctx, nil, nil)
+
+	// 2. ChatJoinRequest for non-FragmentInvestors group (should be ignored safely)
+	reqOther := &ChatJoinRequest{
+		Chat: Chat{ID: -100555, Title: "General Group"},
+		From: User{ID: 12345, IsPremium: false},
+	}
+	h.handleChatJoinRequest(ctx, nil, reqOther)
+
+	// 3. ChatMemberUpdated nil safety
+	h.handleChatMemberUpdated(ctx, nil, nil)
 }

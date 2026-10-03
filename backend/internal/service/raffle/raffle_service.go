@@ -203,7 +203,7 @@ func (s *RaffleService) ExecuteDailyDraw(ctx context.Context, tgClient *telegram
 		prizeStars = 50 // Minimum 50 stars
 	}
 
-	// 5. Send real Gift or Stars from bot's balance via Telegram Bot API 8.0+
+	// 5. Notify the winner in their private chat
 	client := tgClient
 	if client == nil {
 		botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
@@ -215,49 +215,9 @@ func (s *RaffleService) ExecuteDailyDraw(ctx context.Context, tgClient *telegram
 		}
 	}
 
-	var autoSent bool
-	var giftID string
-	var giftTitle string
-
-	if client != nil {
-		giftsResp, errGifts := client.GetAvailableGifts(ctx)
-		if errGifts == nil && giftsResp != nil && len(giftsResp.Gifts) > 0 {
-			var bestGift *telegram.BotGift
-			for i := range giftsResp.Gifts {
-				g := &giftsResp.Gifts[i]
-				if g.StarCount <= prizeStars {
-					if bestGift == nil || g.StarCount > bestGift.StarCount {
-						bestGift = g
-					}
-				}
-			}
-
-			// If no gift under budget, pick the lowest tier available
-			if bestGift == nil && len(giftsResp.Gifts) > 0 {
-				bestGift = &giftsResp.Gifts[0]
-			}
-
-			if bestGift != nil {
-				giftReq := telegram.SendGiftRequest{
-					UserID: winner.UserID,
-					GiftID: bestGift.ID,
-					Text:   "🎉 Congratulations! You won the daily @FragmentInvestors Gift Raffle 🎁",
-				}
-				ok, sendErr := client.SendGift(ctx, giftReq)
-				if sendErr == nil && ok {
-					autoSent = true
-					giftID = bestGift.ID
-					giftTitle = fmt.Sprintf("Telegram Star Gift (%d Stars)", bestGift.StarCount)
-					prizeStars = bestGift.StarCount
-					slog.Info("Successfully sent automatic Star Gift to raffle winner", "user_id", winner.UserID, "gift_id", giftID, "stars", prizeStars)
-				} else {
-					slog.Warn("Could not send gift automatically from bot balance (insufficient stars or API error)", "user_id", winner.UserID, "error", sendErr)
-				}
-			}
-		} else {
-			slog.Warn("Could not fetch available gifts from Telegram", "error", errGifts)
-		}
-	}
+	winChance := (1.0 / float64(len(participants))) * 100.0
+	winnerNotified := s.notifyWinner(ctx, client, winner, targetDate, prizeUSD, prizeStars, winChance, len(participants))
+	slog.Info("Raffle draw: winner notification result", "user_id", winner.UserID, "notified", winnerNotified)
 
 	// 6. Lock and record in daily_gift_draws
 	drawRecord := &repository.DailyGiftDraw{
@@ -269,9 +229,9 @@ func (s *RaffleService) ExecuteDailyDraw(ctx context.Context, tgClient *telegram
 		WinnerFirstName:   winner.FirstName,
 		PrizeUSD:          prizeUSD,
 		PrizeStars:        prizeStars,
-		GiftID:            giftID,
-		GiftTitle:         giftTitle,
-		AutoSent:          autoSent,
+		GiftID:            "",
+		GiftTitle:         fmt.Sprintf("Direct Owner Prize (%d Stars / $%.2f)", prizeStars, prizeUSD),
+		AutoSent:          false,
 		LockStatus:        "LOCKED",
 		NotifiedOwner:     false,
 		CreatedAt:         time.Now().UTC(),
@@ -294,10 +254,47 @@ func (s *RaffleService) ExecuteDailyDraw(ctx context.Context, tgClient *telegram
 		"total_participants", drawRecord.TotalParticipants,
 		"prize_usd", drawRecord.PrizeUSD,
 		"prize_stars", drawRecord.PrizeStars,
-		"auto_sent", drawRecord.AutoSent,
 	)
 
 	return nil
+}
+
+// notifyWinner sends a congratulatory direct message to the raffle winner strictly in English.
+func (s *RaffleService) notifyWinner(ctx context.Context, client *telegram.BotAPIClient, winner repository.RaffleParticipant, drawDate time.Time, prizeUSD float64, prizeStars int, winChance float64, totalParticipants int) bool {
+	if client == nil || winner.UserID == 0 {
+		return false
+	}
+
+	displayName := winner.FirstName
+	if displayName == "" {
+		displayName = winner.Username
+	}
+	if displayName == "" {
+		displayName = "Investor"
+	}
+
+	dateStr := drawDate.Format("2006-01-02")
+	msg := fmt.Sprintf(
+		"🎉 <b>Congratulations! You won the daily @FragmentInvestors Gift Raffle!</b> 🎁\n\n"+
+			"📅 <b>Draw Date:</b> %s\n"+
+			"💎 <b>Your Prize:</b> <b>$%.2f (~%d Stars)</b>\n"+
+			"🎯 <b>Your Win Chance:</b> <b>%.1f%%</b> (among %d unique participants)\n\n"+
+			"👤 <b>Winner:</b> %s\n\n"+
+			"✨ The bot owner will deliver your prize directly to you shortly. Thank you for your active participation in the group!",
+		dateStr, prizeUSD, prizeStars, winChance, totalParticipants, displayName,
+	)
+
+	bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := client.SendMessage(bgCtx, winner.UserID, msg, nil, nil)
+	if err != nil {
+		slog.Warn("Failed to send congratulatory DM to raffle winner", "user_id", winner.UserID, "error", err)
+		return false
+	}
+
+	slog.Info("Successfully sent congratulatory DM to raffle winner", "user_id", winner.UserID)
+	return true
 }
 
 // notifyOwnerOnly sends the winner and prize dispatch status strictly to the bot owner(s).
@@ -329,27 +326,22 @@ func (s *RaffleService) notifyOwnerOnly(ctx context.Context, tgClient *telegram.
 		usernameDisplay = "@" + draw.WinnerUsername
 	}
 
-	statusText := "✅ <b>گیفت مستقیماً از موجودی Stars ربات ارسال شد.</b>"
-	if !draw.AutoSent {
-		statusText = "⚠️ <b>ارسال خودکار انجام نشد (موجودی Stars ربات ناکافی است یا خطا رخ داد). لطفاً گیفت یا Stars را دستی ارسال فرمایید.</b>"
-	}
-
 	notificationMsg := fmt.Sprintf(
-		"🎉 <b>برنده قرعه‌کشی روزانه گروه @FragmentInvestors</b>\n\n"+
+		"🎉 <b>برنده جدید قرعه‌کشی روزانه گروه @FragmentInvestors</b>\n\n"+
 			"📅 <b>تاریخ:</b> %s\n"+
-			"🔒 <b>وضعیت:</b> در daily_gift_draws قفل شد\n\n"+
+			"🔒 <b>وضعیت:</b> در دیتابیس قفل شد (منتظر ارسال دستی جایزه توسط شما)\n\n"+
 			"👤 <b>مشخصات برنده:</b>\n"+
 			"• نام: <b>%s</b>\n"+
 			"• یوزرنیم: <b>%s</b>\n"+
 			"• شناسه عددی: <code>%d</code>\n"+
-			"• لینک کاربر: <a href=\"tg://user?id=%d\">مشاهده پروفایل برنده</a>\n\n"+
+			"• لینک کاربر: <a href=\"tg://user?id=%d\">مشاهده و ارسال جایزه به برنده</a>\n\n"+
 			"📊 <b>آمار قرعه‌کشی روز:</b>\n"+
 			"• کل پیام‌های ارسالی روز: <b>%d پیام ($%.0f)</b>\n"+
 			"• تعداد شرکت‌کنندگان یونیک: <b>%d نفر</b> (هر کاربر ۱ شانس)\n"+
 			"• درصد شانس برنده: <b>%.1f%%</b>\n\n"+
-			"🎁 <b>ارزش جایزه (۲۵٪ تا ۵۰٪ کل پیام‌ها):</b>\n"+
-			"• مبلغ محاسبه‌شده: <b>$%.2f (~%d Stars)</b>\n"+
-			"• وضعیت ارسال: %s",
+			"🎁 <b>ارزش جایزه قابل پرداخت:</b>\n"+
+			"• مبلغ محاسبه‌شده: <b>$%.2f (~%d Stars)</b>\n\n"+
+			"💡 <i>پیام تبریک در پیوی کاربر ارسال شد. لطفاً جایزه را به صورت مستقیم برای برنده ارسال فرمایید.</i>",
 		draw.DrawDate.Format("2006-01-02"),
 		draw.WinnerFirstName,
 		usernameDisplay,
@@ -361,7 +353,6 @@ func (s *RaffleService) notifyOwnerOnly(ctx context.Context, tgClient *telegram.
 		(1.0/float64(draw.TotalParticipants))*100.0,
 		draw.PrizeUSD,
 		draw.PrizeStars,
-		statusText,
 	)
 
 	success := false
@@ -413,4 +404,39 @@ func (s *RaffleService) GetTodayUserStats(ctx context.Context, userID int64) (un
 	}
 	today := time.Now().UTC().Truncate(24 * time.Hour)
 	return s.raffleRepo.GetDailyRaffleStats(ctx, today, userID)
+}
+
+// GetRepo returns the underlying RaffleRepo.
+func (s *RaffleService) GetRepo() *repository.RaffleRepo {
+	return s.raffleRepo
+}
+
+// StartDailyDrawWorker starts a background worker that executes the daily raffle draw at 00:00 UTC.
+func (s *RaffleService) StartDailyDrawWorker(ctx context.Context, getTgClient func() *telegram.BotAPIClient) {
+	go func() {
+		for {
+			now := time.Now().UTC()
+			nextRun := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+			if !now.Before(nextRun) {
+				nextRun = nextRun.Add(24 * time.Hour)
+			}
+
+			waitDuration := nextRun.Sub(now)
+			slog.Info("Scheduled daily @FragmentInvestors raffle draw worker", "next_run_utc", nextRun, "wait_duration", waitDuration)
+
+			select {
+			case <-ctx.Done():
+				slog.Info("Daily Raffle Draw Worker stopped")
+				return
+			case <-time.After(waitDuration):
+				if getTgClient != nil {
+					client := getTgClient()
+					yesterday := time.Now().UTC().AddDate(0, 0, -1)
+					if err := s.ExecuteDailyDraw(ctx, client, yesterday); err != nil {
+						slog.Error("Failed to execute daily raffle draw in worker", "error", err)
+					}
+				}
+			}
+		}
+	}()
 }

@@ -120,3 +120,17 @@ func TestDailyGiftDrawNotificationFormat(t *testing.T) {
 		t.Errorf("unexpected formatted message: %s", msg)
 	}
 }
+
+func TestRaffleService_NotifyWinner_NilClientSafety(t *testing.T) {
+	svc := NewRaffleService(nil, nil)
+	winner := repository.RaffleParticipant{
+		UserID:    12345,
+		Username:  "winner",
+		FirstName: "Lucky",
+	}
+	// Nil client should fail gracefully without panic
+	ok := svc.notifyWinner(context.Background(), nil, winner, time.Now(), 25.0, 1250, 10.0, 10)
+	if ok {
+		t.Errorf("expected notifyWinner to return false on nil client, got true")
+	}
+}

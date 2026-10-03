@@ -17,6 +17,42 @@ type Lab struct {
 	L, A, B float64
 }
 
+// Prestige tiers for secondary market empirical evaluation
+const (
+	PrestigeTierS = "TIER_S" // Obsidian/Black, Astral Gold, Cyberpunk/Neon, Emerald Velvet
+	PrestigeTierA = "TIER_A" // Royal Sapphire, Ruby Velvet, Crimson Blaze, Electric Purple, Electric Indigo, Solar Flare
+	PrestigeTierB = "TIER_B" // Lavender, Arctic Ice, Cherry Blossom, Emerald Forest, Royal Purple, Charcoal Stealth
+	PrestigeTierC = "TIER_C" // Warm Taupe, Muted Gray, earthy/brown neutral tones
+)
+
+// ClassifyColorPrestige evaluates the empirical prestige tier of a backdrop color palette
+func ClassifyColorPrestige(backdropName string, harmonyClass string) (string, float64) {
+	nameLower := strings.ToLower(strings.TrimSpace(backdropName))
+
+	// Tier S: Apex demand (Obsidian, Gold, Cyberpunk, Emerald Velvet)
+	if harmonyClass == "OBSIDIAN_STEALTH" || harmonyClass == "MONOCHROMATIC_GOLD" || harmonyClass == "EMERALD_VELVET" || harmonyClass == "CYBER_NEON" ||
+		strings.Contains(nameLower, "black") || strings.Contains(nameLower, "obsidian") || strings.Contains(nameLower, "gold") ||
+		strings.Contains(nameLower, "cyberpunk") || strings.Contains(nameLower, "cyber neon") || strings.Contains(nameLower, "emerald velvet") {
+		return PrestigeTierS, 0.28
+	}
+
+	// Tier A: Vibrant high-demand (Sapphire, Ruby, Crimson, Electric Purple/Indigo, Solar)
+	if harmonyClass == "ROYAL_SAPPHIRE" || strings.Contains(nameLower, "sapphire") || strings.Contains(nameLower, "ruby") ||
+		strings.Contains(nameLower, "crimson") || strings.Contains(nameLower, "electric purple") || strings.Contains(nameLower, "electric indigo") ||
+		strings.Contains(nameLower, "solar flare") {
+		return PrestigeTierA, 0.18
+	}
+
+	// Tier B: Aesthetic pastels & balanced themes
+	if strings.Contains(nameLower, "lavender") || strings.Contains(nameLower, "arctic") || strings.Contains(nameLower, "cherry") ||
+		strings.Contains(nameLower, "forest") || strings.Contains(nameLower, "charcoal") || strings.Contains(nameLower, "purple") {
+		return PrestigeTierB, 0.08
+	}
+
+	// Tier C: Neutral / Earth / Muted tones (Floor-aligned)
+	return PrestigeTierC, 0.02
+}
+
 // AestheticHarmonyResult contains the color theory and theme harmony evaluation
 type AestheticHarmonyResult struct {
 	HarmonyClass      string  `json:"harmony_class"`       // "MONOCHROMATIC_GOLD", "OBSIDIAN_STEALTH", "CYBER_NEON", "EMERALD_VELVET", "ROYAL_SAPPHIRE", "STANDARD"
@@ -26,6 +62,8 @@ type AestheticHarmonyResult struct {
 	BetaAesthetic     float64 `json:"beta_aesthetic"`      // Hedonic log-price bonus (0.0 to 0.45)
 	DominantPaletteEn string  `json:"dominant_palette_en"`
 	DominantPaletteFa string  `json:"dominant_palette_fa"`
+	PrestigeTier      string  `json:"prestige_tier"`       // "TIER_S", "TIER_A", "TIER_B", "TIER_C"
+	BetaColorPrestige float64 `json:"beta_color_prestige"` // Dedicated empirical secondary market premium
 }
 
 // HexToRGB parses a hex string (#RRGGBB or RRGGBB) into sRGB [0..1]
@@ -99,6 +137,8 @@ func EvaluateAestheticHarmony(modelID string, backdropName string, colors *Backd
 			BetaAesthetic:     0.0,
 			DominantPaletteEn: "Standard Palette",
 			DominantPaletteFa: "پالت استاندارد",
+			PrestigeTier:      PrestigeTierC,
+			BetaColorPrestige: 0.0,
 		}
 	}
 
@@ -148,7 +188,10 @@ func EvaluateAestheticHarmony(modelID string, backdropName string, colors *Backd
 		palFa = "یاقوت کبود سلطنتی"
 	}
 
-	// 2. Model-Specific Aesthetic Synergy Matrix
+	// 2. Classify Prestige Tier & Dedicated Market Color Alpha
+	prestigeTier, betaColorPrestige := ClassifyColorPrestige(backdropName, harmonyClass)
+
+	// 3. Model-Specific Aesthetic Synergy Matrix
 	themeRating := "HARMONIOUS"
 	modelSynergyBonus := 0.0
 
@@ -209,6 +252,8 @@ func EvaluateAestheticHarmony(modelID string, backdropName string, colors *Backd
 		BetaAesthetic:     math.Round(totalBeta*100.0) / 100.0,
 		DominantPaletteEn: palEn,
 		DominantPaletteFa: palFa,
+		PrestigeTier:      prestigeTier,
+		BetaColorPrestige: betaColorPrestige,
 	}
 }
 

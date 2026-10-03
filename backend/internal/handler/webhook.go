@@ -51,6 +51,7 @@ type WebhookHandler struct {
 	cache              *repository.Cache
 	botRepo            *repository.BotRepo
 	raffleSvc          *raffle.RaffleService
+	premiumGroupSvc    *raffle.PremiumGroupService
 	giftsService       *gifts.GiftsService
 	mtprotoClient      mtproto.Client
 	webhookInbox       *repository.WebhookInboxRepo
@@ -132,14 +133,26 @@ func (h *WebhookHandler) SetTemplateRepo(r *repository.BotTemplateRepo) {
 	h.templateRepo = r
 }
 
-func NewWebhookHandler(db *repository.Database, cache *repository.Cache, botRepo *repository.BotRepo, raffleSvc *raffle.RaffleService) *WebhookHandler {
+func (h *WebhookHandler) SetPremiumGroupService(s *raffle.PremiumGroupService) {
+	h.premiumGroupSvc = s
+}
+
+func NewWebhookHandler(db *repository.Database, cache *repository.Cache, botRepo *repository.BotRepo, raffleSvc *raffle.RaffleService, premiumGroupSvc ...*raffle.PremiumGroupService) *WebhookHandler {
+	var pgs *raffle.PremiumGroupService
+	if len(premiumGroupSvc) > 0 && premiumGroupSvc[0] != nil {
+		pgs = premiumGroupSvc[0]
+	} else if raffleSvc != nil {
+		pgs = raffle.NewPremiumGroupService(raffleSvc.GetRepo())
+	}
+
 	return &WebhookHandler{
-		db:           db,
-		cache:        cache,
-		botRepo:      botRepo,
-		raffleSvc:    raffleSvc,
-		webhookInbox: repository.NewWebhookInboxRepo(db),
-		templateRepo: repository.NewBotTemplateRepo(db, cache),
+		db:              db,
+		cache:           cache,
+		botRepo:         botRepo,
+		raffleSvc:       raffleSvc,
+		premiumGroupSvc: pgs,
+		webhookInbox:    repository.NewWebhookInboxRepo(db),
+		templateRepo:    repository.NewBotTemplateRepo(db, cache),
 	}
 }
 
@@ -176,6 +189,10 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 			h.handleBotSubscriptionUpdated(ctx, bot, update.BotSubscriptionUpdated)
 		} else if update.GuestMessage != nil {
 			h.handleGuestMessage(ctx, bot, update.GuestMessage)
+		} else if update.ChatJoinRequest != nil {
+			h.handleChatJoinRequest(ctx, bot, update.ChatJoinRequest)
+		} else if update.ChatMember != nil {
+			h.handleChatMemberUpdated(ctx, bot, update.ChatMember)
 		} else if update.Message != nil {
 			if update.Message.GuestQueryID != "" {
 				h.handleGuestMessage(ctx, bot, &GuestMessageUpdate{
@@ -709,6 +726,29 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		return
 	}
 
+	// 0. Handle new members joining @FragmentInvestors in group messages
+	if len(msg.NewChatMembers) > 0 && raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username) && h.premiumGroupSvc != nil {
+		tgClient := h.getBotClient(bot)
+		if tgClient != nil {
+			for _, newMember := range msg.NewChatMembers {
+				if !newMember.IsBot && !newMember.IsPremium {
+					uComp := raffle.UserCompact{
+						ID:        newMember.ID,
+						IsBot:     newMember.IsBot,
+						FirstName: newMember.FirstName,
+						Username:  newMember.Username,
+						IsPremium: newMember.IsPremium,
+					}
+					go func(user raffle.UserCompact) {
+						bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+						defer cancel()
+						_ = h.premiumGroupSvc.ProcessMemberJoinRealtime(bgCtx, tgClient, msg.Chat.ID, user)
+					}(uComp)
+				}
+			}
+		}
+	}
+
 	// 1. If message contains a Gift link, sniff & analyze automatically (only in private chat or when bot is explicitly mentioned in groups)
 	if giftLinkRegex.MatchString(raw) {
 		isGroup := msg.Chat.Type == "group" || msg.Chat.Type == "supergroup"
@@ -726,28 +766,51 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		return
 	}
 
-	// 3. Paid-message raffle ticket registration for @FragmentInvestors group
+	// 3. Paid-message raffle ticket registration & Premium Gate enforcement for @FragmentInvestors group
 	if raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username) && msg.From != nil {
-		if !msg.From.IsBot && h.raffleSvc != nil {
-			tgClient := h.getBotClient(bot)
-			if tgClient != nil {
-				uComp := raffle.UserCompact{
-					ID:        msg.From.ID,
-					IsBot:     msg.From.IsBot,
-					FirstName: msg.From.FirstName,
-					Username:  msg.From.Username,
-					IsPremium: msg.From.IsPremium,
-				}
-				_ = h.raffleSvc.RecordMessageTicket(ctx, tgClient, msg.Chat.ID, uComp, msg.MessageID)
-			}
+		tgClient := h.getBotClient(bot)
+		uComp := raffle.UserCompact{
+			ID:        msg.From.ID,
+			IsBot:     msg.From.IsBot,
+			FirstName: msg.From.FirstName,
+			Username:  msg.From.Username,
+			IsPremium: msg.From.IsPremium,
 		}
-		return
+
+		// A. Enforce Telegram Premium Gate: Non-premium senders are kicked immediately with ephemeral warning
+		if !msg.From.IsBot && !msg.From.IsPremium && h.premiumGroupSvc != nil && tgClient != nil {
+			_ = tgClient.DeleteMessage(ctx, msg.Chat.ID, msg.MessageID)
+			go func(user raffle.UserCompact) {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				_ = h.premiumGroupSvc.ProcessMemberJoinRealtime(bgCtx, tgClient, msg.Chat.ID, user)
+			}(uComp)
+			return
+		}
+
+		// B. Premium user: Record message ticket for daily raffle & send ephemeral ticket receipt
+		if !msg.From.IsBot && msg.From.IsPremium && h.raffleSvc != nil && tgClient != nil {
+			_ = h.raffleSvc.RecordMessageTicket(ctx, tgClient, msg.Chat.ID, uComp, msg.MessageID)
+		}
+
+		// Check if message is mentioning the bot or requesting an asset valuation / command
+		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
+		isMentioned := bot.BotUsername != "" && strings.Contains(raw, botMention)
+		isSniffable := giftLinkRegex.MatchString(raw) || SniffAsset(raw) != nil
+
+		if !isMentioned && !isSniffable && !strings.HasPrefix(raw, "/") {
+			return
+		}
 	}
 
-	// 4. Group / Supergroup Mention handling: when bot is tagged or addressed in a group
+	// 4. Group / Supergroup Mention & Command handling: when bot is tagged or addressed in a group
 	if (msg.Chat.Type == "group" || msg.Chat.Type == "supergroup") && bot.BotUsername != "" {
 		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
-		if strings.Contains(raw, botMention) {
+		isFI := raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username)
+		isMentioned := strings.Contains(raw, botMention)
+		isDirectCmd := isFI && (strings.HasPrefix(raw, "/") || SniffAsset(raw) != nil)
+
+		if isMentioned || isDirectCmd {
 			var senderID int64
 			if msg.From != nil {
 				senderID = msg.From.ID
@@ -759,10 +822,61 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			sniff := SniffAsset(cleanText)
 			if sniff != nil {
 				h.sendPreCheckGate(ctx, bot, msg.Chat.ID, senderID, sniff.Type, sniff.Entity, nil, msg.MessageThreadID)
-			} else {
+			} else if isMentioned {
 				h.sendHelpView(ctx, bot, msg.Chat.ID, senderID, nil, msg.MessageThreadID)
 			}
 			return
+		}
+	}
+}
+
+func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *repository.ManagedBot, req *ChatJoinRequest) {
+	if req == nil {
+		return
+	}
+	slog.Info("Processing chat join request", "chat_id", req.Chat.ID, "user_id", req.From.ID, "title", req.Chat.Title)
+
+	if raffle.IsFragmentInvestorsGroup(req.Chat.Title, req.Chat.Username) && h.premiumGroupSvc != nil {
+		tg := h.getBotClient(bot)
+		if tg != nil {
+			uComp := raffle.UserCompact{
+				ID:        req.From.ID,
+				Username:  req.From.Username,
+				FirstName: req.From.FirstName,
+				IsPremium: req.From.IsPremium,
+				IsBot:     req.From.IsBot,
+			}
+			userLang := i18n.DetectLanguage(req.From.LanguageCode)
+			_ = h.premiumGroupSvc.HandleChatJoinRequest(ctx, tg, req.Chat.ID, req.Chat.Title, uComp, req.UserChatID, userLang)
+		}
+	}
+}
+
+func (h *WebhookHandler) handleChatMemberUpdated(ctx context.Context, bot *repository.ManagedBot, cmu *ChatMemberUpdated) {
+	if cmu == nil {
+		return
+	}
+	if raffle.IsFragmentInvestorsGroup(cmu.Chat.Title, cmu.Chat.Username) && h.premiumGroupSvc != nil {
+		// New member joined or restriction status changed
+		if cmu.NewChatMember.Status == "member" || cmu.NewChatMember.Status == "restricted" {
+			u := cmu.NewChatMember.User
+			if !u.IsBot && !u.IsPremium {
+				tg := h.getBotClient(bot)
+				if tg != nil {
+					uComp := raffle.UserCompact{
+						ID:        u.ID,
+						Username:  u.Username,
+						FirstName: u.FirstName,
+						IsPremium: u.IsPremium,
+						IsBot:     u.IsBot,
+					}
+					go func(user raffle.UserCompact) {
+						bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+						defer cancel()
+						_ = h.premiumGroupSvc.ProcessMemberJoinRealtime(bgCtx, tg, cmu.Chat.ID, user)
+					}(uComp)
+				}
+			}
 		}
 	}
 }

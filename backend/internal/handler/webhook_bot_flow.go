@@ -230,7 +230,7 @@ func SniffAsset(raw string) *SmartSniffResult {
 				cmd = cmd[:atIdx]
 			}
 			switch cmd {
-			case "/val", "/valuate", "/check":
+			case "/val", "/valuate", "/valuation", "/check", "/analyze", "/appraise", "/price":
 				forcedType = "username"
 				trimmed = strings.TrimSpace(parts[1])
 			case "/num", "/number":

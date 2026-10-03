@@ -150,10 +150,15 @@ func (e *LayaGiftEvaluator) parseResponse(resp *laya.Response, serial int) *Laya
 		res.WashTradeAnomaly = a.Noul
 	}
 
-	// Compute Synergy Multiplier (0.90x to 1.35x)
-	mult := 0.90 + (float64(res.TraitSynergyScore)/10.0)*0.45
+	// Compute Synergy Multiplier (centered at 1.00 for baseline score 7)
+	mult := 1.00 + (float64(res.TraitSynergyScore-7) / 25.0)
 	if serial <= 100 {
-		mult += 0.15 // Low serial synergy boost
+		mult += 0.05 // Subtle low serial aesthetic reinforcement
+	}
+	if mult < 0.90 {
+		mult = 0.90
+	} else if mult > 1.25 {
+		mult = 1.25
 	}
 	res.SynergyMultiplier = float64(int(mult*100)) / 100.0
 
