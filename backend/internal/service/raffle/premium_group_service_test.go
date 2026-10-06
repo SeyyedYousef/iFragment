@@ -33,6 +33,17 @@ func TestPremiumGroupService_AllowedUsers(t *testing.T) {
 	if err := svc.ProcessMemberJoinRealtime(ctx, nil, -100123456789, premiumUser); err != nil {
 		t.Errorf("expected premium user to be allowed, got error: %v", err)
 	}
+
+	// 3. Regular non-premium user should also be allowed now
+	regularUser := UserCompact{
+		ID:        99999,
+		IsBot:     false,
+		IsPremium: false,
+		Username:  "regular_user",
+	}
+	if err := svc.ProcessMemberJoinRealtime(ctx, nil, -100123456789, regularUser); err != nil {
+		t.Errorf("expected regular non-premium user to be allowed, got error: %v", err)
+	}
 }
 
 func TestPremiumGroupService_JoinAttemptsRateLimiting(t *testing.T) {

@@ -8,8 +8,6 @@ export type OwnerTabId =
 	| 'dashboard'
 	| 'users'
 	| 'audit-logs'
-	| 'quests'
-	| 'combos'
 	| 'userbot'
 	| 'settings'
 	| 'promos'
@@ -56,18 +54,6 @@ const TABS: TabConfig[] = [
 		labelKey: 'ownerNav.broadcastLabel',
 		icon: 'campaign',
 		path: '/owner/broadcast',
-	},
-	{
-		id: 'quests',
-		labelKey: 'ownerNav.questsLabel',
-		icon: 'task',
-		path: '/owner/quests',
-	},
-	{
-		id: 'combos',
-		labelKey: 'ownerNav.combosLabel',
-		icon: 'extension',
-		path: '/owner/combos',
 	},
 	{
 		id: 'userbot',

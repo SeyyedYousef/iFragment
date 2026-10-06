@@ -1,4 +1,5 @@
-import { type Component, lazy } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
+import { type Component, lazy, onMount } from 'solid-js';
 import { useI18n } from '@/shared/i18n/index.js';
 import { OwnerLayout } from '@/widgets/owner/index.js';
 import { OwnerRouteGuard } from './OwnerRouteGuard.js';
@@ -26,9 +27,6 @@ const OwnerAuditLogPage = lazy(() =>
 const OwnerBroadcastPage = lazy(() =>
 	import('@/pages/owner/broadcast/index.js').then((m) => ({ default: m.OwnerBroadcastPage })),
 );
-const OwnerCombos = lazy(() =>
-	import('@/pages/owner/combos/index.js').then((m) => ({ default: m.OwnerCombos })),
-);
 const OwnerDashboardPage = lazy(() =>
 	import('@/pages/owner/dashboard/index.js').then((m) => ({ default: m.OwnerDashboardPage })),
 );
@@ -40,9 +38,6 @@ const OwnerHealthPage = lazy(() =>
 );
 const OwnerPromosPage = lazy(() =>
 	import('@/pages/owner/promos/index.js').then((m) => ({ default: m.OwnerPromosPage })),
-);
-const OwnerQuests = lazy(() =>
-	import('@/pages/owner/quests/index.js').then((m) => ({ default: m.OwnerQuests })),
 );
 const OwnerSettingsPage = lazy(() =>
 	import('@/pages/owner/settings/index.js').then((m) => ({ default: m.OwnerSettingsPage })),
@@ -140,8 +135,22 @@ export const routes: Route[] = [
 		path: '/owner/audit-logs',
 		Component: withOwnerGuard(OwnerAuditLogPage, 'audit-logs', 'ownerAuditLogs.title'),
 	},
-	{ path: '/owner/quests', Component: withOwnerGuard(OwnerQuests, 'quests', 'ownerQuests.title') },
-	{ path: '/owner/combos', Component: withOwnerGuard(OwnerCombos, 'combos', 'ownerCombos.title') },
+	{
+		path: '/owner/quests',
+		Component: () => {
+			const nav = useNavigate();
+			onMount(() => nav('/owner/dashboard', { replace: true }));
+			return null;
+		},
+	},
+	{
+		path: '/owner/combos',
+		Component: () => {
+			const nav = useNavigate();
+			onMount(() => nav('/owner/dashboard', { replace: true }));
+			return null;
+		},
+	},
 	{
 		path: '/owner/userbot',
 		Component: withOwnerGuard(OwnerUserbot, 'userbot', 'ownerUserbot.title'),

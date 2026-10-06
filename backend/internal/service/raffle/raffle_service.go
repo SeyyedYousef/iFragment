@@ -2,10 +2,8 @@ package raffle
 
 import (
 	"context"
-	cryptoRand "crypto/rand"
 	"fmt"
 	"log/slog"
-	"math/big"
 	"os"
 	"strconv"
 	"strings"
@@ -51,211 +49,14 @@ func NewRaffleService(raffleRepo *repository.RaffleRepo, cache *repository.Cache
 	}
 }
 
-// RecordMessageTicket registers a paid message as a raffle ticket and sends a 10-second ephemeral feedback message in English.
+// RecordMessageTicket is disabled because the daily raffle has been removed.
 func (s *RaffleService) RecordMessageTicket(ctx context.Context, tgClient *telegram.BotAPIClient, chatID int64, user UserCompact, messageID int) error {
-	nowUTC := time.Now().UTC()
-	today := time.Date(nowUTC.Year(), nowUTC.Month(), nowUTC.Day(), 0, 0, 0, 0, time.UTC)
-
-	ticket := &repository.RaffleTicket{
-		RaffleDate: today,
-		ChatID:     chatID,
-		UserID:     user.ID,
-		Username:   user.Username,
-		FirstName:  user.FirstName,
-		MessageID:  messageID,
-		CreatedAt:  nowUTC,
-	}
-
-	if s.raffleRepo != nil {
-		if err := s.raffleRepo.AddRaffleTicket(ctx, ticket); err != nil {
-			slog.Error("Failed to record raffle ticket for user", "chat_id", chatID, "user_id", user.ID, "error", err)
-		}
-	}
-
-	uniqueParticipants := 1
-	totalMessages := 1
-	if s.raffleRepo != nil {
-		up, tm, _, err := s.raffleRepo.GetDailyRaffleStats(ctx, today, user.ID)
-		if err == nil {
-			if up > 0 {
-				uniqueParticipants = up
-			}
-			if tm > 0 {
-				totalMessages = tm
-			}
-		}
-	}
-
-	if uniqueParticipants <= 0 {
-		uniqueParticipants = 1
-	}
-
-	// Each unique user has exactly 1 entry in the draw
-	chancePercent := (1.0 / float64(uniqueParticipants)) * 100.0
-	if chancePercent > 100.0 {
-		chancePercent = 100.0
-	}
-
-	// Each message costs $1 USD -> Prize pool is 25% to 50% of total messages
-	poolTotalUSD := float64(totalMessages) * 1.0
-	rewardMinUSD := poolTotalUSD * 0.25
-	rewardMaxUSD := poolTotalUSD * 0.50
-
-	// Ephemeral feedback message in strictly English
-	ephemeralText := fmt.Sprintf(
-		"🎟 <b>Daily Telegram Gift Raffle</b>\n\n"+
-			"Your message has been registered! You are entered in today's Gift Raffle 🎁\n\n"+
-			"👥 <b>Unique Participants:</b> %d\n"+
-			"🎯 <b>Your Win Chance:</b> <b>%.1f%%</b> (1 entry per user)\n"+
-			"🌐 <b>Group Total Messages:</b> %d\n"+
-			"💎 <b>Prize Pool:</b> $%.2f – $%.2f (25%%–50%% pool)\n\n"+
-			"⏰ <i>Winner is drawn daily at 00:00 UTC and receives a real Telegram Gift or Stars!</i>",
-		uniqueParticipants, chancePercent, totalMessages, rewardMinUSD, rewardMaxUSD,
-	)
-
-	if tgClient != nil {
-		key := fmt.Sprintf("%d:%d", chatID, user.ID)
-
-		// Delete previously stored ephemeral message if exists to keep user's chat tidy
-		if prevIDVal, loaded := s.lastEphemeralMsg.Load(key); loaded {
-			if prevID, ok := prevIDVal.(string); ok && prevID != "" {
-				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				_ = tgClient.DeleteEphemeralMessage(bgCtx, chatID, prevID, user.ID)
-				cancel()
-			}
-		}
-
-		epMsg, err := tgClient.SendEphemeralMessage(ctx, chatID, user.ID, ephemeralText, nil)
-		if err == nil && epMsg != nil && string(epMsg.EphemeralMessageID) != "" {
-			s.lastEphemeralMsg.Store(key, string(epMsg.EphemeralMessageID))
-
-			// Auto-cleanup ephemeral message after exactly 10 seconds
-			go func(cID, uID int64, epID string) {
-				time.Sleep(10 * time.Second)
-				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				_ = tgClient.DeleteEphemeralMessage(bgCtx, cID, epID, uID)
-			}(chatID, user.ID, string(epMsg.EphemeralMessageID))
-		}
-	}
-
 	return nil
 }
 
-// ExecuteDailyDraw performs the deduplicated random draw for the specified date,
-// sends real Gift/Stars from bot balance if possible, locks the draw in daily_gift_draws,
-// and notifies ONLY the bot owner.
+// ExecuteDailyDraw is disabled because the daily raffle has been removed.
 func (s *RaffleService) ExecuteDailyDraw(ctx context.Context, tgClient *telegram.BotAPIClient, date time.Time) error {
-	targetDate := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
-	slog.Info("Executing daily raffle draw for @FragmentInvestors", "date", targetDate.Format("2006-01-02"))
-
-	if s.raffleRepo == nil {
-		return nil
-	}
-
-	// 1. Check if draw is already locked in daily_gift_draws to prevent re-execution
-	alreadyLocked, err := s.raffleRepo.IsDailyDrawLocked(ctx, targetDate)
-	if err != nil {
-		slog.Error("Failed to check if daily draw is locked", "date", targetDate, "error", err)
-		return err
-	}
-	if alreadyLocked {
-		slog.Info("Daily gift draw is already locked for date, skipping", "date", targetDate)
-		return nil
-	}
-
-	// 2. Read deduplicated participants: each unique user enters exactly once
-	participants, totalMessages, err := s.raffleRepo.GetDailyUniqueParticipants(ctx, targetDate)
-	if err != nil {
-		slog.Error("Failed to retrieve unique participants for daily draw", "date", targetDate, "error", err)
-		return err
-	}
-
-	if len(participants) == 0 {
-		slog.Info("No messages/participants recorded for raffle on date, skipping draw", "date", targetDate)
-		return nil
-	}
-
-	// 3. Fair cryptographically secure random selection among unique users
-	nBig, err := cryptoRand.Int(cryptoRand.Reader, big.NewInt(int64(len(participants))))
-	if err != nil {
-		slog.Error("Failed to generate secure random number for raffle", "error", err)
-		return err
-	}
-	winner := participants[nBig.Int64()]
-
-	// 4. Calculate prize between 25% and 50% of the day's message value ($1/msg)
-	poolTotalUSD := float64(totalMessages) * 1.0
-	minPrizeUSD := poolTotalUSD * 0.25
-	maxPrizeUSD := poolTotalUSD * 0.50
-
-	// Random percentage between 25% and 50%
-	ratioRand, _ := cryptoRand.Int(cryptoRand.Reader, big.NewInt(1000))
-	randFraction := float64(ratioRand.Int64()) / 1000.0
-	prizeUSD := minPrizeUSD + (maxPrizeUSD-minPrizeUSD)*randFraction
-	if prizeUSD < minPrizeUSD {
-		prizeUSD = minPrizeUSD
-	}
-
-	// Telegram Stars equivalent: 1 USD ≈ 50 Stars
-	prizeStars := int(prizeUSD * 50.0)
-	if prizeStars < 50 && totalMessages > 0 {
-		prizeStars = 50 // Minimum 50 stars
-	}
-
-	// 5. Notify the winner in their private chat
-	client := tgClient
-	if client == nil {
-		botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-		if botToken == "" {
-			botToken = os.Getenv("BOT_TOKEN")
-		}
-		if botToken != "" {
-			client = telegram.NewBotAPIClient(botToken)
-		}
-	}
-
-	winChance := (1.0 / float64(len(participants))) * 100.0
-	winnerNotified := s.notifyWinner(ctx, client, winner, targetDate, prizeUSD, prizeStars, winChance, len(participants))
-	slog.Info("Raffle draw: winner notification result", "user_id", winner.UserID, "notified", winnerNotified)
-
-	// 6. Lock and record in daily_gift_draws
-	drawRecord := &repository.DailyGiftDraw{
-		DrawDate:          targetDate,
-		TotalMessages:     totalMessages,
-		TotalParticipants: len(participants),
-		WinnerUserID:      winner.UserID,
-		WinnerUsername:    winner.Username,
-		WinnerFirstName:   winner.FirstName,
-		PrizeUSD:          prizeUSD,
-		PrizeStars:        prizeStars,
-		GiftID:            "",
-		GiftTitle:         fmt.Sprintf("Direct Owner Prize (%d Stars / $%.2f)", prizeStars, prizeUSD),
-		AutoSent:          false,
-		LockStatus:        "LOCKED",
-		NotifiedOwner:     false,
-		CreatedAt:         time.Now().UTC(),
-	}
-
-	// 7. Notify ONLY the bot owner
-	ownerNotified := s.notifyOwnerOnly(ctx, client, drawRecord)
-	drawRecord.NotifiedOwner = ownerNotified
-
-	if err := s.raffleRepo.LockDailyDraw(ctx, drawRecord); err != nil {
-		slog.Error("Failed to lock daily gift draw record", "date", targetDate, "error", err)
-		return err
-	}
-
-	slog.Info("Successfully locked daily gift draw for @FragmentInvestors",
-		"date", targetDate.Format("2006-01-02"),
-		"winner_user_id", drawRecord.WinnerUserID,
-		"winner_username", drawRecord.WinnerUsername,
-		"total_messages", drawRecord.TotalMessages,
-		"total_participants", drawRecord.TotalParticipants,
-		"prize_usd", drawRecord.PrizeUSD,
-		"prize_stars", drawRecord.PrizeStars,
-	)
-
+	slog.Info("Daily raffle draw is disabled - raffle has been removed")
 	return nil
 }
 
@@ -411,32 +212,7 @@ func (s *RaffleService) GetRepo() *repository.RaffleRepo {
 	return s.raffleRepo
 }
 
-// StartDailyDrawWorker starts a background worker that executes the daily raffle draw at 00:00 UTC.
+// StartDailyDrawWorker is disabled because the daily raffle has been removed.
 func (s *RaffleService) StartDailyDrawWorker(ctx context.Context, getTgClient func() *telegram.BotAPIClient) {
-	go func() {
-		for {
-			now := time.Now().UTC()
-			nextRun := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-			if !now.Before(nextRun) {
-				nextRun = nextRun.Add(24 * time.Hour)
-			}
-
-			waitDuration := nextRun.Sub(now)
-			slog.Info("Scheduled daily @FragmentInvestors raffle draw worker", "next_run_utc", nextRun, "wait_duration", waitDuration)
-
-			select {
-			case <-ctx.Done():
-				slog.Info("Daily Raffle Draw Worker stopped")
-				return
-			case <-time.After(waitDuration):
-				if getTgClient != nil {
-					client := getTgClient()
-					yesterday := time.Now().UTC().AddDate(0, 0, -1)
-					if err := s.ExecuteDailyDraw(ctx, client, yesterday); err != nil {
-						slog.Error("Failed to execute daily raffle draw in worker", "error", err)
-					}
-				}
-			}
-		}
-	}()
+	slog.Info("Daily raffle draw worker disabled - raffle has been removed")
 }

@@ -249,10 +249,11 @@ export const ProfilePage: Component = () => {
 								<button
 									type="button"
 									onClick={() => {
-										const refLink = referrals()?.referralLink;
-										if (refLink) {
-											navigator.clipboard?.writeText(refLink);
-											haptic.notification('success');
+										const code = referrals()?.referralCode;
+										if (code) {
+											const link = `https://t.me/iFragmentBot?start=${encodeURIComponent(code)}`;
+											navigator.clipboard?.writeText(link);
+											haptic.notify('success');
 										}
 									}}
 									class="flex items-center gap-1 px-3 py-1.5 rounded-[12px] bg-cyan-400/15 hover:bg-cyan-400/25 border border-cyan-400/30 text-cyan-300 text-[10px] font-black uppercase tracking-wide active:scale-95 transition-all"

@@ -343,15 +343,8 @@ func main() {
 	premiumGroupSvc := raffle.NewPremiumGroupService(raffleRepo)
 	raffleHandler := handler.NewRaffleHandler(raffleSvc)
 
-	// Start Background Daily Workers for @FragmentInvestors (00:00 UTC)
-	getMainTgClient := func() *telegram.BotAPIClient {
-		if botToken != "" {
-			return telegram.NewBotAPIClient(botToken)
-		}
-		return nil
-	}
-	raffleSvc.StartDailyDrawWorker(ctx, getMainTgClient)
-	premiumGroupSvc.StartDailyAuditWorker(ctx, getMainTgClient)
+	// Daily workers for raffle draw and premium membership audit are disabled per owner instructions.
+
 
 	webhookHandler := handler.NewWebhookHandler(db, cache, botRepo, raffleSvc, premiumGroupSvc)
 	profileService := service.NewProfileService(db, cache)

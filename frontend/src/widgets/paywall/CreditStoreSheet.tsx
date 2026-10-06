@@ -4,7 +4,6 @@ import { creditsApi } from '@/entities/intel/api/creditsApi.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import type { PaywallVertical } from './theme.js';
-import { verticalThemes } from './theme.js';
 import { useWallet } from './useWallet.js';
 
 interface CreditStoreSheetProps {
@@ -33,8 +32,6 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 	const [pendingPack, setPendingPack] = createSignal<string | null>(null);
 	const [purchaseError, setPurchaseError] = createSignal<string | null>(null);
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
-
-	const theme = () => verticalThemes[props.vertical] ?? verticalThemes.general;
 
 	const startBalancePolling = (baseline: number) => {
 		clearInterval(pollTimer);

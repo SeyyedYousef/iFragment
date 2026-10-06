@@ -2,6 +2,8 @@ import { createQuery } from '@tanstack/solid-query';
 import { type Component, createSignal, Show } from 'solid-js';
 import { investorsApi } from '@/entities/investors/index.js';
 import { buildMediaUrl } from '@/shared/api/config.js';
+import { haptic } from '@/shared/lib/haptic.js';
+import { openTelegramLink } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 
@@ -17,21 +19,36 @@ export const InvestorsPromoPage: Component = () => {
 		staleTime: 60_000,
 	}));
 
-	const handleRetry = () => {
+	const handleRetry = (e: MouseEvent) => {
+		e.stopPropagation();
 		setImageFailed(false);
 		setImageReady(false);
 		configQuery.refetch();
 	};
 
+	const handleOpenInvestorsGroup = () => {
+		try {
+			haptic.impact('medium');
+		} catch {}
+		try {
+			openTelegramLink('https://t.me/FragmentInvestors');
+		} catch {
+			window.open('https://t.me/FragmentInvestors', '_blank');
+		}
+	};
+
 	const imageUrl = () => configQuery.data?.image_url;
 
 	return (
-		<div class="relative min-h-[100dvh] w-full overflow-hidden bg-[#08090d] select-none">
+		<div
+			onClick={handleOpenInvestorsGroup}
+			class="relative min-h-[100dvh] w-full overflow-hidden bg-[#08090d] select-none cursor-pointer"
+		>
 			{/* Loading Skeleton */}
 			<Show when={configQuery.isLoading}>
 				<div
 					data-testid="investors-skeleton"
-					class="absolute inset-0 flex flex-col items-center justify-center bg-[#08090d] animate-pulse"
+					class="absolute inset-0 flex flex-col items-center justify-center bg-[#08090d] animate-pulse pointer-events-none"
 				>
 					<div class="h-10 w-10 rounded-full bg-white/5 mb-3" />
 					<div class="h-4 w-36 rounded-md bg-white/5" />
@@ -54,7 +71,7 @@ export const InvestorsPromoPage: Component = () => {
 					<button
 						type="button"
 						onClick={handleRetry}
-						class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition border border-white/10 active:scale-95"
+						class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition border border-white/10 active:scale-95 cursor-pointer z-20"
 					>
 						<span class="material-symbols-outlined text-sm">refresh</span>
 						<span>Retry</span>
@@ -116,8 +133,13 @@ export const InvestorsPromoPage: Component = () => {
 				</div>
 			</Show>
 
-			{/* Bottom Navigation on top */}
-			<BottomNav />
+			{/* Bottom Navigation on top (Stop propagation so clicking navigation does not trigger open group) */}
+			<div
+				onClick={(e) => e.stopPropagation()}
+				class="relative z-50 pointer-events-auto"
+			>
+				<BottomNav />
+			</div>
 		</div>
 	);
 };
