@@ -766,6 +766,8 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botRepo *
 			"inline_query",
 			"chosen_inline_result",
 			"guest_message",
+			"chat_boost",
+			"removed_chat_boost",
 		},
 	}
 	body, _ := json.Marshal(payload)

@@ -141,20 +141,67 @@ export const LeaderboardPage: Component = () => {
 
 				{/* Top 3 Podium (Elite 3D Pedestal Stage) */}
 				<Show
-					when={!leaderboardQuery.isLoading && top3().length > 0}
+					when={!leaderboardQuery.isLoading && !leaderboardQuery.isError}
 					fallback={
-						<div class="h-56 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#0D101C]/50 border border-white/5 backdrop-blur-sm">
-							<div class="w-7 h-7 rounded-full border-2 border-[#2AABEE] border-t-transparent animate-spin" />
-							<span class="text-white/40 text-xs font-medium">{t('leaderboard.loading')}</span>
-						</div>
+						<Show
+							when={!leaderboardQuery.isError}
+							fallback={
+								<div class="h-44 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#0D101C]/60 border border-rose-500/25 backdrop-blur-sm p-4 text-center">
+									<span class="material-symbols-outlined text-rose-400 text-3xl">error_outline</span>
+									<span class="text-white/70 text-xs font-semibold">خطا در دریافت جدول رتبه‌بندی</span>
+									<button
+										type="button"
+										onClick={() => leaderboardQuery.refetch()}
+										class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition active:scale-95 cursor-pointer border border-white/10"
+									>
+										تلاش مجدد
+									</button>
+								</div>
+							}
+						>
+							<div class="h-56 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#0D101C]/50 border border-white/5 backdrop-blur-sm">
+								<div class="w-7 h-7 rounded-full border-2 border-[#2AABEE] border-t-transparent animate-spin" />
+								<span class="text-white/40 text-xs font-medium">{t('leaderboard.loading')}</span>
+							</div>
+						</Show>
 					}
 				>
-					<div class="relative pt-6 pb-2 px-1 flex items-end justify-center gap-2.5">
-						{/* Rank 2 (Left / Silver Pedestal) */}
-						<Show when={top3()[1]}>
-							{(second) => (
-								<div class="flex-1 flex flex-col items-center max-w-[110px] z-10 group">
-									<div class="relative w-20 h-20 rounded-full p-[2.5px] bg-gradient-to-b from-slate-200 via-slate-400 to-slate-600 shadow-[0_6px_20px_rgba(148,163,184,0.25)] transition-transform duration-300 group-hover:scale-105">
+					<Show
+						when={top3().length > 0}
+						fallback={
+							<div class="h-44 flex flex-col items-center justify-center gap-2.5 rounded-3xl bg-[#0D101C]/50 border border-white/5 backdrop-blur-sm p-6 text-center">
+								<div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl">
+									{unitIcon()}
+								</div>
+								<div class="flex flex-col gap-1">
+									<span class="text-white text-sm font-bold">
+										{activeTab() === 'messages' ? 'هنوز پیامی ثبت نشده است' : 'هنوز بوستی ثبت نشده است'}
+									</span>
+									<span class="text-white/40 text-xs">
+										{activeTab() === 'messages'
+											? 'با ارسال اولین پیام در گروه @FragmentInvestors، در این جایگاه قرار بگیرید!'
+											: 'با بوست کردن گروه @FragmentInvestors، در جایگاه نخست قرار بگیرید!'}
+									</span>
+								</div>
+							</div>
+						}
+					>
+						<div class="relative pt-6 pb-2 px-1 flex items-end justify-center gap-2.5">
+							{/* Rank 2 (Left / Silver Pedestal) */}
+							<Show
+								when={top3()[1]}
+								fallback={
+									<div class="flex-1 flex flex-col items-center max-w-[110px] z-10 opacity-30 select-none">
+										<div class="relative w-20 h-20 rounded-full border-2 border-dashed border-slate-400/50 flex items-center justify-center bg-white/[0.02]">
+											<span class="text-slate-300 text-lg font-bold">2</span>
+										</div>
+										<span class="mt-3.5 text-xs font-medium text-white/30">خالی</span>
+									</div>
+								}
+							>
+								{(second) => (
+									<div class="flex-1 flex flex-col items-center max-w-[110px] z-10 group">
+										<div class="relative w-20 h-20 rounded-full p-[2.5px] bg-gradient-to-b from-slate-200 via-slate-400 to-slate-600 shadow-[0_6px_20px_rgba(148,163,184,0.25)] transition-transform duration-300 group-hover:scale-105">
 											<Show
 												when={second().photo_url}
 												fallback={
@@ -172,106 +219,118 @@ export const LeaderboardPage: Component = () => {
 													}}
 												/>
 											</Show>
-										{/* Silver Badge */}
-										<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-gradient-to-b from-slate-100 to-slate-400 text-slate-950 text-xs font-black flex items-center justify-center shadow-lg border-[2px] border-[#06080F]">
-											2
+											{/* Silver Badge */}
+											<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-gradient-to-b from-slate-100 to-slate-400 text-slate-950 text-xs font-black flex items-center justify-center shadow-lg border-[2px] border-[#06080F]">
+												2
+											</div>
 										</div>
+										<span class="mt-3.5 text-xs font-bold text-white truncate max-w-full text-center tracking-tight">
+											{second().first_name || second().username || 'Anonymous'}
+										</span>
+										<span class="text-[11px] font-black text-slate-300 flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/10">
+											<span>{unitIcon()}</span>
+											<span>{formatScore(second().score)}</span>
+										</span>
 									</div>
-									<span class="mt-3.5 text-xs font-bold text-white truncate max-w-full text-center tracking-tight">
-										{second().first_name || second().username || 'Anonymous'}
-									</span>
-									<span class="text-[11px] font-black text-slate-300 flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/10">
-										<span>{unitIcon()}</span>
-										<span>{formatScore(second().score)}</span>
-									</span>
-								</div>
-							)}
-						</Show>
+								)}
+							</Show>
 
-						{/* Rank 1 (Center / Gold Champion Pedestal - Elevated & Radiant) */}
-						<Show when={top3()[0]}>
-							{(first) => (
-								<div class="flex-1 flex flex-col items-center max-w-[130px] -translate-y-3 z-20 group">
-									{/* Floating Crown Icon */}
-									<div class="text-amber-400 text-base mb-1 filter drop-shadow-[0_2px_8px_rgba(251,191,36,0.8)] animate-bounce">
-										👑
-									</div>
-									<div class="relative w-24 h-24 rounded-full p-[3px] bg-gradient-to-b from-amber-200 via-amber-400 to-amber-600 shadow-[0_0_30px_rgba(251,191,36,0.45)] transition-transform duration-300 group-hover:scale-105">
-										<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] flex items-center justify-center border border-white/20">
-											<Show
-												when={first().photo_url}
-												fallback={
-													<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 text-slate-950 font-black text-2xl">
-														{(first().first_name || first().username || 'U')[0].toUpperCase()}
-													</div>
-												}
-											>
-												<img
-													src={buildAvatarUrl(first().photo_url || undefined)}
-													alt={first().first_name || 'Champion'}
-													class="w-full h-full object-cover"
-													onError={(e) => {
-														e.currentTarget.style.display = 'none';
-													}}
-												/>
-											</Show>
+							{/* Rank 1 (Center / Gold Champion Pedestal - Elevated & Radiant) */}
+							<Show when={top3()[0]}>
+								{(first) => (
+									<div class="flex-1 flex flex-col items-center max-w-[130px] -translate-y-3 z-20 group">
+										{/* Floating Crown Icon */}
+										<div class="text-amber-400 text-base mb-1 filter drop-shadow-[0_2px_8px_rgba(251,191,36,0.8)] animate-bounce">
+											👑
 										</div>
-										{/* Gold Badge */}
-										<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-gradient-to-b from-amber-200 via-amber-400 to-amber-500 text-slate-950 text-xs font-black flex items-center justify-center shadow-[0_4px_12px_rgba(251,191,36,0.6)] border-[2px] border-[#06080F]">
-											1
+										<div class="relative w-24 h-24 rounded-full p-[3px] bg-gradient-to-b from-amber-200 via-amber-400 to-amber-600 shadow-[0_0_30px_rgba(251,191,36,0.45)] transition-transform duration-300 group-hover:scale-105">
+											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] flex items-center justify-center border border-white/20">
+												<Show
+													when={first().photo_url}
+													fallback={
+														<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 text-slate-950 font-black text-2xl">
+															{(first().first_name || first().username || 'U')[0].toUpperCase()}
+														</div>
+													}
+												>
+													<img
+														src={buildAvatarUrl(first().photo_url || undefined)}
+														alt={first().first_name || 'Champion'}
+														class="w-full h-full object-cover"
+														onError={(e) => {
+															e.currentTarget.style.display = 'none';
+														}}
+													/>
+												</Show>
+											</div>
+											{/* Gold Badge */}
+											<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-gradient-to-b from-amber-200 via-amber-400 to-amber-500 text-slate-950 text-xs font-black flex items-center justify-center shadow-[0_4px_12px_rgba(251,191,36,0.6)] border-[2px] border-[#06080F]">
+												1
+											</div>
 										</div>
+										<span class="mt-4 text-[13px] font-black text-white truncate max-w-full text-center tracking-tight">
+											{first().first_name || first().username || 'Top Investor'}
+										</span>
+										<span class="text-xs font-black text-amber-300 flex items-center gap-1 mt-0.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 shadow-[0_0_12px_rgba(251,191,36,0.15)]">
+											<span>{unitIcon()}</span>
+											<span>{formatScore(first().score)}</span>
+										</span>
 									</div>
-									<span class="mt-4 text-[13px] font-black text-white truncate max-w-full text-center tracking-tight">
-										{first().first_name || first().username || 'Top Investor'}
-									</span>
-									<span class="text-xs font-black text-amber-300 flex items-center gap-1 mt-0.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 shadow-[0_0_12px_rgba(251,191,36,0.15)]">
-										<span>{unitIcon()}</span>
-										<span>{formatScore(first().score)}</span>
-									</span>
-								</div>
-							)}
-						</Show>
+								)}
+							</Show>
 
-						{/* Rank 3 (Right / Bronze Pedestal) */}
-						<Show when={top3()[2]}>
-							{(third) => (
-								<div class="flex-1 flex flex-col items-center max-w-[110px] z-10 group">
-									<div class="relative w-20 h-20 rounded-full p-[2.5px] bg-gradient-to-b from-amber-600 via-amber-700 to-amber-900 shadow-[0_6px_20px_rgba(180,83,9,0.25)] transition-transform duration-300 group-hover:scale-105">
-										<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] flex items-center justify-center border border-white/10">
-											<Show
-												when={third().photo_url}
-												fallback={
-													<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-600 to-amber-800 text-white font-black text-xl">
-														{(third().first_name || third().username || 'U')[0].toUpperCase()}
-													</div>
-												}
-											>
-												<img
-													src={buildAvatarUrl(third().photo_url || undefined)}
-													alt={third().first_name || 'Bronze Rank'}
-													class="w-full h-full object-cover"
-													onError={(e) => {
-														e.currentTarget.style.display = 'none';
-													}}
-												/>
-											</Show>
+							{/* Rank 3 (Right / Bronze Pedestal) */}
+							<Show
+								when={top3()[2]}
+								fallback={
+									<div class="flex-1 flex flex-col items-center max-w-[110px] z-10 opacity-30 select-none">
+										<div class="relative w-20 h-20 rounded-full border-2 border-dashed border-amber-700/50 flex items-center justify-center bg-white/[0.02]">
+											<span class="text-amber-500 text-lg font-bold">3</span>
 										</div>
-										{/* Bronze Badge */}
-										<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-gradient-to-b from-amber-500 to-amber-800 text-white text-xs font-black flex items-center justify-center shadow-lg border-[2px] border-[#06080F]">
-											3
-										</div>
+										<span class="mt-3.5 text-xs font-medium text-white/30">خالی</span>
 									</div>
-									<span class="mt-3.5 text-xs font-bold text-white truncate max-w-full text-center tracking-tight">
-										{third().first_name || third().username || 'Anonymous'}
-									</span>
-									<span class="text-[11px] font-black text-amber-400 flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/10">
-										<span>{unitIcon()}</span>
-										<span>{formatScore(third().score)}</span>
-									</span>
-								</div>
-							)}
-						</Show>
-					</div>
+								}
+							>
+								{(third) => (
+									<div class="flex-1 flex flex-col items-center max-w-[110px] z-10 group">
+										<div class="relative w-20 h-20 rounded-full p-[2.5px] bg-gradient-to-b from-amber-600 via-amber-700 to-amber-900 shadow-[0_6px_20px_rgba(180,83,9,0.25)] transition-transform duration-300 group-hover:scale-105">
+											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] flex items-center justify-center border border-white/10">
+												<Show
+													when={third().photo_url}
+													fallback={
+														<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-600 to-amber-800 text-white font-black text-xl">
+															{(third().first_name || third().username || 'U')[0].toUpperCase()}
+														</div>
+													}
+												>
+													<img
+														src={buildAvatarUrl(third().photo_url || undefined)}
+														alt={third().first_name || 'Bronze Rank'}
+														class="w-full h-full object-cover"
+														onError={(e) => {
+															e.currentTarget.style.display = 'none';
+														}}
+													/>
+												</Show>
+											</div>
+											{/* Bronze Badge */}
+											<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-gradient-to-b from-amber-500 to-amber-800 text-white text-xs font-black flex items-center justify-center shadow-lg border-[2px] border-[#06080F]">
+												3
+											</div>
+										</div>
+										<span class="mt-3.5 text-xs font-bold text-white truncate max-w-full text-center tracking-tight">
+											{third().first_name || third().username || 'Anonymous'}
+										</span>
+										<span class="text-[11px] font-black text-amber-400 flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/10">
+											<span>{unitIcon()}</span>
+											<span>{formatScore(third().score)}</span>
+										</span>
+									</div>
+								)}
+							</Show>
+						</div>
+					</Show>
+				</Show>
 
 					{/* Ranks 4 to 7 (Micro Glass Orbit Avatars) */}
 					<Show when={featured().length > 0}>
@@ -315,7 +374,6 @@ export const LeaderboardPage: Component = () => {
 							</For>
 						</div>
 					</Show>
-				</Show>
 
 				{/* High-Impact Animated Blue Supergroup Banner */}
 				<div

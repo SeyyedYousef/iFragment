@@ -5,6 +5,6 @@ coverage.out
 .env
 .env.*
 !.env.example
-main
-api
+/main
+/api
 dist_main*

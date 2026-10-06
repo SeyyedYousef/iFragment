@@ -103,7 +103,7 @@ func (r *GroupLeaderboardRepo) GetLeaderboard(ctx context.Context, rankType stri
 			COALESCE(NULLIF(s.photo_url, ''), NULLIF(u.photo_url, ''), '') as photo_url,
 			s.%s as score
 		FROM fragment_investors_user_stats s
-		LEFT JOIN users u ON s.user_id = u.id
+		LEFT JOIN users u ON s.user_id = u.telegram_id
 		WHERE s.%s > 0
 		ORDER BY s.%s DESC, s.user_id ASC
 		LIMIT $1`, orderColumn, orderColumn, orderColumn, orderColumn)
