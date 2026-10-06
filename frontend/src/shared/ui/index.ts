@@ -1,6 +1,5 @@
 export * from './AnimatedCounter.js';
 export * from './Avatar.js';
-export * from './CoinCelebration.js';
 export * from './ConnectionStatusBanner.js';
 export * from './EmptyState.js';
 export * from './ErrorBoundary.js';

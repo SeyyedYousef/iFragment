@@ -833,7 +833,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							{/* Intel Credits Badge */}
 							<button
 								type="button"
-								onClick={() => navigate('/airdrop?tab=shop')}
+								onClick={() => navigate('/leaderboard')}
 								class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#3390EC]/10 border border-[#3390EC]/30 backdrop-blur-md shadow-[0_2px_10px_rgba(51,144,236,0.15)] hover:bg-[#3390EC]/20 transition-all active:scale-95"
 							>
 								<span class="material-symbols-outlined text-[#3390EC] text-[15px]">bolt</span>
@@ -1309,21 +1309,21 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							type="button"
 							onClick={() => {
 								setShowNoCreditsModal(false);
-								navigate('/airdrop?tab=shop');
+								navigate('/leaderboard');
 							}}
 							class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#3390EC] to-[#2071C4] text-white font-semibold text-sm mb-3 active:scale-98 transition-transform"
 						>
-							{t('noCreditsModal.buyCredits')}
+							{t('noCreditsModal.earnCredits') || 'دریافت کریدت رایگان (لیدربورد)'}
 						</button>
 						<button
 							type="button"
 							onClick={() => {
 								setShowNoCreditsModal(false);
-								navigate('/airdrop?tab=earn');
+								window.open('https://t.me/FragmentInvestors', '_blank');
 							}}
 							class="w-full py-3 px-6 rounded-2xl bg-white/[0.05] hover:bg-white/10 text-white/80 font-medium text-xs transition-colors"
 						>
-							{t('noCreditsModal.earnCredits')}
+							💬 ورود به گروه @FragmentInvestors
 						</button>
 					</div>
 				</div>

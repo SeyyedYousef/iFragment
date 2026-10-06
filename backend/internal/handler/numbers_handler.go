@@ -223,7 +223,7 @@ func (h *NumbersHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		}
 		RespondJSON(w, http.StatusForbidden, map[string]interface{}{
 			"error":          "report_not_unlocked",
-			"message":        "Full valuation report requires purchase with 1 Intel Credit or Coins",
+			"message":        "Full valuation report requires purchase with 1 Intel Credit",
 			"curiosity_gate": gate,
 		})
 		return
@@ -239,60 +239,9 @@ func (h *NumbersHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, val)
 }
 
-// UnlockWithCoins unlocks report with Airdrop Coins
+// UnlockWithCoins returns 410 Gone as airdrop coin unlocks have been superseded by Intel Credits
 func (h *NumbersHandler) UnlockWithCoins(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var req struct {
-		Number string `json:"number"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Number == "" {
-		RespondError(w, r, http.StatusBadRequest, "invalid request body", nil)
-		return
-	}
-
-	userID, err := middleware.GetUserID(ctx)
-	if err != nil {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
-		return
-	}
-
-	idempotencyKey := r.Header.Get("Idempotency-Key")
-	if idempotencyKey == "" {
-		idempotencyKey = r.Header.Get("X-Idempotency-Key")
-	}
-
-	db := h.service.DB()
-	if idempotencyKey != "" && db != nil && db.Pool != nil {
-		var existingID string
-		errEnt := db.Pool.QueryRow(ctx, `
-			SELECT id FROM report_entitlements 
-			WHERE principal_id = $1 AND asset_id = $2 AND idempotency_key = $3
-			LIMIT 1`, userID, req.Number, idempotencyKey).Scan(&existingID)
-		if errEnt == nil {
-			val, errVal := h.service.ValuateNumber(ctx, userID, req.Number)
-			if errVal == nil {
-				RespondJSON(w, http.StatusOK, val)
-				return
-			}
-		}
-	}
-
-	val, err := h.service.UnlockWithCoins(ctx, userID, req.Number)
-	if err != nil {
-		RespondError(w, r, http.StatusBadRequest, "failed to unlock with coins", err)
-		return
-	}
-
-	if idempotencyKey != "" && db != nil && db.Pool != nil {
-		_, _ = db.Pool.Exec(ctx, `
-			INSERT INTO report_entitlements (principal_id, asset_id, idempotency_key, product_type, granted_at)
-			VALUES ($1, $2, $3, 'number_report', CURRENT_TIMESTAMP)
-			ON CONFLICT (principal_id, asset_id, idempotency_key) DO NOTHING`,
-			userID, req.Number, idempotencyKey)
-	}
-
-	h.sendNumberNotification(r, val, "coins")
-	RespondJSON(w, http.StatusOK, val)
+	RespondError(w, r, http.StatusGone, "Airdrop coin unlock has been deprecated. Please unlock with 1 Intel Credit.", nil)
 }
 
 // UnlockWithCredit unlocks report with 1 Intel Credit

@@ -25,6 +25,10 @@ type TelegramUpdate struct {
 	InlineQuery       *InlineQuery       `json:"inline_query,omitempty"`
 	ChosenInlineResult *ChosenInlineResult `json:"chosen_inline_result,omitempty"`
 
+	// ── Telegram Bot API 7.0+ Chat Boost Updates ──
+	ChatBoost        *ChatBoostUpdated `json:"chat_boost,omitempty"`
+	RemovedChatBoost *ChatBoostRemoved `json:"removed_chat_boost,omitempty"`
+
 	// ── Bot API 9.4+ / 10.x new-era updates (added 2026-08-25) ──
 	// Managed bot lifecycle (Bot API 9.6): field name is "managed_bot" in official Telegram Bot API
 	ManagedBotUpdated *ManagedBotUpdated `json:"managed_bot,omitempty"`
@@ -246,4 +250,28 @@ type MessageOrigin struct {
 	SenderChat      *Chat  `json:"sender_chat,omitempty"`
 	AuthorSignature string `json:"author_signature,omitempty"`
 	MessageID       int    `json:"message_id,omitempty"`
+}
+
+type ChatBoostUpdated struct {
+	Chat  Chat      `json:"chat"`
+	Boost ChatBoost `json:"boost"`
+}
+
+type ChatBoostRemoved struct {
+	Chat       Chat            `json:"chat"`
+	BoostID    string          `json:"boost_id"`
+	RemoveDate int             `json:"remove_date"`
+	Source     ChatBoostSource `json:"source"`
+}
+
+type ChatBoost struct {
+	BoostID        string          `json:"boost_id"`
+	AddDate        int             `json:"add_date"`
+	ExpirationDate int             `json:"expiration_date"`
+	Source         ChatBoostSource `json:"source"`
+}
+
+type ChatBoostSource struct {
+	Source string `json:"source"` // "premium", "gift_code", "giveaway"
+	User   *User  `json:"user,omitempty"`
 }

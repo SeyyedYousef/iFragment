@@ -13,20 +13,25 @@ interface CreditStoreSheetProps {
 	vertical: PaywallVertical;
 }
 
-type Tab = 'stars' | 'exchange';
+type Tab = 'stars' | 'free';
 
 const tg = () =>
 	typeof window !== 'undefined'
-		? (window as unknown as { Telegram?: { WebApp?: { openInvoice?: (l: string) => void } } })
-				.Telegram?.WebApp
+		? (window as unknown as {
+				Telegram?: {
+					WebApp?: {
+						openInvoice?: (l: string) => void;
+						openTelegramLink?: (url: string) => void;
+					};
+				};
+			}).Telegram?.WebApp
 		: undefined;
 
 export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 	const wallet = useWallet();
 	const [tab, setTab] = createSignal<Tab>('stars');
 	const [pendingPack, setPendingPack] = createSignal<string | null>(null);
-	const [exchangeState, setExchangeState] = createSignal<'idle' | 'working' | 'done'>('idle');
-	const [exchangeError, setExchangeError] = createSignal<string | null>(null);
+	const [purchaseError, setPurchaseError] = createSignal<string | null>(null);
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
 
 	const theme = () => verticalThemes[props.vertical] ?? verticalThemes.general;
@@ -54,7 +59,7 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 			haptic.impact('medium');
 		} catch {}
 		setPendingPack(packId);
-		setExchangeError(null);
+		setPurchaseError(null);
 		try {
 			const res = await creditsApi.purchaseCredits('stars', packId);
 			if (res.invoice_link) {
@@ -67,30 +72,7 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 			}
 		} catch (err) {
 			setPendingPack(null);
-			setExchangeError(err instanceof Error ? err.message : String(err));
-		}
-	};
-
-	const exchangeCoins = async () => {
-		try {
-			haptic.impact('medium');
-		} catch {}
-		setExchangeState('working');
-		setExchangeError(null);
-		try {
-			await creditsApi.exchangeCoins();
-			setExchangeState('done');
-			wallet.refetch();
-			try {
-				haptic.notify('success');
-			} catch {}
-			setTimeout(() => setExchangeState('idle'), 2400);
-		} catch (err) {
-			setExchangeState('idle');
-			setExchangeError(err instanceof Error ? err.message : String(err));
-			try {
-				haptic.notify('error');
-			} catch {}
+			setPurchaseError(err instanceof Error ? err.message : String(err));
 		}
 	};
 
@@ -99,11 +81,26 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 		props.onClose();
 	};
 
-	const coinProgress = () => {
-		const cfg = wallet.config();
-		const coins = wallet.coins();
-		if (!cfg || coins === null || cfg.coins_per_credit <= 0) return null;
-		return Math.min(1, coins / cfg.coins_per_credit);
+	const openGroup = () => {
+		try {
+			haptic.impact('medium');
+		} catch {}
+		const webApp = tg();
+		if (webApp?.openTelegramLink) {
+			webApp.openTelegramLink('https://t.me/FragmentInvestors');
+		} else {
+			window.open('https://t.me/FragmentInvestors', '_blank');
+		}
+	};
+
+	const goToLeaderboard = () => {
+		try {
+			haptic.impact('medium');
+		} catch {}
+		close();
+		if (typeof window !== 'undefined') {
+			window.location.hash = '#/leaderboard';
+		}
 	};
 
 	return (
@@ -159,13 +156,13 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 								type="button"
 								onClick={() => {
 									haptic.selection();
-									setTab('exchange');
+									setTab('free');
 								}}
 								class={`flex-1 rounded-xl py-2 text-xs font-black transition-all duration-150 ${
-									tab() === 'exchange' ? 'bg-white/[0.12] text-white' : 'text-white/55'
+									tab() === 'free' ? 'bg-white/[0.12] text-white' : 'text-white/55'
 								}`}
 							>
-								{t('paywall.store_exchange_tab')}
+								⚡ {t('paywall.store_free_tab')}
 							</button>
 						</div>
 
@@ -259,81 +256,78 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 									</div>
 								</Show>
 
-								{/* ── EXCHANGE TAB ── */}
-								<Show when={tab() === 'exchange'}>
+								{/* ── FREE CREDITS TAB ── */}
+								<Show when={tab() === 'free'}>
 									<div class="space-y-3">
-										<div class="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">
-											<div class="flex items-center justify-between">
-												<div class="flex items-center gap-3">
-													<div class="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-400/30 bg-amber-400/15 text-lg">
-														🪙
-													</div>
-													<div>
-														<div class="text-xs font-black text-white">
-															{t('paywall.coins_exchange_title', {
-																amount: wallet.config()?.coins_per_credit ?? 0,
-															})}
-														</div>
-														<div class="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] font-bold text-white/60">
-															<Show when={wallet.coins() !== null} fallback={<span>—</span>}>
-																<span>{wallet.coins()!.toLocaleString('en-US')}</span>
-															</Show>
-															<span>→</span>
-															<span>1 {t('paywall.credit_unit')}</span>
-														</div>
-													</div>
+										{/* Highlight Banner */}
+										<div class="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/[0.12] to-transparent p-4">
+											<div class="flex items-center gap-3 mb-3">
+												<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/40 bg-emerald-400/20 text-emerald-300">
+													<span class="material-symbols-outlined text-[22px]">bolt</span>
 												</div>
-												<button
-													type="button"
-													disabled={
-														exchangeState() === 'working' ||
-														coinProgress() === null ||
-														coinProgress()! < 1
-													}
-													onClick={exchangeCoins}
-													class="shrink-0 rounded-xl px-4 py-2 text-xs font-black text-white transition-all duration-150 active:scale-95 disabled:opacity-40"
-													style={{ background: theme().gradient }}
-												>
-													<Show
-														when={exchangeState() !== 'working'}
-														fallback={t('paywall.working')}
-													>
-														<Show when={exchangeState() !== 'done'} fallback="✓">
-															{t('paywall.exchange_cta')}
-														</Show>
-													</Show>
-												</button>
-											</div>
-
-											{/* Progress toward next credit */}
-											<Show when={coinProgress() !== null}>
-												<div class="mt-3">
-													<div class="h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
-														<div
-															class="h-full rounded-full transition-all duration-300"
-															style={{
-																width: `${Math.round(coinProgress()! * 100)}%`,
-																background: theme().gradient,
-															}}
-														/>
-													</div>
-													<p class="mt-1.5 text-[10px] font-medium leading-relaxed text-white/60">
-														{t('paywall.coins_grind_note')}
+												<div>
+													<h3 class="text-xs font-black text-white">
+														{t('paywall.free_credits_title')}
+													</h3>
+													<p class="mt-0.5 text-[10px] font-medium leading-relaxed text-white/60">
+														{t('paywall.free_credits_subtitle')}
 													</p>
 												</div>
-											</Show>
+											</div>
+
+											{/* Rewards Breakdown */}
+											<div class="space-y-2 rounded-xl bg-black/30 p-3 border border-white/5">
+												<div class="flex items-center gap-2.5 text-[11px] font-bold text-white/90">
+													<span class="material-symbols-outlined text-[16px] text-emerald-400 shrink-0">
+														chat
+													</span>
+													<span>{t('paywall.free_credits_rule_msg')}</span>
+												</div>
+												<div class="flex items-center gap-2.5 text-[11px] font-bold text-white/90">
+													<span class="material-symbols-outlined text-[16px] text-amber-400 shrink-0">
+														rocket_launch
+													</span>
+													<span>{t('paywall.free_credits_rule_boost')}</span>
+												</div>
+												<div class="flex items-center gap-2.5 text-[11px] font-bold text-white/90">
+													<span class="material-symbols-outlined text-[16px] text-[#0098EA] shrink-0">
+														leaderboard
+													</span>
+													<span>{t('paywall.free_credits_leaderboard_info')}</span>
+												</div>
+											</div>
+
+											{/* CTAs */}
+											<div class="mt-3.5 flex flex-col sm:flex-row gap-2">
+												<button
+													type="button"
+													onClick={openGroup}
+													class="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-2.5 px-3 text-xs font-black text-white shadow-lg shadow-emerald-500/20 transition-all active:scale-95 hover:brightness-110"
+												>
+													<span class="material-symbols-outlined text-[16px]">groups</span>
+													<span>{t('paywall.free_credits_join_group')}</span>
+												</button>
+												<button
+													type="button"
+													onClick={goToLeaderboard}
+													class="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.08] py-2.5 px-3 text-xs font-black text-white/90 transition-all active:scale-95 hover:bg-white/[0.14]"
+												>
+													<span class="material-symbols-outlined text-[16px]">leaderboard</span>
+													<span>{t('paywall.free_credits_view_leaderboard')}</span>
+												</button>
+											</div>
 										</div>
 
-										<Show when={exchangeError()}>
+										<Show when={purchaseError()}>
 											<div class="rounded-2xl border border-rose-500/25 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">
-												{exchangeError()}
+												{purchaseError()}
 											</div>
 										</Show>
 
 										{/* Utility education card */}
-										<div class="flex items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4">
-											<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/30 bg-emerald-400/10">
-												<span class="material-symbols-outlined text-[18px] text-emerald-300">
+										<div class="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">
+											<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+												<span class="material-symbols-outlined text-[18px] text-white/70">
 													shield_person
 												</span>
 											</div>

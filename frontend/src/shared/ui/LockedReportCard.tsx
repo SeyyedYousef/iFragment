@@ -137,18 +137,11 @@ export const LockedReportCard: Component<LockedReportCardProps> = (props) => {
 						<div class="flex items-center justify-center gap-4 text-xs">
 							<button
 								type="button"
-								onClick={() => navigate('/airdrop?tab=shop')}
-								class="text-white/60 hover:text-white transition-colors underline underline-offset-4"
+								onClick={() => navigate('/leaderboard')}
+								class="text-[#3390EC] hover:text-[#52a7ff] transition-colors font-medium flex items-center gap-1"
 							>
-								{t('lockedReport.buyCredits')}
-							</button>
-							<span class="text-white/20">•</span>
-							<button
-								type="button"
-								onClick={() => navigate('/airdrop?tab=earn')}
-								class="text-[#3390EC] hover:text-[#52a7ff] transition-colors"
-							>
-								{t('lockedReport.earnCredits')}
+								<span class="material-symbols-outlined text-[14px]">groups</span>
+								<span>{t('lockedReport.earnCredits') || 'دریافت کریدت رایگان (فعالیت در گروه)'}</span>
 							</button>
 						</div>
 					</div>

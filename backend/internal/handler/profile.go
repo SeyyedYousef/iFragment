@@ -13,7 +13,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -274,73 +273,7 @@ func (h *ProfileHandler) SetReferrerCode(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-type AddTapsRequest struct {
-	Taps       int    `json:"taps"`
-	Multiplier int    `json:"multiplier"`
-	Nonce      string `json:"nonce"`
-	Signature  string `json:"signature"`
-	ClientTS   int64  `json:"client_ts"`
-}
 
-func (h *ProfileHandler) AddTaps(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-
-	var req AddTapsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
-		return
-	}
-
-	// SEC-P0: Mandatory Nonce with minimum 16 characters (128-bit entropy)
-	if strings.TrimSpace(req.Nonce) == "" || len(strings.TrimSpace(req.Nonce)) < 16 {
-		RespondError(w, r, http.StatusBadRequest, "ERR_INVALID_NONCE", fmt.Errorf("nonce is required with minimum 16 characters"))
-		return
-	}
-
-	// SEC-P0: Mandatory Client Timestamp
-	if req.ClientTS <= 0 {
-		RespondError(w, r, http.StatusBadRequest, "ERR_INVALID_TIMESTAMP", fmt.Errorf("client timestamp is required"))
-		return
-	}
-
-	if req.Taps <= 0 {
-		RespondError(w, r, http.StatusBadRequest, "taps must be positive", nil)
-		return
-	}
-
-	// SEC-08: Validate tap count to prevent score manipulation. Clamp at 500 instead of rejecting.
-	if req.Taps > 500 {
-		req.Taps = 500
-	}
-	if req.Multiplier <= 0 {
-		req.Multiplier = 1
-	}
-
-	stats, err := h.profileService.AddTaps(r.Context(), userID, req.Taps, req.Multiplier, req.Nonce, req.ClientTS)
-	if err != nil {
-		if strings.Contains(err.Error(), "replay_detected") {
-			RespondError(w, r, http.StatusBadRequest, "ERR_REPLAY_DETECTED", err)
-			return
-		}
-		if strings.Contains(err.Error(), "clock_skew") {
-			RespondError(w, r, http.StatusBadRequest, "ERR_CLOCK_SKEW", err)
-			return
-		}
-		if err.Error() == "not enough energy" {
-			RespondError(w, r, http.StatusBadRequest, "ERR_NOT_ENOUGH_ENERGY", err)
-			return
-		}
-		RespondError(w, r, http.StatusInternalServerError, "failed to update taps", err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
-}
 
 func (h *ProfileHandler) GetWalletExpirySummary(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.getUserID(r)

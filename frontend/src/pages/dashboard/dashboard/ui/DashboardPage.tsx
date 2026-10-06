@@ -26,12 +26,12 @@ export const DashboardPage: Component = () => {
 			badge: 'NV Engine',
 		},
 		{
-			title: 'Airdrop & Tap-to-Earn',
-			description: 'Multi-tap mining, offline bots, energy boosters & clan wars.',
-			icon: 'touch_app',
+			title: 'برترین‌ها و لیدربورد',
+			description: 'رتبه‌بندی اعضای فعال گروه، بیشترین پیام‌ها و بوست‌ها با اهدای کریدت تحلیلی.',
+			icon: 'leaderboard',
 			accentColor: '#0098EA',
-			path: '/airdrop',
-			badge: 'Farming',
+			path: '/leaderboard',
+			badge: 'Top 100',
 		},
 		{
 			title: 'Usernames Valuation',

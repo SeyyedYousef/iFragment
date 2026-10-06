@@ -125,60 +125,9 @@ func (h *GiftsHandler) GetEnrichedReport(w http.ResponseWriter, r *http.Request)
 	RespondJSON(w, http.StatusOK, report)
 }
 
-// UnlockWithCoins unlocks report with Airdrop Coins
+// UnlockWithCoins returns 410 Gone as airdrop coin unlocks have been superseded by Intel Credits
 func (h *GiftsHandler) UnlockWithCoins(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var req struct {
-		GiftID string `json:"gift_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.GiftID == "" {
-		RespondError(w, r, http.StatusBadRequest, "invalid request body", nil)
-		return
-	}
-
-	userID, err := middleware.GetUserID(ctx)
-	if err != nil {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
-		return
-	}
-
-	idempotencyKey := r.Header.Get("Idempotency-Key")
-	if idempotencyKey == "" {
-		idempotencyKey = r.Header.Get("X-Idempotency-Key")
-	}
-
-	db := h.service.DB()
-	if idempotencyKey != "" && db != nil && db.Pool != nil {
-		var existingID string
-		errEnt := db.Pool.QueryRow(ctx, `
-			SELECT id FROM report_entitlements 
-			WHERE principal_id = $1 AND asset_id = $2 AND idempotency_key = $3
-			LIMIT 1`, userID, req.GiftID, idempotencyKey).Scan(&existingID)
-		if errEnt == nil {
-			val, errVal := h.service.ValuateGift(ctx, userID, req.GiftID)
-			if errVal == nil {
-				RespondJSON(w, http.StatusOK, val)
-				return
-			}
-		}
-	}
-
-	val, err := h.service.UnlockWithCoins(ctx, userID, req.GiftID)
-	if err != nil {
-		RespondError(w, r, http.StatusBadRequest, "failed to unlock gift report with coins", err)
-		return
-	}
-
-	if idempotencyKey != "" && db != nil && db.Pool != nil {
-		_, _ = db.Pool.Exec(ctx, `
-			INSERT INTO report_entitlements (principal_id, asset_id, idempotency_key, product_type, granted_at)
-			VALUES ($1, $2, $3, 'gift_report', CURRENT_TIMESTAMP)
-			ON CONFLICT (principal_id, asset_id, idempotency_key) DO NOTHING`,
-			userID, req.GiftID, idempotencyKey)
-	}
-
-	h.sendGiftNotification(r, val, "coins")
-	RespondJSON(w, http.StatusOK, val)
+	RespondError(w, r, http.StatusGone, "Airdrop coin unlock has been deprecated. Please unlock with 1 Intel Credit.", nil)
 }
 
 // UnlockWithCredit unlocks report with 1 Intel Credit

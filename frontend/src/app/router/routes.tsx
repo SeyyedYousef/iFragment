@@ -4,9 +4,7 @@ import { OwnerLayout } from '@/widgets/owner/index.js';
 import { OwnerRouteGuard } from './OwnerRouteGuard.js';
 
 // Route-level Code Splitting (Lazy Loading)
-const AirdropPage = lazy(() =>
-	import('@/pages/airdrop/airdrop/index.js').then((m) => ({ default: m.AirdropPage })),
-);
+
 const CollectionInfoPage = lazy(() =>
 	import('@/pages/collection-info/index.js').then((m) => ({ default: m.CollectionInfoPage })),
 );
@@ -123,46 +121,16 @@ const withOwnerGuard = (PageComponent: Component, activeTab: any, titleKey?: str
 	};
 };
 
-import { useNavigate } from '@solidjs/router';
-import { onMount } from 'solid-js';
-
-const TasksRedirect: Component = () => {
-	const nav = useNavigate();
-	onMount(() => nav('/airdrop?tab=earn', { replace: true }));
-	return null;
-};
-
-const BoostsRedirect: Component = () => {
-	const nav = useNavigate();
-	onMount(() => nav('/airdrop?tab=boost', { replace: true }));
-	return null;
-};
-
-const ShopRedirect: Component = () => {
-	const nav = useNavigate();
-	onMount(() => nav('/airdrop?tab=shop', { replace: true }));
-	return null;
-};
-
 export const routes: Route[] = [
 	{ path: '/', Component: IndexPage },
-
-	{ path: '/airdrop', Component: AirdropPage },
-	{ path: '/boost', Component: BoostsRedirect },
-	{ path: '/boosts', Component: BoostsRedirect },
 	{ path: '/investors', Component: InvestorsPromoPage },
-	{ path: '/shop', Component: ShopRedirect },
-	{ path: '/store', Component: ShopRedirect },
-	{ path: '/marketplace', Component: ShopRedirect },
 	{ path: '/dashboard', Component: InvestorsPromoPage },
 	{ path: '/profile', Component: ProfilePage },
 	{ path: '/profile/achievements', Component: AchievementsPage },
 	{ path: '/profile/settings', Component: SettingsPage },
 	{ path: '/profile/security', Component: SecurityPage },
 	{ path: '/profile/leaderboard', Component: LeaderboardPage },
-	{ path: '/profile/tasks', Component: TasksRedirect },
-	{ path: '/profile/boosts', Component: BoostsRedirect },
-	{ path: '/profile/shop', Component: ShopRedirect },
+	{ path: '/leaderboard', Component: LeaderboardPage },
 	{
 		path: '/owner/dashboard',
 		Component: withOwnerGuard(OwnerDashboardPage, 'dashboard', 'ownerDashboard.title'),

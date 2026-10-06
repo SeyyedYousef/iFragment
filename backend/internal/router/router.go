@@ -21,8 +21,6 @@ type Config struct {
 	UsernameHandler     *handler.UsernameHandler
 	CollectionHandler   *handler.CollectionHandler
 	ProfileHandler      *handler.ProfileHandler
-	GamificationHandler *handler.GamificationHandler
-	ClanHandler         *handler.ClanHandler
 	WebhookHandler      *handler.WebhookHandler
 	OwnerHandler        *handler.OwnerHandler
 	NumbersHandler      *handler.NumbersHandler
@@ -30,6 +28,7 @@ type Config struct {
 	IntelCreditHandler  *handler.IntelCreditHandler
 	RaffleHandler       *handler.RaffleHandler
 	InvestorsHandler    *handler.InvestorsPublicHandler
+	GroupLeaderboardHandler *handler.GroupLeaderboardHandler
 }
 
 // RegisterAPIRoutes mounts API v1 sub-routes onto the router
@@ -172,7 +171,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		r.Route("/profile", func(r chi.Router) {
 			r.Get("/avatar/{userID}", cfg.ProfileHandler.GetAvatar)
 			r.Get("/public-config", cfg.ProfileHandler.GetPublicConfig)
-			r.Get("/clan/photo", cfg.ClanHandler.GetClanPhotoProxy)
 
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware)
@@ -184,7 +182,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Get("/achievements/defs", cfg.ProfileHandler.GetAchievementDefs)
 				r.Get("/referral", cfg.ProfileHandler.GetReferralData)
 				r.Post("/referral", cfg.ProfileHandler.SetReferrerCode)
-				r.Post("/tap", cfg.ProfileHandler.AddTaps)
 				r.Get("/wallet-expiry", cfg.ProfileHandler.GetWalletExpirySummary)
 				r.Get("/ledger", cfg.ProfileHandler.GetLedger)
 				r.Get("/assets", cfg.ProfileHandler.GetMyAssets)
@@ -201,36 +198,20 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Post("/emoji-status/claim-reward", cfg.ProfileHandler.ClaimEmojiStatusReward)
 				r.Post("/premium/checkout", cfg.ProfileHandler.CreatePremiumCheckout)
 
-				r.Get("/daily", cfg.GamificationHandler.GetDailyStatus)
-				r.Post("/daily/claim", cfg.GamificationHandler.ClaimDailyReward)
-				r.Get("/tasks", cfg.GamificationHandler.GetTasksStatus)
-				r.Post("/tasks/complete", cfg.GamificationHandler.CompleteTask)
-				r.Get("/boosts", cfg.GamificationHandler.GetBoostsStatus)
-				r.Post("/boosts/upgrade", cfg.GamificationHandler.UpgradeBoost)
-				r.Post("/boosts/daily/turbo", cfg.GamificationHandler.ApplyTurbo)
-				r.Post("/boosts/daily/full-energy", cfg.GamificationHandler.ApplyFullEnergy)
-				r.Post("/mining/collect", cfg.GamificationHandler.CollectOfflineMining)
-				r.Post("/mining/start", cfg.GamificationHandler.StartOfflineMining)
-				r.Get("/leaderboard", cfg.GamificationHandler.GetLeaderboard)
-				r.Get("/daily-combo", cfg.GamificationHandler.GetDailyComboStatus)
-				r.Post("/daily-combo/claim", cfg.GamificationHandler.ClaimDailyCombo)
-
-				r.Get("/clan", cfg.ClanHandler.GetClanDetails)
-				r.Post("/clan/join", cfg.ClanHandler.JoinClan)
-				r.Post("/clan/leave", cfg.ClanHandler.LeaveClan)
-				r.Get("/clan/top", cfg.ClanHandler.GetTopClans)
-				r.Get("/clan/members", cfg.ClanHandler.GetClanMembers)
-
 				r.Post("/promo/redeem", cfg.OwnerHandler.RedeemPromo)
 			})
+
+			if cfg.GroupLeaderboardHandler != nil {
+				r.With(middleware.OptionalAuthMiddleware).Get("/leaderboard", cfg.GroupLeaderboardHandler.GetLeaderboard)
+			}
 		})
 
-		r.Route("/marketplace", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-			r.Get("/options", cfg.ProfileHandler.GetMarketplaceOptions)
-			r.Post("/buy-stars", cfg.ProfileHandler.BuyStarsMarketplace)
-			r.Post("/convert", cfg.ProfileHandler.ConvertAirdropCoins)
-		})
+		// Standalone Leaderboard endpoint
+		if cfg.GroupLeaderboardHandler != nil {
+			r.Route("/leaderboard", func(r chi.Router) {
+				r.With(middleware.OptionalAuthMiddleware).Get("/group", cfg.GroupLeaderboardHandler.GetLeaderboard)
+			})
+		}
 
 		r.Route("/frg", func(r chi.Router) {
 			r.Use(middleware.AuthMiddleware)
@@ -245,7 +226,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Get("/credits", cfg.IntelCreditHandler.GetBalance)
 				r.Post("/credits/consume", cfg.IntelCreditHandler.Consume)
 				r.Get("/credits/config", cfg.IntelCreditHandler.GetStoreConfig)
-				r.Post("/credits/exchange-coins", cfg.IntelCreditHandler.ExchangeCoins)
 				r.Post("/credits/purchase", cfg.IntelCreditHandler.Purchase)
 			})
 		}

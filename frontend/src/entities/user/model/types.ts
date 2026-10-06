@@ -156,6 +156,31 @@ export interface LeaderboardResponse {
 	league?: string;
 }
 
+export interface GroupLeaderboardEntry {
+	rank: number;
+	user_id: number;
+	username?: string | null;
+	first_name?: string | null;
+	photo_url?: string | null;
+	score: number;
+}
+
+export interface UserLeaderboardStats {
+	rank?: number;
+	rank_str?: string;
+	score?: number;
+	credits?: number;
+	user_id?: number;
+}
+
+export interface GroupLeaderboardResponse {
+	type: string;
+	top3?: GroupLeaderboardEntry[];
+	featured?: GroupLeaderboardEntry[];
+	items?: GroupLeaderboardEntry[];
+	my_stats?: UserLeaderboardStats;
+}
+
 export interface AchievementDef {
 	id: string;
 	target: number;

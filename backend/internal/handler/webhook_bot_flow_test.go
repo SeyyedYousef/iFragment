@@ -391,13 +391,12 @@ func TestSendProfileViewRenderingAllLanguages(t *testing.T) {
 	userID := int64(123456789)
 	level := 3
 	globalRank := 42
-	formattedCoins := "250,000"
 	intelCredits := 15
 	refLink := "https://t.me/iFragmentBot?start=ref_123456789"
 
 	for _, lang := range languages {
 		t.Run("lang_"+lang, func(t *testing.T) {
-			rendered := h.renderProfileText(ctx, lang, firstName, userID, level, globalRank, formattedCoins, intelCredits, refLink)
+			rendered := h.renderProfileText(ctx, lang, firstName, userID, level, globalRank, intelCredits, refLink)
 
 			// 1. Assert HTML parses cleanly and strictly with Telegram's allowed tags
 			if err := ValidateTelegramHTML(rendered); err != nil {
@@ -405,7 +404,7 @@ func TestSendProfileViewRenderingAllLanguages(t *testing.T) {
 			}
 
 			// 2. Assert all placeholders have been replaced completely
-			placeholders := []string{"{name}", "{id}", "{level}", "{rank}", "{coins}", "{credits}", "{reflink}"}
+			placeholders := []string{"{name}", "{id}", "{level}", "{rank}", "{credits}", "{reflink}"}
 			for _, p := range placeholders {
 				if strings.Contains(rendered, p) {
 					t.Errorf("Language %s: unreplaced placeholder %s found in rendered text", lang, p)
@@ -419,25 +418,11 @@ func TestSendProfileViewRenderingAllLanguages(t *testing.T) {
 			if !strings.Contains(rendered, "123456789") {
 				t.Errorf("Language %s: userID not found in output", lang)
 			}
-			if !strings.Contains(rendered, formattedCoins) {
-				t.Errorf("Language %s: formatted coins not found in output", lang)
+			if !strings.Contains(rendered, fmt.Sprintf("%d", intelCredits)) {
+				t.Errorf("Language %s: intel credits not found in output", lang)
 			}
 			if !strings.Contains(rendered, refLink) {
 				t.Errorf("Language %s: refLink not found in output", lang)
-			}
-
-			// 4. Assert Coin emoji is used instead of Phone emoji
-			if isPremiumEmojiEnabled() {
-				if !strings.Contains(rendered, CustomEmojiCoin) {
-					t.Errorf("Language %s: CustomEmojiCoin (%s) not found in profile text", lang, CustomEmojiCoin)
-				}
-			} else {
-				if !strings.Contains(rendered, "🪙") {
-					t.Errorf("Language %s: Coin emoji 🪙 not found in profile text", lang)
-				}
-			}
-			if strings.Contains(rendered, CustomEmojiPhone) {
-				t.Errorf("Language %s: CustomEmojiPhone (%s) mistakenly found in profile text for coins!", lang, CustomEmojiPhone)
 			}
 		})
 	}

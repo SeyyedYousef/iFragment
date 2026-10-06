@@ -11,12 +11,10 @@ interface Props {
 	onClose?: () => void;
 }
 
-type AssetTab = 'reports' | 'boosters';
 type ReportFilter = 'all' | 'username' | 'number' | 'gift';
 
 export const MyAssetsGallery: Component<Props> = (props) => {
 	const navigate = useNavigate();
-	const [activeTab, setActiveTab] = createSignal<AssetTab>('reports');
 	const [reportFilter, setReportFilter] = createSignal<ReportFilter>('all');
 	const [reportNotifs, setReportNotifs] = createSignal<Record<string, boolean>>({});
 
@@ -83,13 +81,6 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 		}
 	};
 
-	const handleTabChange = (tab: AssetTab) => {
-		try {
-			haptic.selection();
-		} catch {}
-		setActiveTab(tab);
-	};
-
 	const handleToggleReportNotif = (key: string, e: Event) => {
 		e.stopPropagation();
 		try {
@@ -151,41 +142,6 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 					</Show>
 				</div>
 
-				{/* 2 Tabs */}
-				<div class="grid grid-cols-2 gap-1.5 p-1 bg-[#07090E] border border-white/5 rounded-[16px]">
-					<For
-						each={
-							[
-								{
-									id: 'reports',
-									label: t('assets.reports' as any) || 'Reports',
-									icon: 'description',
-								},
-								{
-									id: 'boosters',
-									label: t('assets.boosters' as any) || 'Boosters',
-									icon: 'rocket_launch',
-								},
-							] as const
-						}
-					>
-						{(tab) => (
-							<button
-								type="button"
-								onClick={() => handleTabChange(tab.id as AssetTab)}
-								class={`py-2 rounded-[12px] flex flex-col items-center gap-1 transition-all active:scale-95 border ${
-									activeTab() === tab.id
-										? 'bg-[#0098EA]/20 border-[#0098EA]/40 text-[#0098EA] shadow-sm'
-										: 'border-transparent text-white/50 hover:text-white/80'
-								}`}
-							>
-								<span class="material-symbols-outlined text-[16px]">{tab.icon}</span>
-								<span class="text-[10px] font-black tracking-tight line-clamp-1">{tab.label}</span>
-							</button>
-						)}
-					</For>
-				</div>
-
 				{/* Tab Content */}
 				<div class="min-h-[160px]">
 					<Show
@@ -197,9 +153,7 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 							</div>
 						}
 					>
-						{/* ═══════ TAB 1: REPORTS ═══════ */}
-						<Show when={activeTab() === 'reports'}>
-							<div class="flex flex-col gap-3">
+						<div class="flex flex-col gap-3">
 								{/* Sub-tabs: Vertical Filter Pills */}
 								<Show when={totalReports().length > 0}>
 									<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
@@ -424,86 +378,6 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 									</For>
 								</Show>
 							</div>
-						</Show>
-
-						{/* ═══════ TAB 3: BOOSTERS ═══════ */}
-						<Show when={activeTab() === 'boosters'}>
-							<div class="flex flex-col gap-2.5">
-								{/* MultiTap */}
-								<div class="p-3 bg-[#07090E] border border-white/5 rounded-[18px] flex items-center justify-between gap-3">
-									<div class="flex items-center gap-3">
-										<div class="w-10 h-10 rounded-[12px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shrink-0">
-											<span class="material-symbols-outlined text-[20px]">touch_app</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[13px] font-black text-white">Multi-Tap</span>
-											<span class="text-[10px] text-white/40">
-												Level {assets()?.boosters.multitapLevel || 1} (+
-												{assets()?.boosters.multitapLevel || 1} per tap)
-											</span>
-										</div>
-									</div>
-									<button
-										type="button"
-										onClick={() => navigate('/airdrop?tab=boost')}
-										class="px-3 py-1.5 rounded-[10px] bg-amber-400/15 border border-amber-400/30 text-amber-400 text-[10px] font-black uppercase tracking-wider active:scale-95"
-									>
-										{t('profile.upgrade')}
-									</button>
-								</div>
-
-								{/* Energy Limit */}
-								<div class="p-3 bg-[#07090E] border border-white/5 rounded-[18px] flex items-center justify-between gap-3">
-									<div class="flex items-center gap-3">
-										<div class="w-10 h-10 rounded-[12px] bg-cyan-400/15 border border-cyan-400/30 flex items-center justify-center text-cyan-400 shrink-0">
-											<span class="material-symbols-outlined text-[20px]">bolt</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[13px] font-black text-white">
-												{t('profile.energyCapacity')}
-											</span>
-											<span class="text-[10px] text-white/40">
-												Level {assets()?.boosters.energyLimitLevel || 1} (
-												{500 + ((assets()?.boosters.energyLimitLevel || 1) - 1) * 250} max)
-											</span>
-										</div>
-									</div>
-									<button
-										type="button"
-										onClick={() => navigate('/airdrop?tab=boost')}
-										class="px-3 py-1.5 rounded-[10px] bg-cyan-400/15 border border-cyan-400/30 text-cyan-400 text-[10px] font-black uppercase tracking-wider active:scale-95"
-									>
-										{t('profile.upgrade')}
-									</button>
-								</div>
-
-								{/* Tap-Bot */}
-								<div class="p-3 bg-[#07090E] border border-white/5 rounded-[18px] flex items-center justify-between gap-3">
-									<div class="flex items-center gap-3">
-										<div class="w-10 h-10 rounded-[12px] bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
-											<span class="material-symbols-outlined text-[20px]">smart_toy</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[13px] font-black text-white">
-												{t('profile.autoTapBot')}
-											</span>
-											<span class="text-[10px] text-white/40">
-												{assets()?.boosters.tapBotLevel
-													? 'Active (12h Offline Mining)'
-													: 'Not Activated'}
-											</span>
-										</div>
-									</div>
-									<button
-										type="button"
-										onClick={() => navigate('/airdrop?tab=boost')}
-										class="px-3 py-1.5 rounded-[10px] bg-emerald-400/15 border border-emerald-400/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider active:scale-95"
-									>
-										{assets()?.boosters.tapBotLevel ? 'Active' : 'Unlock'}
-									</button>
-								</div>
-							</div>
-						</Show>
 					</Show>
 				</div>
 			</div>

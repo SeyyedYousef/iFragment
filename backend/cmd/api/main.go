@@ -355,29 +355,7 @@ func main() {
 
 	webhookHandler := handler.NewWebhookHandler(db, cache, botRepo, raffleSvc, premiumGroupSvc)
 	profileService := service.NewProfileService(db, cache)
-	// 🚀 Warm up Redis leaderboard at startup and periodically
-	go func() {
-		_ = profileService.WarmLeaderboard(context.Background())
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				ctxWarm, cancelWarm := context.WithTimeout(context.Background(), 60*time.Second)
-				_ = profileService.WarmLeaderboard(ctxWarm)
-				cancelWarm()
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
 	profileHandler := handler.NewProfileHandler(profileService, paymentService, settingsRepo, ownerRepo)
-	gamificationService := service.NewGamificationService(db, cache)
-	gamificationHandler := handler.NewGamificationHandler(gamificationService)
-	clanService := service.NewClanService(db, cache, mtprotoClient, telegram.NewBotAPIClient(botToken))
-	clanService.StartWeeklyUpdater(ctx)
-	clanService.StartScoreFlusher(ctx)
-	clanHandler := handler.NewClanHandler(clanService)
 
 	collectionRepo := repository.NewCollectionRepo(db)
 	collectionHandler := handler.NewCollectionHandler(collectionRepo, cryptoPriceService)
@@ -547,27 +525,58 @@ func main() {
 		webhookHandler.SetOwnerRepo(ownerRepo)
 	}
 
+	// Initialize Group Leaderboard & Boost Tracker
+	groupLeaderboardRepo := repository.NewGroupLeaderboardRepo(db)
+	groupLeaderboardService := service.NewGroupLeaderboardService(groupLeaderboardRepo, intelCreditService, cache)
+	groupLeaderboardHandler := handler.NewGroupLeaderboardHandler(groupLeaderboardService)
+
+	if webhookHandler != nil {
+		webhookHandler.SetGroupLeaderboardService(groupLeaderboardService)
+	}
+
+	// 🚀 Start Hourly Boost Sync & 24h Reward Worker
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		// Warmup execution after 30 seconds
+		select {
+		case <-time.After(30 * time.Second):
+			_ = groupLeaderboardService.RunHourlyBoostSyncAndRewards(ctx, mainTgClient, "@FragmentInvestors")
+		case <-ctx.Done():
+			return
+		}
+
+		for {
+			select {
+			case <-ticker.C:
+				_ = groupLeaderboardService.RunHourlyBoostSyncAndRewards(ctx, mainTgClient, "@FragmentInvestors")
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	investorsHandler := handler.NewInvestorsPublicHandler(settingsRepo)
 
 	// Register API and Owner routes via modular router package
 	router.RegisterAPIRoutes(r, router.Config{
-		DB:                  db,
-		Cache:               cache,
-		OwnerRepo:           ownerRepo,
-		SettingsRepo:        settingsRepo,
-		AuthHandler:         authHandler,
-		UsernameHandler:     usernameHandler,
-		CollectionHandler:   collectionHandler,
-		ProfileHandler:      profileHandler,
-		GamificationHandler: gamificationHandler,
-		ClanHandler:         clanHandler,
-		WebhookHandler:      webhookHandler,
-		OwnerHandler:        ownerHandler,
-		NumbersHandler:      numbersHandler,
-		GiftsHandler:        giftsHandler,
-		IntelCreditHandler:  intelCreditHandler,
-		RaffleHandler:       raffleHandler,
-		InvestorsHandler:    investorsHandler,
+		DB:                      db,
+		Cache:                   cache,
+		OwnerRepo:               ownerRepo,
+		SettingsRepo:            settingsRepo,
+		AuthHandler:             authHandler,
+		UsernameHandler:         usernameHandler,
+		CollectionHandler:       collectionHandler,
+		ProfileHandler:          profileHandler,
+		WebhookHandler:          webhookHandler,
+		OwnerHandler:            ownerHandler,
+		NumbersHandler:          numbersHandler,
+		GiftsHandler:            giftsHandler,
+		IntelCreditHandler:      intelCreditHandler,
+		RaffleHandler:           raffleHandler,
+		InvestorsHandler:        investorsHandler,
+		GroupLeaderboardHandler: groupLeaderboardHandler,
 	})
 
 	// Start server with graceful shutdown

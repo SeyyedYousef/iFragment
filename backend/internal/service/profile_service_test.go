@@ -1,76 +1,12 @@
 package service
 
 import (
-	"context"
-	"strings"
 	"testing"
-	"time"
 
 	"ifragment-backend/internal/config"
 )
 
-// TestAddTaps_SecurityValidation tests nonce length and timestamp freshness rules.
-func TestAddTaps_SecurityValidation(t *testing.T) {
-	svc := &ProfileService{}
-	ctx := context.Background()
 
-	// 1. Missing or short nonce
-	_, err := svc.AddTaps(ctx, 12345, 10, 1, "short", time.Now().Unix())
-	if err == nil || !strings.Contains(err.Error(), "invalid_nonce") {
-		t.Fatalf("expected invalid_nonce error for short nonce, got: %v", err)
-	}
-
-	_, err = svc.AddTaps(ctx, 12345, 10, 1, "", time.Now().Unix())
-	if err == nil || !strings.Contains(err.Error(), "invalid_nonce") {
-		t.Fatalf("expected invalid_nonce error for empty nonce, got: %v", err)
-	}
-
-	validNonce := "abcdef1234567890abcdef"
-
-	// 2. Zero or negative timestamp
-	_, err = svc.AddTaps(ctx, 12345, 10, 1, validNonce, 0)
-	if err == nil || !strings.Contains(err.Error(), "invalid_timestamp") {
-		t.Fatalf("expected invalid_timestamp error for 0 timestamp, got: %v", err)
-	}
-
-	// 3. Stale timestamp (skew > 30s)
-	oldTS := time.Now().Add(-45 * time.Second).Unix()
-	_, err = svc.AddTaps(ctx, 12345, 10, 1, validNonce, oldTS)
-	if err == nil || !strings.Contains(err.Error(), "clock_skew") {
-		t.Fatalf("expected clock_skew error for >30s past timestamp, got: %v", err)
-	}
-
-	// 4. Future timestamp (skew > 30s)
-	futureTS := time.Now().Add(45 * time.Second).Unix()
-	_, err = svc.AddTaps(ctx, 12345, 10, 1, validNonce, futureTS)
-	if err == nil || !strings.Contains(err.Error(), "clock_skew") {
-		t.Fatalf("expected clock_skew error for >30s future timestamp, got: %v", err)
-	}
-}
-
-// TestDailyRewards_Alignment verifies that Day 1 to Day 7 rewards are strictly synchronized
-// with the frontend definition: [500, 1000, 2500, 5000, 10000, 15000, 25000].
-func TestDailyRewards_Alignment(t *testing.T) {
-	expectedRewards := map[int]float64{
-		1: 500,
-		2: 1000,
-		3: 2500,
-		4: 5000,
-		5: 10000,
-		6: 15000,
-		7: 25000,
-	}
-
-	for day, expected := range expectedRewards {
-		r, exists := dailyRewards[day]
-		if !exists {
-			t.Fatalf("missing daily reward config for day %d", day)
-		}
-		if r.Frg != expected {
-			t.Errorf("day %d: expected %f coins, got %f", day, expected, r.Frg)
-		}
-	}
-}
 
 // TestEconomy_ArbitrageElimination verifies economics configuration integrity.
 func TestEconomy_ArbitrageElimination(t *testing.T) {

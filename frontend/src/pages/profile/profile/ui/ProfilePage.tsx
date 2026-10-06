@@ -164,13 +164,13 @@ export const ProfilePage: Component = () => {
 									</div>
 								</div>
 
-								{/* Direct deep-links to Airdrop tabs */}
+								{/* Direct link to Leaderboard */}
 								<button
 									type="button"
-									onClick={() => handleNavigate('/airdrop?tab=earn')}
+									onClick={() => handleNavigate('/leaderboard')}
 									class="flex items-center gap-1 px-3 py-1.5 rounded-[12px] bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 text-amber-300 text-[10px] font-black uppercase tracking-wide active:scale-95 transition-all"
 								>
-									<span>{t('progress.earnTasks')}</span>
+									<span>{t('navigation.leaderboard') || 'برترین‌ها'}</span>
 									<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
 								</button>
 							</div>
@@ -179,17 +179,17 @@ export const ProfilePage: Component = () => {
 							<div class="grid grid-cols-2 gap-2 pt-1">
 								<button
 									type="button"
-									onClick={() => handleNavigate('/airdrop?tab=boost')}
+									onClick={() => handleNavigate('/leaderboard')}
 									class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between cursor-pointer active:scale-95 transition-all text-start w-full"
 								>
 									<div class="flex items-center gap-2">
 										<span class="text-[20px]">🚀</span>
 										<div class="flex flex-col">
 											<span class="text-[11px] font-black text-white">
-												{t('profilePg.boostersTitle' as any)}
+												{t('leaderboard.boostRank') || 'حامیان بوست'}
 											</span>
 											<span class="text-[9px] text-cyan-400 font-bold">
-												{t('profilePg.boostersSubtitle' as any)}
+												{t('leaderboard.boostRewardHint') || 'کردیت روزانه'}
 											</span>
 										</div>
 									</div>
@@ -200,7 +200,7 @@ export const ProfilePage: Component = () => {
 
 								<button
 									type="button"
-									onClick={() => handleNavigate('/profile/leaderboard')}
+									onClick={() => handleNavigate('/leaderboard')}
 									class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between cursor-pointer active:scale-95 transition-all text-start w-full"
 								>
 									<div class="flex items-center gap-2">
@@ -212,7 +212,7 @@ export const ProfilePage: Component = () => {
 													: t('profilePg.unranked' as any) || '—'}
 											</span>
 											<span class="text-[9px] text-amber-400 font-bold">
-												{t('profilePg.globalBoard' as any)}
+												{t('profilePg.globalBoard' as any) || 'لیدربورد'}
 											</span>
 										</div>
 									</div>
@@ -241,18 +241,24 @@ export const ProfilePage: Component = () => {
 										</span>
 										<span class="text-[9px] text-white/40 font-bold uppercase tracking-wider">
 											{referrals()?.totalInvited || 0} {t('referral.friends')} ·{' '}
-											{formatNumber(referrals()?.totalEarned || 0)}🪙 {t('referral.earned')}
+											{formatNumber(referrals()?.totalEarned || 0)}⚡ {t('referral.credits') || 'کریدت'}
 										</span>
 									</div>
 								</div>
 
 								<button
 									type="button"
-									onClick={() => handleNavigate('/airdrop?tab=frens')}
+									onClick={() => {
+										const refLink = referrals()?.referralLink;
+										if (refLink) {
+											navigator.clipboard?.writeText(refLink);
+											haptic.notification('success');
+										}
+									}}
 									class="flex items-center gap-1 px-3 py-1.5 rounded-[12px] bg-cyan-400/15 hover:bg-cyan-400/25 border border-cyan-400/30 text-cyan-300 text-[10px] font-black uppercase tracking-wide active:scale-95 transition-all"
 								>
 									<span>{t('referral.invite')}</span>
-									<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+									<span class="material-symbols-outlined text-[14px]">content_copy</span>
 								</button>
 							</div>
 						</Motion.div>

@@ -32,13 +32,12 @@ Select an asset class below or simply send any <b>username</b>, <b>anonymous num
 رتبه در شبکه جهانی: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5407005610518534015">🪙</tg-emoji> <b>موجودی سکه ایردراپ:</b> <code>{coins}</code>
 <tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>لینک اختصاصی دعوت شما:</b>
 <code>{reflink}</code>
-<i>با دعوت از دوستان، سکه ایردراپ و اعتبار تحلیلی رایگان دریافت کنید!</i>`,
+<i>با دعوت از دوستان، اعتبار تحلیلی رایگان دریافت کنید!</i>`,
 		"ru": `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>Профиль инвестора | iFragment</b>
 
 Аккаунт: <b>{name}</b> (ID: <code>{id}</code>)
@@ -46,7 +45,6 @@ Select an asset class below or simply send any <b>username</b>, <b>anonymous num
 Рейтинг в системе: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5407005610518534015">🪙</tg-emoji> <b>Баланс монет Airdrop:</b> <code>{coins}</code>
 <tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Доступно кредитов (Intel Credits):</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
@@ -59,13 +57,12 @@ Select an asset class below or simply send any <b>username</b>, <b>anonymous num
 全网综合排名: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5407005610518534015">🪙</tg-emoji> <b>空投代币余额:</b> <code>{coins}</code>
 <tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>您的专属邀请链接:</b>
 <code>{reflink}</code>
-<i>邀请好友加入，双方均可获得代币与分析信用点奖励！</i>`,
+<i>邀请好友加入，双方均可获得分析信用点奖励！</i>`,
 		"en": `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>Investor Profile | iFragment</b>
 
 Account: <b>{name}</b> (ID: <code>{id}</code>)
@@ -73,7 +70,6 @@ Tier Level: <b>Level {level}</b>
 Global Rank: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5407005610518534015">🪙</tg-emoji> <b>Airdrop Coins Balance:</b> <code>{coins}</code>
 <tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Intel Credits Available:</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
@@ -105,7 +101,6 @@ Global Rank: <b>#{rank}</b>
 شناسه / مقدار: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>موجودی سکه ایردراپ:</b> <code>{coins}</code>
 ⚡ <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
@@ -122,7 +117,6 @@ Global Rank: <b>#{rank}</b>
 Идентификатор: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>Баланс Airdrop монет:</b> <code>{coins}</code>
 ⚡ <b>Доступно кредитов (Intel Credits):</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
@@ -139,7 +133,6 @@ Global Rank: <b>#{rank}</b>
 目标标识: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>空投代币余额:</b> <code>{coins}</code>
 ⚡ <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
 ━━━━━━━━━━━━━━━━━━━
 
@@ -156,7 +149,6 @@ Asset Class: <b>{type}</b>
 Identifier: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>Airdrop Coins Balance:</b> <code>{coins}</code>
 ⚡ <b>Intel Credits Available:</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
@@ -167,84 +159,6 @@ Identifier: <code>{entity}</code>
 • Liquidity score & market clearance velocity
 
 Cost to unlock full institutional report: <b>1 Intel Credit</b>`,
-	},
-	"exchange_confirm": {
-		"fa": `<tg-emoji emoji-id="5445124018330758412">🔄</tg-emoji> <b>تأییدیه تبدیل سکه ایردراپ به کردیت تحلیلی</b>
-
-آیا مایل به تبدیل <b>{cost_coins} سکه ایردراپ</b> به <b>۱ اعتبار تحلیلی (Intel Credit)</b> هستید؟
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5407005610518534015">🪙</tg-emoji> <b>هزینه تبدیل:</b> <code>{cost_coins}</code> سکه
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>اعتبار دریافتی:</b> <code>+1</code> کردیت تحلیلی
-💰 <b>موجودی فعلی سکه شما:</b> <code>{coins}</code>
-📊 <b>موجودی کردیت شما:</b> <code>{credits}</code>
-━━━━━━━━━━━━━━━━━━━
-<i>ℹ️ اعتبارات تحلیلی قابلیت بازگشایی پرونده‌های ارزش‌گذاری عمیق را به شما می‌دهند.</i>`,
-		"ru": `<tg-emoji emoji-id="5445124018330758412">🔄</tg-emoji> <b>Подтверждение обмена монет</b>
-
-Вы уверены, что хотите обменять <b>{cost_coins} Airdrop монет</b> на <b>1 аналитический кредит</b>?
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5407005610518534015">🪙</tg-emoji> <b>Стоимость обмена:</b> <code>{cost_coins}</code> монет
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Начисление:</b> <code>+1</code> Intel Credit
-💰 <b>Текущий баланс монет:</b> <code>{coins}</code>
-📊 <b>Текущий баланс кредитов:</b> <code>{credits}</code>
-━━━━━━━━━━━━━━━━━━━
-<i>ℹ️ Кредиты открывают институциональные отчеты и редкие метрики активов.</i>`,
-		"zh": `<tg-emoji emoji-id="5445124018330758412">🔄</tg-emoji> <b>代币兑换确认</b>
-
-您确定要将 <b>{cost_coins} 枚空投代币</b> 兑换为 <b>1 个分析信用点</b> 吗？
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5407005610518534015">🪙</tg-emoji> <b>兑换消耗:</b> <code>{cost_coins}</code> 代币
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>到账信用点:</b> <code>+1</code> 点
-💰 <b>当前代币余额:</b> <code>{coins}</code>
-📊 <b>当前信用点数:</b> <code>{credits}</code>
-━━━━━━━━━━━━━━━━━━━
-<i>ℹ️ 分析信用点用于解锁 Telegram 数字资产深度公允估值与稀缺度报告。</i>`,
-		"en": `<tg-emoji emoji-id="5445124018330758412">🔄</tg-emoji> <b>Exchange Confirmation</b>
-
-Are you sure you want to exchange <b>{cost_coins} Airdrop Coins</b> for <b>1 Intel Credit</b>?
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5407005610518534015">🪙</tg-emoji> <b>Exchange Cost:</b> <code>{cost_coins}</code> Coins
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Credits Received:</b> <code>+1</code> Intel Credit
-💰 <b>Current Coin Balance:</b> <code>{coins}</code>
-📊 <b>Current Credits:</b> <code>{credits}</code>
-━━━━━━━━━━━━━━━━━━━
-<i>ℹ️ Intel Credits unlock institutional valuations and rarity metrics for Telegram digital assets.</i>`,
-	},
-	"exchange_success": {
-		"fa": `<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji> <b>تبدیل سکه با موفقیت انجام شد!</b>
-
-تعداد <b>{cost_coins} سکه ایردراپ</b> با موفقیت کسر شد و ۱ کریدت تحلیلی به حسابتان اضافه گردید.
-⚡ موجودی فعلی شما: <b>{credits} کریدت تحلیلی</b>`,
-		"ru": `<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji> <b>Обмен успешно выполнен!</b>
-
-Списано <b>{cost_coins} монет</b> и начислен 1 кредит.
-⚡ Текущий баланс: <b>{credits} кредитов</b>.`,
-		"zh": `<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji> <b>代币兑换成功！</b>
-
-已扣除 <b>{cost_coins} 枚代币</b> 并到账 1 个分析信用点。
-⚡ 当前可用信用点: <b>{credits} 点</b>。`,
-		"en": `<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji> <b>Exchange Successful!</b>
-
-Deducted <b>{cost_coins} coins</b>. 1 Intel Credit added.
-⚡ Current balance: <b>{credits} Credits</b>.`,
-	},
-	"exchange_fail": {
-		"fa": `<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji> <b>موجودی سکه کافی نیست!</b>
-
-برای تبدیل به ۱ اعتبار تحلیلی، حداقل <b>{cost_coins} سکه ایردراپ</b> مورد نیاز است. شما می‌توانید با تسک‌ها و فعالیت در مینی‌اپ سکه کسب کنید یا از بسته‌های تلگرام استارز استفاده نمایید.`,
-		"ru": `<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji> <b>Недостаточно монет!</b>
-
-Для обмена на 1 аналитический кредит требуется минимум <b>{cost_coins} Airdrop монет</b>. Вы можете заработать монеты в приложении или купить кредиты за Stars.`,
-		"zh": `<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji> <b>代币余额不足！</b>
-
-兑换 1 个分析信用点需要至少 <b>{cost_coins} 枚空投代币</b>。您可以通过在小程序完成任务获取代币，或直接使用 Telegram Stars 购买点数。`,
-		"en": `<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji> <b>Insufficient Coins!</b>
-
-You need at least <b>{cost_coins} Airdrop Coins</b> to exchange for 1 Intel Credit.`,
 	},
 	"help_view": {
 		"fa": `📖 <b>راهنمای ترمینال هوشمند iFragment</b>
@@ -266,7 +180,7 @@ You need at least <b>{cost_coins} Airdrop Coins</b> to exchange for 1 Intel Cred
 • <code>https://t.me/nft/PlushPepe-42</code>
 • <code>/gift CelestialStar-1</code>
 
-💡 <i>هر گزارش عمیق به ۱ کریدت تحلیلی نیاز دارد که می‌توانید با سکه‌های ایردراپ خود یا استارز تلگرام آن را فعال کنید.</i>`,
+💡 <i>هر گزارش عمیق به ۱ کریدت تحلیلی نیاز دارد که می‌توانید با ارسال پیام یا بوست در سوپرگروه @FragmentInvestors به صورت کاملاً رایگان کریدت نامحدود دریافت کنید، یا آن را با Stars تهیه فرمایید.</i>`,
 		"ru": `📖 <b>Инструкция терминала iFragment</b>
 
 Вы можете отправлять активы прямо в чат без дополнительных команд:
@@ -286,7 +200,7 @@ You need at least <b>{cost_coins} Airdrop Coins</b> to exchange for 1 Intel Cred
 • <code>https://t.me/nft/PlushPepe-42</code>
 • <code>/gift CelestialStar-1</code>
 
-💡 <i>Каждый детальный отчет требует 1 Intel Credit. Кредиты можно получить за Airdrop-монеты или Stars.</i>`,
+💡 <i>Каждый детальный отчет требует 1 Intel Credit. Вы можете бесплатно получать кредиты за сообщения и бусты в @FragmentInvestors или приобрести их за Stars.</i>`,
 		"zh": `📖 <b>iFragment 智能终端使用指南</b>
 
 您可以直接向机器人发送资产信息，无需输入复杂指令：
@@ -306,7 +220,7 @@ You need at least <b>{cost_coins} Airdrop Coins</b> to exchange for 1 Intel Cred
 • <code>https://t.me/nft/PlushPepe-42</code>
 • <code>/gift CelestialStar-1</code>
 
-💡 <i>每份深度报告消耗 1 个分析信用点，支持使用空投代币兑换或 Telegram Stars 购买。</i>`,
+💡 <i>每份深度报告消耗 1 个分析信用点。您可以在 @FragmentInvestors 群组中发言或助力群组免费获取无限信用点，也可使用 Telegram Stars 购买。</i>`,
 		"en": `📖 <b>iFragment Terminal Guide</b>
 
 You can send assets directly into the chat:
@@ -324,7 +238,9 @@ Send any +888 number:
 🎁 <b>3. Telegram Gifts Appraisal:</b>
 Send any NFT gift link or slug:
 • <code>https://t.me/nft/PlushPepe-42</code>
-• <code>/gift CelestialStar-1</code>`,
+• <code>/gift CelestialStar-1</code>
+
+💡 <i>Each detailed report costs 1 Intel Credit. You can earn unlimited free credits by chatting or boosting @FragmentInvestors, or buy with Stars.</i>`,
 	},
 }
 
@@ -372,11 +288,17 @@ var defaultButtons = map[string]map[string]string{
 		"zh": "📖 使用指南",
 		"en": "📖 Help & Guide",
 	},
-	"btn_exchange": {
-		"fa": "🔄 تبدیل سکه به ۱ کردیت",
-		"ru": "🔄 Обменять монеты",
-		"zh": "🔄 兑换代币为信用点",
-		"en": "🔄 Exchange Coins",
+	"btn_free_credits": {
+		"fa": "💬 دریافت کردیت رایگان (گروه)",
+		"ru": "💬 Бесплатные кредиты в группе",
+		"zh": "💬 在群组中免费领取信用点",
+		"en": "💬 Free Credits in Group",
+	},
+	"btn_leaderboard": {
+		"fa": "🏆 جدول برترین‌ها",
+		"ru": "🏆 Таблица лидеров",
+		"zh": "🏆 排行榜",
+		"en": "🏆 Leaderboard",
 	},
 	"btn_stars": {
 		"fa": "⭐ خرید کردیت با Stars",

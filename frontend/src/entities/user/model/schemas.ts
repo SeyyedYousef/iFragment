@@ -153,6 +153,31 @@ export const LeaderboardResponseSchema = v.object({
 	league: v.optional(v.nullable(v.string())),
 });
 
+export const GroupLeaderboardEntrySchema = v.object({
+	rank: v.number(),
+	user_id: v.number(),
+	username: v.optional(v.nullable(v.string()), ''),
+	first_name: v.optional(v.nullable(v.string()), ''),
+	photo_url: v.optional(v.nullable(v.string()), ''),
+	score: v.number(),
+});
+
+export const UserLeaderboardStatsSchema = v.object({
+	rank: v.optional(v.number(), 0),
+	rank_str: v.optional(v.string(), '100k+'),
+	score: v.optional(v.number(), 0),
+	credits: v.optional(v.number(), 0),
+	user_id: v.optional(v.number(), 0),
+});
+
+export const GroupLeaderboardResponseSchema = v.object({
+	type: v.string(),
+	top3: v.optional(v.nullable(v.array(GroupLeaderboardEntrySchema)), []),
+	featured: v.optional(v.nullable(v.array(GroupLeaderboardEntrySchema)), []),
+	items: v.optional(v.nullable(v.array(GroupLeaderboardEntrySchema)), []),
+	my_stats: v.optional(UserLeaderboardStatsSchema),
+});
+
 export const AchievementDefSchema = v.object({
 	id: v.string(),
 	target: v.pipe(v.number(), v.minValue(0)),

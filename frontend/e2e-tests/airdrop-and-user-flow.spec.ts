@@ -1,21 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Airdrop & Core User Journey E2E Tests', () => {
-	test('should render Airdrop landing page and navigate between tabs', async ({ page }) => {
-		// Navigate to main Airdrop view
-		await page.goto('/#/airdrop');
-
-		// Verify Airdrop header is rendered
-		const mainHeading = page.locator('h1, h2').first();
-		await expect(mainHeading).toBeVisible();
-
-		// Check tab switches (Tasks, Leaderboard, Frens)
-		const leaderboardTab = page.locator('text=Leaderboard, text=جدول رده‌بندی').first();
-		if ((await leaderboardTab.count()) > 0) {
-			await leaderboardTab.click();
-			await expect(page).toHaveURL(/.*leaderboard/);
-		}
-	});
+test.describe('Core User Journey E2E Tests', () => {
 
 	test('should render User Profile and settings options', async ({ page }) => {
 		// Navigate to user profile page

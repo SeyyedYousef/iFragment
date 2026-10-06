@@ -4,12 +4,11 @@ import {
 	AchievementDefSchema,
 	AchievementSchema,
 	BoostStatusSchema,
-	ClanMemberSchema,
-	ClanSchema,
 	CosmeticItemSchema,
 	DailyStatusSchema,
 	EmojiRewardResponseSchema,
 	LeaderboardResponseSchema,
+	GroupLeaderboardResponseSchema,
 	LedgerResponseSchema,
 	MyAssetsResponseSchema,
 	ProfileStatsSchema,
@@ -17,20 +16,18 @@ import {
 	SuccessResponseSchema,
 	TaskStatusSchema,
 	UserBoostsSchema,
-	UserClanDetailsSchema,
 } from '../model/schemas.js';
 import { setProfilePhotoUrl } from '../model/store.js';
 import type {
 	Achievement,
 	AchievementDef,
 	BoostStatus,
-	Clan,
-	ClanMember,
 	CosmeticItem,
 	DailyComboStatus,
 	DailyStatus,
 	EmojiRewardResponse,
 	LeaderboardResponse,
+	GroupLeaderboardResponse,
 	LedgerResponse,
 	MyAssetsResponse,
 	ProfileStats,
@@ -38,7 +35,6 @@ import type {
 	SuccessResponse,
 	TaskStatus,
 	UserBoosts,
-	UserClanDetails,
 } from '../model/types.js';
 
 // ─── Validated Fetch Helper ───
@@ -122,6 +118,15 @@ export const getLeaderboard = (
 		? `/profile/leaderboard?period=${p}&league=${encodeURIComponent(league)}`
 		: `/profile/leaderboard?period=${p}`;
 	return validatedFetch(url, LeaderboardResponseSchema) as Promise<LeaderboardResponse>;
+};
+
+export const getGroupLeaderboard = (
+	type: 'messages' | 'boosts' = 'messages',
+): Promise<GroupLeaderboardResponse> => {
+	return validatedFetch(
+		`/leaderboard/group?type=${type}`,
+		GroupLeaderboardResponseSchema,
+	) as Promise<GroupLeaderboardResponse>;
 };
 
 export const getAchievementDefs = (): Promise<AchievementDef[]> =>
@@ -214,31 +219,6 @@ export const activateFullEnergyServer = (): Promise<SuccessResponse> =>
 		method: 'POST',
 	}) as Promise<SuccessResponse>;
 
-export const getClan = (): Promise<UserClanDetails> =>
-	validatedFetch('/profile/clan', UserClanDetailsSchema) as Promise<UserClanDetails>;
-
-export const joinClan = (username: string): Promise<Clan> =>
-	validatedFetch('/profile/clan/join', ClanSchema, {
-		method: 'POST',
-		body: JSON.stringify({ username }),
-	}) as Promise<Clan>;
-
-export const leaveClan = (): Promise<SuccessResponse> =>
-	validatedFetch('/profile/clan/leave', SuccessResponseSchema, {
-		method: 'POST',
-	}) as Promise<SuccessResponse>;
-
-export const getTopClans = (period?: string | unknown): Promise<Clan[]> => {
-	const p = typeof period === 'string' ? period : 'day';
-	return validatedFetch(`/profile/clan/top?period=${p}`, v.array(ClanSchema)) as Promise<Clan[]>;
-};
-
-export const getClanMembers = (clanId?: string, limit?: number): Promise<ClanMember[]> =>
-	validatedFetch(
-		`/profile/clan/members?clan_id=${clanId || ''}&limit=${limit || 50}`,
-		v.array(ClanMemberSchema),
-	) as Promise<ClanMember[]>;
-
 export const deleteAccountGDPR = (): Promise<{ status: string; message: string }> =>
 	validatedFetch('/profile/gdpr', v.object({ status: v.string(), message: v.string() }), {
 		method: 'DELETE',
@@ -282,13 +262,6 @@ export const sessionsApi = {
 			headers: { 'Content-Type': 'application/json' },
 		});
 	},
-};
-
-export const clanApi = {
-	getClan: () => getClan(),
-	joinClan: (username: string) => joinClan(username),
-	leaveClan: () => leaveClan(),
-	getTopClans: (period?: string) => getTopClans(period),
 };
 
 export const setLanguage = (language: string): Promise<{ status: string }> =>

@@ -182,50 +182,6 @@ func (h *IntelCreditHandler) Purchase(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ExchangeCoins atomically converts Airdrop Coins into 1 Intel Credit (HTTP 402 when short).
-func (h *IntelCreditHandler) ExchangeCoins(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	userID, err := middleware.GetUserID(ctx)
-	if err != nil {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
-		return
-	}
-
-	if h.cache != nil && h.cache.Client != nil {
-		h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
-	}
-
-	idemKey := r.Header.Get("Idempotency-Key")
-	if idemKey == "" {
-		idemKey = r.Header.Get("X-Idempotency-Key")
-	}
-
-	store := intelcredit.NewStoreService(h.service.DB())
-	balance, err := store.ExchangeCoins(ctx, userID, idemKey)
-	if err != nil {
-		if errors.Is(err, repository.ErrInsufficientCoins) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusPaymentRequired)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"error":   "insufficient_coins",
-				"message": "not enough airdrop coins for exchange",
-			})
-			return
-		}
-		RespondError(w, r, http.StatusInternalServerError, "failed to exchange coins", err)
-		return
-	}
-
-	if h.cache != nil && h.cache.Client != nil {
-		h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
-	}
-
-	RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"balance": balance,
-	})
-}
-
 func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID int64, username string) {
 	cleanUser := strings.ToLower(strings.TrimPrefix(username, "@"))
 	if cleanUser == "" || userID <= 0 {

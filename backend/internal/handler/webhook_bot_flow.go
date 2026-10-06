@@ -26,7 +26,6 @@ import (
 	"ifragment-backend/internal/service/numbers/nvengine"
 	"ifragment-backend/internal/service/username/avm"
 
-	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
 
@@ -496,7 +495,7 @@ func (h *WebhookHandler) buildMainMenuMarkup(ctx context.Context, lang string, m
 	}
 }
 
-// sendProfileView renders the user profile with airdrop coins, credits, rank, and referral
+// sendProfileView renders the user profile with credits, rank, and referral
 func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, messageID *int, threadID *int) {
 	tg := h.getBotClient(bot)
 	if tg == nil {
@@ -506,7 +505,6 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 	userLang, _ := h.db.GetUserLanguage(ctx, userID)
 	lang := i18n.DetectLanguage(userLang)
 
-	var airdropCoins float64 = 0
 	var intelCredits int = 0
 	var globalRank int = 1
 	var level int = 1
@@ -515,7 +513,6 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 	if h.profileService != nil {
 		stats, err := h.profileService.GetStats(ctx, userID)
 		if err == nil && stats != nil {
-			airdropCoins = stats.AirdropCoins
 			intelCredits = stats.IntelCredits
 			globalRank = stats.GlobalRank
 			level = stats.Level
@@ -540,53 +537,62 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 	}
 	refLink := fmt.Sprintf("https://t.me/%s?start=ref_%d", botUsername, userID)
 
-	formattedAirdropCoins := formatNumberWithCommas(int(airdropCoins))
+	text := h.renderProfileText(ctx, lang, firstName, userID, level, globalRank, intelCredits, refLink)
 
-	text := h.renderProfileText(ctx, lang, firstName, userID, level, globalRank, formattedAirdropCoins, intelCredits, refLink)
-
-	var btnExchange, btnStars, btnLang, btnBack string
-	costCoins := config.Economics.CreditsCoinsPerCredit
-	formattedCost := formatNumberWithCommas(costCoins)
-
+	var btnFreeCredits, btnLeaderboard, btnStars, btnLang, btnBack string
 	switch lang {
 	case "fa":
-		btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به ۱ کردیت", formattedCost)
+		btnFreeCredits = "💬 دریافت کردیت رایگان (@FragmentInvestors)"
+		btnLeaderboard = "🏆 جدول برترین‌ها (مینی‌اپ)"
 		btnStars = "⭐ خرید کردیت با Stars"
 		btnLang = "🌐 تغییر زبان"
 		btnBack = "🔙 بازگشت به منو"
 	case "ar":
-		btnExchange = fmt.Sprintf("🔄 تحويل %s عملة إلى 1 رصيد", formattedCost)
+		btnFreeCredits = "💬 احصل على أرصدة مجانية (@FragmentInvestors)"
+		btnLeaderboard = "🏆 قائمة المتصدرين (التطبيق)"
 		btnStars = "⭐ شراء أرصدة عبر Stars"
 		btnLang = "🌐 تغيير اللغة"
 		btnBack = "🔙 العودة للقائمة"
 	case "ru":
-		btnExchange = fmt.Sprintf("🔄 Обменять %s монет", formattedCost)
+		btnFreeCredits = "💬 Бесплатные кредиты (@FragmentInvestors)"
+		btnLeaderboard = "🏆 Таблица лидеров (Mini App)"
 		btnStars = "⭐ Купить кредиты за Stars"
 		btnLang = "🌐 Язык"
 		btnBack = "🔙 В меню"
 	case "zh":
-		btnExchange = fmt.Sprintf("🔄 兑换 %s 代币为信用点", formattedCost)
+		btnFreeCredits = "💬 免费领取信用点 (@FragmentInvestors)"
+		btnLeaderboard = "🏆 综合排行榜 (小程序)"
 		btnStars = "⭐ 使用 Stars 购买信用点"
 		btnLang = "🌐 切换语言"
 		btnBack = "🔙 返回主菜单"
 	default:
-		btnExchange = fmt.Sprintf("🔄 Exchange %s Coins", formattedCost)
+		btnFreeCredits = "💬 Free Credits (@FragmentInvestors)"
+		btnLeaderboard = "🏆 Top Leaderboard (Mini App)"
 		btnStars = "⭐ Buy Credits with Stars"
 		btnLang = "🌐 Language"
 		btnBack = "🔙 Back to Menu"
 	}
 
-	btnExchange = h.resolveButton(ctx, "btn_exchange", lang, btnExchange)
+	btnFreeCredits = h.resolveButton(ctx, "btn_free_credits", lang, btnFreeCredits)
+	btnLeaderboard = h.resolveButton(ctx, "btn_leaderboard", lang, btnLeaderboard)
 	btnStars = h.resolveButton(ctx, "btn_stars", lang, btnStars)
 	btnLang = h.resolveButton(ctx, "btn_language", lang, btnLang)
 	btnBack = h.resolveButton(ctx, "btn_back", lang, btnBack)
+
+	miniAppLeaderboardURL := appendStartParam(h.getMiniAppURL(bot), "leaderboard")
 
 	markup := map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
 			{
 				{
-					"text":          btnExchange,
-					"callback_data": "exchange_coins:profile",
+					"text": btnFreeCredits,
+					"url":  "https://t.me/FragmentInvestors",
+				},
+			},
+			{
+				{
+					"text": btnLeaderboard,
+					"url":  miniAppLeaderboardURL,
 				},
 			},
 			{
@@ -612,7 +618,7 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 }
 
 // renderProfileText renders the profile view HTML text with placeholders substituted.
-func (h *WebhookHandler) renderProfileText(ctx context.Context, lang string, firstName string, userID int64, level int, globalRank int, formattedAirdropCoins string, intelCredits int, refLink string) string {
+func (h *WebhookHandler) renderProfileText(ctx context.Context, lang string, firstName string, userID int64, level int, globalRank int, intelCredits int, refLink string) string {
 	var defaultProfileText string
 	switch lang {
 	case "fa":
@@ -623,13 +629,12 @@ func (h *WebhookHandler) renderProfileText(ctx context.Context, lang string, fir
 رتبه جهانی در شبکه: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>موجودی سکه ایردراپ:</b> <code>{coins}</code> سکه
 <tg-emoji emoji-id="%s">⚡</tg-emoji> <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code> کریدت
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>لینک دعوت اختصاصی شما:</b>
 <code>{reflink}</code>
-<i>با دعوت از هر دوست، سکه ایردراپ و اعتبار تحلیل هدیه بگیرید!</i>`, CustomEmojiUser, CustomEmojiCoin, CustomEmojiBolt)
+<i>با دعوت از هر دوست، اعتبار تحلیل هدیه بگیرید!</i>`, CustomEmojiUser, CustomEmojiBolt)
 	case "ar":
 		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>الملف الشخصي للمستثمر | iFragment</b>
 
@@ -638,13 +643,12 @@ func (h *WebhookHandler) renderProfileText(ctx context.Context, lang string, fir
 الترتيب العالمي: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>رصيد عملات الإنزال:</b> <code>{coins}</code> عملة
 <tg-emoji emoji-id="%s">⚡</tg-emoji> <b>رصيد التحليل (Intel Credits):</b> <code>{credits}</code> رصيد
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>رابط الدعوة الخاص بك:</b>
 <code>{reflink}</code>
-<i>اربح عملات وأرصدة تحليلية مجانية عند دعوة أصدقائك!</i>`, CustomEmojiUser, CustomEmojiCoin, CustomEmojiBolt)
+<i>اربح أرصدة تحليلية مجانية عند دعوة أصدقائك!</i>`, CustomEmojiUser, CustomEmojiBolt)
 	case "ru":
 		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>Профиль пользователя | iFragment</b>
 
@@ -653,12 +657,11 @@ func (h *WebhookHandler) renderProfileText(ctx context.Context, lang string, fir
 Глобальный ранг: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>Airdrop монеты:</b> <code>{coins}</code>
 <tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Intel Credits (кредиты отчетов):</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>Ваша реферальная ссылка:</b>
-<code>{reflink}</code>`, CustomEmojiUser, CustomEmojiCoin, CustomEmojiBolt)
+<code>{reflink}</code>`, CustomEmojiUser, CustomEmojiBolt)
 	case "zh":
 		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>个人中心与资产 | iFragment</b>
 
@@ -667,13 +670,12 @@ func (h *WebhookHandler) renderProfileText(ctx context.Context, lang string, fir
 全网排名: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>空投代币余额:</b> <code>{coins}</code>
 <tg-emoji emoji-id="%s">⚡</tg-emoji> <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>您的专属邀请链接:</b>
 <code>{reflink}</code>
-<i>邀请好友加入，双方均可获得代币与分析信用点奖励！</i>`, CustomEmojiUser, CustomEmojiCoin, CustomEmojiBolt)
+<i>邀请好友加入，双方均可获得分析信用点奖励！</i>`, CustomEmojiUser, CustomEmojiBolt)
 	default:
 		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>Investor Profile | iFragment</b>
 
@@ -682,12 +684,11 @@ Tier Level: <b>Level {level}</b>
 Global Rank: <b>#{rank}</b>
 
 ━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>Airdrop Coins Balance:</b> <code>{coins}</code>
 <tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Intel Credits Available:</b> <code>{credits}</code>
 ━━━━━━━━━━━━━━━━━━━
 
 🔗 <b>Your Exclusive Referral Link:</b>
-<code>{reflink}</code>`, CustomEmojiUser, CustomEmojiCoin, CustomEmojiBolt)
+<code>{reflink}</code>`, CustomEmojiUser, CustomEmojiBolt)
 	}
 
 	rawProfile := h.resolveText(ctx, "profile_view", lang, defaultProfileText)
@@ -695,7 +696,6 @@ Global Rank: <b>#{rank}</b>
 	text = strings.ReplaceAll(text, "{id}", strconv.FormatInt(userID, 10))
 	text = strings.ReplaceAll(text, "{level}", strconv.Itoa(level))
 	text = strings.ReplaceAll(text, "{rank}", strconv.Itoa(globalRank))
-	text = strings.ReplaceAll(text, "{coins}", formattedAirdropCoins)
 	text = strings.ReplaceAll(text, "{credits}", strconv.Itoa(intelCredits))
 	text = strings.ReplaceAll(text, "{reflink}", refLink)
 	return text
@@ -733,7 +733,7 @@ func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.Manag
 • <code>https://t.me/nft/PlushPepe-42</code>
 • <code>/gift CelestialStar-1</code>
 
-💡 <i>هر گزارش عمیق به ۱ کریدت تحلیلی نیاز دارد که می‌توانید با سکه‌های ایردراپ خود یا استارز تلگرام آن را فعال کنید.</i>`
+💡 <i>هر گزارش عمیق به ۱ کریدت تحلیلی نیاز دارد که می‌توانید با ارسال پیام یا بوست در سوپرگروه @FragmentInvestors به صورت کاملاً رایگان دریافت کنید، یا آن را با Stars فعال فرمایید.</i>`
 	case "ar":
 		text = `📖 <b>دليل استخدام منصة iFragment الذكية</b>
 
@@ -754,7 +754,7 @@ func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.Manag
 • <code>https://t.me/nft/PlushPepe-42</code>
 • <code>/gift CelestialStar-1</code>
 
-💡 <i>يتطلب كل تقرير تحليلي متقدم رصيد تحليل واحد (1 Intel Credit)، ويمكن الحصول عليه عبر تحويل عملات الإنزال الجوي أو شرائه عبر نجوم تيليجرام (Stars).</i>`
+💡 <i>يتطلب كل تقرير تحليلي متقدم 1 Intel Credit. يمكنك الحصول على أرصدة غير محدودة مجاناً عبر المشاركة في مجموعة @FragmentInvestors أو شراؤها عبر Stars.</i>`
 	case "ru":
 		text = `📖 <b>Инструкция терминала iFragment</b>
 
@@ -775,7 +775,7 @@ func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.Manag
 • <code>https://t.me/nft/PlushPepe-42</code>
 • <code>/gift CelestialStar-1</code>
 
-💡 <i>Каждый детальный отчет требует 1 Intel Credit. Кредиты можно получить за Airdrop-монеты или Stars.</i>`
+💡 <i>Каждый детальный отчет требует 1 Intel Credit. Вы можете бесплатно получать кредиты за сообщения и бусты в @FragmentInvestors или приобрести их за Stars.</i>`
 	case "zh":
 		text = `📖 <b>iFragment 智能终端使用指南</b>
 
@@ -796,7 +796,7 @@ func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.Manag
 • <code>https://t.me/nft/PlushPepe-42</code>
 • <code>/gift CelestialStar-1</code>
 
-💡 <i>每份深度报告消耗 1 个分析信用点，支持使用空投代币兑换或 Telegram Stars 购买。</i>`
+💡 <i>每份深度报告消耗 1 个分析信用点。您可以在 @FragmentInvestors 群组中发言或助力群组免费获取无限信用点，也可使用 Telegram Stars 购买。</i>`
 	default:
 		text = `📖 <b>iFragment Terminal Guide</b>
 
@@ -815,7 +815,9 @@ Send any +888 number:
 🎁 <b>3. Telegram Gifts Appraisal:</b>
 Send any NFT gift link or slug:
 • <code>https://t.me/nft/PlushPepe-42</code>
-• <code>/gift CelestialStar-1</code>`
+• <code>/gift CelestialStar-1</code>
+
+💡 <i>Each detailed report costs 1 Intel Credit. You can earn unlimited free credits by chatting or boosting @FragmentInvestors, or buy with Stars.</i>`
 	}
 
 	var btnBack string
@@ -1070,20 +1072,15 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 		entity = normNum
 	}
 
-	// Flush pending taps and clear cached stats to show authoritative real-time numbers
-	if h.profileService != nil {
-		_ = h.profileService.FlushUserPendingTaps(ctx, userID)
-	}
+	// Clear cached stats to show authoritative real-time numbers
 	if h.cache != nil && h.cache.Client != nil {
 		_ = h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID)).Err()
 	}
 
-	var airdropCoins float64 = 0
 	var intelCredits int = 0
 	if h.profileService != nil {
 		stats, err := h.profileService.GetStats(ctx, userID)
 		if err == nil && stats != nil {
-			airdropCoins = stats.AirdropCoins
 			intelCredits = stats.IntelCredits
 		}
 	}
@@ -1158,10 +1155,7 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 	}
 
 	var gateText string
-	var btnUnlock, btnExchange, btnStars, btnBack string
-
-	costCoins := config.Economics.CreditsCoinsPerCredit
-	formattedCost := formatNumberWithCommas(costCoins)
+	var btnUnlock, btnFreeCredits, btnStars, btnBack string
 
 	var giftGate *gvengine.CuriosityGateResponse
 	if assetType == "gift" && h.giftsService != nil {
@@ -1182,8 +1176,8 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 📊 سیگنال‌های پایش‌شده: <b>%d سیگنال بازار و بلاکچین</b>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>موجودی سکه ایردراپ:</b> <code>{coins}</code>
-⚡ <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code>
+⚡ <b>موجودی کریدت تحلیلی شما:</b> <code>{credits}</code>
+💬 <i>کریدت رایگان با ارسال پیام در گروه @FragmentInvestors</i>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>در گزارش تحلیلی عمیق این گیفت چه مواردی می‌بینید؟</b>
@@ -1207,8 +1201,8 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 📊 Отслеживаемых сигналов: <b>%d он-чейн и рыночных сигналов</b>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>Баланс Airdrop монет:</b> <code>{coins}</code>
 ⚡ <b>Доступно кредитов (Intel Credits):</b> <code>{credits}</code>
+💬 <i>Бесплатные кредиты за сообщения в группе @FragmentInvestors</i>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>Что входит в детальный отчет?</b>
@@ -1232,8 +1226,8 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 📊 监控数据维度: <b>%d 项链上与市场信号</b>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>空投代币余额:</b> <code>{coins}</code>
-⚡ <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
+⚡ <b>可用分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
+💬 <i>在 @FragmentInvestors 群组发消息即可获取免费信用点</i>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>深度专业分析报告包含内容:</b>
@@ -1257,8 +1251,8 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 📊 Analyzed Signals: <b>%d on-chain & market signals</b>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>Airdrop Coins Balance:</b> <code>{coins}</code>
 ⚡ <b>Intel Credits Available:</b> <code>{credits}</code>
+💬 <i>Earn free credits by sending messages in @FragmentInvestors</i>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>What's inside the deep intelligence report?</b>
@@ -1278,22 +1272,22 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 		switch normalizeLang(lang) {
 		case "ru":
 			btnUnlock = "🔓 Открыть отчет (1 кредит)"
-			btnExchange = fmt.Sprintf("🔄 Обменять %s монет на 1 кредит", formattedCost)
+			btnFreeCredits = "💬 Получить кредиты (@FragmentInvestors)"
 			btnStars = "⭐ Купить кредиты за Stars"
 			btnBack = "🔙 Назад"
 		case "zh":
 			btnUnlock = "🔓 解锁专业分析报告 (1 信用点)"
-			btnExchange = fmt.Sprintf("🔄 兑换 %s 代币为 1 信用点", formattedCost)
+			btnFreeCredits = "💬 获取免费信用点 (@FragmentInvestors)"
 			btnStars = "⭐ 使用 Stars 购买信用点"
 			btnBack = "🔙 返回"
 		case "en":
 			btnUnlock = "🔓 Unlock Full Report (1 Credit)"
-			btnExchange = fmt.Sprintf("🔄 Exchange %s Coins for 1 Credit", formattedCost)
+			btnFreeCredits = "💬 Earn Free Credits (@FragmentInvestors)"
 			btnStars = "⭐ Buy Credits with Stars"
 			btnBack = "🔙 Back"
 		default: // "fa"
 			btnUnlock = "🔓 مشاهده گزارش تحلیلی (۱ کریدت)"
-			btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به ۱ کریدت", formattedCost)
+			btnFreeCredits = "💬 دریافت کردیت رایگان (@FragmentInvestors)"
 			btnStars = "⭐ خرید کریدت با Stars"
 			btnBack = "🔙 بازگشت"
 		}
@@ -1306,8 +1300,8 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 شناسه / مقدار: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>موجودی سکه ایردراپ:</b> <code>{coins}</code>
-⚡ <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code>
+⚡ <b>موجودی کریدت تحلیلی شما:</b> <code>{credits}</code>
+💬 <i>کریدت رایگان با ارسال پیام در گروه @FragmentInvestors</i>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>در گزارش تحلیلی عمیق این دارایی چه مواردی می‌بینید؟</b>
@@ -1318,7 +1312,7 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 
 هزینه باز کردن گزارش کامل: <b>۱ کریدت تحلیلی</b>`
 			btnUnlock = "🔓 مشاهده گزارش تحلیلی (۱ کریدت)"
-			btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به ۱ کریدت", formattedCost)
+			btnFreeCredits = "💬 دریافت کردیت رایگان (@FragmentInvestors)"
 			btnStars = "⭐ خرید کریدت با Stars"
 			btnBack = "🔙 بازگشت"
 
@@ -1329,8 +1323,8 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 المعرف: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>رصيد عملات الإنزال:</b> <code>{coins}</code>
 ⚡ <b>رصيد التحليل (Intel Credits):</b> <code>{credits}</code>
+💬 <i>احصل على أرصدة مجانية بمجرد إرسال الرسائل في @FragmentInvestors</i>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>ماذا يتضمن تقرير التحليل المتقدم؟</b>
@@ -1341,7 +1335,7 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 
 تكلفة فتح التقرير الكامل: <b>رصيد تحليل واحد (1 Credit)</b>`
 			btnUnlock = "🔓 فتح التقرير الكامل (1 رصيد)"
-			btnExchange = fmt.Sprintf("🔄 تحويل %s عملة إلى 1 رصيد", formattedCost)
+			btnFreeCredits = "💬 أرصدة مجانية (@FragmentInvestors)"
 			btnStars = "⭐ شراء أرصدة عبر Stars"
 			btnBack = "🔙 رجوع"
 
@@ -1352,8 +1346,8 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 Идентификатор: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>Баланс Airdrop монет:</b> <code>{coins}</code>
 ⚡ <b>Доступно кредитов (Intel Credits):</b> <code>{credits}</code>
+💬 <i>Бесплатные кредиты за сообщения в группе @FragmentInvestors</i>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>Что входит в детальный отчет?</b>
@@ -1364,7 +1358,7 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 
 Стоимость открытия полного отчета: <b>1 Intel Credit</b>`
 			btnUnlock = "🔓 Открыть отчет (1 кредит)"
-			btnExchange = fmt.Sprintf("🔄 Обменять %s монет на 1 кредит", formattedCost)
+			btnFreeCredits = "💬 Получить кредиты (@FragmentInvestors)"
 			btnStars = "⭐ Купить кредиты за Stars"
 			btnBack = "🔙 Назад"
 
@@ -1375,8 +1369,8 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 目标标识: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>空投代币余额:</b> <code>{coins}</code>
-⚡ <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
+⚡ <b>可用分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
+💬 <i>在 @FragmentInvestors 群组发消息即可获取免费信用点</i>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>深度专业分析报告包含内容:</b>
@@ -1387,7 +1381,7 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 
 解锁完整深度报告仅需: <b>1 个分析信用点</b>`
 			btnUnlock = "🔓 解锁专业分析报告 (1 信用点)"
-			btnExchange = fmt.Sprintf("🔄 兑换 %s 代币为 1 信用点", formattedCost)
+			btnFreeCredits = "💬 获取免费信用点 (@FragmentInvestors)"
 			btnStars = "⭐ 使用 Stars 购买信用点"
 			btnBack = "🔙 返回"
 
@@ -1398,8 +1392,8 @@ Asset Class: <b>{type}</b>
 Identifier: <code>{entity}</code>
 
 ━━━━━━━━━━━━━━━━━━━
-🪙 <b>Airdrop Coins Balance:</b> <code>{coins}</code>
 ⚡ <b>Intel Credits Available:</b> <code>{credits}</code>
+💬 <i>Earn free credits by sending messages in @FragmentInvestors</i>
 ━━━━━━━━━━━━━━━━━━━
 
 🔐 <b>What's inside the deep intelligence report?</b>
@@ -1410,7 +1404,7 @@ Identifier: <code>{entity}</code>
 
 Unlock full report cost: <b>1 Intel Credit</b>`
 			btnUnlock = "🔓 Unlock Full Report (1 Credit)"
-			btnExchange = fmt.Sprintf("🔄 Exchange %s Coins for 1 Credit", formattedCost)
+			btnFreeCredits = "💬 Earn Free Credits (@FragmentInvestors)"
 			btnStars = "⭐ Buy Credits with Stars"
 			btnBack = "🔙 Back"
 		}
@@ -1422,17 +1416,14 @@ Unlock full report cost: <b>1 Intel Credit</b>`
 	}
 	gateText = strings.ReplaceAll(rawGate, "{type}", assetName)
 	gateText = strings.ReplaceAll(gateText, "{entity}", telegram.EscapeHTML(entityDisplay))
-	gateText = strings.ReplaceAll(gateText, "{coins}", formatNumberWithCommas(int(airdropCoins)))
 	gateText = strings.ReplaceAll(gateText, "{credits}", strconv.Itoa(intelCredits))
-	gateText = strings.ReplaceAll(gateText, "{cost_coins}", formattedCost)
 
 	btnUnlock = h.resolveButton(ctx, "btn_unlock", lang, btnUnlock)
-	btnExchange = h.resolveButton(ctx, "btn_exchange", lang, btnExchange)
+	btnFreeCredits = h.resolveButton(ctx, "btn_free_credits", lang, btnFreeCredits)
 	btnStars = h.resolveButton(ctx, "btn_stars", lang, btnStars)
 	btnBack = h.resolveButton(ctx, "btn_back_gate", lang, btnBack)
 
 	unlockCallback := fmt.Sprintf("unlock:%s:%s", assetType, entity)
-	exchangeCallback := fmt.Sprintf("exchange:%s:%s", assetType, entity)
 	starsCallback := fmt.Sprintf("stars_pack:%s:%s", assetType, entity)
 
 	keyboard := [][]map[string]interface{}{
@@ -1473,7 +1464,7 @@ Unlock full report cost: <b>1 Intel Credit</b>`
 	}
 
 	keyboard = append(keyboard,
-		[]map[string]interface{}{{"text": btnExchange, "callback_data": exchangeCallback}},
+		[]map[string]interface{}{{"text": btnFreeCredits, "url": "https://t.me/FragmentInvestors"}},
 		[]map[string]interface{}{{"text": btnStars, "callback_data": starsCallback}},
 		[]map[string]interface{}{{"text": btnBack, "callback_data": "nav:menu"}},
 	)
@@ -2203,7 +2194,7 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 }
 
 
-// sendExchangeConfirmView displays an explicit institutional confirmation screen before converting 150,000 Airdrop Coins into 1 Intel Credit.
+// sendExchangeConfirmView informs user that free credits can be earned via @FragmentInvestors or purchased with Stars.
 func (h *WebhookHandler) sendExchangeConfirmView(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, returnAssetType string, returnEntity string, messageID *int, threadID *int) {
 	tg := h.getBotClient(bot)
 	if tg == nil {
@@ -2213,24 +2204,7 @@ func (h *WebhookHandler) sendExchangeConfirmView(ctx context.Context, bot *repos
 	userLang, _ := h.db.GetUserLanguage(ctx, userID)
 	lang := i18n.DetectLanguage(userLang)
 
-	// Flush pending taps before reading stats so Redis batch taps are safely committed
-	if h.profileService != nil {
-		_ = h.profileService.FlushUserPendingTaps(ctx, userID)
-	}
-	if h.cache != nil && h.cache.Client != nil {
-		_ = h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID)).Err()
-	}
-
-	var airdropCoins float64 = 0
 	var intelCredits int = 0
-	if h.profileService != nil {
-		stats, err := h.profileService.GetStats(ctx, userID)
-		if err == nil && stats != nil {
-			airdropCoins = stats.AirdropCoins
-			intelCredits = stats.IntelCredits
-		}
-	}
-
 	if h.intelCreditService == nil && h.db != nil {
 		h.intelCreditService = intelcredit.NewIntelCreditService(h.db)
 	}
@@ -2240,275 +2214,102 @@ func (h *WebhookHandler) sendExchangeConfirmView(ctx context.Context, bot *repos
 		}
 	}
 
-	costCoins := config.Economics.CreditsCoinsPerCredit
-	formattedCost := formatNumberWithCommas(costCoins)
-	formattedBalance := formatNumberWithCommas(int(airdropCoins))
-
-	remainingCoins := airdropCoins - float64(costCoins)
-	var formattedRemaining string
-	if remainingCoins >= 0 {
-		formattedRemaining = formatNumberWithCommas(int(remainingCoins)) + " سکه"
-	} else {
-		deficit := float64(costCoins) - airdropCoins
-		formattedRemaining = fmt.Sprintf("⚠️ کسری %s سکه", formatNumberWithCommas(int(deficit)))
-	}
-
-	var text, btnConfirm, btnCancel string
+	var text, btnFreeCredits, btnBuyStars, btnBack string
 	switch lang {
 	case "fa":
-		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">🔄</tg-emoji> <b>تأیید تبدیل سکه به کریدت تحلیلی | Confirmation</b>
+		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>دریافت کریدت تحلیلی | Intel Credits</b>
 
-آیا مایلید <b>سکه ایردراپ</b> خود را به <b>کریدت تحلیلی (Intel Credit)</b> تبدیل کنید؟
+موجودی فعلی شما: <b>%d کریدت</b>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>هزینه هر کریدت:</b> <code>%s</code> سکه
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>دریافتی:</b> <code>+1</code> تا چند کریدت تحلیلی
-💰 <b>موجودی فعلی سکه شما:</b> <code>%s</code> سکه
-📊 <b>موجودی فعلی کریدت:</b> <code>%d</code> کریدت
-📉 <b>وضعیت موجودی پس از کسر ۱ واحد:</b> <code>%s</code>
-━━━━━━━━━━━━━━━━━━━
-<i>ℹ️ نکته: با هر کریدت تحلیلی می‌توانید یک گزارش کامل و موشکافانه از ارزش‌گذاری، ریسک برند و کمیابی صفات دارایی‌های تلگرام را در ربات بازگشایی نمایید.</i>`,
-			CustomEmojiRefresh,
-			CustomEmojiCoin, formattedCost,
-			CustomEmojiBolt,
-			formattedBalance,
-			intelCredits,
-			formattedRemaining)
+💬 <b>دریافت کریدت کاملاً رایگان:</b>
+با فعالیت در گروه رسمی <b>@FragmentInvestors</b> می‌توانید کریدت نامحدود دریافت کنید:
+• <b>هر ۱ پیام در گروه = ۱ کریدت تحلیلی رایگان!</b>
+• <b>به ازای هر ۲ بوست گروه = روزانه ۱ کریدت رایگان!</b>
 
-		btnConfirm = fmt.Sprintf("✅ بله، ۱ کریدت (%s سکه)", formattedCost)
-		btnCancel = "❌ انصراف / بازگشت"
-
-	case "ar":
-		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">🔄</tg-emoji> <b>تأكيد تحويل العملات إلى رصيد تحليلي | Confirmation</b>
-
-هل أنت متأكد من رغبتك في تحويل عملات الإنزال إلى <b>رصيد تحليلي (Intel Credit)</b>؟
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>تكلفة التحويل لكل رصيد:</b> <code>%s</code> عملة
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>الرصيد المكتسب:</b> <code>+1</code> أو أكثر
-💰 <b>رصيدك الحالي من العملات:</b> <code>%s</code> عملة
-📊 <b>رصيدك الحالي من الأرصدة:</b> <code>%d</code> رصيد
-📉 <b>الرصيد بعد خصم رصيد واحد:</b> <code>%s</code>
-━━━━━━━━━━━━━━━━━━━
-<i>ℹ️ ملاحظة: يتيح لك كل رصيد تحليلي فتح تقرير شامل ومفصل لتقييم الأصول ونسبة ندرتها في تيليجرام.</i>`,
-			CustomEmojiRefresh,
-			CustomEmojiCoin, formattedCost,
-			CustomEmojiBolt,
-			formattedBalance,
-			intelCredits,
-			formattedRemaining)
-
-		btnConfirm = fmt.Sprintf("✅ نعم، 1 رصيد (%s عملة)", formattedCost)
-		btnCancel = "❌ إلغاء / رجوع"
+⭐ همچنین می‌توانید بسته‌های اعتباری را مستقیماً با <b>Telegram Stars</b> خریداری نمایید.`,
+			CustomEmojiBolt, intelCredits)
+		btnFreeCredits = "💬 ورود و چت در گروه (@FragmentInvestors)"
+		btnBuyStars = "⭐ خرید کریدت با Telegram Stars"
+		btnBack = "🔙 بازگشت"
 
 	case "ru":
-		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">🔄</tg-emoji> <b>Подтверждение обмена монет | Confirmation</b>
+		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Получение Intel Credits</b>
 
-Вы хотите обменять монеты Airdrop на <b>аналитические кредиты (Intel Credit)</b>?
+Ваш текущий баланс: <b>%d кредитов</b>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>Стоимость 1 кредита:</b> <code>%s</code> монет
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Начисление:</b> <code>+1</code> или более
-💰 <b>Текущий баланс монет:</b> <code>%s</code>
-📊 <b>Текущие кредиты:</b> <code>%d</code>
-📉 <b>Остаток после списания 1 кредита:</b> <code>%s</code>
-━━━━━━━━━━━━━━━━━━━
-<i>ℹ️ Кредиты позволяют открывать полные отчеты по оценке стоимости и редкости активов Telegram.</i>`,
-			CustomEmojiRefresh,
-			CustomEmojiCoin, formattedCost,
-			CustomEmojiBolt,
-			formattedBalance,
-			intelCredits,
-			formattedRemaining)
+💬 <b>Бесплатные кредиты:</b>
+Проявляйте активность в нашей группе <b>@FragmentInvestors</b>:
+• <b>1 сообщение в группе = 1 бесплатный Intel Credit!</b>
+• <b>Каждые 2 буста группы = 1 кредит ежедневно!</b>
 
-		btnConfirm = fmt.Sprintf("✅ Обменять 1 кредит (%s)", formattedCost)
-		btnCancel = "❌ Отмена"
+⭐ Также вы можете приобрести кредиты за <b>Telegram Stars</b>.`,
+			CustomEmojiBolt, intelCredits)
+		btnFreeCredits = "💬 Чат в группе (@FragmentInvestors)"
+		btnBuyStars = "⭐ Купить за Telegram Stars"
+		btnBack = "🔙 Назад"
 
 	case "zh":
-		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">🔄</tg-emoji> <b>代币兑换确认 | Confirmation</b>
+		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>获取分析信用点 (Intel Credits)</b>
 
-您确定要将空投代币兑换为 <b>分析信用点 (Intel Credit)</b> 吗？
+当前余额: <b>%d 信用点</b>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>每点成本:</b> <code>%s</code> 代币
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>获得信用点:</b> <code>+1</code> 或更多
-💰 <b>当前代币余额:</b> <code>%s</code>
-📊 <b>当前信用点:</b> <code>%d</code>
-📉 <b>扣除 1 点后余额:</b> <code>%s</code>
-━━━━━━━━━━━━━━━━━━━
-<i>ℹ️ 每个分析信用点可解锁一份关于 Telegram 资产稀缺度与市场估值的专业报告。</i>`,
-			CustomEmojiRefresh,
-			CustomEmojiCoin, formattedCost,
-			CustomEmojiBolt,
-			formattedBalance,
-			intelCredits,
-			formattedRemaining)
+💬 <b>免费获取信用点:</b>
+在官方社群 <b>@FragmentInvestors</b> 中活跃交流:
+• <b>群内每发送 1 条消息 = 获得 1 个免费分析信用点！</b>
+• <b>群组每提供 2 次 Boost 助力 = 每日获赠 1 个信用点！</b>
 
-		btnConfirm = fmt.Sprintf("✅ 兑换 1 点 (%s 代币)", formattedCost)
-		btnCancel = "❌ 取消返回"
+⭐ 您也可以直接使用 <b>Telegram Stars</b> 购买信用点礼包。`,
+			CustomEmojiBolt, intelCredits)
+		btnFreeCredits = "💬 进入群组交流 (@FragmentInvestors)"
+		btnBuyStars = "⭐ 使用 Telegram Stars 购买"
+		btnBack = "🔙 返回"
 
 	default:
-		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">🔄</tg-emoji> <b>Exchange Confirmation</b>
+		text = fmt.Sprintf(`<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Get Intel Credits</b>
 
-Are you sure you want to exchange Airdrop Coins for <b>Intel Credits</b>?
+Current Balance: <b>%d Credits</b>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>Cost per Credit:</b> <code>%s</code> Coins
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Credits Received:</b> <code>+1</code> or more
-💰 <b>Current Coin Balance:</b> <code>%s</code>
-📊 <b>Current Credits:</b> <code>%d</code>
-📉 <b>Balance After 1 Credit:</b> <code>%s</code>
-━━━━━━━━━━━━━━━━━━━
-<i>ℹ️ Intel Credits unlock institutional valuations and rarity metrics for Telegram digital assets.</i>`,
-			CustomEmojiRefresh,
-			CustomEmojiCoin, formattedCost,
-			CustomEmojiBolt,
-			formattedBalance,
-			intelCredits,
-			formattedRemaining)
+💬 <b>Earn Free Credits:</b>
+Engage actively in our official group <b>@FragmentInvestors</b>:
+• <b>Every 1 message in the group = 1 Free Intel Credit!</b>
+• <b>Every 2 group boosts = 1 Free Credit daily!</b>
 
-		btnConfirm = fmt.Sprintf("✅ Yes, 1 Credit (%s Coins)", formattedCost)
-		btnCancel = "❌ Cancel / Back"
+⭐ You can also purchase credit packs directly using <b>Telegram Stars</b>.`,
+			CustomEmojiBolt, intelCredits)
+		btnFreeCredits = "💬 Chat in Group (@FragmentInvestors)"
+		btnBuyStars = "⭐ Buy with Telegram Stars"
+		btnBack = "🔙 Back"
 	}
-
-	btnCancel = h.resolveButton(ctx, "btn_back", lang, btnCancel)
-	text = h.resolveText(ctx, "exchange_confirm", lang, text)
-	text = strings.ReplaceAll(text, "{coins}", formattedBalance)
-	text = strings.ReplaceAll(text, "{credits}", fmt.Sprintf("%d", intelCredits))
-	text = strings.ReplaceAll(text, "{cost_coins}", formattedCost)
 
 	backCallback := "nav:profile"
 	if returnAssetType != "" && returnEntity != "" {
 		backCallback = fmt.Sprintf("precheck:%s:%s", returnAssetType, returnEntity)
 	}
 
-	var keyboard [][]map[string]interface{}
+	starsCallback := "buy_credits:profile"
+	if returnAssetType != "" && returnEntity != "" {
+		starsCallback = fmt.Sprintf("stars_pack:%s:%s", returnAssetType, returnEntity)
+	}
 
-	if airdropCoins < float64(costCoins) {
-		// Insufficient coins: hide exchange buttons, display deficit and Stars option
-		deficit := float64(costCoins) - airdropCoins
-		var deficitText, btnBuyStars string
-		switch lang {
-		case "fa":
-			deficitText = fmt.Sprintf("⚠️ برای تبدیل حداقل ۱ کریدت، <b>%s سکه دیگر</b> نیاز دارید.", formatNumberWithCommas(int(deficit)))
-			btnBuyStars = "⭐ خرید کریدت با Telegram Stars"
-		case "ar":
-			deficitText = fmt.Sprintf("⚠️ أنت بحاجة إلى <b>%s عملة إضافية</b> لتحويل رصيد واحد.", formatNumberWithCommas(int(deficit)))
-			btnBuyStars = "⭐ شراء أرصدة عبر Telegram Stars"
-		case "ru":
-			deficitText = fmt.Sprintf("⚠️ Вам не хватает <b>%s монет</b> для обмена на 1 кредит.", formatNumberWithCommas(int(deficit)))
-			btnBuyStars = "⭐ Купить за Telegram Stars"
-		case "zh":
-			deficitText = fmt.Sprintf("⚠️ 兑换 1 个信用点还差 <b>%s 代币</b>。", formatNumberWithCommas(int(deficit)))
-			btnBuyStars = "⭐ 使用 Telegram Stars 购买"
-		default:
-			deficitText = fmt.Sprintf("⚠️ You need <b>%s more coins</b> to exchange for 1 credit.", formatNumberWithCommas(int(deficit)))
-			btnBuyStars = "⭐ Buy with Telegram Stars"
-		}
-		text += "\n\n" + deficitText
-
-		starsCallback := "buy_credits:profile"
-		if returnAssetType != "" && returnEntity != "" {
-			starsCallback = fmt.Sprintf("stars_pack:%s:%s", returnAssetType, returnEntity)
-		}
-
-		keyboard = [][]map[string]interface{}{
+	keyboard := [][]map[string]interface{}{
+		{
 			{
-				{
-					"text":          btnBuyStars,
-					"callback_data": starsCallback,
-				},
+				"text": btnFreeCredits,
+				"url":  "https://t.me/FragmentInvestors",
 			},
+		},
+		{
 			{
-				{
-					"text":          btnCancel,
-					"callback_data": backCallback,
-				},
+				"text":          btnBuyStars,
+				"callback_data": starsCallback,
 			},
-		}
-	} else {
-		// Sufficient coins: offer 1, 3 (if eligible), and Max
-		maxCredits := int(airdropCoins) / costCoins
-		if maxCredits < 1 {
-			maxCredits = 1
-		}
-
-		makeCallback := func(n int) string {
-			if returnAssetType != "" && returnEntity != "" {
-				// Task 7: callback_data must be <= 64 bytes.
-				// Store assetType and entity in Redis for 10 min under an 8-char short token.
-				if h.cache != nil && h.cache.Client != nil {
-					shortToken := uuid.New().String()[:8]
-					redisKey := fmt.Sprintf("ex_tok:%s", shortToken)
-					dataVal := fmt.Sprintf("%s:%s", returnAssetType, returnEntity)
-					if setErr := h.cache.Client.Set(ctx, redisKey, dataVal, 10*time.Minute).Err(); setErr == nil {
-						return fmt.Sprintf("confirm_exchange_n:%d:t:%s", n, shortToken)
-					}
-				}
-				cb := fmt.Sprintf("confirm_exchange_n:%d:%s:%s", n, returnAssetType, returnEntity)
-				if len(cb) <= 64 {
-					return cb
-				}
-			}
-			return fmt.Sprintf("confirm_exchange_n:%d:profile", n)
-		}
-
-		// Row 1: 1 credit button
-		keyboard = append(keyboard, []map[string]interface{}{
+		},
+		{
 			{
-				"text":          btnConfirm,
-				"callback_data": makeCallback(1),
-			},
-		})
-
-		// Row 2: 3 Credits and Max credits (if user can afford > 1)
-		var multiRow []map[string]interface{}
-		if maxCredits >= 3 {
-			var btn3 string
-			switch lang {
-			case "fa":
-				btn3 = fmt.Sprintf("⚡ ۳ کریدت (%s)", formatNumberWithCommas(costCoins*3))
-			case "ru":
-				btn3 = fmt.Sprintf("⚡ 3 кредита (%s)", formatNumberWithCommas(costCoins*3))
-			case "zh":
-				btn3 = fmt.Sprintf("⚡ 3 个信用点 (%s)", formatNumberWithCommas(costCoins*3))
-			default:
-				btn3 = fmt.Sprintf("⚡ 3 Credits (%s)", formatNumberWithCommas(costCoins*3))
-			}
-			multiRow = append(multiRow, map[string]interface{}{
-				"text":          btn3,
-				"callback_data": makeCallback(3),
-			})
-		}
-
-		if maxCredits > 1 && maxCredits != 3 {
-			var btnMax string
-			switch lang {
-			case "fa":
-				btnMax = fmt.Sprintf("🚀 حداکثر: %d کریدت (%s)", maxCredits, formatNumberWithCommas(costCoins*maxCredits))
-			case "ru":
-				btnMax = fmt.Sprintf("🚀 Макс: %d кредитов (%s)", maxCredits, formatNumberWithCommas(costCoins*maxCredits))
-			case "zh":
-				btnMax = fmt.Sprintf("🚀 最大: %d 点 (%s)", maxCredits, formatNumberWithCommas(costCoins*maxCredits))
-			default:
-				btnMax = fmt.Sprintf("🚀 Max: %d Credits (%s)", maxCredits, formatNumberWithCommas(costCoins*maxCredits))
-			}
-			multiRow = append(multiRow, map[string]interface{}{
-				"text":          btnMax,
-				"callback_data": makeCallback(maxCredits),
-			})
-		}
-
-		if len(multiRow) > 0 {
-			keyboard = append(keyboard, multiRow)
-		}
-
-		keyboard = append(keyboard, []map[string]interface{}{
-			{
-				"text":          btnCancel,
+				"text":          btnBack,
 				"callback_data": backCallback,
 			},
-		})
+		},
 	}
 
 	markup := map[string]interface{}{
@@ -2518,372 +2319,16 @@ Are you sure you want to exchange Airdrop Coins for <b>Intel Credits</b>?
 	h.sendOrEditMessage(ctx, tg, chatID, messageID, text, markup, threadID)
 }
 
-// handleCreditExchange converts user's airdrop coins into n Intel Credits and updates view
+// handleCreditExchange informs user about free group credits and routes to stars/group
 func (h *WebhookHandler) handleCreditExchange(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, returnAssetType string, returnEntity string, messageID *int, threadID *int, callbackQueryID string, count int) {
 	tg := h.getBotClient(bot)
 	if tg == nil {
 		return
 	}
-
-	if count <= 0 {
-		count = 1
-	}
-
-	userLang, _ := h.db.GetUserLanguage(ctx, userID)
-	lang := i18n.DetectLanguage(userLang)
-
-	costPerCredit := config.Economics.CreditsCoinsPerCredit
-	totalCostCoins := costPerCredit * count
-	formattedTotalCost := formatNumberWithCommas(totalCostCoins)
-
-	// 1. Double-click prevention: Redis SETNX with 5-second TTL per user
-	if h.cache != nil && h.cache.Client != nil {
-		lockKey := fmt.Sprintf("exchange_lock:%d", userID)
-		acquired, setErr := h.cache.Client.SetNX(ctx, lockKey, 1, 5*time.Second).Result()
-		if setErr == nil && !acquired {
-			// Double-click prevented within 5s window
-			if callbackQueryID != "" {
-				_ = tg.AnswerCallbackQuery(ctx, callbackQueryID, "⏳ در حال پردازش تبدیل...", false)
-			}
-			return
-		}
-	}
-
-	// 2. Flush pending Redis batch taps to DB and invalidate profile cache before balance check / deduction
-	if h.profileService != nil {
-		_ = h.profileService.FlushUserPendingTaps(ctx, userID)
-	}
-	if h.cache != nil && h.cache.Client != nil {
-		_ = h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID)).Err()
-	}
-
-	storeSvc := h.intelStoreService
-	if storeSvc == nil {
-		storeSvc = intelcredit.NewStoreService(h.db)
-	}
-
-	// 3. Atomically perform FIFO coin deduction and batch creation with idempotency key
-	idemKey := callbackQueryID
-	if idemKey == "" {
-		idemKey = fmt.Sprintf("ex:%d:%d:%d", userID, count, time.Now().Unix())
-	}
-	res, err := storeSvc.ExchangeCoinsN(ctx, userID, count, idemKey)
-
-	var btnStars, btnBack, btnUnlock, btnProfile, btnRetry string
-	switch lang {
-	case "fa":
-		btnStars = "⭐ خرید کریدت با Telegram Stars"
-		btnBack = "🔙 بازگشت به منو"
-		btnUnlock = "🔓 باز کردن گزارش هم‌اکنون"
-		btnProfile = "👤 مشاهده پروفایل"
-		btnRetry = "🔄 تلاش مجدد"
-	case "ar":
-		btnStars = "⭐ شراء أرصدة عبر Telegram Stars"
-		btnBack = "🔙 العودة للقائمة"
-		btnUnlock = "🔓 فتح التقرير الآن"
-		btnProfile = "👤 الملف الشخصي"
-		btnRetry = "🔄 إعادة المحاولة"
-	case "ru":
-		btnStars = "⭐ Купить за Telegram Stars"
-		btnBack = "🔙 Назад"
-		btnUnlock = "🔓 Открыть отчет сейчас"
-		btnProfile = "👤 Мой профиль"
-		btnRetry = "🔄 Повторить"
-	case "zh":
-		btnStars = "⭐ 使用 Telegram Stars 购买"
-		btnBack = "🔙 返回"
-		btnUnlock = "🔓 立即查看分析报告"
-		btnProfile = "👤 个人中心"
-		btnRetry = "🔄 重试"
-	default:
-		btnStars = "⭐ Buy with Telegram Stars"
-		btnBack = "🔙 Back"
-		btnUnlock = "🔓 Unlock Report Now"
-		btnProfile = "👤 Profile"
-		btnRetry = "🔄 Retry"
-	}
-
-	btnStars = h.resolveButton(ctx, "btn_stars", lang, btnStars)
-	btnBack = h.resolveButton(ctx, "btn_back", lang, btnBack)
-	btnUnlock = h.resolveButton(ctx, "btn_unlock", lang, btnUnlock)
-	btnProfile = h.resolveButton(ctx, "btn_profile", lang, btnProfile)
-	btnRetry = h.resolveButton(ctx, "btn_retry", lang, btnRetry)
-
-	if err != nil {
-		if errors.Is(err, repository.ErrInsufficientCoins) {
-			// A. Insufficient coins: display current balance + deficit
-			var currentCoins float64
-			if h.profileService != nil {
-				if stats, stErr := h.profileService.GetStats(ctx, userID); stErr == nil && stats != nil {
-					currentCoins = stats.AirdropCoins
-				}
-			}
-			deficit := float64(totalCostCoins) - currentCoins
-			if deficit < 0 {
-				deficit = 0
-			}
-
-			if callbackQueryID != "" {
-				var alertText string
-				switch lang {
-				case "fa":
-					alertText = "⚠️ موجودی سکه شما برای این تبدیل کافی نیست."
-				case "ru":
-					alertText = "⚠️ Недостаточно монет для выполнения обмена."
-				case "zh":
-					alertText = "⚠️ 代币余额不足以完成此次兑换。"
-				default:
-					alertText = "⚠️ Insufficient coins for this exchange."
-				}
-				_ = tg.AnswerCallbackQuery(ctx, callbackQueryID, alertText, true)
-			}
-
-			var failMsg string
-			switch lang {
-			case "fa":
-				failMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">❌</tg-emoji> <b>موجودی سکه کافی نیست!</b>
-
-برای تبدیل به <b>%d کریدت تحلیلی</b>، تعداد <b>%s سکه ایردراپ</b> مورد نیاز است.
-💰 موجودی فعلی شما: <code>%s</code> سکه
-⚠️ کسری موجودی: <code>%s</code> سکه
-
-می‌توانید با انجام تسک‌ها در مینی‌اپ سکه کسب کنید یا مستقیماً از بسته‌های تلگرام استارز استفاده نمایید.`,
-					CustomEmojiCross, count, formattedTotalCost, formatNumberWithCommas(int(currentCoins)), formatNumberWithCommas(int(deficit)))
-			case "ru":
-				failMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">❌</tg-emoji> <b>Недостаточно монет!</b>
-
-Для обмена на <b>%d кредитов</b> требуется <b>%s монет</b>.
-💰 Текущий баланс: <code>%s</code>
-⚠️ Не хватает: <code>%s</code>`,
-					CustomEmojiCross, count, formattedTotalCost, formatNumberWithCommas(int(currentCoins)), formatNumberWithCommas(int(deficit)))
-			case "zh":
-				failMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">❌</tg-emoji> <b>代币余额不足！</b>
-
-兑换 <b>%d 个信用点</b> 需要 <b>%s 枚代币</b>。
-💰 当前代币: <code>%s</code>
-⚠️ 差额不足: <code>%s</code>`,
-					CustomEmojiCross, count, formattedTotalCost, formatNumberWithCommas(int(currentCoins)), formatNumberWithCommas(int(deficit)))
-			default:
-				failMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">❌</tg-emoji> <b>Insufficient Coins!</b>
-
-You need <b>%s coins</b> for <b>%d Intel Credits</b>.
-💰 Current: <code>%s</code>
-⚠️ Deficit: <code>%s</code>`,
-					CustomEmojiCross, formattedTotalCost, count, formatNumberWithCommas(int(currentCoins)), formatNumberWithCommas(int(deficit)))
-			}
-
-			starsCallback := "buy_credits:profile"
-			backCallback := "nav:profile"
-			if returnAssetType != "" && returnEntity != "" {
-				starsCallback = fmt.Sprintf("stars_pack:%s:%s", returnAssetType, returnEntity)
-				backCallback = fmt.Sprintf("precheck:%s:%s", returnAssetType, returnEntity)
-			}
-
-			markup := map[string]interface{}{
-				"inline_keyboard": [][]map[string]interface{}{
-					{
-						{
-							"text":          btnStars,
-							"callback_data": starsCallback,
-						},
-					},
-					{
-						{
-							"text":          btnBack,
-							"callback_data": backCallback,
-						},
-					},
-				},
-			}
-			h.sendOrEditMessage(ctx, tg, chatID, messageID, failMsg, markup, threadID)
-			return
-		}
-
-		// B. Transient / System error
-		slog.Error("exchange coins execution failed", "user_id", userID, "count", count, "err", err)
-		if callbackQueryID != "" {
-			var errAlert string
-			switch lang {
-			case "fa":
-				errAlert = "⚠️ خطای موقت در اتصال، لطفاً دوباره تلاش کنید."
-			case "ru":
-				errAlert = "⚠️ Временная ошибка связи. Пожалуйста, повторите."
-			case "zh":
-				errAlert = "⚠️ 暂时性连接错误，请稍后重试。"
-			default:
-				errAlert = "⚠️ Transient error, please try again."
-			}
-			_ = tg.AnswerCallbackQuery(ctx, callbackQueryID, errAlert, true)
-		}
-
-		var retryCallback string
-		if returnAssetType != "" && returnEntity != "" {
-			retryCallback = fmt.Sprintf("confirm_exchange_n:%d:%s:%s", count, returnAssetType, returnEntity)
-		} else {
-			retryCallback = fmt.Sprintf("confirm_exchange_n:%d:profile", count)
-		}
-
-		var sysErrMsg string
-		switch lang {
-		case "fa":
-			sysErrMsg = "⚠️ در پردازش تبدیل شما خطای موقت رخ داد. لطفاً چند لحظه بعد دکمه تلاش مجدد را بزنید."
-		case "ru":
-			sysErrMsg = "⚠️ Произошла временная ошибка при обработке обмена. Пожалуйста, нажмите кнопку повтора."
-		case "zh":
-			sysErrMsg = "⚠️ 兑换处理过程中发生临时错误，请点击重试。"
-		default:
-			sysErrMsg = "⚠️ A transient error occurred during exchange processing. Please click retry."
-		}
-
-		markup := map[string]interface{}{
-			"inline_keyboard": [][]map[string]interface{}{
-				{
-					{
-						"text":          btnRetry,
-						"callback_data": retryCallback,
-					},
-				},
-				{
-					{
-						"text":          btnBack,
-						"callback_data": "nav:menu",
-					},
-				},
-			},
-		}
-		h.sendOrEditMessage(ctx, tg, chatID, messageID, sysErrMsg, markup, threadID)
-		return
-	}
-
-	// 4. Success: Invalidate profile stats cache immediately
-	if h.cache != nil && h.cache.Client != nil {
-		_ = h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID)).Err()
-	}
-
-	// 5. Answer callback query with alert popup (showAlert=true)
-	// Task 6 format: "✅ +N credit | New balance: X | Coins left: Y"
 	if callbackQueryID != "" {
-		coinsLeftFormatted := formatNumberWithCommas(int(res.NewCoinBalance))
-		succAlert := fmt.Sprintf("✅ +%d credit | New balance: %d | Coins left: %s", count, res.NewCreditBalance, coinsLeftFormatted)
-		_ = tg.AnswerCallbackQuery(ctx, callbackQueryID, succAlert, true)
+		_ = tg.AnswerCallbackQuery(ctx, callbackQueryID, "💬 برای دریافت کریدت رایگان در گروه @FragmentInvestors پیام بفرستید!", true)
 	}
-
-	// 6. If exchange was triggered from an asset pre-check gate, re-render the precheck gate directly with updated numbers!
-	if returnAssetType != "" && returnEntity != "" {
-		h.sendPreCheckGate(ctx, bot, chatID, userID, returnAssetType, returnEntity, messageID, threadID)
-		return
-	}
-
-	// Otherwise, build detailed receipt message for profile exchange
-	nowFormatted := time.Now().UTC().Format("2006-01-02 15:04:05 UTC")
-	batchShort := res.BatchID.String()
-	if len(batchShort) > 8 {
-		batchShort = batchShort[:8]
-	}
-
-	var succMsg string
-	switch lang {
-	case "fa":
-		succMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">✅</tg-emoji> <b>رسید رسمی تبدیل سکه به کریدت تحلیلی</b>
-
-عملیات تبدیل با موفقیت در لایه دیتابیس ثبت و اعمال گردید:
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>سکه‌های کسرشده:</b> <code>-%s</code> سکه
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>کریدت اضافه‌شده:</b> <code>+%d</code> کریدت تحلیلی
-💰 <b>مانده سکه ایردراپ:</b> <code>%s</code> سکه
-📊 <b>موجودی جدید کریدت:</b> <code>%d</code> کریدت
-🆔 <b>شناسه دسته (Batch):</b> <code>#%s</code>
-🕒 <b>زمان ثبت:</b> <code>%s</code>
-━━━━━━━━━━━━━━━━━━━
-<i>💡 با کریدت‌های فعال خود می‌توانید هر گزارش تخصصی و تحلیل کمیابی در پلتفرم iFragment را مشاهده فرمایید.</i>`,
-			CustomEmojiCheck,
-			CustomEmojiCoin, formattedTotalCost,
-			CustomEmojiBolt, count,
-			formatNumberWithCommas(int(res.NewCoinBalance)),
-			res.NewCreditBalance,
-			batchShort,
-			nowFormatted)
-	case "ru":
-		succMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">✅</tg-emoji> <b>Квитанция обмена монет на кредиты</b>
-
-Операция успешно зафиксирована:
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>Списано монет:</b> <code>-%s</code>
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Начислено кредитов:</b> <code>+%d</code>
-💰 <b>Остаток монет:</b> <code>%s</code>
-📊 <b>Новый баланс кредитов:</b> <code>%d</code>
-🆔 <b>ID пакета:</b> <code>#%s</code>
-🕒 <b>Время:</b> <code>%s</code>
-━━━━━━━━━━━━━━━━━━━`,
-			CustomEmojiCheck,
-			CustomEmojiCoin, formattedTotalCost,
-			CustomEmojiBolt, count,
-			formatNumberWithCommas(int(res.NewCoinBalance)),
-			res.NewCreditBalance,
-			batchShort,
-			nowFormatted)
-	case "zh":
-		succMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">✅</tg-emoji> <b>代币兑换凭单</b>
-
-兑换已成功完成并上账：
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>扣除代币:</b> <code>-%s</code>
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>新增信用点:</b> <code>+%d</code>
-💰 <b>剩余代币:</b> <code>%s</code>
-📊 <b>最新信用点余额:</b> <code>%d</code>
-🆔 <b>批次编号:</b> <code>#%s</code>
-🕒 <b>记录时间:</b> <code>%s</code>
-━━━━━━━━━━━━━━━━━━━`,
-			CustomEmojiCheck,
-			CustomEmojiCoin, formattedTotalCost,
-			CustomEmojiBolt, count,
-			formatNumberWithCommas(int(res.NewCoinBalance)),
-			res.NewCreditBalance,
-			batchShort,
-			nowFormatted)
-	default:
-		succMsg = fmt.Sprintf(`<tg-emoji emoji-id="%s">✅</tg-emoji> <b>Exchange Receipt</b>
-
-Operation successfully processed:
-
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">🪙</tg-emoji> <b>Deducted Coins:</b> <code>-%s</code>
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Credits Granted:</b> <code>+%d</code>
-💰 <b>Remaining Coins:</b> <code>%s</code>
-📊 <b>New Credit Balance:</b> <code>%d</code>
-🆔 <b>Batch ID:</b> <code>#%s</code>
-🕒 <b>Timestamp:</b> <code>%s</code>
-━━━━━━━━━━━━━━━━━━━`,
-			CustomEmojiCheck,
-			CustomEmojiCoin, formattedTotalCost,
-			CustomEmojiBolt, count,
-			formatNumberWithCommas(int(res.NewCoinBalance)),
-			res.NewCreditBalance,
-			batchShort,
-			nowFormatted)
-	}
-
-	markup := map[string]interface{}{
-		"inline_keyboard": [][]map[string]interface{}{
-			{
-				{
-					"text":          btnProfile,
-					"callback_data": "nav:profile",
-				},
-			},
-			{
-				{
-					"text":          btnBack,
-					"callback_data": "nav:menu",
-				},
-			},
-		},
-	}
-
-	h.sendOrEditMessage(ctx, tg, chatID, messageID, succMsg, markup, threadID)
+	h.sendExchangeConfirmView(ctx, bot, chatID, userID, returnAssetType, returnEntity, messageID, threadID)
 }
 
 // sendStarsPacksList shows available credit packs to purchase with Telegram Stars

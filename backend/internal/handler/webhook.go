@@ -65,6 +65,7 @@ type WebhookHandler struct {
 	settingsRepo       *repository.SettingsRepo
 	ownerRepo          *repository.OwnerRepo
 	templateRepo       *repository.BotTemplateRepo
+	groupLeaderboardSvc *service.GroupLeaderboardService
 	botClients         sync.Map // map[string]*telegram.BotAPIClient keyed by bot token
 }
 
@@ -137,6 +138,10 @@ func (h *WebhookHandler) SetPremiumGroupService(s *raffle.PremiumGroupService) {
 	h.premiumGroupSvc = s
 }
 
+func (h *WebhookHandler) SetGroupLeaderboardService(s *service.GroupLeaderboardService) {
+	h.groupLeaderboardSvc = s
+}
+
 func NewWebhookHandler(db *repository.Database, cache *repository.Cache, botRepo *repository.BotRepo, raffleSvc *raffle.RaffleService, premiumGroupSvc ...*raffle.PremiumGroupService) *WebhookHandler {
 	var pgs *raffle.PremiumGroupService
 	if len(premiumGroupSvc) > 0 && premiumGroupSvc[0] != nil {
@@ -207,6 +212,10 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 			}
 		} else if update.EditedMessage != nil {
 			h.handleRegularMessageUpdate(ctx, bot, update.EditedMessage, true)
+		} else if update.ChatBoost != nil {
+			h.handleChatBoost(ctx, bot, update.ChatBoost)
+		} else if update.RemovedChatBoost != nil {
+			h.handleRemovedChatBoost(ctx, bot, update.RemovedChatBoost)
 		}
 	}()
 
@@ -786,6 +795,11 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 				_ = h.premiumGroupSvc.ProcessMemberJoinRealtime(bgCtx, tgClient, msg.Chat.ID, user)
 			}(uComp)
 			return
+		}
+
+		// Record message in Leaderboard & grant 1 Intel Credit (1 message = 1 credit)
+		if !msg.From.IsBot && h.groupLeaderboardSvc != nil {
+			_ = h.groupLeaderboardSvc.RecordGroupMessage(ctx, msg.From.ID, msg.From.Username, msg.From.FirstName, "", msg.MessageID)
 		}
 
 		// B. Premium user: Record message ticket for daily raffle & send ephemeral ticket receipt
@@ -1391,4 +1405,40 @@ func appendStartParam(base, param string) string {
 		return fmt.Sprintf("%s&startapp=%s", base, param)
 	}
 	return fmt.Sprintf("%s?startapp=%s", base, param)
+}
+
+func (h *WebhookHandler) handleChatBoost(ctx context.Context, bot *repository.ManagedBot, update *ChatBoostUpdated) {
+	if update == nil || h.groupLeaderboardSvc == nil {
+		return
+	}
+	if !raffle.IsFragmentInvestorsGroup(update.Chat.Title, update.Chat.Username) {
+		return
+	}
+	user := update.Boost.Source.User
+	if user == nil || user.ID <= 0 {
+		return
+	}
+	tgClient := h.getBotClient(bot)
+	if tgClient != nil {
+		_, _ = h.groupLeaderboardSvc.SyncUserBoosts(ctx, tgClient, update.Chat.ID, user.ID, user.Username, user.FirstName, "")
+	} else {
+		_ = h.groupLeaderboardSvc.UpdateUserBoostCount(ctx, user.ID, user.Username, user.FirstName, "", 1)
+	}
+}
+
+func (h *WebhookHandler) handleRemovedChatBoost(ctx context.Context, bot *repository.ManagedBot, update *ChatBoostRemoved) {
+	if update == nil || h.groupLeaderboardSvc == nil {
+		return
+	}
+	if !raffle.IsFragmentInvestorsGroup(update.Chat.Title, update.Chat.Username) {
+		return
+	}
+	user := update.Source.User
+	if user == nil || user.ID <= 0 {
+		return
+	}
+	tgClient := h.getBotClient(bot)
+	if tgClient != nil {
+		_, _ = h.groupLeaderboardSvc.SyncUserBoosts(ctx, tgClient, update.Chat.ID, user.ID, user.Username, user.FirstName, "")
+	}
 }

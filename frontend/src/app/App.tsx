@@ -4,7 +4,7 @@ import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { createEffect, ErrorBoundary, For } from 'solid-js';
 import { routes } from '@/app/router/routes.js';
 import { t } from '@/shared/i18n/index.js';
-import { CoinCelebrationOverlay, PageTransition } from '@/shared/ui/index.js';
+import { PageTransition } from '@/shared/ui/index.js';
 import { ImpersonationBanner } from '@/widgets/owner/index.js';
 
 const PageErrorFallback = (err: any, reset: () => void) => {
@@ -104,11 +104,7 @@ const DeepLinkHandler = () => {
 					const username = startParam.substring(4);
 					if (username) navigate(`/username/report?u=${encodeURIComponent(username)}`, { replace: true });
 				} else if (startParam.startsWith('clan_')) {
-					const clanName = startParam.substring(5);
-					if (clanName) {
-						sessionStorage.setItem('pending_clan_join', clanName);
-						navigate('/airdrop', { replace: true });
-					}
+					navigate('/leaderboard', { replace: true });
 				} else if (startParam.startsWith('ach_')) {
 					navigate('/profile/achievements', { replace: true });
 				}
@@ -126,7 +122,6 @@ const AppLayout = (props: { children?: any }) => {
 		<>
 			<DeepLinkHandler />
 			{props.children}
-			<CoinCelebrationOverlay />
 		</>
 	);
 };

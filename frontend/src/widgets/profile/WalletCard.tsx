@@ -15,17 +15,8 @@ export const WalletCard: Component<Props> = (props) => {
 	const navigate = useNavigate();
 	const [showLedger, setShowLedger] = createSignal(false);
 
-	const coins = createMemo(() => props.stats?.airdropCoins || 0);
 	const credits = createMemo(() => props.stats?.intelCredits ?? props.stats?.valuationCredits ?? 0);
-	const expiryDays = createMemo(() => props.stats?.creditExpiresInDays ?? 30);
 	const subscription = createMemo(() => props.stats?.subscription);
-
-	const handleOpenShop = () => {
-		try {
-			haptic.impact('light');
-		} catch {}
-		navigate('/airdrop?tab=shop');
-	};
 
 	const handleOpenLedger = () => {
 		try {
@@ -80,34 +71,31 @@ export const WalletCard: Component<Props> = (props) => {
 
 					{/* 3-Asset Grid */}
 					<div class="grid grid-cols-3 gap-2.5 pt-1">
-						{/* 1. Airdrop Coins */}
+						{/* 1. Free Credits via Group Activity */}
 						<div class="bg-[#07090E] border border-white/5 rounded-[20px] p-3 flex flex-col justify-between gap-2 relative overflow-hidden group hover:border-[#0098EA]/30 transition-all">
 							<div class="flex flex-col gap-0.5">
 								<span class="text-[10px] font-bold text-white/40 uppercase tracking-wider">
-									{t('wallet.coins' as any) || 'Airdrop Coins'}
+									{t('wallet.groupActivity' as any) || 'گروه فرگمنت'}
 								</span>
 								<div class="flex items-baseline gap-1">
-									<span class="text-[18px] font-black text-amber-400 font-mono tracking-tight tabular-nums drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]">
-										{formatNumber(coins())}
+									<span class="text-[14px] font-black text-emerald-400 tracking-tight">
+										رایگان
 									</span>
-									<span class="text-[11px] text-amber-400/70 font-black">🪙</span>
+									<span class="text-[10px] text-emerald-400/70 font-bold">1 پیام = 1⚡</span>
 								</div>
 							</div>
 
 							<div class="flex flex-col gap-1">
 								<div class="flex items-center gap-1 text-[9px] font-bold text-white/40">
-									<span class="material-symbols-outlined text-[12px] text-amber-400/80">timer</span>
-									<span>
-										{t('wallet.expiresIn' as any, { days: expiryDays() }) ||
-											`${expiryDays()}d left`}
-									</span>
+									<span class="material-symbols-outlined text-[12px] text-emerald-400/80">groups</span>
+									<span>@FragmentInvestors</span>
 								</div>
 								<button
 									type="button"
-									onClick={handleOpenShop}
-									class="w-full py-1 rounded-[8px] bg-amber-400/15 hover:bg-amber-400/25 active:scale-95 border border-amber-400/30 text-amber-300 text-[9px] font-black tracking-wide uppercase transition-all"
+									onClick={() => navigate('/leaderboard')}
+									class="w-full py-1 rounded-[8px] bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 border border-emerald-500/30 text-emerald-300 text-[9px] font-black tracking-wide uppercase transition-all"
 								>
-									{t('wallet.shop' as any) || 'Shop'}
+									{t('navigation.leaderboard' as any) || 'لیدربورد'}
 								</button>
 							</div>
 						</div>
@@ -136,7 +124,7 @@ export const WalletCard: Component<Props> = (props) => {
 								<button
 									type="button"
 									onClick={() =>
-										props.onBuyStars ? props.onBuyStars() : navigate('/airdrop?tab=shop')
+										props.onBuyStars ? props.onBuyStars() : navigate('/leaderboard')
 									}
 									class="w-full py-1 rounded-[8px] bg-[#0098EA]/15 hover:bg-[#0098EA]/25 active:scale-95 border border-[#0098EA]/30 text-[#0098EA] text-[9px] font-black tracking-wide uppercase transition-all"
 								>
@@ -167,7 +155,7 @@ export const WalletCard: Component<Props> = (props) => {
 										<button
 											type="button"
 											onClick={() =>
-												props.onBuyStars ? props.onBuyStars() : navigate('/airdrop?tab=shop')
+												props.onBuyStars ? props.onBuyStars() : navigate('/leaderboard')
 											}
 											class="w-full py-1 rounded-[8px] bg-cyan-500/15 hover:bg-cyan-500/25 active:scale-95 border border-cyan-500/30 text-cyan-300 text-[9px] font-black tracking-wide uppercase transition-all"
 										>

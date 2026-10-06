@@ -14,7 +14,6 @@ import {
 	viewport,
 } from '@tma.js/sdk-solid';
 
-import { initStorageSync } from '@/entities/airdrop/index.js';
 import { initProfileSync, profileSettings } from '@/entities/user/index.js';
 import { checkMiniAppOrigin } from '@/shared/lib/mini-app-origin.js';
 
@@ -216,7 +215,6 @@ export async function init(options: {
 	}
 
 	// Initialize store persistence
-	initStorageSync();
 	initProfileSync();
 
 	// Wrap hapticFeedback methods to respect user preferences
