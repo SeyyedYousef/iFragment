@@ -17,9 +17,11 @@ export const LeaderboardPage: Component = () => {
 	const [selectedUser, setSelectedUser] = createSignal<GroupLeaderboardEntry | null>(null);
 	const [highlightedUserId, setHighlightedUserId] = createSignal<number | null>(null);
 
+	const currentUser = () => initData.user() as any;
+
 	const leaderboardQuery = createQuery(() => ({
-		queryKey: ['leaderboard', 'group', activeTab()],
-		queryFn: () => getGroupLeaderboard(activeTab()),
+		queryKey: ['leaderboard', 'group', activeTab(), currentUser()?.id],
+		queryFn: () => getGroupLeaderboard(activeTab(), currentUser()?.id),
 		staleTime: 60000,
 		refetchInterval: 120000,
 	}));
@@ -30,7 +32,22 @@ export const LeaderboardPage: Component = () => {
 	const items = () => data()?.items || [];
 	const restOfList = () => [...featured(), ...items()];
 	const myStats = () => data()?.my_stats;
-	const currentUser = () => initData.user() as any;
+
+	const myResolvedRank = () => {
+		const uid = currentUser()?.id;
+		if (uid) {
+			const inTop3Idx = top3().findIndex((e) => e.user_id === uid);
+			if (inTop3Idx !== -1) return inTop3Idx + 1;
+			const inRestIdx = restOfList().findIndex((e) => e.user_id === uid);
+			if (inRestIdx !== -1) return inRestIdx + 4;
+		}
+		return myStats()?.rank || 0;
+	};
+
+	const isUserInTop100 = () => {
+		const r = myResolvedRank();
+		return r > 0 && r <= 100;
+	};
 
 	onMount(() => {
 		try {
@@ -147,41 +164,6 @@ export const LeaderboardPage: Component = () => {
 		} catch {}
 	};
 
-	// Community Boost Level Calculations
-	const totalBoosts = () => {
-		const all = [...top3(), ...restOfList()];
-		return all.reduce((acc, curr) => acc + (curr.score || 0), 0);
-	};
-
-	const levelThresholds = [0, 1, 3, 6, 10, 16, 24, 34, 46, 60, 80];
-	const currentLevel = () => {
-		const count = totalBoosts();
-		for (let i = levelThresholds.length - 1; i >= 1; i--) {
-			if (count >= levelThresholds[i]) return i;
-		}
-		return 1;
-	};
-
-	const nextLevelThreshold = () => {
-		const lvl = currentLevel();
-		return levelThresholds[lvl + 1] || levelThresholds[lvl] + 15;
-	};
-
-	const boostsNeeded = () => {
-		const diff = nextLevelThreshold() - totalBoosts();
-		return diff > 0 ? diff : 0;
-	};
-
-	const levelProgressPercent = () => {
-		const prev = levelThresholds[currentLevel()] || 0;
-		const next = nextLevelThreshold();
-		const current = totalBoosts();
-		const span = next - prev;
-		if (span <= 0) return 100;
-		const percent = Math.round(((current - prev) / span) * 100);
-		return Math.min(Math.max(percent, 10), 100);
-	};
-
 	return (
 		<div
 			class="min-h-screen bg-[#070911] text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#2AABEE]/30 pb-36"
@@ -258,57 +240,29 @@ export const LeaderboardPage: Component = () => {
 					</button>
 				</div>
 
-				{/* Feature 3: Community Boost Level Gauge (Exclusive in Boosts Tab) */}
+				{/* Action Card: Boost Group */}
 				<Show when={activeTab() === 'boosts'}>
-					<div class="w-full rounded-2xl p-4 bg-gradient-to-br from-[#10192E] via-[#0E1527] to-[#0A0E1A] border border-[#2AABEE]/30 shadow-[0_8px_28px_rgba(0,0,0,0.5)] flex flex-col gap-3 relative overflow-hidden group">
-						<div class="absolute -top-12 -right-12 w-28 h-28 bg-[#2AABEE]/15 rounded-full blur-2xl pointer-events-none" />
-
-						<div class="flex items-center justify-between relative z-10">
-							<div class="flex items-center gap-2.5">
-								<div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2AABEE] to-[#0066FF] flex items-center justify-center text-lg shadow-md shrink-0">
-									🚀
-								</div>
-								<div class="flex flex-col">
-									<span class="text-xs font-black text-white flex items-center gap-1.5">
-										<span>{t('leaderboard.groupLevelTitle')}</span>
-										<span class="px-2 py-0.5 rounded-full bg-[#2AABEE]/20 border border-[#2AABEE]/40 text-[#2AABEE] text-[10px] font-black">
-											{t('leaderboard.level', { level: currentLevel() })}
-										</span>
-									</span>
-									<span class="text-[10px] text-white/55 font-medium mt-0.5">
-										{t('leaderboard.boostsRemaining', { count: boostsNeeded(), nextLevel: currentLevel() + 1 })}
-									</span>
-								</div>
+					<div class="w-full rounded-2xl p-3.5 bg-gradient-to-br from-[#10192E]/90 to-[#0A0E1A]/90 border border-[#2AABEE]/25 shadow-md flex items-center justify-between gap-3 relative overflow-hidden">
+						<div class="flex items-center gap-2.5">
+							<div class="w-9 h-9 rounded-xl bg-[#2AABEE]/15 flex items-center justify-center text-lg shrink-0 text-[#2AABEE]">
+								🚀
 							</div>
-							<div class="flex flex-col items-end">
-								<span class="text-[11px] font-black text-amber-400 font-mono">
-									{totalBoosts()} / {nextLevelThreshold()}
+							<div class="flex flex-col">
+								<span class="text-xs font-black text-white">
+									{t('leaderboard.boostActionTitle')}
 								</span>
-								<span class="text-[9px] text-white/40">{t('leaderboard.totalBoostsLabel')}</span>
+								<span class="text-[10px] text-white/55 font-medium mt-0.5">
+									{t('leaderboard.boostActionDesc')}
+								</span>
 							</div>
 						</div>
-
-						{/* High-Voltage Level Progress Bar */}
-						<div class="w-full h-3 rounded-full bg-white/[0.07] border border-white/10 overflow-hidden relative p-0.5">
-							<div
-								class="h-full rounded-full bg-gradient-to-r from-[#2AABEE] via-[#38BDF8] to-[#00E5FF] shadow-[0_0_12px_rgba(42,171,238,0.7)] transition-all duration-700 ease-out"
-								style={{ width: `${levelProgressPercent()}%` }}
-							/>
-						</div>
-
-						<div class="flex items-center justify-between text-[10px] text-white/50 pt-0.5 border-t border-white/5">
-							<span class="truncate">{t('leaderboard.boostPerks')}</span>
-							<span class="font-mono text-cyan-400 font-bold shrink-0">{levelProgressPercent()}%</span>
-						</div>
-
 						<button
 							type="button"
 							onClick={handleBoostGroup}
-							class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#2AABEE] to-[#0088FF] text-white text-xs font-black flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(42,171,238,0.35)] active:scale-[0.98] transition-all cursor-pointer hover:brightness-110 mt-1"
+							class="py-2 px-3 rounded-xl bg-gradient-to-r from-[#2AABEE] to-[#0088FF] hover:brightness-110 text-white text-xs font-black flex items-center gap-1 active:scale-95 transition-all cursor-pointer shrink-0 shadow-[0_2px_12px_rgba(42,171,238,0.35)]"
 						>
-							<span class="text-sm">⚡</span>
 							<span>{t('leaderboard.boostButton')}</span>
-							<span class="material-symbols-outlined text-[15px] rtl:rotate-180">arrow_forward</span>
+							<span class="material-symbols-outlined text-[14px] rtl:rotate-180">arrow_forward</span>
 						</button>
 					</div>
 				</Show>
@@ -609,65 +563,6 @@ export const LeaderboardPage: Component = () => {
 					</Show>
 				</Show>
 
-				{/* Personal Standing Card ("جایگاه شما") */}
-				<div class="w-full rounded-2xl bg-gradient-to-r from-[#0F1424] via-[#0E1322] to-[#0A0D18] border border-white/10 p-3.5 flex items-center justify-between shadow-xl">
-					<div class="flex items-center gap-3 min-w-0">
-						<div class="w-11 h-11 rounded-full p-[2px] bg-gradient-to-b from-[#2AABEE] to-[#0055ff] shrink-0 shadow-md">
-							<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] relative flex items-center justify-center">
-								<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2AABEE] to-[#0066FF] text-white font-black text-sm select-none">
-									{(currentUser()?.first_name || 'U')[0].toUpperCase()}
-								</div>
-								<Show when={myAvatarUrl()}>
-									{(src) => (
-										<img
-											src={src()}
-											alt="Me"
-											class="absolute inset-0 w-full h-full object-cover z-10"
-											referrerPolicy="no-referrer"
-											onError={(e) => {
-												e.currentTarget.style.display = 'none';
-											}}
-										/>
-									)}
-								</Show>
-							</div>
-						</div>
-						<div class="flex flex-col min-w-0">
-							<div class="flex items-center gap-1.5">
-								<span class="text-xs font-black text-white truncate max-w-[130px]">
-									{currentUser()?.first_name || t('leaderboard.you')}
-								</span>
-								<span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-[#2AABEE]/25 text-[#2AABEE] border border-[#2AABEE]/40">
-									{t('leaderboard.you')}
-								</span>
-							</div>
-							<span class="text-[11px] font-bold text-white/50 mt-0.5">
-								{(myStats()?.rank ?? 0) > 0
-									? t('leaderboard.rankTitle', { rank: myStats()?.rank })
-									: t('leaderboard.outOfRank')}
-							</span>
-						</div>
-					</div>
-
-					<div class="flex items-center gap-2 shrink-0">
-						{/* Score */}
-						<div class="flex flex-col items-end">
-							<span class="text-[10px] text-white/45 font-medium">{t('leaderboard.yourScore')}</span>
-							<span class="text-xs font-black text-white flex items-center gap-1 font-mono">
-								<span>{unitIcon()}</span>
-								<span>{formatScore(myStats()?.score || 0)}</span>
-							</span>
-						</div>
-						{/* Credits */}
-						<div class="flex flex-col items-end border-r border-white/10 rtl:border-r-0 rtl:border-l pr-2 rtl:pr-0 rtl:pl-2 mr-1 rtl:mr-0 rtl:ml-1">
-							<span class="text-[10px] text-white/45 font-medium">{t('leaderboard.credits')}</span>
-							<span class="text-xs font-black text-amber-400 flex items-center gap-1 font-mono">
-								<span>⭐</span>
-								<span>{(myStats()?.credits ?? 0).toLocaleString()}</span>
-							</span>
-						</div>
-					</div>
-				</div>
 
 				{/* Section Header: Ranks 4 to 100 */}
 				<div class="flex items-center justify-between pt-1 px-1">
@@ -697,7 +592,7 @@ export const LeaderboardPage: Component = () => {
 						}
 					>
 						{(entry: GroupLeaderboardEntry) => {
-							const isMe = () => myStats()?.user_id === entry.user_id;
+							const isMe = () => (currentUser()?.id && entry.user_id === currentUser()?.id) || (myStats()?.user_id && entry.user_id === myStats()?.user_id);
 							const isHighlighted = () => highlightedUserId() === entry.user_id;
 							return (
 								<div
@@ -772,14 +667,14 @@ export const LeaderboardPage: Component = () => {
 			</div>
 
 			{/* Feature 4: Floating "Jump to My Rank" Quick Action */}
-			<Show when={(myStats()?.rank ?? 0) > 3 && (myStats()?.rank ?? 0) <= 100}>
+			<Show when={myResolvedRank() > 3 && myResolvedRank() <= 100}>
 				<button
 					type="button"
 					onClick={handleJumpToMyRank}
 					class="fixed left-1/2 -translate-x-1/2 bottom-24 z-[90] px-4 py-2 rounded-full bg-gradient-to-r from-[#2AABEE] to-[#0066FF] text-white text-xs font-black shadow-[0_6px_24px_rgba(42,171,238,0.45)] border border-white/20 flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer backdrop-blur-md"
 				>
 					<span class="material-symbols-outlined text-sm">my_location</span>
-					<span>{t('leaderboard.jumpToMyRank', { rank: myStats()?.rank })}</span>
+					<span>{t('leaderboard.jumpToMyRank', { rank: myResolvedRank() })}</span>
 				</button>
 			</Show>
 
@@ -915,6 +810,68 @@ export const LeaderboardPage: Component = () => {
 						</div>
 					);
 				}}
+			</Show>
+
+			{/* Sticky Personal Rank Bar (Shown ALWAYS at the bottom when user is outside Top 100) */}
+			<Show when={!isUserInTop100() && currentUser()?.id}>
+				<div
+					class="fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-[90] transition-all duration-300"
+					style={{ bottom: 'calc(5.75rem + env(safe-area-inset-bottom, 0px))' }}
+				>
+					<div class="w-full rounded-2xl bg-[#0D111E]/95 backdrop-blur-2xl border border-white/15 p-3 flex items-center justify-between shadow-[0_12px_40px_rgba(0,0,0,0.85)]">
+						<div class="flex items-center gap-2.5 min-w-0">
+							<div class="w-10 h-10 rounded-full p-[2px] bg-gradient-to-b from-[#2AABEE] to-[#0055ff] shrink-0 shadow-md">
+								<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] relative flex items-center justify-center">
+									<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2AABEE] to-[#0066FF] text-white font-black text-xs select-none">
+										{(currentUser()?.first_name || 'U')[0].toUpperCase()}
+									</div>
+									<Show when={myAvatarUrl()}>
+										{(src) => (
+											<img
+												src={src()}
+												alt="Me"
+												class="absolute inset-0 w-full h-full object-cover z-10"
+												referrerPolicy="no-referrer"
+												onError={(e) => {
+													e.currentTarget.style.display = 'none';
+												}}
+											/>
+										)}
+									</Show>
+								</div>
+							</div>
+							<div class="flex flex-col min-w-0">
+								<div class="flex items-center gap-1.5">
+									<span class="text-xs font-black text-white truncate max-w-[120px]">
+										{currentUser()?.first_name || t('leaderboard.you')}
+									</span>
+									<span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-[#2AABEE]/25 text-[#2AABEE] border border-[#2AABEE]/40">
+										{t('leaderboard.you')}
+									</span>
+								</div>
+								<span class="text-[11px] font-bold text-white/60 mt-0.5">
+									{(myResolvedRank() ?? 0) > 0
+										? t('leaderboard.rankTitle', { rank: myResolvedRank() })
+										: t('leaderboard.outOfRank')}
+								</span>
+							</div>
+						</div>
+
+						<div class="flex items-center gap-2 shrink-0">
+							<div class="flex flex-col items-end">
+								<span class="text-xs font-black text-white font-mono flex items-center gap-1">
+									<span>{unitIcon()}</span>
+									<span>{formatScore(myStats()?.score || 0)}</span>
+								</span>
+								<Show when={myStats()?.credits !== undefined}>
+									<span class="text-[9px] text-[#2AABEE] font-bold">
+										{myStats()?.credits || 0} {t('leaderboard.credits')}
+									</span>
+								</Show>
+							</div>
+						</div>
+					</div>
+				</div>
 			</Show>
 
 			{/* Floating Bottom Navigation Bar */}

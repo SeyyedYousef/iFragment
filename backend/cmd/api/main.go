@@ -521,6 +521,9 @@ func main() {
 	// Initialize Group Leaderboard & Boost Tracker
 	groupLeaderboardRepo := repository.NewGroupLeaderboardRepo(db)
 	groupLeaderboardService := service.NewGroupLeaderboardService(groupLeaderboardRepo, intelCreditService, cache)
+	if mainTgClient != nil {
+		groupLeaderboardService.SetTelegramClient(mainTgClient)
+	}
 	groupLeaderboardHandler := handler.NewGroupLeaderboardHandler(groupLeaderboardService)
 
 	if webhookHandler != nil {

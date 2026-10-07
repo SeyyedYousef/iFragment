@@ -20,6 +20,13 @@ func NewGroupLeaderboardHandler(service *service.GroupLeaderboardService) *Group
 func (h *GroupLeaderboardHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	currentUserID, _ := middleware.GetUserID(ctx) // 0 if unauthenticated
+	if currentUserID == 0 {
+		if uidStr := r.URL.Query().Get("user_id"); uidStr != "" {
+			if uid, err := strconv.ParseInt(uidStr, 10, 64); err == nil && uid > 0 {
+				currentUserID = uid
+			}
+		}
+	}
 
 	rankType := r.URL.Query().Get("type")
 	if rankType != "boosts" {

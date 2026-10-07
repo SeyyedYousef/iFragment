@@ -2,10 +2,12 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -136,7 +138,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// OptionalAuthMiddleware populates UserContextKey if valid Bearer token or Telegram InitData is present,
+// OptionalAuthMiddleware populates UserContextKey and UserIDKey if valid Bearer token or Telegram InitData is present,
 // but allows unauthenticated guest requests to proceed cleanly.
 func OptionalAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -165,12 +167,38 @@ func OptionalAuthMiddleware(next http.Handler) http.Handler {
 							"mfa_verified": claims.MFAVerified,
 						}
 						ctx := context.WithValue(r.Context(), UserContextKey, user)
+						ctx = context.WithValue(ctx, UserIDKey, claims.UserID)
 						next.ServeHTTP(w, r.WithContext(ctx))
 						return
 					}
 				}
 			}
 		}
+
+		// Also check Telegram InitData if present in header
+		if initData := r.Header.Get("X-Telegram-Init-Data"); initData != "" {
+			if values, err := url.ParseQuery(initData); err == nil {
+				if userData := values.Get("user"); userData != "" {
+					var userObj map[string]interface{}
+					if err := json.Unmarshal([]byte(userData), &userObj); err == nil {
+						ctx := context.WithValue(r.Context(), UserContextKey, userObj)
+						if idVal, ok := userObj["id"]; ok {
+							switch v := idVal.(type) {
+							case float64:
+								ctx = context.WithValue(ctx, UserIDKey, int64(v))
+							case int64:
+								ctx = context.WithValue(ctx, UserIDKey, v)
+							case int:
+								ctx = context.WithValue(ctx, UserIDKey, int64(v))
+							}
+						}
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
+				}
+			}
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }

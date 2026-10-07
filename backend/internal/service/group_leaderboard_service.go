@@ -17,6 +17,7 @@ type GroupLeaderboardService struct {
 	repo               *repository.GroupLeaderboardRepo
 	intelCreditService *intelcredit.IntelCreditService
 	cache              *repository.Cache
+	tgClient           *telegram.BotAPIClient
 }
 
 func NewGroupLeaderboardService(
@@ -29,6 +30,10 @@ func NewGroupLeaderboardService(
 		intelCreditService: intelCreditService,
 		cache:              cache,
 	}
+}
+
+func (s *GroupLeaderboardService) SetTelegramClient(client *telegram.BotAPIClient) {
+	s.tgClient = client
 }
 
 // InvalidateLeaderboardCache purges cached leaderboard standings so next read is fresh
@@ -104,6 +109,14 @@ func (s *GroupLeaderboardService) GetLeaderboard(ctx context.Context, rankType s
 			if err == nil && bal != nil {
 				result.MyStats.Credits = bal.Balance
 			}
+		}
+
+		if rankType == "boosts" && s.tgClient != nil {
+			go func(uid int64) {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_, _ = s.SyncUserBoosts(bgCtx, s.tgClient, "@FragmentInvestors", uid, "", "", "")
+			}(currentUserID)
 		}
 	}
 

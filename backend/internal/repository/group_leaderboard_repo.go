@@ -247,9 +247,14 @@ func (r *GroupLeaderboardRepo) GetUsersForBoostCheck(ctx context.Context, limit 
 	}
 
 	query := `
-		SELECT user_id, COALESCE(username, ''), COALESCE(first_name, ''), boost_count
-		FROM fragment_investors_user_stats
-		ORDER BY COALESCE(last_boost_check_at, '1970-01-01'::timestamptz) ASC
+		SELECT 
+			COALESCE(u.telegram_id, s.user_id) as user_id, 
+			COALESCE(NULLIF(s.username, ''), NULLIF(u.username, ''), '') as username, 
+			COALESCE(NULLIF(s.first_name, ''), NULLIF(u.first_name, ''), '') as first_name, 
+			COALESCE(s.boost_count, 0) as boost_count
+		FROM users u
+		FULL OUTER JOIN fragment_investors_user_stats s ON u.telegram_id = s.user_id
+		ORDER BY COALESCE(s.last_boost_check_at, '1970-01-01'::timestamptz) ASC
 		LIMIT $1`
 
 	rows, err := r.db.Pool.Query(ctx, query, limit)

@@ -1345,7 +1345,7 @@ func (h *WebhookHandler) handleChatBoost(ctx context.Context, bot *repository.Ma
 	if update == nil || h.groupLeaderboardSvc == nil {
 		return
 	}
-	if !raffle.IsFragmentInvestorsGroup(update.Chat.Title, update.Chat.Username) {
+	if update.Chat.ID != -1001972125896 && !raffle.IsFragmentInvestorsGroup(update.Chat.Title, update.Chat.Username) {
 		return
 	}
 	user := update.Boost.Source.User
@@ -1364,7 +1364,7 @@ func (h *WebhookHandler) handleRemovedChatBoost(ctx context.Context, bot *reposi
 	if update == nil || h.groupLeaderboardSvc == nil {
 		return
 	}
-	if !raffle.IsFragmentInvestorsGroup(update.Chat.Title, update.Chat.Username) {
+	if update.Chat.ID != -1001972125896 && !raffle.IsFragmentInvestorsGroup(update.Chat.Title, update.Chat.Username) {
 		return
 	}
 	user := update.Source.User

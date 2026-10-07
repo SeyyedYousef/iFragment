@@ -122,9 +122,13 @@ export const getLeaderboard = (
 
 export const getGroupLeaderboard = (
 	type: 'messages' | 'boosts' = 'messages',
+	userId?: number,
 ): Promise<GroupLeaderboardResponse> => {
+	const url = userId
+		? `/leaderboard/group?type=${type}&user_id=${userId}`
+		: `/leaderboard/group?type=${type}`;
 	return validatedFetch(
-		`/leaderboard/group?type=${type}`,
+		url,
 		GroupLeaderboardResponseSchema,
 	) as Promise<GroupLeaderboardResponse>;
 };

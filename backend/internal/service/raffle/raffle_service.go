@@ -25,7 +25,7 @@ type UserCompact struct {
 
 // IsFragmentInvestorsGroup checks if a given chat title or username corresponds to @FragmentInvestors.
 func IsFragmentInvestorsGroup(chatTitle, chatUsername string) bool {
-	u := strings.ToLower(chatUsername)
+	u := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(chatUsername)), "@")
 	if u == "fragmentinvestors" || u == "fragment_investors" {
 		return true
 	}
