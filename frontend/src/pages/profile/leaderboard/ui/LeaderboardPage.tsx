@@ -20,8 +20,8 @@ export const LeaderboardPage: Component = () => {
 	const leaderboardQuery = createQuery(() => ({
 		queryKey: ['leaderboard', 'group', activeTab()],
 		queryFn: () => getGroupLeaderboard(activeTab()),
-		staleTime: 30000,
-		refetchInterval: 60000,
+		staleTime: 60000,
+		refetchInterval: 120000,
 	}));
 
 	const data = () => leaderboardQuery.data;
@@ -94,6 +94,28 @@ export const LeaderboardPage: Component = () => {
 			return buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`);
 		}
 		return '';
+	};
+
+	const handleAvatarError = (
+		e: Event & { currentTarget: HTMLImageElement },
+		entry?: { user_id?: number | null; username?: string | null }
+	) => {
+		if (!entry) {
+			e.currentTarget.style.display = 'none';
+			return;
+		}
+		const current = e.currentTarget.src;
+		const avatarApi = entry.user_id ? buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`) : '';
+		const u = entry.username?.replace('@', '').trim();
+		const telegramCdn = u ? `https://t.me/i/userpic/320/${u}.jpg` : '';
+
+		if (avatarApi && !current.includes(`/profile/avatar/${entry.user_id}`)) {
+			e.currentTarget.src = avatarApi;
+		} else if (telegramCdn && !current.includes(`/userpic/320/${u}.jpg`)) {
+			e.currentTarget.src = telegramCdn;
+		} else {
+			e.currentTarget.style.display = 'none';
+		}
 	};
 
 	const myAvatarUrl = () => {
@@ -429,27 +451,18 @@ export const LeaderboardPage: Component = () => {
 															alt={second().first_name || 'Silver'}
 															class="absolute inset-0 w-full h-full object-cover z-10"
 															referrerPolicy="no-referrer"
-															onError={(e) => {
-																const u = second().username?.replace('@', '').trim();
-																if (u && !e.currentTarget.src.includes(`/userpic/320/${u}.jpg`)) {
-																	e.currentTarget.src = `https://t.me/i/userpic/320/${u}.jpg`;
-																} else if (second().user_id && !e.currentTarget.src.includes(`/profile/avatar/${second().user_id}`)) {
-																	e.currentTarget.src = buildAvatarUrl(`/api/v1/profile/avatar/${second().user_id}`);
-																} else {
-																	e.currentTarget.style.display = 'none';
-																}
-															}}
+															onError={(e) => handleAvatarError(e, second())}
 														/>
 													)}
 												</Show>
 											</div>
-											{/* Silver Medal Badge */}
-											<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-gradient-to-b from-slate-100 to-slate-400 text-slate-950 text-xs font-black flex items-center justify-center shadow-lg border-[2px] border-[#070911]">
+											{/* Silver Medal Badge - PROMINENTLY IN FRONT (z-30) */}
+											<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-30 w-7 h-7 rounded-full bg-gradient-to-b from-slate-100 via-slate-300 to-slate-400 text-slate-950 text-xs font-black flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.85)] border-2 border-[#070911] select-none">
 												2
 											</div>
 										</div>
 
-										<span class="mt-3 text-xs font-black text-white truncate max-w-full text-center tracking-tight">
+										<span class="mt-4 text-xs font-black text-white truncate max-w-full text-center tracking-tight">
 											{second().first_name || second().username || t('leaderboard.anonymous')}
 										</span>
 
@@ -459,7 +472,9 @@ export const LeaderboardPage: Component = () => {
 												<span>{unitIcon()}</span>
 												<span>{formatScore(second().score)}</span>
 											</span>
-											<span class="text-3xl font-black font-mono text-slate-400/30">2</span>
+											<div class="w-7 h-7 rounded-lg bg-slate-400/10 border border-slate-400/30 flex items-center justify-center text-sm font-black font-mono text-slate-300 shadow-inner">
+												2
+											</div>
 										</div>
 									</div>
 								)}
@@ -493,27 +508,18 @@ export const LeaderboardPage: Component = () => {
 															alt={first().first_name || 'Champion'}
 															class="absolute inset-0 w-full h-full object-cover z-10"
 															referrerPolicy="no-referrer"
-															onError={(e) => {
-																const u = first().username?.replace('@', '').trim();
-																if (u && !e.currentTarget.src.includes(`/userpic/320/${u}.jpg`)) {
-																	e.currentTarget.src = `https://t.me/i/userpic/320/${u}.jpg`;
-																} else if (first().user_id && !e.currentTarget.src.includes(`/profile/avatar/${first().user_id}`)) {
-																	e.currentTarget.src = buildAvatarUrl(`/api/v1/profile/avatar/${first().user_id}`);
-																} else {
-																	e.currentTarget.style.display = 'none';
-																}
-															}}
+															onError={(e) => handleAvatarError(e, first())}
 														/>
 													)}
 												</Show>
 											</div>
-											{/* Gold Badge */}
-											<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-gradient-to-b from-amber-200 via-amber-400 to-amber-500 text-slate-950 text-xs font-black flex items-center justify-center shadow-[0_4px_12px_rgba(251,191,36,0.7)] border-[2px] border-[#070911]">
+											{/* Gold Badge - PROMINENTLY IN FRONT (z-30) */}
+											<div class="absolute -bottom-3 left-1/2 -translate-x-1/2 z-30 w-8 h-8 rounded-full bg-gradient-to-b from-amber-100 via-amber-300 to-amber-500 text-slate-950 text-sm font-black flex items-center justify-center shadow-[0_4px_16px_rgba(251,191,36,0.85)] border-2 border-[#070911] select-none">
 												1
 											</div>
 										</div>
 
-										<span class="mt-3.5 text-[13px] font-black text-white truncate max-w-full text-center tracking-tight">
+										<span class="mt-4 text-[13px] font-black text-white truncate max-w-full text-center tracking-tight">
 											{first().first_name || first().username || t('leaderboard.topLeader')}
 										</span>
 
@@ -523,7 +529,9 @@ export const LeaderboardPage: Component = () => {
 												<span>{unitIcon()}</span>
 												<span>{formatScore(first().score)}</span>
 											</span>
-											<span class="text-4xl font-black font-mono text-amber-400/40">1</span>
+											<div class="w-8 h-8 rounded-lg bg-amber-400/15 border border-amber-400/40 flex items-center justify-center text-base font-black font-mono text-amber-300 shadow-inner">
+												1
+											</div>
 										</div>
 									</div>
 								)}
@@ -569,27 +577,18 @@ export const LeaderboardPage: Component = () => {
 															alt={third().first_name || 'Bronze'}
 															class="absolute inset-0 w-full h-full object-cover z-10"
 															referrerPolicy="no-referrer"
-															onError={(e) => {
-																const u = third().username?.replace('@', '').trim();
-																if (u && !e.currentTarget.src.includes(`/userpic/320/${u}.jpg`)) {
-																	e.currentTarget.src = `https://t.me/i/userpic/320/${u}.jpg`;
-																} else if (third().user_id && !e.currentTarget.src.includes(`/profile/avatar/${third().user_id}`)) {
-																	e.currentTarget.src = buildAvatarUrl(`/api/v1/profile/avatar/${third().user_id}`);
-																} else {
-																	e.currentTarget.style.display = 'none';
-																}
-															}}
+															onError={(e) => handleAvatarError(e, third())}
 														/>
 													)}
 												</Show>
 											</div>
-											{/* Bronze Badge */}
-											<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-gradient-to-b from-amber-500 to-amber-800 text-white text-xs font-black flex items-center justify-center shadow-lg border-[2px] border-[#070911]">
+											{/* Bronze Badge - PROMINENTLY IN FRONT (z-30) */}
+											<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-30 w-7 h-7 rounded-full bg-gradient-to-b from-amber-500 via-amber-700 to-amber-900 text-white text-xs font-black flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.85)] border-2 border-[#070911] select-none">
 												3
 											</div>
 										</div>
 
-										<span class="mt-3 text-xs font-black text-white truncate max-w-full text-center tracking-tight">
+										<span class="mt-4 text-xs font-black text-white truncate max-w-full text-center tracking-tight">
 											{third().first_name || third().username || t('leaderboard.anonymous')}
 										</span>
 
@@ -599,7 +598,9 @@ export const LeaderboardPage: Component = () => {
 												<span>{unitIcon()}</span>
 												<span>{formatScore(third().score)}</span>
 											</span>
-											<span class="text-2xl font-black font-mono text-amber-600/40">3</span>
+											<div class="w-6 h-6 rounded-lg bg-amber-600/15 border border-amber-600/35 flex items-center justify-center text-xs font-black font-mono text-amber-400 shadow-inner">
+												3
+											</div>
 										</div>
 									</div>
 								)}
@@ -732,16 +733,7 @@ export const LeaderboardPage: Component = () => {
 														class="absolute inset-0 w-full h-full object-cover z-10"
 														referrerPolicy="no-referrer"
 														loading="lazy"
-														onError={(e) => {
-															const u = entry.username?.replace('@', '').trim();
-															if (u && !e.currentTarget.src.includes(`/userpic/320/${u}.jpg`)) {
-																e.currentTarget.src = `https://t.me/i/userpic/320/${u}.jpg`;
-															} else if (entry.user_id && !e.currentTarget.src.includes(`/profile/avatar/${entry.user_id}`)) {
-																e.currentTarget.src = buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`);
-															} else {
-																e.currentTarget.style.display = 'none';
-															}
-														}}
+														onError={(e) => handleAvatarError(e, entry)}
 													/>
 												)}
 											</Show>
@@ -848,9 +840,7 @@ export const LeaderboardPage: Component = () => {
 													alt={user().first_name || 'User'}
 													class="absolute inset-0 w-full h-full object-cover z-10"
 													referrerPolicy="no-referrer"
-													onError={(e) => {
-														e.currentTarget.style.display = 'none';
-													}}
+													onError={(e) => handleAvatarError(e, user())}
 												/>
 											)}
 										</Show>

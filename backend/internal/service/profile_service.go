@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -188,6 +189,16 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 			slog.Debug("[GetUserProfilePhotoPath] Successfully retrieved path via DB photo_url", "photo_url", dbPhotoURL, "user_id", userID)
 			return dbPhotoURL, "", nil
 		}
+
+		// 4. Fallback to Telegram public userpic by username from stats or users
+		var username string
+		if queryErr := s.db.Pool.QueryRow(ctx, "SELECT COALESCE(NULLIF(s.username, ''), NULLIF(u.username, '')) FROM fragment_investors_user_stats s FULL OUTER JOIN users u ON s.user_id = u.telegram_id WHERE COALESCE(s.user_id, u.telegram_id) = $1 LIMIT 1", userID).Scan(&username); queryErr == nil && username != "" {
+			cleanUser := strings.TrimPrefix(username, "@")
+			path := fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", cleanUser)
+			s.cacheAvatar(ctx, cacheKey, path, "")
+			slog.Debug("[GetUserProfilePhotoPath] Successfully retrieved path via Telegram userpic", "username", cleanUser, "user_id", userID)
+			return path, "", nil
+		}
 	}
 
 	if s.cache != nil && s.cache.Client != nil {
@@ -307,6 +318,21 @@ func createSafeAvatarHTTPClient() *http.Client {
 const maxAvatarBytes = 5 * 1024 * 1024 // 5 MB limit (SEC-P1-002)
 
 func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.ReadCloser, string, int64, error) {
+	blobKey := fmt.Sprintf("avatar:blob:%d", userID)
+	typeKey := fmt.Sprintf("avatar:type:%d", userID)
+
+	// Check Dragonfly binary cache first for instant sub-millisecond retrieval
+	if s.cache != nil && s.cache.Client != nil && !s.cache.IsQuotaExceeded() {
+		if rawData, err := s.cache.Client.Get(ctx, blobKey).Bytes(); err == nil && len(rawData) > 0 {
+			contentType := "image/jpeg"
+			if ct, err := s.cache.Client.Get(ctx, typeKey).Result(); err == nil && ct != "" {
+				contentType = ct
+			}
+			slog.Debug("[GetAvatarStream] Cache hit for avatar blob", "user_id", userID, "bytes", len(rawData))
+			return io.NopCloser(bytes.NewReader(rawData)), contentType, int64(len(rawData)), nil
+		}
+	}
+
 	slog.Debug("[GetAvatarStream] Starting avatar stream download", "user_id", userID)
 	path, botToken, err := s.GetUserProfilePhotoPath(ctx, userID)
 	if err != nil {
@@ -346,16 +372,15 @@ func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.
 		slog.Debug("[GetAvatarStream] Remote avatar request failed", "user_id", userID, "error", err)
 		return nil, "", 0, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
 		slog.Debug("[GetAvatarStream] Remote file server returned error", "status_code", resp.StatusCode, "user_id", userID)
 		return nil, "", 0, fmt.Errorf("server returned status %d", resp.StatusCode)
 	}
 
 	contentLength, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
 	if contentLength > maxAvatarBytes {
-		resp.Body.Close()
 		return nil, "", 0, fmt.Errorf("avatar exceeds maximum size limit of 5MB")
 	}
 
@@ -363,12 +388,20 @@ func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.
 	if contentType == "" {
 		contentType = "image/jpeg"
 	}
-	slog.Debug("[GetAvatarStream] Stream initialized", "user_id", userID, "size_bytes", contentLength, "content_type", contentType)
-	safeBody := safeReadCloser{
-		Reader: io.LimitReader(resp.Body, maxAvatarBytes),
-		Closer: resp.Body,
+
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxAvatarBytes))
+	if err != nil {
+		return nil, "", 0, err
 	}
-	return safeBody, contentType, contentLength, nil
+
+	// Cache avatar blob in DragonflyDB for 24 hours
+	if s.cache != nil && s.cache.Client != nil && !s.cache.IsQuotaExceeded() && len(bodyBytes) > 0 {
+		_ = s.cache.Client.Set(ctx, blobKey, bodyBytes, 24*time.Hour).Err()
+		_ = s.cache.Client.Set(ctx, typeKey, contentType, 24*time.Hour).Err()
+	}
+
+	slog.Debug("[GetAvatarStream] Stream initialized and cached", "user_id", userID, "size_bytes", len(bodyBytes), "content_type", contentType)
+	return io.NopCloser(bytes.NewReader(bodyBytes)), contentType, int64(len(bodyBytes)), nil
 }
 
 func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.ProfileStats, error) {

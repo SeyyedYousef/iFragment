@@ -216,6 +216,21 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 				return
 			}
 
+			// Dedicated high-capacity rate limiting for static media assets (e.g. user avatars, gift images: 2400 req/min)
+			if strings.HasPrefix(r.URL.Path, "/api/v1/profile/avatar/") || strings.HasPrefix(r.URL.Path, "/api/v1/gifts/image/") {
+				if cache != nil && cache.Client != nil && !cache.IsQuotaExceeded() {
+					key := "rate_limit:media:" + GetRealIP(r)
+					count, err := incrExpireScript.Run(r.Context(), cache.Client, []string{key}, 2400, 60).Int64()
+					if err == nil && count > 2400 {
+						slog.Warn("Media rate limit exceeded (Redis)", "key", key, "count", count)
+						http.Error(w, "Media rate limit exceeded", http.StatusTooManyRequests)
+						return
+					}
+				}
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			ip := GetRealIP(r)
 			userID := getUserID(r)
 

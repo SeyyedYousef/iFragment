@@ -490,7 +490,7 @@ func (h *ProfileHandler) GetAvatar(w http.ResponseWriter, r *http.Request) {
 	if contentLength > 0 {
 		w.Header().Set("Content-Length", strconv.FormatInt(contentLength, 10))
 	}
-	w.Header().Set("Cache-Control", "private, max-age=3600")
+	w.Header().Set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800")
 
 	_, _ = io.Copy(w, body)
 }

@@ -186,6 +186,50 @@ func (r *GroupLeaderboardRepo) GetLeaderboard(ctx context.Context, rankType stri
 	return result, nil
 }
 
+// GetUserStats returns the rank and score of a single user
+func (r *GroupLeaderboardRepo) GetUserStats(ctx context.Context, rankType string, userID int64) (*UserLeaderboardStats, error) {
+	if r.db == nil || r.db.Pool == nil || userID <= 0 {
+		return &UserLeaderboardStats{UserID: userID, RankStr: "100k+"}, nil
+	}
+
+	orderColumn := "message_count"
+	if rankType == "boosts" {
+		orderColumn = "boost_count"
+	}
+
+	stats := &UserLeaderboardStats{
+		UserID:  userID,
+		RankStr: "100k+",
+	}
+
+	userRankQuery := fmt.Sprintf(`
+		WITH ranked AS (
+			SELECT 
+				user_id,
+				%s,
+				ROW_NUMBER() OVER (ORDER BY %s DESC, user_id ASC)::INT as rank
+			FROM fragment_investors_user_stats
+			WHERE %s > 0
+		)
+		SELECT rank, %s
+		FROM ranked
+		WHERE user_id = $1`, orderColumn, orderColumn, orderColumn, orderColumn)
+
+	var rank, score int
+	err := r.db.Pool.QueryRow(ctx, userRankQuery, userID).Scan(&rank, &score)
+	if err == nil {
+		stats.Rank = rank
+		stats.Score = score
+		stats.RankStr = fmt.Sprintf("#%d", rank)
+	} else {
+		var userScore int
+		_ = r.db.Pool.QueryRow(ctx, fmt.Sprintf("SELECT %s FROM fragment_investors_user_stats WHERE user_id = $1", orderColumn), userID).Scan(&userScore)
+		stats.Score = userScore
+	}
+
+	return stats, nil
+}
+
 type UserBoostTarget struct {
 	UserID     int64
 	Username   string

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -30,25 +31,83 @@ func NewGroupLeaderboardService(
 	}
 }
 
+// InvalidateLeaderboardCache purges cached leaderboard standings so next read is fresh
+func (s *GroupLeaderboardService) InvalidateLeaderboardCache(ctx context.Context) {
+	if s.cache != nil && s.cache.Client != nil && !s.cache.IsQuotaExceeded() {
+		_ = s.cache.Client.Del(ctx,
+			"leaderboard:group:messages:100",
+			"leaderboard:group:boosts:100",
+			"leaderboard:group:messages:50",
+			"leaderboard:group:boosts:50",
+		).Err()
+	}
+}
+
 func (s *GroupLeaderboardService) GetLeaderboard(ctx context.Context, rankType string, limit int, currentUserID int64) (*repository.GroupLeaderboardResult, error) {
 	if rankType != "boosts" {
 		rankType = "messages"
 	}
-
-	res, err := s.repo.GetLeaderboard(ctx, rankType, limit, currentUserID)
-	if err != nil {
-		return nil, err
+	if limit <= 0 || limit > 100 {
+		limit = 100
 	}
 
-	// Attach user's real Intel Credit balance
-	if currentUserID > 0 && s.intelCreditService != nil {
-		bal, err := s.intelCreditService.GetBalance(ctx, currentUserID)
-		if err == nil && bal != nil {
-			res.MyStats.Credits = bal.Balance
+	cacheKey := fmt.Sprintf("leaderboard:group:%s:%d", rankType, limit)
+	var baseRes *repository.GroupLeaderboardResult
+
+	// 1. Try to read from DragonflyDB cache (<1ms response)
+	if s.cache != nil && s.cache.Client != nil && !s.cache.IsQuotaExceeded() {
+		if cachedJSON, err := s.cache.Client.Get(ctx, cacheKey).Result(); err == nil && cachedJSON != "" {
+			var cached repository.GroupLeaderboardResult
+			if err := json.Unmarshal([]byte(cachedJSON), &cached); err == nil {
+				baseRes = &cached
+			}
 		}
 	}
 
-	return res, nil
+	// 2. Query Database if cache miss
+	if baseRes == nil {
+		var err error
+		baseRes, err = s.repo.GetLeaderboard(ctx, rankType, limit, 0)
+		if err != nil {
+			return nil, err
+		}
+
+		// Store in DragonflyDB with 120s TTL
+		if s.cache != nil && s.cache.Client != nil && !s.cache.IsQuotaExceeded() {
+			if data, err := json.Marshal(baseRes); err == nil {
+				_ = s.cache.Client.Set(ctx, cacheKey, string(data), 120*time.Second).Err()
+			}
+		}
+	}
+
+	// 3. Prepare result copy for caller
+	result := &repository.GroupLeaderboardResult{
+		Type:     baseRes.Type,
+		Top3:     baseRes.Top3,
+		Featured: baseRes.Featured,
+		Items:    baseRes.Items,
+		MyStats: repository.UserLeaderboardStats{
+			UserID:  currentUserID,
+			RankStr: "100k+",
+		},
+	}
+
+	// 4. Attach personal user rank and credits if authenticated
+	if currentUserID > 0 {
+		userStats, err := s.repo.GetUserStats(ctx, rankType, currentUserID)
+		if err == nil && userStats != nil {
+			result.MyStats = *userStats
+		}
+
+		if s.intelCreditService != nil {
+			bal, err := s.intelCreditService.GetBalance(ctx, currentUserID)
+			if err == nil && bal != nil {
+				result.MyStats.Credits = bal.Balance
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // RecordGroupMessage records a message sent in @FragmentInvestors and atomically grants 1 Intel Credit
@@ -60,6 +119,9 @@ func (s *GroupLeaderboardService) RecordGroupMessage(ctx context.Context, userID
 	if err := s.repo.RecordGroupMessage(ctx, userID, username, firstName, photoURL); err != nil {
 		slog.Error("failed to record group message in leaderboard repo", "user_id", userID, "error", err)
 	}
+
+	// Invalidate leaderboard cache so next request is immediately updated
+	s.InvalidateLeaderboardCache(ctx)
 
 	// Atomically grant 1 Intel Credit (1 message = 1 credit)
 	if s.intelCreditService != nil && messageID > 0 {
@@ -79,7 +141,11 @@ func (s *GroupLeaderboardService) UpdateUserBoostCount(ctx context.Context, user
 	if s.repo == nil {
 		return nil
 	}
-	return s.repo.UpdateUserBoostCount(ctx, userID, username, firstName, photoURL, boostCount)
+	err := s.repo.UpdateUserBoostCount(ctx, userID, username, firstName, photoURL, boostCount)
+	if err == nil {
+		s.InvalidateLeaderboardCache(ctx)
+	}
+	return err
 }
 
 // SyncUserBoosts fetches live boosts from Telegram Bot API and updates local record
