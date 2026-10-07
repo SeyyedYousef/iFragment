@@ -78,14 +78,34 @@ export const LeaderboardPage: Component = () => {
 		}
 	};
 
+	const resolveAvatarUrl = (entry?: { photo_url?: string | null; username?: string | null; user_id?: number | null }) => {
+		if (!entry) return '';
+		const p = entry.photo_url?.trim();
+		if (p) {
+			return buildAvatarUrl(p);
+		}
+		const u = entry.username?.replace('@', '').trim();
+		if (u) {
+			return `https://t.me/i/userpic/320/${u}.jpg`;
+		}
+		if (entry.user_id) {
+			return buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`);
+		}
+		return '';
+	};
+
 	const myAvatarUrl = () => {
 		const u = currentUser();
+		if (u?.photoUrl || u?.photo_url) {
+			return buildAvatarUrl(u.photoUrl || u.photo_url);
+		}
+		if (u?.username) {
+			return `https://t.me/i/userpic/320/${u.username.replace('@', '')}.jpg`;
+		}
 		if (u?.id) {
 			return buildAvatarUrl(`/api/v1/profile/avatar/${u.id}`);
 		}
-		const direct = u?.photoUrl || u?.photo_url;
-		if (direct) return direct;
-		return undefined;
+		return '';
 	};
 
 	return (
@@ -316,23 +336,29 @@ export const LeaderboardPage: Component = () => {
 								{(second) => (
 									<div class="flex-1 flex flex-col items-center max-w-[110px] z-10 group">
 										<div class="relative w-20 h-20 rounded-full p-[2.5px] bg-gradient-to-b from-slate-200 via-slate-400 to-slate-600 shadow-[0_8px_24px_rgba(148,163,184,0.3)] transition-transform duration-300 group-hover:scale-105">
-											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] flex items-center justify-center border border-white/20">
-												<Show
-													when={second().photo_url}
-													fallback={
-														<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-400 via-slate-500 to-slate-700 text-white font-black text-xl">
-															{(second().first_name || second().username || 'U')[0].toUpperCase()}
-														</div>
-													}
-												>
-													<img
-														src={buildAvatarUrl(second().photo_url || undefined)}
-														alt={second().first_name || 'Silver'}
-														class="w-full h-full object-cover"
-														onError={(e) => {
-															e.currentTarget.style.display = 'none';
-														}}
-													/>
+											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] relative flex items-center justify-center border border-white/20">
+												<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-400 via-slate-500 to-slate-700 text-white font-black text-xl select-none">
+													{(second().first_name || second().username || 'U')[0].toUpperCase()}
+												</div>
+												<Show when={resolveAvatarUrl(second())}>
+													{(src) => (
+														<img
+															src={src()}
+															alt={second().first_name || 'Silver'}
+															class="absolute inset-0 w-full h-full object-cover z-10"
+															referrerPolicy="no-referrer"
+															onError={(e) => {
+																const u = second().username?.replace('@', '').trim();
+																if (u && !e.currentTarget.src.includes(`/userpic/320/${u}.jpg`)) {
+																	e.currentTarget.src = `https://t.me/i/userpic/320/${u}.jpg`;
+																} else if (second().user_id && !e.currentTarget.src.includes(`/profile/avatar/${second().user_id}`)) {
+																	e.currentTarget.src = buildAvatarUrl(`/api/v1/profile/avatar/${second().user_id}`);
+																} else {
+																	e.currentTarget.style.display = 'none';
+																}
+															}}
+														/>
+													)}
 												</Show>
 											</div>
 											{/* Silver Badge */}
@@ -360,23 +386,29 @@ export const LeaderboardPage: Component = () => {
 											👑
 										</div>
 										<div class="relative w-24 h-24 rounded-full p-[3px] bg-gradient-to-b from-amber-200 via-amber-400 to-amber-600 shadow-[0_0_35px_rgba(251,191,36,0.5)] transition-transform duration-300 group-hover:scale-105">
-											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] flex items-center justify-center border border-white/20">
-												<Show
-													when={first().photo_url}
-													fallback={
-														<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 text-slate-950 font-black text-2xl">
-															{(first().first_name || first().username || 'U')[0].toUpperCase()}
-														</div>
-													}
-												>
-													<img
-														src={buildAvatarUrl(first().photo_url || undefined)}
-														alt={first().first_name || 'Champion'}
-														class="w-full h-full object-cover"
-														onError={(e) => {
-															e.currentTarget.style.display = 'none';
-														}}
-													/>
+											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] relative flex items-center justify-center border border-white/20">
+												<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 text-slate-950 font-black text-2xl select-none">
+													{(first().first_name || first().username || 'U')[0].toUpperCase()}
+												</div>
+												<Show when={resolveAvatarUrl(first())}>
+													{(src) => (
+														<img
+															src={src()}
+															alt={first().first_name || 'Champion'}
+															class="absolute inset-0 w-full h-full object-cover z-10"
+															referrerPolicy="no-referrer"
+															onError={(e) => {
+																const u = first().username?.replace('@', '').trim();
+																if (u && !e.currentTarget.src.includes(`/userpic/320/${u}.jpg`)) {
+																	e.currentTarget.src = `https://t.me/i/userpic/320/${u}.jpg`;
+																} else if (first().user_id && !e.currentTarget.src.includes(`/profile/avatar/${first().user_id}`)) {
+																	e.currentTarget.src = buildAvatarUrl(`/api/v1/profile/avatar/${first().user_id}`);
+																} else {
+																	e.currentTarget.style.display = 'none';
+																}
+															}}
+														/>
+													)}
 												</Show>
 											</div>
 											{/* Gold Badge */}
@@ -415,23 +447,29 @@ export const LeaderboardPage: Component = () => {
 								{(third) => (
 									<div class="flex-1 flex flex-col items-center max-w-[110px] z-10 group">
 										<div class="relative w-20 h-20 rounded-full p-[2.5px] bg-gradient-to-b from-amber-600 via-amber-700 to-amber-900 shadow-[0_8px_24px_rgba(180,83,9,0.3)] transition-transform duration-300 group-hover:scale-105">
-											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] flex items-center justify-center border border-white/20">
-												<Show
-													when={third().photo_url}
-													fallback={
-														<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-600 to-amber-800 text-white font-black text-xl">
-															{(third().first_name || third().username || 'U')[0].toUpperCase()}
-														</div>
-													}
-												>
-													<img
-														src={buildAvatarUrl(third().photo_url || undefined)}
-														alt={third().first_name || 'Bronze'}
-														class="w-full h-full object-cover"
-														onError={(e) => {
-															e.currentTarget.style.display = 'none';
-														}}
-													/>
+											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] relative flex items-center justify-center border border-white/20">
+												<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-600 to-amber-800 text-white font-black text-xl select-none">
+													{(third().first_name || third().username || 'U')[0].toUpperCase()}
+												</div>
+												<Show when={resolveAvatarUrl(third())}>
+													{(src) => (
+														<img
+															src={src()}
+															alt={third().first_name || 'Bronze'}
+															class="absolute inset-0 w-full h-full object-cover z-10"
+															referrerPolicy="no-referrer"
+															onError={(e) => {
+																const u = third().username?.replace('@', '').trim();
+																if (u && !e.currentTarget.src.includes(`/userpic/320/${u}.jpg`)) {
+																	e.currentTarget.src = `https://t.me/i/userpic/320/${u}.jpg`;
+																} else if (third().user_id && !e.currentTarget.src.includes(`/profile/avatar/${third().user_id}`)) {
+																	e.currentTarget.src = buildAvatarUrl(`/api/v1/profile/avatar/${third().user_id}`);
+																} else {
+																	e.currentTarget.style.display = 'none';
+																}
+															}}
+														/>
+													)}
 												</Show>
 											</div>
 											{/* Bronze Badge */}
@@ -457,23 +495,22 @@ export const LeaderboardPage: Component = () => {
 				<div class="w-full rounded-2xl bg-gradient-to-r from-[#0F1424] via-[#0E1322] to-[#0A0D18] border border-white/10 p-3.5 flex items-center justify-between shadow-xl">
 					<div class="flex items-center gap-3 min-w-0">
 						<div class="w-11 h-11 rounded-full p-[2px] bg-gradient-to-b from-[#2AABEE] to-[#0055ff] shrink-0 shadow-md">
-							<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] flex items-center justify-center">
-								<Show
-									when={myAvatarUrl()}
-									fallback={
-										<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#2AABEE] to-[#0066FF] text-white font-black text-sm">
-											{(currentUser()?.first_name || 'U')[0].toUpperCase()}
-										</div>
-									}
-								>
-									<img
-										src={myAvatarUrl()}
-										alt="Me"
-										class="w-full h-full object-cover"
-										onError={(e) => {
-											e.currentTarget.style.display = 'none';
-										}}
-									/>
+							<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] relative flex items-center justify-center">
+								<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2AABEE] to-[#0066FF] text-white font-black text-sm select-none">
+									{(currentUser()?.first_name || 'U')[0].toUpperCase()}
+								</div>
+								<Show when={myAvatarUrl()}>
+									{(src) => (
+										<img
+											src={src()}
+											alt="Me"
+											class="absolute inset-0 w-full h-full object-cover z-10"
+											referrerPolicy="no-referrer"
+											onError={(e) => {
+												e.currentTarget.style.display = 'none';
+											}}
+										/>
+									)}
 								</Show>
 							</div>
 						</div>
@@ -558,23 +595,30 @@ export const LeaderboardPage: Component = () => {
 											</span>
 										</div>
 
-										<div class="w-10 h-10 rounded-full overflow-hidden bg-[#151926] shrink-0 border border-white/10 shadow-sm">
-											<Show
-												when={entry.photo_url}
-												fallback={
-													<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#2AABEE]/30 to-[#0066FF]/30 text-white font-bold text-xs">
-														{(entry.first_name || entry.username || 'U')[0].toUpperCase()}
-													</div>
-												}
-											>
-												<img
-													src={buildAvatarUrl(entry.photo_url || undefined)}
-													alt={entry.first_name || 'Leader'}
-													class="w-full h-full object-cover"
-													onError={(e) => {
-															e.currentTarget.style.display = 'none';
-													}}
-												/>
+										<div class="w-10 h-10 rounded-full overflow-hidden bg-[#151926] shrink-0 border border-white/10 shadow-sm relative flex items-center justify-center">
+											<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2AABEE]/30 to-[#0066FF]/30 text-white font-bold text-xs select-none">
+												{(entry.first_name || entry.username || 'U')[0].toUpperCase()}
+											</div>
+											<Show when={resolveAvatarUrl(entry)}>
+												{(src) => (
+													<img
+														src={src()}
+														alt={entry.first_name || 'Leader'}
+														class="absolute inset-0 w-full h-full object-cover z-10"
+														referrerPolicy="no-referrer"
+														loading="lazy"
+														onError={(e) => {
+															const u = entry.username?.replace('@', '').trim();
+															if (u && !e.currentTarget.src.includes(`/userpic/320/${u}.jpg`)) {
+																e.currentTarget.src = `https://t.me/i/userpic/320/${u}.jpg`;
+															} else if (entry.user_id && !e.currentTarget.src.includes(`/profile/avatar/${entry.user_id}`)) {
+																e.currentTarget.src = buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`);
+															} else {
+																e.currentTarget.style.display = 'none';
+															}
+														}}
+													/>
+												)}
 											</Show>
 										</div>
 

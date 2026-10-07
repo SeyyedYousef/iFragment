@@ -100,7 +100,15 @@ func (r *GroupLeaderboardRepo) GetLeaderboard(ctx context.Context, rankType stri
 			s.user_id,
 			COALESCE(s.username, u.username, '') as username,
 			COALESCE(s.first_name, u.first_name, '') as first_name,
-			COALESCE(NULLIF(s.photo_url, ''), NULLIF(u.photo_url, ''), '') as photo_url,
+			COALESCE(
+				NULLIF(s.photo_url, ''),
+				NULLIF(u.photo_url, ''),
+				CASE 
+					WHEN COALESCE(NULLIF(s.username, ''), NULLIF(u.username, '')) IS NOT NULL 
+						THEN 'https://t.me/i/userpic/320/' || COALESCE(NULLIF(s.username, ''), NULLIF(u.username, '')) || '.jpg'
+					ELSE '/api/v1/profile/avatar/' || s.user_id::text
+				END
+			) as photo_url,
 			s.%s as score
 		FROM fragment_investors_user_stats s
 		LEFT JOIN users u ON s.user_id = u.telegram_id
