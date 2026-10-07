@@ -93,7 +93,7 @@ export const LeaderboardPage: Component = () => {
 			class="min-h-screen bg-[#070911] text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#2AABEE]/30 pb-36"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			{/* Ambient Cosmic Lights (Blue & Gold Accents, No Purple) */}
+			{/* Ambient Cosmic Lights (Deep Obsidian, Blue & Gold Accents - No Purple) */}
 			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[360px] bg-gradient-to-b from-[#2AABEE]/18 via-[#0066FF]/6 to-transparent blur-[100px] pointer-events-none z-0" />
 			<div class="fixed top-36 right-[-10%] w-[220px] h-[220px] bg-amber-500/8 blur-[90px] pointer-events-none z-0" />
 
@@ -112,7 +112,9 @@ export const LeaderboardPage: Component = () => {
 								</span>
 							</h1>
 							<span class="text-[11px] text-white/45 font-medium mt-1">
-								{activeTab() === 'messages' ? 'فعال‌ترین اعضای گفتگو' : 'حامیان ویژه سوپرگروه'}
+								{activeTab() === 'messages'
+									? t('leaderboard.subtitleMessages')
+									: t('leaderboard.subtitleBoosts')}
 							</span>
 						</div>
 					</div>
@@ -127,7 +129,7 @@ export const LeaderboardPage: Component = () => {
 					</button>
 				</header>
 
-				{/* High-End Segmented Tab Switcher */}
+				{/* High-End Segmented Tab Switcher with Tactile Feedback */}
 				<div class="w-full bg-[#0D111E]/90 backdrop-blur-xl p-1.5 rounded-2xl flex items-center border border-white/10 shadow-[inset_0_2px_8px_rgba(0,0,0,0.6)]">
 					<button
 						type="button"
@@ -173,10 +175,10 @@ export const LeaderboardPage: Component = () => {
 								</div>
 								<div class="flex flex-col">
 									<span class="text-xs font-black text-white flex items-center gap-1.5">
-										چگونه در جدول بوست‌ها رتبه بگیریم؟
+										{t('leaderboard.boostActionTitle')}
 									</span>
 									<span class="text-[11px] text-white/60 font-medium mt-0.5 leading-relaxed">
-										با اختصاص بوست تلگرام به گروه، فوراً در صدر جدول قرار بگیرید و روزانه اعتبار هدیه بگیرید.
+										{t('leaderboard.boostActionDesc')}
 									</span>
 								</div>
 							</div>
@@ -187,8 +189,8 @@ export const LeaderboardPage: Component = () => {
 							class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#2AABEE] to-[#0088FF] text-white text-xs font-black flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(42,171,238,0.35)] active:scale-[0.98] transition-all cursor-pointer hover:brightness-110"
 						>
 							<span class="text-sm">⚡</span>
-							<span>بوست کردن گروه در تلگرام (@FragmentInvestors)</span>
-							<span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+							<span>{t('leaderboard.boostButton')}</span>
+							<span class="material-symbols-outlined text-[15px] rtl:rotate-180">arrow_forward</span>
 						</button>
 					</div>
 				</Show>
@@ -201,10 +203,10 @@ export const LeaderboardPage: Component = () => {
 							</div>
 							<div class="flex flex-col">
 								<span class="text-xs font-black text-white">
-									امتیازدهی بر اساس فعالیت گفتگو
+									{t('leaderboard.messageActionTitle')}
 								</span>
 								<span class="text-[10px] text-white/55 font-medium mt-0.5">
-									هر پیام در گروه = ۱ امتیاز لیدربورد و ۱ کریدت تحلیلی
+									{t('leaderboard.messageActionDesc')}
 								</span>
 							</div>
 						</div>
@@ -213,13 +215,13 @@ export const LeaderboardPage: Component = () => {
 							onClick={handleOpenGroup}
 							class="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-black flex items-center gap-1 active:scale-95 transition-all cursor-pointer shrink-0 border border-white/15"
 						>
-							<span>ورود به چت</span>
-							<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+							<span>{t('leaderboard.joinChatButton')}</span>
+							<span class="material-symbols-outlined text-[14px] rtl:rotate-180">arrow_forward</span>
 						</button>
 					</div>
 				</Show>
 
-				{/* Top 3 Champions Stage (3D High-Gloss Podium) */}
+				{/* Top 3 Champions Stage (3D High-Gloss Podium) & Shimmer Skeleton */}
 				<Show
 					when={!leaderboardQuery.isLoading && !leaderboardQuery.isError}
 					fallback={
@@ -228,20 +230,44 @@ export const LeaderboardPage: Component = () => {
 							fallback={
 								<div class="h-44 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#0D111E]/70 border border-rose-500/25 p-4 text-center">
 									<span class="material-symbols-outlined text-rose-400 text-3xl">error_outline</span>
-									<span class="text-white/70 text-xs font-bold">خطا در دریافت اطلاعات رتبه‌بندی</span>
+									<span class="text-white/70 text-xs font-bold">{t('leaderboard.loadError')}</span>
 									<button
 										type="button"
-										onClick={() => leaderboardQuery.refetch()}
+										onClick={() => {
+											haptic.impact('light');
+											leaderboardQuery.refetch();
+										}}
 										class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition active:scale-95 cursor-pointer border border-white/10"
 									>
-										تلاش مجدد
+										{t('leaderboard.retry')}
 									</button>
 								</div>
 							}
 						>
-							<div class="h-56 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#0D111E]/50 border border-white/5 backdrop-blur-sm">
-								<div class="w-7 h-7 rounded-full border-2 border-[#2AABEE] border-t-transparent animate-spin" />
-								<span class="text-white/40 text-xs font-medium">{t('leaderboard.loading')}</span>
+							{/* Shimmering Skeleton for World-Class Perceived Performance */}
+							<div class="flex flex-col gap-4 animate-pulse pt-2">
+								<div class="relative pt-6 pb-2 px-1 flex items-end justify-center gap-3">
+									<div class="flex-1 flex flex-col items-center max-w-[105px]">
+										<div class="w-20 h-20 rounded-full bg-white/5 border border-white/10" />
+										<div class="w-16 h-3 rounded-full bg-white/10 mt-3" />
+										<div class="w-12 h-3 rounded-full bg-white/5 mt-1.5" />
+									</div>
+									<div class="flex-1 flex flex-col items-center max-w-[130px] -translate-y-4">
+										<div class="w-24 h-24 rounded-full bg-amber-400/10 border border-amber-400/20" />
+										<div class="w-20 h-3.5 rounded-full bg-white/15 mt-3" />
+										<div class="w-14 h-3.5 rounded-full bg-white/10 mt-1.5" />
+									</div>
+									<div class="flex-1 flex flex-col items-center max-w-[105px]">
+										<div class="w-20 h-20 rounded-full bg-white/5 border border-white/10" />
+										<div class="w-16 h-3 rounded-full bg-white/10 mt-3" />
+										<div class="w-12 h-3 rounded-full bg-white/5 mt-1.5" />
+									</div>
+								</div>
+								<div class="w-full h-16 rounded-2xl bg-white/5 border border-white/10" />
+								<div class="flex flex-col gap-2">
+									<div class="w-full h-14 rounded-2xl bg-white/[0.04] border border-white/5" />
+									<div class="w-full h-14 rounded-2xl bg-white/[0.04] border border-white/5" />
+								</div>
 							</div>
 						</Show>
 					}
@@ -255,12 +281,14 @@ export const LeaderboardPage: Component = () => {
 								</div>
 								<div class="flex flex-col gap-1">
 									<span class="text-white text-sm font-black">
-										{activeTab() === 'messages' ? 'هنوز پیامی ثبت نشده است' : 'هنوز بوستی ثبت نشده است'}
-									</span>
-									<span class="text-white/50 text-xs max-w-xs">
 										{activeTab() === 'messages'
-											? 'با ارسال اولین پیام در گروه، جایگاه نخست را از آن خود کنید!'
-											: 'با ثبت اولین بوست تلگرام، قهرمان شماره ۱ گروه باشید!'}
+											? t('leaderboard.noMessagesYet')
+											: t('leaderboard.noBoostsYet')}
+									</span>
+									<span class="text-white/50 text-xs max-w-xs leading-relaxed">
+										{activeTab() === 'messages'
+											? t('leaderboard.firstMessagePrompt')
+											: t('leaderboard.firstBoostPrompt')}
 									</span>
 								</div>
 							</div>
@@ -275,9 +303,13 @@ export const LeaderboardPage: Component = () => {
 									<div class="flex-1 flex flex-col items-center max-w-[105px] z-10 opacity-40 select-none">
 										<div class="relative w-20 h-20 rounded-full border-2 border-dashed border-slate-400/50 flex flex-col items-center justify-center bg-white/[0.02]">
 											<span class="text-slate-400 text-lg font-black">2</span>
-											<span class="text-[9px] font-bold text-slate-400/80 mt-0.5">جایگاه آزاد</span>
+											<span class="text-[9px] font-bold text-slate-400/80 mt-0.5">
+												{t('leaderboard.openSpot')}
+											</span>
 										</div>
-										<span class="mt-3 text-xs font-medium text-white/40">خالی</span>
+										<span class="mt-3 text-xs font-medium text-white/40">
+											{t('leaderboard.emptySlot')}
+										</span>
 									</div>
 								}
 							>
@@ -309,7 +341,7 @@ export const LeaderboardPage: Component = () => {
 											</div>
 										</div>
 										<span class="mt-3.5 text-xs font-black text-white truncate max-w-full text-center tracking-tight">
-											{second().first_name || second().username || 'Anonymous'}
+											{second().first_name || second().username || t('leaderboard.anonymous')}
 										</span>
 										<span class="text-[11px] font-black text-slate-300 flex items-center gap-1 mt-0.5 px-2.5 py-0.5 rounded-full bg-slate-400/10 border border-slate-400/25 shadow-sm">
 											<span>{unitIcon()}</span>
@@ -353,7 +385,7 @@ export const LeaderboardPage: Component = () => {
 											</div>
 										</div>
 										<span class="mt-4 text-[13px] font-black text-white truncate max-w-full text-center tracking-tight">
-											{first().first_name || first().username || 'Top Leader'}
+											{first().first_name || first().username || t('leaderboard.topLeader')}
 										</span>
 										<span class="text-xs font-black text-amber-300 flex items-center gap-1 mt-0.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 shadow-[0_0_14px_rgba(251,191,36,0.2)]">
 											<span>{unitIcon()}</span>
@@ -370,9 +402,13 @@ export const LeaderboardPage: Component = () => {
 									<div class="flex-1 flex flex-col items-center max-w-[105px] z-10 opacity-40 select-none">
 										<div class="relative w-20 h-20 rounded-full border-2 border-dashed border-amber-700/50 flex flex-col items-center justify-center bg-white/[0.02]">
 											<span class="text-amber-500 text-lg font-black">3</span>
-											<span class="text-[9px] font-bold text-amber-500/80 mt-0.5">جایگاه آزاد</span>
+											<span class="text-[9px] font-bold text-amber-500/80 mt-0.5">
+												{t('leaderboard.openSpot')}
+											</span>
 										</div>
-										<span class="mt-3 text-xs font-medium text-white/40">خالی</span>
+										<span class="mt-3 text-xs font-medium text-white/40">
+											{t('leaderboard.emptySlot')}
+										</span>
 									</div>
 								}
 							>
@@ -404,7 +440,7 @@ export const LeaderboardPage: Component = () => {
 											</div>
 										</div>
 										<span class="mt-3.5 text-xs font-black text-white truncate max-w-full text-center tracking-tight">
-											{third().first_name || third().username || 'Anonymous'}
+											{third().first_name || third().username || t('leaderboard.anonymous')}
 										</span>
 										<span class="text-[11px] font-black text-amber-400 flex items-center gap-1 mt-0.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 shadow-sm">
 											<span>{unitIcon()}</span>
@@ -447,13 +483,13 @@ export const LeaderboardPage: Component = () => {
 									{currentUser()?.first_name || t('leaderboard.you')}
 								</span>
 								<span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-[#2AABEE]/25 text-[#2AABEE] border border-[#2AABEE]/40">
-									شما
+									{t('leaderboard.you')}
 								</span>
 							</div>
 							<span class="text-[11px] font-bold text-white/50 mt-0.5">
 								{(myStats()?.rank ?? 0) > 0
-									? `رتبه #${myStats()?.rank} جدول`
-									: 'خارج از ۱۰۰ نفر برتر'}
+									? t('leaderboard.rankTitle', { rank: myStats()?.rank })
+									: t('leaderboard.outOfRank')}
 							</span>
 						</div>
 					</div>
@@ -461,15 +497,15 @@ export const LeaderboardPage: Component = () => {
 					<div class="flex items-center gap-2 shrink-0">
 						{/* Score */}
 						<div class="flex flex-col items-end">
-							<span class="text-[10px] text-white/45 font-medium">امتیاز شما</span>
+							<span class="text-[10px] text-white/45 font-medium">{t('leaderboard.yourScore')}</span>
 							<span class="text-xs font-black text-white flex items-center gap-1 font-mono">
 								<span>{unitIcon()}</span>
 								<span>{formatScore(myStats()?.score || 0)}</span>
 							</span>
 						</div>
 						{/* Credits */}
-						<div class="flex flex-col items-end border-r border-white/10 pr-2 mr-1">
-							<span class="text-[10px] text-white/45 font-medium">کریدت</span>
+						<div class="flex flex-col items-end border-r border-white/10 rtl:border-r-0 rtl:border-l pr-2 rtl:pr-0 rtl:pl-2 mr-1 rtl:mr-0 rtl:ml-1">
+							<span class="text-[10px] text-white/45 font-medium">{t('leaderboard.credits')}</span>
 							<span class="text-xs font-black text-amber-400 flex items-center gap-1 font-mono">
 								<span>⭐</span>
 								<span>{(myStats()?.credits ?? 0).toLocaleString()}</span>
@@ -499,7 +535,7 @@ export const LeaderboardPage: Component = () => {
 							<Show when={!leaderboardQuery.isLoading}>
 								<div class="py-10 text-center text-white/40 text-xs rounded-2xl bg-[#0D111E]/40 border border-white/5">
 									{restOfList().length === 0 && top3().length <= 3
-										? 'کاربران رتبه ۴ به بعد پس از ثبت امتیاز در این بخش نمایش داده می‌شوند.'
+										? t('leaderboard.moreRanksPlaceholder')
 										: t('leaderboard.empty')}
 								</div>
 							</Show>
@@ -536,7 +572,7 @@ export const LeaderboardPage: Component = () => {
 													alt={entry.first_name || 'Leader'}
 													class="w-full h-full object-cover"
 													onError={(e) => {
-														e.currentTarget.style.display = 'none';
+															e.currentTarget.style.display = 'none';
 													}}
 												/>
 											</Show>
@@ -545,11 +581,11 @@ export const LeaderboardPage: Component = () => {
 										<div class="flex flex-col min-w-0">
 											<div class="flex items-center gap-1.5">
 												<span class="text-xs font-black text-white truncate max-w-[150px]">
-													{entry.first_name || entry.username || 'Investor'}
+													{entry.first_name || entry.username || t('leaderboard.anonymous')}
 												</span>
 												{isMe() && (
 													<span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-[#2AABEE]/25 text-[#2AABEE] border border-[#2AABEE]/40">
-														شما
+														{t('leaderboard.you')}
 													</span>
 												)}
 											</div>
@@ -561,7 +597,7 @@ export const LeaderboardPage: Component = () => {
 										</div>
 									</div>
 
-									<div class="flex items-center gap-1.5 shrink-0 pl-1">
+									<div class="flex items-center gap-1.5 shrink-0 pl-1 rtl:pl-0 rtl:pr-1">
 										<span class="text-xs font-black text-white font-mono bg-white/[0.06] px-2.5 py-1 rounded-xl border border-white/[0.08]">
 											{formatScore(entry.score)}
 										</span>
