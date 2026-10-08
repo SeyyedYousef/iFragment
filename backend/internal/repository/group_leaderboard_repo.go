@@ -38,12 +38,31 @@ func NewGroupLeaderboardRepo(db *Database) *GroupLeaderboardRepo {
 	return &GroupLeaderboardRepo{db: db}
 }
 
-// RecordGroupMessage atomically increments user's message counter and updates name/photo
-func (r *GroupLeaderboardRepo) RecordGroupMessage(ctx context.Context, userID int64, username, firstName, photoURL string) error {
+// RecordGroupMessage atomically increments user's message counter, logs the message event, ensures user in users table, and updates name/photo
+func (r *GroupLeaderboardRepo) RecordGroupMessage(ctx context.Context, userID int64, username, firstName, photoURL string, messageID int) error {
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("database unavailable")
 	}
 
+	// 1. Ensure user exists in users table so foreign keys (e.g. intel_credit_batches) succeed
+	userQuery := `
+		INSERT INTO users (telegram_id, username, first_name, language_code, created_at, updated_at)
+		VALUES ($1, $2, COALESCE(NULLIF($3, ''), 'Investor'), 'en', NOW(), NOW())
+		ON CONFLICT (telegram_id) DO UPDATE SET
+			username = COALESCE(NULLIF(EXCLUDED.username, ''), users.username),
+			first_name = COALESCE(NULLIF(EXCLUDED.first_name, ''), users.first_name),
+			updated_at = NOW()`
+	_, _ = r.db.Pool.Exec(ctx, userQuery, userID, username, firstName)
+
+	// 2. Log message into fragment_investors_messages
+	if messageID > 0 {
+		msgLogQuery := `
+			INSERT INTO fragment_investors_messages (chat_id, user_id, message_id, created_at)
+			VALUES (-1001972125896, $1, $2, NOW())`
+		_, _ = r.db.Pool.Exec(ctx, msgLogQuery, userID, messageID)
+	}
+
+	// 3. Atomically update user stats
 	query := `
 		INSERT INTO fragment_investors_user_stats (user_id, username, first_name, photo_url, message_count, updated_at)
 		VALUES ($1, $2, $3, $4, 1, NOW())
@@ -63,6 +82,16 @@ func (r *GroupLeaderboardRepo) UpdateUserBoostCount(ctx context.Context, userID 
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("database unavailable")
 	}
+
+	// 1. Ensure user exists in users table so foreign keys and profile lookups succeed
+	userQuery := `
+		INSERT INTO users (telegram_id, username, first_name, language_code, created_at, updated_at)
+		VALUES ($1, $2, COALESCE(NULLIF($3, ''), 'Booster'), 'en', NOW(), NOW())
+		ON CONFLICT (telegram_id) DO UPDATE SET
+			username = COALESCE(NULLIF(EXCLUDED.username, ''), users.username),
+			first_name = COALESCE(NULLIF(EXCLUDED.first_name, ''), users.first_name),
+			updated_at = NOW()`
+	_, _ = r.db.Pool.Exec(ctx, userQuery, userID, username, firstName)
 
 	query := `
 		INSERT INTO fragment_investors_user_stats (user_id, username, first_name, photo_url, boost_count, last_boost_check_at, updated_at)
@@ -98,21 +127,20 @@ func (r *GroupLeaderboardRepo) GetLeaderboard(ctx context.Context, rankType stri
 		SELECT 
 			ROW_NUMBER() OVER (ORDER BY s.%s DESC, s.user_id ASC)::INT as rank,
 			s.user_id,
-			COALESCE(s.username, u.username, '') as username,
-			COALESCE(s.first_name, u.first_name, '') as first_name,
+			COALESCE(NULLIF(s.username, ''), NULLIF(u.username, ''), '') as username,
+			COALESCE(NULLIF(s.first_name, ''), NULLIF(u.first_name, ''), '') as first_name,
 			COALESCE(
-				NULLIF(s.photo_url, ''),
-				NULLIF(u.photo_url, ''),
 				CASE 
-					WHEN COALESCE(NULLIF(s.username, ''), NULLIF(u.username, '')) IS NOT NULL 
-						THEN 'https://t.me/i/userpic/320/' || COALESCE(NULLIF(s.username, ''), NULLIF(u.username, '')) || '.jpg'
-					ELSE '/api/v1/profile/avatar/' || s.user_id::text
-				END
+					WHEN s.photo_url LIKE 'http%%' THEN s.photo_url
+					WHEN u.photo_url LIKE 'http%%' THEN u.photo_url
+					ELSE NULL
+				END,
+				'/api/v1/profile/avatar/' || s.user_id::text
 			) as photo_url,
 			s.%s as score
 		FROM fragment_investors_user_stats s
 		LEFT JOIN users u ON s.user_id = u.telegram_id
-		WHERE s.%s > 0
+		WHERE s.%s > 0 AND s.user_id NOT BETWEEN 888000001 AND 888000009
 		ORDER BY s.%s DESC, s.user_id ASC
 		LIMIT $1`, orderColumn, orderColumn, orderColumn, orderColumn)
 
@@ -162,7 +190,7 @@ func (r *GroupLeaderboardRepo) GetLeaderboard(ctx context.Context, rankType stri
 					%s,
 					ROW_NUMBER() OVER (ORDER BY %s DESC, user_id ASC)::INT as rank
 				FROM fragment_investors_user_stats
-				WHERE %s > 0
+				WHERE %s > 0 AND user_id NOT BETWEEN 888000001 AND 888000009
 			)
 			SELECT rank, %s
 			FROM ranked
@@ -209,7 +237,7 @@ func (r *GroupLeaderboardRepo) GetUserStats(ctx context.Context, rankType string
 				%s,
 				ROW_NUMBER() OVER (ORDER BY %s DESC, user_id ASC)::INT as rank
 			FROM fragment_investors_user_stats
-			WHERE %s > 0
+			WHERE %s > 0 AND user_id NOT BETWEEN 888000001 AND 888000009
 		)
 		SELECT rank, %s
 		FROM ranked
@@ -254,7 +282,8 @@ func (r *GroupLeaderboardRepo) GetUsersForBoostCheck(ctx context.Context, limit 
 			COALESCE(s.boost_count, 0) as boost_count
 		FROM users u
 		FULL OUTER JOIN fragment_investors_user_stats s ON u.telegram_id = s.user_id
-		WHERE COALESCE(u.telegram_id, s.user_id) > 0
+		WHERE COALESCE(u.telegram_id, s.user_id) > 0 
+		  AND COALESCE(u.telegram_id, s.user_id) NOT BETWEEN 888000001 AND 888000009
 		ORDER BY 
 			(CASE WHEN COALESCE(s.boost_count, 0) > 0 THEN 0 ELSE 1 END),
 			COALESCE(s.last_boost_check_at, '1970-01-01'::timestamptz) ASC

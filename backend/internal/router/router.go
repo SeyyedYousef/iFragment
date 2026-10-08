@@ -170,6 +170,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 
 		r.Route("/profile", func(r chi.Router) {
 			r.Get("/avatar/{userID}", cfg.ProfileHandler.GetAvatar)
+			r.Head("/avatar/{userID}", cfg.ProfileHandler.GetAvatar)
 			r.Get("/public-config", cfg.ProfileHandler.GetPublicConfig)
 
 			r.Group(func(r chi.Router) {

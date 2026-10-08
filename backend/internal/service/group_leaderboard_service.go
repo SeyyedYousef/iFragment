@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"time"
 
 	"ifragment-backend/internal/client/telegram"
@@ -129,7 +130,7 @@ func (s *GroupLeaderboardService) RecordGroupMessage(ctx context.Context, userID
 		return nil
 	}
 
-	if err := s.repo.RecordGroupMessage(ctx, userID, username, firstName, photoURL); err != nil {
+	if err := s.repo.RecordGroupMessage(ctx, userID, username, firstName, photoURL, messageID); err != nil {
 		slog.Error("failed to record group message in leaderboard repo", "user_id", userID, "error", err)
 	}
 
@@ -172,6 +173,14 @@ func (s *GroupLeaderboardService) SyncUserBoosts(ctx context.Context, tgClient *
 		return 0, fmt.Errorf("failed to fetch user chat boosts: %w", err)
 	}
 
+	if photoURL == "" {
+		if photoPath, pErr := tgClient.GetUserProfilePhotoURL(ctx, userID); pErr == nil && photoPath != "" {
+			if strings.HasPrefix(photoPath, "http://") || strings.HasPrefix(photoPath, "https://") {
+				photoURL = photoPath
+			}
+		}
+	}
+
 	if err := s.UpdateUserBoostCount(ctx, userID, username, firstName, photoURL, boosts); err != nil {
 		return boosts, err
 	}
@@ -204,7 +213,13 @@ func (s *GroupLeaderboardService) RunHourlyBoostSyncAndRewards(ctx context.Conte
 				if adm.User.ID > 0 {
 					boosts, bErr := tgClient.GetUserChatBoosts(ctx, chatID, adm.User.ID)
 					if bErr == nil {
-						_ = s.repo.UpdateUserBoostCount(ctx, adm.User.ID, adm.User.Username, adm.User.FirstName, "", boosts)
+						photoURL := ""
+						if photoPath, pErr := tgClient.GetUserProfilePhotoURL(ctx, adm.User.ID); pErr == nil && photoPath != "" {
+							if strings.HasPrefix(photoPath, "http://") || strings.HasPrefix(photoPath, "https://") {
+								photoURL = photoPath
+							}
+						}
+						_ = s.repo.UpdateUserBoostCount(ctx, adm.User.ID, adm.User.Username, adm.User.FirstName, photoURL, boosts)
 					}
 					time.Sleep(50 * time.Millisecond)
 				}
@@ -216,7 +231,13 @@ func (s *GroupLeaderboardService) RunHourlyBoostSyncAndRewards(ctx context.Conte
 			for _, target := range targets {
 				boosts, err := tgClient.GetUserChatBoosts(ctx, chatID, target.UserID)
 				if err == nil {
-					_ = s.repo.UpdateUserBoostCount(ctx, target.UserID, target.Username, target.FirstName, "", boosts)
+					photoURL := ""
+					if photoPath, pErr := tgClient.GetUserProfilePhotoURL(ctx, target.UserID); pErr == nil && photoPath != "" {
+						if strings.HasPrefix(photoPath, "http://") || strings.HasPrefix(photoPath, "https://") {
+							photoURL = photoPath
+						}
+					}
+					_ = s.repo.UpdateUserBoostCount(ctx, target.UserID, target.Username, target.FirstName, photoURL, boosts)
 				}
 				time.Sleep(50 * time.Millisecond) // rate limiting protection
 			}

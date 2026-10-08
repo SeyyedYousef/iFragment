@@ -103,12 +103,12 @@ export const LeaderboardPage: Component = () => {
 		if (p) {
 			return buildAvatarUrl(p);
 		}
+		if (entry.user_id) {
+			return buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`);
+		}
 		const u = entry.username?.replace('@', '').trim();
 		if (u) {
 			return `https://t.me/i/userpic/320/${u}.jpg`;
-		}
-		if (entry.user_id) {
-			return buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`);
 		}
 		return '';
 	};
@@ -197,11 +197,13 @@ export const LeaderboardPage: Component = () => {
 
 					<button
 						type="button"
-						onClick={handleOpenGroup}
+						onClick={activeTab() === 'boosts' ? handleBoostGroup : handleOpenGroup}
 						class="text-[11px] font-black px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-[#2AABEE] border border-[#2AABEE]/30 backdrop-blur-md transition-all duration-200 flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm hover:border-[#2AABEE]/60"
 					>
-						<span>@FragmentInvestors</span>
-						<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+						<span>{activeTab() === 'boosts' ? 'Boost Group' : '@FragmentInvestors'}</span>
+						<span class="material-symbols-outlined text-[13px]">
+							{activeTab() === 'boosts' ? 'rocket_launch' : 'open_in_new'}
+						</span>
 					</button>
 				</header>
 
