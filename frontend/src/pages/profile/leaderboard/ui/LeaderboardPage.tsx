@@ -151,7 +151,7 @@ export const LeaderboardPage: Component = () => {
 
 	// Jump to user row in the list
 	const handleJumpToMyRank = () => {
-		const uid = myStats()?.user_id;
+		const uid = currentUser()?.id || myStats()?.user_id;
 		if (!uid) return;
 		try {
 			haptic.impact('light');
@@ -166,7 +166,7 @@ export const LeaderboardPage: Component = () => {
 
 	return (
 		<div
-			class="min-h-screen bg-[#070911] text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#2AABEE]/30 pb-36"
+			class="min-h-screen bg-[#070911] text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#2AABEE]/30 pb-48"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Cosmic Lighting (No Purple) */}
