@@ -1948,7 +1948,7 @@ export const dict = {
 		tabBoosts: 'بوست‌ها',
 		tabMessages: 'پیام‌ها',
 		title: 'برترین‌ها',
-		topContributors: 'برترین کاربران',
+		topContributors: 'برترین اعضای گروه',
 		topHolders: 'برترین دارندگان',
 		you: 'شما',
 		yourBoosts: 'بوست‌های شما',

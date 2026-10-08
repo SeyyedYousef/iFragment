@@ -753,7 +753,7 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 	}
 
 	// 3. Activity tracking for @FragmentInvestors group
-	if raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username) && msg.From != nil {
+	if (msg.Chat.ID == -1001972125896 || raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username)) && msg.From != nil {
 		// Record message in Leaderboard & grant 1 Intel Credit (1 message = 1 credit)
 		if !msg.From.IsBot && h.groupLeaderboardSvc != nil {
 			_ = h.groupLeaderboardSvc.RecordGroupMessage(ctx, msg.From.ID, msg.From.Username, msg.From.FirstName, "", msg.MessageID)
@@ -772,7 +772,7 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 	// 4. Group / Supergroup Mention & Command handling: when bot is tagged or addressed in a group
 	if (msg.Chat.Type == "group" || msg.Chat.Type == "supergroup") && bot.BotUsername != "" {
 		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
-		isFI := raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username)
+		isFI := msg.Chat.ID == -1001972125896 || raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username)
 		isMentioned := strings.Contains(raw, botMention)
 		isDirectCmd := isFI && (strings.HasPrefix(raw, "/") || SniffAsset(raw) != nil)
 
@@ -802,7 +802,7 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 	}
 	slog.Info("Processing chat join request", "chat_id", req.Chat.ID, "user_id", req.From.ID, "title", req.Chat.Title)
 
-	if raffle.IsFragmentInvestorsGroup(req.Chat.Title, req.Chat.Username) {
+	if req.Chat.ID == -1001972125896 || raffle.IsFragmentInvestorsGroup(req.Chat.Title, req.Chat.Username) {
 		tg := h.getBotClient(bot)
 		if tg != nil {
 			uComp := raffle.UserCompact{

@@ -36,10 +36,10 @@ export const LeaderboardPage: Component = () => {
 	const myResolvedRank = () => {
 		const uid = currentUser()?.id;
 		if (uid) {
-			const inTop3Idx = top3().findIndex((e) => e.user_id === uid);
+			const inTop3Idx = top3().findIndex((e) => Number(e.user_id) === Number(uid));
 			if (inTop3Idx !== -1) return inTop3Idx + 1;
-			const inRestIdx = restOfList().findIndex((e) => e.user_id === uid);
-			if (inRestIdx !== -1) return inRestIdx + 4;
+			const inRestIdx = restOfList().findIndex((e) => Number(e.user_id) === Number(uid));
+			if (inRestIdx !== -1) return restOfList()[inRestIdx].rank || inRestIdx + 4;
 		}
 		return myStats()?.rank || 0;
 	};
@@ -158,7 +158,7 @@ export const LeaderboardPage: Component = () => {
 			const el = document.getElementById(`leaderboard-row-${uid}`);
 			if (el) {
 				el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-				setHighlightedUserId(uid);
+				setHighlightedUserId(Number(uid));
 				setTimeout(() => setHighlightedUserId(null), 2500);
 			}
 		} catch {}
@@ -241,31 +241,6 @@ export const LeaderboardPage: Component = () => {
 				</div>
 
 
-				<Show when={activeTab() === 'messages'}>
-					<div class="w-full rounded-2xl p-3.5 bg-gradient-to-br from-[#10192E]/90 to-[#0A0E1A]/90 border border-white/10 shadow-md flex items-center justify-between gap-3 relative overflow-hidden">
-						<div class="flex items-center gap-2.5">
-							<div class="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-lg shrink-0">
-								💬
-							</div>
-							<div class="flex flex-col">
-								<span class="text-xs font-black text-white">
-									{t('leaderboard.messageActionTitle')}
-								</span>
-								<span class="text-[10px] text-white/55 font-medium mt-0.5">
-									{t('leaderboard.messageActionDesc')}
-								</span>
-							</div>
-						</div>
-						<button
-							type="button"
-							onClick={handleOpenGroup}
-							class="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-black flex items-center gap-1 active:scale-95 transition-all cursor-pointer shrink-0 border border-white/15"
-						>
-							<span>{t('leaderboard.joinChatButton')}</span>
-							<span class="material-symbols-outlined text-[14px] rtl:rotate-180">arrow_forward</span>
-						</button>
-					</div>
-				</Show>
 
 				{/* Feature 1: Physical 3D Tiered Pedestals Podium Stage */}
 				<Show
@@ -543,7 +518,7 @@ export const LeaderboardPage: Component = () => {
 					<div class="flex items-center gap-2">
 						<span class="w-2 h-2 rounded-full bg-[#2AABEE]" />
 						<h2 class="text-xs font-black text-white tracking-tight">
-							{t('leaderboard.topHolders')}
+							{t('leaderboard.topContributors')}
 						</h2>
 					</div>
 					<span class="text-[10px] font-bold text-white/45 px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10">
@@ -566,8 +541,11 @@ export const LeaderboardPage: Component = () => {
 						}
 					>
 						{(entry: GroupLeaderboardEntry) => {
-							const isMe = () => (currentUser()?.id && entry.user_id === currentUser()?.id) || (myStats()?.user_id && entry.user_id === myStats()?.user_id);
-							const isHighlighted = () => highlightedUserId() === entry.user_id;
+							const isMe = () =>
+								(currentUser()?.id && Number(entry.user_id) === Number(currentUser()?.id)) ||
+								(myStats()?.user_id && Number(entry.user_id) === Number(myStats()?.user_id));
+							const isHighlighted = () =>
+								highlightedUserId() !== null && Number(highlightedUserId()) === Number(entry.user_id);
 							return (
 								<div
 									id={`leaderboard-row-${entry.user_id}`}
