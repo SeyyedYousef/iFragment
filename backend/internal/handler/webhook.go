@@ -757,6 +757,13 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		// Record message in Leaderboard & grant 1 Intel Credit (1 message = 1 credit)
 		if !msg.From.IsBot && h.groupLeaderboardSvc != nil {
 			_ = h.groupLeaderboardSvc.RecordGroupMessage(ctx, msg.From.ID, msg.From.Username, msg.From.FirstName, "", msg.MessageID)
+			if tgClient := h.getBotClient(bot); tgClient != nil {
+				go func(uid int64, uname, fname string) {
+					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					h.groupLeaderboardSvc.SyncUserBoostsThrottled(bgCtx, tgClient, int64(-1001972125896), uid, uname, fname, "")
+				}(msg.From.ID, msg.From.Username, msg.From.FirstName)
+			}
 		}
 
 		// Check if message is mentioning the bot or requesting an asset valuation / command
@@ -1374,5 +1381,7 @@ func (h *WebhookHandler) handleRemovedChatBoost(ctx context.Context, bot *reposi
 	tgClient := h.getBotClient(bot)
 	if tgClient != nil {
 		_, _ = h.groupLeaderboardSvc.SyncUserBoosts(ctx, tgClient, update.Chat.ID, user.ID, user.Username, user.FirstName, "")
+	} else {
+		_ = h.groupLeaderboardSvc.UpdateUserBoostCount(ctx, user.ID, user.Username, user.FirstName, "", 0)
 	}
 }

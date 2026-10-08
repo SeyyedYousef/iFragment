@@ -254,8 +254,10 @@ func (r *GroupLeaderboardRepo) GetUsersForBoostCheck(ctx context.Context, limit 
 			COALESCE(s.boost_count, 0) as boost_count
 		FROM users u
 		FULL OUTER JOIN fragment_investors_user_stats s ON u.telegram_id = s.user_id
-		WHERE COALESCE(u.telegram_id, s.user_id) < 888000000
-		ORDER BY COALESCE(s.last_boost_check_at, '1970-01-01'::timestamptz) ASC
+		WHERE COALESCE(u.telegram_id, s.user_id) > 0
+		ORDER BY 
+			(CASE WHEN COALESCE(s.boost_count, 0) > 0 THEN 0 ELSE 1 END),
+			COALESCE(s.last_boost_check_at, '1970-01-01'::timestamptz) ASC
 		LIMIT $1`
 
 	rows, err := r.db.Pool.Query(ctx, query, limit)

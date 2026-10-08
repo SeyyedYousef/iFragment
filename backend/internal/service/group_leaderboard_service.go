@@ -179,6 +179,18 @@ func (s *GroupLeaderboardService) SyncUserBoosts(ctx context.Context, tgClient *
 	return boosts, nil
 }
 
+// SyncUserBoostsThrottled checks user's active boosts if not checked recently (e.g. in last 30 minutes)
+func (s *GroupLeaderboardService) SyncUserBoostsThrottled(ctx context.Context, tgClient *telegram.BotAPIClient, chatID interface{}, userID int64, username, firstName, photoURL string) {
+	if s.cache != nil && s.cache.Client != nil && !s.cache.IsQuotaExceeded() {
+		throttleKey := fmt.Sprintf("boost_check_throttle:%d", userID)
+		if exists, _ := s.cache.Client.Exists(ctx, throttleKey).Result(); exists > 0 {
+			return
+		}
+		_ = s.cache.Client.Set(ctx, throttleKey, "1", 30*time.Minute).Err()
+	}
+	_, _ = s.SyncUserBoosts(ctx, tgClient, chatID, userID, username, firstName, photoURL)
+}
+
 // RunHourlyBoostSyncAndRewards synchronizes boost counts and grants 1 credit per 2 boosts every 24h
 func (s *GroupLeaderboardService) RunHourlyBoostSyncAndRewards(ctx context.Context, tgClient *telegram.BotAPIClient, chatID interface{}) error {
 	if s.repo == nil {
@@ -191,7 +203,7 @@ func (s *GroupLeaderboardService) RunHourlyBoostSyncAndRewards(ctx context.Conte
 			for _, adm := range admins {
 				if adm.User.ID > 0 {
 					boosts, bErr := tgClient.GetUserChatBoosts(ctx, chatID, adm.User.ID)
-					if bErr == nil && boosts > 0 {
+					if bErr == nil {
 						_ = s.repo.UpdateUserBoostCount(ctx, adm.User.ID, adm.User.Username, adm.User.FirstName, "", boosts)
 					}
 					time.Sleep(50 * time.Millisecond)
