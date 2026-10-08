@@ -240,32 +240,6 @@ export const LeaderboardPage: Component = () => {
 					</button>
 				</div>
 
-				{/* Action Card: Boost Group */}
-				<Show when={activeTab() === 'boosts'}>
-					<div class="w-full rounded-2xl p-3.5 bg-gradient-to-br from-[#10192E]/90 to-[#0A0E1A]/90 border border-[#2AABEE]/25 shadow-md flex items-center justify-between gap-3 relative overflow-hidden">
-						<div class="flex items-center gap-2.5">
-							<div class="w-9 h-9 rounded-xl bg-[#2AABEE]/15 flex items-center justify-center text-lg shrink-0 text-[#2AABEE]">
-								🚀
-							</div>
-							<div class="flex flex-col">
-								<span class="text-xs font-black text-white">
-									{t('leaderboard.boostActionTitle')}
-								</span>
-								<span class="text-[10px] text-white/55 font-medium mt-0.5">
-									{t('leaderboard.boostActionDesc')}
-								</span>
-							</div>
-						</div>
-						<button
-							type="button"
-							onClick={handleBoostGroup}
-							class="py-2 px-3 rounded-xl bg-gradient-to-r from-[#2AABEE] to-[#0088FF] hover:brightness-110 text-white text-xs font-black flex items-center gap-1 active:scale-95 transition-all cursor-pointer shrink-0 shadow-[0_2px_12px_rgba(42,171,238,0.35)]"
-						>
-							<span>{t('leaderboard.boostButton')}</span>
-							<span class="material-symbols-outlined text-[14px] rtl:rotate-180">arrow_forward</span>
-						</button>
-					</div>
-				</Show>
 
 				<Show when={activeTab() === 'messages'}>
 					<div class="w-full rounded-2xl p-3.5 bg-gradient-to-br from-[#10192E]/90 to-[#0A0E1A]/90 border border-white/10 shadow-md flex items-center justify-between gap-3 relative overflow-hidden">

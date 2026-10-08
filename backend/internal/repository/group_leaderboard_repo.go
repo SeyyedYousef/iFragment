@@ -254,6 +254,7 @@ func (r *GroupLeaderboardRepo) GetUsersForBoostCheck(ctx context.Context, limit 
 			COALESCE(s.boost_count, 0) as boost_count
 		FROM users u
 		FULL OUTER JOIN fragment_investors_user_stats s ON u.telegram_id = s.user_id
+		WHERE COALESCE(u.telegram_id, s.user_id) < 888000000
 		ORDER BY COALESCE(s.last_boost_check_at, '1970-01-01'::timestamptz) ASC
 		LIMIT $1`
 

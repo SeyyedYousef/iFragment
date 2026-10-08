@@ -185,8 +185,20 @@ func (s *GroupLeaderboardService) RunHourlyBoostSyncAndRewards(ctx context.Conte
 		return nil
 	}
 
-	// 1. Sync boosts for a batch of known users from Telegram if client available
+	// 1. Sync boosts for group administrators and known users from Telegram if client available
 	if tgClient != nil && chatID != nil {
+		if admins, err := tgClient.GetChatAdministrators(ctx, chatID); err == nil {
+			for _, adm := range admins {
+				if adm.User.ID > 0 {
+					boosts, bErr := tgClient.GetUserChatBoosts(ctx, chatID, adm.User.ID)
+					if bErr == nil && boosts > 0 {
+						_ = s.repo.UpdateUserBoostCount(ctx, adm.User.ID, adm.User.Username, adm.User.FirstName, "", boosts)
+					}
+					time.Sleep(50 * time.Millisecond)
+				}
+			}
+		}
+
 		targets, err := s.repo.GetUsersForBoostCheck(ctx, 100)
 		if err == nil {
 			for _, target := range targets {
