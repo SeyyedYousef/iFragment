@@ -3,6 +3,8 @@ package venues
 import (
 	"context"
 	"testing"
+
+	"github.com/shopspring/decimal"
 )
 
 func TestVenues_ExitPlannerCalculations(t *testing.T) {
@@ -122,3 +124,38 @@ func TestVenues_FragmentAdapterNormalization(t *testing.T) {
 		}
 	}
 }
+
+func TestVenues_MarketAppAdapter_LiveAndFallback(t *testing.T) {
+	ctx := context.Background()
+	// Test fallback when client has no token or upstream is unauthenticated
+	adapter := NewMarketAppAdapter()
+	res, err := adapter.FetchFloor(ctx, "plush_pepe")
+	if err != nil {
+		t.Fatalf("Expected fallback result, got error: %v", err)
+	}
+	if res.VenueID != VenueMarketApp {
+		t.Errorf("Expected VenueMarketApp, got %s", res.VenueID)
+	}
+	if !res.FloorPriceGRAM.GreaterThan(decimal.Zero) {
+		t.Errorf("Expected positive floor price, got %s", res.FloorPriceGRAM)
+	}
+	if res.DataStatus != "estimated" && res.DataStatus != "live" {
+		t.Errorf("Expected data status estimated or live, got %s", res.DataStatus)
+	}
+}
+
+func TestVenues_GetgemsAdapter_Fallback(t *testing.T) {
+	ctx := context.Background()
+	adapter := NewGetgemsAdapter()
+	res, err := adapter.FetchFloor(ctx, "plush_pepe")
+	if err != nil {
+		t.Fatalf("Expected fallback result, got error: %v", err)
+	}
+	if res.VenueID != VenueGetgems {
+		t.Errorf("Expected VenueGetgems, got %s", res.VenueID)
+	}
+	if !res.FloorPriceGRAM.GreaterThan(decimal.Zero) {
+		t.Errorf("Expected positive floor price, got %s", res.FloorPriceGRAM)
+	}
+}
+

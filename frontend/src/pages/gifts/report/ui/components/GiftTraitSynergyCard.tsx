@@ -7,6 +7,8 @@ interface Props {
 	backdropName?: string;
 	symbolName?: string;
 	rarityTier?: string;
+	synergyMultiplier?: number;
+	synergyScore?: number;
 	backdropColors?: {
 		center_hex: string;
 		edge_hex: string;
@@ -18,8 +20,22 @@ interface Props {
 export const GiftTraitSynergyCard: Component<Props> = (props) => {
 	const base = () => props.baseExpectedTon || 25;
 
-	// Calculate LAYA trait synergy score & multiplier
+	// Calculate LAYA trait synergy score & multiplier, anchored to Go engine calculations
 	const synergy = createMemo(() => {
+		if (props.synergyMultiplier && props.synergyMultiplier > 0) {
+			const multiplier = props.synergyMultiplier;
+			const score = props.synergyScore || Math.min(98, Math.max(45, Math.round(((multiplier - 0.9) / 0.4) * 50 + 50)));
+			const adjustedValueTon = Math.round(base() * multiplier * 10) / 10;
+			const bonusTon = Math.round((adjustedValueTon - base()) * 10) / 10;
+			return {
+				score,
+				multiplier,
+				adjustedValueTon,
+				bonusTon,
+				isPositive: bonusTon >= 0,
+			};
+		}
+
 		const m = (props.modelName || '').toLowerCase();
 		const b = (props.backdropName || '').toLowerCase();
 		const tier = (props.rarityTier || '').toLowerCase();
@@ -44,8 +60,8 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 		if (score > 98) score = 98;
 		if (score < 45) score = 45;
 
-		// Multiplier range: 0.90x to 1.35x
-		const multiplier = Math.round((0.85 + (score / 100) * 0.5) * 100) / 100;
+		// Multiplier range: 0.95x to 1.15x
+		const multiplier = Math.round((0.92 + (score / 100) * 0.16) * 100) / 100;
 		const adjustedValueTon = Math.round(base() * multiplier * 10) / 10;
 		const bonusTon = Math.round((adjustedValueTon - base()) * 10) / 10;
 

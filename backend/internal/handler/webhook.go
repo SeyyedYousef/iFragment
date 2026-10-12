@@ -756,7 +756,7 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 	if (msg.Chat.ID == -1001972125896 || raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username)) && msg.From != nil {
 		// Record message in Leaderboard & grant 1 Intel Credit (1 message = 1 credit)
 		if !msg.From.IsBot && h.groupLeaderboardSvc != nil {
-			_ = h.groupLeaderboardSvc.RecordGroupMessage(ctx, msg.From.ID, msg.From.Username, msg.From.FirstName, "", msg.MessageID)
+			_ = h.groupLeaderboardSvc.RecordGroupMessage(ctx, msg.From.ID, msg.From.Username, msg.From.FirstName, "", msg.From.LanguageCode, msg.MessageID)
 			if tgClient := h.getBotClient(bot); tgClient != nil {
 				go func(uid int64, uname, fname string) {
 					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

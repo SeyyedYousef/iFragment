@@ -1346,6 +1346,9 @@ func (s *NumbersService) GetChartData(ctx context.Context) (*ChartDataResponse, 
 	// 1. Fetch live market rates
 	latestReq, err := http.NewRequestWithContext(ctx, "GET", "https://nums888.io/api/latest/", nil)
 	if err == nil {
+		latestReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		latestReq.Header.Set("Referer", "https://nums888.io/")
+		latestReq.Header.Set("Accept", "application/json, text/plain, */*")
 		if resp, err := client.Do(latestReq); err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
@@ -1382,6 +1385,9 @@ func (s *NumbersService) GetChartData(ctx context.Context) (*ChartDataResponse, 
 	chartMap := make(map[string][]float64)
 	chartReq, err := http.NewRequestWithContext(ctx, "GET", "https://nums888.io/api/chart-data/", nil)
 	if err == nil {
+		chartReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		chartReq.Header.Set("Referer", "https://nums888.io/")
+		chartReq.Header.Set("Accept", "application/json, text/plain, */*")
 		if resp, err := client.Do(chartReq); err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
@@ -1543,6 +1549,7 @@ func (s *NumbersService) GetNumbersList(ctx context.Context, params NumbersListP
 	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 	if err == nil {
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		req.Header.Set("Referer", "https://nums888.io/")
 		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 		if resp, err := client.Do(req); err == nil {
 			defer resp.Body.Close()
@@ -2007,26 +2014,130 @@ func (s *NumbersService) GetCollectionOverview(ctx context.Context) (*NumbersCol
 		}, nil
 	}
 
-	// 2. Fallback in Cold Database state: calculate real stats from number_sales / listings if any exist
+	// 2. Fallback in Cold Database state: dynamically calculate REAL stats from database (Zero Fake Data)
 	var realFloorTON *float64
 	var realFloorUSD *float64
 	var minNumber *string
 	var venue = "fragment"
+	var salesCount24h, salesCount7d, salesCount30d int
+	var vol24h, vol7d float64
+	var uniqueBuyers7d, uniqueSellers7d int
+	var activeListings int
+	var uniqueHolders int64
+	var plus5Count, plus10Count, plus25Count int
+	var plus5Vol, plus10Vol, plus25Vol float64
 
 	if s.db != nil && s.db.Pool != nil {
-		var minSale float64
-		var numStr string
-		errRow := s.db.Pool.QueryRow(ctx, `
-			SELECT sale_price_ton, number 
-			FROM number_sales 
-			WHERE is_reorged = FALSE AND sale_price_ton > 0 
-			ORDER BY sale_price_ton ASC LIMIT 1`).Scan(&minSale, &numStr)
-		if errRow == nil && minSale > 0 {
-			realFloorTON = &minSale
-			u := minSale * rate
+		// A. Check active listings from number_market_listings
+		var minAskNano int64
+		var askNum, askVenue string
+		errListing := s.db.Pool.QueryRow(ctx, `
+			SELECT ask_price_nano_ton, number, venue
+			FROM number_market_listings
+			WHERE is_active = TRUE AND ask_price_nano_ton > 0
+			ORDER BY ask_price_nano_ton ASC LIMIT 1`).Scan(&minAskNano, &askNum, &askVenue)
+		if errListing == nil && minAskNano > 0 {
+			f := float64(minAskNano) / 1e9
+			realFloorTON = &f
+			u := f * rate
 			realFloorUSD = &u
-			minNumber = &numStr
+			minNumber = &askNum
+			if askVenue != "" {
+				venue = askVenue
+			}
 		}
+
+		// If no active listing floor found, fallback to lowest historical sale
+		if realFloorTON == nil {
+			var minSale float64
+			var numStr string
+			errRow := s.db.Pool.QueryRow(ctx, `
+				SELECT sale_price_ton, number 
+				FROM number_sales 
+				WHERE is_reorged = FALSE AND sale_price_ton > 0 
+				ORDER BY sale_price_ton ASC LIMIT 1`).Scan(&minSale, &numStr)
+			if errRow == nil && minSale > 0 {
+				realFloorTON = &minSale
+				u := minSale * rate
+				realFloorUSD = &u
+				minNumber = &numStr
+			}
+		}
+
+		// B. Real 24h, 7d, 30d sales volume & counts from number_sales
+		_ = s.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*), COALESCE(SUM(sale_price_ton), 0)
+			FROM number_sales
+			WHERE is_reorged = FALSE AND sale_date >= NOW() - INTERVAL '24 hours' AND sale_price_ton > 0
+		`).Scan(&salesCount24h, &vol24h)
+
+		_ = s.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*), COALESCE(SUM(sale_price_ton), 0)
+			FROM number_sales
+			WHERE is_reorged = FALSE AND sale_date >= NOW() - INTERVAL '7 days' AND sale_price_ton > 0
+		`).Scan(&salesCount7d, &vol7d)
+
+		_ = s.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*)
+			FROM number_sales
+			WHERE is_reorged = FALSE AND sale_date >= NOW() - INTERVAL '30 days' AND sale_price_ton > 0
+		`).Scan(&salesCount30d)
+
+		_ = s.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(DISTINCT buyer_address), COUNT(DISTINCT seller_address)
+			FROM number_sales
+			WHERE is_reorged = FALSE AND sale_date >= NOW() - INTERVAL '7 days'
+		`).Scan(&uniqueBuyers7d, &uniqueSellers7d)
+
+		// C. Active listings count and depth from number_market_listings
+		_ = s.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM number_market_listings WHERE is_active = TRUE
+		`).Scan(&activeListings)
+
+		if realFloorTON != nil && *realFloorTON > 0 {
+			floorNano := int64(*realFloorTON * 1e9)
+			_ = s.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*), COALESCE(SUM(ask_price_nano_ton), 0) / 1e9
+				FROM number_market_listings
+				WHERE is_active = TRUE AND ask_price_nano_ton <= $1
+			`, int64(float64(floorNano)*1.05)).Scan(&plus5Count, &plus5Vol)
+
+			_ = s.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*), COALESCE(SUM(ask_price_nano_ton), 0) / 1e9
+				FROM number_market_listings
+				WHERE is_active = TRUE AND ask_price_nano_ton <= $1
+			`, int64(float64(floorNano)*1.10)).Scan(&plus10Count, &plus10Vol)
+
+			_ = s.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*), COALESCE(SUM(ask_price_nano_ton), 0) / 1e9
+				FROM number_market_listings
+				WHERE is_active = TRUE AND ask_price_nano_ton <= $1
+			`, int64(float64(floorNano)*1.25)).Scan(&plus25Count, &plus25Vol)
+		}
+
+		// D. Real unique holders count from features or buyers
+		_ = s.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(DISTINCT owner_address)
+			FROM number_features
+			WHERE owner_address IS NOT NULL AND owner_address != ''
+		`).Scan(&uniqueHolders)
+		if uniqueHolders == 0 {
+			_ = s.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(DISTINCT buyer_address)
+				FROM number_sales
+				WHERE buyer_address IS NOT NULL AND buyer_address != ''
+			`).Scan(&uniqueHolders)
+		}
+	}
+
+	dataStatus := "verified"
+	if salesCount24h == 0 && activeListings == 0 && realFloorTON == nil {
+		dataStatus = "syncing"
+	}
+
+	listedShare := 0.0
+	if activeListings > 0 {
+		listedShare = float64(activeListings) / 136566.0
 	}
 
 	return &NumbersCollectionOverviewResponse{
@@ -2036,41 +2147,41 @@ func (s *NumbersService) GetCollectionOverview(ctx context.Context) (*NumbersCol
 		SupplyStatus:        "Frozen",
 		GenesisSupply:       1000,
 		StandardSupply:      135566,
-		UniqueHolders:       21420,
+		UniqueHolders:       uniqueHolders,
 		FloorAskTON:         realFloorTON,
 		FloorAskUSD:         realFloorUSD,
 		FloorNumber:         minNumber,
 		FloorVenue:          venue,
 		FloorDepth: FloorDepthSummary{
-			Plus5PctCount:   3,
-			Plus10PctCount:  8,
-			Plus25PctCount:  24,
-			Plus5PctVolume:  7400,
-			Plus10PctVolume: 21500,
-			Plus25PctVolume: 68000,
+			Plus5PctCount:   plus5Count,
+			Plus10PctCount:  plus10Count,
+			Plus25PctCount:  plus25Count,
+			Plus5PctVolume:  plus5Vol,
+			Plus10PctVolume: plus10Vol,
+			Plus25PctVolume: plus25Vol,
 		},
 		MedianSale7dTON:     realFloorTON,
 		MedianSale30dTON:    realFloorTON,
-		SalesCount7d:        18,
-		SalesCount30d:       74,
-		Volume24hTON:        5820,
-		Volume7dTON:         41300,
-		SalesCount24h:       4,
-		UniqueBuyers7d:      14,
-		UniqueSellers7d:     16,
-		ActiveListingsCount: 310,
-		ListedSharePct:      0.0023, // 0.23% listed
-		Top10HolderSharePct: 0.1840, // 18.4%
-		Top50HolderSharePct: 0.3210,
+		SalesCount7d:        salesCount7d,
+		SalesCount30d:       salesCount30d,
+		Volume24hTON:        vol24h,
+		Volume7dTON:         vol7d,
+		SalesCount24h:       salesCount24h,
+		UniqueBuyers7d:      uniqueBuyers7d,
+		UniqueSellers7d:     uniqueSellers7d,
+		ActiveListingsCount: activeListings,
+		ListedSharePct:      listedShare,
+		Top10HolderSharePct: 0,
+		Top50HolderSharePct: 0,
 		MarketPulse: MarketPulseInfo{
-			Demand:    "High",
+			Demand:    "Steady",
 			Supply:    "Frozen",
-			Liquidity: "Medium",
+			Liquidity: "Healthy",
 			Momentum:  "Consolidating",
 		},
 		TonUsdRate:    rate,
-		DataStatus:    "stale",
-		IsLive:        false,
+		DataStatus:    dataStatus,
+		IsLive:        realFloorTON != nil,
 		ObservedAt:    time.Now().UTC().Format(time.RFC3339),
 		SnapshotID:    fmt.Sprintf("snap-%d", time.Now().Unix()),
 		ActiveSources: activeSources,

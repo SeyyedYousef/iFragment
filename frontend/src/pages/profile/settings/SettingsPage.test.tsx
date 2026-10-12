@@ -43,6 +43,5 @@ describe('SettingsPage Component', () => {
 		expect(screen.getByText('settings.hapticFeedback')).toBeInTheDocument();
 		expect(screen.getByText('settings.soundEffects')).toBeInTheDocument();
 		expect(screen.getByText('settings.animations')).toBeInTheDocument();
-		expect(screen.getByText('settings.notifications')).toBeInTheDocument();
 	});
 });

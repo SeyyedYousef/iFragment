@@ -8,8 +8,19 @@ export interface FloorHistoryPoint {
 	venue_breakdown?: Record<string, number>;
 }
 
+export interface OHLCVCandle {
+	timestamp: string;
+	open_gram: number;
+	high_gram: number;
+	low_gram: number;
+	close_gram: number;
+	volume_gram: number;
+	deals_count?: number;
+}
+
 interface Props {
 	history?: FloorHistoryPoint[];
+	candles?: OHLCVCandle[];
 	currentFloorGram?: number;
 	currentFloorUsd?: number;
 	gramUsdRate?: number;
@@ -17,10 +28,12 @@ interface Props {
 }
 
 type Timeframe = '24h' | '7d' | '30d' | 'all';
+type ChartMode = 'line' | 'candles';
 
 export const GiftFloorChart: Component<Props> = (props) => {
 	const [currency, setCurrency] = createSignal<'ton' | 'usd'>('ton');
 	const [timeframe, setTimeframe] = createSignal<Timeframe>('30d');
+	const [chartMode, setChartMode] = createSignal<ChartMode>('line');
 	const [hoverIdx, setHoverIdx] = createSignal<number | null>(null);
 
 	const rate = () => props.gramUsdRate || 0;
@@ -43,7 +56,7 @@ export const GiftFloorChart: Component<Props> = (props) => {
 		return raw;
 	});
 
-	// Min, Max, Range calculations
+	// Min, Max, Range calculations for Line chart
 	const chartMetrics = createMemo(() => {
 		const pts = filteredData();
 		if (pts.length === 0) {
@@ -110,6 +123,78 @@ export const GiftFloorChart: Component<Props> = (props) => {
 		return { line, area };
 	});
 
+	// Candlestick processing for trading view mode
+	const filteredCandles = createMemo(() => {
+		const raw = props.candles || [];
+		if (raw.length === 0) return [];
+		const tf = timeframe();
+		let filtered = raw;
+		if (tf === '24h') filtered = raw.slice(-12);
+		else if (tf === '7d') filtered = raw.slice(-7);
+		else if (tf === '30d') filtered = raw.slice(-30);
+		return filtered;
+	});
+
+	const activeCandles = createMemo(() => {
+		const candles = filteredCandles();
+		if (candles.length === 0) return [];
+		const isUsd = currency() === 'usd';
+		const r = rate();
+		const mult = isUsd && r > 0 ? r : 1.0;
+
+		const allHighs = candles.map((c) => c.high_gram * mult);
+		const allLows = candles.map((c) => c.low_gram * mult);
+		const max = Math.max(...allHighs) * 1.03;
+		const min = Math.min(...allLows) * 0.97;
+		const range = max - min || 1;
+
+		const plotW = width - padding.left - padding.right;
+		const plotH = height - padding.top - padding.bottom - 20; // 20px reserved for volume
+		const step = plotW / Math.max(1, candles.length);
+		const candleW = Math.max(4, Math.min(16, step * 0.65));
+
+		// Volume normalization
+		const maxVol = Math.max(...candles.map((c) => c.volume_gram), 1);
+
+		return candles.map((c, idx) => {
+			const x = padding.left + idx * step + step / 2;
+			const o = c.open_gram * mult;
+			const cl = c.close_gram * mult;
+			const h = c.high_gram * mult;
+			const l = c.low_gram * mult;
+			const isBullish = cl >= o;
+
+			const yHigh = padding.top + plotH - ((h - min) / range) * plotH;
+			const yLow = padding.top + plotH - ((l - min) / range) * plotH;
+			const yOpen = padding.top + plotH - ((o - min) / range) * plotH;
+			const yClose = padding.top + plotH - ((cl - min) / range) * plotH;
+
+			const bodyTop = Math.min(yOpen, yClose);
+			const bodyH = Math.max(2, Math.abs(yClose - yOpen));
+
+			// Volume bar
+			const volH = (c.volume_gram / maxVol) * 18;
+			const volY = height - padding.bottom + 5 - volH;
+
+			return {
+				...c,
+				x,
+				yHigh,
+				yLow,
+				bodyTop,
+				bodyH,
+				candleW,
+				volH,
+				volY,
+				isBullish,
+				openVal: o,
+				closeVal: cl,
+				highVal: h,
+				lowVal: l,
+			};
+		});
+	});
+
 	const currentPoint = createMemo(() => {
 		const pts = activePoints();
 		if (pts.length === 0) return null;
@@ -118,6 +203,16 @@ export const GiftFloorChart: Component<Props> = (props) => {
 			return pts[idx];
 		}
 		return pts[pts.length - 1];
+	});
+
+	const currentCandle = createMemo(() => {
+		const cds = activeCandles();
+		if (cds.length === 0) return null;
+		const idx = hoverIdx();
+		if (idx !== null && idx >= 0 && idx < cds.length) {
+			return cds[idx];
+		}
+		return cds[cds.length - 1];
 	});
 
 	const fmtVal = (val?: number) => {
@@ -142,14 +237,27 @@ export const GiftFloorChart: Component<Props> = (props) => {
 		const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
 		const relX = Math.max(0, Math.min(rect.width, clientX - rect.left));
 		const ratio = relX / rect.width;
-		const pts = activePoints();
-		if (pts.length === 0) return;
-		const idx = Math.round(ratio * (pts.length - 1));
-		if (idx !== hoverIdx()) {
-			setHoverIdx(idx);
-			try {
-				haptic.selection();
-			} catch {}
+
+		if (chartMode() === 'candles') {
+			const cds = activeCandles();
+			if (cds.length === 0) return;
+			const idx = Math.min(cds.length - 1, Math.floor(ratio * cds.length));
+			if (idx !== hoverIdx()) {
+				setHoverIdx(idx);
+				try {
+					haptic.selection();
+				} catch {}
+			}
+		} else {
+			const pts = activePoints();
+			if (pts.length === 0) return;
+			const idx = Math.round(ratio * (pts.length - 1));
+			if (idx !== hoverIdx()) {
+				setHoverIdx(idx);
+				try {
+					haptic.selection();
+				} catch {}
+			}
 		}
 	};
 
@@ -165,16 +273,18 @@ export const GiftFloorChart: Component<Props> = (props) => {
 					<div class="flex items-center gap-2">
 						<span class="text-xs uppercase font-extrabold text-[#0098EA] tracking-wider flex items-center gap-1">
 							<span class="material-symbols-outlined text-[15px]">trending_up</span>
-							<span>{t('gifts.floorPriceHistory') || 'روند قیمت کف کالکشن'}</span>
+							<span>{t('gifts.floorPriceHistory') || 'روند معاملات و قیمت کف'}</span>
 						</span>
 						<span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-							Live Snapshots
+							{chartMode() === 'candles' ? 'OHLCV TradingView' : 'Live Snapshots'}
 						</span>
 					</div>
 
 					<div class="flex items-baseline gap-2 mt-1.5">
 						<span class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight tabular-nums">
-							{fmtVal(currentPoint()?.val)}
+							{chartMode() === 'candles' && currentCandle()
+								? fmtVal(currentCandle()?.closeVal)
+								: fmtVal(currentPoint()?.val)}
 						</span>
 						<span
 							class={`text-xs font-mono font-bold px-2 py-0.5 rounded-lg border ${
@@ -189,59 +299,110 @@ export const GiftFloorChart: Component<Props> = (props) => {
 					</div>
 
 					<div class="text-[10px] text-white/40 font-mono mt-0.5 flex items-center gap-3">
-						<Show when={hoverIdx() !== null && currentPoint()}>
-							<span class="text-[#0098EA] font-semibold">{fmtDate(currentPoint()!.timestamp)}</span>
+						<Show when={chartMode() === 'candles' && currentCandle()}>
+							<div class="flex items-center gap-2 text-[9px] text-white/70">
+								<span>O: <strong class="text-white">{fmtVal(currentCandle()!.openVal)}</strong></span>
+								<span>H: <strong class="text-emerald-400">{fmtVal(currentCandle()!.highVal)}</strong></span>
+								<span>L: <strong class="text-rose-400">{fmtVal(currentCandle()!.lowVal)}</strong></span>
+								<span>C: <strong class="text-white">{fmtVal(currentCandle()!.closeVal)}</strong></span>
+								<Show when={currentCandle()!.volume_gram > 0}>
+									<span class="text-cyan-400">Vol: {currentCandle()!.volume_gram.toFixed(0)}</span>
+								</Show>
+							</div>
 						</Show>
-						<Show when={hoverIdx() === null}>
-							<span>
-								{t('gifts.high24h') || 'سقف'}:{' '}
-								<strong class="text-white/70">{fmtVal(chartMetrics().max)}</strong>
-							</span>
-							<span class="w-[1px] h-2.5 bg-white/10" />
-							<span>
-								{t('gifts.low24h') || 'کف'}:{' '}
-								<strong class="text-white/70">{fmtVal(chartMetrics().min)}</strong>
-							</span>
+						<Show when={chartMode() === 'line'}>
+							<Show when={hoverIdx() !== null && currentPoint()}>
+								<span class="text-[#0098EA] font-semibold">{fmtDate(currentPoint()!.timestamp)}</span>
+							</Show>
+							<Show when={hoverIdx() === null}>
+								<span>
+									{t('gifts.high24h') || 'سقف'}:{' '}
+									<strong class="text-white/70">{fmtVal(chartMetrics().max)}</strong>
+								</span>
+								<span class="w-[1px] h-2.5 bg-white/10" />
+								<span>
+									{t('gifts.low24h') || 'کف'}:{' '}
+									<strong class="text-white/70">{fmtVal(chartMetrics().min)}</strong>
+								</span>
+							</Show>
 						</Show>
 					</div>
 				</div>
 
-				{/* Currency & Timeframe Selector */}
+				{/* Controls (Mode, Currency & Timeframe) */}
 				<div class="flex flex-col items-end gap-2 shrink-0">
-					{/* Currency Toggle */}
-					<div class="flex items-center gap-0.5 p-0.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-xs font-bold font-mono">
-						<button
-							type="button"
-							onClick={() => {
-								setCurrency('ton');
-								try {
-									haptic.selection();
-								} catch {}
-							}}
-							class={`px-2 py-0.5 rounded-lg transition-all ${
-								currency() === 'ton'
-									? 'bg-[#0098EA] text-white shadow'
-									: 'text-white/40 hover:text-white'
-							}`}
-						>
-							TON
-						</button>
-						<button
-							type="button"
-							onClick={() => {
-								setCurrency('usd');
-								try {
-									haptic.selection();
-								} catch {}
-							}}
-							class={`px-2 py-0.5 rounded-lg transition-all ${
-								currency() === 'usd'
-									? 'bg-[#0098EA] text-white shadow'
-									: 'text-white/40 hover:text-white'
-							}`}
-						>
-							USD
-						</button>
+					<div class="flex items-center gap-1.5">
+						{/* Chart Mode Toggle (Line vs Candles) */}
+						<div class="flex items-center gap-0.5 p-0.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-[10px] font-mono">
+							<button
+								type="button"
+								onClick={() => {
+									setChartMode('line');
+									try {
+										haptic.selection();
+									} catch {}
+								}}
+								class={`px-2 py-0.5 rounded-lg transition-all ${
+									chartMode() === 'line'
+										? 'bg-[#0098EA] text-white shadow'
+										: 'text-white/40 hover:text-white'
+								}`}
+							>
+								Line
+							</button>
+							<button
+								type="button"
+								onClick={() => {
+									setChartMode('candles');
+									try {
+										haptic.selection();
+									} catch {}
+								}}
+								class={`px-2 py-0.5 rounded-lg transition-all ${
+									chartMode() === 'candles'
+										? 'bg-[#0098EA] text-white shadow'
+										: 'text-white/40 hover:text-white'
+								}`}
+							>
+								Candles
+							</button>
+						</div>
+
+						{/* Currency Toggle */}
+						<div class="flex items-center gap-0.5 p-0.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-xs font-bold font-mono">
+							<button
+								type="button"
+								onClick={() => {
+									setCurrency('ton');
+									try {
+										haptic.selection();
+									} catch {}
+								}}
+								class={`px-2 py-0.5 rounded-lg transition-all ${
+									currency() === 'ton'
+										? 'bg-[#0098EA] text-white shadow'
+										: 'text-white/40 hover:text-white'
+								}`}
+							>
+								TON
+							</button>
+							<button
+								type="button"
+								onClick={() => {
+									setCurrency('usd');
+									try {
+										haptic.selection();
+									} catch {}
+								}}
+								class={`px-2 py-0.5 rounded-lg transition-all ${
+									currency() === 'usd'
+										? 'bg-[#0098EA] text-white shadow'
+										: 'text-white/40 hover:text-white'
+								}`}
+							>
+								USD
+							</button>
+						</div>
 					</div>
 
 					{/* Timeframe Selector */}
@@ -269,15 +430,20 @@ export const GiftFloorChart: Component<Props> = (props) => {
 				</div>
 			</div>
 
-			{/* ═══ Interactive SVG Spline Chart or Truthful Empty State ═══ */}
+			{/* ═══ Interactive SVG Chart ═══ */}
 			<Show
-				when={filteredData().length > 0}
+				when={
+					(chartMode() === 'candles' && activeCandles().length > 0) ||
+					(chartMode() === 'line' && filteredData().length > 0)
+				}
 				fallback={
 					<div class="flex flex-col items-center justify-center h-[180px] rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-center select-none">
 						<span class="material-symbols-outlined text-3xl text-white/20 mb-1">show_chart</span>
-						<p class="text-xs font-bold text-white/50 font-mono">Historical data unavailable</p>
+						<p class="text-xs font-bold text-white/50 font-mono">
+							{chartMode() === 'candles' ? 'Candlestick trades loading...' : 'Historical data unavailable'}
+						</p>
 						<p class="text-[10px] text-white/30 mt-0.5">
-							Verified daily floor snapshots are recorded in real time
+							Verified trade executions and daily snapshots recorded on-chain
 						</p>
 					</div>
 				}
@@ -334,96 +500,179 @@ export const GiftFloorChart: Component<Props> = (props) => {
 							stroke="rgba(255,255,255,0.05)"
 						/>
 
-						{/* Area Gradient Fill */}
-						<Show when={svgPaths().area}>
-							<path d={svgPaths().area} fill="url(#floorAreaGrad)" />
+						{/* ═══ CANDLESTICK MODE ═══ */}
+						<Show when={chartMode() === 'candles'}>
+							<For each={activeCandles()}>
+								{(c) => {
+									const color = c.isBullish ? '#10b981' : '#f43f5e';
+									return (
+										<g>
+											{/* Volume Bar */}
+											<rect
+												x={c.x - c.candleW / 2}
+												y={c.volY}
+												width={c.candleW}
+												height={c.volH}
+												fill={color}
+												opacity="0.25"
+												rx="1"
+											/>
+											{/* Upper & Lower Wick */}
+											<line
+												x1={c.x}
+												y1={c.yHigh}
+												x2={c.x}
+												y2={c.yLow}
+												stroke={color}
+												stroke-width="1.2"
+											/>
+											{/* Candle Body */}
+											<rect
+												x={c.x - c.candleW / 2}
+												y={c.bodyTop}
+												width={c.candleW}
+												height={c.bodyH}
+												fill={color}
+												rx="1.5"
+											/>
+										</g>
+									);
+								}}
+							</For>
 						</Show>
 
-						{/* Glowing Curve Line */}
-						<Show when={svgPaths().line}>
-							<path
-								d={svgPaths().line}
-								fill="none"
-								stroke="#0098EA"
-								stroke-width="2.5"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								filter="url(#floorNeonGlow)"
-							/>
-						</Show>
+						{/* ═══ LINE / SPLINE MODE ═══ */}
+						<Show when={chartMode() === 'line'}>
+							{/* Area Gradient Fill */}
+							<Show when={svgPaths().area}>
+								<path d={svgPaths().area} fill="url(#floorAreaGrad)" />
+							</Show>
 
-						{/* Crosshair Cursor & Indicator Dot */}
-						<Show when={currentPoint()}>
-							{(() => {
-								const cp = currentPoint()!;
-								return (
-									<g>
-										<line
-											x1={cp.x}
-											y1={padding.top - 5}
-											x2={cp.x}
-											y2={height - padding.bottom + 5}
-											stroke="#0098EA"
-											stroke-width="1.5"
-											stroke-dasharray="3 3"
-											opacity="0.8"
-										/>
-										<circle
-											cx={cp.x}
-											cy={cp.y}
-											r="7"
-											fill="#0098EA"
-											opacity="0.3"
-											class="animate-ping"
-										/>
-										<circle
-											cx={cp.x}
-											cy={cp.y}
-											r="5"
-											fill="#0A0E17"
-											stroke="#0098EA"
-											stroke-width="2.5"
-										/>
-										<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
-									</g>
-								);
-							})()}
+							{/* Glowing Curve Line */}
+							<Show when={svgPaths().line}>
+								<path
+									d={svgPaths().line}
+									fill="none"
+									stroke="#0098EA"
+									stroke-width="2.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									filter="url(#floorNeonGlow)"
+								/>
+							</Show>
+
+							{/* Crosshair Cursor & Indicator Dot */}
+							<Show when={currentPoint()}>
+								{(() => {
+									const cp = currentPoint()!;
+									return (
+										<g>
+											<line
+												x1={cp.x}
+												y1={padding.top - 5}
+												x2={cp.x}
+												y2={height - padding.bottom + 5}
+												stroke="#0098EA"
+												stroke-width="1.5"
+												stroke-dasharray="3 3"
+												opacity="0.8"
+											/>
+											<circle
+												cx={cp.x}
+												cy={cp.y}
+												r="7"
+												fill="#0098EA"
+												opacity="0.3"
+												class="animate-ping"
+											/>
+											<circle
+												cx={cp.x}
+												cy={cp.y}
+												r="5"
+												fill="#0A0E17"
+												stroke="#0098EA"
+												stroke-width="2.5"
+											/>
+											<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
+										</g>
+									);
+								})()}
+							</Show>
 						</Show>
 					</svg>
 
 					{/* Floating Tooltip */}
-					<Show when={hoverIdx() !== null && currentPoint()}>
-						{(() => {
-							const cp = currentPoint()!;
-							const isRightHalf = cp.x > width / 2;
-							return (
-								<div
-									class="absolute pointer-events-none transition-transform duration-75 z-30"
-									style={{
-										left: `${(cp.x / width) * 100}%`,
-										top: `${Math.max(15, Math.min(125, (cp.y / height) * 100))}%`,
-										transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
-									}}
-								>
-									<div class="bg-[#0b101c]/95 border border-[#0098EA]/40 rounded-xl p-2 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap min-w-[110px]">
-										<div class="text-white font-black text-xs">{fmtVal(cp.val)}</div>
-										<div class="text-white/50 text-[9px] mt-0.5">{fmtDate(cp.timestamp)}</div>
-										<Show when={cp.venue_breakdown}>
-											<div class="mt-1 pt-1 border-t border-white/10 space-y-0.5 text-[8.5px]">
-												<For each={Object.entries(cp.venue_breakdown!)}>
-													{([vName, vFloor]: [string, number]) => (
-														<div class="flex items-center justify-between gap-2 text-white/60">
-															<span>{vName}:</span>
-															<span class="text-sky-300 font-bold">{vFloor} TON</span>
-														</div>
-													)}
-												</For>
-											</div>
-										</Show>
+					<Show when={hoverIdx() !== null}>
+						<Show when={chartMode() === 'line' && currentPoint()}>
+							{(() => {
+								const cp = currentPoint()!;
+								const isRightHalf = cp.x > width / 2;
+								return (
+									<div
+										class="absolute pointer-events-none transition-transform duration-75 z-30"
+										style={{
+											left: `${(cp.x / width) * 100}%`,
+											top: `${Math.max(15, Math.min(125, (cp.y / height) * 100))}%`,
+											transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
+										}}
+									>
+										<div class="bg-[#0b101c]/95 border border-[#0098EA]/40 rounded-xl p-2 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap min-w-[110px]">
+											<div class="text-white font-black text-xs">{fmtVal(cp.val)}</div>
+											<div class="text-white/50 text-[9px] mt-0.5">{fmtDate(cp.timestamp)}</div>
+											<Show when={cp.venue_breakdown}>
+												<div class="mt-1 pt-1 border-t border-white/10 space-y-0.5 text-[8.5px]">
+													<For each={Object.entries(cp.venue_breakdown!)}>
+														{([vName, vFloor]: [string, number]) => (
+															<div class="flex items-center justify-between gap-2 text-white/60">
+																<span>{vName}:</span>
+																<span class="text-sky-300 font-bold">{vFloor} TON</span>
+															</div>
+														)}
+													</For>
+												</div>
+											</Show>
+										</div>
 									</div>
-								</div>
-							);
-						})()}
+								);
+							})()}
+						</Show>
+
+						<Show when={chartMode() === 'candles' && currentCandle()}>
+							{(() => {
+								const cc = currentCandle()!;
+								const isRightHalf = cc.x > width / 2;
+								return (
+									<div
+										class="absolute pointer-events-none transition-transform duration-75 z-30"
+										style={{
+											left: `${(cc.x / width) * 100}%`,
+											top: `35%`,
+											transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
+										}}
+									>
+										<div class="bg-[#0b101c]/95 border border-cyan-500/40 rounded-xl p-2 shadow-2xl backdrop-blur-md text-[9.5px] font-mono whitespace-nowrap min-w-[125px]">
+											<div class="flex items-center justify-between gap-2 font-bold mb-1">
+												<span class={cc.isBullish ? 'text-emerald-400' : 'text-rose-400'}>
+													{cc.isBullish ? '▲ Bullish' : '▼ Bearish'}
+												</span>
+												<span class="text-white/50 text-[8.5px]">{fmtDate(cc.timestamp)}</span>
+											</div>
+											<div class="space-y-0.5 text-[9px] text-white/70">
+												<div class="flex justify-between"><span>Open:</span><span class="text-white font-bold">{fmtVal(cc.openVal)}</span></div>
+												<div class="flex justify-between"><span>High:</span><span class="text-emerald-400 font-bold">{fmtVal(cc.highVal)}</span></div>
+												<div class="flex justify-between"><span>Low:</span><span class="text-rose-400 font-bold">{fmtVal(cc.lowVal)}</span></div>
+												<div class="flex justify-between"><span>Close:</span><span class="text-white font-bold">{fmtVal(cc.closeVal)}</span></div>
+												<Show when={cc.volume_gram > 0}>
+													<div class="flex justify-between border-t border-white/10 pt-0.5 mt-0.5 text-cyan-300">
+														<span>Vol:</span><span>{cc.volume_gram.toFixed(1)} TON</span>
+													</div>
+												</Show>
+											</div>
+										</div>
+									</div>
+								);
+							})()}
+						</Show>
 					</Show>
 
 					{/* Timeline Date Bounds */}

@@ -16,7 +16,6 @@ type ReportFilter = 'all' | 'username' | 'number' | 'gift';
 export const MyAssetsGallery: Component<Props> = (props) => {
 	const navigate = useNavigate();
 	const [reportFilter, setReportFilter] = createSignal<ReportFilter>('all');
-	const [reportNotifs, setReportNotifs] = createSignal<Record<string, boolean>>({});
 
 	const assetsQuery = createQuery(() => ({
 		queryKey: ['profile', 'assets'],
@@ -79,17 +78,6 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 			default:
 				return totalReports();
 		}
-	};
-
-	const handleToggleReportNotif = (key: string, e: Event) => {
-		e.stopPropagation();
-		try {
-			haptic.impact('light');
-		} catch {}
-		setReportNotifs((prev) => ({
-			...prev,
-			[key]: prev[key] === undefined ? false : !prev[key],
-		}));
 	};
 
 	const getReportUrl = (r: MyReportsAsset) => {
@@ -350,24 +338,6 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 													</div>
 
 													<div class="flex items-center gap-2 shrink-0">
-														{/* Notification Toggle (Strictly permitted on purchased reports!) */}
-														<button
-															type="button"
-															onClick={(e) => handleToggleReportNotif(key(), e)}
-															class={`p-2 rounded-[10px] border transition-all ${
-																reportNotifs()[key()] !== false
-																	? 'bg-amber-400/15 border-amber-400/30 text-amber-400'
-																	: 'bg-white/5 border-white/10 text-white/40'
-															}`}
-															title={t('profile.priceAlertNotifications')}
-														>
-															<span class="material-symbols-outlined text-[16px]">
-																{reportNotifs()[key()] !== false
-																	? 'notifications_active'
-																	: 'notifications_off'}
-															</span>
-														</button>
-
 														<span class="material-symbols-outlined text-[18px] text-white/40 group-hover:text-white group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-all">
 															chevron_right
 														</span>

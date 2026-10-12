@@ -180,6 +180,7 @@ type CollectionIntelResponse struct {
 	FearGreed      FearGreedData          `json:"fear_greed"`
 	UpgradeLadder  []UpgradeStepInfo      `json:"upgrade_ladder"`
 	FloorHistory   []FloorHistoryPoint    `json:"floor_history"`
+	Candles        []OHLCVCandle          `json:"candles"`
 
 	// Extended Screenshot-based Intelligence
 	FloorItem        *FloorItemSummary   `json:"floor_item,omitempty"`
@@ -299,6 +300,16 @@ type FloorHistoryPoint struct {
 	Timestamp      string             `json:"timestamp"`
 	FloorGRAM      float64            `json:"floor_gram"`
 	VenueBreakdown map[string]float64 `json:"venue_breakdown,omitempty"`
+}
+
+type OHLCVCandle struct {
+	Timestamp  string  `json:"timestamp"`
+	OpenGRAM   float64 `json:"open_gram"`
+	HighGRAM   float64 `json:"high_gram"`
+	LowGRAM    float64 `json:"low_gram"`
+	CloseGRAM  float64 `json:"close_gram"`
+	VolumeGRAM float64 `json:"volume_gram"`
+	DealsCount int     `json:"deals_count"`
 }
 
 // ListCollections returns catalog of available official Telegram gift collections
@@ -949,6 +960,29 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		}
 	}
 
+	// Historical OHLCV Candlesticks: Derived from verified executed trades
+	candles := make([]OHLCVCandle, 0)
+	if s.repo != nil {
+		if dbCandles, err := s.repo.GetOHLCVCandles(ctx, normSlug, 30); err == nil && len(dbCandles) > 0 {
+			for _, c := range dbCandles {
+				o, _ := c.OpenGRAM.Float64()
+				h, _ := c.HighGRAM.Float64()
+				l, _ := c.LowGRAM.Float64()
+				cl, _ := c.CloseGRAM.Float64()
+				v, _ := c.VolumeGRAM.Float64()
+				candles = append(candles, OHLCVCandle{
+					Timestamp:  c.Timestamp.UTC().Format(time.RFC3339),
+					OpenGRAM:   round2(o),
+					HighGRAM:   round2(h),
+					LowGRAM:    round2(l),
+					CloseGRAM:  round2(cl),
+					VolumeGRAM: round2(v),
+					DealsCount: c.DealsCount,
+				})
+			}
+		}
+	}
+
 	// Top Floor Items: Read strictly from real market listings index
 	var topFloorItems []FloorItemSummary
 	if s.repo != nil {
@@ -1345,6 +1379,7 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		RecentActivity:        make([]MarketActivityItem, 0),
 		FearGreed:             FearGreedData{Index: 50, Label: "Neutral"},
 		FloorHistory:          floorHistory,
+		Candles:               candles,
 		UpgradeLadder:         upgradeLadder,
 		FloorItem:             floorItem,
 		TopFloorItems:         topFloorItems,

@@ -664,6 +664,76 @@ func (r *NumbersRepo) GetLatestCollectionMetrics(ctx context.Context) (*NumberCo
 	return &m, nil
 }
 
+// UpsertCollectionMetrics persists verified collection metrics record into number_collection_metrics
+func (r *NumbersRepo) UpsertCollectionMetrics(ctx context.Context, m *NumberCollectionMetricsRecord) error {
+	if r.db == nil || r.db.Pool == nil || m == nil {
+		return nil
+	}
+	query := `
+		INSERT INTO number_collection_metrics (
+			stat_date, minted_supply, circulating_supply, unique_holders,
+			floor_ask_nano_ton, floor_number, floor_venue,
+			floor_depth_5pct_count, floor_depth_10pct_count, floor_depth_25pct_count,
+			median_sale_7d_nano_ton, median_sale_30d_nano_ton,
+			sales_count_7d, sales_count_30d,
+			volume_24h_nano_ton, volume_7d_nano_ton,
+			sales_count_24h, unique_buyers_7d, unique_sellers_7d,
+			active_listings_count, listed_share_pct,
+			top10_holder_share_pct, top50_holder_share_pct,
+			market_pulse_demand, market_pulse_supply, market_pulse_liquidity, market_pulse_momentum,
+			ton_usd_rate, is_stale, source_status, last_indexed_at, snapshot_id
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+			$17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
+		)
+		ON CONFLICT (stat_date) DO UPDATE SET
+			minted_supply = EXCLUDED.minted_supply,
+			circulating_supply = EXCLUDED.circulating_supply,
+			unique_holders = EXCLUDED.unique_holders,
+			floor_ask_nano_ton = EXCLUDED.floor_ask_nano_ton,
+			floor_number = EXCLUDED.floor_number,
+			floor_venue = EXCLUDED.floor_venue,
+			floor_depth_5pct_count = EXCLUDED.floor_depth_5pct_count,
+			floor_depth_10pct_count = EXCLUDED.floor_depth_10pct_count,
+			floor_depth_25pct_count = EXCLUDED.floor_depth_25pct_count,
+			median_sale_7d_nano_ton = EXCLUDED.median_sale_7d_nano_ton,
+			median_sale_30d_nano_ton = EXCLUDED.median_sale_30d_nano_ton,
+			sales_count_7d = EXCLUDED.sales_count_7d,
+			sales_count_30d = EXCLUDED.sales_count_30d,
+			volume_24h_nano_ton = EXCLUDED.volume_24h_nano_ton,
+			volume_7d_nano_ton = EXCLUDED.volume_7d_nano_ton,
+			sales_count_24h = EXCLUDED.sales_count_24h,
+			unique_buyers_7d = EXCLUDED.unique_buyers_7d,
+			unique_sellers_7d = EXCLUDED.unique_sellers_7d,
+			active_listings_count = EXCLUDED.active_listings_count,
+			listed_share_pct = EXCLUDED.listed_share_pct,
+			top10_holder_share_pct = EXCLUDED.top10_holder_share_pct,
+			top50_holder_share_pct = EXCLUDED.top50_holder_share_pct,
+			market_pulse_demand = EXCLUDED.market_pulse_demand,
+			market_pulse_supply = EXCLUDED.market_pulse_supply,
+			market_pulse_liquidity = EXCLUDED.market_pulse_liquidity,
+			market_pulse_momentum = EXCLUDED.market_pulse_momentum,
+			ton_usd_rate = EXCLUDED.ton_usd_rate,
+			is_stale = EXCLUDED.is_stale,
+			source_status = EXCLUDED.source_status,
+			last_indexed_at = EXCLUDED.last_indexed_at,
+			snapshot_id = EXCLUDED.snapshot_id`
+	_, err := r.db.Pool.Exec(ctx, query,
+		m.StatDate, m.MintedSupply, m.CirculatingSupply, m.UniqueHolders,
+		m.FloorAskNanoTON, m.FloorNumber, m.FloorVenue,
+		m.FloorDepth5PctCount, m.FloorDepth10PctCount, m.FloorDepth25PctCount,
+		m.MedianSale7dNanoTON, m.MedianSale30dNanoTON,
+		m.SalesCount7d, m.SalesCount30d,
+		m.Volume24hNanoTON, m.Volume7dNanoTON,
+		m.SalesCount24h, m.UniqueBuyers7d, m.UniqueSellers7d,
+		m.ActiveListingsCount, m.ListedSharePct,
+		m.Top10HolderSharePct, m.Top50HolderSharePct,
+		m.MarketPulseDemand, m.MarketPulseSupply, m.MarketPulseLiquidity, m.MarketPulseMomentum,
+		m.TonUsdRate, m.IsStale, m.SourceStatus, m.LastIndexedAt, m.SnapshotID,
+	)
+	return err
+}
+
 // GetCollectionHistory retrieves time-series points for historical chart
 func (r *NumbersRepo) GetCollectionHistory(ctx context.Context, timeframe string) ([]NumberCollectionHistoryRecord, error) {
 	if r.db == nil || r.db.Pool == nil {

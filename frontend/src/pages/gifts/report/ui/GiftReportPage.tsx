@@ -530,6 +530,7 @@ export const GiftReportPage: Component = () => {
 												currentReport()?.selected_model || currentReport()?.trait_dna?.[0]?.value
 											}
 											serialNumber={currentReport()?.serial_number || gateQuery.data?.serial_number}
+											backdropName={currentReport()?.backdrop_name}
 											customImageUrl={currentReport()?.image_url || gateQuery.data?.image_url}
 											class="w-full h-full object-contain p-2 drop-shadow-xl"
 										/>
@@ -627,7 +628,7 @@ export const GiftReportPage: Component = () => {
 							summaryEn={currentReport()?.recommendation?.summary_en}
 						/>
 
-						{/* 🧬 LAYA TRAIT SYNERGY MULTIPLIER (0.90x - 1.35x) */}
+						{/* 🧬 LAYA TRAIT SYNERGY MULTIPLIER */}
 						<GiftTraitSynergyCard
 							baseExpectedTon={Number(currentReport()?.expected_gram) || 0}
 							modelName={currentReport()?.model_name || currentReport()?.selected_model}
@@ -638,6 +639,12 @@ export const GiftReportPage: Component = () => {
 								currentReport()?.trait_dna?.find((t: any) => t.axis_key === 'symbol')?.value
 							}
 							rarityTier={currentReport()?.trait_dna?.[0]?.rarity_tier}
+							synergyMultiplier={
+								(currentReport()?.reasoning_log as any)?.laya_synergy_multiplier
+							}
+							synergyScore={
+								(currentReport()?.reasoning_log as any)?.laya_synergy_score
+							}
 							backdropColors={
 								(enrichedQuery.data as any)?.backdrop_colors ||
 								(currentReport() as any)?.backdrop_colors
@@ -649,6 +656,7 @@ export const GiftReportPage: Component = () => {
 							expectedTon={Number(currentReport()?.expected_gram) || 0}
 							starsPrice={enrichedQuery.data?.upgrade_info?.upgrade_fee_stars}
 							tonUsdRate={Number(currentReport()?.gram_usd_rate) || 5.5}
+							parity={currentReport()?.stars_parity}
 							isUpgraded={
 								enrichedQuery.data?.custody_type === 'on_chain_nft' ||
 								currentReport()?.on_chain?.is_on_chain

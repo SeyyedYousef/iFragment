@@ -621,6 +621,17 @@ export interface CollectionIntelResponse {
 		venue_breakdown: Record<string, number>;
 	}>;
 
+	// OHLCV Candlesticks (for trading charts)
+	candles?: Array<{
+		timestamp: string;
+		open_gram: number;
+		high_gram: number;
+		low_gram: number;
+		close_gram: number;
+		volume_gram: number;
+		deals_count?: number;
+	}>;
+
 	// Attribution & metadata
 	data_source_attribution?: string;
 	data_status?: 'live' | 'estimated' | 'unavailable';

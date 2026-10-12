@@ -471,6 +471,11 @@ var enDict = map[string]interface{}{
 		"avm_unlocked":          "💎 Payment confirmed. 24-hour analytical access unlocked for @{username}",
 		"credits_credited":      "💎 Payment confirmed. {count} Intel Credits credited to your account.",
 	},
+	"reward_notification": map[string]interface{}{
+		"group_message_text": "⚡️ <b>Group Message Reward</b>\n\n📌 <b>Reason:</b> Sending a message in <b>@{group}</b>\n🎁 <b>Reward:</b> +{reward} Intel Credit\n💰 <b>Current Total Balance:</b> <code>{credits} Intel Credits</code>",
+		"group_boost_text":   "🎉 <b>Daily Group Boost Reward</b>\n\n📌 <b>Reason:</b> Daily reward for active boosts in <b>@{group}</b>\n🎁 <b>Reward:</b> +{reward} Intel Credits\n💰 <b>Current Total Balance:</b> <code>{credits} Intel Credits</code>",
+		"btn_open_app":       "🚀 Open Mini App",
+	},
 }
 
 var faDict = map[string]interface{}{
@@ -843,6 +848,11 @@ var faDict = map[string]interface{}{
 		"gift_unlocked":         "💎 پرداخت دریافت شد. گزارش گیفت تلگرام باز شد:\n{url}",
 		"avm_unlocked":          "💎 پرداخت دریافت شد. دسترسی 24 ساعته ارزش‌گذاری هوشمند برای @{username} فعال شد.",
 		"credits_credited":      "💎 پرداخت دریافت شد. تعداد {count} اعتبار تحلیلی به حساب شما افزوده شد.",
+	},
+	"reward_notification": map[string]interface{}{
+		"group_message_text": "⚡️ <b>پاداش ارسال پیام در گروه</b>\n\n📌 <b>علت پاداش:</b> ارسال پیام در گروه <b>@{group}</b>\n🎁 <b>کردیت هدیه:</b> +{reward} کردیت تحلیلی\n💰 <b>موجودی کل فعلی شما:</b> <code>{credits} کردیت</code>",
+		"group_boost_text":   "🎉 <b>پاداش روزانه بوست گروه</b>\n\n📌 <b>علت پاداش:</b> بوست فعال روزانه در گروه <b>@{group}</b>\n🎁 <b>کردیت هدیه:</b> +{reward} کردیت تحلیلی\n💰 <b>موجودی کل فعلی شما:</b> <code>{credits} کردیت</code>",
+		"btn_open_app":       "🚀 ورود به مینی‌اپ",
 	},
 }
 
@@ -1219,6 +1229,11 @@ var ruDict = map[string]interface{}{
 		"avm_unlocked":          "💎 Оплата подтверждена. 24-часовой аналитический доступ активирован для @{username}",
 		"credits_credited":      "💎 Оплата подтверждена. Начислено {count} Intel Credit на ваш баланс.",
 	},
+	"reward_notification": map[string]interface{}{
+		"group_message_text": "⚡️ <b>Награда за сообщение в группе</b>\n\n📌 <b>Причина:</b> Отправка сообщения в группе <b>@{group}</b>\n🎁 <b>Начислено:</b> +{reward} Intel Credit\n💰 <b>Текущий баланс:</b> <code>{credits} Intel Credits</code>",
+		"group_boost_text":   "🎉 <b>Ежедневная награда за буст группы</b>\n\n📌 <b>Причина:</b> Ежедневный активный буст группы <b>@{group}</b>\n🎁 <b>Начислено:</b> +{reward} Intel Credits\n💰 <b>Текущий баланс:</b> <code>{credits} Intel Credits</code>",
+		"btn_open_app":       "🚀 Открыть Mini App",
+	},
 }
 
 var zhDict = map[string]interface{}{
@@ -1593,5 +1608,10 @@ var zhDict = map[string]interface{}{
 		"gift_unlocked":         "💎 支付已确认。礼物专属估值报告已解锁：\n{url}",
 		"avm_unlocked":          "💎 支付已确认。已为 @{username} 开通 24 小时 AVM 深度估值权限。",
 		"credits_credited":      "💎 支付已确认。已成功充值 {count} 点 Intel Credit 到您的账户。",
+	},
+	"reward_notification": map[string]interface{}{
+		"group_message_text": "⚡️ <b>群内发言奖励</b>\n\n📌 <b>获得原因：</b> 在 <b>@{group}</b> 群组内发送消息\n🎁 <b>奖励点数：</b> +{reward} 个分析积分\n💰 <b>当前积分总余额：</b> <code>{credits} 积分</code>",
+		"group_boost_text":   "🎉 <b>每日群组助力 (Boost) 奖励</b>\n\n📌 <b>获得原因：</b> 每日助力 <b>@{group}</b> 群组活跃奖励\n🎁 <b>奖励点数：</b> +{reward} 个分析积分\n💰 <b>当前积分总余额：</b> <code>{credits} 积分</code>",
+		"btn_open_app":       "🚀 打开小程序",
 	},
 }

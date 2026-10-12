@@ -13,3 +13,8 @@ __pycache__/
 graphify-out/
 **/graphify-out/
 .graphify/
+
+# Obsidian local workspace & cache
+obsidian/.obsidian/workspace.json
+obsidian/.obsidian/workspace-mobile.json
+obsidian/.obsidian/cache/

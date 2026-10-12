@@ -6,7 +6,6 @@ import {
 	draftProfileSettings,
 	initDraftSettings,
 	isSettingsDirty,
-	updateDraftNotification,
 	updateDraftSetting,
 } from '@/entities/user/index.js';
 import { isRtl, locale, setLocale, t } from '@/shared/i18n/index.js';
@@ -15,8 +14,6 @@ import { haptic } from '@/shared/lib/haptic.js';
 import {
 	disableClosingConfirmation,
 	enableClosingConfirmation,
-	requestWriteAccess,
-	showAlert,
 } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { SettingsGuard, ToggleSwitch } from '@/shared/ui/index.js';
@@ -42,34 +39,6 @@ export const SettingsPage: Component = () => {
 			disableClosingConfirmation();
 		}
 	});
-
-	const handleToggleNotification = async (
-		key: 'mining' | 'referral' | 'community' | 'promotions',
-	) => {
-		const currentVal = draftProfileSettings().notifications[key];
-		const targetVal = !currentVal;
-
-		if (targetVal) {
-			const granted = await requestWriteAccess();
-			if (!granted) {
-				try {
-					haptic.notify('error');
-				} catch {}
-				audio.playError();
-				await showAlert(
-					t('settings.writeAccessDenied' as any) ||
-						'Telegram notifications permission was denied. Please allow bot write access in Telegram to enable notifications.',
-				);
-				return;
-			}
-		}
-
-		updateDraftNotification(key, targetVal);
-		try {
-			haptic.impact('light');
-		} catch {}
-		audio.playToggle(targetVal);
-	};
 
 	const handleToggleHaptic = (checked: boolean) => {
 		updateDraftSetting('hapticEnabled', checked);
@@ -225,95 +194,6 @@ export const SettingsPage: Component = () => {
 									<ToggleSwitch
 										checked={draftProfileSettings().autoPlayAnimations}
 										onChange={handleToggleAnimations}
-									/>
-								</div>
-							</div>
-						</Motion.div>
-
-						{/* ═══════ NOTIFICATIONS ═══════ */}
-						<Motion.div
-							initial={{ opacity: 0, y: 15 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ delay: 0.1 }}
-							class="flex flex-col gap-3"
-						>
-							<h2 class="text-[11px] font-black text-white/40 uppercase tracking-widest px-2 flex items-center gap-2">
-								<span class="material-symbols-outlined text-[16px] text-white/30">
-									notifications_active
-								</span>
-								{t('settings.notifications')}
-							</h2>
-
-							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
-								<div class="absolute -left-6 -bottom-6 w-24 h-24 bg-[#06b6d4]/10 blur-2xl rounded-full pointer-events-none" />
-
-								{/* Mining */}
-								<div class="flex items-center justify-between gap-4 relative z-10">
-									<div class="flex items-center gap-3.5">
-										<div class="w-10 h-10 rounded-[12px] bg-amber-400/10 flex items-center justify-center border border-amber-400/20 shadow-inner shrink-0 text-amber-400">
-											<span class="material-symbols-outlined text-[20px]">diamond</span>
-										</div>
-										<span class="text-[14px] font-black text-white tracking-tight">
-											{t('settings.pushMining')}
-										</span>
-									</div>
-									<ToggleSwitch
-										checked={draftProfileSettings().notifications.mining}
-										onChange={() => handleToggleNotification('mining')}
-									/>
-								</div>
-
-								<div class="h-[1px] bg-white/5 w-full my-1 rounded-full relative z-10" />
-
-								{/* Referrals */}
-								<div class="flex items-center justify-between gap-4 relative z-10">
-									<div class="flex items-center gap-3.5">
-										<div class="w-10 h-10 rounded-[12px] bg-[#10b981]/10 flex items-center justify-center border border-[#10b981]/20 shadow-inner shrink-0 text-[#10b981]">
-											<span class="material-symbols-outlined text-[20px]">group_add</span>
-										</div>
-										<span class="text-[14px] font-black text-white tracking-tight">
-											{t('settings.pushReferrals')}
-										</span>
-									</div>
-									<ToggleSwitch
-										checked={draftProfileSettings().notifications.referral}
-										onChange={() => handleToggleNotification('referral')}
-									/>
-								</div>
-
-								<div class="h-[1px] bg-white/5 w-full my-1 rounded-full relative z-10" />
-
-								{/* Community */}
-								<div class="flex items-center justify-between gap-4 relative z-10">
-									<div class="flex items-center gap-3.5">
-										<div class="w-10 h-10 rounded-[12px] bg-[#0098EA]/10 flex items-center justify-center border border-[#0098EA]/20 shadow-inner shrink-0 text-[#0098EA]">
-											<span class="material-symbols-outlined text-[20px]">forum</span>
-										</div>
-										<span class="text-[14px] font-black text-white tracking-tight">
-											{t('settings.pushCommunity')}
-										</span>
-									</div>
-									<ToggleSwitch
-										checked={draftProfileSettings().notifications.community}
-										onChange={() => handleToggleNotification('community')}
-									/>
-								</div>
-
-								<div class="h-[1px] bg-white/5 w-full my-1 rounded-full relative z-10" />
-
-								{/* Promotions */}
-								<div class="flex items-center justify-between gap-4 relative z-10">
-									<div class="flex items-center gap-3.5">
-										<div class="w-10 h-10 rounded-[12px] bg-[#ff4a4a]/10 flex items-center justify-center border border-[#ff4a4a]/20 shadow-inner shrink-0 text-[#ff4a4a]">
-											<span class="material-symbols-outlined text-[20px]">campaign</span>
-										</div>
-										<span class="text-[14px] font-black text-white tracking-tight">
-											{t('settings.pushPromotions')}
-										</span>
-									</div>
-									<ToggleSwitch
-										checked={draftProfileSettings().notifications.promotions}
-										onChange={() => handleToggleNotification('promotions')}
 									/>
 								</div>
 							</div>

@@ -6,6 +6,17 @@ interface Props {
 	starsPrice?: number;
 	tonUsdRate?: number;
 	isUpgraded?: boolean;
+	parity?: {
+		base_stars_price?: number;
+		upgrade_cost_stars?: number;
+		total_creation_cost_usd?: number;
+		intrinsic_floor_gram?: number;
+		intrinsic_floor_usd?: number;
+		arbitrage_opportunity?: boolean;
+		arbitrage_discount_pct?: number;
+		description_en?: string;
+		description_fa?: string;
+	};
 }
 
 export const GiftStarsParityCard: Component<Props> = (props) => {
@@ -13,15 +24,28 @@ export const GiftStarsParityCard: Component<Props> = (props) => {
 	const rate = () => props.tonUsdRate || 5.5;
 
 	// In Telegram ecosystem, 1000 Stars ≈ $20.00 USD ≈ 3.63 TON
-	// Dynamic Stars benchmark calculation:
-	const starsAmount = () => props.starsPrice || Math.max(1000, Math.round(secondaryTon() * 250));
-	const starsUsd = () => Math.round(starsAmount() * 0.02 * 100) / 100;
-	const starsTon = () => Math.round((starsUsd() / rate()) * 100) / 100;
+	// Dynamic Stars benchmark calculation anchored directly to engine parity:
+	const starsAmount = () =>
+		props.parity?.base_stars_price || props.starsPrice || Math.max(1000, Math.round(secondaryTon() * 250));
+	const starsUsd = () =>
+		props.parity?.intrinsic_floor_usd || Math.round(starsAmount() * 0.02 * 100) / 100;
+	const starsTon = () =>
+		props.parity?.intrinsic_floor_gram || Math.round((starsUsd() / rate()) * 100) / 100;
 
 	// Parity difference: Secondary vs Stars
 	const diffTon = createMemo(() => Math.round((secondaryTon() - starsTon()) * 100) / 100);
-	const diffPct = createMemo(() => Math.round((diffTon() / secondaryTon()) * 1000) / 10);
-	const starsIsCheaper = createMemo(() => diffTon() > 0);
+	const diffPct = createMemo(() => {
+		if (props.parity && props.parity.arbitrage_discount_pct !== undefined && props.parity.arbitrage_discount_pct > 0) {
+			return Math.round(props.parity.arbitrage_discount_pct * 10) / 10;
+		}
+		return Math.round((diffTon() / secondaryTon()) * 1000) / 10;
+	});
+	const starsIsCheaper = createMemo(() => {
+		if (props.parity && props.parity.arbitrage_opportunity !== undefined) {
+			return props.parity.arbitrage_opportunity;
+		}
+		return diffTon() > 0;
+	});
 
 	const fmt = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 });
 

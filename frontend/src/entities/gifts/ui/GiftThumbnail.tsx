@@ -10,7 +10,11 @@ interface Props {
 	customImageUrl?: string;
 	class?: string;
 	imgClass?: string;
-	size?: 'sm' | 'md' | 'lg' | 'xl';
+	size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+	centerHex?: string;
+	edgeHex?: string;
+	patternHex?: string;
+	backdropName?: string;
 }
 
 export const GiftThumbnail: Component<Props> = (props) => {
@@ -30,6 +34,20 @@ export const GiftThumbnail: Component<Props> = (props) => {
 		);
 
 	const emoji = () => giftItem()?.emoji || '🎁';
+
+	// Authentic Telegram 4-Color Radial Backdrop Gradient
+	const backdropStyle = createMemo(() => {
+		const rawCenter = props.centerHex;
+		const rawEdge = props.edgeHex;
+		if (rawCenter && rawEdge) {
+			const c = rawCenter.startsWith('#') ? rawCenter : `#${rawCenter}`;
+			const e = rawEdge.startsWith('#') ? rawEdge : `#${rawEdge}`;
+			return {
+				background: `radial-gradient(circle at 50% 38%, ${c} 0%, ${e} 100%)`,
+			};
+		}
+		return undefined;
+	});
 
 	// Multi-stage cascading candidates:
 	// Prioritizes backend VPS proxy when customImageUrl is from a filtered Telegram CDN (telesco.pe)
@@ -63,6 +81,8 @@ export const GiftThumbnail: Component<Props> = (props) => {
 		void props.model;
 		void props.serialNumber;
 		void props.customImageUrl;
+		void props.centerHex;
+		void props.edgeHex;
 		setAttemptIndex(0);
 		setImageLoaded(false);
 		setImageError(false);
@@ -91,6 +111,8 @@ export const GiftThumbnail: Component<Props> = (props) => {
 				return 'w-16 h-16 rounded-2xl text-2xl';
 			case 'xl':
 				return 'w-24 h-24 rounded-3xl text-4xl';
+			case '2xl':
+				return 'w-32 h-32 rounded-[2rem] text-5xl';
 			case 'md':
 			default:
 				return 'w-12 h-12 rounded-xl text-lg';
@@ -99,25 +121,29 @@ export const GiftThumbnail: Component<Props> = (props) => {
 
 	return (
 		<div
-			class={`relative flex items-center justify-center overflow-hidden flex-shrink-0 bg-gradient-to-br from-[#151c2c] to-[#0a0e17] border border-white/[0.08] shadow-inner select-none ${sizeClasses()} ${
-				props.class || ''
-			}`}
+			style={backdropStyle()}
+			class={`relative flex items-center justify-center overflow-hidden flex-shrink-0 border border-white/[0.12] shadow-lg select-none group ${
+				!backdropStyle() ? 'bg-gradient-to-br from-[#151c2c] to-[#0a0e17]' : ''
+			} ${sizeClasses()} ${props.class || ''}`}
 		>
-			{/* Fallback 3D Emoji Badge: visible while image is loading or if all sources fail */}
+			{/* Glossy Spherical Highlight Reflection */}
+			<div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.16] via-transparent to-black/[0.25] mix-blend-overlay" />
+
+			{/* Fallback 3D Emoji Badge */}
 			<Show when={!imageLoaded() || imageError()}>
 				<div class="absolute inset-0 flex items-center justify-center pointer-events-none drop-shadow-md">
 					<span>{emoji()}</span>
 				</div>
 			</Show>
 
-			{/* Official High-Res Model Image */}
+			{/* Official High-Res Animated/Vector Model Image */}
 			<Show when={!imageError() && currentSrc()}>
 				<img
 					src={currentSrc()}
 					alt={props.name || cleanSlug()}
 					onLoad={() => setImageLoaded(true)}
 					onError={handleImgError}
-					class={`absolute inset-0 w-full h-full object-contain p-1 drop-shadow-md transition-all duration-200 ${
+					class={`absolute inset-0 w-full h-full object-contain p-1 drop-shadow-xl transition-all duration-300 group-hover:scale-105 ${
 						imageLoaded() ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
 					} ${props.imgClass || ''}`}
 				/>
@@ -125,3 +151,4 @@ export const GiftThumbnail: Component<Props> = (props) => {
 		</div>
 	);
 };
+

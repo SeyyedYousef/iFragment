@@ -291,3 +291,25 @@ func TestToEnglishDigits(t *testing.T) {
 	}
 }
 
+func TestRewardNotificationInAllLanguages(t *testing.T) {
+	languages := []string{"en", "fa", "ru", "zh"}
+	keys := []string{
+		"reward_notification.group_message_text",
+		"reward_notification.group_boost_text",
+		"reward_notification.btn_open_app",
+	}
+
+	for _, lang := range languages {
+		for _, key := range keys {
+			val := T(lang, key, map[string]interface{}{
+				"group":   "FragmentInvestors",
+				"reward":  1,
+				"credits": 10,
+			})
+			if val == key || val == "" {
+				t.Errorf("Language %q missing key %q", lang, key)
+			}
+		}
+	}
+}
+

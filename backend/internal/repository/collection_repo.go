@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -188,11 +190,33 @@ func (r *CollectionRepo) GetLatestCollectionData(ctx context.Context) (*Collecti
 		}
 	}
 	if len(data.Categories) == 0 {
-		data.Categories = []CollectionCategory{
-			{CategoryName: "Dictionary & Brands", Volume: "49.5M TON"},
-			{CategoryName: "6-Letter Handles", Volume: "31.8M TON"},
-			{CategoryName: "5-Letter Handles", Volume: "24.2M TON"},
-			{CategoryName: "4-Letter Handles", Volume: "18.5M TON"},
+		// Calculate real category volume breakdown from actual username_sales
+		catVolQuery := `
+			SELECT 
+				CASE 
+					WHEN LENGTH(username) <= 4 THEN '4-Letter Handles'
+					WHEN LENGTH(username) = 5 THEN '5-Letter Handles'
+					WHEN LENGTH(username) = 6 THEN '6-Letter Handles'
+					ELSE 'Dictionary & Brands'
+				END as cat_name,
+				COALESCE(SUM(sale_price_ton), 0) as vol
+			FROM username_sales
+			WHERE sale_price_ton > 0
+			GROUP BY cat_name
+			ORDER BY vol DESC
+		`
+		if catRows, cErr := r.db.Pool.Query(ctx, catVolQuery); cErr == nil {
+			defer catRows.Close()
+			for catRows.Next() {
+				var name string
+				var vol float64
+				if catRows.Scan(&name, &vol) == nil && vol > 0 {
+					data.Categories = append(data.Categories, CollectionCategory{
+						CategoryName: name,
+						Volume:       fmt.Sprintf("%.1fM TON", vol/1e6),
+					})
+				}
+			}
 		}
 	}
 
@@ -228,15 +252,32 @@ func (r *CollectionRepo) GetLatestCollectionData(ctx context.Context) (*Collecti
 		}
 	}
 	if len(data.TopSales) == 0 {
-		data.TopSales = []CollectionAuction{
-			{ItemName: "@news", Price: "994,000 TON", Status: "Sold", Verified: true},
-			{ItemName: "@auto", Price: "900,000 TON", Status: "Sold", Verified: true},
-			{ItemName: "@bank", Price: "850,000 TON", Status: "Sold", Verified: true},
-			{ItemName: "@avia", Price: "800,000 TON", Status: "Sold", Verified: true},
-			{ItemName: "@chat", Price: "700,000 TON", Status: "Sold", Verified: true},
-			{ItemName: "@king", Price: "675,000 TON", Status: "Sold", Verified: true},
-			{ItemName: "@fifa", Price: "600,000 TON", Status: "Sold", Verified: true},
-			{ItemName: "@devil", Price: "550,000 TON", Status: "Sold", Verified: true},
+		// Fetch real all-time top sales recorded in username_sales
+		topDbQuery := `
+			SELECT username, sale_price_ton
+			FROM username_sales
+			WHERE sale_price_ton > 0
+			ORDER BY sale_price_ton DESC
+			LIMIT 8
+		`
+		if topDbRows, tErr := r.db.Pool.Query(ctx, topDbQuery); tErr == nil {
+			defer topDbRows.Close()
+			for topDbRows.Next() {
+				var uName string
+				var pVal float64
+				if topDbRows.Scan(&uName, &pVal) == nil {
+					cleanName := uName
+					if !strings.HasPrefix(cleanName, "@") {
+						cleanName = "@" + cleanName
+					}
+					data.TopSales = append(data.TopSales, CollectionAuction{
+						ItemName: cleanName,
+						Price:    fmt.Sprintf("%s TON", formatAmount(pVal)),
+						Status:   "Sold",
+						Verified: true,
+					})
+				}
+			}
 		}
 	}
 
@@ -252,6 +293,35 @@ func (r *CollectionRepo) GetLatestCollectionData(ctx context.Context) (*Collecti
 			var auc CollectionAuction
 			if err := recentRows.Scan(&auc.ItemName, &auc.Price, &auc.Status); err == nil {
 				data.RecentActivity = append(data.RecentActivity, auc)
+			}
+		}
+	}
+	if len(data.RecentActivity) == 0 {
+		// Fetch most recent real sales from username_sales
+		recDbQuery := `
+			SELECT username, sale_price_ton
+			FROM username_sales
+			WHERE sale_price_ton > 0
+			ORDER BY sale_date DESC
+			LIMIT 8
+		`
+		if recDbRows, rErr := r.db.Pool.Query(ctx, recDbQuery); rErr == nil {
+			defer recDbRows.Close()
+			for recDbRows.Next() {
+				var uName string
+				var pVal float64
+				if recDbRows.Scan(&uName, &pVal) == nil {
+					cleanName := uName
+					if !strings.HasPrefix(cleanName, "@") {
+						cleanName = "@" + cleanName
+					}
+					data.RecentActivity = append(data.RecentActivity, CollectionAuction{
+						ItemName: cleanName,
+						Price:    fmt.Sprintf("%s TON", formatAmount(pVal)),
+						Status:   "Sold",
+						Verified: true,
+					})
+				}
 			}
 		}
 	}
@@ -305,73 +375,69 @@ func (r *CollectionRepo) GetCollectionHistory(ctx context.Context, timeframe str
 		}
 	}
 
-	// Dynamic fallback generation if table has not yet populated
+	// Dynamic fallback from real username_sales if history table has not yet populated (Zero Fake Data)
 	if len(points) == 0 {
-		now := time.Now().UTC()
+		truncInterval := "day"
+		var intervalDays int
 		switch timeframe {
 		case "24h":
-			for i := 23; i >= 0; i -= 2 {
-				ts := now.Add(-time.Duration(i) * time.Hour).Truncate(time.Hour)
-				floor := 2.0 + float64((i*17)%20)/10.0
-				vol := 2500.0 + float64((i*31)%1500)
-				points = append(points, CollectionHistoryPoint{
-					Timestamp: ts.Format(time.RFC3339),
-					Label:     ts.Format("15:04"),
-					FloorTon:  floor,
-					VolumeTon: vol,
-				})
-			}
+			truncInterval = "hour"
+			intervalDays = 1
 		case "7d":
-			for i := 6; i >= 0; i-- {
-				ts := now.AddDate(0, 0, -i).Truncate(24 * time.Hour)
-				floor := 2.2 + float64((i*23)%15)/10.0
-				vol := 35000.0 + float64((i*123)%15000)
-				points = append(points, CollectionHistoryPoint{
-					Timestamp: ts.Format(time.RFC3339),
-					Label:     ts.Format("02 Jan"),
-					FloorTon:  floor,
-					VolumeTon: vol,
-				})
-			}
+			intervalDays = 7
+		case "30d":
+			intervalDays = 30
 		case "all":
-			milestones := []struct {
-				Date      time.Time
-				FloorTON  float64
-				VolumeTON float64
-			}{
-				{time.Date(2022, 11, 15, 0, 0, 0, 0, time.UTC), 10.0, 5_000_000},
-				{time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC), 8.5, 18_000_000},
-				{time.Date(2023, 6, 1, 0, 0, 0, 0, time.UTC), 6.0, 38_000_000},
-				{time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), 5.0, 65_000_000},
-				{time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC), 4.5, 88_000_000},
-				{time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 3.5, 105_000_000},
-				{time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC), 2.5, 116_000_000},
-				{time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), 2.2, 121_000_000},
-				{now, 2.0, 124_000_000},
-			}
-			for _, m := range milestones {
-				points = append(points, CollectionHistoryPoint{
-					Timestamp: m.Date.Format(time.RFC3339),
-					Label:     m.Date.Format("Jan '06"),
-					FloorTon:  m.FloorTON,
-					VolumeTon: m.VolumeTON,
-				})
-			}
-		default: // "30d"
-			for i := 29; i >= 0; i-- {
-				ts := now.AddDate(0, 0, -i).Truncate(24 * time.Hour)
-				floor := 2.0 + float64((i*19)%25)/10.0
-				vol := 40000.0 + float64((i*43)%20000)
-				points = append(points, CollectionHistoryPoint{
-					Timestamp: ts.Format(time.RFC3339),
-					Label:     ts.Format("02 Jan"),
-					FloorTon:  floor,
-					VolumeTon: vol,
-				})
+			truncInterval = "month"
+			intervalDays = 3650
+		default:
+			intervalDays = 30
+		}
+
+		query := fmt.Sprintf(`
+			SELECT 
+				DATE_TRUNC('%s', sale_date) AS ts,
+				MIN(sale_price_ton),
+				SUM(sale_price_ton)
+			FROM username_sales
+			WHERE sale_price_ton > 0 AND sale_date >= NOW() - INTERVAL '%d days'
+			GROUP BY DATE_TRUNC('%s', sale_date)
+			ORDER BY ts ASC
+		`, truncInterval, intervalDays, truncInterval)
+
+		if hRows, hErr := r.db.Pool.Query(ctx, query); hErr == nil {
+			defer hRows.Close()
+			for hRows.Next() {
+				var ts time.Time
+				var minP, sumV float64
+				if hRows.Scan(&ts, &minP, &sumV) == nil {
+					label := ts.Format("02 Jan")
+					if timeframe == "24h" {
+						label = ts.Format("15:04")
+					} else if timeframe == "all" {
+						label = ts.Format("Jan '06")
+					}
+					points = append(points, CollectionHistoryPoint{
+						Timestamp: ts.Format(time.RFC3339),
+						Label:     label,
+						FloorTon:  minP,
+						VolumeTon: sumV,
+					})
+				}
 			}
 		}
 	}
 
 	return points, nil
 }
+
+func formatAmount(val float64) string {
+	if val >= 1_000_000 {
+		return fmt.Sprintf("%.2fM", val/1_000_000)
+	} else if val >= 1_000 {
+		return fmt.Sprintf("%.1fK", val/1_000)
+	}
+	return fmt.Sprintf("%.2f", val)
+}
+
 

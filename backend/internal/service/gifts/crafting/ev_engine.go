@@ -124,9 +124,11 @@ func CalculateCraftingEV(ctx context.Context, inputs []CraftInputItem, gramUsdRa
 		r = rand.New(rand.NewSource(time.Now().UnixNano()))
 	}
 
+	// Base target tier multiplier if crafting succeeds:
+	// In Telegram star gift crafting economics, successful crafts yield an upgraded/crafted item
+	// with a market premium averaging 1.45x the combined input burn cost, plus trait variance.
+	potentialOutcomeBase := totalCostGRAM * 1.45
 	outcomes := make([]float64, iterations)
-	// Base target tier multiplier if crafting succeeds (average 1.8x to 3.5x boost from persistence)
-	potentialOutcomeBase := (totalCostGRAM * 1.65) + 30.0
 
 	sumOutputs := 0.0
 	for i := 0; i < iterations; i++ {

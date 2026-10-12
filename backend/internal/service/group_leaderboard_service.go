@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/intelcredit"
 )
@@ -125,12 +127,12 @@ func (s *GroupLeaderboardService) GetLeaderboard(ctx context.Context, rankType s
 }
 
 // RecordGroupMessage records a message sent in @FragmentInvestors and atomically grants 1 Intel Credit
-func (s *GroupLeaderboardService) RecordGroupMessage(ctx context.Context, userID int64, username, firstName, photoURL string, messageID int) error {
+func (s *GroupLeaderboardService) RecordGroupMessage(ctx context.Context, userID int64, username, firstName, photoURL, languageCode string, messageID int) error {
 	if s.repo == nil {
 		return nil
 	}
 
-	if err := s.repo.RecordGroupMessage(ctx, userID, username, firstName, photoURL, messageID); err != nil {
+	if err := s.repo.RecordGroupMessage(ctx, userID, username, firstName, photoURL, languageCode, messageID); err != nil {
 		slog.Error("failed to record group message in leaderboard repo", "user_id", userID, "error", err)
 	}
 
@@ -141,7 +143,9 @@ func (s *GroupLeaderboardService) RecordGroupMessage(ctx context.Context, userID
 	if s.intelCreditService != nil && messageID > 0 {
 		refID := strconv.Itoa(messageID)
 		_, err := s.intelCreditService.GrantCredits(ctx, userID, "reward", 1, "group_message", refID, nil)
-		if err != nil {
+		if err == nil {
+			go s.sendCreditEarnedNotification(userID, "group_message", 1)
+		} else {
 			// Idempotency constraint or transient error
 			slog.Debug("group message credit grant result", "user_id", userID, "message_id", messageID, "error", err)
 		}
@@ -252,6 +256,9 @@ func (s *GroupLeaderboardService) RunHourlyBoostSyncAndRewards(ctx context.Conte
 		}
 		ref := fmt.Sprintf("boost:%d:%s", uid, today)
 		_, grantErr := s.intelCreditService.GrantCredits(grantCtx, uid, "reward", credits, "daily_boost_reward", ref, nil)
+		if grantErr == nil {
+			go s.sendCreditEarnedNotification(uid, "daily_boost_reward", credits)
+		}
 		return grantErr
 	})
 
@@ -266,3 +273,74 @@ func (s *GroupLeaderboardService) RunHourlyBoostSyncAndRewards(ctx context.Conte
 
 	return nil
 }
+
+// sendCreditEarnedNotification dispatches a multilingual Telegram DM to the user in their preferred language (en, fa, ru, zh)
+func (s *GroupLeaderboardService) sendCreditEarnedNotification(userID int64, rewardType string, rewardAmount int) {
+	if userID <= 0 || rewardAmount <= 0 {
+		return
+	}
+
+	bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	lang := "en"
+	if s.repo != nil {
+		rawLang := s.repo.GetUserLanguage(bgCtx, userID)
+		lang = i18n.DetectLanguage(rawLang)
+	}
+
+	currentBalance := rewardAmount
+	if s.intelCreditService != nil {
+		if bal, bErr := s.intelCreditService.GetBalance(bgCtx, userID); bErr == nil && bal != nil {
+			currentBalance = bal.Balance
+		}
+	}
+
+	textKey := "reward_notification.group_message_text"
+	if rewardType == "daily_boost_reward" {
+		textKey = "reward_notification.group_boost_text"
+	}
+
+	text := i18n.T(lang, textKey, map[string]interface{}{
+		"group":   "FragmentInvestors",
+		"reward":  rewardAmount,
+		"credits": currentBalance,
+	})
+
+	btnText := i18n.T(lang, "reward_notification.btn_open_app")
+	miniAppURL := os.Getenv("MINI_APP_URL")
+	if miniAppURL == "" {
+		miniAppURL = "https://t.me/iFragmentBot/app"
+	}
+
+	markup := map[string]interface{}{
+		"inline_keyboard": [][]map[string]interface{}{
+			{
+				{
+					"text": btnText,
+					"url":  miniAppURL,
+				},
+			},
+		},
+	}
+
+	client := s.tgClient
+	if client == nil {
+		botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+		if botToken == "" {
+			botToken = os.Getenv("BOT_TOKEN")
+		}
+		if botToken != "" {
+			client = telegram.NewBotAPIClient(botToken)
+		}
+	}
+
+	if client != nil {
+		if _, err := client.SendMessageWithMarkup(bgCtx, userID, text, markup, nil); err != nil {
+			slog.Debug("Failed to deliver credit reward DM to user", "user_id", userID, "reward_type", rewardType, "error", err)
+		} else {
+			slog.Info("Successfully delivered credit reward DM to user", "user_id", userID, "reward_type", rewardType, "lang", lang)
+		}
+	}
+}
+

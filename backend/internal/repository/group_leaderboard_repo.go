@@ -38,21 +38,39 @@ func NewGroupLeaderboardRepo(db *Database) *GroupLeaderboardRepo {
 	return &GroupLeaderboardRepo{db: db}
 }
 
+// GetUserLanguage retrieves the user's saved language or defaults to "en"
+func (r *GroupLeaderboardRepo) GetUserLanguage(ctx context.Context, userID int64) string {
+	if r.db == nil {
+		return "en"
+	}
+	lang, err := r.db.GetUserLanguage(ctx, userID)
+	if err != nil || lang == "" {
+		return "en"
+	}
+	return lang
+}
+
 // RecordGroupMessage atomically increments user's message counter, logs the message event, ensures user in users table, and updates name/photo
-func (r *GroupLeaderboardRepo) RecordGroupMessage(ctx context.Context, userID int64, username, firstName, photoURL string, messageID int) error {
+func (r *GroupLeaderboardRepo) RecordGroupMessage(ctx context.Context, userID int64, username, firstName, photoURL, languageCode string, messageID int) error {
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("database unavailable")
+	}
+
+	cleanLang := "en"
+	if languageCode != "" {
+		cleanLang = languageCode
 	}
 
 	// 1. Ensure user exists in users table so foreign keys (e.g. intel_credit_batches) succeed
 	userQuery := `
 		INSERT INTO users (telegram_id, username, first_name, language_code, created_at, updated_at)
-		VALUES ($1, $2, COALESCE(NULLIF($3, ''), 'Investor'), 'en', NOW(), NOW())
+		VALUES ($1, $2, COALESCE(NULLIF($3, ''), 'Investor'), $4, NOW(), NOW())
 		ON CONFLICT (telegram_id) DO UPDATE SET
 			username = COALESCE(NULLIF(EXCLUDED.username, ''), users.username),
 			first_name = COALESCE(NULLIF(EXCLUDED.first_name, ''), users.first_name),
+			language_code = CASE WHEN users.language_manual = true THEN users.language_code ELSE COALESCE(NULLIF(EXCLUDED.language_code, ''), users.language_code) END,
 			updated_at = NOW()`
-	_, _ = r.db.Pool.Exec(ctx, userQuery, userID, username, firstName)
+	_, _ = r.db.Pool.Exec(ctx, userQuery, userID, username, firstName, cleanLang)
 
 	// 2. Log message into fragment_investors_messages
 	if messageID > 0 {

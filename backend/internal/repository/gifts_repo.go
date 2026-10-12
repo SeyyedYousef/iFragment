@@ -1312,4 +1312,134 @@ func (r *GiftsRepo) GetAllCollectionsExtended(ctx context.Context) ([]ExtendedGi
 	return list, nil
 }
 
+type OHLCVCandleRecord struct {
+	Timestamp  time.Time       `json:"timestamp"`
+	OpenGRAM   decimal.Decimal `json:"open_gram"`
+	HighGRAM   decimal.Decimal `json:"high_gram"`
+	LowGRAM    decimal.Decimal `json:"low_gram"`
+	CloseGRAM  decimal.Decimal `json:"close_gram"`
+	VolumeGRAM decimal.Decimal `json:"volume_gram"`
+	DealsCount int             `json:"deals_count"`
+}
+
+// GetBackdropFloor finds the lowest active listing price (or recent sale price) for a specific model and backdrop color
+func (r *GiftsRepo) GetBackdropFloor(ctx context.Context, modelID, backdropName string) (decimal.Decimal, bool) {
+	if r.db == nil || r.db.Pool == nil || strings.TrimSpace(backdropName) == "" {
+		return decimal.Zero, false
+	}
+
+	altModel := strings.ReplaceAll(modelID, "_", "-")
+	if altModel == modelID {
+		altModel = strings.ReplaceAll(modelID, "-", "_")
+	}
+
+	// 1. Check lowest active listing with matching backdrop
+	queryListings := `
+		SELECT MIN(price_gram)
+		FROM market_listings
+		WHERE (model_id = $1 OR model_id = $2 OR $1 = '')
+		  AND is_active = TRUE
+		  AND LOWER(TRIM(backdrop_name)) = LOWER(TRIM($3))
+		  AND price_gram > 0`
+
+	var minPrice *decimal.Decimal
+	err := r.db.Pool.QueryRow(ctx, queryListings, modelID, altModel, backdropName).Scan(&minPrice)
+	if err == nil && minPrice != nil && minPrice.GreaterThan(decimal.Zero) {
+		return *minPrice, true
+	}
+
+	// 2. Check recent sales in last 14 days with matching backdrop
+	querySales := `
+		SELECT MIN(sale_price_gram)
+		FROM gift_sales
+		WHERE (model_id = $1 OR model_id = $2 OR $1 = '')
+		  AND LOWER(TRIM(backdrop_name)) = LOWER(TRIM($3))
+		  AND sale_date >= now() - interval '14 days'
+		  AND sale_price_gram > 0`
+
+	var minSalePrice *decimal.Decimal
+	err = r.db.Pool.QueryRow(ctx, querySales, modelID, altModel, backdropName).Scan(&minSalePrice)
+	if err == nil && minSalePrice != nil && minSalePrice.GreaterThan(decimal.Zero) {
+		return *minSalePrice, true
+	}
+
+	return decimal.Zero, false
+}
+
+// GetOHLCVCandles computes daily OHLCV candlesticks from real executed gift sales
+func (r *GiftsRepo) GetOHLCVCandles(ctx context.Context, modelID string, days int) ([]OHLCVCandleRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []OHLCVCandleRecord{}, nil
+	}
+	if days <= 0 {
+		days = 30
+	}
+
+	altModel := strings.ReplaceAll(modelID, "_", "-")
+	if altModel == modelID {
+		altModel = strings.ReplaceAll(modelID, "-", "_")
+	}
+
+	query := `
+		WITH daily_trades AS (
+			SELECT
+				DATE_TRUNC('day', sale_date) AS day_bucket,
+				sale_price_gram,
+				sale_date,
+				ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('day', sale_date) ORDER BY sale_date ASC) as rn_asc,
+				ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('day', sale_date) ORDER BY sale_date DESC) as rn_desc
+			FROM gift_sales
+			WHERE (model_id = $1 OR model_id = $2 OR $1 = '')
+			  AND sale_date >= now() - make_interval(days => $3)
+			  AND COALESCE(is_reorged, FALSE) = FALSE
+			  AND sale_price_gram > 0
+		),
+		agg AS (
+			SELECT
+				day_bucket,
+				MIN(sale_price_gram) AS low_p,
+				MAX(sale_price_gram) AS high_p,
+				SUM(sale_price_gram) AS volume_p,
+				COUNT(*) AS deals_cnt
+			FROM daily_trades
+			GROUP BY day_bucket
+		)
+		SELECT
+			a.day_bucket,
+			o.sale_price_gram AS open_p,
+			a.high_p,
+			a.low_p,
+			c.sale_price_gram AS close_p,
+			a.volume_p,
+			a.deals_cnt
+		FROM agg a
+		JOIN daily_trades o ON o.day_bucket = a.day_bucket AND o.rn_asc = 1
+		JOIN daily_trades c ON c.day_bucket = a.day_bucket AND c.rn_desc = 1
+		ORDER BY a.day_bucket ASC`
+
+	rows, err := r.db.Pool.Query(ctx, query, modelID, altModel, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var candles []OHLCVCandleRecord
+	for rows.Next() {
+		var rec OHLCVCandleRecord
+		if err := rows.Scan(
+			&rec.Timestamp,
+			&rec.OpenGRAM,
+			&rec.HighGRAM,
+			&rec.LowGRAM,
+			&rec.CloseGRAM,
+			&rec.VolumeGRAM,
+			&rec.DealsCount,
+		); err == nil {
+			candles = append(candles, rec)
+		}
+	}
+	return candles, nil
+}
+
+
 

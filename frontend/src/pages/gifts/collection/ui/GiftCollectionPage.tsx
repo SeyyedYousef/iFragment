@@ -575,6 +575,10 @@ export const GiftCollectionPage: Component = () => {
 												slug={slug()}
 												name={fi.model_name}
 												model={fi.model_name}
+												serialNumber={fi.serial_number}
+												centerHex={fi.center_hex}
+												edgeHex={fi.edge_hex}
+												backdropName={fi.backdrop_name}
 												size="md"
 												class="w-full h-full object-contain"
 											/>
@@ -790,6 +794,7 @@ export const GiftCollectionPage: Component = () => {
 							{/* ═══ Floor Price & Market Dynamics Chart ═══ */}
 							<GiftFloorChart
 								history={data()?.floor_history}
+								candles={data()?.candles}
 								currentFloorGram={data()?.best_floor_gram}
 								currentFloorUsd={data()?.best_floor_usd}
 								collectionName={data()?.collection_name}
@@ -1418,6 +1423,10 @@ export const GiftCollectionPage: Component = () => {
 													slug={slug()}
 													name={item.model_name}
 													model={item.model_name}
+													serialNumber={item.serial_number}
+													centerHex={item.center_hex}
+													edgeHex={item.edge_hex}
+													backdropName={item.backdrop_name}
 													size="sm"
 													class="w-full h-full object-contain"
 												/>

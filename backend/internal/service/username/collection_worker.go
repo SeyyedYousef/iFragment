@@ -439,11 +439,21 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 			ownersStr = lastOwners
 			volumeStr = lastVolume
 		} else {
-			// TeleMint Canonical On-Chain Baseline:
-			// TeleMint collection has 582.8K minted usernames, 164.6K unique holders, 124.0M TON total volume
-			itemsStr = "582.8K"
-			ownersStr = "164.6K"
-			volumeStr = "124.0M TON"
+			// Query live on-chain TeleMint contract via TonAPI
+			if w.tonClient != nil {
+				if coll, err := w.tonClient.GetCollection(ctx, "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"); err == nil && coll != nil && coll.NextItemIndex > 0 {
+					itemsStr = fmt.Sprintf("%.1fK", float64(coll.NextItemIndex)/1000.0)
+				}
+			}
+			var totalVol float64
+			var uniqueOwners int
+			_ = w.db.Pool.QueryRow(ctx, `SELECT COALESCE(SUM(sale_price_ton), 0), COUNT(DISTINCT buyer_address) FROM username_sales WHERE sale_price_ton > 0`).Scan(&totalVol, &uniqueOwners)
+			if totalVol > 0 {
+				volumeStr = fmt.Sprintf("%.1fM TON", totalVol/1e6)
+			}
+			if uniqueOwners > 0 {
+				ownersStr = fmt.Sprintf("%.1fK", float64(uniqueOwners)/1000.0)
+			}
 		}
 	}
 
@@ -482,24 +492,38 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 		return fmt.Errorf("failed to upsert stats: %w", err)
 	}
 
-	// Make sure categories exist for today
+	// Populate categories for today dynamically from real username_sales
 	var catCount int
 	_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM nft_collection_categories WHERE stat_date = $1", date).Scan(&catCount)
 	if catCount == 0 {
-		categories := []struct {
-			Name   string
-			Volume string
-		}{
-			{"Dictionary & Brands", "49.5M TON"},
-			{"6-Letter Handles", "31.8M TON"},
-			{"5-Letter Handles", "24.2M TON"},
-			{"4-Letter Handles", "18.5M TON"},
-		}
-		for _, cat := range categories {
-			_, _ = tx.Exec(ctx, `
-				INSERT INTO nft_collection_categories (stat_date, category_name, volume)
-				VALUES ($1, $2, $3)
-			`, date, cat.Name, cat.Volume)
+		catVolQuery := `
+			SELECT 
+				CASE 
+					WHEN LENGTH(username) <= 4 THEN '4-Letter Handles'
+					WHEN LENGTH(username) = 5 THEN '5-Letter Handles'
+					WHEN LENGTH(username) = 6 THEN '6-Letter Handles'
+					ELSE 'Dictionary & Brands'
+				END as cat_name,
+				COALESCE(SUM(sale_price_ton), 0) as vol
+			FROM username_sales
+			WHERE sale_price_ton > 0
+			GROUP BY cat_name
+			ORDER BY vol DESC
+		`
+		catRows, errCat := tx.Query(ctx, catVolQuery)
+		if errCat == nil {
+			for catRows.Next() {
+				var name string
+				var vol float64
+				if catRows.Scan(&name, &vol) == nil && vol > 0 {
+					volStr := fmt.Sprintf("%.1fM TON", vol/1e6)
+					_, _ = tx.Exec(ctx, `
+						INSERT INTO nft_collection_categories (stat_date, category_name, volume)
+						VALUES ($1, $2, $3)
+					`, date, name, volStr)
+				}
+			}
+			catRows.Close()
 		}
 	}
 
