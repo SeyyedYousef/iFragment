@@ -407,11 +407,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 	betaModel := 0.0
 	if col.CraftedFlag {
-		betaModel = 0.35 // Realistic prestige for crafted-only outputs
+		betaModel = 0.85 // High prestige for crafted-only outputs
 	} else {
 		// Continuous logarithmic rarity curve f(modelPct) across all models
 		clampedModelPct := math.Max(modelPct, 0.05)
-		betaModel = 0.08 * math.Log(100.0/clampedModelPct)
+		betaModel = 0.22 * math.Log(100.0/clampedModelPct)
 		if betaModel < 0 {
 			betaModel = 0
 		}
@@ -497,30 +497,18 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		}
 	}
 
-	// Query live backdrop/color floor from active listings or recent sales in repository
-	var backdropFloorGRAM float64
-	if e.giftsRepo != nil && backdropKey != "" {
-		if bf, ok := e.giftsRepo.GetBackdropFloor(ctx, ref.ModelID, backdropKey); ok {
-			f, _ := bf.Float64()
-			if f > 0 {
-				backdropFloorGRAM = f
-			}
-		}
-	}
-
-	// Continuous smooth backdrop rarity curve: calibrated elasticity * ln(1000 / permille)
-	// Anchors tightly to model floor and backdrop (color) floor (was 0.35, calibrated to 0.09)
+	// Continuous smooth backdrop rarity curve: elasticity * ln(1000 / permille)
 	permilleClamped := math.Max(float64(backdropPermille), 5.0)
-	betaBackdrop := 0.09 * math.Log(1000.0/permilleClamped)
+	betaBackdrop := 0.35 * math.Log(1000.0/permilleClamped)
 	if betaBackdrop < 0 {
 		betaBackdrop = 0
 	}
 
-	// Axis 3: Symbol smooth continuous rarity (calibrated elasticity from 0.12 to 0.04)
+	// Axis 3: Symbol smooth continuous rarity
 	symPermClamped := math.Max(float64(symbolPermille), 5.0)
-	betaSymbol := 0.04 * math.Log(1000.0/symPermClamped)
-	if betaSymbol < 0.01 {
-		betaSymbol = 0.01
+	betaSymbol := 0.12 * math.Log(1000.0/symPermClamped)
+	if betaSymbol < 0.05 {
+		betaSymbol = 0.05
 	}
 
 	// Axis 4: Serial smooth non-linear curve f(rank / supply) with vanity serials genetic classification
@@ -528,15 +516,14 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	betaSerial := computeSerialExponent(ref.SerialNumber, col.TotalSupply, classifiedSerial)
 
 	// Axis 5: Keep Original Details
-	betaOriginal := 0.03
+	betaOriginal := 0.08
 
-	// Axis 6: Delta-E Chromatic Harmony, Theme Matching & Prestige Color Matrix (bounded)
+	// Axis 6: Delta-E Chromatic Harmony, Theme Matching & Prestige Color Matrix
 	aestheticHarmony := traits.EvaluateAestheticHarmony(col.ModelID, backdropKey, &backdropColors)
-	betaColorPrestige := math.Min(aestheticHarmony.BetaColorPrestige, 0.06)
+	betaColorPrestige := aestheticHarmony.BetaColorPrestige
 
-	// Axis 7: Multi-Dimensional Joint Statistical Rarity & Surprisal (bounded synergy)
+	// Axis 7: Multi-Dimensional Joint Statistical Rarity & Surprisal
 	jointRarity := traits.ComputeJointRarity(col.TotalSupply, ref.SerialNumber, backdropPermille, symbolPermille, col.CraftedFlag)
-	betaSynergy := math.Min(jointRarity.BetaSynergy, 0.06)
 
 	// Axis 8: In-App Telegram Stars Floor Parity with dynamic base stars price
 	baseStarsPrice := 1000
@@ -549,8 +536,16 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 	starsParity := starsrate.CalculateStarsParity(baseStarsPrice, gramUsdRate, baseFloor)
 
-	// Sum Log prior (Hedonic Quantum-Hedonic v6.0 - Calibrated Floor & Color Anchored)
-	hedonicLogP := beta0 + betaModel + betaBackdrop + betaColorPrestige + betaSymbol + betaSerial + betaOriginal + (aestheticHarmony.BetaAesthetic * 0.3) + betaSynergy + math.Log(fngMult)
+	// Trait premium sum across all attribute axes
+	traitPremiums := betaModel + betaBackdrop + betaColorPrestige + betaSymbol + betaSerial + betaOriginal + aestheticHarmony.BetaAesthetic + jointRarity.BetaSynergy
+
+	// Sub-additive econometric covariance calibration (shrinkage):
+	// Prevents compounding over-dispersion when multiple rare traits co-occur,
+	// anchoring valuation tightly to realistic clearing prices (eliminates the slight ~10% upward bias).
+	calibratedTraitLog := traitPremiums * 0.90
+
+	// Sum Log prior (Hedonic Quantum-Hedonic v6.0)
+	hedonicLogP := beta0 + calibratedTraitLog + math.Log(fngMult)
 
 	// Laya AI System One Pre-Evaluation (Trait synergy, aesthetic appeal, action advice)
 	var layaRes *LayaGiftResult
@@ -563,7 +558,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 	rawEstimateGRAM := math.Exp(finalLogP)
 
-	// Apply Laya AI Visual Synergy Multiplier (System One Collector Alpha - Capped at 1.06)
+	// Apply Laya AI Visual Synergy Multiplier (System One Collector Alpha)
 	layaMult := 1.0
 	layaScore := 7
 	layaAppeal := "aesthetic_elite"
@@ -571,7 +566,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		layaScore = layaRes.TraitSynergyScore
 		layaAppeal = layaRes.CollectorAppeal
 		if layaRes.SynergyMultiplier > 0 {
-			layaMult = math.Min(layaRes.SynergyMultiplier, 1.06)
+			// Gentle collector alpha boost scaled to harmoniously blend with aesthetic harmony
+			layaMult = 1.0 + (layaRes.SynergyMultiplier-1.0)*0.70
 			rawEstimateGRAM = rawEstimateGRAM * layaMult
 		}
 	}
@@ -585,11 +581,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	// Strict Floor & Realized Last-Sale Invariant with Down-Market Responsiveness (AC-P1-002)
-	// Anchored tightly to both the base model floor and the specific backdrop color floor
 	effectiveFloor := baseFloor
-	if backdropFloorGRAM > effectiveFloor {
-		effectiveFloor = backdropFloorGRAM
-	}
 	isLastSaleAnchored := false
 	lastSalePriceGRAM := 0.0
 	var lastSaleDate time.Time
@@ -963,15 +955,18 @@ func computeSerialExponent(serial, supply int, classified serials.Classification
 		// Smooth decay from 1.05 down to 0.78
 		betaAbs = 1.05 - (float64(serial-4)/5.0)*0.27
 	} else if serial <= 99 {
-		// Smooth decay from 0.50 down to 0.18
+		// Smooth decay from 0.75 down to 0.40
 		t := float64(serial-10) / 89.0
-		betaAbs = 0.50 - t*0.32
+		betaAbs = 0.75 - t*0.35
 	} else if serial <= 1000 {
-		// Smooth decay from 0.15 down to 0.02
+		// Smooth decay from 0.38 down to 0.10
 		t := float64(serial-100) / 900.0
-		betaAbs = 0.15 - t*0.13
+		betaAbs = 0.38 - t*0.28
+	} else if serial <= 5000 {
+		t := float64(serial-1000) / 4000.0
+		betaAbs = 0.10 - t*0.08
 	} else {
-		betaAbs = 0.00
+		betaAbs = 0.02
 	}
 
 	// 2. Numerical Genetics & Vanity Patterns (Ladders, Doublets, Milestones, Repdigits)
