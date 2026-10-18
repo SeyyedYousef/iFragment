@@ -1,1 +1,0 @@
-# No extra LLM/RAG Python dependencies required for iFragment (Cleaned per Architecture Audit Finding 10)
