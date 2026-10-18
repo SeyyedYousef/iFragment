@@ -1,51 +1,47 @@
 # Privacy Policy & Data Processing Agreement (DPA)
 
-**Last Updated: May 2026**
+**Last Updated: October 2026**
 
-Welcome to **iFragment**. We are committed to protecting your privacy and ensuring compliance with the General Data Protection Regulation (GDPR), the California Consumer Privacy Act (CCPA), and other global data protection standards. 
+Welcome to **iFragment**. We are committed to protecting your privacy and ensuring compliance with the General Data Protection Regulation (GDPR), the California Consumer Privacy Act (CCPA), and global data protection standards across our Telegram Mini App (TMA), Telegram Bot (Private Chat & Inline Mode), and community integrations.
 
 ---
 
-## 1. General Principles & GDPR Compliance
-As a GDPR-compliant processor/controller, we respect your rights regarding your personal data. 
-- **Lawfulness, Fairness, and Transparency**: We process your personal data only when we have a lawful basis (e.g., performance of a contract, legitimate interest, or consent).
-- **Purpose Limitation**: Data collected is strictly used to provide analytics, premium reporting, bot management, and marketplace services for Telegram usernames.
-- **Data Minimization**: We only collect the minimal required footprint (your public Telegram profile information and necessary payment logs).
+## 1. General Principles & Scope of Services
+As a GDPR-compliant processor and controller, we process minimal user data strictly to deliver institutional analytics across all three Telegram collectible verticals on the TON Blockchain:
+1. **Telegram Usernames (`AVM Engine v7.0`)**: Valuation reports, TeleMint provenance verification, auction playbooks, and username watchlist alerts.
+2. **Collectible Anonymous Numbers (`+888` — `NV Engine v5.2`)**: Pattern club analytics, live listing arbitrage detection, portfolio scanning, and bid/sale watchlist notifications.
+3. **Telegram Gifts (`GV Engine v6.0`)**: Multi-marketplace floor aggregation (`Fragment`, `Getgems`, `MarketApp`, `Portals`, `MRKT`, `Tonnel`), trait rarity ranking, crafting EV simulations, and gift watchlist alerts.
+4. **Intel Credits (`⚡`), Telegram Stars (`XTR`) & `@FragmentInvestors` Community**: Processing native Telegram Stars (`XTR`) payments (`telegram_payment_charge_id`), FIFO credit batches, and rewarding Paid-Star group messages and `chat_boost` events in `@FragmentInvestors`.
 
 ---
 
 ## 2. Your Rights Under GDPR
 Under the General Data Protection Regulation, you have the following rights:
-1. **Right of Access (Article 15)**: You can request details of the personal data we hold about you.
-2. **Right to Rectification (Article 16)**: You can request updates or corrections to your data.
-3. **Right to Erasure / "Right to be Forgotten" (Article 17)**: You have the right to request that we physically delete all your data from our active databases and caches.
-4. **Right to Restriction of Processing (Article 18)**: You can request that we restrict processing under specific conditions.
-5. **Right to Data Portability (Article 20)**: You can request a copy of your personal data in a structured, commonly used machine-readable format.
+1. **Right of Access (Article 15)**: Request details of the personal data we hold about you.
+2. **Right to Rectification (Article 16)**: Request updates or corrections to your profile preferences (such as language code).
+3. **Right to Erasure / "Right to be Forgotten" (Article 17)**: Request physical deletion of all your data from our active databases and caches.
+4. **Right to Restriction of Processing (Article 18)** & **Right to Data Portability (Article 20)**.
 
 ---
 
 ## 3. Physical Data Deletion (GDPR "Right to be Forgotten")
-To guarantee absolute compliance with the **Right to be Forgotten (GDPR Article 17)**, we provide an automated, physical data deletion mechanism:
+To guarantee absolute compliance with **GDPR Article 17**, we provide an automated physical data deletion mechanism:
 
-*   **Endpoint**: `DELETE /api/v1/profile/gdpr`
-*   **Action**: This endpoint triggers an immediate **physical deletion** cascade (`ON DELETE CASCADE`) at the database level.
-*   **Scope of Deletion**:
-    *   Your primary user record in `users` is permanently destroyed.
-    *   All bot management associations (`managed_bots`), connected channels (`managed_channels`), and groups (`managed_groups`) are instantly deleted.
-    *   All premium usernames purchase invoices, FRG coin balances, transactions, and user stats are physically erased.
-    *   All active caches inside Dragonfly/Redis (including leaderboard rankings, referrals, achievements, and stats) are immediately evicted.
-    *   No soft-delete flags are used; data is physically deleted to ensure complete eradication.
-*   **How to Trigger**: You can request full data erasure directly through the in-app user profile settings interface under "GDPR Right to be Forgotten", which invokes the above endpoint.
+* **Endpoint**: `DELETE /api/v1/profile/gdpr`
+* **Action**: Triggers an immediate **physical deletion** cascade (`ON DELETE CASCADE`) at the PostgreSQL database level and evicts all associated DragonflyDB cache keys.
+* **Scope of Deletion**:
+  * Your primary user record in `users` is permanently destroyed.
+  * All valuation unlock history, watchlist subscriptions (Usernames, `+888` Numbers, Gifts), Intel Credit batches/ledgers, Stars order records, and `@FragmentInvestors` leaderboard stats are physically erased.
+  * All active caches inside DragonflyDB/Redis are immediately evicted.
 
 ---
 
-## 4. Data Processing Agreement (DPA)
-For business owners, bot operators, and channel administrators utilizing our automation and moderation services, this Privacy Policy serves as or references our **Data Processing Agreement (DPA)**:
-- **Processor Role**: When you connect bots to manage groups/channels, iFragment acts as a **Data Processor** on your behalf, and you act as the **Data Controller**.
-- **Security Standards**: We employ advanced transport security (TLS 1.3), database connection pooling safety, brute-force IP/user locks, sliding-window rate limiters, and Otel-traceable audit logs to ensure high levels of confidentiality, integrity, and resilience.
-- **Data Sharing**: We never share, sell, or trade your personal data, or the data of members in your managed channels, with third parties.
+## 4. Security Standards & Data Protection
+- **Cryptographic Authentication**: Every Mini App request is verified via HMAC-SHA256 using Telegram `initData`, and every bot webhook is validated via constant-time `X-Telegram-Bot-Api-Secret-Token` comparison.
+- **PII Log Masking**: Automated structured log masking (`internal/logger/mask.go`) prevents Telegram User IDs, phone numbers, tokens, and IP addresses from leaking into stdout or tracing telemetry.
+- **Zero Third-Party Data Selling**: We never sell, rent, or trade user data with third parties.
 
 ---
 
 ## 5. Contact & Support
-For any questions regarding this Privacy Policy, your data protection rights, or to request manual deletion, please contact our Data Protection Officer (DPO) at `dpo@ifragment.com`.
+For any questions regarding this Privacy Policy or your data protection rights, contact our Data Protection Officer (DPO) at `dpo@ifragment.app`.

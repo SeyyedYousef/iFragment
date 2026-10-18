@@ -139,7 +139,105 @@ export const OwnerSettings: Component = () => {
 						</label>
 					</div>
 
+					{/* Economy, @FragmentInvestors & Reward Parameters */}
+					<section class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+						<header class="border-b border-white/10 pb-3">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-cyan-400">tune</span>
+								<h3 class="text-sm font-bold text-white">
+									Economy, Referral & @FragmentInvestors Reward Parameters
+								</h3>
+							</div>
+							<p class="text-xs text-white/50 mt-1">
+								Configure base rewards, referral bonuses, revenue share percentages, and token
+								economy parameters in real time.
+							</p>
+						</header>
 
+						<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/60 font-medium">
+									Daily Activity Reward Base
+								</label>
+								<input
+									type="number"
+									value={currentSettings()?.daily_reward_base ?? 100}
+									onInput={(e) =>
+										updateField('daily_reward_base', parseInt(e.currentTarget.value, 10) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/60 font-medium">Referral Bonus (Coins)</label>
+								<input
+									type="number"
+									value={currentSettings()?.referral_bonus ?? 500}
+									onInput={(e) =>
+										updateField('referral_bonus', parseInt(e.currentTarget.value, 10) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/60 font-medium">
+									Referral Revenue Share (%)
+								</label>
+								<input
+									type="number"
+									step="0.1"
+									value={currentSettings()?.referral_rev_share_pct ?? 10}
+									onInput={(e) =>
+										updateField('referral_rev_share_pct', parseFloat(e.currentTarget.value) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/60 font-medium">
+									Engagement Multiplier (@FragmentInvestors)
+								</label>
+								<input
+									type="number"
+									step="0.1"
+									value={currentSettings()?.tap_multiplier ?? 1.0}
+									onInput={(e) =>
+										updateField('tap_multiplier', parseFloat(e.currentTarget.value) || 1.0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/60 font-medium">
+									Credit Batch Expiry (Days)
+								</label>
+								<input
+									type="number"
+									value={currentSettings()?.coin_expiry_days ?? 30}
+									onInput={(e) =>
+										updateField('coin_expiry_days', parseInt(e.currentTarget.value, 10) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/60 font-medium">Daily Inflation Cap</label>
+								<input
+									type="number"
+									value={currentSettings()?.inflation_cap ?? 1000000}
+									onInput={(e) =>
+										updateField('inflation_cap', parseFloat(e.currentTarget.value) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
+								/>
+							</div>
+						</div>
+					</section>
 
 					{/* Investors Page Promotional Image */}
 					<section class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">

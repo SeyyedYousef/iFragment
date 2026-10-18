@@ -62,10 +62,33 @@ type NumberValuation struct {
 	TelemintProvenance   TelemintProvenance       `json:"telemint_provenance"`
 	PriceContributions   PriceContributionBreakdown `json:"price_contributions"`
 	SellingProbability   SellingProbabilities     `json:"selling_probabilities"`
-	ModelCard            ModelCardInfo            `json:"model_card"`
-	CertificateID        string                   `json:"certificate_id"`
-	EvaluatedAt          time.Time                `json:"evaluated_at"`
-	ReasoningLog         map[string]interface{}   `json:"reasoning_log"`
+	ModelCard             ModelCardInfo             `json:"model_card"`
+	LiveListing           *NumberLiveListingDto     `json:"live_listing,omitempty"`
+	CombinatorialScarcity *CombinatorialScarcityDto `json:"combinatorial_scarcity,omitempty"`
+	CertificateID         string                    `json:"certificate_id"`
+	EvaluatedAt           time.Time                 `json:"evaluated_at"`
+	ReasoningLog          map[string]interface{}    `json:"reasoning_log"`
+}
+
+// NumberLiveListingDto captures real-time listing or active auction status and arbitrage spread vs fair value
+type NumberLiveListingDto struct {
+	Status             string  `json:"status"` // "for_sale" | "on_auction" | "sold" | "unlisted"
+	AskOrBidTON        float64 `json:"ask_or_bid_ton,omitempty"`
+	AskOrBidUSD        float64 `json:"ask_or_bid_usd,omitempty"`
+	FairValueTON       float64 `json:"fair_value_ton"`
+	ArbitrageSpreadPct float64 `json:"arbitrage_spread_pct"`
+	DealVerdict        string  `json:"deal_verdict"` // "Strong Arbitrage Buy" | "Undervalued Listing" | "Fairly Priced" | "Overpriced Ask" | "Not Listed"
+	Venue              string  `json:"venue"`
+	DirectURL          string  `json:"direct_url"`
+}
+
+// CombinatorialScarcityDto quantifies exact mathematical combinatorics across the 136,566 closed supply
+type CombinatorialScarcityDto struct {
+	ExactPatternPoolSize int     `json:"exact_pattern_pool_size"`
+	TotalSupply          int     `json:"total_supply"`
+	PoolSharePct         float64 `json:"pool_share_pct"`
+	MathematicalFormula  string  `json:"mathematical_formula"`
+	ScarcityTier         string  `json:"scarcity_tier"`
 }
 
 // DealSniperItem represents an undervalued deal on Fragment or Getgems

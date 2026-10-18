@@ -1,5 +1,4 @@
-import { useNavigate } from '@solidjs/router';
-import { type Component, lazy, onMount } from 'solid-js';
+import { type Component, lazy } from 'solid-js';
 import { useI18n } from '@/shared/i18n/index.js';
 import { OwnerLayout } from '@/widgets/owner/index.js';
 import { OwnerRouteGuard } from './OwnerRouteGuard.js';
@@ -136,22 +135,6 @@ export const routes: Route[] = [
 		Component: withOwnerGuard(OwnerAuditLogPage, 'audit-logs', 'ownerAuditLogs.title'),
 	},
 	{
-		path: '/owner/quests',
-		Component: () => {
-			const nav = useNavigate();
-			onMount(() => nav('/owner/dashboard', { replace: true }));
-			return null;
-		},
-	},
-	{
-		path: '/owner/combos',
-		Component: () => {
-			const nav = useNavigate();
-			onMount(() => nav('/owner/dashboard', { replace: true }));
-			return null;
-		},
-	},
-	{
 		path: '/owner/userbot',
 		Component: withOwnerGuard(OwnerUserbot, 'userbot', 'ownerUserbot.title'),
 	},
@@ -174,14 +157,6 @@ export const routes: Route[] = [
 	{
 		path: '/owner/health',
 		Component: withOwnerGuard(OwnerHealthPage, 'health', 'ownerHealth.title'),
-	},
-	{
-		path: '/owner/entities',
-		Component: () => {
-			const nav = useNavigate();
-			onMount(() => nav('/owner/dashboard', { replace: true }));
-			return null;
-		},
 	},
 	{ path: '/owner/ads', Component: withOwnerGuard(OwnerAds, 'ads', 'ownerAds.title') },
 	{

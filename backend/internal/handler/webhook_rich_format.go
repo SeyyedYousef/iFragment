@@ -50,31 +50,40 @@ func buildUsernameStandardHTML(username string, res *avm.ValuationResult, lang s
 func buildUsernameMarkup(username string, appURL string, copySummary string, lang string) map[string]interface{} {
 	l := normalizeLang(lang)
 	cleanUser := strings.TrimPrefix(strings.ToLower(username), "@")
+	macroURL := appendStartParam(getMiniAppBaseURL(), "collection_usernames")
 
-	var btnMiniApp, btnFragment, btnCopy, btnShare, btnBack string
+	var btnMiniApp, btnFragment, btnCopy, btnRefresh, btnMacro, btnShare, btnBack string
 	switch l {
 	case "fa":
 		btnMiniApp = "📊 مشاهده تحلیل جامع در مینی‌اپ"
 		btnFragment = "🌐 مشاهده در فرگمنت"
 		btnCopy = "📋 کپی خلاصه تحلیل"
+		btnRefresh = "🔄 بروزرسانی آنی"
+		btnMacro = "🏛 نمای کلان بازار"
 		btnShare = "🚀 اشتراک‌گذاری کارشناسی"
 		btnBack = "🔙 بازگشت به منو"
 	case "ru":
 		btnMiniApp = "📊 Открыть анализ в Mini App"
 		btnFragment = "🌐 Открыть на Fragment"
 		btnCopy = "📋 Копировать отчёт"
+		btnRefresh = "🔄 Обновить оценку"
+		btnMacro = "🏛 Макро-обзор рынка"
 		btnShare = "🚀 Поделиться оценкой"
 		btnBack = "🔙 В главное меню"
 	case "zh":
 		btnMiniApp = "📊 在小程序中查看完整分析"
 		btnFragment = "🌐 在 Fragment 上查看"
 		btnCopy = "📋 复制评估摘要"
+		btnRefresh = "🔄 实时刷新估值"
+		btnMacro = "🏛 宏观市场大盘"
 		btnShare = "🚀 分享估值报告"
 		btnBack = "🔙 返回主菜单"
 	default:
 		btnMiniApp = "📊 View Full Analysis in Mini App"
 		btnFragment = "🌐 View on Fragment"
 		btnCopy = "📋 Copy Summary"
+		btnRefresh = "🔄 Instant Refresh"
+		btnMacro = "🏛 Macro Market"
 		btnShare = "🚀 Share Valuation"
 		btnBack = "🔙 Back to Menu"
 	}
@@ -87,6 +96,10 @@ func buildUsernameMarkup(username string, appURL string, copySummary string, lan
 			{
 				{"text": btnFragment, "url": fmt.Sprintf("https://fragment.com/username/%s", cleanUser)},
 				{"text": btnCopy, "copy_text": map[string]string{"text": copySummary}},
+			},
+			{
+				{"text": btnRefresh, "callback_data": fmt.Sprintf("unlock:username:%s", cleanUser)},
+				{"text": btnMacro, "url": macroURL},
 			},
 			{
 				{"text": btnShare, "switch_inline_query": "@" + cleanUser},
@@ -788,30 +801,39 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 // If directFragmentURL is provided, it uses that exact link; otherwise defaults to https://fragment.com/number/{cleanNum}
 func buildNumberMarkup(cleanNum string, displayNum string, appURL string, copySummary string, lang string, directFragmentURL ...string) map[string]interface{} {
 	l := normalizeLang(lang)
-	var btnMiniApp, btnFragment, btnCopy, btnShare, btnBack string
+	macroURL := appendStartParam(getMiniAppBaseURL(), "numbers")
+	var btnMiniApp, btnFragment, btnCopy, btnRefresh, btnMacro, btnShare, btnBack string
 	switch l {
 	case "fa":
 		btnMiniApp = "📊 مشاهده تحلیل جامع در مینی‌اپ"
 		btnFragment = "🌐 مشاهده در فرگمنت"
 		btnCopy = "📋 کپی خلاصه تحلیل"
+		btnRefresh = "🔄 بروزرسانی آنی"
+		btnMacro = "🏛 نمای کلان +888"
 		btnShare = "🚀 اشتراک‌گذاری کارشناسی"
 		btnBack = "🔙 بازگشت به منو"
 	case "ru":
 		btnMiniApp = "📊 Открыть анализ в Mini App"
 		btnFragment = "🌐 Открыть на Fragment"
 		btnCopy = "📋 Копировать отчёт"
+		btnRefresh = "🔄 Обновить оценку"
+		btnMacro = "🏛 Обзор +888"
 		btnShare = "🚀 Поделиться оценкой"
 		btnBack = "🔙 В главное меню"
 	case "zh":
 		btnMiniApp = "📊 在小程序中查看完整分析"
 		btnFragment = "🌐 在 Fragment 上查看"
 		btnCopy = "📋 复制评估摘要"
+		btnRefresh = "🔄 实时刷新估值"
+		btnMacro = "🏛 +888 市场大盘"
 		btnShare = "🚀 分享估值报告"
 		btnBack = "🔙 返回主菜单"
 	default:
 		btnMiniApp = "📊 View Full Analysis in Mini App"
 		btnFragment = "🌐 View on Fragment"
 		btnCopy = "📋 Copy Summary"
+		btnRefresh = "🔄 Instant Refresh"
+		btnMacro = "🏛 +888 Macro Market"
 		btnShare = "🚀 Share Valuation"
 		btnBack = "🔙 Back to Menu"
 	}
@@ -829,6 +851,10 @@ func buildNumberMarkup(cleanNum string, displayNum string, appURL string, copySu
 			{
 				{"text": btnFragment, "url": fragURL},
 				{"text": btnCopy, "copy_text": map[string]string{"text": copySummary}},
+			},
+			{
+				{"text": btnRefresh, "callback_data": fmt.Sprintf("unlock:number:%s", cleanNum)},
+				{"text": btnMacro, "url": macroURL},
 			},
 			{
 				{"text": btnShare, "switch_inline_query": displayNum},
@@ -1813,31 +1839,40 @@ func buildGiftMarkup(val *gvengine.GiftValuation, miniAppURL string, copySummary
 	pascal := telegramnft.FormatPascalName(val.ModelID)
 	fragmentURL := fmt.Sprintf("https://fragment.com/gift/%s-%d", pascal, val.SerialNumber)
 	appGiftURL := appendStartParam(miniAppURL, fmt.Sprintf("gift_%s-%d", val.ModelID, val.SerialNumber))
+	appCollectionURL := appendStartParam(miniAppURL, fmt.Sprintf("col_%s", val.ModelID))
 
-	var btnMiniApp, btnFragment, btnCopy, btnShare, btnBack string
+	var btnMiniApp, btnFragment, btnCopy, btnRefresh, btnCollection, btnShare, btnBack string
 	switch l {
 	case "fa":
 		btnMiniApp = "📊 مشاهده گزارش کامل در مینی‌اپ"
 		btnFragment = "💎 مشاهده در فرگمنت"
 		btnCopy = "📋 کپی خلاصه تحلیل"
+		btnRefresh = "🔄 بروزرسانی آنی"
+		btnCollection = "🏛 کلکسیون و کف بازار"
 		btnShare = "🚀 اشتراک‌گذاری کارشناسی"
 		btnBack = "🔙 بازگشت به منو"
 	case "ru":
 		btnMiniApp = "📊 Открыть отчёт в Mini App"
 		btnFragment = "💎 Открыть на Fragment"
 		btnCopy = "📋 Копировать отчёт"
+		btnRefresh = "🔄 Обновить оценку"
+		btnCollection = "🏛 Коллекция и рынок"
 		btnShare = "🚀 Поделиться оценкой"
 		btnBack = "🔙 В главное меню"
 	case "zh":
 		btnMiniApp = "📊 在小程序中查看完整报告"
 		btnFragment = "💎 在 Fragment 上查看"
 		btnCopy = "📋 复制评估摘要"
+		btnRefresh = "🔄 实时刷新估值"
+		btnCollection = "🏛 藏品系列大盘"
 		btnShare = "🚀 分享估值报告"
 		btnBack = "🔙 返回主菜单"
 	default:
 		btnMiniApp = "📊 View Full Analysis in Mini App"
 		btnFragment = "💎 View on Fragment"
 		btnCopy = "📋 Copy Summary"
+		btnRefresh = "🔄 Instant Refresh"
+		btnCollection = "🏛 Collection Overview"
 		btnShare = "🚀 Share Valuation"
 		btnBack = "🔙 Back to Menu"
 	}
@@ -1850,6 +1885,10 @@ func buildGiftMarkup(val *gvengine.GiftValuation, miniAppURL string, copySummary
 			{
 				{"text": btnFragment, "url": fragmentURL},
 				{"text": btnCopy, "copy_text": map[string]string{"text": copySummary}},
+			},
+			{
+				{"text": btnRefresh, "callback_data": fmt.Sprintf("unlock:gift:%s-%d", val.ModelID, val.SerialNumber)},
+				{"text": btnCollection, "url": appCollectionURL},
 			},
 			{
 				{"text": btnShare, "switch_inline_query": val.DisplayTitle},

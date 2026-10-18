@@ -22,6 +22,7 @@ import (
 	"ifragment-backend/internal/service/gifts/telegramnft"
 	"ifragment-backend/internal/service/gifts/traits"
 	"ifragment-backend/internal/service/intelcredit"
+	"ifragment-backend/internal/service/notification"
 	"ifragment-backend/internal/service/numbers/features"
 	"ifragment-backend/internal/service/numbers/nvengine"
 	"ifragment-backend/internal/service/username/avm"
@@ -1786,6 +1787,150 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 				h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 			}
 		}
+	} else {
+		go h.notifyAdminBotReportUnlock(context.Background(), userID, assetType, entity, isDuplicate, remainingBalance, usernameVal, numberVal, giftVal, miniAppURL)
+	}
+}
+
+func (h *WebhookHandler) notifyAdminBotReportUnlock(
+	ctx context.Context,
+	userID int64,
+	assetType string,
+	entity string,
+	isDuplicate bool,
+	remainingBalance int,
+	usernameVal *avm.ValuationResult,
+	numberVal *nvengine.NumberValuation,
+	giftVal *gvengine.GiftValuation,
+	miniAppURL string,
+) {
+	if miniAppURL == "" {
+		miniAppURL = os.Getenv("MINI_APP_URL")
+		if miniAppURL == "" {
+			miniAppURL = "https://t.me/iFragmentBot/iFragment"
+		}
+	}
+	userIdent := fmt.Sprintf("ID:%d", userID)
+	if h.db != nil && h.db.Pool != nil {
+		var uname, fname string
+		if err := h.db.Pool.QueryRow(ctx, "SELECT COALESCE(username, ''), COALESCE(first_name, '') FROM users WHERE telegram_id = $1", userID).Scan(&uname, &fname); err == nil {
+			if uname != "" {
+				userIdent = "@" + uname
+			} else if fname != "" {
+				userIdent = fname
+			}
+		}
+	}
+	payLabel := fmt.Sprintf("⚡️ پی‌وی ربات (۱ کریدت کسر شد | مانده: %d)", remainingBalance)
+	if isDuplicate {
+		payLabel = "♻️ پی‌وی ربات (بازبینی رایگان ۲۴ ساعته)"
+	}
+	timeStr := time.Now().UTC().Format("15:04:05 UTC")
+	userIDStr := strconv.FormatInt(userID, 10)
+
+	switch assetType {
+	case "username":
+		if usernameVal == nil {
+			return
+		}
+		u := strings.TrimPrefix(strings.ToLower(entity), "@")
+		appLink := fmt.Sprintf("%s?startapp=username_%s", miniAppURL, u)
+		fragmentLink := fmt.Sprintf("https://fragment.com/username/%s", u)
+		msg := fmt.Sprintf(
+			"╔════ 🔍 <b>ارزش‌گذاری هوشمند یوزرنیم (پی‌وی بات)</b> ════╗\n\n"+
+				"🆔 <b>یوزرنیم:</b> @%s\n"+
+				"👤 <b>کاربر:</b> %s (<code>%s</code>)\n"+
+				"💳 <b>نحوه دسترسی:</b> %s\n\n"+
+				"📊 <b>تحلیل مالی AVM:</b>\n"+
+				"├ 💰 <b>قیمت تخمینی:</b> <code>%s TON</code>\n"+
+				"├ 💵 <b>معادل دلاری:</b> <code>$%s</code>\n"+
+				"├ 💎 <b>سطح کمیابی:</b> <b>%s</b>\n"+
+				"└ 🎯 <b>ضریب اطمینان:</b> <code>%d%%</code>\n\n"+
+				"⏰ <b>زمان ثبت:</b> <code>%s</code>\n"+
+				"╚════════════════════════════╝",
+			telegram.EscapeHTML(u),
+			telegram.EscapeHTML(userIdent), userIDStr,
+			telegram.EscapeHTML(payLabel),
+			usernameVal.ExpectedTON.StringFixed(2),
+			usernameVal.ExpectedUSD.StringFixed(2),
+			telegram.EscapeHTML(usernameVal.Rarity.Tier),
+			usernameVal.ConfidenceScore,
+			timeStr,
+		)
+		row := []telegram.InlineButton{
+			{Text: "🔎 مشاهده در مینی‌اپ", URL: appLink},
+			{Text: "🌐 فرگمنت", URL: fragmentLink},
+			{Text: "👤 کاربر", URL: fmt.Sprintf("tg://user?id=%d", userID)},
+		}
+		notification.GetAdminNotifier().NotifyAVM(ctx, msg, telegram.BuildInlineKeyboard([][]telegram.InlineButton{row}))
+	case "number":
+		if numberVal == nil {
+			return
+		}
+		appLink := fmt.Sprintf("%s?startapp=num_%s", miniAppURL, numberVal.Number)
+		fragmentNumLink := fmt.Sprintf("https://fragment.com/number/%s", strings.TrimPrefix(numberVal.Number, "+"))
+		msg := fmt.Sprintf(
+			"╔════ 📱 <b>ارزش‌گذاری شماره کلکسیونی (پی‌وی بات)</b> ════╗\n\n"+
+				"📞 <b>شماره:</b> <code>%s</code>\n"+
+				"👤 <b>کاربر:</b> %s (<code>%s</code>)\n"+
+				"💳 <b>نحوه دسترسی:</b> %s\n\n"+
+				"📊 <b>ارزیابی ارزش الگوریتمی:</b>\n"+
+				"├ 💰 <b>قیمت تخمینی:</b> <code>%s TON</code>\n"+
+				"├ 💵 <b>معادل دلاری:</b> <code>$%.2f</code>\n"+
+				"├ 🏆 <b>رتبه کمیابی جهانی:</b> <code>#%d</code>\n"+
+				"└ 🎯 <b>ضریب اطمینان:</b> <code>%d%%</code>\n\n"+
+				"⏰ <b>زمان ثبت:</b> <code>%s</code>\n"+
+				"╚════════════════════════════╝",
+			telegram.EscapeHTML(numberVal.DisplayNumber),
+			telegram.EscapeHTML(userIdent), userIDStr,
+			telegram.EscapeHTML(payLabel),
+			numberVal.ExpectedTON.StringFixed(2),
+			numberVal.ExpectedUSD,
+			numberVal.GlobalRank,
+			numberVal.ConfidenceScore,
+			timeStr,
+		)
+		row := []telegram.InlineButton{
+			{Text: "📱 مشاهده در مینی‌اپ", URL: appLink},
+			{Text: "🌐 فرگمنت", URL: fragmentNumLink},
+			{Text: "👤 کاربر", URL: fmt.Sprintf("tg://user?id=%d", userID)},
+		}
+		notification.GetAdminNotifier().NotifyNumber(ctx, msg, telegram.BuildInlineKeyboard([][]telegram.InlineButton{row}))
+	case "gift":
+		if giftVal == nil {
+			return
+		}
+		appLink := fmt.Sprintf("%s?startapp=gift_%s", miniAppURL, giftVal.GiftID)
+		fragmentGiftsLink := "https://fragment.com/gifts"
+		msg := fmt.Sprintf(
+			"╔════ 🎁 <b>ارزش‌گذاری گیفت تلگرام (پی‌وی بات)</b> ════╗\n\n"+
+				"🏷 <b>عنوان گیفت:</b> %s\n"+
+				"🆔 <b>شناسه:</b> <code>%s</code> (سریال: #%d)\n"+
+				"👤 <b>کاربر:</b> %s (<code>%s</code>)\n"+
+				"💳 <b>نحوه دسترسی:</b> %s\n\n"+
+				"📊 <b>ارزیابی ارزش و متادیتا:</b>\n"+
+				"├ 💎 <b>ارزش تخمینی:</b> <code>%s GRAM</code>\n"+
+				"├ 💵 <b>معادل دلاری:</b> <code>$%.2f</code>\n"+
+				"├ 🎁 <b>سطح کمیابی:</b> <b>%s</b>\n"+
+				"└ 🎯 <b>ضریب اطمینان:</b> <code>%d%%</code>\n\n"+
+				"⏰ <b>زمان ثبت:</b> <code>%s</code>\n"+
+				"╚════════════════════════════╝",
+			telegram.EscapeHTML(giftVal.DisplayTitle),
+			telegram.EscapeHTML(giftVal.GiftID), giftVal.SerialNumber,
+			telegram.EscapeHTML(userIdent), userIDStr,
+			telegram.EscapeHTML(payLabel),
+			giftVal.ExpectedGRAM.StringFixed(2),
+			giftVal.ExpectedUSD,
+			telegram.EscapeHTML(giftVal.JointRarity.RarityClass),
+			giftVal.ConfidenceScore,
+			timeStr,
+		)
+		row := []telegram.InlineButton{
+			{Text: "🎁 مشاهده در مینی‌اپ", URL: appLink},
+			{Text: "🌐 بازار گیفت فرگمنت", URL: fragmentGiftsLink},
+			{Text: "👤 کاربر", URL: fmt.Sprintf("tg://user?id=%d", userID)},
+		}
+		notification.GetAdminNotifier().NotifyGift(ctx, msg, telegram.BuildInlineKeyboard([][]telegram.InlineButton{row}))
 	}
 }
 

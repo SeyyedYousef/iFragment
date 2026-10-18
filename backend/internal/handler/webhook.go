@@ -477,10 +477,11 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	}
 
 	job := WebhookJob{
-		ctx:    context.WithoutCancel(ctx),
-		bot:    bot,
-		update: update,
-		chatID: extractChatIDFromUpdate(update),
+		ctx:     context.WithoutCancel(ctx),
+		handler: h,
+		bot:     bot,
+		update:  update,
+		chatID:  extractChatIDFromUpdate(update),
 	}
 	if EnqueueWebhookJob(job) {
 		dispatched = true
@@ -735,7 +736,30 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		return
 	}
 
-	// 1. If message contains a Gift link, sniff & analyze automatically (only in private chat or when bot is explicitly mentioned in groups)
+	// 1. Activity tracking for @FragmentInvestors paid-star group (runs FIRST so 100% of user messages—including links, commands, emojis, and media—are counted and rewarded)
+	if (msg.Chat.ID == -1001972125896 || raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username)) && msg.From != nil {
+		if !msg.From.IsBot && h.groupLeaderboardSvc != nil {
+			_ = h.groupLeaderboardSvc.RecordGroupMessageWithStars(ctx, msg.From.ID, msg.From.Username, msg.From.FirstName, "", msg.From.LanguageCode, msg.MessageID, msg.PaidStarCount, raw)
+			if tgClient := h.getBotClient(bot); tgClient != nil {
+				if h.raffleSvc != nil {
+					_ = h.raffleSvc.RecordMessageTicket(ctx, tgClient, msg.Chat.ID, raffle.UserCompact{
+						ID:        msg.From.ID,
+						Username:  msg.From.Username,
+						FirstName: msg.From.FirstName,
+						IsPremium: msg.From.IsPremium,
+						IsBot:     msg.From.IsBot,
+					}, msg.MessageID)
+				}
+				go func(uid int64, uname, fname string) {
+					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					h.groupLeaderboardSvc.SyncUserBoostsThrottled(bgCtx, tgClient, int64(-1001972125896), uid, uname, fname, "")
+				}(msg.From.ID, msg.From.Username, msg.From.FirstName)
+			}
+		}
+	}
+
+	// 2. If message contains a Gift link, sniff & analyze automatically (only in private chat or when bot is explicitly mentioned in groups)
 	if giftLinkRegex.MatchString(raw) {
 		isGroup := msg.Chat.Type == "group" || msg.Chat.Type == "supergroup"
 		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
@@ -746,25 +770,14 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		}
 	}
 
-	// 2. Private chat commands (/start, /language, /help, /gift, /gifts, /ping)
+	// 3. Private chat commands (/start, /language, /help, /gift, /gifts, /ping)
 	if msg.Chat.Type == "private" {
 		h.handlePrivateCommand(ctx, bot, msg)
 		return
 	}
 
-	// 3. Activity tracking for @FragmentInvestors group
+	// 3b. Early exit for @FragmentInvestors messages that do not mention or address the bot
 	if (msg.Chat.ID == -1001972125896 || raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username)) && msg.From != nil {
-		// Record message in Leaderboard & grant 1 Intel Credit (1 message = 1 credit)
-		if !msg.From.IsBot && h.groupLeaderboardSvc != nil {
-			_ = h.groupLeaderboardSvc.RecordGroupMessage(ctx, msg.From.ID, msg.From.Username, msg.From.FirstName, "", msg.From.LanguageCode, msg.MessageID)
-			if tgClient := h.getBotClient(bot); tgClient != nil {
-				go func(uid int64, uname, fname string) {
-					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-					defer cancel()
-					h.groupLeaderboardSvc.SyncUserBoostsThrottled(bgCtx, tgClient, int64(-1001972125896), uid, uname, fname, "")
-				}(msg.From.ID, msg.From.Username, msg.From.FirstName)
-			}
-		}
 
 		// Check if message is mentioning the bot or requesting an asset valuation / command
 		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
@@ -1325,6 +1338,15 @@ func logIfErr(err error, msg string, args ...interface{}) {
 }
 
 
+// getMiniAppBaseURL returns the base URL for the mini app from environment or default
+func getMiniAppBaseURL() string {
+	miniAppURL := os.Getenv("MINI_APP_URL")
+	if miniAppURL != "" {
+		return miniAppURL
+	}
+	return "https://t.me/iFragmentBot/iFragment"
+}
+
 // getMiniAppURL determines the full Telegram Mini App link
 func (h *WebhookHandler) getMiniAppURL(bot *repository.ManagedBot) string {
 	miniAppURL := os.Getenv("MINI_APP_URL")
@@ -1360,11 +1382,7 @@ func (h *WebhookHandler) handleChatBoost(ctx context.Context, bot *repository.Ma
 		return
 	}
 	tgClient := h.getBotClient(bot)
-	if tgClient != nil {
-		_, _ = h.groupLeaderboardSvc.SyncUserBoosts(ctx, tgClient, update.Chat.ID, user.ID, user.Username, user.FirstName, "")
-	} else {
-		_ = h.groupLeaderboardSvc.UpdateUserBoostCount(ctx, user.ID, user.Username, user.FirstName, "", 1)
-	}
+	h.groupLeaderboardSvc.HandleRealtimeChatBoost(ctx, tgClient, update.Chat.ID, user.ID, user.Username, user.FirstName)
 }
 
 func (h *WebhookHandler) handleRemovedChatBoost(ctx context.Context, bot *repository.ManagedBot, update *ChatBoostRemoved) {
@@ -1379,9 +1397,5 @@ func (h *WebhookHandler) handleRemovedChatBoost(ctx context.Context, bot *reposi
 		return
 	}
 	tgClient := h.getBotClient(bot)
-	if tgClient != nil {
-		_, _ = h.groupLeaderboardSvc.SyncUserBoosts(ctx, tgClient, update.Chat.ID, user.ID, user.Username, user.FirstName, "")
-	} else {
-		_ = h.groupLeaderboardSvc.UpdateUserBoostCount(ctx, user.ID, user.Username, user.FirstName, "", 0)
-	}
+	h.groupLeaderboardSvc.HandleRealtimeRemovedChatBoost(ctx, tgClient, update.Chat.ID, user.ID, user.Username, user.FirstName)
 }

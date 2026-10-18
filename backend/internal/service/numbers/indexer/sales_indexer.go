@@ -273,12 +273,41 @@ func (s *NumbersSalesIndexer) processNFTSales(ctx context.Context, normNumber st
 			}
 		}
 
-		if transfer == nil {
-			continue
-		}
-
+		// Check if event has base transactions for either a completed sale transfer or an active auction bid
 		if len(event.Actions) > 0 && len(event.Actions[0].BaseTransactions) > 0 {
 			txHash := event.Actions[0].BaseTransactions[0]
+
+			// If no NFT transfer occurred in this event, inspect trace for an active auction bid (NotifyBid)
+			if transfer == nil {
+				bidTON, bidderAddr := s.extractBidFromTrace(ctx, txHash)
+				if bidTON >= 0.5 && bidderAddr != "" && s.notifier != nil {
+					alreadySeenBid := false
+					if s.db != nil && s.db.Pool != nil {
+						var exists bool
+						_ = s.db.Pool.QueryRow(ctx, `
+							SELECT EXISTS(
+								SELECT 1 FROM chain_events
+								WHERE chain = 'ton' AND network = 'mainnet' AND tx_hash = $1 AND event_type = 'nft_bid'
+							)`, txHash).Scan(&exists)
+						alreadySeenBid = exists
+						if !alreadySeenBid {
+							_, _ = s.db.Pool.Exec(ctx, `
+								INSERT INTO chain_events (
+									chain, network, tx_hash, item_address, event_type,
+									confirmation_depth, finality_status, reorged, captured_at
+								) VALUES (
+									'ton', 'mainnet', $1, $2, 'nft_bid', 1, 'confirmed', FALSE, NOW()
+								) ON CONFLICT (chain, network, tx_hash, event_index, decoder_version) DO NOTHING`,
+								txHash, nftAddr)
+						}
+					}
+					if !alreadySeenBid {
+						s.notifier.NotifyBid(ctx, normNumber, bidTON, bidderAddr, tonUsdRate)
+					}
+				}
+				continue
+			}
+
 			priceTON, saleType, confidence := s.extractPriceFromTrace(ctx, txHash)
 
 			// Finding 6: Finality confirmation check
@@ -359,6 +388,53 @@ func (s *NumbersSalesIndexer) processNFTSales(ctx context.Context, normNumber st
 	}
 
 	return indexedCount, nil
+}
+
+func (s *NumbersSalesIndexer) extractBidFromTrace(ctx context.Context, traceID string) (float64, string) {
+	trace, err := s.client.FetchTrace(ctx, traceID)
+	if err != nil || trace == nil {
+		return 0, ""
+	}
+
+	maxNano := int64(0)
+	bidderAddr := ""
+
+	var traverse func(t *tonapi.Trace)
+	traverse = func(t *tonapi.Trace) {
+		isAuction := false
+		for _, iface := range t.Interfaces {
+			lower := strings.ToLower(iface)
+			if strings.Contains(lower, "auction") || strings.Contains(lower, "telemint") {
+				isAuction = true
+				break
+			}
+		}
+		if t.Transaction.InMsg != nil {
+			msg := t.Transaction.InMsg
+			op := strings.ToLower(msg.DecodedOpName)
+			if isAuction && (strings.Contains(op, "bid") || strings.Contains(op, "telemint")) && !strings.Contains(op, "complete") && !strings.Contains(op, "cancel") {
+				if msg.Value > maxNano {
+					maxNano = msg.Value
+					if msg.Source != nil {
+						bidderAddr = msg.Source.Address
+					}
+				}
+			}
+		}
+		for _, child := range t.Children {
+			traverse(&child)
+		}
+	}
+
+	traverse(trace)
+	if maxNano <= 0 || bidderAddr == "" {
+		return 0, ""
+	}
+	tonVal := float64(maxNano) / math.Pow10(9)
+	if tonVal < 0.5 {
+		return 0, ""
+	}
+	return tonVal, bidderAddr
 }
 
 func (s *NumbersSalesIndexer) extractPriceFromTrace(ctx context.Context, traceID string) (float64, string, string) {

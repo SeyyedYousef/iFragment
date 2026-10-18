@@ -11,7 +11,6 @@ import (
 func TestAllAPIRoutePaths(t *testing.T) {
 	r := chi.NewRouter()
 
-	// Register top level health endpoints as in main.go
 	healthOK := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -28,19 +27,29 @@ func TestAllAPIRoutePaths(t *testing.T) {
 	}{
 		{"GET", "/health"},
 		{"GET", "/healthz"},
+		{"GET", "/api/v1/health"},
+		{"GET", "/api/v1/healthz/ready"},
 		{"GET", "/api/v1/profile/stats"},
-		{"GET", "/api/v1/profile/boosts"},
-		{"GET", "/api/v1/profile/clan"},
-		{"GET", "/api/v1/profile/daily"},
+		{"GET", "/api/v1/profile/assets"},
+		{"GET", "/api/v1/profile/ledger"},
+		{"GET", "/api/v1/leaderboard/group"},
 		{"GET", "/api/v1/usernames/quick"},
+		{"GET", "/api/v1/usernames/history"},
+		{"GET", "/api/v1/usernames/contact"},
+		{"GET", "/api/v1/usernames/portfolio"},
+		{"GET", "/api/v1/usernames/collection/stats"},
+		{"GET", "/api/v1/usernames/collection/history"},
+		{"GET", "/api/v1/numbers/collection-overview"},
+		{"GET", "/api/v1/gifts/collections"},
 		{"POST", "/api/v1/webhook/telegram/123"},
 		{"POST", "/api/v1/owner/auth/login"},
 		{"POST", "/api/v1/owner/auth/totp/verify"},
 		{"GET", "/api/v1/owner/dashboard/stats"},
+		{"POST", "/api/v1/owner/users/adjust-credits"},
+		{"GET", "/api/v1/owner/health/external"},
+		{"POST", "/api/v1/owner/cache/clear"},
 		{"GET", "/api/v1/intel/credits"},
 		{"GET", "/api/v1/public/investors-page"},
-		{"GET", "/api/v1/usernames/collection/stats"},
-		{"GET", "/api/v1/usernames/collection/history"},
 	}
 
 	for _, tt := range pathsToTest {

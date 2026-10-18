@@ -1,4 +1,4 @@
-import { type Component, createSignal, For, Show } from 'solid-js';
+import { type Component, createSignal, For, onCleanup, Show } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { creditsApi } from '@/entities/intel/api/creditsApi.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
@@ -19,7 +19,7 @@ const tg = () =>
 		? (window as unknown as {
 				Telegram?: {
 					WebApp?: {
-						openInvoice?: (l: string) => void;
+						openInvoice?: (url: string, callback?: (status: string) => void) => void;
 						openTelegramLink?: (url: string) => void;
 					};
 				};
@@ -31,7 +31,12 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 	const [tab, setTab] = createSignal<Tab>('stars');
 	const [pendingPack, setPendingPack] = createSignal<string | null>(null);
 	const [purchaseError, setPurchaseError] = createSignal<string | null>(null);
+	const [purchaseSuccess, setPurchaseSuccess] = createSignal<boolean>(false);
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
+
+	onCleanup(() => {
+		clearInterval(pollTimer);
+	});
 
 	const startBalancePolling = (baseline: number) => {
 		clearInterval(pollTimer);
@@ -43,6 +48,7 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 				clearInterval(pollTimer);
 				setPendingPack(null);
 				if (wallet.balance() !== null && wallet.balance()! > baseline) {
+					setPurchaseSuccess(true);
 					try {
 						haptic.notify('success');
 					} catch {}
@@ -57,12 +63,34 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 		} catch {}
 		setPendingPack(packId);
 		setPurchaseError(null);
+		setPurchaseSuccess(false);
 		try {
 			const res = await creditsApi.purchaseCredits('stars', packId);
 			if (res.invoice_link) {
 				const baseline = wallet.balance() ?? 0;
-				tg()?.openInvoice?.(res.invoice_link);
-				startBalancePolling(baseline);
+				const webApp = tg();
+				if (webApp?.openInvoice) {
+					webApp.openInvoice(res.invoice_link, (status: string) => {
+						if (status === 'paid') {
+							setPurchaseSuccess(true);
+							wallet.refetch();
+							try {
+								haptic.notify('success');
+							} catch {}
+							startBalancePolling(baseline);
+						} else if (status === 'cancelled' || status === 'failed') {
+							clearInterval(pollTimer);
+							setPendingPack(null);
+							if (status === 'failed') {
+								setPurchaseError(t('paywall.store_config_error'));
+							}
+						}
+					});
+					startBalancePolling(baseline);
+				} else if (typeof window !== 'undefined') {
+					window.open(res.invoice_link, '_blank');
+					startBalancePolling(baseline);
+				}
 			} else {
 				setPendingPack(null);
 				wallet.refetch();
@@ -75,6 +103,7 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 
 	const close = () => {
 		clearInterval(pollTimer);
+		setPendingPack(null);
 		props.onClose();
 	};
 
@@ -162,6 +191,21 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 								⚡ {t('paywall.store_free_tab')}
 							</button>
 						</div>
+
+						<Show when={purchaseSuccess()}>
+							<div class="mb-3 flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/15 px-3.5 py-2.5 text-xs font-bold text-emerald-300">
+								<span class="material-symbols-outlined text-[18px] text-emerald-400">
+									check_circle
+								</span>
+								<span>⚡ {t('paywall.credit_unit')} — {wallet.balance() ?? 0}</span>
+							</div>
+						</Show>
+
+						<Show when={purchaseError()}>
+							<div class="mb-3 rounded-2xl border border-rose-500/25 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">
+								{purchaseError()}
+							</div>
+						</Show>
 
 						<Show
 							when={!wallet.configFailed()}
@@ -314,12 +358,6 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 												</button>
 											</div>
 										</div>
-
-										<Show when={purchaseError()}>
-											<div class="rounded-2xl border border-rose-500/25 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">
-												{purchaseError()}
-											</div>
-										</Show>
 
 										{/* Utility education card */}
 										<div class="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">

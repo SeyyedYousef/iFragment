@@ -2,8 +2,11 @@ package raffle
 
 import (
 	"context"
+	cryptoRand "crypto/rand"
 	"fmt"
 	"log/slog"
+	"math"
+	"math/big"
 	"os"
 	"strconv"
 	"strings"
@@ -33,6 +36,12 @@ func IsFragmentInvestorsGroup(chatTitle, chatUsername string) bool {
 	return strings.Contains(t, "fragmentinvestors") || strings.Contains(t, "fragment investors")
 }
 
+// IsRaffleEnabled checks whether the @FragmentInvestors daily paid-message raffle is active.
+func IsRaffleEnabled() bool {
+	val := strings.ToLower(strings.TrimSpace(os.Getenv("RAFFLE_ENABLED")))
+	return val != "false" && val != "0" && val != "off"
+}
+
 // RaffleService handles ticket registration, ephemeral feedback, and daily winner selection
 // for the @FragmentInvestors paid-message group.
 type RaffleService struct {
@@ -49,14 +58,96 @@ func NewRaffleService(raffleRepo *repository.RaffleRepo, cache *repository.Cache
 	}
 }
 
-// RecordMessageTicket is disabled because the daily raffle has been removed.
+// RecordMessageTicket registers a daily raffle entry for a user sending a paid-star message in @FragmentInvestors.
 func (s *RaffleService) RecordMessageTicket(ctx context.Context, tgClient *telegram.BotAPIClient, chatID int64, user UserCompact, messageID int) error {
+	if s.raffleRepo == nil || user.ID <= 0 || user.IsBot || !IsRaffleEnabled() {
+		return nil
+	}
+	now := time.Now().UTC()
+	ticket := &repository.RaffleTicket{
+		RaffleDate: now.Truncate(24 * time.Hour),
+		ChatID:     chatID,
+		UserID:     user.ID,
+		Username:   user.Username,
+		FirstName:  user.FirstName,
+		MessageID:  messageID,
+		CreatedAt:  now,
+	}
+	if err := s.raffleRepo.AddRaffleTicket(ctx, ticket); err != nil {
+		slog.Debug("Failed to record daily raffle ticket", "user_id", user.ID, "error", err)
+		return err
+	}
 	return nil
 }
 
-// ExecuteDailyDraw is disabled because the daily raffle has been removed.
+// ExecuteDailyDraw runs the cryptographically fair daily gift raffle draw for @FragmentInvestors.
 func (s *RaffleService) ExecuteDailyDraw(ctx context.Context, tgClient *telegram.BotAPIClient, date time.Time) error {
-	slog.Info("Daily raffle draw is disabled - raffle has been removed")
+	if s.raffleRepo == nil || !IsRaffleEnabled() {
+		return nil
+	}
+
+	drawDate := date.UTC().Truncate(24 * time.Hour)
+	locked, err := s.raffleRepo.IsDailyDrawLocked(ctx, drawDate)
+	if err != nil {
+		return err
+	}
+	if locked {
+		return nil
+	}
+
+	participants, totalMessages, err := s.raffleRepo.GetDailyUniqueParticipants(ctx, drawDate)
+	if err != nil {
+		return err
+	}
+	if len(participants) == 0 || totalMessages == 0 {
+		slog.Info("Daily raffle draw skipped: no participants for date", "date", drawDate.Format("2006-01-02"))
+		return nil
+	}
+
+	// Cryptographically uniform random winner selection across unique participants
+	winnerIdx := 0
+	if len(participants) > 1 {
+		if nBig, rErr := cryptoRand.Int(cryptoRand.Reader, big.NewInt(int64(len(participants)))); rErr == nil {
+			winnerIdx = int(nBig.Int64())
+		}
+	}
+	winner := participants[winnerIdx]
+
+	// Calculate prize pool (35% of daily message pool, minimum $1.00 / 50 Stars)
+	poolUSD := float64(totalMessages) * 1.0
+	prizeUSD := math.Max(1.0, math.Round(poolUSD*0.35*100)/100)
+	prizeStars := int(math.Round(prizeUSD * 50.0))
+	if prizeStars < 50 {
+		prizeStars = 50
+	}
+	winChance := (1.0 / float64(len(participants))) * 100.0
+
+	draw := &repository.DailyGiftDraw{
+		DrawDate:          drawDate,
+		TotalMessages:     totalMessages,
+		TotalParticipants: len(participants),
+		WinnerUserID:      winner.UserID,
+		WinnerUsername:    winner.Username,
+		WinnerFirstName:   winner.FirstName,
+		PrizeUSD:          prizeUSD,
+		PrizeStars:        prizeStars,
+		GiftTitle:         fmt.Sprintf("Telegram Star Gift (%d Stars)", prizeStars),
+		AutoSent:          false,
+		LockStatus:        "LOCKED",
+		NotifiedOwner:     false,
+		CreatedAt:         time.Now().UTC(),
+	}
+
+	if err := s.raffleRepo.LockDailyDraw(ctx, draw); err != nil {
+		return err
+	}
+
+	_ = s.notifyWinner(ctx, tgClient, winner, drawDate, prizeUSD, prizeStars, winChance, len(participants))
+	if s.notifyOwnerOnly(ctx, tgClient, draw) {
+		draw.NotifiedOwner = true
+		_ = s.raffleRepo.LockDailyDraw(ctx, draw)
+	}
+
 	return nil
 }
 
@@ -212,7 +303,31 @@ func (s *RaffleService) GetRepo() *repository.RaffleRepo {
 	return s.raffleRepo
 }
 
-// StartDailyDrawWorker is disabled because the daily raffle has been removed.
+// StartDailyDrawWorker runs a periodic background check to execute yesterday's daily draw after 00:05 UTC.
 func (s *RaffleService) StartDailyDrawWorker(ctx context.Context, getTgClient func() *telegram.BotAPIClient) {
-	slog.Info("Daily raffle draw worker disabled - raffle has been removed")
+	if !IsRaffleEnabled() {
+		slog.Info("Daily raffle draw worker disabled via RAFFLE_ENABLED=false")
+		return
+	}
+	slog.Info("Starting @FragmentInvestors Daily Raffle Draw Worker...")
+	go func() {
+		ticker := time.NewTicker(15 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case now := <-ticker.C:
+				utcNow := now.UTC()
+				if utcNow.Hour() == 0 && utcNow.Minute() >= 5 {
+					yesterday := utcNow.AddDate(0, 0, -1).Truncate(24 * time.Hour)
+					var client *telegram.BotAPIClient
+					if getTgClient != nil {
+						client = getTgClient()
+					}
+					_ = s.ExecuteDailyDraw(ctx, client, yesterday)
+				}
+			}
+		}
+	}()
 }

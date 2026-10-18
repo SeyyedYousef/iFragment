@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/shopspring/decimal"
 	"golang.org/x/sync/errgroup"
 
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts/traits"
@@ -21,6 +23,8 @@ import (
 type VenueSnapshotWorker struct {
 	repo        *repository.GiftsRepo
 	cryptoPrice *cryptoprice.CryptoPriceService
+	tgClient    *telegram.BotAPIClient
+	appURL      string
 	adapters    []VenueAdapter
 	interval    time.Duration
 }
@@ -33,9 +37,27 @@ func NewVenueSnapshotWorker(
 	if interval <= 0 {
 		interval = 3 * time.Minute
 	}
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		token = os.Getenv("BOT_TOKEN")
+	}
+	var tgClient *telegram.BotAPIClient
+	if token != "" {
+		tgClient = telegram.NewBotAPIClient(token)
+	}
+	appURL := os.Getenv("MINI_APP_URL")
+	if appURL == "" {
+		appURL = os.Getenv("APP_URL")
+	}
+	if appURL == "" {
+		appURL = "https://t.me/iFragmentBot/app"
+	}
+
 	return &VenueSnapshotWorker{
 		repo:        repo,
 		cryptoPrice: cryptoPrice,
+		tgClient:    tgClient,
+		appURL:      appURL,
 		adapters: []VenueAdapter{
 			NewFragmentAdapter(),
 			NewGetgemsAdapter(),
@@ -174,7 +196,7 @@ func (w *VenueSnapshotWorker) syncOneCollection(ctx context.Context, modelID str
 		}
 
 		if r.vID == VenueFragment {
-			// Ingest recent verified sales from Fragment into gift_sales table
+			// Ingest recent verified sales from Fragment into gift_sales table and dispatch watchlist alerts
 			if fragAdapter, ok := w.getFragmentAdapter(); ok {
 				go func(mID, slg string) {
 					salesCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -198,11 +220,59 @@ func (w *VenueSnapshotWorker) syncOneCollection(ctx context.Context, modelID str
 								TxHash:          fmt.Sprintf("frag-%s-%d-%d", slg, sale.SerialNumber, sale.SaleDate.Unix()),
 								EventIndex:      0,
 							}
-							_, _ = w.repo.InsertGiftSale(salesCtx, saleRec)
+							inserted, insErr := w.repo.InsertGiftSale(salesCtx, saleRec)
+							if insErr == nil && inserted > 0 {
+								w.notifyGiftWatchers(salesCtx, saleRec)
+							}
 						}
 					}
 				}(modelID, slug)
 			}
 		}
+	}
+}
+
+func (w *VenueSnapshotWorker) notifyGiftWatchers(ctx context.Context, sale repository.GiftSaleRecord) {
+	if w.repo == nil || w.tgClient == nil {
+		return
+	}
+	userIDs, err := w.repo.GetWatchedUsersForGift(ctx, sale.GiftID, sale.ModelID)
+	if err != nil || len(userIDs) == 0 {
+		return
+	}
+
+	var tonUsd float64
+	if w.cryptoPrice != nil {
+		if r, ok := w.cryptoPrice.GetFloatPrice("the-open-network"); ok && r > 0 {
+			tonUsd = r
+		}
+	}
+	priceFloat, _ := sale.SalePriceGRAM.Float64()
+	priceUSD := priceFloat * tonUsd
+
+	msg := fmt.Sprintf(
+		"🔔 <b>Gift Watchlist Alert: %s Sold!</b>\n\n"+
+			"💰 <b>Price:</b> <code>%s TON/GRAM</code> (≈ $%.2f)\n"+
+			"🏛 <b>Venue:</b> %s\n"+
+			"📅 <b>Date:</b> %s\n\n"+
+			"📊 <a href=\"%s?startapp=gift_%s\">View Gift Intelligence Report</a>",
+		telegram.EscapeHTML(sale.GiftID),
+		sale.SalePriceGRAM.StringFixed(2),
+		priceUSD,
+		strings.ToUpper(sale.Venue),
+		sale.SaleDate.UTC().Format("02 Jan 2006 15:04 UTC"),
+		w.appURL,
+		sale.GiftID,
+	)
+
+	for _, uid := range userIDs {
+		targetID := uid
+		go func() {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := w.tgClient.SendMessage(bgCtx, targetID, msg, nil, nil); err != nil {
+				slog.Warn("Failed to send gift watchlist sale alert", "user_id", targetID, "gift_id", sale.GiftID, "error", err)
+			}
+		}()
 	}
 }

@@ -58,6 +58,7 @@ type AestheticHarmonyResult struct {
 	HarmonyClass      string  `json:"harmony_class"`       // "MONOCHROMATIC_GOLD", "OBSIDIAN_STEALTH", "CYBER_NEON", "EMERALD_VELVET", "ROYAL_SAPPHIRE", "STANDARD"
 	HarmonyScore      float64 `json:"harmony_score"`       // 0 to 100
 	DeltaECenterEdge  float64 `json:"delta_e_center_edge"` // CIELAB Euclidean color distance between center and edge
+	DeltaEScore       float64 `json:"delta_e_score,omitempty"`
 	ThemeMatchRating  string  `json:"theme_match_rating"`  // "PERFECT_MATCH", "HIGH_SYNERGY", "HARMONIOUS", "NEUTRAL"
 	BetaAesthetic     float64 `json:"beta_aesthetic"`      // Hedonic log-price bonus (0.0 to 0.45)
 	DominantPaletteEn string  `json:"dominant_palette_en"`
@@ -248,6 +249,7 @@ func EvaluateAestheticHarmony(modelID string, backdropName string, colors *Backd
 		HarmonyClass:      harmonyClass,
 		HarmonyScore:      math.Round(harmonyScore*10.0) / 10.0,
 		DeltaECenterEdge:  math.Round(distCenterEdge*100.0) / 100.0,
+		DeltaEScore:       math.Round(distCenterEdge*100.0) / 100.0,
 		ThemeMatchRating:  themeRating,
 		BetaAesthetic:     math.Round(totalBeta*100.0) / 100.0,
 		DominantPaletteEn: palEn,

@@ -16,10 +16,12 @@ export const OwnerUsers: Component = () => {
 	// Dialog States
 	const [selectedUser, setSelectedUser] = createSignal<SearchedUser | null>(null);
 	const [dialogMode, setDialogMode] = createSignal<
-		'simulate' | 'ban' | 'unban' | 'flag' | 'adjust' | null
+		'simulate' | 'ban' | 'unban' | 'flag' | 'adjust' | 'adjustCredits' | null
 	>(null);
 	const [adjustAmount, setAdjustAmount] = createSignal<number>(0);
-	const [banDuration, _setBanDuration] = createSignal<number>(86400); // 1 day default
+	const [adjustCreditDelta, setAdjustCreditDelta] = createSignal<number>(0);
+	const [adjustReason, setAdjustReason] = createSignal<string>('');
+	const [banDuration, _setBanDuration] = createSignal<number>(86400);
 
 	// 300ms Search Debounce
 	let timer: any;
@@ -80,10 +82,21 @@ export const OwnerUsers: Component = () => {
 		},
 	}));
 
+	const adjustCreditsMutation = createMutation(() => ({
+		mutationFn: ({ userId, delta, reason }: { userId: number; delta: number; reason: string }) =>
+			ownerApi.adjustIntelCredits(userId, delta, reason),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['owner', 'users'] });
+			closeDialog();
+		},
+	}));
+
 	const closeDialog = () => {
 		setSelectedUser(null);
 		setDialogMode(null);
 		setAdjustAmount(0);
+		setAdjustCreditDelta(0);
+		setAdjustReason('');
 	};
 
 	const users = () => usersQuery.data?.users || [];
@@ -148,6 +161,7 @@ export const OwnerUsers: Component = () => {
 								<th class="pb-3 font-medium">{t('ownerCommon.userProfile')}</th>
 								<th class="pb-3 font-medium">{t('ownerCommon.telegramId')}</th>
 								<th class="pb-3 font-medium">{t('ownerCommon.coinsBalance')}</th>
+								<th class="pb-3 font-medium">⚡ Intel Credits</th>
 								<th class="pb-3 font-medium">{t('ownerCommon.status')}</th>
 								<th class="pb-3 font-medium">{t('ownerCommon.registered')}</th>
 								<th class="pb-3 font-medium text-right">{t('ownerCommon.actions')}</th>
@@ -158,7 +172,7 @@ export const OwnerUsers: Component = () => {
 								when={!usersQuery.isLoading && users().length > 0}
 								fallback={
 									<tr>
-										<td colspan="6" class="py-8 text-center text-white/40">
+										<td colspan="7" class="py-8 text-center text-white/40">
 											{usersQuery.isLoading ? 'Searching users...' : 'No users matching query'}
 										</td>
 									</tr>
@@ -183,6 +197,9 @@ export const OwnerUsers: Component = () => {
 											<td class="py-3 font-mono text-white/70">{user.telegram_id}</td>
 											<td class="py-3 font-mono text-amber-400 font-bold">
 												{user.balance.toLocaleString()} Coins
+											</td>
+											<td class="py-3 font-mono text-cyan-400 font-bold">
+												⚡ {(user.intel_credits ?? 0).toLocaleString()}
 											</td>
 											<td class="py-3">
 												<div class="flex flex-wrap gap-1">
@@ -221,7 +238,20 @@ export const OwnerUsers: Component = () => {
 														<span class="material-symbols-outlined text-base">person</span>
 													</button>
 
-													{/* Adjust Balance */}
+													{/* Adjust Intel Credits */}
+													<button
+														type="button"
+														onClick={() => {
+															setSelectedUser(user);
+															setDialogMode('adjustCredits');
+														}}
+														class="p-1.5 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition"
+														title="Adjust Intel Credits"
+													>
+														<span class="material-symbols-outlined text-base">bolt</span>
+													</button>
+
+													{/* Adjust Coins Balance */}
 													<button
 														type="button"
 														onClick={() => {
@@ -316,7 +346,87 @@ export const OwnerUsers: Component = () => {
 				</Show>
 			</div>
 
-			{/* Adjust Balance Modal */}
+			{/* Adjust Intel Credits Modal */}
+			<Show when={dialogMode() === 'adjustCredits' && selectedUser()}>
+				<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+					<div class="w-full max-w-sm rounded-3xl border border-white/15 bg-neutral-900 p-6 space-y-4 text-white">
+						<h3 class="text-sm font-bold flex items-center gap-2">
+							<span class="material-symbols-outlined text-cyan-400">bolt</span>
+							<span>Adjust Intel Credits</span>
+						</h3>
+						<p class="text-xs text-white/60">
+							{t('ownerCommon.targetUser')}{' '}
+							<span class="font-bold text-white">{selectedUser()?.first_name}</span> (
+							{selectedUser()?.telegram_id})
+						</p>
+
+						<div class="space-y-2">
+							<div class="text-[11px] text-white/50">Credit Delta (+ to grant, - to deduct)</div>
+							<input
+								type="number"
+								value={adjustCreditDelta()}
+								onInput={(e) => setAdjustCreditDelta(parseInt(e.currentTarget.value, 10) || 0)}
+								class="w-full h-11 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-sm"
+							/>
+						</div>
+
+						<div class="space-y-2">
+							<div class="text-[11px] text-white/50">Audit Reason</div>
+							<input
+								type="text"
+								placeholder="e.g. @FragmentInvestors reward / VIP grant"
+								value={adjustReason()}
+								onInput={(e) => setAdjustReason(e.currentTarget.value)}
+								class="w-full h-11 px-3 rounded-xl bg-white/5 border border-white/15 text-xs"
+							/>
+						</div>
+
+						<div class="text-xs p-3 rounded-xl bg-white/5 space-y-1">
+							<div class="flex justify-between text-white/50">
+								<span>Current Intel Credits</span>
+								<span>⚡ {(selectedUser()?.intel_credits ?? 0).toLocaleString()}</span>
+							</div>
+							<div class="flex justify-between font-bold text-cyan-400">
+								<span>Projected Intel Credits</span>
+								<span>
+									⚡{' '}
+									{Math.max(
+										0,
+										(selectedUser()?.intel_credits ?? 0) + adjustCreditDelta(),
+									).toLocaleString()}
+								</span>
+							</div>
+						</div>
+
+						<div class="flex gap-2 pt-2">
+							<button
+								type="button"
+								onClick={closeDialog}
+								class="flex-1 py-2.5 rounded-xl border border-white/15 text-xs text-white/70"
+							>
+								{t('ownerCommon.cancel')}
+							</button>
+							<button
+								type="button"
+								onClick={() => {
+									const reason = adjustReason().trim() || 'owner_panel_adjustment';
+									adjustCreditsMutation.mutate({
+										userId: selectedUser()!.telegram_id,
+										delta: adjustCreditDelta(),
+										reason,
+									});
+								}}
+								disabled={adjustCreditDelta() === 0 || adjustCreditsMutation.isPending}
+								class="flex-1 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs disabled:opacity-40"
+							>
+								{adjustCreditsMutation.isPending ? 'Saving...' : 'Confirm'}
+							</button>
+						</div>
+					</div>
+				</div>
+			</Show>
+
+			{/* Adjust Coins Balance Modal */}
 			<Show when={dialogMode() === 'adjust' && selectedUser()}>
 				<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
 					<div class="w-full max-w-sm rounded-3xl border border-white/15 bg-neutral-900 p-6 space-y-4 text-white">

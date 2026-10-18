@@ -46,7 +46,7 @@ else
 fi
 
 # Detect server public IPv4
-SERVER_IP=$(curl -s4 ifconfig.me || curl -s4 icanhazip.com || echo "109.172.94.139")
+SERVER_IP=$(curl -s4 ifconfig.me || curl -s4 icanhazip.com || hostname -I | awk '{print $1}')
 SSLIP_DOMAIN="${SERVER_IP//./-}.sslip.io"
 
 echo "🔧 Configuring Caddyfile for domain: $SSLIP_DOMAIN ..."

@@ -2,25 +2,25 @@
 
 # 💎 iFragment
 
-### The Institutional Valuation & Market Intelligence Platform for Telegram Assets
+### The Institutional Valuation & Market Intelligence Platform for Telegram Collectibles on TON
 
-[![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org)
-[![SolidJS](https://img.shields.io/badge/SolidJS-1.9-2C4F7C?style=for-the-badge&logo=solid&logoColor=white)](https://solidjs.com)
+[![Go Version](https://img.shields.io/badge/Go-1.26-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org)
+[![SolidJS](https://img.shields.io/badge/SolidJS-1.9.9-2C4F7C?style=for-the-badge&logo=solid&logoColor=white)](https://solidjs.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgresql.org)
 [![DragonflyDB](https://img.shields.io/badge/DragonflyDB-Multi--Threaded%20Cache-FF3E00?style=for-the-badge)](https://dragonflydb.io)
-[![Telegram Mini App](https://img.shields.io/badge/Telegram-Mini%20App%20Ready-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots/webapps)
+[![Telegram Mini App](https://img.shields.io/badge/Telegram-Mini%20App%20%2B%20Bot%20API%2010.1-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots/webapps)
 [![Languages](https://img.shields.io/badge/i18n-EN%20%7C%20FA%20%7C%20RU%20%7C%20ZH-emerald?style=for-the-badge)](#-internationalization-i18n)
 [![Tests Passing](https://img.shields.io/badge/Tests-100%25%20Passing-brightgreen?style=for-the-badge)](PRODUCTION.md)
 
 <p align="center">
-  <b>iFragment</b> is a high-performance Telegram Mini App (TMA) and institutional intelligence engine engineered for real-time valuation, on-chain provenance tracking, arbitrage detection, and auction analytics across the entire Telegram asset ecosystem on the TON Blockchain.
+  <b>iFragment</b> is a high-performance Telegram Mini App (TMA), Private/Inline Telegram Bot, and institutional intelligence engine engineered for real-time valuation, on-chain provenance tracking, cross-venue arbitrage detection, and auction analytics across <b>Telegram Usernames</b>, <b>+888 Anonymous Numbers</b>, and <b>Telegram Gifts (NFTs)</b> on the TON Blockchain.
 </p>
 
 [Explore Engines](#-three-core-intelligence-engines) •
+[Economy & Growth](#-intel-credits-telegram-stars--fragmentinvestors-engine) •
 [Architecture](#-system-architecture) •
 [Quickstart](#-quick-start--local-development) •
-[Production Deployment](PRODUCTION.md) •
-[API Reference](#-api--integration-contracts)
+[Production Deployment](PRODUCTION.md)
 
 ---
 
@@ -28,16 +28,18 @@
 
 ## 🌟 Key Highlights & Engineering Standards
 
-- **120 FPS Mobile Experience:** Built with [SolidJS](https://solidjs.com) (Zero Virtual DOM overhead) for hyper-responsive mobile WebView rendering within Telegram.
-- **Microsecond Backend Engine:** Microservices-clean architecture implemented in **Go 1.25** with raw connection pooling and memory recycling.
-- **Zero Mock Policy (100% Real-Time Data):** Direct on-chain ingestion from TON LiteServers, TonApi, Telemint smart contracts, and decentralized marketplace scrapers (Fragment, Getgems, Tonano, MarketApp).
-- **100 Idempotent Migrations:** PostgreSQL 17 transactional database with automated safe schema evolution, keyset pagination, and partitioned audit logs.
-- **Quad-Language Parity (i18n):** Complete native support for English (`en`), Persian (`fa`), Russian (`ru`), and Chinese (`zh`) with full 3,438-key parity.
-- **Military-Grade Security:** Native Telegram `initData` HMAC-SHA256 signature verification, AES-256 encrypted session tokens, and strict PII log-masking.
+- **120 FPS Mobile Experience:** Built with [SolidJS 1.9.9](https://solidjs.com) (Zero Virtual DOM overhead) for hyper-responsive mobile WebView rendering within Telegram.
+- **Microsecond Backend & 32-Shard Webhook Pool:** Clean hexagonal architecture implemented in **Go 1.26** with lock-free per-chat FIFO sharding (`32` shards), connection pooling, and zero-allocation memory recycling.
+- **Zero Mock Policy (100% Real-Time Empirical Data):** Direct ingestion from `fragment.com`, `nums888.io`, `marketapp.org`, `getgems.io`, `portals.market`, `mrkt.tg`, `t.me/tonnel_gift_bot`, `api.changes.tg`, `api.giftasset.dev`, `see.tg`, and `tonapi.io`.
+- **104 Idempotent Migrations:** PostgreSQL 17 transactional database with automated schema evolution, FIFO credit batches (`intel_credit_batches`), and immutable financial ledgers.
+- **Quad-Language Parity (i18n):** Complete native support for English (`en`), Persian (`fa`), Russian (`ru`), and Chinese (`zh`) with full **3,498-key parity** across Mini App and Bot PV/Inline templates.
+- **Military-Grade Security:** Native Telegram `initData` HMAC-SHA256 signature verification, AES-256-GCM encrypted bot tokens, HMAC-SHA256 cryptographic valuation certificates, and strict PII log-masking.
 
 ---
 
-## 🔬 Three Core Intelligence Engines
+## 🔬 Three Core Intelligence Engines (Dual-Mode Architecture)
+
+Every pillar operates across **Mode 1 (Macro Collection Intelligence — FREE)** and **Mode 2 (Single-Asset Deep Dive — VALUATION)**:
 
 ```
                                   ┌──────────────────────────────┐
@@ -46,31 +48,41 @@
                      ┌───────────────────────────┼───────────────────────────┐
                      ▼                           ▼                           ▼
         ┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐
-        │       AVM Engine        │ │        NV Engine        │ │        GV Engine        │
-        │   (Telegram Usernames)  │ │   (Anonymous Numbers)   │ │    (Telegram Gifts)     │
+        │     AVM Engine v7.0     │ │     NV Engine v5.2      │ │     GV Engine v6.0      │
+        │   (Telegram Usernames)  │ │  (+888 Numbers, 136.5K) │ │  (Telegram Gifts, 120+) │
         └─────────────────────────┘ └─────────────────────────┘ └─────────────────────────┘
 ```
 
-### 1. 🔤 AVM Engine — Automated Valuation Model v7.0 (Usernames)
-Empirical valuation engine calibrated against historical Fragment auction settlements:
-- **Bayesian Estimator:** Multi-variable regression incorporating length, dictionary status, word frequency, phonetic cadence, and brand affinity.
-- **Telemint On-Chain Provenance:** Direct inspection of TEP-62 smart contracts on TON to verify minted NFT ownership, royal distribution, and past bid transactions.
-- **Anti-Phishing & Homoglyph Twins Radar:** Detects spoofed unicode lookalikes, Cyrillic/Latin homoglyphs, and trademark infringement risks under Telegram ToS §4.
-- **Transaction Economics Breakdown:** Accurate calculations of gross valuation, Fragment 5% protocol fee (minimum 5 TON), and estimated seller net payouts.
+### 1. 🔤 AVM Engine v7.0 — Automated Valuation Model (Telegram Usernames)
+- **Mode 1 (Collection Overview):** Real empirical time-series from `username_sales`, dynamic 7d vs. prior 7d `MarketPulse` deltas, **Length Tier Liquidity Matrix** (`4-Char`, `5-Char`, `6-Char`, `7+ & Dictionary`), and **Undervalued Auction Radar**.
+- **Mode 2 (Single-Username Deep Dive):**
+  - **Bayesian Shrinkage & Macro-Adjusted Historical Anchor:** Blends Winsorized comparables with time-decayed historical sales, phonetic flow (`FlowScore`), dictionary/Wikipedia gravity, and dynamic 4-character auction decay floors (`1,850–5,050 TON`).
+  - **Decoupled Seller Hold Conviction (`SellerHoldConviction`):** Separates intrinsic asset fair value (`ExpectedTON`) from owner wallet wealth (`SellerReservationTON` for whale holders `>10k`/`>100k TON`).
+  - **65+ Global Brand Trademark & Homoglyph Defense Matrix:** Evaluates WIPO/Telegram ToS §4 brand clashes and generates a complete `HomoglyphSpoofingMatrix`.
 
-### 2. 📱 NV Engine — Mathematical Valuation Engine (Numbers +888)
-Dedicated quantitative analyzer for Telegram Anonymous Numbers:
-- **Genesis vs. Standard Tiers:** Distinct valuation logic for ultra-rare 4-digit Genesis numbers (`+888 8000`–`+888 8999`, supply frozen forever) versus 8-digit Standard series.
-- **Mathematical Pattern Scarcity:** Real-time classification for palindromes, repetitions (`AAAA`, `ABAB`, `AABB`), ladders, and auspicious sequences.
-- **Cross-Cultural Affinity Matrices:** Quantitative demand scoring for Sinosphere (8s/6s affinity, 4-avoidance), MENA/Gulf vanity codes, and European brevity.
-- **On-Chain Whale & Volume Tape:** Live indexer tracking wallet concentration, floor price movements, and secondary sales on Getgems and Fragment.
+### 2. 📱 NV Engine v5.2 — Quantitative Valuation Engine (+888 Anonymous Numbers)
+- **Mode 1 (Collection Overview):** Anchored to the closed supply of **`136,566`** minted numbers (`1,000` 4-digit Genesis + `135,566` 8-digit Standard). Features real orderbook **Floor Squeeze Depth** (`+5%`, `+10%`, `+25%` TON volume), empirical **Percentile Charts** (`P50`, `P68`, `P85`), **Trending Pattern Clubs**, and 180-day active **Category Club Floors**.
+- **Mode 2 (Single-Number Deep Dive):**
+  - **Dynamic Live-Floor Anchoring:** Self-calibrates `beta0 = ln(liveFloorTON)` in real time from active `fragment.com` / `nums888.io` listings.
+  - **Live Listing & Arbitrage Detector (`LiveListing`):** Probes `fragment.com/number/{digits}` on-demand for active `"Buy now"` or auction bids, computing exact `ArbitrageSpreadPct` and `DealVerdict`.
+  - **Exact Combinatorial Scarcity (`CombinatorialScarcity`):** Computes exact mathematical pool size across the `136,566` closed supply, 4-region Cultural Radar, DialPad geometry ergonomics, and 45% LTV DeFi collateral capacity.
 
-### 3. 🎁 GV Engine — Multi-Venue Intelligence Engine (Telegram Gifts)
-Comprehensive market aggregation and crafting optimization for Telegram Gifts:
-- **120 Canonical Collections:** Complete registry of all Telegram gift collections, official supply caps, and base star prices.
-- **Traits & Rarity Matrix:** Real-time rarity calculations for custom Backdrops (center, edge, pattern hexes) and Symbols.
-- **Cross-Marketplace Arbitrage Radar:** Identifies profitable spreads between Fragment, Getgems, Tonano, and MarketApp while filtering wash-trade anomalies.
-- **Crafting Expected Value (EV):** Monte Carlo EV simulator calculating optimal upgrade paths and stars-to-TON conversion yields.
+### 3. 🎁 GV Engine v6.0 — Multi-Venue Intelligence Engine (Telegram Gifts)
+- **Mode 1 (Macro & Collection Intel):** Live integration with `api.changes.tg`, `api.giftasset.dev`, and `see.tg` across **6 marketplaces** (**Fragment**, **Getgems**, **MarketApp**, **Portals**, **MRKT**, **Tonnel**). Computes trait-level **3D Model Floors**, **(Model × Backdrop) Rarity Heatmap Floors**, **Upgrade Price Clock**, collection-specific **Fear & Greed**, and net-of-fee **Cross-Venue Arbitrage**.
+- **Mode 2 (Single-Gift Deep Dive):**
+  - **True 3-Axis Joint Probability Rarity Rank:** Ranks gifts across `(Model ‰ × Backdrop ‰ × Symbol ‰)` and serial gravity (`#1`, `#2–9`, `#10–99`).
+  - **Pre-Mint / Un-Upgraded Expected Value (`PreMintState`):** Distinguishes on-chain upgraded NFTs (`on_chain_verified`) from un-upgraded in-app gifts (`pre_upgrade_expected_value`) with Grail hit probabilities.
+  - **CIELAB Delta-E Monochrome & Color-Match Detector (`ColorMatchIntel`):** Identifies high-premium `"Full Monochrome Grail"` and `"Chromatic Twin"` model-backdrop combinations, paired with a 7-venue Exit Planner and 5,000-trial Monte Carlo Crafting EV simulator.
+
+---
+
+## ⚡ Intel Credits, Telegram Stars (`XTR`) & `@FragmentInvestors` Engine
+
+- **Dual-Acquire Credit Economy:** Mode 2 Single-Asset Deep Dive reports are unlocked for 24 hours using **1 ⚡ Intel Credit** (stored in FIFO `intel_credit_batches` with immutable ledger auditing).
+- **Native Telegram Stars (`XTR`) Checkout:** Server-authoritative packs (`c1`, `c3p1`, `c10p3`) with instant `pre_checkout_query` (<200ms) and idempotent `successful_payment` fulfillment.
+- **Unconditional Paid-Star Message Rewards in `@FragmentInvestors`:** Because `@FragmentInvestors` operates with **Telegram Paid Messages** (`paid_star_count`), every message sent by a member has intrinsic monetary value. **100% of user messages** are counted on the leaderboard and immediately rewarded with `max(1, paid_star_count) × boostMultiplier` **⚡ Intel Credits** (zero anti-spam drops, zero cooldowns, zero daily caps), alongside real-time `chat_boost` / `removed_chat_boost` multipliers (`1x`, `2x`, `3x`) and configurable daily gift raffles.
+- **`@TheGramPrice` Live Channel Broadcaster:** Automated 10-minute live **GRAM** token price broadcaster (sourced from on-chain TON Jetton pools via TonAPI / GeckoTerminal / CoinGecko) with Redis-persisted 24-hour OHLC history and automated `00:00 UTC` pinned daily recaps.
+- **Owner Super-Panel (`/panel` & `/owner`):** Full administrative control over users, credits, Stars revenue, 10-provider live API health probes, 1-click DragonflyDB cache purge, segmented broadcasts, and live 4-language bot template editing.
 
 ---
 
@@ -79,138 +91,71 @@ Comprehensive market aggregation and crafting optimization for Telegram Gifts:
 ```mermaid
 flowchart TD
     subgraph Clients["Clients & Edge"]
-        TMA["Telegram Mini App (SolidJS + Tailwind v4)"]
-        CF["Cloudflare Pages (Global Edge Distribution)"]
+        TMA["Telegram Mini App (SolidJS 1.9.9 + Tailwind v4)"]
+        BOT["Telegram Bot PV, Inline Mode & @FragmentInvestors"]
+        CF["Cloudflare Pages / Caddy TLS Reverse Proxy"]
     end
 
-    subgraph CoreBackend["Go 1.25 Engine (:8080)"]
-        Router["Chi Router + HMAC & Rate-Limit Middleware"]
-        
-        subgraph Services["Core Domain Services"]
-            US["Username Service (AVM v7)"]
-            NS["Numbers Service (NV Engine)"]
-            GS["Gifts Service (GV Engine)"]
-            PS["Profile & Gamification Service"]
+    subgraph CoreBackend["Go 1.26 Engine (:8080)"]
+        Router["Chi v5 Router + HMAC, CSRF & Rate-Limit Middleware"]
+        Shards["32-Shard Lock-Free Webhook Worker Pool"]
+
+        subgraph Services["Core Domain & Side Services"]
+            US["Username Service (AVM v7.0)"]
+            NS["Numbers Service (NV Engine v5.2)"]
+            GS["Gifts Service (GV Engine v6.0)"]
+            IC["Intel Credits, Stars (XTR) & Leaderboard"]
+            GB["@TheGramPrice Broadcaster & Watchlist Notifier"]
         end
 
-        subgraph Ingestion["Live Ingestion Adapters"]
-            FRAG["Fragment Live Scraper"]
-            TONC["TON Blockchain / TonApi Client"]
-            MARK["MarketApp & Getgems Adapters"]
+        subgraph Ingestion["Live Ecosystem Adapters (10 Providers)"]
+            FRAG["Fragment / Getgems / MarketApp"]
+            PORT["Portals / MRKT / Tonnel / GiftAssets / see.tg"]
+            TONC["TonAPI v2 / api.changes.tg / nums888.io / MTProto"]
         end
     end
 
     subgraph DataStorage["Persistence & Acceleration"]
-        PG[("PostgreSQL 17 Primary Database")]
+        PG[("PostgreSQL 17 Primary Database (104 Migrations)")]
         DF[("DragonflyDB Multi-Threaded Cache")]
     end
 
-    TMA --> CF
-    CF --> Router
-    Router --> Services
+    TMA & BOT --> CF --> Router
+    Router --> Shards & Services
+    Shards --> Services
     Services --> Ingestion
-    Services --> DF
-    Services --> PG
+    Services --> DF & PG
 ```
 
 ---
 
 ## 🌐 Internationalization (i18n)
 
-iFragment features native localization across four primary languages, ensuring zero friction for global Telegram communities:
-
 | Code | Language | Native Name | Script Direction | Key Count | Parity |
 | :---: | :--- | :--- | :---: | :---: | :---: |
-| `en` | English | English | LTR | 3,438 | 100% |
-| `fa` | Persian | فارسی | RTL | 3,438 | 100% |
-| `ru` | Russian | Русский | LTR | 3,438 | 100% |
-| `zh` | Chinese | 简体中文 | LTR | 3,438 | 100% |
-
-- **Reactive Locale Switching:** Automatically adapts to the user's Telegram client language or manual selection with persistent cloud preference.
-- **Full Bidirectional Layouts:** Seamless switching between LTR and RTL styling with zero layout shifts.
-- **Strict Verification Gate:** Validated via automated CI gate (`npm run check:i18n`).
+| `en` | English | English | LTR | 3,498 | 100% |
+| `fa` | Persian | فارسی | RTL | 3,498 | 100% |
+| `ru` | Russian | Русский | LTR | 3,498 | 100% |
+| `zh` | Chinese | 简体中文 | LTR | 3,498 | 100% |
 
 ---
 
-## ⚡ Quick Start & Local Development
+## ⚡ Quick Start & Production Deployment
 
-### Prerequisites
-- [Node.js](https://nodejs.org) 20+ & [pnpm](https://pnpm.io) or `npm`
-- [Go](https://go.dev) 1.25+
-- [Docker & Docker Compose](https://www.docker.com) (for PostgreSQL 17 + DragonflyDB)
-
-### 1. Clone the Repository
 ```bash
-git clone https://github.com/SeyyedYousef/iFragment.git
-cd iFragment
-```
-
-### 2. Configure Environment
-```bash
+# 1. Copy environment template and configure secrets
 cp .env.example .env
-```
 
-### 3. Spin Up Local Infrastructure
-```bash
-docker compose up -d postgres dragonfly
-```
-
-### 4. Run Frontend (Dev Server)
-```bash
-cd frontend
-npm install
-npm run dev
-```
-*Frontend starts at `http://localhost:3000` (or configured dev port).*
-
-### 5. Run Backend (API Server)
-```bash
-cd backend
-go run cmd/api/main.go
-```
-*API server starts at `http://localhost:8080`.*
-
----
-
-## 🧪 Testing & Quality Assurance
-
-Both frontend and backend are covered by comprehensive automated test suites:
-
-```bash
-# Run all backend unit & integration tests
-cd backend
-go test -v -race ./...
-
-# Run all frontend tests (Vitest)
-cd frontend
-npm run test:run
-
-# Verify i18n parity and string hygiene
-npm run check:i18n
-
-# Run Biome code quality audit
-npm run lint
-```
-
----
-
-## 🚢 Production Deployment
-
-For complete instructions regarding production deployment, reverse proxies, SSL configuration, and zero-downtime container updates, consult the [PRODUCTION.md](PRODUCTION.md) guide.
-
-```bash
-# Quick VPS deployment via Docker Compose
+# 2. Deploy full stack (Go 1.26 API + PostgreSQL 17 + DragonflyDB)
 docker compose -f docker-compose.prod.yml up -d --build
+
+# 3. Run all backend & frontend quality gates
+npm run test:backend
+npm run check:i18n
+npm run build
 ```
 
----
-
-## 🔒 Security & Privacy
-
-- **Telegram initData Validation:** All client requests are authenticated using cryptographic HMAC-SHA256 signatures generated with the official bot token.
-- **Zero Secrets in Source:** No API keys, database credentials, or sensitive seeds exist within version control.
-- **PII Protection:** Automated log-masking prevents Telegram User IDs, phone numbers, and IP addresses from leaking into stdout or tracing telemetry.
-- **Privacy Policy:** See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for data handling and compliance disclosures.
+For full VPS provisioning (including 4GB Swap, UFW firewall, and automatic Let's Encrypt HTTPS via Caddy), see [PRODUCTION.md](PRODUCTION.md) and [docs/00-Home.md](docs/00-Home.md).
 
 ---
 

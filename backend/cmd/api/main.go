@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	cryptoRand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,28 +14,34 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/getsentry/sentry-go"
 	sentryhttp "github.com/getsentry/sentry-go/http"
+	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/cors"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/config"
+	"ifragment-backend/internal/crypto"
 	"ifragment-backend/internal/handler"
 	"ifragment-backend/internal/logger"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/router"
 	"ifragment-backend/internal/service"
-	cryptoRand "crypto/rand"
-	"encoding/hex"
-
-	"ifragment-backend/internal/crypto"
-	"ifragment-backend/internal/service/raffle"
 	"ifragment-backend/internal/service/broadcaster"
 	"ifragment-backend/internal/service/cardgen"
 	"ifragment-backend/internal/service/cryptoprice"
@@ -42,24 +50,10 @@ import (
 	"ifragment-backend/internal/service/numbers"
 	numbersindexer "ifragment-backend/internal/service/numbers/indexer"
 	"ifragment-backend/internal/service/payment"
+	"ifragment-backend/internal/service/raffle"
 	"ifragment-backend/internal/service/username"
 	"ifragment-backend/internal/service/username/avm"
-
-	"strings"
-	"time"
-
-	"github.com/go-chi/chi/v5"
-	chiMiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/joho/godotenv"
-	"github.com/rs/cors"
-
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-
 	"ifragment-backend/internal/telemetry"
-
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
@@ -76,7 +70,7 @@ func main() {
 		}
 	}
 
-	// Load and validate typed configuration (Finding 7)
+	// Load and validate typed configuration
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("FATAL: Failed to load application configuration", "error", err)
@@ -118,7 +112,6 @@ func main() {
 		for i := 0; i < 5; i++ {
 			m, mErr := migrate.New("file://./migrations", os.Getenv("DATABASE_URL"))
 			if mErr == nil {
-				// Handle dirty database state from previous failed migration (Architecture Audit Finding 7)
 				v, dirty, vErr := m.Version()
 				if vErr == nil && dirty {
 					slog.Error("CRITICAL FATAL: Database migration is in a DIRTY state! Automatic schema forcing is disabled to prevent schema corruption.",
@@ -183,10 +176,11 @@ func main() {
 	}
 	if botToken != "" {
 		gramBroadcaster := broadcaster.NewGramBroadcaster(botToken, cryptoPriceService)
+		gramBroadcaster.SetCache(cache)
 		go gramBroadcaster.Start(ctx)
 	}
 
-	// P3-S1: Initialize Server with middleware stack
+	// Initialize Server with middleware stack
 	r := chi.NewRouter()
 
 	r.Use(chiMiddleware.RealIP)
@@ -208,7 +202,7 @@ func main() {
 	})
 	r.Use(chiMiddleware.Logger)
 
-	// Sentry Initialization (P0-S3: Handle init error)
+	// Sentry Initialization
 	if err := sentry.Init(sentry.ClientOptions{
 		Dsn:              os.Getenv("SENTRY_DSN"),
 		TracesSampleRate: 0.1,
@@ -223,7 +217,7 @@ func main() {
 		if appUrl := os.Getenv("APP_URL"); appUrl != "" {
 			allowedOriginsStr = appUrl
 		} else {
-			allowedOriginsStr = "http://localhost:5173,http://127.0.0.1:5173" // fallback for dev
+			allowedOriginsStr = "http://localhost:5173,http://127.0.0.1:5173"
 		}
 	}
 	allowedOrigins := strings.Split(allowedOriginsStr, ",")
@@ -242,10 +236,8 @@ func main() {
 		AllowCredentials: allowCreds,
 		MaxAge:           86400,
 	})
-	// CORS must be executed before rate limiter and auth
 	r.Use(c.Handler)
 	r.Use(chiMiddleware.Compress(5))
-
 	r.Use(middleware.SecurityHeaders)
 
 	// 1MB body limit middleware
@@ -260,7 +252,7 @@ func main() {
 	r.Use(sentryhttp.New(sentryhttp.Options{Repanic: true}).Handle)
 	r.Use(middleware.CSRF)
 
-	// Prometheus Metrics (P1-S4: Protected with bearer token)
+	// Prometheus Metrics (Protected with bearer token)
 	r.Group(func(r chi.Router) {
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -287,9 +279,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize Services
+	// Initialize Services (bound to cancellable main ctx)
 	aggregatorService := username.NewAggregatorService(tonClient, cache)
-	analysisService := username.NewAnalysisService(context.Background(), db, cache, tonClient, mtprotoClient)
+	analysisService := username.NewAnalysisService(ctx, db, cache, tonClient, mtprotoClient)
 	paymentService := payment.NewStarsService(db)
 
 	// Initialize Repositories
@@ -297,13 +289,13 @@ func main() {
 	settingsRepo := repository.NewSettingsRepo(db, cache)
 	AutoRegisterMainBot(ctx, db, botRepo)
 
-	// 🚀 Start Background Partition & Maintenance Worker
+	// Start Background Partition & Maintenance Worker
 	if db != nil {
 		partitionWorker := username.NewPartitionWorker(db)
 		go partitionWorker.Start(ctx)
 	}
 
-	// 🚀 Start Background Collection Stats Worker
+	// Start Background Collection Stats Worker (single unified instance)
 	if db != nil && tonClient != nil {
 		collectionWorker := username.NewCollectionWorker(db, tonClient)
 		go collectionWorker.Start(ctx)
@@ -320,11 +312,9 @@ func main() {
 		return ownerRepo.LogSystemError(ctx, source, msg)
 	})
 
-	// Fetch active userbots and start them
-	bgCtx := context.Background()
-	activeBots, _ := ownerRepo.GetActiveManagedUserbots(bgCtx)
+	activeBots, _ := ownerRepo.GetActiveManagedUserbots(ctx)
 	for _, b := range activeBots {
-		if err := userbotManager.AddClient(bgCtx, b.PhoneNumber); err != nil {
+		if err := userbotManager.AddClient(ctx, b.PhoneNumber); err != nil {
 			slog.Warn("Failed to start userbot on init", "phone", b.PhoneNumber, "err", err)
 		}
 	}
@@ -343,21 +333,12 @@ func main() {
 	premiumGroupSvc := raffle.NewPremiumGroupService(raffleRepo)
 	raffleHandler := handler.NewRaffleHandler(raffleSvc)
 
-	// Daily workers for raffle draw and premium membership audit are disabled per owner instructions.
-
-
 	webhookHandler := handler.NewWebhookHandler(db, cache, botRepo, raffleSvc, premiumGroupSvc)
 	profileService := service.NewProfileService(db, cache)
 	profileHandler := handler.NewProfileHandler(profileService, paymentService, settingsRepo, ownerRepo)
 
 	collectionRepo := repository.NewCollectionRepo(db)
 	collectionHandler := handler.NewCollectionHandler(collectionRepo, cryptoPriceService)
-
-	// Start Background Telegram Usernames Collection Worker
-	if db != nil && tonClient != nil {
-		collWorker := username.NewCollectionWorker(db, tonClient)
-		go collWorker.Start(ctx)
-	}
 
 	authHandler := handler.NewAuthHandler(db, cache, profileService)
 
@@ -369,7 +350,7 @@ func main() {
 	}
 	ownerHandler := handler.NewOwnerHandler(ownerService)
 
-	// Base health check for external ping services (e.g. cron-job.org, Render, K8s)
+	// Base health check for external ping services
 	healthOK := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -380,7 +361,7 @@ func main() {
 	r.Get("/healthz", healthOK)
 	r.Get("/ping", healthOK)
 
-	// Static files serving (e.g., generated username card images for stories and ads uploads)
+	// Static files serving
 	_ = os.MkdirAll("./static", 0755)
 	_ = os.MkdirAll("./uploads/ads", 0755)
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
@@ -389,42 +370,9 @@ func main() {
 		http.FileServer(http.Dir("./uploads")).ServeHTTP(w, r)
 	})))
 
-
-	// Public Health check routes
-	r.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status": "ok"}`))
-	})
-
 	r.Get("/api/v1/healthz/live", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status": "alive"}`))
-	})
-
-	r.Get("/api/v1/healthz/ready", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if db == nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(`{"status": "unready", "db": "disconnected"}`))
-			return
-		}
-		if err := db.Pool.Ping(r.Context()); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(`{"status": "unready", "db": "error"}`))
-			return
-		}
-		if cache == nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(`{"status": "unready", "cache": "disconnected"}`))
-			return
-		}
-		if err := cache.Client.Ping(r.Context()).Err(); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(`{"status": "unready", "cache": "error"}`))
-			return
-		}
-
-		w.Write([]byte(`{"status": "ready"}`))
 	})
 
 	r.Get("/api/v1/diagnostics/telegram", func(w http.ResponseWriter, r *http.Request) {
@@ -445,13 +393,13 @@ func main() {
 	numbersService := numbers.NewNumbersService(db, cache, tonClient, cryptoPriceService)
 	numbersHandler := handler.NewNumbersHandler(numbersService)
 
-	// 🚀 Start Background Numbers Sales Indexer
+	// Start Background Numbers Sales Indexer
 	if db != nil && tonClient != nil {
 		numbersSalesIndexer := numbersindexer.NewNumbersSalesIndexer(tonClient, db, cryptoPriceService)
 		numbersSalesIndexer.StartBackgroundLoop(ctx, 30*time.Second)
 	}
 
-	// Initialize Gifts Vertical (Vertical 3 — Largest Vertical)
+	// Initialize Gifts Vertical (Vertical 3)
 	giftsService := gifts.NewGiftsService(db, cache, cryptoPriceService)
 	if botToken != "" {
 		giftsService.SetTelegramClient(telegram.NewBotAPIClient(botToken))
@@ -484,8 +432,12 @@ func main() {
 	var mainTgClient *telegram.BotAPIClient
 	if botToken != "" {
 		mainTgClient = telegram.NewBotAPIClient(botToken)
-		// Validate all CustomEmoji* constants at startup
 		handler.ValidateCustomEmojis(ctx, mainTgClient)
+	}
+	if raffleSvc != nil && mainTgClient != nil {
+		raffleSvc.StartDailyDrawWorker(ctx, func() *telegram.BotAPIClient {
+			return mainTgClient
+		})
 	}
 
 	numbersHandler.SetCardGenerator(cardGen)
@@ -530,12 +482,11 @@ func main() {
 		webhookHandler.SetGroupLeaderboardService(groupLeaderboardService)
 	}
 
-	// 🚀 Start Hourly Boost Sync & 24h Reward Worker
+	// Start Hourly Boost Sync & 24h Reward Worker
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 
-		// Warmup execution after 30 seconds
 		select {
 		case <-time.After(30 * time.Second):
 			_ = groupLeaderboardService.RunHourlyBoostSyncAndRewards(ctx, mainTgClient, "@FragmentInvestors")
@@ -599,13 +550,11 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	slog.Info("Shutting down server...")
 
-	// Cancel the main context to stop all background goroutines (MTProto, etc.)
 	cancelMain()
 
 	ctxShut, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -647,7 +596,6 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botRepo *
 		return
 	}
 
-	// Parse bot ID from token
 	parts := strings.Split(token, ":")
 	if len(parts) < 2 {
 		slog.Error("AutoRegisterMainBot: invalid bot token format")
@@ -659,14 +607,12 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botRepo *
 		return
 	}
 
-	// Check if bot exists in database
 	var dbID string
 	var secretToken string
 	err = db.Pool.QueryRow(ctx, "SELECT id, webhook_secret_token FROM managed_bots WHERE bot_id = $1", botID).Scan(&dbID, &secretToken)
 
 	var botUUID uuid.UUID
 	if err != nil {
-		// Ensure owner user exists in database to prevent foreign key violation
 		err = db.UpsertUser(ctx, repository.User{
 			TelegramID:   ownerID,
 			Username:     fmt.Sprintf("owner_%d", ownerID),
@@ -679,7 +625,6 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botRepo *
 			return
 		}
 
-		// Bot doesn't exist, register it
 		slog.Info("AutoRegisterMainBot: main bot not found in DB, registering...", "bot_id", botID)
 		tgClient := telegram.NewBotAPIClient(token)
 		me, err := tgClient.GetMe(ctx)
@@ -737,7 +682,6 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botRepo *
 		slog.Info("AutoRegisterMainBot: main bot found in DB", "id", botUUID)
 	}
 
-	// Register webhook with Telegram
 	backendURL := os.Getenv("BACKEND_URL")
 	if backendURL == "" {
 		backendURL = os.Getenv("API_URL")

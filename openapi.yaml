@@ -2,9 +2,9 @@ openapi: 3.1.0
 info:
   title: iFragment API
   description: Telegram username analytics, premium reports, bot management, profile and marketplace APIs.
-  version: 1.1.0
+  version: 2.0.0
 servers:
-  - url: https://api.ifragment.com/api/v1
+  - url: https://api.ifragment.app/api/v1
     description: Production server
   - url: http://localhost:8080/api/v1
     description: Local development server
@@ -1044,6 +1044,66 @@ paths:
       responses:
         "200":
           description: Toggle result
+  /leaderboard/group:
+    get:
+      tags: [Profile]
+      summary: Get @FragmentInvestors group message and boost leaderboard standings
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [messages, boosts]
+            default: messages
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Leaderboard standings and current user stats
+  /intel/credits:
+    get:
+      tags: [Intel Credits]
+      summary: Get user Intel Credit balance, FIFO batches, and store packs
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Intel Credit balance and packs
+  /intel/credits/purchase:
+    post:
+      tags: [Intel Credits]
+      summary: Purchase an Intel Credit pack via Telegram Stars (XTR) or Airdrop Coins
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method, pack_id]
+              properties:
+                method:
+                  type: string
+                  enum: [stars, coins]
+                pack_id:
+                  type: string
+                  enum: [c1, c3p1, c10p3]
+      responses:
+        "200":
+          description: Invoice link or immediate fulfillment result
+  /owner/health/external:
+    get:
+      tags: [Health]
+      summary: Probe live health and latency across all 10 external ecosystem providers
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 10-provider health matrix
 components:
   securitySchemes:
     BearerAuth:

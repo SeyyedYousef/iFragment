@@ -12,6 +12,7 @@ import (
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/config"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service/gifts/venues"
 	"ifragment-backend/internal/service/intelcredit"
 )
 
@@ -133,6 +134,13 @@ func (h *WebhookHandler) isBotOwner(ctx context.Context, bot *repository.Managed
 			return true
 		}
 	}
+	if envOwners := os.Getenv("OWNER_TELEGRAM_IDS"); envOwners != "" {
+		for _, idStr := range strings.Split(envOwners, ",") {
+			if id, err := strconv.ParseInt(strings.TrimSpace(idStr), 10, 64); err == nil && id == userID {
+				return true
+			}
+		}
+	}
 
 	if h.ownerRepo != nil {
 		role, err := h.ownerRepo.GetOwnerRole(ctx, userID)
@@ -197,6 +205,16 @@ func (h *WebhookHandler) sendAdminPanelMenu(ctx context.Context, bot *repository
 				{
 					"text":          "⚡ پارامترهای اقتصادی و کردیت",
 					"callback_data": "panel:credits",
+				},
+				{
+					"text":          "🌐 سلامت وب‌سرویس‌ها (API Health)",
+					"callback_data": "panel:api_health",
+				},
+			},
+			{
+				{
+					"text":          "🧹 پاکسازی کش (Clear Cache)",
+					"callback_data": "panel:clear_cache",
 				},
 			},
 			{
@@ -661,6 +679,58 @@ func (h *WebhookHandler) handleAdminPanelCallback(ctx context.Context, bot *repo
 			},
 		}
 		h.sendOrEditMessage(ctx, tg, chatID, msgID, text, markup, threadID)
+		return
+
+	case "panel:api_health":
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "🌐 در حال بررسی زنده ۱۰ وب‌سرویس اکوسیستم...", false)
+		providers := venues.CheckAllEcosystemProviders(ctx)
+		var sb strings.Builder
+		sb.WriteString("🌐 <b>وضعیت زنده وب‌سرویس‌ها و مارکت‌پلیس‌های اکوسیستم TON</b>\n\n")
+		for _, p := range providers {
+			icon := "🟢"
+			if p.Status == "degraded" {
+				icon = "🟡"
+			} else if p.Status == "down" {
+				icon = "🔴"
+			}
+			sb.WriteString(fmt.Sprintf("%s <b>%s</b>: <code>%s</code> (%d ms)\n", icon, telegram.EscapeHTML(p.Name), strings.ToUpper(p.Status), p.LatencyMS))
+		}
+		sb.WriteString("\n<i>بروزرسانی همزمان (Concurrent Probe) انجام شد.</i>")
+		markup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
+					{"text": "🔄 بررسی مجدد", "callback_data": "panel:api_health"},
+					{"text": "🔙 بازگشت به پنل", "callback_data": "panel:main"},
+				},
+			},
+		}
+		h.sendOrEditMessage(ctx, tg, chatID, msgID, sb.String(), markup, threadID)
+		return
+
+	case "panel:clear_cache":
+		var deleted int64
+		if h.cache != nil && h.cache.Client != nil {
+			patterns := []string{"val:*", "avm:*", "num:*", "numbers:*", "gift:*", "gifts:*", "iq:*", "leaderboard:*", "owner_dashboard_stats"}
+			for _, pat := range patterns {
+				var cur uint64
+				for {
+					keys, nextCur, err := h.cache.Client.Scan(ctx, cur, pat, 100).Result()
+					if err != nil {
+						break
+					}
+					if len(keys) > 0 {
+						n, _ := h.cache.Client.Del(ctx, keys...).Result()
+						deleted += n
+					}
+					cur = nextCur
+					if cur == 0 {
+						break
+					}
+				}
+			}
+		}
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, fmt.Sprintf("🧹 کش سیستم پاکسازی شد (%d کلید)", deleted), true)
+		h.sendAdminPanelMenu(ctx, bot, chatID, cq.From.ID, msgID, threadID)
 		return
 	}
 }

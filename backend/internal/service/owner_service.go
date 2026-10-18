@@ -23,6 +23,7 @@ import (
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/broadcaster"
+	"ifragment-backend/internal/service/gifts/venues"
 	"ifragment-backend/internal/service/media"
 	"ifragment-backend/internal/service/totp"
 
@@ -1554,4 +1555,112 @@ func (s *OwnerService) GetSystemErrorsDLQ(ctx context.Context, limit int) ([]map
 		}
 	}
 	return result, nil
+}
+
+
+type AdjustIntelCreditsRequest struct {
+	UserID int64  `json:"user_id"`
+	Delta  int    `json:"delta"`
+	Reason string `json:"reason"`
+}
+
+// AdjustIntelCredits adds or deducts Intel Credits for a target user and records an owner audit log.
+func (s *OwnerService) AdjustIntelCredits(ctx context.Context, req AdjustIntelCreditsRequest, adminID int64, ip string) (int, error) {
+	if req.UserID == 0 {
+		return 0, errors.New("user_id is required")
+	}
+	if req.Delta == 0 {
+		return 0, errors.New("delta must be non-zero")
+	}
+	if req.Delta > 10000 || req.Delta < -10000 {
+		return 0, errors.New("delta must be between -10000 and 10000")
+	}
+
+	creditRepo := repository.NewIntelCreditRepo(s.repo.DB())
+	if req.Delta > 0 {
+		refID := fmt.Sprintf("owner_adj:%d:%d", adminID, time.Now().UnixNano())
+		if _, err := creditRepo.GrantCredits(ctx, req.UserID, "admin_grant", req.Delta, "owner_panel", refID, nil); err != nil {
+			return 0, err
+		}
+	} else {
+		idemKey := fmt.Sprintf("owner_deduct:%d:%d:%d", adminID, req.UserID, time.Now().UnixNano())
+		if _, err := creditRepo.ConsumeCreditsBatch(ctx, req.UserID, -req.Delta, "owner_deduct:"+req.Reason, "owner_panel", idemKey); err != nil {
+			return 0, err
+		}
+	}
+
+	balObj, err := creditRepo.GetUserBalance(ctx, req.UserID)
+	newBal := 0
+	if err == nil && balObj != nil {
+		newBal = balObj.Balance
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("intel:credits:bal:%d", req.UserID))
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", req.UserID))
+	}
+
+	payloadBytes, _ := json.Marshal(map[string]interface{}{
+		"delta":       req.Delta,
+		"new_balance": newBal,
+		"reason":      req.Reason,
+	})
+	_ = s.repo.LogOwnerAudit(ctx, &model.OwnerAuditLog{
+		OwnerID:      adminID,
+		Action:       "adjust_intel_credits",
+		TargetUserID: &req.UserID,
+		Payload:      payloadBytes,
+		IPAddress:    ip,
+	})
+
+	return newBal, nil
+}
+
+// GetExternalAPIHealth probes all 10 external ecosystem providers concurrently.
+func (s *OwnerService) GetExternalAPIHealth(ctx context.Context) []venues.ExternalProviderHealth {
+	return venues.CheckAllEcosystemProviders(ctx)
+}
+
+// ClearSystemCache flushes valuation, market, inline query, and dashboard caches while preserving auth/totp locks.
+func (s *OwnerService) ClearSystemCache(ctx context.Context, adminID int64, ip string) (int64, error) {
+	if s.cache == nil || s.cache.Client == nil {
+		return 0, errors.New("cache client is unavailable")
+	}
+
+	patterns := []string{
+		"val:*", "avm:*", "num:*", "numbers:*", "gift:*", "gifts:*",
+		"iq:*", "leaderboard:*", "fi:dup:*", "owner_dashboard_stats",
+		"owner:finance:summary", "broadcast:audience_count:*", "system_settings",
+	}
+
+	var deletedTotal int64
+	for _, pattern := range patterns {
+		var cursor uint64
+		for {
+			keys, nextCursor, err := s.cache.Client.Scan(ctx, cursor, pattern, 100).Result()
+			if err != nil {
+				break
+			}
+			if len(keys) > 0 {
+				n, _ := s.cache.Client.Del(ctx, keys...).Result()
+				deletedTotal += n
+			}
+			cursor = nextCursor
+			if cursor == 0 {
+				break
+			}
+		}
+	}
+
+	payloadBytes, _ := json.Marshal(map[string]interface{}{
+		"deleted_keys": deletedTotal,
+	})
+	_ = s.repo.LogOwnerAudit(ctx, &model.OwnerAuditLog{
+		OwnerID:   adminID,
+		Action:    "clear_system_cache",
+		Payload:   payloadBytes,
+		IPAddress: ip,
+	})
+
+	return deletedTotal, nil
 }

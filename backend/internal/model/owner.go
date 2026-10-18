@@ -83,20 +83,21 @@ type OwnerDashboardStats struct {
 }
 
 type SearchedUser struct {
-	TelegramID   int64     `json:"telegram_id"`
-	Username     string    `json:"username"`
-	FirstName    string    `json:"first_name"`
-	LastName     string    `json:"last_name"`
-	LanguageCode string    `json:"language_code"`
-	Balance      float64   `json:"balance"`
-	IsPremium    bool      `json:"is_premium"`
-	IsFlagged    bool      `json:"is_flagged"`
-	FraudReason  string    `json:"fraud_reason,omitempty"`
-	IsBanned     bool      `json:"is_banned"`
-	BanType      string    `json:"ban_type,omitempty"`
-	BanReason    string    `json:"ban_reason,omitempty"`
+	TelegramID   int64      `json:"telegram_id"`
+	Username     string     `json:"username"`
+	FirstName    string     `json:"first_name"`
+	LastName     string     `json:"last_name"`
+	LanguageCode string     `json:"language_code"`
+	Balance      float64    `json:"balance"`
+	IntelCredits int        `json:"intel_credits"`
+	IsPremium    bool       `json:"is_premium"`
+	IsFlagged    bool       `json:"is_flagged"`
+	FraudReason  string     `json:"fraud_reason,omitempty"`
+	IsBanned     bool       `json:"is_banned"`
+	BanType      string     `json:"ban_type,omitempty"`
+	BanReason    string     `json:"ban_reason,omitempty"`
 	BanExpiresAt *time.Time `json:"ban_expires_at,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 type PromoCode struct {

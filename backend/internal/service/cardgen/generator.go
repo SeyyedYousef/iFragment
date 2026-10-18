@@ -114,7 +114,7 @@ func (cg *CardGenerator) GetPublicCardURL(fileID string, r *http.Request) string
 		if backendURL != "" {
 			return fmt.Sprintf("%s/static/shares/%s.png", strings.TrimSuffix(backendURL, "/"), fileID)
 		}
-		host = "109.172.94.139"
+		host = "api.ifragment.app"
 	}
 	return fmt.Sprintf("%s://%s/static/shares/%s.png", scheme, host, fileID)
 }

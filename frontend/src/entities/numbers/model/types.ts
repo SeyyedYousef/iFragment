@@ -316,6 +316,23 @@ export interface NumberValuationResult {
 	on_chain_audit?: OnChainAuditData;
 	security_advisory?: SecurityAdvisoryData;
 	telemint_provenance?: TelemintProvenanceData;
+	live_listing?: {
+		status: 'for_sale' | 'on_auction' | 'sold' | 'unlisted';
+		ask_or_bid_ton?: number;
+		ask_or_bid_usd?: number;
+		fair_value_ton: number;
+		arbitrage_spread_pct: number;
+		deal_verdict: string;
+		venue: string;
+		direct_url: string;
+	};
+	combinatorial_scarcity?: {
+		exact_pattern_pool_size: number;
+		total_supply: number;
+		pool_share_pct: number;
+		mathematical_formula: string;
+		scarcity_tier: string;
+	};
 	reasoning_log?: Record<string, any>;
 	certificate_id: string;
 	evaluated_at: string;

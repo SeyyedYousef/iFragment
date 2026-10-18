@@ -210,6 +210,32 @@ func (r *GiftsRepo) GetWatchlist(ctx context.Context, userID int64) ([]GiftWatch
 	return items, nil
 }
 
+func (r *GiftsRepo) GetWatchedUsersForGift(ctx context.Context, giftID string, modelID string) ([]int64, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, nil
+	}
+	altModel := strings.ReplaceAll(modelID, "_", "-")
+	query := `
+		SELECT DISTINCT user_id
+		FROM gift_watchlist
+		WHERE (LOWER(gift_id) = LOWER($1) OR LOWER(gift_id) = LOWER($2) OR LOWER(gift_id) = LOWER($3))
+		  AND (alert_on_sale = TRUE OR alert_on_price_drop = TRUE)`
+	rows, err := r.db.Pool.Query(ctx, query, giftID, modelID, altModel)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var userIDs []int64
+	for rows.Next() {
+		var uid int64
+		if err := rows.Scan(&uid); err == nil && uid > 0 {
+			userIDs = append(userIDs, uid)
+		}
+	}
+	return userIDs, nil
+}
+
 func (r *GiftsRepo) GetVenueSnapshots(ctx context.Context, modelID string) ([]VenueSnapshotRecord, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return []VenueSnapshotRecord{}, nil

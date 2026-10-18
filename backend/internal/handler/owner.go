@@ -1033,3 +1033,58 @@ func (h *OwnerHandler) DeleteQuest(w http.ResponseWriter, r *http.Request) {
 }
 
 
+
+
+func (h *OwnerHandler) AdjustIntelCredits(w http.ResponseWriter, r *http.Request) {
+	adminID, ok := r.Context().Value(middleware.UserIDKey).(int64)
+	if !ok {
+		h.writeError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req service.AdjustIntelCreditsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	ip := r.RemoteAddr
+	newBalance, err := h.ownerService.AdjustIntelCredits(r.Context(), req, adminID, ip)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"success":          true,
+		"new_intel_credit": newBalance,
+	})
+}
+
+func (h *OwnerHandler) GetExternalAPIHealth(w http.ResponseWriter, r *http.Request) {
+	providers := h.ownerService.GetExternalAPIHealth(r.Context())
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"providers":  providers,
+		"checked_at": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+func (h *OwnerHandler) ClearCache(w http.ResponseWriter, r *http.Request) {
+	adminID, ok := r.Context().Value(middleware.UserIDKey).(int64)
+	if !ok {
+		h.writeError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	ip := r.RemoteAddr
+	deleted, err := h.ownerService.ClearSystemCache(r.Context(), adminID, ip)
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"success":      true,
+		"deleted_keys": deleted,
+	})
+}

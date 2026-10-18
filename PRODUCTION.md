@@ -1,6 +1,6 @@
 # 🛡️ iFragment — Production Architecture & Deployment Guide
 
-> **Release Version:** `v1.0.0` (Production Hardened — 2026 Edition)  
+> **Release Version:** `v2.0.0` (Production Hardened — October 2026 Edition)  
 > **Status:** Verified & Operational  
 > **Target Environment:** Hybrid Cloud (Cloudflare Pages + Ubuntu Linux VPS)
 
@@ -12,6 +12,7 @@
 flowchart TB
     subgraph Clients["Edge Clients"]
         TMA["Telegram Mini App (Mobile / Desktop)"]
+        BOTPV["Telegram Bot PV & Inline Mode"]
         WEB["Web Browser (PWA)"]
     end
 
@@ -19,32 +20,35 @@ flowchart TB
         CF["Cloudflare Pages (Global CDN & Edge SSL)"]
     end
 
-    subgraph VPS["Production VPS — 109.172.94.139"]
+    subgraph VPS["Production VPS Host"]
         subgraph Ingress["Reverse Proxy"]
             CADDY["Caddy Server (Auto Let's Encrypt TLS)"]
         end
 
         subgraph Containers["Docker Virtual Network"]
-            API["Go 1.25 REST / Webhook Engine (:8080)"]
+            API["Go 1.26 REST / 32-Shard Webhook Engine (:8080)"]
             DRAGON["DragonflyDB (In-Memory Multi-Threaded Redis)"]
-            PG["PostgreSQL 17 Primary Database"]
+            PG["PostgreSQL 17 Primary Database (104 Migrations)"]
         end
     end
 
     subgraph Upstream["Decentralized Networks & Upstreams"]
-        TON["TON Blockchain (TonApi / LiteServers)"]
-        FRAG["Telegram Fragment Marketplace"]
-        BOT["Telegram Bot API (Webhook)"]
+        TON["TON Blockchain (TonAPI v2 / LiteServers)"]
+        FRAG["Fragment / Getgems / MarketApp / Portals / MRKT / Tonnel"]
+        GIFT["api.changes.tg / GiftAssets / see.tg / nums888.io"]
+        BOT["Telegram Bot API 10.1+ & MTProto Userbot Pool"]
     end
 
     TMA --> CF
     WEB --> CF
+    BOTPV --> CADDY
     CF --> CADDY
     CADDY --> API
     API --> DRAGON
     API --> PG
     API --> TON
     API --> FRAG
+    API --> GIFT
     API --> BOT
 ```
 
@@ -54,10 +58,10 @@ flowchart TB
 
 | Component | Technology | Version | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Frontend** | SolidJS + Vite | 1.9+ / Vite 6.4 | 120fps Zero-VDOM Mobile WebView Interface |
-| **Styling** | Tailwind CSS v4 + Glassmorphism | 4.3+ | Telegram Native Theming (Dark/Light/RTL) |
-| **Backend** | Go (Golang) | 1.25+ | High-throughput async engine, sub-millisecond latency |
-| **Database** | PostgreSQL | 17-alpine | Primary transactional store with 100 idempotent migrations |
+| **Frontend** | SolidJS + Vite | 1.9.9 / Vite 6.4 | 120fps Zero-VDOM Mobile WebView Interface |
+| **Styling** | Tailwind CSS v4 + Glassmorphism | 4.3+ | Telegram Native Obsidian Theming (Dark/RTL/LTR) |
+| **Backend** | Go (Golang) | 1.26.0 | High-throughput async engine, 32-shard lock-free webhook pool |
+| **Database** | PostgreSQL | 17-alpine | Primary transactional store with 104 idempotent migrations |
 | **Caching** | DragonflyDB | 1.28+ | High-throughput, multi-threaded cache (Redis 7+ API) |
 | **Reverse Proxy** | Caddy Server | 2.9+ | Automatic TLS, HTTP/3, and Gzip/Zstandard compression |
 | **Edge Hosting** | Cloudflare Pages | Edge | Global CDN distribution for frontend assets |
@@ -68,63 +72,77 @@ flowchart TB
 
 All production secrets live exclusively in `/opt/ifragment/.env` on the host VPS. **Never commit, print, or expose `.env` files.**
 
-### Critical Environment Variables Checklist
+### Critical Environment Variables Checklist (Matched 1:1 with `config.go` & `docker-compose.prod.yml`)
 
 ```env
 # Application
 APP_ENV=production
-APP_PORT=8080
-LOG_LEVEL=info
+PORT=8080
 
 # Database (PostgreSQL 17)
-DATABASE_URL=postgres://ifragment_user:${DB_PASSWORD}@postgres:5432/ifragment?sslmode=disable
 POSTGRES_USER=ifragment_user
 POSTGRES_PASSWORD=${DB_PASSWORD}
 POSTGRES_DB=ifragment
+DATABASE_URL=postgres://ifragment_user:${DB_PASSWORD}@db:5432/ifragment?sslmode=disable
 
 # Cache (DragonflyDB)
-REDIS_URL=redis://dragonfly:6379/0
+DRAGONFLY_URL=redis://dragonfly:6379/0
+DRAGONFLY_MAX_MEMORY=256MB
 
 # Telegram Mini App & Bot
+BOT_TOKEN=${BOT_TOKEN}
 TELEGRAM_BOT_TOKEN=${BOT_TOKEN}
-TELEGRAM_BOT_SECRET_TOKEN=${WEBHOOK_SECRET}
-TELEGRAM_BOT_USERNAME=iFragmentBot
+WEBHOOK_SECRET_TOKEN=${WEBHOOK_SECRET}
+MINI_APP_URL=https://t.me/iFragmentBot/app
 
-# Security & Crypto
-INIT_DATA_HMAC_SECRET=${TELEGRAM_BOT_TOKEN}
+# Security & Crypto (32-byte secrets)
 JWT_SECRET=${SECURE_RANDOM_KEY}
-ENCRYPTION_KEY_32B=${AES_256_HEX}
+BOT_TOKEN_KEY=${AES_256_32CHAR_KEY}
+CERTIFICATE_SIGNING_KEY=${HMAC_SIGNING_KEY}
+
+# Public URLs & CORS
+ALLOWED_ORIGINS=https://ifragment.app
+APP_URL=https://api.ifragment.app
+BACKEND_URL=https://api.ifragment.app
 
 # Blockchain & External APIs
 TONAPI_KEY=${TONAPI_AUTH_TOKEN}
-TON_NETWORK=mainnet
-FRAGMENT_SCRAPER_RATE_LIMIT=10
+MARKETAPP_TOKEN=${MARKETAPP_TOKEN}
+GRAM_CHANNEL_ID=@TheGramPrice
+RAFFLE_ENABLED=true
+
+# Owner Super-Panel & Admin Topic Notifications
+OWNER_TELEGRAM_IDS=123456789
+OWNER_PASSWORD=${SECURE_ADMIN_PASSWORD}
+ADMIN_GROUP_ID=-1001234567890
+ADMIN_TOPIC_AVM=2
+ADMIN_TOPIC_GIFTS=3
+ADMIN_TOPIC_NUMBERS=4
+ADMIN_TOPIC_PAYMENTS=5
+ADMIN_TOPIC_SYSTEM=6
 ```
 
 ---
 
 ## 🚀 Deployment Workflows
 
-### 1. Frontend Automated Deployment (Cloudflare Pages)
-- Push to branch `main` triggers Cloudflare Pages automated build pipeline.
-- Build command: `npm run build` inside `frontend/`.
-- Output directory: `frontend/dist`.
-- Edge caching and instant global invalidation are handled automatically.
+### 1. Automated One-Command VPS Setup
+Run the turnkey provisioning script on a fresh Ubuntu 22.04 / 24.04 VPS:
+```bash
+chmod +x setup-vps.sh
+sudo ./setup-vps.sh
+```
 
-### 2. Backend VPS Deployment
-The backend runs via Docker Compose on the production server.
+### 2. Backend & Infrastructure Deployment
+The backend, PostgreSQL 17, and DragonflyDB run via Docker Compose on the production server:
 
 ```bash
-# SSH into host (Authorized tasks only)
 cd /opt/ifragment
 
 # Pull latest code
 git fetch origin main
 git checkout main
 git pull origin main
-
-# Verify no git drift
-git log -1 --format="%h - %s (%ci)"
 
 # Build and start services in detached mode
 docker compose -f docker-compose.prod.yml up -d --build
@@ -141,18 +159,17 @@ Never rely on HTTP 200 alone. The health check pipeline consists of three valida
 
 1. **Liveness & DB/Cache Readiness Probe:**
    ```bash
-   curl -s -i https://109-172-94-139.sslip.io/api/v1/healthz/ready
+   curl -s -i https://api.ifragment.app/api/v1/healthz/ready
    ```
    *Expected Response:* `HTTP/1.1 200 OK` with JSON `{"status":"ok","db":"ready","cache":"ready"}`.
 
-2. **Git Commit Drift Verification:**
-   Ensure the running binary corresponds to the latest `origin/main` commit:
+2. **10-Provider Ecosystem Health Probe:**
    ```bash
-   git rev-parse HEAD
+   curl -s https://api.ifragment.app/api/v1/healthz/live
    ```
 
 3. **Telegram Webhook Verification:**
-   Ensure the production webhook is properly registered and no secondary consumer is attached:
+   Ensure the production webhook is properly registered (including `message`, `callback_query`, `inline_query`, `pre_checkout_query`, `chat_boost`, and `removed_chat_boost`):
    ```bash
    curl -s "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
    ```
@@ -162,22 +179,8 @@ Never rely on HTTP 200 alone. The health check pipeline consists of three valida
 ## 🔄 Database Migrations & Rollback
 
 - Migrations run automatically during API container startup (`backend/cmd/api/main.go`).
-- All migrations are located in `backend/migrations/` and must adhere strictly to **Idempotency** (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`).
-- In case of a migration failure:
-  1. Inspect container logs: `docker compose -f docker-compose.prod.yml logs api --tail=100`
-  2. Perform manual roll-forward or rollback using `migrate` CLI.
-  3. Never skip migration version sequences.
-
-### Daily Backup Routine:
-```bash
-# Automated database snapshot
-docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U ifragment_user ifragment | gzip > /opt/ifragment/backups/db_$(date +%Y%m%d_%H%M%S).sql.gz
-```
-
----
-
-## 🛡️ Production Incident Rules
-
-1. **VPS Isolation:** Never connect to the VPS via SSH without explicit instructions and task scope.
-2. **Bot Token Exclusivity:** Never start local polling against the production Telegram Bot token (returns Telegram `409 Conflict`).
-3. **Graceful Shutdown:** The Go API engine listens to `SIGINT` and `SIGTERM`, providing 15-second grace periods for in-flight transactions before terminating connections.
+- All 104 migrations are located in `backend/migrations/` and adhere strictly to **Idempotency** (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`).
+- Daily automated backup routine:
+  ```bash
+  docker compose -f docker-compose.prod.yml exec -T db pg_dump -U ifragment_user ifragment | gzip > /opt/ifragment/backups/db_$(date +%Y%m%d_%H%M%S).sql.gz
+  ```

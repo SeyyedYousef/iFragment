@@ -228,6 +228,23 @@ export interface GiftValuationReport {
 	risk_audit: RiskAuditData;
 	projection: GrowthProjection;
 	recommendation: ValuationActionVerdict;
+	pre_mint_state?: {
+		is_upgraded_on_chain: boolean;
+		traits_revealed: boolean;
+		trait_resolution_state: 'on_chain_verified' | 'pre_upgrade_expected_value';
+		expected_trait_value_gram: number;
+		grail_hit_probability_pct: number;
+		expected_backdrop_permille: number;
+		expected_symbol_permille: number;
+	};
+	color_match_intel?: {
+		is_color_matched: boolean;
+		match_tier: string;
+		harmony_class: string;
+		delta_e_score: number;
+		collector_premium_pct: number;
+		dominant_palette_hex?: string;
+	};
 	certificate_id: string;
 	evaluated_at: string;
 	reasoning_log: Record<string, any>;
@@ -554,6 +571,7 @@ export interface CatalogSearchItem {
 	symbol_name: string;
 	backdrop_name: string;
 	center_hex?: string;
+	edge_hex?: string;
 	is_on_sale: boolean;
 	price_gram?: number;
 	price_usd?: number;

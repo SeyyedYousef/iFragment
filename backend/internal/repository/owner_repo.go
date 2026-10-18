@@ -470,6 +470,7 @@ func (r *OwnerRepo) GetRecentSignups(ctx context.Context, limit int) ([]model.Se
 	query := `
 		SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
 		       COALESCE(u.language_code, ''), u.created_at, COALESCE(us.airdrop_coins, 0.0),
+		       COALESCE((SELECT SUM(icb.remaining) FROM intel_credit_batches icb WHERE icb.user_id = u.telegram_id AND icb.remaining > 0 AND (icb.expires_at IS NULL OR icb.expires_at > NOW())), 0)::int AS intel_credits,
 		       COALESCE(u.is_premium, false), COALESCE(u.is_flagged, false), COALESCE(u.fraud_reason, '')
 		FROM users u
 		LEFT JOIN user_stats us ON u.telegram_id = us.user_id
@@ -485,7 +486,7 @@ func (r *OwnerRepo) GetRecentSignups(ctx context.Context, limit int) ([]model.Se
 	var list []model.SearchedUser
 	for rows.Next() {
 		var u model.SearchedUser
-		if err := rows.Scan(&u.TelegramID, &u.Username, &u.FirstName, &u.LastName, &u.LanguageCode, &u.CreatedAt, &u.Balance, &u.IsPremium, &u.IsFlagged, &u.FraudReason); err == nil {
+		if err := rows.Scan(&u.TelegramID, &u.Username, &u.FirstName, &u.LastName, &u.LanguageCode, &u.CreatedAt, &u.Balance, &u.IntelCredits, &u.IsPremium, &u.IsFlagged, &u.FraudReason); err == nil {
 			list = append(list, u)
 		}
 	}
@@ -656,6 +657,13 @@ func (r *OwnerRepo) GetAudienceCount(ctx context.Context, audience string) (int6
 	switch audience {
 	case "premium":
 		query = `SELECT COUNT(*) FROM users WHERE is_premium = true`
+	case "active_24h":
+		query = `
+			SELECT COUNT(DISTINCT u.telegram_id)
+			FROM users u
+			JOIN user_stats us ON u.telegram_id = us.user_id
+			WHERE us.last_active_at > NOW() - INTERVAL '24 hours'
+		`
 	case "active_7d", "active":
 		query = `
 			SELECT COUNT(DISTINCT u.telegram_id)
@@ -741,6 +749,7 @@ func (r *OwnerRepo) SearchUsersPaginated(ctx context.Context, searchQuery string
 	dataQuery := fmt.Sprintf(`
 		SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
 		       COALESCE(u.language_code, ''), u.created_at, COALESCE(us.airdrop_coins, 0.0),
+		       COALESCE((SELECT SUM(icb.remaining) FROM intel_credit_batches icb WHERE icb.user_id = u.telegram_id AND icb.remaining > 0 AND (icb.expires_at IS NULL OR icb.expires_at > NOW())), 0)::int AS intel_credits,
 		       COALESCE(u.is_premium, false), COALESCE(u.is_flagged, false), COALESCE(u.fraud_reason, ''),
 		       (ub.user_id IS NOT NULL AND (ub.expires_at IS NULL OR ub.expires_at > CURRENT_TIMESTAMP)) as is_banned,
 		       COALESCE(ub.ban_type, ''), COALESCE(ub.reason, ''), ub.expires_at
@@ -764,7 +773,7 @@ func (r *OwnerRepo) SearchUsersPaginated(ctx context.Context, searchQuery string
 		var user SearchUserResult
 		err := rows.Scan(
 			&user.TelegramID, &user.Username, &user.FirstName, &user.LastName,
-			&user.LanguageCode, &user.CreatedAt, &user.Balance, &user.IsPremium,
+			&user.LanguageCode, &user.CreatedAt, &user.Balance, &user.IntelCredits, &user.IsPremium,
 			&user.IsFlagged, &user.FraudReason, &user.IsBanned,
 			&user.BanType, &user.BanReason, &user.BanExpiresAt,
 		)

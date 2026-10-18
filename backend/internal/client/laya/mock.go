@@ -38,13 +38,15 @@ func (m *MockEvaluator) Evaluate(_ context.Context, state any, questions map[str
 				keys = append(keys, k)
 			}
 			if len(keys) > 0 {
-				ans.Choice = keys[0]
+				ans.Choice = keys[int(seed%uint64(len(keys)))]
 				if _, ok := q.Criteria["aesthetic_elite"]; ok {
 					ans.Choice = "aesthetic_elite"
 				} else if _, ok := q.Criteria["HOLD"]; ok {
 					ans.Choice = "HOLD"
 				} else if _, ok := q.Criteria["high_turnover"]; ok {
 					ans.Choice = "high_turnover"
+				} else if _, ok := q.Criteria["safe"]; ok {
+					ans.Choice = "safe"
 				}
 				ans.Probabilities = map[string]float64{ans.Choice: 0.92}
 			} else {
@@ -52,14 +54,19 @@ func (m *MockEvaluator) Evaluate(_ context.Context, state any, questions map[str
 			}
 
 		case TypeScore:
-			if strings.Contains(strings.ToLower(q.Instructions), "1-100") || strings.Contains(strings.ToLower(q.Instructions), "0-100") {
-				ans.Score = 75
+			instLower := strings.ToLower(q.Instructions)
+			if strings.Contains(instLower, "1-100") || strings.Contains(instLower, "0-100") || strings.Contains(instLower, "1 to 100") || strings.Contains(instLower, "0 to 100") {
+				ans.Score = 62 + int(seed%34) // 62 to 95
 			} else {
-				ans.Score = 7
+				ans.Score = 6 + int(seed%4) // 6 to 9
 			}
 
 		case TypeNoul:
-			ans.Noul = 0.05
+			if strings.Contains(strings.ToLower(qName), "risk") || strings.Contains(strings.ToLower(qName), "anomaly") {
+				ans.Noul = 0.03 + float64(seed%10)/100.0
+			} else {
+				ans.Noul = 0.65 + float64(seed%30)/100.0
+			}
 		}
 
 		answers[qName] = ans

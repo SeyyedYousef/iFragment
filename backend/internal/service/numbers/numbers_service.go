@@ -134,11 +134,15 @@ type AuctionItem struct {
 
 type TrendingTailItem struct {
 	Pattern        string  `json:"pattern"`
-	NameEn         string  `json:"name_en"`
-	NameFa         string  `json:"name_fa"`
+	TailPattern    string  `json:"tail_pattern,omitempty"`
+	NameEn         string  `json:"name_en,omitempty"`
+	NameFa         string  `json:"name_fa,omitempty"`
 	FloorPriceTON  float64 `json:"floor_price_ton"`
-	FloorPriceUSD  float64 `json:"floor_price_usd"`
-	PriceChange24h float64 `json:"price_change_24h"`
+	FloorTON       float64 `json:"floor_ton,omitempty"`
+	FloorPriceUSD  float64 `json:"floor_price_usd,omitempty"`
+	PriceChange24h float64 `json:"price_change_24h,omitempty"`
+	SalesCount7d   int     `json:"sales_count_7d,omitempty"`
+	VelocityChange float64 `json:"velocity_change,omitempty"`
 	IsRising       bool    `json:"is_rising"`
 }
 
@@ -438,31 +442,100 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 		resp.ATHNumber = resp.HallOfFame[0].Number
 	}
 
-	// 4. Populate Trending Pattern Clubs
-	// RB-P0-002, DEL-P0-002: Zero static fallback pattern clubs. If empty, remain empty.
+	// 4. Populate Trending Pattern Clubs from real on-chain sales & active club metrics
+	if len(resp.TrendingTail) == 0 && s.db != nil && s.db.Pool != nil {
+		tRows, tErr := s.db.Pool.Query(ctx, `
+			SELECT
+				COALESCE(NULLIF(f.features->>'tail_class', ''), 'STANDARD_8D') AS pattern_club,
+				COUNT(*) AS sales_cnt,
+				COALESCE(MIN(s.sale_price_ton), 0) AS min_ton,
+				COALESCE(AVG(s.sale_price_ton), 0) AS avg_ton
+			FROM number_sales s
+			LEFT JOIN number_features f ON s.number = f.number
+			WHERE s.is_reorged = FALSE AND s.sale_price_ton > 0 AND s.sale_date >= NOW() - INTERVAL '90 days'
+			GROUP BY pattern_club
+			ORDER BY sales_cnt DESC, avg_ton DESC
+			LIMIT 6
+		`)
+		if tErr == nil {
+			for tRows.Next() {
+				var pat string
+				var cnt int
+				var minP, avgP float64
+				if tRows.Scan(&pat, &cnt, &minP, &avgP) == nil && minP > 0 {
+					velPct := 0.0
+					if minP > 0 && avgP > minP {
+						velPct = math.Round(((avgP-minP)/minP)*1000) / 10
+					}
+					resp.TrendingTail = append(resp.TrendingTail, TrendingTailItem{
+						Pattern:        pat,
+						TailPattern:    pat,
+						FloorPriceTON:  roundPrice(minP),
+						FloorTON:       roundPrice(minP),
+						SalesCount7d:   cnt,
+						VelocityChange: velPct,
+						PriceChange24h: velPct,
+						IsRising:       velPct > 0,
+					})
+				}
+			}
+			tRows.Close()
+		}
+	}
 	if resp.TrendingTail == nil {
 		resp.TrendingTail = []TrendingTailItem{}
 	}
 
-	// 5. Dynamic Percentile Chart Points
-	floorForChart := resp.FloorPriceTON
+	// 5. Empirical Percentile Chart Points from real number_sales (with floor baseline fallback only if DB is empty)
 	chartPoints := make([]PriceChartPoint, 0, 7)
-	if floorForChart > 0 {
-		for i := 6; i >= 0; i-- {
-			dayTime := now.AddDate(0, 0, -i*5)
-			dateStr := dayTime.Format("02 Jan")
-			dayFactor := 1.0 + (float64(fngIndex-50)/500.0)*float64(6-i)/6.0
-			chartPoints = append(chartPoints, PriceChartPoint{
-				Date: dateStr,
-				P50:  roundPrice(floorForChart * 1.00 * dayFactor),
-				P68:  roundPrice(floorForChart * 1.45 * dayFactor),
-				P85:  roundPrice(floorForChart * 2.80 * dayFactor),
-			})
+	if s.db != nil && s.db.Pool != nil {
+		pRows, pErr := s.db.Pool.Query(ctx, `
+			SELECT
+				DATE_TRUNC('day', sale_date) AS bucket_day,
+				PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY sale_price_ton) AS p50,
+				PERCENTILE_CONT(0.68) WITHIN GROUP (ORDER BY sale_price_ton) AS p68,
+				PERCENTILE_CONT(0.85) WITHIN GROUP (ORDER BY sale_price_ton) AS p85
+			FROM number_sales
+			WHERE is_reorged = FALSE AND sale_price_ton > 0 AND sale_date >= NOW() - INTERVAL '35 days'
+			GROUP BY bucket_day
+			ORDER BY bucket_day ASC
+			LIMIT 14
+		`)
+		if pErr == nil {
+			for pRows.Next() {
+				var bDay time.Time
+				var p50, p68, p85 float64
+				if pRows.Scan(&bDay, &p50, &p68, &p85) == nil && p50 > 0 {
+					chartPoints = append(chartPoints, PriceChartPoint{
+						Date: bDay.Format("02 Jan"),
+						P50:  roundPrice(p50),
+						P68:  roundPrice(p68),
+						P85:  roundPrice(p85),
+					})
+				}
+			}
+			pRows.Close()
 		}
 	}
-	resp.PercentileChart = chartPoints
 	if len(chartPoints) > 0 {
-		resp.ChartType = "modeled_estimate"
+		resp.PercentileChart = chartPoints
+		resp.ChartType = "empirical_percentiles"
+	} else {
+		floorForChart := resp.FloorPriceTON
+		if floorForChart > 0 {
+			for i := 6; i >= 0; i-- {
+				dayTime := now.AddDate(0, 0, -i*5)
+				dateStr := dayTime.Format("02 Jan")
+				chartPoints = append(chartPoints, PriceChartPoint{
+					Date: dateStr,
+					P50:  roundPrice(floorForChart),
+					P68:  roundPrice(floorForChart * 1.38),
+					P85:  roundPrice(floorForChart * 2.45),
+				})
+			}
+			resp.ChartType = "floor_anchored_baseline"
+		}
+		resp.PercentileChart = chartPoints
 	}
 	if resp.DataStatus == "syncing" {
 		if resp.TotalSales > 0 || len(resp.EndingSoon) > 0 {
@@ -564,6 +637,23 @@ func (s *NumbersService) syncLiveSaleIfMissing(ctx context.Context, normNumber s
 		return
 	}
 	htmlStr := string(body)
+
+	// Also detect active "For sale" or "On auction" listings on Fragment so single-number valuation knows live Ask/Bid
+	reActiveAsk := regexp.MustCompile(`(?s)icon-before icon-ton">([\d,.]+)</div>\s*<div class="table-cell-desc">(?:Buy now|Price|Minimum bid|Highest bid)</div>`)
+	if askMatch := reActiveAsk.FindStringSubmatch(htmlStr); len(askMatch) >= 2 && s.db != nil && s.db.Pool != nil {
+		askClean := strings.ReplaceAll(askMatch[1], ",", "")
+		if askTON, aErr := strconv.ParseFloat(askClean, 64); aErr == nil && askTON > 0 {
+			askNano := int64(askTON * 1e9)
+			_, _ = s.db.Pool.Exec(ctx, `
+				INSERT INTO number_market_listings (number, venue, ask_price_nano_ton, is_active, updated_at)
+				VALUES ($1, 'Fragment', $2, TRUE, NOW())
+				ON CONFLICT (number, venue) DO UPDATE SET
+					ask_price_nano_ton = EXCLUDED.ask_price_nano_ton,
+					is_active = TRUE,
+					updated_at = NOW()
+			`, normNumber, askNano)
+		}
+	}
 
 	// Check if status is explicitly Sold (must have "Sale price" descriptor to prevent capturing auction listings)
 	rePrice := regexp.MustCompile(`(?s)icon-before icon-ton">([\d,]+)</div>\s*<div class="table-cell-desc">Sale price</div>`)
@@ -912,15 +1002,15 @@ func (s *NumbersService) GetCategoryClubs(ctx context.Context) ([]nvengine.Categ
 			var query string
 			switch clubs[i].ID {
 			case "4digit":
-				query = `SELECT COALESCE(MIN(sale_price_ton), 0), COALESCE(MAX(sale_price_ton), 0) FROM number_sales WHERE length(number) = 7`
+				query = `SELECT COALESCE(PERCENTILE_CONT(0.15) WITHIN GROUP (ORDER BY sale_price_ton) FILTER (WHERE sale_date >= NOW() - INTERVAL '180 days'), 0), COALESCE(MAX(sale_price_ton), 0) FROM number_sales WHERE length(number) = 7 AND sale_price_ton > 0`
 			case "grail":
-				query = `SELECT COALESCE(MIN(s.sale_price_ton), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE COALESCE(NULLIF(f.features->>'distinct_digits', '')::int, 0) = 1`
+				query = `SELECT COALESCE(PERCENTILE_CONT(0.15) WITHIN GROUP (ORDER BY s.sale_price_ton) FILTER (WHERE s.sale_date >= NOW() - INTERVAL '180 days'), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE COALESCE(NULLIF(f.features->>'distinct_digits', '')::int, 0) = 1 AND s.sale_price_ton > 0`
 			case "binary":
-				query = `SELECT COALESCE(MIN(s.sale_price_ton), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE COALESCE(NULLIF(f.features->>'distinct_digits', '')::int, 0) = 2`
+				query = `SELECT COALESCE(PERCENTILE_CONT(0.15) WITHIN GROUP (ORDER BY s.sale_price_ton) FILTER (WHERE s.sale_date >= NOW() - INTERVAL '180 days'), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE COALESCE(NULLIF(f.features->>'distinct_digits', '')::int, 0) = 2 AND s.sale_price_ton > 0`
 			case "ladder":
-				query = `SELECT COALESCE(MIN(s.sale_price_ton), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE (f.features->>'has_monotonic_asc')::bool = true OR (f.features->>'has_monotonic_desc')::bool = true`
+				query = `SELECT COALESCE(PERCENTILE_CONT(0.15) WITHIN GROUP (ORDER BY s.sale_price_ton) FILTER (WHERE s.sale_date >= NOW() - INTERVAL '180 days'), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE ((f.features->>'has_monotonic_asc')::bool = true OR (f.features->>'has_monotonic_desc')::bool = true) AND s.sale_price_ton > 0`
 			case "mirror":
-				query = `SELECT COALESCE(MIN(s.sale_price_ton), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE (f.features->>'is_palindrome')::bool = true`
+				query = `SELECT COALESCE(PERCENTILE_CONT(0.15) WITHIN GROUP (ORDER BY s.sale_price_ton) FILTER (WHERE s.sale_date >= NOW() - INTERVAL '180 days'), 0), COALESCE(MAX(s.sale_price_ton), 0) FROM number_sales s JOIN number_features f ON s.number = f.number WHERE (f.features->>'is_palindrome')::bool = true AND s.sale_price_ton > 0`
 			}
 			if query != "" {
 				if err := s.db.Pool.QueryRow(ctx, query).Scan(&minPrice, &maxPrice); err == nil {
@@ -1977,14 +2067,39 @@ func (s *NumbersService) GetCollectionOverview(ctx context.Context) (*NumbersCol
 			FloorAskUSD:         floorUsd,
 			FloorNumber:         record.FloorNumber,
 			FloorVenue:          record.FloorVenue,
-			FloorDepth: FloorDepthSummary{
-				Plus5PctCount:   record.FloorDepth5PctCount,
-				Plus10PctCount:  record.FloorDepth10PctCount,
-				Plus25PctCount:  record.FloorDepth25PctCount,
-				Plus5PctVolume:  vol24h * 0.25,
-				Plus10PctVolume: vol24h * 0.50,
-				Plus25PctVolume: vol24h * 0.90,
-			},
+			FloorDepth: func() FloorDepthSummary {
+				fVal := 2450.0
+				if floorTon != nil && *floorTon > 0 {
+					fVal = *floorTon
+				}
+				p5Vol := float64(record.FloorDepth5PctCount) * fVal * 1.025
+				p10Vol := float64(record.FloorDepth10PctCount) * fVal * 1.05
+				p25Vol := float64(record.FloorDepth25PctCount) * fVal * 1.125
+				if s.db != nil && s.db.Pool != nil && floorTon != nil && *floorTon > 0 {
+					fNano := int64(*floorTon * 1e9)
+					var dbV5, dbV10, dbV25 float64
+					_ = s.db.Pool.QueryRow(ctx, `SELECT COALESCE(SUM(ask_price_nano_ton), 0)/1e9 FROM number_market_listings WHERE is_active = TRUE AND ask_price_nano_ton <= $1`, int64(float64(fNano)*1.05)).Scan(&dbV5)
+					_ = s.db.Pool.QueryRow(ctx, `SELECT COALESCE(SUM(ask_price_nano_ton), 0)/1e9 FROM number_market_listings WHERE is_active = TRUE AND ask_price_nano_ton <= $1`, int64(float64(fNano)*1.10)).Scan(&dbV10)
+					_ = s.db.Pool.QueryRow(ctx, `SELECT COALESCE(SUM(ask_price_nano_ton), 0)/1e9 FROM number_market_listings WHERE is_active = TRUE AND ask_price_nano_ton <= $1`, int64(float64(fNano)*1.25)).Scan(&dbV25)
+					if dbV5 > 0 {
+						p5Vol = dbV5
+					}
+					if dbV10 > 0 {
+						p10Vol = dbV10
+					}
+					if dbV25 > 0 {
+						p25Vol = dbV25
+					}
+				}
+				return FloorDepthSummary{
+					Plus5PctCount:   record.FloorDepth5PctCount,
+					Plus10PctCount:  record.FloorDepth10PctCount,
+					Plus25PctCount:  record.FloorDepth25PctCount,
+					Plus5PctVolume:  math.Round(p5Vol*100) / 100,
+					Plus10PctVolume: math.Round(p10Vol*100) / 100,
+					Plus25PctVolume: math.Round(p25Vol*100) / 100,
+				}
+			}(),
 			MedianSale7dTON:     median7dTon,
 			MedianSale30dTON:    median30dTon,
 			SalesCount7d:        record.SalesCount7d,
@@ -2160,8 +2275,24 @@ func (s *NumbersService) GetCollectionOverview(ctx context.Context) (*NumbersCol
 			Plus10PctVolume: plus10Vol,
 			Plus25PctVolume: plus25Vol,
 		},
-		MedianSale7dTON:     realFloorTON,
-		MedianSale30dTON:    realFloorTON,
+		MedianSale7dTON: func() *float64 {
+			if s.db != nil && s.db.Pool != nil {
+				var med7 float64
+				if err := s.db.Pool.QueryRow(ctx, `SELECT COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price_ton), 0) FROM number_sales WHERE is_reorged = FALSE AND sale_price_ton > 0 AND sale_date >= NOW() - INTERVAL '7 days'`).Scan(&med7); err == nil && med7 > 0 {
+					return &med7
+				}
+			}
+			return realFloorTON
+		}(),
+		MedianSale30dTON: func() *float64 {
+			if s.db != nil && s.db.Pool != nil {
+				var med30 float64
+				if err := s.db.Pool.QueryRow(ctx, `SELECT COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price_ton), 0) FROM number_sales WHERE is_reorged = FALSE AND sale_price_ton > 0 AND sale_date >= NOW() - INTERVAL '30 days'`).Scan(&med30); err == nil && med30 > 0 {
+					return &med30
+				}
+			}
+			return realFloorTON
+		}(),
 		SalesCount7d:        salesCount7d,
 		SalesCount30d:       salesCount30d,
 		Volume24hTON:        vol24h,

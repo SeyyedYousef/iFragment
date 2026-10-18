@@ -1659,12 +1659,28 @@ func (h *UsernameHandler) ValuationMonitor(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if h.cache != nil {
+	if h.cache != nil && h.cache.Client != nil {
 		val := "false"
 		if req.Enabled {
 			val = "true"
+			h.cache.Client.SAdd(ctx, fmt.Sprintf("val_watchers:%s", u), userID)
+		} else {
+			h.cache.Client.SRem(ctx, fmt.Sprintf("val_watchers:%s", u), userID)
 		}
 		h.cache.Client.Set(ctx, fmt.Sprintf("val_monitor:%d:%s", userID, u), val, 90*24*time.Hour)
+	}
+	if h.db != nil && h.db.Pool != nil {
+		_, _ = h.db.Pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS username_watchlist (
+			user_id BIGINT NOT NULL,
+			username TEXT NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (user_id, username)
+		)`)
+		if req.Enabled {
+			_, _ = h.db.Pool.Exec(ctx, `INSERT INTO username_watchlist (user_id, username, created_at) VALUES ($1, $2, NOW()) ON CONFLICT (user_id, username) DO NOTHING`, userID, u)
+		} else {
+			_, _ = h.db.Pool.Exec(ctx, `DELETE FROM username_watchlist WHERE user_id = $1 AND username = $2`, userID, u)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -6,6 +6,7 @@ export interface SearchedUser {
 	language_code: string;
 	created_at: string;
 	balance: number;
+	intel_credits?: number;
 	is_premium: boolean;
 	is_flagged: boolean;
 	fraud_reason?: string;
@@ -13,6 +14,18 @@ export interface SearchedUser {
 	ban_type?: string;
 	ban_reason?: string;
 	ban_expires_at?: string;
+}
+
+export interface ExternalProviderHealth {
+	provider: string;
+	name: string;
+	category: string;
+	endpoint: string;
+	status: 'healthy' | 'degraded' | 'down';
+	latency_ms: number;
+	http_status?: number;
+	checked_at: string;
+	error?: string;
 }
 
 export interface AuditLogEntry {

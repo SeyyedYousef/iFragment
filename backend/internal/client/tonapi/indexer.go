@@ -75,10 +75,12 @@ type Transaction struct {
 }
 
 type Message struct {
-	CreatedLT     int64  `json:"created_lt"`
-	Value         int64  `json:"value"`
-	OpCode        string `json:"op_code,omitempty"`
-	DecodedOpName string `json:"decoded_op_name,omitempty"`
+	CreatedLT     int64           `json:"created_lt"`
+	Value         int64           `json:"value"`
+	OpCode        string          `json:"op_code,omitempty"`
+	DecodedOpName string          `json:"decoded_op_name,omitempty"`
+	Source        *AccountAddress `json:"source,omitempty"`
+	Destination   *AccountAddress `json:"destination,omitempty"`
 }
 
 // FetchCollectionItems fetches paginated NFTs in a collection

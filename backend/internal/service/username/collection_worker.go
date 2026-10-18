@@ -12,6 +12,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"os"
+	"strconv"
+	"strings"
+
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
 )
@@ -124,6 +129,20 @@ func (w *CollectionWorker) ensureTablesExist(ctx context.Context) error {
 		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	);
 	CREATE INDEX IF NOT EXISTS idx_username_history_tf_time ON username_collection_history(timeframe, timestamp ASC);
+
+	CREATE TABLE IF NOT EXISTS username_watchlist (
+		user_id BIGINT NOT NULL,
+		username TEXT NOT NULL,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		PRIMARY KEY (user_id, username)
+	);
+	CREATE TABLE IF NOT EXISTS username_watchlist_dispatched (
+		username TEXT NOT NULL,
+		status TEXT NOT NULL,
+		price TEXT NOT NULL,
+		dispatched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		PRIMARY KEY (username, status, price)
+	);
 	`
 	_, err := w.db.Pool.Exec(ctx, schemaSQL)
 	return err
@@ -658,102 +677,182 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 	// Seed or update historical chart time-series points
 	w.seedOrUpdateCollectionHistory(ctx, tx, date)
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	go w.notifyWatchedUsernames(context.Background(), liveAuctions, liveRecent)
+	return nil
 }
 
 func (w *CollectionWorker) seedOrUpdateCollectionHistory(ctx context.Context, tx pgx.Tx, now time.Time) {
-	// 1. Check 30d timeframe
-	var count30d int
-	_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM username_collection_history WHERE timeframe = '30d'").Scan(&count30d)
-	if count30d < 25 {
-		slog.Info("[CollectionWorker] Seeding 30d collection history points...")
-		_, _ = tx.Exec(ctx, "DELETE FROM username_collection_history WHERE timeframe = '30d'")
-		for i := 29; i >= 0; i-- {
-			ts := now.AddDate(0, 0, -i).Truncate(24 * time.Hour)
-			// Base floor between 2.0 and 5.5 TON
-			floorNano := int64(2_000_000_000 + ((i*37)%3_500_000_000))
-			medianNano := floorNano * 3
-			volNano := int64(35_000_000_000_000 + ((i*1234567)%45_000_000_000_000))
-			salesCount := 120 + ((i * 7) % 80)
-
-			_, _ = tx.Exec(ctx, `
-				INSERT INTO username_collection_history (timestamp, timeframe, floor_nano_ton, median_sale_nano_ton, volume_nano_ton, sales_count, currency)
-				VALUES ($1, '30d', $2, $3, $4, $5, 'TON')
-			`, ts, floorNano, medianNano, volNano, salesCount)
+	// Derive current live floor from today's nft_collection_stats if available
+	var liveFloorTON float64 = 2.0
+	var floorStr string
+	if err := tx.QueryRow(ctx, "SELECT floor_price FROM nft_collection_stats WHERE stat_date = $1 LIMIT 1", now).Scan(&floorStr); err == nil {
+		clean := strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(floorStr, "TON"), "ton"))
+		clean = strings.ReplaceAll(clean, ",", "")
+		if v, pErr := strconv.ParseFloat(strings.TrimSpace(clean), 64); pErr == nil && v > 0 {
+			liveFloorTON = v
 		}
 	}
+	liveFloorNano := int64(liveFloorTON * 1e9)
 
-	// 2. Check 7d timeframe
-	var count7d int
-	_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM username_collection_history WHERE timeframe = '7d'").Scan(&count7d)
-	if count7d < 7 {
-		slog.Info("[CollectionWorker] Seeding 7d collection history points...")
-		_, _ = tx.Exec(ctx, "DELETE FROM username_collection_history WHERE timeframe = '7d'")
-		for i := 6; i >= 0; i-- {
-			ts := now.AddDate(0, 0, -i).Truncate(24 * time.Hour)
-			floorNano := int64(2_500_000_000 + ((i*41)%3_000_000_000))
-			medianNano := floorNano * 3
-			volNano := int64(40_000_000_000_000 + ((i*987654)%35_000_000_000_000))
-			salesCount := 130 + ((i * 9) % 70)
-
-			_, _ = tx.Exec(ctx, `
-				INSERT INTO username_collection_history (timestamp, timeframe, floor_nano_ton, median_sale_nano_ton, volume_nano_ton, sales_count, currency)
-				VALUES ($1, '7d', $2, $3, $4, $5, 'TON')
-			`, ts, floorNano, medianNano, volNano, salesCount)
-		}
+	// Aggregate real historical time-series buckets directly from username_sales (zero modulo/synthetic data)
+	timeframes := []struct {
+		tf        string
+		truncUnit string
+		lookback  string
+	}{
+		{"24h", "hour", "24 hours"},
+		{"7d", "day", "7 days"},
+		{"30d", "day", "30 days"},
+		{"all", "month", "1500 days"},
 	}
 
-	// 3. Check 24h timeframe
-	var count24h int
-	_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM username_collection_history WHERE timeframe = '24h'").Scan(&count24h)
-	if count24h < 12 {
-		slog.Info("[CollectionWorker] Seeding 24h collection history points...")
-		_, _ = tx.Exec(ctx, "DELETE FROM username_collection_history WHERE timeframe = '24h'")
-		for i := 23; i >= 0; i -= 2 {
-			ts := now.Add(-time.Duration(i) * time.Hour).Truncate(time.Hour)
-			floorNano := int64(2_000_000_000 + ((i*73)%2_500_000_000))
-			medianNano := floorNano * 3
-			volNano := int64(2_000_000_000_000 + ((i*12345)%3_000_000_000_000))
-			salesCount := 8 + ((i * 3) % 12)
+	for _, cfg := range timeframes {
+		_, _ = tx.Exec(ctx, "DELETE FROM username_collection_history WHERE timeframe = $1", cfg.tf)
+		aggQuery := fmt.Sprintf(`
+			SELECT
+				DATE_TRUNC('%s', sale_date) AS bucket_ts,
+				COALESCE(MIN(sale_price_ton), $1) AS min_ton,
+				COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price_ton), $1) AS median_ton,
+				COALESCE(SUM(sale_price_ton), 0) AS vol_ton,
+				COUNT(*) AS cnt
+			FROM username_sales
+			WHERE sale_price_ton > 0 AND sale_date >= NOW() - INTERVAL '%s'
+			GROUP BY bucket_ts
+			ORDER BY bucket_ts ASC
+		`, cfg.truncUnit, cfg.lookback)
 
+		rows, err := tx.Query(ctx, aggQuery, liveFloorTON)
+		inserted := 0
+		if err == nil {
+			type histRow struct {
+				ts     time.Time
+				minTON float64
+				medTON float64
+				volTON float64
+				cnt    int
+			}
+			var collected []histRow
+			for rows.Next() {
+				var r histRow
+				if rows.Scan(&r.ts, &r.minTON, &r.medTON, &r.volTON, &r.cnt) == nil {
+					collected = append(collected, r)
+				}
+			}
+			rows.Close()
+
+			for _, r := range collected {
+				fNano := int64(r.minTON * 1e9)
+				if fNano <= 0 {
+					fNano = liveFloorNano
+				}
+				mNano := int64(r.medTON * 1e9)
+				if mNano <= 0 {
+					mNano = fNano
+				}
+				vNano := int64(r.volTON * 1e9)
+				_, _ = tx.Exec(ctx, `
+					INSERT INTO username_collection_history (timestamp, timeframe, floor_nano_ton, median_sale_nano_ton, volume_nano_ton, sales_count, currency)
+					VALUES ($1, $2, $3, $4, $5, $6, 'TON')
+				`, r.ts, cfg.tf, fNano, mNano, vNano, r.cnt)
+				inserted++
+			}
+		}
+
+		// Always ensure the current live observation point is recorded
+		if inserted == 0 {
 			_, _ = tx.Exec(ctx, `
 				INSERT INTO username_collection_history (timestamp, timeframe, floor_nano_ton, median_sale_nano_ton, volume_nano_ton, sales_count, currency)
-				VALUES ($1, '24h', $2, $3, $4, $5, 'TON')
-			`, ts, floorNano, medianNano, volNano, salesCount)
-		}
-	}
-
-	// 4. Check all timeframe
-	var countAll int
-	_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM username_collection_history WHERE timeframe = 'all'").Scan(&countAll)
-	if countAll < 10 {
-		slog.Info("[CollectionWorker] Seeding all collection history points...")
-		_, _ = tx.Exec(ctx, "DELETE FROM username_collection_history WHERE timeframe = 'all'")
-		// Historic quarterly milestones from Fragment Genesis (Nov 2022) to 2026
-		milestones := []struct {
-			Date      time.Time
-			FloorTON  float64
-			VolumeTON float64
-			Sales     int
-		}{
-			{time.Date(2022, 11, 15, 0, 0, 0, 0, time.UTC), 10.0, 5_000_000, 1500},
-			{time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC), 8.5, 18_000_000, 8500},
-			{time.Date(2023, 6, 1, 0, 0, 0, 0, time.UTC), 6.0, 38_000_000, 22000},
-			{time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), 5.0, 65_000_000, 48000},
-			{time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC), 4.5, 88_000_000, 75000},
-			{time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 3.5, 105_000_000, 110000},
-			{time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC), 2.5, 116_000_000, 138000},
-			{time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), 2.2, 121_000_000, 155000},
-			{now, 2.0, 124_000_000, 164600},
-		}
-		for _, m := range milestones {
-			floorNano := int64(m.FloorTON * 1e9)
-			volNano := int64(m.VolumeTON * 1e9)
-			_, _ = tx.Exec(ctx, `
-				INSERT INTO username_collection_history (timestamp, timeframe, floor_nano_ton, median_sale_nano_ton, volume_nano_ton, sales_count, currency)
-				VALUES ($1, 'all', $2, $3, $4, $5, 'TON')
-			`, m.Date, floorNano, floorNano*3, volNano, m.Sales)
+				VALUES ($1, $2, $3, $4, 0, 0, 'TON')
+			`, now, cfg.tf, liveFloorNano, liveFloorNano)
 		}
 	}
 }
 
+func (w *CollectionWorker) notifyWatchedUsernames(ctx context.Context, auctions, recent []struct {
+	Name   string
+	Price  string
+	Status string
+}) {
+	if w.db == nil || w.db.Pool == nil {
+		return
+	}
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		token = os.Getenv("BOT_TOKEN")
+	}
+	if token == "" {
+		return
+	}
+	tgClient := telegram.NewBotAPIClient(token)
+	appURL := os.Getenv("MINI_APP_URL")
+	if appURL == "" {
+		appURL = os.Getenv("APP_URL")
+	}
+	if appURL == "" {
+		appURL = "https://t.me/iFragmentBot/app"
+	}
+
+	combined := append([]struct {
+		Name   string
+		Price  string
+		Status string
+	}{}, auctions...)
+	combined = append(combined, recent...)
+
+	for _, item := range combined {
+		cleanUser := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(item.Name)), "@")
+		if cleanUser == "" {
+			continue
+		}
+		rows, err := w.db.Pool.Query(ctx, `SELECT user_id FROM username_watchlist WHERE LOWER(username) = $1`, cleanUser)
+		if err != nil {
+			continue
+		}
+		var watchers []int64
+		for rows.Next() {
+			var uid int64
+			if rows.Scan(&uid) == nil && uid > 0 {
+				watchers = append(watchers, uid)
+			}
+		}
+		rows.Close()
+		if len(watchers) == 0 {
+			continue
+		}
+
+		// Check deduplication so we only alert once per (username, status, price)
+		tag, err := w.db.Pool.Exec(ctx, `
+			INSERT INTO username_watchlist_dispatched (username, status, price, dispatched_at)
+			VALUES ($1, $2, $3, NOW())
+			ON CONFLICT (username, status, price) DO NOTHING
+		`, cleanUser, item.Status, item.Price)
+		if err != nil || tag.RowsAffected() == 0 {
+			continue
+		}
+
+		msg := fmt.Sprintf(
+			"🔔 <b>Username Watchlist Alert: @%s (%s)</b>\n\n"+
+				"💰 <b>Price / Bid:</b> <code>%s</code>\n"+
+				"🏷 <b>Status:</b> %s\n\n"+
+				"📊 <a href=\"%s?startapp=val_%s\">View Username AVM Report</a>",
+			telegram.EscapeHTML(cleanUser),
+			telegram.EscapeHTML(item.Status),
+			telegram.EscapeHTML(item.Price),
+			telegram.EscapeHTML(item.Status),
+			appURL,
+			cleanUser,
+		)
+		for _, uid := range watchers {
+			targetID := uid
+			go func() {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_ = tgClient.SendMessage(bgCtx, targetID, msg, nil, nil)
+			}()
+		}
+	}
+}

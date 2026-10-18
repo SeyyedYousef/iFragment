@@ -300,6 +300,11 @@ func (dc *DynamicCatalog) ResolveCollection(key string) (CollectionMeta, bool) {
 	return CollectionMeta{}, false
 }
 
+// GetCollection is an alias for ResolveCollection
+func (dc *DynamicCatalog) GetCollection(key string) (CollectionMeta, bool) {
+	return dc.ResolveCollection(key)
+}
+
 // GetAllCollections returns list of all live 24h synced collections
 func (dc *DynamicCatalog) GetAllCollections() []CollectionMeta {
 	dc.mu.RLock()

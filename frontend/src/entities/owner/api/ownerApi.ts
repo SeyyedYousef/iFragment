@@ -6,6 +6,7 @@ import type {
 	AuditLogEntry,
 	AuthLoginResponse,
 	BroadcastMessage,
+	ExternalProviderHealth,
 	FinanceOrder,
 	FinanceSummary,
 	ManagedUserbot,
@@ -162,6 +163,22 @@ export const ownerApi = {
 			amount,
 			reason,
 		});
+		return res.data;
+	},
+
+	adjustIntelCredits: async (
+		userId: number,
+		delta: number,
+		reason: string,
+	): Promise<{ success: boolean; new_intel_credit: number }> => {
+		const res = await api.post<{ success: boolean; new_intel_credit: number }>(
+			'/users/adjust-credits',
+			{
+				user_id: userId,
+				delta,
+				reason,
+			},
+		);
 		return res.data;
 	},
 
@@ -355,9 +372,25 @@ export const ownerApi = {
 		return res.data;
 	},
 
-	// ─── Health & Settings ──────────────────────────────────────────────────────
+	// ─── Health, External Ecosystem Probes, Cache & Settings ────────────────────
 	getHealth: async (): Promise<SystemHealthMetrics> => {
 		const res = await api.get<SystemHealthMetrics>('/health/metrics');
+		return res.data;
+	},
+
+	getExternalHealth: async (): Promise<{
+		providers: ExternalProviderHealth[];
+		checked_at: string;
+	}> => {
+		const res = await api.get<{
+			providers: ExternalProviderHealth[];
+			checked_at: string;
+		}>('/health/external');
+		return res.data;
+	},
+
+	clearCache: async (): Promise<{ success: boolean; deleted_keys: number }> => {
+		const res = await api.post<{ success: boolean; deleted_keys: number }>('/cache/clear');
 		return res.data;
 	},
 

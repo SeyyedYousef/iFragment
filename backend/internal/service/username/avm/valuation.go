@@ -197,6 +197,30 @@ type ValuationResult struct {
 
 	// LAYA System 1 Multi-Dimensional Decision Vector
 	LayaSystemOne *LayaUsernameResult `json:"laya_system_one,omitempty"`
+
+	// Decoupled Seller Hold Conviction & Reservation Price (Whale Holder Analytics)
+	SellerHoldConviction *SellerConvictionDto `json:"seller_hold_conviction,omitempty"`
+
+	// Homoglyph & Spoofing Defense Matrix
+	HomoglyphSpoofingMatrix *HomoglyphMatrixDto `json:"homoglyph_spoofing_matrix,omitempty"`
+}
+
+type SellerConvictionDto struct {
+	OwnerBalanceTON       float64 `json:"owner_balance_ton"`
+	IsWhaleHolder         bool    `json:"is_whale_holder"`
+	HoldConvictionScore   int     `json:"hold_conviction_score"`
+	ReservationMultiplier float64 `json:"reservation_multiplier"`
+	SellerReservationTON  float64 `json:"seller_reservation_ton"`
+	NegotiationStance     string  `json:"negotiation_stance"`
+}
+
+type HomoglyphMatrixDto struct {
+	ConfusableCount     int                `json:"confusable_count"`
+	VisualEntropyRisk   string             `json:"visual_entropy_risk"`
+	DefenseScore        int                `json:"defense_score"`
+	SpoofingVectors     []string           `json:"spoofing_vectors"`
+	ActiveCollisionRisk string             `json:"active_collision_risk"`
+	Twins               []HomoglyphTwinDto `json:"twins,omitempty"`
 }
 
 // TelemintProvenanceDto details on-chain smart contract provenance and collection verification.
@@ -531,23 +555,76 @@ func CheckHomoglyphRisk(username string) (bool, string) {
 func CheckTrademarkRisk(username string) (bool, string) {
 	u := strings.TrimPrefix(strings.ToLower(username), "@")
 	brands := map[string]string{
-		"clash":    "Clash of Clans / Supercell",
-		"telegram": "Telegram FZ-LLC",
-		"durov":    "Pavel Durov / Telegram",
-		"wallet":   "Telegram Wallet",
-		"fragment": "Fragment Auction Platform",
-		"bitcoin":  "Bitcoin Foundation",
-		"ethereum": "Ethereum Foundation",
-		"binance":  "Binance Exchange",
-		"apple":    "Apple Inc.",
-		"google":   "Google LLC",
-		"meta":     "Meta Platforms Inc.",
-		"nike":     "Nike Inc.",
-		"adidas":   "Adidas AG",
-		"rolex":    "Rolex SA",
+		"clash":       "Clash of Clans / Supercell",
+		"telegram":    "Telegram FZ-LLC",
+		"durov":       "Pavel Durov / Telegram",
+		"wallet":      "Telegram Wallet",
+		"fragment":    "Fragment Auction Platform",
+		"toncoin":     "TON Foundation",
+		"getgems":     "Getgems NFT Marketplace",
+		"notcoin":     "Notcoin Ecosystem",
+		"catizen":     "Catizen AI",
+		"hamster":     "Hamster Kombat",
+		"bitcoin":     "Bitcoin Foundation",
+		"ethereum":    "Ethereum Foundation",
+		"binance":     "Binance Exchange",
+		"coinbase":    "Coinbase Global Inc.",
+		"kraken":      "Payward / Kraken Exchange",
+		"bybit":       "Bybit Fintech Ltd.",
+		"okx":         "OKX Exchange",
+		"tether":      "Tether Operations Ltd.",
+		"solana":      "Solana Foundation",
+		"ripple":      "Ripple Labs Inc.",
+		"metamask":    "Consensys / MetaMask",
+		"ledger":      "Ledger SAS",
+		"trezor":      "SatoshiLabs / Trezor",
+		"uniswap":     "Uniswap Labs",
+		"opensea":     "Ozone Networks / OpenSea",
+		"apple":       "Apple Inc.",
+		"iphone":      "Apple Inc.",
+		"macbook":     "Apple Inc.",
+		"google":      "Google LLC",
+		"youtube":     "Google / YouTube LLC",
+		"android":     "Google LLC",
+		"meta":        "Meta Platforms Inc.",
+		"instagram":   "Meta Platforms / Instagram",
+		"whatsapp":    "Meta Platforms / WhatsApp",
+		"facebook":    "Meta Platforms Inc.",
+		"microsoft":   "Microsoft Corporation",
+		"windows":     "Microsoft Corporation",
+		"openai":      "OpenAI Inc.",
+		"chatgpt":     "OpenAI Inc.",
+		"anthropic":   "Anthropic PBC",
+		"nvidia":      "NVIDIA Corporation",
+		"amazon":      "Amazon Technologies Inc.",
+		"netflix":     "Netflix Inc.",
+		"spotify":     "Spotify AB",
+		"tiktok":      "ByteDance / TikTok",
+		"discord":     "Discord Inc.",
+		"tesla":       "Tesla Inc.",
+		"spacex":      "Space Exploration Technologies",
+		"starlink":    "SpaceX / Starlink",
+		"nike":        "Nike Inc.",
+		"adidas":      "Adidas AG",
+		"rolex":       "Rolex SA",
+		"gucci":       "Guccio Gucci S.p.A.",
+		"prada":       "Prada S.p.A.",
+		"hermes":      "Hermès International",
+		"cartier":     "Cartier International AG",
+		"louisvuitton": "Louis Vuitton Malletier",
+		"chanel":      "Chanel Limited",
+		"ferrari":     "Ferrari N.V.",
+		"porsche":     "Dr. Ing. h.c. F. Porsche AG",
+		"lamborghini": "Automobili Lamborghini S.p.A.",
+		"visa":        "Visa International Service",
+		"mastercard":  "Mastercard International",
+		"paypal":      "PayPal Holdings Inc.",
+		"stripe":      "Stripe Inc.",
+		"revolut":     "Revolut Ltd.",
+		"blackrock":   "BlackRock Inc.",
 	}
 	for b, brandName := range brands {
-		if u == b || (len(u) >= 4 && strings.Contains(u, b)) {
+		if u == b || (len(b) >= 4 && len(u) >= 4 && strings.Contains(u, b)) {
 			return true, fmt.Sprintf("Trademark clash: %s", brandName)
 		}
 	}
@@ -1330,8 +1407,10 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 
 	// ── Floor Hierarchy (Sacred Rule 6) ──
 
-	// 1. Whale Wallet Multiplier & On-Chain Provenance
+	// 1. Decoupled Whale Holder Conviction & On-Chain Provenance (Intrinsic value is NOT inflated by holder wallet balance)
 	var ownerAddress string
+	var ownerBalanceTON float64
+	var reservationMult float64 = 1.0
 	var telemintProv *TelemintProvenanceDto
 	if s.tonClient != nil {
 		tonCtx, tonCancel := context.WithTimeout(ctx, 1500*time.Millisecond)
@@ -1341,18 +1420,16 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 				ownerAddress = nft.Owner.Address
 				wallet, err := s.tonClient.GetWalletInfo(tonCtx, nft.Owner.Address)
 				if err == nil && wallet != nil {
-					tonBalance := float64(wallet.Balance) / 1e9
-					if tonBalance > 10000 {
-						whaleMult := 1.20
-						if tonBalance > 100000 {
-							whaleMult = 1.30
-						}
-						expectedTONRaw *= whaleMult
-						lowTONRaw *= whaleMult
-						highTONRaw *= whaleMult
-						reasoning["whale_wallet_multiplier"] = whaleMult
-						reasoning["wallet_balance_ton"] = tonBalance
+					ownerBalanceTON = float64(wallet.Balance) / 1e9
+					if ownerBalanceTON > 100000 {
+						reservationMult = 1.35
+					} else if ownerBalanceTON > 10000 {
+						reservationMult = 1.20
+					} else if ownerBalanceTON > 1000 {
+						reservationMult = 1.08
 					}
+					reasoning["seller_reservation_multiplier"] = reservationMult
+					reasoning["wallet_balance_ton"] = ownerBalanceTON
 				}
 			}
 
@@ -1438,31 +1515,42 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		}
 	}
 
-	// 4. Highest Historical Sale Floor (Single-Pass without duplicate scraping - Phase 0.3)
+	// 4. Macro-Adjusted & Time-Decayed Historical Sale Anchor (Replaces rigid 1.05x bubble clamp)
 	highestPastSale := 0.0
+	var highestPastSaleDate time.Time
 	for _, sale := range targetComps {
 		if sale.PriceTON > highestPastSale {
 			highestPastSale = sale.PriceTON
+			highestPastSaleDate = sale.SaleDate
 		}
 	}
-	if marketappPrice > highestPastSale {
-		highestPastSale = marketappPrice
-		reasoning["historical_sale_floor_source"] = "marketapp_live_item"
-	} else if highestPastSale > 0 {
-		reasoning["historical_sale_floor_source"] = "database_or_fragment"
-	}
-
 	if highestPastSale > 0 {
-		strictFloor := highestPastSale * 1.05
-		if expectedTONRaw < strictFloor {
-			expectedTONRaw = strictFloor
-			lowTONRaw = highestPastSale
-			if highTONRaw < strictFloor {
-				highTONRaw = strictFloor * 1.5
+		reasoning["historical_sale_floor_source"] = "database_or_fragment"
+		daysSinceSale := 0.0
+		if !highestPastSaleDate.IsZero() {
+			daysSinceSale = math.Max(0, now.Sub(highestPastSaleDate).Hours()/24.0)
+		}
+		// Recent sales (<= 120d) or canonical dictionary anchors preserve full weight; older peak-cycle sales decay smoothly
+		macroDecay := 1.05
+		if !anchorInjected && daysSinceSale > 120 {
+			macroDecay = math.Max(0.65, math.Exp(-0.00045*(daysSinceSale-120)))
+		}
+		macroAnchorTON := highestPastSale * macroDecay
+		reasoning["highest_past_sale_ton"] = highestPastSale
+		reasoning["macro_adjusted_anchor_ton"] = macroAnchorTON
+		reasoning["historical_sale_decay_factor"] = macroDecay
+		if expectedTONRaw < macroAnchorTON {
+			expectedTONRaw = macroAnchorTON
+			lowTONRaw = math.Min(highestPastSale, macroAnchorTON*0.92)
+			if highTONRaw < macroAnchorTON*1.35 {
+				highTONRaw = macroAnchorTON * 1.35
 			}
 			reasoning["historical_sale_floor_applied"] = true
-			reasoning["highest_past_sale_ton"] = highestPastSale
 		}
+	} else if marketappPrice > 0 {
+		// Secondary ask price is an upper-bound reference, not a guaranteed realized floor
+		reasoning["historical_sale_floor_source"] = "marketapp_live_ask_reference"
+		reasoning["live_ask_reference_ton"] = marketappPrice
 	}
 
 	// 5. Semantic KNN Comparable Floor (High-value status dictionary words)
@@ -1505,19 +1593,22 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 			highTONRaw = expectedTONRaw * 1.2
 		}
 	} else if charLen == 4 {
-		// Protocol Length Floor (4-char: 5,050 TON)
+		// Dynamic 4-Character Floor: Fragment initial mint starts at 5,050 TON for premium/dictionary/CVCV 4-letter handles,
+		// while non-dictionary consonant clusters decay on Fragment auction toward ~1,850-2,800 TON clearing floor.
 		minFloor := 5050.0
 		if features.HasUnderscore || features.HasNumbers {
-			minFloor = 1000.0
+			minFloor = 850.0
+		} else if !features.IsDictionary && features.FlowScore < 0.65 {
+			minFloor = 1850.0 + (features.FlowScore * 2200.0)
 		}
 		if expectedTONRaw < minFloor {
 			expectedTONRaw = minFloor
 		}
-		if lowTONRaw < minFloor {
-			lowTONRaw = minFloor
+		if lowTONRaw < minFloor*0.88 {
+			lowTONRaw = minFloor * 0.88
 		}
 		if highTONRaw < expectedTONRaw {
-			highTONRaw = expectedTONRaw * 1.2
+			highTONRaw = expectedTONRaw * 1.25
 		}
 	}
 
@@ -2100,6 +2191,65 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		// AVM v7.0 Novel Signals & Self-Calibration Fields (Phase 5)
 		HomoglyphTwins:  homoglyphTwins,
 		RentYield:       &rentYield,
+		SellerHoldConviction: func() *SellerConvictionDto {
+			convictionScore := 50
+			stance := "Standard Market Seller"
+			if ownerBalanceTON > 100000 {
+				convictionScore = 95
+				stance = "Diamond-Hand Whale (High OTC Premium Required)"
+			} else if ownerBalanceTON > 10000 {
+				convictionScore = 82
+				stance = "Strong Whale Holder (Above-Fair Offer Needed)"
+			} else if ownerBalanceTON > 1000 {
+				convictionScore = 65
+				stance = "Funded Collector"
+			}
+			return &SellerConvictionDto{
+				OwnerBalanceTON:       math.Round(ownerBalanceTON*100) / 100,
+				IsWhaleHolder:         ownerBalanceTON >= 10000,
+				HoldConvictionScore:   convictionScore,
+				ReservationMultiplier: reservationMult,
+				SellerReservationTON:  AestheticRound(expectedTON * reservationMult),
+				NegotiationStance:     stance,
+			}
+		}(),
+		HomoglyphSpoofingMatrix: func() *HomoglyphMatrixDto {
+			var vectors []string
+			uLower := strings.ToLower(username)
+			if strings.ContainsAny(uLower, "il1") {
+				vectors = append(vectors, "Vertical-stroke ambiguity (i / l / 1)")
+			}
+			if strings.ContainsAny(uLower, "o0") {
+				vectors = append(vectors, "Circular glyph swap (o / 0)")
+			}
+			if strings.Contains(uLower, "rn") || strings.Contains(uLower, "m") {
+				vectors = append(vectors, "Kerning ligature mimicry (rn <-> m)")
+			}
+			if strings.Contains(uLower, "vv") || strings.Contains(uLower, "w") {
+				vectors = append(vectors, "Double-v ligature mimicry (vv <-> w)")
+			}
+			defenseScore := 92 - (len(vectors) * 14) - (len(homoglyphTwins) * 3)
+			if defenseScore < 20 {
+				defenseScore = 20
+			}
+			entropyRisk := "Low"
+			collisionRisk := "Minimal impersonation surface"
+			if defenseScore < 55 {
+				entropyRisk = "High"
+				collisionRisk = "Multiple high-similarity visual twins exist; verify on-chain TeleMint address before OTC transfer"
+			} else if defenseScore < 75 {
+				entropyRisk = "Moderate"
+				collisionRisk = "Single-character visual lookalikes possible; check glyph casing"
+			}
+			return &HomoglyphMatrixDto{
+				ConfusableCount:     len(homoglyphTwins),
+				VisualEntropyRisk:   entropyRisk,
+				DefenseScore:        defenseScore,
+				SpoofingVectors:     vectors,
+				ActiveCollisionRisk: collisionRisk,
+				Twins:               homoglyphTwins,
+			}
+		}(),
 		BandMethod:      bandMethod,
 		CalibrationNote: calibNote,
 		DataFreshness:   now,

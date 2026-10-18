@@ -97,9 +97,9 @@ func NewFragmentAdapter() *FragmentAdapter {
 	}
 }
 
-func (a *FragmentAdapter) ID() VenueID { return VenueFragment }
-func (a *FragmentAdapter) Name() string { return "Fragment" }
-func (a *FragmentAdapter) Currency() string { return "GRAM" }
+func (a *FragmentAdapter) ID() VenueID                    { return VenueFragment }
+func (a *FragmentAdapter) Name() string                   { return "Fragment" }
+func (a *FragmentAdapter) Currency() string               { return "GRAM" }
 func (a *FragmentAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(5.0) }
 
 func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
@@ -119,6 +119,20 @@ func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ven
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
+		// Fallback to ecosystem tracker (GiftAsset / see.tg) if Fragment HTML is blocked/unreachable
+		if q, tErr := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueFragment); tErr == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
+			return &VenueFloorResult{
+				VenueID:        VenueFragment,
+				VenueName:      "Fragment",
+				FloorPriceRaw:  q.FloorPriceGRAM,
+				FloorPriceGRAM: q.FloorPriceGRAM,
+				Currency:       "GRAM",
+				ActiveListings: q.ActiveListings,
+				DataStatus:     "live",
+				DeepLink:       fmt.Sprintf("https://fragment.com/gifts/%s", normSlug),
+				FetchedAt:      q.ObservedAt,
+			}, nil
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -257,10 +271,24 @@ func (a *FragmentAdapter) FetchRecentSales(ctx context.Context, giftSlug string)
 }
 
 func (a *FragmentAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueFragment); err == nil && q != nil && q.Volume24hGRAM.GreaterThan(decimal.Zero) {
+		return &VenueVolumeResult{
+			VenueID:       VenueFragment,
+			Volume24hGRAM: q.Volume24hGRAM,
+			Volume7dGRAM:  q.Volume7dGRAM,
+			DataStatus:    "live",
+			FetchedAt:     q.ObservedAt,
+		}, nil
+	}
+	normSlug := normalizeFragmentSlug(giftSlug)
+	floorTON, _ := computeScarcityFloorTON(normSlug, 1.0)
+	vol24 := floorTON.Mul(decimal.NewFromInt(6))
 	return &VenueVolumeResult{
-		VenueID:    VenueFragment,
-		DataStatus: "unavailable",
-		FetchedAt:  time.Now().UTC(),
+		VenueID:       VenueFragment,
+		Volume24hGRAM: vol24,
+		Volume7dGRAM:  vol24.Mul(decimal.NewFromInt(7)),
+		DataStatus:    "estimated",
+		FetchedAt:     time.Now().UTC(),
 	}, nil
 }
 
@@ -281,9 +309,9 @@ func NewGetgemsAdapter(tonClient ...*tonapi.Client) *GetgemsAdapter {
 	}
 }
 
-func (a *GetgemsAdapter) ID() VenueID { return VenueGetgems }
-func (a *GetgemsAdapter) Name() string { return "Getgems" }
-func (a *GetgemsAdapter) Currency() string { return "GRAM" }
+func (a *GetgemsAdapter) ID() VenueID                    { return VenueGetgems }
+func (a *GetgemsAdapter) Name() string                   { return "Getgems" }
+func (a *GetgemsAdapter) Currency() string               { return "GRAM" }
 func (a *GetgemsAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(5.0) }
 
 func (a *GetgemsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
@@ -329,7 +357,22 @@ func (a *GetgemsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Venu
 		}
 	}
 
-	// 2. Resilient fallback to scarcity floor economics
+	// 2. Check ecosystem tracker (GiftAsset / see.tg)
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueGetgems); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
+		return &VenueFloorResult{
+			VenueID:        VenueGetgems,
+			VenueName:      "Getgems",
+			FloorPriceRaw:  q.FloorPriceGRAM,
+			FloorPriceGRAM: q.FloorPriceGRAM,
+			Currency:       "GRAM",
+			ActiveListings: q.ActiveListings,
+			DataStatus:     "live",
+			DeepLink:       fmt.Sprintf("https://getgems.io/collection/%s", normSlug),
+			FetchedAt:      q.ObservedAt,
+		}, nil
+	}
+
+	// 3. Resilient fallback to scarcity floor economics
 	floorTON, listings := computeScarcityFloorTON(normSlug, 1.01)
 	if floorTON.IsZero() {
 		return nil, ErrNoFloorData
@@ -349,6 +392,15 @@ func (a *GetgemsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Venu
 }
 
 func (a *GetgemsAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueGetgems); err == nil && q != nil && q.Volume24hGRAM.GreaterThan(decimal.Zero) {
+		return &VenueVolumeResult{
+			VenueID:       VenueGetgems,
+			Volume24hGRAM: q.Volume24hGRAM,
+			Volume7dGRAM:  q.Volume7dGRAM,
+			DataStatus:    "live",
+			FetchedAt:     q.ObservedAt,
+		}, nil
+	}
 	normSlug := normalizeFragmentSlug(giftSlug)
 	floorTON, _ := computeScarcityFloorTON(normSlug, 1.01)
 	vol24 := floorTON.Mul(decimal.NewFromInt(3))
@@ -362,7 +414,7 @@ func (a *GetgemsAdapter) FetchVolume(ctx context.Context, giftSlug string) (*Ven
 	}, nil
 }
 
-// MarketAppAdapter connects to MarketApp.ws via OpenAPI client
+// MarketAppAdapter connects to MarketApp (api.marketapp.org/v1) via OpenAPI client
 type MarketAppAdapter struct {
 	client *marketapp.Client
 }
@@ -379,9 +431,9 @@ func NewMarketAppAdapter(client ...*marketapp.Client) *MarketAppAdapter {
 	}
 }
 
-func (a *MarketAppAdapter) ID() VenueID { return VenueMarketApp }
-func (a *MarketAppAdapter) Name() string { return "MarketApp.ws" }
-func (a *MarketAppAdapter) Currency() string { return "GRAM" }
+func (a *MarketAppAdapter) ID() VenueID                    { return VenueMarketApp }
+func (a *MarketAppAdapter) Name() string                   { return "MarketApp.ws" }
+func (a *MarketAppAdapter) Currency() string               { return "GRAM" }
 func (a *MarketAppAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(2.5) }
 
 func (a *MarketAppAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
@@ -390,8 +442,8 @@ func (a *MarketAppAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ve
 		return nil, ErrNoFloorData
 	}
 
-	// 1. Attempt live query via MarketApp OpenAPI
-	if a.client != nil {
+	// 1. Attempt live query via MarketApp OpenAPI (api.marketapp.org/v1)
+	if a.client != nil && len(a.client.Tokens) > 0 {
 		liveFloor, listings, err := a.client.GetGiftFloor(ctx, giftSlug)
 		if err == nil && liveFloor.GreaterThan(decimal.Zero) {
 			return &VenueFloorResult{
@@ -402,13 +454,28 @@ func (a *MarketAppAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ve
 				Currency:       "GRAM",
 				ActiveListings: listings,
 				DataStatus:     "live",
-				DeepLink:       fmt.Sprintf("https://marketapp.ws/gifts/%s", normSlug),
+				DeepLink:       fmt.Sprintf("https://marketapp.org/gifts/%s", normSlug),
 				FetchedAt:      time.Now().UTC(),
 			}, nil
 		}
 	}
 
-	// 2. Resilient fallback to scarcity economics if unauthenticated, rate-limited, or upstream down
+	// 2. Check ecosystem tracker (GiftAsset / see.tg)
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueMarketApp); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
+		return &VenueFloorResult{
+			VenueID:        VenueMarketApp,
+			VenueName:      "MarketApp.ws",
+			FloorPriceRaw:  q.FloorPriceGRAM,
+			FloorPriceGRAM: q.FloorPriceGRAM,
+			Currency:       "GRAM",
+			ActiveListings: q.ActiveListings,
+			DataStatus:     "live",
+			DeepLink:       fmt.Sprintf("https://marketapp.org/gifts/%s", normSlug),
+			FetchedAt:      q.ObservedAt,
+		}, nil
+	}
+
+	// 3. Resilient fallback to scarcity economics if unauthenticated, rate-limited, or upstream down
 	floorTON, listings := computeScarcityFloorTON(normSlug, 0.99)
 	if floorTON.IsZero() {
 		return nil, ErrNoFloorData
@@ -422,12 +489,21 @@ func (a *MarketAppAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ve
 		Currency:       "GRAM",
 		ActiveListings: listings,
 		DataStatus:     "estimated",
-		DeepLink:       fmt.Sprintf("https://marketapp.ws/gifts/%s", normSlug),
+		DeepLink:       fmt.Sprintf("https://marketapp.org/gifts/%s", normSlug),
 		FetchedAt:      time.Now().UTC(),
 	}, nil
 }
 
 func (a *MarketAppAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueMarketApp); err == nil && q != nil && q.Volume24hGRAM.GreaterThan(decimal.Zero) {
+		return &VenueVolumeResult{
+			VenueID:       VenueMarketApp,
+			Volume24hGRAM: q.Volume24hGRAM,
+			Volume7dGRAM:  q.Volume7dGRAM,
+			DataStatus:    "live",
+			FetchedAt:     q.ObservedAt,
+		}, nil
+	}
 	normSlug := normalizeFragmentSlug(giftSlug)
 	floorTON, _ := computeScarcityFloorTON(normSlug, 0.99)
 	vol24 := floorTON.Mul(decimal.NewFromInt(4))
@@ -450,9 +526,9 @@ func NewTelegramStarsAdapter(cryptoPrice *cryptoprice.CryptoPriceService) *Teleg
 	return &TelegramStarsAdapter{cryptoPrice: cryptoPrice}
 }
 
-func (a *TelegramStarsAdapter) ID() VenueID { return VenueTelegramStars }
-func (a *TelegramStarsAdapter) Name() string { return "Telegram Stars" }
-func (a *TelegramStarsAdapter) Currency() string { return "Stars" }
+func (a *TelegramStarsAdapter) ID() VenueID                    { return VenueTelegramStars }
+func (a *TelegramStarsAdapter) Name() string                   { return "Telegram Stars" }
+func (a *TelegramStarsAdapter) Currency() string               { return "Stars" }
 func (a *TelegramStarsAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(10.0) }
 
 func (a *TelegramStarsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
@@ -502,7 +578,7 @@ func (a *TelegramStarsAdapter) ConvertStarsToDecimalGRAM(stars int64) decimal.De
 	return decimal.NewFromFloat(gramVal)
 }
 
-// TonnelAdapter connects to Tonnel Network bot/orderbook
+// TonnelAdapter connects to Tonnel / Toonel Network bot/orderbook and GiftAsset/see.tg trackers
 type TonnelAdapter struct {
 	httpClient *http.Client
 }
@@ -513,9 +589,9 @@ func NewTonnelAdapter() *TonnelAdapter {
 	}
 }
 
-func (a *TonnelAdapter) ID() VenueID { return VenueTonnel }
-func (a *TonnelAdapter) Name() string { return "Tonnel Network" }
-func (a *TonnelAdapter) Currency() string { return "GRAM" }
+func (a *TonnelAdapter) ID() VenueID                    { return VenueTonnel }
+func (a *TonnelAdapter) Name() string                   { return "Tonnel Network" }
+func (a *TonnelAdapter) Currency() string               { return "GRAM" }
 func (a *TonnelAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(3.0) }
 
 func (a *TonnelAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
@@ -524,6 +600,22 @@ func (a *TonnelAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Venue
 		return nil, ErrNoFloorData
 	}
 
+	// 1. Query GiftAsset & see.tg ecosystem trackers for live Tonnel/Toonel orderbook floor
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueTonnel); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
+		return &VenueFloorResult{
+			VenueID:        VenueTonnel,
+			VenueName:      "Tonnel Network",
+			FloorPriceRaw:  q.FloorPriceGRAM,
+			FloorPriceGRAM: q.FloorPriceGRAM,
+			Currency:       "GRAM",
+			ActiveListings: q.ActiveListings,
+			DataStatus:     "live",
+			DeepLink:       fmt.Sprintf("https://t.me/tonnel_gift_bot?start=%s", normSlug),
+			FetchedAt:      q.ObservedAt,
+		}, nil
+	}
+
+	// 2. Fallback to calibrated scarcity model
 	floorTON, listings := computeScarcityFloorTON(normSlug, 0.995)
 	if floorTON.IsZero() {
 		return nil, ErrNoFloorData
@@ -543,14 +635,28 @@ func (a *TonnelAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Venue
 }
 
 func (a *TonnelAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueTonnel); err == nil && q != nil && q.Volume24hGRAM.GreaterThan(decimal.Zero) {
+		return &VenueVolumeResult{
+			VenueID:       VenueTonnel,
+			Volume24hGRAM: q.Volume24hGRAM,
+			Volume7dGRAM:  q.Volume7dGRAM,
+			DataStatus:    "live",
+			FetchedAt:     q.ObservedAt,
+		}, nil
+	}
+	normSlug := normalizeFragmentSlug(giftSlug)
+	floorTON, _ := computeScarcityFloorTON(normSlug, 0.995)
+	vol24 := floorTON.Mul(decimal.NewFromInt(2))
 	return &VenueVolumeResult{
-		VenueID:    VenueTonnel,
-		DataStatus: "unavailable",
-		FetchedAt:  time.Now().UTC(),
+		VenueID:       VenueTonnel,
+		Volume24hGRAM: vol24,
+		Volume7dGRAM:  vol24.Mul(decimal.NewFromInt(7)),
+		DataStatus:    "estimated",
+		FetchedAt:     time.Now().UTC(),
 	}, nil
 }
 
-// PortalsAdapter connects to Portals.market
+// PortalsAdapter connects to Portals.market and GiftAsset/see.tg trackers
 type PortalsAdapter struct {
 	httpClient *http.Client
 }
@@ -561,9 +667,9 @@ func NewPortalsAdapter() *PortalsAdapter {
 	}
 }
 
-func (a *PortalsAdapter) ID() VenueID { return VenuePortals }
-func (a *PortalsAdapter) Name() string { return "Portals" }
-func (a *PortalsAdapter) Currency() string { return "GRAM" }
+func (a *PortalsAdapter) ID() VenueID                    { return VenuePortals }
+func (a *PortalsAdapter) Name() string                   { return "Portals" }
+func (a *PortalsAdapter) Currency() string               { return "GRAM" }
 func (a *PortalsAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(2.5) }
 
 func (a *PortalsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
@@ -572,6 +678,22 @@ func (a *PortalsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Venu
 		return nil, ErrNoFloorData
 	}
 
+	// 1. Query GiftAsset & see.tg ecosystem trackers for live Portals P2P floor
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenuePortals); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
+		return &VenueFloorResult{
+			VenueID:        VenuePortals,
+			VenueName:      "Portals",
+			FloorPriceRaw:  q.FloorPriceGRAM,
+			FloorPriceGRAM: q.FloorPriceGRAM,
+			Currency:       "GRAM",
+			ActiveListings: q.ActiveListings,
+			DataStatus:     "live",
+			DeepLink:       fmt.Sprintf("https://portals.market/gift/%s", normSlug),
+			FetchedAt:      q.ObservedAt,
+		}, nil
+	}
+
+	// 2. Fallback to calibrated scarcity model
 	floorTON, listings := computeScarcityFloorTON(normSlug, 0.985)
 	if floorTON.IsZero() {
 		return nil, ErrNoFloorData
@@ -591,14 +713,28 @@ func (a *PortalsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Venu
 }
 
 func (a *PortalsAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenuePortals); err == nil && q != nil && q.Volume24hGRAM.GreaterThan(decimal.Zero) {
+		return &VenueVolumeResult{
+			VenueID:       VenuePortals,
+			Volume24hGRAM: q.Volume24hGRAM,
+			Volume7dGRAM:  q.Volume7dGRAM,
+			DataStatus:    "live",
+			FetchedAt:     q.ObservedAt,
+		}, nil
+	}
+	normSlug := normalizeFragmentSlug(giftSlug)
+	floorTON, _ := computeScarcityFloorTON(normSlug, 0.985)
+	vol24 := floorTON.Mul(decimal.NewFromInt(5))
 	return &VenueVolumeResult{
-		VenueID:    VenuePortals,
-		DataStatus: "unavailable",
-		FetchedAt:  time.Now().UTC(),
+		VenueID:       VenuePortals,
+		Volume24hGRAM: vol24,
+		Volume7dGRAM:  vol24.Mul(decimal.NewFromInt(7)),
+		DataStatus:    "estimated",
+		FetchedAt:     time.Now().UTC(),
 	}, nil
 }
 
-// MRKTAdapter connects to MRKT (mrkt.tg)
+// MRKTAdapter connects to MRKT (mrkt.tg) and GiftAsset/see.tg trackers
 type MRKTAdapter struct {
 	httpClient *http.Client
 }
@@ -609,9 +745,9 @@ func NewMRKTAdapter() *MRKTAdapter {
 	}
 }
 
-func (a *MRKTAdapter) ID() VenueID { return VenueMRKT }
-func (a *MRKTAdapter) Name() string { return "MRKT" }
-func (a *MRKTAdapter) Currency() string { return "GRAM" }
+func (a *MRKTAdapter) ID() VenueID                    { return VenueMRKT }
+func (a *MRKTAdapter) Name() string                   { return "MRKT" }
+func (a *MRKTAdapter) Currency() string               { return "GRAM" }
 func (a *MRKTAdapter) ProtocolFeePct() decimal.Decimal { return decimal.Zero } // 0% protocol fee
 
 func (a *MRKTAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
@@ -620,6 +756,22 @@ func (a *MRKTAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFl
 		return nil, ErrNoFloorData
 	}
 
+	// 1. Query GiftAsset & see.tg ecosystem trackers for live MRKT floor
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueMRKT); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
+		return &VenueFloorResult{
+			VenueID:        VenueMRKT,
+			VenueName:      "MRKT",
+			FloorPriceRaw:  q.FloorPriceGRAM,
+			FloorPriceGRAM: q.FloorPriceGRAM,
+			Currency:       "GRAM",
+			ActiveListings: q.ActiveListings,
+			DataStatus:     "live",
+			DeepLink:       fmt.Sprintf("https://mrkt.tg/gifts/%s", normSlug),
+			FetchedAt:      q.ObservedAt,
+		}, nil
+	}
+
+	// 2. Fallback to calibrated scarcity model
 	floorTON, listings := computeScarcityFloorTON(normSlug, 0.975)
 	if floorTON.IsZero() {
 		return nil, ErrNoFloorData
@@ -639,10 +791,24 @@ func (a *MRKTAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFl
 }
 
 func (a *MRKTAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueMRKT); err == nil && q != nil && q.Volume24hGRAM.GreaterThan(decimal.Zero) {
+		return &VenueVolumeResult{
+			VenueID:       VenueMRKT,
+			Volume24hGRAM: q.Volume24hGRAM,
+			Volume7dGRAM:  q.Volume7dGRAM,
+			DataStatus:    "live",
+			FetchedAt:     q.ObservedAt,
+		}, nil
+	}
+	normSlug := normalizeFragmentSlug(giftSlug)
+	floorTON, _ := computeScarcityFloorTON(normSlug, 0.975)
+	vol24 := floorTON.Mul(decimal.NewFromInt(4))
 	return &VenueVolumeResult{
-		VenueID:    VenueMRKT,
-		DataStatus: "unavailable",
-		FetchedAt:  time.Now().UTC(),
+		VenueID:       VenueMRKT,
+		Volume24hGRAM: vol24,
+		Volume7dGRAM:  vol24.Mul(decimal.NewFromInt(7)),
+		DataStatus:    "estimated",
+		FetchedAt:     time.Now().UTC(),
 	}, nil
 }
 
@@ -683,4 +849,3 @@ func computeScarcityFloorTON(giftSlug string, spreadMultiplier float64) (decimal
 	rounded := math.Round(adjusted*10.0) / 10.0
 	return decimal.NewFromFloat(rounded), int(math.Max(5, float64(supply)/250.0))
 }
-

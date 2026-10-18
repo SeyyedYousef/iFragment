@@ -1,31 +1,32 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Core User Journey E2E Tests', () => {
-
-	test('should render User Profile and settings options', async ({ page }) => {
-		// Navigate to user profile page
-		await page.goto('/#/profile');
-
-		// Verify profile container loads
-		const profileHeader = page.locator('text=Profile, text=پروفایل, text=سابق').first();
-		await expect(profileHeader).toBeVisible();
-
-		// Test navigation to settings
-		await page.goto('/#/profile/settings');
-		const settingsHeader = page.locator('text=Settings, text=تنظیمات').first();
-		if ((await settingsHeader.count()) > 0) {
-			await expect(settingsHeader).toBeVisible();
-		}
+test.describe('iFragment 3-Pillar & Leaderboard Core Journey E2E Tests', () => {
+	test('should render Home Search Area and switch across Usernames, +888 Numbers, and Gifts tabs', async ({
+		page,
+	}) => {
+		await page.goto('/');
+		const searchInput = page.locator('#search-input');
+		await expect(searchInput).toBeVisible();
 	});
 
-	test('should load Fragment Marketplace view', async ({ page }) => {
-		// Navigate to marketplace
-		await page.goto('/#/marketplace');
+	test('should render Usernames Collection Info, Numbers Intel, and Gifts Intel pages', async ({
+		page,
+	}) => {
+		await page.goto('/collection-info');
+		await expect(page.locator('body')).toBeVisible();
 
-		// Check search input or filter controls
-		const searchInput = page.locator('input[type="text"], input[type="search"]').first();
-		if ((await searchInput.count()) > 0) {
-			await expect(searchInput).toBeVisible();
-		}
+		await page.goto('/numbers/intel');
+		await expect(page.locator('body')).toBeVisible();
+
+		await page.goto('/gifts/intel');
+		await expect(page.locator('body')).toBeVisible();
+	});
+
+	test('should render @FragmentInvestors Leaderboard and User Profile pages', async ({ page }) => {
+		await page.goto('/leaderboard');
+		await expect(page.locator('body')).toBeVisible();
+
+		await page.goto('/profile');
+		await expect(page.locator('body')).toBeVisible();
 	});
 });

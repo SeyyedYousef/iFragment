@@ -185,6 +185,7 @@ type Message struct {
 	GuestQueryID       string                  `json:"guest_query_id,omitempty"`
 	MigrateToChatID    *int64                  `json:"migrate_to_chat_id,omitempty"`
 	MigrateFromChatID  *int64                  `json:"migrate_from_chat_id,omitempty"`
+	PaidStarCount      int                     `json:"paid_star_count,omitempty"`
 }
 
 type ExternalReplyInfo struct {

@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
 )
+
+const GramJettonMasterAddr = "EQC47093oX5Xhb0xuk2lCr2RhS8rj-vul61u4W2UH5ORmG_O"
 
 type CryptoPriceService struct {
 	cache      *repository.Cache
@@ -32,9 +35,9 @@ func NewCryptoPriceService(cache *repository.Cache) *CryptoPriceService {
 	}
 }
 
-// Start runs a background worker to update prices periodically
+// Start runs a background worker to update TON and GRAM prices periodically
 func (s *CryptoPriceService) Start(ctx context.Context) {
-	slog.Info("Starting Crypto Price Worker...")
+	slog.Info("Starting Crypto Price Worker (TON + GRAM on-chain rates)...")
 
 	// Initial load from redis or API
 	s.loadFromRedis()
@@ -54,6 +57,77 @@ func (s *CryptoPriceService) Start(ctx context.Context) {
 			s.fetchPrices(ctx)
 		}
 	}
+}
+
+func (s *CryptoPriceService) fetchGramTokenPrice(ctx context.Context) (float64, string) {
+	// 1. Primary: TonAPI v2 Jetton Rates for canonical GRAM master contract
+	tonApiURL := fmt.Sprintf("https://tonapi.io/v2/rates?tokens=%s&currencies=usd,ton", GramJettonMasterAddr)
+	if req, err := http.NewRequestWithContext(ctx, "GET", tonApiURL, nil); err == nil {
+		req.Header.Set("User-Agent", "iFragment/2.0")
+		if resp, hErr := s.httpClient.Do(req); hErr == nil && resp.StatusCode == http.StatusOK {
+			var parsed struct {
+				Rates map[string]struct {
+					Prices map[string]float64 `json:"prices"`
+				} `json:"rates"`
+			}
+			if json.NewDecoder(resp.Body).Decode(&parsed) == nil {
+				if r, ok := parsed.Rates[GramJettonMasterAddr]; ok {
+					if usd := r.Prices["USD"]; usd > 0 {
+						resp.Body.Close()
+						return usd, "TonAPI Jetton"
+					}
+					if usd := r.Prices["usd"]; usd > 0 {
+						resp.Body.Close()
+						return usd, "TonAPI Jetton"
+					}
+				}
+			}
+			resp.Body.Close()
+		}
+	}
+
+	// 2. Secondary: GeckoTerminal TON On-Chain DEX Pools (DeDust / STON.fi)
+	geckoURL := fmt.Sprintf("https://api.geckoterminal.com/api/v2/networks/ton/tokens/%s", GramJettonMasterAddr)
+	if req, err := http.NewRequestWithContext(ctx, "GET", geckoURL, nil); err == nil {
+		req.Header.Set("User-Agent", "iFragment/2.0")
+		req.Header.Set("Accept", "application/json")
+		if resp, hErr := s.httpClient.Do(req); hErr == nil && resp.StatusCode == http.StatusOK {
+			var gtResp struct {
+				Data struct {
+					Attributes struct {
+						PriceUSD string `json:"price_usd"`
+					} `json:"attributes"`
+				} `json:"data"`
+			}
+			if json.NewDecoder(resp.Body).Decode(&gtResp) == nil && gtResp.Data.Attributes.PriceUSD != "" {
+				if p, pErr := strconv.ParseFloat(gtResp.Data.Attributes.PriceUSD, 64); pErr == nil && p > 0 {
+					resp.Body.Close()
+					return p, "GeckoTerminal (TON DEX)"
+				}
+			}
+			resp.Body.Close()
+		}
+	}
+
+	// 3. Tertiary: CoinGecko GRAM price endpoint
+	cgURL := "https://api.coingecko.com/api/v3/simple/price?ids=gram&vs_currencies=usd"
+	if req, err := http.NewRequestWithContext(ctx, "GET", cgURL, nil); err == nil {
+		req.Header.Set("User-Agent", "iFragment/2.0")
+		if resp, hErr := s.httpClient.Do(req); hErr == nil && resp.StatusCode == http.StatusOK {
+			var cgGram struct {
+				Gram struct {
+					USD float64 `json:"usd"`
+				} `json:"gram"`
+			}
+			if json.NewDecoder(resp.Body).Decode(&cgGram) == nil && cgGram.Gram.USD > 0 {
+				resp.Body.Close()
+				return cgGram.Gram.USD, "CoinGecko (GRAM)"
+			}
+			resp.Body.Close()
+		}
+	}
+
+	return 0, ""
 }
 
 func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
@@ -79,7 +153,7 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 		slog.Warn("TonAPI rate fetch failed, trying CoinGecko fallback...", "error", fetchErr)
 		req, err := http.NewRequestWithContext(ctx, "GET", "https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd", nil)
 		if err == nil {
-			req.Header.Set("User-Agent", "iFragment/1.0")
+			req.Header.Set("User-Agent", "iFragment/2.0")
 			resp, httpErr := s.httpClient.Do(req)
 			if httpErr == nil && resp.StatusCode == http.StatusOK {
 				var cgResp struct {
@@ -98,12 +172,12 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 		}
 	}
 
-	// 3. Tertiary: Public Exchange TONUSDT ticker fallback (OKX / Binance)
+	// 3. Tertiary: Public Exchange TONUSDT ticker fallback (OKX)
 	if fetchErr != nil || usdPrice <= 0 {
 		slog.Warn("CoinGecko rate fetch failed, trying OKX TON-USDT public ticker...", "error", fetchErr)
 		req, err := http.NewRequestWithContext(ctx, "GET", "https://www.okx.com/api/v5/market/ticker?instId=TON-USDT", nil)
 		if err == nil {
-			req.Header.Set("User-Agent", "iFragment/1.0")
+			req.Header.Set("User-Agent", "iFragment/2.0")
 			resp, httpErr := s.httpClient.Do(req)
 			if httpErr == nil && resp.StatusCode == http.StatusOK {
 				var okxResp struct {
@@ -131,7 +205,7 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 		slog.Warn("OKX ticker fetch failed, trying Binance TONUSDT public ticker...", "error", fetchErr)
 		req, err := http.NewRequestWithContext(ctx, "GET", "https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT", nil)
 		if err == nil {
-			req.Header.Set("User-Agent", "iFragment/1.0")
+			req.Header.Set("User-Agent", "iFragment/2.0")
 			resp, httpErr := s.httpClient.Do(req)
 			if httpErr == nil && resp.StatusCode == http.StatusOK {
 				var bnResp struct {
@@ -151,27 +225,45 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 		}
 	}
 
-	if fetchErr != nil || usdPrice <= 0 {
-		slog.Error("Failed to fetch crypto price from all live providers", "error", fetchErr)
+	// Also fetch dedicated GRAM token rate on TON
+	gramPrice, gramSource := s.fetchGramTokenPrice(ctx)
+	if gramPrice > 0 {
+		slog.Info("Successfully fetched live GRAM token price", "price_usd", gramPrice, "source", gramSource)
+	}
+
+	if (fetchErr != nil || usdPrice <= 0) && gramPrice <= 0 {
+		slog.Error("Failed to fetch crypto prices from all live providers", "error", fetchErr)
 		return
 	}
 
 	now := time.Now()
 	s.mu.Lock()
-	s.prices["the-open-network"] = usdPrice
-	s.lastSource = source
+	if usdPrice > 0 {
+		s.prices["the-open-network"] = usdPrice
+		s.lastSource = source
+	}
+	if gramPrice > 0 {
+		s.prices["gram"] = gramPrice
+	}
 	s.lastFetch = now
 	s.mu.Unlock()
 
-	// Cache to Redis with timestamp and source (without aggressive TTL, 30 days retention)
+	// Cache to Redis with timestamp and source (30 days retention)
 	if s.cache != nil && s.cache.Client != nil {
 		s.mu.RLock()
 		cachedData, _ := json.Marshal(s.prices)
 		s.mu.RUnlock()
 		_ = s.cache.Client.Set(ctx, "crypto:prices", cachedData, 30*24*time.Hour).Err()
 		_ = s.cache.Client.Set(ctx, "crypto:prices:ts", now.Unix(), 30*24*time.Hour).Err()
-		_ = s.cache.Client.Set(ctx, "crypto:prices:source", source, 30*24*time.Hour).Err()
-		_ = s.cache.Client.Set(ctx, "crypto:prices:ton_usdt", fmt.Sprintf("%.6f", usdPrice), 30*24*time.Hour).Err()
+		if source != "" {
+			_ = s.cache.Client.Set(ctx, "crypto:prices:source", source, 30*24*time.Hour).Err()
+		}
+		if usdPrice > 0 {
+			_ = s.cache.Client.Set(ctx, "crypto:prices:ton_usdt", fmt.Sprintf("%.6f", usdPrice), 30*24*time.Hour).Err()
+		}
+		if gramPrice > 0 {
+			_ = s.cache.Client.Set(ctx, "crypto:prices:gram_usd", fmt.Sprintf("%.6f", gramPrice), 30*24*time.Hour).Err()
+		}
 	}
 }
 
@@ -199,12 +291,6 @@ func (s *CryptoPriceService) loadFromRedis() {
 }
 
 // GetTONUSDT returns the single unified TON rate in USDT/USD, its origin source, fetch timestamp, and staleness.
-// If no rate is available anywhere (API and persistence both empty), it returns rate=0, ok=false.
-// Sources in order of preference:
-// 1. TonAPI
-// 2. CoinGecko (the-open-network)
-// 3. Direct Public Exchange TONUSDT ticker (OKX, Binance)
-// 4. Last known persistent rate in Redis/Postgres
 func (s *CryptoPriceService) GetTONUSDT(ctx context.Context) (rate float64, source string, fetchedAt time.Time, isStale bool, ok bool) {
 	s.mu.RLock()
 	rate = s.prices["the-open-network"]
@@ -212,7 +298,6 @@ func (s *CryptoPriceService) GetTONUSDT(ctx context.Context) (rate float64, sour
 	fetchedAt = s.lastFetch
 	s.mu.RUnlock()
 
-	// If in-memory rate is available
 	if rate > 0 {
 		isStale = time.Since(fetchedAt) > 15*time.Minute
 		if source == "" {
@@ -221,7 +306,6 @@ func (s *CryptoPriceService) GetTONUSDT(ctx context.Context) (rate float64, sour
 		return rate, source, fetchedAt, isStale, true
 	}
 
-	// Try reading directly from Redis fallback storage without TTL restriction
 	if s.cache != nil && s.cache.Client != nil {
 		val, err := s.cache.Client.Get(ctx, "crypto:prices:ton_usdt").Result()
 		if err == nil {
@@ -247,7 +331,6 @@ func (s *CryptoPriceService) GetTONUSDT(ctx context.Context) (rate float64, sour
 		}
 	}
 
-	// No price available anywhere
 	return 0, "", time.Time{}, true, false
 }
 
@@ -265,7 +348,7 @@ func (s *CryptoPriceService) GetPriceWithFreshness(symbol string) (price float64
 	return price, true, isStale, last
 }
 
-// GetPrice returns the price formatted as a string
+// GetPrice returns the price formatted as a string (with "(stale)" indicator for internal diagnostics)
 func (s *CryptoPriceService) GetPrice(symbol string) string {
 	price, ok, isStale, _ := s.GetPriceWithFreshness(symbol)
 	if !ok {
@@ -278,6 +361,15 @@ func (s *CryptoPriceService) GetPrice(symbol string) string {
 	return formatted
 }
 
+// GetCleanPrice returns the formatted price string WITHOUT any "(stale)" suffix for public channel broadcasts
+func (s *CryptoPriceService) GetCleanPrice(symbol string) string {
+	price, ok, _, _ := s.GetPriceWithFreshness(symbol)
+	if !ok || price <= 0 {
+		return "N/A"
+	}
+	return formatPrice(price)
+}
+
 // GetFloatPrice returns raw price float64 and existence bool.
 // Rejects severely stale prices (> 2 hours) to prevent corrupt financial calculations.
 func (s *CryptoPriceService) GetFloatPrice(symbol string) (float64, bool) {
@@ -285,7 +377,6 @@ func (s *CryptoPriceService) GetFloatPrice(symbol string) (float64, bool) {
 	if !ok {
 		return 0, false
 	}
-	// Fail closed if price is older than 2 hours without successful update
 	if time.Since(last) > 2*time.Hour {
 		slog.Warn("Rejecting crypto price due to extreme staleness (>2h)", "symbol", symbol, "age", time.Since(last).String())
 		return 0, false
@@ -315,7 +406,8 @@ func formatPrice(price float64) string {
 		return "$" + string(buf)
 	} else if price >= 1 {
 		return fmt.Sprintf("$%.2f", price)
-	} else {
+	} else if price >= 0.01 {
 		return fmt.Sprintf("$%.4f", price)
 	}
+	return fmt.Sprintf("$%.5f", price)
 }

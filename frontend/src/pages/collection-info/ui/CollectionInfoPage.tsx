@@ -58,11 +58,33 @@ interface SourceHealth {
 	observed_at: string;
 }
 
+interface LengthTierMetric {
+	tier_name: string;
+	length_bucket: string;
+	floor_price_ton: number;
+	median_sale_30d_ton: number;
+	volume_30d_ton: number;
+	sales_count_30d: number;
+	sell_through_pct: number;
+}
+
+interface UndervaluedAuctionItem {
+	username: string;
+	current_bid_ton: number;
+	estimated_fair_ton: number;
+	discount_pct: number;
+	length: number;
+	signal: string;
+	status: string;
+}
+
 interface CollectionData {
 	collection_address?: string;
 	stats: CollectionStats | null;
 	market_pulse?: MarketPulse;
 	categories: CollectionCategory[];
+	length_tier_matrix?: LengthTierMetric[];
+	undervalued_auctions?: UndervaluedAuctionItem[];
 	auctions: CollectionAuction[];
 	top_sales: CollectionAuction[];
 	recent_activity: CollectionAuction[];
@@ -517,6 +539,81 @@ export const CollectionInfoPage: Component = () => {
 							totalVolumeTon={usernameQuery.data?.stats?.total_volume}
 							tonUsdRate={tonUsdRate()}
 						/>
+
+						{/* Length Tier Matrix */}
+						<Show when={(usernameQuery.data?.length_tier_matrix?.length ?? 0) > 0}>
+							<div class="flex flex-col gap-2.5 mt-1">
+								<div class="flex items-center justify-between px-1">
+									<div class="flex items-center gap-2">
+										<span class="material-symbols-outlined text-[#0098EA] text-[18px]">stacked_bar_chart</span>
+										<h3 class="text-[11px] font-black tracking-widest text-white/60 uppercase">
+											{isRtl() ? 'ماتریس نقدشوندگی و کف قیمت طولی' : 'Length Tier Liquidity Matrix'}
+										</h3>
+									</div>
+									<span class="text-[10px] font-mono text-[#0098EA] font-bold">30D REAL</span>
+								</div>
+								<div class="grid grid-cols-2 gap-2.5">
+									<For each={usernameQuery.data?.length_tier_matrix || []}>
+										{(tier) => (
+											<div class="bg-[#12141C]/80 border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-1.5">
+												<div class="flex items-center justify-between">
+													<span class="text-[11px] font-black text-white">{tier.tier_name}</span>
+													<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#0098EA]/15 text-[#0098EA] font-bold">
+														{tier.sell_through_pct}% STR
+													</span>
+												</div>
+												<div class="flex items-baseline justify-between mt-1" dir="ltr">
+													<span class="text-[10px] text-white/40">Floor</span>
+													<span class="text-[13px] font-mono font-black text-white">{tier.floor_price_ton.toLocaleString()} TON</span>
+												</div>
+												<div class="flex items-baseline justify-between" dir="ltr">
+													<span class="text-[10px] text-white/40">30d Median</span>
+													<span class="text-[11px] font-mono font-bold text-emerald-400">{tier.median_sale_30d_ton.toLocaleString()} TON</span>
+												</div>
+											</div>
+										)}
+									</For>
+								</div>
+							</div>
+						</Show>
+
+						{/* Undervalued Auction Radar */}
+						<Show when={(usernameQuery.data?.undervalued_auctions?.length ?? 0) > 0}>
+							<div class="flex flex-col gap-2.5 mt-1">
+								<div class="flex items-center justify-between px-1">
+									<div class="flex items-center gap-2">
+										<span class="material-symbols-outlined text-emerald-400 text-[18px]">radar</span>
+										<h3 class="text-[11px] font-black tracking-widest text-white/60 uppercase">
+											{isRtl() ? 'رادار مزایده‌های زیر ارزش ذاتی (AVM)' : 'Undervalued Auction Radar (AVM)'}
+										</h3>
+									</div>
+									<span class="text-[10px] font-mono text-emerald-400 font-bold">ALPHA</span>
+								</div>
+								<div class="bg-[#12141C]/80 border border-white/5 rounded-[22px] overflow-hidden">
+									<For each={(usernameQuery.data?.undervalued_auctions || []).slice(0, 5)}>
+										{(item, idx) => (
+											<div
+												onClick={() => openValuation(item.username)}
+												class={`flex items-center justify-between p-3.5 hover:bg-white/[0.04] transition-colors cursor-pointer ${
+													idx() !== 0 ? 'border-t border-white/5' : ''
+												}`}
+											>
+												<div class="flex flex-col text-start">
+													<span class="font-bold text-[13px] text-white font-mono" dir="ltr">{item.username}</span>
+													<span class="text-[10px] text-emerald-400 font-bold">
+														{item.signal} (−{item.discount_pct}% vs Fair {item.estimated_fair_ton} TON)
+													</span>
+												</div>
+												<div class="flex flex-col items-end" dir="ltr">
+													<span class="text-[13px] font-black font-mono text-white">{item.current_bid_ton} TON</span>
+													<span class="text-[9px] text-white/40">Current Bid</span>
+												</div>
+											</div>
+										)}
+									</For>
+								</div>
+							</div>
+						</Show>
 
 						{/* Live Fragment Auctions */}
 						<Show when={(usernameQuery.data?.auctions?.length ?? 0) > 0}>

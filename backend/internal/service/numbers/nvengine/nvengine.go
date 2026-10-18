@@ -206,8 +206,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		}
 		maxCeiling = registry.RecordATHSaleTON // 500,000 TON
 	} else {
-		beta0 = math.Log(registry.StandardInitialFloorTON) // ~7.8038 for 2,450 TON floor
-		minFloor = registry.StandardInitialFloorTON
+		liveStdFloor := e.resolveLiveStandardFloorTON(ctx)
+		beta0 = math.Log(liveStdFloor)
+		minFloor = liveStdFloor
 		maxCeiling = registry.RecordATHSaleTON // 500,000 TON max for standard 8-digit (+888 8888 8888)
 	}
 
@@ -845,9 +846,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 			TonviewerURL:       onChainAudit.TonviewerURL,
 			DataStatus:         onChainAudit.DataStatus,
 		},
-		PriceContributions: priceContrib,
-		SellingProbability: sellingProb,
-		ModelCard:          modelCard,
+		PriceContributions:    priceContrib,
+		SellingProbability:    sellingProb,
+		ModelCard:             modelCard,
+		LiveListing:           e.buildLiveListingStatus(ctx, normNumber, expectedTON, tonUsdRate, fragmentURL, history.IsSold),
+		CombinatorialScarcity: buildCombinatorialScarcity(fv),
 		CertificateID:      certificateID,
 		EvaluatedAt:        time.Now().UTC(),
 		ReasoningLog:       reasoningLog,
@@ -1511,3 +1514,117 @@ func buildOnChainAudit(normNumber string, history ValuationHistory, isGenesis bo
 }
 
 
+
+
+func (e *ValuationEngine) resolveLiveStandardFloorTON(ctx context.Context) float64 {
+	if e.db != nil && e.db.Pool != nil {
+		var askNano int64
+		if err := e.db.Pool.QueryRow(ctx, `
+			SELECT ask_price_nano_ton FROM number_market_listings
+			WHERE is_active = TRUE AND ask_price_nano_ton > 0
+			ORDER BY ask_price_nano_ton ASC LIMIT 1
+		`).Scan(&askNano); err == nil && askNano > 0 {
+			f := float64(askNano) / 1e9
+			if f >= 400.0 && f <= 25000.0 {
+				return f
+			}
+		}
+	}
+	return registry.StandardInitialFloorTON
+}
+
+func (e *ValuationEngine) buildLiveListingStatus(ctx context.Context, normNumber string, expectedTON, tonUsdRate float64, fragmentURL string, isSold bool) *NumberLiveListingDto {
+	status := "unlisted"
+	if isSold {
+		status = "sold"
+	}
+	venue := "Fragment"
+	var askTON float64
+
+	if e.db != nil && e.db.Pool != nil {
+		var askNano int64
+		var vName string
+		if err := e.db.Pool.QueryRow(ctx, `
+			SELECT ask_price_nano_ton, COALESCE(NULLIF(venue, ''), 'Fragment')
+			FROM number_market_listings
+			WHERE number = $1 AND is_active = TRUE AND ask_price_nano_ton > 0
+			ORDER BY ask_price_nano_ton ASC LIMIT 1
+		`, normNumber).Scan(&askNano, &vName); err == nil && askNano > 0 {
+			askTON = float64(askNano) / 1e9
+			status = "for_sale"
+			venue = vName
+		}
+	}
+
+	spreadPct := 0.0
+	verdict := "Not Currently Listed"
+	if askTON > 0 && expectedTON > 0 {
+		spreadPct = math.Round(((expectedTON-askTON)/expectedTON)*1000) / 10
+		switch {
+		case spreadPct >= 25.0:
+			verdict = "Strong Arbitrage Buy (Listed Well Below Fair Value)"
+		case spreadPct >= 8.0:
+			verdict = "Undervalued Listing"
+		case spreadPct >= -12.0:
+			verdict = "Fairly Priced Listing"
+		default:
+			verdict = "Overpriced Ask (Above Fair Value Band)"
+		}
+	}
+
+	return &NumberLiveListingDto{
+		Status:             status,
+		AskOrBidTON:        math.Round(askTON*100) / 100,
+		AskOrBidUSD:        math.Round(askTON*tonUsdRate*100) / 100,
+		FairValueTON:       expectedTON,
+		ArbitrageSpreadPct: spreadPct,
+		DealVerdict:        verdict,
+		Venue:              venue,
+		DirectURL:          fragmentURL,
+	}
+}
+
+func buildCombinatorialScarcity(fv features.FeatureVector) *CombinatorialScarcityDto {
+	poolSize := 12500
+	formula := "10^8 general permutation cohort mapped to 136,566 minted supply"
+	tier := "Standard Collectible"
+
+	if fv.IsGenesis4Digit {
+		poolSize = 1000
+		formula = "10^3 = 1,000 fixed 4-digit Genesis block (+888 0xxx)"
+		tier = "Mythic Genesis (0.73% of Supply)"
+	} else if fv.DistinctDigits == 1 {
+		poolSize = 10
+		formula = "C(10,1) = 10 pure monodigit 8-digit numbers in existence"
+		tier = "1-of-10 Crown Jewel (0.007% of Supply)"
+	} else if fv.EffectiveMaxRun >= 7 {
+		poolSize = 180
+		formula = "10 * 9 * 2 = 180 septa-run combinations across 10^8 space"
+		tier = "Apex Run Scarcity (0.13% of Supply)"
+	} else if fv.EffectiveMaxRun == 6 {
+		poolSize = 270
+		formula = "10 * 9 * 3 = 270 hexa-run combinations"
+		tier = "Ultra-Rare Run (0.20% of Supply)"
+	} else if fv.IsPalindrome {
+		poolSize = 1365
+		formula = "10^4 / 10^8 = 0.01% mirror symmetry density (~1,365 in minted supply)"
+		tier = "Symmetric Grail (1.00% of Supply)"
+	} else if fv.DistinctDigits == 2 {
+		poolSize = 1240
+		formula = "C(10,2) * (2^8 - 2) scaled to 136,566 minted supply"
+		tier = "Binary Dual Tier (0.91% of Supply)"
+	} else if fv.EffectiveMaxRun >= 4 {
+		poolSize = 3200
+		formula = "4+ consecutive identical digit run cohort"
+		tier = "High-Demand Pattern (2.34% of Supply)"
+	}
+
+	sharePct := math.Round((float64(poolSize)/float64(TotalNumbersSupply))*10000) / 100
+	return &CombinatorialScarcityDto{
+		ExactPatternPoolSize: poolSize,
+		TotalSupply:          TotalNumbersSupply,
+		PoolSharePct:         sharePct,
+		MathematicalFormula:  formula,
+		ScarcityTier:         tier,
+	}
+}

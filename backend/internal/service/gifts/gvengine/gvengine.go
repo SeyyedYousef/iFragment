@@ -744,14 +744,29 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// 11. Risk Audit
 	riskAudit := risk.AuditGiftRisk(ctx, ref.ModelID, ref.SerialNumber, 80, nil, nil)
 
-	// 12. 12-Month Projection
+	// 12. Dynamic 12-Month Projection (Driven by supply scarcity, crafted status, joint rarity, and market sentiment)
+	scarcityBoost := 0.0
+	if col.TotalSupply > 0 && col.TotalSupply <= 5000 {
+		scarcityBoost = 0.12
+	} else if col.TotalSupply > 0 && col.TotalSupply <= 25000 {
+		scarcityBoost = 0.06
+	}
+	if col.CraftedFlag {
+		scarcityBoost += 0.10
+	}
+	if jointRarity.BetaSynergy > 0.25 {
+		scarcityBoost += 0.08
+	}
+	bullMult := math.Min(1.95, (1.32+scarcityBoost)*fngMult)
+	baseMult := math.Min(1.45, (1.12+(scarcityBoost*0.5))*fngMult)
+	bearMult := math.Max(0.72, 0.86+(scarcityBoost*0.25))
 	projection := GrowthProjection{
-		BullGRAM: roundPrice(expectedGRAM * 1.40),
-		BullUSD:  roundPrice(expectedGRAM * 1.40 * gramUsdRate),
-		BaseGRAM: roundPrice(expectedGRAM * 1.15),
-		BaseUSD:  roundPrice(expectedGRAM * 1.15 * gramUsdRate),
-		BearGRAM: roundPrice(expectedGRAM * 0.88),
-		BearUSD:  roundPrice(expectedGRAM * 0.88 * gramUsdRate),
+		BullGRAM: roundPrice(expectedGRAM * bullMult),
+		BullUSD:  roundPrice(expectedGRAM * bullMult * gramUsdRate),
+		BaseGRAM: roundPrice(expectedGRAM * baseMult),
+		BaseUSD:  roundPrice(expectedGRAM * baseMult * gramUsdRate),
+		BearGRAM: roundPrice(expectedGRAM * bearMult),
+		BearUSD:  roundPrice(expectedGRAM * bearMult * gramUsdRate),
 	}
 
 	// 13. Recommendation (Laya System One Enhanced)
@@ -917,8 +932,48 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		UpgradeAdvisor:     upgradeAdvisor,
 		Comps:              comps,
 		RiskAudit:          riskAudit,
-		Projection:         projection,
-		Recommendation:     recommendation,
+		Projection:     projection,
+		Recommendation: recommendation,
+		PreMintState: func() *PreMintExpectationDto {
+			revealed := liveNFT != nil && (liveNFT.Backdrop != "" || liveNFT.Symbol != "")
+			stateStr := "pre_upgrade_expected_value"
+			if revealed {
+				stateStr = "on_chain_verified"
+			}
+			grailProb := 1.5
+			if countBackdrop > 0 {
+				grailProb = math.Round((2.0/float64(countBackdrop))*1000) / 10
+			}
+			return &PreMintExpectationDto{
+				IsUpgradedOnChain:      revealed,
+				TraitsRevealed:         revealed,
+				TraitResolutionState:   stateStr,
+				ExpectedTraitValueGRAM: expectedGRAM,
+				GrailHitProbabilityPct: grailProb,
+				ExpectedBackdropPerm:   backdropPermille,
+				ExpectedSymbolPerm:     symbolPermille,
+			}
+		}(),
+		ColorMatchIntel: func() *ColorMatchAnalysisDto {
+			isMatch := aestheticHarmony.ThemeMatchRating == "PERFECT_MATCH" || aestheticHarmony.ThemeMatchRating == "STRONG_HARMONY" || aestheticHarmony.BetaAesthetic >= 0.15
+			matchTier := "Standard Palette"
+			if aestheticHarmony.ThemeMatchRating == "PERFECT_MATCH" || aestheticHarmony.BetaAesthetic >= 0.22 {
+				matchTier = "Full Monochrome Grail"
+			} else if isMatch {
+				matchTier = "Chromatic Twin"
+			} else if aestheticHarmony.BetaColorPrestige > 0.08 {
+				matchTier = "Complementary Contrast"
+			}
+			premPct := math.Round((math.Exp(aestheticHarmony.BetaAesthetic+aestheticHarmony.BetaColorPrestige)-1.0)*1000) / 10
+			return &ColorMatchAnalysisDto{
+				IsColorMatched:      isMatch,
+				MatchTier:           matchTier,
+				HarmonyClass:        aestheticHarmony.HarmonyClass,
+				DeltaEScore:         aestheticHarmony.DeltaEScore,
+				CollectorPremiumPct: premPct,
+				DominantPaletteHex:  backdropColors.CenterHex,
+			}
+		}(),
 		CertificateID:      certificateID,
 		EvaluatedAt:        time.Now().UTC(),
 		ReasoningLog:       reasoningLog,

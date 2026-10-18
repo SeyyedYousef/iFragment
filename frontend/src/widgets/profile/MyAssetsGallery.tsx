@@ -264,7 +264,6 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 									<For each={filteredReports()}>
 										{(r) => {
 											const type = () => r.type || 'username';
-											const key = () => r.identifier || r.username;
 											const targetUrl = () => getReportUrl(r);
 											return (
 												<div

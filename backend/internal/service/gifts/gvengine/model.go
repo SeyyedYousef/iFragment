@@ -125,7 +125,30 @@ type GiftValuation struct {
 	RiskAudit          *risk.RiskAuditResult          `json:"risk_audit"`
 	Projection         GrowthProjection               `json:"projection"`
 	Recommendation     ValuationActionVerdict         `json:"recommendation"`
+	PreMintState       *PreMintExpectationDto         `json:"pre_mint_state,omitempty"`
+	ColorMatchIntel    *ColorMatchAnalysisDto         `json:"color_match_intel,omitempty"`
 	CertificateID      string                         `json:"certificate_id"`
 	EvaluatedAt        time.Time                      `json:"evaluated_at"`
 	ReasoningLog       map[string]interface{}         `json:"reasoning_log"`
+}
+
+// PreMintExpectationDto reports whether a gift's on-chain traits are revealed or unrevealed (pre-upgrade EV)
+type PreMintExpectationDto struct {
+	IsUpgradedOnChain      bool    `json:"is_upgraded_on_chain"`
+	TraitsRevealed         bool    `json:"traits_revealed"`
+	TraitResolutionState   string  `json:"trait_resolution_state"` // "on_chain_verified" | "pre_upgrade_expected_value"
+	ExpectedTraitValueGRAM float64 `json:"expected_trait_value_gram"`
+	GrailHitProbabilityPct float64 `json:"grail_hit_probability_pct"`
+	ExpectedBackdropPerm   int     `json:"expected_backdrop_permille"`
+	ExpectedSymbolPerm     int     `json:"expected_symbol_permille"`
+}
+
+// ColorMatchAnalysisDto quantifies monochrome / color-matched collector synergy between 3D model and backdrop
+type ColorMatchAnalysisDto struct {
+	IsColorMatched      bool    `json:"is_color_matched"`
+	MatchTier           string  `json:"match_tier"` // "Full Monochrome Grail" | "Chromatic Twin" | "Complementary Contrast" | "Standard Palette"
+	HarmonyClass        string  `json:"harmony_class"`
+	DeltaEScore         float64 `json:"delta_e_score"`
+	CollectorPremiumPct float64 `json:"collector_premium_pct"`
+	DominantPaletteHex  string  `json:"dominant_palette_hex,omitempty"`
 }

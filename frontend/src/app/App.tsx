@@ -79,7 +79,17 @@ const DeepLinkHandler = () => {
 			}
 
 			if (startParam) {
-				if (startParam.startsWith('gift_')) {
+				if (startParam === 'collection_usernames' || startParam === 'usernames') {
+					navigate('/', { replace: true });
+				} else if (startParam === 'numbers' || startParam === 'collection_numbers') {
+					navigate('/numbers', { replace: true });
+				} else if (startParam === 'gifts' || startParam === 'collection_gifts') {
+					navigate('/gifts', { replace: true });
+				} else if (startParam === 'leaderboard') {
+					navigate('/leaderboard', { replace: true });
+				} else if (startParam === 'investors') {
+					navigate('/investors', { replace: true });
+				} else if (startParam.startsWith('gift_')) {
 					const giftId = startParam.substring(5);
 					if (giftId) navigate(`/gifts/report?g=${encodeURIComponent(giftId)}`, { replace: true });
 				} else if (startParam.startsWith('g_')) {

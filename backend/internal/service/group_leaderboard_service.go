@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"ifragment-backend/internal/client/telegram"
@@ -21,6 +22,8 @@ type GroupLeaderboardService struct {
 	intelCreditService *intelcredit.IntelCreditService
 	cache              *repository.Cache
 	tgClient           *telegram.BotAPIClient
+	memMu              sync.Mutex
+	boostMultipliers   map[int64]int
 }
 
 func NewGroupLeaderboardService(
@@ -32,6 +35,7 @@ func NewGroupLeaderboardService(
 		repo:               repo,
 		intelCreditService: intelCreditService,
 		cache:              cache,
+		boostMultipliers:   make(map[int64]int),
 	}
 }
 
@@ -48,6 +52,65 @@ func (s *GroupLeaderboardService) InvalidateLeaderboardCache(ctx context.Context
 			"leaderboard:group:messages:50",
 			"leaderboard:group:boosts:50",
 		).Err()
+	}
+}
+
+// ComputeBoostMultiplier calculates the active credit multiplier for a @FragmentInvestors booster
+func ComputeBoostMultiplier(boostCount int) int {
+	switch {
+	case boostCount >= 4:
+		return 3 // 3x Whale Booster Perk
+	case boostCount >= 2:
+		return 2 // 2x Twin Booster Perk
+	default:
+		return 1
+	}
+}
+
+// GetUserBoostMultiplier returns the user's active boost multiplier (1x, 2x, or 3x)
+func (s *GroupLeaderboardService) GetUserBoostMultiplier(ctx context.Context, userID int64) int {
+	if userID <= 0 {
+		return 1
+	}
+	if s.cache != nil && s.cache.Client != nil && !s.cache.IsQuotaExceeded() {
+		if val, err := s.cache.Client.Get(ctx, fmt.Sprintf("fi:boost_mult:%d", userID)).Int(); err == nil && val >= 1 {
+			return val
+		}
+	}
+	s.memMu.Lock()
+	mult, ok := s.boostMultipliers[userID]
+	s.memMu.Unlock()
+	if ok && mult >= 1 {
+		return mult
+	}
+	if s.repo != nil {
+		if stats, err := s.repo.GetUserStats(ctx, "boosts", userID); err == nil && stats != nil {
+			m := ComputeBoostMultiplier(stats.Score)
+			s.setUserBoostMultiplier(ctx, userID, m)
+			return m
+		}
+	}
+	return 1
+}
+
+func (s *GroupLeaderboardService) setUserBoostMultiplier(ctx context.Context, userID int64, mult int) {
+	if userID <= 0 {
+		return
+	}
+	if mult <= 1 {
+		s.memMu.Lock()
+		delete(s.boostMultipliers, userID)
+		s.memMu.Unlock()
+		if s.cache != nil && s.cache.Client != nil && !s.cache.IsQuotaExceeded() {
+			_ = s.cache.Client.Del(ctx, fmt.Sprintf("fi:boost_mult:%d", userID)).Err()
+		}
+		return
+	}
+	s.memMu.Lock()
+	s.boostMultipliers[userID] = mult
+	s.memMu.Unlock()
+	if s.cache != nil && s.cache.Client != nil && !s.cache.IsQuotaExceeded() {
+		_ = s.cache.Client.Set(ctx, fmt.Sprintf("fi:boost_mult:%d", userID), strconv.Itoa(mult), 48*time.Hour).Err()
 	}
 }
 
@@ -126,27 +189,59 @@ func (s *GroupLeaderboardService) GetLeaderboard(ctx context.Context, rankType s
 	return result, nil
 }
 
-// RecordGroupMessage records a message sent in @FragmentInvestors and atomically grants 1 Intel Credit
-func (s *GroupLeaderboardService) RecordGroupMessage(ctx context.Context, userID int64, username, firstName, photoURL, languageCode string, messageID int) error {
-	if s.repo == nil {
+// ComputeMessageRewardCredits calculates the unconditional credit reward for a message in @FragmentInvestors.
+// Because @FragmentInvestors operates with Telegram Paid Messages (users spend Telegram Stars per message),
+// EVERY user message has intrinsic monetary value and is rewarded 100% without any anti-spam, length,
+// duplicate, cooldown, or daily-cap filtering.
+func (s *GroupLeaderboardService) ComputeMessageRewardCredits(ctx context.Context, userID int64, paidStarCount int) int {
+	if userID <= 0 {
+		return 0
+	}
+	mult := s.GetUserBoostMultiplier(ctx, userID)
+	if mult < 1 {
+		mult = 1
+	}
+	baseCredits := 1
+	if paidStarCount > 1 {
+		baseCredits = paidStarCount
+	}
+	return baseCredits * mult
+}
+
+// RecordGroupMessage records EVERY message sent in @FragmentInvestors and atomically grants Intel Credits.
+// Zero messages are filtered out because @FragmentInvestors uses Telegram Paid Messages (Stars per message),
+// meaning every single message sent by a member carries real Star value.
+func (s *GroupLeaderboardService) RecordGroupMessage(ctx context.Context, userID int64, username, firstName, photoURL, languageCode string, messageID int, rawText ...string) error {
+	return s.RecordGroupMessageWithStars(ctx, userID, username, firstName, photoURL, languageCode, messageID, 0, rawText...)
+}
+
+// RecordGroupMessageWithStars records a message in @FragmentInvestors and grants Intel Credits scaled by
+// paidStarCount (when > 1) and the user's active group boost multiplier (1x, 2x, or 3x), with zero filtering.
+func (s *GroupLeaderboardService) RecordGroupMessageWithStars(ctx context.Context, userID int64, username, firstName, photoURL, languageCode string, messageID int, paidStarCount int, rawText ...string) error {
+	if userID <= 0 {
 		return nil
 	}
 
-	if err := s.repo.RecordGroupMessage(ctx, userID, username, firstName, photoURL, languageCode, messageID); err != nil {
-		slog.Error("failed to record group message in leaderboard repo", "user_id", userID, "error", err)
+	if s.repo != nil {
+		if err := s.repo.RecordGroupMessage(ctx, userID, username, firstName, photoURL, languageCode, messageID); err != nil {
+			slog.Error("failed to record group message in leaderboard repo", "user_id", userID, "error", err)
+		}
 	}
 
 	// Invalidate leaderboard cache so next request is immediately updated
 	s.InvalidateLeaderboardCache(ctx)
 
-	// Atomically grant 1 Intel Credit (1 message = 1 credit)
+	// Unconditionally grant Intel Credits for every message (no length filter, no duplicate drop, no cooldown, no daily cap)
 	if s.intelCreditService != nil && messageID > 0 {
+		rewardCredits := s.ComputeMessageRewardCredits(ctx, userID, paidStarCount)
+		if rewardCredits <= 0 {
+			rewardCredits = 1
+		}
 		refID := strconv.Itoa(messageID)
-		_, err := s.intelCreditService.GrantCredits(ctx, userID, "reward", 1, "group_message", refID, nil)
+		_, err := s.intelCreditService.GrantCredits(ctx, userID, "reward", rewardCredits, "group_message", refID, nil)
 		if err == nil {
-			go s.sendCreditEarnedNotification(userID, "group_message", 1)
+			go s.sendCreditEarnedNotification(userID, "group_message", rewardCredits)
 		} else {
-			// Idempotency constraint or transient error
 			slog.Debug("group message credit grant result", "user_id", userID, "message_id", messageID, "error", err)
 		}
 	}
@@ -154,16 +249,68 @@ func (s *GroupLeaderboardService) RecordGroupMessage(ctx context.Context, userID
 	return nil
 }
 
-// UpdateUserBoostCount updates the user's active boost count
+// UpdateUserBoostCount updates the user's active boost count and adjusts their active boost multiplier perk
 func (s *GroupLeaderboardService) UpdateUserBoostCount(ctx context.Context, userID int64, username, firstName, photoURL string, boostCount int) error {
 	if s.repo == nil {
 		return nil
 	}
+	if boostCount < 0 {
+		boostCount = 0
+	}
 	err := s.repo.UpdateUserBoostCount(ctx, userID, username, firstName, photoURL, boostCount)
 	if err == nil {
 		s.InvalidateLeaderboardCache(ctx)
+		// Grant or revoke boost multiplier perks immediately based on updated boost count
+		s.setUserBoostMultiplier(ctx, userID, ComputeBoostMultiplier(boostCount))
 	}
 	return err
+}
+
+// HandleRealtimeChatBoost processes a live chat_boost event for @FragmentInvestors,
+// activates the user's boost multiplier, and immediately grants daily bonus credits if eligible.
+func (s *GroupLeaderboardService) HandleRealtimeChatBoost(ctx context.Context, tgClient *telegram.BotAPIClient, chatID interface{}, userID int64, username, firstName string) {
+	if userID <= 0 {
+		return
+	}
+	boosts := 1
+	if tgClient != nil && chatID != nil {
+		if synced, err := s.SyncUserBoosts(ctx, tgClient, chatID, userID, username, firstName, ""); err == nil && synced > 0 {
+			boosts = synced
+		} else {
+			_ = s.UpdateUserBoostCount(ctx, userID, username, firstName, "", 1)
+		}
+	} else {
+		_ = s.UpdateUserBoostCount(ctx, userID, username, firstName, "", 1)
+	}
+
+	// Immediately process daily boost reward if user has >= 2 boosts (or grant instant 1-credit welcome boost bonus)
+	if s.intelCreditService != nil {
+		today := time.Now().UTC().Format("2006-01-02")
+		rewardCredits := boosts / 2
+		if rewardCredits < 1 {
+			rewardCredits = 1
+		}
+		ref := fmt.Sprintf("boost:%d:%s", userID, today)
+		if _, err := s.intelCreditService.GrantCredits(ctx, userID, "reward", rewardCredits, "daily_boost_reward", ref, nil); err == nil {
+			go s.sendCreditEarnedNotification(userID, "daily_boost_reward", rewardCredits)
+		}
+	}
+}
+
+// HandleRealtimeRemovedChatBoost processes a live removed_chat_boost event for @FragmentInvestors,
+// re-syncing active boosts and revoking perks if boosts were removed or expired.
+func (s *GroupLeaderboardService) HandleRealtimeRemovedChatBoost(ctx context.Context, tgClient *telegram.BotAPIClient, chatID interface{}, userID int64, username, firstName string) {
+	if userID <= 0 {
+		return
+	}
+	if tgClient != nil && chatID != nil {
+		if synced, err := s.SyncUserBoosts(ctx, tgClient, chatID, userID, username, firstName, ""); err == nil {
+			s.setUserBoostMultiplier(ctx, userID, ComputeBoostMultiplier(synced))
+			return
+		}
+	}
+	_ = s.UpdateUserBoostCount(ctx, userID, username, firstName, "", 0)
+	s.setUserBoostMultiplier(ctx, userID, 1)
 }
 
 // SyncUserBoosts fetches live boosts from Telegram Bot API and updates local record
@@ -223,7 +370,7 @@ func (s *GroupLeaderboardService) RunHourlyBoostSyncAndRewards(ctx context.Conte
 								photoURL = photoPath
 							}
 						}
-						_ = s.repo.UpdateUserBoostCount(ctx, adm.User.ID, adm.User.Username, adm.User.FirstName, photoURL, boosts)
+						_ = s.UpdateUserBoostCount(ctx, adm.User.ID, adm.User.Username, adm.User.FirstName, photoURL, boosts)
 					}
 					time.Sleep(50 * time.Millisecond)
 				}
@@ -241,7 +388,7 @@ func (s *GroupLeaderboardService) RunHourlyBoostSyncAndRewards(ctx context.Conte
 							photoURL = photoPath
 						}
 					}
-					_ = s.repo.UpdateUserBoostCount(ctx, target.UserID, target.Username, target.FirstName, photoURL, boosts)
+					_ = s.UpdateUserBoostCount(ctx, target.UserID, target.Username, target.FirstName, photoURL, boosts)
 				}
 				time.Sleep(50 * time.Millisecond) // rate limiting protection
 			}
@@ -343,4 +490,3 @@ func (s *GroupLeaderboardService) sendCreditEarnedNotification(userID int64, rew
 		}
 	}
 }
-

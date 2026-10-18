@@ -13,21 +13,21 @@ import (
 )
 
 type Config struct {
-	DB                  *repository.Database
-	Cache               *repository.Cache
-	OwnerRepo           *repository.OwnerRepo
-	SettingsRepo        *repository.SettingsRepo
-	AuthHandler         *handler.AuthHandler
-	UsernameHandler     *handler.UsernameHandler
-	CollectionHandler   *handler.CollectionHandler
-	ProfileHandler      *handler.ProfileHandler
-	WebhookHandler      *handler.WebhookHandler
-	OwnerHandler        *handler.OwnerHandler
-	NumbersHandler      *handler.NumbersHandler
-	GiftsHandler        *handler.GiftsHandler
-	IntelCreditHandler  *handler.IntelCreditHandler
-	RaffleHandler       *handler.RaffleHandler
-	InvestorsHandler    *handler.InvestorsPublicHandler
+	DB                      *repository.Database
+	Cache                   *repository.Cache
+	OwnerRepo               *repository.OwnerRepo
+	SettingsRepo            *repository.SettingsRepo
+	AuthHandler             *handler.AuthHandler
+	UsernameHandler         *handler.UsernameHandler
+	CollectionHandler       *handler.CollectionHandler
+	ProfileHandler          *handler.ProfileHandler
+	WebhookHandler          *handler.WebhookHandler
+	OwnerHandler            *handler.OwnerHandler
+	NumbersHandler          *handler.NumbersHandler
+	GiftsHandler            *handler.GiftsHandler
+	IntelCreditHandler      *handler.IntelCreditHandler
+	RaffleHandler           *handler.RaffleHandler
+	InvestorsHandler        *handler.InvestorsPublicHandler
 	GroupLeaderboardHandler *handler.GroupLeaderboardHandler
 }
 
@@ -38,7 +38,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		r.Use(middleware.BlockImpersonatedWrites)
 		r.Use(middleware.UserBanCheckMiddleware(cfg.OwnerRepo))
 
-		// Health & Readiness Endpoints (AGENTS.md Contract & Production Monitoring)
+		// Health & Readiness Endpoints
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
@@ -77,9 +77,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 
 		r.Get("/config", cfg.ProfileHandler.GetPublicConfig)
 		r.Get("/economy/config", cfg.ProfileHandler.GetEconomyConfig)
-		if cfg.RaffleHandler != nil {
-			r.Get("/raffle/latest", cfg.RaffleHandler.GetLatestDraw)
-		}
+		r.Get("/raffle/latest", cfg.RaffleHandler.GetLatestDraw)
 
 		r.Post("/webhook/telegram/{botID}", cfg.WebhookHandler.HandleTelegramWebhook)
 		r.With(middleware.ValidateTelegramInitData(cfg.DB, cfg.Cache)).Post("/auth/token", cfg.AuthHandler.IssueToken)
@@ -92,12 +90,13 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.With(middleware.OptionalAuthMiddleware).Get("/quick/stream", cfg.UsernameHandler.StreamQuickAnalysis)
 			r.Get("/rates", cfg.UsernameHandler.GetRates)
 			r.Get("/similar", cfg.UsernameHandler.GetSimilar)
+			r.Get("/history", cfg.UsernameHandler.GetHistory)
+			r.Get("/contact", cfg.UsernameHandler.GetContact)
+			r.Get("/portfolio", cfg.UsernameHandler.GetPortfolio)
 			r.Get("/calibration", cfg.UsernameHandler.GetAVMCalibration)
 			r.With(middleware.AuthMiddleware).Get("/valuate", cfg.UsernameHandler.Valuate)
-			if cfg.CollectionHandler != nil {
-				r.Get("/collection/stats", cfg.CollectionHandler.GetStats)
-				r.Get("/collection/history", cfg.CollectionHandler.GetHistory)
-			}
+			r.Get("/collection/stats", cfg.CollectionHandler.GetStats)
+			r.Get("/collection/history", cfg.CollectionHandler.GetHistory)
 			r.Post("/share", cfg.UsernameHandler.Share)
 			r.With(middleware.AuthMiddleware).Post("/send-to-chat", cfg.UsernameHandler.SendToChat)
 
@@ -139,34 +138,30 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.With(middleware.AuthMiddleware).Get("/watchlist", cfg.NumbersHandler.GetWatchlist)
 		})
 
-		if cfg.GiftsHandler != nil {
-			r.Route("/gifts", func(r chi.Router) {
-				r.Get("/intel", cfg.GiftsHandler.GetIntel)
-				r.Get("/collections", cfg.GiftsHandler.ListCollections)
-				r.Get("/collection-intel", cfg.GiftsHandler.GetCollectionIntel)
-				r.Get("/gate", cfg.GiftsHandler.GetCuriosityGate)
-				r.Get("/upgrade-advice", cfg.GiftsHandler.GetUpgradeAdvice)
-				r.Get("/portfolio", cfg.GiftsHandler.ScanPortfolio)
-				r.Post("/crafting-ev", cfg.GiftsHandler.CalculateCraftingEV)
-				r.Get("/image/{slug}", cfg.GiftsHandler.GetGiftImage)
-				r.With(middleware.OptionalAuthMiddleware).Get("/valuate", cfg.GiftsHandler.Valuate)
-				r.With(middleware.OptionalAuthMiddleware).Get("/enriched-report", cfg.GiftsHandler.GetEnrichedReport)
-				r.With(middleware.AuthMiddleware).Post("/unlock-coins", cfg.GiftsHandler.UnlockWithCoins)
-				r.With(middleware.AuthMiddleware).Post("/unlock-credit", cfg.GiftsHandler.UnlockWithCredit)
-				r.Get("/arbitrage", cfg.GiftsHandler.GetArbitrageRadar)
-				r.Get("/whales", cfg.GiftsHandler.GetWhales)
-				r.Get("/serials/classify", cfg.GiftsHandler.ClassifySerial)
-				r.With(middleware.AuthMiddleware).Post("/sync", cfg.GiftsHandler.TriggerSync)
-				r.With(middleware.AuthMiddleware).Post("/watchlist", cfg.GiftsHandler.ToggleWatchlist)
-				r.With(middleware.AuthMiddleware).Get("/watchlist", cfg.GiftsHandler.GetWatchlist)
-			})
-		}
+		r.Route("/gifts", func(r chi.Router) {
+			r.Get("/intel", cfg.GiftsHandler.GetIntel)
+			r.Get("/collections", cfg.GiftsHandler.ListCollections)
+			r.Get("/collection-intel", cfg.GiftsHandler.GetCollectionIntel)
+			r.Get("/gate", cfg.GiftsHandler.GetCuriosityGate)
+			r.Get("/upgrade-advice", cfg.GiftsHandler.GetUpgradeAdvice)
+			r.Get("/portfolio", cfg.GiftsHandler.ScanPortfolio)
+			r.Post("/crafting-ev", cfg.GiftsHandler.CalculateCraftingEV)
+			r.Get("/image/{slug}", cfg.GiftsHandler.GetGiftImage)
+			r.With(middleware.OptionalAuthMiddleware).Get("/valuate", cfg.GiftsHandler.Valuate)
+			r.With(middleware.OptionalAuthMiddleware).Get("/enriched-report", cfg.GiftsHandler.GetEnrichedReport)
+			r.With(middleware.AuthMiddleware).Post("/unlock-coins", cfg.GiftsHandler.UnlockWithCoins)
+			r.With(middleware.AuthMiddleware).Post("/unlock-credit", cfg.GiftsHandler.UnlockWithCredit)
+			r.Get("/arbitrage", cfg.GiftsHandler.GetArbitrageRadar)
+			r.Get("/whales", cfg.GiftsHandler.GetWhales)
+			r.Get("/serials/classify", cfg.GiftsHandler.ClassifySerial)
+			r.With(middleware.AuthMiddleware).Post("/sync", cfg.GiftsHandler.TriggerSync)
+			r.With(middleware.AuthMiddleware).Post("/watchlist", cfg.GiftsHandler.ToggleWatchlist)
+			r.With(middleware.AuthMiddleware).Get("/watchlist", cfg.GiftsHandler.GetWatchlist)
+		})
 
 		r.Route("/collection", func(r chi.Router) {
 			r.Get("/stats", cfg.CollectionHandler.GetStats)
 		})
-
-
 
 		r.Route("/profile", func(r chi.Router) {
 			r.Get("/avatar/{userID}", cfg.ProfileHandler.GetAvatar)
@@ -188,9 +183,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Get("/assets", cfg.ProfileHandler.GetMyAssets)
 				r.Get("/sessions", cfg.AuthHandler.GetSessions)
 				r.Post("/sessions/revoke-all", cfg.AuthHandler.RevokeAllSessions)
-				if cfg.RaffleHandler != nil {
-					r.Get("/raffle", cfg.RaffleHandler.GetUserProfileRaffle)
-				}
+				r.Get("/raffle", cfg.RaffleHandler.GetUserProfileRaffle)
 
 				r.Get("/cosmetics", cfg.ProfileHandler.GetCosmetics)
 				r.Post("/cosmetics/purchase", cfg.ProfileHandler.PurchaseCosmetic)
@@ -202,17 +195,13 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Post("/promo/redeem", cfg.OwnerHandler.RedeemPromo)
 			})
 
-			if cfg.GroupLeaderboardHandler != nil {
-				r.With(middleware.OptionalAuthMiddleware).Get("/leaderboard", cfg.GroupLeaderboardHandler.GetLeaderboard)
-			}
+			r.With(middleware.OptionalAuthMiddleware).Get("/leaderboard", cfg.GroupLeaderboardHandler.GetLeaderboard)
 		})
 
 		// Standalone Leaderboard endpoint
-		if cfg.GroupLeaderboardHandler != nil {
-			r.Route("/leaderboard", func(r chi.Router) {
-				r.With(middleware.OptionalAuthMiddleware).Get("/group", cfg.GroupLeaderboardHandler.GetLeaderboard)
-			})
-		}
+		r.Route("/leaderboard", func(r chi.Router) {
+			r.With(middleware.OptionalAuthMiddleware).Get("/group", cfg.GroupLeaderboardHandler.GetLeaderboard)
+		})
 
 		r.Route("/frg", func(r chi.Router) {
 			r.Use(middleware.AuthMiddleware)
@@ -221,27 +210,23 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		})
 
 		// Intel Credits System
-		if cfg.IntelCreditHandler != nil {
-			r.Route("/intel", func(r chi.Router) {
-				r.Use(middleware.AuthMiddleware)
-				r.Get("/credits", cfg.IntelCreditHandler.GetBalance)
-				r.Post("/credits/consume", cfg.IntelCreditHandler.Consume)
-				r.Get("/credits/config", cfg.IntelCreditHandler.GetStoreConfig)
-				r.Post("/credits/purchase", cfg.IntelCreditHandler.Purchase)
-			})
-		}
+		r.Route("/intel", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware)
+			r.Get("/credits", cfg.IntelCreditHandler.GetBalance)
+			r.Post("/credits/consume", cfg.IntelCreditHandler.Consume)
+			r.Get("/credits/config", cfg.IntelCreditHandler.GetStoreConfig)
+			r.Post("/credits/purchase", cfg.IntelCreditHandler.Purchase)
+		})
 
 		// Public Ads Endpoints
-		if cfg.OwnerHandler != nil {
-			r.Get("/ads/active", cfg.OwnerHandler.GetActiveAds)
-			r.Post("/ads/{id}/impression", cfg.OwnerHandler.TrackAdImpression)
-			r.Post("/ads/{id}/click", cfg.OwnerHandler.TrackAdClick)
-		}
+		r.Get("/ads/active", cfg.OwnerHandler.GetActiveAds)
+		r.Post("/ads/{id}/impression", cfg.OwnerHandler.TrackAdImpression)
+		r.Post("/ads/{id}/click", cfg.OwnerHandler.TrackAdClick)
 
 		// Public Investors Page Endpoint
 		if cfg.InvestorsHandler != nil {
 			r.Get("/public/investors-page", cfg.InvestorsHandler.GetInvestorsPage)
-		} else if cfg.SettingsRepo != nil {
+		} else {
 			investorsH := handler.NewInvestorsPublicHandler(cfg.SettingsRepo)
 			r.Get("/public/investors-page", investorsH.GetInvestorsPage)
 		}
@@ -283,6 +268,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/flag", cfg.OwnerHandler.FlagUser)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/adjust-balance", cfg.OwnerHandler.AdjustBalance)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/adjust-frg", cfg.OwnerHandler.AdjustBalance)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/adjust-credits", cfg.OwnerHandler.AdjustIntelCredits)
 				r.With(middleware.RequirePermission(middleware.PermAuditView)).Get("/audit-logs", cfg.OwnerHandler.GetAuditLogs)
 
 				// Promos
@@ -326,9 +312,11 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/finance/orders", cfg.OwnerHandler.GetOrdersList)
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/finance/subscriptions", cfg.OwnerHandler.GetPremiumEntities)
 
-				// Health
+				// Health & Cache Control
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/errors", cfg.OwnerHandler.GetSystemErrors)
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/metrics", cfg.OwnerHandler.GetHealth)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/external", cfg.OwnerHandler.GetExternalAPIHealth)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/cache/clear", cfg.OwnerHandler.ClearCache)
 			})
 		})
 	})

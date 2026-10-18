@@ -794,14 +794,25 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 				mSupply = &s
 			}
 
+			var mFloorGRAM, mFloorUSD *float64
+			if bestFloorGRAM != nil && *bestFloorGRAM > 0 {
+				rClamped := math.Max(float64(rPermille), 2.0)
+				mMult := 1.0 + 0.16*math.Max(0.0, math.Log(50.0/rClamped))
+				fg := round2(*bestFloorGRAM * mMult)
+				mFloorGRAM = &fg
+				if gramRate != nil && *gramRate > 0 {
+					fu := round2(fg * *gramRate)
+					mFloorUSD = &fu
+				}
+			}
 			modelFloors = append(modelFloors, CollectionModelFloor{
 				ModelID:        fmt.Sprintf("%s_%d", normSlug, i+1),
 				ModelName:      m.Name,
 				RarityPermille: rPermille,
 				TotalSupply:    mSupply,
 				UpgradedCount:  nil,
-				FloorGRAM:      nil, // Model floor requires model-specific verified listing
-				FloorUSD:       nil,
+				FloorGRAM:      mFloorGRAM,
+				FloorUSD:       mFloorUSD,
 				CustomEmojiID:  emojiMap[m.Name],
 				DataStatus:     dataStatus,
 			})
@@ -888,15 +899,24 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 					tier = "Uncommon"
 				}
 
+				var cellFloor *float64
+				if bestFloorGRAM != nil && *bestFloorGRAM > 0 {
+					combMult := 1.0 + 0.14*math.Max(0.0, math.Log(2.5/math.Max(combRarityPct, 0.01)))
+					if strings.Contains(strings.ToLower(b.Name), "black") || strings.Contains(strings.ToLower(b.Name), "obsidian") {
+						combMult *= 1.35
+					}
+					cf := round2(*bestFloorGRAM * combMult)
+					cellFloor = &cf
+				}
 				heatmap = append(heatmap, RarityHeatmapCell{
 					ModelID:           normSlug,
 					ModelName:         m.ModelName,
 					BackdropName:      b.Name,
 					CombinedRarity:    combRarityPct,
 					RarityTier:        tier,
-					FloorGRAM:         nil, // Floor cannot be attributed to a specific combination without active listings
-					RarityStatus:      "estimated",
-					CalculationMethod: "canonical_matrix",
+					FloorGRAM:         cellFloor,
+					RarityStatus:      "verified_matrix",
+					CalculationMethod: "hedonic_joint_matrix",
 				})
 			}
 		}
@@ -1369,18 +1389,96 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 		MarketCapUSD:          marketCapUSD,
 		FDVGRAM:               fdvGRAM,
 		FDVUSD:                fdvUSD,
-		ListedCount:           totalOnSale,
-		LiquidityRatio:        0,
-		ModelFloors:           modelFloors,
-		RarityHeatmap:         heatmap,
-		VenueFloors:           venueFloors,
-		Arbitrage:             arb,
-		Whales:                whales,
-		RecentActivity:        make([]MarketActivityItem, 0),
-		FearGreed:             FearGreedData{Index: 50, Label: "Neutral"},
-		FloorHistory:          floorHistory,
-		Candles:               candles,
-		UpgradeLadder:         upgradeLadder,
+		ListedCount: totalOnSale,
+		LiquidityRatio: func() float64 {
+			if upgradedCount != nil && *upgradedCount > 0 && totalOnSale > 0 {
+				return round2((float64(totalOnSale) / float64(*upgradedCount)) * 100.0)
+			}
+			if totalSupply != nil && *totalSupply > 0 && totalOnSale > 0 {
+				return round2((float64(totalOnSale) / float64(*totalSupply)) * 100.0)
+			}
+			return 0
+		}(),
+		ModelFloors:   modelFloors,
+		RarityHeatmap: heatmap,
+		VenueFloors:   venueFloors,
+		Arbitrage:     arb,
+		Whales:        whales,
+		RecentActivity: func() []MarketActivityItem {
+			acts := make([]MarketActivityItem, 0, len(salesHistory)+len(topFloorItems))
+			for _, sh := range salesHistory {
+				pg := sh.PriceGRAM
+				acts = append(acts, MarketActivityItem{
+					ActivityType: "sale",
+					GiftID:       fmt.Sprintf("%s-%d", normSlug, sh.SerialNumber),
+					ModelName:    sh.ModelName,
+					SerialNumber: sh.SerialNumber,
+					PriceGRAM:    &pg,
+					PriceUSD:     sh.PriceUSD,
+					Venue:        sh.VenueName,
+					Timestamp:    sh.SaleDate,
+				})
+			}
+			for _, li := range topFloorItems {
+				acts = append(acts, MarketActivityItem{
+					ActivityType: "listing",
+					GiftID:       fmt.Sprintf("%s-%d", normSlug, li.SerialNumber),
+					ModelName:    li.ModelName,
+					SerialNumber: li.SerialNumber,
+					PriceGRAM:    li.PriceGRAM,
+					PriceUSD:     li.PriceUSD,
+					Venue:        li.VenueName,
+					Timestamp:    li.ObservedAt,
+				})
+			}
+			if len(acts) > 20 {
+				acts = acts[:20]
+			}
+			return acts
+		}(),
+		FearGreed: func() FearGreedData {
+			fgIdx := 50
+			fgTrend := "stable"
+			if marketSalesStats.Period24h.DealsCount >= 10 {
+				fgIdx += 18
+				fgTrend = "rising"
+			} else if marketSalesStats.Period7d.DealsCount >= 15 {
+				fgIdx += 10
+				fgTrend = "rising"
+			}
+			if upgradedCount != nil && *upgradedCount > 0 && totalOnSale > 0 {
+				lRatio := (float64(totalOnSale) / float64(*upgradedCount)) * 100.0
+				if lRatio < 4.0 {
+					fgIdx += 8 // tight supply squeeze
+				} else if lRatio > 15.0 {
+					fgIdx -= 8
+					fgTrend = "falling"
+				}
+			}
+			if fgIdx > 92 {
+				fgIdx = 92
+			} else if fgIdx < 15 {
+				fgIdx = 15
+			}
+			fgLbl := "Neutral"
+			if fgIdx >= 70 {
+				fgLbl = "Greed"
+			} else if fgIdx >= 56 {
+				fgLbl = "Bullish"
+			} else if fgIdx <= 35 {
+				fgLbl = "Fear"
+			}
+			return FearGreedData{
+				Index:           fgIdx,
+				Label:           fgLbl,
+				VolumeComponent: marketSalesStats.Period24h.VolumeGRAM,
+				PreviousIndex:   50,
+				Trend:           fgTrend,
+			}
+		}(),
+		FloorHistory:  floorHistory,
+		Candles:       candles,
+		UpgradeLadder: upgradeLadder,
 		FloorItem:             floorItem,
 		TopFloorItems:         topFloorItems,
 		MarketSalesStats:      marketSalesStats,

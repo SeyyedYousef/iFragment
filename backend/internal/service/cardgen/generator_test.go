@@ -148,8 +148,7 @@ func TestGenerateSampleCards(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateUsernameCard failed: %v", err)
 	}
-	_ = os.WriteFile("test_sample_username.png", uData, 0644)
-	artifactDir := `C:\Users\DEll\.gemini\antigravity-ide\brain\eedbfa01-a771-4105-8fad-05011484b61c`
+	artifactDir := t.TempDir()
 	_ = os.WriteFile(filepath.Join(artifactDir, "flex_card_username.png"), uData, 0644)
 
 	// 2. Number Card (matches Image 2: +888 0123 4567, RANK #1011, 44,500.0 TON, $64524)
@@ -157,7 +156,6 @@ func TestGenerateSampleCards(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateNumberCard failed: %v", err)
 	}
-	_ = os.WriteFile("test_sample_number.png", nData, 0644)
 	_ = os.WriteFile(filepath.Join(artifactDir, "flex_card_number.png"), nData, 0644)
 
 	// 3. Rich Gift Card (Plush Pepe #42, LEGENDARY, Emerald Glow, 145.0 TON, $725)
@@ -179,13 +177,12 @@ func TestGenerateSampleCards(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateRichGiftCard failed: %v", err)
 	}
-	_ = os.WriteFile("test_sample_gift.png", gData, 0644)
 	_ = os.WriteFile(filepath.Join(artifactDir, "flex_card_gift.png"), gData, 0644)
 }
 
 func TestCardGenerator_GenerateRichGiftCard_Langs(t *testing.T) {
 	cg := NewCardGenerator()
-	artifactDir := `C:\Users\DEll\.gemini\antigravity-ide\brain\eedbfa01-a771-4105-8fad-05011484b61c`
+	artifactDir := t.TempDir()
 	imgFile := filepath.Join(artifactDir, "scratch", "real_gift_img.jpg")
 
 	for _, lang := range []string{"fa", "en", "ru", "zh"} {
