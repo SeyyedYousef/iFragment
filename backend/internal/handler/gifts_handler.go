@@ -153,13 +153,8 @@ func (h *GiftsHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request) 
 	}
 
 	db := h.service.DB()
-	if idempotencyKey != "" && db != nil && db.Pool != nil {
-		var existingID string
-		errEnt := db.Pool.QueryRow(ctx, `
-			SELECT id FROM report_entitlements 
-			WHERE principal_id = $1 AND asset_id = $2 AND idempotency_key = $3
-			LIMIT 1`, userID, req.GiftID, idempotencyKey).Scan(&existingID)
-		if errEnt == nil {
+	if idempotencyKey != "" && db != nil {
+		if hasEnt, errEnt := db.HasReportEntitlement(ctx, userID, req.GiftID, idempotencyKey); errEnt == nil && hasEnt {
 			val, errVal := h.service.ValuateGift(ctx, userID, req.GiftID)
 			if errVal == nil {
 				RespondJSON(w, http.StatusOK, val)
@@ -174,12 +169,8 @@ func (h *GiftsHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if idempotencyKey != "" && db != nil && db.Pool != nil {
-		_, _ = db.Pool.Exec(ctx, `
-			INSERT INTO report_entitlements (principal_id, asset_id, idempotency_key, product_type, granted_at)
-			VALUES ($1, $2, $3, 'gift_report', CURRENT_TIMESTAMP)
-			ON CONFLICT (principal_id, asset_id, idempotency_key) DO NOTHING`,
-			userID, req.GiftID, idempotencyKey)
+	if db != nil {
+		_ = db.GrantReportEntitlement(ctx, userID, req.GiftID, idempotencyKey, "gift_report")
 	}
 
 	h.sendGiftNotification(r, val, "credit")
@@ -597,9 +588,95 @@ func (h *GiftsHandler) deliverGiftReportToUser(r *http.Request, userID int64, va
 		appLink := fmt.Sprintf("%s?startapp=gift_%s", miniAppURL, val.GiftID)
 		fragmentLink := "https://fragment.com/gifts"
 
-		rarityTier := localizeGiftRarityFa(val.JointRarity.RarityClass)
+		lang := "fa"
+		if h.service != nil && h.service.DB() != nil {
+			lang = h.service.DB().GetUserLanguageCode(ctx, userID)
+		}
 
-		reportText := fmt.Sprintf(`🎁 <b>کارشناسی تحلیلی گیفت تلگرام: %s</b>
+		rarityTier := val.JointRarity.RarityClass
+		if lang == "fa" {
+			rarityTier = localizeGiftRarityFa(val.JointRarity.RarityClass)
+		}
+
+		var reportText string
+		btnMiniApp := "🎁 مشاهده در مینی‌اپ"
+		btnFragment := "🌐 بازار گیفت فرگمنت"
+
+		switch lang {
+		case "en":
+			btnMiniApp = "🎁 Open Report in Mini App"
+			btnFragment = "🌐 Fragment Gifts Market"
+			reportText = fmt.Sprintf(`🎁 <b>Telegram Collectible Gift Valuation: %s</b>
+
+💎 Gift ID: <code>%s</code>
+🏆 Rarity Tier: <b>%s</b>
+#️⃣ Serial Number: <b>#%d</b>
+
+━━━━━━━━━━━━━━━━━━━
+💰 <b>4-Pillar Valuation Summary:</b>
+• Fair Value Estimate: <b>%s TON (~$%.0f)</b>
+• Model Confidence: <b>%d%%</b>
+━━━━━━━━━━━━━━━━━━━
+
+⚡ <i>GV Engine institutional valuation powered by TON on-chain & multi-venue data</i>`,
+				telegram.EscapeHTML(val.DisplayTitle),
+				telegram.EscapeHTML(val.GiftID),
+				telegram.EscapeHTML(rarityTier),
+				val.SerialNumber,
+				val.ExpectedGRAM.StringFixed(2),
+				val.ExpectedUSD,
+				val.ConfidenceScore,
+			)
+		case "ru":
+			btnMiniApp = "🎁 Открыть отчёт в Mini App"
+			btnFragment = "🌐 Маркет подарков Fragment"
+			reportText = fmt.Sprintf(`🎁 <b>Аналитическая оценка подарка Telegram: %s</b>
+
+💎 ID подарка: <code>%s</code>
+🏆 Уровень редкости: <b>%s</b>
+#️⃣ Серийный номер: <b>#%d</b>
+
+━━━━━━━━━━━━━━━━━━━
+💰 <b>4-факторная оценка стоимости:</b>
+• Справедливая цена (Fair Value): <b>%s TON (~$%.0f)</b>
+• Точность алгоритма: <b>%d%%</b>
+━━━━━━━━━━━━━━━━━━━
+
+⚡ <i>Институциональная оценка GV Engine на базе ончейн-сделок TON</i>`,
+				telegram.EscapeHTML(val.DisplayTitle),
+				telegram.EscapeHTML(val.GiftID),
+				telegram.EscapeHTML(rarityTier),
+				val.SerialNumber,
+				val.ExpectedGRAM.StringFixed(2),
+				val.ExpectedUSD,
+				val.ConfidenceScore,
+			)
+		case "zh":
+			btnMiniApp = "🎁 在小程序查看报告"
+			btnFragment = "🌐 Fragment 礼物市场"
+			reportText = fmt.Sprintf(`🎁 <b>Telegram 典藏礼物深度估值: %s</b>
+
+💎 礼物编号: <code>%s</code>
+🏆 稀有度等级: <b>%s</b>
+#️⃣ 序列号: <b>#%d</b>
+
+━━━━━━━━━━━━━━━━━━━
+💰 <b>四维估值核心结论:</b>
+• 公允估值 (Fair Value): <b>%s TON (~$%.0f)</b>
+• 模型置信度: <b>%d%%</b>
+━━━━━━━━━━━━━━━━━━━
+
+⚡ <i>由 GV Engine 基于 TON 链上及多市场真实交易驱动</i>`,
+				telegram.EscapeHTML(val.DisplayTitle),
+				telegram.EscapeHTML(val.GiftID),
+				telegram.EscapeHTML(rarityTier),
+				val.SerialNumber,
+				val.ExpectedGRAM.StringFixed(2),
+				val.ExpectedUSD,
+				val.ConfidenceScore,
+			)
+		default:
+			reportText = fmt.Sprintf(`🎁 <b>کارشناسی تحلیلی گیفت تلگرام: %s</b>
 
 💎 شناسه گیفت: <code>%s</code>
 🏆 رتبه کمیابی: <b>%s</b>
@@ -612,28 +689,29 @@ func (h *GiftsHandler) deliverGiftReportToUser(r *http.Request, userID int64, va
 ━━━━━━━━━━━━━━━━━━━
 
 ⚡ <i>ارزیابی هوشمند موتور GV Engine بر اساس متدولوژی ثبت‌شده در شبکه TON</i>`,
-			telegram.EscapeHTML(val.DisplayTitle),
-			telegram.EscapeHTML(val.GiftID),
-			telegram.EscapeHTML(rarityTier),
-			val.SerialNumber,
-			val.ExpectedGRAM.StringFixed(2),
-			val.ExpectedUSD,
-			val.ConfidenceScore,
-		)
+				telegram.EscapeHTML(val.DisplayTitle),
+				telegram.EscapeHTML(val.GiftID),
+				telegram.EscapeHTML(rarityTier),
+				val.SerialNumber,
+				val.ExpectedGRAM.StringFixed(2),
+				val.ExpectedUSD,
+				val.ConfidenceScore,
+			)
+		}
 
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
 				{
-					{"text": "🎁 مشاهده در مینی‌اپ", "url": appLink},
+					{"text": btnMiniApp, "url": appLink},
 				},
 				{
-					{"text": "🌐 بازار گیفت فرگمنت", "url": fragmentLink},
+					{"text": btnFragment, "url": fragmentLink},
 				},
 			},
 		}
 
 		if h.cardGen != nil {
-			cardParams := buildGiftCardParams(val, "fa")
+			cardParams := buildGiftCardParams(val, lang)
 			if pngBytes, err := h.cardGen.GenerateRichGiftCard(cardParams); err == nil {
 				if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
 					var publicURL string

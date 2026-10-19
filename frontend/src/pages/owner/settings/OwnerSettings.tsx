@@ -246,7 +246,7 @@ export const OwnerSettings: Component = () => {
 								<div class="flex items-center gap-2">
 									<span class="material-symbols-outlined text-amber-400">handshake</span>
 									<h3 class="text-sm font-bold text-white">
-										تصویر تمام‌صفحه صفحه سرمایه‌گذاران (تب دوم ربات)
+										{t('ownerInvestors.title')}
 									</h3>
 								</div>
 								<A
@@ -254,12 +254,11 @@ export const OwnerSettings: Component = () => {
 									class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#3390ec]/20 hover:bg-[#3390ec]/30 text-[#3390ec] text-xs font-bold transition border border-[#3390ec]/30"
 								>
 									<span class="material-symbols-outlined text-sm">open_in_new</span>
-									<span>صفحه اختصاصی با پیش‌نمایش زنده</span>
+									<span>{t('ownerInvestors.currentPreview')}</span>
 								</A>
 							</div>
 							<p class="text-xs text-white/50 mt-2 leading-relaxed">
-								تصویر تمام‌صفحه که به جای کل صفحه تب دوم (سرمایه‌گذاران) نمایش داده می‌شود. ابعاد
-								استاندارد: ۱۰۸۰×۱۹۲۰ (عمودی ۹:۱۶). این بخش کاملاً مستقل از بنرهای صفحه اول است.
+								{t('ownerInvestors.subtitle')}
 							</p>
 						</header>
 

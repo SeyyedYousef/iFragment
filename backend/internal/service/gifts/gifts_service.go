@@ -952,7 +952,7 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 		}
 
 		marketplaceLinks := map[string]string{
-			"fragment": fmt.Sprintf("https://fragment.com/gift/%s-%d", ref.ModelID, ref.SerialNumber),
+			"fragment": fmt.Sprintf("https://fragment.com/gift/%s-%d", strings.ReplaceAll(strings.ReplaceAll(ref.ModelID, "_", ""), "-", ""), ref.SerialNumber),
 			"getgems":  "https://getgems.io",
 		}
 		if contractAddr != "" {
@@ -970,9 +970,8 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 			"contract_address":   contractAddr,
 			"marketplace_links":  marketplaceLinks,
 			"curiosity_gate":     gate,
-			"unlock_cost_coins":  15000,
 			"unlock_cost_credit": 1,
-			"message":            "Full valuation report is locked. Unlock with 15,000 Coins or 1 Intel Credit.",
+			"message":            "Full valuation report is locked. Unlock with 1 Intel Credit.",
 		}, nil
 	}
 
@@ -1020,7 +1019,7 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 	}
 
 	marketplaceLinks := map[string]string{
-		"fragment": fmt.Sprintf("https://fragment.com/gift/%s-%d", ref.ModelID, ref.SerialNumber),
+		"fragment": fmt.Sprintf("https://fragment.com/gift/%s-%d", strings.ReplaceAll(strings.ReplaceAll(ref.ModelID, "_", ""), "-", ""), ref.SerialNumber),
 		"getgems":  "https://getgems.io",
 	}
 	if contractAddr != "" {
@@ -1167,27 +1166,124 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 		}
 	}
 
+	lang := "fa"
+	if s.db != nil && userID > 0 {
+		lang = s.db.GetUserLanguageCode(ctx, userID)
+	}
+
 	// Serial number gravity & collectible tier analysis
 	sn := ref.SerialNumber
 	snTier := "Standard"
 	snMultiplier := 1.0
 	snDesc := "معمولی"
+	switch lang {
+	case "en":
+		snDesc = "Standard Serial"
+	case "ru":
+		snDesc = "Стандартный номер"
+	case "zh":
+		snDesc = "标准序列号"
+	}
 	if sn >= 1 && sn <= 9 {
 		snTier = "Single-Digit"
 		snMultiplier = 3.5
-		snDesc = "تک‌رقمی فوق کلکسیونی"
+		switch lang {
+		case "en":
+			snDesc = "Ultra-Collectible Single Digit"
+		case "ru":
+			snDesc = "Ультра-коллекционный однозначный"
+		case "zh":
+			snDesc = "殿堂级个位数序列号"
+		default:
+			snDesc = "تک‌رقمی فوق کلکسیونی"
+		}
 	} else if sn >= 10 && sn <= 99 {
 		snTier = "Two-Digit"
 		snMultiplier = 1.8
-		snDesc = "دورقمی کمیاب"
+		switch lang {
+		case "en":
+			snDesc = "Rare Two-Digit Serial"
+		case "ru":
+			snDesc = "Редкий двузначный номер"
+		case "zh":
+			snDesc = "稀有两位数序列号"
+		default:
+			snDesc = "دورقمی کمیاب"
+		}
 	} else if sn%111 == 0 || sn == 777 || sn == 888 {
 		snTier = "Repeating Digits"
 		snMultiplier = 2.2
-		snDesc = "ارقام تکرارشونده خاص"
+		switch lang {
+		case "en":
+			snDesc = "Special Repeating Digits"
+		case "ru":
+			snDesc = "Особые повторяющиеся цифры"
+		case "zh":
+			snDesc = "特殊豹子号/连号"
+		default:
+			snDesc = "ارقام تکرارشونده خاص"
+		}
 	} else if sn%100 == 0 {
 		snTier = "Round Number"
 		snMultiplier = 1.3
-		snDesc = "شماره رند صدگان"
+		switch lang {
+		case "en":
+			snDesc = "Clean Round Hundred"
+		case "ru":
+			snDesc = "Круглая сотня"
+		case "zh":
+			snDesc = "整百吉利号"
+		default:
+			snDesc = "شماره رند صدگان"
+		}
+	}
+
+	hostNote := "کاربری که گیفت را در ویترین پروفایل تلگرام نمایش می‌دهد."
+	walletNote := "والت دارنده کلید خصوصی NFT در شبکه بلاکچین TON."
+	custodyNotice := "گیفت‌های ارتقایافته (TEP-62) در والت غیرامانی قرار داشته و قابلیت فروش در فرگمنت و گت‌جمز دارند."
+	switch lang {
+	case "en":
+		hostNote = "Telegram profile currently showcasing this gift."
+		walletNote = "Non-custodial TON wallet holding the NFT private key."
+		custodyNotice = "Upgraded TEP-62 NFT gifts are held in non-custodial wallets and tradable on Fragment and Getgems."
+	case "ru":
+		hostNote = "Профиль Telegram, в витрине которого отображается подарок."
+		walletNote = "Некастодиальный TON-кошелёк, владеющий приватным ключом NFT."
+		custodyNotice = "Улучшенные подарки (TEP-62) хранятся в некастодиальных кошельках и торгуются на Fragment и Getgems."
+	case "zh":
+		hostNote = "当前在 Telegram 个人主页展示该礼物的用户。"
+		walletNote = "持有该 NFT 私钥的 TON 非托管钱包。"
+		custodyNotice = "已升级的 TEP-62 礼物存储在非托管钱包中，可在 Fragment 和 Getgems 自由交易。"
+	}
+
+	// Enrich trait_dna with backend-computed trait_floor_ton based on collection base floor & trait rarity multiplier
+	baseFloorTON := val.BasePriceGRAM.InexactFloat64()
+	if baseFloorTON <= 0 {
+		baseFloorTON = expectedTON
+	}
+	var enrichedTraitDNA []map[string]interface{}
+	for _, td := range val.TraitDNA {
+		rarityBoost := 1.0
+		if td.Percentile > 0 && td.Percentile < 100 {
+			rarityBoost = 1.0 + math.Min(1.5, (10.0/math.Max(td.Percentile, 0.5))*0.15)
+		}
+		traitFloor := math.Round(baseFloorTON*rarityBoost*10.0) / 10.0
+		entry := map[string]interface{}{
+			"axis_key":        td.AxisKey,
+			"axis_name":       td.AxisName,
+			"value":           td.Value,
+			"percentile":      td.Percentile,
+			"rarity_tier":     td.RarityTier,
+			"craft_chance":    td.CraftChance,
+			"trait_floor_ton": traitFloor,
+		}
+		if td.Colors != nil {
+			entry["colors"] = td.Colors
+		}
+		enrichedTraitDNA = append(enrichedTraitDNA, entry)
+	}
+	if len(enrichedTraitDNA) > 0 {
+		res["trait_dna"] = enrichedTraitDNA
 	}
 
 	res["is_unlocked"] = true
@@ -1219,19 +1315,19 @@ func (s *GiftsService) GetEnrichedReport(ctx context.Context, userID int64, raw 
 	res["host_profile"] = map[string]interface{}{
 		"host_name":    hostName,
 		"is_showcased": hostName != "",
-		"note":         "کاربری که گیفت را در ویترین پروفایل تلگرام نمایش می‌دهد.",
+		"note":         hostNote,
 	}
 	res["owner_wallet"] = map[string]interface{}{
 		"wallet_address": ownerAddr,
 		"is_escrow":      isEscrow,
 		"escrow_name":    escrowName,
-		"note":           "والت دارنده کلید خصوصی NFT در شبکه بلاکچین TON.",
+		"note":           walletNote,
 	}
 	res["venue_fee_matrix"] = venueFeeMatrix
 	res["upgrade_info"] = map[string]interface{}{
 		"is_upgraded":       isOnChain,
 		"upgrade_fee_stars": 25,
-		"custody_notice":    "گیفت‌های ارتقایافته (TEP-62) در والت غیرامانی قرار داشته و قابلیت فروش در فرگمنت و گت‌جمز دارند.",
+		"custody_notice":    custodyNotice,
 	}
 	res["on_chain"] = map[string]interface{}{
 		"is_on_chain":        isOnChain,

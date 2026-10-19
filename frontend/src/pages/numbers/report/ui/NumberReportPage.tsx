@@ -5,7 +5,7 @@ import {
 	type NumberValuationResult,
 	numbersApi,
 } from '@/entities/numbers/index.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { isRtl, locale, t } from '@/shared/i18n/index.js';
 import { layaT, NUMBER_REPORT_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard } from '@/shared/lib/telegram-native.js';
@@ -339,6 +339,7 @@ export const NumberReportPage: Component = () => {
 			const nextState = !isWatching();
 			await numbersApi.toggleWatchlist(inputNumber(), nextState);
 			setIsWatching(nextState);
+			setIsMonitored(nextState);
 			haptic.notify('success');
 		} catch {
 			haptic.notify('error');
@@ -348,9 +349,7 @@ export const NumberReportPage: Component = () => {
 	};
 
 	const handleToggleMonitoring = () => {
-		haptic.selection();
-		setIsMonitored(!isMonitored());
-		haptic.notify('success');
+		void handleToggleWatchlist();
 	};
 
 	const handleCopyHeroNumber = () => {
@@ -814,7 +813,7 @@ export const NumberReportPage: Component = () => {
 											fallback={
 												<div class="flex items-center gap-1.5 bg-amber-500/15 px-2.5 py-1 rounded-[8px] border border-amber-500/40 text-amber-400 font-bold uppercase tracking-wider text-[9px]">
 													<div class="w-1.5 h-1.5 bg-amber-400 rounded-full" />
-													<span>{isRtl() ? 'تأیید نشده' : 'UNVERIFIED'}</span>
+													<span>{({ fa: 'تأیید نشده', en: 'UNVERIFIED', ru: 'НЕ ПОДТВЕРЖДЕНО', zh: '未验证' } as Record<string, string>)[locale()] || 'UNVERIFIED'}</span>
 												</div>
 											}
 										>
@@ -853,7 +852,7 @@ export const NumberReportPage: Component = () => {
 							<a
 								href={
 									reportData()?.fragment_direct_url ||
-									`https://fragment.com/number/${(reportData()?.number || '').replace('+888', '')}`
+									`https://fragment.com/number/${(reportData()?.number || inputNumber() || '').replace(/^\+/, '').replace(/\s+/g, '')}`
 								}
 								target="_blank"
 								rel="noopener noreferrer"

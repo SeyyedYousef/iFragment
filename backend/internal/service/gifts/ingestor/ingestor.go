@@ -357,6 +357,7 @@ func (e *IngestionEngine) computeArbitrageOpportunities(ctx context.Context, slu
 		FROM venue_snapshots s1
 		JOIN venue_snapshots s2 ON s1.model_id = s2.model_id AND s1.venue != s2.venue
 		WHERE s1.floor_price_gram > 0 AND s2.floor_price_gram > s1.floor_price_gram
+		  AND s1.has_real_volume_badge = TRUE AND s2.has_real_volume_badge = TRUE
 	`
 	rows, err := e.repo.DB().Pool.Query(ctx, query)
 	if err != nil {

@@ -136,6 +136,8 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.With(middleware.AuthMiddleware).Post("/unlock-credit", cfg.NumbersHandler.UnlockWithCredit)
 			r.With(middleware.AuthMiddleware).Post("/watchlist", cfg.NumbersHandler.ToggleWatchlist)
 			r.With(middleware.AuthMiddleware).Get("/watchlist", cfg.NumbersHandler.GetWatchlist)
+			r.With(middleware.AuthMiddleware).Get("/alerts/preferences", cfg.NumbersHandler.GetAlertPreferences)
+			r.With(middleware.AuthMiddleware).Post("/alerts/preferences", cfg.NumbersHandler.SaveAlertPreferences)
 		})
 
 		r.Route("/gifts", func(r chi.Router) {
@@ -203,11 +205,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.With(middleware.OptionalAuthMiddleware).Get("/group", cfg.GroupLeaderboardHandler.GetLeaderboard)
 		})
 
-		r.Route("/frg", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-			r.Get("/balance", cfg.ProfileHandler.GetFRGBalance)
-			r.Get("/transactions", cfg.ProfileHandler.GetFRGTransactions)
-		})
 
 		// Intel Credits System
 		r.Route("/intel", func(r chi.Router) {

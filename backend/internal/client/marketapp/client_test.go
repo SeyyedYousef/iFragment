@@ -11,6 +11,13 @@ import (
 
 func TestMarketApp_GetGiftFloor_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if gotAuth := r.Header.Get("Authorization"); gotAuth != "test_token" {
+			t.Errorf("Expected raw Authorization token 'test_token', got %q", gotAuth)
+		}
+		if r.URL.Path == "/collections/gifts/" {
+			http.NotFound(w, r)
+			return
+		}
 		if r.URL.Path != "/gifts/onsale/" {
 			t.Errorf("Unexpected path: %s", r.URL.Path)
 			http.NotFound(w, r)
@@ -64,6 +71,51 @@ func TestMarketApp_GetGiftFloor_Success(t *testing.T) {
 	}
 	if count != 2 {
 		t.Errorf("Expected count 2, got %d", count)
+	}
+}
+
+func TestMarketApp_GetGiftFloor_FromCollectionsEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/collections/gifts/" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[
+				{
+					"name": "Plush Pepe",
+					"address": "EQBG-g6ahkAUGWpefWbx-D_9sQ8oWbvy6puuq78U2c4NUDFS",
+					"extra_data": {
+						"items": 2861,
+						"floor": "1950.5",
+						"rent_floor": "12.0",
+						"volume7d": "45200.0",
+						"volume30d": "182000.0",
+						"owners": 1940,
+						"on_sale_all": 142,
+						"on_sale_onchain": 87
+					}
+				}
+			]`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	client := &Client{
+		BaseURL: server.URL,
+		Tokens:  []string{"test_token"},
+		HTTP:    server.Client(),
+	}
+
+	floor, count, err := client.GetGiftFloor(context.Background(), "plush_pepe")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if !floor.Equal(decimal.NewFromFloat(1950.5)) {
+		t.Errorf("Expected floor 1950.5, got %s", floor)
+	}
+	if count != 87 {
+		t.Errorf("Expected on-sale count 87, got %d", count)
 	}
 }
 

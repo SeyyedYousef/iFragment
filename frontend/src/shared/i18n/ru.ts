@@ -1,5 +1,8 @@
 export const dict = {
 	common: {
+		now: 'Только что',
+		pasteBtn: 'Вставить',
+		unknownError: 'Произошла непредвиденная ошибка.',
 		cancel: 'Отмена',
 		save: 'Сохранить',
 		confirm: 'Подтвердить и оплатить',
@@ -41,6 +44,11 @@ export const dict = {
 		gotIt: 'Понятно',
 	},
 	gifts: {
+		intel: 'Аналитика рынка подарков',
+		macroHistoryUnavailable: 'Исторические данные графика синхронизируются.',
+		marketplaceComparison: 'Сравнение маркетплейсов',
+		noActiveListing: 'Нет активного листинга',
+		unifiedFloorBoard: 'Единая таблица минимальных цен',
 		combosFound: 'комбинаций',
 		inAppTelegramCustody: 'Встроенный кошелек Telegram',
 		model: 'Модель',
@@ -1011,6 +1019,9 @@ export const dict = {
 		weekly: 'Недельная',
 	},
 	assets: {
+		noGiftReports: 'Отчёты по подаркам ещё не разблокированы.',
+		noNumberReports: 'Отчёты по номерам +888 ещё не разблокированы.',
+		noUsernameReports: 'Отчёты по юзернеймам ещё не разблокированы.',
 		boosters: 'Бустеры',
 		connectChannel: 'Подключить канал',
 		createProject: 'Создать проект',
@@ -1218,6 +1229,8 @@ export const dict = {
 		joinSquadInvite: 'Вступить в отряд по ссылке-приглашению',
 	},
 	collectionInfo: {
+		floorPriceTrend: 'Тренд минимальной цены (Floor)',
+		noLeaderboardData: 'Данные таблицы лидеров пока отсутствуют.',
 		activeWallets: 'АКТИВНЫЕ КОШЕЛЬКИ',
 		aggregatedMarkets: 'АГРЕГИРОВАННЫЕ РЫНКИ',
 		allTimeAth: 'ИСТОРИЧЕСКИЙ МАКСИМУМ',
@@ -1939,6 +1952,8 @@ export const dict = {
 		exit: 'Выход',
 	},
 	leaderboard: {
+		boostRank: 'Ранг буста',
+		boostRewardHint: 'Бустите @FragmentInvestors, чтобы подняться в рейтинге и получать билеты розыгрыша.',
 		empty: 'Данные отсутствуют.',
 		groupBannerDesc: '1 сообщение = 1 кредит | 2 буста = 1 ежедневный кредит',
 		groupBannerTitle: 'Супергруппа Fragment Investors',
@@ -2365,6 +2380,7 @@ export const dict = {
 			'🔒 <b>Обслуживание приостановлено</b>\n\nПремиум-подписка для группы «{group}» истекла и в настоящее время отключена. Все функции автоматизированного управления и защиты приостановлены. Пожалуйста, продлите подписку для повторной активации бота.',
 	},
 	numbers: {
+		title: 'Анонимные номера (+888)',
 		restrictedTitle: 'Номер с ограничениями Telegram',
 		restrictedModalDesc:
 			'Ограниченные номера были помечены Telegram; они не получают SMS для входа и обычно торгуются со скидкой 30–70%. Владение в блокчейне TON остается на 100% действительным.',
@@ -3070,6 +3086,9 @@ export const dict = {
 		investorsLabel: 'Инвесторы',
 	},
 	ownerInvestors: {
+		safeZoneHint: 'Обрежьте изображение в пропорции 9:16 (1080×1920). Безопасная зона: 140px сверху и 260px снизу.',
+		unsavedNotice: 'Изменения ещё не сохранены. Нажмите «Сохранить», чтобы опубликовать.',
+		removeConfirmDesc: 'Вы уверены, что хотите удалить полноэкранное изображение страницы инвесторов?',
 		title: 'Управление полноэкранным изображением инвесторов (Вкладка 2)',
 		subtitle: 'Настройка полноэкранного изображения, заменяющего всю страницу инвесторов',
 		noticeTitle: 'Полностью отдельно от баннеров на главной странице',
@@ -3296,6 +3315,7 @@ export const dict = {
 		yes: 'Да',
 	},
 	profilePg: {
+		unranked: 'Без ранга',
 		badgeActive: 'Активно ✓',
 		badgeSoon: 'Скоро',
 		boostersSubtitle: 'Активные множители вашего дохода',
@@ -3378,6 +3398,7 @@ export const dict = {
 		title: 'Часы тишины',
 	},
 	referral: {
+		credits: 'Кредиты аналитики',
 		earned: 'Награды получено',
 		friends: 'Друзья',
 		friendsList: 'Список друзей',
@@ -3410,6 +3431,9 @@ export const dict = {
 		notFoundGroup: 'Функция не найдена',
 	},
 	security: {
+		deleteBiometricPrompt: 'Подтвердите биометрию для удаления данных аккаунта',
+		deleteSuccessDesc: 'Данные и история вашего аккаунта безвозвратно удалены.',
+		deleteSuccessTitle: 'Данные аккаунта удалены',
 		biometricDesc: 'Разблокировать iFragment с помощью FaceID / TouchID',
 		biometricLock: 'Биометрический доступ',
 		biometricNotSupported: 'Биометрия не поддерживается на этом устройстве',
@@ -3429,6 +3453,10 @@ export const dict = {
 		title: 'Ваш профиль безопасности',
 	},
 	securityPg: {
+		activeDevices: 'Активные сессии и устройства',
+		biometricChallenge: 'Биометрическая проверка',
+		biometricVerifyReason: 'Подтвердите личность для управления безопасностью',
+		online: 'Онлайн',
 		activeBadge: 'Активна',
 		biometricAccessReason: 'Подтвердите личность для просмотра активных сессий',
 		currentDevice: 'Текущее устройство (активная сессия)',
@@ -3995,5 +4023,11 @@ export const dict = {
 		uniqueHolders: 'Уникальные владельцы',
 		whaleConcentration: 'Распределение среди крупных владельцев',
 		riskAndMethodology: 'Методология оценки и прозрачность рисков',
+	},
+	navigation: {
+		home: 'Главная',
+		investors: 'Инвесторы',
+		rewards: 'Награды',
+		leaderboard: 'Лидерборд',
 	},
 };

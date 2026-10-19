@@ -79,19 +79,20 @@ export const GiftReportPage: Component = () => {
 		staleTime: 60 * 1000,
 	}));
 
-	// Valuation Query (Runs if user already owns 24h report)
-	const valuateQuery = createQuery(() => ({
-		queryKey: ['giftValuation', giftID()],
-		queryFn: () => giftsApi.valuate(giftID()),
-		retry: false,
-	}));
-
-	// Enriched Report Query (Fetches provenance & on-chain metadata when unlocked)
+	// Enriched Report Query (Returns lock state + curiosity_gate when locked, or full report when unlocked)
 	const enrichedQuery = createQuery(() => ({
 		queryKey: ['giftEnrichedReport', giftID()],
 		queryFn: () => giftsApi.getEnrichedReport(giftID()),
-		enabled: !!(unlockedReport() || valuateQuery.data),
+		enabled: !!giftID(),
 		staleTime: 5 * 60 * 1000,
+		retry: false,
+	}));
+
+	// Valuation Query (Only runs once report is confirmed unlocked to avoid 402 console errors)
+	const valuateQuery = createQuery(() => ({
+		queryKey: ['giftValuation', giftID()],
+		queryFn: () => giftsApi.valuate(giftID()),
+		enabled: !!(unlockedReport() || (enrichedQuery.data as any)?.is_unlocked),
 		retry: false,
 	}));
 
@@ -103,6 +104,7 @@ export const GiftReportPage: Component = () => {
 				haptic.notify('success');
 			} catch {}
 			setUnlockedReport(data);
+			queryClient.invalidateQueries({ queryKey: ['wallet'] });
 			queryClient.invalidateQueries({ queryKey: ['giftValuation', giftID()] });
 			queryClient.invalidateQueries({ queryKey: ['giftEnrichedReport', giftID()] });
 		},
@@ -309,10 +311,10 @@ export const GiftReportPage: Component = () => {
 
 	const sellerNetProceeds = () => {
 		const gross = Number(currentReport()?.expected_gram) || 0;
-		const fragFee = gross * 0.05;
-		const telegramRoyalty = gross * 0.05;
+		const fragFee = Math.round(gross * 0.05 * 100) / 100;
+		const telegramRoyalty = 0;
 		const gasFee = 0.05;
-		const net = Math.max(0, gross - fragFee - telegramRoyalty - gasFee);
+		const net = Math.max(0, Math.round((gross - fragFee - gasFee) * 100) / 100);
 		const rate = Number(currentReport()?.gram_usd_rate) || 0;
 		const netUsd = rate > 0 ? net * rate : 0;
 		const instantCashoutBid = Math.round(gross * 0.88);
@@ -333,16 +335,19 @@ export const GiftReportPage: Component = () => {
 			haptic.notify('success');
 		} catch {}
 		setOfferSent(true);
+		const targetUrl =
+			(currentReport() as any)?.on_chain?.marketplace_links?.fragment ||
+			officialTelegramUrl();
+		if (targetUrl) {
+			openExternalUrl(targetUrl);
+		}
 		setTimeout(() => setOfferSent(false), 4000);
 	};
 
 	const handleToggleAlert = () => {
-		const next = !alertActive();
-		try {
-			haptic.impact('medium');
-			haptic.notify('success');
-		} catch {}
+		const next = !isWatching();
 		setAlertActive(next);
+		void handleWatchlistToggle();
 	};
 
 	const giftName = () =>
@@ -1157,7 +1162,8 @@ export const GiftReportPage: Component = () => {
 											resolvedCollectionItem()?.floorTon ||
 											0;
 										const traitFloorTon =
-											repFloor > 0 ? Math.round(repFloor * (1 + (100 - dna.percentile) / 45)) : 0;
+											Number((dna as any).trait_floor_ton) ||
+											(repFloor > 0 ? Math.round(repFloor * (1 + (100 - dna.percentile) / 45)) : 0);
 										const population =
 											colSupply > 0
 												? Math.max(1, Math.round((dna.percentile / 100) * colSupply))

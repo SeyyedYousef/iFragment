@@ -1041,33 +1041,75 @@ func (r *OwnerRepo) DeleteQuestTx(ctx context.Context, tx pgx.Tx, key string) er
 
 // ─── Managed Userbots ───────────────────────────────────────────────────────
 func (r *OwnerRepo) CreateManagedUserbot(ctx context.Context, phone string) error {
-	// Table managed_userbots was dropped in migration 000086
-	return nil
+	query := `
+		INSERT INTO managed_userbots (phone_number, status, channels_count, created_at, updated_at)
+		VALUES ($1, 'pending', 0, NOW(), NOW())
+		ON CONFLICT (phone_number) DO UPDATE SET updated_at = NOW()
+	`
+	_, err := r.db.Pool.Exec(ctx, query, phone)
+	return err
 }
 
 func (r *OwnerRepo) SaveManagedUserbot(ctx context.Context, phone string) error {
-	// Table managed_userbots was dropped in migration 000086
-	return nil
+	query := `
+		INSERT INTO managed_userbots (phone_number, status, channels_count, created_at, updated_at)
+		VALUES ($1, 'active', 0, NOW(), NOW())
+		ON CONFLICT (phone_number) DO UPDATE SET status = 'active', updated_at = NOW()
+	`
+	_, err := r.db.Pool.Exec(ctx, query, phone)
+	return err
 }
 
 func (r *OwnerRepo) GetActiveManagedUserbots(ctx context.Context) ([]model.ManagedUserbot, error) {
-	// Table managed_userbots was dropped in migration 000086
-	return []model.ManagedUserbot{}, nil
+	query := `
+		SELECT id::text, phone_number, status, channels_count, created_at, updated_at
+		FROM managed_userbots
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return []model.ManagedUserbot{}, nil
+	}
+	defer rows.Close()
+
+	list := make([]model.ManagedUserbot, 0)
+	for rows.Next() {
+		var b model.ManagedUserbot
+		if err := rows.Scan(&b.ID, &b.PhoneNumber, &b.Status, &b.ChannelsCount, &b.CreatedAt, &b.UpdatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, b)
+	}
+	return list, nil
 }
 
 func (r *OwnerRepo) GetManagedUserbotByID(ctx context.Context, id string) (*model.ManagedUserbot, error) {
-	// Table managed_userbots was dropped in migration 000086
-	return nil, nil
+	query := `
+		SELECT id::text, phone_number, status, channels_count, created_at, updated_at
+		FROM managed_userbots
+		WHERE id = $1::uuid
+	`
+	var b model.ManagedUserbot
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(&b.ID, &b.PhoneNumber, &b.Status, &b.ChannelsCount, &b.CreatedAt, &b.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &b, nil
 }
 
 func (r *OwnerRepo) UpdateManagedUserbotStatus(ctx context.Context, id string, status string) error {
-	// Table managed_userbots was dropped in migration 000086
-	return nil
+	query := `UPDATE managed_userbots SET status = $1, updated_at = NOW() WHERE id = $2::uuid`
+	_, err := r.db.Pool.Exec(ctx, query, status, id)
+	return err
 }
 
 func (r *OwnerRepo) DeleteManagedUserbot(ctx context.Context, id string) error {
-	// Table managed_userbots was dropped in migration 000086
-	return nil
+	query := `DELETE FROM managed_userbots WHERE id = $1::uuid`
+	_, err := r.db.Pool.Exec(ctx, query, id)
+	return err
 }
 
 // ─── Finance & Orders ───────────────────────────────────────────────────────
@@ -1112,14 +1154,53 @@ func (r *OwnerRepo) GetFinanceSummary(ctx context.Context) (*model.FinanceSummar
 		return nil, err
 	}
 
-	summary.ActiveSubscriptions = 0
-	summary.ChurnRate = 0
+	var activeHolders, totalHolders, churnedHolders int64
+	_ = r.db.Pool.QueryRow(ctx, `
+		SELECT
+			COUNT(DISTINCT CASE WHEN remaining_credits > 0 AND (expires_at IS NULL OR expires_at > NOW()) THEN user_id END),
+			COUNT(DISTINCT user_id),
+			COUNT(DISTINCT CASE WHEN remaining_credits = 0 OR (expires_at IS NOT NULL AND expires_at <= NOW()) THEN user_id END)
+		FROM user_credit_batches
+	`).Scan(&activeHolders, &totalHolders, &churnedHolders)
+
+	summary.ActiveSubscriptions = activeHolders
+	if totalHolders > 0 {
+		summary.ChurnRate = float64(churnedHolders) * 100.0 / float64(totalHolders)
+	}
 
 	return &summary, nil
 }
 
 func (r *OwnerRepo) GetPremiumEntities(ctx context.Context) ([]model.PremiumEntity, error) {
-	return []model.PremiumEntity{}, nil
+	query := `
+		SELECT
+			'vip_user' AS entity_type,
+			u.telegram_id::text AS entity_id,
+			COALESCE(NULLIF(u.username, ''), NULLIF(u.first_name, ''), 'User #' || u.telegram_id::text) AS title,
+			u.telegram_id AS owner_id,
+			COALESCE(SUM(b.remaining_credits), 0)::float8 AS credit_balance,
+			MAX(b.expires_at) AS premium_until
+		FROM users u
+		JOIN user_credit_batches b ON b.user_id = u.telegram_id
+		WHERE b.remaining_credits > 0 AND (b.expires_at IS NULL OR b.expires_at > NOW())
+		GROUP BY u.telegram_id, u.username, u.first_name
+		ORDER BY credit_balance DESC
+		LIMIT 50
+	`
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return []model.PremiumEntity{}, nil
+	}
+	defer rows.Close()
+
+	entities := make([]model.PremiumEntity, 0)
+	for rows.Next() {
+		var e model.PremiumEntity
+		if err := rows.Scan(&e.EntityType, &e.EntityID, &e.Title, &e.OwnerID, &e.CreditBalance, &e.PremiumUntil); err == nil {
+			entities = append(entities, e)
+		}
+	}
+	return entities, nil
 }
 
 // ─── System Health & Logs ───────────────────────────────────────────────────

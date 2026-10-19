@@ -2333,7 +2333,7 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 						Username:     s.Username,
 						Price:        p,
 						Date:         s.SaleDate.Format(time.RFC3339),
-						TonviewerUrl: fmt.Sprintf("https://tonviewer.com/nft/%s", strings.TrimPrefix(s.Username, "@")),
+						TonviewerUrl: fmt.Sprintf("https://tonviewer.com/%s.t.me", strings.TrimPrefix(s.Username, "@")),
 					})
 				}
 			}
@@ -2354,7 +2354,7 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 						Username:     s.Username,
 						Price:        p,
 						Date:         s.SaleDate.Format(time.RFC3339),
-						TonviewerUrl: fmt.Sprintf("https://tonviewer.com/nft/%s", strings.TrimPrefix(s.Username, "@")),
+						TonviewerUrl: fmt.Sprintf("https://tonviewer.com/%s.t.me", strings.TrimPrefix(s.Username, "@")),
 					})
 				}
 			}
@@ -2375,7 +2375,7 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 						Username:     s.Username,
 						Price:        p,
 						Date:         s.SaleDate.Format(time.RFC3339),
-						TonviewerUrl: fmt.Sprintf("https://tonviewer.com/nft/%s", strings.TrimPrefix(s.Username, "@")),
+						TonviewerUrl: fmt.Sprintf("https://tonviewer.com/%s.t.me", strings.TrimPrefix(s.Username, "@")),
 					})
 				}
 			}

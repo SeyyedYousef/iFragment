@@ -10,8 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// ... existing methods ...
-
 func (db *Database) HasPaidForReport(ctx context.Context, userID int64, username string) (bool, error) {
 	prefix := fmt.Sprintf("report_pay:%d:%s:", userID, username)
 	query := `SELECT EXISTS(SELECT 1 FROM orders WHERE starts_with(payload, $1) AND status = 'paid')`
@@ -87,12 +85,9 @@ func (db *Database) CompleteStarsPremiumPaymentTx(ctx context.Context, tx pgx.Tx
 		SET status = 'paid', telegram_payment_charge_id = $1, updated_at = CURRENT_TIMESTAMP
 		WHERE payload = $2 AND status != 'paid'
 	`
-	cmdTag, err := tx.Exec(ctx, queryOrder, chargeID, payload)
+	_, err := tx.Exec(ctx, queryOrder, chargeID, payload)
 	if err != nil {
 		return fmt.Errorf("update order status: %w", err)
-	}
-	if cmdTag.RowsAffected() == 0 {
-		// Order might already be paid (idempotency), proceed to grant/extend premium
 	}
 
 	// 2. Fetch current premium_until
@@ -131,13 +126,28 @@ func (db *Database) CompleteStarsPremiumPayment(ctx context.Context, payload str
 	return tx.Commit(ctx)
 }
 
-// HasPaidValuation checks if a user has a paid valuation order or consumed an Intel Credit for the specified username within the last 24 hours.
+// HasPaidValuation checks if a user has a paid valuation order, report entitlement, or consumed an Intel Credit for the specified username.
 // Returns (hasAccess, method, error).
 func (db *Database) HasPaidValuation(ctx context.Context, userID int64, username string) (bool, string, error) {
-	if db.Pool == nil {
+	if db == nil || db.Pool == nil {
 		return false, "", nil
 	}
 	cleanU := strings.ToLower(strings.TrimPrefix(username, "@"))
+
+	// 0. Check report_entitlements table (permanent credit/order unlock ledger)
+	var entExists int
+	errEnt := db.Pool.QueryRow(ctx, `
+		SELECT 1
+		FROM report_entitlements
+		WHERE principal_id = $1
+		  AND LOWER(TRIM(LEADING '@' FROM asset_id)) = $2
+		  AND product_type IN ('username_report', 'username')
+		  AND (expires_at IS NULL OR expires_at > NOW())
+		LIMIT 1
+	`, userID, cleanU).Scan(&entExists)
+	if errEnt == nil {
+		return true, "credit", nil
+	}
 
 	// 1. Check orders table (Coins, Stars, Free Quota, or Referral Credit)
 	query := `
@@ -194,11 +204,124 @@ func (db *Database) HasPaidValuation(ctx context.Context, userID int64, username
 
 // HasUsedFreeValuationQuota checks if a user has ever claimed a free valuation.
 func (db *Database) HasUsedFreeValuationQuota(ctx context.Context, userID int64) (bool, error) {
-	if db.Pool == nil {
+	if db == nil || db.Pool == nil {
 		return false, nil
 	}
 	query := `SELECT EXISTS(SELECT 1 FROM orders WHERE user_id = $1 AND starts_with(payload, 'val_free:') AND status = 'paid')`
 	var exists bool
 	err := db.Pool.QueryRow(ctx, query, userID).Scan(&exists)
 	return exists, err
+}
+
+// HasActiveProPass checks if a user has an active 30-day Pro Analyst Pass.
+func (db *Database) HasActiveProPass(ctx context.Context, userID int64) (bool, error) {
+	if db == nil || db.Pool == nil {
+		return false, nil
+	}
+	query := `SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'paid' AND (payload LIKE 'val_pro:%' OR amount = 249) AND created_at >= NOW() - INTERVAL '30 days'`
+	var count int
+	if err := db.Pool.QueryRow(ctx, query, userID).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// HasPreviousValuationOrders checks if a user has previously purchased any valuation order.
+func (db *Database) HasPreviousValuationOrders(ctx context.Context, userID int64) (bool, error) {
+	if db == nil || db.Pool == nil {
+		return false, nil
+	}
+	var orderCount int
+	err := db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'paid' AND starts_with(payload, 'val_')`, userID).Scan(&orderCount)
+	if err != nil {
+		return false, err
+	}
+	return orderCount > 0, nil
+}
+
+// SetUsernameWatchlist enables or disables monitoring for a username in PostgreSQL.
+func (db *Database) SetUsernameWatchlist(ctx context.Context, userID int64, username string, enabled bool) error {
+	if db == nil || db.Pool == nil {
+		return nil
+	}
+	_, _ = db.Pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS username_watchlist (
+		user_id BIGINT NOT NULL,
+		username TEXT NOT NULL,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		PRIMARY KEY (user_id, username)
+	)`)
+	if enabled {
+		_, err := db.Pool.Exec(ctx, `INSERT INTO username_watchlist (user_id, username, created_at) VALUES ($1, $2, NOW()) ON CONFLICT (user_id, username) DO NOTHING`, userID, username)
+		return err
+	}
+	_, err := db.Pool.Exec(ctx, `DELETE FROM username_watchlist WHERE user_id = $1 AND username = $2`, userID, username)
+	return err
+}
+
+// HasReportEntitlement checks if an idempotency key was already granted for a principal and asset.
+func (db *Database) HasReportEntitlement(ctx context.Context, userID int64, assetID, idempotencyKey string) (bool, error) {
+	if db == nil || db.Pool == nil || idempotencyKey == "" {
+		return false, nil
+	}
+	var existingID string
+	err := db.Pool.QueryRow(ctx, `
+		SELECT id::text FROM report_entitlements
+		WHERE principal_id = $1 AND asset_id = $2 AND idempotency_key = $3
+		LIMIT 1`, userID, assetID, idempotencyKey).Scan(&existingID)
+	if err == nil && existingID != "" {
+		return true, nil
+	}
+	if err == pgx.ErrNoRows {
+		return false, nil
+	}
+	return false, err
+}
+
+// GrantReportEntitlement persists a durable report entitlement record in PostgreSQL.
+func (db *Database) GrantReportEntitlement(ctx context.Context, userID int64, assetID, idempotencyKey, productType string) error {
+	if db == nil || db.Pool == nil {
+		return nil
+	}
+	if idempotencyKey == "" {
+		idempotencyKey = fmt.Sprintf("auto:%d:%s:%s:%d", userID, productType, assetID, time.Now().Unix()/(24*3600))
+	}
+	_, err := db.Pool.Exec(ctx, `
+		INSERT INTO report_entitlements (principal_id, asset_id, idempotency_key, product_type, granted_at, expires_at)
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '24 hours')
+		ON CONFLICT (principal_id, asset_id, idempotency_key) DO NOTHING`,
+		userID, assetID, idempotencyKey, productType)
+	return err
+}
+
+// GetUserLanguageCode fetches the user's preferred language code ('fa', 'en', 'ru', 'zh') from the users table.
+func (db *Database) GetUserLanguageCode(ctx context.Context, userID int64) string {
+	if db == nil || db.Pool == nil || userID <= 0 {
+		return "fa"
+	}
+	var lang string
+	err := db.Pool.QueryRow(ctx, `SELECT COALESCE(NULLIF(language_code, ''), 'fa') FROM users WHERE telegram_id = $1`, userID).Scan(&lang)
+	if err != nil || lang == "" {
+		return "fa"
+	}
+	l := strings.ToLower(strings.TrimSpace(lang))
+	switch {
+	case strings.HasPrefix(l, "en"):
+		return "en"
+	case strings.HasPrefix(l, "ru"):
+		return "ru"
+	case strings.HasPrefix(l, "zh"):
+		return "zh"
+	default:
+		return "fa"
+	}
+}
+
+// GetUserIdentity fetches username and first_name for a user ID.
+func (db *Database) GetUserIdentity(ctx context.Context, userID int64) (string, string) {
+	if db == nil || db.Pool == nil || userID <= 0 {
+		return "", ""
+	}
+	var uname, fname string
+	_ = db.Pool.QueryRow(ctx, `SELECT COALESCE(username, ''), COALESCE(first_name, '') FROM users WHERE telegram_id = $1`, userID).Scan(&uname, &fname)
+	return uname, fname
 }

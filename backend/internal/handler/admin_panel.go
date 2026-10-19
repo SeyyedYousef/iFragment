@@ -41,7 +41,7 @@ var botTextDefs = []BotTextDef{
 		Key:         "start_menu",
 		Title:       "پیام شروع و خوش‌آمدگویی",
 		Description: "متن اصلی داشبورد ربات هنگام ارسال /start",
-		Variables:   "{name} (نام کاربر), {diamond} (ایموجی برند)",
+		Variables:   "{name} (نام کاربر), {diamond} (ایموجی برند), {credits} (اعتبار), {rank} (رتبه جهانی)",
 	},
 	{
 		Key:         "profile_view",
@@ -690,7 +690,7 @@ func (h *WebhookHandler) handleAdminPanelCallback(ctx context.Context, bot *repo
 			icon := "🟢"
 			if p.Status == "degraded" {
 				icon = "🟡"
-			} else if p.Status == "down" {
+			} else if p.Status == "down" || p.Status == "unreachable" {
 				icon = "🔴"
 			}
 			sb.WriteString(fmt.Sprintf("%s <b>%s</b>: <code>%s</code> (%d ms)\n", icon, telegram.EscapeHTML(p.Name), strings.ToUpper(p.Status), p.LatencyMS))

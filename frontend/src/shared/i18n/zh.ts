@@ -1,5 +1,8 @@
 export const dict = {
 	common: {
+		now: '刚刚',
+		pasteBtn: '粘贴',
+		unknownError: '发生未知错误。',
 		cancel: '取消',
 		save: '保存',
 		confirm: '确认并支付',
@@ -39,6 +42,11 @@ export const dict = {
 		gotIt: '知道了',
 	},
 	gifts: {
+		intel: '礼物市场情报',
+		macroHistoryUnavailable: '宏观历史图表数据正在同步中。',
+		marketplaceComparison: '各大市场对比',
+		noActiveListing: '暂无在售挂单',
+		unifiedFloorBoard: '全网市场地板价看板',
 		combosFound: '种组合',
 		inAppTelegramCustody: 'Telegram 应用内托管',
 		model: '模型',
@@ -993,6 +1001,9 @@ export const dict = {
 		weekly: '每周',
 	},
 	assets: {
+		noGiftReports: '暂无已解锁的礼物估值报告。',
+		noNumberReports: '暂无已解锁的 +888 号码估值报告。',
+		noUsernameReports: '暂无已解锁的用户名估值报告。',
 		boosters: '加速器',
 		connectChannel: '连接频道',
 		createProject: '创建项目',
@@ -1198,6 +1209,8 @@ export const dict = {
 		joinSquadInvite: '通过邀请链接加入战队',
 	},
 	collectionInfo: {
+		floorPriceTrend: '地板价走势',
+		noLeaderboardData: '暂无排行榜数据。',
 		activeWallets: '活跃钱包',
 		aggregatedMarkets: '聚合市场',
 		allTimeAth: '历史最高价 (ATH)',
@@ -1903,6 +1916,8 @@ export const dict = {
 		exit: '退出',
 	},
 	leaderboard: {
+		boostRank: '助力排名',
+		boostRewardHint: '助力 @FragmentInvestors 提升排名并赢取每日抽奖券。',
 		empty: '暂无统计数据。',
 		groupBannerDesc: '每发送 1 条消息 = 1 个信用点 | 每 2 个助力 = 每日 1 个信用点',
 		groupBannerTitle: 'Fragment Investors 超级群组',
@@ -2314,6 +2329,7 @@ export const dict = {
 			'🔒<b>服务暂停</b>\n\n“{group}”的高级服务已过期并且当前被禁用。所有自动化管理和保护功能均已暂停。请续订订阅以重新激活机器人。',
 	},
 	numbers: {
+		title: '匿名典藏号码 (+888)',
 		restrictedTitle: 'Telegram 受限匿名号码',
 		restrictedModalDesc:
 			'受限号码已被 Telegram 标记，无法接收短信验证码，通常折价 30–70% 交易，但在 TON 区块链上的所有权完全有效。',
@@ -3012,6 +3028,9 @@ export const dict = {
 		investorsLabel: '投资者页面',
 	},
 	ownerInvestors: {
+		safeZoneHint: '请将图片裁剪为 9:16 竖屏比例 (1080×1920)。安全区域：顶部 140px 与底部 260px。',
+		unsavedNotice: '更改尚未保存，请点击保存按钮以发布。',
+		removeConfirmDesc: '您确定要删除投资者全屏页面的背景图片吗？',
 		title: '投资者全屏页面管理 (底部第二标签)',
 		subtitle: '配置替换整个投资者页面的全屏图片',
 		noticeTitle: '完全独立于首页横幅广告',
@@ -3234,6 +3253,7 @@ export const dict = {
 		yes: '是的',
 	},
 	profilePg: {
+		unranked: '未上榜',
 		badgeActive: '生效中 ✓',
 		badgeSoon: '即将上线',
 		boostersSubtitle: '作用于收益的加成倍率',
@@ -3314,6 +3334,7 @@ export const dict = {
 		title: '安静时间',
 	},
 	referral: {
+		credits: '分析额度',
 		earned: '已获得奖励',
 		friends: '好友',
 		friendsList: '好友列表',
@@ -3346,6 +3367,9 @@ export const dict = {
 		notFoundGroup: '未找到功能',
 	},
 	security: {
+		deleteBiometricPrompt: '请通过生物识别验证以确认删除账户数据',
+		deleteSuccessDesc: '您的账户数据与历史记录已永久删除。',
+		deleteSuccessTitle: '账户数据已删除',
 		biometricDesc: '使用 FaceID / TouchID 解锁 iFragment',
 		biometricLock: '生物识别访问',
 		biometricNotSupported: '该设备不支持生物识别',
@@ -3364,6 +3388,10 @@ export const dict = {
 		title: '您的安全配置',
 	},
 	securityPg: {
+		activeDevices: '活跃会话与设备',
+		biometricChallenge: '生物识别认证',
+		biometricVerifyReason: '验证身份以管理安全设置',
+		online: '在线',
 		activeBadge: '有效',
 		biometricAccessReason: '请验证身份以查看活跃会话',
 		currentDevice: '当前设备（有效会话）',
@@ -3916,5 +3944,11 @@ export const dict = {
 		uniqueHolders: '独立持有地址数',
 		whaleConcentration: '巨鲸持仓分布',
 		riskAndMethodology: '风险与估值方法论',
+	},
+	navigation: {
+		home: '首页',
+		investors: '投资者',
+		rewards: '奖励',
+		leaderboard: '排行榜',
 	},
 };

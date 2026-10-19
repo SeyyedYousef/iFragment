@@ -39,7 +39,7 @@ func TestVenues_ExitPlannerCalculations(t *testing.T) {
 		t.Error("Fragment exit option must require KYC")
 	}
 
-	// Verify MRKT has 0% fee
+	// Verify MRKT has 2.0% fee
 	var mrktOpt *ExitOption
 	for _, opt := range plan.Options {
 		if opt.VenueID == VenueMRKT {
@@ -47,8 +47,8 @@ func TestVenues_ExitPlannerCalculations(t *testing.T) {
 			break
 		}
 	}
-	if mrktOpt == nil || mrktOpt.FeePercent != 0.0 {
-		t.Error("MRKT must have 0% fee")
+	if mrktOpt == nil || mrktOpt.FeePercent != 2.0 {
+		t.Error("MRKT must have 2.0% fee")
 	}
 }
 
@@ -91,8 +91,8 @@ func TestVenues_AdaptersRegistry(t *testing.T) {
 	if mrkt.ID() != VenueMRKT || mrkt.Name() != "MRKT" {
 		t.Errorf("MRKT adapter ID or Name incorrect")
 	}
-	if !mrkt.ProtocolFeePct().IsZero() {
-		t.Errorf("MRKT fee must be 0%%")
+	if mrkt.ProtocolFeePct().InexactFloat64() != 2.0 {
+		t.Errorf("MRKT fee must be 2.0%%")
 	}
 
 	stars := NewTelegramStarsAdapter(nil)

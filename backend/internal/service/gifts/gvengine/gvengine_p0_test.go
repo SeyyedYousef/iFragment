@@ -1,4 +1,4 @@
-﻿package gvengine
+package gvengine
 
 import (
 	"context"

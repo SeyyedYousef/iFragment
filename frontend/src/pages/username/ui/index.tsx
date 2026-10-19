@@ -1481,7 +1481,13 @@ export const UsernamePage: Component = () => {
 													{layaT(USERNAME_I18N.recStartBid)}
 												</span>
 												<span class="text-white font-mono font-black text-[13px] bg-white/5 px-2.5 py-1 rounded-[8px] border border-white/10">
-													{fmtTon(Math.round(expectedTon() * 0.7))} TON
+													{fmtTon(
+														Math.round(
+															Number((data() as any)?.auction_playbook?.starting_bid_ton) ||
+																expectedTon() * 0.7,
+														),
+													)}{" "}
+													TON
 												</span>
 											</div>
 										</div>
@@ -1510,22 +1516,34 @@ export const UsernamePage: Component = () => {
 										</span>
 									</div>
 
-									<div class="flex items-center justify-between bg-[#08090D] border border-white/5 rounded-[18px] p-4">
-										<div class="flex flex-col text-start">
-											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">
-												{t('valuation.projectedEarning')}
-											</span>
-											<span class="text-emerald-400 font-mono font-black text-[18px]">
-												~{(expectedTon() * 0.045).toFixed(1)} {t('common.ton')} / month
-											</span>
-										</div>
-										<div class="flex flex-col items-end">
-											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">
-												{t('valuation.estApy')}
-											</span>
-											<span class="text-[#0098EA] font-mono font-black text-[16px]">~54.0%</span>
-										</div>
-									</div>
+									{(() => {
+										const uLen = data()?.length || username().length || 6;
+										const brand = Number(data()?.brandability) || 70;
+										const liq = String(data()?.liquidity_rating || "").toLowerCase();
+										let monthlyRate = uLen <= 4 ? 0.046 : uLen === 5 ? 0.040 : uLen === 6 ? 0.034 : 0.026;
+										if (brand >= 85) monthlyRate += 0.005;
+										if (liq.includes("high") || liq.includes("instant")) monthlyRate += 0.004;
+										const monthlyTon = (expectedTon() * monthlyRate).toFixed(1);
+										const apyPct = (monthlyRate * 12 * 100).toFixed(1);
+										return (
+											<div class="flex items-center justify-between bg-[#08090D] border border-white/5 rounded-[18px] p-4">
+												<div class="flex flex-col text-start">
+													<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">
+														{t('valuation.projectedEarning')}
+													</span>
+													<span class="text-emerald-400 font-mono font-black text-[18px]">
+														~{monthlyTon} {t('common.ton')} / month
+													</span>
+												</div>
+												<div class="flex flex-col items-end">
+													<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">
+														{t('valuation.estApy')}
+													</span>
+													<span class="text-[#0098EA] font-mono font-black text-[16px]">~{apyPct}%</span>
+												</div>
+											</div>
+										);
+									})()}
 								</div>
 
 								{/* 📊 PRICE RANGE & CONFIDENCE */}

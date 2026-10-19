@@ -341,43 +341,32 @@ func (h *WebhookHandler) sendMainMenuWithURL(ctx context.Context, bot *repositor
 	userLang, _ := h.db.GetUserLanguage(ctx, userID)
 	lang := i18n.DetectLanguage(userLang)
 
-	var defaultMenuText string
-	switch lang {
-	case "fa":
-		defaultMenuText = `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>ترمینال تحلیل دارایی‌های تلگرام | iFragment</b>
+	defaultMenuText := GetDefaultText("start_menu", lang)
 
-سلام <b>{name}</b> عزیز؛ به دستیار هوشمند کارشناسی و ارزیابی دارایی‌های دیجیتال تلگرام خوش آمدید.
-
-یکی از بخش‌های زیر را انتخاب کنید، یا مستقیماً <b>نام کاربری</b>، <b>شماره ناشناس (+888)</b> یا <b>لینک گیفت</b> را در چت ارسال فرمایید:`
-	case "ar":
-		defaultMenuText = `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>منصة تحليل أصول تيليجرام الذكية | iFragment</b>
-
-أهلاً بك <b>{name}</b>! مرحباً بك في المساعد الذكي لتقييم وفحص أصول تيليجرام الرقمية.
-
-اختر إحدى الفئات أدناه، أو أرسل <b>اسم المستخدم</b> أو <b>الرقم المميز (+888)</b> أو <b>رابط الهدية</b> مباشرة في الدردشة:`
-	case "ru":
-		defaultMenuText = `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Терминал аналитики активов Telegram | iFragment</b>
-
-Здравствуйте, <b>{name}</b>! Добро пожаловать в интеллектуальный ассистент оценки активов Telegram.
-
-Выберите категорию или отправьте <b>юзернейм</b>, <b>номер (+888)</b> или <b>ссылку на подарок</b> прямо в чат:`
-	case "zh":
-		defaultMenuText = `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Telegram 资产智能分析终端 | iFragment</b>
-
-您好 <b>{name}</b>！欢迎使用 Telegram 数字资产专业估值与市场洞察终端。
-
-请选择下方的资产类别，或直接在聊天中发送<b>用户名</b>、<b>+888 匿名靓号</b>或<b>礼物链接</b>：`
-	default:
-		defaultMenuText = `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Telegram Asset Intelligence Terminal | iFragment</b>
-
-Welcome <b>{name}</b>! I am your institutional analytics engine for Telegram Digital Assets.
-
-Select an asset class below or simply send any <b>username</b>, <b>anonymous number (+888)</b>, or <b>gift link</b> in chat:`
+	var intelCredits int
+	var globalRank int = 1
+	if h.profileService != nil {
+		if stats, err := h.profileService.GetStats(ctx, userID); err == nil && stats != nil {
+			intelCredits = stats.IntelCredits
+			if stats.GlobalRank > 0 {
+				globalRank = stats.GlobalRank
+			}
+		}
+	}
+	if h.intelCreditService == nil && h.db != nil {
+		h.intelCreditService = intelcredit.NewIntelCreditService(h.db)
+	}
+	if h.intelCreditService != nil {
+		if bal, err := h.intelCreditService.GetBalance(ctx, userID); err == nil && bal != nil {
+			intelCredits = bal.Balance
+		}
 	}
 
 	rawMenu := h.resolveText(ctx, "start_menu", lang, defaultMenuText)
 	menuText := strings.ReplaceAll(rawMenu, "{name}", telegram.EscapeHTML(firstName))
 	menuText = strings.ReplaceAll(menuText, "{diamond}", fmt.Sprintf(`<tg-emoji emoji-id="%s">💎</tg-emoji>`, CustomEmojiDiamond))
+	menuText = strings.ReplaceAll(menuText, "{credits}", strconv.Itoa(intelCredits))
+	menuText = strings.ReplaceAll(menuText, "{rank}", strconv.Itoa(globalRank))
 
 	markup := h.buildMainMenuMarkup(ctx, lang, targetURL)
 
@@ -592,14 +581,12 @@ func (h *WebhookHandler) sendProfileView(ctx context.Context, bot *repository.Ma
 			},
 			{
 				{
-					"text": btnLeaderboard,
-					"url":  miniAppLeaderboardURL,
-				},
-			},
-			{
-				{
 					"text":          btnStars,
 					"callback_data": "buy_credits:profile",
+				},
+				{
+					"text": btnLeaderboard,
+					"url":  miniAppLeaderboardURL,
 				},
 			},
 			{
@@ -1436,8 +1423,8 @@ Unlock full report cost: <b>1 Intel Credit</b>`
 		},
 	}
 
+	miniAppURL := h.getMiniAppURL(bot)
 	if giftGate != nil {
-		miniAppURL := h.getMiniAppURL(bot)
 		giftAppURL := appendStartParam(miniAppURL, fmt.Sprintf("gift_%s", giftGate.GiftID))
 		pascalName := telegramnft.FormatPascalName(giftGate.ModelID)
 		giftTelegramURL := fmt.Sprintf("https://t.me/nft/%s-%d", pascalName, giftGate.SerialNumber)
@@ -1445,7 +1432,7 @@ Unlock full report cost: <b>1 Intel Credit</b>`
 		var btnMiniApp, btnTelegram string
 		switch normalizeLang(lang) {
 		case "fa":
-			btnMiniApp = "📊 مشاهده نقشه ژنتیکی در مینی‌اپ"
+			btnMiniApp = "📊 نقشه ژنتیکی در مینی‌اپ"
 			btnTelegram = "🔗 پیوند رسمی در تلگرام"
 		case "ru":
 			btnMiniApp = "📊 Открыть в Mini App"
@@ -1462,11 +1449,45 @@ Unlock full report cost: <b>1 Intel Credit</b>`
 			{"text": btnMiniApp, "url": giftAppURL},
 			{"text": btnTelegram, "url": giftTelegramURL},
 		})
+	} else {
+		var previewAppURL, externalURL, btnMiniApp, btnExternal string
+		switch assetType {
+		case "username":
+			cleanU := strings.TrimPrefix(strings.ToLower(entity), "@")
+			previewAppURL = appendStartParam(miniAppURL, fmt.Sprintf("val_%s", cleanU))
+			externalURL = fmt.Sprintf("https://fragment.com/username/%s", cleanU)
+		case "number":
+			cleanN := strings.TrimPrefix(features.CleanNumber(entity), "+")
+			previewAppURL = appendStartParam(miniAppURL, fmt.Sprintf("num_%s", cleanN))
+			externalURL = fmt.Sprintf("https://fragment.com/number/%s", cleanN)
+		}
+		switch normalizeLang(lang) {
+		case "fa":
+			btnMiniApp = "📊 پیش‌نمایش در مینی‌اپ"
+			btnExternal = "🌐 مشاهده در فرگمنت"
+		case "ru":
+			btnMiniApp = "📊 Открыть в Mini App"
+			btnExternal = "🌐 Открыть на Fragment"
+		case "zh":
+			btnMiniApp = "📊 在小程序中查看"
+			btnExternal = "🌐 在 Fragment 查看"
+		default:
+			btnMiniApp = "📊 Open in Mini App"
+			btnExternal = "🌐 View on Fragment"
+		}
+		if previewAppURL != "" && externalURL != "" {
+			keyboard = append(keyboard, []map[string]interface{}{
+				{"text": btnMiniApp, "url": previewAppURL},
+				{"text": btnExternal, "url": externalURL},
+			})
+		}
 	}
 
 	keyboard = append(keyboard,
-		[]map[string]interface{}{{"text": btnFreeCredits, "url": "https://t.me/FragmentInvestors"}},
-		[]map[string]interface{}{{"text": btnStars, "callback_data": starsCallback}},
+		[]map[string]interface{}{
+			{"text": btnFreeCredits, "url": "https://t.me/FragmentInvestors"},
+			{"text": btnStars, "callback_data": starsCallback},
+		},
 		[]map[string]interface{}{{"text": btnBack, "callback_data": "nav:menu"}},
 	)
 
@@ -1813,7 +1834,8 @@ func (h *WebhookHandler) notifyAdminBotReportUnlock(
 	userIdent := fmt.Sprintf("ID:%d", userID)
 	if h.db != nil && h.db.Pool != nil {
 		var uname, fname string
-		if err := h.db.Pool.QueryRow(ctx, "SELECT COALESCE(username, ''), COALESCE(first_name, '') FROM users WHERE telegram_id = $1", userID).Scan(&uname, &fname); err == nil {
+		if u, fn := h.db.GetUserIdentity(ctx, userID); u != "" || fn != "" {
+			uname, fname = u, fn
 			if uname != "" {
 				userIdent = "@" + uname
 			} else if fname != "" {

@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { GiftThumbnail, giftsApi } from '@/entities/gifts/index.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { isRtl, locale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { CollectionRarityHeatmap } from './CollectionRarityHeatmap.js';
@@ -782,7 +782,7 @@ export const GiftCollectionPage: Component = () => {
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
-							{isRtl() ? '⚡ هوش LAYA' : '⚡ LAYA AI'}
+							{({ fa: '⚡ هوش LAYA', en: '⚡ LAYA AI', ru: '⚡ ИИ LAYA', zh: '⚡ LAYA 智能' } as Record<string, string>)[locale()] || '⚡ LAYA AI'}
 						</button>
 					</div>
 
@@ -835,7 +835,7 @@ export const GiftCollectionPage: Component = () => {
 									}}
 									class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-mono text-[11px] font-black shrink-0 shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-1.5"
 								>
-									<span>{isRtl() ? 'مشاهده' : 'Explore'}</span>
+									<span>{({ fa: 'مشاهده', en: 'Explore', ru: 'Открыть', zh: '查看' } as Record<string, string>)[locale()] || 'Explore'}</span>
 									<span class="material-symbols-outlined text-sm rtl:rotate-180">
 										arrow_forward
 									</span>

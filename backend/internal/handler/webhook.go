@@ -952,17 +952,28 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		if tg == nil {
 			return
 		}
-
-		msgText := i18n.T("en", "language.prompt")
+		userLang, _ := h.db.GetUserLanguage(ctx, m.From.ID)
+		curLang := i18n.DetectLanguage(userLang)
+		msgText := i18n.T(curLang, "language.prompt")
+		check := func(code, label string) string {
+			if curLang == code {
+				return label + " ✅"
+			}
+			return label
+		}
+		backBtn := GetDefaultButton("btn_back_menu", curLang)
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
 				{
-					{"text": "🇺🇸 English", "callback_data": "lang:en"},
-					{"text": "🇮🇷 فارسی", "callback_data": "lang:fa"},
+					{"text": check("fa", "🇮🇷 فارسی"), "callback_data": "lang:fa"},
+					{"text": check("en", "🇺🇸 English"), "callback_data": "lang:en"},
 				},
 				{
-					{"text": "🇷🇺 Русский", "callback_data": "lang:ru"},
-					{"text": "🇨🇳 中文", "callback_data": "lang:zh"},
+					{"text": check("ru", "🇷🇺 Русский"), "callback_data": "lang:ru"},
+					{"text": check("zh", "🇨🇳 中文"), "callback_data": "lang:zh"},
+				},
+				{
+					{"text": backBtn, "callback_data": "nav:menu"},
 				},
 			},
 		}
@@ -978,7 +989,20 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 	} else if strings.HasPrefix(m.Text, "/cancel") {
 		tg := h.getBotClient(bot)
 		if tg != nil {
-			_ = tg.SendMessage(ctx, m.Chat.ID, "عملیات فعالی برای لغو وجود ندارد.", &m.MessageID, m.MessageThreadID)
+			userLang, _ := h.db.GetUserLanguage(ctx, m.From.ID)
+			curLang := i18n.DetectLanguage(userLang)
+			var cancelMsg string
+			switch curLang {
+			case "fa":
+				cancelMsg = "ℹ️ عملیات فعالی برای لغو وجود ندارد."
+			case "ru":
+				cancelMsg = "ℹ️ Нет активных операций для отмены."
+			case "zh":
+				cancelMsg = "ℹ️ 当前没有正在进行的操作可取消。"
+			default:
+				cancelMsg = "ℹ️ There is no active operation to cancel."
+			}
+			_ = tg.SendMessage(ctx, m.Chat.ID, cancelMsg, &m.MessageID, m.MessageThreadID)
 		}
 	} else if strings.HasPrefix(m.Text, "/ping") {
 		tg := h.getBotClient(bot)
@@ -991,7 +1015,10 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		if latency < 0 {
 			latency = 0
 		}
-		_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("🏓 <b>Pong!</b> Latency: <code>%dms</code>", latency), &m.MessageID, m.MessageThreadID)
+		userLang, _ := h.db.GetUserLanguage(ctx, m.From.ID)
+		curLang := i18n.DetectLanguage(userLang)
+		pongText := i18n.T(curLang, "bot.pong", map[string]interface{}{"latency": latency})
+		_ = tg.SendMessage(ctx, m.Chat.ID, pongText, &m.MessageID, m.MessageThreadID)
 	} else {
 		// Smart Sniffer Fallback for direct text input in private chat
 		sniff := SniffAsset(cmdText)
@@ -1101,19 +1128,28 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		h.sendAssetPrompt(ctx, bot, chatID, cq.From.ID, "gifts", msgID, threadID)
 		return
 	case "nav:language":
-		msgText := i18n.T("en", "language.prompt")
+		userLang, _ := h.db.GetUserLanguage(ctx, cq.From.ID)
+		curLang := i18n.DetectLanguage(userLang)
+		msgText := i18n.T(curLang, "language.prompt")
+		check := func(code, label string) string {
+			if curLang == code {
+				return label + " ✅"
+			}
+			return label
+		}
+		backBtn := h.resolveButton(ctx, "btn_back_menu", curLang, GetDefaultButton("btn_back_menu", curLang))
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
 				{
-					{"text": "🇺🇸 English", "callback_data": "lang:en"},
-					{"text": "🇮🇷 فارسی", "callback_data": "lang:fa"},
+					{"text": check("fa", "🇮🇷 فارسی"), "callback_data": "lang:fa"},
+					{"text": check("en", "🇺🇸 English"), "callback_data": "lang:en"},
 				},
 				{
-					{"text": "🇷🇺 Русский", "callback_data": "lang:ru"},
-					{"text": "🇨🇳 中文", "callback_data": "lang:zh"},
+					{"text": check("ru", "🇷🇺 Русский"), "callback_data": "lang:ru"},
+					{"text": check("zh", "🇨🇳 中文"), "callback_data": "lang:zh"},
 				},
 				{
-					{"text": "🔙 بازگشت / Back", "callback_data": "nav:menu"},
+					{"text": backBtn, "callback_data": "nav:menu"},
 				},
 			},
 		}
@@ -1338,15 +1374,6 @@ func logIfErr(err error, msg string, args ...interface{}) {
 }
 
 
-// getMiniAppBaseURL returns the base URL for the mini app from environment or default
-func getMiniAppBaseURL() string {
-	miniAppURL := os.Getenv("MINI_APP_URL")
-	if miniAppURL != "" {
-		return miniAppURL
-	}
-	return "https://t.me/iFragmentBot/iFragment"
-}
-
 // getMiniAppURL determines the full Telegram Mini App link
 func (h *WebhookHandler) getMiniAppURL(bot *repository.ManagedBot) string {
 	miniAppURL := os.Getenv("MINI_APP_URL")
@@ -1398,4 +1425,13 @@ func (h *WebhookHandler) handleRemovedChatBoost(ctx context.Context, bot *reposi
 	}
 	tgClient := h.getBotClient(bot)
 	h.groupLeaderboardSvc.HandleRealtimeRemovedChatBoost(ctx, tgClient, update.Chat.ID, user.ID, user.Username, user.FirstName)
+}
+
+// getMiniAppBaseURL returns the base URL for the mini app from environment or default
+func getMiniAppBaseURL() string {
+	miniAppURL := os.Getenv("MINI_APP_URL")
+	if miniAppURL != "" {
+		return miniAppURL
+	}
+	return "https://t.me/iFragmentBot/iFragment"
 }

@@ -173,7 +173,7 @@ func (s *NumbersService) fetchLiveFragmentNumbers(ctx context.Context, tonUsdRat
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				reAuc := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">(\+888[\s\d]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([\d,]+)</div>.*?<time datetime="([^"]+)"`)
+				reAuc := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">(\+888[\s\d]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([\d,.]+)</div>.*?<time datetime="([^"]+)"`)
 				matches := reAuc.FindAllStringSubmatch(string(body), 50)
 				for _, m := range matches {
 					if len(m) < 4 {
@@ -211,7 +211,7 @@ func (s *NumbersService) fetchLiveFragmentNumbers(ctx context.Context, tonUsdRat
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				reSold := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">(\+888[\s\d]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([\d,]+)</div>.*?<time datetime="([^"]+)"`)
+				reSold := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">(\+888[\s\d]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([\d,.]+)</div>.*?<time datetime="([^"]+)"`)
 				matches := reSold.FindAllStringSubmatch(string(body), 20)
 				rank := 1
 				for _, m := range matches {
@@ -250,7 +250,8 @@ func (s *NumbersService) fetchLiveFragmentNumbers(ctx context.Context, tonUsdRat
 		}
 	}
 
-	// 3. Fetch live floor price from lowest priced for sale
+	// 3. Fetch live floor price & active fixed-price listings from Fragment
+	var saleListings []AuctionItem
 	saleReq, err := http.NewRequestWithContext(ctx, "GET", "https://fragment.com/numbers?sort=price_asc&filter=sale", nil)
 	if err == nil {
 		saleReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -259,19 +260,112 @@ func (s *NumbersService) fetchLiveFragmentNumbers(ctx context.Context, tonUsdRat
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				reSale := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">(\+888[\s\d]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([\d,]+)</div>`)
-				m := reSale.FindStringSubmatch(string(body))
-				if len(m) >= 3 {
+				reSale := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">(\+888[\s\d]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([\d,.]+)</div>`)
+				matches := reSale.FindAllStringSubmatch(string(body), 50)
+				for idx, m := range matches {
+					if len(m) < 3 {
+						continue
+					}
+					numClean := strings.ReplaceAll(m[1], " ", "")
 					priceStr := strings.ReplaceAll(m[2], ",", "")
-					if p, err := strconv.ParseFloat(priceStr, 64); err == nil && p >= 1000.0 {
-						floorTON = p
+					if p, err := strconv.ParseFloat(priceStr, 64); err == nil && p > 0 {
+						if idx == 0 && p >= 100.0 {
+							floorTON = p
+						}
+						rawSuffix := strings.TrimPrefix(numClean, "+")
+						saleListings = append(saleListings, AuctionItem{
+							Number:        numClean,
+							DisplayNumber: features.FormatDisplayNumber(numClean),
+							PriceTON:      p,
+							Source:        "fragment",
+							MarketURL:     fmt.Sprintf("https://fragment.com/number/%s", rawSuffix),
+							DataStatus:    "live",
+						})
 					}
 				}
 			}
 		}
 	}
 
+	// 4. Persist live listings and floor metrics into PostgreSQL for collection overview & listings tabs
+	if s.db != nil && s.db.Pool != nil && (len(auctions) > 0 || len(saleListings) > 0) {
+		go s.persistLiveFragmentNumbersSnapshot(context.Background(), auctions, saleListings, floorTON, tonUsdRate)
+	}
+
 	return auctions, hallOfFame, floorTON, athTON, athNumber
+}
+
+
+func (s *NumbersService) persistLiveFragmentNumbersSnapshot(ctx context.Context, auctions []AuctionItem, saleListings []AuctionItem, floorTON float64, tonUsdRate float64) {
+	if s.db == nil || s.db.Pool == nil {
+		return
+	}
+	pCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	floorNano := int64(floorTON * 1e9)
+	var floorNum string
+	if len(saleListings) > 0 {
+		floorNum = saleListings[0].Number
+	} else if len(auctions) > 0 {
+		floorNum = auctions[0].Number
+	}
+
+	for _, item := range saleListings {
+		askNano := int64(item.PriceTON * 1e9)
+		if askNano <= 0 {
+			continue
+		}
+		isGen := len(strings.TrimPrefix(item.Number, "+888")) == 4
+		diffPct := 0.0
+		if floorTON > 0 {
+			diffPct = ((item.PriceTON - floorTON) / floorTON) * 100.0
+		}
+		_, _ = s.db.Pool.Exec(pCtx, `
+			DELETE FROM number_market_listings WHERE number = $1 AND venue = 'fragment' AND listing_type = 'ask';
+		`, item.Number)
+		_, _ = s.db.Pool.Exec(pCtx, `
+			INSERT INTO number_market_listings (
+				number, display_number, venue, listing_type, ask_price_nano_ton,
+				is_genesis, is_active, observed_at, source_url, difference_from_floor_pct
+			) VALUES ($1, $2, 'fragment', 'ask', $3, $4, TRUE, NOW(), $5, $6)
+		`, item.Number, item.DisplayNumber, askNano, isGen, item.MarketURL, diffPct)
+	}
+
+	for _, item := range auctions {
+		bidNano := int64(item.CurrentBidTON * 1e9)
+		if bidNano <= 0 {
+			continue
+		}
+		isGen := len(strings.TrimPrefix(item.Number, "+888")) == 4
+		_, _ = s.db.Pool.Exec(pCtx, `
+			DELETE FROM number_market_listings WHERE number = $1 AND venue = 'fragment' AND listing_type = 'auction';
+		`, item.Number)
+		_, _ = s.db.Pool.Exec(pCtx, `
+			INSERT INTO number_market_listings (
+				number, display_number, venue, listing_type, ask_price_nano_ton, current_bid_nano_ton,
+				is_genesis, ends_at, is_active, observed_at, source_url
+			) VALUES ($1, $2, 'fragment', 'auction', $3, $3, $4, $5, TRUE, NOW(), $6)
+		`, item.Number, item.DisplayNumber, bidNano, isGen, item.EndsAt, item.MarketURL)
+	}
+
+	if floorNano > 0 {
+		activeCnt := len(saleListings) + len(auctions)
+		_, _ = s.db.Pool.Exec(pCtx, `
+			INSERT INTO number_collection_metrics (
+				stat_date, floor_ask_nano_ton, floor_number, floor_venue,
+				active_listings_count, ton_usd_rate, is_stale, source_status, last_indexed_at
+			) VALUES (CURRENT_DATE, $1, $2, 'fragment', $3, $4, FALSE, 'verified', NOW())
+			ON CONFLICT (stat_date) DO UPDATE SET
+				floor_ask_nano_ton = EXCLUDED.floor_ask_nano_ton,
+				floor_number = COALESCE(NULLIF(EXCLUDED.floor_number, ''), number_collection_metrics.floor_number),
+				active_listings_count = GREATEST(number_collection_metrics.active_listings_count, EXCLUDED.active_listings_count),
+				ton_usd_rate = EXCLUDED.ton_usd_rate,
+				is_stale = FALSE,
+				source_status = 'verified',
+				last_indexed_at = NOW()
+		`, floorNano, floorNum, activeCnt, tonUsdRate)
+	}
 }
 
 // GetNumbersIntel generates the market intelligence dashboard with real data and 6-hour caching
@@ -656,7 +750,7 @@ func (s *NumbersService) syncLiveSaleIfMissing(ctx context.Context, normNumber s
 	}
 
 	// Check if status is explicitly Sold (must have "Sale price" descriptor to prevent capturing auction listings)
-	rePrice := regexp.MustCompile(`(?s)icon-before icon-ton">([\d,]+)</div>\s*<div class="table-cell-desc">Sale price</div>`)
+	rePrice := regexp.MustCompile(`(?s)icon-before icon-ton">([\d,.]+)</div>\s*<div class="table-cell-desc">Sale price</div>`)
 	pMatch := rePrice.FindStringSubmatch(htmlStr)
 	if len(pMatch) < 2 {
 		return
@@ -1931,8 +2025,16 @@ type NumbersCollectionOverviewResponse struct {
 	IsLive              bool                 `json:"is_live"`
 	ObservedAt          string               `json:"observed_at"`
 	SnapshotID          string               `json:"snapshot_id"`
-	ActiveSources       []string             `json:"active_sources"`
-	RiskFlags           []CollectionRiskFlag `json:"risk_flags"`
+	ActiveSources       []string              `json:"active_sources"`
+	RiskFlags           []CollectionRiskFlag  `json:"risk_flags"`
+	HolderTiers         *HolderTierBreakdown  `json:"holder_tiers,omitempty"`
+}
+
+type HolderTierBreakdown struct {
+	WhaleCount   int `json:"whale_count"`   // 50+ numbers
+	SharkCount   int `json:"shark_count"`   // 10-49 numbers
+	DolphinCount int `json:"dolphin_count"` // 3-9 numbers
+	RetailCount  int `json:"retail_count"`  // 1-2 numbers
 }
 
 type FloorDepthSummary struct {
@@ -2126,6 +2228,7 @@ func (s *NumbersService) GetCollectionOverview(ctx context.Context) (*NumbersCol
 			SnapshotID:    record.SnapshotID,
 			ActiveSources: activeSources,
 			RiskFlags:     risks,
+			HolderTiers:   s.computeHolderTierBreakdown(ctx),
 		}, nil
 	}
 
@@ -2324,6 +2427,7 @@ func (s *NumbersService) GetCollectionOverview(ctx context.Context) (*NumbersCol
 				Description: "شاخص‌های تکمیلی پس از اتمام ایندکس نهایی به‌روزرسانی خواهند شد.",
 			},
 		},
+		HolderTiers: s.computeHolderTierBreakdown(ctx),
 	}, nil
 }
 
@@ -2483,3 +2587,96 @@ func (s *NumbersService) GetOfficialColors(ctx context.Context) []registry.Color
 	return registry.GetOfficialColorsList()
 }
 
+
+func (s *NumbersService) computeHolderTierBreakdown(ctx context.Context) *HolderTierBreakdown {
+	if s.db == nil || s.db.Pool == nil {
+		return nil
+	}
+	var whales, sharks, dolphins, retail int
+	err := s.db.Pool.QueryRow(ctx, `
+		WITH holder_counts AS (
+			SELECT owner_address, COUNT(*) AS cnt
+			FROM number_features
+			WHERE owner_address IS NOT NULL AND owner_address != ''
+			GROUP BY owner_address
+		)
+		SELECT
+			COUNT(*) FILTER (WHERE cnt >= 50),
+			COUNT(*) FILTER (WHERE cnt BETWEEN 10 AND 49),
+			COUNT(*) FILTER (WHERE cnt BETWEEN 3 AND 9),
+			COUNT(*) FILTER (WHERE cnt BETWEEN 1 AND 2)
+		FROM holder_counts
+	`).Scan(&whales, &sharks, &dolphins, &retail)
+	if err != nil || (whales == 0 && sharks == 0 && dolphins == 0 && retail == 0) {
+		return nil
+	}
+	return &HolderTierBreakdown{
+		WhaleCount:   whales,
+		SharkCount:   sharks,
+		DolphinCount: dolphins,
+		RetailCount:  retail,
+	}
+}
+
+type NumberAlertPreferences struct {
+	PatternKey        string  `json:"pattern_key"`
+	MaxPriceTON       float64 `json:"max_price_ton"`
+	AlertOnListing    bool    `json:"alert_on_listing"`
+	AlertOnAuctionEnd bool    `json:"alert_on_auction_end"`
+	AlertOnFloorDrop  bool    `json:"alert_on_floor_drop"`
+}
+
+func (s *NumbersService) GetAlertPreferences(ctx context.Context, userID int64) (*NumberAlertPreferences, error) {
+	prefs := &NumberAlertPreferences{
+		PatternKey:        "all",
+		MaxPriceTON:       3000,
+		AlertOnListing:    true,
+		AlertOnAuctionEnd: true,
+		AlertOnFloorDrop:  false,
+	}
+	if s.db == nil || s.db.Pool == nil || userID <= 0 {
+		return prefs, nil
+	}
+	_ = s.db.Pool.QueryRow(ctx, `
+		SELECT pattern_key, max_price_ton, alert_on_listing, alert_on_auction_end, alert_on_floor_drop
+		FROM number_alert_preferences
+		WHERE user_id = $1
+	`, userID).Scan(&prefs.PatternKey, &prefs.MaxPriceTON, &prefs.AlertOnListing, &prefs.AlertOnAuctionEnd, &prefs.AlertOnFloorDrop)
+	return prefs, nil
+}
+
+func (s *NumbersService) SaveAlertPreferences(ctx context.Context, userID int64, prefs NumberAlertPreferences) error {
+	if s.db == nil || s.db.Pool == nil || userID <= 0 {
+		return nil
+	}
+	if prefs.PatternKey == "" {
+		prefs.PatternKey = "all"
+	}
+	if prefs.MaxPriceTON <= 0 {
+		prefs.MaxPriceTON = 3000
+	}
+	_, _ = s.db.Pool.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS number_alert_preferences (
+			user_id BIGINT PRIMARY KEY REFERENCES users(telegram_id) ON DELETE CASCADE,
+			pattern_key VARCHAR(64) NOT NULL DEFAULT 'all',
+			max_price_ton NUMERIC(18, 4) NOT NULL DEFAULT 3000,
+			alert_on_listing BOOLEAN NOT NULL DEFAULT TRUE,
+			alert_on_auction_end BOOLEAN NOT NULL DEFAULT TRUE,
+			alert_on_floor_drop BOOLEAN NOT NULL DEFAULT FALSE,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)
+	`)
+	_, err := s.db.Pool.Exec(ctx, `
+		INSERT INTO number_alert_preferences (
+			user_id, pattern_key, max_price_ton, alert_on_listing, alert_on_auction_end, alert_on_floor_drop, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			pattern_key = EXCLUDED.pattern_key,
+			max_price_ton = EXCLUDED.max_price_ton,
+			alert_on_listing = EXCLUDED.alert_on_listing,
+			alert_on_auction_end = EXCLUDED.alert_on_auction_end,
+			alert_on_floor_drop = EXCLUDED.alert_on_floor_drop,
+			updated_at = NOW()
+	`, userID, prefs.PatternKey, prefs.MaxPriceTON, prefs.AlertOnListing, prefs.AlertOnAuctionEnd, prefs.AlertOnFloorDrop)
+	return err
+}

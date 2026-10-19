@@ -73,6 +73,12 @@ type VenueAdapter interface {
 
 func normalizeFragmentSlug(slug string) string {
 	slug = strings.ToLower(strings.TrimSpace(slug))
+	if idx := strings.LastIndex(slug, "-"); idx > 0 {
+		suffix := slug[idx+1:]
+		if _, err := strconv.Atoi(suffix); err == nil {
+			slug = slug[:idx]
+		}
+	}
 	slug = strings.ReplaceAll(slug, "-", "")
 	slug = strings.ReplaceAll(slug, "_", "")
 	slug = strings.ReplaceAll(slug, " ", "")
@@ -119,7 +125,7 @@ func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ven
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		// Fallback to ecosystem tracker (GiftAsset / see.tg) if Fragment HTML is blocked/unreachable
+		// Fallback to ecosystem tracker (free public ecosystem trackers (see.tg & Fragment anchor)) if Fragment HTML is blocked/unreachable
 		if q, tErr := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueFragment); tErr == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
 			return &VenueFloorResult{
 				VenueID:        VenueFragment,
@@ -302,6 +308,8 @@ func NewGetgemsAdapter(tonClient ...*tonapi.Client) *GetgemsAdapter {
 	var tc *tonapi.Client
 	if len(tonClient) > 0 && tonClient[0] != nil {
 		tc = tonClient[0]
+	} else {
+		tc = tonapi.NewClient()
 	}
 	return &GetgemsAdapter{
 		httpClient: &http.Client{Timeout: 6 * time.Second},
@@ -357,7 +365,7 @@ func (a *GetgemsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Venu
 		}
 	}
 
-	// 2. Check ecosystem tracker (GiftAsset / see.tg)
+	// 2. Check ecosystem tracker (free public ecosystem trackers (see.tg & Fragment anchor))
 	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueGetgems); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
 		return &VenueFloorResult{
 			VenueID:        VenueGetgems,
@@ -460,7 +468,7 @@ func (a *MarketAppAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ve
 		}
 	}
 
-	// 2. Check ecosystem tracker (GiftAsset / see.tg)
+	// 2. Check ecosystem tracker (free public ecosystem trackers (see.tg & Fragment anchor))
 	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueMarketApp); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
 		return &VenueFloorResult{
 			VenueID:        VenueMarketApp,
@@ -495,6 +503,20 @@ func (a *MarketAppAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ve
 }
 
 func (a *MarketAppAdapter) FetchVolume(ctx context.Context, giftSlug string) (*VenueVolumeResult, error) {
+	if a.client != nil && len(a.client.Tokens) > 0 {
+		if col, err := a.client.GetGiftCollectionStats(ctx, giftSlug); err == nil && col != nil && col.ExtraData.Volume7d != nil {
+			if vol7d, decErr := decimal.NewFromString(*col.ExtraData.Volume7d); decErr == nil && vol7d.GreaterThan(decimal.Zero) {
+				vol24h := vol7d.DivRound(decimal.NewFromInt(7), 2)
+				return &VenueVolumeResult{
+					VenueID:       VenueMarketApp,
+					Volume24hGRAM: vol24h,
+					Volume7dGRAM:  vol7d,
+					DataStatus:    "live",
+					FetchedAt:     time.Now().UTC(),
+				}, nil
+			}
+		}
+	}
 	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueMarketApp); err == nil && q != nil && q.Volume24hGRAM.GreaterThan(decimal.Zero) {
 		return &VenueVolumeResult{
 			VenueID:       VenueMarketApp,
@@ -578,7 +600,7 @@ func (a *TelegramStarsAdapter) ConvertStarsToDecimalGRAM(stars int64) decimal.De
 	return decimal.NewFromFloat(gramVal)
 }
 
-// TonnelAdapter connects to Tonnel / Toonel Network bot/orderbook and GiftAsset/see.tg trackers
+// TonnelAdapter connects to Tonnel / Toonel Network bot/orderbook and free public ecosystem trackers
 type TonnelAdapter struct {
 	httpClient *http.Client
 }
@@ -600,7 +622,7 @@ func (a *TonnelAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Venue
 		return nil, ErrNoFloorData
 	}
 
-	// 1. Query GiftAsset & see.tg ecosystem trackers for live Tonnel/Toonel orderbook floor
+	// 1. Query free public (see.tg & Fragment) ecosystem trackers for live Tonnel/Toonel orderbook floor
 	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueTonnel); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
 		return &VenueFloorResult{
 			VenueID:        VenueTonnel,
@@ -656,7 +678,7 @@ func (a *TonnelAdapter) FetchVolume(ctx context.Context, giftSlug string) (*Venu
 	}, nil
 }
 
-// PortalsAdapter connects to Portals.market and GiftAsset/see.tg trackers
+// PortalsAdapter connects to Portals.market and free public ecosystem trackers
 type PortalsAdapter struct {
 	httpClient *http.Client
 }
@@ -678,7 +700,7 @@ func (a *PortalsAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Venu
 		return nil, ErrNoFloorData
 	}
 
-	// 1. Query GiftAsset & see.tg ecosystem trackers for live Portals P2P floor
+	// 1. Query free public (see.tg & Fragment) ecosystem trackers for live Portals P2P floor
 	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenuePortals); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
 		return &VenueFloorResult{
 			VenueID:        VenuePortals,
@@ -734,7 +756,7 @@ func (a *PortalsAdapter) FetchVolume(ctx context.Context, giftSlug string) (*Ven
 	}, nil
 }
 
-// MRKTAdapter connects to MRKT (mrkt.tg) and GiftAsset/see.tg trackers
+// MRKTAdapter connects to MRKT (mrkt.tg) and free public ecosystem trackers
 type MRKTAdapter struct {
 	httpClient *http.Client
 }
@@ -748,7 +770,7 @@ func NewMRKTAdapter() *MRKTAdapter {
 func (a *MRKTAdapter) ID() VenueID                    { return VenueMRKT }
 func (a *MRKTAdapter) Name() string                   { return "MRKT" }
 func (a *MRKTAdapter) Currency() string               { return "GRAM" }
-func (a *MRKTAdapter) ProtocolFeePct() decimal.Decimal { return decimal.Zero } // 0% protocol fee
+func (a *MRKTAdapter) ProtocolFeePct() decimal.Decimal { return decimal.NewFromFloat(2.0) } // 2.0% protocol fee
 
 func (a *MRKTAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFloorResult, error) {
 	normSlug := normalizeFragmentSlug(giftSlug)
@@ -756,7 +778,7 @@ func (a *MRKTAdapter) FetchFloor(ctx context.Context, giftSlug string) (*VenueFl
 		return nil, ErrNoFloorData
 	}
 
-	// 1. Query GiftAsset & see.tg ecosystem trackers for live MRKT floor
+	// 1. Query free public (see.tg & Fragment) ecosystem trackers for live MRKT floor
 	if q, err := GetGlobalTrackerClient().FetchVenueQuote(ctx, giftSlug, VenueMRKT); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
 		return &VenueFloorResult{
 			VenueID:        VenueMRKT,

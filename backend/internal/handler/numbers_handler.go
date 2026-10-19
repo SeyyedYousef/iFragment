@@ -267,13 +267,8 @@ func (h *NumbersHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request
 	}
 
 	db := h.service.DB()
-	if idempotencyKey != "" && db != nil && db.Pool != nil {
-		var existingID string
-		errEnt := db.Pool.QueryRow(ctx, `
-			SELECT id FROM report_entitlements 
-			WHERE principal_id = $1 AND asset_id = $2 AND idempotency_key = $3
-			LIMIT 1`, userID, req.Number, idempotencyKey).Scan(&existingID)
-		if errEnt == nil {
+	if idempotencyKey != "" && db != nil {
+		if hasEnt, errEnt := db.HasReportEntitlement(ctx, userID, req.Number, idempotencyKey); errEnt == nil && hasEnt {
 			val, errVal := h.service.ValuateNumber(ctx, userID, req.Number)
 			if errVal == nil {
 				RespondJSON(w, http.StatusOK, val)
@@ -288,12 +283,8 @@ func (h *NumbersHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if idempotencyKey != "" && db != nil && db.Pool != nil {
-		_, _ = db.Pool.Exec(ctx, `
-			INSERT INTO report_entitlements (principal_id, asset_id, idempotency_key, product_type, granted_at)
-			VALUES ($1, $2, $3, 'number_report', CURRENT_TIMESTAMP)
-			ON CONFLICT (principal_id, asset_id, idempotency_key) DO NOTHING`,
-			userID, req.Number, idempotencyKey)
+	if db != nil {
+		_ = db.GrantReportEntitlement(ctx, userID, req.Number, idempotencyKey, "number_report")
 	}
 
 	h.sendNumberNotification(r, val, "credit")
@@ -650,9 +641,14 @@ func (h *NumbersHandler) deliverNumberReportToUser(r *http.Request, userID int64
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
-		club := val.CategoryClubFa
-		if club == "" {
-			club = val.CategoryClub
+		lang := "fa"
+		if h.service != nil && h.service.DB() != nil {
+			lang = h.service.DB().GetUserLanguageCode(ctx, userID)
+		}
+
+		club := val.CategoryClub
+		if lang == "fa" && val.CategoryClubFa != "" {
+			club = val.CategoryClubFa
 		}
 		cleanNum := strings.TrimPrefix(val.Number, "+")
 		miniAppURL := os.Getenv("MINI_APP_URL")
@@ -662,7 +658,91 @@ func (h *NumbersHandler) deliverNumberReportToUser(r *http.Request, userID int64
 		appLink := fmt.Sprintf("%s?startapp=num_%s", miniAppURL, cleanNum)
 		fragmentLink := fmt.Sprintf("https://fragment.com/number/%s", cleanNum)
 
-		reportText := fmt.Sprintf(`📱 <b>کارشناسی تحلیلی شماره کلکسیونی: %s</b>
+		var reportText string
+		btnMiniApp := "📊 مشاهده تحلیل کامل در مینی‌اپ"
+		btnFragment := "🌐 مشاهده در فرگمنت"
+
+		switch lang {
+		case "en":
+			btnMiniApp = "📊 Open Full Report in Mini App"
+			btnFragment = "🌐 View on Fragment"
+			reportText = fmt.Sprintf(`📱 <b>Collectible Number Valuation: %s</b>
+
+👑 Pattern Club: <b>%s</b>
+🏆 Network Rarity Rank: <b>#%d of 136,566</b>
+🎯 Model Confidence: <b>%d%%</b>
+
+━━━━━━━━━━━━━━━━━━━
+💰 <b>Market Valuation Band:</b>
+• Base Floor Value: <b>%s TON</b>
+• Liquidity Floor: <b>%s TON (~$%.0f)</b>
+• Fair Value Estimate: <b>%s TON (~$%.0f)</b>
+• Bullish Ceiling: <b>%s TON (~$%.0f)</b>
+━━━━━━━━━━━━━━━━━━━
+
+🎨 Official Fragment Color: <b>%s</b>
+⚡ <i>NV Engine institutional valuation powered by TON on-chain sales</i>`,
+				val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore,
+				val.BasePriceTON.StringFixed(1),
+				val.LowTON.StringFixed(1), val.LowUSD,
+				val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
+				val.HighTON.StringFixed(1), val.HighUSD,
+				val.Color.Name,
+			)
+		case "ru":
+			btnMiniApp = "📊 Открыть полный отчёт в Mini App"
+			btnFragment = "🌐 Открыть на Fragment"
+			reportText = fmt.Sprintf(`📱 <b>Аналитическая оценка номера: %s</b>
+
+👑 Клуб паттерна: <b>%s</b>
+🏆 Ранг редкости в сети: <b>#%d из 136,566</b>
+🎯 Точность модели: <b>%d%%</b>
+
+━━━━━━━━━━━━━━━━━━━
+💰 <b>Диапазон рыночной стоимости:</b>
+• Базовая оценка: <b>%s TON</b>
+• Ликвидный пол: <b>%s TON (~$%.0f)</b>
+• Справедливая цена (Fair): <b>%s TON (~$%.0f)</b>
+• Верхняя граница: <b>%s TON (~$%.0f)</b>
+━━━━━━━━━━━━━━━━━━━
+
+🎨 Официальный цвет Fragment: <b>%s</b>
+⚡ <i>Точная оценка NV Engine на основе ончейн-сделок TON</i>`,
+				val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore,
+				val.BasePriceTON.StringFixed(1),
+				val.LowTON.StringFixed(1), val.LowUSD,
+				val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
+				val.HighTON.StringFixed(1), val.HighUSD,
+				val.Color.Name,
+			)
+		case "zh":
+			btnMiniApp = "📊 在小程序查看完整报告"
+			btnFragment = "🌐 在 Fragment 查看"
+			reportText = fmt.Sprintf(`📱 <b>匿名典藏号码深度估值: %s</b>
+
+👑 靓号俱乐部: <b>%s</b>
+🏆 全网稀有度排名: <b>#%d / 136,566</b>
+🎯 模型置信度: <b>%d%%</b>
+
+━━━━━━━━━━━━━━━━━━━
+💰 <b>市场估值区间:</b>
+• 基准地板价: <b>%s TON</b>
+• 流动性下限: <b>%s TON (~$%.0f)</b>
+• 公允估值 (Fair): <b>%s TON (~$%.0f)</b>
+• 溢价上限: <b>%s TON (~$%.0f)</b>
+━━━━━━━━━━━━━━━━━━━
+
+🎨 Fragment 官方配色: <b>%s</b>
+⚡ <i>由 NV Engine 基于 TON 链上真实交易驱动</i>`,
+				val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore,
+				val.BasePriceTON.StringFixed(1),
+				val.LowTON.StringFixed(1), val.LowUSD,
+				val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
+				val.HighTON.StringFixed(1), val.HighUSD,
+				val.Color.Name,
+			)
+		default:
+			reportText = fmt.Sprintf(`📱 <b>کارشناسی تحلیلی شماره کلکسیونی: %s</b>
 
 👑 کلوپ دسته‌بندی: <b>%s</b>
 🏆 رتبه کمیابی در شبکه: <b>#%d از ۱۳۶,۵۶۶</b>
@@ -678,24 +758,22 @@ func (h *NumbersHandler) deliverNumberReportToUser(r *http.Request, userID int64
 
 🎨 رنگ رسمی فرگمنت: <b>%s</b>
 ⚡ <i>ارزیابی دقیق موتور NV Engine بر اساس متدولوژی ثبت‌شده در شبکه TON</i>`,
-			val.DisplayNumber,
-			club,
-			val.GlobalRank,
-			val.ConfidenceScore,
-			val.BasePriceTON.StringFixed(1),
-			val.LowTON.StringFixed(1), val.LowUSD,
-			val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
-			val.HighTON.StringFixed(1), val.HighUSD,
-			val.Color.Name,
-		)
+				val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore,
+				val.BasePriceTON.StringFixed(1),
+				val.LowTON.StringFixed(1), val.LowUSD,
+				val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
+				val.HighTON.StringFixed(1), val.HighUSD,
+				val.Color.Name,
+			)
+		}
 
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
 				{
-					{"text": "📊 مشاهده تحلیل کامل در مینی‌اپ", "url": appLink},
+					{"text": btnMiniApp, "url": appLink},
 				},
 				{
-					{"text": "🌐 مشاهده در فرگمنت", "url": fragmentLink},
+					{"text": btnFragment, "url": fragmentLink},
 				},
 			},
 		}
@@ -722,3 +800,42 @@ func (h *NumbersHandler) deliverNumberReportToUser(r *http.Request, userID int64
 	}()
 }
 
+
+// GetAlertPreferences returns the user's saved +888 collection radar preferences
+func (h *NumbersHandler) GetAlertPreferences(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, err := middleware.GetUserID(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+	prefs, err := h.service.GetAlertPreferences(ctx, userID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch alert preferences", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, prefs)
+}
+
+// SaveAlertPreferences persists the user's +888 collection radar preferences
+func (h *NumbersHandler) SaveAlertPreferences(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, err := middleware.GetUserID(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+	var req numbers.NumberAlertPreferences
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+	if err := h.service.SaveAlertPreferences(ctx, userID, req); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to save alert preferences", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"status":      "ok",
+		"preferences": req,
+	})
+}

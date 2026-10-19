@@ -1,5 +1,8 @@
 export const dict = {
 	common: {
+		now: 'هم‌اکنون',
+		pasteBtn: 'جای‌گذاری',
+		unknownError: 'خطای غیرمنتظره‌ای رخ داد.',
 		cancel: 'لغو',
 		save: 'ذخیره',
 		confirm: 'تأیید و پرداخت',
@@ -39,6 +42,11 @@ export const dict = {
 		gotIt: 'متوجه شدم',
 	},
 	gifts: {
+		intel: 'هوش بازار گیفت‌ها',
+		macroHistoryUnavailable: 'داده‌های نمودار تاریخی در حال همگام‌سازی است.',
+		marketplaceComparison: 'مقایسه مارکت‌پلیس‌ها',
+		noActiveListing: 'بدون آگهی فعال',
+		unifiedFloorBoard: 'تابلوی یکپارچه کف قیمت مارکت‌ها',
 		combosFound: 'ترکیب',
 		inAppTelegramCustody: 'کیف‌پول درون‌برنامه‌ای تلگرام',
 		model: 'مدل',
@@ -1004,6 +1012,9 @@ export const dict = {
 		weekly: 'هفتگی',
 	},
 	assets: {
+		noGiftReports: 'هنوز هیچ گزارش ارزیابی گیفتی آنلاک نشده است.',
+		noNumberReports: 'هنوز هیچ گزارش ارزیابی شماره +888 آنلاک نشده است.',
+		noUsernameReports: 'هنوز هیچ گزارش ارزیابی نام کاربری آنلاک نشده است.',
 		boosters: 'بوسترها',
 		connectChannel: 'اتصال کانال',
 		createProject: 'ایجاد پروژه',
@@ -1212,6 +1223,8 @@ export const dict = {
 		joinSquadInvite: 'عضویت در تیم با پیوند دعوت',
 	},
 	collectionInfo: {
+		floorPriceTrend: 'روند کف قیمت (Floor)',
+		noLeaderboardData: 'هنوز داده‌ای در لیدربورد ثبت نشده است.',
 		activeWallets: 'کیف‌پول‌های فعال',
 		aggregatedMarkets: 'بازارهای تجمیع‌شده',
 		allTimeAth: 'بالاترین سقف تاریخی (ATH)',
@@ -1932,6 +1945,8 @@ export const dict = {
 		exit: 'خروج',
 	},
 	leaderboard: {
+		boostRank: 'رتبه بوست',
+		boostRewardHint: 'با بوست کردن @FragmentInvestors رتبه خود را ارتقا دهید و بلیت قرعه‌کشی روزانه بگیرید.',
 		empty: 'داده‌ای یافت نشد.',
 		groupBannerDesc: 'هر ۱ پیام = ۱ کریدت تحلیلی | هر ۲ بوست = ۱ کریدت روزانه',
 		groupBannerTitle: 'سوپرگروه Fragment Investors',
@@ -2354,6 +2369,7 @@ export const dict = {
 			'🔒 <b>تعلیق خدمات</b>\n\nاشتراک ویژه گروه «{group}» منقضی شده و خدمات ربات موقتاً غیرفعال گردید. لطفاً برای فعال‌سازی مجدد، اشتراک خود را تمدید نمایید.',
 	},
 	numbers: {
+		title: 'شماره‌های کلکسیونی (+888)',
 		restrictedTitle: 'شماره دارای محدودیت تلگرام',
 		restrictedModalDesc:
 			'این شماره‌ها توسط تلگرام علامت‌گذاری شده و پیامک ورود دریافت نمی‌کنند؛ اما مالکیت NFT آن‌چین آن‌ها کاملاً معتبر است و معمولاً با ۳۰ تا ۷۰ درصد تخفیف معامله می‌شوند.',
@@ -3053,6 +3069,9 @@ export const dict = {
 		investorsLabel: 'صفحه سرمایه‌گذاران',
 	},
 	ownerInvestors: {
+		safeZoneHint: 'تصویر انتخابی را با نسبت عمودی ۹:۱۶ برش دهید. بخش امن شامل ۱۴۰ پیکسل از بالا و ۲۶۰ پیکسل از پایین است.',
+		unsavedNotice: 'تغییرات هنوز ذخیره نشده‌اند. برای انتشار روی دکمه ذخیره کلیک کنید.',
+		removeConfirmDesc: 'آیا مطمئن هستید که می‌خواهید تصویر تمام‌صفحه صفحه سرمایه‌گذاران را حذف کنید؟',
 		title: 'مدیریت تصویر تمام‌صفحه سرمایه‌گذاران (تب دوم ربات)',
 		subtitle: 'تنظیم تصویر تمام‌صفحه که جایگزین کل محتوای صفحه سرمایه‌گذاران می‌شود',
 		noticeTitle: 'کاملاً مجزا از تبلیغات بنری صفحه اول',
@@ -3279,6 +3298,7 @@ export const dict = {
 		yes: 'بله',
 	},
 	profilePg: {
+		unranked: 'بدون رتبه',
 		badgeActive: 'فعال ✓',
 		badgeSoon: 'به‌زودی',
 		boostersSubtitle: 'ضریب‌های فعال روی درآمد شما',
@@ -3359,6 +3379,7 @@ export const dict = {
 		title: 'ساعات سکوت',
 	},
 	referral: {
+		credits: 'اعتبار تحلیلی',
 		earned: 'پاداش کسب‌شده',
 		friends: 'دوستان',
 		friendsList: 'فهرست دوستان',
@@ -3391,6 +3412,9 @@ export const dict = {
 		notFoundGroup: 'قابلیتی یافت نشد',
 	},
 	security: {
+		deleteBiometricPrompt: 'تأیید بیومتریک جهت حذف دائمی اطلاعات حساب',
+		deleteSuccessDesc: 'اطلاعات و تاریخچه حساب شما به صورت دائمی حذف شد.',
+		deleteSuccessTitle: 'حذف اطلاعات انجام شد',
 		biometricDesc: 'باز کردن قفل iFragment با FaceID / TouchID',
 		biometricLock: 'دسترسی بیومتریک',
 		biometricNotSupported: 'زیست‌سنجی (بیومتریک) در این دستگاه پشتیبانی نمی‌شود',
@@ -3411,6 +3435,10 @@ export const dict = {
 		title: 'پیکربندی امنیتی شما',
 	},
 	securityPg: {
+		activeDevices: 'نشست‌ها و دستگاه‌های فعال',
+		biometricChallenge: 'احراز هویت بیومتریک',
+		biometricVerifyReason: 'تأیید هویت جهت مدیریت تنظیمات امنیتی',
+		online: 'آنلاین',
 		activeBadge: 'فعال',
 		biometricAccessReason: 'برای مشاهده نشست‌های فعال احراز هویت کنید',
 		currentDevice: 'دستگاه فعلی (نشست معتبر)',
@@ -3974,5 +4002,11 @@ export const dict = {
 		uniqueHolders: 'دارندگان یکتا',
 		whaleConcentration: 'توزیع دارندگان عمده',
 		riskAndMethodology: 'روش‌شناسی ارزیابی و شفافیت داده‌ها',
+	},
+	navigation: {
+		home: 'خانه',
+		investors: 'سرمایه‌گذاران',
+		rewards: 'پاداش',
+		leaderboard: 'لیدربورد',
 	},
 };

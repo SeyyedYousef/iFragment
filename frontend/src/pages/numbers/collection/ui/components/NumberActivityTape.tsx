@@ -1,4 +1,7 @@
-import { type Component, createSignal, For, Show } from 'solid-js';
+import { createQuery } from '@tanstack/solid-query';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
+import { numbersApi } from '@/entities/numbers/api/numbersApi.js';
+import { useI18n } from '@/shared/i18n/index.js';
 
 interface ActivityProps {
 	rate: number;
@@ -17,10 +20,97 @@ interface ActivityEvent {
 	txHash?: string;
 }
 
+const ACTIVITY_COPY: Record<
+	string,
+	{
+		allEvents: string;
+		settledSales: string;
+		transfers: string;
+		liveOnChainTape: string;
+		badgeSale: string;
+		badgeAuction: string;
+		badgeListing: string;
+		badgeTransfer: string;
+		fromLabel: string;
+		toLabel: string;
+		minAgo: string;
+		hrAgo: string;
+		tonviewerBtn: string;
+	}
+> = {
+	fa: {
+		allEvents: 'همه رویدادها',
+		settledSales: 'معاملات تسویه‌شده',
+		transfers: 'انتقال‌های عادی',
+		liveOnChainTape: 'نوار زنده آن‌چین',
+		badgeSale: 'فروش قطعی آن‌چین',
+		badgeAuction: 'تسویه حراج تلمینت',
+		badgeListing: 'ثبت قیمت فروش',
+		badgeTransfer: 'انتقال ساده (بدون حجم)',
+		fromLabel: 'از:',
+		toLabel: 'به:',
+		minAgo: '{m} دقیقه قبل',
+		hrAgo: '{h} ساعت قبل',
+		tonviewerBtn: 'تراکنش در Tonviewer ↗',
+	},
+	en: {
+		allEvents: 'All Events',
+		settledSales: 'Settled Sales',
+		transfers: 'Transfers',
+		liveOnChainTape: 'Live On-Chain Tape',
+		badgeSale: 'Verified On-Chain Sale',
+		badgeAuction: 'Telemint Auction Settled',
+		badgeListing: 'New Market Listing',
+		badgeTransfer: 'Wallet Transfer (Zero Vol)',
+		fromLabel: 'From:',
+		toLabel: 'To:',
+		minAgo: '{m}m ago',
+		hrAgo: '{h}h ago',
+		tonviewerBtn: 'View on Tonviewer ↗',
+	},
+	ru: {
+		allEvents: 'Все события',
+		settledSales: 'Сделки',
+		transfers: 'Переводы',
+		liveOnChainTape: 'Ончейн-лента',
+		badgeSale: 'Подтверждённая продажа',
+		badgeAuction: 'Финал аукциона Telemint',
+		badgeListing: 'Новый листинг',
+		badgeTransfer: 'Перевод (без объёма)',
+		fromLabel: 'От:',
+		toLabel: 'Кому:',
+		minAgo: '{m} мин. назад',
+		hrAgo: '{h} ч. назад',
+		tonviewerBtn: 'Транзакция в Tonviewer ↗',
+	},
+	zh: {
+		allEvents: '全部动态',
+		settledSales: '已结算交易',
+		transfers: '普通转账',
+		liveOnChainTape: '链上实时磁带',
+		badgeSale: '链上真实成交',
+		badgeAuction: 'Telemint 拍卖结标',
+		badgeListing: '新上架挂单',
+		badgeTransfer: '钱包转账 (不计交易量)',
+		fromLabel: '自:',
+		toLabel: '至:',
+		minAgo: '{m} 分钟前',
+		hrAgo: '{h} 小时前',
+		tonviewerBtn: '在 Tonviewer 查看 ↗',
+	},
+};
+
 export const NumberActivityTape: Component<ActivityProps> = (props) => {
+	const { locale } = useI18n();
+	const copy = () => ACTIVITY_COPY[locale()] || ACTIVITY_COPY.fa;
 	const [filterType, setFilterType] = createSignal<'all' | 'sales' | 'transfers'>('all');
 
-	// Verified on-chain sample tape events with exact types
+	const activityQuery = createQuery(() => ({
+		queryKey: ['numbersLiveActivityTape'],
+		queryFn: () => numbersApi.getActivity(),
+		staleTime: 30 * 1000,
+	}));
+
 	const sampleEvents: ActivityEvent[] = [
 		{
 			id: 'ev-1',
@@ -81,12 +171,30 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 		},
 	];
 
+	const allEvents = createMemo<ActivityEvent[]>(() => {
+		const live = activityQuery.data;
+		if (live && Array.isArray(live) && live.length > 0) {
+			return live.map((item, idx) => ({
+				id: item.id || `live-${idx}`,
+				type: 'sale',
+				number: item.number,
+				displayNumber: item.display_number || item.number,
+				priceTon: item.sale_price_ton,
+				from: item.marketplace || 'Fragment',
+				timestamp: item.sale_date || new Date().toISOString(),
+				venue: item.marketplace || 'Fragment',
+				txHash: item.tx_hash,
+			}));
+		}
+		return sampleEvents;
+	});
+
 	const filteredEvents = () => {
 		const f = filterType();
-		if (f === 'sales')
-			return sampleEvents.filter((e) => e.type === 'sale' || e.type === 'auction_settled');
-		if (f === 'transfers') return sampleEvents.filter((e) => e.type === 'transfer');
-		return sampleEvents;
+		const list = allEvents();
+		if (f === 'sales') return list.filter((e) => e.type === 'sale' || e.type === 'auction_settled');
+		if (f === 'transfers') return list.filter((e) => e.type === 'transfer');
+		return list;
 	};
 
 	const formatTon = (ton?: number) => {
@@ -101,28 +209,29 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 	};
 
 	const formatTimeAgo = (isoStr: string) => {
-		const diffMin = Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000);
-		if (diffMin < 60) return `${diffMin} دقیقه قبل`;
-		return `${Math.floor(diffMin / 60)} ساعت قبل`;
+		const diffMin = Math.max(1, Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000));
+		if (diffMin < 60) return copy().minAgo.replace('{m}', String(diffMin));
+		return copy().hrAgo.replace('{h}', String(Math.floor(diffMin / 60)));
 	};
 
 	const getEventBadge = (type: ActivityEvent['type']) => {
+		const c = copy();
 		switch (type) {
 			case 'sale':
 				return {
-					label: 'فروش قطعی آن‌چین',
+					label: c.badgeSale,
 					bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
 				};
 			case 'auction_settled':
 				return {
-					label: 'تسویه حراج تلمینت',
+					label: c.badgeAuction,
 					bg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
 				};
 			case 'listing':
-				return { label: 'ثبت قیمت فروش', bg: 'bg-[#0098EA]/15 text-[#0098EA] border-[#0098EA]/30' };
+				return { label: c.badgeListing, bg: 'bg-[#0098EA]/15 text-[#0098EA] border-[#0098EA]/30' };
 			case 'transfer':
 				return {
-					label: 'انتقال ساده (بدون حجم)',
+					label: c.badgeTransfer,
 					bg: 'bg-white/[0.06] text-white/60 border-white/10',
 				};
 		}
@@ -140,7 +249,7 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 							filterType() === 'all' ? 'bg-[#0098EA] text-white shadow-sm' : 'text-white/40'
 						}`}
 					>
-						همه رویدادها
+						{copy().allEvents}
 					</button>
 					<button
 						type="button"
@@ -149,7 +258,7 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 							filterType() === 'sales' ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/40'
 						}`}
 					>
-						معاملات تسویه‌شده
+						{copy().settledSales}
 					</button>
 					<button
 						type="button"
@@ -158,11 +267,11 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 							filterType() === 'transfers' ? 'bg-white/10 text-white' : 'text-white/40'
 						}`}
 					>
-						انتقال‌های عادی
+						{copy().transfers}
 					</button>
 				</div>
 
-				<span class="text-[9px] text-white/40 font-mono pl-2">نوار زنده آن‌چین</span>
+				<span class="text-[9px] text-white/40 font-mono pl-2">{copy().liveOnChainTape}</span>
 			</div>
 
 			{/* Events Feed */}
@@ -181,9 +290,13 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 									</div>
 
 									<div class="flex items-center gap-2 text-[10px] text-white/40 font-mono">
-										<span>از: {ev.from}</span>
+										<span>
+											{copy().fromLabel} {ev.from}
+										</span>
 										<Show when={ev.to}>
-											<span>→ به: {ev.to}</span>
+											<span>
+												→ {copy().toLabel} {ev.to}
+											</span>
 										</Show>
 										<span>· {formatTimeAgo(ev.timestamp)}</span>
 									</div>
@@ -202,10 +315,9 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 											href={`https://tonviewer.com/transaction/${ev.txHash}`}
 											target="_blank"
 											rel="noopener noreferrer"
-											class="text-[9px] text-cyan-400 hover:underline font-mono inline-flex items-center gap-0.5 mt-0.5"
+											class="text-[9px] font-mono text-[#0098EA] hover:underline block mt-0.5"
 										>
-											<span>تراکنش</span>
-											<span class="material-symbols-outlined text-[10px]">open_in_new</span>
+											{copy().tonviewerBtn}
 										</a>
 									</Show>
 								</div>

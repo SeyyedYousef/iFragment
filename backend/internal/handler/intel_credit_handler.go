@@ -115,10 +115,19 @@ func (h *IntelCreditHandler) Consume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Proactively cache valuation access in Redis if this credit was consumed for a username report
+	// Persist durable entitlement in PostgreSQL + Redis when credit is consumed for a username report
 	if req.Entity != "" {
 		cleanEntity := strings.ToLower(strings.TrimPrefix(req.Entity, "@"))
 		if req.Reason == "username" || req.Reason == "report:username" || req.Reason == "val_username" {
+			if db := h.service.DB(); db != nil {
+				_ = db.GrantReportEntitlement(ctx, userID, cleanEntity, req.IdemKey, "username_report")
+				_, _ = db.CreateOrder(ctx, repository.Order{
+					UserID:  userID,
+					Amount:  1,
+					Status:  "paid",
+					Payload: fmt.Sprintf("val_credit:%s:%d:%d", cleanEntity, userID, time.Now().Unix()),
+				})
+			}
 			if h.cache != nil {
 				_ = h.cache.Client.Set(ctx, fmt.Sprintf("val_access:%d:%s", userID, cleanEntity), "credit", 24*time.Hour).Err()
 			}
@@ -214,6 +223,11 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
+		lang := "fa"
+		if h.service != nil && h.service.DB() != nil {
+			lang = h.service.DB().GetUserLanguageCode(ctx, userID)
+		}
+
 		miniAppURL := os.Getenv("MINI_APP_URL")
 		if miniAppURL == "" {
 			miniAppURL = "https://t.me/iFragmentBot/iFragment"
@@ -245,8 +259,8 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 					rateOk = true
 				}
 				expectedUSDFloat, _ := res.ExpectedUSD.Float64()
-				expectedUSDStr = formatUSDT(expectedUSDFloat, rateOk && tonRate > 0, "fa")
-				rateRefLine := buildRateReferenceLine(tonRate, rateSource, rateFetchedAt, rateStale, rateOk && tonRate > 0, "fa")
+				expectedUSDStr = formatUSDT(expectedUSDFloat, rateOk && tonRate > 0, lang)
+				rateRefLine := buildRateReferenceLine(tonRate, rateSource, rateFetchedAt, rateStale, rateOk && tonRate > 0, lang)
 
 				var gradeEmoji string
 				switch res.InvestmentGrade {
@@ -258,7 +272,96 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 					gradeEmoji = "📊"
 				}
 
-				reportText = fmt.Sprintf(`🏷️ <b>کارشناسی تحلیلی نام کاربری: @%s</b>
+				switch lang {
+				case "en":
+					reportText = fmt.Sprintf(`🏷️ <b>Analytical Username Valuation: @%s</b>
+
+%s Investment Grade: <b>%s</b>
+📈 Brandability Score: <b>%d / 100</b>
+📉 Valuation Band: <b>%s – %s TON</b>
+💰 Fair Value Estimate: <b>~%s TON (%s)</b>
+%s
+
+━━━━━━━━━━━━━━━━━━━
+🧬 <b>Structural Metrics:</b>
+• Length: <b>%d chars</b>
+• Liquidity Rating: <b>%s</b>
+• Est. Time to Sell: <b>%s</b>
+• Target Buyer: <b>%s</b>
+━━━━━━━━━━━━━━━━━━━
+
+⚡ <i>AVM v7 institutional valuation powered by Fragment on-chain comps</i>`,
+						cleanUser,
+						gradeEmoji, res.InvestmentGrade,
+						res.Brandability,
+						res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
+						res.ExpectedTON.StringFixed(1), expectedUSDStr,
+						rateRefLine,
+						res.Length,
+						res.LiquidityRating,
+						res.EstimatedSellTime,
+						res.TargetBuyerProfile,
+					)
+				case "ru":
+					reportText = fmt.Sprintf(`🏷️ <b>Аналитическая оценка юзернейма: @%s</b>
+
+%s Инвестиционный грейд: <b>%s</b>
+📈 Индекс брендируемости: <b>%d / 100</b>
+📉 Диапазон оценки: <b>%s – %s TON</b>
+💰 Справедливая оценка: <b>~%s TON (%s)</b>
+%s
+
+━━━━━━━━━━━━━━━━━━━
+🧬 <b>Структурные метрики:</b>
+• Длина: <b>%d симв.</b>
+• Рейтинг ликвидности: <b>%s</b>
+• Ожид. срок продажи: <b>%s</b>
+• Целевой покупатель: <b>%s</b>
+━━━━━━━━━━━━━━━━━━━
+
+⚡ <i>Институциональная оценка AVM v7 на базе сделок Fragment</i>`,
+						cleanUser,
+						gradeEmoji, res.InvestmentGrade,
+						res.Brandability,
+						res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
+						res.ExpectedTON.StringFixed(1), expectedUSDStr,
+						rateRefLine,
+						res.Length,
+						res.LiquidityRating,
+						res.EstimatedSellTime,
+						res.TargetBuyerProfile,
+					)
+				case "zh":
+					reportText = fmt.Sprintf(`🏷️ <b>用户名深度估值报告: @%s</b>
+
+%s 投资评级: <b>%s</b>
+📈 品牌力指数: <b>%d / 100</b>
+📉 估值区间: <b>%s – %s TON</b>
+💰 公允估值中枢: <b>~%s TON (%s)</b>
+%s
+
+━━━━━━━━━━━━━━━━━━━
+🧬 <b>结构化指标:</b>
+• 字符长度: <b>%d 字符</b>
+• 流动性评级: <b>%s</b>
+• 预计成交周期: <b>%s</b>
+• 目标买家画像: <b>%s</b>
+━━━━━━━━━━━━━━━━━━━
+
+⚡ <i>由 AVM v7 引擎基于 Fragment 链上真实成交数据驱动</i>`,
+						cleanUser,
+						gradeEmoji, res.InvestmentGrade,
+						res.Brandability,
+						res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
+						res.ExpectedTON.StringFixed(1), expectedUSDStr,
+						rateRefLine,
+						res.Length,
+						res.LiquidityRating,
+						res.EstimatedSellTime,
+						res.TargetBuyerProfile,
+					)
+				default:
+					reportText = fmt.Sprintf(`🏷️ <b>کارشناسی تحلیلی نام کاربری: @%s</b>
 
 %s درجه سرمایه‌گذاری: <b>%s</b>
 📈 شاخص برندپذیری: <b>%d / 100</b>
@@ -275,33 +378,57 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 ━━━━━━━━━━━━━━━━━━━
 
 ⚡ <i>برآورد تحلیلی موتور هوشمند AVM بر پایه سیگنال‌های معاملات فرگمنت</i>`,
-					cleanUser,
-					gradeEmoji, res.InvestmentGrade,
-					res.Brandability,
-					res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
-					res.ExpectedTON.StringFixed(1), expectedUSDStr,
-					rateRefLine,
-					res.Length,
-					res.LiquidityRating,
-					res.EstimatedSellTime,
-					res.TargetBuyerProfile,
-				)
+						cleanUser,
+						gradeEmoji, res.InvestmentGrade,
+						res.Brandability,
+						res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
+						res.ExpectedTON.StringFixed(1), expectedUSDStr,
+						rateRefLine,
+						res.Length,
+						res.LiquidityRating,
+						res.EstimatedSellTime,
+						res.TargetBuyerProfile,
+					)
+				}
 			}
 		}
 
-		if reportText == "" {
-			reportText = fmt.Sprintf(`🏷️ <b>کارشناسی نام کاربری: @%s</b>
+		btnMiniApp := "📊 مشاهده تحلیل کامل در مینی‌اپ"
+		btnFragment := "🌐 مشاهده در فرگمنت"
+		switch lang {
+		case "en":
+			btnMiniApp = "📊 Open Full Report in Mini App"
+			btnFragment = "🌐 View on Fragment"
+			if reportText == "" {
+				reportText = fmt.Sprintf("🏷️ <b>Username Valuation: @%s</b>\n\nYour full analytical valuation report is now unlocked in the Mini App.", cleanUser)
+			}
+		case "ru":
+			btnMiniApp = "📊 Открыть полный отчёт в Mini App"
+			btnFragment = "🌐 Открыть на Fragment"
+			if reportText == "" {
+				reportText = fmt.Sprintf("🏷️ <b>Оценка юзернейма: @%s</b>\n\nПолный аналитический отчёт разблокирован и доступен в Mini App.", cleanUser)
+			}
+		case "zh":
+			btnMiniApp = "📊 在小程序查看完整报告"
+			btnFragment = "🌐 在 Fragment 查看"
+			if reportText == "" {
+				reportText = fmt.Sprintf("🏷️ <b>用户名估值: @%s</b>\n\n您的完整深度估值报告现已在小程序中解锁。", cleanUser)
+			}
+		default:
+			if reportText == "" {
+				reportText = fmt.Sprintf(`🏷️ <b>کارشناسی نام کاربری: @%s</b>
 
 گزارش کامل شاخص‌های برندپذیری، تحلیل تقاضا و ارزش‌گذاری این نام کاربری هم‌اکنون در مینی‌اپ در دسترس شماست.`, cleanUser)
+			}
 		}
 
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
 				{
-					{"text": "📊 مشاهده تحلیل کامل در مینی‌اپ", "url": appLink},
+					{"text": btnMiniApp, "url": appLink},
 				},
 				{
-					{"text": "🌐 مشاهده در فرگمنت", "url": fragmentLink},
+					{"text": btnFragment, "url": fragmentLink},
 				},
 			},
 		}
@@ -325,4 +452,3 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 		_, _ = tg.SendMessageWithMarkup(ctx, userID, reportText, markup, nil)
 	}()
 }
-

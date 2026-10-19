@@ -11,8 +11,28 @@ import math
 import re
 import sys
 import time
+import json
+import os
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, Optional
-from pydantic import BaseModel
+
+try:
+    from pydantic import BaseModel
+except ImportError:
+    class BaseModel:  # Zero-dependency fallback for python:3.11-alpine
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+        def dict(self):
+            out = {}
+            for k, v in self.__dict__.items():
+                if hasattr(v, "dict"):
+                    out[k] = v.dict()
+                elif isinstance(v, dict):
+                    out[k] = {dk: (dv.dict() if hasattr(dv, "dict") else dv) for dk, dv in v.items()}
+                else:
+                    out[k] = v
+            return out
 
 try:
     from fastapi import FastAPI
@@ -330,10 +350,58 @@ if app is not None:
         return evaluate_request(req)
 
 
+class _StdlibLayaHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        return
+
+    def _send_json(self, status_code: int, payload: dict):
+        raw = json.dumps(payload).encode("utf-8")
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def do_GET(self):
+        if self.path.startswith("/health"):
+            self._send_json(200, {"status": "ok", "engine": "laya-system-1-quantitative", "version": "2.0.0", "runtime": "stdlib-ready"})
+        else:
+            self._send_json(404, {"error": "not_found"})
+
+    def do_POST(self):
+        if not self.path.startswith("/v1/systemone"):
+            self._send_json(404, {"error": "not_found"})
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(length).decode("utf-8")) if length > 0 else {}
+            q_raw = body.get("questions") or {}
+            q_objs = {}
+            for qk, qv in q_raw.items():
+                if isinstance(qv, dict):
+                    q_objs[qk] = Question(
+                        type=qv.get("type", "score"),
+                        instructions=qv.get("instructions"),
+                        criteria=qv.get("criteria"),
+                        scale=qv.get("scale"),
+                    )
+            req = EvaluateRequest(
+                model=body.get("model") or "convai/laya-multilingual",
+                state=body.get("state") or {},
+                questions=q_objs,
+            )
+            res = evaluate_request(req)
+            out = res.model_dump() if hasattr(res, "model_dump") else res.dict()
+            self._send_json(200, out)
+        except Exception as exc:
+            self._send_json(400, {"error": str(exc)})
+
+
 if __name__ == "__main__":
-    if uvicorn is None or app is None:
-        print("FastAPI or Uvicorn not installed. Run: pip install fastapi uvicorn")
-        sys.exit(1)
-    port = 8000
-    print(f"🚀 Starting Laya System 1 Quantitative Sidecar v2.0 on http://127.0.0.1:{port}")
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    port = int(os.environ.get("LAYA_PORT", "8000"))
+    print(f"🚀 Starting Laya System 1 Quantitative Sidecar v2.0 on http://0.0.0.0:{port}")
+    if uvicorn is not None and app is not None:
+        uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    else:
+        server = ThreadingHTTPServer(("0.0.0.0", port), _StdlibLayaHandler)
+        server.serve_forever()

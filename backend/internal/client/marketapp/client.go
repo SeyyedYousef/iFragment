@@ -1,6 +1,7 @@
 package marketapp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -33,22 +35,46 @@ var (
 )
 
 type Client struct {
-	BaseURL    string
-	Tokens     []string
-	tokenIndex uint64
-	HTTP       *http.Client
+	BaseURL         string
+	Tokens          []string
+	tokenIndex      uint64
+	HTTP            *http.Client
+	collectionsMu   sync.RWMutex
+	giftCollections []MarketAppCollection
+	giftColsExp     time.Time
+}
+
+// MarketAppCollectionStats matches OpenAPI #/components/schemas/CollectionStats
+type MarketAppCollectionStats struct {
+	Items         *int    `json:"items"`
+	Floor         *string `json:"floor"`
+	RentFloor     *string `json:"rent_floor"`
+	Volume7d      *string `json:"volume7d"`
+	Volume30d     *string `json:"volume30d"`
+	Owners        *int    `json:"owners"`
+	OnSaleAll     *int    `json:"on_sale_all"`
+	OnSaleOnchain *int    `json:"on_sale_onchain"`
+}
+
+// MarketAppCollection matches OpenAPI #/components/schemas/Collection
+type MarketAppCollection struct {
+	Name      string                   `json:"name"`
+	Address   string                   `json:"address"`
+	ExtraData MarketAppCollectionStats `json:"extra_data"`
 }
 
 func NewClient() *Client {
 	var tokens []string
 	if tokensStr := os.Getenv("MARKETAPP_TOKENS"); tokensStr != "" {
 		for _, t := range strings.Split(tokensStr, ",") {
-			if trimmed := strings.TrimSpace(t); trimmed != "" {
+			if trimmed := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(t), "Bearer ")); trimmed != "" {
 				tokens = append(tokens, trimmed)
 			}
 		}
 	} else if singleToken := os.Getenv("MARKETAPP_TOKEN"); singleToken != "" {
-		tokens = []string{singleToken}
+		if trimmed := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(singleToken), "Bearer ")); trimmed != "" {
+			tokens = []string{trimmed}
+		}
 	}
 
 	if len(tokens) == 0 {
@@ -134,7 +160,7 @@ type GiftFilterParams struct {
 	Cursor            string
 }
 
-// CollectionData represents global collection stats from Marketapp (legacy compatibility)
+// CollectionData represents global collection stats from Marketapp
 type CollectionData struct {
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
@@ -143,7 +169,10 @@ type CollectionData struct {
 	ItemsCount     int             `json:"items_count"`
 	TotalOwners    int             `json:"total_owners"`
 	FloorPrice     float64         `json:"floor_price"`
+	RentFloorPrice float64         `json:"rent_floor_price"`
 	TotalVolume    float64         `json:"total_volume"`
+	Volume7d       float64         `json:"volume_7d"`
+	Volume30d      float64         `json:"volume_30d"`
 	Revenue        float64         `json:"revenue"`
 	Volume24h      float64         `json:"24h_volume"`
 	SalesCount     int             `json:"sales_count"`
@@ -184,18 +213,90 @@ func (c *Client) doRequest(ctx context.Context, endpointURL string) (*http.Respo
 	if err != nil {
 		return nil, err
 	}
-	token := c.getToken()
+	token := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(c.getToken()), "Bearer "))
 	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+		// Per Marketapp OpenAPI securitySchemes.ApiTokenAuth:
+		// Set Authorization header to raw API token without "Bearer" prefix.
+		req.Header.Set("Authorization", token)
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "iFragment/1.0 (Telegram Mini App)")
 	return c.HTTP.Do(req)
 }
 
+// GetGiftCollections fetches all Telegram Gift collections and stats from GET /v1/collections/gifts/
+func (c *Client) GetGiftCollections(ctx context.Context) ([]MarketAppCollection, error) {
+	c.collectionsMu.RLock()
+	if len(c.giftCollections) > 0 && time.Now().Before(c.giftColsExp) {
+		cols := make([]MarketAppCollection, len(c.giftCollections))
+		copy(cols, c.giftCollections)
+		c.collectionsMu.RUnlock()
+		return cols, nil
+	}
+	c.collectionsMu.RUnlock()
+
+	reqURL := fmt.Sprintf("%s/collections/gifts/", strings.TrimRight(c.BaseURL, "/"))
+	resp, err := c.doRequest(ctx, reqURL)
+	if err != nil {
+		return nil, fmt.Errorf("marketapp gift collections request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, ErrUnauthorized
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrNotFound
+	}
+	if resp.StatusCode != http.StatusOK {
+		bodyPreview, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("marketapp gift collections status %d: %s", resp.StatusCode, string(bodyPreview))
+	}
+
+	var cols []MarketAppCollection
+	if err := json.NewDecoder(resp.Body).Decode(&cols); err != nil {
+		return nil, fmt.Errorf("marketapp gift collections decode failed: %w", err)
+	}
+
+	c.collectionsMu.Lock()
+	c.giftCollections = cols
+	c.giftColsExp = time.Now().Add(2 * time.Minute)
+	c.collectionsMu.Unlock()
+
+	return cols, nil
+}
+
+func normalizeGiftCollectionKey(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.ReplaceAll(s, "_", "")
+	s = strings.ReplaceAll(s, "-", "")
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "'", "")
+	s = strings.ReplaceAll(s, "’", "")
+	return s
+}
+
+// GetGiftCollectionStats matches a gift slug against /v1/collections/gifts/
+func (c *Client) GetGiftCollectionStats(ctx context.Context, giftSlug string) (*MarketAppCollection, error) {
+	target := normalizeGiftCollectionKey(giftSlug)
+	if target == "" {
+		return nil, ErrNotFound
+	}
+	cols, err := c.GetGiftCollections(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range cols {
+		if normalizeGiftCollectionKey(cols[i].Name) == target || strings.EqualFold(cols[i].Address, giftSlug) {
+			return &cols[i], nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
 // GetGiftsOnSale fetches gifts on sale matching the filter parameters
 func (c *Client) GetGiftsOnSale(ctx context.Context, params GiftFilterParams) (*GiftsOnSaleResponse, error) {
-	u, err := url.Parse(fmt.Sprintf("%s/gifts/onsale/", c.BaseURL))
+	u, err := url.Parse(fmt.Sprintf("%s/gifts/onsale/", strings.TrimRight(c.BaseURL, "/")))
 	if err != nil {
 		return nil, err
 	}
@@ -271,13 +372,39 @@ func (c *Client) GetGiftsOnSale(ctx context.Context, params GiftFilterParams) (*
 	return &res, nil
 }
 
-// GetGiftFloor fetches the lowest active on-sale price and listing count for a specific gift model
+// GetGiftFloor fetches the lowest active on-sale price and listing count for a specific gift collection/model.
+// It first checks /v1/collections/gifts/ for collection-level floor & on-sale count (or collection_address),
+// and falls back to /v1/gifts/onsale/ sorted by min_bid_asc.
 func (c *Client) GetGiftFloor(ctx context.Context, model string) (decimal.Decimal, int, error) {
-	resp, err := c.GetGiftsOnSale(ctx, GiftFilterParams{
-		Model:  model,
+	var colAddr string
+	if col, colErr := c.GetGiftCollectionStats(ctx, model); colErr == nil && col != nil {
+		colAddr = col.Address
+		if col.ExtraData.Floor != nil && strings.TrimSpace(*col.ExtraData.Floor) != "" {
+			if fl, decErr := decimal.NewFromString(strings.TrimSpace(*col.ExtraData.Floor)); decErr == nil && fl.GreaterThan(decimal.Zero) {
+				listings := 0
+				if col.ExtraData.OnSaleOnchain != nil && *col.ExtraData.OnSaleOnchain > 0 {
+					listings = *col.ExtraData.OnSaleOnchain
+				} else if col.ExtraData.OnSaleAll != nil && *col.ExtraData.OnSaleAll > 0 {
+					listings = *col.ExtraData.OnSaleAll
+				}
+				return fl, listings, nil
+			}
+		}
+	} else if errors.Is(colErr, ErrUnauthorized) {
+		return decimal.Zero, 0, ErrUnauthorized
+	}
+
+	filter := GiftFilterParams{
 		SortBy: "min_bid_asc",
 		Limit:  20,
-	})
+	}
+	if colAddr != "" {
+		filter.CollectionAddress = colAddr
+	} else {
+		filter.Model = model
+	}
+
+	resp, err := c.GetGiftsOnSale(ctx, filter)
 	if err != nil {
 		return decimal.Zero, 0, err
 	}
@@ -290,7 +417,6 @@ func (c *Client) GetGiftFloor(ctx context.Context, model string) (decimal.Decima
 	first := resp.Items[0]
 	floorPrice, err := decimal.NewFromString(first.MinBid)
 	if err != nil {
-		// Try parsing float
 		f, parseErr := strconv.ParseFloat(first.MinBid, 64)
 		if parseErr != nil {
 			return decimal.Zero, len(resp.Items), fmt.Errorf("unable to parse min_bid %q: %w", first.MinBid, err)
@@ -312,7 +438,7 @@ func (c *Client) GetCollectionNFTsOnSale(ctx context.Context, collectionAddr str
 		limit = 100
 	}
 
-	reqURL := fmt.Sprintf("%s/nfts/collections/%s/?limit=%d&filter_by=onsale", c.BaseURL, collectionAddr, limit)
+	reqURL := fmt.Sprintf("%s/nfts/collections/%s/?limit=%d&filter_by=onsale", strings.TrimRight(c.BaseURL, "/"), collectionAddr, limit)
 	if cursor != "" {
 		reqURL += "&cursor=" + url.QueryEscape(cursor)
 	}
@@ -341,10 +467,18 @@ func (c *Client) GetCollectionNFTsOnSale(ctx context.Context, collectionAddr str
 	return &res, nil
 }
 
-// GetCollection fetches collection metadata with resilient fallback
+// GetCollection fetches collection metadata from GET /v1/collections/ (per Marketapp OpenAPI spec)
 func (c *Client) GetCollection(ctx context.Context) (*CollectionData, error) {
-	url := fmt.Sprintf("%s/collections/%s", c.BaseURL, CollectionAddr)
-	resp, err := c.doRequest(ctx, url)
+	return c.GetCollectionByAddress(ctx, CollectionAddr)
+}
+
+// GetCollectionByAddress fetches collection stats for a specific TON collection address from GET /v1/collections/
+func (c *Client) GetCollectionByAddress(ctx context.Context, targetAddr string) (*CollectionData, error) {
+	if targetAddr == "" {
+		targetAddr = CollectionAddr
+	}
+	reqURL := fmt.Sprintf("%s/collections/", strings.TrimRight(c.BaseURL, "/"))
+	resp, err := c.doRequest(ctx, reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("marketapp collection request failed: %w", err)
 	}
@@ -359,11 +493,80 @@ func (c *Client) GetCollection(ctx context.Context) (*CollectionData, error) {
 		return nil, fmt.Errorf("marketapp collection error: status %d, body: %s", resp.StatusCode, string(bodyPreview))
 	}
 
+	rawBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("marketapp collection read failed: %w", err)
+	}
+	trimmed := bytes.TrimSpace(rawBody)
+	if len(trimmed) == 0 {
+		return nil, nil
+	}
+
+	// Official OpenAPI response for GET /v1/collections/ is []Collection
+	if trimmed[0] == '[' {
+		var cols []MarketAppCollection
+		if err := json.Unmarshal(trimmed, &cols); err != nil {
+			return nil, fmt.Errorf("marketapp collections decode failed: %w", err)
+		}
+		for _, col := range cols {
+			if strings.EqualFold(col.Address, targetAddr) {
+				return mapMarketAppCollectionToData(col), nil
+			}
+		}
+		if len(cols) > 0 {
+			return mapMarketAppCollectionToData(cols[0]), nil
+		}
+		return nil, nil
+	}
+
 	var data CollectionData
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+	if err := json.Unmarshal(trimmed, &data); err != nil {
 		return nil, fmt.Errorf("marketapp collection decode failed: %w", err)
 	}
 	return &data, nil
+}
+
+func mapMarketAppCollectionToData(col MarketAppCollection) *CollectionData {
+	out := &CollectionData{
+		Name:    col.Name,
+		Address: col.Address,
+	}
+	if col.ExtraData.Items != nil {
+		out.TotalMinted = *col.ExtraData.Items
+		out.ItemsCount = *col.ExtraData.Items
+	}
+	if col.ExtraData.Owners != nil {
+		out.TotalOwners = *col.ExtraData.Owners
+	}
+	if col.ExtraData.Floor != nil {
+		if v, err := strconv.ParseFloat(strings.TrimSpace(*col.ExtraData.Floor), 64); err == nil {
+			out.FloorPrice = v
+		}
+	}
+	if col.ExtraData.RentFloor != nil {
+		if v, err := strconv.ParseFloat(strings.TrimSpace(*col.ExtraData.RentFloor), 64); err == nil {
+			out.RentFloorPrice = v
+		}
+	}
+	if col.ExtraData.Volume7d != nil {
+		if v, err := strconv.ParseFloat(strings.TrimSpace(*col.ExtraData.Volume7d), 64); err == nil {
+			out.Volume7d = v
+			out.Volume24h = v / 7.0
+		}
+	}
+	if col.ExtraData.Volume30d != nil {
+		if v, err := strconv.ParseFloat(strings.TrimSpace(*col.ExtraData.Volume30d), 64); err == nil {
+			out.Volume30d = v
+			out.TotalVolume = v
+		}
+	}
+	if col.ExtraData.OnSaleAll != nil {
+		out.ActiveAuctions = *col.ExtraData.OnSaleAll
+		if out.ItemsCount > 0 {
+			out.ListedRatio = float64(*col.ExtraData.OnSaleAll) / float64(out.ItemsCount)
+		}
+	}
+	return out
 }
 
 // GetItem fetches data for a specific username NFT by inspecting collection listings

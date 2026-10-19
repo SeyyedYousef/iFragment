@@ -44,7 +44,8 @@ func (w *PartitionWorker) Start(ctx context.Context) {
 	}
 }
 
-var partitionedTables = []string{"search_logs", "group_events", "channel_posts"}
+// Only active partitioned tables (group_events and channel_posts were dropped in 000086/000089)
+var partitionedTables = []string{"search_logs"}
 
 func (w *PartitionWorker) runMaintenance(ctx context.Context) {
 	// Try to acquire distributed advisory lock (ID: 847294) to prevent concurrent execution on horizontally scaled instances
@@ -89,7 +90,7 @@ func (w *PartitionWorker) runMaintenance(ctx context.Context) {
 	if time.Now().UTC().Weekday() == time.Sunday {
 		slog.Info("[PartitionWorker] Running weekly VACUUM ANALYZE on critical tables...")
 		start := time.Now()
-		tables := []string{"search_logs", "group_events", "channel_posts", "audit_logs", "user_stats", "tap_audit"}
+		tables := []string{"search_logs", "audit_logs", "user_stats", "tap_audit", "username_sales", "number_sales", "gift_sales"}
 		for _, t := range tables {
 			if _, err := w.db.Pool.Exec(ctx, fmt.Sprintf("VACUUM ANALYZE %s;", t)); err != nil {
 				slog.Error("[PartitionWorker] VACUUM ANALYZE failed", "table", t, "error", err)

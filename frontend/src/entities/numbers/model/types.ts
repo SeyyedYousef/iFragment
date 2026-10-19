@@ -547,6 +547,22 @@ export interface NumbersInstitutionalCollectionOverview {
 	snapshot_id: string;
 	active_sources: string[];
 	risk_flags: CollectionRiskFlag[];
+	holder_tiers?: HolderTierBreakdown | null;
+}
+
+export interface HolderTierBreakdown {
+	whale_count: number;
+	shark_count: number;
+	dolphin_count: number;
+	retail_count: number;
+}
+
+export interface NumberAlertPreferences {
+	pattern_key: string;
+	max_price_ton: number;
+	alert_on_listing: boolean;
+	alert_on_auction_end: boolean;
+	alert_on_floor_drop: boolean;
 }
 
 export interface NumberCollectionHistoryPoint {

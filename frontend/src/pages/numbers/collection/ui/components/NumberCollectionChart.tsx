@@ -1,5 +1,6 @@
 import { type Component, createSignal, For, Show } from 'solid-js';
 import type { NumberCollectionHistoryPoint } from '@/entities/numbers/model/types.js';
+import { useI18n } from '@/shared/i18n/index.js';
 
 interface ChartProps {
 	points: NumberCollectionHistoryPoint[];
@@ -9,7 +10,70 @@ interface ChartProps {
 	isLoading?: boolean;
 }
 
+const CHART_COPY: Record<
+	string,
+	{
+		priceMode: string;
+		volumeMode: string;
+		loadingData: string;
+		noSalesFound: string;
+		zeroSyntheticHint: string;
+		floorLabel: string;
+		medianLabel: string;
+		volumeDealsLabel: string;
+		dealsWord: string;
+	}
+> = {
+	fa: {
+		priceMode: 'قیمت و کف (Price)',
+		volumeMode: 'حجم و معاملات (Volume)',
+		loadingData: 'در حال دریافت داده‌های تاییدشده...',
+		noSalesFound: 'در این بازه فروش تأییدشده‌ای پیدا نشد',
+		zeroSyntheticHint: 'هیچ داده فرضی یا سینوسی برای این بازه رسم نمی‌شود',
+		floorLabel: 'کف قیمت (Floor):',
+		medianLabel: 'میانه فروش (Median):',
+		volumeDealsLabel: 'تعداد معاملات / حجم:',
+		dealsWord: 'معامله',
+	},
+	en: {
+		priceMode: 'Floor & Price',
+		volumeMode: 'Volume & Sales',
+		loadingData: 'Loading verified on-chain series...',
+		noSalesFound: 'No verified sales in this window',
+		zeroSyntheticHint: 'Zero synthetic curves — only verified on-chain settlements are plotted',
+		floorLabel: 'Floor Price:',
+		medianLabel: 'Median Sale:',
+		volumeDealsLabel: 'Sales / Volume:',
+		dealsWord: 'sales',
+	},
+	ru: {
+		priceMode: 'Пол и цена',
+		volumeMode: 'Объём и сделки',
+		loadingData: 'Загрузка подтверждённых данных...',
+		noSalesFound: 'Нет подтверждённых сделок за период',
+		zeroSyntheticHint: 'Без синтетики — отображаются только реальные ончейн-сделки',
+		floorLabel: 'Пол (Floor):',
+		medianLabel: 'Медиана продаж:',
+		volumeDealsLabel: 'Сделки / Объём:',
+		dealsWord: 'сделок',
+	},
+	zh: {
+		priceMode: '地板价走势',
+		volumeMode: '成交量与笔数',
+		loadingData: '正在加载链上真实历史序列...',
+		noSalesFound: '该时间段暂无已验证成交',
+		zeroSyntheticHint: '零虚拟拟合曲线 — 仅绘制真实链上结算数据',
+		floorLabel: '地板价 (Floor):',
+		medianLabel: '成交中位数:',
+		volumeDealsLabel: '成交笔数 / 交易量:',
+		dealsWord: '笔',
+	},
+};
+
 export const NumberCollectionChart: Component<ChartProps> = (props) => {
+	const { locale } = useI18n();
+	const copy = () => CHART_COPY[locale()] || CHART_COPY.fa;
+
 	const [chartMode, setChartMode] = createSignal<'price' | 'volume'>('price');
 	const [currency, setCurrency] = createSignal<'TON' | 'USD'>('TON');
 	const [hoveredPoint, setHoveredPoint] = createSignal<NumberCollectionHistoryPoint | null>(null);
@@ -81,7 +145,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 								: 'text-white/50 hover:text-white'
 						}`}
 					>
-						قیمت و کف (Price)
+						{copy().priceMode}
 					</button>
 					<button
 						type="button"
@@ -92,7 +156,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 								: 'text-white/50 hover:text-white'
 						}`}
 					>
-						حجم و معاملات (Volume)
+						{copy().volumeMode}
 					</button>
 				</div>
 
@@ -146,19 +210,15 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 						<div class="text-center py-8">
 							<Show when={props.isLoading}>
 								<div class="w-6 h-6 border-2 border-[#0098EA]/30 border-t-[#0098EA] rounded-full animate-spin mx-auto mb-2" />
-								<span class="text-xs text-white/40 font-mono">
-									در حال دریافت داده‌های تاییدشده...
-								</span>
+								<span class="text-xs text-white/40 font-mono">{copy().loadingData}</span>
 							</Show>
 							<Show when={!props.isLoading && (!props.points || props.points.length === 0)}>
 								<span class="material-symbols-outlined text-3xl text-white/20 mb-1 block">
 									query_stats
 								</span>
-								<span class="text-xs font-medium text-white/50 block">
-									در این بازه فروش تأییدشده‌ای پیدا نشد
-								</span>
+								<span class="text-xs font-medium text-white/50 block">{copy().noSalesFound}</span>
 								<span class="text-[10px] text-white/30 block mt-0.5 font-mono">
-									هیچ داده فرضی یا سینوسی برای این بازه رسم نمی‌شود
+									{copy().zeroSyntheticHint}
 								</span>
 							</Show>
 						</div>
@@ -226,7 +286,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 							</div>
 
 							<div class="flex items-center justify-between gap-4">
-								<span class="text-white/60">کف قیمت (Floor):</span>
+								<span class="text-white/60">{copy().floorLabel}</span>
 								<span class="font-mono font-bold text-white">
 									{currency() === 'TON'
 										? `${fmtNum(hoveredPoint()!.floor_ton)} TON`
@@ -236,7 +296,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 
 							<Show when={hoveredPoint()!.median_sale_ton}>
 								<div class="flex items-center justify-between gap-4">
-									<span class="text-white/60">میانه فروش (Median):</span>
+									<span class="text-white/60">{copy().medianLabel}</span>
 									<span class="font-mono font-bold text-emerald-400">
 										{currency() === 'TON'
 											? `${fmtNum(hoveredPoint()!.median_sale_ton)} TON`
@@ -246,20 +306,17 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 							</Show>
 
 							<div class="flex items-center justify-between gap-4">
-								<span class="text-white/60">تعداد معاملات / حجم:</span>
+								<span class="text-white/60">{copy().volumeDealsLabel}</span>
 								<span class="font-mono font-bold text-cyan-300">
-									{hoveredPoint()!.sales_count} معامله · {fmtNum(hoveredPoint()!.volume_ton)} TON
+									{hoveredPoint()!.sales_count} {copy().dealsWord} ·{' '}
+									{currency() === 'TON'
+										? `${fmtNum(hoveredPoint()!.volume_ton)} TON`
+										: `$${fmtNum(hoveredPoint()!.volume_usd)}`}
 								</span>
 							</div>
 						</div>
 					</Show>
 				</Show>
-			</div>
-
-			{/* Chart Footer Indicator */}
-			<div class="mt-2 pt-2 border-t border-white/[0.04] flex items-center justify-between text-[9px] text-white/40 font-mono">
-				<span>پروتکل تلمینت · بدون نقاط جعلی (Zero Synthetic OHLCV)</span>
-				<span>تایم‌استمپ دقیق UTC</span>
 			</div>
 		</div>
 	);

@@ -1,4 +1,14 @@
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
   api:
     build: 
       context: ./backend
@@ -10,6 +20,8 @@ services:
       - DATABASE_URL=postgres://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-pass}@db:5432/${POSTGRES_DB:-ifragment}?sslmode=disable
       - DRAGONFLY_URL=redis://dragonfly:6379/0
       - TG_SESSION_DIR=/app/sessions
+      - LAYA_BASE_URL=http://laya-sidecar:8000/v1/systemone
+      - LAYA_SIDECAR_URL=http://laya-sidecar:8000
     ports:
       - "8080:8080"
     volumes:
@@ -20,6 +32,20 @@ services:
         condition: service_healthy
       dragonfly:
         condition: service_healthy
+      laya-sidecar:
+        condition: service_started
+    restart: unless-stopped
+
+  laya-sidecar:
+    image: python:3.11-alpine
+    working_dir: /app
+    volumes:
+      - ./backend/scripts:/app:ro
+    environment:
+      - LAYA_PORT=8000
+    command: ["python3", "laya_sidecar.py"]
+    expose:
+      - "8000"
     restart: unless-stopped
 
   db:
@@ -85,5 +111,3 @@ volumes:
   sessions_data:
   dragonfly_data:
   uploads_data:
-
-

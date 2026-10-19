@@ -3,7 +3,7 @@ import { createQuery } from '@tanstack/solid-query';
 
 import { type Component, createEffect, For, Show } from 'solid-js';
 import { adsApi } from '@/entities/ads/api/adsApi.js';
-import type { AdCampaign } from '@/entities/owner/model/types.js';
+import type { AdCampaign } from '@/entities/ads/model/types.js';
 import { buildMediaUrl } from '@/shared/api/config.js';
 import { type DictPaths, locale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -31,14 +31,14 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 		props.onTabChange(tab.id);
 	};
 
-	const adsQuery = createQuery<AdCampaign[]>(() => ({
+	const adsQuery = createQuery(() => ({
 		queryKey: ['ads', 'active', 'dashboard_banner'],
 		queryFn: () => adsApi.getActiveAds('dashboard_banner'),
 		staleTime: 60 * 1000,
 	}));
 
 	const activeAd = () => {
-		const list = adsQuery.data;
+		const list = adsQuery.data as AdCampaign[] | undefined;
 		if (list && list.length > 0) {
 			return list[0];
 		}

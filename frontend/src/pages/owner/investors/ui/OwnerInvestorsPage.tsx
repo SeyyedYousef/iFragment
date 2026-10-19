@@ -142,8 +142,7 @@ export const OwnerInvestorsPage: Component = () => {
 						</div>
 
 						<p class="text-xs text-white/50 leading-relaxed">
-							تصویر انتخابی را با نسبت عمودی ۹:۱۶ برش دهید. بخش امن (Safe Zone) شامل ۱۴۰ پیکسل از
-							بالا (هدر تلگرام) و ۲۶۰ پیکسل از پایین (نوار پیمایش) است.
+							{t('ownerInvestors.safeZoneHint') || 'Crop your image to 9:16 vertical ratio (1080×1920).'}
 						</p>
 
 						<ImageCropUploader
@@ -169,8 +168,7 @@ export const OwnerInvestorsPage: Component = () => {
 								<div class="flex items-center gap-2 text-xs text-amber-300">
 									<span class="material-symbols-outlined text-base">pending</span>
 									<span>
-										تغییرات هنوز ذخیره نشده‌اند. برای انتشار روی دکمه «ذخیره تنظیمات تصویر» کلیک
-										کنید.
+										{t('ownerInvestors.unsavedNotice') || 'Unsaved changes pending. Click Save to publish.'}
 									</span>
 								</div>
 								<button
@@ -179,7 +177,7 @@ export const OwnerInvestorsPage: Component = () => {
 									disabled={updateMutation.isPending}
 									class="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold shrink-0 transition"
 								>
-									ذخیره
+									{t('common.save')}
 								</button>
 							</div>
 						</Show>
@@ -235,7 +233,7 @@ export const OwnerInvestorsPage: Component = () => {
 								{/* Tab 1: Home */}
 								<div class="flex-1 flex flex-col items-center justify-center py-1 text-white/40">
 									<span class="material-symbols-outlined text-base">home</span>
-									<span class="text-[8px] mt-0.5">خانه</span>
+									<span class="text-[8px] mt-0.5">{t('navigation.home')}</span>
 								</div>
 
 								{/* Tab 2: Investors (ACTIVE with handshake) */}
@@ -246,13 +244,13 @@ export const OwnerInvestorsPage: Component = () => {
 									>
 										handshake
 									</span>
-									<span class="text-[8px] font-bold mt-0.5">سرمایه‌گذاران</span>
+									<span class="text-[8px] font-bold mt-0.5">{t('navigation.investors')}</span>
 								</div>
 
 								{/* Tab 3: Rewards */}
 								<div class="flex-1 flex flex-col items-center justify-center py-1 text-white/40">
 									<span class="material-symbols-outlined text-base">card_giftcard</span>
-									<span class="text-[8px] mt-0.5">پاداش</span>
+									<span class="text-[8px] mt-0.5">{t('navigation.rewards')}</span>
 								</div>
 							</div>
 						</div>
@@ -269,7 +267,7 @@ export const OwnerInvestorsPage: Component = () => {
 				<DangerActionDialog
 					isOpen={showDeleteConfirm()}
 					title={t('ownerInvestors.removeButton')}
-					description="آیا مطمئن هستید که می‌خواهید تصویر تمام‌صفحه صفحه سرمایه‌گذاران را حذف کنید؟ در این صورت کاربران صفحه خالی پیش‌فرض را مشاهده خواهند کرد."
+					description={t('ownerInvestors.removeConfirmDesc') || 'Are you sure you want to remove the full-screen Investors page image?'}
 					actionLabel={t('common.delete')}
 					onConfirm={handleConfirmRemove}
 					onClose={() => setShowDeleteConfirm(false)}

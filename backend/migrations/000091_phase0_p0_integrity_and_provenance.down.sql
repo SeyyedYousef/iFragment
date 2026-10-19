@@ -1,4 +1,4 @@
-﻿-- 000091_phase0_p0_integrity_and_provenance.down.sql
+-- 000091_phase0_p0_integrity_and_provenance.down.sql
 BEGIN;
 
 DROP INDEX IF EXISTS unq_gift_reports_user_gift;

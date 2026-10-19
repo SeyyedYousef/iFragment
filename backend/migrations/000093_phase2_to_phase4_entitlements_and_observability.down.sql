@@ -1,4 +1,4 @@
-﻿-- 000093_phase2_to_phase4_entitlements_and_observability.down.sql
+-- 000093_phase2_to_phase4_entitlements_and_observability.down.sql
 BEGIN;
 
 DROP TABLE IF EXISTS ingestion_dlq;

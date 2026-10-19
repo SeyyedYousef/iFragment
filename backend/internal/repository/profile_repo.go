@@ -1266,20 +1266,21 @@ func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAss
 		}
 	}
 
-	// 1a.4 Query search_logs for recent username evaluations/searches
-	logRows, logErr := db.Pool.Query(ctx, `
-		SELECT DISTINCT ON (username) username, created_at
-		FROM search_logs
-		WHERE user_id = $1
-		ORDER BY username, created_at DESC
-		LIMIT 20
+	// 1a.4 Query report_entitlements for unlocked username reports
+	entRows, entErr := db.Pool.Query(ctx, `
+		SELECT DISTINCT ON (asset_id) asset_id, granted_at
+		FROM report_entitlements
+		WHERE principal_id = $1
+		  AND product_type IN ('username_report', 'username')
+		ORDER BY asset_id, granted_at DESC
+		LIMIT 50
 	`, userID)
-	if logErr == nil {
-		defer logRows.Close()
-		for logRows.Next() {
+	if entErr == nil {
+		defer entRows.Close()
+		for entRows.Next() {
 			var u string
 			var genAt time.Time
-			if logRows.Scan(&u, &genAt) == nil {
+			if entRows.Scan(&u, &genAt) == nil {
 				cleanU := strings.ToLower(strings.TrimPrefix(u, "@"))
 				if cleanU != "" && !seenUsernames[cleanU] {
 					seenUsernames[cleanU] = true

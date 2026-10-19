@@ -1,0 +1,11 @@
+groups:
+  - name: ifragment_production_alerts
+    rules:
+      - alert: IFragmentAPIDown
+        expr: up{job="ifragment-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "iFragment API instance is down"
+          description: "The iFragment backend API has been unreachable for more than 1 minute."

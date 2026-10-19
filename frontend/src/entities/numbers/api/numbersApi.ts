@@ -389,6 +389,26 @@ export const numbersApi = {
 		return data;
 	},
 
+	getAlertPreferences: async (): Promise<import('../model/types.js').NumberAlertPreferences> => {
+		try {
+			const { data } = await apiClient.get<import('../model/types.js').NumberAlertPreferences>('/numbers/alerts/preferences');
+			if (data) return data;
+		} catch {}
+		return {
+			pattern_key: 'all',
+			max_price_ton: 3000,
+			alert_on_listing: true,
+			alert_on_auction_end: true,
+			alert_on_floor_drop: false,
+		};
+	},
+
+	saveAlertPreferences: async (
+		prefs: import('../model/types.js').NumberAlertPreferences,
+	): Promise<void> => {
+		await apiClient.post('/numbers/alerts/preferences', prefs);
+	},
+
 	getColors: async (): Promise<import('../model/types.js').NFTColorInfo[]> => {
 		const { data } =
 			await apiClient.get<import('../model/types.js').NFTColorInfo[]>('/numbers/colors');

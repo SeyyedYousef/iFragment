@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createSignal, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/index.js';
+import { useI18n } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { NumberActivityTape } from './components/NumberActivityTape.js';
@@ -21,9 +22,90 @@ import { NumberRiskMethodology } from './components/NumberRiskMethodology.js';
 
 export type CollectionTabKey = 'overview' | 'market' | 'patterns' | 'holders' | 'activity' | 'risk';
 
+const PAGE_COPY: Record<
+	string,
+	{
+		tabOverview: string;
+		tabMarket: string;
+		tabPatterns: string;
+		tabHolders: string;
+		tabActivity: string;
+		tabRisk: string;
+		aboutTitle: string;
+		aboutBody: string;
+		intelTableTitle: string;
+		intelTableSub: string;
+		maskBuilderTitle: string;
+		maskBuilderSub: string;
+	}
+> = {
+	fa: {
+		tabOverview: 'نمای کلی',
+		tabMarket: 'بازار',
+		tabPatterns: 'الگوها',
+		tabHolders: 'نهنگ‌ها',
+		tabActivity: 'رویدادها',
+		tabRisk: 'ریسک',
+		aboutTitle: 'درباره شماره‌های کلکسیونی تلگرام (+888)',
+		aboutBody:
+			'شماره‌های ناشناس تلگرام دارایی‌های غیرمتمرکز NFT بر بستر استاندارد تلمینت (Telemint) در بلاکچین TON هستند. این مجموعه در دسامبر ۲۰۲۲ منجمد شده و عرضه کل آن دقیقاً ۱۳۶,۵۶۶ عدد است؛ بنابراین هیچ شماره جدیدی مینت نخواهد شد و تمامی معاملات ثانویه هستند.',
+		intelTableTitle: 'میز هوش بازار (Intel Table)',
+		intelTableSub: 'مشاهده حراجی‌ها و لیستینگ‌های جاری',
+		maskBuilderTitle: 'طراح ماسک و فیلتر الگو',
+		maskBuilderSub: 'جستجوی پیشرفته بر اساس الگوهای ریاضی',
+	},
+	en: {
+		tabOverview: 'Overview',
+		tabMarket: 'Market',
+		tabPatterns: 'Patterns',
+		tabHolders: 'Whales',
+		tabActivity: 'Activity',
+		tabRisk: 'Risk',
+		aboutTitle: 'About Telegram Collectible Numbers (+888)',
+		aboutBody:
+			'Telegram Anonymous Numbers are decentralized Telemint NFTs on the TON blockchain. Frozen in December 2022 at an exact supply of 136,566 numbers, no new numbers can ever be minted and all trading occurs on secondary markets.',
+		intelTableTitle: 'Market Intel Table',
+		intelTableSub: 'Browse live auctions & active listings',
+		maskBuilderTitle: 'Pattern & Mask Builder',
+		maskBuilderSub: 'Advanced search by mathematical patterns',
+	},
+	ru: {
+		tabOverview: 'Обзор',
+		tabMarket: 'Маркет',
+		tabPatterns: 'Паттерны',
+		tabHolders: 'Киты',
+		tabActivity: 'События',
+		tabRisk: 'Риски',
+		aboutTitle: 'О коллекционных номерах Telegram (+888)',
+		aboutBody:
+			'Анонимные номера Telegram — децентрализованные NFT стандарта Telemint в блокчейне TON. Эмиссия навсегда заморожена в декабре 2022 года на уровне ровно 136 566 номеров, все сделки проходят на вторичном рынке.',
+		intelTableTitle: 'Таблица рыночной аналитики',
+		intelTableSub: 'Активные аукционы и листинги',
+		maskBuilderTitle: 'Конструктор масок и паттернов',
+		maskBuilderSub: 'Расширенный поиск по математическим маскам',
+	},
+	zh: {
+		tabOverview: '总览',
+		tabMarket: '市场',
+		tabPatterns: '靓号规律',
+		tabHolders: '巨鲸持仓',
+		tabActivity: '实时动态',
+		tabRisk: '风控方法',
+		aboutTitle: '关于 Telegram 匿名典藏号码 (+888)',
+		aboutBody:
+			'Telegram 匿名号码是基于 TON 区块链 Telemint 标准的去中心化 NFT 资产。该系列于 2022 年 12 月永久停止增发，总供应量严格锁定为 136,566 个，所有交易均在二级市场进行。',
+		intelTableTitle: '市场情报工作台',
+		intelTableSub: '查看实时拍卖与在售挂单',
+		maskBuilderTitle: '号码掩码与靓号筛选器',
+		maskBuilderSub: '按数学序列与对称规律高级检索',
+	},
+};
+
 export const NumbersCollectionPage: Component = () => {
 	useTelegramBackButton(-1);
 	const navigate = useNavigate();
+	const { locale } = useI18n();
+	const copy = () => PAGE_COPY[locale()] || PAGE_COPY.fa;
 
 	const [selectedTab, setSelectedTab] = createSignal<CollectionTabKey>('overview');
 	const [timeframe, setTimeframe] = createSignal<'24h' | '7d' | '30d' | '90d' | 'all'>('30d');
@@ -123,7 +205,7 @@ export const NumbersCollectionPage: Component = () => {
 								: 'text-white/40 hover:text-white'
 						}`}
 					>
-						نمای کلی
+						{copy().tabOverview}
 					</button>
 
 					<button
@@ -135,7 +217,7 @@ export const NumbersCollectionPage: Component = () => {
 								: 'text-white/40 hover:text-white'
 						}`}
 					>
-						بازار
+						{copy().tabMarket}
 					</button>
 
 					<button
@@ -147,7 +229,7 @@ export const NumbersCollectionPage: Component = () => {
 								: 'text-white/40 hover:text-white'
 						}`}
 					>
-						الگوها
+						{copy().tabPatterns}
 					</button>
 
 					<button
@@ -159,7 +241,7 @@ export const NumbersCollectionPage: Component = () => {
 								: 'text-white/40 hover:text-white'
 						}`}
 					>
-						نهنگ‌ها
+						{copy().tabHolders}
 					</button>
 
 					<button
@@ -171,7 +253,7 @@ export const NumbersCollectionPage: Component = () => {
 								: 'text-white/40 hover:text-white'
 						}`}
 					>
-						رویدادها
+						{copy().tabActivity}
 					</button>
 
 					<button
@@ -183,7 +265,7 @@ export const NumbersCollectionPage: Component = () => {
 								: 'text-white/40 hover:text-white'
 						}`}
 					>
-						ریسک
+						{copy().tabRisk}
 					</button>
 				</div>
 
@@ -211,13 +293,9 @@ export const NumbersCollectionPage: Component = () => {
 						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-3xl p-4 backdrop-blur-xl">
 							<h3 class="text-xs font-black text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
 								<span class="material-symbols-outlined text-[#0098EA] text-sm">info</span>
-								درباره شماره‌های کلکسیونی تلگرام (+888)
+								{copy().aboutTitle}
 							</h3>
-							<p class="text-xs text-white/70 leading-relaxed">
-								شماره‌های ناشناس تلگرام دارایی‌های غیرمتمرکز NFT بر بستر استاندارد تلمینت (Telemint)
-								در بلاکچین TON هستند. این مجموعه در دسامبر ۲۰۲۲ منجمد شده و عرضه کل آن دقیقاً ۱۳۶,۵۶۶
-								عدد است؛ بنابراین هیچ شماره جدیدی مینت نخواهد شد و تمامی معاملات ثانویه هستند.
-							</p>
+							<p class="text-xs text-white/70 leading-relaxed">{copy().aboutBody}</p>
 						</div>
 
 						{/* Quick Tools Navigation */}
@@ -236,11 +314,9 @@ export const NumbersCollectionPage: Component = () => {
 									monitoring
 								</span>
 								<span class="text-xs font-black text-white block group-hover:text-[#0098EA]">
-									میز هوش بازار (Intel Table)
+									{copy().intelTableTitle}
 								</span>
-								<span class="text-[10px] text-white/40 block mt-0.5">
-									مشاهده حراجی‌ها و لیستینگ‌های جاری
-								</span>
+								<span class="text-[10px] text-white/40 block mt-0.5">{copy().intelTableSub}</span>
 							</button>
 
 							<button
@@ -257,11 +333,9 @@ export const NumbersCollectionPage: Component = () => {
 									tune
 								</span>
 								<span class="text-xs font-black text-white block group-hover:text-cyan-400">
-									طراح ماسک و فیلتر الگو
+									{copy().maskBuilderTitle}
 								</span>
-								<span class="text-[10px] text-white/40 block mt-0.5">
-									جستجوی پیشرفته بر اساس الگوهای ریاضی
-								</span>
+								<span class="text-[10px] text-white/40 block mt-0.5">{copy().maskBuilderSub}</span>
 							</button>
 						</div>
 					</div>

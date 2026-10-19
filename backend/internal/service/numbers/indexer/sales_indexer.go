@@ -346,7 +346,7 @@ func (s *NumbersSalesIndexer) processNFTSales(ctx context.Context, normNumber st
 				}
 			}
 
-			if priceTON > 0 && (isMarketAddress && confidence == "exact") {
+			if priceTON > 0 && (confidence == "exact" || isMarketAddress) {
 				rawData, _ := json.Marshal(event)
 
 				saleRec := repository.NumberSaleRecord{

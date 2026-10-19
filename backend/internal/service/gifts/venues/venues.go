@@ -114,7 +114,7 @@ var Registry = map[VenueID]VenueInfo{
 		ID:                 VenueMRKT,
 		Name:               "MRKT",
 		Currency:           "GRAM",
-		ProtocolFeePct:     0.0, // 0% two-way fee
+		ProtocolFeePct:     2.0, // 2.0% fee
 		ListingFeePct:      0.0,
 		RequiresKYC:        false,
 		EscrowType:         "smart_contract",

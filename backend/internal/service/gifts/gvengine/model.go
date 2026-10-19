@@ -33,12 +33,14 @@ type CuriosityGateResponse struct {
 // TraitDNABar holds the 4-axis attribute rarity representation
 type TraitDNABar struct {
 	AxisKey        string                    `json:"axis_key"`        // "model", "backdrop", "symbol", "serial"
+	AxisName       string                    `json:"axis_name,omitempty"`
 	LabelEn        string                    `json:"label_en"`
 	LabelFa        string                    `json:"label_fa"`
 	Value          string                    `json:"value"`
 	Percentile     float64                   `json:"percentile"`      // Top X%
 	RarityTier     string                    `json:"rarity_tier"`     // Legendary, Epic, Rare, Uncommon, Common
 	CertaintyLevel string                    `json:"certainty_level"` // "exact" (Blue), "measured" (Green), "estimated" (Yellow)
+	CraftChance    float64                   `json:"craft_chance,omitempty"`
 	Colors         *traits.BackdropColorSet  `json:"colors,omitempty"`
 	Description    string                    `json:"description"`
 }

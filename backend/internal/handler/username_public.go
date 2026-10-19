@@ -546,9 +546,7 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !isPro && h.db != nil {
-		query := `SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'paid' AND (payload LIKE 'val_pro:%' OR amount = 249) AND created_at >= NOW() - INTERVAL '30 days'`
-		var count int
-		if err := h.db.Pool.QueryRow(ctx, query, userID).Scan(&count); err == nil && count > 0 {
+		if active, err := h.db.HasActiveProPass(ctx, userID); err == nil && active {
 			isPro = true
 		}
 	}
@@ -1359,9 +1357,7 @@ func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request
 		}
 	}
 	if !isPro && userID > 0 && h.db != nil {
-		query := `SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'paid' AND (payload LIKE 'val_pro:%' OR amount = 249) AND created_at >= NOW() - INTERVAL '30 days'`
-		var count int
-		if err := h.db.Pool.QueryRow(ctx, query, userID).Scan(&count); err == nil && count > 0 {
+		if active, err := h.db.HasActiveProPass(ctx, userID); err == nil && active {
 			isPro = true
 			if h.cache != nil {
 				h.cache.Client.Set(ctx, fmt.Sprintf("user_val_pro:%d", userID), "true", 24*time.Hour)
@@ -1419,9 +1415,7 @@ func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request
 		}
 		// Check if eligible for first report discount (has user bought any valuation order before?)
 		if h.db != nil {
-			var orderCount int
-			_ = h.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'paid' AND starts_with(payload, 'val_')`, userID).Scan(&orderCount)
-			if orderCount > 0 {
+			if hasPrev, err := h.db.HasPreviousValuationOrders(ctx, userID); err == nil && hasPrev {
 				firstReportDiscountEligible = false
 			}
 		}
@@ -1669,18 +1663,8 @@ func (h *UsernameHandler) ValuationMonitor(w http.ResponseWriter, r *http.Reques
 		}
 		h.cache.Client.Set(ctx, fmt.Sprintf("val_monitor:%d:%s", userID, u), val, 90*24*time.Hour)
 	}
-	if h.db != nil && h.db.Pool != nil {
-		_, _ = h.db.Pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS username_watchlist (
-			user_id BIGINT NOT NULL,
-			username TEXT NOT NULL,
-			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			PRIMARY KEY (user_id, username)
-		)`)
-		if req.Enabled {
-			_, _ = h.db.Pool.Exec(ctx, `INSERT INTO username_watchlist (user_id, username, created_at) VALUES ($1, $2, NOW()) ON CONFLICT (user_id, username) DO NOTHING`, userID, u)
-		} else {
-			_, _ = h.db.Pool.Exec(ctx, `DELETE FROM username_watchlist WHERE user_id = $1 AND username = $2`, userID, u)
-		}
+	if h.db != nil {
+		_ = h.db.SetUsernameWatchlist(ctx, userID, u, req.Enabled)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

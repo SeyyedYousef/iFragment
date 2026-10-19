@@ -1,4 +1,4 @@
-﻿-- 000093_phase2_to_phase4_entitlements_and_observability.up.sql
+-- 000093_phase2_to_phase4_entitlements_and_observability.up.sql
 BEGIN;
 
 -- 1. Logical Assets Table (SCHEMA-P0-001)

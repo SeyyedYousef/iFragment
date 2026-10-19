@@ -1,8 +1,19 @@
 /**
  * Web Audio API synthesized sound effects
- * Lightweight, zero-asset feedback effects that respect profileSettings().soundEnabled
+ * Lightweight, zero-asset feedback effects that respect user sound settings in localStorage
  */
-import { profileSettings } from '@/entities/user/index.js';
+
+function isSoundEnabled(): boolean {
+	if (typeof window === 'undefined') return false;
+	try {
+		const raw = localStorage.getItem('ifragment_profile_settings');
+		if (!raw) return true;
+		const parsed = JSON.parse(raw);
+		return parsed?.soundEnabled !== false;
+	} catch {
+		return true;
+	}
+}
 
 class AudioManager {
 	private ctx: AudioContext | null = null;
@@ -23,7 +34,7 @@ class AudioManager {
 
 	playClick() {
 		try {
-			if (!profileSettings().soundEnabled) return;
+			if (!isSoundEnabled()) return;
 			const ctx = this.getContext();
 			if (!ctx) return;
 
@@ -47,7 +58,7 @@ class AudioManager {
 
 	playToggle(checked: boolean) {
 		try {
-			if (!profileSettings().soundEnabled) return;
+			if (!isSoundEnabled()) return;
 			const ctx = this.getContext();
 			if (!ctx) return;
 
@@ -74,7 +85,7 @@ class AudioManager {
 
 	playSuccess() {
 		try {
-			if (!profileSettings().soundEnabled) return;
+			if (!isSoundEnabled()) return;
 			const ctx = this.getContext();
 			if (!ctx) return;
 
@@ -99,7 +110,7 @@ class AudioManager {
 
 	playError() {
 		try {
-			if (!profileSettings().soundEnabled) return;
+			if (!isSoundEnabled()) return;
 			const ctx = this.getContext();
 			if (!ctx) return;
 
@@ -108,16 +119,16 @@ class AudioManager {
 
 			osc.type = 'sawtooth';
 			osc.frequency.setValueAtTime(220, ctx.currentTime);
-			osc.frequency.setValueAtTime(180, ctx.currentTime + 0.05);
+			osc.frequency.linearRampToValueAtTime(140, ctx.currentTime + 0.12);
 
 			gain.gain.setValueAtTime(0.08, ctx.currentTime);
-			gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+			gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
 
 			osc.connect(gain);
 			gain.connect(ctx.destination);
 
 			osc.start();
-			osc.stop(ctx.currentTime + 0.1);
+			osc.stop(ctx.currentTime + 0.12);
 		} catch {}
 	}
 }

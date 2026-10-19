@@ -156,7 +156,7 @@ func (w *VenueSnapshotWorker) syncOneCollection(ctx context.Context, modelID str
 			floorRes, err := adapter.FetchFloor(gctx, slug)
 			durationMs := int(time.Since(startT).Milliseconds())
 
-			if err == nil && floorRes != nil && !floorRes.FloorPriceGRAM.IsZero() {
+			if err == nil && floorRes != nil && !floorRes.FloorPriceGRAM.IsZero() && floorRes.DataStatus == "live" {
 				results <- snapResult{
 					vID:  adapter.ID(),
 					res:  floorRes,
@@ -184,7 +184,7 @@ func (w *VenueSnapshotWorker) syncOneCollection(ctx context.Context, modelID str
 			Volume7dGRAM:       decimal.Zero,
 			ActiveListings:     r.res.ActiveListings,
 			VenueFeePct:        r.fees,
-			HasRealVolumeBadge: false, // only true if adapter returns verified non-zero volume
+			HasRealVolumeBadge: r.res.DataStatus == "live",
 			UpdatedAt:          time.Now().UTC(),
 		}
 

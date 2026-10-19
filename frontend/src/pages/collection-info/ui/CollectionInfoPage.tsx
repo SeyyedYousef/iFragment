@@ -2,7 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { apiClient as api } from '@/shared/api/axios.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { isRtl, locale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { UsernameCollectionChart } from './UsernameCollectionChart.js';
@@ -547,7 +547,7 @@ export const CollectionInfoPage: Component = () => {
 									<div class="flex items-center gap-2">
 										<span class="material-symbols-outlined text-[#0098EA] text-[18px]">stacked_bar_chart</span>
 										<h3 class="text-[11px] font-black tracking-widest text-white/60 uppercase">
-											{isRtl() ? 'ماتریس نقدشوندگی و کف قیمت طولی' : 'Length Tier Liquidity Matrix'}
+											{({ fa: 'ماتریس نقدشوندگی و کف قیمت طولی', en: 'Length Tier Liquidity Matrix', ru: 'Матрица ликвидности и пола по длине', zh: '字符长度流动性与地板价矩阵' } as Record<string, string>)[locale()] || 'Length Tier Liquidity Matrix'}
 										</h3>
 									</div>
 									<span class="text-[10px] font-mono text-[#0098EA] font-bold">30D REAL</span>
@@ -584,7 +584,7 @@ export const CollectionInfoPage: Component = () => {
 									<div class="flex items-center gap-2">
 										<span class="material-symbols-outlined text-emerald-400 text-[18px]">radar</span>
 										<h3 class="text-[11px] font-black tracking-widest text-white/60 uppercase">
-											{isRtl() ? 'رادار مزایده‌های زیر ارزش ذاتی (AVM)' : 'Undervalued Auction Radar (AVM)'}
+											{({ fa: 'رادار مزایده‌های زیر ارزش ذاتی (AVM)', en: 'Undervalued Auction Radar (AVM)', ru: 'Радар недооценённых аукционов (AVM)', zh: '低估拍卖雷达 (AVM)' } as Record<string, string>)[locale()] || 'Undervalued Auction Radar (AVM)'}
 										</h3>
 									</div>
 									<span class="text-[10px] font-mono text-emerald-400 font-bold">ALPHA</span>

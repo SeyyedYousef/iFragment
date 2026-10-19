@@ -1,5 +1,8 @@
 export const dict = {
 	common: {
+		now: 'Just now',
+		pasteBtn: 'Paste',
+		unknownError: 'An unexpected error occurred.',
 		cancel: 'Cancel',
 		save: 'Save',
 		confirm: 'Confirm & Pay',
@@ -39,6 +42,11 @@ export const dict = {
 		gotIt: 'Got it',
 	},
 	gifts: {
+		intel: 'Gift Market Intelligence',
+		macroHistoryUnavailable: 'Macro historical chart data is syncing.',
+		marketplaceComparison: 'Marketplace Comparison',
+		noActiveListing: 'No active listing',
+		unifiedFloorBoard: 'Unified Marketplace Floor Board',
 		combosFound: 'combos',
 		inAppTelegramCustody: 'In-App Telegram Custody',
 		model: 'Model',
@@ -1006,6 +1014,9 @@ export const dict = {
 		weekly: 'Weekly',
 	},
 	assets: {
+		noGiftReports: 'No gift valuation reports unlocked yet.',
+		noNumberReports: 'No +888 number valuation reports unlocked yet.',
+		noUsernameReports: 'No username valuation reports unlocked yet.',
 		boosters: 'Boosters',
 		connectChannel: 'Connect Channel',
 		createProject: 'Create Project',
@@ -1214,6 +1225,8 @@ export const dict = {
 		joinSquadInvite: 'Join Squad via Invite Link',
 	},
 	collectionInfo: {
+		floorPriceTrend: 'Floor Price Trend',
+		noLeaderboardData: 'No leaderboard entries available yet.',
 		activeWallets: 'ACTIVE WALLETS',
 		aggregatedMarkets: 'AGGREGATED MARKETS',
 		allTimeAth: 'ALL-TIME ATH',
@@ -1936,6 +1949,8 @@ export const dict = {
 		exit: 'Exit',
 	},
 	leaderboard: {
+		boostRank: 'Boost Rank',
+		boostRewardHint: 'Boost @FragmentInvestors to climb the leaderboard and earn daily raffle tickets.',
 		empty: 'No statistics recorded yet.',
 		groupBannerDesc: '1 message = 1 Intel Credit | 2 boosts = 1 daily credit',
 		groupBannerTitle: 'Fragment Investors Supergroup',
@@ -2357,6 +2372,7 @@ export const dict = {
 			"🔒 <b>Service Suspended</b>\n\nThe premium service for '{group}' has expired and is currently disabled. All automated management and protection features are paused. Please renew the subscription to reactivate the bot.",
 	},
 	numbers: {
+		title: 'Anonymous Numbers (+888)',
 		restrictedTitle: 'Telegram Restricted Number',
 		restrictedModalDesc:
 			'Restricted numbers were flagged by Telegram; they cannot receive SMS-based logins and typically trade at a 30–70% discount to floor. Ownership on TON blockchain remains 100% valid.',
@@ -3060,6 +3076,9 @@ export const dict = {
 		investorsLabel: 'Investors Page',
 	},
 	ownerInvestors: {
+		safeZoneHint: 'Crop your image to 9:16 vertical ratio (1080×1920). Safe zone: 140px top and 260px bottom.',
+		unsavedNotice: 'Unsaved changes pending. Click Save Configuration to publish.',
+		removeConfirmDesc: 'Are you sure you want to remove the full-screen Investors page image?',
 		title: 'Investors Full-Screen Page Management (Tab 2)',
 		subtitle: 'Configure the full-screen image that replaces the entire Investors page',
 		noticeTitle: 'Completely Separate from Homepage Banner Ads',
@@ -3288,6 +3307,7 @@ export const dict = {
 		yes: 'Yes',
 	},
 	profilePg: {
+		unranked: 'Unranked',
 		badgeActive: 'Active ✓',
 		badgeSoon: 'Soon',
 		boostersSubtitle: 'Active multipliers applied to your earnings',
@@ -3370,6 +3390,7 @@ export const dict = {
 		title: 'Quiet Hours',
 	},
 	referral: {
+		credits: 'Intel Credits',
 		earned: 'Rewards Earned',
 		friends: 'Friends',
 		friendsList: 'Friends List',
@@ -3402,6 +3423,9 @@ export const dict = {
 		notFoundGroup: 'No feature found',
 	},
 	security: {
+		deleteBiometricPrompt: 'Confirm biometric verification to delete account data',
+		deleteSuccessDesc: 'Your account data and history have been permanently deleted.',
+		deleteSuccessTitle: 'Account Data Deleted',
 		biometricDesc: 'Unlock iFragment with FaceID / TouchID',
 		biometricLock: 'Biometric Access',
 		biometricNotSupported: 'Biometrics not supported on this device',
@@ -3421,6 +3445,10 @@ export const dict = {
 		title: 'Your Security Config',
 	},
 	securityPg: {
+		activeDevices: 'Active Sessions & Devices',
+		biometricChallenge: 'Biometric Authentication',
+		biometricVerifyReason: 'Verify identity to manage security settings',
+		online: 'Online',
 		activeBadge: 'Active',
 		biometricAccessReason: 'Authenticate to view active sessions',
 		currentDevice: 'Current device (valid session)',
@@ -3985,5 +4013,11 @@ export const dict = {
 		uniqueHolders: 'Unique Holders',
 		whaleConcentration: 'Whale Distribution',
 		riskAndMethodology: 'Risk & Valuation Methodology',
+	},
+	navigation: {
+		home: 'Home',
+		investors: 'Investors',
+		rewards: 'Rewards',
+		leaderboard: 'Leaderboard',
 	},
 };

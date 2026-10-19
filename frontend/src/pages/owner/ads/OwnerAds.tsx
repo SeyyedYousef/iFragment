@@ -5,7 +5,7 @@ import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { AdCampaign } from '@/entities/owner/model/types.js';
 import { ImageCropUploader } from '@/features/owner/ads/ImageCropUploader.jsx';
 import { buildMediaUrl } from '@/shared/api/config.js';
-import { t } from '@/shared/i18n/index.js';
+import { locale, t } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerAds: Component = () => {
@@ -118,10 +118,9 @@ export const OwnerAds: Component = () => {
 				<div class="flex items-start gap-3">
 					<span class="material-symbols-outlined text-blue-400 text-xl shrink-0 mt-0.5">info</span>
 					<div class="text-xs space-y-0.5">
-						<div class="font-bold text-blue-300">توجه: این صفحه مختص بنرهای بالای صفحه اول است</div>
+						<div class="font-bold text-blue-300">{({ fa: 'توجه: این صفحه مختص بنرهای بالای صفحه اول است', en: 'Note: This page manages Home Dashboard top banners', ru: 'Примечание: здесь настраиваются верхние баннеры главной страницы', zh: '注意：此页面用于管理首页顶部横幅广告' } as Record<string, string>)[locale()] || 'Note: This page manages Home Dashboard top banners'}</div>
 						<p class="text-white/70">
-							اگر قصد تنظیم تصویر تمام‌صفحه «سرمایه‌گذاران» (تب دوم در نوار پایین ربات) را دارید، به
-							صفحه اختصاصی آن مراجعه فرمایید.
+							{({ fa: 'اگر قصد تنظیم تصویر تمام‌صفحه سرمایه‌گذاران (تب دوم) را دارید، به صفحه اختصاصی آن مراجعه فرمایید.', en: 'To configure the full-screen Investors tab image, visit the dedicated Investors Page manager.', ru: 'Для настройки полноэкранного баннера вкладки Инвесторы перейдите на отдельную страницу.', zh: '如需配置“投资者”全屏页面图片，请前往专属管理页。' } as Record<string, string>)[locale()] || 'To configure the full-screen Investors tab image, visit the dedicated Investors Page manager.'}
 						</p>
 					</div>
 				</div>
@@ -130,7 +129,7 @@ export const OwnerAds: Component = () => {
 					class="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-white font-bold text-xs shrink-0 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20"
 				>
 					<span class="material-symbols-outlined text-base">handshake</span>
-					<span>صفحه سرمایه‌گذاران</span>
+					<span>{t('ownerInvestors.title')}</span>
 				</A>
 			</div>
 
