@@ -25,14 +25,34 @@ type BotTemplateRepo struct {
 }
 
 func NewBotTemplateRepo(db *Database, cache *Cache) *BotTemplateRepo {
-	return &BotTemplateRepo{
+	repo := &BotTemplateRepo{
 		db:    db,
 		cache: cache,
 	}
+	// Flush stale cached bot templates on startup so code updates to defaultTexts/defaultButtons apply immediately
+	if cache != nil && cache.Client != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		var cur uint64
+		for {
+			keys, nextCur, err := cache.Client.Scan(ctx, cur, "bot_tpl:*", 100).Result()
+			if err != nil {
+				break
+			}
+			if len(keys) > 0 {
+				_ = cache.Client.Del(ctx, keys...).Err()
+			}
+			cur = nextCur
+			if cur == 0 {
+				break
+			}
+		}
+	}
+	return repo
 }
 
 func (r *BotTemplateRepo) cacheKey(key, lang string) string {
-	return fmt.Sprintf("bot_tpl:%s:%s", lang, key)
+	return fmt.Sprintf("bot_tpl:v2:%s:%s", lang, key)
 }
 
 const negativeCacheSentinel = "\x00"

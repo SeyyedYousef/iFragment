@@ -1837,7 +1837,7 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 func buildGiftMarkup(val *gvengine.GiftValuation, miniAppURL string, copySummary string, lang string) map[string]interface{} {
 	l := normalizeLang(lang)
 	pascal := telegramnft.FormatPascalName(val.ModelID)
-	fragmentURL := fmt.Sprintf("https://fragment.com/gift/%s-%d", pascal, val.SerialNumber)
+	fragmentURL := fmt.Sprintf("https://fragment.com/gift/%s-%d", strings.ToLower(pascal), val.SerialNumber)
 	appGiftURL := appendStartParam(miniAppURL, fmt.Sprintf("gift_%s-%d", val.ModelID, val.SerialNumber))
 	appCollectionURL := appendStartParam(miniAppURL, fmt.Sprintf("col_%s", val.ModelID))
 

@@ -42,6 +42,10 @@ export const dict = {
 		gotIt: 'Got it',
 	},
 	gifts: {
+		methodologyAndProvenance: 'Methodology & Provenance',
+		methodologyProvenanceDesc: 'Implied Market Cap is calculated from the lowest verified floor price multiplied by total catalog supply. Volume figures reflect verified on-chain sales excluding non-sale transfers.',
+		financialDisclaimerTitle: 'Financial & Investment Disclaimer',
+		financialDisclaimerDesc: 'All estimated valuations and rarity metrics are derived from public on-chain metadata and quantitative models, and do not constitute financial or investment advice.',
 		intel: 'Gift Market Intelligence',
 		macroHistoryUnavailable: 'Macro historical chart data is syncing.',
 		marketplaceComparison: 'Marketplace Comparison',
@@ -1225,6 +1229,7 @@ export const dict = {
 		joinSquadInvite: 'Join Squad via Invite Link',
 	},
 	collectionInfo: {
+		noHistoryAvailable: 'Trade history unavailable',
 		floorPriceTrend: 'Floor Price Trend',
 		noLeaderboardData: 'No leaderboard entries available yet.',
 		activeWallets: 'ACTIVE WALLETS',
@@ -2372,6 +2377,7 @@ export const dict = {
 			"🔒 <b>Service Suspended</b>\n\nThe premium service for '{group}' has expired and is currently disabled. All automated management and protection features are paused. Please renew the subscription to reactivate the bot.",
 	},
 	numbers: {
+		cachedOfflineFeed: 'Cached Offline Feed',
 		title: 'Anonymous Numbers (+888)',
 		restrictedTitle: 'Telegram Restricted Number',
 		restrictedModalDesc:

@@ -32,9 +32,9 @@ func TestBuildMainMenuMarkupLayout(t *testing.T) {
 				t.Fatalf("expected inline_keyboard to be [][]map[string]interface{}")
 			}
 
-			// Must be 4 rows
-			if len(grid) != 4 {
-				t.Fatalf("expected exactly 4 rows, got %d", len(grid))
+			// Must be 5 rows (1 + 2 + 2 + 2 + 2)
+			if len(grid) != 5 {
+				t.Fatalf("expected exactly 5 rows, got %d", len(grid))
 			}
 
 			// Row 1: Hero Primary CTA (Full width, exactly 1 button)
@@ -81,15 +81,26 @@ func TestBuildMainMenuMarkupLayout(t *testing.T) {
 				t.Errorf("expected row 3 btn 2 callback to be nav:profile, got %v", grid[2][1]["callback_data"])
 			}
 
-			// Row 4: Exactly 2 buttons (Language, Help)
+			// Row 4: Exactly 2 buttons (Free Credits, Stars Store)
 			if len(grid[3]) != 2 {
 				t.Fatalf("expected row 4 to have exactly 2 buttons, got %d", len(grid[3]))
 			}
-			if grid[3][0]["callback_data"] != "nav:language" {
-				t.Errorf("expected row 4 btn 1 callback to be nav:language, got %v", grid[3][0]["callback_data"])
+			if grid[3][0]["url"] != "https://t.me/FragmentInvestors" {
+				t.Errorf("expected row 4 btn 1 url to be https://t.me/FragmentInvestors, got %v", grid[3][0]["url"])
 			}
-			if grid[3][1]["callback_data"] != "nav:help" {
-				t.Errorf("expected row 4 btn 2 callback to be nav:help, got %v", grid[3][1]["callback_data"])
+			if grid[3][1]["callback_data"] != "buy_credits:profile" {
+				t.Errorf("expected row 4 btn 2 callback to be buy_credits:profile, got %v", grid[3][1]["callback_data"])
+			}
+
+			// Row 5: Exactly 2 buttons (Language, Help)
+			if len(grid[4]) != 2 {
+				t.Fatalf("expected row 5 to have exactly 2 buttons, got %d", len(grid[4]))
+			}
+			if grid[4][0]["callback_data"] != "nav:language" {
+				t.Errorf("expected row 5 btn 1 callback to be nav:language, got %v", grid[4][0]["callback_data"])
+			}
+			if grid[4][1]["callback_data"] != "nav:help" {
+				t.Errorf("expected row 5 btn 2 callback to be nav:help, got %v", grid[4][1]["callback_data"])
 			}
 
 			// Ensure no row in the entire menu exceeds 2 buttons

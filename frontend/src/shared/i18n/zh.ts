@@ -42,6 +42,10 @@ export const dict = {
 		gotIt: '知道了',
 	},
 	gifts: {
+		methodologyAndProvenance: '数据方法论与溯源透明度',
+		methodologyProvenanceDesc: '预估市值按最低有效地板价乘以目录总发行量计算。成交量数据仅包含已确认的链上真实交易，不含普通转账。',
+		financialDisclaimerTitle: '金融与投资免责声明',
+		financialDisclaimerDesc: '所有预估估值与稀缺度指标均基于公开链上元数据与定量算法模型计算，不构成任何投资或买卖建议。',
 		intel: '礼物市场情报',
 		macroHistoryUnavailable: '宏观历史图表数据正在同步中。',
 		marketplaceComparison: '各大市场对比',
@@ -1209,6 +1213,7 @@ export const dict = {
 		joinSquadInvite: '通过邀请链接加入战队',
 	},
 	collectionInfo: {
+		noHistoryAvailable: '暂无历史成交数据',
 		floorPriceTrend: '地板价走势',
 		noLeaderboardData: '暂无排行榜数据。',
 		activeWallets: '活跃钱包',
@@ -2329,6 +2334,7 @@ export const dict = {
 			'🔒<b>服务暂停</b>\n\n“{group}”的高级服务已过期并且当前被禁用。所有自动化管理和保护功能均已暂停。请续订订阅以重新激活机器人。',
 	},
 	numbers: {
+		cachedOfflineFeed: '本地缓存 (离线数据)',
 		title: '匿名典藏号码 (+888)',
 		restrictedTitle: 'Telegram 受限匿名号码',
 		restrictedModalDesc:

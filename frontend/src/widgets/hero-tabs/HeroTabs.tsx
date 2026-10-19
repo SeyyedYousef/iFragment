@@ -1,12 +1,12 @@
 import { Motion } from '@motionone/solid';
 import { createQuery } from '@tanstack/solid-query';
-
 import { type Component, createEffect, For, Show } from 'solid-js';
 import { adsApi } from '@/entities/ads/api/adsApi.js';
-import type { AdCampaign } from '@/entities/ads/model/types.js';
+import type { AdCampaign } from '@/entities/owner/model/types.js';
 import { buildMediaUrl } from '@/shared/api/config.js';
-import { type DictPaths, locale, t } from '@/shared/i18n/index.js';
+import { type DictPaths, type Locale, locale, setLocale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { CreditWalletBar } from '@/widgets/paywall/CreditWalletBar.js';
 
 const isRtl = () => locale() === 'fa';
 
@@ -15,13 +15,52 @@ type TabType = 'username' | 'collectibles' | 'gifts';
 interface HeroTabsProps {
 	activeTab: TabType | null;
 	onTabChange: (tab: TabType) => void;
+	onOpenCreditStore?: () => void;
 }
 
+const LANG_OPTIONS: { code: Locale; label: string }[] = [
+	{ code: 'fa', label: 'FA' },
+	{ code: 'en', label: 'EN' },
+	{ code: 'ru', label: 'RU' },
+	{ code: 'zh', label: 'ZH' },
+];
+
 export const HeroTabs: Component<HeroTabsProps> = (props) => {
-	const TABS: { id: TabType; icon: string; labelKey: DictPaths }[] = [
-		{ id: 'username', icon: 'person_search', labelKey: 'action.username.label' },
-		{ id: 'collectibles', icon: 'tag', labelKey: 'action.collectibles.label' },
-		{ id: 'gifts', icon: 'featured_seasonal_and_gifts', labelKey: 'action.gifts.label' },
+	const TABS: {
+		id: TabType;
+		icon: string;
+		labelKey: DictPaths;
+		engineTag: string;
+		activeClasses: string;
+		dotClass: string;
+	}[] = [
+		{
+			id: 'username',
+			icon: 'person_search',
+			labelKey: 'action.username.label',
+			engineTag: 'AVM v3.0',
+			activeClasses:
+				'bg-gradient-to-b from-[#3390ec]/25 via-[#3390ec]/10 to-[#141824] border-[#3390ec]/50 text-white shadow-[0_8px_25px_rgba(51,144,236,0.25)]',
+			dotClass: 'bg-[#3390ec]',
+		},
+		{
+			id: 'collectibles',
+			icon: 'dialpad',
+			labelKey: 'action.collectibles.label',
+			engineTag: '+888 NV',
+			activeClasses:
+				'bg-gradient-to-b from-emerald-500/25 via-emerald-500/10 to-[#141824] border-emerald-400/50 text-white shadow-[0_8px_25px_rgba(16,185,129,0.25)]',
+			dotClass: 'bg-emerald-400',
+		},
+		{
+			id: 'gifts',
+			icon: 'redeem',
+			labelKey: 'action.gifts.label',
+			engineTag: 'Web3 GV',
+			activeClasses:
+				'bg-gradient-to-b from-purple-500/25 via-amber-500/10 to-[#141824] border-purple-400/50 text-white shadow-[0_8px_25px_rgba(168,85,247,0.25)]',
+			dotClass: 'bg-purple-400',
+		},
 	];
 
 	const handleTabClick = (tab: (typeof TABS)[number]) => {
@@ -31,14 +70,21 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 		props.onTabChange(tab.id);
 	};
 
-	const adsQuery = createQuery(() => ({
+	const handleLangSwitch = (lang: Locale) => {
+		try {
+			haptic.selection();
+		} catch {}
+		setLocale(lang);
+	};
+
+	const adsQuery = createQuery<AdCampaign[]>(() => ({
 		queryKey: ['ads', 'active', 'dashboard_banner'],
 		queryFn: () => adsApi.getActiveAds('dashboard_banner'),
 		staleTime: 60 * 1000,
 	}));
 
 	const activeAd = () => {
-		const list = adsQuery.data as AdCampaign[] | undefined;
+		const list = adsQuery.data;
 		if (list && list.length > 0) {
 			return list[0];
 		}
@@ -64,8 +110,8 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 
 	return (
 		<div
-			class={`relative bg-[#0f1014] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col items-center px-margin-main z-10 ${
-				props.activeTab ? 'pt-4 pb-20' : 'pt-8 pb-20 min-h-[85vh]'
+			class={`relative bg-[#080A10] overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col items-center px-margin-main z-10 ${
+				props.activeTab ? 'pt-3 pb-12' : 'pt-6 pb-16 min-h-[85vh]'
 			}`}
 		>
 			{/* Floating Light Orbs (Emerald & Telegram Blue glow) */}
@@ -76,163 +122,152 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 						'radial-gradient(circle, rgba(16,185,129,0.25) 0%, rgba(6,182,212,0.15) 50%, transparent 70%)',
 					animation: 'orb-float-1 12s ease-in-out infinite',
 				}}
-			></div>
+			/>
 			<div
-				class={`orb w-48 h-48 top-32 ${isRtl() ? 'left-[-10%]' : 'right-[-10%]'} opacity-30 pointer-events-none`}
+				class={`orb w-48 h-48 top-24 ${isRtl() ? 'left-[-10%]' : 'right-[-10%]'} opacity-30 pointer-events-none`}
 				style={{
 					background: 'radial-gradient(circle, rgba(0,136,204,0.3) 0%, transparent 70%)',
 					animation: 'orb-float-2 15s ease-in-out infinite',
 				}}
-			></div>
+			/>
 
-			{/* Promo Banner + Slogan — hidden when tab is active */}
-			<Show when={!props.activeTab}>
-				<Motion.div
-					initial={{ opacity: 0, y: -20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.5, easing: [0.4, 0, 0.2, 1] }}
-					class="w-full flex flex-col items-center overflow-hidden relative z-10"
-				>
-					<Show
-						when={activeAd()}
-						fallback={
-							/* Static Promo Card with Shimmer & Glass Glow (Fallback) */
-							<div class="w-full max-w-sm bg-white/[0.03] backdrop-blur-2xl border border-white/[0.1] rounded-[32px] p-5 mb-10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col items-center relative overflow-hidden group">
-								<div class="shimmer-overlay opacity-30"></div>
-								<div class="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white px-8 py-2.5 rounded-2xl rotate-[-1deg] shadow-[0_10px_25px_rgba(16,185,129,0.3)] mb-2.5 relative z-10">
-									<p class="text-[11px] font-black tracking-[0.25em] opacity-90 leading-none uppercase">
-										{t('home.promotion')}
-									</p>
-									<p class="text-[20px] font-black leading-none mt-1">{t('hero.promoBadge')}</p>
-								</div>
-								<p class="text-white/50 text-[11px] font-bold tracking-widest uppercase relative z-10">
-									{t('home.scatterFloorLimit')}
-								</p>
+			{/* Top Institutional Status Bar: Brand + 4-Language Pill + Live Credit Wallet Bar */}
+			<div class="w-full flex flex-col gap-2.5 mb-3.5 relative z-20">
+				<div class="w-full flex items-center justify-between gap-2">
+					<div class="flex items-center gap-2 min-w-0">
+						<div class="w-8 h-8 rounded-xl bg-gradient-to-br from-[#3390ec] to-emerald-500 flex items-center justify-center shadow-[0_4px_15px_rgba(51,144,236,0.35)] shrink-0">
+							<span class="material-symbols-outlined text-white text-[18px]">diamond</span>
+						</div>
+						<div class="min-w-0">
+							<div class="flex items-center gap-1.5">
+								<span class="text-[14px] font-black tracking-tight text-white truncate">
+									iFragment
+								</span>
+								<span class="px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-400/30 text-[9px] font-mono font-black text-emerald-300 uppercase">
+									v2.0 LIVE
+								</span>
 							</div>
-						}
-					>
-						{(ad) => (
-							/* Dynamic Active Campaign Banner Card */
-							<div
-								role="button"
-								tabIndex={0}
-								onClick={() => handleAdClick(ad())}
-								class="w-full max-w-sm mb-10 relative group cursor-pointer active:scale-[0.98] transition-transform select-none"
-							>
-								<div class="relative overflow-hidden rounded-[28px] border border-white/15 bg-black/50 aspect-[25/9] shadow-[0_20px_50px_rgba(0,0,0,0.7)]">
-									<img
-										src={buildMediaUrl(ad().image_url)}
-										alt={ad().title}
-										class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-										onError={(e) => {
-											e.currentTarget.style.display = 'none';
-										}}
-									/>
-									{/* Subtle gradient overlay for readability */}
-									<div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
-
-									{/* Badge: Ad / تبلیغات */}
-									<div class="absolute top-2.5 start-2.5 bg-emerald-500/80 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] text-white font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
-										<span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-										<span>{t('home.promotion')}</span>
-									</div>
-
-									{/* Title & Target Info */}
-									<div class="absolute bottom-2.5 inset-x-3 flex items-center justify-between pointer-events-none">
-										<div class="text-xs font-bold text-white truncate drop-shadow-md max-w-[80%]">
-											{ad().title}
-										</div>
-										<span class="material-symbols-outlined text-white/80 text-sm">open_in_new</span>
-									</div>
-								</div>
-							</div>
-						)}
-					</Show>
-
-					{/* Main Slogan */}
-					<div class="text-center space-y-6 mb-16">
-						<h1 class="text-[42px] font-black text-white leading-[1.15] tracking-tight drop-shadow-lg">
-							{t('hero.title')}
-						</h1>
-						<p class="text-[#8e8e93] text-[15px] font-medium leading-[1.7] px-4 max-w-xs mx-auto">
-							{t('hero.description')}
-						</p>
+							<p class="text-[10px] text-white/50 font-semibold truncate">{t('hero.title')}</p>
+						</div>
 					</div>
-				</Motion.div>
+
+					{/* Instant 4-Language Switcher Pill */}
+					<div
+						class="flex items-center gap-0.5 rounded-xl bg-white/[0.04] border border-white/10 p-0.5 shrink-0"
+						dir="ltr"
+					>
+						<For each={LANG_OPTIONS}>
+							{(item) => (
+								<button
+									type="button"
+									onClick={() => handleLangSwitch(item.code)}
+									class={`px-2 py-1 rounded-lg text-[10px] font-black transition-all ${
+										locale() === item.code
+											? 'bg-[#3390ec] text-white shadow-sm'
+											: 'text-white/50 hover:text-white'
+									}`}
+								>
+									{item.label}
+								</button>
+							)}
+						</For>
+					</div>
+				</div>
+
+				{/* Live Credit Wallet Bar */}
+				<CreditWalletBar onOpenStore={props.onOpenCreditStore} />
+			</div>
+
+			{/* Active Ad Campaign Banner (if any active ad exists) */}
+			<Show when={activeAd()}>
+				{(ad) => (
+					<div
+						role="button"
+						tabIndex={0}
+						onClick={() => handleAdClick(ad())}
+						class="w-full mb-3.5 relative group cursor-pointer active:scale-[0.98] transition-transform select-none z-20"
+					>
+						<div class="relative overflow-hidden rounded-2xl border border-white/15 bg-black/50 aspect-[28/8] shadow-[0_12px_30px_rgba(0,0,0,0.6)]">
+							<img
+								src={buildMediaUrl(ad().image_url)}
+								alt={ad().title}
+								class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+								onError={(e) => {
+									e.currentTarget.style.display = 'none';
+								}}
+							/>
+							<div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
+							<div class="absolute top-2 start-2 bg-emerald-500/80 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] text-white font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
+								<span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+								<span>{t('home.promotion')}</span>
+							</div>
+							<div class="absolute bottom-2 inset-x-3 flex items-center justify-between pointer-events-none">
+								<div class="text-xs font-bold text-white truncate drop-shadow-md max-w-[85%]">
+									{ad().title}
+								</div>
+								<span class="material-symbols-outlined text-white/80 text-sm">open_in_new</span>
+							</div>
+						</div>
+					</div>
+				)}
 			</Show>
 
-			{/* Navigation Tabs — always visible */}
+			{/* 3-Vertical Glassmorphic Engine Selector Tabs */}
 			<Motion.nav
 				animate={{ y: 0, opacity: 1 }}
-				transition={{ duration: 0.5, delay: props.activeTab ? 0 : 0.2 }}
-				class={`w-full flex items-center justify-between gap-3 transition-all duration-500 relative z-20 ${
-					props.activeTab ? '' : 'mb-12'
-				}`}
+				transition={{ duration: 0.4 }}
+				class="w-full grid grid-cols-3 gap-2.5 relative z-20"
 				role="tablist"
 				aria-label={t('heroTabs.analysisCategories')}
 			>
 				<For each={TABS}>
-					{(tab) => (
-						<button
-							type="button"
-							onClick={() => handleTabClick(tab)}
-							role="tab"
-							aria-selected={props.activeTab === tab.id}
-							aria-label={t(tab.labelKey)}
-							class={`flex-1 flex items-center justify-center gap-2 transition-all duration-400 rounded-2xl text-center border relative overflow-hidden ${
-								props.activeTab === tab.id
-									? 'bg-[#1c1c1c] border-[#2a2a2a] text-white shadow-lg py-2.5'
-									: `border-transparent text-[#8e8e93] hover:bg-[#1c1c1c] hover:text-white ${
-											props.activeTab ? 'bg-transparent py-2' : 'bg-[#1c1c1c]/50 py-3.5'
-										}`
-							}`}
-						>
-							<span
-								class={`material-symbols-outlined transition-all duration-300 ${
-									props.activeTab === tab.id ? 'text-[20px] text-white' : 'text-[18px]'
-								}`}
-								style={{
-									'font-variation-settings': props.activeTab === tab.id ? '"FILL" 1' : '"FILL" 0',
-								}}
-								aria-hidden="true"
-							>
-								{tab.icon}
-							</span>
-							<span
-								class={`font-black tracking-tight transition-all duration-300 ${
-									props.activeTab ? 'text-[13px]' : 'text-[14px]'
+					{(tab) => {
+						const isSelected = () => props.activeTab === tab.id;
+						return (
+							<button
+								type="button"
+								onClick={() => handleTabClick(tab)}
+								role="tab"
+								aria-selected={isSelected()}
+								aria-label={t(tab.labelKey)}
+								class={`flex flex-col items-center justify-center gap-1 rounded-2xl text-center border px-2 py-2.5 transition-all duration-300 relative overflow-hidden active:scale-95 ${
+									isSelected()
+										? tab.activeClasses
+										: 'bg-white/[0.03] border-white/[0.08] text-[#8e8e93] hover:bg-white/[0.06] hover:text-white'
 								}`}
 							>
-								{t(tab.labelKey)}
-							</span>
+								<div class="flex items-center gap-1.5">
+									<span
+										class={`material-symbols-outlined transition-all duration-300 ${
+											isSelected() ? 'text-[19px] text-white' : 'text-[17px] text-white/60'
+										}`}
+										style={{
+											'font-variation-settings': isSelected() ? '"FILL" 1' : '"FILL" 0',
+										}}
+										aria-hidden="true"
+									>
+										{tab.icon}
+									</span>
+									<span class="text-[12px] font-black tracking-tight truncate max-w-[88px]">
+										{t(tab.labelKey)}
+									</span>
+								</div>
 
-							{/* Active underline */}
-							<Show when={props.activeTab === tab.id}>
-								<div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#3390ec] rounded-t-full"></div>
-							</Show>
-						</button>
-					)}
+								<div class="flex items-center gap-1">
+									<span
+										class={`w-1.5 h-1.5 rounded-full ${
+											isSelected() ? `${tab.dotClass} animate-pulse` : 'bg-white/20'
+										}`}
+									/>
+									<span class="text-[9px] font-mono font-bold tracking-wider uppercase opacity-75">
+										{tab.engineTag}
+									</span>
+								</div>
+							</button>
+						);
+					}}
 				</For>
 			</Motion.nav>
-
-			{/* Guide Hint */}
-			<Show when={!props.activeTab}>
-				<Motion.div
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					transition={{ duration: 0.6, delay: 0.5 }}
-					class="absolute bottom-12 flex flex-col items-center gap-3 text-[#8e8e93] z-10"
-				>
-					<p class="text-[13px] font-bold tracking-tight">{t('hero.selectToStart')}</p>
-					<Motion.span
-						animate={{ y: [0, -8, 0] }}
-						transition={{ duration: 2, repeat: Infinity }}
-						class="material-symbols-outlined text-[24px]"
-					>
-						expand_less
-					</Motion.span>
-				</Motion.div>
-			</Show>
 		</div>
 	);
 };

@@ -112,7 +112,11 @@ func (b *GramBroadcaster) resolveLiveGramPrice() (float64, bool) {
 	if b.cryptoSvc == nil {
 		return 0, false
 	}
-	// Always use official TON (The Open Network / Gram) rate
+	// 1. Prefer dedicated GRAM token rate on TON
+	if p, ok := b.cryptoSvc.GetFloatPrice("gram"); ok && p > 0 {
+		return p, true
+	}
+	// 2. Fallback to TON rate if GRAM pool rate is not yet populated (or in unit test mocks)
 	if p, ok := b.cryptoSvc.GetFloatPrice("the-open-network"); ok && p > 0 {
 		return p, true
 	}
@@ -212,7 +216,7 @@ func (b *GramBroadcaster) broadcast10MinPost(ctx context.Context, now time.Time)
 	// Strip any "(stale)" suffix if GetPrice is used, or format directly from currentPrice
 	priceStr := formatCleanGramPrice(currentPrice)
 	if b.cryptoSvc != nil {
-		if rawStr := b.cryptoSvc.GetPrice("the-open-network"); rawStr != "" && rawStr != "N/A" {
+		if rawStr := b.cryptoSvc.GetPrice("gram"); rawStr != "" && rawStr != "N/A" {
 			clean := strings.TrimSpace(strings.TrimSuffix(rawStr, "(stale)"))
 			if clean != "" {
 				priceStr = clean

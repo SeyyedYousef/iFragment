@@ -467,9 +467,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 						/>
 						<span class="text-xs font-black text-white">
 							{numbersQuery.data?.data_status === 'stale'
-								? isRtl()
-									? 'کش محلی (آفلاین)'
-									: 'Cached Offline Feed'
+								? t('numbers.cachedOfflineFeed') || 'Cached Offline Feed'
 								: t('numbers.liveOnChainFeed') || 'Live On-Chain Feed'}
 						</span>
 						<span class="text-[10px] font-mono text-white/40">

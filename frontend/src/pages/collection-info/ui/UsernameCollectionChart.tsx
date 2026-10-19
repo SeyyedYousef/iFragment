@@ -282,7 +282,7 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 					when={activePoints().length > 0}
 					fallback={
 						<div class="text-center">
-							<div class="text-white/40 text-xs font-mono mb-1">تاریخچه معاملات در دسترس نیست</div>
+							<div class="text-white/40 text-xs font-mono mb-1">{t('collectionInfo.noHistoryAvailable') || 'Trade history unavailable'}</div>
 							<div class="text-white/20 text-[10px] font-mono">
 								History unavailable — zero synthetic points
 							</div>

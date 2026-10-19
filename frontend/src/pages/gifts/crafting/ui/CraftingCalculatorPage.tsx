@@ -69,7 +69,7 @@ export const CraftingCalculatorPage: Component = () => {
 				err?.response?.data?.error ||
 					err?.response?.data?.message ||
 					err?.message ||
-					'خطا در محاسبه ارزش انتظاری کرفتینگ. تمام آیتم‌ها باید متعلق به یک کالکشن باشند.',
+					(t('common.error') || 'Error calculating crafting EV. All items must belong to the same collection.'),
 			);
 		},
 	}));

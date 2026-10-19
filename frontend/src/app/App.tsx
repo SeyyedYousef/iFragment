@@ -54,8 +54,10 @@ const RouteWrapper = (props: { component: any; [key: string]: any }) => {
 
 const DeepLinkHandler = () => {
 	const navigate = useNavigate();
+	let deepLinkHandled = false;
 
 	createEffect(() => {
+		if (deepLinkHandled) return;
 		try {
 			let startParam = '';
 			try {
@@ -79,9 +81,14 @@ const DeepLinkHandler = () => {
 			}
 
 			if (startParam) {
-				if (startParam === 'collection_usernames' || startParam === 'usernames') {
+				deepLinkHandled = true;
+				if (startParam === 'collection_usernames') {
+					navigate('/collection-info', { replace: true });
+				} else if (startParam === 'usernames') {
 					navigate('/', { replace: true });
-				} else if (startParam === 'numbers' || startParam === 'collection_numbers') {
+				} else if (startParam === 'collection_numbers') {
+					navigate('/numbers/collection', { replace: true });
+				} else if (startParam === 'numbers') {
 					navigate('/numbers', { replace: true });
 				} else if (startParam === 'gifts' || startParam === 'collection_gifts') {
 					navigate('/gifts', { replace: true });

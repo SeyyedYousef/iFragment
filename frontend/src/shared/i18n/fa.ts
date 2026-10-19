@@ -42,6 +42,10 @@ export const dict = {
 		gotIt: 'متوجه شدم',
 	},
 	gifts: {
+		methodologyAndProvenance: 'متدولوژی و شفافیت داده‌ها (Methodology & Provenance)',
+		methodologyProvenanceDesc: 'ارزش بازار تخمینی بر اساس ضرب پایین‌ترین کف قیمت معتبر در عرضه کل کاتالوگ محاسبه شده است. ارقام حجم معاملات صرفاً معاملات تاییدشده آن‌چین را لحاظ می‌کنند.',
+		financialDisclaimerTitle: 'سلب مسئولیت مالی و سرمایه‌گذاری',
+		financialDisclaimerDesc: 'تمام ارقام تخمینی، رریتی و ارزش‌گذاری‌ها صرفاً بر پایه متادیتای عمومی و الگوریتم‌های محاسباتی است و توصیه مالی یا سرمایه‌گذاری تلقی نمی‌شود.',
 		intel: 'هوش بازار گیفت‌ها',
 		macroHistoryUnavailable: 'داده‌های نمودار تاریخی در حال همگام‌سازی است.',
 		marketplaceComparison: 'مقایسه مارکت‌پلیس‌ها',
@@ -1223,6 +1227,7 @@ export const dict = {
 		joinSquadInvite: 'عضویت در تیم با پیوند دعوت',
 	},
 	collectionInfo: {
+		noHistoryAvailable: 'تاریخچه معاملات در دسترس نیست',
 		floorPriceTrend: 'روند کف قیمت (Floor)',
 		noLeaderboardData: 'هنوز داده‌ای در لیدربورد ثبت نشده است.',
 		activeWallets: 'کیف‌پول‌های فعال',
@@ -2369,6 +2374,7 @@ export const dict = {
 			'🔒 <b>تعلیق خدمات</b>\n\nاشتراک ویژه گروه «{group}» منقضی شده و خدمات ربات موقتاً غیرفعال گردید. لطفاً برای فعال‌سازی مجدد، اشتراک خود را تمدید نمایید.',
 	},
 	numbers: {
+		cachedOfflineFeed: 'کش محلی (آفلاین)',
 		title: 'شماره‌های کلکسیونی (+888)',
 		restrictedTitle: 'شماره دارای محدودیت تلگرام',
 		restrictedModalDesc:

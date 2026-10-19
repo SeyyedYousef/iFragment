@@ -3,46 +3,50 @@ package handler
 // defaultTexts stores the centralized fallback texts for bot messages across all 4 supported languages.
 var defaultTexts = map[string]map[string]string{
 	"start_menu": {
-		"fa": `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>ترمینال هوش بازار دارایی‌های تلگرام | iFragment</b>
+		"fa": `╔═══ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment Terminal v2.0</b> ═══╗
 
-سلام <b>{name}</b> عزیز؛ به موتور کارشناسی، نایابی‌سنجی و ارزش‌گذاری آن‌چین دارایی‌های دیجیتال تلگرام خوش آمدید.
+سلام <b>{name}</b> عزیز؛ به ترمینال هوش بازار و کارشناسی آن‌چین دارایی‌های تلگرام خوش آمدید.
+👤 وضعیت: <b>سطح کارشناسی</b> | 🏆 رتبه جهانی: <b>#{rank}</b> | ⚡ اعتبار: <b>{credits} کریدت</b>
 
-📊 <b>موتورهای تحلیلی فعال:</b>
-├ 🏷️ <b>نام‌های کاربری (@username):</b> ارزش‌گذاری AVM، نایابی و ریسک برند
-├ 📱 <b>شماره‌های ناشناس (+888):</b> تشخیص الگو، کلوپ کلکسیونی و کف بازار
-└ 🎁 <b>گیفت‌های تلگرام (Web3 NFT):</b> آنالیز ژنتیکی ۴ رنگ، سریال و ۶ مارکت‌پلیس
+📊 <b>موتورهای ارزش‌گذاری زنده (۱۰۰٪ متصل به بلاکچین TON):</b>
+├ 🏷️ <b>یوزرنیم‌ها (@username):</b> مدل هدانیک AVM، کمیابی و ریسک برند
+├ 📱 <b>شماره‌های ناشناس (+888):</b> تشخیص الگو، کلوپ کلکسیونی و اردربوک
+└ 🎁 <b>گیفت‌های تلگرام (Web3 NFT):</b> ژنتیک ۴ رنگ، سریال و آربیتراژ ۶ مارکت
 
-<blockquote>💡 <b>شروع سریع:</b> یکی از دکمه‌های شیشه‌ای زیر را لمس کنید یا مستقیماً هر <b>آیدی (@durov)</b>، <b>شماره (+888)</b> یا <b>لینک گیفت (t.me/nft/...)</b> را در همین چت بفرستید.</blockquote>`,
-		"ru": `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Терминал рыночной аналитики Telegram | iFragment</b>
+<blockquote>💡 <b>اسکن فوری در چت:</b> یکی از دکمه‌های شیشه‌ای زیر را لمس کنید یا مستقیماً هر <b>@username</b>، <b>شماره +888</b> یا <b>لینک گیفت (t.me/nft/...)</b> را در همین چت ارسال نمایید.</blockquote>`,
+		"ru": `╔═══ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment Terminal v2.0</b> ═══╗
 
-Здравствуйте, <b>{name}</b>! Добро пожаловать в институциональный терминал оценки и он-чейн аналитики цифровых активов Telegram.
+Здравствуйте, <b>{name}</b>! Добро пожаловать в терминал рыночной аналитики и он-чейн оценки активов Telegram.
+👤 Статус: <b>Инвестор</b> | 🏆 Мировой ранг: <b>#{rank}</b> | ⚡ Баланс: <b>{credits} кредитов</b>
 
-📊 <b>Активные аналитические модули:</b>
-├ 🏷️ <b>Юзернеймы (@username):</b> AVM-оценка, редкость и риск бренда
-├ 📱 <b>Анонимные номера (+888):</b> Паттерны, клуб редкости и глубина стакана
-└ 🎁 <b>Подарки Telegram (Web3 NFT):</b> Генетика атрибутов, серии и 6 маркетов
+📊 <b>Активные модули оценки (TON Blockchain Live):</b>
+├ 🏷️ <b>Юзернеймы (@username):</b> AVM-модель, редкость и риск бренда
+├ 📱 <b>Номера (+888):</b> Паттерны, клуб редкости и глубина стакана
+└ 🎁 <b>Подарки Telegram (Web3 NFT):</b> Генетика 4-Hex, серии и 6 маркетов
 
-<blockquote>💡 <b>Быстрый старт:</b> выберите раздел на клавиатуре ниже или отправьте любой <b>@username</b>, <b>номер +888</b> или <b>ссылку на подарок (t.me/nft/...)</b> прямо в чат.</blockquote>`,
-		"zh": `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Telegram 数字资产智能终端 | iFragment</b>
+<blockquote>💡 <b>Мгновенный скан:</b> нажмите кнопку ниже или отправьте любой <b>@username</b>, <b>номер +888</b> или <b>ссылку на подарок (t.me/nft/...)</b> прямо в этот чат.</blockquote>`,
+		"zh": `╔═══ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment Terminal v2.0</b> ═══╗
 
-您好 <b>{name}</b>！欢迎使用 Telegram 机构级链上资产估值与稀缺度分析终端。
+您好 <b>{name}</b>！欢迎进入 Telegram 机构级链上资产估值与稀缺度分析终端。
+👤 身份: <b>认证藏家</b> | 🏆 全网排名: <b>#{rank}</b> | ⚡ 信用点: <b>{credits} 点</b>
 
-📊 <b>三大核心估值引擎：</b>
+📊 <b>三大实时链上估值引擎 (TON Live)：</b>
 ├ 🏷️ <b>用户名 (@username)：</b> AVM 公允估值、稀缺度与商标风险
 ├ 📱 <b>匿名靓号 (+888)：</b> 号码排列模式、俱乐部层级与盘口深度
 └ 🎁 <b>电报礼物 (Web3 NFT)：</b> 四色背景基因、编号溢价与 6 大市场比价
 
-<blockquote>💡 <b>快速开始：</b> 点击下方玻璃按钮，或直接在聊天中发送任意 <b>@用户名</b>、<b>+888 号码</b>或 <b>礼物链接 (t.me/nft/...)</b> 即可秒级鉴定。</blockquote>`,
-		"en": `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>Telegram Asset Intelligence Terminal | iFragment</b>
+<blockquote>💡 <b>秒级鉴定：</b> 点击下方玻璃按钮，或直接在聊天中发送任意 <b>@用户名</b>、<b>+888 号码</b>或 <b>礼物链接 (t.me/nft/...)</b>。</blockquote>`,
+		"en": `╔═══ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment Terminal v2.0</b> ═══╗
 
-Welcome <b>{name}</b>! You are connected to the institutional valuation and on-chain rarity engine for Telegram Digital Assets.
+Welcome <b>{name}</b>! You are connected to the institutional valuation and on-chain rarity terminal for Telegram Digital Assets.
+👤 Tier: <b>Analyst</b> | 🏆 Global Rank: <b>#{rank}</b> | ⚡ Balance: <b>{credits} Credits</b>
 
-📊 <b>Active Intelligence Engines:</b>
+📊 <b>Live On-Chain Valuation Engines (TON Mainnet):</b>
 ├ 🏷️ <b>Usernames (@username):</b> AVM fair value, trait rarity & brand risk
-├ 📱 <b>Anonymous Numbers (+888):</b> Pattern detection, club tier & orderbook depth
-└ 🎁 <b>Telegram Gifts (Web3 NFT):</b> 4-Hex backdrop DNA, serial tier & 6-venue arbitrage
+├ 📱 <b>Anonymous Numbers (+888):</b> Pattern detection, club tier & orderbook
+└ 🎁 <b>Telegram Gifts (Web3 NFT):</b> 4-Hex backdrop DNA, serial tier & 6 venues
 
-<blockquote>💡 <b>Quick Scan:</b> Tap a glass button below or drop any <b>@username</b>, <b>+888 number</b>, or <b>gift link (t.me/nft/...)</b> directly into this chat.</blockquote>`,
+<blockquote>💡 <b>Instant Scan:</b> Tap a glass button below or drop any <b>@username</b>, <b>+888 number</b>, or <b>gift link (t.me/nft/...)</b> directly into this chat.</blockquote>`,
 	},
 	"profile_view": {
 		"fa": `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>پروفایل سرمایه‌گذار | iFragment</b>
@@ -289,58 +293,58 @@ Send any NFT gift link or slug:
 // defaultButtons stores the centralized fallback button labels across all 4 supported languages.
 var defaultButtons = map[string]map[string]string{
 	"btn_mini_app": {
-		"fa": "💎 ورود به مینی‌اپ iFragment",
-		"ru": "💎 Открыть iFragment Mini App",
-		"zh": "💎 进入 iFragment 小程序",
-		"en": "💎 Launch iFragment Mini App",
+		"fa": "🚀 ورود به ترمینال مینی‌اپ iFragment 💎",
+		"ru": "🚀 Открыть терминал iFragment 💎",
+		"zh": "🚀 启动 iFragment 智能终端 💎",
+		"en": "🚀 Launch iFragment Terminal 💎",
 	},
 	"btn_usernames": {
-		"fa": "🏷️ نام‌های کاربری",
-		"ru": "🏷️ Юзернеймы",
-		"zh": "🏷️ 用户名",
-		"en": "🏷️ Usernames",
+		"fa": "🏷️ کارشناسی یوزرنیم",
+		"ru": "🏷️ Оценка юзернеймов",
+		"zh": "🏷️ 用户名估值",
+		"en": "🏷️ Username Appraisal",
 	},
 	"btn_numbers": {
 		"fa": "📱 شماره‌های رند (+888)",
 		"ru": "📱 Номера (+888)",
 		"zh": "📱 匿名靓号 (+888)",
-		"en": "📱 Numbers (+888)",
+		"en": "📱 +888 Numbers",
 	},
 	"btn_gifts": {
-		"fa": "🎁 گیفت‌های تلگرام",
-		"ru": "🎁 Подарки (NFT)",
+		"fa": "🎁 کارشناسی گیفت (NFT)",
+		"ru": "🎁 Подарки (Web3 NFT)",
 		"zh": "🎁 电报礼物 (NFT)",
-		"en": "🎁 Telegram Gifts",
+		"en": "🎁 Web3 Gifts (NFT)",
 	},
 	"btn_profile": {
-		"fa": "👤 پروفایل و دارایی‌ها",
-		"ru": "👤 Мой профиль",
-		"zh": "👤 个人中心与资产",
-		"en": "👤 Profile & Balances",
+		"fa": "👤 پروفایل و اعتبار من",
+		"ru": "👤 Профиль и баланс",
+		"zh": "👤 个人中心与额度",
+		"en": "👤 Profile & Credits",
 	},
 	"btn_language": {
-		"fa": "🌐 تغییر زبان",
-		"ru": "🌐 Сменить язык",
-		"zh": "🌐 切换语言",
-		"en": "🌐 Language",
+		"fa": "🌐 تغییر زبان (۴ زبان)",
+		"ru": "🌐 Язык (4 языка)",
+		"zh": "🌐 切换语言 (4语)",
+		"en": "🌐 Language (4 Langs)",
 	},
 	"btn_help": {
-		"fa": "📖 راهنمای ربات",
-		"ru": "📖 Инструкция",
-		"zh": "📖 使用指南",
-		"en": "📖 Help & Guide",
+		"fa": "📖 راهنما و متدولوژی",
+		"ru": "📖 Гид и методология",
+		"zh": "📖 指南与方法论",
+		"en": "📖 Guide & Methodology",
 	},
 	"btn_free_credits": {
-		"fa": "💬 دریافت کردیت رایگان (@FragmentInvestors)",
-		"ru": "💬 Бесплатные кредиты (@FragmentInvestors)",
-		"zh": "💬 免费领取信用点 (@FragmentInvestors)",
-		"en": "💬 Free Credits (@FragmentInvestors)",
+		"fa": "💬 دریافت کریدت رایگان (گروه)",
+		"ru": "💬 Бесплатные кредиты",
+		"zh": "💬 免费获取信用点",
+		"en": "💬 Earn Free Credits",
 	},
 	"btn_exchange": {
-		"fa": "💬 دریافت کریدت رایگان (@FragmentInvestors)",
-		"ru": "💬 Бесплатные кредиты (@FragmentInvestors)",
-		"zh": "💬 免费领取信用点 (@FragmentInvestors)",
-		"en": "💬 Free Credits (@FragmentInvestors)",
+		"fa": "💬 دریافت کریدت رایگان (گروه)",
+		"ru": "💬 Бесплатные кредиты",
+		"zh": "💬 免费获取信用点",
+		"en": "💬 Earn Free Credits",
 	},
 	"btn_leaderboard": {
 		"fa": "🏆 جدول برترین‌ها (مینی‌اپ)",
@@ -349,10 +353,10 @@ var defaultButtons = map[string]map[string]string{
 		"en": "🏆 Top Leaderboard (Mini App)",
 	},
 	"btn_stars": {
-		"fa": "⭐ خرید کردیت با Stars",
-		"ru": "⭐ Купить за Stars",
-		"zh": "⭐ 使用 Stars 购买",
-		"en": "⭐ Buy with Stars",
+		"fa": "⭐ فروشگاه کریدت (Stars)",
+		"ru": "⭐ Магазин кредитов (Stars)",
+		"zh": "⭐ 信用点商店 (Stars)",
+		"en": "⭐ Credit Store (Stars)",
 	},
 	"btn_unlock": {
 		"fa": "🔓 مشاهده گزارش تحلیلی (۱ کریدت)",

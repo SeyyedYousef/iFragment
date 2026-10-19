@@ -2,8 +2,9 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY package.json pnpm-lock.yaml* package-lock.json* ./
+RUN pnpm install --no-frozen-lockfile || npm install
 
 COPY . .
 RUN npm run build

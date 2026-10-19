@@ -503,7 +503,7 @@ export const GiftCollectionPage: Component = () => {
 								{t('gifts.floorPrice')}
 							</span>
 							<div class="text-base font-black text-white font-mono">
-								{data()?.best_floor_gram ? `${fmt(data()!.best_floor_gram)} TON` : 'بدون لیستینگ'}
+								{data()?.best_floor_gram ? `${fmt(data()!.best_floor_gram)} TON` : ({ fa: 'بدون لیستینگ', en: 'No Listing', ru: 'Нет листинга', zh: '暂无挂单' } as Record<string, string>)[locale()] || 'No Listing'}
 							</div>
 							<Show when={data()?.best_floor_usd}>
 								<span class="text-[10px] text-white/40 font-mono block mt-0.5">
@@ -521,7 +521,7 @@ export const GiftCollectionPage: Component = () => {
 									? fmtUsd(data()!.volume_24h_usd)
 									: data()?.volume_24h_gram && data()!.volume_24h_gram > 0
 										? `${fmt(data()!.volume_24h_gram, 0)} TON`
-										: 'پایش ۲۴س'}
+										: ({ fa: 'پایش ۲۴س', en: '24h Tracked', ru: '24ч монитор', zh: '24h 监控' } as Record<string, string>)[locale()] || '24h Tracked'}
 							</div>
 							<span class="text-[10px] text-white/40 font-mono block mt-0.5">
 								{data()?.volume_24h_gram && data()!.volume_24h_gram > 0
@@ -539,7 +539,7 @@ export const GiftCollectionPage: Component = () => {
 									? fmtUsd(data()!.market_cap_usd)
 									: data()?.best_floor_usd && data()?.total_supply
 										? fmtUsd(data()!.best_floor_usd! * data()!.total_supply!)
-										: 'پایش زنده'}
+										: ({ fa: 'پایش زنده', en: 'Live Tracked', ru: 'Live монитор', zh: '实时监控' } as Record<string, string>)[locale()] || 'Live Tracked'}
 							</div>
 							<span class="text-[10px] text-emerald-400 font-bold block mt-0.5">
 								{data()?.listed_count
@@ -809,18 +809,14 @@ export const GiftCollectionPage: Component = () => {
 									<div class="flex flex-col">
 										<div class="flex items-center gap-2">
 											<span class="text-xs font-black text-white">
-												{isRtl()
-													? 'رادار تصمیم‌گیری هوشمند لایا فعال است'
-													: 'LAYA System 1 Intelligence Active'}
+												{({ fa: 'رادار تصمیم‌گیری هوشمند لایا فعال است', en: 'LAYA System 1 Intelligence Active', ru: 'Интеллект LAYA System 1 активен', zh: 'LAYA System 1 智能雷达已激活' } as Record<string, string>)[locale()] || 'LAYA System 1 Intelligence Active'}
 											</span>
 											<span class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
 												REAL-TIME
 											</span>
 										</div>
 										<span class="text-[10px] text-white/50">
-											{isRtl()
-												? 'آربیتراژ میان‌مارکتی، فیلتر معاملات صوری، هارمونی رنگی ΔE و ردیابی نهنگ‌ها'
-												: 'Cross-venue arbitrage, wash-trade filter, ΔE harmony & whale tracking'}
+											{({ fa: 'آربیتراژ میان‌مارکتی، فیلتر معاملات صوری، هارمونی رنگی ΔE و ردیابی نهنگ‌ها', en: 'Cross-venue arbitrage, wash-trade filter, ΔE harmony & whale tracking', ru: 'Межбиржевой арбитраж, фильтр вош-трейдинга, ΔE гармония и киты', zh: '跨市场套利、对倒过滤、ΔE 色彩和谐度与巨鲸追踪' } as Record<string, string>)[locale()] || 'Cross-venue arbitrage, wash-trade filter, ΔE harmony & whale tracking'}
 										</span>
 									</div>
 								</div>

@@ -122,11 +122,11 @@ var (
 func isPremiumEmojiEnabled() bool {
 	val := strings.TrimSpace(os.Getenv("PREMIUM_EMOJI_ENABLED"))
 	if val == "" {
-		return false
+		return true
 	}
 	b, err := strconv.ParseBool(val)
 	if err != nil {
-		return false
+		return true
 	}
 	return b
 }
@@ -373,64 +373,23 @@ func (h *WebhookHandler) sendMainMenuWithURL(ctx context.Context, bot *repositor
 	h.sendOrEditMessage(ctx, tg, chatID, messageID, menuText, markup, threadID)
 }
 
-// buildMainMenuMarkup creates the clean, elegant inline keyboard with standard Telegram buttons
-// structured as a balanced 1 + 2 + 2 + 2 layout.
+// buildMainMenuMarkup creates the symmetrical v2.0 Glass Matrix inline keyboard
+// structured as a balanced 1 + 2 + 2 + 2 + 2 layout.
 func (h *WebhookHandler) buildMainMenuMarkup(ctx context.Context, lang string, miniAppURL string) map[string]interface{} {
-	var btnUsername, btnNumber, btnGifts, btnProfile, btnLang, btnHelp, btnMiniApp string
-
-	switch lang {
-	case "fa":
-		btnUsername = "🏷️ نام‌های کاربری"
-		btnNumber = "📱 شماره‌های رند (+888)"
-		btnGifts = "🎁 گیفت‌های تلگرام"
-		btnProfile = "👤 پروفایل و دارایی‌ها"
-		btnLang = "🌐 تغییر زبان"
-		btnHelp = "📖 راهنمای ربات"
-		btnMiniApp = "💎 ورود به مینی‌اپ iFragment"
-	case "ar":
-		btnUsername = "🏷️ أسماء المستخدمين"
-		btnNumber = "📱 الأرقام المميزة (+888)"
-		btnGifts = "🎁 هدايا تيليجرام"
-		btnProfile = "👤 الملف الشخصي والأرصدة"
-		btnLang = "🌐 تغيير اللغة"
-		btnHelp = "📖 دليل الاستخدام"
-		btnMiniApp = "💎 فتح تطبيق iFragment"
-	case "ru":
-		btnUsername = "🏷️ Юзернеймы"
-		btnNumber = "📱 Номера (+888)"
-		btnGifts = "🎁 Подарки (NFT)"
-		btnProfile = "👤 Мой профиль"
-		btnLang = "🌐 Сменить язык"
-		btnHelp = "📖 Инструкция"
-		btnMiniApp = "💎 Открыть iFragment Mini App"
-	case "zh":
-		btnUsername = "🏷️ 用户名"
-		btnNumber = "📱 匿名靓号 (+888)"
-		btnGifts = "🎁 电报礼物 (NFT)"
-		btnProfile = "👤 个人中心与资产"
-		btnLang = "🌐 切换语言"
-		btnHelp = "📖 使用指南"
-		btnMiniApp = "💎 进入 iFragment 小程序"
-	default:
-		btnUsername = "🏷️ Usernames"
-		btnNumber = "📱 Numbers (+888)"
-		btnGifts = "🎁 Telegram Gifts"
-		btnProfile = "👤 Profile & Balances"
-		btnLang = "🌐 Language"
-		btnHelp = "📖 Help & Guide"
-		btnMiniApp = "💎 Launch iFragment Mini App"
-	}
-
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	btnMiniApp = h.resolveButton(ctx, "btn_mini_app", lang, btnMiniApp)
-	btnUsername = h.resolveButton(ctx, "btn_usernames", lang, btnUsername)
-	btnNumber = h.resolveButton(ctx, "btn_numbers", lang, btnNumber)
-	btnGifts = h.resolveButton(ctx, "btn_gifts", lang, btnGifts)
-	btnProfile = h.resolveButton(ctx, "btn_profile", lang, btnProfile)
-	btnLang = h.resolveButton(ctx, "btn_language", lang, btnLang)
-	btnHelp = h.resolveButton(ctx, "btn_help", lang, btnHelp)
+	normL := normalizeLang(lang)
+
+	btnMiniApp := h.resolveButton(ctx, "btn_mini_app", normL, GetDefaultButton("btn_mini_app", normL))
+	btnUsername := h.resolveButton(ctx, "btn_usernames", normL, GetDefaultButton("btn_usernames", normL))
+	btnNumber := h.resolveButton(ctx, "btn_numbers", normL, GetDefaultButton("btn_numbers", normL))
+	btnGifts := h.resolveButton(ctx, "btn_gifts", normL, GetDefaultButton("btn_gifts", normL))
+	btnProfile := h.resolveButton(ctx, "btn_profile", normL, GetDefaultButton("btn_profile", normL))
+	btnFreeCredits := h.resolveButton(ctx, "btn_free_credits", normL, GetDefaultButton("btn_free_credits", normL))
+	btnStars := h.resolveButton(ctx, "btn_stars", normL, GetDefaultButton("btn_stars", normL))
+	btnLang := h.resolveButton(ctx, "btn_language", normL, GetDefaultButton("btn_language", normL))
+	btnHelp := h.resolveButton(ctx, "btn_help", normL, GetDefaultButton("btn_help", normL))
 
 	return map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
@@ -470,7 +429,18 @@ func (h *WebhookHandler) buildMainMenuMarkup(ctx context.Context, lang string, m
 					"callback_data": "nav:profile",
 				},
 			},
-			// Row 4: Preferences & Methodology (2 balanced buttons)
+			// Row 4: Free Community Credits & Stars Credit Store (2 balanced buttons)
+			{
+				{
+					"text": btnFreeCredits,
+					"url":  "https://t.me/FragmentInvestors",
+				},
+				{
+					"text":          btnStars,
+					"callback_data": "buy_credits:profile",
+				},
+			},
+			// Row 5: Preferences & Methodology (2 balanced buttons)
 			{
 				{
 					"text":          btnLang,
@@ -1753,6 +1723,25 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 		}
 		h.sendOrEditMessage(ctx, tg, chatID, messageID, retryMsg, retryMarkup, threadID)
 		return
+	}
+
+	// Persist report entitlement in DB so Mini App also recognizes this Bot PV unlock immediately
+	if h.db != nil {
+		switch assetType {
+		case "username":
+			normU := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(entity)), "@")
+			idemKey := fmt.Sprintf("bot_pv:%d:username:%s:%d", userID, normU, time.Now().Unix()/(24*3600))
+			_ = h.db.GrantReportEntitlement(ctx, userID, normU, idemKey, "username_report")
+		case "number":
+			cleanN := strings.TrimPrefix(features.CleanNumber(entity), "+")
+			idemKey := fmt.Sprintf("bot_pv:%d:number:%s:%d", userID, cleanN, time.Now().Unix()/(24*3600))
+			_ = h.db.GrantReportEntitlement(ctx, userID, cleanN, idemKey, "number_report")
+		case "gift":
+			if giftVal != nil && giftVal.GiftID != "" {
+				idemKey := fmt.Sprintf("bot_pv:%d:gift:%s:%d", userID, giftVal.GiftID, time.Now().Unix()/(24*3600))
+				_ = h.db.GrantReportEntitlement(ctx, userID, giftVal.GiftID, idemKey, "gift_report")
+			}
+		}
 	}
 
 	// Invalidate user profile stats cache in Redis after credit deduction

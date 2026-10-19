@@ -703,12 +703,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 			<div class="bg-[#0e1320]/60 border border-white/[0.06] rounded-[20px] p-3.5 space-y-2 text-[11px]">
 				<div class="flex items-center gap-2 text-white/70 font-bold">
 					<span class="material-symbols-outlined text-sm text-[#0098EA]">info</span>
-					<span>متدولوژی و شفافیت داده‌ها (Methodology & Provenance)</span>
+					<span>{t('gifts.methodologyAndProvenance') || 'Methodology & Provenance'}</span>
 				</div>
 				<p class="text-white/40 text-[10px] leading-relaxed">
-					ارزش بازار تخمینی (Implied Market Cap) بر اساس ضرب پایین‌ترین کف قیمت معتبر در عرضه کل
-					کاتالوگ محاسبه شده و نشان‌دهنده نقدشوندگی کل نیست. ارقام حجم معاملات صرفاً معاملات تاییدشده
-					بدون reorg را لحاظ می‌کنند و نقل و انتقالات عادی (Transfer) به عنوان معامله ثبت نمی‌شوند.
+					{t('gifts.methodologyProvenanceDesc') || 'Implied Market Cap is calculated from the lowest verified floor price multiplied by total catalog supply. Volume figures reflect verified on-chain sales excluding non-sale transfers.'}
 				</p>
 			</div>
 		</div>
