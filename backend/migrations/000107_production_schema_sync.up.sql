@@ -47,6 +47,20 @@ CREATE INDEX IF NOT EXISTS idx_gift_sales_model_date_desc
 CREATE INDEX IF NOT EXISTS idx_orders_user_created_desc
     ON orders(user_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS report_entitlements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    principal_id BIGINT NOT NULL,
+    asset_id VARCHAR(128) NOT NULL,
+    idempotency_key VARCHAR(128) NOT NULL,
+    product_type VARCHAR(64) NOT NULL,
+    debit_ledger_id VARCHAR(128),
+    granted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE,
+    snapshot_run_id TEXT,
+    CONSTRAINT uq_report_entitlements_principal_asset_idem UNIQUE(principal_id, asset_id, idempotency_key)
+);
+CREATE INDEX IF NOT EXISTS idx_report_entitlements_lookup ON report_entitlements(principal_id, asset_id);
+
 CREATE INDEX IF NOT EXISTS idx_report_entitlements_principal_product
     ON report_entitlements(principal_id, product_type, asset_id);
 

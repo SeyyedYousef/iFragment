@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS valuation_runs (
     persisted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     audit_persisted BOOLEAN NOT NULL DEFAULT TRUE
 );
+ALTER TABLE valuation_runs ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'completed';
 CREATE INDEX IF NOT EXISTS idx_valuation_runs_model ON valuation_runs(model_version, status);
 
 -- 5. Report Entitlements Ledger (SCHEMA-P0-006, SEC-P0-002, RB-P0-005)
@@ -101,7 +102,7 @@ CREATE TABLE IF NOT EXISTS report_entitlements (
     debit_ledger_id VARCHAR(128),
     granted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP WITH TIME ZONE,
-    snapshot_run_id UUID REFERENCES valuation_runs(id) ON DELETE SET NULL,
+    snapshot_run_id TEXT,
     CONSTRAINT uq_report_entitlements_principal_asset_idem UNIQUE(principal_id, asset_id, idempotency_key)
 );
 CREATE INDEX IF NOT EXISTS idx_report_entitlements_lookup ON report_entitlements(principal_id, asset_id);
