@@ -109,7 +109,6 @@ BACKEND_URL=https://api.ifragment.app
 TONAPI_KEY=${TONAPI_AUTH_TOKEN}
 MARKETAPP_TOKEN=${MARKETAPP_TOKEN}
 GRAM_CHANNEL_ID=@TheGramPrice
-RAFFLE_ENABLED=true
 
 # Owner Super-Panel & Admin Topic Notifications
 OWNER_TELEGRAM_IDS=123456789

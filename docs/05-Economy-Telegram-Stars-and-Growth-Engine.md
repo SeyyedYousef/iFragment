@@ -142,6 +142,3 @@ Accessible via both **Web/Mini App (`/owner`)** and **Telegram Bot PV (`/panel` 
 
 ### 7.3 Supergroup Live Admin Logging (`notification/admin_notification_service.go`)
 - **Unified Mini App + Bot PV Coverage**: Both Mini App unlocks and direct Bot PV credit unlocks (`executeUnlockAndReport` -> `notifyAdminBotReportUnlock` in `webhook_bot_flow.go`) dispatch rich Persian telemetry cards to the respective supergroup topics (`ADMIN_TOPIC_AVM`, `ADMIN_TOPIC_NUMBERS`, `ADMIN_TOPIC_GIFTS`, `ADMIN_TOPIC_PAYMENTS`, `ADMIN_TOPIC_SYSTEM`).
-
-### 7.4 Configurable `@FragmentInvestors` Daily Raffle (`raffle/raffle_service.go`)
-- **Admin-Toggleable Paid-Star Raffle**: Controlled via `RAFFLE_ENABLED=true` in `.env` or live Redis key `raffle:config:enabled`. Every paid-star message in `@FragmentInvestors` automatically records a daily raffle entry (`RecordMessageTicket`), and `StartDailyDrawWorker` executes the cryptographically random daily draw (`crypto/rand`) at `00:05 UTC`.

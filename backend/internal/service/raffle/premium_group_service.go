@@ -4,12 +4,31 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
 	"ifragment-backend/internal/client/telegram"
-	"ifragment-backend/internal/repository"
 )
+
+// UserCompact is a minimal representation of a Telegram User.
+type UserCompact struct {
+	ID        int64
+	Username  string
+	FirstName string
+	IsPremium bool
+	IsBot     bool
+}
+
+// IsFragmentInvestorsGroup checks if a given chat title or username corresponds to @FragmentInvestors.
+func IsFragmentInvestorsGroup(chatTitle, chatUsername string) bool {
+	u := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(chatUsername)), "@")
+	if u == "fragmentinvestors" || u == "fragment_investors" {
+		return true
+	}
+	t := strings.ToLower(chatTitle)
+	return strings.Contains(t, "fragmentinvestors") || strings.Contains(t, "fragment investors")
+}
 
 // JoinAttemptRecord tracks join attempts for anti-spam rate limiting.
 type JoinAttemptRecord struct {
@@ -20,15 +39,12 @@ type JoinAttemptRecord struct {
 
 // PremiumGroupService enforces Telegram Premium access for @FragmentInvestors.
 type PremiumGroupService struct {
-	raffleRepo   *repository.RaffleRepo
 	joinAttempts sync.Map // map[string]*JoinAttemptRecord (key: "chatID:userID")
 }
 
 // NewPremiumGroupService creates a new instance of PremiumGroupService.
-func NewPremiumGroupService(raffleRepo *repository.RaffleRepo) *PremiumGroupService {
-	return &PremiumGroupService{
-		raffleRepo: raffleRepo,
-	}
+func NewPremiumGroupService() *PremiumGroupService {
+	return &PremiumGroupService{}
 }
 
 // ProcessMemberJoinRealtime handles real-time join or message activity for @FragmentInvestors.

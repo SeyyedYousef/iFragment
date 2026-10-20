@@ -1955,7 +1955,7 @@ export const dict = {
 	},
 	leaderboard: {
 		boostRank: 'Boost Rank',
-		boostRewardHint: 'Boost @FragmentInvestors to climb the leaderboard and earn daily raffle tickets.',
+		boostRewardHint: 'Boost @FragmentInvestors to climb the leaderboard.',
 		empty: 'No statistics recorded yet.',
 		groupBannerDesc: '1 message = 1 Intel Credit | 2 boosts = 1 daily credit',
 		groupBannerTitle: 'Fragment Investors Supergroup',

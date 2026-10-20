@@ -53,7 +53,7 @@ func TestIsFragmentInvestorsGroup(t *testing.T) {
 
 func TestFragmentInvestors_PremiumGateAndJoinRequest(t *testing.T) {
 	h := &WebhookHandler{}
-	premiumSvc := raffle.NewPremiumGroupService(nil)
+	premiumSvc := raffle.NewPremiumGroupService()
 	h.SetPremiumGroupService(premiumSvc)
 
 	ctx := context.Background()

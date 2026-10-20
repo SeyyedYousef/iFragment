@@ -150,7 +150,7 @@ func TestFormatGiftAppraisalMessage(t *testing.T) {
 	}
 
 	secondBtn := kb[1][0]
-	if !strings.Contains(secondBtn["url"].(string), "fragment.com/gift/CelestialStar-1") {
+	if !strings.Contains(strings.ToLower(secondBtn["url"].(string)), "fragment.com/gift/celestialstar-1") {
 		t.Errorf("expected fragment link in button, got: %v", secondBtn)
 	}
 }

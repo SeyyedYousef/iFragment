@@ -327,13 +327,10 @@ func main() {
 
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, analysisService, mtprotoClient, cache, avmService, db, paymentService)
 
-	// Initialize Raffle & Premium Group Gate Services for @FragmentInvestors
-	raffleRepo := repository.NewRaffleRepo(db)
-	raffleSvc := raffle.NewRaffleService(raffleRepo, cache)
-	premiumGroupSvc := raffle.NewPremiumGroupService(raffleRepo)
-	raffleHandler := handler.NewRaffleHandler(raffleSvc)
+	// Initialize Group Gate Services for @FragmentInvestors
+	premiumGroupSvc := raffle.NewPremiumGroupService()
 
-	webhookHandler := handler.NewWebhookHandler(db, cache, botRepo, raffleSvc, premiumGroupSvc)
+	webhookHandler := handler.NewWebhookHandler(db, cache, botRepo, premiumGroupSvc)
 	profileService := service.NewProfileService(db, cache)
 	profileHandler := handler.NewProfileHandler(profileService, paymentService, settingsRepo, ownerRepo)
 
@@ -434,11 +431,6 @@ func main() {
 		mainTgClient = telegram.NewBotAPIClient(botToken)
 		handler.ValidateCustomEmojis(ctx, mainTgClient)
 	}
-	if raffleSvc != nil && mainTgClient != nil {
-		raffleSvc.StartDailyDrawWorker(ctx, func() *telegram.BotAPIClient {
-			return mainTgClient
-		})
-	}
 
 	numbersHandler.SetCardGenerator(cardGen)
 	if mainTgClient != nil {
@@ -521,7 +513,6 @@ func main() {
 		NumbersHandler:          numbersHandler,
 		GiftsHandler:            giftsHandler,
 		IntelCreditHandler:      intelCreditHandler,
-		RaffleHandler:           raffleHandler,
 		InvestorsHandler:        investorsHandler,
 		GroupLeaderboardHandler: groupLeaderboardHandler,
 	})

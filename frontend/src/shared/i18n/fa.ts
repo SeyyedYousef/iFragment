@@ -1951,7 +1951,7 @@ export const dict = {
 	},
 	leaderboard: {
 		boostRank: 'رتبه بوست',
-		boostRewardHint: 'با بوست کردن @FragmentInvestors رتبه خود را ارتقا دهید و بلیت قرعه‌کشی روزانه بگیرید.',
+		boostRewardHint: 'با بوست کردن @FragmentInvestors رتبه خود را در لیدربورد ارتقا دهید.',
 		empty: 'داده‌ای یافت نشد.',
 		groupBannerDesc: 'هر ۱ پیام = ۱ کریدت تحلیلی | هر ۲ بوست = ۱ کریدت روزانه',
 		groupBannerTitle: 'سوپرگروه Fragment Investors',

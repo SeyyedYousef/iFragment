@@ -50,7 +50,6 @@ type WebhookHandler struct {
 	db                 *repository.Database
 	cache              *repository.Cache
 	botRepo            *repository.BotRepo
-	raffleSvc          *raffle.RaffleService
 	premiumGroupSvc    *raffle.PremiumGroupService
 	giftsService       *gifts.GiftsService
 	mtprotoClient      mtproto.Client
@@ -142,19 +141,16 @@ func (h *WebhookHandler) SetGroupLeaderboardService(s *service.GroupLeaderboardS
 	h.groupLeaderboardSvc = s
 }
 
-func NewWebhookHandler(db *repository.Database, cache *repository.Cache, botRepo *repository.BotRepo, raffleSvc *raffle.RaffleService, premiumGroupSvc ...*raffle.PremiumGroupService) *WebhookHandler {
+func NewWebhookHandler(db *repository.Database, cache *repository.Cache, botRepo *repository.BotRepo, premiumGroupSvc ...*raffle.PremiumGroupService) *WebhookHandler {
 	var pgs *raffle.PremiumGroupService
 	if len(premiumGroupSvc) > 0 && premiumGroupSvc[0] != nil {
 		pgs = premiumGroupSvc[0]
-	} else if raffleSvc != nil {
-		pgs = raffle.NewPremiumGroupService(raffleSvc.GetRepo())
 	}
 
 	return &WebhookHandler{
 		db:              db,
 		cache:           cache,
 		botRepo:         botRepo,
-		raffleSvc:       raffleSvc,
 		premiumGroupSvc: pgs,
 		webhookInbox:    repository.NewWebhookInboxRepo(db),
 		templateRepo:    repository.NewBotTemplateRepo(db, cache),
@@ -741,15 +737,6 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		if !msg.From.IsBot && h.groupLeaderboardSvc != nil {
 			_ = h.groupLeaderboardSvc.RecordGroupMessageWithStars(ctx, msg.From.ID, msg.From.Username, msg.From.FirstName, "", msg.From.LanguageCode, msg.MessageID, msg.PaidStarCount, raw)
 			if tgClient := h.getBotClient(bot); tgClient != nil {
-				if h.raffleSvc != nil {
-					_ = h.raffleSvc.RecordMessageTicket(ctx, tgClient, msg.Chat.ID, raffle.UserCompact{
-						ID:        msg.From.ID,
-						Username:  msg.From.Username,
-						FirstName: msg.From.FirstName,
-						IsPremium: msg.From.IsPremium,
-						IsBot:     msg.From.IsBot,
-					}, msg.MessageID)
-				}
 				go func(uid int64, uname, fname string) {
 					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancel()

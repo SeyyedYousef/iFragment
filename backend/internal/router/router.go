@@ -26,7 +26,6 @@ type Config struct {
 	NumbersHandler          *handler.NumbersHandler
 	GiftsHandler            *handler.GiftsHandler
 	IntelCreditHandler      *handler.IntelCreditHandler
-	RaffleHandler           *handler.RaffleHandler
 	InvestorsHandler        *handler.InvestorsPublicHandler
 	GroupLeaderboardHandler *handler.GroupLeaderboardHandler
 }
@@ -77,7 +76,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 
 		r.Get("/config", cfg.ProfileHandler.GetPublicConfig)
 		r.Get("/economy/config", cfg.ProfileHandler.GetEconomyConfig)
-		r.Get("/raffle/latest", cfg.RaffleHandler.GetLatestDraw)
 
 		r.Post("/webhook/telegram/{botID}", cfg.WebhookHandler.HandleTelegramWebhook)
 		r.With(middleware.ValidateTelegramInitData(cfg.DB, cfg.Cache)).Post("/auth/token", cfg.AuthHandler.IssueToken)
@@ -185,7 +183,6 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Get("/assets", cfg.ProfileHandler.GetMyAssets)
 				r.Get("/sessions", cfg.AuthHandler.GetSessions)
 				r.Post("/sessions/revoke-all", cfg.AuthHandler.RevokeAllSessions)
-				r.Get("/raffle", cfg.RaffleHandler.GetUserProfileRaffle)
 
 				r.Get("/cosmetics", cfg.ProfileHandler.GetCosmetics)
 				r.Post("/cosmetics/purchase", cfg.ProfileHandler.PurchaseCosmetic)

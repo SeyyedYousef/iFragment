@@ -8,7 +8,7 @@ import (
 )
 
 func TestPremiumGroupService_AllowedUsers(t *testing.T) {
-	svc := NewPremiumGroupService(nil)
+	svc := NewPremiumGroupService()
 
 	ctx := context.Background()
 
@@ -47,7 +47,7 @@ func TestPremiumGroupService_AllowedUsers(t *testing.T) {
 }
 
 func TestPremiumGroupService_JoinAttemptsRateLimiting(t *testing.T) {
-	svc := NewPremiumGroupService(nil)
+	svc := NewPremiumGroupService()
 
 	chatID := int64(-100999999)
 	userID := int64(88888)
@@ -71,7 +71,7 @@ func TestPremiumGroupService_JoinAttemptsRateLimiting(t *testing.T) {
 }
 
 func TestPremiumGroupService_HandleChatJoinRequestNilClient(t *testing.T) {
-	svc := NewPremiumGroupService(nil)
+	svc := NewPremiumGroupService()
 	ctx := context.Background()
 
 	user := UserCompact{
