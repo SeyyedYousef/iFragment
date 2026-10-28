@@ -113,7 +113,6 @@ export const GiftThumbnail: Component<Props> = (props) => {
 				return 'w-24 h-24 rounded-3xl text-4xl';
 			case '2xl':
 				return 'w-32 h-32 rounded-[2rem] text-5xl';
-			case 'md':
 			default:
 				return 'w-12 h-12 rounded-xl text-lg';
 		}
@@ -151,4 +150,3 @@ export const GiftThumbnail: Component<Props> = (props) => {
 		</div>
 	);
 };
-

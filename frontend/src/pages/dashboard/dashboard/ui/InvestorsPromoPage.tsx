@@ -118,7 +118,7 @@ export const InvestorsPromoPage: Component = () => {
 					<img
 						alt="Investors Promotional Banner"
 						ref={(el) => {
-							if (el && el.complete && el.naturalWidth > 0) {
+							if (el?.complete && el.naturalWidth > 0) {
 								setImageReady(true);
 							}
 						}}
@@ -134,10 +134,7 @@ export const InvestorsPromoPage: Component = () => {
 			</Show>
 
 			{/* Bottom Navigation on top (Stop propagation so clicking navigation does not trigger open group) */}
-			<div
-				onClick={(e) => e.stopPropagation()}
-				class="relative z-50 pointer-events-auto"
-			>
+			<div onClick={(e) => e.stopPropagation()} class="relative z-50 pointer-events-auto">
 				<BottomNav />
 			</div>
 		</div>

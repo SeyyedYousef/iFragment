@@ -1,1 +1,1 @@
-export { EmojiStatusCard } from './ui/EmojiStatusCard.js';
+export { EmojiStatusModal } from './EmojiStatusModal.js';

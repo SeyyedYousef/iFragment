@@ -474,9 +474,8 @@ func (h *UsernameHandler) GetSimilar(w http.ResponseWriter, r *http.Request) {
 }
 
 const (
-	// maxSimilarResults caps the "concept similar" list. Beyond this the card
-	// turns into a scroll of low-signal rows.
-	maxSimilarResults = 6
+	// maxSimilarResults caps the 3-pillar similar list (Live Fragment + Semantic Meaning + Structural Cohort).
+	maxSimilarResults = 18
 	// maxPortfolioItems caps the holder's other collectibles shown per report.
 	maxPortfolioItems = 12
 	// whaleMinHoldings is the number of verified collectibles in one wallet that
@@ -484,10 +483,21 @@ const (
 	whaleMinHoldings = 5
 )
 
-// similarEvidenceRank scores how much verifiable market evidence a similar-username
-// entry carries, so the strongest rows lead the list.
+// similarEvidenceRank scores how much verifiable market & semantic evidence a similar-username
+// entry carries, ensuring semantic synonyms (@cars -> @auto, @rare -> @uncommon) are prioritized.
 func similarEvidenceRank(s avm.ValuationSimilar) int {
+	reasonLower := strings.ToLower(s.Reason)
+	isSemantic := strings.Contains(reasonLower, "synonym") ||
+		strings.Contains(reasonLower, "semantic") ||
+		strings.Contains(reasonLower, "concept") ||
+		strings.Contains(reasonLower, "category") ||
+		strings.Contains(reasonLower, "benchmark") ||
+		strings.Contains(reasonLower, "rarity")
 	switch {
+	case isSemantic && s.SalePrice > 0:
+		return 6
+	case isSemantic:
+		return 5
 	case s.SalePrice > 0 && s.Status == "sold":
 		return 4
 	case s.SalePrice > 0 && (s.Status == "on_sale" || s.Status == "on_auction"):

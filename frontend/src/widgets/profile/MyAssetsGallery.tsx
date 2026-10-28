@@ -142,211 +142,211 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 						}
 					>
 						<div class="flex flex-col gap-3">
-								{/* Sub-tabs: Vertical Filter Pills */}
-								<Show when={totalReports().length > 0}>
-									<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-										<For
-											each={
-												[
-													{ id: 'all', label: 'All', count: totalReports().length, icon: 'apps' },
-													{
-														id: 'username',
-														label: 'Usernames',
-														count: usernameReports().length,
-														icon: 'alternate_email',
-													},
-													{
-														id: 'number',
-														label: 'Numbers +888',
-														count: numberReports().length,
-														icon: 'dialpad',
-													},
-													{
-														id: 'gift',
-														label: 'Gifts',
-														count: giftReports().length,
-														icon: 'featured_seasonal_and_gifts',
-													},
-												] as const
-											}
-										>
-											{(f) => (
-												<button
-													type="button"
-													onClick={() => {
-														try {
-															haptic.selection();
-														} catch {}
-														setReportFilter(f.id as ReportFilter);
-													}}
-													class={`px-2.5 py-1 rounded-[10px] text-[11px] font-bold flex items-center gap-1.5 transition-all shrink-0 border ${
+							{/* Sub-tabs: Vertical Filter Pills */}
+							<Show when={totalReports().length > 0}>
+								<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+									<For
+										each={
+											[
+												{ id: 'all', label: 'All', count: totalReports().length, icon: 'apps' },
+												{
+													id: 'username',
+													label: 'Usernames',
+													count: usernameReports().length,
+													icon: 'alternate_email',
+												},
+												{
+													id: 'number',
+													label: 'Numbers +888',
+													count: numberReports().length,
+													icon: 'dialpad',
+												},
+												{
+													id: 'gift',
+													label: 'Gifts',
+													count: giftReports().length,
+													icon: 'featured_seasonal_and_gifts',
+												},
+											] as const
+										}
+									>
+										{(f) => (
+											<button
+												type="button"
+												onClick={() => {
+													try {
+														haptic.selection();
+													} catch {}
+													setReportFilter(f.id as ReportFilter);
+												}}
+												class={`px-2.5 py-1 rounded-[10px] text-[11px] font-bold flex items-center gap-1.5 transition-all shrink-0 border ${
+													reportFilter() === f.id
+														? 'bg-white/15 border-white/30 text-white shadow-sm'
+														: 'bg-white/5 border-white/5 text-white/50 hover:text-white/80'
+												}`}
+											>
+												<span class="material-symbols-outlined text-[13px]">{f.icon}</span>
+												<span>{f.label}</span>
+												<span
+													class={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${
 														reportFilter() === f.id
-															? 'bg-white/15 border-white/30 text-white shadow-sm'
-															: 'bg-white/5 border-white/5 text-white/50 hover:text-white/80'
+															? 'bg-white/20 text-white font-black'
+															: 'bg-white/5 text-white/40'
 													}`}
 												>
-													<span class="material-symbols-outlined text-[13px]">{f.icon}</span>
-													<span>{f.label}</span>
-													<span
-														class={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${
-															reportFilter() === f.id
-																? 'bg-white/20 text-white font-black'
-																: 'bg-white/5 text-white/40'
-														}`}
-													>
-														{f.count}
-													</span>
-												</button>
-											)}
-										</For>
-									</div>
-								</Show>
+													{f.count}
+												</span>
+											</button>
+										)}
+									</For>
+								</div>
+							</Show>
 
-								{/* Reports List */}
-								<Show
-									when={filteredReports().length > 0}
-									fallback={
-										<div class="py-8 text-center flex flex-col items-center gap-2">
-											<span class="material-symbols-outlined text-[32px] text-white/20">
-												{reportFilter() === 'username'
-													? 'alternate_email'
-													: reportFilter() === 'number'
-														? 'dialpad'
-														: reportFilter() === 'gift'
-															? 'featured_seasonal_and_gifts'
-															: 'search'}
-											</span>
-											<span class="text-white/40 text-[11px] font-bold">
-												{reportFilter() === 'username'
-													? t('assets.noUsernameReports' as any) ||
-														'No username valuation reports registered yet.'
-													: reportFilter() === 'number'
-														? t('assets.noNumberReports' as any) ||
-															'No collectible number reports registered yet.'
-														: reportFilter() === 'gift'
-															? t('assets.noGiftReports' as any) ||
-																'No Telegram gift valuation reports registered yet.'
-															: t('assets.noReports' as any) ||
-																'No valuation reports registered yet across any vertical.'}
-											</span>
-											<div class="flex items-center gap-2 mt-1 flex-wrap justify-center">
-												<Show when={reportFilter() === 'all' || reportFilter() === 'username'}>
-													<button
-														type="button"
-														onClick={() => navigate('/')}
-														class="px-3 py-1.5 rounded-[10px] bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] text-[10px] font-black uppercase tracking-wider active:scale-95"
-													>
-														{t('assets.searchUsername' as any) || 'Analyze Username'}
-													</button>
-												</Show>
-												<Show when={reportFilter() === 'all' || reportFilter() === 'number'}>
-													<button
-														type="button"
-														onClick={() => navigate('/numbers')}
-														class="px-3 py-1.5 rounded-[10px] bg-amber-400/20 border border-amber-400/40 text-amber-400 text-[10px] font-black uppercase tracking-wider active:scale-95"
-													>
-														{t('numbers.title' as any) || 'Valuate Number (+888)'}
-													</button>
-												</Show>
-												<Show when={reportFilter() === 'all' || reportFilter() === 'gift'}>
-													<button
-														type="button"
-														onClick={() => navigate('/gifts')}
-														class="px-3 py-1.5 rounded-[10px] bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-black uppercase tracking-wider active:scale-95"
-													>
-														{t('gifts.intel' as any) || 'Inspect Gifts'}
-													</button>
-												</Show>
-											</div>
-										</div>
-									}
-								>
-									<For each={filteredReports()}>
-										{(r) => {
-											const type = () => r.type || 'username';
-											const targetUrl = () => getReportUrl(r);
-											return (
-												<div
-													role="button"
-													tabIndex={0}
-													onKeyDown={(e) => {
-														if (e.key === 'Enter') navigate(targetUrl());
-													}}
-													onClick={() => navigate(targetUrl())}
-													class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between gap-3 active:scale-[0.99] transition-all cursor-pointer group"
+							{/* Reports List */}
+							<Show
+								when={filteredReports().length > 0}
+								fallback={
+									<div class="py-8 text-center flex flex-col items-center gap-2">
+										<span class="material-symbols-outlined text-[32px] text-white/20">
+											{reportFilter() === 'username'
+												? 'alternate_email'
+												: reportFilter() === 'number'
+													? 'dialpad'
+													: reportFilter() === 'gift'
+														? 'featured_seasonal_and_gifts'
+														: 'search'}
+										</span>
+										<span class="text-white/40 text-[11px] font-bold">
+											{reportFilter() === 'username'
+												? t('assets.noUsernameReports' as any) ||
+													'No username valuation reports registered yet.'
+												: reportFilter() === 'number'
+													? t('assets.noNumberReports' as any) ||
+														'No collectible number reports registered yet.'
+													: reportFilter() === 'gift'
+														? t('assets.noGiftReports' as any) ||
+															'No Telegram gift valuation reports registered yet.'
+														: t('assets.noReports' as any) ||
+															'No valuation reports registered yet across any vertical.'}
+										</span>
+										<div class="flex items-center gap-2 mt-1 flex-wrap justify-center">
+											<Show when={reportFilter() === 'all' || reportFilter() === 'username'}>
+												<button
+													type="button"
+													onClick={() => navigate('/')}
+													class="px-3 py-1.5 rounded-[10px] bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] text-[10px] font-black uppercase tracking-wider active:scale-95"
 												>
-													<div class="flex items-center gap-3 min-w-0">
-														{/* Icon / Avatar per Vertical */}
-														<Show when={type() === 'username'}>
-															<div class="w-10 h-10 rounded-[12px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA] font-black text-[13px] shrink-0 font-mono">
-																@{r.username.replace(/^@/, '').slice(0, 2).toUpperCase()}
-															</div>
-														</Show>
-														<Show when={type() === 'number'}>
-															<div class="w-10 h-10 rounded-[12px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shrink-0">
-																<span class="material-symbols-outlined text-[20px]">dialpad</span>
-															</div>
-														</Show>
-														<Show when={type() === 'gift'}>
-															<div class="w-10 h-10 rounded-[12px] bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
-																<span class="material-symbols-outlined text-[20px]">
-																	featured_seasonal_and_gifts
-																</span>
-															</div>
-														</Show>
+													{t('assets.searchUsername' as any) || 'Analyze Username'}
+												</button>
+											</Show>
+											<Show when={reportFilter() === 'all' || reportFilter() === 'number'}>
+												<button
+													type="button"
+													onClick={() => navigate('/numbers')}
+													class="px-3 py-1.5 rounded-[10px] bg-amber-400/20 border border-amber-400/40 text-amber-400 text-[10px] font-black uppercase tracking-wider active:scale-95"
+												>
+													{t('numbers.title' as any) || 'Valuate Number (+888)'}
+												</button>
+											</Show>
+											<Show when={reportFilter() === 'all' || reportFilter() === 'gift'}>
+												<button
+													type="button"
+													onClick={() => navigate('/gifts')}
+													class="px-3 py-1.5 rounded-[10px] bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-black uppercase tracking-wider active:scale-95"
+												>
+													{t('gifts.intel' as any) || 'Inspect Gifts'}
+												</button>
+											</Show>
+										</div>
+									</div>
+								}
+							>
+								<For each={filteredReports()}>
+									{(r) => {
+										const type = () => r.type || 'username';
+										const targetUrl = () => getReportUrl(r);
+										return (
+											<div
+												role="button"
+												tabIndex={0}
+												onKeyDown={(e) => {
+													if (e.key === 'Enter') navigate(targetUrl());
+												}}
+												onClick={() => navigate(targetUrl())}
+												class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between gap-3 active:scale-[0.99] transition-all cursor-pointer group"
+											>
+												<div class="flex items-center gap-3 min-w-0">
+													{/* Icon / Avatar per Vertical */}
+													<Show when={type() === 'username'}>
+														<div class="w-10 h-10 rounded-[12px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA] font-black text-[13px] shrink-0 font-mono">
+															@{r.username.replace(/^@/, '').slice(0, 2).toUpperCase()}
+														</div>
+													</Show>
+													<Show when={type() === 'number'}>
+														<div class="w-10 h-10 rounded-[12px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shrink-0">
+															<span class="material-symbols-outlined text-[20px]">dialpad</span>
+														</div>
+													</Show>
+													<Show when={type() === 'gift'}>
+														<div class="w-10 h-10 rounded-[12px] bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+															<span class="material-symbols-outlined text-[20px]">
+																featured_seasonal_and_gifts
+															</span>
+														</div>
+													</Show>
 
-														<div class="flex flex-col min-w-0">
-															<div class="flex items-center gap-1.5 min-w-0">
-																<span class="text-[13px] font-black text-white truncate font-mono">
-																	{r.title ||
-																		(type() === 'username'
-																			? `@${r.username.replace(/^@/, '')}`
-																			: r.identifier || r.username)}
-																</span>
-																<span
-																	class={`text-[9px] font-black px-1.5 py-0.5 rounded-[6px] shrink-0 uppercase tracking-wider ${
-																		type() === 'username'
-																			? 'bg-[#0098EA]/15 text-[#0098EA] border border-[#0098EA]/30'
-																			: type() === 'number'
-																				? 'bg-amber-400/15 text-amber-400 border border-amber-400/30'
-																				: 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-																	}`}
-																>
-																	{type() === 'username'
-																		? 'Username'
+													<div class="flex flex-col min-w-0">
+														<div class="flex items-center gap-1.5 min-w-0">
+															<span class="text-[13px] font-black text-white truncate font-mono">
+																{r.title ||
+																	(type() === 'username'
+																		? `@${r.username.replace(/^@/, '')}`
+																		: r.identifier || r.username)}
+															</span>
+															<span
+																class={`text-[9px] font-black px-1.5 py-0.5 rounded-[6px] shrink-0 uppercase tracking-wider ${
+																	type() === 'username'
+																		? 'bg-[#0098EA]/15 text-[#0098EA] border border-[#0098EA]/30'
 																		: type() === 'number'
-																			? '+888'
-																			: 'Gift'}
-																</span>
-															</div>
+																			? 'bg-amber-400/15 text-amber-400 border border-amber-400/30'
+																			: 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+																}`}
+															>
+																{type() === 'username'
+																	? 'Username'
+																	: type() === 'number'
+																		? '+888'
+																		: 'Gift'}
+															</span>
+														</div>
 
-															<div class="flex items-center gap-1.5 text-[10px] text-white/40">
-																<span class="text-emerald-400 font-bold">
-																	{type() === 'username'
-																		? `Score ${r.rarityScore}/100`
-																		: `Confidence ${r.rarityScore}%`}
-																</span>
-																<Show when={r.valueEstimate}>
-																	<span>•</span>
-																	<span class="text-cyan-400 font-bold">{r.valueEstimate}</span>
-																</Show>
+														<div class="flex items-center gap-1.5 text-[10px] text-white/40">
+															<span class="text-emerald-400 font-bold">
+																{type() === 'username'
+																	? `Score ${r.rarityScore}/100`
+																	: `Confidence ${r.rarityScore}%`}
+															</span>
+															<Show when={r.valueEstimate}>
 																<span>•</span>
-																<span>{t('profile.certified')}</span>
-															</div>
+																<span class="text-cyan-400 font-bold">{r.valueEstimate}</span>
+															</Show>
+															<span>•</span>
+															<span>{t('profile.certified')}</span>
 														</div>
 													</div>
-
-													<div class="flex items-center gap-2 shrink-0">
-														<span class="material-symbols-outlined text-[18px] text-white/40 group-hover:text-white group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-all">
-															chevron_right
-														</span>
-													</div>
 												</div>
-											);
-										}}
-									</For>
-								</Show>
-							</div>
+
+												<div class="flex items-center gap-2 shrink-0">
+													<span class="material-symbols-outlined text-[18px] text-white/40 group-hover:text-white group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-all">
+														chevron_right
+													</span>
+												</div>
+											</div>
+										);
+									}}
+								</For>
+							</Show>
+						</div>
 					</Show>
 				</div>
 			</div>

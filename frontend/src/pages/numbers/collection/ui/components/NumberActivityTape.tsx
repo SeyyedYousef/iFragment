@@ -111,82 +111,31 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 		staleTime: 30 * 1000,
 	}));
 
-	const sampleEvents: ActivityEvent[] = [
-		{
-			id: 'ev-1',
-			type: 'sale',
-			number: '+888019902024',
-			displayNumber: '+888 0199 2024',
-			priceTon: 2850,
-			from: 'UQDF...918k',
-			to: 'EQBa...4a91',
-			timestamp: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-			venue: 'Fragment',
-			txHash: 'a718f0c9b4e1329',
-		},
-		{
-			id: 'ev-2',
-			type: 'auction_settled',
-			number: '+8888444',
-			displayNumber: '+888 8444 (Genesis)',
-			priceTon: 58500,
-			from: 'Telemint Escrow',
-			to: 'EQCo...888f',
-			timestamp: new Date(Date.now() - 48 * 60 * 1000).toISOString(),
-			venue: 'Fragment',
-			txHash: 'e31980f81d1134b',
-		},
-		{
-			id: 'ev-3',
-			type: 'listing',
-			number: '+88807778777',
-			displayNumber: '+888 0777 8777',
-			priceTon: 4200,
-			from: 'UQAh...120a',
-			timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-			venue: 'Getgems',
-		},
-		{
-			id: 'ev-4',
-			type: 'transfer',
-			number: '+88880123456',
-			displayNumber: '+888 8012 3456',
-			from: 'EQCd...4481',
-			to: 'EQBf...9911',
-			timestamp: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-			venue: 'TON Ledger',
-			txHash: '918fa22001189ac',
-		},
-		{
-			id: 'ev-5',
-			type: 'sale',
-			number: '+88808888000',
-			displayNumber: '+888 0888 8000',
-			priceTon: 11400,
-			from: 'EQBb...3319',
-			to: 'UQZ1...001a',
-			timestamp: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
-			venue: 'Fragment',
-			txHash: 'c44180d199f3810',
-		},
-	];
-
 	const allEvents = createMemo<ActivityEvent[]>(() => {
 		const live = activityQuery.data;
 		if (live && Array.isArray(live) && live.length > 0) {
-			return live.map((item, idx) => ({
-				id: item.id || `live-${idx}`,
-				type: 'sale',
-				number: item.number,
-				displayNumber: item.display_number || item.number,
-				priceTon: item.sale_price_ton,
-				from: item.marketplace || 'Fragment',
-				timestamp: item.sale_date || new Date().toISOString(),
-				venue: item.marketplace || 'Fragment',
-				txHash: item.tx_hash,
-			}));
+			return live.map((item: Record<string, any>, idx) => {
+				const rawType = String(item.event_type || '');
+				let type: ActivityEvent['type'] = 'sale';
+				if (rawType === 'transfer') type = 'transfer';
+				else if (rawType === 'listing') type = 'listing';
+				else if (rawType === 'auction_settled' || item.id?.startsWith('frag-sold'))
+					type = 'auction_settled';
+				return {
+					id: item.id || `live-${idx}`,
+					type,
+					number: item.number,
+					displayNumber: item.display_number || item.number,
+					priceTon: item.sale_price_ton > 0 ? item.sale_price_ton : undefined,
+					from: item.marketplace || 'Fragment',
+					to: item.to_address || undefined,
+					timestamp: item.sale_date || new Date().toISOString(),
+					venue: item.marketplace || 'Fragment',
+					txHash: item.tx_hash,
+				};
+			});
 		}
-		return sampleEvents;
+		return [];
 	});
 
 	const filteredEvents = () => {
@@ -209,9 +158,12 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 	};
 
 	const formatTimeAgo = (isoStr: string) => {
-		const diffMin = Math.max(1, Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000));
+		const parsed = Date.parse(isoStr);
+		if (Number.isNaN(parsed)) return isoStr;
+		const diffMin = Math.max(1, Math.floor((Date.now() - parsed) / 60000));
 		if (diffMin < 60) return copy().minAgo.replace('{m}', String(diffMin));
-		return copy().hrAgo.replace('{h}', String(Math.floor(diffMin / 60)));
+		if (diffMin < 1440) return copy().hrAgo.replace('{h}', String(Math.floor(diffMin / 60)));
+		return isoStr.slice(0, 10);
 	};
 
 	const getEventBadge = (type: ActivityEvent['type']) => {

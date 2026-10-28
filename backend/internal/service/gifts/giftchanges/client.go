@@ -70,6 +70,7 @@ type GiftDetail struct {
 	Models    []Model    `json:"models"`
 	Backdrops []Backdrop `json:"backdrops"`
 	Symbols   []Symbol   `json:"symbols"`
+	Patterns  []Symbol   `json:"patterns"`
 }
 
 type GiftInfo struct {
@@ -298,6 +299,9 @@ func (c *Client) GetGiftDetail(ctx context.Context, giftNameOrSlug string) (*Gif
 		if err2 := c.get(ctx, "/gift/"+url.PathEscape(altSlug), &detail); err2 != nil {
 			return nil, err
 		}
+	}
+	if len(detail.Symbols) == 0 && len(detail.Patterns) > 0 {
+		detail.Symbols = detail.Patterns
 	}
 
 	c.mu.Lock()

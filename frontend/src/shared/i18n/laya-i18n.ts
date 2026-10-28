@@ -1,4 +1,4 @@
-import { locale, type Locale } from './index.js';
+import { type Locale, locale } from './index.js';
 
 export interface LocalizedText {
 	en: string;
@@ -2416,7 +2416,7 @@ export const GIFT_REPORT_DETAILS_I18N = {
 		zh: '金融与投资免责声明 (Financial Disclaimer)',
 	},
 	financialDisclaimerText: {
-		en: 'This valuation report is solely the result of algorithmic modeling on public Telegram and TON metadata and does not constitute financial advice, investment solicitation, or price guarantees. Trading decisions are solely the user\'s responsibility.',
+		en: "This valuation report is solely the result of algorithmic modeling on public Telegram and TON metadata and does not constitute financial advice, investment solicitation, or price guarantees. Trading decisions are solely the user's responsibility.",
 		fa: 'این گزارش و تحلیل‌های ارزش‌گذاری صرفاً حاصل پردازش‌های الگوریتمی متادیتای عمومی اکوسیستم تلگرام بوده و به هیچ وجه به عنوان مشاوره مالی، تعهد بازدهی، یا پیشنهاد خرید و فروش تلقی نمی‌شود. مسئولیت تصمیمات معاملاتی تماماً بر عهده کاربر است.',
 		ru: 'Данный аналитический отчет составлен исключительно на основе алгоритмического анализа публичных данных Telegram и TON и не является финансовым советом или гарантией доходности. Пользователь несет полную ответственность за свои торговые решения.',
 		zh: '本估值与分析报告纯粹基于 Telegram 与 TON 公共链上元数据的算法模型推导，绝不构成任何财务建议、投资招揽或收益担保。所有交易决策均由用户自行负责。',

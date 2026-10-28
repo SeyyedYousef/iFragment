@@ -3,12 +3,12 @@ import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-que
 import { type Component, createEffect, createSignal, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { SystemSettings } from '@/entities/owner/model/types.js';
-import { ImageCropUploader } from '@/features/owner/ads/ImageCropUploader.js';
-import { t } from '@/shared/i18n/index.js';
+import { locale } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerSettings: Component = () => {
 	const queryClient = useQueryClient();
+	const isFa = () => locale() === 'fa';
 
 	const [settings, setSettings] = createSignal<SystemSettings | null>(null);
 	const [statusMsg, setStatusMsg] = createSignal<{
@@ -31,24 +31,23 @@ export const OwnerSettings: Component = () => {
 
 	const updateMutation = createMutation(() => ({
 		mutationFn: (newSettings: SystemSettings) => ownerApi.updateSettings(newSettings),
-		onSuccess: () => {
+		onSuccess: (saved) => {
+			setSettings({ ...saved });
 			queryClient.invalidateQueries({ queryKey: ['owner', 'settings'] });
-			setStatusMsg({ type: 'success', text: 'System settings saved successfully.' });
-			setTimeout(() => setStatusMsg(null), 3000);
+			queryClient.invalidateQueries({ queryKey: ['owner', 'dashboard'] });
+			setStatusMsg({
+				type: 'success',
+				text: isFa()
+					? 'تنظیمات تعرفه کریدیت و کالیبراسیون موتورهای ارزش‌گذاری با موفقیت ذخیره شد.'
+					: 'Credit pricing & Valuation Engine calibration saved successfully.',
+			});
+			setTimeout(() => setStatusMsg(null), 3500);
 		},
 		onError: (err: any) => {
-			if (err.response?.status === 409) {
-				setStatusMsg({
-					type: 'error',
-					text: 'Conflict: Settings were modified by another admin. Refreshing latest data...',
-				});
-				queryClient.invalidateQueries({ queryKey: ['owner', 'settings'] });
-			} else {
-				setStatusMsg({
-					type: 'error',
-					text: err.response?.data?.error || err.message || 'Failed to update settings.',
-				});
-			}
+			setStatusMsg({
+				type: 'error',
+				text: err.response?.data?.error || err.message || 'Failed to update settings.',
+			});
 		},
 	}));
 
@@ -73,7 +72,7 @@ export const OwnerSettings: Component = () => {
 		}
 	};
 
-	const updateField = (field: keyof SystemSettings, val: any) => {
+	const updateField = <K extends keyof SystemSettings>(field: K, val: SystemSettings[K]) => {
 		if (settings()) {
 			setSettings({ ...settings()!, [field]: val });
 		}
@@ -84,11 +83,17 @@ export const OwnerSettings: Component = () => {
 	return (
 		<div class="space-y-6">
 			{/* Header */}
-			<div class="flex items-center justify-between">
+			<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 				<div>
-					<h2 class="text-lg font-bold text-white">{t('ownerSettings.title')}</h2>
+					<h2 class="text-lg font-black text-white">
+						{isFa()
+							? 'تنظیمات تعرفه کریدیت ⚡ و کالیبراسیون موتورهای ارزش‌گذاری'
+							: 'Intel Credit Pricing & Valuation Engine Calibration'}
+					</h2>
 					<p class="text-xs text-white/50">
-						Optimistic concurrency controlled settings (Version: {currentSettings()?.version ?? 1})
+						{isFa()
+							? `کنترل زنده هزینه استعلام‌ها، سهمیه رایگان و ضرایب الگوریتم‌های نام کاربری، +888 و گیفت (نسخه پیکربندی: v${currentSettings()?.version ?? 1})`
+							: `Live control of report credit costs, referral rewards, and valuation calibration (Config v${currentSettings()?.version ?? 1})`}
 					</p>
 				</div>
 			</div>
@@ -97,8 +102,8 @@ export const OwnerSettings: Component = () => {
 				<div
 					class={`p-4 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
 						statusMsg()?.type === 'success'
-							? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-							: 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+							? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+							: 'bg-rose-500/10 border-rose-500/25 text-rose-400'
 					}`}
 				>
 					<span class="material-symbols-outlined text-base">
@@ -111,26 +116,32 @@ export const OwnerSettings: Component = () => {
 			<Show
 				when={!settingsQuery.isLoading && currentSettings()}
 				fallback={
-					<div class="p-8 text-center text-xs text-white/40">{t('ownerSettings.loading')}</div>
+					<div class="p-8 text-center text-xs text-white/40">
+						{isFa() ? 'در حال بارگذاری پیکربندی سرور...' : 'Loading engine configuration...'}
+					</div>
 				}
 			>
 				<form onSubmit={handleSaveForm} class="space-y-6">
 					{/* Maintenance Mode Banner */}
-					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 flex items-center justify-between">
+					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 flex items-center justify-between gap-4">
 						<div>
 							<div class="text-sm font-bold text-white flex items-center gap-2">
 								<span class="material-symbols-outlined text-amber-400">construction</span>
-								<span>{t('ownerSettings.maintenanceMode')}</span>
+								<span>
+									{isFa()
+										? 'حالت تعمیرات و بروزرسانی سراسری (Maintenance Mode)'
+										: 'Platform Maintenance Mode'}
+								</span>
 							</div>
 							<div class="text-xs text-white/50 mt-0.5">
-								Temporarily block regular users with a maintenance screen while allowing Owner
-								access
+								{isFa()
+									? 'نمایش صفحه بروزرسانی برای کاربران عادی؛ دسترسی پنل مالک و تست ادمین فعال باقی می‌ماند'
+									: 'Block regular users with a maintenance screen while keeping Owner access active'}
 							</div>
 						</div>
-						<label class="relative inline-flex items-center cursor-pointer">
+						<label class="relative inline-flex items-center cursor-pointer shrink-0">
 							<input
 								type="checkbox"
-								aria-label={t('ownerSettings.maintenanceMode')}
 								checked={currentSettings()?.maintenance_mode ?? false}
 								onChange={(e) => handleMaintenanceToggle(e.currentTarget.checked)}
 								class="sr-only peer"
@@ -139,151 +150,321 @@ export const OwnerSettings: Component = () => {
 						</label>
 					</div>
 
-					{/* Economy, @FragmentInvestors & Reward Parameters */}
-					<section class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+					{/* Section 1: Intel Credit Paywall & Report Costs */}
+					<section class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
 						<header class="border-b border-white/10 pb-3">
 							<div class="flex items-center gap-2">
-								<span class="material-symbols-outlined text-cyan-400">tune</span>
+								<span class="material-symbols-outlined text-cyan-400">bolt</span>
 								<h3 class="text-sm font-bold text-white">
-									Economy, Referral & @FragmentInvestors Reward Parameters
+									{isFa()
+										? 'تعرفه کریدیت گزارش‌ها و پاداش‌های معرفی (Intel Credit Economy ⚡)'
+										: 'Intel Credit Report Costs & Referral Rewards (⚡)'}
 								</h3>
 							</div>
 							<p class="text-xs text-white/50 mt-1">
-								Configure base rewards, referral bonuses, revenue share percentages, and token
-								economy parameters in real time.
+								{isFa()
+									? 'تعیین دقیق تعداد کریدیت لازم برای باز کردن هر گزارش تخصصی و پاداش ثبت‌نام/معرفی کاربران'
+									: 'Set exact Intel Credit (⚡) costs per valuation report and user acquisition bonuses'}
 							</p>
 						</header>
 
-						<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+						<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 							<div class="space-y-1.5">
-								<label class="text-xs text-white/60 font-medium">
-									Daily Activity Reward Base
+								<label class="text-xs text-sky-300 font-bold block">
+									{isFa() ? 'هزینه گزارش نام کاربری (@)' : '@Username Report Cost (⚡)'}
 								</label>
 								<input
 									type="number"
-									value={currentSettings()?.daily_reward_base ?? 100}
+									min={0}
+									max={50}
+									value={currentSettings()?.cost_username_report ?? 1}
 									onInput={(e) =>
-										updateField('daily_reward_base', parseInt(e.currentTarget.value, 10) || 0)
+										updateField('cost_username_report', parseInt(e.currentTarget.value, 10) || 0)
 									}
-									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-cyan-400 focus:outline-none"
 								/>
 							</div>
 
 							<div class="space-y-1.5">
-								<label class="text-xs text-white/60 font-medium">Referral Bonus (Coins)</label>
+								<label class="text-xs text-amber-300 font-bold block">
+									{isFa() ? 'هزینه گزارش شماره کلکسیونی (+888)' : '+888 Number Report Cost (⚡)'}
+								</label>
 								<input
 									type="number"
-									value={currentSettings()?.referral_bonus ?? 500}
+									min={0}
+									max={50}
+									value={currentSettings()?.cost_number_report ?? 1}
 									onInput={(e) =>
-										updateField('referral_bonus', parseInt(e.currentTarget.value, 10) || 0)
+										updateField('cost_number_report', parseInt(e.currentTarget.value, 10) || 0)
 									}
-									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-cyan-400 focus:outline-none"
 								/>
 							</div>
 
 							<div class="space-y-1.5">
-								<label class="text-xs text-white/60 font-medium">
-									Referral Revenue Share (%)
+								<label class="text-xs text-purple-300 font-bold block">
+									{isFa() ? 'هزینه گزارش گیفت تلگرام (🎁)' : 'Telegram Gift Report Cost (⚡)'}
 								</label>
 								<input
 									type="number"
-									step="0.1"
-									value={currentSettings()?.referral_rev_share_pct ?? 10}
+									min={0}
+									max={50}
+									value={currentSettings()?.cost_gift_report ?? 1}
+									onInput={(e) =>
+										updateField('cost_gift_report', parseInt(e.currentTarget.value, 10) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-cyan-400 focus:outline-none"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-emerald-300 font-bold block">
+									{isFa() ? 'هزینه اسکن پرتفوی نهنگ (X-Ray)' : 'Portfolio X-Ray Scan Cost (⚡)'}
+								</label>
+								<input
+									type="number"
+									min={0}
+									max={50}
+									value={currentSettings()?.cost_portfolio_scan ?? 2}
+									onInput={(e) =>
+										updateField('cost_portfolio_scan', parseInt(e.currentTarget.value, 10) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-cyan-400 focus:outline-none"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/70 font-medium block">
+									{isFa() ? 'سهمیه رایگان روزانه هر کاربر' : 'Free Daily Quota per User'}
+								</label>
+								<input
+									type="number"
+									min={0}
+									max={20}
+									value={currentSettings()?.free_daily_quota ?? 1}
+									onInput={(e) =>
+										updateField('free_daily_quota', parseInt(e.currentTarget.value, 10) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-cyan-400 focus:outline-none"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/70 font-medium block">
+									{isFa() ? 'کریدیت هدیه ورود اولیه (Signup ⚡)' : 'Initial Signup Bonus (⚡)'}
+								</label>
+								<input
+									type="number"
+									min={0}
+									max={100}
+									value={currentSettings()?.signup_bonus_credits ?? 3}
+									onInput={(e) =>
+										updateField('signup_bonus_credits', parseInt(e.currentTarget.value, 10) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-cyan-400 focus:outline-none"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/70 font-medium block">
+									{isFa() ? 'پاداش معرفی هر دوست (Referral ⚡)' : 'Referral Bonus (⚡ Credits)'}
+								</label>
+								<input
+									type="number"
+									min={0}
+									max={100}
+									value={currentSettings()?.referral_bonus_credits ?? 2}
+									onInput={(e) =>
+										updateField('referral_bonus_credits', parseInt(e.currentTarget.value, 10) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-cyan-400 focus:outline-none"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/70 font-medium block">
+									{isFa() ? 'پورسانت معرف از خرید Stars (%)' : 'Referral Stars Rev-Share (%)'}
+								</label>
+								<input
+									type="number"
+									step="0.5"
+									min={0}
+									max={50}
+									value={currentSettings()?.referral_rev_share_pct ?? 15}
 									onInput={(e) =>
 										updateField('referral_rev_share_pct', parseFloat(e.currentTarget.value) || 0)
 									}
-									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
-								/>
-							</div>
-
-							<div class="space-y-1.5">
-								<label class="text-xs text-white/60 font-medium">
-									Engagement Multiplier (@FragmentInvestors)
-								</label>
-								<input
-									type="number"
-									step="0.1"
-									value={currentSettings()?.tap_multiplier ?? 1.0}
-									onInput={(e) =>
-										updateField('tap_multiplier', parseFloat(e.currentTarget.value) || 1.0)
-									}
-									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
-								/>
-							</div>
-
-							<div class="space-y-1.5">
-								<label class="text-xs text-white/60 font-medium">
-									Credit Batch Expiry (Days)
-								</label>
-								<input
-									type="number"
-									value={currentSettings()?.coin_expiry_days ?? 30}
-									onInput={(e) =>
-										updateField('coin_expiry_days', parseInt(e.currentTarget.value, 10) || 0)
-									}
-									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
-								/>
-							</div>
-
-							<div class="space-y-1.5">
-								<label class="text-xs text-white/60 font-medium">Daily Inflation Cap</label>
-								<input
-									type="number"
-									value={currentSettings()?.inflation_cap ?? 1000000}
-									onInput={(e) =>
-										updateField('inflation_cap', parseFloat(e.currentTarget.value) || 0)
-									}
-									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white"
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-cyan-400 focus:outline-none"
 								/>
 							</div>
 						</div>
 					</section>
 
-					{/* Investors Page Promotional Image */}
-					<section class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
-						<header>
-							<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
-								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-amber-400">handshake</span>
-									<h3 class="text-sm font-bold text-white">
-										{t('ownerInvestors.title')}
-									</h3>
-								</div>
-								<A
-									href="/owner/investors"
-									class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#3390ec]/20 hover:bg-[#3390ec]/30 text-[#3390ec] text-xs font-bold transition border border-[#3390ec]/30"
-								>
-									<span class="material-symbols-outlined text-sm">open_in_new</span>
-									<span>{t('ownerInvestors.currentPreview')}</span>
-								</A>
+					{/* Section 2: Valuation Engine Calibration & Market Oracles */}
+					<section class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
+						<header class="border-b border-white/10 pb-3">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-amber-400">tune</span>
+								<h3 class="text-sm font-bold text-white">
+									{isFa()
+										? 'کالیبراسیون الگوریتم‌های ارزش‌گذاری و اوراکل‌های بازار'
+										: 'Valuation Engine Calibration & Live Oracle Rules'}
+								</h3>
 							</div>
-							<p class="text-xs text-white/50 mt-2 leading-relaxed">
-								{t('ownerInvestors.subtitle')}
+							<p class="text-xs text-white/50 mt-1">
+								{isFa()
+									? 'تنظیم ضریب پایبندی به قیمت کف (Floor Anchor) در گیفت‌ها، فیلتر قیمت‌های کاذب نهنگ‌ها (Vanity Ask Guard) و نرخ TON/USD'
+									: 'Configure 4-Floor strictness for Telegram Gifts, Whale Vanity Ask threshold, and TON/USD oracle override'}
 							</p>
 						</header>
 
-						<ImageCropUploader
-							slot="investors_page"
-							currentImageUrl={currentSettings()?.investors_page_image_url}
-							targetWidth={1080}
-							targetHeight={1920}
-							aspectRatio={9 / 16}
-							maxFileSizeMB={5}
-							outputFormat="image/webp"
-							outputQuality={0.86}
-							onUploaded={(url) => updateField('investors_page_image_url', url)}
-							onRemove={() => updateField('investors_page_image_url', '')}
-						/>
+						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/70 font-medium block">
+									{isFa()
+										? 'نرخ دستی TON/USD (عدد 0 = دریافت خودکار از اوراکل زنده)'
+										: 'Manual TON/USD Override (0 = Auto Live Oracle)'}
+								</label>
+								<input
+									type="number"
+									step="0.01"
+									min={0}
+									value={currentSettings()?.ton_usd_override ?? 0}
+									onInput={(e) =>
+										updateField('ton_usd_override', parseFloat(e.currentTarget.value) || 0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-amber-400 focus:outline-none"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/70 font-medium block">
+									{isFa()
+										? 'ضریب لنگر قیمت کف در گیفت‌ها (1.0 = استاندارد بازار فعلی)'
+										: 'Gift 4-Floor Anchor Strictness (1.0 = Market Standard)'}
+								</label>
+								<input
+									type="number"
+									step="0.05"
+									min={0.5}
+									max={2.0}
+									value={currentSettings()?.gift_floor_strictness ?? 1.0}
+									onInput={(e) =>
+										updateField('gift_floor_strictness', parseFloat(e.currentTarget.value) || 1.0)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-amber-400 focus:outline-none"
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<label class="text-xs text-white/70 font-medium block">
+									{isFa()
+										? 'آستانه هشدار قیمت نمایشی نهنگ (چند برابر ارزش منصفانه؟)'
+										: 'Whale Vanity Ask Guard Multiplier (× Fair Value)'}
+								</label>
+								<input
+									type="number"
+									step="0.5"
+									min={2.0}
+									max={20.0}
+									value={currentSettings()?.vanity_ask_multiplier_threshold ?? 3.5}
+									onInput={(e) =>
+										updateField(
+											'vanity_ask_multiplier_threshold',
+											parseFloat(e.currentTarget.value) || 3.5,
+										)
+									}
+									class="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/15 font-mono text-xs text-white focus:border-amber-400 focus:outline-none"
+								/>
+							</div>
+						</div>
+
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+							<label class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between cursor-pointer">
+								<div>
+									<div class="text-xs font-bold text-white">
+										{isFa()
+											? 'تایید زنده وضعیت حراجی و محدودیت اسپم از Fragment.com'
+											: 'Live Fragment.com Auction & Restriction Verification'}
+									</div>
+									<div class="text-[11px] text-white/45 mt-0.5">
+										{isFa()
+											? 'بررسی لحظه‌ای پرچم tm-restricted-nft برای شماره‌های +888 و نام‌های کاربری'
+											: 'Real-time scraping of tm-restricted-nft and live auction bids'}
+									</div>
+								</div>
+								<input
+									type="checkbox"
+									checked={currentSettings()?.enable_live_fragment_Verify ?? true}
+									onChange={(e) =>
+										updateField('enable_live_fragment_Verify', e.currentTarget.checked)
+									}
+									class="h-4 w-4 rounded accent-cyan-500"
+								/>
+							</label>
+
+							<label class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between cursor-pointer">
+								<div>
+									<div class="text-xs font-bold text-white">
+										{isFa()
+											? 'کالبدشکافی باینری TVM BOC و تاریخچه آن‌چین از TonAPI.io'
+											: 'Live TonAPI.io TVM BOC Binary Forensics'}
+									</div>
+									<div class="text-[11px] text-white/45 mt-0.5">
+										{isFa()
+											? 'استخراج مستقیم هش کد، تاریخچه انتقال و موجودی نهنگ مالک از بلاک‌چین TON'
+											: 'Real-time on-chain NFT provenance and owner whale portfolio inspection'}
+									</div>
+								</div>
+								<input
+									type="checkbox"
+									checked={currentSettings()?.enable_live_tonapi_boc ?? true}
+									onChange={(e) => updateField('enable_live_tonapi_boc', e.currentTarget.checked)}
+									class="h-4 w-4 rounded accent-cyan-500"
+								/>
+							</label>
+						</div>
 					</section>
+
+					{/* Quick Link to Banners & Investors Media Manager */}
+					<div class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between">
+						<div class="flex items-center gap-3">
+							<span class="material-symbols-outlined text-amber-400">ads_click</span>
+							<div class="text-xs">
+								<div class="font-bold text-white">
+									{isFa()
+										? 'مدیریت بنرهای تبلیغاتی و پوستر تمام‌صفحه سرمایه‌گذاران'
+										: 'Manage Promotional Banners & Full-Screen Investors Poster'}
+								</div>
+								<div class="text-white/50">
+									{isFa()
+										? 'تمامی تنظیمات بنرها و تصویر ۹:۱۶ سرمایه‌گذاران در تب «بنرها و سرمایه‌گذاران» یکپارچه شده است.'
+										: 'All ad slots and the 9:16 Investors poster are unified in the Banners & Media tab.'}
+								</div>
+							</div>
+						</div>
+						<A
+							href="/owner/ads"
+							class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-bold text-amber-300 shrink-0 transition"
+						>
+							{isFa() ? 'مدیریت بنرها ↗' : 'Open Banners ↗'}
+						</A>
+					</div>
 
 					{/* Save Button */}
 					<div class="flex justify-end pt-2">
 						<button
 							type="submit"
 							disabled={updateMutation.isPending}
-							class="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs uppercase tracking-wider rounded-2xl transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
+							class="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black font-black text-xs uppercase tracking-wider rounded-2xl transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
 						>
-							{updateMutation.isPending ? 'Saving Settings...' : 'Save Configuration'}
+							{updateMutation.isPending
+								? isFa()
+									? 'در حال ذخیره پیکربندی...'
+									: 'Saving Configuration...'
+								: isFa()
+									? 'ذخیره تنظیمات تعرفه و موتور ارزش‌گذاری'
+									: 'Save Pricing & Engine Calibration'}
 						</button>
 					</div>
 				</form>
@@ -296,7 +477,7 @@ export const OwnerSettings: Component = () => {
 					title={pendingMaintenanceState() ? 'Enable Maintenance Mode' : 'Disable Maintenance Mode'}
 					description={
 						pendingMaintenanceState()
-							? 'Are you sure you want to put the entire platform into Maintenance Mode? Regular users will be unable to access the app.'
+							? 'Are you sure you want to put the entire platform into Maintenance Mode? Regular users will see a maintenance notice.'
 							: 'Re-enable public platform access for all Telegram users?'
 					}
 					actionLabel={pendingMaintenanceState() ? 'Enable Maintenance' : 'Disable Maintenance'}

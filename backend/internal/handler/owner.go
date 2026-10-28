@@ -52,10 +52,7 @@ func (h *OwnerHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		ip = strings.TrimSpace(strings.Split(forwarded, ",")[0])
-	}
+	ip := middleware.GetRealIP(r)
 	ua := r.Header.Get("User-Agent")
 
 	authRes, err := h.ownerService.Authenticate(r.Context(), req.TelegramUserID, req.Password, ip, ua)
@@ -83,10 +80,7 @@ func (h *OwnerHandler) VerifyTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		ip = strings.TrimSpace(strings.Split(forwarded, ",")[0])
-	}
+	ip := middleware.GetRealIP(r)
 	ua := r.Header.Get("User-Agent")
 
 	token, err := h.ownerService.VerifyTOTPLogin(r.Context(), req.TempToken, req.Code, ip, ua)
@@ -254,7 +248,7 @@ func (h *OwnerHandler) Impersonate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
+	ip := middleware.GetRealIP(r)
 	ua := r.Header.Get("User-Agent")
 
 	token, err := h.ownerService.ImpersonateUser(r.Context(), adminID, req.TargetUserID, ip, ua)
@@ -311,7 +305,7 @@ func (h *OwnerHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
+	ip := middleware.GetRealIP(r)
 	ua := r.Header.Get("User-Agent")
 
 	err := h.ownerService.SetUserBan(r.Context(), adminID, req.TargetUserID, req.BanType, req.Reason, req.DurationSeconds, ip, ua)
@@ -344,7 +338,7 @@ func (h *OwnerHandler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
+	ip := middleware.GetRealIP(r)
 	ua := r.Header.Get("User-Agent")
 
 	err := h.ownerService.RemoveUserBan(r.Context(), adminID, req.TargetUserID, ip, ua)

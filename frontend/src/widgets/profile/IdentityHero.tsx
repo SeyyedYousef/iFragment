@@ -33,8 +33,11 @@ export const IdentityHero = (props: Props) => {
 			if (full) return full;
 			if (su && !su.startsWith('impersonated_user_') && !su.startsWith('owner_')) return `@${su}`;
 		}
-		if (user()?.first_name) {
-			return `${user()?.first_name} ${user()?.last_name || ''}`.trim();
+		const u = user() as any;
+		const fName = u?.firstName || u?.first_name;
+		const lName = u?.lastName || u?.last_name;
+		if (fName) {
+			return `${fName} ${lName || ''}`.trim();
 		}
 		return t('common.user' as any) || t('profile.user' as any) || 'User';
 	});

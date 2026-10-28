@@ -24,7 +24,7 @@ export const IndexPage: Component = () => {
 				return 'username';
 			}
 		}
-		return 'username';
+		return null;
 	};
 
 	const [activeTab, setActiveTab] = createSignal<'username' | 'collectibles' | 'gifts' | null>(
@@ -33,7 +33,18 @@ export const IndexPage: Component = () => {
 	const [storeOpen, setStoreOpen] = createSignal(false);
 
 	createEffect(() => {
-		backButton.hide();
+		if (activeTab() !== null) {
+			if (backButton.show.isAvailable()) {
+				backButton.show();
+			}
+			const off = backButton.onClick(() => {
+				setActiveTab(null);
+			});
+			return () => off();
+		}
+		if (backButton.hide.isAvailable()) {
+			backButton.hide();
+		}
 		if (viewport.expand.isAvailable() && !viewport.isExpanded()) {
 			viewport.expand();
 		}

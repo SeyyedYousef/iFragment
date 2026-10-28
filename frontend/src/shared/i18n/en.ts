@@ -43,9 +43,11 @@ export const dict = {
 	},
 	gifts: {
 		methodologyAndProvenance: 'Methodology & Provenance',
-		methodologyProvenanceDesc: 'Implied Market Cap is calculated from the lowest verified floor price multiplied by total catalog supply. Volume figures reflect verified on-chain sales excluding non-sale transfers.',
+		methodologyProvenanceDesc:
+			'Implied Market Cap is calculated from the lowest verified floor price multiplied by total catalog supply. Volume figures reflect verified on-chain sales excluding non-sale transfers.',
 		financialDisclaimerTitle: 'Financial & Investment Disclaimer',
-		financialDisclaimerDesc: 'All estimated valuations and rarity metrics are derived from public on-chain metadata and quantitative models, and do not constitute financial or investment advice.',
+		financialDisclaimerDesc:
+			'All estimated valuations and rarity metrics are derived from public on-chain metadata and quantitative models, and do not constitute financial or investment advice.',
 		intel: 'Gift Market Intelligence',
 		macroHistoryUnavailable: 'Macro historical chart data is syncing.',
 		marketplaceComparison: 'Marketplace Comparison',
@@ -1194,8 +1196,7 @@ export const dict = {
 		dailyReward: 'Daily boost reward',
 		dailyRewardDesc: 'Boost, verify and claim your reward every 24 hours.',
 		dailyDraw: 'Daily Activity Rewards',
-		dailyDrawDesc:
-			'Every member who posts or boosts receives free Intel Credits daily.',
+		dailyDrawDesc: 'Every member who posts or boosts receives free Intel Credits daily.',
 		trade: 'Trade',
 		tradeDesc: 'Buy and sell Telegram NFTs with active investors.',
 		discuss: 'Discuss',
@@ -1918,6 +1919,8 @@ export const dict = {
 			'Market intelligence terminal for Telegram assets. Evaluate fair value estimates, verifiable scarcity metrics, and market signals across usernames, +888 numbers, and gifts.',
 		promoBadge: 'MARKET INTELLIGENCE TERMINAL',
 		selectToStart: 'Select an asset category above to begin valuation',
+		smartSearch: 'Smart Search',
+		smartSearchBtn: 'Search',
 		title: 'Telegram Asset Intelligence',
 	},
 	heroTabs: {
@@ -1982,10 +1985,12 @@ export const dict = {
 		subtitleMessages: 'Most active chat participants',
 		subtitleBoosts: 'Supergroup premium boosters',
 		boostActionTitle: 'How to rank in Boosts leaderboard?',
-		boostActionDesc: 'Boost @FragmentInvestors on Telegram to instantly climb the ranks and claim daily reward credits.',
+		boostActionDesc:
+			'Boost @FragmentInvestors on Telegram to instantly climb the ranks and claim daily reward credits.',
 		boostButton: 'Boost Group on Telegram (@FragmentInvestors)',
 		messageActionTitle: 'Points for active group chatting',
-		messageActionDesc: 'Every message in the investors group = 1 leaderboard point and 1 analytical credit.',
+		messageActionDesc:
+			'Every message in the investors group = 1 leaderboard point and 1 analytical credit.',
 		joinChatButton: 'Join Chat',
 		loadError: 'Failed to load leaderboard data',
 		retry: 'Retry',
@@ -2001,7 +2006,8 @@ export const dict = {
 		outOfRank: 'Outside Top 100',
 		yourScore: 'Your Score',
 		credits: 'Credits',
-		moreRanksPlaceholder: 'Participants ranking 4th and below will appear here once scores are recorded.',
+		moreRanksPlaceholder:
+			'Participants ranking 4th and below will appear here once scores are recorded.',
 		userSheetTitle: 'Participant Profile',
 		sendMessage: 'Message on Telegram',
 		openInGroup: 'View in Supergroup',
@@ -3082,7 +3088,8 @@ export const dict = {
 		investorsLabel: 'Investors Page',
 	},
 	ownerInvestors: {
-		safeZoneHint: 'Crop your image to 9:16 vertical ratio (1080×1920). Safe zone: 140px top and 260px bottom.',
+		safeZoneHint:
+			'Crop your image to 9:16 vertical ratio (1080×1920). Safe zone: 140px top and 260px bottom.',
 		unsavedNotice: 'Unsaved changes pending. Click Save Configuration to publish.',
 		removeConfirmDesc: 'Are you sure you want to remove the full-screen Investors page image?',
 		title: 'Investors Full-Screen Page Management (Tab 2)',

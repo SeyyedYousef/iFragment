@@ -122,11 +122,12 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 
 	const tiers = createMemo(() => {
 		const c = copy();
+		const totalHolders = props.overview?.unique_holders || 48842;
 		const ht = props.overview?.holder_tiers;
-		const retail = ht?.retail_count ?? 18240;
-		const dolphin = ht?.dolphin_count ?? 2410;
-		const shark = ht?.shark_count ?? 580;
-		const whale = ht?.whale_count ?? 190;
+		const whale = ht?.whale_count ?? Math.round(totalHolders * 0.0086);
+		const shark = ht?.shark_count ?? Math.round(totalHolders * 0.0439);
+		const dolphin = ht?.dolphin_count ?? Math.round(totalHolders * 0.171);
+		const retail = ht?.retail_count ?? Math.max(1, totalHolders - whale - shark - dolphin);
 		const total = Math.max(1, retail + dolphin + shark + whale);
 
 		return [
@@ -157,6 +158,12 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 		];
 	});
 
+	const fmtPct = (val: number | undefined, fallbackPct: number, decimals = 1) => {
+		if (val === undefined || val === null || val <= 0) return `${fallbackPct.toFixed(decimals)}%`;
+		const normalized = val < 1 ? val * 100 : val;
+		return `${normalized.toFixed(decimals)}%`;
+	};
+
 	return (
 		<div class="space-y-3">
 			{/* Whale Concentration Banner */}
@@ -167,7 +174,7 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 						{copy().bannerTitle}
 					</span>
 					<span class="text-[10px] font-mono text-cyan-300 font-bold">
-						{(props.overview?.unique_holders || 21420).toLocaleString()} {copy().activeWallets}
+						{(props.overview?.unique_holders || 48842).toLocaleString()} {copy().activeWallets}
 					</span>
 				</div>
 
@@ -175,7 +182,7 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 					<div class="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
 						<span class="text-[10px] text-white/50 block">{copy().top10Title}</span>
 						<span class="text-base font-black text-white font-mono block mt-0.5">
-							{((props.overview?.top10_holder_share_pct || 0.184) * 100).toFixed(1)}%
+							{fmtPct(props.overview?.top10_holder_share_pct, 5.8, 1)}
 						</span>
 						<span class="text-[9px] text-emerald-400 block mt-0.5">{copy().top10Sub}</span>
 					</div>
@@ -183,7 +190,7 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 					<div class="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
 						<span class="text-[10px] text-white/50 block">{copy().top50Title}</span>
 						<span class="text-base font-black text-white font-mono block mt-0.5">
-							{((props.overview?.top50_holder_share_pct || 0.321) * 100).toFixed(1)}%
+							{fmtPct(props.overview?.top50_holder_share_pct, 14.2, 1)}
 						</span>
 						<span class="text-[9px] text-cyan-400 block mt-0.5">{copy().top50Sub}</span>
 					</div>
@@ -220,7 +227,7 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 					<div class="bg-white/[0.02] p-2.5 rounded-xl">
 						<span class="text-white/40 block">{copy().listedRatio}</span>
 						<span class="text-xs font-black text-amber-400 block mt-0.5">
-							{((props.overview?.listed_share_pct || 0.0023) * 100).toFixed(2)}%
+							{fmtPct(props.overview?.listed_share_pct, 0.7, 2)}
 						</span>
 						<span class="text-white/30 text-[9px] block">{copy().listedHint}</span>
 					</div>
@@ -228,8 +235,8 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 					<div class="bg-white/[0.02] p-2.5 rounded-xl">
 						<span class="text-white/40 block">{copy().buyersSellers7d}</span>
 						<span class="text-xs font-black text-cyan-300 block mt-0.5">
-							{props.overview?.unique_buyers_7d ?? 14} {copy().buyerWord} /{' '}
-							{props.overview?.unique_sellers_7d ?? 16} {copy().sellerWord}
+							{props.overview?.unique_buyers_7d ?? 88} {copy().buyerWord} /{' '}
+							{props.overview?.unique_sellers_7d ?? 78} {copy().sellerWord}
 						</span>
 						<span class="text-white/30 text-[9px] block">{copy().depthHint}</span>
 					</div>

@@ -205,11 +205,13 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 
 		// Intel Credits System
 		r.Route("/intel", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-			r.Get("/credits", cfg.IntelCreditHandler.GetBalance)
-			r.Post("/credits/consume", cfg.IntelCreditHandler.Consume)
 			r.Get("/credits/config", cfg.IntelCreditHandler.GetStoreConfig)
-			r.Post("/credits/purchase", cfg.IntelCreditHandler.Purchase)
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware)
+				r.Get("/credits", cfg.IntelCreditHandler.GetBalance)
+				r.Post("/credits/consume", cfg.IntelCreditHandler.Consume)
+				r.Post("/credits/purchase", cfg.IntelCreditHandler.Purchase)
+			})
 		})
 
 		// Public Ads Endpoints

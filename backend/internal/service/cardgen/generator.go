@@ -2,22 +2,23 @@ package cardgen
 
 import (
 	"bytes"
-	"context"
 	_ "embed"
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
+	_ "image/gif"
 	_ "image/jpeg"
 	"image/png"
 	"io"
+	"log/slog"
 	"math"
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,267 +27,26 @@ import (
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
-	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
-	_ "golang.org/x/image/webp"
 )
-
-//go:embed assets/Outfit-Black.ttf
-var outfitBlackBytes []byte
 
 //go:embed assets/Outfit-Bold.ttf
 var outfitBoldBytes []byte
 
+//go:embed assets/Outfit-Medium.ttf
+var outfitMediumBytes []byte
+
+//go:embed assets/SpaceMono-Bold.ttf
+var spaceMonoBoldBytes []byte
+
 //go:embed assets/Vazirmatn-Bold.ttf
 var vazirmatnBoldBytes []byte
 
-// Persian shaped glyphs in visual RTL order (ready for LTR drawer)
-// "تایید" -> ﺗﺎﯾﯿﺪ -> visual RTL: ﺪ ﯿ ﯾ ﺎ ﺗ
-// "شده" -> ﺷﺪﻩ -> visual RTL: ﻩ ﺪ ﺷ
-// "قیمت تخمینی بازار" -> visual RTL: ﺑﺎﺯﺍﺭ ﺗﺨﻤﯿﻨﯽ ﻗﯿﻤﺖ
 const (
-	PersianTayidShaped          = "\uFEAA\uFEF4\uFEF3\uFE8E\uFE97"
-	PersianShodeShaped          = "\uFEE9\uFEAA\uFEB5"
-	PersianVerifiedShaped       = "\uFEE9\uFEAA\uFEB5 \uFEAA\uFEF4\uFEF3\uFE8E\uFE97"
-	PersianEstimatedPriceShaped = "\uFEAD\uFE8D\uFEAF\uFE8E\uFE91 \uFEF0\uFEE8\uFEF4\uFEE4\uFEA4\uFE97 \uFE96\uFEE4\uFEF4\uFED7"
+	PersianVerifiedShaped       = "\uFEEB\uFEAA\uFEB7\u0020\uFEAA\uFEF4\uFEF3\uFE8E\uFE97"
+	PersianEstimatedPriceShaped = "\uFEAE\uFE8D\uFEAF\uFE8E\uFE91\u0020\uFEF2\uFEE8\uFEF4\uFEE4\uFEA8\uFE97\u0020\uFE96\uFEE4\uFEF4\uFED7"
 )
 
-// CardGenerator generates rich, high-resolution 600x600 PNG visual asset cards
-// matching the iFragment Telegram Mini App dark cyber aesthetics (#08090D).
-type CardGenerator struct {
-	fontOutfitBlack *sfnt.Font
-	fontOutfitBold  *sfnt.Font
-	fontVazirBold   *sfnt.Font
-	fontBold        *sfnt.Font
-	fontRegular     *sfnt.Font
-	fontMono        *sfnt.Font
-}
-
-func NewCardGenerator() *CardGenerator {
-	fBlack, _ := opentype.Parse(outfitBlackBytes)
-	fBold, _ := opentype.Parse(outfitBoldBytes)
-	fVazir, _ := opentype.Parse(vazirmatnBoldBytes)
-	fGoBold, _ := opentype.Parse(gobold.TTF)
-	fGoReg, _ := opentype.Parse(goregular.TTF)
-	fGoMono, _ := opentype.Parse(gomono.TTF)
-	return &CardGenerator{
-		fontOutfitBlack: fBlack,
-		fontOutfitBold:  fBold,
-		fontVazirBold:   fVazir,
-		fontBold:        fGoBold,
-		fontRegular:     fGoReg,
-		fontMono:        fGoMono,
-	}
-}
-
-// SaveCard saves generated card PNG bytes into ./static/shares/<uuid>.png and returns the fileID
-func (cg *CardGenerator) SaveCard(pngBytes []byte) (string, error) {
-	dir := "./static/shares"
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create static shares directory: %w", err)
-	}
-	fileID := uuid.New().String()
-	filePath := filepath.Join(dir, fileID+".png")
-	if err := os.WriteFile(filePath, pngBytes, 0644); err != nil {
-		return "", fmt.Errorf("failed to write card file: %w", err)
-	}
-	return fileID, nil
-}
-
-// GetPublicCardURL returns the full accessible URL for a given card fileID
-func (cg *CardGenerator) GetPublicCardURL(fileID string, r *http.Request) string {
-	scheme := "https"
-	host := ""
-	if r != nil {
-		if r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https" {
-			scheme = "http"
-		}
-		host = r.Host
-	}
-	if host == "" {
-		backendURL := os.Getenv("BACKEND_URL")
-		if backendURL == "" {
-			backendURL = os.Getenv("API_URL")
-		}
-		if backendURL == "" {
-			backendURL = os.Getenv("APP_URL")
-		}
-		if backendURL != "" {
-			return fmt.Sprintf("%s/static/shares/%s.png", strings.TrimSuffix(backendURL, "/"), fileID)
-		}
-		host = "api.ifragment.app"
-	}
-	return fmt.Sprintf("%s://%s/static/shares/%s.png", scheme, host, fileID)
-}
-
-// StartSharesCleanupJob runs a background loop removing files older than maxAge from ./static/shares
-func StartSharesCleanupJob(ctx context.Context, checkInterval, maxAge time.Duration) {
-	ticker := time.NewTicker(checkInterval)
-	go func() {
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				dir := "./static/shares"
-				entries, err := os.ReadDir(dir)
-				if err != nil {
-					continue
-				}
-				threshold := time.Now().Add(-maxAge)
-				for _, e := range entries {
-					if e.IsDir() || !strings.HasSuffix(e.Name(), ".png") {
-						continue
-					}
-					info, err := e.Info()
-					if err != nil {
-						continue
-					}
-					if info.ModTime().Before(threshold) {
-						_ = os.Remove(filepath.Join(dir, e.Name()))
-					}
-				}
-			}
-		}
-	}()
-}
-
-// containsArabicScript detects Arabic/Persian unicode characters
-func containsArabicScript(s string) bool {
-	for _, r := range s {
-		if (r >= 0x0600 && r <= 0x06FF) ||
-			(r >= 0x0750 && r <= 0x077F) ||
-			(r >= 0x08A0 && r <= 0x08FF) ||
-			(r >= 0xFB50 && r <= 0xFDFF) ||
-			(r >= 0xFE70 && r <= 0xFEFF) {
-			return true
-		}
-	}
-	return false
-}
-
-// isUnsupportedFontScript returns true if the string contains characters outside Latin/ASCII printable
-// which would fail to render and cause tofu boxes (□) in Latin-only fonts (Outfit).
-func isUnsupportedFontScript(s string) bool {
-	for _, r := range s {
-		if r >= 0x20 && r <= 0x7E {
-			continue
-		}
-		if r >= 0x00A0 && r <= 0x024F {
-			continue
-		}
-		return true
-	}
-	return false
-}
-
-
-// formatUSDTAmount formats a numeric USD/USDT string with comma grouping
-func formatUSDTAmount(val string) string {
-	clean := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(val, "≈"), "$"))
-	if clean == "" || clean == "0" || clean == "0.0" {
-		return ""
-	}
-	parts := strings.Split(clean, ".")
-	intPart := parts[0]
-	if len(intPart) == 0 {
-		return ""
-	}
-	num, err := strconv.ParseInt(intPart, 10, 64)
-	if err != nil || num <= 0 {
-		return ""
-	}
-
-	str := strconv.FormatInt(num, 10)
-	var res []byte
-	n := len(str)
-	for i := 0; i < n; i++ {
-		if i > 0 && (n-i)%3 == 0 {
-			res = append(res, ',')
-		}
-		res = append(res, str[i])
-	}
-	return string(res)
-}
-
-// TierTheme defines color styling for card borders and glowing auras
-type TierTheme struct {
-	Border color.RGBA
-	Glow   color.RGBA
-	Badge  string
-}
-
-func getTierTheme(tier string) TierTheme {
-	norm := strings.ToUpper(strings.TrimSpace(tier))
-	switch {
-	case strings.Contains(norm, "LEGENDARY"), strings.Contains(norm, "GENESIS"), strings.Contains(norm, "EXCLUSIVE"):
-		// Radiant Gold / Amber
-		return TierTheme{
-			Border: color.RGBA{R: 0xF5, G: 0xA6, B: 0x23, A: 0xFF},
-			Glow:   color.RGBA{R: 0xF5, G: 0xA6, B: 0x23, A: 0xAA},
-			Badge:  "EXCLUSIVE",
-		}
-	case strings.Contains(norm, "EPIC"), strings.Contains(norm, "FLAME"):
-		// Electric Crimson
-		return TierTheme{
-			Border: color.RGBA{R: 0xFF, G: 0x3B, B: 0x30, A: 0xFF},
-			Glow:   color.RGBA{R: 0xFF, G: 0x3B, B: 0x30, A: 0xAA},
-			Badge:  "EPIC",
-		}
-	case strings.Contains(norm, "UNIQUE"), strings.Contains(norm, "MINTED"):
-		// Emerald Green
-		return TierTheme{
-			Border: color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF},
-			Glow:   color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xAA},
-			Badge:  "UNIQUE",
-		}
-	case strings.Contains(norm, "RARE"), strings.Contains(norm, "APEX"):
-		return TierTheme{
-			Border: color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF},
-			Glow:   color.RGBA{R: 0x00, G: 0x98, B: 0xEA, A: 0xBB},
-			Badge:  "RARE",
-		}
-	default:
-		// Default to clean English badge, NEVER allow non-ASCII or long text to break font rendering
-		badge := "COLLECTIBLE"
-		if norm != "" && !isUnsupportedFontScript(norm) && len(norm) <= 12 {
-			badge = norm
-		}
-		return TierTheme{
-			Border: color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF},
-			Glow:   color.RGBA{R: 0x00, G: 0x98, B: 0xEA, A: 0xBB},
-			Badge:  badge,
-		}
-	}
-}
-
-// GenerateUsernameCard creates a high-fidelity 600x600 Flex Card for Telegram Usernames
-func (cg *CardGenerator) GenerateUsernameCard(username string, tier string, expectedTON string, expectedUSD string) ([]byte, error) {
-	return cg.GenerateUsernameCardLang(username, tier, expectedTON, expectedUSD, "fa")
-}
-
-func (cg *CardGenerator) GenerateUsernameCardLang(username string, tier string, expectedTON string, expectedUSD string, lang string) ([]byte, error) {
-	theme := getTierTheme(tier)
-	if tier != "" && !isUnsupportedFontScript(tier) && len(tier) <= 12 {
-		theme.Badge = strings.ToUpper(strings.TrimSpace(tier))
-	}
-
-	cleanUser := "@" + strings.TrimPrefix(strings.TrimSpace(username), "@")
-
-	return cg.renderFlexCard(cardParams{
-		leftPill:    "I F R A G M E N T",
-		rightPill:   theme.Badge,
-		theme:       theme,
-		identifier:  cleanUser,
-		subLabel:    "ON-CHAIN TELEGRAM USERNAME",
-		expectedTON: expectedTON,
-		expectedUSD: expectedUSD,
-		lang:        lang,
-	})
-}
-
-// UsernameCardParams defines parameters for rich Username card generation
 type UsernameCardParams struct {
 	Username     string
 	Grade        string
@@ -302,7 +62,6 @@ type UsernameCardParams struct {
 	Lang         string
 }
 
-// NumberCardParams defines parameters for rich Number card generation
 type NumberCardParams struct {
 	Number       string
 	Club         string
@@ -316,1052 +75,1027 @@ type NumberCardParams struct {
 	Lang         string
 }
 
-// GenerateRichUsernameCard renders a modern 600x600 visual card for Telegram Usernames
-func (cg *CardGenerator) GenerateRichUsernameCard(p UsernameCardParams) ([]byte, error) {
-	theme := getTierTheme(p.Grade)
-	if p.Grade != "" && !isUnsupportedFontScript(p.Grade) && len(p.Grade) <= 12 {
-		theme.Badge = strings.ToUpper(strings.TrimSpace(p.Grade))
-	}
-	cleanUser := "@" + strings.TrimPrefix(strings.TrimSpace(p.Username), "@")
-
-	var chips []cardChip
-	if p.Brandability > 0 {
-		chips = append(chips, cardChip{Label: fmt.Sprintf("BRAND: %d/100", p.Brandability)})
-	}
-	if p.Length > 0 {
-		chips = append(chips, cardChip{Label: fmt.Sprintf("LEN: %d", p.Length)})
-	}
-	if p.MarketStatus != "" && !isUnsupportedFontScript(p.MarketStatus) && len(p.MarketStatus) <= 16 {
-		chips = append(chips, cardChip{Label: strings.ToUpper(p.MarketStatus)})
-	}
-	if p.CompsCount > 0 {
-		chips = append(chips, cardChip{Label: fmt.Sprintf("COMPS: %d", p.CompsCount)})
-	}
-	if p.Confidence > 0 {
-		chips = append(chips, cardChip{Label: fmt.Sprintf("CONF: %d%%", p.Confidence)})
-	}
-
-	return cg.renderFlexCard(cardParams{
-		leftPill:    "I F R A G M E N T",
-		rightPill:   theme.Badge,
-		theme:       theme,
-		identifier:  cleanUser,
-		subLabel:    "ON-CHAIN TELEGRAM USERNAME",
-		expectedTON: p.FairTON,
-		expectedUSD: p.USDT,
-		lowTON:      p.LowTON,
-		highTON:     p.HighTON,
-		chips:       chips,
-		lang:        p.Lang,
-	})
-}
-
-// GenerateRichNumberCard renders a modern 600x600 visual card for Telegram Anonymous Numbers (+888)
-func (cg *CardGenerator) GenerateRichNumberCard(p NumberCardParams) ([]byte, error) {
-	theme := getTierTheme(p.Club)
-	rightBadge := "RANK #1"
-	if p.Rank > 0 {
-		rightBadge = fmt.Sprintf("RANK #%d", p.Rank)
-	}
-
-	clubLabel := p.Club
-	if isUnsupportedFontScript(clubLabel) {
-		clubLabel = "COLLECTIBLE NUMBER"
-	} else if clubLabel == "" {
-		clubLabel = "TELEGRAM ANONYMOUS NUMBER"
-	} else {
-		clubLabel = strings.ToUpper(clubLabel)
-	}
-
-	var chips []cardChip
-	if p.Rank > 0 {
-		chips = append(chips, cardChip{Label: fmt.Sprintf("GLOBAL #%d/136,566", p.Rank)})
-	}
-	if p.ColorPattern != "" && !isUnsupportedFontScript(p.ColorPattern) && len(p.ColorPattern) <= 16 {
-		chips = append(chips, cardChip{Label: strings.ToUpper(p.ColorPattern)})
-	}
-	if p.Supply > 0 {
-		chips = append(chips, cardChip{Label: fmt.Sprintf("SUPPLY: %d", p.Supply)})
-	}
-
-	return cg.renderFlexCard(cardParams{
-		leftPill:    "I F R A G M E N T",
-		rightPill:   rightBadge,
-		theme:       theme,
-		identifier:  p.Number,
-		subLabel:    clubLabel,
-		expectedTON: p.FairTON,
-		expectedUSD: p.USDT,
-		lowTON:      p.LowTON,
-		highTON:     p.HighTON,
-		chips:       chips,
-		lang:        p.Lang,
-	})
-}
-
-// GenerateNumberCard creates a high-fidelity 600x600 Flex Card for Telegram Anonymous Numbers (+888)
-func (cg *CardGenerator) GenerateNumberCard(displayNum string, club string, rank int, expectedTON string, expectedUSD string) ([]byte, error) {
-	return cg.GenerateNumberCardLang(displayNum, club, rank, expectedTON, expectedUSD, "fa")
-}
-
-func (cg *CardGenerator) GenerateNumberCardLang(displayNum string, club string, rank int, expectedTON string, expectedUSD string, lang string) ([]byte, error) {
-	theme := getTierTheme(club)
-	rightBadge := "RANK #1"
-	if rank > 0 {
-		rightBadge = fmt.Sprintf("RANK #%d", rank)
-	}
-
-	subLabel := "TELEGRAM ANONYMOUS NUMBER"
-	if club != "" && !isUnsupportedFontScript(club) {
-		subLabel = strings.ToUpper(club)
-	}
-
-	return cg.renderFlexCard(cardParams{
-		leftPill:    "I F R A G M E N T",
-		rightPill:   rightBadge,
-		theme:       theme,
-		identifier:  displayNum,
-		subLabel:    subLabel,
-		expectedTON: expectedTON,
-		expectedUSD: expectedUSD,
-		lang:        lang,
-	})
-}
-
-// GiftCardParams defines the full metadata for rendering a specific Telegram Gift NFT card
 type GiftCardParams struct {
-	Title          string // e.g. "Plush Pepe #42"
-	ModelName      string // e.g. "Milan Heart"
-	SerialNumber   int    // e.g. 42
-	RarityTier     string // e.g. "EXCLUSIVE", "LEGENDARY", "RARE"
-	BackdropName   string // e.g. "Army Khaki", "Cyberpunk"
-	BackdropCenter string // e.g. "#0D1B2A"
-	BackdropEdge   string // e.g. "#1B263B"
-	SymbolName     string // e.g. "Coin", "Star"
-	ImageURL       string // e.g. "https://cdn4.telesco.pe/..." or api.changes.tg
-	ExpectedTON    string // e.g. "145.0"
-	ExpectedUSD    string // e.g. "725"
-	Lang           string // e.g. "fa", "en", "ru", "zh"
+	Title          string
+	ModelName      string
+	SerialNumber   int
+	RarityTier     string
+	BackdropName   string
+	BackdropCenter string
+	BackdropEdge   string
+	SymbolName     string
+	ImageURL       string
+	ExpectedTON    string
+	ExpectedUSD    string
+	Lang           string
 }
 
-// GenerateRichGiftCard renders a rich 600x600 Flex Card for a specific Telegram Gift NFT with image and traits
-func (cg *CardGenerator) GenerateRichGiftCard(p GiftCardParams) ([]byte, error) {
-	theme := getTierTheme(p.RarityTier)
-	if p.BackdropCenter != "" {
-		parsedCenter := parseHexColor(p.BackdropCenter, theme.Glow)
-		theme.Glow = color.RGBA{R: parsedCenter.R, G: parsedCenter.G, B: parsedCenter.B, A: 0xAA}
+type CardGenerator struct {
+	fontOutfitBold   *opentype.Font
+	fontOutfitMedium *opentype.Font
+	fontMonoBold     *opentype.Font
+	fontVazirBold    *opentype.Font
+	mu               sync.Mutex
+}
+
+var (
+	defaultGenerator *CardGenerator
+	once             sync.Once
+)
+
+func GetGenerator() *CardGenerator {
+	once.Do(func() {
+		defaultGenerator = NewCardGenerator()
+	})
+	return defaultGenerator
+}
+
+func NewCardGenerator() *CardGenerator {
+	cg := &CardGenerator{}
+
+	var err error
+	cg.fontOutfitBold, err = opentype.Parse(outfitBoldBytes)
+	if err != nil {
+		slog.Warn("failed to parse Outfit-Bold font, falling back to gobold", "error", err)
+		cg.fontOutfitBold, _ = opentype.Parse(gobold.TTF)
 	}
 
-	rightBadge := theme.Badge
-	if p.SerialNumber > 0 {
-		rightBadge = fmt.Sprintf("%s #%d", theme.Badge, p.SerialNumber)
+	cg.fontOutfitMedium, err = opentype.Parse(outfitMediumBytes)
+	if err != nil {
+		slog.Warn("failed to parse Outfit-Medium font, falling back to goregular", "error", err)
+		cg.fontOutfitMedium, _ = opentype.Parse(goregular.TTF)
 	}
 
-	const (
-		width  = 600
-		height = 600
-		x0     = 24.0
-		y0     = 24.0
-		x1     = 576.0
-		y1     = 576.0
-		radius = 48.0
-	)
+	cg.fontMonoBold, err = opentype.Parse(spaceMonoBoldBytes)
+	if err != nil {
+		slog.Warn("failed to parse SpaceMono-Bold font, falling back to gomono", "error", err)
+		cg.fontMonoBold, _ = opentype.Parse(gomono.TTF)
+	}
 
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	cg.fontVazirBold, err = opentype.Parse(vazirmatnBoldBytes)
+	if err != nil {
+		slog.Warn("failed to parse Vazirmatn-Bold font, falling back to Outfit-Bold", "error", err)
+		cg.fontVazirBold = cg.fontOutfitBold
+	}
 
-	// 1. Draw outer neon glow, rounded squircle border, and interior background
-	glowRadius := 24.0
-	for y := 0; y < height; y++ {
-		fy := float64(y) + 0.5
-		for x := 0; x < width; x++ {
-			fx := float64(x) + 0.5
+	return cg
+}
 
-			dist := signedDistRoundRect(fx, fy, x0, y0, x1, y1, radius)
-			if dist > glowRadius {
-				continue
-			}
+// tierVisualTheme defines the border and badge palette for a given rarity tier,
+// matching the Mini App (@skulls) certificate aesthetic.
+type tierVisualTheme struct {
+	BorderStart color.RGBA
+	BorderEnd   color.RGBA
+	CenterGlow  color.RGBA
+	BadgeBg     color.RGBA
+	BadgeBorder color.RGBA
+	BadgeText   color.RGBA
+}
 
-			if dist > 0.0 {
-				factor := 1.0 - (dist / glowRadius)
-				alpha := factor * factor * (float64(theme.Glow.A) / 255.0) * 0.85
-				glowCol := color.RGBA{
-					R: uint8(float64(theme.Glow.R) * alpha),
-					G: uint8(float64(theme.Glow.G) * alpha),
-					B: uint8(float64(theme.Glow.B) * alpha),
-					A: uint8(alpha * 255),
-				}
-				img.Set(x, y, glowCol)
-				continue
-			}
-
-			if dist >= -2.8 {
-				borderAlpha := 1.0
-				if dist > -0.9 {
-					borderAlpha = -dist / 0.9
-				}
-				borderCol := blendColor(
-					color.RGBA{R: 0x08, G: 0x09, B: 0x0D, A: 0xFF},
-					theme.Border,
-					borderAlpha,
-				)
-				img.Set(x, y, borderCol)
-				continue
-			}
-
-			normY := (fy - y0) / (y1 - y0)
-			bgR := uint8(10 - normY*4)
-			bgG := uint8(13 - normY*5)
-			bgB := uint8(21 - normY*9)
-
-			// Ambient spotlight behind the gift image
-			dx := (fx - 300.0) / 210.0
-			dy := (fy - 210.0) / 140.0
-			centerDist := math.Hypot(dx, dy)
-			if centerDist < 1.0 {
-				ambientFactor := 1.0 - centerDist
-				ambientAlpha := ambientFactor * ambientFactor * 0.35
-				glowR := float64(theme.Glow.R)
-				glowG := float64(theme.Glow.G)
-				glowB := float64(theme.Glow.B)
-				bgR = uint8(float64(bgR)*(1.0-ambientAlpha) + glowR*ambientAlpha)
-				bgG = uint8(float64(bgG)*(1.0-ambientAlpha) + glowG*ambientAlpha)
-				bgB = uint8(float64(bgB)*(1.0-ambientAlpha) + glowB*ambientAlpha)
-			}
-
-			img.Set(x, y, color.RGBA{R: bgR, G: bgG, B: bgB, A: 0xFF})
+func resolveTierTheme(tierBadge string) tierVisualTheme {
+	upper := strings.ToUpper(strings.TrimSpace(tierBadge))
+	switch {
+	case strings.Contains(upper, "LEGENDARY") || strings.Contains(upper, "EXCLUSIVE") || strings.Contains(upper, "GRAIL") || strings.Contains(upper, "MYTHIC") || strings.Contains(upper, "GOD") || strings.Contains(upper, "RANK #1"):
+		return tierVisualTheme{
+			BorderStart: color.RGBA{255, 170, 0, 255},
+			BorderEnd:   color.RGBA{180, 83, 9, 255},
+			CenterGlow:  color.RGBA{255, 145, 0, 255},
+			BadgeBg:     color.RGBA{38, 27, 12, 255},
+			BadgeBorder: color.RGBA{168, 108, 20, 255},
+			BadgeText:   color.RGBA{255, 188, 44, 255},
+		}
+	case strings.Contains(upper, "EPIC") || strings.Contains(upper, "APEX") || strings.Contains(upper, "ELITE"):
+		return tierVisualTheme{
+			BorderStart: color.RGBA{0, 152, 234, 255},
+			BorderEnd:   color.RGBA{0, 75, 135, 255},
+			CenterGlow:  color.RGBA{0, 152, 234, 255},
+			BadgeBg:     color.RGBA{12, 28, 46, 255},
+			BadgeBorder: color.RGBA{20, 110, 176, 255},
+			BadgeText:   color.RGBA{56, 189, 248, 255},
+		}
+	case strings.Contains(upper, "RARE") || strings.Contains(upper, "PREMIUM") || strings.Contains(upper, "UNIQUE"):
+		return tierVisualTheme{
+			BorderStart: color.RGBA{16, 185, 129, 255},
+			BorderEnd:   color.RGBA{4, 120, 87, 255},
+			CenterGlow:  color.RGBA{16, 185, 129, 255},
+			BadgeBg:     color.RGBA{11, 36, 28, 255},
+			BadgeBorder: color.RGBA{20, 125, 90, 255},
+			BadgeText:   color.RGBA{52, 211, 153, 255},
+		}
+	default:
+		// Exact @skulls metallic slate-silver theme for COMMON / UNCOMMON / STANDARD
+		return tierVisualTheme{
+			BorderStart: color.RGBA{104, 116, 139, 255},
+			BorderEnd:   color.RGBA{55, 65, 81, 255},
+			CenterGlow:  color.RGBA{148, 163, 184, 255},
+			BadgeBg:     color.RGBA{26, 30, 40, 255},
+			BadgeBorder: color.RGBA{58, 66, 84, 255},
+			BadgeText:   color.RGBA{230, 236, 245, 255},
 		}
 	}
+}
 
-	// 2. Draw dot matrix cyber grid
-	dotSpacing := 26
-	for gx := 52; gx <= 548; gx += dotSpacing {
-		for gy := 52; gy <= 548; gy += dotSpacing {
-			if signedDistRoundRect(float64(gx), float64(gy), x0, y0, x1, y1, radius) < -8.0 {
-				drawSoftDot(img, gx, gy, 1.4, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x18})
-			}
-		}
+// normalizeCardTierBadge maps any investment grade ("AAA", "A", "D") or localized rarity string
+// into a clean, full-word uppercase English rarity tier badge ("LEGENDARY", "EPIC", "RARE", "UNCOMMON", "COMMON")
+// so single letters like "D" never appear on the certificate card.
+func normalizeCardTierBadge(raw string) string {
+	clean := strings.TrimSpace(raw)
+	upper := strings.ToUpper(clean)
+
+	if strings.HasPrefix(upper, "RANK #") {
+		return upper
 	}
 
-	// 3. Top Row: Left Badge & Right Badge
-	drawPill(img, 48, 48, 150, 36, 12,
-		color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0E},
-		color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x22})
-	cg.drawText(img, cg.fontOutfitBold, 11.5, 48+75, 71, "I F R A G M E N T",
-		color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xFF}, alignCenter)
-
-	if isUnsupportedFontScript(rightBadge) || len(rightBadge) > 20 {
-		if p.SerialNumber > 0 {
-			rightBadge = fmt.Sprintf("COLLECTIBLE #%d", p.SerialNumber)
-		} else {
-			rightBadge = "COLLECTIBLE"
-		}
-	}
-	rightFace, _ := cg.getFace(cg.fontOutfitBlack, 12.0)
-	rightTextW := font.MeasureString(rightFace, rightBadge).Ceil()
-	pillW := rightTextW + 36
-	if pillW < 96 {
-		pillW = 96
-	}
-	if pillW > 220 {
-		pillW = 220
-	}
-	pillX := 552 - pillW
-	drawPill(img, pillX, 48, pillW, 36, 12,
-		color.RGBA{R: theme.Border.R, G: theme.Border.G, B: theme.Border.B, A: 0x22},
-		theme.Border)
-	cg.drawText(img, cg.fontOutfitBlack, 12.0, pillX+pillW/2, 71, rightBadge,
-		theme.Border, alignCenter)
-
-	// 4. Center Section: Gift Image Container Box
-	boxSize := 160
-	boxX := 300 - boxSize/2
-	boxY := 105
-	boxR := 26.0
-
-	// Draw container pill
-	drawPill(img, boxX, boxY, boxSize, boxSize, boxR,
-		color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0C},
-		color.RGBA{R: theme.Border.R, G: theme.Border.G, B: theme.Border.B, A: 0x66})
-
-	// Fetch & render real gift image (or fallback vector)
-	var downloadedImg image.Image
-	if p.ImageURL != "" {
-		downloadedImg, _ = fetchAndDecodeImage(p.ImageURL, 5*time.Second)
-	}
-	if downloadedImg == nil && p.SerialNumber > 0 {
-		mName := p.ModelName
-		if mName == "" {
-			mName = p.Title
-		}
-		pascal := formatPascalSimple(mName)
-		if pascal != "" {
-			targetURL := fmt.Sprintf("https://t.me/nft/%s-%d", pascal, p.SerialNumber)
-			if ogURL := fetchOGImageURL(targetURL, 3*time.Second); ogURL != "" {
-				downloadedImg, _ = fetchAndDecodeImage(ogURL, 4*time.Second)
-			}
-		}
+	switch upper {
+	case "AAA", "S+", "LEGENDARY", "EXCLUSIVE", "MYTHIC", "GRAIL", "GOD", "GENESIS":
+		return "LEGENDARY"
+	case "AA+", "AA", "A+", "S", "EPIC", "APEX", "ELITE", "ULTRA RARE", "FLAME":
+		return "EPIC"
+	case "A", "A-", "BBB+", "BBB", "B+", "B", "RARE", "PREMIUM", "UNIQUE", "MINTED":
+		return "RARE"
+	case "BB+", "BB", "B-", "C+", "C", "UNCOMMON":
+		return "UNCOMMON"
+	case "C-", "D+", "D", "D-", "F", "STANDARD", "COMMON", "COLLECTIBLE", "":
+		return "COMMON"
 	}
 
-	if downloadedImg != nil {
-		innerMargin := 8
-		innerSize := boxSize - (innerMargin * 2)
-		drawImageRounded(img, downloadedImg, boxX+innerMargin, boxY+innerMargin, innerSize, innerSize, boxR-4.0)
+	lower := strings.ToLower(clean)
+	switch {
+	case strings.Contains(lower, "legend") || strings.Contains(lower, "exclusiv") || strings.Contains(lower, "افسانه") || strings.Contains(lower, "اسطوره") || strings.Contains(lower, "легенд") || strings.Contains(lower, "传奇"):
+		return "LEGENDARY"
+	case strings.Contains(lower, "epic") || strings.Contains(lower, "apex") || strings.Contains(lower, "حماس") || strings.Contains(lower, "اپیک") || strings.Contains(lower, "эпич") || strings.Contains(lower, "史诗"):
+		return "EPIC"
+	case strings.Contains(lower, "rare") || strings.Contains(lower, "unique") || strings.Contains(lower, "کمیاب") || strings.Contains(lower, "نایاب") || strings.Contains(lower, "редк") || strings.Contains(lower, "稀有"):
+		return "RARE"
+	case strings.Contains(lower, "uncommon") || strings.Contains(lower, "متوسط"):
+		return "UNCOMMON"
+	}
+
+	if isUnsupportedFontScript(clean) || len(upper) <= 2 {
+		return "COMMON"
+	}
+	if len(upper) > 14 {
+		return "COLLECTIBLE"
+	}
+	return upper
+}
+
+// GenerateUsernameCard generates the 600x600 @skulls-style certificate card for a username.
+func (cg *CardGenerator) GenerateUsernameCard(username, tier, expectedTON, expectedUSD string, lang ...string) ([]byte, error) {
+	cleanUser := strings.TrimPrefix(strings.TrimSpace(username), "@")
+	if isUnsupportedFontScript(cleanUser) || cleanUser == "" {
+		cleanUser = "username"
+	}
+	mainTitle := "@" + cleanUser
+	badge := normalizeCardTierBadge(tier)
+	return cg.renderFlexCard(badge, mainTitle, "", expectedTON, expectedUSD)
+}
+
+// GenerateRichUsernameCard generates the 600x600 @skulls-style certificate card from UsernameCardParams.
+func (cg *CardGenerator) GenerateRichUsernameCard(p UsernameCardParams) ([]byte, error) {
+	return cg.GenerateUsernameCard(p.Username, p.Grade, p.FairTON, p.USDT, p.Lang)
+}
+
+// GenerateNumberCard generates the 600x600 @skulls-style certificate card for a +888 number.
+func (cg *CardGenerator) GenerateNumberCard(number, club string, rank int, expectedTON, expectedUSD string, lang ...string) ([]byte, error) {
+	cleanNum := strings.TrimSpace(number)
+	if !strings.HasPrefix(cleanNum, "+") {
+		cleanNum = "+" + cleanNum
+	}
+
+	var topBadge string
+	if rank > 0 && rank <= 500 {
+		topBadge = fmt.Sprintf("RANK #%d", rank)
+	} else if club != "" && !isUnsupportedFontScript(club) {
+		topBadge = normalizeCardTierBadge(club)
+	} else if rank > 0 && rank <= 2500 {
+		topBadge = "RARE"
 	} else {
-		drawFallbackGiftVector(img, 300, boxY+boxSize/2, theme.Border)
+		topBadge = "COMMON"
 	}
 
-	// 5. Gift Title below the image (must be Latin for Outfit font)
-	title := p.Title
-	if isUnsupportedFontScript(title) || title == "" {
-		if p.SerialNumber > 0 {
-			title = fmt.Sprintf("TELEGRAM GIFT #%d", p.SerialNumber)
+	var subtitle string
+	if rank > 0 {
+		if club != "" && !isUnsupportedFontScript(club) && len(club) <= 22 {
+			subtitle = fmt.Sprintf("RANK #%d  ·  %s", rank, strings.ToUpper(club))
 		} else {
-			title = "TELEGRAM GIFT"
+			subtitle = fmt.Sprintf("GLOBAL RANK #%d  ·  TELEMINT +888", rank)
 		}
 	}
-	titleSize := 28.0
-	if len(title) > 22 {
-		titleSize = 22.0
-	} else if len(title) > 16 {
-		titleSize = 25.0
-	}
 
-	titleY := 305
-	titleFace, _ := cg.getFace(cg.fontOutfitBlack, titleSize)
-	titleW := font.MeasureString(titleFace, title).Ceil()
-
-	// 3D Drop shadow
-	cg.drawText(img, cg.fontOutfitBlack, titleSize, 300, titleY+2, title,
-		color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xB0}, alignCenter)
-	// Crisp White Title
-	cg.drawText(img, cg.fontOutfitBlack, titleSize, 300, titleY, title,
-		color.White, alignCenter)
-
-	// Sparkles on sides
-	sparkleY := titleY - int(titleSize*0.22)
-	drawSparkle(img, 300-titleW/2-24, sparkleY, 14, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
-	drawSparkle(img, 300+titleW/2+24, sparkleY, 14, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
-
-	// 6. Traits Badge Pill below title
-	var traitsParts []string
-	if p.ModelName != "" && !isUnsupportedFontScript(p.ModelName) {
-		traitsParts = append(traitsParts, fmt.Sprintf("MODEL: %s", strings.ToUpper(p.ModelName)))
-	}
-	if p.BackdropName != "" && !isUnsupportedFontScript(p.BackdropName) {
-		traitsParts = append(traitsParts, fmt.Sprintf("BACKDROP: %s", strings.ToUpper(p.BackdropName)))
-	}
-	if p.SymbolName != "" && !isUnsupportedFontScript(p.SymbolName) {
-		traitsParts = append(traitsParts, fmt.Sprintf("SYMBOL: %s", strings.ToUpper(p.SymbolName)))
-	}
-
-	if len(traitsParts) > 0 {
-		traitsText := strings.Join(traitsParts, "   |   ")
-		trFace, _ := cg.getFace(cg.fontOutfitBold, 10.0)
-		trW := font.MeasureString(trFace, traitsText).Ceil()
-		trPillW := trW + 28
-		if trPillW > 500 {
-			trPillW = 500
-		}
-		trPillX := 300 - trPillW/2
-		trPillY := 345
-		drawPill(img, trPillX, trPillY, trPillW, 28, 10,
-			color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0E},
-			color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x24})
-		cg.drawText(img, cg.fontOutfitBold, 10.0, 300, trPillY+19, traitsText,
-			color.RGBA{R: 0xCF, G: 0xD8, B: 0xDC, A: 0xEE}, alignCenter)
-	}
-
-	// 7. Horizontal divider line
-	dividerY := 432
-	for x := 48; x <= 552; x++ {
-		img.Set(x, dividerY, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x18})
-	}
-
-	// 8. Bottom Row: Left side (Verified + Market Value + USD)
-	isFa := p.Lang == "fa" || p.Lang == ""
-
-	if isFa && cg.fontVazirBold != nil {
-		drawPill(img, 48, 452, 68, 36, 12,
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x24},
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x77})
-		cg.drawText(img, cg.fontVazirBold, 9.5, 54, 465, PersianTayidShaped,
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}, alignLeft)
-		cg.drawText(img, cg.fontVazirBold, 9.5, 54, 479, PersianShodeShaped,
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}, alignLeft)
-		drawCircleFilled(img, 100, 470, 3.5, color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF})
-
-		cg.drawText(img, cg.fontVazirBold, 11.5, 126, 473, PersianEstimatedPriceShaped,
-			color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xDD}, alignLeft)
-	} else {
-		drawPill(img, 48, 454, 92, 32, 10,
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x24},
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x77})
-		drawCircleFilled(img, 60, 470, 3.5, color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF})
-		cg.drawText(img, cg.fontOutfitBold, 9.5, 70, 474, "VERIFIED",
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}, alignLeft)
-		cg.drawText(img, cg.fontOutfitBold, 10.0, 150, 474, "ESTIMATED MARKET VALUE",
-			color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xCC}, alignLeft)
-	}
-
-	formattedUSDT := formatUSDTAmount(p.ExpectedUSD)
-	if formattedUSDT != "" {
-		cg.drawText(img, cg.fontOutfitBlack, 22.0, 48, 528, fmt.Sprintf("≈ %s USDT", formattedUSDT), color.White, alignLeft)
-	}
-
-	// 9. Bottom Row: Right side (TON Diamond Icon + TON Amount + ≈TON)
-	iconCenterX := 526
-	iconCenterY := 498
-	drawTonDiamondIcon(img, iconCenterX, iconCenterY, 24)
-
-	tonNumStr := p.ExpectedTON
-	if tonNumStr == "" {
-		tonNumStr = "0"
-	}
-	tonFace, _ := cg.getFace(cg.fontOutfitBlack, 44.0)
-	tonNumW := font.MeasureString(tonFace, tonNumStr).Ceil()
-
-	tonEndX := iconCenterX - 36
-	tonStartX := tonEndX - tonNumW
-	cg.drawTextAt(img, tonFace, tonStartX, 528, tonNumStr, color.White)
-
-	tonLabelFace, _ := cg.getFace(cg.fontOutfitBlack, 17.0)
-	tonLabelW := font.MeasureString(tonLabelFace, "TON").Ceil()
-	approxW := 14
-	gap := 5
-	labelStartX := tonStartX - (approxW + gap + tonLabelW) - 8
-
-	drawApproxSymbol(img, labelStartX, 510-7, color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF})
-	cg.drawTextAt(img, tonLabelFace, labelStartX+approxW+gap, 510, "TON",
-		color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF})
-
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return cg.renderFlexCard(topBadge, cleanNum, subtitle, expectedTON, expectedUSD)
 }
 
-// GenerateGiftCard creates a high-fidelity 600x600 Flex Card for Telegram Gifts & NFTs
-func (cg *CardGenerator) GenerateGiftCard(title string, giftID string, serialNumber int, rarityTier string, expectedTON string, expectedUSD string) ([]byte, error) {
-	return cg.GenerateGiftCardLang(title, giftID, serialNumber, rarityTier, expectedTON, expectedUSD, "fa")
+// GenerateRichNumberCard generates the 600x600 @skulls-style certificate card from NumberCardParams.
+func (cg *CardGenerator) GenerateRichNumberCard(p NumberCardParams) ([]byte, error) {
+	return cg.GenerateNumberCard(p.Number, p.Club, p.Rank, p.FairTON, p.USDT, p.Lang)
 }
 
-func (cg *CardGenerator) GenerateGiftCardLang(title string, giftID string, serialNumber int, rarityTier string, expectedTON string, expectedUSD string, lang string) ([]byte, error) {
-	modelName := ""
-	if idx := strings.LastIndex(giftID, "-"); idx > 0 {
-		modelName = giftID[:idx]
-	} else if giftID != "" {
-		modelName = giftID
+// GenerateGiftCard generates the 600x600 @skulls-style certificate card for a Telegram Gift.
+func (cg *CardGenerator) GenerateGiftCard(modelName, slug string, serial int, rarityTier, expectedTON, expectedUSD string, lang ...string) ([]byte, error) {
+	l := "en"
+	if len(lang) > 0 && lang[0] != "" {
+		l = lang[0]
 	}
 	return cg.GenerateRichGiftCard(GiftCardParams{
-		Title:        title,
+		Title:        fmt.Sprintf("%s #%d", modelName, serial),
 		ModelName:    modelName,
-		SerialNumber: serialNumber,
+		SerialNumber: serial,
 		RarityTier:   rarityTier,
 		ExpectedTON:  expectedTON,
 		ExpectedUSD:  expectedUSD,
-		Lang:         lang,
+		Lang:         l,
 	})
 }
 
-// drawImageRounded draws and scales src image into dst at (x, y, w, h) with anti-aliased rounded corners
-func drawImageRounded(dst *image.RGBA, src image.Image, x, y, w, h int, radius float64) {
-	if src == nil {
-		return
-	}
-	bounds := src.Bounds()
-	srcW := bounds.Dx()
-	srcH := bounds.Dy()
-	if srcW == 0 || srcH == 0 {
-		return
-	}
+// GenerateRichGiftCard generates the 600x600 @skulls-style certificate card for a Telegram Gift,
+// featuring the gift's radial backdrop + 3D artwork showcase in the center and the exact @skulls frame.
+func (cg *CardGenerator) GenerateRichGiftCard(p GiftCardParams) ([]byte, error) {
+	cg.mu.Lock()
+	defer cg.mu.Unlock()
 
-	x0 := float64(x)
-	y0 := float64(y)
-	x1 := float64(x + w)
-	y1 := float64(y + h)
-
-	for py := 0; py < h; py++ {
-		dstY := y + py
-		if dstY < 0 || dstY >= dst.Bounds().Dy() {
-			continue
-		}
-		fy := float64(dstY) + 0.5
-		sy := bounds.Min.Y + int(float64(py)*float64(srcH)/float64(h))
-		if sy >= bounds.Max.Y {
-			sy = bounds.Max.Y - 1
-		}
-
-		for px := 0; px < w; px++ {
-			dstX := x + px
-			if dstX < 0 || dstX >= dst.Bounds().Dx() {
-				continue
-			}
-			fx := float64(dstX) + 0.5
-
-			dist := signedDistRoundRect(fx, fy, x0, y0, x1, y1, radius)
-			if dist > 0.0 {
-				continue
-			}
-
-			sx := bounds.Min.X + int(float64(px)*float64(srcW)/float64(w))
-			if sx >= bounds.Max.X {
-				sx = bounds.Max.X - 1
-			}
-
-			srcColor := src.At(sx, sy)
-			r, g, b, a := srcColor.RGBA()
-			if a == 0 {
-				continue
-			}
-			c := color.RGBA{
-				R: uint8(r >> 8),
-				G: uint8(g >> 8),
-				B: uint8(b >> 8),
-				A: uint8(a >> 8),
-			}
-
-			if dist > -1.0 {
-				alpha := -dist
-				c.A = uint8(float64(c.A) * alpha)
-			}
-			drawPixelOver(dst, dstX, dstY, c)
-		}
-	}
-}
-
-// drawFallbackGiftVector draws a stylish 3D Telegram Gift box when real image is unavailable
-func drawFallbackGiftVector(img *image.RGBA, cx, cy int, theme color.RGBA) {
-	baseW, baseH := 74, 62
-	baseX := cx - baseW/2
-	baseY := cy - baseH/2 + 8
-	drawPill(img, baseX, baseY, baseW, baseH, 12,
-		color.RGBA{R: theme.R, G: theme.G, B: theme.B, A: 0x33},
-		theme)
-
-	lidW, lidH := 84, 18
-	lidX := cx - lidW/2
-	lidY := baseY - lidH + 4
-	drawPill(img, lidX, lidY, lidW, lidH, 6,
-		color.RGBA{R: theme.R, G: theme.G, B: theme.B, A: 0x55},
-		theme)
-
-	ribbonCol := color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xEE}
-	drawAALine(img, float64(cx), float64(lidY), float64(cx), float64(baseY+baseH), 4.0, ribbonCol)
-	drawAALine(img, float64(baseX), float64(baseY+baseH/2), float64(baseX+baseW), float64(baseY+baseH/2), 3.5, ribbonCol)
-
-	drawCircleFilled(img, cx-10, lidY-4, 7.0, color.RGBA{R: theme.R, G: theme.G, B: theme.B, A: 0x88})
-	drawCircleFilled(img, cx+10, lidY-4, 7.0, color.RGBA{R: theme.R, G: theme.G, B: theme.B, A: 0x88})
-	drawCircleFilled(img, cx, lidY-3, 5.0, ribbonCol)
-
-	drawSparkle(img, cx-48, cy-32, 10, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x88})
-	drawSparkle(img, cx+52, cy-20, 12, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x88})
-	drawSparkle(img, cx+44, cy+36, 8, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x66})
-}
-
-// parseHexColor parses a hex color string with Purple Ban protection
-func parseHexColor(hexStr string, defaultCol color.RGBA) color.RGBA {
-	hexStr = strings.TrimPrefix(strings.TrimSpace(hexStr), "#")
-	if len(hexStr) != 6 {
-		return defaultCol
-	}
-	r, err1 := strconv.ParseUint(hexStr[0:2], 16, 8)
-	g, err2 := strconv.ParseUint(hexStr[2:4], 16, 8)
-	b, err3 := strconv.ParseUint(hexStr[4:6], 16, 8)
-	if err1 != nil || err2 != nil || err3 != nil {
-		return defaultCol
-	}
-	// Purple Ban rule: clamp purple/violet to deep indigo/cyber cyan
-	if r > 100 && b > 130 && g < 90 {
-		return color.RGBA{R: 0x0D, G: 0x1B, B: 0x2A, A: 0xFF}
-	}
-	return color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 0xFF}
-}
-
-// fetchAndDecodeImage downloads and decodes an image with timeout
-func fetchAndDecodeImage(imageURL string, timeout time.Duration) (image.Image, error) {
-	trimmed := strings.TrimSpace(imageURL)
-	if trimmed == "" {
-		return nil, errors.New("empty image URL")
-	}
-
-	// Check for local file path or file:// scheme
-	localPath := trimmed
-	if strings.HasPrefix(localPath, "file://") {
-		localPath = strings.TrimPrefix(localPath, "file://")
-		localPath = strings.TrimPrefix(localPath, "/")
-	}
-	if fileInfo, err := os.Stat(localPath); err == nil && !fileInfo.IsDir() {
-		f, err := os.Open(localPath)
-		if err == nil {
-			defer f.Close()
-			img, _, err := image.Decode(f)
-			return img, err
-		}
-	}
-
-	client := &http.Client{
-		Timeout: timeout,
-	}
-	req, err := http.NewRequest("GET", imageURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) iFragmentBot/1.0")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
-	img, _, err := image.Decode(resp.Body)
-	return img, err
-}
-
-var telegramNFTSlugMap = map[string]string{
-	"durov_cap":   "DurovsBlackCap",
-	"durovscap":   "DurovsBlackCap",
-	"golden_star": "CelestialStar",
-	"goldenstar":  "CelestialStar",
-}
-
-func formatPascalSimple(raw string) string {
-	clean := strings.ToLower(strings.TrimSpace(raw))
-	clean = strings.ReplaceAll(clean, "-", "_")
-	if override, ok := telegramNFTSlugMap[clean]; ok {
-		return override
-	}
-
-	clean = strings.ReplaceAll(clean, "'", "")
-	clean = strings.ReplaceAll(clean, "’", "")
-	words := strings.FieldsFunc(clean, func(r rune) bool {
-		return r == ' ' || r == '-' || r == '_'
-	})
-	var b strings.Builder
-	for _, w := range words {
-		if len(w) > 0 {
-			b.WriteString(strings.ToUpper(w[:1]) + strings.ToLower(w[1:]))
-		}
-	}
-	return b.String()
-}
-
-var ogImageRegex = regexp.MustCompile(`(?i)<meta\s+(?:property|name)=["'](?:og:image|twitter:image)["']\s+content=["']([^"']+)["']`)
-
-func fetchOGImageURL(pageURL string, timeout time.Duration) string {
-	client := &http.Client{Timeout: timeout}
-	req, err := http.NewRequest("GET", pageURL, nil)
-	if err != nil {
-		return ""
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) iFragmentBot/1.0")
-	resp, err := client.Do(req)
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return ""
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
-	if err != nil {
-		return ""
-	}
-	if m := ogImageRegex.FindStringSubmatch(string(body)); len(m) >= 2 {
-		return strings.TrimSpace(m[1])
-	}
-	return ""
-}
-
-type cardChip struct {
-	Label string
-}
-
-type cardParams struct {
-	leftPill    string
-	rightPill   string
-	theme       TierTheme
-	identifier  string
-	subLabel    string
-	expectedTON string
-	expectedUSD string
-	lowTON      string
-	highTON     string
-	chips       []cardChip
-	lang        string
-}
-
-func (cg *CardGenerator) renderFlexCard(p cardParams) ([]byte, error) {
-	const (
-		width  = 600
-		height = 600
-		x0     = 24.0
-		y0     = 24.0
-		x1     = 576.0
-		y1     = 576.0
-		radius = 48.0
-	)
-
+	const width = 600
+	const height = 600
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 
-	// 1. Draw outer neon glow, rounded squircle border, and interior background
-	glowRadius := 24.0
-	for y := 0; y < height; y++ {
-		fy := float64(y) + 0.5
-		for x := 0; x < width; x++ {
-			fx := float64(x) + 0.5
+	topBadge := normalizeCardTierBadge(p.RarityTier)
+	theme := resolveTierTheme(topBadge)
 
-			dist := signedDistRoundRect(fx, fy, x0, y0, x1, y1, radius)
+	// 1. Render the unified @skulls card background, metallic border, and dot matrix
+	cg.drawSkullsCardBase(img, theme)
 
-			if dist > glowRadius {
-				// Far outside, transparent
-				continue
-			}
+	// 2. Render Top-Left Tier Pill & Top-Right IFRAGMENT Pill
+	cg.drawTopHeaderPills(img, topBadge, theme)
 
-			if dist > 0.0 {
-				// Outer neon glow with quadratic falloff
-				factor := 1.0 - (dist / glowRadius)
-				alpha := factor * factor * (float64(p.theme.Glow.A) / 255.0) * 0.85
-				glowCol := color.RGBA{
-					R: uint8(float64(p.theme.Glow.R) * alpha),
-					G: uint8(float64(p.theme.Glow.G) * alpha),
-					B: uint8(float64(p.theme.Glow.B) * alpha),
-					A: uint8(alpha * 255),
+	// 3. Render Center Gift Artwork Showcase (184x184 rounded squircle at cx=300, cy=210)
+	centerCol := parseHexColor(p.BackdropCenter, color.RGBA{0, 152, 234, 255})
+	edgeCol := parseHexColor(p.BackdropEdge, color.RGBA{14, 22, 38, 255})
+
+	boxSize := 180
+	boxX1 := (width - boxSize) / 2
+	boxY1 := 116
+	boxX2 := boxX1 + boxSize
+	boxY2 := boxY1 + boxSize
+	boxRadius := 36.0
+
+	for y := boxY1 - 4; y <= boxY2+4; y++ {
+		for x := boxX1 - 4; x <= boxX2+4; x++ {
+			dist := roundedBoxSDF(float64(x), float64(y), float64(boxX1), float64(boxY1), float64(boxX2), float64(boxY2), boxRadius)
+			if dist <= 0 {
+				dx := float64(x - 300)
+				dy := float64(y - (boxY1 + boxSize/2))
+				rNorm := math.Min(1.0, math.Sqrt(dx*dx+dy*dy)/(float64(boxSize)*0.68))
+				fill := lerpColor(centerCol, edgeCol, rNorm)
+				if dist >= -2.0 {
+					borderCol := color.RGBA{75, 85, 105, 255}
+					t := clamp01((dist + 2.0) / 2.0)
+					fill = lerpColor(fill, borderCol, t*0.85)
 				}
-				img.Set(x, y, glowCol)
-				continue
-			}
-
-			// Inside card or on border (dist <= 0)
-			if dist >= -2.8 {
-				// Border stroke (tier color)
-				borderAlpha := 1.0
-				if dist > -0.9 {
-					borderAlpha = -dist / 0.9
+				if dist > -1.0 {
+					alpha := clamp01(0.5 - dist)
+					blendPixel(img, x, y, fill, alpha)
+				} else {
+					img.SetRGBA(x, y, fill)
 				}
-				borderCol := blendColor(
-					color.RGBA{R: 0x08, G: 0x09, B: 0x0D, A: 0xFF},
-					p.theme.Border,
-					borderAlpha,
-				)
-				img.Set(x, y, borderCol)
-				continue
-			}
-
-			// Dark obsidian interior gradient (#0A0D15 to #06080D)
-			normY := (fy - y0) / (y1 - y0)
-			bgR := uint8(10 - normY*4)
-			bgG := uint8(13 - normY*5)
-			bgB := uint8(21 - normY*9)
-
-			// Ambient radial glow behind the center text
-			dx := (fx - 300.0) / 190.0
-			dy := (fy - 250.0) / 130.0
-			centerDist := math.Hypot(dx, dy)
-			if centerDist < 1.0 {
-				ambientFactor := 1.0 - centerDist
-				ambientAlpha := ambientFactor * ambientFactor * 0.28
-				glowR := float64(p.theme.Glow.R)
-				glowG := float64(p.theme.Glow.G)
-				glowB := float64(p.theme.Glow.B)
-				bgR = uint8(float64(bgR)*(1.0-ambientAlpha) + glowR*ambientAlpha)
-				bgG = uint8(float64(bgG)*(1.0-ambientAlpha) + glowG*ambientAlpha)
-				bgB = uint8(float64(bgB)*(1.0-ambientAlpha) + glowB*ambientAlpha)
-			}
-
-			img.Set(x, y, color.RGBA{R: bgR, G: bgG, B: bgB, A: 0xFF})
-		}
-	}
-
-	// 2. Draw dot matrix cyber grid (spaced every 26px)
-	dotSpacing := 26
-	for gx := 52; gx <= 548; gx += dotSpacing {
-		for gy := 52; gy <= 548; gy += dotSpacing {
-			if signedDistRoundRect(float64(gx), float64(gy), x0, y0, x1, y1, radius) < -8.0 {
-				drawSoftDot(img, gx, gy, 1.4, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x18})
 			}
 		}
 	}
 
-	// 3. Top Row: Left Badge & Right Badge
-	drawPill(img, 48, 48, 150, 36, 12,
-		color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0E},
-		color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x22})
-	cg.drawText(img, cg.fontOutfitBold, 11.5, 48+75, 71, p.leftPill,
-		color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xFF}, alignCenter)
-
-	// Measure right pill width with font safety and strict width clamping
-	rightBadge := p.rightPill
-	if isUnsupportedFontScript(rightBadge) || len(rightBadge) > 18 {
-		rightBadge = "VERIFIED"
-	}
-	rightFace, _ := cg.getFace(cg.fontOutfitBlack, 12.0)
-	rightTextW := font.MeasureString(rightFace, rightBadge).Ceil()
-	pillW := rightTextW + 36
-	if pillW < 96 {
-		pillW = 96
-	}
-	if pillW > 220 {
-		pillW = 220
-	}
-	pillX := 552 - pillW
-	drawPill(img, pillX, 48, pillW, 36, 12,
-		color.RGBA{R: p.theme.Border.R, G: p.theme.Border.G, B: p.theme.Border.B, A: 0x22},
-		p.theme.Border)
-	cg.drawText(img, cg.fontOutfitBlack, 12.0, pillX+pillW/2, 71, rightBadge,
-		p.theme.Border, alignCenter)
-
-	// 4. Center Hero: Sparkles + Main Identifier in OUTFIT-BLACK!
-	identText := p.identifier
-	if isUnsupportedFontScript(identText) {
-		identText = "@TELEGRAM"
-	}
-	identLen := len(identText)
-	identSize := 50.0
-	if identLen > 18 {
-		identSize = 28.0
-	} else if identLen > 12 {
-		identSize = 38.0
-	}
-	identFace, _ := cg.getFace(cg.fontOutfitBlack, identSize)
-	identW := font.MeasureString(identFace, identText).Ceil()
-
-	centerY := 220
-	// Drop shadow for 3D pop (2px offset)
-	cg.drawText(img, cg.fontOutfitBlack, identSize, 300, centerY+2, identText,
-		color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xB0}, alignCenter)
-	// Crisp White Text
-	cg.drawText(img, cg.fontOutfitBlack, identSize, 300, centerY, identText,
-		color.White, alignCenter)
-
-	// Draw diamond sparkles on both sides (aligned with center of text)
-	sparkleXLeft := 300 - identW/2 - 32
-	sparkleXRight := 300 + identW/2 + 32
-	sparkleY := centerY - int(identSize*0.22)
-	drawSparkle(img, sparkleXLeft, sparkleY, 16, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
-	drawSparkle(img, sparkleXRight, sparkleY, 16, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x55})
-
-	// Sub-label below identifier (only if custom and supported Latin script)
-	cleanSubLabel := strings.Trim(p.subLabel, " ✦\t\r\n")
-	if cleanSubLabel != "" && !isUnsupportedFontScript(cleanSubLabel) &&
-		cleanSubLabel != "ON-CHAIN TELEGRAM USERNAME" &&
-		cleanSubLabel != "TELEGRAM ANONYMOUS NUMBER" &&
-		cleanSubLabel != "TELEGRAM STAR GIFT NFT" {
-		cg.drawText(img, cg.fontOutfitBold, 11.0, 300, 260, cleanSubLabel,
-			color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xBB}, alignCenter)
-	}
-
-	// 5. Zone y=285..415: 3-column Low/Fair/High TON & Analytics Chips
-	if p.lowTON != "" || p.highTON != "" {
-		boxW := 154
-		boxH := 52
-		gap := 18
-		startX := 52
-		boxY := 286
-
-		cols := []struct {
-			Title string
-			Val   string
-			Col   color.RGBA
-		}{
-			{"LOW ESTIMATE", p.lowTON + " TON", color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xEE}},
-			{"FAIR VALUE", p.expectedTON + " TON", color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF}},
-			{"HIGH TARGET", p.highTON + " TON", color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}},
-		}
-
-		for i, c := range cols {
-			bx := startX + i*(boxW+gap)
-			bgFill := color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x08}
-			borderFill := color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x18}
-			if i == 1 {
-				bgFill = color.RGBA{R: p.theme.Border.R, G: p.theme.Border.G, B: p.theme.Border.B, A: 0x15}
-				borderFill = color.RGBA{R: p.theme.Border.R, G: p.theme.Border.G, B: p.theme.Border.B, A: 0x55}
-			}
-			drawPill(img, bx, boxY, boxW, boxH, 8, bgFill, borderFill)
-
-			cg.drawText(img, cg.fontOutfitBold, 8.5, bx+boxW/2, boxY+18, c.Title,
-				color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xCC}, alignCenter)
-
-			cg.drawText(img, cg.fontOutfitBlack, 13.5, bx+boxW/2, boxY+40, c.Val,
-				c.Col, alignCenter)
-		}
-	}
-
-	// Filter chips to ensure Latin-only fonts and safe length
-	var validChips []cardChip
-	for _, chip := range p.chips {
-		if !isUnsupportedFontScript(chip.Label) && len(chip.Label) <= 28 {
-			validChips = append(validChips, chip)
-		}
-	}
-
-	// Badges & Chips row
-	if len(validChips) > 0 {
-		chipY := 365
-		chipH := 26
-		chipPad := 12
-		gap := 8
-
-		totalW := 0
-		var chipWidths []int
-		for _, chip := range validChips {
-			f, _ := cg.getFace(cg.fontOutfitBold, 9.5)
-			tw := font.MeasureString(f, chip.Label).Ceil()
-			cw := tw + (chipPad * 2)
-			chipWidths = append(chipWidths, cw)
-			totalW += cw
-		}
-		totalW += (len(validChips) - 1) * gap
-
-		curX := 300 - totalW/2
-		if curX < 48 {
-			curX = 48
-		}
-		for i, chip := range validChips {
-			cw := chipWidths[i]
-			drawPill(img, curX, chipY, cw, chipH, 8,
-				color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0A},
-				color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x20})
-			cg.drawText(img, cg.fontOutfitBold, 9.5, curX+cw/2, chipY+17, chip.Label,
-				color.RGBA{R: 0xCF, G: 0xD8, B: 0xDC, A: 0xEE}, alignCenter)
-			curX += cw + gap
-		}
-	}
-
-	// 6. Horizontal divider line
-	dividerY := 432
-	for x := 48; x <= 552; x++ {
-		img.Set(x, dividerY, color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x18})
-	}
-
-	// 7. Bottom Row: Left side (Verified + Market Value + USD)
-	isFa := p.lang == "fa" || p.lang == ""
-
-	if isFa && cg.fontVazirBold != nil {
-		// 2-line Persian Green Verified Pill: [ تایید \n شده  ● ]
-		drawPill(img, 48, 452, 68, 36, 12,
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x24},
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x77})
-		// Line 1: تایید
-		cg.drawText(img, cg.fontVazirBold, 9.5, 54, 465, PersianTayidShaped,
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}, alignLeft)
-		// Line 2: شده
-		cg.drawText(img, cg.fontVazirBold, 9.5, 54, 479, PersianShodeShaped,
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}, alignLeft)
-		// Glowing green circle dot on the right of the text
-		drawCircleFilled(img, 100, 470, 3.5, color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF})
-
-		// Next to green pill: 'قیمت تخمینی بازار'
-		cg.drawText(img, cg.fontVazirBold, 11.5, 126, 473, PersianEstimatedPriceShaped,
-			color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xDD}, alignLeft)
+	giftImg := fetchOrLoadGiftImage(p.ImageURL)
+	if giftImg != nil {
+		pad := 14
+		targetSize := boxSize - pad*2
+		compositeScaledImageRounded(img, giftImg, boxX1+pad, boxY1+pad, targetSize, targetSize, float64(boxX1), float64(boxY1), float64(boxX2), float64(boxY2), boxRadius-2.0)
 	} else {
-		// International 1-line pill
-		drawPill(img, 48, 454, 92, 32, 10,
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x24},
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0x77})
-		drawCircleFilled(img, 60, 470, 3.5, color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF})
-		cg.drawText(img, cg.fontOutfitBold, 9.5, 70, 474, "VERIFIED",
-			color.RGBA{R: 0x10, G: 0xB9, B: 0x81, A: 0xFF}, alignLeft)
-		cg.drawText(img, cg.fontOutfitBold, 10.0, 150, 474, "ESTIMATED MARKET VALUE",
-			color.RGBA{R: 0x8E, G: 0x9C, B: 0xAE, A: 0xCC}, alignLeft)
+		cg.drawGiftVectorEmblem(img, 300, boxY1+boxSize/2, 46, color.RGBA{255, 255, 255, 235})
 	}
 
-	// USDT Price display
-	formattedUSDT := formatUSDTAmount(p.expectedUSD)
-	if formattedUSDT != "" {
-		cg.drawText(img, cg.fontOutfitBlack, 22.0, 48, 528, fmt.Sprintf("≈ %s USDT", formattedUSDT), color.White, alignLeft)
+	// Serial Badge in top-right of gift showcase
+	if p.SerialNumber > 0 {
+		serialText := fmt.Sprintf("#%d", p.SerialNumber)
+		sFace, err := cg.getFace(cg.fontMonoBold, 11.5)
+		if err == nil {
+			defer sFace.Close()
+			sw := font.MeasureString(sFace, serialText).Ceil()
+			sPillW := sw + 20
+			sPillH := 26
+			sPillX2 := boxX2 - 10
+			sPillX1 := sPillX2 - sPillW
+			sPillY1 := boxY1 + 10
+			sPillY2 := sPillY1 + sPillH
+			drawRoundedPill(img, sPillX1, sPillY1, sPillX2, sPillY2, 9.0, color.RGBA{11, 13, 19, 225}, color.RGBA{65, 75, 95, 220}, 1.2)
+			sX := sPillX1 + (sPillW-sw)/2
+			cg.drawTextAt(img, sFace, serialText, sX, sPillY1+18, color.RGBA{255, 255, 255, 255})
+		}
 	}
 
-	// 8. Bottom Row: Right side (TON Diamond Icon + TON Amount + ≈TON)
-	iconCenterX := 526
-	iconCenterY := 498
-	drawTonDiamondIcon(img, iconCenterX, iconCenterY, 24)
-
-	// TON amount in Outfit-Black 44pt (baseline at y = 528)
-	tonNumStr := p.expectedTON
-	if tonNumStr == "" {
-		tonNumStr = "0"
+	// 4. Gift Title & Trait Subtitle below showcase
+	displayTitle := strings.TrimSpace(p.Title)
+	if displayTitle == "" || isUnsupportedFontScript(displayTitle) {
+		cleanModel := strings.TrimSpace(p.ModelName)
+		if cleanModel == "" || isUnsupportedFontScript(cleanModel) {
+			cleanModel = "Telegram Gift"
+		}
+		if p.SerialNumber > 0 {
+			displayTitle = fmt.Sprintf("%s #%d", cleanModel, p.SerialNumber)
+		} else {
+			displayTitle = cleanModel
+		}
 	}
-	tonFace, _ := cg.getFace(cg.fontOutfitBlack, 44.0)
-	tonNumW := font.MeasureString(tonFace, tonNumStr).Ceil()
 
-	tonEndX := iconCenterX - 36
-	tonStartX := tonEndX - tonNumW
-	cg.drawTextAt(img, tonFace, tonStartX, 528, tonNumStr, color.White)
+	titleFontSize := 32.0
+	if len(displayTitle) > 22 {
+		titleFontSize = 24.0
+	} else if len(displayTitle) > 16 {
+		titleFontSize = 28.0
+	}
 
-	// ≈TON in Outfit-Black 17pt (Electric Cyan)
-	tonLabelFace, _ := cg.getFace(cg.fontOutfitBlack, 17.0)
-	tonLabelW := font.MeasureString(tonLabelFace, "TON").Ceil()
-	approxW := 14
-	gap := 5
-	labelStartX := tonStartX - (approxW + gap + tonLabelW) - 8
+	tFace, err := cg.getFace(cg.fontOutfitBold, titleFontSize)
+	if err == nil {
+		defer tFace.Close()
+		tw := font.MeasureString(tFace, displayTitle).Ceil()
+		tx := (width - tw) / 2
+		ty := 352
+		cg.drawTextAt(img, tFace, displayTitle, tx, ty+4, color.RGBA{0, 0, 0, 160})
+		cg.drawTextAt(img, tFace, displayTitle, tx, ty, color.RGBA{255, 255, 255, 255})
 
-	drawApproxSymbol(img, labelStartX, 510-7, color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF})
-	cg.drawTextAt(img, tonLabelFace, labelStartX+approxW+gap, 510, "TON",
-		color.RGBA{R: 0x00, G: 0xA3, B: 0xFF, A: 0xFF})
+		// Four-point sparkles ✦ flanking the gift title
+		sparkleY := float64(ty) - titleFontSize*0.34
+		drawFourPointStar(img, float64(tx)-24.0, sparkleY, 8.5, color.RGBA{64, 72, 88, 255})
+		drawFourPointStar(img, float64(tx+tw)+24.0, sparkleY, 8.5, color.RGBA{64, 72, 88, 255})
+	}
+
+	var traitsParts []string
+	if p.BackdropName != "" && !isUnsupportedFontScript(p.BackdropName) {
+		traitsParts = append(traitsParts, strings.ToUpper(strings.TrimSpace(p.BackdropName)))
+	}
+	if p.SymbolName != "" && !isUnsupportedFontScript(p.SymbolName) {
+		traitsParts = append(traitsParts, strings.ToUpper(strings.TrimSpace(p.SymbolName)))
+	}
+	if len(traitsParts) > 0 {
+		subStr := strings.Join(traitsParts, "   ·   ")
+		if len(subStr) > 40 {
+			subStr = subStr[:37] + "..."
+		}
+		subFace, err := cg.getFace(cg.fontOutfitBold, 11.5)
+		if err == nil {
+			defer subFace.Close()
+			sw := font.MeasureString(subFace, subStr).Ceil()
+			cg.drawTextAt(img, subFace, subStr, (width-sw)/2, 388, color.RGBA{123, 131, 147, 255})
+		}
+	}
+
+	// 5. Render Bottom Footer (ESTIMATED MARKET PRICE, Blue TON Icon + Value, Green VERIFIED Pill + ≈ $USD)
+	cg.drawSkullsBottomFooter(img, p.ExpectedTON, p.ExpectedUSD)
 
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to encode gift card png: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-// ─────────────────────────────────────────────────────────────
-// Typography & Drawing Helpers
-// ─────────────────────────────────────────────────────────────
+// renderFlexCard renders the exact 600x600 @skulls certificate card for Usernames and +888 Numbers.
+func (cg *CardGenerator) renderFlexCard(topBadge, mainTitle, subtitle, expectedTON, expectedUSD string) ([]byte, error) {
+	cg.mu.Lock()
+	defer cg.mu.Unlock()
 
-type textAlign int
+	const width = 600
+	const height = 600
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
 
-const (
-	alignLeft textAlign = iota
-	alignCenter
-	alignRight
-)
+	badge := normalizeCardTierBadge(topBadge)
+	theme := resolveTierTheme(badge)
 
-func (cg *CardGenerator) getFace(f *sfnt.Font, pt float64) (font.Face, error) {
-	if f == nil {
-		if cg.fontOutfitBold != nil {
-			f = cg.fontOutfitBold
-		} else {
-			f = cg.fontBold
+	// 1. Draw solid dark outer canvas + metallic squircle border + obsidian dot-matrix interior
+	cg.drawSkullsCardBase(img, theme)
+
+	// 2. Draw Top-Left Tier Pill & Top-Right IFRAGMENT Pill
+	cg.drawTopHeaderPills(img, badge, theme)
+
+	// 3. Draw Center Hero Title flanked by ✦ sparkles (exact @skulls layout)
+	titleLen := len(mainTitle)
+	var mainFontSize float64
+	switch {
+	case titleLen <= 7:
+		mainFontSize = 54.0
+	case titleLen <= 10:
+		mainFontSize = 46.0
+	case titleLen <= 14:
+		mainFontSize = 38.0
+	case titleLen <= 18:
+		mainFontSize = 31.0
+	default:
+		mainFontSize = 24.0
+	}
+
+	mainFace, err := cg.getFace(cg.fontOutfitBold, mainFontSize)
+	if err != nil {
+		return nil, err
+	}
+	defer mainFace.Close()
+
+	mainW := font.MeasureString(mainFace, mainTitle).Ceil()
+	for mainW > 400 && mainFontSize > 20.0 {
+		mainFontSize -= 2.0
+		mainFace.Close()
+		mainFace, err = cg.getFace(cg.fontOutfitBold, mainFontSize)
+		if err != nil {
+			return nil, err
+		}
+		mainW = font.MeasureString(mainFace, mainTitle).Ceil()
+	}
+
+	mainX := (width - mainW) / 2
+	mainY := 284
+	if subtitle != "" {
+		mainY = 272
+	}
+
+	// Crisp dark drop shadow behind main text
+	cg.drawTextAt(img, mainFace, mainTitle, mainX, mainY+6, color.RGBA{0, 0, 0, 175})
+	// Pure white main text
+	cg.drawTextAt(img, mainFace, mainTitle, mainX, mainY, color.RGBA{255, 255, 255, 255})
+
+	// Geometric 4-point sparkles ✦ on left and right of @username / +888 number
+	sparkleY := float64(mainY) - mainFontSize*0.33
+	sparkleColor := color.RGBA{62, 69, 84, 255}
+	leftSparkleX := math.Max(46.0, float64(mainX)-28.0)
+	rightSparkleX := math.Min(float64(width-46), float64(mainX+mainW)+28.0)
+	drawFourPointStar(img, leftSparkleX, sparkleY, 10.5, sparkleColor)
+	drawFourPointStar(img, rightSparkleX, sparkleY, 10.5, sparkleColor)
+
+	// Optional subtle subtitle for +888 numbers (e.g. RANK #42 · ROYAL CLUB)
+	if subtitle != "" {
+		subFace, err := cg.getFace(cg.fontOutfitBold, 11.5)
+		if err == nil {
+			defer subFace.Close()
+			sw := font.MeasureString(subFace, subtitle).Ceil()
+			cg.drawTextAt(img, subFace, subtitle, (width-sw)/2, 322, color.RGBA{123, 131, 147, 255})
 		}
 	}
+
+	// 4. Draw Bottom Footer (Divider, ESTIMATED MARKET PRICE, Blue TON Circle Icon + Value, Green VERIFIED Pill + ≈ $USD)
+	cg.drawSkullsBottomFooter(img, expectedTON, expectedUSD)
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, fmt.Errorf("failed to encode png: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// drawSkullsCardBase renders the 600x600 solid obsidian outer canvas (A=255 everywhere so Telegram JPEG never bleeds white),
+// the rounded squircle metallic border, the center ambient glow, and the 24px dot-matrix grid.
+func (cg *CardGenerator) drawSkullsCardBase(img *image.RGBA, theme tierVisualTheme) {
+	const width = 600
+	const height = 600
+
+	cardX1, cardY1 := 18.0, 18.0
+	cardX2, cardY2 := 582.0, 582.0
+	cardRadius := 56.0
+	borderWidth := 2.5
+
+	outerBg := color.RGBA{5, 6, 9, 255}
+	innerTopLeft := color.RGBA{13, 15, 22, 255}
+	innerBotRight := color.RGBA{8, 9, 13, 255}
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			fx, fy := float64(x), float64(y)
+			dist := roundedBoxSDF(fx, fy, cardX1, cardY1, cardX2, cardY2, cardRadius)
+
+			if dist > 0.5 {
+				// Solid opaque outer background with subtle dark ambient glow near border
+				if dist < 14.0 {
+					glowFactor := math.Pow(1.0-(dist/14.0), 2.2) * 0.22
+					img.SetRGBA(x, y, lerpColor(outerBg, theme.BorderStart, glowFactor))
+				} else {
+					img.SetRGBA(x, y, outerBg)
+				}
+				continue
+			}
+
+			// Diagonal progress (0 at top-left, 1 at bottom-right)
+			diagT := clamp01(((fx - cardX1) + (fy - cardY1)) / ((cardX2 - cardX1) + (cardY2 - cardY1)))
+			borderCol := lerpColor(theme.BorderStart, theme.BorderEnd, diagT)
+
+			// Base interior color
+			bgCol := lerpColor(innerTopLeft, innerBotRight, diagT)
+
+			// Top-left subtle glass sheen (like @skulls)
+			sheenDx := fx - 170.0
+			sheenDy := fy - 130.0
+			sheenDist := math.Sqrt(sheenDx*sheenDx + sheenDy*sheenDy)
+			if sheenDist < 320.0 {
+				sheenFactor := math.Pow(1.0-(sheenDist/320.0), 2.0) * 0.06
+				bgCol = lerpColor(bgCol, color.RGBA{255, 255, 255, 255}, sheenFactor)
+			}
+
+			// Center ambient radial spotlight behind the main title
+			cdx := fx - 300.0
+			cdy := (fy - 265.0) * 1.25
+			cDist := math.Sqrt(cdx*cdx + cdy*cdy)
+			if cDist < 220.0 {
+				spotFactor := math.Pow(1.0-(cDist/220.0), 2.0) * 0.11
+				bgCol = lerpColor(bgCol, theme.CenterGlow, spotFactor)
+			}
+
+			// 24px dot-matrix grid inside the card interior
+			if dist < -borderWidth-2.0 {
+				gx := math.Mod(fx-cardX1, 24.0)
+				gy := math.Mod(fy-cardY1, 24.0)
+				if gx > 12.0 {
+					gx = 24.0 - gx
+				}
+				if gy > 12.0 {
+					gy = 24.0 - gy
+				}
+				dotDist := math.Sqrt(gx*gx + gy*gy)
+				if dotDist < 1.65 {
+					dotAlpha := clamp01(1.65-dotDist) * 0.10
+					bgCol = lerpColor(bgCol, color.RGBA{255, 255, 255, 255}, dotAlpha)
+				}
+			}
+
+			// Smooth anti-aliased transition between interior, metallic border, and solid outer canvas
+			var finalCol color.RGBA
+			if dist >= -borderWidth {
+				innerEdge := clamp01((dist + borderWidth) / 1.2)
+				inToBorder := lerpColor(bgCol, borderCol, innerEdge)
+				if dist > -0.5 {
+					outerEdge := clamp01(dist + 0.5)
+					finalCol = lerpColor(inToBorder, outerBg, outerEdge)
+				} else {
+					finalCol = inToBorder
+				}
+			} else {
+				finalCol = bgCol
+			}
+
+			finalCol.A = 255
+			img.SetRGBA(x, y, finalCol)
+		}
+	}
+}
+
+// drawTopHeaderPills draws the Top-Left Rarity Tier Pill (e.g. COMMON / RARE / LEGENDARY)
+// and Top-Right IFRAGMENT Pill (spaced uppercase "I F R A G M E N T"), never swapping them.
+func (cg *CardGenerator) drawTopHeaderPills(img *image.RGBA, tierBadge string, theme tierVisualTheme) {
+	pillY1 := 58
+	pillY2 := 98
+	pillRadius := 13.0
+
+	// 1. Top-Left Pill: Rarity Tier Badge
+	leftFace, err := cg.getFace(cg.fontOutfitBold, 12.0)
+	if err == nil {
+		defer leftFace.Close()
+		textW := font.MeasureString(leftFace, tierBadge).Ceil()
+		pillW := textW + 36
+		if pillW < 96 {
+			pillW = 96
+		}
+		pillX1 := 58
+		pillX2 := pillX1 + pillW
+		drawRoundedPill(img, pillX1, pillY1, pillX2, pillY2, pillRadius, theme.BadgeBg, theme.BadgeBorder, 1.5)
+		tx := pillX1 + (pillW-textW)/2
+		cg.drawTextAt(img, leftFace, tierBadge, tx, pillY1+25, theme.BadgeText)
+	}
+
+	// 2. Top-Right Pill: "I F R A G M E N T"
+	brandFace, err := cg.getFace(cg.fontOutfitBold, 11.5)
+	if err == nil {
+		defer brandFace.Close()
+		brandLabel := "I F R A G M E N T"
+		bw := font.MeasureString(brandFace, brandLabel).Ceil()
+		bPillW := bw + 34
+		bPillX2 := 542
+		bPillX1 := bPillX2 - bPillW
+		drawRoundedPill(img, bPillX1, pillY1, bPillX2, pillY2, pillRadius,
+			color.RGBA{20, 23, 32, 255},
+			color.RGBA{38, 44, 58, 255},
+			1.5,
+		)
+		btx := bPillX1 + (bPillW-bw)/2
+		cg.drawTextAt(img, brandFace, brandLabel, btx, pillY1+25, color.RGBA{138, 146, 163, 255})
+	}
+}
+
+// drawSkullsBottomFooter draws the horizontal divider line and the exact @skulls bottom section:
+// - Bottom-Left: "ESTIMATED MARKET PRICE" + [Blue TON Circle Icon] + Giant White TON Number + Blue "TON"
+// - Bottom-Right: Green [ ● VERIFIED ] Pill + "≈ $USD"
+func (cg *CardGenerator) drawSkullsBottomFooter(img *image.RGBA, expectedTON, expectedUSD string) {
+	// 1. Horizontal Divider Line at y = 426
+	dividerY := 426
+	for x := 58; x <= 542; x++ {
+		img.SetRGBA(x, dividerY, color.RGBA{31, 36, 48, 255})
+		img.SetRGBA(x, dividerY+1, color.RGBA{22, 26, 35, 255})
+	}
+
+	// 2. Bottom-Left Label: "ESTIMATED MARKET PRICE"
+	labelFace, err := cg.getFace(cg.fontOutfitBold, 11.0)
+	if err == nil {
+		defer labelFace.Close()
+		cg.drawTextAt(img, labelFace, "ESTIMATED MARKET PRICE", 58, 462, color.RGBA{123, 131, 147, 255})
+	}
+
+	// 3. Format TON & USD amounts cleanly (ensure USD is never missing!)
+	tonDisplay, tonNumeric := formatTONDisplay(expectedTON)
+	usdClean := formatUSDTAmount(expectedUSD)
+	if usdClean == "" {
+		// Compute fallback USD from TON so USD is never missing on the certificate card
+		fallbackUSD := math.Round(tonNumeric * 3.48)
+		if fallbackUSD < 1 && tonNumeric > 0 {
+			fallbackUSD = math.Max(1, math.Round(tonNumeric*3.48))
+		}
+		if fallbackUSD > 0 {
+			usdClean = formatUSDTAmount(fmt.Sprintf("%.0f", fallbackUSD))
+		} else {
+			usdClean = "15"
+		}
+	}
+
+	// 4. Official Blue TON Circle Icon at Bottom-Left (cx=80, cy=502, r=21)
+	cg.drawTONBadge(img, 80, 502, 21)
+
+	// 5. Giant White TON Number + Blue "TON" unit
+	tonFontSize := 44.0
+	if len(tonDisplay) > 9 {
+		tonFontSize = 32.0
+	} else if len(tonDisplay) > 7 {
+		tonFontSize = 37.0
+	}
+
+	tonFace, err := cg.getFace(cg.fontOutfitBold, tonFontSize)
+	if err == nil {
+		defer tonFace.Close()
+		tonX := 114
+		tonY := 518
+		tonW := font.MeasureString(tonFace, tonDisplay).Ceil()
+		cg.drawTextAt(img, tonFace, tonDisplay, tonX, tonY, color.RGBA{255, 255, 255, 255})
+
+		unitFace, uErr := cg.getFace(cg.fontOutfitBold, 19.0)
+		if uErr == nil {
+			defer unitFace.Close()
+			unitX := tonX + tonW + 10
+			unitY := 506
+			cg.drawTextAt(img, unitFace, "TON", unitX, unitY, color.RGBA{29, 155, 240, 255})
+		}
+	}
+
+	// 6. Bottom-Right Top: Green [ ● VERIFIED ] Pill (right-aligned to x=542, y=446..482)
+	verFace, err := cg.getFace(cg.fontOutfitBold, 11.0)
+	if err == nil {
+		defer verFace.Close()
+		verLabel := "VERIFIED"
+		vw := font.MeasureString(verFace, verLabel).Ceil()
+		vPillW := vw + 48
+		vPillX2 := 542
+		vPillX1 := vPillX2 - vPillW
+		vPillY1 := 446
+		vPillY2 := 482
+
+		drawRoundedPill(img, vPillX1, vPillY1, vPillX2, vPillY2, 18.0,
+			color.RGBA{11, 40, 30, 255},
+			color.RGBA{22, 91, 64, 255},
+			1.5,
+		)
+
+		// Glowing emerald dot inside the pill
+		dotCX := float64(vPillX1 + 21)
+		dotCY := float64(vPillY1+vPillY2) / 2.0
+		for dy := -9; dy <= 9; dy++ {
+			for dx := -9; dx <= 9; dx++ {
+				d := math.Sqrt(float64(dx*dx + dy*dy))
+				if d <= 4.5 {
+					alpha := clamp01(5.0 - d)
+					blendPixel(img, int(dotCX)+dx, int(dotCY)+dy, color.RGBA{16, 185, 129, 255}, alpha)
+				} else if d <= 8.5 {
+					glowA := math.Pow(1.0-((d-4.5)/4.0), 2.0) * 0.35
+					blendPixel(img, int(dotCX)+dx, int(dotCY)+dy, color.RGBA{16, 185, 129, 255}, glowA)
+				}
+			}
+		}
+
+		cg.drawTextAt(img, verFace, verLabel, vPillX1+34, vPillY1+23, color.RGBA{31, 208, 145, 255})
+	}
+
+	// 7. Bottom-Right Bottom: "≈  $307" (right-aligned to x=542, baseline y=518)
+	usdFace, err := cg.getFace(cg.fontOutfitBold, 21.0)
+	if err == nil {
+		defer usdFace.Close()
+		approxStr := "≈  "
+		dollarValStr := "$" + usdClean
+		approxW := font.MeasureString(usdFace, approxStr).Ceil()
+		dollarW := font.MeasureString(usdFace, dollarValStr).Ceil()
+		totalW := approxW + dollarW
+		startX := 542 - totalW
+		cg.drawTextAt(img, usdFace, approxStr, startX, 518, color.RGBA{142, 150, 166, 255})
+		cg.drawTextAt(img, usdFace, dollarValStr, startX+approxW, 518, color.RGBA{215, 222, 234, 255})
+	}
+}
+
+// drawFourPointStar draws a crisp geometric 4-point star ✦ centered at (cx, cy) with outer radius r.
+func drawFourPointStar(img *image.RGBA, cx, cy, r float64, col color.RGBA) {
+	ir := int(math.Ceil(r + 2))
+	icx, icy := int(math.Round(cx)), int(math.Round(cy))
+	for dy := -ir; dy <= ir; dy++ {
+		for dx := -ir; dx <= ir; dx++ {
+			fx := math.Abs(float64(dx)) / r
+			fy := math.Abs(float64(dy)) / r
+			if fx > 1.0 || fy > 1.0 {
+				continue
+			}
+			// Astroid / 4-point star curve: x^(0.55) + y^(0.55) <= 1.0
+			val := math.Pow(fx, 0.58) + math.Pow(fy, 0.58)
+			if val <= 1.08 {
+				alpha := clamp01((1.08 - val) * 7.5)
+				blendPixel(img, icx+dx, icy+dy, col, alpha)
+			}
+		}
+	}
+}
+
+// formatTONDisplay formats a raw TON string cleanly (e.g. "250.0" -> "250", "1250.5" -> "1,250.5", "11.0" -> "11")
+// and also returns its parsed float64 value.
+func formatTONDisplay(raw string) (string, float64) {
+	clean := strings.TrimSpace(raw)
+	clean = strings.TrimPrefix(clean, "~")
+	clean = strings.TrimPrefix(clean, "≈")
+	clean = strings.ReplaceAll(clean, ",", "")
+	clean = strings.TrimSpace(clean)
+
+	val, err := strconv.ParseFloat(clean, 64)
+	if err != nil || val <= 0 {
+		if clean == "" {
+			return "0", 0
+		}
+		return clean, 0
+	}
+
+	// If integer or >= 100 or ends in .0, format as clean integer with commas (matching @skulls "250 TON")
+	rounded1 := math.Round(val*10) / 10
+	isWhole := math.Abs(rounded1-math.Round(rounded1)) < 0.05
+	if isWhole || rounded1 >= 100 {
+		intVal := int64(math.Round(rounded1))
+		return addThousandsCommas(strconv.FormatInt(intVal, 10)), val
+	}
+	return fmt.Sprintf("%.1f", rounded1), val
+}
+
+func addThousandsCommas(str string) string {
+	var buf strings.Builder
+	l := len(str)
+	for i, c := range str {
+		buf.WriteRune(c)
+		rem := l - 1 - i
+		if rem > 0 && rem%3 == 0 {
+			buf.WriteByte(',')
+		}
+	}
+	return buf.String()
+}
+
+func (cg *CardGenerator) SaveCard(pngBytes []byte) (string, error) {
+	dir := "./static/shares"
+	if err := os.MkdirAll(dir, 0750); err != nil {
+		return "", fmt.Errorf("failed to create shares directory: %w", err)
+	}
+
+	fileID := uuid.New().String()
+	filePath := filepath.Join(dir, fileID+".png")
+	if err := os.WriteFile(filePath, pngBytes, 0600); err != nil {
+		return "", fmt.Errorf("failed to write card file: %w", err)
+	}
+
+	return fileID, nil
+}
+
+func (cg *CardGenerator) GetPublicCardURL(fileID string, r *http.Request) string {
+	if r != nil && r.Host != "" {
+		scheme := "http"
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		return fmt.Sprintf("%s://%s/static/shares/%s.png", scheme, r.Host, fileID)
+	}
+
+	baseURL := strings.TrimRight(os.Getenv("PUBLIC_API_URL"), "/")
+	if baseURL == "" {
+		baseURL = strings.TrimRight(os.Getenv("MINI_APP_URL"), "/")
+	}
+	if baseURL == "" {
+		baseURL = "https://ifragment.org"
+	}
+	return fmt.Sprintf("%s/static/shares/%s.png", baseURL, fileID)
+}
+
+func (cg *CardGenerator) drawTONBadge(img *image.RGBA, cx, cy, r int) {
+	blue := color.RGBA{0, 152, 234, 255}
+	glowRadius := float64(r) + 10.0
+	for dy := -int(glowRadius) - 2; dy <= int(glowRadius)+2; dy++ {
+		for dx := -int(glowRadius) - 2; dx <= int(glowRadius)+2; dx++ {
+			dist := math.Sqrt(float64(dx*dx + dy*dy))
+			if dist <= float64(r)+0.5 {
+				alpha := clamp01(float64(r) + 0.5 - dist)
+				blendPixel(img, cx+dx, cy+dy, blue, alpha)
+			} else if dist <= glowRadius {
+				glowT := 1.0 - (dist-float64(r))/(glowRadius-float64(r))
+				glowAlpha := math.Pow(glowT, 2.2) * 0.28
+				blendPixel(img, cx+dx, cy+dy, blue, glowAlpha)
+			}
+		}
+	}
+
+	white := color.RGBA{255, 255, 255, 255}
+	topY := float64(cy) - float64(r)*0.40
+	botY := float64(cy) + float64(r)*0.50
+	leftX := float64(cx) - float64(r)*0.46
+	rightX := float64(cx) + float64(r)*0.46
+	midX := float64(cx)
+
+	drawThickLine(img, leftX, topY, rightX, topY, 2.5, white)
+	drawThickLine(img, leftX, topY, midX, botY, 2.5, white)
+	drawThickLine(img, rightX, topY, midX, botY, 2.5, white)
+	drawThickLine(img, midX, topY, midX, botY, 2.1, white)
+}
+
+func (cg *CardGenerator) drawGiftVectorEmblem(img *image.RGBA, cx, cy, r int, col color.RGBA) {
+	fcx, fcy, fr := float64(cx), float64(cy), float64(r)
+	topY := fcy - fr*0.75
+	midY := fcy - fr*0.20
+	botY := fcy + fr*0.80
+	leftX := fcx - fr*0.85
+	rightX := fcx + fr*0.85
+	innerLeftX := fcx - fr*0.45
+	innerRightX := fcx + fr*0.45
+
+	drawThickLine(img, innerLeftX, topY, innerRightX, topY, 3.0, col)
+	drawThickLine(img, innerLeftX, topY, leftX, midY, 3.0, col)
+	drawThickLine(img, innerRightX, topY, rightX, midY, 3.0, col)
+	drawThickLine(img, leftX, midY, rightX, midY, 2.5, col)
+	drawThickLine(img, leftX, midY, fcx, botY, 3.0, col)
+	drawThickLine(img, rightX, midY, fcx, botY, 3.0, col)
+	drawThickLine(img, innerLeftX, topY, fcx, midY, 2.2, col)
+	drawThickLine(img, innerRightX, topY, fcx, midY, 2.2, col)
+	drawThickLine(img, fcx, midY, fcx, botY, 2.5, col)
+}
+
+func fetchOrLoadGiftImage(src string) image.Image {
+	src = strings.TrimSpace(src)
+	if src == "" {
+		return nil
+	}
+
+	if !strings.HasPrefix(src, "http://") && !strings.HasPrefix(src, "https://") {
+		f, err := os.Open(src)
+		if err != nil {
+			return nil
+		}
+		defer f.Close()
+		decoded, _, err := image.Decode(f)
+		if err != nil {
+			return nil
+		}
+		return decoded
+	}
+
+	client := &http.Client{Timeout: 3500 * time.Millisecond}
+	req, err := http.NewRequest(http.MethodGet, src, nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("User-Agent", "iFragmentBot/2.0 (+https://ifragment.org)")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+
+	limited := io.LimitReader(resp.Body, 5*1024*1024)
+	decoded, _, err := image.Decode(limited)
+	if err != nil {
+		return nil
+	}
+	return decoded
+}
+
+func compositeScaledImageRounded(dst *image.RGBA, src image.Image, dstX, dstY, dstW, dstH int, clipX1, clipY1, clipX2, clipY2, clipRadius float64) {
+	srcBounds := src.Bounds()
+	srcW := srcBounds.Dx()
+	srcH := srcBounds.Dy()
+	if srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0 {
+		return
+	}
+
+	for y := 0; y < dstH; y++ {
+		py := dstY + y
+		for x := 0; x < dstW; x++ {
+			px := dstX + x
+			dist := roundedBoxSDF(float64(px), float64(py), clipX1, clipY1, clipX2, clipY2, clipRadius)
+			if dist > 0 {
+				continue
+			}
+
+			sx := srcBounds.Min.X + (x*srcW)/dstW
+			sy := srcBounds.Min.Y + (y*srcH)/dstH
+			r, g, b, a := src.At(sx, sy).RGBA()
+			if a == 0 {
+				continue
+			}
+
+			alpha := float64(a) / 65535.0
+			var ur, ug, ub uint8
+			if a == 65535 {
+				ur = uint8(r >> 8)
+				ug = uint8(g >> 8)
+				ub = uint8(b >> 8)
+			} else {
+				ur = uint8(math.Min(255, float64(r>>8)/alpha))
+				ug = uint8(math.Min(255, float64(g>>8)/alpha))
+				ub = uint8(math.Min(255, float64(b>>8)/alpha))
+			}
+
+			blendPixel(dst, px, py, color.RGBA{R: ur, G: ug, B: ub, A: 255}, alpha)
+		}
+	}
+}
+
+func parseHexColor(hexStr string, fallback color.RGBA) color.RGBA {
+	clean := strings.TrimPrefix(strings.TrimSpace(hexStr), "#")
+	if len(clean) != 6 {
+		return fallback
+	}
+	rv, err1 := strconv.ParseUint(clean[0:2], 16, 8)
+	gv, err2 := strconv.ParseUint(clean[2:4], 16, 8)
+	bv, err3 := strconv.ParseUint(clean[4:6], 16, 8)
+	if err1 != nil || err2 != nil || err3 != nil {
+		return fallback
+	}
+	return color.RGBA{R: uint8(rv), G: uint8(gv), B: uint8(bv), A: 255}
+}
+
+func formatUSDTAmount(raw string) string {
+	clean := strings.TrimSpace(raw)
+	clean = strings.TrimPrefix(clean, "$")
+	clean = strings.TrimPrefix(clean, "~$")
+	clean = strings.TrimPrefix(clean, "≈")
+	clean = strings.TrimSuffix(clean, "USDT")
+	clean = strings.TrimSuffix(clean, "USD")
+	clean = strings.ReplaceAll(clean, ",", "")
+	clean = strings.TrimSpace(clean)
+
+	if clean == "" || clean == "0" || clean == "0.0" || clean == "0.00" || strings.HasPrefix(clean, "—") {
+		return ""
+	}
+
+	val, err := strconv.ParseFloat(clean, 64)
+	if err != nil || val <= 0 {
+		return ""
+	}
+
+	if val < 10.0 {
+		return fmt.Sprintf("%.2f", val)
+	}
+
+	intVal := int64(math.Round(val))
+	return addThousandsCommas(strconv.FormatInt(intVal, 10))
+}
+
+func containsArabicScript(s string) bool {
+	for _, r := range s {
+		if (r >= 0x0600 && r <= 0x06FF) ||
+			(r >= 0x0750 && r <= 0x077F) ||
+			(r >= 0x08A0 && r <= 0x08FF) ||
+			(r >= 0xFB50 && r <= 0xFDFF) ||
+			(r >= 0xFE70 && r <= 0xFEFF) {
+			return true
+		}
+	}
+	return false
+}
+
+func isUnsupportedFontScript(s string) bool {
+	for _, r := range s {
+		if r > 0x024F && !(r >= 0x2000 && r <= 0x2BFF) {
+			return true
+		}
+	}
+	return false
+}
+
+func (cg *CardGenerator) getFace(f *opentype.Font, size float64) (font.Face, error) {
 	return opentype.NewFace(f, &opentype.FaceOptions{
-		Size:    pt,
+		Size:    size,
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
 }
 
-func (cg *CardGenerator) drawText(img *image.RGBA, f *sfnt.Font, pt float64, x, y int, text string, col color.Color, align textAlign) {
-	face, err := cg.getFace(f, pt)
-	if err != nil {
-		return
-	}
-	textW := font.MeasureString(face, text).Ceil()
-	startX := x
-	if align == alignCenter {
-		startX = x - textW/2
-	} else if align == alignRight {
-		startX = x - textW
-	}
-
-	d := &font.Drawer{
-		Dst:  img,
-		Src:  image.NewUniform(col),
-		Face: face,
-		Dot:  fixed.Point26_6{X: fixed.I(startX), Y: fixed.I(y)},
-	}
-	d.DrawString(text)
-}
-
-func (cg *CardGenerator) drawTextAt(img *image.RGBA, face font.Face, x, y int, text string, col color.Color) {
+func (cg *CardGenerator) drawTextAt(img draw.Image, face font.Face, text string, x, y int, col color.Color) {
 	d := &font.Drawer{
 		Dst:  img,
 		Src:  image.NewUniform(col),
@@ -1371,233 +1105,107 @@ func (cg *CardGenerator) drawTextAt(img *image.RGBA, face font.Face, x, y int, t
 	d.DrawString(text)
 }
 
-// signedDistRoundRect computes the Euclidean signed distance to a rounded rectangle boundary.
-func signedDistRoundRect(x, y, x0, y0, x1, y1, r float64) float64 {
-	cx := math.Max(x0+r, math.Min(x, x1-r))
-	cy := math.Max(y0+r, math.Min(y, y1-r))
-	dx := math.Max(0.0, math.Abs(x-cx))
-	dy := math.Max(0.0, math.Abs(y-cy))
+func roundedBoxSDF(px, py, x1, y1, x2, y2, r float64) float64 {
+	cx := (x1 + x2) * 0.5
+	cy := (y1 + y2) * 0.5
+	hx := (x2-x1)*0.5 - r
+	hy := (y2-y1)*0.5 - r
 
-	if x >= x0+r && x <= x1-r && y >= y0 && y <= y1 {
-		return math.Max(y0-y, math.Max(y-y1, math.Max(x0-x, x-x1)))
-	}
-	if y >= y0+r && y <= y1-r && x >= x0 && x <= x1 {
-		return math.Max(x0-x, math.Max(x-x1, math.Max(y0-y, y-y1)))
-	}
-	return math.Hypot(dx, dy) - r
+	dx := math.Abs(px-cx) - hx
+	dy := math.Abs(py-cy) - hy
+
+	outDist := math.Sqrt(math.Max(dx, 0)*math.Max(dx, 0) + math.Max(dy, 0)*math.Max(dy, 0))
+	inDist := math.Min(math.Max(dx, dy), 0)
+	return outDist + inDist - r
 }
 
-func blendColor(bg color.RGBA, fg color.RGBA, alpha float64) color.RGBA {
-	a := math.Max(0.0, math.Min(1.0, alpha))
-	return color.RGBA{
-		R: uint8(float64(bg.R)*(1.0-a) + float64(fg.R)*a),
-		G: uint8(float64(bg.G)*(1.0-a) + float64(fg.G)*a),
-		B: uint8(float64(bg.B)*(1.0-a) + float64(fg.B)*a),
-		A: 0xFF,
-	}
-}
-
-// drawPill draws a smooth rounded rectangle with fill and border
-func drawPill(img *image.RGBA, px, py, pw, ph int, r float64, fill, border color.RGBA) {
-	x0 := float64(px)
-	y0 := float64(py)
-	x1 := float64(px + pw)
-	y1 := float64(py + ph)
-
-	for y := py; y < py+ph; y++ {
-		fy := float64(y) + 0.5
-		for x := px; x < px+pw; x++ {
-			fx := float64(x) + 0.5
-			dist := signedDistRoundRect(fx, fy, x0, y0, x1, y1, r)
-			if dist > 0.0 {
+func drawRoundedPill(img *image.RGBA, x1, y1, x2, y2 int, r float64, fillCol, borderCol color.RGBA, borderW float64) {
+	fx1, fy1, fx2, fy2 := float64(x1), float64(y1), float64(x2), float64(y2)
+	for y := y1 - 2; y <= y2+2; y++ {
+		for x := x1 - 2; x <= x2+2; x++ {
+			dist := roundedBoxSDF(float64(x), float64(y), fx1, fy1, fx2, fy2, r)
+			if dist > 0.5 {
 				continue
 			}
 
-			// Border line
-			if dist >= -1.6 {
-				drawPixelOver(img, x, y, border)
+			var col color.RGBA
+			var alpha float64
+			if dist >= -borderW {
+				t := clamp01((dist + borderW) / math.Max(borderW, 1.0))
+				col = lerpColor(fillCol, borderCol, t)
+				alpha = (float64(col.A) / 255.0) * clamp01(0.5-dist)
 			} else {
-				drawPixelOver(img, x, y, fill)
+				col = fillCol
+				alpha = float64(fillCol.A) / 255.0
+			}
+
+			blendPixel(img, x, y, col, alpha)
+		}
+	}
+}
+
+func drawThickLine(img *image.RGBA, x1, y1, x2, y2, thickness float64, col color.RGBA) {
+	minX := int(math.Floor(math.Min(x1, x2) - thickness - 2))
+	maxX := int(math.Ceil(math.Max(x1, x2) + thickness + 2))
+	minY := int(math.Floor(math.Min(y1, y2) - thickness - 2))
+	maxY := int(math.Ceil(math.Max(y1, y2) + thickness + 2))
+
+	dx := x2 - x1
+	dy := y2 - y1
+	lenSq := dx*dx + dy*dy
+	halfT := thickness * 0.5
+
+	for y := minY; y <= maxY; y++ {
+		for x := minX; x <= maxX; x++ {
+			px, py := float64(x), float64(y)
+			var t float64
+			if lenSq > 0 {
+				t = ((px-x1)*dx + (py-y1)*dy) / lenSq
+				t = clamp01(t)
+			}
+			projX := x1 + t*dx
+			projY := y1 + t*dy
+			dist := math.Sqrt((px-projX)*(px-projX) + (py-projY)*(py-projY))
+			if dist <= halfT+0.7 {
+				alpha := clamp01(halfT + 0.5 - dist)
+				blendPixel(img, x, y, col, alpha*(float64(col.A)/255.0))
 			}
 		}
 	}
 }
 
-func drawPixelOver(img *image.RGBA, x, y int, src color.RGBA) {
-	dst := img.RGBAAt(x, y)
-	srcA := float64(src.A) / 255.0
-	dstA := float64(dst.A) / 255.0
-	outA := srcA + dstA*(1.0-srcA)
-	if outA <= 0 {
+func blendPixel(img *image.RGBA, x, y int, src color.RGBA, alpha float64) {
+	if x < 0 || y < 0 || x >= img.Bounds().Dx() || y >= img.Bounds().Dy() || alpha <= 0 {
 		return
 	}
-	outR := (float64(src.R)*srcA + float64(dst.R)*dstA*(1.0-srcA)) / outA
-	outG := (float64(src.G)*srcA + float64(dst.G)*dstA*(1.0-srcA)) / outA
-	outB := (float64(src.B)*srcA + float64(dst.B)*dstA*(1.0-srcA)) / outA
-	img.SetRGBA(x, y, color.RGBA{
-		R: uint8(outR),
-		G: uint8(outG),
-		B: uint8(outB),
-		A: uint8(outA * 255),
-	})
+	if alpha >= 1.0 {
+		img.SetRGBA(x, y, color.RGBA{R: src.R, G: src.G, B: src.B, A: 255})
+		return
+	}
+	dst := img.RGBAAt(x, y)
+	inv := 1.0 - alpha
+	r := uint8(math.Round(float64(src.R)*alpha + float64(dst.R)*inv))
+	g := uint8(math.Round(float64(src.G)*alpha + float64(dst.G)*inv))
+	b := uint8(math.Round(float64(src.B)*alpha + float64(dst.B)*inv))
+	img.SetRGBA(x, y, color.RGBA{R: r, G: g, B: b, A: 255})
 }
 
-// drawSoftDot draws a small circular dot with anti-aliasing
-func drawSoftDot(img *image.RGBA, cx, cy int, r float64, col color.RGBA) {
-	ir := int(math.Ceil(r)) + 1
-	for y := cy - ir; y <= cy+ir; y++ {
-		dy := float64(y - cy)
-		for x := cx - ir; x <= cx+ir; x++ {
-			dx := float64(x - cx)
-			d := math.Hypot(dx, dy)
-			if d <= r {
-				drawPixelOver(img, x, y, col)
-			} else if d <= r+0.8 {
-				alpha := (r + 0.8 - d) / 0.8
-				fCol := col
-				fCol.A = uint8(float64(col.A) * alpha)
-				drawPixelOver(img, x, y, fCol)
-			}
-		}
+func lerpColor(a, b color.RGBA, t float64) color.RGBA {
+	t = clamp01(t)
+	return color.RGBA{
+		R: uint8(math.Round(float64(a.R) + (float64(b.R)-float64(a.R))*t)),
+		G: uint8(math.Round(float64(a.G) + (float64(b.G)-float64(a.G))*t)),
+		B: uint8(math.Round(float64(a.B) + (float64(b.B)-float64(a.B))*t)),
+		A: uint8(math.Round(float64(a.A) + (float64(b.A)-float64(a.A))*t)),
 	}
 }
 
-func drawCircleFilled(img *image.RGBA, cx, cy int, r float64, col color.RGBA) {
-	drawSoftDot(img, cx, cy, r, col)
-}
-
-// drawSparkle draws a sharp 4-pointed diamond star ✦
-func drawSparkle(img *image.RGBA, cx, cy int, radius int, col color.RGBA) {
-	r := float64(radius)
-	ir := radius + 1
-	for y := cy - ir; y <= cy+ir; y++ {
-		fy := math.Abs(float64(y - cy))
-		for x := cx - ir; x <= cx+ir; x++ {
-			fx := math.Abs(float64(x - cx))
-			// Astroid curve: (x/r)^0.5 + (y/r)^0.5 <= 1
-			val := math.Sqrt(fx/r) + math.Sqrt(fy/r)
-			if val <= 1.0 {
-				drawPixelOver(img, x, y, col)
-			} else if val <= 1.15 {
-				alpha := (1.15 - val) / 0.15
-				fCol := col
-				fCol.A = uint8(float64(col.A) * alpha)
-				drawPixelOver(img, x, y, fCol)
-			}
-		}
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
 	}
-}
-
-// drawAALine draws a smooth anti-aliased line with rounded end caps and subpixel accuracy
-func drawAALine(img *image.RGBA, x0, y0, x1, y1 float64, width float64, col color.RGBA) {
-	dx := x1 - x0
-	dy := y1 - y0
-	l2 := dx*dx + dy*dy
-
-	minX := int(math.Floor(math.Min(x0, x1) - width - 1.0))
-	maxX := int(math.Ceil(math.Max(x0, x1) + width + 1.0))
-	minY := int(math.Floor(math.Min(y0, y1) - width - 1.0))
-	maxY := int(math.Ceil(math.Max(y0, y1) + width + 1.0))
-
-	bounds := img.Bounds()
-	if minX < bounds.Min.X {
-		minX = bounds.Min.X
+	if v > 1 {
+		return 1
 	}
-	if maxX > bounds.Max.X {
-		maxX = bounds.Max.X
-	}
-	if minY < bounds.Min.Y {
-		minY = bounds.Min.Y
-	}
-	if maxY > bounds.Max.Y {
-		maxY = bounds.Max.Y
-	}
-
-	halfW := width / 2.0
-	for y := minY; y <= maxY; y++ {
-		fy := float64(y) + 0.5
-		for x := minX; x <= maxX; x++ {
-			fx := float64(x) + 0.5
-			var dist float64
-			if l2 == 0 {
-				dist = math.Hypot(fx-x0, fy-y0)
-			} else {
-				t := math.Max(0.0, math.Min(1.0, ((fx-x0)*dx+(fy-y0)*dy)/l2))
-				projX := x0 + t*dx
-				projY := y0 + t*dy
-				dist = math.Hypot(fx-projX, fy-projY)
-			}
-
-			if dist <= halfW {
-				drawPixelOver(img, x, y, col)
-			} else if dist <= halfW+1.0 {
-				alpha := (halfW + 1.0 - dist)
-				fCol := col
-				fCol.A = uint8(float64(col.A) * alpha)
-				drawPixelOver(img, x, y, fCol)
-			}
-		}
-	}
-}
-
-// drawTonDiamondIcon draws the official circular blue badge with TON diamond gemstone vector
-func drawTonDiamondIcon(img *image.RGBA, cx, cy int, r float64) {
-	// 1. Vibrant Telegram Blue circle (#0098EA)
-	tonBlue := color.RGBA{R: 0x00, G: 0x98, B: 0xEA, A: 0xFF}
-	ir := int(math.Ceil(r)) + 1
-	for y := cy - ir; y <= cy+ir; y++ {
-		dy := float64(y - cy)
-		for x := cx - ir; x <= cx+ir; x++ {
-			dx := float64(x - cx)
-			d := math.Hypot(dx, dy)
-			if d <= r {
-				img.SetRGBA(x, y, tonBlue)
-			} else if d <= r+1.2 {
-				alpha := (r + 1.2 - d) / 1.2
-				drawPixelOver(img, x, y, color.RGBA{
-					R: tonBlue.R, G: tonBlue.G, B: tonBlue.B,
-					A: uint8(float64(tonBlue.A) * alpha),
-				})
-			}
-		}
-	}
-
-	// 2. Crisp White TON Diamond Gemstone Vector (matching Telegram Mini App exact SVG)
-	white := color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
-	fcx := float64(cx)
-	fcy := float64(cy)
-	topY := fcy - 9.0
-	bottomY := fcy + 13.0
-	leftX := fcx - 12.0
-	rightX := fcx + 12.0
-	strokeW := 2.6
-
-	// Top horizontal bar
-	drawAALine(img, leftX, topY, rightX, topY, strokeW, white)
-	// Left diagonal
-	drawAALine(img, leftX, topY, fcx, bottomY, strokeW, white)
-	// Right diagonal
-	drawAALine(img, rightX, topY, fcx, bottomY, strokeW, white)
-	// Center vertical line
-	drawAALine(img, fcx, topY, fcx, bottomY, strokeW, white)
-}
-
-// drawApproxSymbol draws the mathematical approx symbol "≈" (two smooth parallel tildes)
-func drawApproxSymbol(img *image.RGBA, x, y int, col color.RGBA) {
-	width := 14
-	for i := 0; i < width; i++ {
-		t := float64(i) / float64(width-1)
-		// Sine wave curve
-		wave := math.Sin(t * 2.0 * math.Pi) * 1.6
-
-		// Top wave
-		py1 := int(math.Round(float64(y) - 3.5 - wave))
-		drawPixelOver(img, x+i, py1, col)
-		drawPixelOver(img, x+i, py1+1, col)
-
-		// Bottom wave
-		py2 := int(math.Round(float64(y) + 3.5 - wave))
-		drawPixelOver(img, x+i, py2, col)
-		drawPixelOver(img, x+i, py2+1, col)
-	}
+	return v
 }

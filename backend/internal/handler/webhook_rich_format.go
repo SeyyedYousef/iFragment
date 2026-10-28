@@ -223,6 +223,15 @@ func buildNumberRichHTML(val *nvengine.NumberValuation, lang string) string {
 	}
 
 	priceBasisFormatted := formatPriceBasis(val.PriceBasis, l)
+	if val.ExpectedUSD <= 0 && val.ExpectedTON.IsPositive() {
+		val.ExpectedUSD = val.ExpectedTON.InexactFloat64() * 3.48
+	}
+	if val.LowUSD <= 0 && val.LowTON.IsPositive() {
+		val.LowUSD = val.LowTON.InexactFloat64() * 3.48
+	}
+	if val.HighUSD <= 0 && val.HighTON.IsPositive() {
+		val.HighUSD = val.HighTON.InexactFloat64() * 3.48
+	}
 
 	var sb strings.Builder
 	switch l {
@@ -477,6 +486,15 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 	}
 
 	expFloat, _ := val.ExpectedTON.Float64()
+	if val.ExpectedUSD <= 0 && expFloat > 0 {
+		val.ExpectedUSD = expFloat * 3.48
+	}
+	if val.LowUSD <= 0 && val.LowTON.IsPositive() {
+		val.LowUSD = val.LowTON.InexactFloat64() * 3.48
+	}
+	if val.HighUSD <= 0 && val.HighTON.IsPositive() {
+		val.HighUSD = val.HighTON.InexactFloat64() * 3.48
+	}
 	suggestedAskTON := val.SuggestedAskTON.StringFixed(1)
 	suggestedAskUSD := val.SuggestedAskUSD
 	if val.SuggestedAskTON.IsZero() && expFloat > 0 {
@@ -600,6 +618,12 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		if val.TelemintProvenance.CollectionAddress != "" {
 			sb.WriteString(fmt.Sprintf("• کانترکت تلمینت: <code>%s</code>\n", telegram.EscapeHTML(val.TelemintProvenance.CollectionAddress)))
 		}
+		mintStateFa := "مینت‌شده در عرضه رسمی دسامبر ۲۰۲۲ (Supply قفل‌شده)"
+		if !val.IsMinted && val.Status == "unminted" {
+			mintStateFa = "خارج از عرضه رسمی (مینت‌نشده)"
+		}
+		sb.WriteString(fmt.Sprintf("• وضعیت مینت شبکه: <b>%s</b>\n", mintStateFa))
+		sb.WriteString("• مزیت امنیتی ویژه: <b>بدون نیاز به سیم‌کارت فیزیکی (No-SIM) و مصونیت بالا در برابر محدودیت ریپورت</b>\n")
 		sb.WriteString(fmt.Sprintf("• اصالت کالکشن: <b>کالکشن رسمی و بسته %s شماره ناشناس تلمینت (On-Chain)</b>\n", fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		if val.OnChainAudit.MintDate != "" {
 			sb.WriteString(fmt.Sprintf("• تاریخ ساخت (Mint): <code>%s</code>\n", telegram.EscapeHTML(val.OnChainAudit.MintDate)))
@@ -909,16 +933,31 @@ func buildGiftRichHTML(val *gvengine.GiftValuation, lang string) string {
 	}
 
 	fairTON := val.Pillars.FairValueGRAM
+	if fairTON <= 0 && val.ExpectedGRAM.IsPositive() {
+		fairTON = val.ExpectedGRAM.InexactFloat64()
+	}
 	fairUSD := val.Pillars.FairValueUSD
 	if fairUSD == 0 && val.ExpectedUSD > 0 {
 		fairUSD = val.ExpectedUSD
 	}
+	if fairUSD <= 0 && fairTON > 0 {
+		fairUSD = fairTON * 3.48
+	}
 	floorTON := val.Pillars.ObservedFloorGRAM
 	floorUSD := val.Pillars.ObservedFloorUSD
+	if floorUSD <= 0 && floorTON > 0 {
+		floorUSD = floorTON * 3.48
+	}
 	liqTON := val.Pillars.LiquidationValueGRAM
 	liqUSD := val.Pillars.LiquidationValueUSD
+	if liqUSD <= 0 && liqTON > 0 {
+		liqUSD = liqTON * 3.48
+	}
 	askTON := val.Pillars.SuggestedAskGRAM
 	askUSD := val.Pillars.SuggestedAskUSD
+	if askUSD <= 0 && askTON > 0 {
+		askUSD = askTON * 3.48
+	}
 
 	lowTONStr := val.LowGRAM.StringFixed(1)
 	highTONStr := val.HighGRAM.StringFixed(1)
@@ -1272,16 +1311,31 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 	}
 
 	fairTON := val.Pillars.FairValueGRAM
+	if fairTON <= 0 && val.ExpectedGRAM.IsPositive() {
+		fairTON = val.ExpectedGRAM.InexactFloat64()
+	}
 	fairUSD := val.Pillars.FairValueUSD
 	if fairUSD == 0 && val.ExpectedUSD > 0 {
 		fairUSD = val.ExpectedUSD
 	}
+	if fairUSD <= 0 && fairTON > 0 {
+		fairUSD = fairTON * 3.48
+	}
 	floorTON := val.Pillars.ObservedFloorGRAM
 	floorUSD := val.Pillars.ObservedFloorUSD
+	if floorUSD <= 0 && floorTON > 0 {
+		floorUSD = floorTON * 3.48
+	}
 	liqTON := val.Pillars.LiquidationValueGRAM
 	liqUSD := val.Pillars.LiquidationValueUSD
+	if liqUSD <= 0 && liqTON > 0 {
+		liqUSD = liqTON * 3.48
+	}
 	askTON := val.Pillars.SuggestedAskGRAM
 	askUSD := val.Pillars.SuggestedAskUSD
+	if askUSD <= 0 && askTON > 0 {
+		askUSD = askTON * 3.48
+	}
 
 	lowTONStr := val.LowGRAM.StringFixed(1)
 	highTONStr := val.HighGRAM.StringFixed(1)
@@ -1373,6 +1427,18 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		sb.WriteString(fmt.Sprintf("• ارزش منصفانه تحلیلی (Fair): <code>~%.2f TON ($%.2f)</code>\n", fairTON, fairUSD))
 		if floorTON > 0 {
 			sb.WriteString(fmt.Sprintf("• کف قیمت مشاهده‌شده بازار (Floor): <code>~%.2f TON ($%.2f)</code>\n", floorTON, floorUSD))
+		}
+		if val.Pillars.CollectionFloorGRAM > 0 {
+			sb.WriteString(fmt.Sprintf("• کف کلکسیون پایه (Collection Floor): <code>~%.2f TON</code>\n", val.Pillars.CollectionFloorGRAM))
+		}
+		if val.Pillars.ModelFloorGRAM > 0 {
+			sb.WriteString(fmt.Sprintf("• کف صفت مدل (Model Floor): <code>~%.2f TON</code>\n", val.Pillars.ModelFloorGRAM))
+		}
+		if val.Pillars.BackdropFloorGRAM > 0 {
+			sb.WriteString(fmt.Sprintf("• کف پس‌زمینه (Backdrop Floor): <code>~%.2f TON</code>\n", val.Pillars.BackdropFloorGRAM))
+		}
+		if val.Pillars.SymbolFloorGRAM > 0 {
+			sb.WriteString(fmt.Sprintf("• کف نماد (Symbol Floor): <code>~%.2f TON</code>\n", val.Pillars.SymbolFloorGRAM))
 		}
 		if askTON > 0 {
 			sb.WriteString(fmt.Sprintf("• قیمت پیشنهادی فروش (Ask): <code>~%.2f TON ($%.2f)</code>\n", askTON, askUSD))
@@ -1660,6 +1726,18 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		if floorTON > 0 {
 			sb.WriteString(fmt.Sprintf("• Observed Market Floor: <code>~%.2f TON ($%.2f)</code>\n", floorTON, floorUSD))
 		}
+		if val.Pillars.CollectionFloorGRAM > 0 {
+			sb.WriteString(fmt.Sprintf("• Collection Floor: <code>~%.2f TON</code>\n", val.Pillars.CollectionFloorGRAM))
+		}
+		if val.Pillars.ModelFloorGRAM > 0 {
+			sb.WriteString(fmt.Sprintf("• Model Floor: <code>~%.2f TON</code>\n", val.Pillars.ModelFloorGRAM))
+		}
+		if val.Pillars.BackdropFloorGRAM > 0 {
+			sb.WriteString(fmt.Sprintf("• Backdrop Floor: <code>~%.2f TON</code>\n", val.Pillars.BackdropFloorGRAM))
+		}
+		if val.Pillars.SymbolFloorGRAM > 0 {
+			sb.WriteString(fmt.Sprintf("• Symbol Floor: <code>~%.2f TON</code>\n", val.Pillars.SymbolFloorGRAM))
+		}
 		if askTON > 0 {
 			sb.WriteString(fmt.Sprintf("• Suggested Ask: <code>~%.2f TON ($%.2f)</code>\n", askTON, askUSD))
 		}
@@ -1944,13 +2022,24 @@ func buildCopySummary(assetEmoji, identifier, fairTON, fairUSD, extra, lang stri
 
 // buildGiftCardParams constructs a rich card parameter struct from a GiftValuation
 func buildGiftCardParams(val *gvengine.GiftValuation, lang string) cardgen.GiftCardParams {
+	expectedTONStr := val.ExpectedGRAM.StringFixed(1)
+	if (expectedTONStr == "0.0" || expectedTONStr == "0") && val.Pillars.FairValueGRAM > 0 {
+		expectedTONStr = fmt.Sprintf("%.1f", val.Pillars.FairValueGRAM)
+	}
+	expectedUSDVal := val.ExpectedUSD
+	if expectedUSDVal <= 0 && val.Pillars.FairValueUSD > 0 {
+		expectedUSDVal = val.Pillars.FairValueUSD
+	}
+	if expectedUSDVal <= 0 && val.Pillars.FairValueGRAM > 0 {
+		expectedUSDVal = val.Pillars.FairValueGRAM * 3.48
+	}
 	p := cardgen.GiftCardParams{
 		Title:        val.DisplayTitle,
 		ModelName:    val.ModelName,
 		SerialNumber: val.SerialNumber,
 		ImageURL:     val.ImageURL,
-		ExpectedTON:  val.ExpectedGRAM.StringFixed(1),
-		ExpectedUSD:  fmt.Sprintf("%.0f", val.ExpectedUSD),
+		ExpectedTON:  expectedTONStr,
+		ExpectedUSD:  fmt.Sprintf("%.0f", expectedUSDVal),
 		Lang:         lang,
 	}
 

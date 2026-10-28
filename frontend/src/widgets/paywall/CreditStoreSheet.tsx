@@ -9,21 +9,23 @@ import { useWallet } from './useWallet.js';
 interface CreditStoreSheetProps {
 	open: boolean;
 	onClose: () => void;
-	vertical: PaywallVertical;
+	vertical?: PaywallVertical;
 }
 
 type Tab = 'stars' | 'free';
 
 const tg = () =>
 	typeof window !== 'undefined'
-		? (window as unknown as {
-				Telegram?: {
-					WebApp?: {
-						openInvoice?: (url: string, callback?: (status: string) => void) => void;
-						openTelegramLink?: (url: string) => void;
+		? (
+				window as unknown as {
+					Telegram?: {
+						WebApp?: {
+							openInvoice?: (url: string, callback?: (status: string) => void) => void;
+							openTelegramLink?: (url: string) => void;
+						};
 					};
-				};
-			}).Telegram?.WebApp
+				}
+			).Telegram?.WebApp
 		: undefined;
 
 export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
@@ -197,7 +199,9 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 								<span class="material-symbols-outlined text-[18px] text-emerald-400">
 									check_circle
 								</span>
-								<span>⚡ {t('paywall.credit_unit')} — {wallet.balance() ?? 0}</span>
+								<span>
+									⚡ {t('paywall.credit_unit')} — {wallet.balance() ?? 0}
+								</span>
 							</div>
 						</Show>
 

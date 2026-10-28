@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -92,9 +93,9 @@ func GetWikipediaScore(term string) *WikipediaResult {
 func queryWikipedia(term string) *WikipediaResult {
 	// Use the Wikipedia REST summary API
 	title := strings.ReplaceAll(strings.Title(term), " ", "_")
-	url := fmt.Sprintf("https://en.wikipedia.org/api/rest_v1/page/summary/%s", title)
+	reqURL := fmt.Sprintf("https://en.wikipedia.org/api/rest_v1/page/summary/%s", url.PathEscape(title))
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
 		return &WikipediaResult{FetchError: true}
 	}

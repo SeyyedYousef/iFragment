@@ -118,9 +118,26 @@ export const OwnerAds: Component = () => {
 				<div class="flex items-start gap-3">
 					<span class="material-symbols-outlined text-blue-400 text-xl shrink-0 mt-0.5">info</span>
 					<div class="text-xs space-y-0.5">
-						<div class="font-bold text-blue-300">{({ fa: 'توجه: این صفحه مختص بنرهای بالای صفحه اول است', en: 'Note: This page manages Home Dashboard top banners', ru: 'Примечание: здесь настраиваются верхние баннеры главной страницы', zh: '注意：此页面用于管理首页顶部横幅广告' } as Record<string, string>)[locale()] || 'Note: This page manages Home Dashboard top banners'}</div>
+						<div class="font-bold text-blue-300">
+							{(
+								{
+									fa: 'توجه: این صفحه مختص بنرهای بالای صفحه اول است',
+									en: 'Note: This page manages Home Dashboard top banners',
+									ru: 'Примечание: здесь настраиваются верхние баннеры главной страницы',
+									zh: '注意：此页面用于管理首页顶部横幅广告',
+								} as Record<string, string>
+							)[locale()] || 'Note: This page manages Home Dashboard top banners'}
+						</div>
 						<p class="text-white/70">
-							{({ fa: 'اگر قصد تنظیم تصویر تمام‌صفحه سرمایه‌گذاران (تب دوم) را دارید، به صفحه اختصاصی آن مراجعه فرمایید.', en: 'To configure the full-screen Investors tab image, visit the dedicated Investors Page manager.', ru: 'Для настройки полноэкранного баннера вкладки Инвесторы перейдите на отдельную страницу.', zh: '如需配置“投资者”全屏页面图片，请前往专属管理页。' } as Record<string, string>)[locale()] || 'To configure the full-screen Investors tab image, visit the dedicated Investors Page manager.'}
+							{(
+								{
+									fa: 'اگر قصد تنظیم تصویر تمام‌صفحه سرمایه‌گذاران (تب دوم) را دارید، به صفحه اختصاصی آن مراجعه فرمایید.',
+									en: 'To configure the full-screen Investors tab image, visit the dedicated Investors Page manager.',
+									ru: 'Для настройки полноэкранного баннера вкладки Инвесторы перейдите на отдельную страницу.',
+									zh: '如需配置“投资者”全屏页面图片，请前往专属管理页。',
+								} as Record<string, string>
+							)[locale()] ||
+								'To configure the full-screen Investors tab image, visit the dedicated Investors Page manager.'}
 						</p>
 					</div>
 				</div>

@@ -9,13 +9,21 @@ import {
 	mockTelegramEnv,
 	retrieveLaunchParams,
 	setDebug,
-	type ThemeParams,
 	themeParams,
 	viewport,
 } from '@tma.js/sdk-solid';
 
 import { initProfileSync, profileSettings } from '@/entities/user/index.js';
 import { checkMiniAppOrigin } from '@/shared/lib/mini-app-origin.js';
+
+const withMountTimeout = async (promiseOrVal: unknown, ms = 1200): Promise<void> => {
+	if (promiseOrVal && typeof (promiseOrVal as Promise<unknown>).then === 'function') {
+		await Promise.race([
+			promiseOrVal as Promise<unknown>,
+			new Promise<void>((resolve) => setTimeout(resolve, ms)),
+		]);
+	}
+};
 
 /**
  * Initializes the application and configures its dependencies.
@@ -31,66 +39,75 @@ export async function init(options: {
 	try {
 		realParams = retrieveLaunchParams();
 	} catch (_e) {
-		// ignore
+		try {
+			sessionStorage.removeItem('tapps/launchParams');
+			sessionStorage.removeItem('telegram-apps/launch-params');
+		} catch {}
 	}
 
 	if (import.meta.env.DEV && !(await isTMA()) && !realParams) {
-		console.info('TMA Mock Environment enabled for local development.');
+		const mockThemeParams = {
+			accent_text_color: '#6ab2f2',
+			bg_color: '#06070b',
+			button_color: '#3390ec',
+			button_text_color: '#ffffff',
+			bottom_bar_bg_color: '#06070b',
+			destructive_text_color: '#ec3942',
+			header_bg_color: '#06070b',
+			hint_color: '#708499',
+			link_color: '#6ab3f3',
+			secondary_bg_color: '#10131c',
+			section_bg_color: '#10131c',
+			section_header_text_color: '#6ab3f3',
+			section_separator_color: '#1e2433',
+			subtitle_text_color: '#708499',
+			text_color: '#f5f5f5',
+		} as const;
+
 		mockTelegramEnv({
 			launchParams: {
-				themeParams: {
-					accentTextColor: '#6ab2f2',
-					bgColor: '#17212b',
-					buttonColor: '#5288c1',
-					buttonTextColor: '#ffffff',
-					destructiveTextColor: '#ec3942',
-					headerBgColor: '#17212b',
-					hintColor: '#708499',
-					linkColor: '#6ab3f3',
-					secondaryBgColor: '#232e3c',
-					sectionBgColor: '#17212b',
-					sectionHeaderTextColor: '#6ab3f3',
-					subtitleTextColor: '#708499',
-					textColor: '#f5f5f5',
-				},
-				initData: {
-					user: {
-						id: 99281932,
-						firstName: 'Andrew',
-						lastName: 'Rogue',
-						username: 'rogue',
-						languageCode: 'en',
-						isPremium: true,
-						allowsWriteToPm: true,
-					},
-					hash: '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31',
-					authDate: new Date(1716922846000),
-					startParam: 'debug',
-					chatType: 'sender',
-					chatInstance: '8428209589180549439',
-				},
-				initDataRaw: new URLSearchParams([
+				tgWebAppThemeParams: mockThemeParams,
+				tgWebAppData: new URLSearchParams([
 					[
 						'user',
 						JSON.stringify({
-							id: 99281932,
-							firstName: 'Andrew',
-							lastName: 'Rogue',
-							username: 'rogue',
-							languageCode: 'en',
-							isPremium: true,
-							allowsWriteToPm: true,
+							id: 5076130392,
+							first_name: 'iFragment',
+							last_name: 'Preview',
+							username: 'ifragment',
+							language_code: 'fa',
+							is_premium: true,
+							allows_write_to_pm: true,
 						}),
 					],
 					['hash', '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31'],
+					['signature', '5O_G2H_wXgI32v2G-w0y-W_O3G_4G'],
 					['auth_date', '1716922846'],
-					['start_param', 'debug'],
 					['chat_type', 'sender'],
 					['chat_instance', '8428209589180549439'],
 				]).toString(),
-				version: '8',
-				platform: 'tdesktop',
-			} as any,
+				tgWebAppVersion: '8.0',
+				tgWebAppPlatform: 'tdesktop',
+			},
+			onEvent(event) {
+				if (event.name === 'web_app_request_theme') {
+					emitEvent('theme_changed', { theme_params: mockThemeParams });
+				}
+				if (event.name === 'web_app_request_viewport' || event.name === 'web_app_expand') {
+					emitEvent('viewport_changed', {
+						height: window.innerHeight || 844,
+						width: window.innerWidth || 390,
+						is_expanded: true,
+						is_state_stable: true,
+					});
+				}
+				if (event.name === 'web_app_request_safe_area') {
+					emitEvent('safe_area_changed', { left: 0, top: 0, right: 0, bottom: 0 });
+				}
+				if (event.name === 'web_app_request_content_safe_area') {
+					emitEvent('content_safe_area_changed', { left: 0, top: 0, right: 0, bottom: 0 });
+				}
+			},
 		});
 	}
 
@@ -115,26 +132,23 @@ export async function init(options: {
 	// event for the "web_app_request_safe_area" method.
 	if (options.mockForMacOS) {
 		let firstThemeSent = false;
-		let currentParams: ReturnType<typeof retrieveLaunchParams> | undefined;
-		try {
-			currentParams = retrieveLaunchParams();
-		} catch (_e) {}
 
-		// We must pass the existing launchParams to avoid resetting user session
-		// when we mock the environment for the macOS bug workaround!
+		// Only intercept events without overwriting existing launchParams in storage
 		mockTelegramEnv({
-			launchParams: currentParams as any,
 			onEvent(event, next) {
 				if (event.name === 'web_app_request_theme') {
-					let tp: ThemeParams = {};
+					let tp: Record<string, `#${string}` | undefined> = {};
 					if (firstThemeSent) {
 						try {
-							tp = themeParams.state();
+							tp = themeParams.state() as Record<string, `#${string}` | undefined>;
 						} catch (_e) {}
 					} else {
 						firstThemeSent = true;
 						try {
-							tp = retrieveLaunchParams().tgWebAppThemeParams || {};
+							tp = (retrieveLaunchParams().tgWebAppThemeParams || {}) as Record<
+								string,
+								`#${string}` | undefined
+							>;
 						} catch (_e) {}
 					}
 					return emitEvent('theme_changed', { theme_params: tp });
@@ -149,13 +163,10 @@ export async function init(options: {
 		});
 	}
 
-	// Mount all components used in the project.
-	// We use try-catch for each component to prevent the entire app from crashing.
-
+	// Mount all components used in the project with bounded timeouts so iframe environments never hang.
 	try {
 		if (backButton && typeof backButton.mount === 'function') {
-			const mountResult = backButton.mount() as any;
-			if (mountResult && typeof mountResult.then === 'function') await mountResult;
+			await withMountTimeout(backButton.mount());
 		}
 	} catch (e) {
 		console.warn('BackButton mount failed', e);
@@ -171,12 +182,10 @@ export async function init(options: {
 
 	try {
 		if (miniApp && typeof miniApp.mount === 'function') {
-			const mountResult = miniApp.mount() as any;
-			if (mountResult && typeof mountResult.then === 'function') await mountResult;
+			await withMountTimeout(miniApp.mount());
 		}
 		if (themeParams && typeof themeParams.mount === 'function') {
-			const mountResult = themeParams.mount() as any;
-			if (mountResult && typeof mountResult.then === 'function') await mountResult;
+			await withMountTimeout(themeParams.mount());
 		}
 		if (themeParams && typeof themeParams.bindCssVars === 'function') {
 			themeParams.bindCssVars();
@@ -187,10 +196,7 @@ export async function init(options: {
 
 	try {
 		if (viewport && typeof viewport.mount === 'function') {
-			const mountResult = viewport.mount();
-			if (mountResult instanceof Promise) {
-				await mountResult;
-			}
+			await withMountTimeout(viewport.mount());
 			if (typeof viewport.bindCssVars === 'function') viewport.bindCssVars();
 			if (typeof viewport.expand === 'function') viewport.expand();
 		}

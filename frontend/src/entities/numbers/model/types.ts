@@ -1,13 +1,27 @@
 export interface NumbersIntelData {
 	total_supply: number;
+	genesis_supply?: number;
+	standard_supply?: number;
 	supply_status: string;
 	total_owners: number;
+	avg_numbers_per_owner?: number;
 	total_sales: number;
 	total_volume_ton: number;
 	floor_price_ton: number;
+	unrestricted_floor_ton?: number;
 	floor_price_usd: number;
+	ton_rate_usd?: number;
 	volume_24h_ton: number;
+	volume_24h_usd?: number;
 	volume_7d_ton: number;
+	volume_30d_ton?: number;
+	active_auctions_count?: number;
+	fixed_price_count?: number;
+	restricted_count?: number;
+	lowest_auction_ton?: number;
+	lowest_auction_number?: string;
+	highest_auction_ton?: number;
+	highest_auction_number?: string;
 	fng_index: number;
 	fng_label: string;
 	historical_ath_ton: number;
@@ -24,6 +38,29 @@ export interface NumbersIntelData {
 		current_bid_ton: number;
 		ends_at: string;
 		color: string;
+	}[];
+	top_auctions?: {
+		number: string;
+		display_number: string;
+		current_bid_ton: number;
+		ends_at: string;
+		color: string;
+	}[];
+	lowest_auctions?: {
+		number: string;
+		display_number: string;
+		current_bid_ton: number;
+		ends_at: string;
+		color: string;
+	}[];
+	recent_sales?: {
+		number: string;
+		display_number: string;
+		price_ton: number;
+		price_usd: number;
+		sale_date: string;
+		color: string;
+		tonviewer_url?: string;
 	}[];
 	trending_tail: {
 		tail_class: string;
@@ -231,6 +268,189 @@ export interface ModelCardInfo {
 	signature_proof: string;
 }
 
+export interface NumberDigitForensicCell {
+	position: number;
+	digit: string;
+	ascii_code: number;
+	ascii_hex: string;
+	ascii_binary: string;
+	bcd_nibble: string;
+	hamming_weight: number;
+	dtmf_row_hz: number;
+	dtmf_col_hz: number;
+	keypad_row: number;
+	keypad_col: number;
+}
+
+export interface NumberBinaryForensics {
+	clean_digits: string;
+	suffix_digits: string;
+	utf8_hex: string;
+	bcd_stream: string;
+	tep62_index_sha256_hex: string;
+	tep62_index_uint256_dec: string;
+	collection_address: string;
+	nft_item_address: string;
+	shannon_entropy_bits: number;
+	max_entropy_bits: number;
+	kolmogorov_compression_pct: number;
+	total_hamming_weight: number;
+	keypad_manhattan_distance: number;
+	keypad_ergonomic_score: number;
+	keypad_geometry_class_en: string;
+	keypad_geometry_class_fa: string;
+	dtmf_acoustic_signature: string;
+	tvm_code_hash?: string;
+	tvm_data_hash?: string;
+	tvm_last_tx_lt?: string;
+	tvm_balance_nanoton?: string;
+	token_name_boc_hex?: string;
+	individual_content_boc_hex?: string;
+	digits_matrix: NumberDigitForensicCell[];
+}
+
+export interface NumberOnChainHistoryEvent {
+	event_type: 'Mint' | 'Sale' | 'Transfer';
+	event_type_fa: string;
+	price_ton: number;
+	price_usd: number;
+	date: string;
+	tx_hash: string;
+	tonscan_url: string;
+	tonviewer_url: string;
+	from_wallet: string;
+	to_wallet: string;
+	venue: string;
+}
+
+export interface NumberMarketProvenance {
+	is_minted: boolean;
+	minted_status_reason_en: string;
+	minted_status_reason_fa: string;
+	suggested_minted_alternatives?: {
+		number: string;
+		display_number: string;
+		label_fa: string;
+		last_sale_ton?: number;
+	}[];
+	nft_address: string;
+	owner_address: string;
+	collection_address: string;
+	color_hex: string;
+	color_name_en: string;
+	color_name_fa: string;
+	color_tier_fa: string;
+	color_multiplier: number;
+	is_restricted: boolean;
+	restriction_source: string;
+	restriction_reason_en: string;
+	restriction_reason_fa: string;
+	nft_image_url: string;
+	nft_json_url: string;
+	fragment_url: string;
+	nums888_url: string;
+	getgems_url: string;
+	marketapp_url: string;
+	tonviewer_url: string;
+	owners_count: number;
+	total_sales_count: number;
+	first_mint_date: string;
+	last_sale_ton: number;
+	last_sale_usd: number;
+	last_sale_date: string;
+}
+
+export interface NumberMakeOfferSimulation {
+	suggested_offer_ton: number;
+	suggested_offer_usd: number;
+	offer_fee_mult: number;
+	offer_fee_ton: number;
+	offer_fee_usd: number;
+	seller_ask_ton: number;
+	fragment_protocol_fee_pct: number;
+	fragment_protocol_fee_ton: number;
+	seller_net_proceeds_ton: number;
+	seller_net_proceeds_usd: number;
+	acceptance_probability_pct: number;
+}
+
+export interface NumberPatternSiblingItem {
+	number: string;
+	display_number: string;
+	clean_digits: string;
+	color_hex: string;
+	color_name: string;
+	last_sale_ton: number;
+	last_sale_usd: number;
+	last_sale_date: string;
+	current_bid_or_ask_ton?: number;
+	is_restricted: boolean;
+	owners_count: number;
+	current_owner: string;
+	similarity_reason_fa: string;
+	similarity_reason_en: string;
+	fragment_url: string;
+	nums888_url: string;
+}
+
+export interface NumberOwnerHoldingItem {
+	clean_digits: string;
+	display_number: string;
+	acquired_date: string;
+	tx_hash: string;
+	acquired_price_ton: number;
+	acquired_price_usd: number;
+	is_current_number: boolean;
+	nums888_url: string;
+	fragment_url: string;
+}
+
+export interface NumberOwnerIntelligence {
+	owner_address: string;
+	wallet_workchain: 'Masterchain (-1 Sovereign)' | 'Basechain (0 Standard)';
+	wallet_interfaces: string[];
+	wallet_status: string;
+	liquid_balance_ton: number;
+	liquid_balance_usd: number;
+	total_numbers_held: number;
+	total_invested_ton: number;
+	total_invested_usd: number;
+	portfolio_floor_worth_ton: number;
+	portfolio_floor_worth_usd: number;
+	entry_cost_ton: number;
+	entry_cost_usd: number;
+	entry_date: string;
+	entry_type: 'Mint' | 'Sale' | 'Transfer';
+	unrealized_pnl_ton: number;
+	unrealized_pnl_usd: number;
+	unrealized_pnl_pct: number;
+	holder_tier_en: string;
+	holder_tier_fa: string;
+	seller_negotiation_score: number;
+	negotiation_stance_fa: string;
+	negotiation_strategy_fa: string;
+	other_holdings: NumberOwnerHoldingItem[];
+}
+
+export interface NumberPriceTrajectoryPoint {
+	label: string;
+	label_fa: string;
+	date: string;
+	price_ton: number;
+	price_usd: number;
+	floor_multiple: number;
+	point_type: 'Mint' | 'Sale' | 'FairValue' | 'Projection';
+}
+
+export interface NumberColorMatrixItem {
+	hex: string;
+	name_en: string;
+	name_fa: string;
+	tier_fa: string;
+	multiplier: number;
+	is_active: boolean;
+}
+
 export interface NumberValuationResult {
 	run_id: number;
 	number: string;
@@ -325,6 +545,7 @@ export interface NumberValuationResult {
 		deal_verdict: string;
 		venue: string;
 		direct_url: string;
+		is_vanity_ask?: boolean;
 	};
 	combinatorial_scarcity?: {
 		exact_pattern_pool_size: number;
@@ -333,6 +554,15 @@ export interface NumberValuationResult {
 		mathematical_formula: string;
 		scarcity_tier: string;
 	};
+	binary_forensics?: NumberBinaryForensics;
+	onchain_history?: NumberOnChainHistoryEvent[];
+	market_provenance?: NumberMarketProvenance;
+	make_offer_simulation?: NumberMakeOfferSimulation;
+	pattern_siblings?: NumberPatternSiblingItem[];
+	owner_intelligence?: NumberOwnerIntelligence;
+	price_trajectory?: NumberPriceTrajectoryPoint[];
+	color_palette_matrix?: NumberColorMatrixItem[];
+	smart_mask?: string;
 	reasoning_log?: Record<string, any>;
 	certificate_id: string;
 	evaluated_at: string;

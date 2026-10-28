@@ -8,20 +8,21 @@ interface KpisProps {
 
 export const NumberCollectionKpis: Component<KpisProps> = (props) => {
 	const fmt = (val?: number | null, decimals = 0) => {
-		if (val === undefined || val === null || isNaN(val) || val <= 0) return '—';
+		if (val === undefined || val === null || Number.isNaN(val) || val <= 0) return '—';
 		return val.toLocaleString('en-US', { maximumFractionDigits: decimals });
 	};
 
 	const fmtUsd = (val?: number | null) => {
-		if (val === undefined || val === null || isNaN(val) || val <= 0) return '—';
+		if (val === undefined || val === null || Number.isNaN(val) || val <= 0) return '—';
 		if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`;
 		if (val >= 1_000) return `$${(val / 1_000).toFixed(1)}K`;
 		return `$${val.toFixed(0)}`;
 	};
 
 	const fmtPct = (val?: number | null) => {
-		if (val === undefined || val === null || isNaN(val)) return '—';
-		return `${(val * 100).toFixed(2)}%`;
+		if (val === undefined || val === null || Number.isNaN(val)) return '—';
+		const pct = val > 0 && val < 0.1 ? val * 100 : val;
+		return `${pct.toFixed(2)}%`;
 	};
 
 	const floorNumber = () => props.overview?.floor_number;
@@ -94,7 +95,12 @@ export const NumberCollectionKpis: Component<KpisProps> = (props) => {
 								<span class="text-xs font-bold text-emerald-400/70">TON</span>
 								<Show when={props.overview?.sales_count_7d}>
 									<span class="text-[10px] font-mono text-white/40">
-										({layaT(NUMBERS_COLLECTION_I18N.basedOnSales).replace('{count}', String(props.overview!.sales_count_7d))})
+										(
+										{layaT(NUMBERS_COLLECTION_I18N.basedOnSales).replace(
+											'{count}',
+											String(props.overview!.sales_count_7d),
+										)}
+										)
 									</span>
 								</Show>
 							</div>
@@ -174,7 +180,8 @@ export const NumberCollectionKpis: Component<KpisProps> = (props) => {
 						<span class="text-[10px] text-[#0098EA]">TON</span>
 					</span>
 					<span class="text-[9px] text-white/40 font-mono block mt-1">
-						{props.overview?.sales_count_24h ?? 0} {layaT(NUMBERS_COLLECTION_I18N.finalSettledDeals)}
+						{props.overview?.sales_count_24h ?? 0}{' '}
+						{layaT(NUMBERS_COLLECTION_I18N.finalSettledDeals)}
 					</span>
 				</div>
 
@@ -199,10 +206,13 @@ export const NumberCollectionKpis: Component<KpisProps> = (props) => {
 					</span>
 					<span class="text-sm font-black text-amber-400 font-mono block mt-0.5">
 						{fmt(props.overview?.active_listings_count)}{' '}
-						<span class="text-[10px] text-white/40">{layaT(NUMBERS_COLLECTION_I18N.itemsUnit)}</span>
+						<span class="text-[10px] text-white/40">
+							{layaT(NUMBERS_COLLECTION_I18N.itemsUnit)}
+						</span>
 					</span>
 					<span class="text-[9px] text-amber-400/70 font-mono block mt-1">
-						{fmtPct(props.overview?.listed_share_pct)} {layaT(NUMBERS_COLLECTION_I18N.ofTotalSupply)}
+						{fmtPct(props.overview?.listed_share_pct)}{' '}
+						{layaT(NUMBERS_COLLECTION_I18N.ofTotalSupply)}
 					</span>
 				</div>
 
@@ -213,10 +223,13 @@ export const NumberCollectionKpis: Component<KpisProps> = (props) => {
 					</span>
 					<span class="text-sm font-black text-cyan-300 font-mono block mt-0.5">
 						{fmt(props.overview?.unique_holders)}{' '}
-						<span class="text-[10px] text-white/40">{layaT(NUMBERS_COLLECTION_I18N.walletsUnit)}</span>
+						<span class="text-[10px] text-white/40">
+							{layaT(NUMBERS_COLLECTION_I18N.walletsUnit)}
+						</span>
 					</span>
 					<span class="text-[9px] text-cyan-400/70 font-mono block mt-1">
-						{layaT(NUMBERS_COLLECTION_I18N.top10Whales)} {fmtPct(props.overview?.top10_holder_share_pct)}
+						{layaT(NUMBERS_COLLECTION_I18N.top10Whales)}{' '}
+						{fmtPct(props.overview?.top10_holder_share_pct)}
 					</span>
 				</div>
 			</div>

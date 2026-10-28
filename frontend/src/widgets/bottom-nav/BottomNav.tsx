@@ -1,4 +1,4 @@
-import { A, useLocation } from '@solidjs/router';
+import { useLocation, useNavigate } from '@solidjs/router';
 import { initData } from '@tma.js/sdk-solid';
 import { type Component, createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { profilePhotoUrl } from '@/entities/user/index.js';
@@ -7,7 +7,28 @@ import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const BottomNav: Component = () => {
-	const location = useLocation();
+	let routerLocation: ReturnType<typeof useLocation> | null = null;
+	let routerNavigate: ReturnType<typeof useNavigate> | null = null;
+	try {
+		routerLocation = useLocation();
+		routerNavigate = useNavigate();
+	} catch {
+		routerLocation = null;
+		routerNavigate = null;
+	}
+	const [hashPath, setHashPath] = createSignal(
+		typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') || '/' : '/',
+	);
+	const currentPath = () => routerLocation?.pathname || hashPath() || '/';
+	const safeGo = (href: string, e: MouseEvent) => {
+		e.preventDefault();
+		haptic.selection();
+		if (routerNavigate) {
+			routerNavigate(href);
+		} else if (typeof window !== 'undefined') {
+			window.location.hash = `#${href}`;
+		}
+	};
 	const user = () => initData.user() as any;
 	const [imgError, setImgError] = createSignal(false);
 	const [navVisible, setNavVisible] = createSignal(true);
@@ -46,15 +67,21 @@ export const BottomNav: Component = () => {
 	};
 
 	createEffect(() => {
+		currentPath();
 		profilePhotoUrl();
 		user();
 		setImgError(false);
 		setFallbackAttempted(false);
+		setNavVisible(true);
 	});
 
 	onMount(() => {
 		let lastScrollY = window.scrollY || 0;
 		let scrollTimeout: any = null;
+		const onHashChange = () => {
+			setHashPath(window.location.hash.replace(/^#/, '') || '/');
+		};
+		window.addEventListener('hashchange', onHashChange);
 
 		const handleScroll = (e?: Event) => {
 			const target = e?.target as HTMLElement | Document;
@@ -102,13 +129,15 @@ export const BottomNav: Component = () => {
 
 		onCleanup(() => {
 			window.removeEventListener('scroll', handleScroll);
+			window.removeEventListener('hashchange', onHashChange);
 			if (scrollTimeout) clearTimeout(scrollTimeout);
 		});
 	});
 
 	const isActive = (path: string) => {
-		if (path === '/') return location.pathname === '/';
-		return location.pathname === path || location.pathname.startsWith(`${path}/`);
+		const p = currentPath();
+		if (path === '/') return p === '/';
+		return p === path || p.startsWith(`${path}/`);
 	};
 
 	return (
@@ -126,9 +155,9 @@ export const BottomNav: Component = () => {
 				class="flex-1 backdrop-blur-2xl rounded-[28px] shadow-[0_16px_50px_rgba(0,0,0,0.85)] flex items-center justify-between px-2 py-1.5 border h-16 transition-all bg-[#0D0F17]/95 border-white/15 hover:border-white/25"
 				dir="ltr"
 			>
-				<A
-					href="/"
-					onClick={() => haptic.selection()}
+				<a
+					href="#/"
+					onClick={(e) => safeGo('/', e)}
 					class={`flex-1 h-13 rounded-[20px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/')
 							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/35 shadow-sm scale-102'
@@ -144,11 +173,11 @@ export const BottomNav: Component = () => {
 					<span class="text-[10px] font-black tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 leading-tight">
 						{t('bottomNav.home')}
 					</span>
-				</A>
+				</a>
 
-				<A
-					href="/investors"
-					onClick={() => haptic.selection()}
+				<a
+					href="#/investors"
+					onClick={(e) => safeGo('/investors', e)}
 					class={`flex-1 h-13 rounded-[20px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/investors') || isActive('/dashboard')
 							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/35 shadow-sm scale-102'
@@ -167,11 +196,11 @@ export const BottomNav: Component = () => {
 					<span class="text-[10px] font-bold tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 leading-tight">
 						{t('bottomNav.dashboard')}
 					</span>
-				</A>
+				</a>
 
-				<A
-					href="/leaderboard"
-					onClick={() => haptic.selection()}
+				<a
+					href="#/leaderboard"
+					onClick={(e) => safeGo('/leaderboard', e)}
 					class={`flex-1 h-13 rounded-[20px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/leaderboard')
 							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/35 shadow-sm scale-102'
@@ -181,8 +210,7 @@ export const BottomNav: Component = () => {
 					<span
 						class="material-symbols-outlined text-[22px]"
 						style={{
-							'font-variation-settings':
-								isActive('/leaderboard') ? '"FILL" 1' : '"FILL" 0',
+							'font-variation-settings': isActive('/leaderboard') ? '"FILL" 1' : '"FILL" 0',
 						}}
 					>
 						leaderboard
@@ -190,14 +218,13 @@ export const BottomNav: Component = () => {
 					<span class="text-[10px] font-bold tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 leading-tight">
 						{t('bottomNav.leaderboard')}
 					</span>
-				</A>
-
+				</a>
 			</div>
 
 			{/* Profile Link */}
-			<A
-				href="/profile"
-				onClick={() => haptic.selection()}
+			<a
+				href="#/profile"
+				onClick={(e) => safeGo('/profile', e)}
 				aria-label={t('bottomNav.profile')}
 				class={`flex flex-col items-center cursor-pointer transition-all shrink-0 ${isActive('/profile') ? 'scale-105' : 'hover:scale-102'}`}
 			>
@@ -212,7 +239,9 @@ export const BottomNav: Component = () => {
 						when={avatarUrl()}
 						fallback={
 							<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#10b981] text-white font-black text-lg">
-								{user()?.first_name ? user()?.first_name?.[0]?.toUpperCase() : 'U'}
+								{user()?.firstName || user()?.first_name
+									? (user()?.firstName || user()?.first_name)?.[0]?.toUpperCase()
+									: 'U'}
 							</div>
 						}
 					>
@@ -234,7 +263,7 @@ export const BottomNav: Component = () => {
 						/>
 					</Show>
 				</div>
-			</A>
+			</a>
 		</nav>
 	);
 };

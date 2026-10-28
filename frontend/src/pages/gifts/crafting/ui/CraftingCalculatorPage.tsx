@@ -69,7 +69,8 @@ export const CraftingCalculatorPage: Component = () => {
 				err?.response?.data?.error ||
 					err?.response?.data?.message ||
 					err?.message ||
-					(t('common.error') || 'Error calculating crafting EV. All items must belong to the same collection.'),
+					t('common.error') ||
+					'Error calculating crafting EV. All items must belong to the same collection.',
 			);
 		},
 	}));

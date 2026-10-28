@@ -322,14 +322,34 @@ func (c *Client) GetGiftsOnSale(ctx context.Context, params GiftFilterParams) (*
 	if params.Model != "" {
 		q.Set("model", params.Model)
 	}
+	for _, m := range params.Models {
+		if m != "" {
+			q.Add("models", m)
+		}
+	}
 	if params.Symbol != "" {
 		q.Set("symbol", params.Symbol)
+	}
+	for _, s := range params.Symbols {
+		if s != "" {
+			q.Add("symbols", s)
+		}
 	}
 	if params.Backdrop != "" {
 		q.Set("backdrop", params.Backdrop)
 	}
+	for _, b := range params.Backdrops {
+		if b != "" {
+			q.Add("backdrops", b)
+		}
+	}
 	if params.CollectionAddress != "" {
 		q.Set("collection_address", params.CollectionAddress)
+	}
+	for _, cAddr := range params.CollectionsList {
+		if cAddr != "" {
+			q.Add("collections_list", cAddr)
+		}
 	}
 	if params.ItemNumFrom != nil {
 		q.Set("item_num_from", strconv.Itoa(*params.ItemNumFrom))

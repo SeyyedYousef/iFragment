@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -64,6 +65,9 @@ func (s *CryptoPriceService) fetchGramTokenPrice(ctx context.Context) (float64, 
 	tonApiURL := fmt.Sprintf("https://tonapi.io/v2/rates?tokens=%s&currencies=usd,ton", GramJettonMasterAddr)
 	if req, err := http.NewRequestWithContext(ctx, "GET", tonApiURL, nil); err == nil {
 		req.Header.Set("User-Agent", "iFragment/2.0")
+		if apiKey := os.Getenv("TONAPI_KEY"); apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
 		if resp, hErr := s.httpClient.Do(req); hErr == nil && resp.StatusCode == http.StatusOK {
 			var parsed struct {
 				Rates map[string]struct {

@@ -164,6 +164,15 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 						>
 							Getgems
 						</button>
+						<button
+							type="button"
+							onClick={() => props.onVenueChange('marketapp')}
+							class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+								props.venue === 'marketapp' ? 'bg-[#0098EA] text-white shadow-sm' : 'text-white/40'
+							}`}
+						>
+							Marketapp
+						</button>
 					</div>
 
 					{/* Listing Type Filter */}

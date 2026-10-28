@@ -121,8 +121,11 @@ func GetRealIP(r *http.Request) string {
 		remoteIP = r.RemoteAddr
 	}
 
-	// Only trust headers if direct RemoteIP is loopback or in TRUSTED_PROXIES list
-	isTrusted := remoteIP == "127.0.0.1" || remoteIP == "::1"
+	// Trust loopback and local Docker/private bridge IPs by default (matching handler.ClientIP), or explicit TRUSTED_PROXIES
+	isTrusted := remoteIP == "127.0.0.1" || remoteIP == "::1" ||
+		strings.HasPrefix(remoteIP, "10.") ||
+		strings.HasPrefix(remoteIP, "192.168.") ||
+		strings.HasPrefix(remoteIP, "172.")
 	if !isTrusted {
 		proxiesStr := os.Getenv("TRUSTED_PROXIES")
 		if proxiesStr == "*" {

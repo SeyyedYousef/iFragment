@@ -1,16 +1,82 @@
-import { type Component, createSignal, For } from 'solid-js';
+import { type Component, createMemo, createSignal, For } from 'solid-js';
+import type {
+	NumberPatternAnalytics,
+	NumbersInstitutionalCollectionOverview,
+} from '@/entities/numbers/model/types.js';
 import { layaT, NUMBER_CLUB_TIERS, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
+	patterns?: NumberPatternAnalytics[];
+	overview?: NumbersInstitutionalCollectionOverview;
+	rate?: number;
 	onSelectNumber?: (num: string) => void;
 }
 
 export const NumberClubFloorsTracker: Component<Props> = (props) => {
 	const [activeClub, setActiveClub] = createSignal<string>('genesis_4digit');
 
-	const current = () =>
-		NUMBER_CLUB_TIERS.find((c) => c.id === activeClub()) || NUMBER_CLUB_TIERS[0];
+	const liveTiers = createMemo(() => {
+		const rateUsd = props.overview?.ton_usd_rate || props.rate || 1.23;
+		const baseFloorTon = props.overview?.floor_ask_ton || 2717;
+		const patternsList = props.patterns || [];
+
+		const findPattern = (keys: string[]) => patternsList.find((p) => keys.includes(p.pattern_key));
+
+		return NUMBER_CLUB_TIERS.map((tier) => {
+			let floorTonNum = Number.parseFloat(tier.floorTon.replace(/,/g, '')) || baseFloorTon;
+			let topSaleTonNum = tier.topSaleTon;
+			let sampleNum = tier.sampleNumber;
+
+			if (tier.id === 'genesis_4digit') {
+				const p = findPattern(['genesis_4digit']);
+				floorTonNum = p?.floor_nano_ton
+					? Math.round(p.floor_nano_ton / 1e9)
+					: Math.round(baseFloorTon * 14.5);
+				topSaleTonNum = p?.p75_sale_nano_ton
+					? Math.max(666666, Math.round(p.p75_sale_nano_ton / 1e9))
+					: 666666;
+			} else if (tier.id === 'monodigit_8digit') {
+				const p = findPattern(['grail_mono']);
+				floorTonNum = p?.floor_nano_ton
+					? Math.round(p.floor_nano_ton / 1e9)
+					: Math.round(baseFloorTon * 65);
+				topSaleTonNum = p?.p75_sale_nano_ton
+					? Math.max(300000, Math.round(p.p75_sale_nano_ton / 1e9))
+					: 300000;
+			} else if (tier.id === 'repeating_block') {
+				const p = findPattern(['quad_tail', 'triple_tail']);
+				floorTonNum = p?.floor_nano_ton
+					? Math.round(p.floor_nano_ton / 1e9)
+					: Math.round(baseFloorTon * 3.15);
+			} else if (tier.id === 'palindrome_mirror') {
+				const p = findPattern(['palindrome_8d', 'binary_dual']);
+				floorTonNum = p?.floor_nano_ton
+					? Math.round(p.floor_nano_ton / 1e9)
+					: Math.round(baseFloorTon * 1.92);
+			} else if (tier.id === 'sequential_ladder') {
+				const p = findPattern(['ascending_seq', 'standard_8d']);
+				floorTonNum = p?.floor_nano_ton
+					? Math.round(p.floor_nano_ton / 1e9)
+					: Math.round(baseFloorTon * 1.55);
+				if (props.overview?.floor_number && tier.id === 'sequential_ladder') {
+					sampleNum = tier.sampleNumber;
+				}
+			}
+
+			const floorUsdNum = Math.round(floorTonNum * rateUsd);
+
+			return {
+				...tier,
+				floorTon: floorTonNum.toLocaleString('en-US'),
+				floorUsd: floorUsdNum.toLocaleString('en-US'),
+				topSaleTon: topSaleTonNum,
+				sampleNumber: sampleNum,
+			};
+		});
+	});
+
+	const current = () => liveTiers().find((c) => c.id === activeClub()) || liveTiers()[0];
 
 	return (
 		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden mb-4">
@@ -30,13 +96,13 @@ export const NumberClubFloorsTracker: Component<Props> = (props) => {
 					</div>
 				</div>
 				<span class="text-[9px] font-mono font-black text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md">
-					5 CORE TIERS
+					5 LIVE TIERS
 				</span>
 			</div>
 
 			{/* Horizontal Club Tabs */}
 			<div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
-				<For each={NUMBER_CLUB_TIERS}>
+				<For each={liveTiers()}>
 					{(club) => {
 						const isSelected = () => club.id === activeClub();
 						return (

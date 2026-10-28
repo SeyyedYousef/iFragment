@@ -2,10 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { backButton, initData, openTelegramLink } from '@tma.js/sdk-solid';
 import { type Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import {
-	getGroupLeaderboard,
-	type GroupLeaderboardEntry,
-} from '@/entities/user/index.js';
+import { type GroupLeaderboardEntry, getGroupLeaderboard } from '@/entities/user/index.js';
 import { buildAvatarUrl } from '@/shared/api/config.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -69,10 +66,10 @@ export const LeaderboardPage: Component = () => {
 
 	const formatScore = (val: number): string => {
 		if (val >= 1_000_000) {
-			return (val / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+			return `${(val / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
 		}
 		if (val >= 1_000) {
-			return (val / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+			return `${(val / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
 		}
 		return (val || 0).toLocaleString();
 	};
@@ -97,7 +94,11 @@ export const LeaderboardPage: Component = () => {
 		}
 	};
 
-	const resolveAvatarUrl = (entry?: { photo_url?: string | null; username?: string | null; user_id?: number | null }) => {
+	const resolveAvatarUrl = (entry?: {
+		photo_url?: string | null;
+		username?: string | null;
+		user_id?: number | null;
+	}) => {
 		if (!entry) return '';
 		const p = entry.photo_url?.trim();
 		if (p) {
@@ -115,14 +116,16 @@ export const LeaderboardPage: Component = () => {
 
 	const handleAvatarError = (
 		e: Event & { currentTarget: HTMLImageElement },
-		entry?: { user_id?: number | null; username?: string | null }
+		entry?: { user_id?: number | null; username?: string | null },
 	) => {
 		if (!entry) {
 			e.currentTarget.style.display = 'none';
 			return;
 		}
 		const current = e.currentTarget.src;
-		const avatarApi = entry.user_id ? buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`) : '';
+		const avatarApi = entry.user_id
+			? buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`)
+			: '';
 		const u = entry.username?.replace('@', '').trim();
 		const telegramCdn = u ? `https://t.me/i/userpic/320/${u}.jpg` : '';
 
@@ -242,8 +245,6 @@ export const LeaderboardPage: Component = () => {
 					</button>
 				</div>
 
-
-
 				{/* Feature 1: Physical 3D Tiered Pedestals Podium Stage */}
 				<Show
 					when={!leaderboardQuery.isLoading && !leaderboardQuery.isError}
@@ -252,7 +253,9 @@ export const LeaderboardPage: Component = () => {
 							when={!leaderboardQuery.isError}
 							fallback={
 								<div class="h-44 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#0D111E]/70 border border-rose-500/25 p-4 text-center">
-									<span class="material-symbols-outlined text-rose-400 text-3xl">error_outline</span>
+									<span class="material-symbols-outlined text-rose-400 text-3xl">
+										error_outline
+									</span>
 									<span class="text-white/70 text-xs font-bold">{t('leaderboard.loadError')}</span>
 									<button
 										type="button"
@@ -330,7 +333,9 @@ export const LeaderboardPage: Component = () => {
 										{/* Stepped Silver Block */}
 										<div class="w-full h-20 rounded-t-2xl bg-gradient-to-b from-[#1E2433] to-[#0D1117] border-t-2 border-slate-400/40 border-x border-slate-400/20 mt-3 flex flex-col items-center justify-center shadow-lg">
 											<span class="text-slate-400/60 font-black text-2xl font-mono">2</span>
-											<span class="text-[10px] text-white/30 font-bold">{t('leaderboard.emptySlot')}</span>
+											<span class="text-[10px] text-white/30 font-bold">
+												{t('leaderboard.emptySlot')}
+											</span>
 										</div>
 									</div>
 								}
@@ -456,7 +461,9 @@ export const LeaderboardPage: Component = () => {
 										{/* Stepped Bronze Block */}
 										<div class="w-full h-15 rounded-t-2xl bg-gradient-to-b from-[#251A10] to-[#0D1117] border-t-2 border-amber-700/50 border-x border-amber-800/20 mt-3 flex flex-col items-center justify-center shadow-lg">
 											<span class="text-amber-600/60 font-black text-2xl font-mono">3</span>
-											<span class="text-[10px] text-white/30 font-bold">{t('leaderboard.emptySlot')}</span>
+											<span class="text-[10px] text-white/30 font-bold">
+												{t('leaderboard.emptySlot')}
+											</span>
 										</div>
 									</div>
 								}
@@ -514,7 +521,6 @@ export const LeaderboardPage: Component = () => {
 					</Show>
 				</Show>
 
-
 				{/* Section Header: Ranks 4 to 100 */}
 				<div class="flex items-center justify-between pt-1 px-1">
 					<div class="flex items-center gap-2">
@@ -524,7 +530,9 @@ export const LeaderboardPage: Component = () => {
 						</h2>
 					</div>
 					<span class="text-[10px] font-bold text-white/45 px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10">
-						{activeTab() === 'messages' ? t('leaderboard.messagesUnit') : t('leaderboard.boostsUnit')}
+						{activeTab() === 'messages'
+							? t('leaderboard.messagesUnit')
+							: t('leaderboard.boostsUnit')}
 					</span>
 				</div>
 
@@ -547,7 +555,8 @@ export const LeaderboardPage: Component = () => {
 								(currentUser()?.id && Number(entry.user_id) === Number(currentUser()?.id)) ||
 								(myStats()?.user_id && Number(entry.user_id) === Number(myStats()?.user_id));
 							const isHighlighted = () =>
-								highlightedUserId() !== null && Number(highlightedUserId()) === Number(entry.user_id);
+								highlightedUserId() !== null &&
+								Number(highlightedUserId()) === Number(entry.user_id);
 							return (
 								<div
 									id={`leaderboard-row-${entry.user_id}`}
@@ -644,7 +653,8 @@ export const LeaderboardPage: Component = () => {
 
 					const rankBorderColor = () => {
 						if (user().rank === 1) return 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.4)]';
-						if (user().rank === 2) return 'border-slate-300 shadow-[0_0_20px_rgba(148,163,184,0.3)]';
+						if (user().rank === 2)
+							return 'border-slate-300 shadow-[0_0_20px_rgba(148,163,184,0.3)]';
 						if (user().rank === 3) return 'border-amber-600 shadow-[0_0_20px_rgba(180,83,9,0.3)]';
 						return 'border-[#2AABEE] shadow-[0_0_20px_rgba(42,171,238,0.3)]';
 					};
@@ -652,10 +662,7 @@ export const LeaderboardPage: Component = () => {
 					return (
 						<div class="fixed inset-0 z-[120] flex items-end justify-center bg-black/75 backdrop-blur-md animate-fadeIn">
 							{/* Backdrop Click Dismiss */}
-							<div
-								class="absolute inset-0"
-								onClick={() => setSelectedUser(null)}
-							/>
+							<div class="absolute inset-0" onClick={() => setSelectedUser(null)} />
 
 							{/* Drawer Content */}
 							<div
@@ -678,7 +685,9 @@ export const LeaderboardPage: Component = () => {
 
 								{/* User Hero Banner */}
 								<div class="flex items-center gap-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5">
-									<div class={`w-16 h-16 rounded-full border-2 ${rankBorderColor()} overflow-hidden bg-[#151926] relative shrink-0`}>
+									<div
+										class={`w-16 h-16 rounded-full border-2 ${rankBorderColor()} overflow-hidden bg-[#151926] relative shrink-0`}
+									>
 										<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2AABEE] to-[#0066FF] text-white font-black text-xl select-none">
 											{(user().first_name || user().username || 'U')[0].toUpperCase()}
 										</div>

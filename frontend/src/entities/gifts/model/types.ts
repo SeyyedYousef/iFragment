@@ -21,8 +21,12 @@ export interface TraitDNABar {
 	label_fa: string;
 	value: string;
 	percentile: number;
+	original_percentile?: number;
 	rarity_tier: string;
 	certainty_level: 'exact' | 'measured' | 'estimated';
+	image_url?: string;
+	floor_gram?: number;
+	floor_usd?: number;
 	colors?: {
 		center_hex: string;
 		edge_hex: string;
@@ -133,6 +137,8 @@ export interface ComparableGiftSale {
 	backdrop_name: string;
 	diff_percent: number;
 	tonviewer_url: string;
+	image_url?: string;
+	trait_match_type?: 'exact_model' | 'exact_backdrop' | 'collection_floor' | 'same_gift_history';
 }
 
 export interface RiskItem {
@@ -253,7 +259,11 @@ export interface GiftValuationReport {
 export interface UnifiedFloorBoardItem {
 	model_id: string;
 	name: string;
+	gift_slug?: string;
+	norm_slug?: string;
+	gift_name?: string;
 	total_supply: number;
+	upgraded_supply?: number;
 	best_floor_gram: number;
 	best_floor_usd: number;
 	best_venue_id: string;
@@ -261,11 +271,20 @@ export interface UnifiedFloorBoardItem {
 	price_change_24h_pct: number;
 	venue_floors: Record<string, number>;
 	has_real_volume_badge: boolean;
+	arbitrage_pct?: number;
+	spread_gram?: number;
+	cheapest_serial?: number;
+	buy_url?: string;
+	image_url?: string;
+	volume_24h_gram?: number;
+	active_listings_count?: number;
 }
 
 export interface ArbitrageOpportunity {
 	model_id: string;
 	model_name: string;
+	gift_slug?: string;
+	gift_name?: string;
 	buy_venue: string;
 	buy_price_gram: number;
 	sell_venue: string;
@@ -273,7 +292,11 @@ export interface ArbitrageOpportunity {
 	net_profit_gram: number;
 	net_profit_usd: number;
 	spread_percent: number;
+	roi_pct?: number;
 	is_free_access: boolean;
+	buy_url?: string;
+	image_url?: string;
+	cheapest_serial?: number;
 }
 
 export interface UpgradeClockItem {
@@ -288,26 +311,60 @@ export interface UpgradeClockItem {
 export interface TrendingModelItem {
 	model_id: string;
 	name: string;
+	gift_slug?: string;
+	gift_name?: string;
+	model_name?: string;
 	volume_growth_24h_pct: number;
 	floor_gram: number;
+	floor_usd?: number;
 	is_crafted: boolean;
+	image_url?: string;
+	buy_url?: string;
+	sales_velocity_24h?: number;
 }
 
 export interface GiftAuctionItem {
 	gift_id: string;
+	slug?: string;
 	model_name: string;
+	gift_name?: string;
 	serial_number: number;
 	current_bid_gram: number;
+	current_bid_usd?: number;
+	collection_floor_gram?: number;
+	discount_vs_floor_pct?: number;
 	ends_at: string;
+	remaining_seconds?: number;
 	venue: string;
+	bid_url?: string;
+	image_url?: string;
 }
 
 export interface MacroHistoryPoint {
 	timestamp: string;
+	date?: string;
 	mcap_usd: number;
 	mcap_gram: number;
 	volume_usd: number;
 	volume_gram: number;
+	open_usd?: number;
+	high_usd?: number;
+	low_usd?: number;
+	close_usd?: number;
+}
+
+export interface GlobalGiftCatalogItem {
+	slug: string;
+	collectionSlug: string;
+	name: string;
+	serialNumber: number;
+	priceGram: number;
+	priceUsd: number;
+	status: 'sale' | 'auction' | 'sold';
+	imageUrl: string;
+	fragmentUrl: string;
+	isoTimestamp: string;
+	relativeTime: string;
 }
 
 export interface GiftsIntelResponse {
@@ -328,11 +385,23 @@ export interface GiftsIntelResponse {
 	trending_models: TrendingModelItem[];
 	ending_soon_auctions: GiftAuctionItem[];
 	arbitrage_matrix?: ArbitrageOpportunity[];
+	global_recent_sales?: GlobalGiftCatalogItem[];
+	global_new_listings?: GlobalGiftCatalogItem[];
 	macro_stats?: {
 		total_unique_models?: number;
 		total_patterns?: number;
 		total_backdrops?: number;
 		upgradable_gifts?: number;
+		total_collections?: number;
+		upgradable_collections?: number;
+		total_upgraded_onchain?: number;
+		market_cap_change_24h_pct?: number;
+		volume_24h_gram?: number;
+		volume_24h_usd?: number;
+		volume_change_24h_pct?: number;
+		sales_24h_count?: number;
+		market_dominance_top3?: string[];
+		market_regime?: string;
 	};
 	macro_history?: MacroHistoryPoint[];
 	data_source_attribution?: string;
@@ -379,8 +448,11 @@ export interface CollectionModelFloor {
 	model_id: string;
 	model_name: string;
 	rarity_permille: number;
+	rarity_pct?: number;
 	total_supply: number;
 	upgraded_count: number;
+	minted_count?: number;
+	listed_count?: number;
 	floor_gram: number;
 	floor_usd: number;
 	/** Backend may not send these — they come from live enrichment only */
@@ -390,6 +462,10 @@ export interface CollectionModelFloor {
 	volume_24h_gram?: number;
 	is_trending?: boolean;
 	custom_emoji_id?: string;
+	image_url?: string;
+	buy_url?: string;
+	cheapest_serial?: number;
+	premium_vs_base_pct?: number;
 }
 
 export interface RarityHeatmapCell {
@@ -498,16 +574,22 @@ export interface SymbolSummary {
 
 export interface FloorItemSummary {
 	rank: number;
+	slug?: string;
 	serial_number: number;
 	model_name: string;
+	model_rarity_pct?: number;
 	symbol_name: string;
+	symbol_rarity_pct?: number;
 	backdrop_name: string;
+	backdrop_rarity_pct?: number;
 	center_hex?: string;
 	edge_hex?: string;
 	price_gram: number;
 	price_usd: number;
 	venue_name: string;
 	buy_url?: string;
+	image_url?: string;
+	owner_address?: string;
 }
 
 export interface MarketSalesSourceBreakdown {
@@ -563,9 +645,12 @@ export interface SalesHistoryItem {
 	venue_name: string;
 	sale_date: string;
 	tx_hash?: string;
+	buy_url?: string;
+	image_url?: string;
 }
 
 export interface CatalogSearchItem {
+	slug?: string;
 	serial_number: number;
 	model_name: string;
 	symbol_name: string;
@@ -577,6 +662,8 @@ export interface CatalogSearchItem {
 	price_usd?: number;
 	venue_name?: string;
 	rarity_score: number;
+	buy_url?: string;
+	image_url?: string;
 }
 
 export interface CollectionIntelResponse {
@@ -739,6 +826,161 @@ export interface BackdropColors {
 	text_hex: string;
 }
 
+export interface TraitActiveListingItem {
+	gift_id: string;
+	serial_number: number;
+	price_gram: number;
+	price_usd: number;
+	trait_axis: 'collection' | 'model' | 'backdrop' | 'symbol';
+	trait_value: string;
+	image_url: string;
+	fragment_url: string;
+	status: 'for_sale' | 'auction';
+}
+
+export interface TraitFloorMatrix {
+	collection_floor_gram: number;
+	collection_floor_usd: number;
+	collection_second_floor_gram: number;
+	collection_floor_serial: number;
+	collection_floor_url: string;
+	model_name: string;
+	model_rarity_pct: number;
+	model_floor_gram: number;
+	model_floor_usd: number;
+	model_second_floor_gram: number;
+	model_floor_serial: number;
+	model_floor_url: string;
+	model_active_count: number;
+	model_median_sale_gram: number;
+	model_is_vanity_ask: boolean;
+	backdrop_name: string;
+	backdrop_rarity_pct: number;
+	backdrop_floor_gram: number;
+	backdrop_floor_usd: number;
+	backdrop_second_floor_gram: number;
+	backdrop_floor_serial: number;
+	backdrop_floor_url: string;
+	backdrop_active_count: number;
+	backdrop_median_sale_gram: number;
+	backdrop_is_vanity_ask: boolean;
+	symbol_name: string;
+	symbol_rarity_pct: number;
+	symbol_floor_gram: number;
+	symbol_floor_usd: number;
+	symbol_floor_serial: number;
+	symbol_floor_url: string;
+	symbol_active_count: number;
+	dominant_floor_driver: 'collection' | 'model' | 'backdrop' | 'symbol' | 'serial_grail';
+	effective_liquid_floor_gram: number;
+	effective_liquid_floor_usd: number;
+	driver_explanation_fa: string;
+	driver_explanation_en: string;
+}
+
+export interface GiftOwnerPortfolioItem {
+	nft_address: string;
+	name: string;
+	gift_id?: string;
+	collection_name: string;
+	image_url: string;
+	tonviewer_url: string;
+}
+
+export interface GiftOwnerIntelligence {
+	owner_display: string;
+	owner_ton_domain?: string;
+	owner_telegram_handle?: string;
+	owner_wallet_address?: string;
+	wallet_balance_ton?: number;
+	wallet_balance_usd?: number;
+	total_nfts_count: number;
+	telegram_gifts_held_count: number;
+	same_collection_held_count: number;
+	whale_tier: 'MEGA_WHALE' | 'COLLECTOR_WHALE' | 'SHARK' | 'DOLPHIN' | 'HOLDER';
+	whale_tier_fa: string;
+	other_gifts_sample: GiftOwnerPortfolioItem[];
+	is_on_fragment_sale: boolean;
+	live_listing_price_gram?: number;
+	live_listing_type?: 'sale' | 'auction' | 'not_for_sale';
+}
+
+export interface CraftedModelInfo {
+	name: string;
+	rarity: 'legendary' | 'epic' | 'rare' | 'uncommon' | string;
+	rarity_permille: number;
+	image_url: string;
+}
+
+export interface GiftCraftingForgeIntel {
+	is_craftable_collection: boolean;
+	crafted_models_count: number;
+	crafted_models: CraftedModelInfo[];
+	is_this_gift_crafted_model: boolean;
+	burn_candidate_verdict: 'DO_NOT_BURN_PREMIUM' | 'SAFE_BURN_FLOOR' | 'NOT_CRAFTABLE';
+	burn_candidate_reason_fa: string;
+	forge_input_cost_4x_gram: number;
+	forge_input_cost_4x_usd: number;
+}
+
+export interface GiftBinaryForensics {
+	collection_contract_id: string;
+	custom_emoji_id: string;
+	released_at?: string;
+	upgradable_at?: string;
+	issued_count: number;
+	total_supply_count: number;
+	upgraded_percentage: number;
+	lottie_url: string;
+	webp_url: string;
+	tme_nft_url: string;
+	fragment_url: string;
+	metadata_json_url: string;
+	wallpaper_colors: string[];
+	auction_last_lt?: string;
+	tep62_standard: string;
+	mtproto_constructor: string;
+}
+
+export interface TraitCatalogOption {
+	name: string;
+	rarity_pct: number;
+	original_rarity_pct?: number;
+	burn_delta_pct?: number;
+	estimated_floor_gram?: number;
+	image_url?: string;
+	center_hex?: string;
+	edge_hex?: string;
+	pattern_hex?: string;
+	text_hex?: string;
+}
+
+export interface SameSerialSiblingItem {
+	gift_id: string;
+	collection_slug: string;
+	collection_name: string;
+	serial_number: number;
+	collection_floor_gram: number;
+	estimated_serial_value_gram: number;
+	estimated_serial_value_usd: number;
+	image_url: string;
+	tme_nft_url: string;
+}
+
+export interface DealThermometerData {
+	liquidation_bid_gram: number;
+	collection_floor_gram: number;
+	trait_liquid_floor_gram: number;
+	fair_value_gram: number;
+	optimal_ask_gram: number;
+	live_listing_gram?: number;
+	discount_vs_fair_pct?: number;
+	spread_bid_ask_pct: number;
+	deal_rating: 'SNIPE_OPPORTUNITY' | 'FAIR_MARKET' | 'PREMIUM_GRAIL' | 'VANITY_OVERPRICED';
+	deal_rating_fa: string;
+	execution_advice_fa: string;
+}
+
 export interface EnrichedGiftReport extends GiftValuationReport {
 	rarity_score: number;
 	rarity_rank: number;
@@ -752,6 +994,18 @@ export interface EnrichedGiftReport extends GiftValuationReport {
 	upgrade_info?: GiftUpgradeInfo;
 	serial_intel?: SerialIntel;
 	backdrop_colors?: BackdropColors;
+	floor_matrix?: TraitFloorMatrix;
+	trait_active_listings?: TraitActiveListingItem[];
+	owner_intelligence?: GiftOwnerIntelligence;
+	crafting_forge?: GiftCraftingForgeIntel;
+	binary_forensics?: GiftBinaryForensics;
+	same_serial_siblings?: SameSerialSiblingItem[];
+	deal_thermometer?: DealThermometerData;
+	collection_catalog?: {
+		models: TraitCatalogOption[];
+		backdrops: TraitCatalogOption[];
+		symbols: TraitCatalogOption[];
+	};
 }
 
 export type SerialCategory =
@@ -775,12 +1029,17 @@ export interface SerialClassification {
 
 export interface CollectionSummaryItem {
 	slug: string;
+	norm_slug?: string;
 	name: string;
 	image_url?: string;
+	thumb_url?: string;
+	contract_id?: string;
 	total_supply: number;
 	floor_gram: number;
+	floor_usd?: number;
 	volume_24h_gram?: number;
 	price_change_24h_pct?: number;
 	holders_count?: number;
 	upgraded_count?: number;
+	has_live_floor?: boolean;
 }

@@ -6,11 +6,14 @@ func SecurityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Content-Security-Policy",
-			"default-src 'self'; script-src 'self' https://telegram.org; "+
-				"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; "+
-				"connect-src 'self' https://api.ifragment.app https://*.sslip.io https://*.tonapi.io https://bridge.tonapi.io wss://*.tonconnect.org https://*.cloudflare.com")
+			"default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; "+
+				"script-src 'self' 'unsafe-inline' https://telegram.org https://*.telegram.org; "+
+				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "+
+				"font-src 'self' data: https://fonts.gstatic.com; "+
+				"img-src 'self' data: https:; "+
+				"connect-src 'self' https://api.ifragment.app https://*.sslip.io https://*.tonapi.io https://bridge.tonapi.io wss://*.tonconnect.org https://*.cloudflare.com; "+
+				"frame-ancestors 'self' https://web.telegram.org https://*.telegram.org")
 		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 		h.Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")

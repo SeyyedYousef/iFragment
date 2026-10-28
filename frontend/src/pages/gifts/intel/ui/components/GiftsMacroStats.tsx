@@ -56,13 +56,14 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 	const macroSections = (): MacroSection[] => [
 		{
 			title: layaT(GIFTS_MACRO_I18N.supplyAndAssets),
-			badge: 'api.changes.tg',
+			badge: 'api.changes.tg + fragment.com',
 			items: [
 				{
-					label: t('gifts.totalGiftsCount') || 'Total Gifts',
+					label: t('gifts.totalGiftsCount') || 'Total Collections',
 					value:
-						props.data?.total_gifts_minted && props.data.total_gifts_minted > 0
-							? props.data.total_gifts_minted.toLocaleString()
+						props.data?.macro_stats?.total_collections &&
+						props.data.macro_stats.total_collections > 0
+							? props.data.macro_stats.total_collections.toLocaleString()
 							: '151',
 					sub: 'Official Catalog Registry',
 					icon: 'inventory_2',
@@ -72,7 +73,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					value:
 						props.data?.macro_stats?.upgradable_gifts && props.data.macro_stats.upgradable_gifts > 0
 							? props.data.macro_stats.upgradable_gifts.toLocaleString()
-							: '120',
+							: '123',
 					sub: 'TEP-62 Standard',
 					icon: 'auto_awesome',
 				},
@@ -80,7 +81,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					label: t('gifts.uniqueModelsCount') || 'Unique 3D Models',
 					value: props.data?.macro_stats?.total_unique_models
 						? props.data.macro_stats.total_unique_models.toLocaleString()
-						: '7,576',
+						: '7,806',
 					sub: 'High-Poly Renderings',
 					icon: 'view_in_ar',
 				},
@@ -90,27 +91,26 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 						props.data?.macro_stats?.total_backdrops && props.data.macro_stats.total_backdrops > 0
 							? props.data.macro_stats.total_backdrops.toLocaleString()
 							: '80',
-					sub: 'Metallic & Gradient',
+					sub: '4-Hex Color Gradients',
 					icon: 'palette',
 				},
 				{
-					label: t('gifts.patternsCount') || 'Symbols & Textures',
+					label: t('gifts.patternsCount') || 'Symbols & Patterns',
 					value: props.data?.macro_stats?.total_patterns
 						? props.data.macro_stats.total_patterns.toLocaleString()
-						: '25,373',
+						: '26,065',
 					sub: 'Pattern DNA',
 					icon: 'texture',
 				},
 				{
-					label: t('gifts.circulatingGifts') || 'Circulating Supply',
+					label: t('gifts.circulatingGifts') || 'On-Chain NFTs',
 					value:
 						props.data?.total_circulating_gifts && props.data.total_circulating_gifts > 0
 							? props.data.total_circulating_gifts.toLocaleString()
-							: props.data?.total_gifts_minted && props.data.total_gifts_minted > 0
-								? props.data.total_gifts_minted.toLocaleString()
-								: layaT(GIFTS_MACRO_I18N.liveMonitoring),
-					sub: 'Circulating on TON',
+							: '1,456,753',
+					sub: 'Upgraded on Fragment',
 					icon: 'layers',
+					highlight: true,
 				},
 			],
 		},

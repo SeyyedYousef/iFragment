@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -66,8 +67,8 @@ func GetWordFrequency(word string) float64 {
 	}
 
 	// 3. Fetch from Datamuse with negative caching and circuit breaker
-	url := fmt.Sprintf("https://api.datamuse.com/words?sp=%s&max=1&md=f", word)
-	resp, err := httpClient.Get(url)
+	reqURL := fmt.Sprintf("https://api.datamuse.com/words?sp=%s&max=1&md=f", url.QueryEscape(word))
+	resp, err := httpClient.Get(reqURL)
 	if err != nil {
 		cacheMutex.Lock()
 		wordCache[word] = 0
@@ -187,8 +188,8 @@ func GetDictionaryDetails(word string) DictionaryDetails {
 		return res
 	}
 
-	url := fmt.Sprintf("https://api.datamuse.com/words?sp=%s&max=1&md=d,p", word)
-	resp, err := httpClient.Get(url)
+	reqURL := fmt.Sprintf("https://api.datamuse.com/words?sp=%s&max=1&md=d,p", url.QueryEscape(word))
+	resp, err := httpClient.Get(reqURL)
 	if err != nil {
 		return res
 	}
@@ -241,3 +242,59 @@ func GetDictionaryDetails(word string) DictionaryDetails {
 
 	return res
 }
+
+// GetDatamuseSynonyms queries Datamuse `ml=` (means-like) for real semantic synonyms
+// and prioritizes words with verified Fragment sales in HistoricalSales.
+func GetDatamuseSynonyms(word string) []SemanticCandidate {
+	word = strings.ToLower(strings.TrimSpace(word))
+	if len(word) < 3 || strings.ContainsAny(word, "0123456789_") {
+		return nil
+	}
+
+	cacheMutex.RLock()
+	isDisabled := DisableDatamuseNetwork || time.Now().Before(disabledUntil)
+	cacheMutex.RUnlock()
+	if isDisabled {
+		return nil
+	}
+
+	reqURL := fmt.Sprintf("https://api.datamuse.com/words?ml=%s&max=25", url.QueryEscape(word))
+	resp, err := httpClient.Get(reqURL)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+	var results []DatamuseResponse
+	if err := json.Unmarshal(body, &results); err != nil {
+		return nil
+	}
+
+	var withSales []SemanticCandidate
+	var withoutSales []SemanticCandidate
+	for _, r := range results {
+		w := strings.ToLower(strings.TrimSpace(r.Word))
+		if len(w) < 4 || len(w) > 15 || w == word || strings.ContainsAny(w, " -_0123456789") {
+			continue
+		}
+		if _, ok := HistoricalSales[w]; ok {
+			withSales = append(withSales, SemanticCandidate{
+				Username: w,
+				Reason:   "Verified Semantic Synonym (Fragment Sale)",
+			})
+		} else if len(withoutSales) < 4 {
+			withoutSales = append(withoutSales, SemanticCandidate{
+				Username: w,
+				Reason:   "Lexical Semantic Synonym (Datamuse)",
+			})
+		}
+	}
+	return append(withSales, withoutSales...)
+}
+

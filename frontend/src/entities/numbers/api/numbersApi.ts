@@ -11,7 +11,7 @@ export function parseNumbersFromHTML(
 	const tbody = html.split('<tbody>')[1]?.split('</tbody>')[0] || '';
 	const rowChunks = tbody.split(/<tr[^>]*>/).filter((c) => c.includes('</td>'));
 
-	const pageMatches = [...html.matchAll(/page=(\d+)/g)].map((m) => parseInt(m[1]));
+	const pageMatches = [...html.matchAll(/page=(\d+)/g)].map((m) => parseInt(m[1], 10));
 	const totalPages = pageMatches.length ? Math.max(...pageMatches) : 1;
 
 	const items: import('../model/types.js').NumberTableItem[] = [];
@@ -32,20 +32,18 @@ export function parseNumbersFromHTML(
 			suffix = rawDigits.slice(3);
 		}
 
-		let isRestricted = chunk.includes('nftitem__banned');
-		// 4-Digit Genesis numbers (8000..8999) are pristine Telemint historical assets and never restricted
-		if (suffix.length === 4 && parseInt(suffix, 10) >= 8000 && parseInt(suffix, 10) <= 8999) {
-			isRestricted = false;
-		}
+		const isRestricted = chunk.includes('nftitem__banned');
 
-		const marketMatch = chunk.match(/href="(https:\/\/(?:fragment\.com|getgems\.io)[^"]+)"/);
+		const marketMatch = chunk.match(
+			/href="(https:\/\/(?:fragment\.com|getgems\.io|marketapp\.ws|marketapp\.org)[^"]+)"/,
+		);
 		const marketUrl = marketMatch ? marketMatch[1] : `https://fragment.com/number/${suffix}`;
 
 		const tonPrices = [
 			...chunk.matchAll(/class="ton[^"]*"[^>]*><strong[^>]*>([^<]+)<\/strong>/g),
 		].map((m) => parseFloat(m[1].replace(/,/g, '')) || 0);
 		const txMatch = chunk.match(
-			/href="https:\/\/tonviewer\.com\/transaction\/([a-f0-9]+)"[^>]*>([^<]+)<\/a>/,
+			/href="https:\/\/(?:tonviewer\.com\/transaction|tonscan\.org\/tx)\/([^"]+)"[^>]*>([^<]+)<\/a>/,
 		);
 		const lastSaleDate = txMatch ? txMatch[2].trim() : 'On-Chain';
 
@@ -56,7 +54,7 @@ export function parseNumbersFromHTML(
 		let ownersCount = 1;
 		for (const td of tdMatches) {
 			if (/^\d+$/.test(td)) {
-				ownersCount = parseInt(td);
+				ownersCount = parseInt(td, 10);
 				break;
 			}
 		}
@@ -67,6 +65,8 @@ export function parseNumbersFromHTML(
 		let displayNum = `+888 ${suffix}`;
 		if (suffix.length === 8) {
 			displayNum = `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}`;
+		} else if (suffix.length === 4) {
+			displayNum = `+888 ${suffix.slice(0, 1)} ${suffix.slice(1)}`;
 		}
 
 		items.push({
@@ -78,10 +78,15 @@ export function parseNumbersFromHTML(
 			last_sale_usd: rate && rate > 0 ? Math.round(lastSaleTon * rate) : 0,
 			last_sale_date: lastSaleDate,
 			current_bid_ton: currentBidTon,
+			last_sale_tx: txMatch ? txMatch[1] : undefined,
 			owners_count: ownersCount,
 			current_owner: currentOwner,
 			is_restricted: isRestricted,
-			source: marketUrl.includes('getgems') ? 'getgems' : 'fragment',
+			source: marketUrl.includes('getgems')
+				? 'getgems'
+				: marketUrl.includes('marketapp')
+					? 'marketapp'
+					: 'fragment',
 			market_url: marketUrl,
 		});
 	}
@@ -255,7 +260,7 @@ export const numbersApi = {
 		// 1. Fetch via backend proxy first (handles caching & bypasses browser CORS)
 		try {
 			const { data } = await apiClient.get<any>('/numbers/chart-data');
-			if (data && data.data && typeof data.data === 'object' && Object.keys(data.data).length > 0) {
+			if (data?.data && typeof data.data === 'object' && Object.keys(data.data).length > 0) {
 				return data;
 			}
 		} catch {}
@@ -391,7 +396,9 @@ export const numbersApi = {
 
 	getAlertPreferences: async (): Promise<import('../model/types.js').NumberAlertPreferences> => {
 		try {
-			const { data } = await apiClient.get<import('../model/types.js').NumberAlertPreferences>('/numbers/alerts/preferences');
+			const { data } = await apiClient.get<import('../model/types.js').NumberAlertPreferences>(
+				'/numbers/alerts/preferences',
+			);
 			if (data) return data;
 		} catch {}
 		return {

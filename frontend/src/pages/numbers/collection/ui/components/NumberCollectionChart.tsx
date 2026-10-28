@@ -126,7 +126,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 	};
 
 	const fmtNum = (val?: number | null) => {
-		if (val === undefined || val === null || isNaN(val)) return '—';
+		if (val === undefined || val === null || Number.isNaN(val)) return '—';
 		return val.toLocaleString('en-US', { maximumFractionDigits: 1 });
 	};
 

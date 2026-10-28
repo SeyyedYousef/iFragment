@@ -1,4 +1,4 @@
-import { retrieveLaunchParams } from '@tma.js/sdk-solid';
+import { retrieveLaunchParams, retrieveRawInitData } from '@tma.js/sdk-solid';
 import axios, {
 	type AxiosError,
 	type AxiosInstance,
@@ -42,10 +42,15 @@ const getInitData = (): string => {
 	let initDataStr = '';
 
 	try {
-		const raw = retrieveLaunchParams().initDataRaw as string;
+		const raw = retrieveRawInitData();
 		if (raw) initDataStr = raw;
 	} catch (_e) {
-		// Ignore error
+		try {
+			const raw = (retrieveLaunchParams() as any)?.initDataRaw as string;
+			if (raw) initDataStr = raw;
+		} catch (_err) {
+			// Ignore error
+		}
 	}
 
 	if (!initDataStr) {
@@ -134,10 +139,121 @@ export const publicApi: AxiosInstance = axios.create({
 const isOwnerPath = (url?: string) => (url ? /\/owner(\/|\?|#|$)/.test(url) : false);
 let refreshPromise: Promise<string> | null = null;
 
+const MOCK_INIT_DATA_HASH = '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31';
+
+const getPreviewAuthFallbackData = (url: string): unknown | undefined => {
+	const cleanPath = url.split('?')[0].replace(/^.*\/api\/v1/, '');
+	if (cleanPath === '/intel/credits') {
+		return { balance: 5, next_expiry: null };
+	}
+	if (cleanPath === '/intel/credits/config') {
+		return {
+			credits_per_report: 1,
+			coins_per_credit: 1000,
+			packs: [
+				{ id: 'starter', credits: 3, bonus_credits: 0, stars_price: 50 },
+				{ id: 'pro', credits: 10, bonus_credits: 2, stars_price: 150, popular: true },
+				{ id: 'whale', credits: 30, bonus_credits: 10, stars_price: 400, best_value: true },
+			],
+		};
+	}
+	if (cleanPath === '/profile/stats') {
+		return {
+			telegramId: 5076130392,
+			username: 'ifragment',
+			firstName: 'iFragment',
+			lastName: 'Preview',
+			usernamesAnalyzed: 12,
+			giftsAppraised: 8,
+			daysActive: 14,
+			currentStreak: 5,
+			globalRank: 42,
+			totalTaps: 1500,
+			memberSince: '2026-01-01T00:00:00Z',
+			level: 4,
+			xp: 450,
+			xpToNextLevel: 1000,
+			isPremium: true,
+			emojiStatus: '',
+			equippedBorder: '',
+			equippedSkin: '',
+			airdropCoins: 2500,
+			creditExpiresInDays: 30,
+			energy: 1000,
+			photoUrl: '',
+			dailyTappedCoins: 0,
+			dailyTurboUsed: 0,
+			dailyFullEnergyUsed: 0,
+			valuationCredits: 5,
+			intelCredits: 5,
+		};
+	}
+	if (cleanPath === '/profile/achievements' || cleanPath === '/profile/achievements/defs') {
+		return [];
+	}
+	if (cleanPath === '/profile/referral') {
+		return { referralCode: 'IFRAGMENT', totalInvited: 0, totalEarned: 0, friends: [] };
+	}
+	if (cleanPath === '/profile/daily') {
+		return {
+			streak: 5,
+			coins_reward: 500,
+			xp_reward: 100,
+			claimed: false,
+			can_claim: true,
+			time_left_seconds: 0,
+		};
+	}
+	if (cleanPath === '/profile/daily-combo') {
+		return { is_active: false, is_claimed: false, reward: 5000 };
+	}
+	if (
+		cleanPath === '/profile/tasks' ||
+		cleanPath === '/profile/boosts' ||
+		cleanPath === '/profile/cosmetics'
+	) {
+		return [];
+	}
+	if (cleanPath === '/profile/ledger') {
+		return { events: [], nextCursor: null, hasMore: false, totalCount: 0 };
+	}
+	if (cleanPath === '/profile/assets') {
+		return {
+			reports: [],
+			properties: [],
+			projects: [],
+			boosters: {
+				multitapLevel: 1,
+				energyLimitLevel: 1,
+				tapBotLevel: 0,
+				tapBotCapHours: 12,
+			},
+			summaryText: '',
+		};
+	}
+	if (cleanPath === '/profile/sessions') {
+		return { active_sessions_count: 1, sessions: [] };
+	}
+	if (cleanPath === '/profile/wallet-expiry') {
+		return { expiring_soon: false, days_left: 30, expiring_amount: 0 };
+	}
+	if (cleanPath === '/profile/language') {
+		return { status: 'ok' };
+	}
+	if (cleanPath === '/numbers/watchlist' || cleanPath === '/gifts/watchlist') {
+		return { items: [], numbers: [], gifts: [] };
+	}
+	if (cleanPath === '/usernames/valuation-access') {
+		return { has_access: true, free_available: true, credits: 5, airdrop_coins: 2500 };
+	}
+	return undefined;
+};
+
 // Request Interceptor
 apiClient.interceptors.request.use(
 	(config: InternalAxiosRequestConfig) => {
 		const initData = getInitData();
+		const isMockInitData = initData.includes(MOCK_INIT_DATA_HASH);
 
 		// Attempt to retrieve a valid JWT token (Prefer impersonation session token if active, then owner token if administrative path, then standard user token)
 		const impersonationToken = getActiveImpersonationToken();
@@ -182,10 +298,27 @@ apiClient.interceptors.request.use(
 			}
 		}
 
+		// When running in browser/AI Studio preview with synthetic mock initData and no real JWT,
+		// do not attach the synthetic X-Telegram-Init-Data header (which production rejects with 401),
+		// and resolve user-session-only endpoints locally so market intelligence endpoints remain 100% live.
+		if (isMockInitData && !token && !isOwnerRequest && isInternalUrl) {
+			const previewData = getPreviewAuthFallbackData(url);
+			if (previewData !== undefined) {
+				config.adapter = async () => ({
+					data: previewData,
+					status: 200,
+					statusText: 'OK',
+					headers: {},
+					config,
+				});
+			}
+			return config;
+		}
+
 		// Pass Telegram InitData for authentication handshake if available
 		// IMPORTANT: Do NOT send initData during impersonation — it contains the owner's
 		// identity and would cause the backend to resolve the wrong user.
-		if (initData && isInternalUrl && !impersonationToken) {
+		if (initData && isInternalUrl && !impersonationToken && !isMockInitData) {
 			config.headers['X-Telegram-Init-Data'] = initData;
 		}
 
@@ -251,8 +384,20 @@ apiClient.interceptors.response.use(
 				(originalRequest as any)._isRetryForAuth = true;
 				try {
 					const initData = getInitData();
+					const isMockInitData = initData.includes(MOCK_INIT_DATA_HASH);
 					const failedInitData = sessionStorage.getItem('failed_init_data');
-					if (initData && initData !== failedInitData) {
+					if (isMockInitData) {
+						const fallback = getPreviewAuthFallbackData(originalRequest.url || '');
+						if (fallback !== undefined) {
+							return {
+								data: fallback,
+								status: 200,
+								statusText: 'OK',
+								headers: {},
+								config: originalRequest,
+							};
+						}
+					} else if (initData && initData !== failedInitData) {
 						if (!refreshPromise) {
 							// Use apiClient (not raw axios) so request interceptor attaches
 							// X-Telegram-Init-Data and Content-Type headers automatically
@@ -276,11 +421,9 @@ apiClient.interceptors.response.use(
 						originalRequest.headers.Authorization = `Bearer ${newToken}`;
 						return apiClient(originalRequest);
 					} else {
-						console.warn('[API] No initData available for token refresh');
 						localStorage.removeItem('jwt_token');
 					}
 				} catch (refreshErr: any) {
-					console.warn('[API] Token refresh failed, clearing session');
 					localStorage.removeItem('jwt_token');
 
 					const status = refreshErr.response?.status;
@@ -318,6 +461,14 @@ export async function bootstrapAuth(): Promise<void> {
 	const currentUserId = getUserIdFromInitData(initData);
 	const storedUserId = localStorage.getItem('tg_user_id');
 
+	// Skip token handshake in browser/preview mock mode where initData has a synthetic signature
+	if (initData.includes('89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31')) {
+		if (currentUserId) {
+			localStorage.setItem('tg_user_id', currentUserId);
+		}
+		return;
+	}
+
 	if (existingToken) {
 		let hasStartParam = false;
 		try {
@@ -329,9 +480,6 @@ export async function bootstrapAuth(): Promise<void> {
 			console.warn('[Auth] Telegram account switched on bootstrap, clearing old token');
 			localStorage.removeItem('jwt_token');
 		} else if (hasStartParam && !sessionStorage.getItem('start_param_processed')) {
-			console.log(
-				'[Auth] start_param detected on startup, forcing bootstrap to process referral/deeplink',
-			);
 			localStorage.removeItem('jwt_token');
 			sessionStorage.setItem('start_param_processed', 'true');
 		} else {

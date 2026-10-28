@@ -7,8 +7,8 @@ import {
 	CosmeticItemSchema,
 	DailyStatusSchema,
 	EmojiRewardResponseSchema,
-	LeaderboardResponseSchema,
 	GroupLeaderboardResponseSchema,
+	LeaderboardResponseSchema,
 	LedgerResponseSchema,
 	MyAssetsResponseSchema,
 	ProfileStatsSchema,
@@ -26,8 +26,8 @@ import type {
 	DailyComboStatus,
 	DailyStatus,
 	EmojiRewardResponse,
-	LeaderboardResponse,
 	GroupLeaderboardResponse,
+	LeaderboardResponse,
 	LedgerResponse,
 	MyAssetsResponse,
 	ProfileStats,
@@ -127,10 +127,7 @@ export const getGroupLeaderboard = (
 	const url = userId
 		? `/leaderboard/group?type=${type}&user_id=${userId}`
 		: `/leaderboard/group?type=${type}`;
-	return validatedFetch(
-		url,
-		GroupLeaderboardResponseSchema,
-	) as Promise<GroupLeaderboardResponse>;
+	return validatedFetch(url, GroupLeaderboardResponseSchema) as Promise<GroupLeaderboardResponse>;
 };
 
 export const getAchievementDefs = (): Promise<AchievementDef[]> =>

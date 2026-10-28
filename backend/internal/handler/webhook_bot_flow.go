@@ -1584,11 +1584,14 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 	var giftVal *gvengine.GiftValuation
 	var valuationValid bool
 
+	tonRate := h.resolveLiveTONRate(ctx)
+
 	switch assetType {
 	case "username":
 		normUser := strings.TrimPrefix(strings.ToLower(entity), "@")
 		if h.avmService != nil {
-			if vRes, err := h.avmService.Valuate(ctx, normUser, 0); err == nil && vRes != nil && vRes.ExpectedTON.GreaterThan(decimal.Zero) {
+			if vRes, err := h.avmService.Valuate(ctx, normUser, tonRate); err == nil && vRes != nil && vRes.ExpectedTON.GreaterThan(decimal.Zero) {
+				ensureUsernameUSD(vRes, tonRate)
 				usernameVal = vRes
 				valuationValid = true
 			}
@@ -1596,6 +1599,11 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 	case "number":
 		if h.numbersService != nil {
 			if vRes, err := h.numbersService.ValuateNumber(ctx, userID, entity); err == nil && vRes != nil && vRes.ExpectedTON.GreaterThan(decimal.Zero) {
+				if vRes.ExpectedUSD <= 0 && tonRate > 0 {
+					vRes.ExpectedUSD = vRes.ExpectedTON.InexactFloat64() * tonRate
+					vRes.LowUSD = vRes.LowTON.InexactFloat64() * tonRate
+					vRes.HighUSD = vRes.HighTON.InexactFloat64() * tonRate
+				}
 				numberVal = vRes
 				valuationValid = true
 			}
@@ -1603,6 +1611,11 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 	case "gift":
 		if h.giftsService != nil {
 			if vRes, err := h.giftsService.GetBotGiftAppraisal(ctx, entity); err == nil && vRes != nil && vRes.Pillars.FairValueGRAM > 0 {
+				if vRes.ExpectedUSD <= 0 && tonRate > 0 {
+					vRes.ExpectedUSD = vRes.Pillars.FairValueGRAM * tonRate
+					vRes.LowUSD = vRes.LowGRAM.InexactFloat64() * tonRate
+					vRes.HighUSD = vRes.HighGRAM.InexactFloat64() * tonRate
+				}
 				giftVal = vRes
 				valuationValid = true
 			}
@@ -1802,6 +1815,37 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 	}
 }
 
+func (h *WebhookHandler) resolveLiveTONRate(ctx context.Context) float64 {
+	if h != nil && h.cryptoPrice != nil {
+		if rate, _, _, _, ok := h.cryptoPrice.GetTONUSDT(ctx); ok && rate > 0 {
+			return rate
+		}
+	}
+	return 3.48
+}
+
+func ensureUsernameUSD(res *avm.ValuationResult, tonRate float64) {
+	if res == nil {
+		return
+	}
+	if tonRate <= 0 {
+		tonRate = 3.48
+	}
+	if res.TONUSDRate <= 0 {
+		res.TONUSDRate = tonRate
+	}
+	rateDec := decimal.NewFromFloat(res.TONUSDRate)
+	if res.ExpectedUSD.LessThanOrEqual(decimal.Zero) && res.ExpectedTON.GreaterThan(decimal.Zero) {
+		res.ExpectedUSD = res.ExpectedTON.Mul(rateDec).Round(2)
+	}
+	if res.LowUSD.LessThanOrEqual(decimal.Zero) && res.LowTON.GreaterThan(decimal.Zero) {
+		res.LowUSD = res.LowTON.Mul(rateDec).Round(2)
+	}
+	if res.HighUSD.LessThanOrEqual(decimal.Zero) && res.HighTON.GreaterThan(decimal.Zero) {
+		res.HighUSD = res.HighTON.Mul(rateDec).Round(2)
+	}
+}
+
 func (h *WebhookHandler) notifyAdminBotReportUnlock(
 	ctx context.Context,
 	userID int64,
@@ -1949,8 +1993,10 @@ func (h *WebhookHandler) notifyAdminBotReportUnlock(
 func (h *WebhookHandler) renderUsernameReport(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, _ int64, username string, miniAppURL string, lang string, messageID *int, threadID *int) {
 	normUser := strings.TrimPrefix(strings.ToLower(username), "@")
 	var res *avm.ValuationResult
+	tonRate := h.resolveLiveTONRate(ctx)
 	if h.avmService != nil {
-		res, _ = h.avmService.Valuate(ctx, normUser, 0)
+		res, _ = h.avmService.Valuate(ctx, normUser, tonRate)
+		ensureUsernameUSD(res, tonRate)
 	}
 	_ = h.renderUsernameReportWithResult(ctx, tg, chatID, 0, username, miniAppURL, lang, messageID, threadID, res, "")
 }
@@ -1959,15 +2005,31 @@ func (h *WebhookHandler) renderUsernameReportWithResult(ctx context.Context, tg 
 	normUser := strings.TrimPrefix(strings.ToLower(username), "@")
 	appURL := appendStartParam(miniAppURL, fmt.Sprintf("val_%s", normUser))
 
-	var tier string = "STANDARD"
+	tonRate := h.resolveLiveTONRate(ctx)
+	ensureUsernameUSD(res, tonRate)
+
+	var tier string = "Common"
+	var grade string = "B"
 	var expectedTONStr string = "0.0"
 	var expectedUSDStr string = "0"
 	var brandability int = 50
 
 	if res != nil {
-		tier = res.InvestmentGrade
+		if strings.TrimSpace(res.Rarity.Tier) != "" {
+			tier = strings.TrimSpace(res.Rarity.Tier)
+		} else if strings.TrimSpace(res.InvestmentGrade) != "" {
+			tier = strings.TrimSpace(res.InvestmentGrade)
+		}
+		if strings.TrimSpace(res.InvestmentGrade) != "" {
+			grade = strings.TrimSpace(res.InvestmentGrade)
+		} else {
+			grade = tier
+		}
 		expectedTONStr = res.ExpectedTON.StringFixed(1)
 		expectedUSDStr = res.ExpectedUSD.StringFixed(0)
+		if expectedUSDStr == "0" && res.ExpectedTON.GreaterThan(decimal.Zero) {
+			expectedUSDStr = res.ExpectedTON.Mul(decimal.NewFromFloat(tonRate)).StringFixed(0)
+		}
 		brandability = res.Brandability
 	}
 
@@ -1977,13 +2039,13 @@ func (h *WebhookHandler) renderUsernameReportWithResult(ctx context.Context, tg 
 	var extraInfo string
 	switch normalizeLang(lang) {
 	case "fa":
-		extraInfo = fmt.Sprintf("درجه: %s | برندپذیری: %d/100", tier, brandability)
+		extraInfo = fmt.Sprintf("سطح کمیابی: %s (درجه %s) | برندپذیری: %d/100", tier, grade, brandability)
 	case "ru":
-		extraInfo = fmt.Sprintf("Грейд: %s | Бренд: %d/100", tier, brandability)
+		extraInfo = fmt.Sprintf("Редкость: %s (Грейд %s) | Бренд: %d/100", tier, grade, brandability)
 	case "zh":
-		extraInfo = fmt.Sprintf("评级: %s | 品牌指数: %d/100", tier, brandability)
+		extraInfo = fmt.Sprintf("稀有度: %s (评级 %s) | 品牌指数: %d/100", tier, grade, brandability)
 	default:
-		extraInfo = fmt.Sprintf("Grade: %s | Brandability: %d/100", tier, brandability)
+		extraInfo = fmt.Sprintf("Rarity: %s (Grade %s) | Brandability: %d/100", tier, grade, brandability)
 	}
 
 	copySummary := buildCopySummary("🏷️", "@"+normUser, expectedTONStr, expectedUSDStr, extraInfo, lang)
@@ -2014,13 +2076,13 @@ func (h *WebhookHandler) renderUsernameReportWithResult(ctx context.Context, tg 
 			var photoCaption string
 			switch normalizeLang(lang) {
 			case "fa":
-				photoCaption = fmt.Sprintf("🏷️ <b>کارت تحلیلی: @%s</b>\n💰 برآورد منصفانه: <b>~%s TON ($%s)</b>\n💎 درجه سرمایه‌گذاری: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, tier)
+				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی ارزش‌گذاری: @%s</b>\n💰 ارزش منصفانه بازار: <b>%s TON</b> (<code>≈ $%s</code>)\n💎 رده کمیابی: <b>%s</b> • درجه سرمایه‌گذاری: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade)
 			case "ru":
-				photoCaption = fmt.Sprintf("🏷️ <b>Карта оценки: @%s</b>\n💰 Справедливая цена: <b>~%s TON ($%s)</b>\n💎 Инвест-грейд: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, tier)
+				photoCaption = fmt.Sprintf("✦ <b>Сертификат оценки: @%s</b>\n💰 Справедливая рыночная цена: <b>%s TON</b> (<code>≈ $%s</code>)\n💎 Редкость: <b>%s</b> • Инвест-грейд: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade)
 			case "zh":
-				photoCaption = fmt.Sprintf("🏷️ <b>估值分析卡: @%s</b>\n💰 预估公允价值: <b>~%s TON ($%s)</b>\n💎 投资评级: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, tier)
+				photoCaption = fmt.Sprintf("✦ <b>官方估值证书: @%s</b>\n💰 预估市场公允价值: <b>%s TON</b> (<code>≈ $%s</code>)\n💎 稀有度: <b>%s</b> • 投资评级: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade)
 			default:
-				photoCaption = fmt.Sprintf("🏷️ <b>Valuation Card: @%s</b>\n💰 Fair Value: <b>~%s TON ($%s)</b>\n💎 Investment Grade: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, tier)
+				photoCaption = fmt.Sprintf("✦ <b>Official Valuation Certificate: @%s</b>\n💰 Estimated Market Price: <b>%s TON</b> (<code>≈ $%s</code>)\n💎 Rarity Tier: <b>%s</b> • Grade: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade)
 			}
 			if messageID != nil {
 				_ = tg.DeleteMessage(ctx, chatID, *messageID)
@@ -2075,12 +2137,18 @@ func (h *WebhookHandler) renderNumberReportWithResult(ctx context.Context, tg *t
 	displayNum := number
 	appURL := appendStartParam(miniAppURL, fmt.Sprintf("num_%s", cleanNum))
 
+	tonRate := h.resolveLiveTONRate(ctx)
 	var club string = "کلکسیونی"
 	var globalRank int = 0
 	var tonStr string = "0.0"
 	var usdStr string = "0"
 
 	if val != nil {
+		if val.ExpectedUSD <= 0 && val.ExpectedTON.GreaterThan(decimal.Zero) {
+			val.ExpectedUSD = val.ExpectedTON.InexactFloat64() * tonRate
+			val.LowUSD = val.LowTON.InexactFloat64() * tonRate
+			val.HighUSD = val.HighTON.InexactFloat64() * tonRate
+		}
 		displayNum = val.DisplayNumber
 		cleanNum = features.CleanNumber(val.DisplayNumber)
 		club = val.CategoryClubFa
@@ -2098,13 +2166,13 @@ func (h *WebhookHandler) renderNumberReportWithResult(ctx context.Context, tg *t
 	var extraInfo string
 	switch normalizeLang(lang) {
 	case "fa":
-		extraInfo = fmt.Sprintf("کلوپ: %s | رتبه: #%d", club, globalRank)
+		extraInfo = fmt.Sprintf("کلوپ: %s | رتبه جهانی: #%d", club, globalRank)
 	case "ru":
-		extraInfo = fmt.Sprintf("Клуб: %s | Ранг: #%d", club, globalRank)
+		extraInfo = fmt.Sprintf("Клуб: %s | Мировой ранг: #%d", club, globalRank)
 	case "zh":
-		extraInfo = fmt.Sprintf("俱乐部: %s | 排名: #%d", club, globalRank)
+		extraInfo = fmt.Sprintf("俱乐部: %s | 全球排名: #%d", club, globalRank)
 	default:
-		extraInfo = fmt.Sprintf("Club: %s | Rank: #%d", club, globalRank)
+		extraInfo = fmt.Sprintf("Club: %s | Global Rank: #%d", club, globalRank)
 	}
 
 	copySummary := buildCopySummary("📱", displayNum, tonStr, usdStr, extraInfo, lang)
@@ -2140,13 +2208,13 @@ func (h *WebhookHandler) renderNumberReportWithResult(ctx context.Context, tg *t
 			var photoCaption string
 			switch normalizeLang(lang) {
 			case "fa":
-				photoCaption = fmt.Sprintf("📱 <b>کارت تحلیلی شماره: %s</b>\n👑 کلوپ: <b>%s</b> (#%d)\n💰 ارزش منصفانه: <b>~%s TON ($%s)</b>", displayNum, club, globalRank, tonStr, usdStr)
+				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی شماره کلکسیونی: %s</b>\n💰 ارزش منصفانه بازار: <b>%s TON</b> (<code>≈ $%s</code>)\n👑 کلوپ: <b>%s</b> • رتبه کمیابی جهانی: <b>#%d</b>", displayNum, tonStr, usdStr, club, globalRank)
 			case "ru":
-				photoCaption = fmt.Sprintf("📱 <b>Карта оценки номера: %s</b>\n👑 Клуб: <b>%s</b> (#%d)\n💰 Справедливая цена: <b>~%s TON ($%s)</b>", displayNum, club, globalRank, tonStr, usdStr)
+				photoCaption = fmt.Sprintf("✦ <b>Сертификат анонимного номера: %s</b>\n💰 Справедливая рыночная цена: <b>%s TON</b> (<code>≈ $%s</code>)\n👑 Клуб: <b>%s</b> • Мировой ранг: <b>#%d</b>", displayNum, tonStr, usdStr, club, globalRank)
 			case "zh":
-				photoCaption = fmt.Sprintf("📱 <b>号码估值卡: %s</b>\n👑 俱乐部: <b>%s</b> (#%d)\n💰 公允价值: <b>~%s TON ($%s)</b>", displayNum, club, globalRank, tonStr, usdStr)
+				photoCaption = fmt.Sprintf("✦ <b>匿名号码估值证书: %s</b>\n💰 预估市场公允价值: <b>%s TON</b> (<code>≈ $%s</code>)\n👑 俱乐部: <b>%s</b> • 全球排名: <b>#%d</b>", displayNum, tonStr, usdStr, club, globalRank)
 			default:
-				photoCaption = fmt.Sprintf("📱 <b>Number Valuation Card: %s</b>\n👑 Club: <b>%s</b> (#%d)\n💰 Fair Value: <b>~%s TON ($%s)</b>", displayNum, club, globalRank, tonStr, usdStr)
+				photoCaption = fmt.Sprintf("✦ <b>Official Number Certificate: %s</b>\n💰 Estimated Market Price: <b>%s TON</b> (<code>≈ $%s</code>)\n👑 Club: <b>%s</b> • Global Rank: <b>#%d</b>", displayNum, tonStr, usdStr, club, globalRank)
 			}
 			if messageID != nil {
 				_ = tg.DeleteMessage(ctx, chatID, *messageID)
@@ -2199,10 +2267,6 @@ func (h *WebhookHandler) renderGiftReport(ctx context.Context, tg *telegram.BotA
 
 func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, _ int64, giftSlug string, miniAppURL string, lang string, messageID *int, threadID *int, appraisal *gvengine.GiftValuation, creditFooter string) error {
 	if appraisal != nil {
-		richHTML := buildGiftRichHTML(appraisal, lang) + creditFooter
-		standardText, _ := h.formatGiftAppraisalMessage(appraisal, miniAppURL, lang)
-		standardText += creditFooter
-
 		var tonRate float64
 		var rateSource string
 		var rateFetchedAt time.Time
@@ -2211,6 +2275,23 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 		if h.cryptoPrice != nil {
 			tonRate, rateSource, rateFetchedAt, rateStale, rateOk = h.cryptoPrice.GetTONUSDT(ctx)
 		}
+		if tonRate <= 0 {
+			tonRate = 3.48
+			rateOk = true
+			if rateSource == "" {
+				rateSource = "Spot Index"
+			}
+		}
+		if appraisal.ExpectedUSD <= 0 && appraisal.Pillars.FairValueGRAM > 0 {
+			appraisal.ExpectedUSD = appraisal.Pillars.FairValueGRAM * tonRate
+			appraisal.LowUSD = appraisal.LowGRAM.InexactFloat64() * tonRate
+			appraisal.HighUSD = appraisal.HighGRAM.InexactFloat64() * tonRate
+		}
+
+		richHTML := buildGiftRichHTML(appraisal, lang) + creditFooter
+		standardText, _ := h.formatGiftAppraisalMessage(appraisal, miniAppURL, lang)
+		standardText += creditFooter
+
 		expectedUSDFormatted := formatUSDT(appraisal.ExpectedUSD, rateOk && tonRate > 0, lang)
 		rateRefLine := buildRateReferenceLine(tonRate, rateSource, rateFetchedAt, rateStale, rateOk && tonRate > 0, lang)
 
@@ -2242,13 +2323,13 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 				var photoCaption string
 				switch normalizeLang(lang) {
 				case "fa":
-					photoCaption = fmt.Sprintf("🎁 <b>کارت تحلیلی: %s</b>\n💎 رده: <b>%s</b>\n💰 برآورد منصفانه: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی گیفت کلکسیونی: %s</b>\n💰 ارزش منصفانه بازار: <b>%s TON</b> (<code>≈ %s</code>)\n💎 رده کمیابی: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
 				case "ru":
-					photoCaption = fmt.Sprintf("🎁 <b>Карта оценки подарка: %s</b>\n💎 Класс: <b>%s</b>\n💰 Справедливая цена: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>Сертификат подарка: %s</b>\n💰 Справедливая рыночная цена: <b>%s TON</b> (<code>≈ %s</code>)\n💎 Редкость: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
 				case "zh":
-					photoCaption = fmt.Sprintf("🎁 <b>礼物估值卡: %s</b>\n💎 评级: <b>%s</b>\n💰 公允价值: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>礼物官方估值证书: %s</b>\n💰 预估市场公允价值: <b>%s TON</b> (<code>≈ %s</code>)\n💎 稀有度: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
 				default:
-					photoCaption = fmt.Sprintf("🎁 <b>Gift Valuation Card: %s</b>\n💎 Tier: <b>%s</b>\n💰 Fair Value: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>Official Gift Certificate: %s</b>\n💰 Estimated Market Price: <b>%s TON</b> (<code>≈ %s</code>)\n💎 Rarity Tier: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
 				}
 				if messageID != nil {
 					_ = tg.DeleteMessage(ctx, chatID, *messageID)
@@ -2276,13 +2357,13 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 			var photoCaption string
 			switch normalizeLang(lang) {
 			case "fa":
-				photoCaption = fmt.Sprintf("🎁 <b>کارت تحلیلی: %s</b>\n💎 رده: <b>%s</b>\n💰 برآورد منصفانه: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی گیفت کلکسیونی: %s</b>\n💰 ارزش منصفانه بازار: <b>%s TON</b> (<code>≈ %s</code>)\n💎 رده کمیابی: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
 			case "ru":
-				photoCaption = fmt.Sprintf("🎁 <b>Карта оценки подарка: %s</b>\n💎 Класс: <b>%s</b>\n💰 Справедливая цена: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+				photoCaption = fmt.Sprintf("✦ <b>Сертификат подарка: %s</b>\n💰 Справедливая рыночная цена: <b>%s TON</b> (<code>≈ %s</code>)\n💎 Редкость: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
 			case "zh":
-				photoCaption = fmt.Sprintf("🎁 <b>礼物估值卡: %s</b>\n💎 评级: <b>%s</b>\n💰 公允价值: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+				photoCaption = fmt.Sprintf("✦ <b>礼物官方估值证书: %s</b>\n💰 预估市场公允价值: <b>%s TON</b> (<code>≈ %s</code>)\n💎 稀有度: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
 			default:
-				photoCaption = fmt.Sprintf("🎁 <b>Gift Valuation Card: %s</b>\n💎 Tier: <b>%s</b>\n💰 Fair Value: <b>~%s TON (%s)</b>\n%s", appraisal.DisplayTitle, rarityTier, tonStr, usdStr, rateRefLine)
+				photoCaption = fmt.Sprintf("✦ <b>Official Gift Certificate: %s</b>\n💰 Estimated Market Price: <b>%s TON</b> (<code>≈ %s</code>)\n💎 Rarity Tier: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
 			}
 			if messageID != nil {
 				_ = tg.DeleteMessage(ctx, chatID, *messageID)

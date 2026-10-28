@@ -41,7 +41,8 @@ export const PortfolioScannerPage: Component = () => {
 				err?.response?.data?.error ||
 					err?.response?.data?.message ||
 					err?.message ||
-					(t('common.error') || 'Portfolio scan failed. Please verify the username.'),
+					t('common.error') ||
+					'Portfolio scan failed. Please verify the username.',
 			);
 		},
 	}));
@@ -264,10 +265,13 @@ export const PortfolioScannerPage: Component = () => {
 							<div class="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.08] text-[11px] text-white/40 leading-relaxed text-center space-y-1">
 								<div class="flex items-center justify-center gap-1.5 text-amber-400/80 font-bold text-[11px]">
 									<span class="material-symbols-outlined text-sm">info</span>
-									<span>{t('gifts.financialDisclaimerTitle') || 'Financial & Investment Disclaimer'}</span>
+									<span>
+										{t('gifts.financialDisclaimerTitle') || 'Financial & Investment Disclaimer'}
+									</span>
 								</div>
 								<p>
-									{t('gifts.financialDisclaimerDesc') || 'All estimated valuations and rarity metrics are derived from public on-chain metadata and quantitative models, and do not constitute financial or investment advice.'}
+									{t('gifts.financialDisclaimerDesc') ||
+										'All estimated valuations and rarity metrics are derived from public on-chain metadata and quantitative models, and do not constitute financial or investment advice.'}
 								</p>
 							</div>
 						</div>

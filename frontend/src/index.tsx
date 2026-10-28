@@ -1,7 +1,7 @@
 /* @refresh reload */
 
 import * as Sentry from '@sentry/browser';
-import { isTMA, mockTelegramEnv, retrieveLaunchParams } from '@tma.js/sdk-solid';
+import { emitEvent, isTMA, mockTelegramEnv, retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { render } from 'solid-js/web';
 import { init } from '@/app/init.js';
 import { Root } from '@/app/Root.js';
@@ -21,6 +21,73 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 	});
 }
 
+const MOCK_HASH = '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31';
+
+const MOCK_THEME_PARAMS = {
+	accent_text_color: '#6ab2f2',
+	bg_color: '#06070b',
+	button_color: '#3390ec',
+	button_text_color: '#ffffff',
+	bottom_bar_bg_color: '#06070b',
+	destructive_text_color: '#ec3942',
+	header_bg_color: '#06070b',
+	hint_color: '#708499',
+	link_color: '#6ab3f3',
+	secondary_bg_color: '#10131c',
+	section_bg_color: '#10131c',
+	section_header_text_color: '#6ab3f3',
+	section_separator_color: '#1e2433',
+	subtitle_text_color: '#708499',
+	text_color: '#f5f5f5',
+} as const;
+
+function applyPreviewMockEnv() {
+	mockTelegramEnv({
+		launchParams: {
+			tgWebAppThemeParams: MOCK_THEME_PARAMS,
+			tgWebAppData: new URLSearchParams([
+				[
+					'user',
+					JSON.stringify({
+						id: 5076130392,
+						first_name: 'iFragment',
+						last_name: 'Preview',
+						username: 'ifragment',
+						language_code: 'fa',
+						is_premium: true,
+						allows_write_to_pm: true,
+					}),
+				],
+				['hash', MOCK_HASH],
+				['signature', '5O_G2H_wXgI32v2G-w0y-W_O3G_4G'],
+				['auth_date', '1716922846'],
+				['query_id', 'AAHdF60pAAAAANYXrSkW1'],
+			]).toString(),
+			tgWebAppVersion: '8.0',
+			tgWebAppPlatform: 'tdesktop',
+		},
+		onEvent(event) {
+			if (event.name === 'web_app_request_theme') {
+				emitEvent('theme_changed', { theme_params: MOCK_THEME_PARAMS });
+			}
+			if (event.name === 'web_app_request_viewport' || event.name === 'web_app_expand') {
+				emitEvent('viewport_changed', {
+					height: window.innerHeight || 844,
+					width: window.innerWidth || 390,
+					is_expanded: true,
+					is_state_stable: true,
+				});
+			}
+			if (event.name === 'web_app_request_safe_area') {
+				emitEvent('safe_area_changed', { left: 0, top: 0, right: 0, bottom: 0 });
+			}
+			if (event.name === 'web_app_request_content_safe_area') {
+				emitEvent('content_safe_area_changed', { left: 0, top: 0, right: 0, bottom: 0 });
+			}
+		},
+	});
+}
+
 async function startApp() {
 	const root = document.getElementById('root');
 	if (!root) return;
@@ -36,69 +103,38 @@ async function startApp() {
 		try {
 			realParams = retrieveLaunchParams();
 		} catch (_e) {
-			// ignore
+			// Clear any stale or legacy v2 launchParams cached in sessionStorage
+			try {
+				sessionStorage.removeItem('tapps/launchParams');
+				sessionStorage.removeItem('telegram-apps/launch-params');
+			} catch {}
 		}
 
-		// 2. Check environment and mock if necessary BEFORE anything else
-		const isTelegram = await isTMA();
+		const hasRealTelegramInitData =
+			typeof window !== 'undefined' &&
+			Boolean((window as any).Telegram?.WebApp?.initData) &&
+			!String((window as any).Telegram?.WebApp?.initData).includes(MOCK_HASH);
 
-		if (!isTelegram && !realParams) {
-			if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS === 'true') {
-				mockTelegramEnv({
-					launchParams: {
-						themeParams: {
-							accentTextColor: '#6ab2f2',
-							bgColor: '#17212b',
-							buttonColor: '#5288c1',
-							buttonTextColor: '#ffffff',
-							destructiveTextColor: '#ec3942',
-							headerBgColor: '#17212b',
-							hintColor: '#708499',
-							linkColor: '#6ab3f3',
-							secondaryBgColor: '#232e3c',
-							sectionBgColor: '#17212b',
-							sectionHeaderTextColor: '#6ab3f3',
-							subtitleTextColor: '#708499',
-							textColor: '#f5f5f5',
-						},
-						initData: {
-							user: {
-								id: 99281932,
-								firstName: 'Andrew',
-								lastName: 'Rogue',
-								username: 'rogue',
-								languageCode: 'en',
-								isPremium: true,
-								allowsWriteToPm: true,
-							},
-							hash: '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31',
-							signature: '5O_G2H_wXgI32v2G-w0y-W_O3G_4G',
-							authDate: new Date(1716922846000),
-							canSendAfter: 10000,
-							queryId: 'AAHdF60pAAAAANYXrSkW1',
-						},
-						initDataRaw: new URLSearchParams([
-							[
-								'user',
-								JSON.stringify({
-									id: 99281932,
-									first_name: 'Andrew',
-									last_name: 'Rogue',
-									username: 'rogue',
-									language_code: 'en',
-									is_premium: true,
-									allows_write_to_pm: true,
-								}),
-							],
-							['hash', '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31'],
-							['signature', '5O_G2H_wXgI32v2G-w0y-W_O3G_4G'],
-							['auth_date', '1716922846'],
-							['query_id', 'AAHdF60pAAAAANYXrSkW1'],
-						]).toString(),
-						version: '7.2',
-						platform: 'tdesktop',
-					} as any,
-				});
+		const isStoredMockSession =
+			!realParams ||
+			realParams.tgWebAppData?.hash === MOCK_HASH ||
+			(!hasRealTelegramInitData && !(await isTMA()));
+
+		const isPreviewHost =
+			typeof window !== 'undefined' &&
+			(window.location.hostname === 'localhost' ||
+				window.location.hostname === '127.0.0.1' ||
+				window.location.hostname.endsWith('.run.app'));
+
+		// 2. Always attach the mock bridge + onEvent responder when running outside real Telegram
+		//    (especially inside iframe preview environments like Google AI Studio where sessionStorage
+		//    persists across reloads while the in-memory postMessage interceptor does not).
+		if (isStoredMockSession && !hasRealTelegramInitData) {
+			if (
+				(import.meta.env.DEV || isPreviewHost || import.meta.env.VITE_FORCE_MOCKS === 'true') &&
+				import.meta.env.VITE_USE_MOCKS !== 'false'
+			) {
+				applyPreviewMockEnv();
 			} else {
 				console.warn(
 					'Running outside Telegram without launch params. Mock environment disabled as per user request.',
@@ -130,8 +166,11 @@ async function startApp() {
 			mockForMacOS: launchParams.tgWebAppPlatform === 'macos',
 		});
 
-		// 4.5. Proactively obtain JWT before any API calls to avoid 401→refresh loops
-		await bootstrapAuth();
+		// 4.5. Proactively obtain JWT before any API calls (bounded by 2.5s timeout so UI never hangs)
+		await Promise.race([
+			bootstrapAuth(),
+			new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+		]);
 
 		// 5. Final Render
 		render(

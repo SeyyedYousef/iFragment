@@ -99,13 +99,13 @@ var Registry = map[VenueID]VenueInfo{
 	},
 	VenueMarketApp: {
 		ID:                 VenueMarketApp,
-		Name:               "MarketApp.ws",
+		Name:               "MarketApp.org",
 		Currency:           "GRAM",
 		ProtocolFeePct:     2.5,
 		ListingFeePct:      0.0,
 		RequiresKYC:        false,
 		EscrowType:         "smart_contract",
-		DeepLinkBase:       "https://marketapp.ws/gifts",
+		DeepLinkBase:       "https://marketapp.org/gifts",
 		HasRealVolumeBadge: false,
 		EstimatedSlippage:  1.1,
 		DataStatus:         "unavailable",
@@ -205,7 +205,7 @@ func ComputeExitPlan(ctx context.Context, targetGRAM, gramUsdRate float64, custo
 
 		recNote := "Standard Market Execution"
 		if v.ID == VenueMRKT {
-			recNote = "Zero fee maximizes net yield for high-ticket items"
+			recNote = "Lowest 2.0% protocol fee maximizes net yield for high-ticket items"
 		} else if v.ID == VenueTelegramStars {
 			recNote = "Instant Stars liquidity directly in Telegram app"
 		} else if v.ID == VenueFragment {

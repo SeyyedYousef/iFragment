@@ -112,7 +112,7 @@ export const ProfilePage: Component = () => {
 	return (
 		<div
 			class="min-h-screen bg-[#030303] pb-32 text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#0098EA]/30"
-			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
+			dir={t('common.dir') === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[450px] bg-gradient-to-b from-[#0098EA]/15 via-[#06b6d4]/5 to-transparent blur-[90px] pointer-events-none z-0" />
@@ -170,7 +170,7 @@ export const ProfilePage: Component = () => {
 									onClick={() => handleNavigate('/leaderboard')}
 									class="flex items-center gap-1 px-3 py-1.5 rounded-[12px] bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 text-amber-300 text-[10px] font-black uppercase tracking-wide active:scale-95 transition-all"
 								>
-									<span>{t('navigation.leaderboard') || 'برترین‌ها'}</span>
+									<span>{t('navigation.leaderboard')}</span>
 									<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
 								</button>
 							</div>
@@ -186,10 +186,10 @@ export const ProfilePage: Component = () => {
 										<span class="text-[20px]">🚀</span>
 										<div class="flex flex-col">
 											<span class="text-[11px] font-black text-white">
-												{t('leaderboard.boostRank') || 'حامیان بوست'}
+												{t('leaderboard.boostRank')}
 											</span>
 											<span class="text-[9px] text-cyan-400 font-bold">
-												{t('leaderboard.boostRewardHint') || 'کردیت روزانه'}
+												{t('leaderboard.boostRewardHint')}
 											</span>
 										</div>
 									</div>
@@ -212,7 +212,7 @@ export const ProfilePage: Component = () => {
 													: t('profilePg.unranked' as any) || '—'}
 											</span>
 											<span class="text-[9px] text-amber-400 font-bold">
-												{t('profilePg.globalBoard' as any) || 'لیدربورد'}
+												{t('profilePg.globalBoard' as any)}
 											</span>
 										</div>
 									</div>
@@ -241,7 +241,8 @@ export const ProfilePage: Component = () => {
 										</span>
 										<span class="text-[9px] text-white/40 font-bold uppercase tracking-wider">
 											{referrals()?.totalInvited || 0} {t('referral.friends')} ·{' '}
-											{formatNumber(referrals()?.totalEarned || 0)}⚡ {t('referral.credits') || 'کریدت'}
+											{formatNumber(referrals()?.totalEarned || 0)}⚡{' '}
+											{t('referral.credits')}
 										</span>
 									</div>
 								</div>
@@ -290,7 +291,7 @@ export const ProfilePage: Component = () => {
 								<button
 									type="button"
 									onClick={() => handleNavigate('/')}
-									class="p-3 bg-[#07090E] border border-[#0098EA]/40 rounded-[18px] flex flex-col items-center gap-1.5 active:scale-95 transition-all shadow-[0_0_15px_rgba(0,152,234,0.15)]"
+									class="p-3 bg-[#07090E] border border-[#0098EA]/40 rounded-[18px] flex flex-col items-center gap-1.5 active:scale-95 transition-all shadow-[0_0_15px_rgba(0,152,234,0.12)]"
 								>
 									<span class="text-[22px]">🏷️</span>
 									<span class="text-[11px] font-black text-white">
@@ -301,33 +302,33 @@ export const ProfilePage: Component = () => {
 									</span>
 								</button>
 
-								{/* 2. Numbers Vertical (Coming Soon) */}
+								{/* 2. Numbers Vertical (Active) */}
 								<button
 									type="button"
 									onClick={() => handleNavigate('/numbers')}
-									class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex flex-col items-center gap-1.5 active:scale-95 transition-all group"
+									class="p-3 bg-[#07090E] border border-amber-400/40 rounded-[18px] flex flex-col items-center gap-1.5 active:scale-95 transition-all shadow-[0_0_15px_rgba(251,191,36,0.12)]"
 								>
 									<span class="text-[22px]">📱</span>
-									<span class="text-[11px] font-black text-white/80">
+									<span class="text-[11px] font-black text-white">
 										{t('profilePg.verticalNumbers' as any)}
 									</span>
 									<span class="text-[8px] px-1.5 py-0.5 rounded-[6px] bg-amber-400/20 text-amber-400 font-black uppercase">
-										{t('profilePg.badgeSoon' as any)}
+										{t('profilePg.badgeActive' as any)}
 									</span>
 								</button>
 
-								{/* 3. Gifts Vertical (Coming Soon) */}
+								{/* 3. Gifts Vertical (Active) */}
 								<button
 									type="button"
 									onClick={() => handleNavigate('/gifts')}
-									class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex flex-col items-center gap-1.5 active:scale-95 transition-all group"
+									class="p-3 bg-[#07090E] border border-cyan-400/40 rounded-[18px] flex flex-col items-center gap-1.5 active:scale-95 transition-all shadow-[0_0_15px_rgba(34,211,238,0.12)]"
 								>
 									<span class="text-[22px]">🎁</span>
-									<span class="text-[11px] font-black text-white/80">
+									<span class="text-[11px] font-black text-white">
 										{t('profilePg.verticalGifts' as any)}
 									</span>
 									<span class="text-[8px] px-1.5 py-0.5 rounded-[6px] bg-cyan-400/20 text-cyan-300 font-black uppercase">
-										{t('profilePg.badgeSoon' as any)}
+										{t('profilePg.badgeActive' as any)}
 									</span>
 								</button>
 							</div>

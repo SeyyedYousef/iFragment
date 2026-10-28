@@ -416,81 +416,91 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 	var results []interface{}
 	sniff := SniffAsset(query)
 
+	tonRate := h.resolveLiveTONRate(ctx)
+
 	if sniff != nil {
 		switch sniff.Type {
 		case "username":
 			normUser := strings.TrimPrefix(strings.ToLower(sniff.Entity), "@")
 			if h.avmService != nil {
-				res, err := h.avmService.Valuate(ctx, normUser, 0)
+				res, err := h.avmService.Valuate(ctx, normUser, tonRate)
 				if err == nil && res != nil {
+					ensureUsernameUSD(res, tonRate)
 					appURL := appendStartParam(miniAppURL, fmt.Sprintf("val_%s", normUser))
 					colURL := appendStartParam(miniAppURL, "collection_usernames")
 					botPMURL := fmt.Sprintf("https://t.me/%s?start=val_%s", botUsername, normUser)
 					fragURL := fmt.Sprintf("https://fragment.com/username/%s", normUser)
 
+					rarityTier := res.Rarity.Tier
+					if rarityTier == "" {
+						rarityTier = "Common"
+					}
+					tonStr := res.ExpectedTON.StringFixed(1)
+					usdStr := res.ExpectedUSD.StringFixed(0)
+
 					var title, desc, msgText, btnUnlockPM, btnApp, btnCol, btnFrag string
 					switch lang {
 					case "fa":
-						title = fmt.Sprintf("🏷️ کارشناسی نام کاربری: @%s", normUser)
-						desc = fmt.Sprintf("درجه: %s | برندپذیری: %d/100 | طول: %d کاراکتر", res.InvestmentGrade, res.Brandability, len(normUser))
-						msgText = fmt.Sprintf(`🏷️ <b>کارت هوشمند نام کاربری: @%s</b>
+						title = fmt.Sprintf("✦ @%s — ~%s TON (≈ $%s)", normUser, tonStr, usdStr)
+						desc = fmt.Sprintf("کمیابی: %s | درجه: %s | برندپذیری: %d/100 | طول: %d کاراکتر", strings.ToUpper(rarityTier), res.InvestmentGrade, res.Brandability, len(normUser))
+						msgText = fmt.Sprintf(`✦ <b>گواهی هوشمند نام کاربری: @%s</b> ✦
 
-<blockquote>💎 <b>درجه سرمایه‌گذاری:</b> <code>%s</code>
+<blockquote>💎 <b>سطح کمیابی:</b> <code>%s</code> (درجه سرمایه‌گذاری: <b>%s</b>)
+💰 <b>ارزش منصفانه بازار:</b> <b>~%s TON</b> (<code>≈ $%s</code>)
 📈 <b>شاخص برندپذیری:</b> <code>%d / 100</code>
-📏 <b>طول شناسه:</b> <code>%d کاراکتر</code> (استاندارد تلمینت)
-🔒 <b>ارزش منصفانه (AVM v7.0):</b> <i>محافظت‌شده در گیت تحلیلی</i></blockquote>
+📏 <b>طول شناسه:</b> <code>%d کاراکتر</code> (استاندارد تلمینت TEP-62)</blockquote>
 
-⚡ <i>برای بازگشایی طیف دقیق قیمت (Floor / Fair / Ceiling) و شجره‌نامه آن‌چین، از دکمه‌های شیشه‌ای زیر استفاده کنید:</i>`,
-							normUser, res.InvestmentGrade, res.Brandability, len(normUser))
-						btnUnlockPM = "🔓 بازگشایی قیمت در ربات"
+⚡ <i>برای دریافت کارت تصویری رسمی و گزارش کامل ۱۰ بخشی، از دکمه‌های شیشه‌ای زیر استفاده کنید:</i>`,
+							normUser, strings.ToUpper(rarityTier), res.InvestmentGrade, tonStr, usdStr, res.Brandability, len(normUser))
+						btnUnlockPM = "🔓 دریافت کارت و گزارش در ربات"
 						btnApp = "📊 تحلیل عمیق در مینی‌اپ"
-						btnCol = "🏛️ نبض کالکشن یوزرنیم‌ها"
+						btnCol = "🏛️ نبض بازار یوزرنیم‌ها"
 						btnFrag = "🌐 مشاهده در فرگمنت"
 					case "ru":
-						title = fmt.Sprintf("🏷️ Оценка юзернейма: @%s", normUser)
-						desc = fmt.Sprintf("Грейд: %s | Бренд: %d/100 | Длина: %d симв.", res.InvestmentGrade, res.Brandability, len(normUser))
-						msgText = fmt.Sprintf(`🏷️ <b>Интеллектуальная карта юзернейма: @%s</b>
+						title = fmt.Sprintf("✦ @%s — ~%s TON (≈ $%s)", normUser, tonStr, usdStr)
+						desc = fmt.Sprintf("Редкость: %s | Грейд: %s | Бренд: %d/100 | Длина: %d симв.", strings.ToUpper(rarityTier), res.InvestmentGrade, res.Brandability, len(normUser))
+						msgText = fmt.Sprintf(`✦ <b>Сертификат юзернейма: @%s</b> ✦
 
-<blockquote>💎 <b>Инвест-грейд:</b> <code>%s</code>
+<blockquote>💎 <b>Редкость:</b> <code>%s</code> (Грейд: <b>%s</b>)
+💰 <b>Справедливая цена:</b> <b>~%s TON</b> (<code>≈ $%s</code>)
 📈 <b>Индекс бренда:</b> <code>%d / 100</code>
-📏 <b>Длина:</b> <code>%d симв.</code> (Telemint TEP-62)
-🔒 <b>Справедливая цена (AVM v7.0):</b> <i>Доступна в полном отчете</i></blockquote>
+📏 <b>Длина:</b> <code>%d симв.</code> (Telemint TEP-62)</blockquote>
 
-⚡ <i>Откройте полный ценовой спектр и он-чейн аудит в боте или Mini App:</i>`,
-							normUser, res.InvestmentGrade, res.Brandability, len(normUser))
-						btnUnlockPM = "🔓 Открыть цену в боте"
+⚡ <i>Откройте сертификат и полный отчет в боте или Mini App:</i>`,
+							normUser, strings.ToUpper(rarityTier), res.InvestmentGrade, tonStr, usdStr, res.Brandability, len(normUser))
+						btnUnlockPM = "🔓 Открыть отчет в боте"
 						btnApp = "📊 Анализ в Mini App"
 						btnCol = "🏛️ Макро-рынок"
 						btnFrag = "🌐 На Fragment"
 					case "zh":
-						title = fmt.Sprintf("🏷️ 用户名专业评估: @%s", normUser)
-						desc = fmt.Sprintf("评级: %s | 品牌分: %d/100 | 长度: %d 字符", res.InvestmentGrade, res.Brandability, len(normUser))
-						msgText = fmt.Sprintf(`🏷️ <b>Telegram 用户名智能名片: @%s</b>
+						title = fmt.Sprintf("✦ @%s — ~%s TON (≈ $%s)", normUser, tonStr, usdStr)
+						desc = fmt.Sprintf("稀有度: %s | 评级: %s | 品牌分: %d/100 | 长度: %d 字符", strings.ToUpper(rarityTier), res.InvestmentGrade, res.Brandability, len(normUser))
+						msgText = fmt.Sprintf(`✦ <b>Telegram 用户名估值证书: @%s</b> ✦
 
-<blockquote>💎 <b>投资评级:</b> <code>%s</code>
+<blockquote>💎 <b>稀有度等级:</b> <code>%s</code> (投资评级: <b>%s</b>)
+💰 <b>预估公允价值:</b> <b>~%s TON</b> (<code>≈ $%s</code>)
 📈 <b>品牌指数:</b> <code>%d / 100</code>
-📏 <b>字符长度:</b> <code>%d 字符</code> (Telemint TEP-62)
-🔒 <b>公允估值 (AVM v7.0):</b> <i>深度报告内解锁</i></blockquote>
+📏 <b>字符长度:</b> <code>%d 字符</code> (Telemint TEP-62)</blockquote>
 
-⚡ <i>点击下方玻璃按钮解锁完整价格区间与链上溯源报告：</i>`,
-							normUser, res.InvestmentGrade, res.Brandability, len(normUser))
-						btnUnlockPM = "🔓 在机器人中解锁价格"
+⚡ <i>点击下方按钮获取高清估值证书与 10 维链上分析报告：</i>`,
+							normUser, strings.ToUpper(rarityTier), res.InvestmentGrade, tonStr, usdStr, res.Brandability, len(normUser))
+						btnUnlockPM = "🔓 在机器人中获取证书"
 						btnApp = "📊 小程序深度报告"
 						btnCol = "🏛️ 用户名大盘数据"
 						btnFrag = "🌐 Fragment 详情"
 					default:
-						title = fmt.Sprintf("🏷️ Username Intelligence: @%s", normUser)
-						desc = fmt.Sprintf("Grade: %s | Brandability: %d/100 | Length: %d chars", res.InvestmentGrade, res.Brandability, len(normUser))
-						msgText = fmt.Sprintf(`🏷️ <b>Username Intelligence Card: @%s</b>
+						title = fmt.Sprintf("✦ @%s — ~%s TON (≈ $%s)", normUser, tonStr, usdStr)
+						desc = fmt.Sprintf("Rarity: %s | Grade: %s | Brandability: %d/100 | Length: %d chars", strings.ToUpper(rarityTier), res.InvestmentGrade, res.Brandability, len(normUser))
+						msgText = fmt.Sprintf(`✦ <b>Official Username Certificate: @%s</b> ✦
 
-<blockquote>💎 <b>Investment Grade:</b> <code>%s</code>
+<blockquote>💎 <b>Rarity Tier:</b> <code>%s</code> (Grade: <b>%s</b>)
+💰 <b>Estimated Market Price:</b> <b>~%s TON</b> (<code>≈ $%s</code>)
 📈 <b>Brandability Score:</b> <code>%d / 100</code>
-📏 <b>Handle Length:</b> <code>%d chars</code> (Telemint TEP-62)
-🔒 <b>Fair Valuation (AVM v7.0):</b> <i>Protected in Deep Report</i></blockquote>
+📏 <b>Handle Length:</b> <code>%d chars</code> (Telemint TEP-62)</blockquote>
 
-⚡ <i>Unlock the full valuation band (Floor / Fair / Ceiling) & on-chain provenance via the buttons below:</i>`,
-							normUser, res.InvestmentGrade, res.Brandability, len(normUser))
-						btnUnlockPM = "🔓 Unlock Price in Bot"
+⚡ <i>Unlock the visual certificate & 10-module report via the buttons below:</i>`,
+							normUser, strings.ToUpper(rarityTier), res.InvestmentGrade, tonStr, usdStr, res.Brandability, len(normUser))
+						btnUnlockPM = "🔓 Get Certificate in Bot"
 						btnApp = "📊 Deep Dive in Mini App"
 						btnCol = "🏛️ Collection Macro"
 						btnFrag = "🌐 View on Fragment"
@@ -524,6 +534,9 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 			if h.numbersService != nil {
 				val, err := h.numbersService.ValuateNumber(ctx, 0, sniff.Entity)
 				if err == nil && val != nil {
+					if val.ExpectedUSD <= 0 && val.ExpectedTON.IsPositive() {
+						val.ExpectedUSD = val.ExpectedTON.InexactFloat64() * tonRate
+					}
 					cleanNum := strings.TrimPrefix(val.Number, "+")
 					appURL := appendStartParam(miniAppURL, fmt.Sprintf("num_%s", cleanNum))
 					colURL := appendStartParam(miniAppURL, "numbers")
@@ -537,70 +550,72 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 					if lang == "fa" && val.CategoryClubFa != "" {
 						club = val.CategoryClubFa
 					}
+					tonStr := val.ExpectedTON.StringFixed(1)
+					usdStr := fmt.Sprintf("%.0f", val.ExpectedUSD)
 
 					var title, desc, msgText, btnUnlockPM, btnApp, btnCol, btnFrag string
 					switch lang {
 					case "fa":
-						title = fmt.Sprintf("📱 کارشناسی شماره: %s", val.DisplayNumber)
-						desc = fmt.Sprintf("کلوپ: %s | رتبه: #%d | اطمینان: %d%%", club, val.GlobalRank, val.ConfidenceScore)
-						msgText = fmt.Sprintf(`📱 <b>کارت هوشمند شماره ناشناس: %s</b>
+						title = fmt.Sprintf("✦ %s — ~%s TON (≈ $%s)", val.DisplayNumber, tonStr, usdStr)
+						desc = fmt.Sprintf("کلوپ: %s | رتبه جهانی: #%d از 136,566 | اطمینان: %d%%", club, val.GlobalRank, val.ConfidenceScore)
+						msgText = fmt.Sprintf(`✦ <b>گواهی هوشمند شماره کلکسیونی: %s</b> ✦
 
 <blockquote>👑 <b>کلوپ کلکسیونی:</b> <code>%s</code>
-🏆 <b>رتبه کمیابی در شبکه:</b> <code>#%d از 136,566</code>
-🎯 <b>ضریب اطمینان مدل:</b> <code>%d%%</code>
-🔒 <b>ارزش منصفانه (NV Engine):</b> <i>محافظت‌شده در گیت تحلیلی</i></blockquote>
+💰 <b>ارزش منصفانه بازار:</b> <b>~%s TON</b> (<code>≈ $%s</code>)
+🏆 <b>رتبه کمیابی جهانی:</b> <code>#%d از 136,566</code> (عرضه بسته)
+🛡️ <b>مزیت کلیدی:</b> <code>بدون سیم‌کارت (No-SIM) • مصون از ریپورت</code></blockquote>
 
-⚡ <i>برای بازگشایی قیمت منصفانه، ارزش وثیقه دیفای و معاملات همتراز، روی دکمه‌های شیشه‌ای زیر کلیک کنید:</i>`,
-							val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore)
-						btnUnlockPM = "🔓 بازگشایی قیمت در ربات"
+⚡ <i>برای دریافت کارت تصویری رسمی، ارزش وثیقه دیفای و معاملات همتراز، از دکمه‌های زیر استفاده کنید:</i>`,
+							val.DisplayNumber, club, tonStr, usdStr, val.GlobalRank)
+						btnUnlockPM = "🔓 دریافت کارت و گزارش در ربات"
 						btnApp = "📊 گزارش عمیق در مینی‌اپ"
 						btnCol = "🏛️ دیدبان کلان +888"
 						btnFrag = "🌐 مشاهده در فرگمنت"
 					case "ru":
-						title = fmt.Sprintf("📱 Оценка номера: %s", val.DisplayNumber)
+						title = fmt.Sprintf("✦ %s — ~%s TON (≈ $%s)", val.DisplayNumber, tonStr, usdStr)
 						desc = fmt.Sprintf("Клуб: %s | Ранг: #%d | Доверие: %d%%", club, val.GlobalRank, val.ConfidenceScore)
-						msgText = fmt.Sprintf(`📱 <b>Интеллектуальная карта номера: %s</b>
+						msgText = fmt.Sprintf(`✦ <b>Сертификат анонимного номера: %s</b> ✦
 
 <blockquote>👑 <b>Клуб коллекции:</b> <code>%s</code>
+💰 <b>Справедливая оценка:</b> <b>~%s TON</b> (<code>≈ $%s</code>)
 🏆 <b>Ранг редкости:</b> <code>#%d из 136,566</code>
-🎯 <b>Индекс доверия:</b> <code>%d%%</code>
-🔒 <b>Справедливая оценка (NV Engine):</b> <i>В полном отчете</i></blockquote>
+🎯 <b>Индекс доверия:</b> <code>%d%%</code></blockquote>
 
-⚡ <i>Откройте полную стоимость, залог DeFi и историю сделок через кнопки ниже:</i>`,
-							val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore)
-						btnUnlockPM = "🔓 Открыть цену в боте"
+⚡ <i>Откройте сертификат, залог DeFi и историю сделок через кнопки ниже:</i>`,
+							val.DisplayNumber, club, tonStr, usdStr, val.GlobalRank, val.ConfidenceScore)
+						btnUnlockPM = "🔓 Открыть отчет в боте"
 						btnApp = "📊 Отчет в Mini App"
 						btnCol = "🏛️ Рынок +888"
 						btnFrag = "🌐 На Fragment"
 					case "zh":
-						title = fmt.Sprintf("📱 匿名靓号评估: %s", val.DisplayNumber)
+						title = fmt.Sprintf("✦ %s — ~%s TON (≈ $%s)", val.DisplayNumber, tonStr, usdStr)
 						desc = fmt.Sprintf("俱乐部: %s | 排名: #%d | 置信度: %d%%", club, val.GlobalRank, val.ConfidenceScore)
-						msgText = fmt.Sprintf(`📱 <b>+888 匿名靓号智能名片: %s</b>
+						msgText = fmt.Sprintf(`✦ <b>+888 匿名靓号估值证书: %s</b> ✦
 
 <blockquote>👑 <b>归属俱乐部:</b> <code>%s</code>
+💰 <b>预估公允价值:</b> <b>~%s TON</b> (<code>≈ $%s</code>)
 🏆 <b>全网稀缺排名:</b> <code>#%d / 136,566</code>
-🎯 <b>模型置信度:</b> <code>%d%%</code>
-🔒 <b>公允价值 (NV Engine):</b> <i>深度报告内解锁</i></blockquote>
+🎯 <b>模型置信度:</b> <code>%d%%</code></blockquote>
 
-⚡ <i>点击下方玻璃按钮解锁公允估值、DeFi 抵押额度与链上成交对标：</i>`,
-							val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore)
-						btnUnlockPM = "🔓 在机器人中解锁价格"
+⚡ <i>点击下方按钮获取高清证书、DeFi 抵押额度与链上成交对标：</i>`,
+							val.DisplayNumber, club, tonStr, usdStr, val.GlobalRank, val.ConfidenceScore)
+						btnUnlockPM = "🔓 在机器人中获取证书"
 						btnApp = "📊 小程序深度报告"
 						btnCol = "🏛️ +888 宏观大盘"
 						btnFrag = "🌐 Fragment 详情"
 					default:
-						title = fmt.Sprintf("📱 Number Intelligence: %s", val.DisplayNumber)
+						title = fmt.Sprintf("✦ %s — ~%s TON (≈ $%s)", val.DisplayNumber, tonStr, usdStr)
 						desc = fmt.Sprintf("Club: %s | Rank: #%d | Confidence: %d%%", club, val.GlobalRank, val.ConfidenceScore)
-						msgText = fmt.Sprintf(`📱 <b>Anonymous Number Intelligence: %s</b>
+						msgText = fmt.Sprintf(`✦ <b>Official Anonymous Number Certificate: %s</b> ✦
 
 <blockquote>👑 <b>Category Club:</b> <code>%s</code>
+💰 <b>Estimated Market Price:</b> <b>~%s TON</b> (<code>≈ $%s</code>)
 🏆 <b>Global Rarity Rank:</b> <code>#%d of 136,566</code>
-🎯 <b>Model Confidence:</b> <code>%d%%</code>
-🔒 <b>Fair Valuation (NV Engine):</b> <i>Protected in Deep Report</i></blockquote>
+🛡️ <b>Security Advantage:</b> <code>No-SIM Required • Unrestricted</code></blockquote>
 
-⚡ <i>Unlock the fair value, DeFi collateral rating, and comparable sales via the buttons below:</i>`,
-							val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore)
-						btnUnlockPM = "🔓 Unlock Price in Bot"
+⚡ <i>Unlock the visual certificate, DeFi collateral rating, and comparable sales via the buttons below:</i>`,
+							val.DisplayNumber, club, tonStr, usdStr, val.GlobalRank)
+						btnUnlockPM = "🔓 Get Certificate in Bot"
 						btnApp = "📊 Deep Dive in Mini App"
 						btnCol = "🏛️ +888 Macro Market"
 						btnFrag = "🌐 View on Fragment"
@@ -627,6 +642,49 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 								},
 							},
 						},
+					})
+				}
+			}
+		case "gift":
+			if h.giftsService != nil {
+				val, err := h.giftsService.GetBotGiftAppraisal(ctx, sniff.Entity)
+				if err == nil && val != nil {
+					if val.ExpectedUSD <= 0 && val.Pillars.FairValueGRAM > 0 {
+						val.ExpectedUSD = val.Pillars.FairValueGRAM * tonRate
+					}
+					fairTON := val.Pillars.FairValueGRAM
+					floorTON := val.Pillars.ObservedFloorGRAM
+					msgText, markup := h.formatGiftAppraisalMessage(val, miniAppURL, lang)
+
+					thumbURL := val.ImageURL
+					if thumbURL == "" {
+						pascal := telegramnft.FormatPascalName(val.ModelID)
+						thumbURL = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", pascal)
+					}
+
+					var desc string
+					switch lang {
+					case "fa":
+						desc = fmt.Sprintf("ارزش منصفانه: %.1f TON ($%.0f) | کف بازار: %.1f TON | سریال: #%d", fairTON, val.ExpectedUSD, floorTON, val.SerialNumber)
+					case "ru":
+						desc = fmt.Sprintf("Справедливая: %.1f TON ($%.0f) | Floor: %.1f TON | Серия: #%d", fairTON, val.ExpectedUSD, floorTON, val.SerialNumber)
+					case "zh":
+						desc = fmt.Sprintf("公允价值: %.1f TON ($%.0f) | 底价: %.1f TON | 编号: #%d", fairTON, val.ExpectedUSD, floorTON, val.SerialNumber)
+					default:
+						desc = fmt.Sprintf("Fair Value: %.1f TON ($%.0f) | Floor: %.1f TON | Serial: #%d", fairTON, val.ExpectedUSD, floorTON, val.SerialNumber)
+					}
+
+					results = append(results, telegram.InlineQueryResultArticle{
+						Type:        "article",
+						ID:          fmt.Sprintf("gift_%s", val.GiftID),
+						Title:       fmt.Sprintf("✦ 🎁 %s — ~%.1f TON", val.DisplayTitle, fairTON),
+						Description: desc,
+						ThumbURL:    thumbURL,
+						InputMessageContent: map[string]interface{}{
+							"message_text": msgText,
+							"parse_mode":   "HTML",
+						},
+						ReplyMarkup: markup,
 					})
 				}
 			}
@@ -745,6 +803,9 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 	} else if len(results) == 0 && h.giftsService != nil {
 		val, err := h.giftsService.GetBotGiftAppraisal(ctx, query)
 		if err == nil && val != nil {
+			if val.ExpectedUSD <= 0 && val.Pillars.FairValueGRAM > 0 {
+				val.ExpectedUSD = val.Pillars.FairValueGRAM * tonRate
+			}
 			fairTON := val.Pillars.FairValueGRAM
 			floorTON := val.Pillars.ObservedFloorGRAM
 			msgText, markup := h.formatGiftAppraisalMessage(val, miniAppURL, lang)
@@ -758,19 +819,19 @@ func (h *WebhookHandler) handleInlineQuery(ctx context.Context, bot *repository.
 			var desc string
 			switch lang {
 			case "fa":
-				desc = fmt.Sprintf("ارزش منصفانه: %.1f TON | کف قیمت: %.1f TON | سریال: #%d", fairTON, floorTON, val.SerialNumber)
+				desc = fmt.Sprintf("ارزش منصفانه: %.1f TON ($%.0f) | کف قیمت: %.1f TON | سریال: #%d", fairTON, val.ExpectedUSD, floorTON, val.SerialNumber)
 			case "ru":
-				desc = fmt.Sprintf("Справедливая: %.1f TON | Floor: %.1f TON | Серия: #%d", fairTON, floorTON, val.SerialNumber)
+				desc = fmt.Sprintf("Справедливая: %.1f TON ($%.0f) | Floor: %.1f TON | Серия: #%d", fairTON, val.ExpectedUSD, floorTON, val.SerialNumber)
 			case "zh":
-				desc = fmt.Sprintf("公允价值: %.1f TON | 底价: %.1f TON | 编号: #%d", fairTON, floorTON, val.SerialNumber)
+				desc = fmt.Sprintf("公允价值: %.1f TON ($%.0f) | 底价: %.1f TON | 编号: #%d", fairTON, val.ExpectedUSD, floorTON, val.SerialNumber)
 			default:
-				desc = fmt.Sprintf("Fair Value: %.1f TON | Floor: %.1f TON | Serial: #%d", fairTON, floorTON, val.SerialNumber)
+				desc = fmt.Sprintf("Fair Value: %.1f TON ($%.0f) | Floor: %.1f TON | Serial: #%d", fairTON, val.ExpectedUSD, floorTON, val.SerialNumber)
 			}
 
 			giftArticle := telegram.InlineQueryResultArticle{
 				Type:        "article",
 				ID:          fmt.Sprintf("gift_%s", val.GiftID),
-				Title:       fmt.Sprintf("🎁 %s", val.DisplayTitle),
+				Title:       fmt.Sprintf("✦ 🎁 %s — ~%.1f TON", val.DisplayTitle, fairTON),
 				Description: desc,
 				ThumbURL:    thumbURL,
 				InputMessageContent: map[string]interface{}{

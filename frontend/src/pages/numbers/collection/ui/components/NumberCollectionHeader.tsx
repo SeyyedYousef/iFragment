@@ -31,7 +31,8 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 		const diffMs = Date.now() - new Date(isoStr).getTime();
 		const diffMin = Math.floor(diffMs / 60000);
 		if (diffMin <= 1) return layaT(NUMBERS_COLLECTION_I18N.justNow);
-		if (diffMin < 60) return layaT(NUMBERS_COLLECTION_I18N.minAgo).replace('{min}', String(diffMin));
+		if (diffMin < 60)
+			return layaT(NUMBERS_COLLECTION_I18N.minAgo).replace('{min}', String(diffMin));
 		const diffHr = Math.floor(diffMin / 60);
 		if (diffHr < 24) return layaT(NUMBERS_COLLECTION_I18N.hrAgo).replace('{hr}', String(diffHr));
 		return layaT(NUMBERS_COLLECTION_I18N.dayAgo).replace('{day}', String(Math.floor(diffHr / 24)));
@@ -144,7 +145,8 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 							{layaT(NUMBERS_COLLECTION_I18N.totalSupplyFrozen)}
 						</span>
 						<span class="text-xs font-black text-white font-mono block mt-0.5">
-							136,566 <span class="text-[10px] text-white/50">{layaT(NUMBERS_COLLECTION_I18N.items)}</span>
+							136,566{' '}
+							<span class="text-[10px] text-white/50">{layaT(NUMBERS_COLLECTION_I18N.items)}</span>
 						</span>
 						<span class="text-[9px] text-cyan-400/80 font-mono block mt-0.5">
 							{layaT(NUMBERS_COLLECTION_I18N.genesis4d)}

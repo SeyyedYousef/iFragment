@@ -1,16 +1,20 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi, type PromoCode } from '@/entities/owner/index.js';
-import { t } from '@/shared/i18n/index.js';
+import { locale } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 
 export const OwnerPromos: Component = () => {
 	const queryClient = useQueryClient();
+	const isFa = () => locale() === 'fa';
 
 	const [code, setCode] = createSignal('');
-	const [rewardAmount, setRewardAmount] = createSignal(10000);
+	const [creditAmount, setCreditAmount] = createSignal(10);
+	const [grantVipDays, setGrantVipDays] = createSignal(0);
+	const [note, setNote] = createSignal('');
 	const [maxUses, setMaxUses] = createSignal(100);
 	const [expiresAt, setExpiresAt] = createSignal('');
+	const [copiedCode, setCopiedCode] = createSignal<string | null>(null);
 	const [promoToDelete, setPromoToDelete] = createSignal<PromoCode | null>(null);
 
 	const promosQuery = createQuery<PromoCode[]>(() => ({
@@ -22,14 +26,18 @@ export const OwnerPromos: Component = () => {
 		mutationFn: () =>
 			ownerApi.createPromo(
 				code().trim().toUpperCase(),
-				rewardAmount(),
+				creditAmount(),
 				maxUses(),
 				expiresAt() ? new Date(expiresAt()).toISOString() : undefined,
+				grantVipDays(),
+				note().trim(),
 			),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['owner', 'promos'] });
 			setCode('');
-			setRewardAmount(10000);
+			setCreditAmount(10);
+			setGrantVipDays(0);
+			setNote('');
 			setMaxUses(100);
 			setExpiresAt('');
 		},
@@ -43,24 +51,26 @@ export const OwnerPromos: Component = () => {
 		},
 	}));
 
-	// Generates unambiguous code (no O, 0, I, 1)
 	const generateRandomCode = () => {
 		const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-		let result = '';
-		for (let i = 0; i < 8; i++) {
+		let result = 'INTEL-';
+		for (let i = 0; i < 6; i++) {
 			result += chars.charAt(Math.floor(Math.random() * chars.length));
 		}
 		setCode(result);
 	};
 
+	const copyPromo = (promoCode: string) => {
+		try {
+			navigator.clipboard.writeText(promoCode);
+			setCopiedCode(promoCode);
+			setTimeout(() => setCopiedCode(null), 2000);
+		} catch {}
+	};
+
 	const handleSubmit = (e: Event) => {
 		e.preventDefault();
-		if (!code().trim()) return;
-		// 100K Reward Cap check
-		if (rewardAmount() > 100000) {
-			alert('Maximum promo reward amount is 100,000 Coins');
-			return;
-		}
+		if (!code().trim() || creditAmount() < 1) return;
 		createPromoMutation.mutate();
 	};
 
@@ -70,103 +80,167 @@ export const OwnerPromos: Component = () => {
 		<div class="space-y-6">
 			{/* Header */}
 			<div>
-				<h2 class="text-lg font-bold text-white">{t('ownerPromos.title')}</h2>
-				<p class="text-xs text-white/50">{t('ownerPromos.subtitle')}</p>
+				<h2 class="text-lg font-black text-white">
+					{isFa()
+						? 'مدیریت کدهای هدیه کریدیت ⚡ و اشتراک VIP (Credit Promo Codes)'
+						: 'Intel Credit ⚡ & VIP Promo Code Generator'}
+				</h2>
+				<p class="text-xs text-white/50">
+					{isFa()
+						? 'ساخت کدهای هدیه برای شارژ رایگان کریدیت ارزش‌گذاری (نام کاربری، +888 و گیفت) جهت کمپین‌های تبلیغاتی'
+						: 'Create redeemable promo codes that grant Intel Credits ⚡ and optional VIP Pro days'}
+				</p>
 			</div>
 
-			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-				{/* Create Form */}
-				<div class="lg:col-span-1">
+			<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+				{/* Create Form (4 cols) */}
+				<div class="lg:col-span-4">
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
-						<div class="flex items-center justify-between">
+						<div class="flex items-center justify-between border-b border-white/10 pb-3">
 							<div class="flex items-center gap-2">
-								<span class="material-symbols-outlined text-amber-400">confirmation_number</span>
-								<h3 class="text-sm font-bold text-white">{t('ownerPromos.createCode')}</h3>
+								<span class="material-symbols-outlined text-cyan-400">confirmation_number</span>
+								<h3 class="text-sm font-bold text-white">
+									{isFa() ? 'ساخت کد هدیه کریدیت جدید' : 'Create Credit Promo Code'}
+								</h3>
 							</div>
 							<button
 								type="button"
 								onClick={generateRandomCode}
-								class="text-[11px] text-amber-400 hover:underline flex items-center gap-1"
+								class="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 font-bold"
 							>
 								<span class="material-symbols-outlined text-xs">autorenew</span>
-								<span>{t('ownerPromos.generate')}</span>
+								<span>{isFa() ? 'تولید تصادفی' : 'Random'}</span>
 							</button>
 						</div>
 
-						<form onSubmit={handleSubmit} class="space-y-3">
+						<form onSubmit={handleSubmit} class="space-y-3.5">
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
-									{t('ownerPromos.promoCode')}
-								</div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									{isFa() ? 'کد هدیه (حروف بزرگ انگلیسی)' : 'Promo Code String'}
+								</label>
 								<input
 									type="text"
-									placeholder={t('ownerPromos.placeholderCode')}
+									placeholder="e.g. GIFTWHALE25"
 									value={code()}
 									onInput={(e) => setCode(e.currentTarget.value.toUpperCase())}
-									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-xs font-mono uppercase text-white outline-none focus:border-amber-400"
+									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-xs font-mono uppercase text-white outline-none focus:border-cyan-400"
 									required
 								/>
 							</div>
 
 							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
-									{t('ownerPromos.rewardAmount')}
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									{isFa() ? 'تعداد کریدیت هدیه (⚡ Intel Credits)' : 'Intel Credits Granted (⚡)'}
+								</label>
+								<div class="grid grid-cols-4 gap-1.5 mb-2">
+									{[3, 10, 25, 100].map((val) => (
+										<button
+											type="button"
+											onClick={() => setCreditAmount(val)}
+											class={`py-1 rounded-lg font-mono text-[11px] font-bold border transition ${
+												creditAmount() === val
+													? 'bg-cyan-500 text-black border-cyan-400'
+													: 'bg-white/5 text-cyan-300 border-white/10'
+											}`}
+										>
+											+{val} ⚡
+										</button>
+									))}
 								</div>
 								<input
 									type="number"
-									max={100000}
-									min={100}
-									value={rewardAmount()}
-									onInput={(e) => setRewardAmount(parseInt(e.currentTarget.value, 10) || 0)}
-									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-amber-400"
-									required
-								/>
-							</div>
-
-							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
-									{t('ownerPromos.maxRedemptions')}
-								</div>
-								<input
-									type="number"
+									max={5000}
 									min={1}
-									value={maxUses()}
-									onInput={(e) => setMaxUses(parseInt(e.currentTarget.value, 10) || 1)}
-									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-amber-400"
+									value={creditAmount()}
+									onInput={(e) => setCreditAmount(parseInt(e.currentTarget.value, 10) || 1)}
+									class="w-full h-10 bg-white/5 border border-white/15 rounded-xl px-3.5 text-xs font-mono text-white outline-none focus:border-cyan-400"
 									required
 								/>
 							</div>
 
-							<div>
-								<div class="block text-[11px] font-semibold text-white/60 mb-1">
-									{t('ownerPromos.expiryDate')}
+							<div class="grid grid-cols-2 gap-3">
+								<div>
+									<label class="block text-[11px] font-semibold text-white/60 mb-1">
+										{isFa() ? 'ظرفیت کل استفاده' : 'Max Redemptions'}
+									</label>
+									<input
+										type="number"
+										min={1}
+										value={maxUses()}
+										onInput={(e) => setMaxUses(parseInt(e.currentTarget.value, 10) || 1)}
+										class="w-full h-10 bg-white/5 border border-white/15 rounded-xl px-3 text-xs font-mono text-white outline-none focus:border-cyan-400"
+										required
+									/>
 								</div>
+
+								<div>
+									<label class="block text-[11px] font-semibold text-white/60 mb-1">
+										{isFa() ? 'روزهای اشتراک VIP (اختیاری)' : 'Bonus VIP Days'}
+									</label>
+									<input
+										type="number"
+										min={0}
+										max={365}
+										value={grantVipDays()}
+										onInput={(e) => setGrantVipDays(parseInt(e.currentTarget.value, 10) || 0)}
+										class="w-full h-10 bg-white/5 border border-white/15 rounded-xl px-3 text-xs font-mono text-white outline-none focus:border-cyan-400"
+									/>
+								</div>
+							</div>
+
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									{isFa() ? 'یادداشت کمپین (اختیاری)' : 'Campaign Note (Optional)'}
+								</label>
+								<input
+									type="text"
+									placeholder={
+										isFa() ? 'مثلاً: هدیه اعضای کانال تلگرام' : 'e.g. Telegram Channel Giveaway'
+									}
+									value={note()}
+									onInput={(e) => setNote(e.currentTarget.value)}
+									class="w-full h-10 bg-white/5 border border-white/15 rounded-xl px-3.5 text-xs text-white outline-none focus:border-cyan-400"
+								/>
+							</div>
+
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									{isFa() ? 'تاریخ انقضا (اختیاری)' : 'Expiry Date (Optional)'}
+								</label>
 								<input
 									type="datetime-local"
 									value={expiresAt()}
 									onInput={(e) => setExpiresAt(e.currentTarget.value)}
-									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-3 text-xs text-white outline-none focus:border-amber-400"
+									class="w-full h-10 bg-white/5 border border-white/15 rounded-xl px-3 text-xs text-white outline-none focus:border-cyan-400"
 								/>
 							</div>
 
 							<button
 								type="submit"
 								disabled={createPromoMutation.isPending || !code().trim()}
-								class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-xs font-bold uppercase text-black rounded-xl transition-all disabled:opacity-40 shadow-lg shadow-amber-500/20"
+								class="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-xs font-black uppercase text-black rounded-xl transition-all disabled:opacity-40 shadow-lg shadow-cyan-500/20"
 							>
-								{createPromoMutation.isPending ? 'Generating...' : 'Create Promo Code'}
+								{createPromoMutation.isPending
+									? isFa()
+										? 'در حال ثبت کد...'
+										: 'Generating...'
+									: isFa()
+										? 'ثبت و فعال‌سازی کد هدیه ⚡'
+										: 'Create Credit Promo Code'}
 							</button>
 						</form>
 					</div>
 				</div>
 
-				{/* Promos Table */}
-				<div class="lg:col-span-2">
+				{/* Promos Table (8 cols) */}
+				<div class="lg:col-span-8">
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
-						<div class="flex items-center justify-between">
+						<div class="flex items-center justify-between border-b border-white/10 pb-3">
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-outlined text-amber-400">redeem</span>
-								<h3 class="text-sm font-bold text-white">{t('ownerPromos.activeCodes')}</h3>
+								<h3 class="text-sm font-bold text-white">
+									{isFa() ? 'کدهای هدیه کریدیت فعال' : 'Active Intel Credit Promo Codes'}
+								</h3>
 							</div>
 						</div>
 
@@ -174,11 +248,11 @@ export const OwnerPromos: Component = () => {
 							<table class="w-full text-left text-xs">
 								<thead>
 									<tr class="border-b border-white/10 text-white/40">
-										<th class="pb-3">{t('ownerPromos.code')}</th>
-										<th class="pb-3">{t('ownerPromos.reward')}</th>
-										<th class="pb-3">{t('ownerPromos.usesLimit')}</th>
-										<th class="pb-3">{t('ownerPromos.expires')}</th>
-										<th class="pb-3 text-right">{t('ownerCommon.actions')}</th>
+										<th class="pb-3">{isFa() ? 'کد هدیه' : 'Promo Code'}</th>
+										<th class="pb-3">{isFa() ? 'پاداش کریدیت ⚡' : 'Credit Reward'}</th>
+										<th class="pb-3">{isFa() ? 'میزان استفاده' : 'Redemptions'}</th>
+										<th class="pb-3">{isFa() ? 'انقضا' : 'Expires'}</th>
+										<th class="pb-3 text-right">{isFa() ? 'عملیات' : 'Actions'}</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-white/5">
@@ -186,48 +260,78 @@ export const OwnerPromos: Component = () => {
 										when={!promosQuery.isLoading && promos().length > 0}
 										fallback={
 											<tr>
-												<td colspan="5" class="py-8 text-center text-white/40">
+												<td colspan="5" class="py-10 text-center text-white/40">
 													{promosQuery.isLoading
-														? 'Loading promo codes...'
-														: 'No promo codes found'}
+														? isFa()
+															? 'در حال بارگذاری کدهای هدیه...'
+															: 'Loading promo codes...'
+														: isFa()
+															? 'هیچ کد هدیه‌ای ثبت نشده است'
+															: 'No promo codes found'}
 												</td>
 											</tr>
 										}
 									>
 										<For each={promos()}>
 											{(promo) => {
-												const reward = promo.reward_amount || promo.reward_frg || 0;
-												const used = promo.uses_count || promo.current_uses || 0;
+												const credits = promo.credit_amount || 0;
+												const used = promo.uses_count || 0;
 												const max = promo.max_uses || 1;
 												const pct = Math.min(100, (used / max) * 100);
 
 												return (
 													<tr class="hover:bg-white/[0.02] transition">
-														<td class="py-3 font-mono font-bold text-amber-400 tracking-wider">
-															{promo.code}
+														<td class="py-3">
+															<div class="flex items-center gap-2">
+																<span class="font-mono font-black text-amber-400 tracking-wider">
+																	{promo.code}
+																</span>
+																<button
+																	type="button"
+																	onClick={() => copyPromo(promo.code)}
+																	class="text-[10px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-white/60"
+																>
+																	{copiedCode() === promo.code ? '✓' : 'Copy'}
+																</button>
+															</div>
+															<Show when={promo.note}>
+																<div class="text-[10px] text-white/40 mt-0.5">{promo.note}</div>
+															</Show>
 														</td>
-														<td class="py-3 font-mono text-emerald-400 font-bold">
-															{reward.toLocaleString()} Coins
+														<td class="py-3 font-mono">
+															<span class="text-cyan-300 font-black">
+																⚡ +{credits.toLocaleString()} Credits
+															</span>
+															<Show when={(promo.grant_vip_days ?? 0) > 0}>
+																<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold">
+																	+{promo.grant_vip_days}d VIP
+																</span>
+															</Show>
 														</td>
 														<td class="py-3 w-36">
 															<div class="text-[11px] font-mono text-white/70 mb-1">
-																{used} / {max}
+																{used} / {max} ({Math.round(pct)}%)
 															</div>
 															<div class="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-																<div style={{ width: `${pct}%` }} class="h-full bg-amber-400" />
+																<div
+																	style={{ width: `${pct}%` }}
+																	class="h-full bg-gradient-to-r from-cyan-400 to-amber-400"
+																/>
 															</div>
 														</td>
-														<td class="py-3 text-white/50">
+														<td class="py-3 text-white/50 font-mono text-[11px]">
 															{promo.expires_at
 																? new Date(promo.expires_at).toLocaleDateString()
-																: 'Never'}
+																: isFa()
+																	? 'بدون انقضا'
+																	: 'Never'}
 														</td>
 														<td class="py-3 text-right">
 															<button
 																type="button"
 																onClick={() => setPromoToDelete(promo)}
 																class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
-																title={t('ownerPromos.deleteCode')}
+																title="Delete Promo Code"
 															>
 																<span class="material-symbols-outlined text-base">delete</span>
 															</button>
@@ -248,7 +352,7 @@ export const OwnerPromos: Component = () => {
 			<Show when={promoToDelete()}>
 				<DangerActionDialog
 					isOpen={true}
-					title={t('ownerPromos.deleteCode')}
+					title={isFa() ? 'حذف کد هدیه کریدیت' : 'Delete Credit Promo Code'}
 					description={`Permanently invalidate promo code "${promoToDelete()?.code}"? Users will no longer be able to claim it.`}
 					actionLabel="Delete Promo Code"
 					riskLevel="medium"

@@ -44,7 +44,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 
 		try {
 			haptic.impact('medium');
-		} catch (e) {
+		} catch (_e) {
 			// Ignore haptic errors on unsupported web platforms
 		}
 
@@ -174,7 +174,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 						<button
 							type="button"
 							onClick={() => {
-								const sample = 'EQBPsG9cmIq0V56Hlkd-7YkR0O1qJcDk1so_nomdKG7GT3gH';
+								const sample = 'EQDPxS8aXBrJs4OGBGW3mkNXyMa6zzOol83bxOoEo_nXNWzT';
 								setAddress(sample);
 								handleScan(sample);
 							}}

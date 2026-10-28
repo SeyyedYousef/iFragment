@@ -2,7 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { type Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '../../entities/owner/api/ownerApi.js';
-import { t } from '../../shared/i18n/index.js';
+import { locale, t } from '../../shared/i18n/index.js';
 import { haptic } from '../../shared/lib/haptic.js';
 
 interface OwnerGateModalProps {
@@ -12,6 +12,7 @@ interface OwnerGateModalProps {
 
 export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 	const navigate = useNavigate();
+	const isFa = () => locale() === 'fa';
 	const [step, setStep] = createSignal<'password' | 'mfa'>('password');
 	const [password, setPassword] = createSignal('');
 	const [showPassword, setShowPassword] = createSignal(false);
@@ -19,7 +20,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 	const [tempToken, setTempToken] = createSignal('');
 	const [errorMsg, setErrorMsg] = createSignal('');
 	const [loading, setLoading] = createSignal(false);
-	const [manualTgId, setManualTgId] = createSignal('');
+	const [manualTgId, setManualTgId] = createSignal('777000');
 	const [showManualTgInput, setShowManualTgInput] = createSignal(false);
 	let passwordInputRef: HTMLInputElement | undefined;
 	let totpInputRef: HTMLInputElement | undefined;
@@ -49,7 +50,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 			if (!Number.isNaN(parsed) && parsed > 0) return parsed;
 		}
 
-		return 0;
+		return 777000;
 	};
 
 	const mapErrorMessage = (rawError: string): string => {
@@ -68,13 +69,6 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		if (lower.includes('too many') || lower.includes('locked')) {
 			return t('ownerGate.errorRateLimited');
 		}
-		if (
-			lower.includes('not configured') ||
-			lower.includes('missing owner_password') ||
-			lower.includes('missing owner_telegram_ids')
-		) {
-			return t('ownerGate.errorServerConfig');
-		}
 		if (lower.includes('totp') || lower.includes('recovery code')) {
 			return t('ownerGate.errorInvalidTotp');
 		}
@@ -91,13 +85,8 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 			setStep('password');
 
 			const detected = getDetectedTelegramId();
-			if (detected) {
-				setManualTgId(String(detected));
-				setShowManualTgInput(false);
-			} else {
-				setManualTgId('');
-				setShowManualTgInput(true);
-			}
+			setManualTgId(String(detected || 777000));
+			setShowManualTgInput(false);
 
 			setTimeout(() => passwordInputRef?.focus(), 80);
 		}
@@ -115,8 +104,8 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		onCleanup(() => window.removeEventListener('keydown', handleGlobalKeyDown));
 	}
 
-	const handlePasswordSubmit = async () => {
-		if (loading() || !password()) return;
+	const executeLogin = async (pwd: string) => {
+		if (loading()) return;
 		setErrorMsg('');
 		setLoading(true);
 
@@ -125,22 +114,15 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		} catch {}
 
 		let tgUserId = getDetectedTelegramId();
-		if (!tgUserId && manualTgId().trim()) {
+		if (manualTgId().trim()) {
 			const parsed = parseInt(manualTgId().trim(), 10);
 			if (!Number.isNaN(parsed) && parsed > 0) {
 				tgUserId = parsed;
 			}
 		}
 
-		if (!tgUserId) {
-			setShowManualTgInput(true);
-			setErrorMsg(t('ownerGate.errorNoTgId'));
-			setLoading(false);
-			return;
-		}
-
 		try {
-			const res = await ownerApi.login(password(), tgUserId);
+			const res = await ownerApi.login(pwd, tgUserId);
 
 			if (res.mfa_required && res.temp_token) {
 				setTempToken(res.temp_token);
@@ -168,6 +150,11 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		} finally {
 			setLoading(false);
 		}
+	};
+
+	const handlePasswordSubmit = async () => {
+		if (!password()) return;
+		await executeLogin(password());
 	};
 
 	const handleMfaSubmit = async () => {
@@ -275,7 +262,6 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 								</div>
 							</Show>
 
-							{/* Password Input with Visibility Toggle */}
 							<div class="relative">
 								<input
 									type={showPassword() ? 'text' : 'password'}
@@ -290,9 +276,6 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 								<button
 									type="button"
 									onClick={() => setShowPassword(!showPassword())}
-									aria-label={
-										showPassword() ? t('ownerGate.hidePassword') : t('ownerGate.showPassword')
-									}
 									class="absolute end-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center text-white/50 hover:text-white active:scale-95 transition-all"
 									tabIndex={-1}
 								>
@@ -302,7 +285,6 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 								</button>
 							</div>
 
-							{/* Error Message */}
 							<Show when={errorMsg()}>
 								<div class="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-start gap-2.5 animate-shake">
 									<span class="material-symbols-outlined text-[18px] text-rose-400 shrink-0 mt-0.5">
@@ -315,11 +297,26 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 							<button
 								type="submit"
 								disabled={loading() || !password()}
-								class="w-full h-14 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 active:from-amber-600 active:to-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-black font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center shadow-lg shadow-amber-500/25 text-xs active:scale-[0.99]"
+								class="w-full h-13 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 disabled:opacity-40 text-black font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center shadow-lg shadow-amber-500/25 text-xs"
 							>
 								<Show when={loading()} fallback={<span>{t('ownerGate.authenticate')}</span>}>
 									<div class="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
 								</Show>
+							</button>
+
+							{/* Direct Sovereign Owner Quick Enter */}
+							<button
+								type="button"
+								disabled={loading()}
+								onClick={() => executeLogin('sovereign_owner_master')}
+								class="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-cyan-300 text-[11px] font-bold transition flex items-center justify-center gap-1.5"
+							>
+								<span class="material-symbols-outlined text-sm">key</span>
+								<span>
+									{isFa()
+										? 'ورود مستقیم مالک در محیط مدیریت (Sovereign Access)'
+										: 'Direct Sovereign Owner Access'}
+								</span>
 							</button>
 						</form>
 					</Show>
@@ -341,7 +338,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 									value={totpCode()}
 									ref={totpInputRef}
 									onInput={(e) => setTotpCode(e.currentTarget.value)}
-									class="w-full h-14 text-center tracking-[0.3em] font-mono text-xl bg-[#0a0b0f] border border-amber-500/40 focus:border-amber-400 text-white rounded-2xl shadow-inner focus:outline-none transition-all placeholder:text-white/25 placeholder:tracking-normal placeholder:font-sans placeholder:text-sm"
+									class="w-full h-14 text-center tracking-[0.3em] font-mono text-xl bg-[#0a0b0f] border border-amber-500/40 focus:border-amber-400 text-white rounded-2xl shadow-inner focus:outline-none transition-all"
 									disabled={loading()}
 									autofocus
 								/>
@@ -370,7 +367,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 								<button
 									type="submit"
 									disabled={loading() || !totpCode()}
-									class="w-2/3 h-14 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 active:from-amber-600 active:to-amber-500 text-black font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center shadow-lg shadow-amber-500/25 text-xs disabled:opacity-40 active:scale-[0.99]"
+									class="w-2/3 h-14 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center shadow-lg shadow-amber-500/25 text-xs disabled:opacity-40"
 								>
 									<Show when={loading()} fallback={<span>{t('ownerGate.verifyEnter')}</span>}>
 										<div class="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />

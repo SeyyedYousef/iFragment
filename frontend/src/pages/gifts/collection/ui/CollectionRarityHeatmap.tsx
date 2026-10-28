@@ -264,12 +264,8 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 				>
 					<div class="space-y-2.5">
 						<div class="text-[10px] text-white/40 flex items-center justify-between px-1">
-							<span>
-								{layaT(HEATMAP_I18N.rowsColsDesc)}
-							</span>
-							<span class="text-[#0098EA] font-semibold">
-								{layaT(HEATMAP_I18N.tapToInspect)}
-							</span>
+							<span>{layaT(HEATMAP_I18N.rowsColsDesc)}</span>
+							<span class="text-[#0098EA] font-semibold">{layaT(HEATMAP_I18N.tapToInspect)}</span>
 						</div>
 
 						<div class="overflow-x-auto rounded-2xl border border-white/[0.07] bg-black/40 p-2 scrollbar-thin">
@@ -513,9 +509,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 								}}
 								class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#0081C8] hover:brightness-110 text-white font-black text-xs text-center shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
 							>
-								<span>
-									{layaT(HEATMAP_I18N.inspectCertifyModel)}
-								</span>
+								<span>{layaT(HEATMAP_I18N.inspectCertifyModel)}</span>
 								<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_forward</span>
 							</button>
 						</div>

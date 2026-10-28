@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { GiftThumbnail, giftsApi } from '@/entities/gifts/index.js';
-import { isRtl, locale, t } from '@/shared/i18n/index.js';
+import { locale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { CollectionRarityHeatmap } from './CollectionRarityHeatmap.js';
@@ -116,7 +116,7 @@ export const GiftCollectionPage: Component = () => {
 	const fmtDate = (dStr?: string) => {
 		if (!dStr) return '';
 		const d = new Date(dStr);
-		if (isNaN(d.getTime())) return dStr;
+		if (Number.isNaN(d.getTime())) return dStr;
 		const y = d.getUTCFullYear();
 		const m = String(d.getUTCMonth() + 1).padStart(2, '0');
 		const day = String(d.getUTCDate()).padStart(2, '0');
@@ -503,7 +503,16 @@ export const GiftCollectionPage: Component = () => {
 								{t('gifts.floorPrice')}
 							</span>
 							<div class="text-base font-black text-white font-mono">
-								{data()?.best_floor_gram ? `${fmt(data()!.best_floor_gram)} TON` : ({ fa: 'بدون لیستینگ', en: 'No Listing', ru: 'Нет листинга', zh: '暂无挂单' } as Record<string, string>)[locale()] || 'No Listing'}
+								{data()?.best_floor_gram
+									? `${fmt(data()!.best_floor_gram)} TON`
+									: (
+											{
+												fa: 'بدون لیستینگ',
+												en: 'No Listing',
+												ru: 'Нет листинга',
+												zh: '暂无挂单',
+											} as Record<string, string>
+										)[locale()] || 'No Listing'}
 							</div>
 							<Show when={data()?.best_floor_usd}>
 								<span class="text-[10px] text-white/40 font-mono block mt-0.5">
@@ -521,7 +530,14 @@ export const GiftCollectionPage: Component = () => {
 									? fmtUsd(data()!.volume_24h_usd)
 									: data()?.volume_24h_gram && data()!.volume_24h_gram > 0
 										? `${fmt(data()!.volume_24h_gram, 0)} TON`
-										: ({ fa: 'پایش ۲۴س', en: '24h Tracked', ru: '24ч монитор', zh: '24h 监控' } as Record<string, string>)[locale()] || '24h Tracked'}
+										: (
+												{
+													fa: 'پایش ۲۴س',
+													en: '24h Tracked',
+													ru: '24ч монитор',
+													zh: '24h 监控',
+												} as Record<string, string>
+											)[locale()] || '24h Tracked'}
 							</div>
 							<span class="text-[10px] text-white/40 font-mono block mt-0.5">
 								{data()?.volume_24h_gram && data()!.volume_24h_gram > 0
@@ -539,7 +555,14 @@ export const GiftCollectionPage: Component = () => {
 									? fmtUsd(data()!.market_cap_usd)
 									: data()?.best_floor_usd && data()?.total_supply
 										? fmtUsd(data()!.best_floor_usd! * data()!.total_supply!)
-										: ({ fa: 'پایش زنده', en: 'Live Tracked', ru: 'Live монитор', zh: '实时监控' } as Record<string, string>)[locale()] || 'Live Tracked'}
+										: (
+												{
+													fa: 'پایش زنده',
+													en: 'Live Tracked',
+													ru: 'Live монитор',
+													zh: '实时监控',
+												} as Record<string, string>
+											)[locale()] || 'Live Tracked'}
 							</div>
 							<span class="text-[10px] text-emerald-400 font-bold block mt-0.5">
 								{data()?.listed_count
@@ -782,7 +805,14 @@ export const GiftCollectionPage: Component = () => {
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
-							{({ fa: '⚡ هوش LAYA', en: '⚡ LAYA AI', ru: '⚡ ИИ LAYA', zh: '⚡ LAYA 智能' } as Record<string, string>)[locale()] || '⚡ LAYA AI'}
+							{(
+								{
+									fa: '⚡ هوش LAYA',
+									en: '⚡ LAYA AI',
+									ru: '⚡ ИИ LAYA',
+									zh: '⚡ LAYA 智能',
+								} as Record<string, string>
+							)[locale()] || '⚡ LAYA AI'}
 						</button>
 					</div>
 
@@ -809,14 +839,29 @@ export const GiftCollectionPage: Component = () => {
 									<div class="flex flex-col">
 										<div class="flex items-center gap-2">
 											<span class="text-xs font-black text-white">
-												{({ fa: 'رادار تصمیم‌گیری هوشمند لایا فعال است', en: 'LAYA System 1 Intelligence Active', ru: 'Интеллект LAYA System 1 активен', zh: 'LAYA System 1 智能雷达已激活' } as Record<string, string>)[locale()] || 'LAYA System 1 Intelligence Active'}
+												{(
+													{
+														fa: 'رادار تصمیم‌گیری هوشمند لایا فعال است',
+														en: 'LAYA System 1 Intelligence Active',
+														ru: 'Интеллект LAYA System 1 активен',
+														zh: 'LAYA System 1 智能雷达已激活',
+													} as Record<string, string>
+												)[locale()] || 'LAYA System 1 Intelligence Active'}
 											</span>
 											<span class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
 												REAL-TIME
 											</span>
 										</div>
 										<span class="text-[10px] text-white/50">
-											{({ fa: 'آربیتراژ میان‌مارکتی، فیلتر معاملات صوری، هارمونی رنگی ΔE و ردیابی نهنگ‌ها', en: 'Cross-venue arbitrage, wash-trade filter, ΔE harmony & whale tracking', ru: 'Межбиржевой арбитраж, фильтр вош-трейдинга, ΔE гармония и киты', zh: '跨市场套利、对倒过滤、ΔE 色彩和谐度与巨鲸追踪' } as Record<string, string>)[locale()] || 'Cross-venue arbitrage, wash-trade filter, ΔE harmony & whale tracking'}
+											{(
+												{
+													fa: 'آربیتراژ میان‌مارکتی، فیلتر معاملات صوری، هارمونی رنگی ΔE و ردیابی نهنگ‌ها',
+													en: 'Cross-venue arbitrage, wash-trade filter, ΔE harmony & whale tracking',
+													ru: 'Межбиржевой арбитраж, фильтр вош-трейдинга, ΔE гармония и киты',
+													zh: '跨市场套利、对倒过滤、ΔE 色彩和谐度与巨鲸追踪',
+												} as Record<string, string>
+											)[locale()] ||
+												'Cross-venue arbitrage, wash-trade filter, ΔE harmony & whale tracking'}
 										</span>
 									</div>
 								</div>
@@ -831,7 +876,14 @@ export const GiftCollectionPage: Component = () => {
 									}}
 									class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-mono text-[11px] font-black shrink-0 shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-1.5"
 								>
-									<span>{({ fa: 'مشاهده', en: 'Explore', ru: 'Открыть', zh: '查看' } as Record<string, string>)[locale()] || 'Explore'}</span>
+									<span>
+										{(
+											{ fa: 'مشاهده', en: 'Explore', ru: 'Открыть', zh: '查看' } as Record<
+												string,
+												string
+											>
+										)[locale()] || 'Explore'}
+									</span>
 									<span class="material-symbols-outlined text-sm rtl:rotate-180">
 										arrow_forward
 									</span>

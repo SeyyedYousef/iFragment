@@ -204,7 +204,8 @@ const RISK_COPY: Record<
 				code: 'CONCENTRATION_ALERT',
 				severity: 'info',
 				title: '巨鲸持仓集中度提示',
-				description: '前 10 大钱包持有约 18.4% 的总供应量，虽以长期锁仓为主，但已纳入流动性折价考量。',
+				description:
+					'前 10 大钱包持有约 18.4% 的总供应量，虽以长期锁仓为主，但已纳入流动性折价考量。',
 			},
 			{
 				code: 'COUNTERFEIT_PREVENTION',

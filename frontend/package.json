@@ -7,14 +7,14 @@
 	"homepage": "https://ifragment.app",
 	"scripts": {
 		"deploy": "gh-pages -d dist",
-		"dev": "vite",
-		"dev:https": "cross-env HTTPS=true vite",
+		"dev": "vite --host 0.0.0.0 --port 3000",
+		"dev:https": "cross-env HTTPS=true vite --host 0.0.0.0 --port 3000",
 		"build": "vite build",
 		"lint": "biome check src",
 		"check:i18n": "node check-i18n.js",
 		"lint:fix": "biome check --write src",
-		"preview": "vite preview",
-		"predeploy": "pnpm run build",
+		"preview": "vite preview --host 0.0.0.0 --port 3000",
+		"predeploy": "npm run build",
 		"test": "vitest",
 		"test:run": "vitest run",
 		"test:coverage": "vitest run --coverage"

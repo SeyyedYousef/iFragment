@@ -42,7 +42,6 @@ var ValuationAnchors = map[string]float64{
 	"catizen":      150000.0,
 	"hamster":      100000.0,
 	"paws":         80000.0,
-	"rare":         65000.0,
 	"python":       45000.0,
 	"work":         60000.0,
 }
@@ -87,6 +86,7 @@ var knownGenesisAuctionDates = map[string]time.Time{
 	"payment":  time.Date(2023, 2, 18, 13, 30, 0, 0, time.UTC),
 	"love":     time.Date(2023, 2, 25, 19, 0, 0, 0, time.UTC),
 	"tiger":    time.Date(2023, 3, 5, 12, 0, 0, 0, time.UTC),
+	"rare":     time.Date(2023, 3, 11, 13, 37, 29, 0, time.UTC),
 	"usdt":     time.Date(2023, 3, 15, 15, 0, 0, 0, time.UTC),
 	"crypto":   time.Date(2023, 3, 25, 18, 0, 0, 0, time.UTC),
 	"gold":     time.Date(2023, 4, 5, 14, 0, 0, 0, time.UTC),
@@ -773,6 +773,7 @@ var HistoricalSales = map[string]float64{
 	"dunk":                             6200.0,
 	"byby":                             6141.0,
 	"dlao":                             6141.0,
+	"rare":                             6141.0,
 	"tysm":                             6139.0,
 	"held":                             6130.0,
 	"wydh":                             6000.0,

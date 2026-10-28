@@ -142,7 +142,8 @@ export const OwnerInvestorsPage: Component = () => {
 						</div>
 
 						<p class="text-xs text-white/50 leading-relaxed">
-							{t('ownerInvestors.safeZoneHint') || 'Crop your image to 9:16 vertical ratio (1080×1920).'}
+							{t('ownerInvestors.safeZoneHint') ||
+								'Crop your image to 9:16 vertical ratio (1080×1920).'}
 						</p>
 
 						<ImageCropUploader
@@ -168,7 +169,8 @@ export const OwnerInvestorsPage: Component = () => {
 								<div class="flex items-center gap-2 text-xs text-amber-300">
 									<span class="material-symbols-outlined text-base">pending</span>
 									<span>
-										{t('ownerInvestors.unsavedNotice') || 'Unsaved changes pending. Click Save to publish.'}
+										{t('ownerInvestors.unsavedNotice') ||
+											'Unsaved changes pending. Click Save to publish.'}
 									</span>
 								</div>
 								<button
@@ -267,7 +269,10 @@ export const OwnerInvestorsPage: Component = () => {
 				<DangerActionDialog
 					isOpen={showDeleteConfirm()}
 					title={t('ownerInvestors.removeButton')}
-					description={t('ownerInvestors.removeConfirmDesc') || 'Are you sure you want to remove the full-screen Investors page image?'}
+					description={
+						t('ownerInvestors.removeConfirmDesc') ||
+						'Are you sure you want to remove the full-screen Investors page image?'
+					}
 					actionLabel={t('common.delete')}
 					onConfirm={handleConfirmRemove}
 					onClose={() => setShowDeleteConfirm(false)}

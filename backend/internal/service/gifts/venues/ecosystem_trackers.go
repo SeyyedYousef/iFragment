@@ -198,8 +198,25 @@ func (c *EcosystemTrackerClient) refreshFreeChangesEmissions(ctx context.Context
 		return
 	}
 
-	var totalMap map[string]int
-	if json.NewDecoder(respT.Body).Decode(&totalMap) != nil || len(totalMap) == 0 {
+	var rawBody json.RawMessage
+	if json.NewDecoder(respT.Body).Decode(&rawBody) != nil || len(rawBody) == 0 {
+		return
+	}
+
+	totalMap := make(map[string]int)
+	if err := json.Unmarshal(rawBody, &totalMap); err != nil || len(totalMap) == 0 {
+		// api.changes.tg/total can return nested TotalStats {"gifts":{"total":...,"upgradable":...}}
+		var nested struct {
+			Gifts struct {
+				Total      int `json:"total"`
+				Upgradable int `json:"upgradable"`
+			} `json:"gifts"`
+		}
+		if json.Unmarshal(rawBody, &nested) == nil && nested.Gifts.Total > 0 {
+			c.mu.Lock()
+			c.emissionsFetched = time.Now().UTC()
+			c.mu.Unlock()
+		}
 		return
 	}
 

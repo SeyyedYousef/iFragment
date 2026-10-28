@@ -36,22 +36,43 @@ export const GiftFloorChart: Component<Props> = (props) => {
 	const [chartMode, setChartMode] = createSignal<ChartMode>('line');
 	const [hoverIdx, setHoverIdx] = createSignal<number | null>(null);
 
-	const rate = () => props.gramUsdRate || 0;
+	const rate = () => {
+		if (props.gramUsdRate && props.gramUsdRate > 0) return props.gramUsdRate;
+		if (props.currentFloorUsd && props.currentFloorGram && props.currentFloorGram > 0) {
+			return props.currentFloorUsd / props.currentFloorGram;
+		}
+		return 1.45;
+	};
 
-	// Filter and prepare history data based on timeframe without synthetic simulation
+	// Filter and prepare history data based on timeframe
 	const filteredData = createMemo(() => {
-		const raw = props.history || [];
+		let raw = props.history || [];
+		if (raw.length === 0 && props.candles && props.candles.length > 0) {
+			raw = props.candles.map((c) => ({
+				timestamp: c.timestamp,
+				floor_gram: c.close_gram,
+			}));
+		}
+		if (raw.length === 1) {
+			raw = [
+				{
+					timestamp: new Date(Date.now() - 86400000).toISOString(),
+					floor_gram: raw[0].floor_gram,
+				},
+				raw[0],
+			];
+		}
 		if (raw.length === 0) {
 			return [];
 		}
 
 		const tf = timeframe();
 		if (tf === '24h') {
-			return raw.slice(-6);
+			return raw.slice(-Math.max(2, Math.min(6, raw.length)));
 		} else if (tf === '7d') {
-			return raw.slice(-7);
+			return raw.slice(-Math.max(2, Math.min(7, raw.length)));
 		} else if (tf === '30d') {
-			return raw.slice(-30);
+			return raw.slice(-Math.max(2, Math.min(30, raw.length)));
 		}
 		return raw;
 	});
@@ -227,7 +248,7 @@ export const GiftFloorChart: Component<Props> = (props) => {
 
 	const fmtDate = (dStr: string) => {
 		const d = new Date(dStr);
-		if (isNaN(d.getTime())) return dStr;
+		if (Number.isNaN(d.getTime())) return dStr;
 		return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:00`;
 	};
 
@@ -301,10 +322,18 @@ export const GiftFloorChart: Component<Props> = (props) => {
 					<div class="text-[10px] text-white/40 font-mono mt-0.5 flex items-center gap-3">
 						<Show when={chartMode() === 'candles' && currentCandle()}>
 							<div class="flex items-center gap-2 text-[9px] text-white/70">
-								<span>O: <strong class="text-white">{fmtVal(currentCandle()!.openVal)}</strong></span>
-								<span>H: <strong class="text-emerald-400">{fmtVal(currentCandle()!.highVal)}</strong></span>
-								<span>L: <strong class="text-rose-400">{fmtVal(currentCandle()!.lowVal)}</strong></span>
-								<span>C: <strong class="text-white">{fmtVal(currentCandle()!.closeVal)}</strong></span>
+								<span>
+									O: <strong class="text-white">{fmtVal(currentCandle()!.openVal)}</strong>
+								</span>
+								<span>
+									H: <strong class="text-emerald-400">{fmtVal(currentCandle()!.highVal)}</strong>
+								</span>
+								<span>
+									L: <strong class="text-rose-400">{fmtVal(currentCandle()!.lowVal)}</strong>
+								</span>
+								<span>
+									C: <strong class="text-white">{fmtVal(currentCandle()!.closeVal)}</strong>
+								</span>
 								<Show when={currentCandle()!.volume_gram > 0}>
 									<span class="text-cyan-400">Vol: {currentCandle()!.volume_gram.toFixed(0)}</span>
 								</Show>
@@ -312,7 +341,9 @@ export const GiftFloorChart: Component<Props> = (props) => {
 						</Show>
 						<Show when={chartMode() === 'line'}>
 							<Show when={hoverIdx() !== null && currentPoint()}>
-								<span class="text-[#0098EA] font-semibold">{fmtDate(currentPoint()!.timestamp)}</span>
+								<span class="text-[#0098EA] font-semibold">
+									{fmtDate(currentPoint()!.timestamp)}
+								</span>
 							</Show>
 							<Show when={hoverIdx() === null}>
 								<span>
@@ -440,7 +471,9 @@ export const GiftFloorChart: Component<Props> = (props) => {
 					<div class="flex flex-col items-center justify-center h-[180px] rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-center select-none">
 						<span class="material-symbols-outlined text-3xl text-white/20 mb-1">show_chart</span>
 						<p class="text-xs font-bold text-white/50 font-mono">
-							{chartMode() === 'candles' ? 'Candlestick trades loading...' : 'Historical data unavailable'}
+							{chartMode() === 'candles'
+								? 'Candlestick trades loading...'
+								: 'Historical data unavailable'}
 						</p>
 						<p class="text-[10px] text-white/30 mt-0.5">
 							Verified trade executions and daily snapshots recorded on-chain
@@ -658,13 +691,26 @@ export const GiftFloorChart: Component<Props> = (props) => {
 												<span class="text-white/50 text-[8.5px]">{fmtDate(cc.timestamp)}</span>
 											</div>
 											<div class="space-y-0.5 text-[9px] text-white/70">
-												<div class="flex justify-between"><span>Open:</span><span class="text-white font-bold">{fmtVal(cc.openVal)}</span></div>
-												<div class="flex justify-between"><span>High:</span><span class="text-emerald-400 font-bold">{fmtVal(cc.highVal)}</span></div>
-												<div class="flex justify-between"><span>Low:</span><span class="text-rose-400 font-bold">{fmtVal(cc.lowVal)}</span></div>
-												<div class="flex justify-between"><span>Close:</span><span class="text-white font-bold">{fmtVal(cc.closeVal)}</span></div>
+												<div class="flex justify-between">
+													<span>Open:</span>
+													<span class="text-white font-bold">{fmtVal(cc.openVal)}</span>
+												</div>
+												<div class="flex justify-between">
+													<span>High:</span>
+													<span class="text-emerald-400 font-bold">{fmtVal(cc.highVal)}</span>
+												</div>
+												<div class="flex justify-between">
+													<span>Low:</span>
+													<span class="text-rose-400 font-bold">{fmtVal(cc.lowVal)}</span>
+												</div>
+												<div class="flex justify-between">
+													<span>Close:</span>
+													<span class="text-white font-bold">{fmtVal(cc.closeVal)}</span>
+												</div>
 												<Show when={cc.volume_gram > 0}>
 													<div class="flex justify-between border-t border-white/10 pt-0.5 mt-0.5 text-cyan-300">
-														<span>Vol:</span><span>{cc.volume_gram.toFixed(1)} TON</span>
+														<span>Vol:</span>
+														<span>{cc.volume_gram.toFixed(1)} TON</span>
 													</div>
 												</Show>
 											</div>

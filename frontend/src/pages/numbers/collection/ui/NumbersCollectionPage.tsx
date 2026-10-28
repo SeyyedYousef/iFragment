@@ -154,7 +154,7 @@ export const NumbersCollectionPage: Component = () => {
 
 	const overview = () => overviewQuery.data;
 	const history = () => historyQuery.data?.points || [];
-	const rate = () => overviewQuery.data?.ton_usd_rate || 5.0;
+	const rate = () => overviewQuery.data?.ton_usd_rate || 1.23;
 	const listings = () => listingsQuery.data?.items || [];
 	const listingsTotal = () => listingsQuery.data?.total || 0;
 	const patterns = () => patternsQuery.data || [];
@@ -277,6 +277,9 @@ export const NumbersCollectionPage: Component = () => {
 
 						{/* 🏆 2. COLLECTIBLE CLUB FLOORS TRACKER */}
 						<NumberClubFloorsTracker
+							patterns={patterns()}
+							overview={overview()}
+							rate={rate()}
 							onSelectNumber={(num) => navigate(`/numbers/report?n=${encodeURIComponent(num)}`)}
 						/>
 

@@ -10,6 +10,14 @@ export { haptic };
 const getWebApp = () =>
 	typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
 
+const isSupportedVersion = (wa: any, minVersion: string): boolean => {
+	if (!wa) return false;
+	if (typeof wa.isVersionAtLeast === 'function') {
+		return Boolean(wa.isVersionAtLeast(minVersion));
+	}
+	return true;
+};
+
 /**
  * Safely execute an asynchronous callback-based Telegram WebApp method
  * with feature detection and a strict timeout guarantee.
@@ -83,19 +91,28 @@ export const shareToStory = (
 	params?: { text?: string; widget_link?: { url: string; name?: string } },
 ) => {
 	try {
-		getWebApp()?.shareToStory?.(mediaUrl, params);
+		const wa = getWebApp();
+		if (isSupportedVersion(wa, '7.8')) {
+			wa?.shareToStory?.(mediaUrl, params);
+		}
 	} catch {}
 };
 
 export const switchInlineQuery = (query: string, chatTypes?: string[]) => {
 	try {
-		getWebApp()?.switchInlineQuery?.(query, chatTypes);
+		const wa = getWebApp();
+		if (isSupportedVersion(wa, '6.7')) {
+			wa?.switchInlineQuery?.(query, chatTypes);
+		}
 	} catch {}
 };
 
 export const shareMessage = (msgId: string) => {
 	try {
-		getWebApp()?.shareMessage?.(msgId);
+		const wa = getWebApp();
+		if (isSupportedVersion(wa, '8.0')) {
+			wa?.shareMessage?.(msgId);
+		}
 	} catch {}
 };
 
@@ -122,13 +139,16 @@ export const closeMiniApp = () => {
 // ─── Home Screen ───
 export const addToHomeScreen = () => {
 	try {
-		getWebApp()?.addToHomeScreen?.();
+		const wa = getWebApp();
+		if (isSupportedVersion(wa, '8.0')) {
+			wa?.addToHomeScreen?.();
+		}
 	} catch {}
 };
 
 export const checkHomeScreenStatus = (): Promise<string> => {
 	return safeTelegramAsync<string>((wa, resolve) => {
-		if (typeof wa.checkHomeScreenStatus !== 'function') {
+		if (!isSupportedVersion(wa, '8.0') || typeof wa.checkHomeScreenStatus !== 'function') {
 			resolve('unsupported');
 			return;
 		}
@@ -139,7 +159,7 @@ export const checkHomeScreenStatus = (): Promise<string> => {
 // ─── Emoji Status ───
 export const requestEmojiStatusAccess = (): Promise<boolean> => {
 	return safeTelegramAsync<boolean>((wa, resolve) => {
-		if (typeof wa.requestEmojiStatusAccess !== 'function') {
+		if (!isSupportedVersion(wa, '8.0') || typeof wa.requestEmojiStatusAccess !== 'function') {
 			resolve(false);
 			return;
 		}
@@ -152,7 +172,7 @@ export const setEmojiStatus = (
 	params?: { duration?: number },
 ): Promise<boolean> => {
 	return safeTelegramAsync<boolean>((wa, resolve) => {
-		if (typeof wa.setEmojiStatus !== 'function') {
+		if (!isSupportedVersion(wa, '8.0') || typeof wa.setEmojiStatus !== 'function') {
 			resolve(false);
 			return;
 		}
@@ -163,7 +183,7 @@ export const setEmojiStatus = (
 // ─── Write Access ───
 export const requestWriteAccess = (): Promise<boolean> => {
 	return safeTelegramAsync<boolean>((wa, resolve) => {
-		if (typeof wa.requestWriteAccess !== 'function') {
+		if (!isSupportedVersion(wa, '6.9') || typeof wa.requestWriteAccess !== 'function') {
 			resolve(false);
 			return;
 		}
@@ -174,7 +194,7 @@ export const requestWriteAccess = (): Promise<boolean> => {
 // ─── Contact ───
 export const requestContact = (): Promise<boolean> => {
 	return safeTelegramAsync<boolean>((wa, resolve) => {
-		if (typeof wa.requestContact !== 'function') {
+		if (!isSupportedVersion(wa, '6.9') || typeof wa.requestContact !== 'function') {
 			resolve(false);
 			return;
 		}
@@ -186,7 +206,7 @@ export const requestContact = (): Promise<boolean> => {
 export const showScanQrPopup = (text?: string): Promise<string | null> => {
 	return safeTelegramAsync<string | null>(
 		(wa, resolve) => {
-			if (typeof wa.showScanQrPopup !== 'function') {
+			if (!isSupportedVersion(wa, '6.4') || typeof wa.showScanQrPopup !== 'function') {
 				resolve(null);
 				return;
 			}
@@ -206,7 +226,7 @@ export const showScanQrPopup = (text?: string): Promise<string | null> => {
 // ─── Popups ───
 export const showAlert = (message: string): Promise<void> => {
 	const wa = getWebApp();
-	if (!wa || typeof wa.showAlert !== 'function') {
+	if (!wa || !isSupportedVersion(wa, '6.2') || typeof wa.showAlert !== 'function') {
 		try {
 			if (typeof window !== 'undefined' && typeof window.alert === 'function') {
 				window.alert(message);
@@ -225,7 +245,7 @@ export const showAlert = (message: string): Promise<void> => {
 
 export const showConfirm = (message: string): Promise<boolean> => {
 	const wa = getWebApp();
-	if (!wa || typeof wa.showConfirm !== 'function') {
+	if (!wa || !isSupportedVersion(wa, '6.2') || typeof wa.showConfirm !== 'function') {
 		try {
 			if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
 				return Promise.resolve(Boolean(window.confirm(message)));
@@ -246,7 +266,9 @@ export const showConfirm = (message: string): Promise<boolean> => {
 export const biometric = {
 	isAvailable: (): boolean => {
 		try {
-			const bm = getWebApp()?.BiometricManager;
+			const wa = getWebApp();
+			if (!isSupportedVersion(wa, '7.2')) return false;
+			const bm = wa?.BiometricManager;
 			return Boolean(bm?.isInited && bm?.isBiometricAvailable);
 		} catch {
 			return false;
@@ -254,7 +276,9 @@ export const biometric = {
 	},
 	isAccessGranted: (): boolean => {
 		try {
-			const bm = getWebApp()?.BiometricManager;
+			const wa = getWebApp();
+			if (!isSupportedVersion(wa, '7.2')) return false;
+			const bm = wa?.BiometricManager;
 			return Boolean(bm?.isAccessGranted);
 		} catch {
 			return false;
@@ -262,7 +286,9 @@ export const biometric = {
 	},
 	getBiometricType: (): 'finger' | 'face' | 'unknown' => {
 		try {
-			const bm = getWebApp()?.BiometricManager;
+			const wa = getWebApp();
+			if (!isSupportedVersion(wa, '7.2')) return 'unknown';
+			const bm = wa?.BiometricManager;
 			return bm?.biometricType || 'unknown';
 		} catch {
 			return 'unknown';
@@ -271,7 +297,7 @@ export const biometric = {
 	init: (): Promise<boolean> => {
 		return safeTelegramAsync<boolean>((wa, resolve) => {
 			const bm = wa.BiometricManager;
-			if (!bm || typeof bm.init !== 'function') {
+			if (!isSupportedVersion(wa, '7.2') || !bm || typeof bm.init !== 'function') {
 				resolve(false);
 				return;
 			}
@@ -281,7 +307,7 @@ export const biometric = {
 	requestAccess: (reason: string): Promise<boolean> => {
 		return safeTelegramAsync<boolean>((wa, resolve) => {
 			const bm = wa.BiometricManager;
-			if (!bm || typeof bm.requestAccess !== 'function') {
+			if (!isSupportedVersion(wa, '7.2') || !bm || typeof bm.requestAccess !== 'function') {
 				resolve(false);
 				return;
 			}

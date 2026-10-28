@@ -145,7 +145,7 @@ func (h *WebhookHandler) isBotOwner(ctx context.Context, bot *repository.Managed
 	if h.ownerRepo != nil {
 		role, err := h.ownerRepo.GetOwnerRole(ctx, userID)
 		if err == nil && role != nil {
-			return role.Role == "superadmin" || role.Role == "owner" || role.Role == "admin"
+			return role.Role == "super_admin" || role.Role == "superadmin" || role.Role == "owner" || role.Role == "admin"
 		}
 	}
 

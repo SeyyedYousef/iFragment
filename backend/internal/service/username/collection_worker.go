@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"ifragment-backend/internal/client/marketapp"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
@@ -423,7 +424,7 @@ func (w *CollectionWorker) fetchRealRecentActivityFromFragment(ctx context.Conte
 }
 
 func (w *CollectionWorker) fetchRealFloorFromFragment(ctx context.Context) (string, error) {
-	html, err := fetchHTML(ctx, "https://fragment.com/?sort=price_asc")
+	html, err := fetchHTML(ctx, "https://fragment.com/?filter=sale&sort=price_asc")
 	if err != nil {
 		return "", err
 	}
@@ -433,59 +434,73 @@ func (w *CollectionWorker) fetchRealFloorFromFragment(ctx context.Context) (stri
 	if len(match) >= 3 {
 		return match[2] + " TON", nil
 	}
-	return "", fmt.Errorf("no listing price found on fragment price_asc")
+	return "", fmt.Errorf("no listing price found on fragment sale price_asc")
 }
 
 func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.Time) error {
 	var itemsStr, ownersStr, floorStr, volumeStr string
 
-	// 1. Attempt live stats from GetGems
-	gItems, gOwners, gFloor, gVolume, gErr := w.fetchRealStatsFromGetGems(ctx)
-	if gErr == nil && gItems != "" && gItems != "—" && gFloor != "" && gFloor != "—" {
-		itemsStr = gItems
-		ownersStr = gOwners
-		floorStr = gFloor
-		volumeStr = gVolume
-	} else {
-		slog.Warn("[CollectionWorker] Live stats from GetGems unavailable, querying Fragment & on-chain baselines", "error", gErr)
-
-		// Fetch live floor directly from Fragment price_asc
-		liveFloor, floorErr := w.fetchRealFloorFromFragment(ctx)
-		if floorErr == nil && liveFloor != "" {
-			floorStr = liveFloor
-		} else {
-			// Fallback: check database sales in last 30 days
-			var minSale float64
-			errMin := w.db.Pool.QueryRow(ctx, `SELECT MIN(sale_price_ton) FROM username_sales WHERE sale_price_ton > 0 AND sale_date > NOW() - INTERVAL '30 days'`).Scan(&minSale)
-			if errMin == nil && minSale > 0 {
-				floorStr = fmt.Sprintf("%.2f TON", minSale)
-			} else {
-				floorStr = "2.00 TON"
-			}
+	// 1. Attempt live collection stats from MarketApp OpenAPI (authenticated in production via MARKETAPP_TOKENS)
+	maClient := marketapp.NewClient()
+	if maCol, maErr := maClient.GetCollection(ctx); maErr == nil && maCol != nil {
+		if maCol.ItemsCount > 0 {
+			itemsStr = fmt.Sprintf("%.1fK", float64(maCol.ItemsCount)/1000.0)
 		}
+		if maCol.TotalOwners > 0 {
+			ownersStr = fmt.Sprintf("%.1fK", float64(maCol.TotalOwners)/1000.0)
+		}
+		if maCol.FloorPrice > 0 {
+			floorStr = fmt.Sprintf("%.0f TON", maCol.FloorPrice)
+		}
+	}
 
-		// Query previous valid snapshot from database
+	// 2. Attempt live stats from GetGems if MarketApp was not populated
+	if itemsStr == "" || ownersStr == "" {
+		gItems, gOwners, gFloor, gVolume, gErr := w.fetchRealStatsFromGetGems(ctx)
+		if gErr == nil && gItems != "" && gItems != "—" && gFloor != "" && gFloor != "—" {
+			if itemsStr == "" {
+				itemsStr = gItems
+			}
+			if ownersStr == "" {
+				ownersStr = gOwners
+			}
+			if floorStr == "" {
+				floorStr = gFloor
+			}
+			if volumeStr == "" {
+				volumeStr = gVolume
+			}
+		} else {
+			slog.Warn("[CollectionWorker] Live stats from GetGems unavailable, querying Fragment & on-chain baselines", "error", gErr)
+		}
+	}
+
+	// 3. Always verify live Buy-Now floor directly from Fragment (?filter=sale&sort=price_asc)
+	if liveFloor, floorErr := w.fetchRealFloorFromFragment(ctx); floorErr == nil && liveFloor != "" {
+		floorStr = liveFloor
+	} else if floorStr == "" {
+		var minSale float64
+		errMin := w.db.Pool.QueryRow(ctx, `SELECT MIN(sale_price_ton) FROM username_sales WHERE sale_price_ton > 0 AND sale_date > NOW() - INTERVAL '30 days'`).Scan(&minSale)
+		if errMin == nil && minSale > 0 {
+			floorStr = fmt.Sprintf("%.2f TON", minSale)
+		} else {
+			floorStr = "6 TON"
+		}
+	}
+
+	// 4. Fill any remaining macro fields from previous snapshot + PostgreSQL username_sales aggregation
+	if itemsStr == "" || ownersStr == "" || volumeStr == "" {
 		var lastItems, lastOwners, lastVolume string
 		queryLatest := `SELECT items_count, owners_count, total_volume FROM nft_collection_stats WHERE floor_price != '—' AND items_count != '—' AND items_count != '' ORDER BY stat_date DESC LIMIT 1`
-		if scanErr := w.db.Pool.QueryRow(ctx, queryLatest).Scan(&lastItems, &lastOwners, &lastVolume); scanErr == nil && lastItems != "" && lastItems != "—" {
-			itemsStr = lastItems
-			ownersStr = lastOwners
-			volumeStr = lastVolume
-		} else {
-			// Query live on-chain TeleMint contract via TonAPI
-			if w.tonClient != nil {
-				if coll, err := w.tonClient.GetCollection(ctx, "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"); err == nil && coll != nil && coll.NextItemIndex > 0 {
-					itemsStr = fmt.Sprintf("%.1fK", float64(coll.NextItemIndex)/1000.0)
-				}
+		if scanErr := w.db.Pool.QueryRow(ctx, queryLatest).Scan(&lastItems, &lastOwners, &lastVolume); scanErr == nil {
+			if itemsStr == "" && lastItems != "" && lastItems != "—" {
+				itemsStr = lastItems
 			}
-			var totalVol float64
-			var uniqueOwners int
-			_ = w.db.Pool.QueryRow(ctx, `SELECT COALESCE(SUM(sale_price_ton), 0), COUNT(DISTINCT buyer_address) FROM username_sales WHERE sale_price_ton > 0`).Scan(&totalVol, &uniqueOwners)
-			if totalVol > 0 {
-				volumeStr = fmt.Sprintf("%.1fM TON", totalVol/1e6)
+			if ownersStr == "" && lastOwners != "" && lastOwners != "—" {
+				ownersStr = lastOwners
 			}
-			if uniqueOwners > 0 {
-				ownersStr = fmt.Sprintf("%.1fK", float64(uniqueOwners)/1000.0)
+			if volumeStr == "" && lastVolume != "" && lastVolume != "—" {
+				volumeStr = lastVolume
 			}
 		}
 	}

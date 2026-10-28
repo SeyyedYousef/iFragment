@@ -169,8 +169,15 @@ func Load() (*Config, error) {
 		botToken := getEnv("TELEGRAM_BOT_TOKEN", getEnv("BOT_TOKEN", ""))
 		tgAPIURL := getEnv("TELEGRAM_API_URL", "https://api.telegram.org")
 		var ownerID int64
-		if ownerIDStr := os.Getenv("OWNER_TELEGRAM_ID"); ownerIDStr != "" {
-			ownerID, _ = strconv.ParseInt(ownerIDStr, 10, 64)
+		ownerIDStr := os.Getenv("OWNER_TELEGRAM_ID")
+		if ownerIDStr == "" {
+			ownerIDStr = os.Getenv("OWNER_TELEGRAM_IDS")
+		}
+		if strings.Contains(ownerIDStr, ",") {
+			ownerIDStr = strings.TrimSpace(strings.Split(ownerIDStr, ",")[0])
+		}
+		if ownerIDStr != "" {
+			ownerID, _ = strconv.ParseInt(strings.TrimSpace(ownerIDStr), 10, 64)
 		}
 
 		cfg.Telegram = TelegramConfig{

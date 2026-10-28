@@ -24,7 +24,11 @@ export function getGiftCdnImageUrl(slugOrName: string, modelName?: string): stri
 	return `https://api.changes.tg/model/${realSlug}/${encodeURIComponent(model)}.png?size=256`;
 }
 
-export function getGiftProxyImageUrl(slugOrName: string, modelName?: string, serialNumber?: number): string {
+export function getGiftProxyImageUrl(
+	slugOrName: string,
+	modelName?: string,
+	serialNumber?: number,
+): string {
 	if (!slugOrName) return '';
 	const cleanSlug = slugOrName
 		.toLowerCase()

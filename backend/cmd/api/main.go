@@ -183,7 +183,6 @@ func main() {
 	// Initialize Server with middleware stack
 	r := chi.NewRouter()
 
-	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Recoverer)
 
 	// Request-ID and Structured Logging

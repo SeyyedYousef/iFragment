@@ -481,21 +481,92 @@ func GetSemanticSynonyms(username string) []SemanticCandidate {
 		}
 	}
 
-	// 4. Default high-signal fallback for short generic handles (no suffix spam!)
-	if len(u) <= 4 {
-		return []SemanticCandidate{
-			{"vip", "Short Status Benchmark"},
-			{"gem", "Short Collectible Word"},
-			{"king", "Short Monarchy Handle"},
-			{"gold", "Precious Store of Value"},
+	// 4. Query live Datamuse semantic synonyms (`ml=`) prioritized by verified Fragment sales
+	if dmSyns := GetDatamuseSynonyms(u); len(dmSyns) >= 3 {
+		if len(dmSyns) > 8 {
+			return dmSyns[:8]
+		}
+		return dmSyns
+	}
+
+	// 5. Dynamic verified Fragment comps from HistoricalSales (root/prefix matches + same-length structural peers)
+	var dynamicComps []SemanticCandidate
+	seen := map[string]bool{u: true}
+	for _, dm := range GetDatamuseSynonyms(u) {
+		seen[dm.Username] = true
+		dynamicComps = append(dynamicComps, dm)
+	}
+
+	// 5a. Prefix / substring matches in HistoricalSales
+	prefix := u
+	if len(prefix) > 4 {
+		prefix = prefix[:4]
+	}
+	for k := range HistoricalSales {
+		if seen[k] || len(k) < 4 {
+			continue
+		}
+		if (len(u) >= 3 && (strings.HasPrefix(k, prefix) || strings.Contains(k, u))) && len(dynamicComps) < 4 {
+			seen[k] = true
+			dynamicComps = append(dynamicComps, SemanticCandidate{
+				Username: k,
+				Reason:   "Shared Root · Verified Fragment Sale",
+			})
 		}
 	}
 
+	// 5b. Same-length & phonetic structure peers from HistoricalSales (deterministic per-username selection)
+	var sameLenKeys []string
+	targetLen := len(u)
+	if targetLen < 4 {
+		targetLen = 4
+	}
+	for k := range HistoricalSales {
+		if !seen[k] && len(k) == targetLen {
+			sameLenKeys = append(sameLenKeys, k)
+		}
+	}
+	// Sort deterministically by character overlap + alphabetical
+	if len(sameLenKeys) > 0 {
+		// Simple deterministic selection based on username hash so every handle gets tailored same-length comps
+		h := 0
+		for _, ch := range u {
+			h = h*31 + int(ch)
+		}
+		if h < 0 {
+			h = -h
+		}
+		// Pick keys sharing first letter first
+		for _, k := range sameLenKeys {
+			if len(k) > 0 && len(u) > 0 && k[0] == u[0] && len(dynamicComps) < 6 {
+				seen[k] = true
+				dynamicComps = append(dynamicComps, SemanticCandidate{
+					Username: k,
+					Reason:   "Same Initial & Length · Verified Sale",
+				})
+			}
+		}
+		for i := 0; i < len(sameLenKeys) && len(dynamicComps) < 8; i++ {
+			pick := sameLenKeys[(h+i*7)%len(sameLenKeys)]
+			if !seen[pick] {
+				seen[pick] = true
+				dynamicComps = append(dynamicComps, SemanticCandidate{
+					Username: pick,
+					Reason:   "Same Length Cohort · Verified Sale",
+				})
+			}
+		}
+	}
+
+	if len(dynamicComps) > 0 {
+		return dynamicComps
+	}
+
 	return []SemanticCandidate{
-		{"unique", "Exclusivity Benchmark"},
-		{"premium", "High Tier Commercial Category"},
-		{"exclusive", "Status Benchmark"},
-		{"limited", "Limited Availability Tier"},
+		{"news", "All-Time Fragment Benchmark"},
+		{"auto", "Commercial Category Benchmark"},
+		{"bank", "Financial Category Benchmark"},
+		{"chat", "Communication Category Benchmark"},
 	}
 }
 

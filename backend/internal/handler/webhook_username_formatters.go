@@ -1572,14 +1572,31 @@ func formatUsernameStandardHTML(username string, res *avm.ValuationResult, lang 
 	sb.WriteString(fmt.Sprintf("<blockquote expandable>%s\n", mod1Title))
 	sb.WriteString(fmt.Sprintf("• %s <b>%s</b>\n", lblCurStatus, statusBadge))
 	if res.LiveMarket != nil {
+		lblCurBid := "Current Bid:"
+		lblBuyNow := "Buy Now (Ask):"
+		lblAucEnds := "Auction Ends:"
+		switch l {
+		case "fa":
+			lblCurBid = "بالاترین پیشنهاد فعلی (Bid):"
+			lblBuyNow = "قیمت خرید فوری (Buy Now):"
+			lblAucEnds = "زمان پایان حراج:"
+		case "ru":
+			lblCurBid = "Текущая ставка (Bid):"
+			lblBuyNow = "Купить сейчас (Ask):"
+			lblAucEnds = "Окончание аукциона:"
+		case "zh":
+			lblCurBid = "当前最高出价 (Bid):"
+			lblBuyNow = "一口价 (Ask):"
+			lblAucEnds = "拍卖结束时间:"
+		}
 		if res.LiveMarket.CurrentBidTON > 0 {
-			sb.WriteString(fmt.Sprintf("• Current Bid: <code>%.1f TON</code>\n", res.LiveMarket.CurrentBidTON))
+			sb.WriteString(fmt.Sprintf("• %s <code>%.1f TON</code>\n", lblCurBid, res.LiveMarket.CurrentBidTON))
 		}
 		if res.LiveMarket.BuyNowTON > 0 {
-			sb.WriteString(fmt.Sprintf("• Buy Now (Ask): <code>%.1f TON</code>\n", res.LiveMarket.BuyNowTON))
+			sb.WriteString(fmt.Sprintf("• %s <code>%.1f TON</code>\n", lblBuyNow, res.LiveMarket.BuyNowTON))
 		}
 		if res.LiveMarket.AuctionEndsAt != "" {
-			sb.WriteString(fmt.Sprintf("• Auction Ends: <b>%s</b>\n", telegram.EscapeHTML(formatAuctionEndText(res.LiveMarket.AuctionEndsAt, l))))
+			sb.WriteString(fmt.Sprintf("• %s <b>%s</b>\n", lblAucEnds, telegram.EscapeHTML(formatAuctionEndText(res.LiveMarket.AuctionEndsAt, l))))
 		}
 	}
 	lowUSDFloat, _ := res.LowUSD.Float64()
@@ -1651,7 +1668,16 @@ func formatUsernameStandardHTML(username string, res *avm.ValuationResult, lang 
 	if charLen == 0 {
 		charLen = len(cleanUser)
 	}
-	sb.WriteString(fmt.Sprintf("• %s <b>%d chars</b>", lblLen, charLen))
+	unitChars := "chars"
+	switch l {
+	case "fa":
+		unitChars = "کاراکتر"
+	case "ru":
+		unitChars = "симв."
+	case "zh":
+		unitChars = "字符"
+	}
+	sb.WriteString(fmt.Sprintf("• %s <b>%d %s</b>", lblLen, charLen, unitChars))
 	if res.Rarity.Tier != "" {
 		sb.WriteString(fmt.Sprintf(" (%s: <b>%s</b> %s)", lblRarity, telegram.EscapeHTML(translateAVM(res.Rarity.Tier, l)), res.Rarity.Stars))
 	}
@@ -1694,7 +1720,16 @@ func formatUsernameStandardHTML(username string, res *avm.ValuationResult, lang 
 	if res.PhishingThreat != nil && res.PhishingThreat.HasThreat {
 		phishText = fmt.Sprintf("⚠️ %s (%s)", translateAVM("Phishing Threat", l), res.PhishingThreat.SimilarUsername)
 	} else if len(res.HomoglyphTwins) > 0 {
-		phishText = fmt.Sprintf("⚠️ %d twins", len(res.HomoglyphTwins))
+		switch l {
+		case "fa":
+			phishText = fmt.Sprintf("⚠️ %d دوقلوی بصری شناسایی شد", len(res.HomoglyphTwins))
+		case "ru":
+			phishText = fmt.Sprintf("⚠️ %d омоглифов обнаружено", len(res.HomoglyphTwins))
+		case "zh":
+			phishText = fmt.Sprintf("⚠️ 检测到 %d 个形近仿冒", len(res.HomoglyphTwins))
+		default:
+			phishText = fmt.Sprintf("⚠️ %d twins", len(res.HomoglyphTwins))
+		}
 	}
 	sb.WriteString(fmt.Sprintf("• %s <b>%s</b>\n", lblPhish, telegram.EscapeHTML(phishText)))
 
@@ -1711,8 +1746,17 @@ func formatUsernameStandardHTML(username string, res *avm.ValuationResult, lang 
 	}
 	sb.WriteString(fmt.Sprintf("• %s <b>%d%%</b>\n", lblConf, res.ConfidenceScore))
 	if res.ModelAccuracy != nil {
-		sb.WriteString(fmt.Sprintf("• %s <code>±%.1f%%</code> (Within band: %.1f%%)\n",
-			lblAcc, res.ModelAccuracy.MedianErrorPct, res.ModelAccuracy.WithinBandPct))
+		lblBandIn := "Within band"
+		switch l {
+		case "fa":
+			lblBandIn = "پوشش در بازه"
+		case "ru":
+			lblBandIn = "В коридоре"
+		case "zh":
+			lblBandIn = "区间命中率"
+		}
+		sb.WriteString(fmt.Sprintf("• %s <code>±%.1f%%</code> (%s: %.1f%%)\n",
+			lblAcc, res.ModelAccuracy.MedianErrorPct, lblBandIn, res.ModelAccuracy.WithinBandPct))
 	}
 	if res.BandMethod != "" {
 		sb.WriteString(fmt.Sprintf("• %s <b>%s</b>\n", lblMethod, telegram.EscapeHTML(translateAVM(res.BandMethod, l))))

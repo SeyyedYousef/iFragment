@@ -217,9 +217,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 				<div class="flex items-center justify-between">
 					<span class="text-[10px] uppercase font-black text-white/50 tracking-wider flex items-center gap-1.5">
 						<span class="material-symbols-outlined text-sm text-cyan-400">query_stats</span>
-						<span>
-							{layaT(GIFT_PILLARS_I18N.infoEntropyTitle)}
-						</span>
+						<span>{layaT(GIFT_PILLARS_I18N.infoEntropyTitle)}</span>
 					</span>
 					<span class="text-[10px] font-black text-amber-300 bg-amber-400/15 px-2 py-0.5 rounded-md border border-amber-400/30">
 						{rarityInfo().tier}

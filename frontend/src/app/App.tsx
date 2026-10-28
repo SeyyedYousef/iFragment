@@ -1,10 +1,11 @@
 import * as Sentry from '@sentry/browser';
-import { HashRouter, Navigate, Route, useNavigate } from '@solidjs/router';
+import { HashRouter, Navigate, Route, useLocation, useNavigate } from '@solidjs/router';
 import { retrieveLaunchParams } from '@tma.js/sdk-solid';
-import { createEffect, ErrorBoundary, For } from 'solid-js';
+import { createEffect, ErrorBoundary, For, Show } from 'solid-js';
 import { routes } from '@/app/router/routes.js';
 import { t } from '@/shared/i18n/index.js';
 import { PageTransition } from '@/shared/ui/index.js';
+import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { ImpersonationBanner } from '@/widgets/owner/index.js';
 
 const PageErrorFallback = (err: any, reset: () => void) => {
@@ -53,8 +54,21 @@ const RouteWrapper = (props: { component: any; [key: string]: any }) => {
 };
 
 const DeepLinkHandler = () => {
-	const navigate = useNavigate();
+	let navigate: ReturnType<typeof useNavigate> | null = null;
+	try {
+		navigate = useNavigate();
+	} catch {
+		navigate = null;
+	}
 	let deepLinkHandled = false;
+
+	const safeNavigate = (to: string) => {
+		if (navigate) {
+			navigate(to, { replace: true });
+		} else if (typeof window !== 'undefined') {
+			window.location.hash = `#${to.startsWith('/') ? to : `/${to}`}`;
+		}
+	};
 
 	createEffect(() => {
 		if (deepLinkHandled) return;
@@ -67,63 +81,57 @@ const DeepLinkHandler = () => {
 
 			if (!startParam && typeof window !== 'undefined') {
 				const urlParams = new URLSearchParams(window.location.search);
-				startParam =
-					urlParams.get('tgWebAppStartParam') ||
-					urlParams.get('startapp') ||
-					'';
+				startParam = urlParams.get('tgWebAppStartParam') || urlParams.get('startapp') || '';
 				if (!startParam && window.location.hash.includes('?')) {
 					const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
-					startParam =
-						hashParams.get('tgWebAppStartParam') ||
-						hashParams.get('startapp') ||
-						'';
+					startParam = hashParams.get('tgWebAppStartParam') || hashParams.get('startapp') || '';
 				}
 			}
 
 			if (startParam) {
 				deepLinkHandled = true;
 				if (startParam === 'collection_usernames') {
-					navigate('/collection-info', { replace: true });
+					safeNavigate('/collection-info');
 				} else if (startParam === 'usernames') {
-					navigate('/', { replace: true });
+					safeNavigate('/');
 				} else if (startParam === 'collection_numbers') {
-					navigate('/numbers/collection', { replace: true });
+					safeNavigate('/numbers/collection');
 				} else if (startParam === 'numbers') {
-					navigate('/numbers', { replace: true });
+					safeNavigate('/numbers');
 				} else if (startParam === 'gifts' || startParam === 'collection_gifts') {
-					navigate('/gifts', { replace: true });
+					safeNavigate('/gifts');
 				} else if (startParam === 'leaderboard') {
-					navigate('/leaderboard', { replace: true });
+					safeNavigate('/leaderboard');
 				} else if (startParam === 'investors') {
-					navigate('/investors', { replace: true });
+					safeNavigate('/investors');
 				} else if (startParam.startsWith('gift_')) {
 					const giftId = startParam.substring(5);
-					if (giftId) navigate(`/gifts/report?g=${encodeURIComponent(giftId)}`, { replace: true });
+					if (giftId) safeNavigate(`/gifts/report?g=${encodeURIComponent(giftId)}`);
 				} else if (startParam.startsWith('g_')) {
 					const giftId = startParam.substring(2);
-					if (giftId) navigate(`/gifts/report?g=${encodeURIComponent(giftId)}`, { replace: true });
+					if (giftId) safeNavigate(`/gifts/report?g=${encodeURIComponent(giftId)}`);
 				} else if (startParam.startsWith('num_')) {
 					const num = startParam.substring(4);
-					if (num) navigate(`/numbers/report?n=${encodeURIComponent(num)}`, { replace: true });
+					if (num) safeNavigate(`/numbers/report?n=${encodeURIComponent(num)}`);
 				} else if (startParam.startsWith('number_')) {
 					const num = startParam.substring(7);
-					if (num) navigate(`/numbers/report?n=${encodeURIComponent(num)}`, { replace: true });
+					if (num) safeNavigate(`/numbers/report?n=${encodeURIComponent(num)}`);
 				} else if (startParam.startsWith('col_')) {
 					const col = startParam.substring(4);
-					if (col) navigate(`/gifts/collection?c=${encodeURIComponent(col)}`, { replace: true });
+					if (col) safeNavigate(`/gifts/collection?c=${encodeURIComponent(col)}`);
 				} else if (startParam.startsWith('collection_')) {
 					const col = startParam.substring(11);
-					if (col) navigate(`/gifts/collection?c=${encodeURIComponent(col)}`, { replace: true });
+					if (col) safeNavigate(`/gifts/collection?c=${encodeURIComponent(col)}`);
 				} else if (startParam.startsWith('username_')) {
 					const username = startParam.substring(9);
-					if (username) navigate(`/username/report?u=${encodeURIComponent(username)}`, { replace: true });
+					if (username) safeNavigate(`/username/report?u=${encodeURIComponent(username)}`);
 				} else if (startParam.startsWith('val_')) {
 					const username = startParam.substring(4);
-					if (username) navigate(`/username/report?u=${encodeURIComponent(username)}`, { replace: true });
+					if (username) safeNavigate(`/username/report?u=${encodeURIComponent(username)}`);
 				} else if (startParam.startsWith('clan_')) {
-					navigate('/leaderboard', { replace: true });
+					safeNavigate('/leaderboard');
 				} else if (startParam.startsWith('ach_')) {
-					navigate('/profile/achievements', { replace: true });
+					safeNavigate('/profile/achievements');
 				}
 			}
 		} catch (e) {
@@ -134,11 +142,44 @@ const DeepLinkHandler = () => {
 	return null;
 };
 
-const AppLayout = (props: { children?: any }) => {
+const INLINE_BOTTOM_NAV_PATHS = new Set([
+	'/',
+	'/investors',
+	'/dashboard',
+	'/leaderboard',
+	'/profile/leaderboard',
+	'/profile',
+	'/collection-info',
+]);
+
+const AppLayout = (props: { location?: { pathname: string }; children?: any }) => {
+	let hookLocation: ReturnType<typeof useLocation> | null = null;
+	if (!props.location) {
+		try {
+			hookLocation = useLocation();
+		} catch {
+			hookLocation = null;
+		}
+	}
+
+	const showGlobalBottomNav = () => {
+		const rawPath =
+			props.location?.pathname ||
+			hookLocation?.pathname ||
+			(typeof window !== 'undefined'
+				? window.location.hash.replace(/^#/, '').split('?')[0] || '/'
+				: '/');
+		const path = rawPath.replace(/\/+$/, '') || '/';
+		return !INLINE_BOTTOM_NAV_PATHS.has(path);
+	};
+
 	return (
 		<>
 			<DeepLinkHandler />
 			{props.children}
+			<Show when={showGlobalBottomNav()}>
+				<BottomNav />
+			</Show>
 		</>
 	);
 };

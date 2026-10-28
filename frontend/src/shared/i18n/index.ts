@@ -97,9 +97,10 @@ createRoot(() => {
 	// Reactively detect language from Telegram SDK after it initializes
 	createEffect(() => {
 		if (localStorage.getItem('user_selected_locale')) return;
-		const user = initData.user();
-		if (user?.language_code) {
-			const loc = mapLanguageCode(user.language_code);
+		const user = initData.user() as any;
+		const langCode = user?.languageCode || user?.language_code;
+		if (langCode) {
+			const loc = mapLanguageCode(langCode);
 			rawSetLocale(loc);
 			loadDictionary(loc);
 		}

@@ -81,9 +81,21 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 
 	username, _ := user["username"].(string)
 	firstName, _ := user["first_name"].(string)
+	if firstName == "" {
+		firstName, _ = user["firstName"].(string)
+	}
 	lastName, _ := user["last_name"].(string)
+	if lastName == "" {
+		lastName, _ = user["lastName"].(string)
+	}
 	languageCode, _ := user["language_code"].(string)
-	isPremium, _ := user["is_premium"].(bool)
+	if languageCode == "" {
+		languageCode, _ = user["languageCode"].(string)
+	}
+	isPremium, ok := user["is_premium"].(bool)
+	if !ok {
+		isPremium, _ = user["isPremium"].(bool)
+	}
 	photoURL, _ := user["photo_url"].(string)
 	if photoURL == "" {
 		photoURL, _ = user["photoUrl"].(string)

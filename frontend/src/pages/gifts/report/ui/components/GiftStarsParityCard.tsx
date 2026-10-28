@@ -26,7 +26,9 @@ export const GiftStarsParityCard: Component<Props> = (props) => {
 	// In Telegram ecosystem, 1000 Stars ≈ $20.00 USD ≈ 3.63 TON
 	// Dynamic Stars benchmark calculation anchored directly to engine parity:
 	const starsAmount = () =>
-		props.parity?.base_stars_price || props.starsPrice || Math.max(1000, Math.round(secondaryTon() * 250));
+		props.parity?.base_stars_price ||
+		props.starsPrice ||
+		Math.max(1000, Math.round(secondaryTon() * 250));
 	const starsUsd = () =>
 		props.parity?.intrinsic_floor_usd || Math.round(starsAmount() * 0.02 * 100) / 100;
 	const starsTon = () =>
@@ -35,7 +37,11 @@ export const GiftStarsParityCard: Component<Props> = (props) => {
 	// Parity difference: Secondary vs Stars
 	const diffTon = createMemo(() => Math.round((secondaryTon() - starsTon()) * 100) / 100);
 	const diffPct = createMemo(() => {
-		if (props.parity && props.parity.arbitrage_discount_pct !== undefined && props.parity.arbitrage_discount_pct > 0) {
+		if (
+			props.parity &&
+			props.parity.arbitrage_discount_pct !== undefined &&
+			props.parity.arbitrage_discount_pct > 0
+		) {
 			return Math.round(props.parity.arbitrage_discount_pct * 10) / 10;
 		}
 		return Math.round((diffTon() / secondaryTon()) * 1000) / 10;

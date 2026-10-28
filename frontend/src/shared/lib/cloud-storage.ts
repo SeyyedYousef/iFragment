@@ -3,7 +3,14 @@
  * Promise-based wrappers for Telegram's native CloudStorage.
  */
 
-const getCloudStorage = () => (window as any).Telegram?.WebApp?.CloudStorage;
+const getCloudStorage = () => {
+	const wa = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
+	if (!wa?.CloudStorage) return null;
+	if (typeof wa.isVersionAtLeast === 'function' && !wa.isVersionAtLeast('6.9')) {
+		return null;
+	}
+	return wa.CloudStorage;
+};
 
 export const cloudStorage = {
 	setItem: (key: string, value: string): Promise<boolean> => {

@@ -87,7 +87,10 @@ export function formatLiveNumberInput(val: string): { formatted: string; digits:
 	return { formatted, digits };
 }
 
-const VALIDATION_ERRORS: Record<string, { empty: string; genesisRange: string; invalidLength: string }> = {
+const VALIDATION_ERRORS: Record<
+	string,
+	{ empty: string; genesisRange: string; invalidLength: string }
+> = {
 	fa: {
 		empty: 'شماره نمی‌تواند خالی باشد',
 		genesisRange: 'شماره جنسیس ۴ رقمی خارج از بازه رسمی تلگرام (۸۰۰۰ تا ۸۹۹۹) است',
@@ -133,7 +136,7 @@ export function validateAnonymousNumber(raw?: string | null): {
 
 	if (suffix.length === 4) {
 		const n = parseInt(suffix, 10);
-		if (isNaN(n) || n < 8000 || n > 8999) {
+		if (Number.isNaN(n) || n < 8000 || n > 8999) {
 			return {
 				isValid: false,
 				normalized: `+888${suffix}`,

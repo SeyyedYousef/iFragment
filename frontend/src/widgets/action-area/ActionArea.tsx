@@ -126,7 +126,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const navigate = useNavigate();
 	const [analyzeState, setAnalyzeState] = createSignal<AnalyzeState>('idle');
 	const [isFocused, setIsFocused] = createSignal(false);
-	const [credits, setCredits] = createSignal<number>(3);
+	const [_credits, setCredits] = createSignal<number>(3);
 	const [showNoCreditsModal, setShowNoCreditsModal] = createSignal(false);
 	const [showNumberGuide, setShowNumberGuide] = createSignal(false);
 	const [serverVerified, setServerVerified] = createSignal<
@@ -583,7 +583,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				haptic.impact('medium');
 			} catch {}
 			setAnalyzeState('loading');
-			navigate(`/numbers/report?n=${encodeURIComponent('+888' + v.cleanDigits)}`);
+			navigate(`/numbers/report?n=${encodeURIComponent(`+888${v.cleanDigits}`)}`);
 			setAnalyzeState('idle');
 			return;
 		}
@@ -667,11 +667,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 					setIsVerifying(true);
 					verifyTimeout = setTimeout(async () => {
 						try {
-							const res = await numbersApi.verifyNumber('+888' + digits);
+							const res = await numbersApi.verifyNumber(`+888${digits}`);
 							setServerVerified(res);
 						} catch {
 							setServerVerified({
-								number: '+888' + digits,
+								number: `+888${digits}`,
 								display_number:
 									'+888 ' +
 									(digits.length > 4 ? `${digits.slice(0, 4)} ${digits.slice(4)}` : digits),
@@ -830,18 +830,6 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						class="text-center w-full mb-8 flex flex-col items-center"
 					>
 						<div class="flex items-center justify-center gap-3 mb-5">
-							{/* Intel Credits Badge */}
-							<button
-								type="button"
-								onClick={() => navigate('/leaderboard')}
-								class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#3390EC]/10 border border-[#3390EC]/30 backdrop-blur-md shadow-[0_2px_10px_rgba(51,144,236,0.15)] hover:bg-[#3390EC]/20 transition-all active:scale-95"
-							>
-								<span class="material-symbols-outlined text-[#3390EC] text-[15px]">bolt</span>
-								<span class="text-[11px] font-bold text-[#3390EC] tracking-wider uppercase">
-									{credits()} {t('action.creditsLeft')}
-								</span>
-							</button>
-
 							<div class="relative">
 								<button
 									type="button"
@@ -1131,12 +1119,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 									{/* 3. Server unminted error */}
 									<Show
-										when={
-											!numbersValidation().error &&
-											!isVerifying() &&
-											serverVerified() &&
-											serverVerified()?.error
-										}
+										when={!numbersValidation().error && !isVerifying() && serverVerified()?.error}
 									>
 										<div class="px-4 pb-2.5 pt-1 flex items-center justify-between text-xs font-bold text-rose-400 animate-in fade-in">
 											<span class="flex items-center gap-1.5">
@@ -1155,11 +1138,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 									{/* 4. Valid & Ready - Minimalist VIP Live Intelligence Card */}
 									<Show
-										when={
-											numbersValidation().isValid &&
-											!isVerifying() &&
-											(!serverVerified() || !serverVerified()?.error)
-										}
+										when={numbersValidation().isValid && !isVerifying() && !serverVerified()?.error}
 									>
 										<div class="mx-1 mb-1.5 p-3 rounded-[20px] bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
 											<div class="flex items-center justify-between gap-2 mb-1">

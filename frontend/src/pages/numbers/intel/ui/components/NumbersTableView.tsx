@@ -1,15 +1,18 @@
 import { createQuery } from '@tanstack/solid-query';
-import { type Component, createSignal, For, Show } from 'solid-js';
+import { type Component, createEffect, createSignal, For, Show } from 'solid-js';
 import { numbersApi, splitNumberPrefix } from '@/entities/numbers/index.js';
-import type { NumbersFilterState } from '@/entities/numbers/model/types.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import type { NumbersFilterState, NumbersIntelData } from '@/entities/numbers/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
 	initialFilter?: {
 		saleType?: '' | 'auction' | 'for_sale' | 'not_for_sale';
 		numberType?: '' | 'banned' | 'not_banned';
+		nftColors?: string[];
+		mask?: string;
 	};
+	intel?: NumbersIntelData;
 	onSelectNumber?: (num: string) => void;
 	onViewOwnerPortfolio?: (address: string) => void;
 }
@@ -42,10 +45,23 @@ export const NumbersTableView: Component<Props> = (props) => {
 		saleType: props.initialFilter?.saleType || '',
 		numberType: props.initialFilter?.numberType || '',
 		ownersHistory: '',
-		nftColors: [],
-		mask: '',
+		nftColors: props.initialFilter?.nftColors || [],
+		mask: props.initialFilter?.mask || '',
 		page: 1,
 		limit: 50,
+	});
+
+	createEffect(() => {
+		const init = props.initialFilter;
+		if (!init) return;
+		setFilters((prev) => ({
+			...prev,
+			saleType: init.saleType ?? '',
+			numberType: init.numberType ?? '',
+			nftColors: init.nftColors ?? [],
+			mask: init.mask ?? prev.mask,
+			page: 1,
+		}));
 	});
 
 	const [isFiltersOpen, setIsFiltersOpen] = createSignal<boolean>(false);
@@ -121,7 +137,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 		e.preventDefault();
 		const p = parseInt(jumpPageInput(), 10);
 		const max = numbersQuery.data?.totalPages || 1;
-		if (!isNaN(p) && p >= 1 && p <= max) {
+		if (!Number.isNaN(p) && p >= 1 && p <= max) {
 			try {
 				haptic.selection();
 			} catch {}
@@ -149,42 +165,48 @@ export const NumbersTableView: Component<Props> = (props) => {
 		return pages;
 	};
 
+	const totalSupply = () => props.intel?.total_supply || 136566;
+	const auctionsCount = () => props.intel?.active_auctions_count || 151;
+	const fixedCount = () => props.intel?.fixed_price_count || 802;
+	const restrictedCount = () => props.intel?.restricted_count || 4636;
+	const notForSaleCount = () => Math.max(0, totalSupply() - auctionsCount() - fixedCount());
+
 	return (
 		<div class="space-y-4">
-			{/* Fast Filter Quick Chips (No emojis, clean Material icons, fully localized) */}
+			{/* Fast Filter Quick Chips (Live counts from nums888.io) */}
 			<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
 				{[
 					{
 						label: () => t('numbers.filterAll') || 'All Numbers',
-						count: '136.5k',
+						count: () => totalSupply().toLocaleString(),
 						saleType: '',
 						numberType: '',
 						icon: 'all_inclusive',
 					},
 					{
 						label: () => t('numbers.filterAuctions') || 'Auctions',
-						count: '190+',
+						count: () => auctionsCount().toLocaleString(),
 						saleType: 'auction',
 						numberType: '',
 						icon: 'gavel',
 					},
 					{
 						label: () => t('numbers.filterFixedPrice') || 'Fixed Price',
-						count: '860+',
+						count: () => fixedCount().toLocaleString(),
 						saleType: 'for_sale',
 						numberType: '',
 						icon: 'sell',
 					},
 					{
 						label: () => t('numbers.filterNotForSale') || 'Not For Sale',
-						count: '135k',
+						count: () => notForSaleCount().toLocaleString(),
 						saleType: 'not_for_sale',
 						numberType: '',
 						icon: 'lock',
 					},
 					{
 						label: () => t('numbers.filterRestricted') || 'Restricted',
-						count: '4.5k',
+						count: () => restrictedCount().toLocaleString(),
 						saleType: '',
 						numberType: 'banned',
 						icon: 'warning',
@@ -217,7 +239,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 						>
 							<span class="material-symbols-outlined text-[13px]">{chip.icon}</span>
 							<span>{chip.label()}</span>
-							<span class="text-[10px] opacity-60 font-mono">({chip.count})</span>
+							<span class="text-[10px] opacity-60 font-mono">({chip.count()})</span>
 						</button>
 					);
 				})}
@@ -608,7 +630,13 @@ export const NumbersTableView: Component<Props> = (props) => {
 																	<span class="material-symbols-outlined text-[10px]">
 																		open_in_new
 																	</span>
-																	<span>{item.source === 'getgems' ? 'Getgems' : 'Fragment'}</span>
+																	<span>
+																		{item.source === 'getgems'
+																			? 'Getgems'
+																			: item.source === 'marketapp'
+																				? 'Marketapp'
+																				: 'Fragment'}
+																	</span>
 																</a>
 															</div>
 														</div>

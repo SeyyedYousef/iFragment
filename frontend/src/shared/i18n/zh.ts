@@ -43,9 +43,11 @@ export const dict = {
 	},
 	gifts: {
 		methodologyAndProvenance: '数据方法论与溯源透明度',
-		methodologyProvenanceDesc: '预估市值按最低有效地板价乘以目录总发行量计算。成交量数据仅包含已确认的链上真实交易，不含普通转账。',
+		methodologyProvenanceDesc:
+			'预估市值按最低有效地板价乘以目录总发行量计算。成交量数据仅包含已确认的链上真实交易，不含普通转账。',
 		financialDisclaimerTitle: '金融与投资免责声明',
-		financialDisclaimerDesc: '所有预估估值与稀缺度指标均基于公开链上元数据与定量算法模型计算，不构成任何投资或买卖建议。',
+		financialDisclaimerDesc:
+			'所有预估估值与稀缺度指标均基于公开链上元数据与定量算法模型计算，不构成任何投资或买卖建议。',
 		intel: '礼物市场情报',
 		macroHistoryUnavailable: '宏观历史图表数据正在同步中。',
 		marketplaceComparison: '各大市场对比',
@@ -1885,6 +1887,8 @@ export const dict = {
 			'Telegram 资产市场情报终端。全面评估用户名、+888 号码与礼物的公允价值估算、可验证稀缺性指标与市场信号。',
 		promoBadge: '市场情报终端',
 		selectToStart: '请在上方选择资产类别以开始分析',
+		smartSearch: '智能搜索',
+		smartSearchBtn: '搜索',
 		title: 'Telegram 资产智能终端',
 	},
 	heroTabs: {

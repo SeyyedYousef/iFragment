@@ -3,18 +3,26 @@ import { backButton } from '@tma.js/sdk-solid';
 import { onCleanup, onMount } from 'solid-js';
 
 export function useTelegramBackButton(target?: string | number): void {
-	const navigate = useNavigate();
+	let routerNavigate: ReturnType<typeof useNavigate> | null = null;
+	try {
+		routerNavigate = useNavigate();
+	} catch {
+		routerNavigate = null;
+	}
 
 	onMount(() => {
 		try {
 			backButton.show();
 			const handler = () => {
 				if (typeof target === 'string') {
-					navigate(target);
+					if (routerNavigate) routerNavigate(target);
+					else window.location.hash = `#${target}`;
 				} else if (typeof target === 'number') {
-					navigate(target);
+					if (routerNavigate) routerNavigate(target);
+					else window.history.go(target);
 				} else {
-					navigate(-1);
+					if (routerNavigate) routerNavigate(-1);
+					else window.history.back();
 				}
 			};
 			backButton.onClick(handler);

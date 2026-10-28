@@ -223,10 +223,7 @@ func (h *GiftsHandler) ScanPortfolio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	callerKey := r.Header.Get("X-Forwarded-For")
-	if callerKey == "" {
-		callerKey = r.RemoteAddr
-	}
+	callerKey := middleware.GetRealIP(r)
 	if uid, err := middleware.GetUserID(ctx); err == nil && uid > 0 {
 		callerKey = fmt.Sprintf("uid:%d", uid)
 	}

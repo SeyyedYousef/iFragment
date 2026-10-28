@@ -21,13 +21,12 @@ const getSessionUserId = (): string => {
 		// Use an isolated per-session ephemeral ID so anonymous sessions never share cache.
 		let sessionId = sessionStorage.getItem('ephemeral_session_id');
 		if (!sessionId) {
-			sessionId =
-				'sess_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now().toString(36);
+			sessionId = `sess_${Math.random().toString(36).substring(2, 15)}_${Date.now().toString(36)}`;
 			sessionStorage.setItem('ephemeral_session_id', sessionId);
 		}
 		return sessionId;
 	} catch {
-		return 'ephemeral_' + Date.now().toString(36);
+		return `ephemeral_${Date.now().toString(36)}`;
 	}
 };
 

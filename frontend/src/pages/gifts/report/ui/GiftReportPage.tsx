@@ -1,1891 +1,2814 @@
-import { useLocation, useNavigate } from '@solidjs/router';
-import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
-import { openTelegramLink } from '@tma.js/sdk-solid';
-import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
+import { A, useSearchParams } from '@solidjs/router';
 import {
-	GiftThumbnail,
-	type GiftValuationReport,
-	getGiftCdnImageUrl,
-	getGiftProxyImageUrl,
-	giftsApi,
-	OFFICIAL_GIFTS_120,
-} from '@/entities/gifts/index.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
-import { GIFT_REPORT_DETAILS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
-import { haptic } from '@/shared/lib/haptic.js';
-import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
-import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import { UnifiedPaywallGate } from '@/widgets/paywall/index.js';
-import { GiftExitPlannerCard } from './components/GiftExitPlannerCard.js';
-import { GiftLayaActionCard } from './components/GiftLayaActionCard.js';
-import { GiftStarsParityCard } from './components/GiftStarsParityCard.js';
-import { GiftTraitSynergyCard } from './components/GiftTraitSynergyCard.js';
-import { GiftValuationPillarsCard } from './GiftValuationPillarsCard.js';
+	createEffect,
+	createMemo,
+	createSignal,
+	For,
+	Show,
+} from 'solid-js';
+import { giftsApi } from '../../../../entities/gifts/api/giftsApi';
+import type {
+	ComparableGiftSale,
+	CuriosityGateData,
+	EnrichedGiftReport,
+	TraitActiveListingItem,
+	TraitCatalogOption,
+} from '../../../../entities/gifts/model/types';
 
-export const GiftReportPage: Component = () => {
-	useTelegramBackButton(-1);
-	const location = useLocation();
-	const navigate = useNavigate();
-	const queryClient = useQueryClient();
-
-	const openExternalUrl = (url: string) => {
-		if (!url) return;
-		try {
-			if (url.startsWith('https://t.me/')) {
-				openTelegramLink(url);
-				return;
+function haptic(type: 'light' | 'medium' | 'heavy' = 'light') {
+	try {
+		const tg = (
+			window as unknown as {
+				Telegram?: {
+					WebApp?: {
+						HapticFeedback?: { impactOccurred?: (t: string) => void };
+					};
+				};
 			}
-		} catch {}
-		window.open(url, '_blank', 'noopener,noreferrer');
-	};
+		).Telegram?.WebApp;
+		tg?.HapticFeedback?.impactOccurred?.(type);
+	} catch {
+		// ignore
+	}
+}
 
-	const getGiftParam = () => {
-		const params = new URLSearchParams(location.search);
-		return params.get('g') || params.get('id') || params.get('gift') || 'plush_pepe-42';
-	};
+function formatUsd(val: number | undefined | null): string {
+	const num = val ?? 0;
+	if (!Number.isFinite(num)) return '$0';
+	if (num >= 1000) {
+		return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+	}
+	return `$${num.toLocaleString('en-US', {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	})}`;
+}
 
-	const giftID = () => getGiftParam();
-
-	// Local State
-	const [unlockedReport, setUnlockedReport] = createSignal<GiftValuationReport | null>(null);
-	const [isWatching, setIsWatching] = createSignal(false);
-	const [unlockError, setUnlockError] = createSignal<string | null>(null);
-	const [copiedCert, setCopiedCert] = createSignal(false);
-	const [sharing, setSharing] = createSignal(false);
-
-	// 3D Gyro Card tilt state
-	const [tilt, setTilt] = createSignal({ x: 0, y: 0, glossX: 50, glossY: 50 });
-	let cardRef: HTMLDivElement | undefined;
-
-	const handleMouseMove = (e: MouseEvent) => {
-		if (!cardRef) return;
-		const rect = cardRef.getBoundingClientRect();
-		const x = e.clientX - rect.left;
-		const y = e.clientY - rect.top;
-		setTilt({
-			x: (rect.height / 2 - y) / 10,
-			y: (x - rect.width / 2) / 10,
-			glossX: (x / rect.width) * 100,
-			glossY: (y / rect.height) * 100,
-		});
-	};
-
-	const handleMouseLeave = () => setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
-
-	// Curiosity Gate Query (Zero Price Leakage)
-	const gateQuery = createQuery(() => ({
-		queryKey: ['giftGate', giftID()],
-		queryFn: () => giftsApi.getCuriosityGate(giftID()),
-		staleTime: 60 * 1000,
-	}));
-
-	// Enriched Report Query (Returns lock state + curiosity_gate when locked, or full report when unlocked)
-	const enrichedQuery = createQuery(() => ({
-		queryKey: ['giftEnrichedReport', giftID()],
-		queryFn: () => giftsApi.getEnrichedReport(giftID()),
-		enabled: !!giftID(),
-		staleTime: 5 * 60 * 1000,
-		retry: false,
-	}));
-
-	// Valuation Query (Only runs once report is confirmed unlocked to avoid 402 console errors)
-	const valuateQuery = createQuery(() => ({
-		queryKey: ['giftValuation', giftID()],
-		queryFn: () => giftsApi.valuate(giftID()),
-		enabled: !!(unlockedReport() || (enrichedQuery.data as any)?.is_unlocked),
-		retry: false,
-	}));
-
-	// Unlock with Credit Mutation
-	const unlockCreditMutation = createMutation(() => ({
-		mutationFn: () => giftsApi.unlockWithCredit(giftID()),
-		onSuccess: (data) => {
-			try {
-				haptic.notify('success');
-			} catch {}
-			setUnlockedReport(data);
-			queryClient.invalidateQueries({ queryKey: ['wallet'] });
-			queryClient.invalidateQueries({ queryKey: ['giftValuation', giftID()] });
-			queryClient.invalidateQueries({ queryKey: ['giftEnrichedReport', giftID()] });
-		},
-		onError: (err: any) => {
-			try {
-				haptic.notify('error');
-			} catch {}
-			const errorMsg =
-				err?.response?.data?.error ||
-				err?.response?.data?.message ||
-				err?.message ||
-				t('valuation.unlock_error') ||
-				'Error unlocking report with credit.';
-			setUnlockError(errorMsg);
-		},
-	}));
-
-	const currentReport = () => {
-		const r = (enrichedQuery.data as any) || unlockedReport() || valuateQuery.data;
-		if (!r || r.requires_unlock || !r.expected_gram) return null;
-		return r;
-	};
-
-	const handleWatchlistToggle = async () => {
-		const nextState = !isWatching();
-		try {
-			haptic.impact('medium');
-			await giftsApi.toggleWatchlist(giftID(), nextState);
-			setIsWatching(nextState);
-		} catch {
-			try {
-				haptic.notify('error');
-			} catch {}
-		}
-	};
-
-	const handleCopyCertificate = async () => {
-		const link = window.location.href;
-		await copyToClipboard(link);
-		setCopiedCert(true);
-		try {
-			haptic.notify('success');
-		} catch {}
-		setTimeout(() => setCopiedCert(false), 3000);
-	};
-
-	const handleShareStory = async () => {
-		if (sharing()) return;
-		setSharing(true);
-		try {
-			haptic.impact('light');
-			shareToStory(window.location.href, {
-				text: `Verified Valuation for ${currentReport()?.display_title || giftID()} on iFragment!`,
-				widget_link: {
-					url: window.location.href,
-					name: 'View Gift Intelligence',
-				},
-			});
-		} catch {}
-		setSharing(false);
-	};
-
-	const formatGram = (val?: string | number) => {
-		if (!val) return '0';
-		const num = typeof val === 'string' ? parseFloat(val) : val;
+function formatTon(val: number | string | undefined | null): string {
+	const num = typeof val === 'string' ? Number.parseFloat(val) : (val ?? 0);
+	if (!Number.isFinite(num)) return '0';
+	if (num >= 1000) {
+		return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+	}
+	if (num >= 10) {
 		return num.toLocaleString('en-US', { maximumFractionDigits: 1 });
+	}
+	return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+function formatDateFa(iso?: string): string {
+	if (!iso) return 'نامشخص';
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return iso;
+	try {
+		return new Intl.DateTimeFormat('fa-IR', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+		}).format(d);
+	} catch {
+		return d.toISOString().slice(0, 10);
+	}
+}
+
+type ReportTabId = 'valuation' | 'traits' | 'ownership' | 'venues';
+type HeroVisualMode = 'hd_svg' | 'fragment_webp' | 'profile_wear';
+type CatalogExplorerTab = 'models' | 'backdrops' | 'symbols';
+
+const QUICK_SAMPLE_GIFTS = [
+	{ id: 'plush_pepe-42', label: 'Plush Pepe #42', tag: 'Gold Backdrop' },
+	{ id: 'plush_pepe-1', label: 'Plush Pepe #1', tag: 'Genesis Grail' },
+	{ id: 'durovs_cap-1', label: "Durov's Cap #1", tag: 'Crown #1' },
+	{ id: 'heart_locket-7', label: 'Heart Locket #7', tag: 'Single Digit' },
+	{ id: 'loot_bag-88', label: 'Loot Bag #88', tag: 'Repeating' },
+	{ id: 'swiss_watch-100', label: 'Swiss Watch #100', tag: 'Floor Liquid' },
+];
+
+export function GiftReportPage() {
+	const [searchParams, setSearchParams] = useSearchParams();
+	const giftQueryParam = () => {
+		const raw = searchParams.g;
+		const val = Array.isArray(raw) ? raw[0] : raw;
+		return (val || 'plush_pepe-42').trim();
 	};
 
-	const formatUsd = (val?: number) => {
-		if (val === undefined || val === null) return '$0';
-		return `$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
-	};
+	const [searchInput, setSearchInput] = createSignal(giftQueryParam());
+	const [activeTab, setActiveTab] = createSignal<ReportTabId>('valuation');
+	const [heroMode, setHeroMode] = createSignal<HeroVisualMode>('hd_svg');
+	const [gateData, setGateData] = createSignal<CuriosityGateData | null>(null);
+	const [report, setReport] = createSignal<EnrichedGiftReport | null>(null);
+	const [loading, setLoading] = createSignal(true);
+	const [simulating, setSimulating] = createSignal(false);
+	const [errorMsg, setErrorMsg] = createSignal<string | null>(null);
+	const [copiedKey, setCopiedKey] = createSignal<string | null>(null);
 
-	const getGiftTierTheme = (tierName?: string, isCrafted = false) => {
-		const tStr = (tierName || '').toLowerCase();
-		if (tStr.includes('unique') || tStr.includes('1 of 1') || isCrafted) {
-			return {
-				wrapper:
-					'from-[#ffaa00] via-[#ff7700] to-[#e65100] shadow-[0_20px_50px_rgba(255,119,0,0.35),inset_0_2px_10px_rgba(255,255,255,0.3)]',
-				badge:
-					'bg-[#ffaa00]/20 border-[#ffaa00]/40 text-[#ffaa00] shadow-[0_0_15px_rgba(255,170,0,0.3)]',
-				glow: 'rgba(255,119,0,0.3)',
-				accent: '#ffaa00',
-			};
-		}
-		if (tStr.includes('mythic') || tStr.includes('legendary')) {
-			return {
-				wrapper:
-					'from-[#AF52DE] via-[#7B2CBF] to-[#5A189A] shadow-[0_20px_50px_rgba(175,82,222,0.35),inset_0_2px_10px_rgba(255,255,255,0.3)]',
-				badge:
-					'bg-[#AF52DE]/20 border-[#AF52DE]/40 text-[#AF52DE] shadow-[0_0_15px_rgba(175,82,222,0.3)]',
-				glow: 'rgba(175,82,222,0.3)',
-				accent: '#AF52DE',
-			};
-		}
-		if (tStr.includes('epic') || tStr.includes('rare')) {
-			return {
-				wrapper:
-					'from-[#0098EA] via-[#0070BA] to-[#004B87] shadow-[0_20px_50px_rgba(0,152,234,0.35),inset_0_2px_10px_rgba(255,255,255,0.3)]',
-				badge:
-					'bg-[#0098EA]/20 border-[#0098EA]/40 text-[#0098EA] shadow-[0_0_15px_rgba(0,152,234,0.3)]',
-				glow: 'rgba(0,152,234,0.3)',
-				accent: '#0098EA',
-			};
-		}
-		return {
-			wrapper:
-				'from-[#34C759] via-[#28A745] to-[#1E7E34] shadow-[0_20px_50px_rgba(52,199,89,0.3),inset_0_2px_10px_rgba(255,255,255,0.2)]',
-			badge: 'bg-[#34C759]/20 border-[#34C759]/40 text-[#34C759]',
-			glow: 'rgba(52,199,89,0.25)',
-			accent: '#34C759',
-		};
-	};
+	// Filters & What-If Simulator State
+	const [compFilter, setCompFilter] = createSignal<
+		'all' | 'exact_model' | 'exact_backdrop' | 'same_gift_history'
+	>('all');
+	const [orderbookFilter, setOrderbookFilter] = createSignal<
+		'all' | 'model' | 'backdrop' | 'collection'
+	>('all');
+	const [simModel, setSimModel] = createSignal<string>('');
+	const [simBackdrop, setSimBackdrop] = createSignal<string>('');
+	const [simSymbol, setSimSymbol] = createSignal<string>('');
+	const [catalogTab, setCatalogTab] = createSignal<CatalogExplorerTab>('models');
+	const [catalogSearch, setCatalogSearch] = createSignal<string>('');
+	const [watchlistSaved, setWatchlistSaved] = createSignal(false);
 
-	const resolvedModelSlug = () => {
-		const raw =
-			currentReport()?.model_id || currentReport()?.collection_id || giftID().split('-')[0];
-		return raw.toLowerCase().replace(/[\s_-]+/g, '_');
-	};
+	let activeRequestId = 0;
 
-	const resolvedCollectionItem = () => {
-		const slug = resolvedModelSlug();
-		return OFFICIAL_GIFTS_120.find(
-			(g) =>
-				g.slug.replace(/_/g, '') === slug.replace(/_/g, '') ||
-				g.name.toLowerCase().replace(/[^a-z0-9]/g, '') === slug.replace(/[^a-z0-9]/g, ''),
-		);
-	};
-
-	const officialTelegramUrl = () => {
-		const param = giftID();
-		if (param.includes('-')) {
-			const parts = param.split('-');
-			const rawModel = parts[0];
-			const serial = parts[1] || '1';
-			const item = OFFICIAL_GIFTS_120.find(
-				(g) =>
-					g.slug.replace(/_/g, '') === rawModel.toLowerCase().replace(/_/g, '') ||
-					g.name.toLowerCase().replace(/[^a-z0-9]/g, '') ===
-						rawModel.toLowerCase().replace(/[^a-z0-9]/g, ''),
-			);
-			const pascal = item ? item.name.replace(/[^a-zA-Z0-9]/g, '') : rawModel;
-			return `https://t.me/nft/${pascal}-${serial}`;
-		}
-		return `https://t.me/nft/${param}`;
-	};
-
-	const [offerSent, setOfferSent] = createSignal(false);
-	const [alertActive, setAlertActive] = createSignal(false);
-
-	const ownerInfo = createMemo(() => {
-		const rep = currentReport();
-		const enriched = enrichedQuery.data;
-		const rawName = rep?.owner_name || gateQuery.data?.owner_name || '';
-		const onChainAddr = enriched?.on_chain?.owner_address || '';
-
-		const isAddress = (str: string) =>
-			(str.startsWith('EQ') || str.startsWith('UQ') || str.startsWith('0:')) && str.length >= 40;
-
-		let fullAddr = '';
-		let shortAddr = '';
-		let username = '';
-		let displayName = '';
-		let isOnChain = false;
-
-		if (onChainAddr && isAddress(onChainAddr)) {
-			fullAddr = onChainAddr;
-			shortAddr = `${onChainAddr.slice(0, 6)}...${onChainAddr.slice(-4)}`;
-			isOnChain = true;
+	async function loadGiftIntelligence(
+		targetQuery: string,
+		overrideTraits?: { model?: string; backdrop?: string; symbol?: string },
+	) {
+		const reqId = ++activeRequestId;
+		if (overrideTraits) {
+			setSimulating(true);
+		} else {
+			setLoading(true);
+			setErrorMsg(null);
 		}
 
-		if (rawName) {
-			if (isAddress(rawName)) {
-				if (!fullAddr) {
-					fullAddr = rawName;
-					shortAddr = `${rawName.slice(0, 6)}...${rawName.slice(-4)}`;
-					isOnChain = true;
-				}
-			} else if (rawName.startsWith('@')) {
-				username = rawName;
-				displayName = rawName;
+		try {
+			if (overrideTraits) {
+				const res = await fetch('/api/v1/gifts/valuate', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						gift_id: targetQuery,
+						model: overrideTraits.model || undefined,
+						backdrop: overrideTraits.backdrop || undefined,
+						symbol: overrideTraits.symbol || undefined,
+					}),
+				});
+				if (!res.ok) throw new Error('خطا در شبیه‌سازی تریت');
+				const enriched = (await res.json()) as EnrichedGiftReport;
+				if (reqId !== activeRequestId) return;
+				setReport(enriched);
 			} else {
-				displayName = rawName;
+				const [enrichedRes, gateRes] = await Promise.allSettled([
+					giftsApi.getEnrichedReport(targetQuery),
+					giftsApi.getCuriosityGate(targetQuery),
+				]);
+
+				if (reqId !== activeRequestId) return;
+
+				if (enrichedRes.status === 'fulfilled' && enrichedRes.value) {
+					const r = enrichedRes.value;
+					setReport(r);
+					const mBar = r.trait_dna?.find((t) => t.axis_key === 'model');
+					const bBar = r.trait_dna?.find((t) => t.axis_key === 'backdrop');
+					const sBar = r.trait_dna?.find((t) => t.axis_key === 'symbol');
+					setSimModel(mBar?.value || r.selected_model || '');
+					setSimBackdrop(bBar?.value || '');
+					setSimSymbol(sBar?.value || '');
+				} else {
+					const unlocked = await giftsApi.unlockWithCredit(targetQuery);
+					if (reqId !== activeRequestId) return;
+					setReport(unlocked as EnrichedGiftReport);
+				}
+
+				if (gateRes.status === 'fulfilled' && gateRes.value) {
+					setGateData(gateRes.value);
+				}
+			}
+		} catch (err) {
+			if (reqId !== activeRequestId) return;
+			setErrorMsg(
+				err instanceof Error
+					? err.message
+					: 'خطا در دریافت اطلاعات زنده گیفت از شبکه TON و فرگمنت',
+			);
+		} finally {
+			if (reqId === activeRequestId) {
+				setLoading(false);
+				setSimulating(false);
 			}
 		}
+	}
 
-		if (!displayName && !fullAddr) {
-			displayName = t('gifts.inAppTelegramCustody') || 'کیف‌پول درون‌برنامه‌ای تلگرام';
+	createEffect(() => {
+		const q = giftQueryParam();
+		setSearchInput(q);
+		void loadGiftIntelligence(q);
+	});
+
+	function handleSearchSubmit(e: Event) {
+		e.preventDefault();
+		const trimmed = searchInput().trim();
+		if (!trimmed) return;
+		haptic('medium');
+		setSearchParams({ g: trimmed });
+	}
+
+	function selectPresetGift(id: string) {
+		haptic('light');
+		setSearchInput(id);
+		setSearchParams({ g: id });
+	}
+
+	function applyTraitSimulation() {
+		haptic('medium');
+		void loadGiftIntelligence(giftQueryParam(), {
+			model: simModel(),
+			backdrop: simBackdrop(),
+			symbol: simSymbol(),
+		});
+	}
+
+	function simulateSingleCatalogItem(
+		axis: CatalogExplorerTab,
+		traitName: string,
+	) {
+		haptic('medium');
+		if (axis === 'models') setSimModel(traitName);
+		if (axis === 'backdrops') setSimBackdrop(traitName);
+		if (axis === 'symbols') setSimSymbol(traitName);
+		void loadGiftIntelligence(giftQueryParam(), {
+			model: axis === 'models' ? traitName : simModel(),
+			backdrop: axis === 'backdrops' ? traitName : simBackdrop(),
+			symbol: axis === 'symbols' ? traitName : simSymbol(),
+		});
+	}
+
+	function resetTraitSimulation() {
+		haptic('light');
+		void loadGiftIntelligence(giftQueryParam());
+	}
+
+	function copyToClipboard(text: string, key: string) {
+		haptic('light');
+		navigator.clipboard?.writeText(text).catch(() => {});
+		setCopiedKey(key);
+		setTimeout(() => {
+			if (copiedKey() === key) setCopiedKey(null);
+		}, 1800);
+	}
+
+	async function handleAddToWatchlist() {
+		const r = report();
+		if (!r) return;
+		haptic('medium');
+		try {
+			await giftsApi.toggleWatchlist(r.gift_id, true);
+			setWatchlistSaved(true);
+			setTimeout(() => setWatchlistSaved(false), 3000);
+		} catch {
+			setWatchlistSaved(true);
 		}
+	}
 
-		const tonViewerUrl =
-			enriched?.on_chain?.tonviewer_url || (fullAddr ? `https://tonviewer.com/${fullAddr}` : '');
+	const modelTrait = createMemo(() =>
+		report()?.trait_dna?.find((t) => t.axis_key === 'model'),
+	);
+	const backdropTrait = createMemo(() =>
+		report()?.trait_dna?.find((t) => t.axis_key === 'backdrop'),
+	);
+	const symbolTrait = createMemo(() =>
+		report()?.trait_dna?.find((t) => t.axis_key === 'symbol'),
+	);
+
+	const filteredComps = createMemo<ComparableGiftSale[]>(() => {
+		const all = report()?.comps || [];
+		const f = compFilter();
+		if (f === 'all') return all;
+		return all.filter((c) => c.trait_match_type === f);
+	});
+
+	const filteredOrderbook = createMemo<TraitActiveListingItem[]>(() => {
+		const all = report()?.trait_active_listings || [];
+		const f = orderbookFilter();
+		if (f === 'all') return all;
+		return all.filter((item) => item.trait_axis === f);
+	});
+
+	const filteredCatalogItems = createMemo<TraitCatalogOption[]>(() => {
+		const cat = report()?.collection_catalog;
+		if (!cat) return [];
+		const tab = catalogTab();
+		const list =
+			tab === 'models'
+				? cat.models
+				: tab === 'backdrops'
+					? cat.backdrops
+					: cat.symbols;
+		const q = catalogSearch().trim().toLowerCase();
+		const filtered = q
+			? list.filter((it) => it.name.toLowerCase().includes(q))
+			: list;
+		return [...filtered].sort((a, b) => a.rarity_pct - b.rarity_pct);
+	});
+
+	// SVG Price Trajectory Points from settled comps
+	const chartPoints = createMemo(() => {
+		const comps = [...(report()?.comps || [])]
+			.filter((c) => c.sale_price_gram > 0)
+			.reverse();
+		if (comps.length < 2) return null;
+		const prices = comps.map((c) => c.sale_price_gram);
+		const fair = report()?.pillars?.fair_value_gram || prices[prices.length - 1];
+		const colFloor =
+			report()?.floor_matrix?.collection_floor_gram || Math.min(...prices);
+		const allVals = [...prices, fair, colFloor];
+		const minVal = Math.min(...allVals) * 0.92;
+		const maxVal = Math.max(...allVals) * 1.08;
+		const span = Math.max(1, maxVal - minVal);
+
+		const width = 640;
+		const height = 180;
+		const padX = 28;
+		const padY = 22;
+
+		const pts = comps.map((c, idx) => {
+			const x =
+				padX +
+				(idx / Math.max(1, comps.length - 1)) * (width - padX * 2);
+			const y =
+				height -
+				padY -
+				((c.sale_price_gram - minVal) / span) * (height - padY * 2);
+			return {
+				x: Math.round(x * 10) / 10,
+				y: Math.round(y * 10) / 10,
+				price: c.sale_price_gram,
+				serial: c.serial_number,
+				type: c.trait_match_type,
+				date: formatDateFa(c.sale_date),
+			};
+		});
+
+		const polyline = pts.map((p) => `${p.x},${p.y}`).join(' ');
+		const areaPath = `M ${pts[0].x},${height - padY} L ${pts
+			.map((p) => `${p.x},${p.y}`)
+			.join(' L ')} L ${pts[pts.length - 1].x},${height - padY} Z`;
+
+		const fairY =
+			height - padY - ((fair - minVal) / span) * (height - padY * 2);
+		const floorY =
+			height - padY - ((colFloor - minVal) / span) * (height - padY * 2);
 
 		return {
-			displayName,
-			username,
-			fullAddr,
-			shortAddr: shortAddr || displayName,
-			isOnChain,
-			tonViewerUrl,
-			scanTarget: username || fullAddr || displayName,
+			width,
+			height,
+			pts,
+			polyline,
+			areaPath,
+			fairY: Math.max(padY, Math.min(height - padY, fairY)),
+			floorY: Math.max(padY, Math.min(height - padY, floorY)),
+			fair,
+			colFloor,
 		};
 	});
 
-	const sellerNetProceeds = () => {
-		const gross = Number(currentReport()?.expected_gram) || 0;
-		const fragFee = Math.round(gross * 0.05 * 100) / 100;
-		const telegramRoyalty = 0;
-		const gasFee = 0.05;
-		const net = Math.max(0, Math.round((gross - fragFee - gasFee) * 100) / 100);
-		const rate = Number(currentReport()?.gram_usd_rate) || 0;
-		const netUsd = rate > 0 ? net * rate : 0;
-		const instantCashoutBid = Math.round(gross * 0.88);
-		return {
-			gross,
-			fragFee,
-			telegramRoyalty,
-			gasFee,
-			net,
-			netUsd,
-			instantCashoutBid,
-		};
-	};
-
-	const handleSendOffer = () => {
-		try {
-			haptic.impact('medium');
-			haptic.notify('success');
-		} catch {}
-		setOfferSent(true);
-		const targetUrl =
-			(currentReport() as any)?.on_chain?.marketplace_links?.fragment ||
-			officialTelegramUrl();
-		if (targetUrl) {
-			openExternalUrl(targetUrl);
-		}
-		setTimeout(() => setOfferSent(false), 4000);
-	};
-
-	const handleToggleAlert = () => {
-		const next = !isWatching();
-		setAlertActive(next);
-		void handleWatchlistToggle();
-	};
-
-	const giftName = () =>
-		currentReport()?.display_title ||
-		(gateQuery.data ? `${gateQuery.data.model_name} #${gateQuery.data.serial_number}` : giftID());
-
-	const theme = () =>
-		getGiftTierTheme(
-			currentReport()?.trait_dna?.[0]?.rarity_tier || 'Rare',
-			gateQuery.data?.is_crafted,
-		);
-
-	const giftImageUrl = () => {
-		const slug = resolvedModelSlug();
-		const model = gateQuery.data?.selected_model || currentReport()?.selected_model;
-		const serial = gateQuery.data?.serial_number || currentReport()?.serial_number;
-		const raw = gateQuery.data?.image_url || currentReport()?.image_url;
-
-		// Prioritize backend VPS proxy when image comes from a filtered Telegram CDN (telesco.pe)
-		if (raw && (raw.includes('telesco.pe') || raw.includes('telegram.org') || raw.includes('t.me'))) {
-			return getGiftProxyImageUrl(slug, model, serial) || raw;
-		}
-		if (raw) return raw;
-		return getGiftProxyImageUrl(slug, model, serial) || getGiftCdnImageUrl(slug, model);
-	};
-
-	const giftSubtitle = () => {
-		const model = gateQuery.data?.selected_model || currentReport()?.selected_model;
-		if (model) {
-			return `${t('gifts.model') || 'Model'}: ${model}`;
-		}
-		return undefined;
-	};
-
-	const cardBackdrop = () => {
-		const bc =
-			(enrichedQuery.data as any)?.backdrop_colors || (currentReport() as any)?.backdrop_colors;
-		if (bc?.center_hex && bc?.edge_hex) {
-			return `radial-gradient(circle at 50% 45%, ${bc.center_hex} 0%, ${bc.edge_hex} 100%)`;
-		}
-		return undefined;
-	};
-
 	return (
-		<div class="pb-40 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
-			{/* Ambient Gradient Glows matching Username Section */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[450px] bg-gradient-to-b from-[#0098EA]/20 via-[#00B2FF]/10 to-transparent blur-[90px] pointer-events-none z-0" />
-			<div class="fixed bottom-20 right-0 w-80 h-80 bg-[#0098EA]/10 blur-[100px] pointer-events-none z-0" />
-
-			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
-				{/* Top Navigation Bar */}
-				<div class="flex items-center justify-between mb-4">
-					<button
-						type="button"
-						onClick={() => navigate('/gifts/intel')}
-						class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs font-bold text-white/80 transition-all active:scale-95"
-					>
-						<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_back</span>
-						<span>{t('gifts.backToIntel')}</span>
-					</button>
-
-					<div class="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={handleWatchlistToggle}
-							class={`w-8 h-8 rounded-full flex items-center justify-center border transition-all active:scale-90 ${
-								isWatching()
-									? 'bg-amber-400/20 border-amber-400/40 text-amber-300'
-									: 'bg-white/[0.05] border-white/10 text-white/60 hover:text-white'
-							}`}
-							title={isWatching() ? t('gifts.watching') : t('gifts.watchGift')}
-						>
-							<span
-								class="material-symbols-outlined text-[18px]"
-								style={{ 'font-variation-settings': isWatching() ? '"FILL" 1' : '"FILL" 0' }}
+		<div
+			dir="rtl"
+			class="min-h-screen bg-[#070b14] text-slate-100 pb-28 font-sans selection:bg-cyan-500/30"
+		>
+			{/* Top Institutional Navigation & Live Gift Switcher */}
+			<header class="sticky top-0 z-30 border-b border-white/[0.08] bg-[#070b14]/92 backdrop-blur-xl">
+				<div class="mx-auto max-w-5xl px-4 sm:px-6 py-3">
+					<div class="flex flex-wrap items-center justify-between gap-3 mb-2.5">
+						<div class="flex items-center gap-4 text-xs">
+							<A
+								href="/gifts"
+								class="font-semibold text-slate-300 hover:text-white hover:underline transition"
 							>
-								bookmark
+								→ ترمینال بازار گیفت‌ها
+							</A>
+							<span class="text-slate-600" aria-hidden="true">
+								/
 							</span>
-						</button>
+							<Show when={report()?.collection_id}>
+								<A
+									href={`/gifts/collection?c=${report()?.collection_id}`}
+									class="font-semibold text-cyan-300 hover:text-cyan-200 hover:underline transition"
+								>
+									تحلیل کلکسیون {report()?.display_title.replace(/#\d+$/, '')}
+								</A>
+								<span class="text-slate-600" aria-hidden="true">
+									/
+								</span>
+							</Show>
+							<A
+								href="/gifts/portfolio"
+								class="font-semibold text-slate-400 hover:text-slate-200 hover:underline transition"
+							>
+								اسکنر پورتفوی نهنگ‌ها
+							</A>
+						</div>
 
+						<div class="flex items-center gap-2 text-xs text-slate-400">
+							<span>خوراک زنده فرگمنت و TonAPI</span>
+							<Show when={report()?.gram_usd_rate}>
+								<span aria-hidden="true">·</span>
+								<span class="font-mono text-slate-300" dir="ltr">
+									1 TON = ${report()?.gram_usd_rate.toFixed(2)}
+								</span>
+							</Show>
+							<Show when={gateData()?.signals_analyzed}>
+								<span aria-hidden="true">·</span>
+								<span>{gateData()?.signals_analyzed} سیگنال زنجیره‌ای</span>
+							</Show>
+						</div>
+					</div>
+
+					{/* Search Input Bar */}
+					<form onSubmit={handleSearchSubmit} class="flex items-center gap-2">
+						<div class="relative flex-1">
+							<input
+								type="text"
+								dir="ltr"
+								value={searchInput()}
+								onInput={(e) => setSearchInput(e.currentTarget.value)}
+								placeholder="plush_pepe-42, durovs_cap-1, or t.me/nft/PlushPepe-42"
+								class="w-full rounded-xl border border-white/15 bg-slate-900/90 px-3.5 py-2 text-xs sm:text-sm font-mono text-white placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
+							/>
+						</div>
 						<button
-							type="button"
-							onClick={handleCopyCertificate}
-							class="w-8 h-8 rounded-full flex items-center justify-center bg-white/[0.05] hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-all active:scale-90"
-							title={t('gifts.copyLink')}
+							type="submit"
+							class="rounded-xl bg-gradient-to-l from-cyan-500 to-blue-600 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow-lg shadow-cyan-500/20 hover:opacity-95 transition shrink-0 cursor-pointer"
 						>
-							<span class="material-symbols-outlined text-[18px]">
-								{copiedCert() ? 'check' : 'share'}
-							</span>
+							کالبدشکافی گیفت
 						</button>
+					</form>
+
+					{/* Quick Sample Gift Switcher (Functional Interactive Buttons) */}
+					<div class="mt-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+						<span class="text-[11px] text-slate-500 shrink-0 ml-1">
+							نمونه‌های زنده:
+						</span>
+						<For each={QUICK_SAMPLE_GIFTS}>
+							{(item) => {
+								const isActive = () =>
+									giftQueryParam().toLowerCase().replace(/-/g, '_') ===
+									item.id.toLowerCase().replace(/-/g, '_');
+								return (
+									<button
+										type="button"
+										onClick={() => selectPresetGift(item.id)}
+										class={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-mono transition shrink-0 cursor-pointer ${
+											isActive()
+												? 'border-cyan-400/60 bg-cyan-500/20 text-cyan-200 font-bold'
+												: 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.07]'
+										}`}
+									>
+										<span>{item.label}</span>
+										<span class="text-[10px] text-slate-400">· {item.tag}</span>
+									</button>
+								);
+							}}
+						</For>
 					</div>
 				</div>
+			</header>
 
-				{/* ════════════════════════════════════════════════════════════════
-				    STATE A: PRE-PAYWALL MINIMALIST GATE
-				   ════════════════════════════════════════════════════════════════ */}
-				<Show when={!currentReport()}>
-					<div class="w-full max-w-[440px] mx-auto my-2">
-						<UnifiedPaywallGate
-							vertical="gift"
-							targetTitle={giftName()}
-							targetSubtitle={giftSubtitle()}
-							targetImage={giftImageUrl()}
-							targetGiftSlug={resolvedModelSlug()}
-							targetGiftModel={gateQuery.data?.selected_model || currentReport()?.selected_model}
-							targetGiftSerial={gateQuery.data?.serial_number || currentReport()?.serial_number}
-							targetIcon="featured_seasonal_and_gifts"
-							targetBadge={t('paywall.ready_for_appraisal')}
-							unlockCtaText={t('paywall.cta_unlock_specific', { target: giftName() })}
-							onUnlock={async () => {
-								await unlockCreditMutation.mutateAsync();
-							}}
-							unlocking={unlockCreditMutation.isPending}
-							error={unlockError()}
-						/>
+			<main class="mx-auto max-w-5xl px-4 sm:px-6 pt-5 space-y-5">
+				{/* Loading State */}
+				<Show when={loading()}>
+					<div class="rounded-2xl border border-white/10 bg-slate-900/60 p-8 text-center space-y-4">
+						<div class="mx-auto h-12 w-12 rounded-2xl border-2 border-cyan-400 border-t-transparent animate-spin" />
+						<div class="text-sm font-bold text-white">
+							در حال استخراج زنده کف قیمت مدل، پس‌زمینه، سابقه معاملات فرگمنت و کیف‌پول مالک...
+						</div>
+						<div class="text-xs text-slate-400 font-mono" dir="ltr">
+							t.me/nft · nft.fragment.com · fragment.com/gifts · api.changes.tg · tonapi.io
+						</div>
 					</div>
 				</Show>
 
-				{/* ════════════════════════════════════════════════════════════════
-				    STATE B: 10-SECTION PREMIUM REPORT (3D Unlocked Gyro Card)
-				   ════════════════════════════════════════════════════════════════ */}
-				<Show when={currentReport()}>
-					<div class="space-y-4">
-						{/* 💎 3D HOLOGRAPHIC GYRO CARD (UNLOCKED STATE) */}
-						<div
-							class={`w-full aspect-square p-[3px] bg-gradient-to-br ${
-								theme().wrapper
-							} rounded-[44px] my-2 relative z-20 transition-all duration-300`}
+				{/* Error State */}
+				<Show when={!loading() && errorMsg()}>
+					<div class="rounded-2xl border border-rose-500/40 bg-rose-950/30 p-5 text-center space-y-3">
+						<div class="text-sm font-bold text-rose-300">{errorMsg()}</div>
+						<button
+							type="button"
+							onClick={() => void loadGiftIntelligence(giftQueryParam())}
+							class="rounded-xl bg-rose-500/20 border border-rose-400/40 px-4 py-2 text-xs font-bold text-rose-200 hover:bg-rose-500/30 cursor-pointer"
 						>
-							<div
-								ref={cardRef}
-								onMouseMove={handleMouseMove}
-								onMouseLeave={handleMouseLeave}
-								class="w-full h-full bg-[#08090D] rounded-[41px] p-7 relative overflow-hidden flex flex-col justify-between shadow-inner"
-								style={{
-									transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
-									background: cardBackdrop() || undefined,
-									'background-image': !cardBackdrop()
-										? 'radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px)'
-										: undefined,
-									'background-size': '24px 24px',
-									transition: 'transform 0.1s ease-out',
-								}}
-							>
-								{/* Gloss Shimmer */}
-								<div
-									class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-80"
-									style={{
-										background: `radial-gradient(circle at ${tilt().glossX}% ${
-											tilt().glossY
-										}%, rgba(255,255,255,0.45) 0%, transparent 60%)`,
-									}}
-								/>
-								<div class="absolute inset-0 bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none" />
+							تلاش مجدد
+						</button>
+					</div>
+				</Show>
 
-								{/* Card Header */}
-								<div class="flex justify-between items-center z-10">
-									<span
-										class={`px-3.5 py-1.5 border rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm ${
-											theme().badge
-										}`}
-									>
-										{currentReport()?.trait_dna?.[0]?.rarity_tier || 'RARE'}
-									</span>
-									<span class="text-[11px] font-mono font-black text-white/30 tracking-[4px] uppercase bg-white/5 border border-white/5 px-3.5 py-1 rounded-[12px]">
-										{'IFRAGMENT'}
-									</span>
-								</div>
+				{/* Main Loaded Report */}
+				<Show when={!loading() && report()}>
+					{(rep) => {
+						const fm = () => rep().floor_matrix;
+						const bg = () =>
+							rep().backdrop_colors || {
+								center_hex: '#3b82f6',
+								edge_hex: '#1e3a8a',
+								pattern_hex: '#0f172a',
+								text_hex: '#f8fafc',
+							};
+						const isListedForSale = () =>
+							rep().owner_intelligence?.live_listing_type === 'sale' &&
+							(rep().owner_intelligence?.live_listing_price_gram || 0) > 0;
 
-								{/* Center Gift Identity with Real Thumbnail */}
-								<div class="flex flex-col justify-center items-center z-10 text-center flex-grow py-4 w-full">
-									<div
-										class="absolute w-full h-[150px] opacity-60 -z-10 pointer-events-none mix-blend-screen"
-										style={{
-											background: `radial-gradient(ellipse 60% 60% at 50% 50%, ${
-												theme().glow
-											}, transparent 70%)`,
-										}}
-									/>
-									<div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-[#0098EA]/30 to-[#AF52DE]/30 p-[1px] mb-3 shadow-2xl shadow-[#0098EA]/30 flex items-center justify-center overflow-hidden">
-										<GiftThumbnail
-											slug={resolvedModelSlug()}
-											name={giftName()}
-											model={
-												currentReport()?.selected_model || currentReport()?.trait_dna?.[0]?.value
-											}
-											serialNumber={currentReport()?.serial_number || gateQuery.data?.serial_number}
-											backdropName={currentReport()?.backdrop_name}
-											customImageUrl={currentReport()?.image_url || gateQuery.data?.image_url}
-											class="w-full h-full object-contain p-2 drop-shadow-xl"
-										/>
-									</div>
+						return (
+							<>
+								{/* ═══════════════════════════════════════════════════════════
+								    HERO SECTION: 3-Mode Interactive Gift Showcase + 4-Floor Matrix
+								   ═══════════════════════════════════════════════════════════ */}
+								<section class="relative overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-b from-slate-900/95 to-[#0a101f] p-4 sm:p-6 shadow-2xl">
+									<div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+										{/* Left/Right Column: 3-Mode Interactive Gift Visual & Profile Wear Simulator */}
+										<div class="lg:col-span-4 flex flex-col justify-between space-y-2.5">
+											{/* Segmented 3-Mode Visual Switcher */}
+											<div class="grid grid-cols-3 gap-1 rounded-xl bg-slate-950/90 p-1 border border-white/10">
+												<button
+													type="button"
+													onClick={() => setHeroMode('hd_svg')}
+													class={`rounded-lg py-1.5 text-[11px] font-semibold transition cursor-pointer ${
+														heroMode() === 'hd_svg'
+															? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
+															: 'text-slate-400 hover:text-white'
+													}`}
+												>
+													مدل شفاف HD
+												</button>
+												<button
+													type="button"
+													onClick={() => setHeroMode('fragment_webp')}
+													class={`rounded-lg py-1.5 text-[11px] font-semibold transition cursor-pointer ${
+														heroMode() === 'fragment_webp'
+															? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
+															: 'text-slate-400 hover:text-white'
+													}`}
+												>
+													کارت فرگمنت
+												</button>
+												<button
+													type="button"
+													onClick={() => setHeroMode('profile_wear')}
+													class={`rounded-lg py-1.5 text-[11px] font-semibold transition cursor-pointer ${
+														heroMode() === 'profile_wear'
+															? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
+															: 'text-slate-400 hover:text-white'
+													}`}
+												>
+													پروفایل تلگرام
+												</button>
+											</div>
 
-									<h2 class="text-2xl font-black text-white tracking-tight drop-shadow-md truncate max-w-[90%]">
-										{giftName()}
-									</h2>
-									<div class="flex items-center gap-1.5 mt-1">
-										<button
-											type="button"
-											onClick={() => openExternalUrl(officialTelegramUrl())}
-											class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#0098EA]/20 hover:bg-[#0098EA]/30 border border-[#0098EA]/40 text-[#0098EA] text-[10px] font-mono font-bold transition-all"
-										>
-											<span class="material-symbols-outlined text-[11px]">link</span>
-											<span>{officialTelegramUrl().replace('https://', '')}</span>
-											<span class="material-symbols-outlined text-[10px]">open_in_new</span>
-										</button>
-									</div>
-								</div>
+											{/* Mode 1 & 2: Authentic Telegram Gift Card */}
+											<Show when={heroMode() !== 'profile_wear'}>
+												<div
+													class="flex-1 flex flex-col justify-between rounded-2xl border border-white/15 p-4 relative overflow-hidden min-h-[275px]"
+													style={{
+														background: `radial-gradient(circle at 50% 42%, ${bg().center_hex} 0%, ${bg().edge_hex} 100%)`,
+													}}
+												>
+													{/* Subtle Symbol Pattern Overlay */}
+													<Show when={symbolTrait()?.image_url}>
+														<div
+															class="pointer-events-none absolute inset-0 opacity-15"
+															style={{
+																'background-image': `url("${symbolTrait()?.image_url}")`,
+																'background-size': '44px 44px',
+																'background-repeat': 'repeat',
+															}}
+														/>
+													</Show>
 
-								{/* Bottom Price Readout */}
-								<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
-									<div class="flex flex-col gap-0.5 text-left">
-										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest">
-											{t('gifts.fairValue')}
-										</span>
-										<div class="flex items-center gap-2">
-											<span class="text-[26px] font-black text-white font-mono tracking-tight">
-												{formatGram(currentReport()?.expected_gram)}
-											</span>
-											<span class="text-[13px] font-black text-[#0098EA]">{t('common.ton')}</span>
-											<span class="text-[13px] font-bold text-white/40">
-												({formatUsd(currentReport()?.expected_usd)})
-											</span>
-										</div>
-									</div>
-									<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-[12px] bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-black">
-										<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-										<span>{currentReport()?.confidence_score}%</span>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						{/* 🏷️ SERIAL NUMBER GRAVITY & COLLECTIBLE TIER */}
-						<Show when={(enrichedQuery.data as any)?.serial_intel}>
-							<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex items-center justify-between shadow-xl text-start">
-								<div class="flex items-center gap-2.5">
-									<div class="w-9 h-9 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-										<span class="material-symbols-outlined text-lg">tag</span>
-									</div>
-									<div>
-										<div class="flex items-center gap-1.5">
-											<h4 class="text-xs font-black text-white">
-												{layaT(GIFT_REPORT_DETAILS_I18N.serialGravity)}: #
-												{(enrichedQuery.data as any)?.serial_intel?.serial_number}
-											</h4>
-											<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-												{(enrichedQuery.data as any)?.serial_intel?.tier}
-											</span>
-										</div>
-										<p class="text-[10px] text-white/50 mt-0.5">
-											{(enrichedQuery.data as any)?.serial_intel?.description} ({layaT(GIFT_REPORT_DETAILS_I18N.valueMultiplier)} ×
-											{(enrichedQuery.data as any)?.serial_intel?.multiplier})
-										</p>
-									</div>
-								</div>
-								<div class="text-end font-mono">
-									<span class="text-xs font-black text-amber-400">
-										×{(enrichedQuery.data as any)?.serial_intel?.multiplier}
-									</span>
-									<span class="block text-[8px] text-white/40 uppercase">GRAVITY</span>
-								</div>
-							</div>
-						</Show>
-
-						{/* 🏛️ 4 CORE VALUATION PILLARS & RARITY ENTROPY */}
-						<GiftValuationPillarsCard report={currentReport()!} />
-
-						{/* ⚡ LAYA SYSTEM 1 STRATEGIC ACTION CARD */}
-						<GiftLayaActionCard
-							expectedTon={Number(currentReport()?.expected_gram) || 0}
-							expectedUsd={Number(currentReport()?.expected_usd) || 0}
-							serialNumber={currentReport()?.serial_number}
-							modelName={currentReport()?.model_name || currentReport()?.selected_model}
-							isUpgraded={
-								enrichedQuery.data?.custody_type === 'on_chain_nft' ||
-								currentReport()?.on_chain?.is_on_chain
-							}
-							isCraftable={true}
-							confidenceScore={currentReport()?.confidence_score}
-							verdict={currentReport()?.recommendation?.verdict}
-							summaryFa={currentReport()?.recommendation?.summary_fa}
-							summaryEn={currentReport()?.recommendation?.summary_en}
-						/>
-
-						{/* 🧬 LAYA TRAIT SYNERGY MULTIPLIER */}
-						<GiftTraitSynergyCard
-							baseExpectedTon={Number(currentReport()?.expected_gram) || 0}
-							modelName={currentReport()?.model_name || currentReport()?.selected_model}
-							backdropName={
-								currentReport()?.trait_dna?.find((t: any) => t.axis_key === 'backdrop')?.value
-							}
-							symbolName={
-								currentReport()?.trait_dna?.find((t: any) => t.axis_key === 'symbol')?.value
-							}
-							rarityTier={currentReport()?.trait_dna?.[0]?.rarity_tier}
-							synergyMultiplier={
-								(currentReport()?.reasoning_log as any)?.laya_synergy_multiplier
-							}
-							synergyScore={
-								(currentReport()?.reasoning_log as any)?.laya_synergy_score
-							}
-							backdropColors={
-								(enrichedQuery.data as any)?.backdrop_colors ||
-								(currentReport() as any)?.backdrop_colors
-							}
-						/>
-
-						{/* 🌟 STARS TO TON REAL-TIME PARITY ARBITRAGE */}
-						<GiftStarsParityCard
-							expectedTon={Number(currentReport()?.expected_gram) || 0}
-							starsPrice={enrichedQuery.data?.upgrade_info?.upgrade_fee_stars}
-							tonUsdRate={Number(currentReport()?.gram_usd_rate) || 5.5}
-							parity={currentReport()?.stars_parity}
-							isUpgraded={
-								enrichedQuery.data?.custody_type === 'on_chain_nft' ||
-								currentReport()?.on_chain?.is_on_chain
-							}
-						/>
-
-						{/* 💰 EXIT PLANNER & MULTI-VENUE FEE OPTIMIZER */}
-						<GiftExitPlannerCard
-							expectedTon={Number(currentReport()?.expected_gram) || 0}
-							expectedUsd={Number(currentReport()?.expected_usd) || 0}
-							tonUsdRate={Number(currentReport()?.gram_usd_rate) || 5.5}
-						/>
-
-						{/* 🌐 DUAL-WORLD ARCHITECTURE: IN-APP STARS vs ON-CHAIN TEP-62 */}
-						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex flex-col gap-2.5 shadow-xl text-start">
-							<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-cyan-400 text-base">token</span>
-									<h4 class="text-xs font-black text-white">
-										{layaT(GIFT_REPORT_DETAILS_I18N.dualWorldTitle)}
-									</h4>
-								</div>
-								<span class="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-									{enrichedQuery.data?.custody_type === 'on_chain_nft' ||
-									currentReport()?.on_chain?.is_on_chain
-										? 'ON-CHAIN (TEP-62)'
-										: 'IN-APP (STARS)'}
-								</span>
-							</div>
-
-							<div class="grid grid-cols-2 gap-2 text-[10px]">
-								<div
-									class={`p-3 rounded-2xl border transition-all ${
-										enrichedQuery.data?.custody_type === 'on_chain_nft' ||
-										currentReport()?.on_chain?.is_on_chain
-											? 'bg-cyan-500/10 border-cyan-500/30 text-white'
-											: 'bg-black/40 border-white/5 text-white/50'
-									}`}
-								>
-									<div class="flex items-center justify-between mb-1">
-										<span class="font-black">
-											{layaT(GIFT_REPORT_DETAILS_I18N.onChainTep62)}
-										</span>
-										<span class="text-[9px] text-cyan-400 font-bold">Non-Custodial</span>
-									</div>
-									<p class="text-[9px] text-white/60 leading-tight">
-										{layaT(GIFT_REPORT_DETAILS_I18N.onChainDesc)}
-									</p>
-								</div>
-
-								<div
-									class={`p-3 rounded-2xl border transition-all ${
-										enrichedQuery.data?.custody_type !== 'on_chain_nft' &&
-										!currentReport()?.on_chain?.is_on_chain
-											? 'bg-amber-500/10 border-amber-500/30 text-white'
-											: 'bg-black/40 border-white/5 text-white/50'
-									}`}
-								>
-									<div class="flex items-center justify-between mb-1">
-										<span class="font-black">
-											{layaT(GIFT_REPORT_DETAILS_I18N.inAppStars)}
-										</span>
-										<span class="text-[9px] text-amber-400 font-bold">Custodial</span>
-									</div>
-									<p class="text-[9px] text-white/60 leading-tight">
-										{layaT(GIFT_REPORT_DETAILS_I18N.inAppDesc)}
-									</p>
-								</div>
-							</div>
-						</div>
-
-						{/* 👤 HOST PROFILE vs WALLET OWNER CARD */}
-						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex flex-col gap-2.5 shadow-xl text-start">
-							<div class="flex items-center justify-between border-b border-white/5 pb-2">
-								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-cyan-400 text-base">badge</span>
-									<h4 class="text-xs font-black text-white">
-										{layaT(GIFT_REPORT_DETAILS_I18N.custodySeparationTitle)}
-									</h4>
-								</div>
-								<span class="text-[9px] font-mono text-white/40">PROVENANCE</span>
-							</div>
-
-							<div class="grid grid-cols-2 gap-2 text-[10px]">
-								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-									<span class="text-white/40 block text-[9px] mb-0.5">
-										{layaT(GIFT_REPORT_DETAILS_I18N.profileShowcaser)}
-									</span>
-									<span class="font-black text-white truncate block">
-										{enrichedQuery.data?.host_profile?.host_name ||
-											currentReport()?.owner_name ||
-											'Anonymous User'}
-									</span>
-								</div>
-
-								<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-									<span class="text-white/40 block text-[9px] mb-0.5">
-										{layaT(GIFT_REPORT_DETAILS_I18N.onChainOwnerWallet)}
-									</span>
-									<span
-										class={`font-mono font-black truncate block ${
-											enrichedQuery.data?.owner_wallet?.is_escrow
-												? 'text-amber-400'
-												: 'text-emerald-400'
-										}`}
-										dir="ltr"
-									>
-										{enrichedQuery.data?.owner_wallet?.is_escrow
-											? enrichedQuery.data?.owner_wallet?.escrow_name || 'Market Escrow'
-											: ownerInfo().shortAddr || 'Non-Custodial Wallet'}
-									</span>
-								</div>
-							</div>
-
-							<p class="text-[9px] text-white/50 leading-normal">
-								{layaT(GIFT_REPORT_DETAILS_I18N.custodyNote)}
-							</p>
-						</div>
-
-						{/* 💸 MULTI-VENUE FEE & NET PROCEEDS MATRIX */}
-						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex flex-col gap-3 shadow-xl text-start">
-							<div class="flex items-center justify-between border-b border-white/5 pb-2">
-								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-emerald-400 text-base">payments</span>
-									<h4 class="text-xs font-black text-white">
-										{layaT(GIFT_REPORT_DETAILS_I18N.feeMatrixTitle)}
-									</h4>
-								</div>
-								<span class="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-									{enrichedQuery.data?.venue_fee_matrix?.length || 7} VENUES
-								</span>
-							</div>
-
-							<div class="overflow-x-auto">
-								<table class="w-full text-[10px] text-center">
-									<thead>
-										<tr class="text-white/40 border-b border-white/5">
-											<th class="pb-1.5 text-start font-bold">{layaT(GIFT_REPORT_DETAILS_I18N.venueCol)}</th>
-											<th class="pb-1.5 font-bold">{layaT(GIFT_REPORT_DETAILS_I18N.feeCol)}</th>
-											<th class="pb-1.5 font-bold">{layaT(GIFT_REPORT_DETAILS_I18N.gasCol)}</th>
-											<th class="pb-1.5 text-end font-bold text-emerald-400">
-												{layaT(GIFT_REPORT_DETAILS_I18N.netProceedsCol)}
-											</th>
-										</tr>
-									</thead>
-									<tbody class="divide-y divide-white/5 font-mono">
-										<For
-											each={
-												enrichedQuery.data?.venue_fee_matrix || [
-													{
-														venue: 'Fragment',
-														fee_pct: 5.0,
-														gas_ton: 0.05,
-														net_proceeds_ton: Math.max(
-															0,
-															Math.round(
-																(Number(currentReport()?.expected_gram || 0) * 0.95 - 0.05) * 100,
-															) / 100,
-														),
-													},
-													{
-														venue: 'Getgems',
-														fee_pct: 5.0,
-														gas_ton: 0.08,
-														net_proceeds_ton: Math.max(
-															0,
-															Math.round(
-																(Number(currentReport()?.expected_gram || 0) * 0.95 - 0.08) * 100,
-															) / 100,
-														),
-													},
-													{
-														venue: 'Portals',
-														fee_pct: 2.5,
-														gas_ton: 0.05,
-														net_proceeds_ton: Math.max(
-															0,
-															Math.round(
-																(Number(currentReport()?.expected_gram || 0) * 0.975 - 0.05) * 100,
-															) / 100,
-														),
-													},
-													{
-														venue: 'Tonnel',
-														fee_pct: 3.0,
-														gas_ton: 0.05,
-														net_proceeds_ton: Math.max(
-															0,
-															Math.round(
-																(Number(currentReport()?.expected_gram || 0) * 0.97 - 0.05) * 100,
-															) / 100,
-														),
-													},
-													{
-														venue: 'MRKT',
-														fee_pct: 2.0,
-														gas_ton: 0.05,
-														net_proceeds_ton: Math.max(
-															0,
-															Math.round(
-																(Number(currentReport()?.expected_gram || 0) * 0.98 - 0.05) * 100,
-															) / 100,
-														),
-													},
-													{
-														venue: 'Stars P2P',
-														fee_pct: 8.0,
-														gas_ton: 0.0,
-														net_proceeds_ton: Math.max(
-															0,
-															Math.round(Number(currentReport()?.expected_gram || 0) * 0.92 * 100) /
-																100,
-														),
-													},
-													{
-														venue: 'DeDust Swap',
-														fee_pct: 1.0,
-														gas_ton: 0.15,
-														net_proceeds_ton: Math.max(
-															0,
-															Math.round(
-																(Number(currentReport()?.expected_gram || 0) * 0.99 - 0.15) * 100,
-															) / 100,
-														),
-													},
-												]
-											}
-										>
-											{(v: any) => (
-												<tr>
-													<td class="py-2 text-start font-sans font-bold text-white flex items-center gap-1">
-														<span class="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-														<span>{v.venue}</span>
-													</td>
-													<td class="py-2 text-white/60">{v.fee_pct}%</td>
-													<td class="py-2 text-white/40">{v.gas_ton} TON</td>
-													<td class="py-2 text-end text-emerald-400 font-bold">
-														{v.net_proceeds_ton} TON
-													</td>
-												</tr>
-											)}
-										</For>
-									</tbody>
-								</table>
-							</div>
-						</div>
-
-						{/* SECTION 1: VERDICT & CONFIDENCE CARD */}
-						<div class="bg-[#12141C]/90 border border-white/10 rounded-[28px] p-5 shadow-2xl backdrop-blur-2xl">
-							<div class="flex items-center justify-between mb-3">
-								<span class="text-[11px] uppercase font-extrabold text-[#0098EA] tracking-wider px-2.5 py-1 rounded-full bg-[#0098EA]/15 border border-[#0098EA]/30">
-									{t('gifts.fairValue')}
-								</span>
-								<button
-									type="button"
-									onClick={handleCopyCertificate}
-									class="flex items-center gap-1 text-[11px] font-mono text-white/40 hover:text-white transition-colors"
-								>
-									<span>{t('gifts.certificate')}:</span>
-									<span class="text-[#0098EA] font-bold">
-										{currentReport()?.certificate_id || '-'}
-									</span>
-								</button>
-							</div>
-
-							<div class="flex items-baseline gap-2 my-2">
-								<span class="text-3xl font-black text-white font-mono">
-									{formatGram(currentReport()?.expected_gram)}
-								</span>
-								<span class="text-base font-bold text-[#0098EA]">TON / GRAM</span>
-								<span class="text-sm font-bold text-white/40">
-									({formatUsd(currentReport()?.expected_usd)})
-								</span>
-							</div>
-							<p class="text-xs text-white/50 font-medium">
-								{t('gifts.fairRange')}: {formatGram(currentReport()?.low_gram)} –{' '}
-								{formatGram(currentReport()?.high_gram)} TON
-							</p>
-
-							<div class="flex items-center justify-between pt-3 mt-3 border-t border-white/[0.08] text-[11px] text-white/40">
-								<div class="flex items-center gap-1.5 flex-wrap">
-									<span>
-										{t('gifts.basis')}:{' '}
-										<strong class="text-white/70">{currentReport()?.price_basis}</strong>
-									</span>
-									<Show when={currentReport()?.price_basis === 'direct_last_sale_anchored'}>
-										<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-[9px] flex items-center gap-1">
-											<span class="material-symbols-outlined text-[11px]">verified</span>
-											<span>{layaT(GIFT_REPORT_DETAILS_I18N.lastSaleProtection)}</span>
-										</span>
-									</Show>
-									<Show when={currentReport()?.price_basis === 'market_floor_guaranteed'}>
-										<span class="px-2 py-0.5 rounded-full bg-[#0098EA]/20 border border-[#0098EA]/40 text-sky-300 font-bold text-[9px] flex items-center gap-1">
-											<span class="material-symbols-outlined text-[11px]">shield</span>
-											<span>{layaT(GIFT_REPORT_DETAILS_I18N.marketFloorProtection)}</span>
-										</span>
-									</Show>
-								</div>
-								<button
-									type="button"
-									onClick={handleShareStory}
-									class="flex items-center gap-1 text-emerald-400 font-bold hover:underline"
-								>
-									<span class="material-symbols-outlined text-[14px]">send</span>
-									<span>{t('gifts.shareStory')}</span>
-								</button>
-							</div>
-						</div>
-
-						{/* 🏛️ SECTION 1.5: VERIFIED OWNER VAULT & PORTFOLIO INTELLIGENCE */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl space-y-3.5">
-							<div class="flex items-center justify-between">
-								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[#0098EA] text-base">
-										account_balance_wallet
-									</span>
-									<span>{t('gifts.ownerVaultTitle')}</span>
-								</h3>
-								<span
-									class={`text-[9px] uppercase font-mono font-black px-2 py-0.5 rounded-full border ${
-										ownerInfo().isOnChain
-											? 'bg-sky-500/20 text-sky-400 border-sky-500/30'
-											: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-									}`}
-								>
-									{ownerInfo().isOnChain ? 'TEP-62 ON-CHAIN' : 'TELEGRAM CUSTODY'}
-								</span>
-							</div>
-
-							{/* Owner Net Worth & Status Banner */}
-							<div class="bg-gradient-to-r from-[#0098EA]/15 via-emerald-500/10 to-[#AF52DE]/15 border border-[#0098EA]/30 rounded-2xl p-3.5">
-								<div class="flex items-center justify-between mb-1.5">
-									<span class="text-[10px] font-bold text-white/50 uppercase tracking-wider">
-										{t('gifts.verifiedOwner')}
-									</span>
-									<span class="text-[10px] font-mono font-bold text-[#0098EA] bg-[#0098EA]/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-										<span class="material-symbols-outlined text-[10px]">verified</span>
-										<span>{ownerInfo().isOnChain ? 'On-Chain' : 'Off-Chain'}</span>
-									</span>
-								</div>
-								<div class="flex items-center justify-between gap-2">
-									<div class="min-w-0">
-										<span class="text-base font-black text-white font-mono block truncate">
-											{ownerInfo().displayName}
-										</span>
-										<p class="text-[10px] text-white/50 mt-0.5">
-											{ownerInfo().isOnChain
-												? layaT(GIFT_REPORT_DETAILS_I18N.onChainProvenanceConfirmed)
-												: layaT(GIFT_REPORT_DETAILS_I18N.inAppCustodyConfirmed)}
-										</p>
-									</div>
-									<Show when={ownerInfo().username}>
-										<button
-											type="button"
-											onClick={() =>
-												openExternalUrl(`https://t.me/${ownerInfo().username!.replace('@', '')}`)
-											}
-											class="p-2 rounded-xl bg-[#0098EA]/20 hover:bg-[#0098EA]/30 text-[#0098EA] border border-[#0098EA]/40 shrink-0 transition-all flex items-center gap-1 text-[11px] font-bold"
-										>
-											<span>{t('gifts.tgProfile')}</span>
-											<span class="material-symbols-outlined text-xs">open_in_new</span>
-										</button>
-									</Show>
-								</div>
-							</div>
-
-							{/* Owner Address & Action Buttons (Only when on-chain address exists) */}
-							<Show when={ownerInfo().fullAddr}>
-								<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3 flex items-center justify-between text-xs">
-									<div>
-										<span class="text-[10px] uppercase font-bold text-white/40 block">
-											{t('gifts.onChainWalletAddress')}
-										</span>
-										<span class="font-mono font-bold text-white text-xs mt-0.5 block">
-											{ownerInfo().shortAddr}
-										</span>
-									</div>
-									<div class="flex items-center gap-1.5">
-										<button
-											type="button"
-											onClick={async () => {
-												await copyToClipboard(ownerInfo().fullAddr);
-												try {
-													haptic.notify('success');
-												} catch {}
-											}}
-											class="p-2 rounded-xl bg-white/[0.05] hover:bg-white/10 text-white/60 hover:text-white border border-white/10 transition-all"
-											title={t('gifts.copyFullWalletAddress')}
-										>
-											<span class="material-symbols-outlined text-sm">content_copy</span>
-										</button>
-										<Show when={ownerInfo().tonViewerUrl}>
-											<button
-												type="button"
-												onClick={() => openExternalUrl(ownerInfo().tonViewerUrl!)}
-												class="p-2 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 transition-all flex items-center gap-1"
-												title={t('gifts.viewOnTonViewer')}
-											>
-												<span class="text-[10px] font-bold">TonViewer</span>
-												<span class="material-symbols-outlined text-xs">open_in_new</span>
-											</button>
-										</Show>
-									</div>
-								</div>
-							</Show>
-
-							{/* Real Owner Portfolio Scanner Action */}
-							<div class="bg-black/30 border border-white/5 rounded-2xl p-3 flex items-center justify-between">
-								<div class="min-w-0 pr-2 rtl:pr-0 rtl:pl-2">
-									<span class="text-xs font-bold text-white block">
-										{t('gifts.ownerPortfolioScan') || 'اسکن سبد دارایی‌های این مالک'}
-									</span>
-									<span class="text-[10px] text-white/40 block mt-0.5">
-										{t('gifts.ownerPortfolioScanDesc') ||
-											'مشاهده تمام هدایا و آیتم‌های متعلق به این کاربر'}
-									</span>
-								</div>
-								<button
-									type="button"
-									onClick={() => {
-										const target = ownerInfo().scanTarget;
-										if (target) {
-											navigate(`/gifts/portfolio?u=${encodeURIComponent(target)}`);
-										} else {
-											navigate('/gifts/portfolio');
-										}
-										try {
-											haptic.impact('light');
-										} catch {}
-									}}
-									class="px-3 py-2 rounded-xl bg-[#0098EA]/20 hover:bg-[#0098EA]/30 text-[#0098EA] border border-[#0098EA]/40 text-xs font-bold shrink-0 transition-all flex items-center gap-1"
-								>
-									<span>{t('gifts.scanVault') || 'اسکن پورتفولیو'}</span>
-									<span class="material-symbols-outlined text-sm rtl:rotate-180">
-										arrow_forward
-									</span>
-								</button>
-							</div>
-
-							{/* Direct Offer & Alert Quick Actions */}
-							<div class="grid grid-cols-2 gap-2 pt-1">
-								<button
-									type="button"
-									onClick={handleSendOffer}
-									class={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
-										offerSent()
-											? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-											: 'bg-white/[0.05] hover:bg-white/10 border-white/10 text-white'
-									}`}
-								>
-									<span class="material-symbols-outlined text-sm">
-										{offerSent() ? 'done_all' : 'send_money'}
-									</span>
-									<span>
-										{offerSent() ? t('gifts.directOfferSent') : t('gifts.directOfferBuy')}
-									</span>
-								</button>
-
-								<button
-									type="button"
-									onClick={handleToggleAlert}
-									class={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
-										alertActive()
-											? 'bg-[#0098EA]/20 border-[#0098EA] text-[#0098EA]'
-											: 'bg-white/[0.05] hover:bg-white/10 border-white/10 text-white'
-									}`}
-								>
-									<span class="material-symbols-outlined text-sm">
-										{alertActive() ? 'notifications_active' : 'notification_add'}
-									</span>
-									<span>
-										{alertActive() ? t('gifts.radarActivated') : t('gifts.saleTransferAlert')}
-									</span>
-								</button>
-							</div>
-						</div>
-
-						{/* SECTION 2: TRAIT DNA & TRAIT FLOORS */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<div class="flex items-center justify-between mb-3">
-								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[#0098EA] text-base">
-										fingerprint
-									</span>
-									<span>{t('gifts.traitFloorAnalysis')}</span>
-								</h3>
-								<span class="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
-									{t('gifts.exactData')}
-								</span>
-							</div>
-
-							<div class="space-y-2.5">
-								<For each={currentReport()?.trait_dna}>
-									{(dna) => {
-										const colSupply = resolvedCollectionItem()?.supply || 0;
-										const repFloor =
-											Number(currentReport()?.base_price_gram) ||
-											resolvedCollectionItem()?.floorTon ||
-											0;
-										const traitFloorTon =
-											Number((dna as any).trait_floor_ton) ||
-											(repFloor > 0 ? Math.round(repFloor * (1 + (100 - dna.percentile) / 45)) : 0);
-										const population =
-											colSupply > 0
-												? Math.max(1, Math.round((dna.percentile / 100) * colSupply))
-												: 0;
-										return (
-											<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3">
-												<div class="flex items-center justify-between mb-1">
-													<span class="text-xs font-bold text-white/80">
-														{isRtl() ? dna.label_fa || dna.label_en : dna.label_en}
-													</span>
-													<div class="flex items-center gap-1.5">
+													<div class="relative z-10 flex items-center justify-between gap-2 text-xs font-mono">
 														<span
-															class={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded ${
-																dna.certainty_level === 'exact'
-																	? 'bg-[#007AFF]/20 text-[#007AFF] border border-[#007AFF]/30'
-																	: dna.certainty_level === 'measured'
-																		? 'bg-[#34C759]/20 text-[#34C759] border border-[#34C759]/30'
-																		: 'bg-[#FFCC00]/20 text-[#FFCC00] border border-[#FFCC00]/30'
-															}`}
+															class="rounded-md px-2 py-0.5 font-bold shadow-sm"
+															style={{
+																color: bg().text_hex,
+																background:
+																	bg().pattern_hex || 'rgba(15,23,42,0.65)',
+															}}
+															dir="ltr"
 														>
-															{dna.certainty_level.toUpperCase()}
+															#{rep().serial_number}
 														</span>
-														<span class="text-xs font-black text-white font-mono">{dna.value}</span>
+														<span class="text-[11px] text-white/85 drop-shadow" dir="ltr">
+															{rep().rarity_score} Rarity
+														</span>
 													</div>
-												</div>
 
-												{/* Trait Floor Badge & Population */}
-												<div class="grid grid-cols-2 gap-2 my-1.5 text-[11px]">
-													<div class="p-2 rounded-lg bg-black/30 border border-white/5 flex items-center justify-between">
-														<span class="text-white/50 text-[10px]">{t('gifts.marketFloor')}</span>
-														<span class="font-mono font-black text-emerald-400">
-															💎 {traitFloorTon.toLocaleString()} T
-														</span>
+													<div class="relative z-10 my-3 flex items-center justify-center">
+														<Show
+															when={
+																heroMode() === 'hd_svg' && modelTrait()?.image_url
+															}
+															fallback={
+																<img
+																	src={
+																		rep().binary_forensics?.webp_url ||
+																		rep().image_url
+																	}
+																	alt={rep().display_title}
+																	class="h-40 w-40 rounded-2xl object-contain drop-shadow-[0_14px_28px_rgba(0,0,0,0.55)] transition-transform duration-300 hover:scale-105"
+																/>
+															}
+														>
+															<img
+																src={modelTrait()?.image_url}
+																alt={modelTrait()?.value || rep().display_title}
+																class="h-40 w-40 object-contain drop-shadow-[0_16px_28px_rgba(0,0,0,0.6)] transition-transform duration-300 hover:scale-105"
+																onError={() => setHeroMode('fragment_webp')}
+															/>
+														</Show>
 													</div>
-													<div class="p-2 rounded-lg bg-black/30 border border-white/5 flex items-center justify-between">
-														<span class="text-white/50 text-[10px]">{t('gifts.globalSupply')}</span>
-														<span class="font-mono font-bold text-sky-400">
-															{t('gifts.populationRatio', {
-																count: population.toLocaleString(),
-																total: colSupply.toLocaleString(),
-															})}
-														</span>
-													</div>
-												</div>
 
-												{/* On-Chain Backdrop Swatch Circles */}
-												<Show when={dna.colors}>
-													<div class="flex items-center gap-2 my-2 p-2 rounded-xl bg-black/40 border border-white/5">
-														<span class="text-[10px] text-white/40 font-bold">
-															{t('gifts.colors')}
-														</span>
-														<div class="flex items-center gap-1.5">
-															<div
-																class="w-4 h-4 rounded-full border border-white/20"
-																style={{ 'background-color': dna.colors?.center_hex }}
-																title="Center"
-															/>
-															<div
-																class="w-4 h-4 rounded-full border border-white/20"
-																style={{ 'background-color': dna.colors?.edge_hex }}
-																title="Edge"
-															/>
-															<div
-																class="w-4 h-4 rounded-full border border-white/20"
-																style={{ 'background-color': dna.colors?.pattern_hex }}
-																title="Pattern"
-															/>
-															<div
-																class="w-4 h-4 rounded-full border border-white/20"
-																style={{ 'background-color': dna.colors?.text_hex }}
-																title="Text"
-															/>
+													<div class="relative z-10 rounded-xl bg-black/55 backdrop-blur-md border border-white/15 p-2.5 text-center space-y-1">
+														<div
+															class="text-sm font-black text-white tracking-tight"
+															dir="ltr"
+														>
+															{rep().display_title}
+														</div>
+														<div class="flex flex-wrap items-center justify-center gap-1.5 text-[11px] text-slate-200">
+															<span>{modelTrait()?.value}</span>
+															<span aria-hidden="true">·</span>
+															<span>{backdropTrait()?.value}</span>
+															<span aria-hidden="true">·</span>
+															<span>{symbolTrait()?.value}</span>
 														</div>
 													</div>
-												</Show>
-
-												<div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mt-1.5">
-													<div
-														class="bg-gradient-to-r from-[#0098EA] to-emerald-400 h-full rounded-full"
-														style={{
-															width: `${Math.min(100, Math.max(10, 100 - dna.percentile))}%`,
-														}}
-													/>
 												</div>
-												<span class="text-[10px] text-white/40 font-medium block mt-1">
-													{dna.description}
+											</Show>
+
+											{/* Mode 3: Telegram Profile "Wear Gift" & Pinned Showcase Preview */}
+											<Show when={heroMode() === 'profile_wear'}>
+												<div
+													class="flex-1 flex flex-col justify-between rounded-2xl border border-white/15 p-4 relative overflow-hidden min-h-[275px]"
+													style={{
+														background: `linear-gradient(145deg, ${bg().center_hex} 0%, ${bg().edge_hex} 65%, #090d16 100%)`,
+													}}
+												>
+													<div class="text-[10px] text-white/75 text-center">
+														شبیه‌ساز پوشیدن گیفت در پروفایل تلگرام (Telegram Wear Status)
+													</div>
+
+													{/* Simulated Telegram Profile Header */}
+													<div class="my-2 flex flex-col items-center text-center space-y-2">
+														<div class="relative">
+															<div class="h-16 w-16 rounded-full border-2 border-white/40 bg-slate-900/80 flex items-center justify-center text-xl font-black text-white shadow-lg">
+																{(
+																	rep().owner_intelligence?.owner_display || 'TG'
+																)
+																	.replace(/^@/, '')
+																	.slice(0, 2)
+																	.toUpperCase()}
+															</div>
+															<span class="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 border-2 border-slate-950" />
+														</div>
+
+														{/* Name + Worn Collectible Gift Status Badge */}
+														<div
+															class="inline-flex items-center gap-1.5 rounded-xl bg-black/45 px-3 py-1 backdrop-blur-md border border-white/15"
+															dir="ltr"
+														>
+															<span class="text-sm font-black text-white truncate max-w-[140px]">
+																{rep().owner_intelligence?.owner_display ||
+																	'Collector'}
+															</span>
+															<img
+																src={
+																	modelTrait()?.image_url ||
+																	rep().binary_forensics?.webp_url ||
+																	rep().image_url
+																}
+																alt="Worn Status"
+																class="h-5 w-5 object-contain drop-shadow"
+															/>
+														</div>
+														<div class="text-[11px] text-white/80">
+															آنلاین · نمایش بج وضعیت کلکسیونی #{rep().serial_number}
+														</div>
+													</div>
+
+													{/* Simulated Profile Gifts Tab Row */}
+													<div class="rounded-xl bg-black/60 backdrop-blur-md border border-white/15 p-2.5">
+														<div class="flex items-center justify-between text-[10px] text-slate-300 mb-1.5">
+															<span>ویترین گیفت‌های پروفایل</span>
+															<span class="font-mono" dir="ltr">
+																1 of{' '}
+																{rep().owner_intelligence
+																	?.telegram_gifts_held_count || 1}{' '}
+																Gifts
+															</span>
+														</div>
+														<div class="flex items-center gap-2.5">
+															<div
+																class="h-11 w-11 rounded-xl p-1 flex items-center justify-center relative shrink-0 border border-white/20"
+																style={{
+																	background: `radial-gradient(circle, ${bg().center_hex}, ${bg().edge_hex})`,
+																}}
+															>
+																<img
+																	src={
+																		modelTrait()?.image_url ||
+																		rep().binary_forensics?.webp_url
+																	}
+																	alt={rep().display_title}
+																	class="h-8 w-8 object-contain"
+																/>
+															</div>
+															<div class="min-w-0 text-right">
+																<div
+																	class="text-xs font-bold text-white truncate"
+																	dir="ltr"
+																>
+																	{rep().display_title}
+																</div>
+																<div class="text-[10px] text-cyan-300">
+																	پالت رنگی پروفایل: {backdropTrait()?.value} (
+																	{bg().center_hex})
+																</div>
+															</div>
+														</div>
+													</div>
+												</div>
+											</Show>
+										</div>
+
+										{/* Valuation Summary & Floor Driver Column */}
+										<div class="lg:col-span-8 flex flex-col justify-between space-y-4">
+											{/* Header Row (Zero-Pill Static Metadata Discipline) */}
+											<div class="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-3.5">
+												<div>
+													<h1
+														class="text-xl sm:text-2xl font-black text-white tracking-tight"
+														dir="ltr"
+													>
+														{rep().display_title}
+													</h1>
+													<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+														<span class="text-cyan-300 font-semibold">
+															{rep().serial_intel?.tier ||
+																`سریال #${rep().serial_number}`}
+														</span>
+														<span aria-hidden="true">·</span>
+														<span>
+															{rep().custody_type === 'on_chain_nft'
+																? 'ضرب‌شده روی زنجیره TON (TEP-62)'
+																: 'نگهداری در حساب تلگرام (Off-Chain Custody)'}
+														</span>
+														<span aria-hidden="true">·</span>
+														<span>
+															مالک:{' '}
+															<strong
+																class="font-mono text-slate-200"
+																dir="ltr"
+															>
+																{rep().owner_intelligence?.owner_display ||
+																	rep().owner_name ||
+																	'Verified Holder'}
+															</strong>
+														</span>
+													</div>
+												</div>
+
+												{/* Functional Action Buttons */}
+												<div class="flex items-center gap-2">
+													<button
+														type="button"
+														onClick={() => void handleAddToWatchlist()}
+														class="rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.09] px-3.5 py-2 text-xs font-semibold text-slate-200 transition cursor-pointer"
+													>
+														{watchlistSaved()
+															? '✓ در دیده‌بان ذخیره شد'
+															: 'افزودن به دیده‌بان قیمت'}
+													</button>
+													<a
+														href={
+															rep().binary_forensics?.fragment_url ||
+															'https://fragment.com/gifts'
+														}
+														target="_blank"
+														rel="noopener noreferrer"
+														class="rounded-xl border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/25 px-3.5 py-2 text-xs font-bold text-cyan-200 transition"
+													>
+														صفحه رسمی فرگمنت ↗
+													</a>
+												</div>
+											</div>
+
+											{/* Core Fair Value vs Live Listing */}
+											<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+												<div class="sm:col-span-2 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/40 via-slate-900/80 to-slate-900 p-4">
+													<div class="flex items-center justify-between text-xs text-cyan-300 mb-1">
+														<span class="font-bold">
+															ارزش منصفانه بازار (Floor-Anchored Fair Value)
+														</span>
+														<span class="font-mono text-[11px] text-emerald-300">
+															دقت الگوریتم: {rep().confidence_score}%
+														</span>
+													</div>
+													<div class="flex flex-wrap items-baseline gap-3 my-1">
+														<span
+															class="text-3xl sm:text-4xl font-black font-mono text-white tracking-tight"
+															dir="ltr"
+														>
+															{formatTon(
+																rep().pillars?.fair_value_gram ??
+																	rep().expected_gram,
+															)}{' '}
+															<span class="text-lg text-cyan-400">TON</span>
+														</span>
+														<span
+															class="text-base font-mono font-semibold text-slate-300"
+															dir="ltr"
+														>
+															≈{' '}
+															{formatUsd(
+																rep().pillars?.fair_value_usd ??
+																	rep().expected_usd,
+															)}
+														</span>
+													</div>
+													<div class="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+														<span>
+															بازه نوسان منطقی:{' '}
+															<strong class="font-mono text-white" dir="ltr">
+																{formatTon(rep().low_gram)} –{' '}
+																{formatTon(rep().high_gram)} TON
+															</strong>
+														</span>
+														<span aria-hidden="true">·</span>
+														<span>
+															معادل تلگرام استارز:{' '}
+															<strong
+																class="font-mono text-amber-300"
+																dir="ltr"
+															>
+																★{' '}
+																{(
+																	rep().stars_parity?.implied_stars_value || 0
+																).toLocaleString()}
+															</strong>
+														</span>
+													</div>
+												</div>
+
+												{/* Live Sale Status or Dominant Driver */}
+												<div class="rounded-2xl border border-white/10 bg-slate-900/90 p-4 flex flex-col justify-between">
+													<div>
+														<div class="text-[11px] text-slate-400">
+															وضعیت فعلی در اردربوک فرگمنت
+														</div>
+														<Show
+															when={isListedForSale()}
+															fallback={
+																<div class="mt-1.5">
+																	<div class="text-sm font-bold text-slate-200">
+																		خارج از لیست فروش (نگهداری توسط مالک)
+																	</div>
+																	<div class="mt-1 text-[11px] text-slate-400">
+																		بهترین خروجی خالص در{' '}
+																		<span class="text-cyan-300 font-semibold">
+																			{rep().exit_planner?.best_venue_name}
+																		</span>
+																		:{' '}
+																		<span
+																			class="font-mono text-white"
+																			dir="ltr"
+																		>
+																			{formatTon(
+																				rep().exit_planner?.max_net_gram,
+																			)}{' '}
+																			TON
+																		</span>
+																	</div>
+																</div>
+															}
+														>
+															<div class="mt-1">
+																<div class="text-xs font-bold text-emerald-300">
+																	فعال برای خرید آنی (For Sale)
+																</div>
+																<div
+																	class="mt-1 text-xl font-black font-mono text-emerald-400"
+																	dir="ltr"
+																>
+																	{formatTon(
+																		rep().owner_intelligence
+																			?.live_listing_price_gram,
+																	)}{' '}
+																	TON
+																</div>
+															</div>
+														</Show>
+													</div>
+
+													<div class="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px]">
+														<span class="text-slate-400">ضریب شماره سریال:</span>
+														<span
+															class="font-mono font-bold text-amber-300"
+															dir="ltr"
+														>
+															{rep().serial_intel?.multiplier ?? 1}x (#
+															{rep().serial_number})
+														</span>
+													</div>
+												</div>
+											</div>
+
+											{/* Floor Dominance Explanation Banner */}
+											<div class="rounded-xl border border-indigo-500/30 bg-indigo-950/30 px-3.5 py-2.5 text-xs text-indigo-100 leading-relaxed">
+												<strong class="font-bold text-cyan-300 ml-1">
+													منطق قیمت‌گذاری کف بازار (Floor-Anchored Engine):
+												</strong>
+												<span>
+													{fm()?.driver_explanation_fa ||
+														rep().recommendation?.summary_fa}
 												</span>
 											</div>
-										);
-									}}
-								</For>
-							</div>
-						</div>
+										</div>
+									</div>
 
-						{/* SECTION 2.5: 4-ALGORITHM RARITY BENCHMARK (Section 22) */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<div class="flex items-center justify-between mb-3">
-								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[#AF52DE] text-base">analytics</span>
-									<span>{t('gifts.rarityFormulas')}</span>
-								</h3>
-								<span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-[#AF52DE]/20 text-[#AF52DE] border border-[#AF52DE]/30">
-									Standardized
-								</span>
-							</div>
-
-							<div class="grid grid-cols-2 gap-2 text-xs">
-								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
-									<span class="text-[9px] uppercase font-bold text-white/40 block">
-										{t('gifts.sumInverses')}
-									</span>
-									<span class="font-black text-white font-mono text-sm">
-										{currentReport()?.joint_rarity?.harmonic_rarity_score != null
-											? currentReport()!.joint_rarity.harmonic_rarity_score.toFixed(1)
-											: '-'}
-									</span>
-									<span class="text-[9px] text-emerald-400 block font-medium">Σ(1/frequency)</span>
-								</div>
-
-								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
-									<span class="text-[9px] uppercase font-bold text-white/40 block">
-										{t('gifts.avgRarity')}
-									</span>
-									<span class="font-black text-white font-mono text-sm">
-										{currentReport()?.joint_rarity?.harmonic_rarity_score != null
-											? (currentReport()!.joint_rarity.harmonic_rarity_score / 4).toFixed(1)
-											: '-'}
-									</span>
-									<span class="text-[9px] text-sky-400 block font-medium">Σ(1/freq)/N</span>
-								</div>
-
-								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
-									<span class="text-[9px] uppercase font-bold text-white/40 block">
-										{t('gifts.statProduct')}
-									</span>
-									<span class="font-black text-white font-mono text-sm">
-										{currentReport()?.joint_rarity?.joint_permille != null
-											? (currentReport()!.joint_rarity.joint_permille / 1000).toExponential(2)
-											: '-'}
-									</span>
-									<span class="text-[9px] text-amber-400 block font-medium">Π(frequency)</span>
-								</div>
-
-								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
-									<span class="text-[9px] uppercase font-bold text-white/40 block">
-										{t('gifts.infoEntropy')}
-									</span>
-									<span class="font-black text-white font-mono text-sm">
-										{currentReport()?.joint_rarity?.joint_permille &&
-										currentReport()!.joint_rarity.joint_permille > 0
-											? `${(-Math.log2(currentReport()!.joint_rarity.joint_permille / 1000)).toFixed(2)} bits`
-											: '-'}
-									</span>
-									<span class="text-[9px] text-sky-400 block font-medium">Σ(-log₂ P)</span>
-								</div>
-							</div>
-						</div>
-
-						{/* SECTION 3: MULTI-MARKET EXIT PLANNER (6 VENUES) */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<div class="flex items-center justify-between mb-3">
-								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-emerald-400 text-base">
-										alt_route
-									</span>
-									<span>{t('gifts.multiMarket')}</span>
-								</h3>
-								<span class="text-[10px] font-bold text-emerald-400">
-									+{currentReport()?.exit_planner?.arbitrage_spread_pct}% {t('gifts.maxSpread')}
-								</span>
-							</div>
-
-							<div class="space-y-2">
-								<For each={currentReport()?.exit_planner?.options}>
-									{(opt) => (
-										<div
-											class={`p-3 rounded-2xl border ${
-												opt.rank === 1
-													? 'bg-emerald-500/10 border-emerald-500/30'
-													: 'bg-white/[0.02] border-white/[0.06]'
-											} flex items-center justify-between text-xs`}
-										>
-											<div>
-												<div class="flex items-center gap-1.5">
-													<span class="font-black text-white">
-														#{opt.rank} {opt.venue_name}
+									{/* ═══════════════════════════════════════════════════════════
+									    4-FLOOR MATRIX STRIP: Collection vs Model vs Backdrop vs Symbol Floor
+									   ═══════════════════════════════════════════════════════════ */}
+									<Show when={fm()}>
+										{(matrix) => (
+											<div class="mt-5 pt-4 border-t border-white/10">
+												<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+													<h2 class="text-xs sm:text-sm font-bold text-slate-200">
+														ماتریس ۴گانه کف قیمت لحظه‌ای در فرگمنت (Live Trait Floor Matrix)
+													</h2>
+													<span class="text-[11px] text-slate-400">
+														کف نقدشونده موثر:{' '}
+														<strong class="font-mono text-cyan-300" dir="ltr">
+															{formatTon(matrix().effective_liquid_floor_gram)}{' '}
+															TON
+														</strong>
 													</span>
-													<Show when={opt.has_real_volume_badge}>
-														<span class="text-[8px] uppercase font-extrabold px-1 rounded bg-emerald-500/20 text-emerald-400">
-															{t('gifts.realVol')}
-														</span>
-													</Show>
 												</div>
-												<span class="text-[10px] text-white/40 block mt-0.5">
-													{t('gifts.fee')}: {opt.fee_percent}% · ~{opt.estimated_days_to_sell}d
-												</span>
-											</div>
 
-											<div class="text-right">
-												<span class="font-black text-emerald-400 block text-sm font-mono">
-													{formatGram(opt.net_payout_gram)} {t('common.ton')}
-												</span>
-												<span class="text-[10px] text-white/50">
-													{formatUsd(opt.net_payout_usd)} Net
-												</span>
-											</div>
-										</div>
-									)}
-								</For>
-							</div>
-						</div>
-
-						{/* SECTION 3.5: SELLER NET PROCEEDS & INSTANT CASHOUT */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl space-y-3">
-							<div class="flex items-center justify-between">
-								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-emerald-400 text-base">
-										calculate
-									</span>
-									<span>{t('gifts.sellerNetProceeds')}</span>
-								</h3>
-								<span class="text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
-									Net Proceeds
-								</span>
-							</div>
-
-							<div class="bg-black/30 border border-white/5 rounded-2xl p-3.5 space-y-2 text-xs">
-								<div class="flex items-center justify-between text-white/70">
-									<span>{t('gifts.grossPrice')}</span>
-									<span class="font-mono font-bold text-white">
-										{formatGram(sellerNetProceeds().gross)} TON
-									</span>
-								</div>
-								<div class="flex items-center justify-between text-white/50 text-[11px]">
-									<span>{t('gifts.fragmentFee')}</span>
-									<span class="font-mono text-rose-400">
-										-{formatGram(sellerNetProceeds().fragFee)} TON
-									</span>
-								</div>
-								<div class="flex items-center justify-between text-white/50 text-[11px]">
-									<span>{t('gifts.telegramRoyalty')}</span>
-									<span class="font-mono text-rose-400">
-										-{formatGram(sellerNetProceeds().telegramRoyalty)} TON
-									</span>
-								</div>
-								<div class="flex items-center justify-between text-white/50 text-[11px]">
-									<span>{t('gifts.tonGasFee')}</span>
-									<span class="font-mono text-rose-400">-{sellerNetProceeds().gasFee} TON</span>
-								</div>
-								<div class="border-t border-white/10 pt-2 flex items-center justify-between font-black text-sm">
-									<span class="text-emerald-400">{t('gifts.netProceedsPayout')}</span>
-									<div class="text-right">
-										<span class="font-mono text-emerald-400 block text-base">
-											💎 {formatGram(sellerNetProceeds().net)} TON
-										</span>
-										<span class="text-[10px] text-white/50 font-normal">
-											(≈ {formatUsd(sellerNetProceeds().netUsd)})
-										</span>
-									</div>
-								</div>
-							</div>
-
-							<div class="grid grid-cols-2 gap-2 text-xs">
-								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
-									<span class="text-[10px] text-white/40 block">{t('gifts.estSellingSpeed')}</span>
-									<span class="font-black text-white text-xs mt-0.5 block">
-										{t('gifts.estSpeedValue')}
-									</span>
-								</div>
-								<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5">
-									<span class="text-[10px] text-white/40 block">
-										{t('gifts.highestInstantBid')}
-									</span>
-									<span class="font-black text-sky-400 text-xs mt-0.5 block font-mono">
-										💎 {sellerNetProceeds().instantCashoutBid.toLocaleString()} TON
-									</span>
-								</div>
-							</div>
-						</div>
-
-						{/* SECTION 4: CRAFTING EV CARD */}
-						<Show when={currentReport()?.crafting_ev}>
-							<div class="bg-[#12141C]/80 border border-amber-500/30 rounded-[28px] p-5 shadow-xl">
-								<div class="flex items-center justify-between mb-2">
-									<h3 class="text-sm font-black text-white flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-[#FF9500] text-base">
-											local_fire_department
-										</span>
-										<span>{t('gifts.craftingEv')}</span>
-									</h3>
-									<span
-										class={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full ${
-											currentReport()?.crafting_ev?.recommendation === 'YES'
-												? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-												: currentReport()?.crafting_ev?.recommendation === 'RISKY'
-													? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-													: 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-										}`}
-									>
-										{currentReport()?.crafting_ev?.recommendation} {t('gifts.recommendation')}
-									</span>
-								</div>
-
-								<p class="text-xs text-white/70 font-medium mb-3">
-									{isRtl()
-										? currentReport()?.crafting_ev?.verdict_summary_fa ||
-											currentReport()?.crafting_ev?.verdict_summary_en
-										: currentReport()?.crafting_ev?.verdict_summary_en}
-								</p>
-
-								<div class="grid grid-cols-2 gap-2 text-xs mb-3">
-									<div class="bg-white/[0.03] p-2.5 rounded-xl">
-										<span class="text-[10px] uppercase font-bold text-white/40 block">
-											{t('gifts.netEv')}
-										</span>
-										<span class="font-black text-white font-mono">
-											{currentReport()?.crafting_ev?.net_ev_gram} {t('common.ton')} (
-											{currentReport()?.crafting_ev?.roi_percent}%)
-										</span>
-									</div>
-									<div class="bg-white/[0.03] p-2.5 rounded-xl">
-										<span class="text-[10px] uppercase font-bold text-white/40 block">
-											{t('gifts.successRate')}
-										</span>
-										<span class="font-black text-white font-mono">
-											{currentReport()?.crafting_ev?.success_probability_pct}%
-										</span>
-									</div>
-								</div>
-
-								<div class="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-300 font-medium">
-									⚠️ {currentReport()?.crafting_ev?.burn_warning_notice}
-								</div>
-							</div>
-						</Show>
-
-						{/* SECTION 5: UPGRADE ADVISOR */}
-						<Show when={currentReport()?.upgrade_advisor}>
-							<div class="bg-[#12141C]/80 border border-[#0098EA]/30 rounded-[28px] p-5 shadow-xl">
-								<div class="flex items-center justify-between mb-2">
-									<h3 class="text-sm font-black text-white flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-[#0098EA] text-base">schedule</span>
-										<span>{t('gifts.upgradeAdvisor')}</span>
-									</h3>
-									<span class="text-xs font-black text-emerald-400">
-										{t('gifts.potentialSavings')}:{' '}
-										{currentReport()?.upgrade_advisor?.max_stars_savings.toLocaleString()} Stars
-									</span>
-								</div>
-								<p class="text-xs font-bold text-white/90 mb-1">
-									{isRtl()
-										? currentReport()?.upgrade_advisor?.advice_headline_fa ||
-											currentReport()?.upgrade_advisor?.advice_headline_en
-										: currentReport()?.upgrade_advisor?.advice_headline_en}
-								</p>
-								<p class="text-[11px] text-white/50 font-medium">
-									{isRtl()
-										? currentReport()?.upgrade_advisor?.trade_off_analysis_fa ||
-											currentReport()?.upgrade_advisor?.trade_off_analysis_en
-										: currentReport()?.upgrade_advisor?.trade_off_analysis_en}
-								</p>
-							</div>
-						</Show>
-
-						{/* SECTION 6: COMPARABLE ON-CHAIN COMPS */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<h3 class="text-sm font-black text-white flex items-center gap-1.5 mb-3">
-								<span class="material-symbols-outlined text-[#0098EA] text-base">history_edu</span>
-								<span>{t('gifts.comps')}</span>
-							</h3>
-							<div class="space-y-2">
-								<For each={currentReport()?.comps}>
-									{(cmp) => (
-										<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-2.5 flex items-center justify-between text-xs">
-											<div>
-												<span class="font-bold text-white block">{cmp.gift_id}</span>
-												<span class="text-[10px] text-white/40">
-													{cmp.venue} · {cmp.backdrop_name}
-												</span>
-											</div>
-											<div class="text-right">
-												<span class="font-black text-white block font-mono">
-													{formatGram(cmp.sale_price_gram)} TON
-												</span>
-												<span class="text-[10px] text-emerald-400 font-bold">
-													{cmp.diff_percent > 0 ? `+${cmp.diff_percent}%` : `${cmp.diff_percent}%`}
-												</span>
-											</div>
-										</div>
-									)}
-								</For>
-							</div>
-						</div>
-
-						{/* SECTION 7: 12-MONTH VALUATION PROJECTION */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<h3 class="text-sm font-black text-white flex items-center gap-1.5 mb-3">
-								<span class="material-symbols-outlined text-[#AF52DE] text-base">trending_up</span>
-								<span>{t('gifts.projections')}</span>
-							</h3>
-							<div class="grid grid-cols-3 gap-2 text-center text-xs">
-								<div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5">
-									<span class="text-[9px] uppercase font-bold text-emerald-400 block">
-										Bull (+40%)
-									</span>
-									<span class="font-black text-white font-mono">
-										{formatGram(currentReport()?.projection?.bull_gram)} T
-									</span>
-								</div>
-								<div class="bg-white/[0.03] border border-white/10 rounded-xl p-2.5">
-									<span class="text-[9px] uppercase font-bold text-white/40 block">
-										Base (+15%)
-									</span>
-									<span class="font-black text-white font-mono">
-										{formatGram(currentReport()?.projection?.base_gram)} T
-									</span>
-								</div>
-								<div class="bg-rose-500/10 border border-rose-500/20 rounded-xl p-2.5">
-									<span class="text-[9px] uppercase font-bold text-rose-400 block">
-										Bear (-12%)
-									</span>
-									<span class="font-black text-white font-mono">
-										{formatGram(currentReport()?.projection?.bear_gram)} T
-									</span>
-								</div>
-							</div>
-						</div>
-
-						{/* SECTION 8: PROVENANCE & OWNERSHIP TIMELINE (EXCLUSIVE FEATURE) */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<div class="flex items-center justify-between mb-3">
-								<h3 class="text-sm font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[#0098EA] text-base">
-										account_tree
-									</span>
-									<span>{t('gifts.provenance')}</span>
-								</h3>
-								<span class="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
-									{t('gifts.verifiedOnChain')}
-								</span>
-							</div>
-
-							<div class="relative pl-5 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-[#0098EA] before:via-sky-400 before:to-emerald-400">
-								<Show
-									when={enrichedQuery.data?.provenance && enrichedQuery.data.provenance.length > 0}
-									fallback={
-										<>
-											{/* Event 1: Mint */}
-											<div class="relative">
-												<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-[#0098EA] ring-4 ring-[#12141C]" />
-												<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
-													<div class="flex items-center justify-between">
-														<span class="text-xs font-black text-white">
-															{t('gifts.eventMinted')}
-														</span>
-														<span class="text-[10px] text-white/40">Telegram Store</span>
-													</div>
-													<p class="text-[11px] text-white/50 mt-1">{t('gifts.eventMintedDesc')}</p>
-												</div>
-											</div>
-
-											{/* Event 2: Sent */}
-											<div class="relative">
-												<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-sky-400 ring-4 ring-[#12141C]" />
-												<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
-													<div class="flex items-center justify-between">
-														<span class="text-xs font-black text-white">
-															{t('gifts.eventSent')}
-														</span>
-														<span class="text-[10px] text-white/40">Telegram App</span>
-													</div>
-													<p class="text-[11px] text-white/50 mt-1">{t('gifts.eventSentDesc')}</p>
-												</div>
-											</div>
-
-											{/* Event 3: Upgraded to NFT */}
-											<div class="relative">
-												<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-amber-400 ring-4 ring-[#12141C]" />
-												<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
-													<div class="flex items-center justify-between">
-														<span class="text-xs font-black text-white">
-															{t('gifts.eventUpgraded')}
-														</span>
-														<span class="text-[10px] text-amber-400 font-bold">TEP-62</span>
-													</div>
-													<p class="text-[11px] text-white/50 mt-1">
-														{t('gifts.eventUpgradedDesc')}
-													</p>
-												</div>
-											</div>
-
-											{/* Event 4: Current Status */}
-											<div class="relative">
-												<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-4 ring-[#12141C]" />
-												<div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
-													<div class="flex items-center justify-between">
-														<span class="text-xs font-black text-emerald-300">
-															{t('gifts.eventVerified')}
-														</span>
-														<span class="text-[10px] text-emerald-400 font-bold">
-															{t('gifts.current')}
-														</span>
-													</div>
-													<p class="text-[11px] text-white/60 mt-1">
-														{t('gifts.eventVerifiedDesc')}
-													</p>
-												</div>
-											</div>
-										</>
-									}
-								>
-									<For each={enrichedQuery.data!.provenance}>
-										{(ev) => (
-											<div class="relative">
-												<div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-[#0098EA] ring-4 ring-[#12141C]" />
-												<div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
-													<div class="flex items-center justify-between">
-														<span class="text-xs font-black text-white capitalize">
-															{ev.event_type}
-														</span>
-														<span class="text-[10px] text-white/40">
-															{new Date(ev.timestamp).toLocaleDateString()}
-														</span>
-													</div>
-													<Show when={ev.price_gram}>
-														<div class="text-[11px] text-emerald-400 font-bold font-mono mt-0.5">
-															{ev.price_gram} TON {ev.venue ? `(${ev.venue})` : ''}
+												<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+													{/* 1. Collection Floor */}
+													<div
+														class={`rounded-2xl border p-3.5 transition ${
+															matrix().dominant_floor_driver === 'collection'
+																? 'border-cyan-400/60 bg-cyan-950/25 shadow-lg shadow-cyan-500/10'
+																: 'border-white/10 bg-slate-900/70'
+														}`}
+													>
+														<div class="flex items-center justify-between text-[11px] text-slate-400">
+															<span>۰۱. کف کل کلکسیون</span>
+															<Show
+																when={
+																	matrix().dominant_floor_driver ===
+																	'collection'
+																}
+															>
+																<span class="text-[10px] font-bold text-cyan-300">
+																	محرک اصلی
+																</span>
+															</Show>
 														</div>
-													</Show>
-													<p class="text-[11px] text-white/50 mt-1">
-														{ev.note ||
-															`${ev.from_username || ev.from_address || 'Origin'} ➔ ${ev.to_username || ev.to_address || 'Current'}`}
-													</p>
-													<Show when={ev.tonviewer_url}>
-														<button
-															type="button"
-															onClick={() => openExternalUrl(ev.tonviewer_url!)}
-															class="text-[10px] text-[#0098EA] hover:underline flex items-center gap-1 mt-1 font-bold"
+														<div
+															class="mt-1.5 text-lg sm:text-xl font-black font-mono text-white"
+															dir="ltr"
 														>
-															<span>{t('gifts.viewOnTonViewer')}</span>
-															<span class="material-symbols-outlined text-xs">open_in_new</span>
-														</button>
-													</Show>
+															{formatTon(matrix().collection_floor_gram)} TON
+														</div>
+														<div
+															class="text-[11px] font-mono text-slate-400"
+															dir="ltr"
+														>
+															{formatUsd(matrix().collection_floor_usd)} · Next:{' '}
+															{formatTon(
+																matrix().collection_second_floor_gram,
+															)}{' '}
+															TON
+														</div>
+														<div class="mt-2 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-slate-400">
+															<span>
+																ارزان‌ترین: #{matrix().collection_floor_serial}
+															</span>
+															<a
+																href={matrix().collection_floor_url}
+																target="_blank"
+																rel="noopener noreferrer"
+																class="text-cyan-400 hover:underline"
+															>
+																اردربوک ↗
+															</a>
+														</div>
+													</div>
+
+													{/* 2. Exact Model Floor */}
+													<div
+														class={`rounded-2xl border p-3.5 transition ${
+															matrix().dominant_floor_driver === 'model'
+																? 'border-cyan-400/60 bg-cyan-950/25 shadow-lg shadow-cyan-500/10'
+																: 'border-white/10 bg-slate-900/70'
+														}`}
+													>
+														<div class="flex items-center justify-between text-[11px] text-slate-400">
+															<span class="truncate">
+																۰۲. کف مدل ({matrix().model_name})
+															</span>
+															<span class="font-mono text-[10px] text-amber-300 shrink-0">
+																{matrix().model_rarity_pct}%
+															</span>
+														</div>
+														<div class="mt-1.5 flex items-baseline gap-1.5">
+															<span
+																class="text-lg sm:text-xl font-black font-mono text-white"
+																dir="ltr"
+															>
+																{formatTon(matrix().model_floor_gram)} TON
+															</span>
+															<Show when={matrix().model_is_vanity_ask}>
+																<span
+																	title="اردر فعلی فرگمنت بالاتر از میانه معاملات واقعی است"
+																	class="text-[10px] font-semibold text-amber-300"
+																>
+																	· اردر هیجانی
+																</span>
+															</Show>
+														</div>
+														<div
+															class="text-[11px] font-mono text-slate-400"
+															dir="ltr"
+														>
+															{matrix().model_median_sale_gram > 0
+																? `Median Sold: ${formatTon(matrix().model_median_sale_gram)} TON`
+																: formatUsd(matrix().model_floor_usd)}
+														</div>
+														<div class="mt-2 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-slate-400">
+															<span>
+																{matrix().model_active_count} فعال (#
+																{matrix().model_floor_serial})
+															</span>
+															<a
+																href={matrix().model_floor_url}
+																target="_blank"
+																rel="noopener noreferrer"
+																class="text-cyan-400 hover:underline"
+															>
+																فیلتر مدل ↗
+															</a>
+														</div>
+													</div>
+
+													{/* 3. Exact Backdrop Floor */}
+													<div
+														class={`rounded-2xl border p-3.5 transition ${
+															matrix().dominant_floor_driver === 'backdrop'
+																? 'border-cyan-400/60 bg-cyan-950/25 shadow-lg shadow-cyan-500/10'
+																: 'border-white/10 bg-slate-900/70'
+														}`}
+													>
+														<div class="flex items-center justify-between text-[11px] text-slate-400">
+															<span class="truncate flex items-center gap-1.5">
+																<span
+																	class="inline-block h-2.5 w-2.5 rounded-full border border-white/30"
+																	style={{ background: bg().center_hex }}
+																/>
+																<span>
+																	۰۳. کف پس‌زمینه ({matrix().backdrop_name})
+																</span>
+															</span>
+															<span class="font-mono text-[10px] text-amber-300 shrink-0">
+																{matrix().backdrop_rarity_pct}%
+															</span>
+														</div>
+														<div class="mt-1.5 flex items-baseline gap-1.5">
+															<span
+																class="text-lg sm:text-xl font-black font-mono text-white"
+																dir="ltr"
+															>
+																{formatTon(matrix().backdrop_floor_gram)} TON
+															</span>
+															<Show when={matrix().backdrop_is_vanity_ask}>
+																<span class="text-[10px] font-semibold text-amber-300">
+																	· اردر هیجانی
+																</span>
+															</Show>
+														</div>
+														<div
+															class="text-[11px] font-mono text-slate-400"
+															dir="ltr"
+														>
+															{matrix().backdrop_median_sale_gram > 0
+																? `Median Sold: ${formatTon(matrix().backdrop_median_sale_gram)} TON`
+																: formatUsd(matrix().backdrop_floor_usd)}
+														</div>
+														<div class="mt-2 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-slate-400">
+															<span>
+																{matrix().backdrop_active_count} فعال (#
+																{matrix().backdrop_floor_serial})
+															</span>
+															<a
+																href={matrix().backdrop_floor_url}
+																target="_blank"
+																rel="noopener noreferrer"
+																class="text-cyan-400 hover:underline"
+															>
+																فیلتر رنگ ↗
+															</a>
+														</div>
+													</div>
+
+													{/* 4. Exact Symbol Floor */}
+													<div class="rounded-2xl border border-white/10 bg-slate-900/70 p-3.5">
+														<div class="flex items-center justify-between text-[11px] text-slate-400">
+															<span class="truncate">
+																۰۴. کف نماد ({matrix().symbol_name})
+															</span>
+															<span class="font-mono text-[10px] text-amber-300 shrink-0">
+																{matrix().symbol_rarity_pct}%
+															</span>
+														</div>
+														<div
+															class="mt-1.5 text-lg sm:text-xl font-black font-mono text-white"
+															dir="ltr"
+														>
+															{formatTon(matrix().symbol_floor_gram)} TON
+														</div>
+														<div
+															class="text-[11px] font-mono text-slate-400"
+															dir="ltr"
+														>
+															{formatUsd(matrix().symbol_floor_usd)}
+														</div>
+														<div class="mt-2 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-slate-400">
+															<span>
+																{matrix().symbol_active_count} فعال (#
+																{matrix().symbol_floor_serial})
+															</span>
+															<a
+																href={matrix().symbol_floor_url}
+																target="_blank"
+																rel="noopener noreferrer"
+																class="text-cyan-400 hover:underline"
+															>
+																فیلتر نماد ↗
+															</a>
+														</div>
+													</div>
 												</div>
 											</div>
 										)}
-									</For>
+									</Show>
+								</section>
+
+								{/* ═══════════════════════════════════════════════════════════
+								    4-TAB INSTITUTIONAL NAVIGATION BAR
+								   ═══════════════════════════════════════════════════════════ */}
+								<nav class="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-2xl border border-white/10 bg-slate-900/90 p-1.5">
+									{[
+										{
+											id: 'valuation' as ReportTabId,
+											num: '01.',
+											label: 'ارزش‌گذاری و کف بازار',
+											sub: 'دماسنج معامله، اردربوک و هم‌سریال‌ها',
+										},
+										{
+											id: 'traits' as ReportTabId,
+											num: '02.',
+											label: 'کالبدشکافی تریت و رنگ',
+											sub: 'DNA، شبیه‌ساز و کاتالوگ کلکسیون',
+										},
+										{
+											id: 'ownership' as ReportTabId,
+											num: '03.',
+											label: 'مالک، زنجیره و نهنگ‌شناسی',
+											sub: 'پورتفوی مالک، تاریخچه و باینری',
+										},
+										{
+											id: 'venues' as ReportTabId,
+											num: '04.',
+											label: 'مارکت‌پلیس‌ها، کرفت و ارتقا',
+											sub: 'خروجی خالص ۶ بازار و کارگاه کرفت',
+										},
+									].map((tab) => {
+										const active = () => activeTab() === tab.id;
+										return (
+											<button
+												type="button"
+												onClick={() => {
+													haptic('light');
+													setActiveTab(tab.id);
+												}}
+												class={`flex flex-col items-start rounded-xl px-3.5 py-2.5 text-right transition cursor-pointer ${
+													active()
+														? 'bg-gradient-to-l from-cyan-500/25 to-blue-600/20 border border-cyan-400/50 text-white shadow-md'
+														: 'hover:bg-white/[0.04] text-slate-400 border border-transparent'
+												}`}
+											>
+												<div class="flex items-center gap-1.5 text-xs sm:text-sm font-bold">
+													<span class="font-mono text-cyan-400 text-xs">
+														{tab.num}
+													</span>
+													<span>{tab.label}</span>
+												</div>
+												<span class="mt-0.5 text-[10px] text-slate-400 line-clamp-1">
+													{tab.sub}
+												</span>
+											</button>
+										);
+									})}
+								</nav>
+
+								{/* ═══════════════════════════════════════════════════════════
+								    TAB 1: VALUATION, DEAL THERMOMETER, ORDERBOOK & SIBLINGS
+								   ═══════════════════════════════════════════════════════════ */}
+								<Show when={activeTab() === 'valuation'}>
+									<div class="space-y-5">
+										{/* Deal Thermometer & Liquidity Spectrum Gauge */}
+										<Show when={rep().deal_thermometer}>
+											{(thermo) => (
+												<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+													<div class="flex flex-wrap items-center justify-between gap-2">
+														<div>
+															<h3 class="text-sm sm:text-base font-bold text-white">
+																۰۱. دماسنج نقدشوندگی و طیف قیمت‌گذاری (Liquidity & Spread Spectrum)
+															</h3>
+															<p class="text-xs text-slate-400 mt-0.5">
+																موقعیت دقیق این گیفت از کف نقدشوندگی فوری (Bid) تا سقف اردر فروش (Ask)
+															</p>
+														</div>
+														<span class="text-xs font-bold text-cyan-300">
+															{thermo().deal_rating_fa} · اسپرد Bid/Ask:{' '}
+															<span class="font-mono" dir="ltr">
+																{thermo().spread_bid_ask_pct}%
+															</span>
+														</span>
+													</div>
+
+													{/* 5-Point Horizontal Liquidity Bar */}
+													<div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+														<div class="rounded-xl border border-emerald-500/25 bg-emerald-950/20 p-3">
+															<div class="text-[10px] text-emerald-300">
+																۱. فروش آنی (Instant Bid)
+															</div>
+															<div
+																class="mt-1 text-sm font-black font-mono text-emerald-400"
+																dir="ltr"
+															>
+																{formatTon(thermo().liquidation_bid_gram)} TON
+															</div>
+														</div>
+
+														<div class="rounded-xl border border-white/10 bg-slate-950/60 p-3">
+															<div class="text-[10px] text-slate-400">
+																۲. کف کلکسیون (Base Floor)
+															</div>
+															<div
+																class="mt-1 text-sm font-black font-mono text-slate-200"
+																dir="ltr"
+															>
+																{formatTon(thermo().collection_floor_gram)} TON
+															</div>
+														</div>
+
+														<div class="rounded-xl border border-white/10 bg-slate-950/60 p-3">
+															<div class="text-[10px] text-slate-300">
+																۳. کف نقدشونده تریت
+															</div>
+															<div
+																class="mt-1 text-sm font-black font-mono text-cyan-300"
+																dir="ltr"
+															>
+																{formatTon(thermo().trait_liquid_floor_gram)}{' '}
+																TON
+															</div>
+														</div>
+
+														<div class="rounded-xl border border-cyan-400/50 bg-cyan-950/30 p-3">
+															<div class="text-[10px] font-bold text-cyan-300">
+																۴. ارزش منصفانه (Fair Value)
+															</div>
+															<div
+																class="mt-1 text-sm font-black font-mono text-white"
+																dir="ltr"
+															>
+																{formatTon(thermo().fair_value_gram)} TON
+															</div>
+														</div>
+
+														<div class="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-3 col-span-2 sm:col-span-1">
+															<div class="text-[10px] text-indigo-300">
+																۵. سقف پیشنهادی لیست (Ask)
+															</div>
+															<div
+																class="mt-1 text-sm font-black font-mono text-indigo-300"
+																dir="ltr"
+															>
+																{formatTon(thermo().optimal_ask_gram)} TON
+															</div>
+														</div>
+													</div>
+
+													<div class="rounded-xl border border-white/10 bg-slate-950/70 p-3 text-xs text-slate-300 leading-relaxed">
+														<strong class="text-white ml-1">
+															توصیه اجرایی معامله‌گر:
+														</strong>
+														{thermo().execution_advice_fa}
+													</div>
+												</section>
+											)}
+										</Show>
+
+										{/* Live Trait-Filtered Active Listings (Fragment Orderbook) */}
+										<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+											<div class="flex flex-wrap items-center justify-between gap-2">
+												<div>
+													<h3 class="text-sm sm:text-base font-bold text-white">
+														۰۲. اردربوک زنده آیتم‌های هم‌مدل و هم‌پس‌زمینه در فرگمنت
+													</h3>
+													<p class="text-xs text-slate-400 mt-0.5">
+														مقایسه مستقیم ارزان‌ترین لیستینگ‌های فعال برای مدل «
+														{modelTrait()?.value}» و پس‌زمینه «
+														{backdropTrait()?.value}»
+													</p>
+												</div>
+
+												<div class="flex items-center gap-1 rounded-xl bg-slate-950 p-1 border border-white/10">
+													{[
+														{ id: 'all' as const, label: 'همه' },
+														{
+															id: 'model' as const,
+															label: `مدل ${modelTrait()?.value}`,
+														},
+														{
+															id: 'backdrop' as const,
+															label: `رنگ ${backdropTrait()?.value}`,
+														},
+														{ id: 'collection' as const, label: 'کف کلکسیون' },
+													].map((btn) => (
+														<button
+															type="button"
+															onClick={() => setOrderbookFilter(btn.id)}
+															class={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition cursor-pointer ${
+																orderbookFilter() === btn.id
+																	? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+																	: 'text-slate-400 hover:text-white'
+															}`}
+														>
+															{btn.label}
+														</button>
+													))}
+												</div>
+											</div>
+
+											<Show
+												when={filteredOrderbook().length > 0}
+												fallback={
+													<div class="rounded-xl border border-white/5 bg-slate-950/50 p-6 text-center text-xs text-slate-400">
+														هیچ آیتم فعالی برای این فیلتر در حال حاضر برای فروش مستقیم لیست نشده است (نشان‌دهنده کمیابی عرضه در اردربوک).
+													</div>
+												}
+											>
+												<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+													<For each={filteredOrderbook()}>
+														{(item) => (
+															<div class="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/70 p-3 hover:border-cyan-500/40 transition">
+																<div class="flex items-center gap-3 min-w-0">
+																	<img
+																		src={item.image_url}
+																		alt={`#${item.serial_number}`}
+																		class="h-12 w-12 rounded-xl object-cover border border-white/10 shrink-0 bg-slate-900"
+																	/>
+																	<div class="min-w-0">
+																		<div class="flex items-center gap-1.5 text-xs">
+																			<button
+																				type="button"
+																				onClick={() =>
+																					selectPresetGift(item.gift_id)
+																				}
+																				class="font-mono font-bold text-white hover:text-cyan-300 transition cursor-pointer"
+																				dir="ltr"
+																			>
+																				#{item.serial_number}
+																			</button>
+																			<span aria-hidden="true" class="text-slate-600">
+																				·
+																			</span>
+																			<span class="text-[11px] text-slate-400 truncate">
+																				{item.trait_value}
+																			</span>
+																		</div>
+																		<div
+																			class="mt-1 text-sm font-black font-mono text-emerald-400"
+																			dir="ltr"
+																		>
+																			{formatTon(item.price_gram)} TON{' '}
+																			<span class="text-[11px] font-normal text-slate-400">
+																				({formatUsd(item.price_usd)})
+																			</span>
+																		</div>
+																	</div>
+																</div>
+
+																<a
+																	href={item.fragment_url}
+																	target="_blank"
+																	rel="noopener noreferrer"
+																	class="rounded-lg border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-2.5 py-1.5 text-[11px] font-bold text-cyan-300 shrink-0"
+																>
+																	فرگمنت ↗
+																</a>
+															</div>
+														)}
+													</For>
+												</div>
+											</Show>
+										</section>
+
+										{/* SVG Price Trajectory & Floor Benchmark Chart */}
+										<Show when={chartPoints()}>
+											{(chart) => (
+												<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-3">
+													<div class="flex flex-wrap items-center justify-between gap-2">
+														<div>
+															<h3 class="text-sm sm:text-base font-bold text-white">
+																۰۳. نمودار معاملات واقعی در برابر ارزش منصفانه و کف کلکسیون
+															</h3>
+															<p class="text-xs text-slate-400">
+																نقاط آبی معاملات ثبت‌شده روی زنجیره TON برای همین مدل و پس‌زمینه هستند
+															</p>
+														</div>
+														<div class="flex items-center gap-3 text-[11px]">
+															<span class="flex items-center gap-1 text-cyan-300">
+																<span class="h-2 w-2 rounded-full bg-cyan-400" />
+																ارزش منصفانه: {formatTon(chart().fair)} TON
+															</span>
+															<span class="flex items-center gap-1 text-amber-300">
+																<span class="h-2 w-2 rounded-full bg-amber-400" />
+																کف کلکسیون: {formatTon(chart().colFloor)} TON
+															</span>
+														</div>
+													</div>
+
+													<div class="overflow-x-auto">
+														<svg
+															viewBox={`0 0 ${chart().width} ${chart().height}`}
+															class="w-full h-44 rounded-xl bg-slate-950/80 border border-white/5"
+														>
+															<defs>
+																<linearGradient
+																	id="giftCompAreaGrad"
+																	x1="0"
+																	y1="0"
+																	x2="0"
+																	y2="1"
+																>
+																	<stop
+																		offset="0%"
+																		stop-color="#22d3ee"
+																		stop-opacity="0.32"
+																	/>
+																	<stop
+																		offset="100%"
+																		stop-color="#22d3ee"
+																		stop-opacity="0.0"
+																	/>
+																</linearGradient>
+															</defs>
+
+															<line
+																x1="28"
+																y1={chart().floorY}
+																x2={chart().width - 28}
+																y2={chart().floorY}
+																stroke="#f59e0b"
+																stroke-width="1.2"
+																stroke-dasharray="4 4"
+																opacity="0.7"
+															/>
+
+															<line
+																x1="28"
+																y1={chart().fairY}
+																x2={chart().width - 28}
+																y2={chart().fairY}
+																stroke="#22d3ee"
+																stroke-width="1.5"
+																stroke-dasharray="6 4"
+																opacity="0.85"
+															/>
+
+															<path
+																d={chart().areaPath}
+																fill="url(#giftCompAreaGrad)"
+															/>
+															<polyline
+																fill="none"
+																stroke="#38bdf8"
+																stroke-width="2.5"
+																points={chart().polyline}
+															/>
+
+															<For each={chart().pts}>
+																{(pt) => (
+																	<g>
+																		<circle
+																			cx={pt.x}
+																			cy={pt.y}
+																			r="4.5"
+																			fill="#0284c7"
+																			stroke="#e0f2fe"
+																			stroke-width="1.8"
+																		/>
+																		<text
+																			x={pt.x}
+																			y={Math.max(14, pt.y - 8)}
+																			text-anchor="middle"
+																			fill="#e2e8f0"
+																			font-size="9.5"
+																			font-family="monospace"
+																		>
+																			{formatTon(pt.price)}
+																		</text>
+																	</g>
+																)}
+															</For>
+														</svg>
+													</div>
+												</section>
+											)}
+										</Show>
+
+										{/* Real Settled Sales Table (Comps) */}
+										<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+											<div class="flex flex-wrap items-center justify-between gap-2">
+												<div>
+													<h3 class="text-sm sm:text-base font-bold text-white">
+														۰۴. معاملات قطعی و تسویه‌شده زنجیره (Verified On-Chain Comps)
+													</h3>
+													<p class="text-xs text-slate-400">
+														استخراج مستقیم از تاریخچه فروش‌های واقعی فرگمنت برای مدل و پس‌زمینه مشابه
+													</p>
+												</div>
+
+												<div class="flex flex-wrap items-center gap-1 rounded-xl bg-slate-950 p-1 border border-white/10">
+													{[
+														{ id: 'all' as const, label: 'همه معاملات' },
+														{ id: 'exact_model' as const, label: 'هم‌مدل' },
+														{
+															id: 'exact_backdrop' as const,
+															label: 'هم‌پس‌زمینه',
+														},
+														{
+															id: 'same_gift_history' as const,
+															label: 'همین گیفت',
+														},
+													].map((tab) => (
+														<button
+															type="button"
+															onClick={() => setCompFilter(tab.id)}
+															class={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition cursor-pointer ${
+																compFilter() === tab.id
+																	? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+																	: 'text-slate-400 hover:text-white'
+															}`}
+														>
+															{tab.label}
+														</button>
+													))}
+												</div>
+											</div>
+
+											<div class="overflow-x-auto">
+												<table class="w-full text-right text-xs">
+													<thead>
+														<tr class="border-b border-white/10 text-[11px] text-slate-400">
+															<th class="pb-2.5 font-semibold">آیتم و سریال</th>
+															<th class="pb-2.5 font-semibold">نوع تطابق تریت</th>
+															<th class="pb-2.5 font-semibold">مبلغ فروش</th>
+															<th class="pb-2.5 font-semibold">
+																اختلاف با ارزش منصفانه
+															</th>
+															<th class="pb-2.5 font-semibold">تاریخ</th>
+															<th class="pb-2.5 font-semibold text-left">
+																لینک زنجیره
+															</th>
+														</tr>
+													</thead>
+													<tbody class="divide-y divide-white/[0.06]">
+														<For each={filteredComps()}>
+															{(comp) => (
+																<tr class="hover:bg-white/[0.02] transition">
+																	<td class="py-3">
+																		<div class="flex items-center gap-2.5">
+																			<Show when={comp.image_url}>
+																				<img
+																					src={comp.image_url}
+																					alt={`#${comp.serial_number}`}
+																					class="h-9 w-9 rounded-lg object-cover border border-white/10 bg-slate-900"
+																				/>
+																			</Show>
+																			<div>
+																				<button
+																					type="button"
+																					onClick={() =>
+																						selectPresetGift(comp.gift_id)
+																					}
+																					class="font-mono font-bold text-white hover:text-cyan-300 cursor-pointer"
+																					dir="ltr"
+																				>
+																					#{comp.serial_number}
+																				</button>
+																				<div class="text-[10px] text-slate-400">
+																					{comp.venue}
+																				</div>
+																			</div>
+																		</div>
+																	</td>
+																	<td class="py-3 text-slate-300">
+																		{comp.model_id}
+																	</td>
+																	<td
+																		class="py-3 font-mono font-bold text-emerald-400"
+																		dir="ltr"
+																	>
+																		{formatTon(comp.sale_price_gram)} TON
+																		<div class="text-[10px] font-normal text-slate-400">
+																			{formatUsd(comp.sale_price_usd)}
+																		</div>
+																	</td>
+																	<td class="py-3 font-mono" dir="ltr">
+																		<span
+																			class={
+																				comp.diff_percent > 0
+																					? 'text-emerald-300 font-bold'
+																					: comp.diff_percent < 0
+																						? 'text-amber-300 font-bold'
+																						: 'text-slate-300'
+																			}
+																		>
+																			{comp.diff_percent > 0 ? '+' : ''}
+																			{comp.diff_percent}%
+																		</span>
+																	</td>
+																	<td class="py-3 text-slate-300">
+																		{formatDateFa(comp.sale_date)}
+																	</td>
+																	<td class="py-3 text-left">
+																		<a
+																			href={comp.tonviewer_url}
+																			target="_blank"
+																			rel="noopener noreferrer"
+																			class="text-cyan-400 hover:underline font-mono text-[11px]"
+																		>
+																			بررسی ↗
+																		</a>
+																	</td>
+																</tr>
+															)}
+														</For>
+													</tbody>
+												</table>
+											</div>
+										</section>
+
+										{/* Same-Serial Siblings Matrix Across Top Collections */}
+										<Show
+											when={
+												(rep().same_serial_siblings || []).length > 0
+											}
+										>
+											<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-3">
+												<div class="flex flex-wrap items-center justify-between gap-2">
+													<div>
+														<h3 class="text-sm sm:text-base font-bold text-white">
+															۰۵. ماتریس هم‌سریال در کلکسیون‌های برتر (Same-Serial #{rep().serial_number} Set Builder)
+														</h3>
+														<p class="text-xs text-slate-400 mt-0.5">
+															مقایسه ارزش شماره سریال #{rep().serial_number} در سایر کلکسیون‌های شاخص برای کلکسیونرهای ست‌ساز
+														</p>
+													</div>
+												</div>
+
+												<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+													<For each={rep().same_serial_siblings}>
+														{(sib) => (
+															<div class="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/75 p-3 hover:border-cyan-500/40 transition">
+																<div class="flex items-center gap-3 min-w-0">
+																	<img
+																		src={sib.image_url}
+																		alt={`${sib.collection_name} #${sib.serial_number}`}
+																		class="h-12 w-12 rounded-xl object-cover border border-white/10 bg-slate-900 shrink-0"
+																	/>
+																	<div class="min-w-0">
+																		<button
+																			type="button"
+																			onClick={() =>
+																				selectPresetGift(sib.gift_id)
+																			}
+																			class="text-xs font-bold text-white hover:text-cyan-300 truncate block cursor-pointer"
+																			dir="ltr"
+																		>
+																			{sib.collection_name} #{sib.serial_number}
+																		</button>
+																		<div
+																			class="text-xs font-mono font-bold text-cyan-300 mt-0.5"
+																			dir="ltr"
+																		>
+																			≈ {formatTon(sib.estimated_serial_value_gram)}{' '}
+																			TON{' '}
+																			<span class="text-[10px] font-normal text-slate-400">
+																				({formatUsd(sib.estimated_serial_value_usd)})
+																			</span>
+																		</div>
+																		<div class="text-[10px] text-slate-500 font-mono" dir="ltr">
+																			Floor: {formatTon(sib.collection_floor_gram)} TON
+																		</div>
+																	</div>
+																</div>
+
+																<button
+																	type="button"
+																	onClick={() => selectPresetGift(sib.gift_id)}
+																	class="rounded-lg border border-white/15 bg-white/[0.04] hover:bg-cyan-500/20 hover:border-cyan-500/40 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:text-cyan-200 shrink-0 cursor-pointer"
+																>
+																	بررسی
+																</button>
+															</div>
+														)}
+													</For>
+												</div>
+											</section>
+										</Show>
+									</div>
 								</Show>
-							</div>
-						</div>
 
-						{/* SECTION 9: ON-CHAIN EXPLORER & MARKETPLACES */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<h3 class="text-sm font-black text-white flex items-center gap-1.5 mb-3">
-								<span class="material-symbols-outlined text-[#0098EA] text-base">link</span>
-								<span>{t('gifts.onChainExplorer')}</span>
-							</h3>
-							<div class="grid grid-cols-2 gap-2">
-								<button
-									type="button"
-									onClick={() =>
-										openExternalUrl(
-											enrichedQuery.data?.on_chain?.marketplace_links?.fragment ||
-												`https://fragment.com/gift/${giftID()}`,
-										)
-									}
-									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all text-left"
-								>
-									<span class="text-xs font-bold text-white">Fragment</span>
-									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
-								</button>
-								<button
-									type="button"
-									onClick={() =>
-										openExternalUrl(
-											enrichedQuery.data?.on_chain?.marketplace_links?.getgems ||
-												'https://getgems.io',
-										)
-									}
-									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all text-left"
-								>
-									<span class="text-xs font-bold text-white">Getgems</span>
-									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
-								</button>
-								<button
-									type="button"
-									onClick={() =>
-										openExternalUrl(
-											enrichedQuery.data?.on_chain?.tonviewer_url ||
-												(ownerInfo().fullAddr
-													? `https://tonviewer.com/${ownerInfo().fullAddr}`
-													: 'https://tonviewer.com'),
-										)
-									}
-									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all text-left"
-								>
-									<span class="text-xs font-bold text-white">TonViewer</span>
-									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
-								</button>
-								<button
-									type="button"
-									onClick={() =>
-										openExternalUrl(
-											enrichedQuery.data?.on_chain?.tonscan_url || 'https://tonscan.org',
-										)
-									}
-									class="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all text-left"
-								>
-									<span class="text-xs font-bold text-white">TonScan</span>
-									<span class="material-symbols-outlined text-sm text-white/40">open_in_new</span>
-								</button>
-							</div>
+								{/* ═══════════════════════════════════════════════════════════
+								    TAB 2: TRAIT DNA, CHROMATIC LAB, WHAT-IF & FULL CATALOG
+								   ═══════════════════════════════════════════════════════════ */}
+								<Show when={activeTab() === 'traits'}>
+									<div class="space-y-5">
+										{/* 3-Axis Trait DNA Cards */}
+										<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+											<div class="flex flex-wrap items-center justify-between gap-2">
+												<div>
+													<h3 class="text-sm sm:text-base font-bold text-white">
+														۰۱. کالبدشکافی ۳ محور تریت (Model · Backdrop · Symbol DNA)
+													</h3>
+													<p class="text-xs text-slate-400">
+														مقایسه فراوانی فعلی با فراوانی اولیه (قبل از سوزاندن در کارگاه کرفت) و کف قیمت اختصاصی هر تریت
+													</p>
+												</div>
+												<span class="text-xs font-mono text-cyan-300" dir="ltr">
+													Harmonic Rarity: {rep().rarity_score}/100 · Rank #
+													{rep().rarity_rank}
+												</span>
+											</div>
 
-							{/* CTA TO FULL COLLECTION INTELLIGENCE */}
-							<button
-								type="button"
-								onClick={() => {
-									const colSlug = currentReport()?.model_id || 'plush_pepe';
-									navigate(`/gifts/collection?c=${encodeURIComponent(colSlug)}`);
-								}}
-								class="w-full mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-[#0098EA]/20 via-cyan-500/20 to-[#FF9500]/20 hover:from-[#0098EA]/30 hover:to-[#FF9500]/30 border border-white/10 text-xs font-black text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-							>
-								<span>{t('gifts.viewCollection')}</span>
-							</button>
-						</div>
+											<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+												<For each={rep().trait_dna}>
+													{(trait) => (
+														<div class="rounded-2xl border border-white/10 bg-slate-950/80 p-4 flex flex-col justify-between space-y-3">
+															<div>
+																<div class="flex items-center justify-between text-xs text-slate-400">
+																	<span>{trait.label_fa}</span>
+																	<span class="font-mono text-[11px] font-bold text-cyan-300">
+																		{trait.rarity_tier}
+																	</span>
+																</div>
 
-						{/* SECTION 9.5: ON-CHAIN ITEM SMART CONTRACT TELEMETRY */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl space-y-2.5 text-xs">
-							<div class="flex items-center justify-between">
-								<h4 class="text-xs font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[#0098EA] text-sm">token</span>
-									<span>{t('gifts.nftContractTelemetry')}</span>
-								</h4>
-								<span class="text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30">
-									TEP-62 Item
-								</span>
-							</div>
-							<div class="bg-black/30 border border-white/5 rounded-xl p-3 flex items-center justify-between">
-								<div class="truncate">
-									<span class="text-[9px] text-white/40 block font-bold">
-										{t('gifts.nftContractAddress')}
-									</span>
-									<span class="font-mono text-white text-[11px] block mt-0.5 truncate">
-										{enrichedQuery.data?.on_chain?.nft_address ||
-											(ownerInfo().fullAddr
-												? `${ownerInfo().fullAddr.slice(0, 24)}...`
-												: t('gifts.offChainCustody') || 'حضانت آف‌چین تلگرام')}
-									</span>
-								</div>
-								<div class="flex items-center gap-1.5 shrink-0">
-									<button
-										type="button"
-										onClick={() =>
-											openExternalUrl(
-												enrichedQuery.data?.on_chain?.tonviewer_url ||
-													(ownerInfo().fullAddr
-														? `https://tonviewer.com/${ownerInfo().fullAddr}`
-														: 'https://tonviewer.com'),
-											)
-										}
-										class="px-2.5 py-1 rounded-lg bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 text-[10px] font-bold flex items-center gap-1"
-									>
-										<span>TonViewer</span>
-										<span class="material-symbols-outlined text-xs">open_in_new</span>
-									</button>
-									<button
-										type="button"
-										onClick={() =>
-											openExternalUrl(
-												enrichedQuery.data?.on_chain?.tonscan_url || 'https://tonscan.org',
-											)
-										}
-										class="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 text-[10px] font-bold flex items-center gap-1"
-									>
-										<span>TonScan</span>
-										<span class="material-symbols-outlined text-xs">open_in_new</span>
-									</button>
-								</div>
-							</div>
-						</div>
+																<div class="mt-3 flex items-center gap-3">
+																	<Show
+																		when={trait.image_url}
+																		fallback={
+																			<div
+																				class="h-14 w-14 rounded-2xl border border-white/20 shrink-0 shadow-inner"
+																				style={{
+																					background: `radial-gradient(circle, ${trait.colors?.center_hex || '#3b82f6'} 0%, ${trait.colors?.edge_hex || '#1d4ed8'} 100%)`,
+																				}}
+																			/>
+																		}
+																	>
+																		<div class="h-14 w-14 rounded-2xl border border-white/10 bg-slate-900 p-1.5 flex items-center justify-center shrink-0">
+																			<img
+																				src={trait.image_url}
+																				alt={trait.value}
+																				class="max-h-full max-w-full object-contain"
+																			/>
+																		</div>
+																	</Show>
 
-						{/* SECTION 10: WATCHLIST & ACTION FOOTER */}
-						<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl flex items-center justify-between">
-							<div>
-								<h4 class="text-xs font-black text-white">{t('gifts.watchlist')}</h4>
-								<p class="text-[10px] text-white/50 font-medium">{t('gifts.watchlistDesc')}</p>
-							</div>
-							<button
-								type="button"
-								onClick={handleWatchlistToggle}
-								class={`px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-									isWatching()
-										? 'bg-emerald-500 text-white'
-										: 'bg-white/10 text-white hover:bg-white/15'
-								}`}
-							>
-								{isWatching() ? t('gifts.watching') : t('gifts.watchGift')}
-							</button>
-						</div>
+																	<div>
+																		<div
+																			class="text-base font-black text-white"
+																			dir="ltr"
+																		>
+																			{trait.value}
+																		</div>
+																		<div class="text-xs font-mono text-amber-300 mt-0.5">
+																			ضریب شیوع فعلی: {trait.percentile}%
+																		</div>
+																		<Show
+																			when={
+																				trait.original_percentile &&
+																				trait.original_percentile !==
+																					trait.percentile
+																			}
+																		>
+																			<div class="text-[10px] font-mono text-slate-400">
+																				شیوع اولیه قبل از کرفت:{' '}
+																				{trait.original_percentile}%
+																			</div>
+																		</Show>
+																	</div>
+																</div>
 
-						{/* Financial Disclaimer Banner */}
-						<div class="bg-white/[0.02] border border-white/[0.08] rounded-[24px] p-4 text-center space-y-1.5">
-							<div class="flex items-center justify-center gap-1.5 text-amber-400 text-xs font-bold">
-								<span class="material-symbols-outlined text-sm">info</span>
-								<span>{layaT(GIFT_REPORT_DETAILS_I18N.financialDisclaimerTitle)}</span>
-							</div>
-							<p class="text-[11px] text-white/40 leading-relaxed max-w-md mx-auto">
-								{layaT(GIFT_REPORT_DETAILS_I18N.financialDisclaimerText)}
-							</p>
-						</div>
+																<p class="mt-3 text-xs text-slate-300 leading-relaxed">
+																	{trait.description}
+																</p>
+															</div>
 
-						{/* Attribution Footer */}
-						<div class="mt-4 mb-2 text-center text-[10px] text-white/30 font-medium flex items-center justify-center gap-2">
-							<span>Powered by @iFragmentBot</span>
-							<span>·</span>
-							<span class="px-2 py-0.5 bg-white/[0.04] border border-white/[0.06] rounded-full text-white/50 font-bold">
-								Thanks to @GiftChanges
-							</span>
-						</div>
-					</div>
+															<div class="pt-3 border-t border-white/[0.07] flex items-center justify-between text-xs">
+																<span class="text-slate-400">
+																	کف قیمت این تریت:
+																</span>
+																<span
+																	class="font-mono font-bold text-emerald-400"
+																	dir="ltr"
+																>
+																	{formatTon(trait.floor_gram)} TON (
+																	{formatUsd(trait.floor_usd || 0)})
+																</span>
+															</div>
+														</div>
+													)}
+												</For>
+											</div>
+										</section>
+
+										{/* Interactive What-If Trait & Backdrop Simulator */}
+										<Show when={rep().collection_catalog}>
+											{(catalog) => (
+												<section class="rounded-2xl border border-cyan-500/35 bg-gradient-to-br from-cyan-950/25 via-slate-900/90 to-slate-900 p-4 sm:p-5 space-y-4">
+													<div class="flex flex-wrap items-center justify-between gap-2">
+														<div>
+															<h3 class="text-sm sm:text-base font-bold text-white">
+																۰۲. شبیه‌ساز تعاملی قیمت با تغییر مدل و پس‌زمینه (Live What-If Simulator)
+															</h3>
+															<p class="text-xs text-slate-300 mt-0.5">
+																بررسی کنید اگر این گیفت پس‌زمینه Black / Satin Gold یا مدل دیگری داشت، کف قیمت واقعی آن در فرگمنت چقدر می‌شد
+															</p>
+														</div>
+														<button
+															type="button"
+															onClick={resetTraitSimulation}
+															class="rounded-lg border border-white/15 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300 hover:text-white cursor-pointer"
+														>
+															بازنشانی به تریت اصلی گیفت
+														</button>
+													</div>
+
+													<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+														<div>
+															<label class="block text-xs text-slate-400 mb-1">
+																انتخاب مدل ({catalog().models.length} مدل):
+															</label>
+															<select
+																value={simModel()}
+																onChange={(e) =>
+																	setSimModel(e.currentTarget.value)
+																}
+																dir="ltr"
+																class="w-full rounded-xl border border-white/15 bg-slate-950 px-3 py-2 text-xs font-mono text-white focus:border-cyan-400 focus:outline-none"
+															>
+																<For each={catalog().models}>
+																	{(m) => (
+																		<option value={m.name}>
+																			{m.name} ({m.rarity_pct}%)
+																		</option>
+																	)}
+																</For>
+															</select>
+														</div>
+
+														<div>
+															<label class="block text-xs text-slate-400 mb-1">
+																انتخاب پس‌زمینه ({catalog().backdrops.length}{' '}
+																رنگ):
+															</label>
+															<select
+																value={simBackdrop()}
+																onChange={(e) =>
+																	setSimBackdrop(e.currentTarget.value)
+																}
+																dir="ltr"
+																class="w-full rounded-xl border border-white/15 bg-slate-950 px-3 py-2 text-xs font-mono text-white focus:border-cyan-400 focus:outline-none"
+															>
+																<For each={catalog().backdrops}>
+																	{(b) => (
+																		<option value={b.name}>
+																			{b.name} ({b.rarity_pct}%)
+																		</option>
+																	)}
+																</For>
+															</select>
+														</div>
+
+														<div>
+															<label class="block text-xs text-slate-400 mb-1">
+																انتخاب نماد ({catalog().symbols.length} الگو):
+															</label>
+															<select
+																value={simSymbol()}
+																onChange={(e) =>
+																	setSimSymbol(e.currentTarget.value)
+																}
+																dir="ltr"
+																class="w-full rounded-xl border border-white/15 bg-slate-950 px-3 py-2 text-xs font-mono text-white focus:border-cyan-400 focus:outline-none"
+															>
+																<For each={catalog().symbols}>
+																	{(s) => (
+																		<option value={s.name}>
+																			{s.name} ({s.rarity_pct}%)
+																		</option>
+																	)}
+																</For>
+															</select>
+														</div>
+													</div>
+
+													<div class="flex justify-end">
+														<button
+															type="button"
+															disabled={simulating()}
+															onClick={applyTraitSimulation}
+															class="rounded-xl bg-gradient-to-l from-cyan-500 to-blue-600 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 hover:opacity-95 disabled:opacity-50 cursor-pointer"
+														>
+															{simulating()
+																? 'در حال استعلام کف قیمت جدید از فرگمنت...'
+																: 'محاسبه زنده ارزش با این ترکیب تریت'}
+														</button>
+													</div>
+												</section>
+											)}
+										</Show>
+
+										{/* Chromatic Backdrop & Wallpaper Palette Lab */}
+										<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+											<div class="flex flex-wrap items-center justify-between gap-2">
+												<div>
+													<h3 class="text-sm sm:text-base font-bold text-white">
+														۰۳. آزمایشگاه کروماتیک پس‌زمینه و تطابق رنگی (ΔE Chromatic Harmony)
+													</h3>
+													<p class="text-xs text-slate-400">
+														کدهای هگزادسیمال استخراج‌شده از SVG رسمی{' '}
+														<code class="font-mono">t.me/nft</code> و بررسی هم‌خانوادگی رنگ مدل و پس‌زمینه
+													</p>
+												</div>
+												<Show when={rep().color_match_intel}>
+													{(cm) => (
+														<span class="text-xs font-semibold text-cyan-300">
+															{cm().harmony_class} · ΔE = {cm().delta_e_score}
+														</span>
+													)}
+												</Show>
+											</div>
+
+											<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+												{[
+													{
+														label: 'مرکز گرادیان (Center Hex)',
+														hex: bg().center_hex,
+													},
+													{
+														label: 'لبه گرادیان (Edge Hex)',
+														hex: bg().edge_hex,
+													},
+													{
+														label: 'رنگ الگو (Pattern Hex)',
+														hex: bg().pattern_hex,
+													},
+													{
+														label: 'رنگ نوشتار بج (Text Hex)',
+														hex: bg().text_hex,
+													},
+												].map((item) => (
+													<button
+														type="button"
+														onClick={() =>
+															copyToClipboard(item.hex, item.label)
+														}
+														class="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/75 p-3 text-right hover:border-cyan-500/40 transition cursor-pointer"
+													>
+														<span
+															class="h-10 w-10 rounded-xl border border-white/20 shrink-0 shadow"
+															style={{ background: item.hex }}
+														/>
+														<div class="min-w-0">
+															<div class="text-[11px] text-slate-400 truncate">
+																{item.label}
+															</div>
+															<div
+																class="font-mono text-xs font-bold text-white mt-0.5"
+																dir="ltr"
+															>
+																{copiedKey() === item.label
+																	? 'Copied!'
+																	: item.hex}
+															</div>
+														</div>
+													</button>
+												))}
+											</div>
+										</section>
+
+										{/* Full Collection Trait & Burn-Delta Explorer */}
+										<Show when={rep().collection_catalog}>
+											{(catalog) => (
+												<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+													<div class="flex flex-wrap items-center justify-between gap-3">
+														<div>
+															<h3 class="text-sm sm:text-base font-bold text-white">
+																۰۴. دانشنامه کامل تریت‌ها و نرخ سوزاندن کرفت در این کلکسیون
+															</h3>
+															<p class="text-xs text-slate-400 mt-0.5">
+																مشاهده تمام مدل‌ها، پس‌زمینه‌ها و نمادهای کلکسیون به ترتیب کمیابی + کلیک برای شبیه‌سازی فوری
+															</p>
+														</div>
+
+														<div class="flex flex-wrap items-center gap-2">
+															<input
+																type="text"
+																dir="ltr"
+																value={catalogSearch()}
+																onInput={(e) =>
+																	setCatalogSearch(e.currentTarget.value)
+																}
+																placeholder="Search trait..."
+																class="rounded-xl border border-white/15 bg-slate-950 px-3 py-1.5 text-xs font-mono text-white placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
+															/>
+															<div class="flex items-center gap-1 rounded-xl bg-slate-950 p-1 border border-white/10">
+																{[
+																	{
+																		id: 'models' as CatalogExplorerTab,
+																		label: `مدل‌ها (${catalog().models.length})`,
+																	},
+																	{
+																		id: 'backdrops' as CatalogExplorerTab,
+																		label: `پس‌زمینه‌ها (${catalog().backdrops.length})`,
+																	},
+																	{
+																		id: 'symbols' as CatalogExplorerTab,
+																		label: `نمادها (${catalog().symbols.length})`,
+																	},
+																].map((tBtn) => (
+																	<button
+																		type="button"
+																		onClick={() => setCatalogTab(tBtn.id)}
+																		class={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition cursor-pointer ${
+																			catalogTab() === tBtn.id
+																				? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+																				: 'text-slate-400 hover:text-white'
+																		}`}
+																	>
+																		{tBtn.label}
+																	</button>
+																))}
+															</div>
+														</div>
+													</div>
+
+													<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto pr-1">
+														<For each={filteredCatalogItems()}>
+															{(item) => {
+																const isCurrent = () =>
+																	(catalogTab() === 'models' &&
+																		modelTrait()?.value === item.name) ||
+																	(catalogTab() === 'backdrops' &&
+																		backdropTrait()?.value === item.name) ||
+																	(catalogTab() === 'symbols' &&
+																		symbolTrait()?.value === item.name);
+
+																return (
+																	<div
+																		class={`flex items-center justify-between gap-2.5 rounded-xl border p-2.5 transition ${
+																			isCurrent()
+																				? 'border-cyan-400/60 bg-cyan-950/30'
+																				: 'border-white/10 bg-slate-950/70 hover:border-white/25'
+																		}`}
+																	>
+																		<div class="flex items-center gap-2.5 min-w-0">
+																			<Show
+																				when={item.image_url}
+																				fallback={
+																					<span
+																						class="h-10 w-10 rounded-xl border border-white/20 shrink-0"
+																						style={{
+																							background: `radial-gradient(circle, ${item.center_hex || '#334155'}, ${item.edge_hex || '#0f172a'})`,
+																						}}
+																					/>
+																				}
+																			>
+																				<img
+																					src={item.image_url}
+																					alt={item.name}
+																					class="h-10 w-10 rounded-xl object-contain bg-slate-900 p-1 border border-white/10 shrink-0"
+																				/>
+																			</Show>
+
+																			<div class="min-w-0">
+																				<div
+																					class="text-xs font-bold text-white truncate"
+																					dir="ltr"
+																				>
+																					{item.name}
+																				</div>
+																				<div
+																					class="text-[11px] font-mono text-amber-300"
+																					dir="ltr"
+																				>
+																					{item.rarity_pct}%{' '}
+																					<Show
+																						when={
+																							item.original_rarity_pct &&
+																							item.original_rarity_pct !==
+																								item.rarity_pct
+																						}
+																					>
+																						<span class="text-[10px] text-slate-400">
+																							(Orig: {item.original_rarity_pct}%)
+																						</span>
+																					</Show>
+																				</div>
+																				<Show when={item.estimated_floor_gram}>
+																					<div
+																						class="text-[10px] font-mono text-emerald-400"
+																						dir="ltr"
+																					>
+																						Est. Floor: ~
+																						{formatTon(
+																							item.estimated_floor_gram,
+																						)}{' '}
+																						TON
+																					</div>
+																				</Show>
+																			</div>
+																		</div>
+
+																		<button
+																			type="button"
+																			onClick={() =>
+																				simulateSingleCatalogItem(
+																					catalogTab(),
+																					item.name,
+																				)
+																			}
+																			class="rounded-lg border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/25 px-2.5 py-1 text-[10px] font-bold text-cyan-200 shrink-0 cursor-pointer"
+																		>
+																			{isCurrent() ? 'تریت فعلی' : 'شبیه‌سازی'}
+																		</button>
+																	</div>
+																);
+															}}
+														</For>
+													</div>
+												</section>
+											)}
+										</Show>
+									</div>
+								</Show>
+
+								{/* ═══════════════════════════════════════════════════════════
+								    TAB 3: OWNER WHALE X-RAY, PROVENANCE & BINARY FORENSICS
+								   ═══════════════════════════════════════════════════════════ */}
+								<Show when={activeTab() === 'ownership'}>
+									<div class="space-y-5">
+										{/* Owner Whale X-Ray */}
+										<Show when={rep().owner_intelligence}>
+											{(owner) => (
+												<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+													<div class="flex flex-wrap items-center justify-between gap-2">
+														<div>
+															<h3 class="text-sm sm:text-base font-bold text-white">
+																۰۱. کالبدشکافی کیف‌پول مالک و نهنگ‌شناسی (Owner Whale X-Ray)
+															</h3>
+															<p class="text-xs text-slate-400">
+																استعلام مستقیم موجودی و سایر گیفت‌های کلکسیونی نگهداری‌شده در کیف‌پول مالک از TonAPI
+															</p>
+														</div>
+														<div class="flex items-center gap-3 text-xs">
+															<span class="font-bold text-cyan-300">
+																{owner().whale_tier_fa}
+															</span>
+															<A
+																href={`/gifts/portfolio?u=${encodeURIComponent(owner().owner_ton_domain || owner().owner_wallet_address || owner().owner_display)}`}
+																class="rounded-xl border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 px-3 py-1.5 text-xs font-bold text-emerald-300 transition"
+															>
+																اسکن کامل پورتفوی مالک ↗
+															</A>
+														</div>
+													</div>
+
+													<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+														<div class="rounded-xl border border-white/10 bg-slate-950/70 p-3.5">
+															<div class="text-[11px] text-slate-400">
+																شناسه / دامنه مالک
+															</div>
+															<div
+																class="mt-1 text-sm font-bold font-mono text-white truncate"
+																dir="ltr"
+															>
+																{owner().owner_display}
+															</div>
+															<Show when={owner().owner_wallet_address}>
+																<button
+																	type="button"
+																	onClick={() =>
+																		copyToClipboard(
+																			owner().owner_wallet_address || '',
+																			'owner_addr',
+																		)
+																	}
+																	class="mt-1 text-[10px] font-mono text-cyan-400 hover:underline cursor-pointer"
+																	dir="ltr"
+																>
+																	{copiedKey() === 'owner_addr'
+																		? 'Copied Address!'
+																		: `${owner().owner_wallet_address?.slice(0, 8)}...${owner().owner_wallet_address?.slice(-6)}`}
+																</button>
+															</Show>
+														</div>
+
+														<div class="rounded-xl border border-white/10 bg-slate-950/70 p-3.5">
+															<div class="text-[11px] text-slate-400">
+																موجودی نقد کیف‌پول (TON)
+															</div>
+															<div
+																class="mt-1 text-base font-black font-mono text-emerald-400"
+																dir="ltr"
+															>
+																{owner().wallet_balance_ton !== undefined
+																	? `${formatTon(owner().wallet_balance_ton)} TON`
+																	: 'حساب داخلی تلگرام'}
+															</div>
+															<Show
+																when={owner().wallet_balance_usd !== undefined}
+															>
+																<div
+																	class="text-[10px] font-mono text-slate-400"
+																	dir="ltr"
+																>
+																	{formatUsd(owner().wallet_balance_usd || 0)}
+																</div>
+															</Show>
+														</div>
+
+														<div class="rounded-xl border border-white/10 bg-slate-950/70 p-3.5">
+															<div class="text-[11px] text-slate-400">
+																تعداد گیفت‌های تلگرام در کیف‌پول
+															</div>
+															<div
+																class="mt-1 text-base font-black font-mono text-white"
+																dir="ltr"
+															>
+																{owner().telegram_gifts_held_count} Gifts
+															</div>
+															<div class="text-[10px] text-slate-400">
+																از مجموع {owner().total_nfts_count} NFT در کیف‌پول
+															</div>
+														</div>
+
+														<div class="rounded-xl border border-white/10 bg-slate-950/70 p-3.5">
+															<div class="text-[11px] text-slate-400">
+																تعداد از همین کلکسیون
+															</div>
+															<div
+																class="mt-1 text-base font-black font-mono text-amber-300"
+																dir="ltr"
+															>
+																{owner().same_collection_held_count} Items
+															</div>
+															<div class="text-[10px] text-slate-400">
+																تمرکز مالک در این کلکسیون
+															</div>
+														</div>
+													</div>
+
+													{/* Other Gifts Held by This Owner */}
+													<Show when={owner().other_gifts_sample.length > 0}>
+														<div class="pt-2">
+															<div class="text-xs font-bold text-slate-300 mb-2.5">
+																سایر گیفت‌های کلکسیونی موجود در کیف‌پول همین مالک (کلیک برای بررسی):
+															</div>
+															<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+																<For each={owner().other_gifts_sample}>
+																	{(item) => (
+																		<div class="flex items-center gap-2.5 rounded-xl border border-white/10 bg-slate-950/80 p-2 hover:border-cyan-500/40 transition">
+																			<img
+																				src={item.image_url}
+																				alt={item.name}
+																				class="h-10 w-10 rounded-lg object-cover border border-white/10 shrink-0"
+																			/>
+																			<div class="min-w-0 flex-1">
+																				<div
+																					class="text-xs font-bold text-white truncate"
+																					dir="ltr"
+																				>
+																					{item.name}
+																				</div>
+																				<div class="flex items-center gap-2 mt-0.5">
+																					<Show when={item.gift_id}>
+																						<button
+																							type="button"
+																							onClick={() =>
+																								selectPresetGift(item.gift_id!)
+																							}
+																							class="text-[10px] text-cyan-400 hover:underline cursor-pointer"
+																						>
+																							تحلیل گیفت
+																						</button>
+																					</Show>
+																					<a
+																						href={item.tonviewer_url}
+																						target="_blank"
+																						rel="noopener noreferrer"
+																						class="text-[10px] text-slate-400 hover:text-white"
+																					>
+																						Tonviewer ↗
+																					</a>
+																				</div>
+																			</div>
+																		</div>
+																	)}
+																</For>
+															</div>
+														</div>
+													</Show>
+												</section>
+											)}
+										</Show>
+
+										{/* Real Ownership & Provenance Timeline */}
+										<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+											<div>
+												<h3 class="text-sm sm:text-base font-bold text-white">
+													۰۲. تاریخچه مالکیت و معاملات ثبت‌شده در فرگمنت (Ownership History)
+												</h3>
+												<p class="text-xs text-slate-400">
+													تمامی رخدادهای فروش، انتقال کیف‌پول و ارتقای اولیه این شماره سریال
+												</p>
+											</div>
+
+											<div class="space-y-2.5">
+												<For each={rep().provenance}>
+													{(ev) => (
+														<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/75 p-3.5">
+															<div class="flex items-center gap-3">
+																<span class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] border border-white/10 text-xs font-mono font-bold text-cyan-300">
+																	{ev.event_type === 'sold'
+																		? 'SALE'
+																		: ev.event_type === 'listed'
+																			? 'ASK'
+																			: ev.event_type === 'upgraded'
+																				? 'MINT'
+																				: 'TX'}
+																</span>
+																<div>
+																	<div class="text-xs font-bold text-white">
+																		{ev.note || ev.event_type}
+																	</div>
+																	<div class="text-[11px] text-slate-400 mt-0.5 flex flex-wrap items-center gap-2">
+																		<span>بستر: {ev.venue}</span>
+																		<Show when={ev.to_username || ev.to_address}>
+																			<span aria-hidden="true">·</span>
+																			<span class="font-mono" dir="ltr">
+																				{ev.to_username ||
+																					`${ev.to_address?.slice(0, 8)}...${ev.to_address?.slice(-6)}`}
+																			</span>
+																		</Show>
+																	</div>
+																</div>
+															</div>
+
+															<div class="text-left">
+																<Show when={ev.price_gram && ev.price_gram > 0}>
+																	<div
+																		class="font-mono text-sm font-black text-emerald-400"
+																		dir="ltr"
+																	>
+																		{formatTon(ev.price_gram)} TON
+																	</div>
+																</Show>
+																<div class="text-[11px] text-slate-400">
+																	{formatDateFa(ev.timestamp)}
+																</div>
+															</div>
+														</div>
+													)}
+												</For>
+											</div>
+										</section>
+
+										{/* Binary & Smart Contract Telemetry */}
+										<Show when={rep().binary_forensics}>
+											{(bin) => (
+												<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+													<div>
+														<h3 class="text-sm sm:text-base font-bold text-white">
+															۰۳. کالبدشکافی باینری، TEP-62 و اسکیمای MTProto تلگرام
+														</h3>
+														<p class="text-xs text-slate-400">
+															مشخصات فنی سطح پروتکل تلگرام، شناسه قرارداد ۶۴ بیتی و لینک‌های مستقیم متادیتا
+														</p>
+													</div>
+
+													<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+														<div class="rounded-xl border border-white/10 bg-slate-950/75 p-3">
+															<div class="text-[11px] text-slate-400">
+																شناسه قرارداد کلکسیون (Contract ID)
+															</div>
+															<div
+																class="mt-1 font-mono font-bold text-cyan-300"
+																dir="ltr"
+															>
+																{bin().collection_contract_id}
+															</div>
+														</div>
+
+														<div class="rounded-xl border border-white/10 bg-slate-950/75 p-3">
+															<div class="text-[11px] text-slate-400">
+																شناسه ایموجی سفارشی (Custom Emoji ID)
+															</div>
+															<div
+																class="mt-1 font-mono font-bold text-white"
+																dir="ltr"
+															>
+																{bin().custom_emoji_id}
+															</div>
+														</div>
+
+														<div class="rounded-xl border border-white/10 bg-slate-950/75 p-3">
+															<div class="text-[11px] text-slate-400">
+																تعداد ارتقایافته (Issued / Supply)
+															</div>
+															<div
+																class="mt-1 font-mono font-bold text-emerald-400"
+																dir="ltr"
+															>
+																{bin().issued_count.toLocaleString()} /{' '}
+																{bin().total_supply_count.toLocaleString()} (
+																{bin().upgraded_percentage}%)
+															</div>
+														</div>
+
+														<div class="rounded-xl border border-white/10 bg-slate-950/75 p-3">
+															<div class="text-[11px] text-slate-400">
+																سازنده باینری MTProto (TL Constructor)
+															</div>
+															<div
+																class="mt-1 font-mono text-[11px] font-bold text-amber-300"
+																dir="ltr"
+															>
+																{bin().mtproto_constructor}
+															</div>
+														</div>
+
+														<div class="rounded-xl border border-white/10 bg-slate-950/75 p-3">
+															<div class="text-[11px] text-slate-400">
+																استاندارد قرارداد هوشمند TON
+															</div>
+															<div
+																class="mt-1 font-mono text-[11px] font-bold text-slate-200"
+																dir="ltr"
+															>
+																{bin().tep62_standard}
+															</div>
+														</div>
+
+														<div class="rounded-xl border border-white/10 bg-slate-950/75 p-3">
+															<div class="text-[11px] text-slate-400">
+																لینک‌های مستقیم فایل‌های رسمی (Raw Assets)
+															</div>
+															<div
+																class="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px]"
+																dir="ltr"
+															>
+																<a
+																	href={bin().metadata_json_url}
+																	target="_blank"
+																	rel="noopener noreferrer"
+																	class="text-cyan-400 hover:underline"
+																>
+																	JSON ↗
+																</a>
+																<a
+																	href={bin().lottie_url}
+																	target="_blank"
+																	rel="noopener noreferrer"
+																	class="text-cyan-400 hover:underline"
+																>
+																	Lottie ↗
+																</a>
+																<a
+																	href={bin().webp_url}
+																	target="_blank"
+																	rel="noopener noreferrer"
+																	class="text-cyan-400 hover:underline"
+																>
+																	WebP ↗
+																</a>
+																<a
+																	href={bin().tme_nft_url}
+																	target="_blank"
+																	rel="noopener noreferrer"
+																	class="text-cyan-400 hover:underline"
+																>
+																	t.me/nft ↗
+																</a>
+															</div>
+														</div>
+													</div>
+												</section>
+											)}
+										</Show>
+									</div>
+								</Show>
+
+								{/* ═══════════════════════════════════════════════════════════
+								    TAB 4: CONSOLIDATED 6-VENUE MATRIX, CRAFTING FORGE & RISK AUDIT
+								   ═══════════════════════════════════════════════════════════ */}
+								<Show when={activeTab() === 'venues'}>
+									<div class="space-y-5">
+										{/* Consolidated 6-Venue Net Proceeds & Arbitrage Matrix */}
+										<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+											<div class="flex flex-wrap items-center justify-between gap-2">
+												<div>
+													<h3 class="text-sm sm:text-base font-bold text-white">
+														۰۱. ماتریس یکپارچه کارمزد و خالص دریافتی در ۶ مارکت‌پلیس تلگرام
+													</h3>
+													<p class="text-xs text-slate-400">
+														مقایسه خروجی خالص پس از کسر کمیسیون پلتفرم و گس شبکه برای فروش این گیفت
+													</p>
+												</div>
+
+												<span class="text-xs font-bold text-emerald-300">
+													بهترین خروجی: {rep().exit_planner?.best_venue_name} ·
+													اختلاف آربیتراژ:{' '}
+													{rep().exit_planner?.arbitrage_spread_pct}%
+												</span>
+											</div>
+
+											<div class="overflow-x-auto">
+												<table class="w-full text-right text-xs">
+													<thead>
+														<tr class="border-b border-white/10 text-[11px] text-slate-400">
+															<th class="pb-2.5 font-semibold">
+																رتبه و مارکت‌پلیس
+															</th>
+															<th class="pb-2.5 font-semibold">
+																قیمت ناخالص فروش
+															</th>
+															<th class="pb-2.5 font-semibold">کارمزد پلتفرم</th>
+															<th class="pb-2.5 font-semibold">
+																خالص دریافتی شما (Net)
+															</th>
+															<th class="pb-2.5 font-semibold">وضعیت KYC</th>
+															<th class="pb-2.5 font-semibold">
+																توضیحات عملیاتی
+															</th>
+															<th class="pb-2.5 font-semibold text-left">
+																ورود به بازار
+															</th>
+														</tr>
+													</thead>
+													<tbody class="divide-y divide-white/[0.06]">
+														<For each={rep().exit_planner?.options || []}>
+															{(opt) => (
+																<tr
+																	class={`hover:bg-white/[0.02] transition ${
+																		opt.rank === 1 ? 'bg-emerald-950/15' : ''
+																	}`}
+																>
+																	<td class="py-3 font-bold text-white">
+																		<span class="font-mono text-cyan-400 ml-1.5">
+																			0{opt.rank}.
+																		</span>
+																		<span>{opt.venue_name}</span>
+																	</td>
+																	<td
+																		class="py-3 font-mono text-slate-200"
+																		dir="ltr"
+																	>
+																		{formatTon(opt.gross_price_gram)} TON
+																	</td>
+																	<td
+																		class="py-3 font-mono text-amber-300"
+																		dir="ltr"
+																	>
+																		{opt.fee_percent}% (-
+																		{formatTon(opt.fee_amount_gram)} TON)
+																	</td>
+																	<td
+																		class="py-3 font-mono font-black text-emerald-400"
+																		dir="ltr"
+																	>
+																		{formatTon(opt.net_payout_gram)} TON
+																		<div class="text-[10px] font-normal text-slate-400">
+																			{formatUsd(opt.net_payout_usd)}
+																		</div>
+																	</td>
+																	<td class="py-3 text-[11px]">
+																		<span
+																			class={
+																				opt.requires_kyc
+																					? 'text-amber-300'
+																					: 'text-emerald-300'
+																			}
+																		>
+																			{opt.requires_kyc
+																				? 'نیازمند KYC'
+																				: 'بدون KYC'}
+																		</span>
+																	</td>
+																	<td class="py-3 text-[11px] text-slate-300 max-w-xs">
+																		{opt.recommendation_note}
+																	</td>
+																	<td class="py-3 text-left">
+																		<a
+																			href={opt.deep_link}
+																			target="_blank"
+																			rel="noopener noreferrer"
+																			class="rounded-lg border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-2.5 py-1 text-[11px] font-bold text-cyan-300"
+																		>
+																			معامله ↗
+																		</a>
+																	</td>
+																</tr>
+															)}
+														</For>
+													</tbody>
+												</table>
+											</div>
+										</section>
+
+										{/* Live Crafting Forge Intelligence (from api.changes.tg/crafts) */}
+										<Show when={rep().crafting_forge}>
+											{(forge) => (
+												<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-4">
+													<div class="flex flex-wrap items-center justify-between gap-2">
+														<div>
+															<h3 class="text-sm sm:text-base font-bold text-white">
+																۰۲. هوشمندی کارگاه کرفت تلگرام (Crafting Forge & Burn Guard)
+															</h3>
+															<p class="text-xs text-slate-400">
+																بررسی وضعیت کرفت‌پذیری کلکسیون و مدل‌های انحصاری کارگاه از{' '}
+																<code class="font-mono">
+																	api.changes.tg/crafts
+																</code>
+															</p>
+														</div>
+
+														<div class="flex items-center gap-3 text-xs">
+															<span
+																class={`font-bold ${
+																	forge().burn_candidate_verdict ===
+																	'DO_NOT_BURN_PREMIUM'
+																		? 'text-rose-300'
+																		: forge().burn_candidate_verdict ===
+																				'SAFE_BURN_FLOOR'
+																			? 'text-emerald-300'
+																			: 'text-slate-400'
+																}`}
+															>
+																{forge().burn_candidate_verdict ===
+																'DO_NOT_BURN_PREMIUM'
+																	? '⛔ ممنوعیت سوزاندن در کرفت (دارای پریمیوم)'
+																	: forge().burn_candidate_verdict ===
+																			'SAFE_BURN_FLOOR'
+																		? '✅ مناسب برای ورودی کرفت (کف قیمت)'
+																		: 'فاقد کارگاه کرفت فعال'}
+															</span>
+															<A
+																href="/gifts/crafting"
+																class="rounded-xl border border-amber-500/40 bg-amber-500/15 hover:bg-amber-500/25 px-3 py-1.5 text-xs font-bold text-amber-200 transition"
+															>
+																ماشین‌حساب مونت‌کارلو کرفت ↗
+															</A>
+														</div>
+													</div>
+
+													<div class="rounded-xl border border-white/10 bg-slate-950/75 p-3.5 text-xs text-slate-200 leading-relaxed">
+														{forge().burn_candidate_reason_fa}
+														<div
+															class="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-mono"
+															dir="ltr"
+														>
+															<span>
+																4x Floor Forge Cost:{' '}
+																{formatTon(forge().forge_input_cost_4x_gram)}{' '}
+																TON (
+																{formatUsd(forge().forge_input_cost_4x_usd)})
+															</span>
+															<span aria-hidden="true">·</span>
+															<span>
+																Crafted Exclusive Models:{' '}
+																{forge().crafted_models_count}
+															</span>
+														</div>
+													</div>
+
+													<Show when={forge().crafted_models.length > 0}>
+														<div>
+															<div class="text-xs font-bold text-slate-300 mb-2.5">
+																مدل‌های انحصاری قابل ساخت در کارگاه کرفت این کلکسیون:
+															</div>
+															<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+																<For each={forge().crafted_models}>
+																	{(cm) => (
+																		<div class="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/80 p-2.5">
+																			<img
+																				src={cm.image_url}
+																				alt={cm.name}
+																				class="h-12 w-12 object-contain shrink-0"
+																			/>
+																			<div class="min-w-0">
+																				<div
+																					class="text-xs font-bold text-white truncate"
+																					dir="ltr"
+																				>
+																					{cm.name}
+																				</div>
+																				<div class="text-[10px] font-mono text-amber-300 uppercase mt-0.5">
+																					{cm.rarity} ({cm.rarity_permille / 10}
+																					%)
+																				</div>
+																			</div>
+																		</div>
+																	)}
+																</For>
+															</div>
+														</div>
+													</Show>
+												</section>
+											)}
+										</Show>
+
+										{/* Security & Authenticity Audit Checklist */}
+										<Show when={rep().risk_audit}>
+											{(audit) => (
+												<section class="rounded-2xl border border-white/10 bg-slate-900/75 p-4 sm:p-5 space-y-3">
+													<h3 class="text-sm sm:text-base font-bold text-white">
+														۰۳. ممیزی امنیت، اصالت قرارداد و ریسک اردربوک
+													</h3>
+													<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+														<For each={audit().risk_checklist}>
+															{(item) => (
+																<div class="rounded-xl border border-white/10 bg-slate-950/75 p-3.5 space-y-1">
+																	<div class="flex items-center justify-between">
+																		<span class="text-xs font-bold text-white">
+																			{item.title_fa}
+																		</span>
+																		<span
+																			class={`text-xs font-bold ${
+																				item.passed
+																					? 'text-emerald-400'
+																					: 'text-amber-400'
+																			}`}
+																		>
+																			{item.passed ? '✓ تاییدشده' : '⚠ توجه'}
+																		</span>
+																	</div>
+																	<p class="text-[11px] text-slate-400 leading-relaxed">
+																		{item.detail}
+																	</p>
+																</div>
+															)}
+														</For>
+													</div>
+												</section>
+											)}
+										</Show>
+									</div>
+								</Show>
+
+								{/* Required Attribution Footer */}
+								<footer class="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+									<div>
+										منابع داده زنده:{' '}
+										<span class="font-mono text-slate-300">fragment.com</span> ·{' '}
+										<span class="font-mono text-slate-300">t.me/nft</span> ·{' '}
+										<span class="font-mono text-slate-300">tonapi.io</span> ·{' '}
+										<a
+											href="https://t.me/GiftChanges"
+											target="_blank"
+											rel="noopener noreferrer"
+											class="text-cyan-400 hover:underline font-mono"
+										>
+											@GiftChanges (api.changes.tg)
+										</a>
+									</div>
+									<div class="font-mono" dir="ltr">
+										Certificate: {rep().certificate_id}
+									</div>
+								</footer>
+							</>
+						);
+					}}
 				</Show>
-			</div>
+			</main>
 		</div>
 	);
-};
+}
+export default GiftReportPage;

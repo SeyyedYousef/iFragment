@@ -24,7 +24,9 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 	const synergy = createMemo(() => {
 		if (props.synergyMultiplier && props.synergyMultiplier > 0) {
 			const multiplier = props.synergyMultiplier;
-			const score = props.synergyScore || Math.min(98, Math.max(45, Math.round(((multiplier - 0.9) / 0.4) * 50 + 50)));
+			const score =
+				props.synergyScore ||
+				Math.min(98, Math.max(45, Math.round(((multiplier - 0.9) / 0.4) * 50 + 50)));
 			const adjustedValueTon = Math.round(base() * multiplier * 10) / 10;
 			const bonusTon = Math.round((adjustedValueTon - base()) * 10) / 10;
 			return {

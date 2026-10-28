@@ -410,7 +410,7 @@ func getVenueDeepLink(vID venues.VenueID, slug string) string {
 	case venues.VenueGetgems:
 		return "https://getgems.io/collection/" + slug
 	case venues.VenueMarketApp:
-		return "https://marketapp.ws/gifts/" + slug
+		return "https://marketapp.org/gifts/" + slug
 	case venues.VenuePortals:
 		return "https://portals.market/gift/" + slug
 	case venues.VenueTonnel:
