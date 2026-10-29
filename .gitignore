@@ -18,3 +18,7 @@ graphify-out/
 obsidian/.obsidian/workspace.json
 obsidian/.obsidian/workspace-mobile.json
 obsidian/.obsidian/cache/
+
+# AI Studio local workspace
+.aistudio/
+

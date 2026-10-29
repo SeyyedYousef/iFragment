@@ -2089,6 +2089,7 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		ConfidenceScore: calibratedConfidence,
 		TONUSDRate:      tonRate,
 		ComparableSales: len(targetSales) + len(exactSales) + len(broadSales),
+		ReasoningLog:    reasoning,
 
 		TelegramStatus:       tgStatus,
 		FragmentMarketStatus: fragMarketStatus,

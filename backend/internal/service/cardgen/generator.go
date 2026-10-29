@@ -2,6 +2,7 @@ package cardgen
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"fmt"
 	"image"
@@ -32,12 +33,6 @@ import (
 
 //go:embed assets/Outfit-Bold.ttf
 var outfitBoldBytes []byte
-
-//go:embed assets/Outfit-Medium.ttf
-var outfitMediumBytes []byte
-
-//go:embed assets/SpaceMono-Bold.ttf
-var spaceMonoBoldBytes []byte
 
 //go:embed assets/Vazirmatn-Bold.ttf
 var vazirmatnBoldBytes []byte
@@ -120,16 +115,14 @@ func NewCardGenerator() *CardGenerator {
 		cg.fontOutfitBold, _ = opentype.Parse(gobold.TTF)
 	}
 
-	cg.fontOutfitMedium, err = opentype.Parse(outfitMediumBytes)
+	cg.fontOutfitMedium, err = opentype.Parse(outfitBoldBytes)
 	if err != nil {
-		slog.Warn("failed to parse Outfit-Medium font, falling back to goregular", "error", err)
 		cg.fontOutfitMedium, _ = opentype.Parse(goregular.TTF)
 	}
 
-	cg.fontMonoBold, err = opentype.Parse(spaceMonoBoldBytes)
+	cg.fontMonoBold, err = opentype.Parse(gomono.TTF)
 	if err != nil {
-		slog.Warn("failed to parse SpaceMono-Bold font, falling back to gomono", "error", err)
-		cg.fontMonoBold, _ = opentype.Parse(gomono.TTF)
+		slog.Warn("failed to parse gomono font", "error", err)
 	}
 
 	cg.fontVazirBold, err = opentype.Parse(vazirmatnBoldBytes)
@@ -1057,12 +1050,54 @@ func formatUSDTAmount(raw string) string {
 		return ""
 	}
 
-	if val < 10.0 {
+	parts := strings.Split(clean, ".")
+	intPart := parts[0]
+	intVal, err := strconv.ParseInt(intPart, 10, 64)
+	if err != nil || intVal <= 0 {
+		if val < 10.0 {
+			return fmt.Sprintf("%.2f", val)
+		}
+		return ""
+	}
+
+	if val < 10.0 && len(parts) > 1 {
 		return fmt.Sprintf("%.2f", val)
 	}
 
-	intVal := int64(math.Round(val))
 	return addThousandsCommas(strconv.FormatInt(intVal, 10))
+}
+
+// StartSharesCleanupJob runs a background loop removing files older than maxAge from ./static/shares
+func StartSharesCleanupJob(ctx context.Context, checkInterval, maxAge time.Duration) {
+	ticker := time.NewTicker(checkInterval)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				dir := "./static/shares"
+				entries, err := os.ReadDir(dir)
+				if err != nil {
+					continue
+				}
+				threshold := time.Now().Add(-maxAge)
+				for _, e := range entries {
+					if e.IsDir() || !strings.HasSuffix(e.Name(), ".png") {
+						continue
+					}
+					info, err := e.Info()
+					if err != nil {
+						continue
+					}
+					if info.ModTime().Before(threshold) {
+						_ = os.Remove(filepath.Join(dir, e.Name()))
+					}
+				}
+			}
+		}
+	}()
 }
 
 func containsArabicScript(s string) bool {

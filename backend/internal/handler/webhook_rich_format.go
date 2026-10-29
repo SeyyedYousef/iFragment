@@ -618,11 +618,7 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		if val.TelemintProvenance.CollectionAddress != "" {
 			sb.WriteString(fmt.Sprintf("• کانترکت تلمینت: <code>%s</code>\n", telegram.EscapeHTML(val.TelemintProvenance.CollectionAddress)))
 		}
-		mintStateFa := "مینت‌شده در عرضه رسمی دسامبر ۲۰۲۲ (Supply قفل‌شده)"
-		if !val.IsMinted && val.Status == "unminted" {
-			mintStateFa = "خارج از عرضه رسمی (مینت‌نشده)"
-		}
-		sb.WriteString(fmt.Sprintf("• وضعیت مینت شبکه: <b>%s</b>\n", mintStateFa))
+		sb.WriteString("• وضعیت مینت شبکه: <b>مینت‌شده در عرضه رسمی دسامبر ۲۰۲۲ (Supply قفل‌شده)</b>\n")
 		sb.WriteString("• مزیت امنیتی ویژه: <b>بدون نیاز به سیم‌کارت فیزیکی (No-SIM) و مصونیت بالا در برابر محدودیت ریپورت</b>\n")
 		sb.WriteString(fmt.Sprintf("• اصالت کالکشن: <b>کالکشن رسمی و بسته %s شماره ناشناس تلمینت (On-Chain)</b>\n", fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		if val.OnChainAudit.MintDate != "" {
@@ -1428,18 +1424,7 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		if floorTON > 0 {
 			sb.WriteString(fmt.Sprintf("• کف قیمت مشاهده‌شده بازار (Floor): <code>~%.2f TON ($%.2f)</code>\n", floorTON, floorUSD))
 		}
-		if val.Pillars.CollectionFloorGRAM > 0 {
-			sb.WriteString(fmt.Sprintf("• کف کلکسیون پایه (Collection Floor): <code>~%.2f TON</code>\n", val.Pillars.CollectionFloorGRAM))
-		}
-		if val.Pillars.ModelFloorGRAM > 0 {
-			sb.WriteString(fmt.Sprintf("• کف صفت مدل (Model Floor): <code>~%.2f TON</code>\n", val.Pillars.ModelFloorGRAM))
-		}
-		if val.Pillars.BackdropFloorGRAM > 0 {
-			sb.WriteString(fmt.Sprintf("• کف پس‌زمینه (Backdrop Floor): <code>~%.2f TON</code>\n", val.Pillars.BackdropFloorGRAM))
-		}
-		if val.Pillars.SymbolFloorGRAM > 0 {
-			sb.WriteString(fmt.Sprintf("• کف نماد (Symbol Floor): <code>~%.2f TON</code>\n", val.Pillars.SymbolFloorGRAM))
-		}
+
 		if askTON > 0 {
 			sb.WriteString(fmt.Sprintf("• قیمت پیشنهادی فروش (Ask): <code>~%.2f TON ($%.2f)</code>\n", askTON, askUSD))
 		}
@@ -1726,18 +1711,7 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		if floorTON > 0 {
 			sb.WriteString(fmt.Sprintf("• Observed Market Floor: <code>~%.2f TON ($%.2f)</code>\n", floorTON, floorUSD))
 		}
-		if val.Pillars.CollectionFloorGRAM > 0 {
-			sb.WriteString(fmt.Sprintf("• Collection Floor: <code>~%.2f TON</code>\n", val.Pillars.CollectionFloorGRAM))
-		}
-		if val.Pillars.ModelFloorGRAM > 0 {
-			sb.WriteString(fmt.Sprintf("• Model Floor: <code>~%.2f TON</code>\n", val.Pillars.ModelFloorGRAM))
-		}
-		if val.Pillars.BackdropFloorGRAM > 0 {
-			sb.WriteString(fmt.Sprintf("• Backdrop Floor: <code>~%.2f TON</code>\n", val.Pillars.BackdropFloorGRAM))
-		}
-		if val.Pillars.SymbolFloorGRAM > 0 {
-			sb.WriteString(fmt.Sprintf("• Symbol Floor: <code>~%.2f TON</code>\n", val.Pillars.SymbolFloorGRAM))
-		}
+
 		if askTON > 0 {
 			sb.WriteString(fmt.Sprintf("• Suggested Ask: <code>~%.2f TON ($%.2f)</code>\n", askTON, askUSD))
 		}

@@ -1415,7 +1415,7 @@ func (s *NumbersService) ScanWalletPortfolio(ctx context.Context, walletAddress 
 	}
 
 	// 3. Live fallback from nums888.io/portfolio/<wallet>/ if TonAPI/DB returned empty
-	if len(orderedNums) == 0 {
+	if len(orderedNums) == 0 && s.tonClient != nil {
 		pClient := &http.Client{Timeout: 8 * time.Second}
 		pURL := fmt.Sprintf("https://nums888.io/portfolio/%s/", url.PathEscape(walletAddress))
 		if pReq, pErr := http.NewRequestWithContext(ctx, "GET", pURL, nil); pErr == nil {

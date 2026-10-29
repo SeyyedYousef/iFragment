@@ -42,6 +42,7 @@ var ValuationAnchors = map[string]float64{
 	"catizen":      150000.0,
 	"hamster":      100000.0,
 	"paws":         80000.0,
+	"rare":         65000.0,
 	"python":       45000.0,
 	"work":         60000.0,
 }
@@ -113,6 +114,22 @@ var knownGenesisAuctionDates = map[string]time.Time{
 // GetHistoricalSaleRecord returns the enriched historical sale record including date and provenance.
 func GetHistoricalSaleRecord(username string) (HistoricalSaleRecord, bool) {
 	u := strings.TrimPrefix(strings.ToLower(username), "@")
+
+	// 1. Check model benchmark anchors for untransacted or benchmark status handles (e.g., @rare, @wallet, @trade, @durov)
+	if price, isAnchor := ValuationAnchors[u]; isAnchor && price > 0 {
+		anchorDate := time.Date(2022, 11, 15, 12, 0, 0, 0, time.UTC)
+		if dt, hasExactDate := knownGenesisAuctionDates[u]; hasExactDate {
+			anchorDate = dt
+		}
+		return HistoricalSaleRecord{
+			Price:         price,
+			Date:          anchorDate,
+			Source:        "model_benchmark_anchor",
+			EstimatedDate: true,
+		}, true
+	}
+
+	// 2. Check verified on-chain historical sales dataset
 	if price, exists := HistoricalSales[u]; exists && price > 0 {
 		if dt, hasExactDate := knownGenesisAuctionDates[u]; hasExactDate {
 			return HistoricalSaleRecord{
@@ -138,20 +155,6 @@ func GetHistoricalSaleRecord(username string) (HistoricalSaleRecord, bool) {
 			Price:         price,
 			Date:          estimatedDate,
 			Source:        "fragment_archive_calibrated",
-			EstimatedDate: true,
-		}, true
-	}
-
-	// Check model benchmark anchors for untransacted or benchmark status handles (e.g., @rare, @wallet, @trade, @durov)
-	if price, isAnchor := ValuationAnchors[u]; isAnchor && price > 0 {
-		anchorDate := time.Date(2022, 11, 15, 12, 0, 0, 0, time.UTC)
-		if dt, hasExactDate := knownGenesisAuctionDates[u]; hasExactDate {
-			anchorDate = dt
-		}
-		return HistoricalSaleRecord{
-			Price:         price,
-			Date:          anchorDate,
-			Source:        "model_benchmark_anchor",
 			EstimatedDate: true,
 		}, true
 	}
