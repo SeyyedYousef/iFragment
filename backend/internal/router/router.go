@@ -149,6 +149,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/image/{slug}", cfg.GiftsHandler.GetGiftImage)
 			r.With(middleware.OptionalAuthMiddleware).Get("/valuate", cfg.GiftsHandler.Valuate)
 			r.With(middleware.OptionalAuthMiddleware).Get("/enriched-report", cfg.GiftsHandler.GetEnrichedReport)
+			r.With(middleware.OptionalAuthMiddleware).Post("/enriched-report", cfg.GiftsHandler.GetEnrichedReport)
 			r.With(middleware.AuthMiddleware).Post("/unlock-coins", cfg.GiftsHandler.UnlockWithCoins)
 			r.With(middleware.AuthMiddleware).Post("/unlock-credit", cfg.GiftsHandler.UnlockWithCredit)
 			r.Get("/arbitrage", cfg.GiftsHandler.GetArbitrageRadar)

@@ -109,6 +109,36 @@ func (h *GiftsHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 func (h *GiftsHandler) GetEnrichedReport(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	giftID := r.URL.Query().Get("g")
+	overrideModel := r.URL.Query().Get("model")
+	overrideBackdrop := r.URL.Query().Get("backdrop")
+	overrideSymbol := r.URL.Query().Get("symbol")
+
+	if r.Method == http.MethodPost && r.Body != nil {
+		var body struct {
+			GiftID   string `json:"gift_id"`
+			G        string `json:"g"`
+			Model    string `json:"model"`
+			Backdrop string `json:"backdrop"`
+			Symbol   string `json:"symbol"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+			if body.GiftID != "" {
+				giftID = body.GiftID
+			} else if body.G != "" {
+				giftID = body.G
+			}
+			if body.Model != "" {
+				overrideModel = body.Model
+			}
+			if body.Backdrop != "" {
+				overrideBackdrop = body.Backdrop
+			}
+			if body.Symbol != "" {
+				overrideSymbol = body.Symbol
+			}
+		}
+	}
+
 	if giftID == "" {
 		RespondError(w, r, http.StatusBadRequest, "gift parameter 'g' is required", nil)
 		return
@@ -116,7 +146,7 @@ func (h *GiftsHandler) GetEnrichedReport(w http.ResponseWriter, r *http.Request)
 
 	userID, _ := middleware.GetUserID(ctx)
 
-	report, err := h.service.GetEnrichedReport(ctx, userID, giftID)
+	report, err := h.service.GetEnrichedReportWithOverrides(ctx, userID, giftID, overrideModel, overrideBackdrop, overrideSymbol)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to generate enriched report", err)
 		return
@@ -155,6 +185,10 @@ func (h *GiftsHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request) 
 	db := h.service.DB()
 	if idempotencyKey != "" && db != nil {
 		if hasEnt, errEnt := db.HasReportEntitlement(ctx, userID, req.GiftID, idempotencyKey); errEnt == nil && hasEnt {
+			if enriched, errEnr := h.service.GetEnrichedReport(ctx, userID, req.GiftID); errEnr == nil && enriched != nil {
+				RespondJSON(w, http.StatusOK, enriched)
+				return
+			}
 			val, errVal := h.service.ValuateGift(ctx, userID, req.GiftID)
 			if errVal == nil {
 				RespondJSON(w, http.StatusOK, val)
@@ -175,6 +209,10 @@ func (h *GiftsHandler) UnlockWithCredit(w http.ResponseWriter, r *http.Request) 
 
 	h.sendGiftNotification(r, val, "credit")
 	h.deliverGiftReportToUser(r, userID, val)
+	if enriched, errEnr := h.service.GetEnrichedReport(ctx, userID, req.GiftID); errEnr == nil && enriched != nil {
+		RespondJSON(w, http.StatusOK, enriched)
+		return
+	}
 	RespondJSON(w, http.StatusOK, val)
 }
 
