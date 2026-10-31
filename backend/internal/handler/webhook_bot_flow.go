@@ -122,11 +122,11 @@ var (
 func isPremiumEmojiEnabled() bool {
 	val := strings.TrimSpace(os.Getenv("PREMIUM_EMOJI_ENABLED"))
 	if val == "" {
-		return true
+		return false
 	}
 	b, err := strconv.ParseBool(val)
 	if err != nil {
-		return true
+		return false
 	}
 	return b
 }

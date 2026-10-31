@@ -70,6 +70,14 @@ func main() {
 		}
 	}
 
+	// Guard: If deployed on legacy Render.com environment, run in dormant standby mode
+	// so Render's health check succeeds (replacing any zombie container) without starting
+	// GramBroadcaster or hijacking the Telegram Bot webhook from the primary VPS.
+	if isLegacyRenderEnv() {
+		runDormantRenderStandby()
+		return
+	}
+
 	// Load and validate typed configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -287,6 +295,7 @@ func main() {
 	botRepo := repository.NewBotRepo(db)
 	settingsRepo := repository.NewSettingsRepo(db, cache)
 	AutoRegisterMainBot(ctx, db, botRepo)
+	go StartWebhookGuardian(ctx, db, botRepo)
 
 	// Start Background Partition & Maintenance Worker
 	if db != nil {
@@ -723,4 +732,116 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botRepo *
 	} else {
 		slog.Info("AutoRegisterMainBot: webhook set successfully on Telegram", "response", string(respBody))
 	}
+}
+
+// StartWebhookGuardian periodically verifies that the Telegram Bot webhook still points
+// to this server's expected URL and automatically re-registers it if another instance
+// or external process overwrote it.
+func StartWebhookGuardian(ctx context.Context, db *repository.Database, botRepo *repository.BotRepo) {
+	if db == nil || db.Pool == nil {
+		return
+	}
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		token = os.Getenv("BOT_TOKEN")
+	}
+	if token == "" {
+		return
+	}
+
+	backendURL := os.Getenv("BACKEND_URL")
+	if backendURL == "" {
+		backendURL = os.Getenv("API_URL")
+	}
+	if backendURL == "" {
+		backendURL = os.Getenv("APP_URL")
+	}
+	if backendURL == "" {
+		return
+	}
+	expectedPrefix := strings.TrimSuffix(backendURL, "/") + "/api/v1/webhook/telegram/"
+
+	ticker := time.NewTicker(2 * time.Minute)
+	defer ticker.Stop()
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	infoURL := fmt.Sprintf("https://api.telegram.org/bot%s/getWebhookInfo", token)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			req, err := http.NewRequestWithContext(ctx, "GET", infoURL, nil)
+			if err != nil {
+				continue
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				continue
+			}
+			var info struct {
+				Ok     bool `json:"ok"`
+				Result struct {
+					URL string `json:"url"`
+				} `json:"result"`
+			}
+			_ = json.NewDecoder(resp.Body).Decode(&info)
+			resp.Body.Close()
+
+			if info.Ok && !strings.HasPrefix(info.Result.URL, expectedPrefix) {
+				slog.Warn("WebhookGuardian: detected webhook drift, re-registering main bot webhook",
+					"current_url", info.Result.URL,
+					"expected_prefix", expectedPrefix,
+				)
+				AutoRegisterMainBot(ctx, db, botRepo)
+			}
+		}
+	}
+}
+
+func isLegacyRenderEnv() bool {
+	if os.Getenv("RENDER") != "" || os.Getenv("RENDER_SERVICE_ID") != "" || os.Getenv("RENDER_EXTERNAL_URL") != "" {
+		return true
+	}
+	for _, key := range []string{"APP_URL", "BACKEND_URL", "API_URL"} {
+		if strings.Contains(strings.ToLower(os.Getenv(key)), "onrender.com") {
+			return true
+		}
+	}
+	return false
+}
+
+func runDormantRenderStandby() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	slog.Warn("Legacy Render.com environment detected — starting in DORMANT STANDBY mode (GramBroadcaster and Webhook registration disabled)", "port", port)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok","mode":"dormant-standby","message":"Primary server is hosted on VPS"}`))
+	})
+
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	ctxShut, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = srv.Shutdown(ctxShut)
 }

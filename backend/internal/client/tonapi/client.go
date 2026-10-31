@@ -632,10 +632,16 @@ func (c *Client) GetTONRates(ctx context.Context) (float64, error) {
 
 	tonData, ok := rates.Rates["TON"]
 	if !ok {
+		tonData, ok = rates.Rates["ton"]
+	}
+	if !ok {
 		return 0, fmt.Errorf("ton rate data not found")
 	}
 
 	usdPrice, ok := tonData.Prices["USD"]
+	if !ok {
+		usdPrice, ok = tonData.Prices["usd"]
+	}
 	if !ok {
 		return 0, fmt.Errorf("usd price not found")
 	}

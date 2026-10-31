@@ -33,6 +33,7 @@ type GramBroadcaster struct {
 	mu                 sync.RWMutex
 	priceHistory       []PriceTick
 	lastDailyRecapDate string
+	lastBroadcastSlot  string
 }
 
 type cryptoPriceProvider interface {
@@ -198,16 +199,34 @@ func (b *GramBroadcaster) recordPriceAndCleanup(now time.Time) {
 }
 
 func (b *GramBroadcaster) broadcast10MinPost(ctx context.Context, now time.Time) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	slotKey := now.UTC().Truncate(10 * time.Minute).Format("200601021504")
 
+	b.mu.Lock()
+	if b.lastBroadcastSlot == slotKey {
+		b.mu.Unlock()
+		slog.Warn("Gram Broadcaster skipped duplicate in-memory slot", "slot", slotKey)
+		return
+	}
 	if len(b.priceHistory) == 0 {
+		b.mu.Unlock()
 		slog.Warn("Gram Broadcaster skipped: no price history available")
 		return
 	}
-
 	currentTick := b.priceHistory[len(b.priceHistory)-1]
 	currentPrice := currentTick.Price
+	cache := b.cache
+	b.lastBroadcastSlot = slotKey
+	b.mu.Unlock()
+
+	// Distributed Redis slot lock to prevent duplicate broadcasts across multiple workers/containers
+	if cache != nil && cache.Client != nil {
+		redisLockKey := "gram:broadcaster:slot_lock:" + slotKey
+		acquired, err := cache.Client.SetNX(ctx, redisLockKey, "1", 9*time.Minute).Result()
+		if err == nil && !acquired {
+			slog.Warn("Gram Broadcaster skipped: slot already broadcasted by another instance", "slot", slotKey)
+			return
+		}
+	}
 
 	// Strip any "(stale)" suffix if GetPrice is used, or format directly from currentPrice
 	priceStr := formatCleanGramPrice(currentPrice)
