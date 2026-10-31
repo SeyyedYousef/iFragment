@@ -1,0 +1,2 @@
+import{I as i,v as a,u as f}from"./vendor-solid-C-uhCkmR.js";import{y as o}from"./vendor-telegram-D9FGs9jG.js";function s(e){let n=null;try{n=i()}catch{n=null}a(()=>{try{o.show();const t=()=>{typeof e=="string"||typeof e=="number"&&(n?n(e):window.history.go(e))};o.onClick(t),f(()=>{try{typeof o?.offClick=="function"&&o.offClick(t),typeof o?.hide=="function"&&o.hide()}catch{}})}catch(t){console.warn("Telegram backButton is not available",t)}})}export{s as u};
+//# sourceMappingURL=useTelegramBackButton-D2bAFgSM.js.map

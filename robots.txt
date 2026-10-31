@@ -1,0 +1,15 @@
+# iFragment Robots Configuration
+User-agent: *
+Allow: /
+Allow: /collection-info
+Allow: /numbers/intel
+Allow: /numbers/collection
+Allow: /gifts/intel
+Allow: /gifts/collection
+Allow: /leaderboard
+
+# Disallow administrative and private owner routes
+Disallow: /owner
+Disallow: /api/v1/owner/
+
+Sitemap: https://ifragment.app/sitemap.xml
