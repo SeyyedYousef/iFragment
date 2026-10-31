@@ -712,8 +712,12 @@ func (r *CollectionRepo) GetLatestCollectionData(ctx context.Context) (*Collecti
 			stats.Volume30dTON = math.Round(v30*10) / 10
 		}
 		if liveSnap.buyNowFloorTON > 0 {
-			stats.BuyNowFloorTON = liveSnap.buyNowFloorTON
-			stats.FloorPrice = fmt.Sprintf("%.0f TON", liveSnap.buyNowFloorTON)
+			bnf := liveSnap.buyNowFloorTON
+			if bnf > 1e6 {
+				bnf = math.Round((bnf/1e9)*100) / 100
+			}
+			stats.BuyNowFloorTON = bnf
+			stats.FloorPrice = fmt.Sprintf("%.1f TON", bnf)
 		}
 		if liveSnap.auctionFloorTON > 0 {
 			stats.AuctionFloorTON = liveSnap.auctionFloorTON
