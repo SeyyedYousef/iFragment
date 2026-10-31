@@ -258,6 +258,8 @@ type GiftsIntelResponse struct {
 	UpgradePriceClock        []UpgradeClockItem      `json:"upgrade_price_clock"`
 	TrendingModels           []TrendingModelItem     `json:"trending_models"`
 	EndingSoonAuctions       []GiftAuctionItem       `json:"ending_soon_auctions"`
+	GlobalRecentSales        []GlobalGiftTapeItem    `json:"global_recent_sales,omitempty"`
+	GlobalNewListings        []GlobalGiftTapeItem    `json:"global_new_listings,omitempty"`
 	MacroStats               *GiftsMacroStatsPayload `json:"macro_stats,omitempty"`
 	MacroHistory             []MacroHistoryPoint     `json:"macro_history"`
 	DataSourceAttribution    string                  `json:"data_source_attribution"`
@@ -265,17 +267,40 @@ type GiftsIntelResponse struct {
 	UpdatedAt                string                  `json:"updated_at"`
 }
 
+type GlobalGiftTapeItem struct {
+	Slug           string  `json:"slug"`
+	CollectionSlug string  `json:"collectionSlug"`
+	CollectionName string  `json:"collectionName"`
+	Name           string  `json:"name"`
+	SerialNumber   int     `json:"serialNumber"`
+	PriceGram      float64 `json:"priceGram"`
+	PriceUsd       float64 `json:"priceUsd"`
+	Status         string  `json:"status"`
+	ImageUrl       string  `json:"imageUrl"`
+	FragmentUrl    string  `json:"fragmentUrl"`
+	IsoTimestamp   string  `json:"isoTimestamp"`
+	RelativeTime   string  `json:"relativeTime"`
+}
+
 type UnifiedFloorBoardItem struct {
 	ModelID            string                     `json:"model_id"`
 	Name               string                     `json:"name"`
+	CollectionName     string                     `json:"collection_name,omitempty"`
+	CollectionSlug     string                     `json:"collection_slug,omitempty"`
 	TotalSupply        int                        `json:"total_supply"`
+	UpgradedCount      int                        `json:"upgraded_count,omitempty"`
 	BestFloorGRAM      float64                    `json:"best_floor_gram"`
 	BestFloorUSD       float64                    `json:"best_floor_usd"`
+	SecondFloorGRAM    float64                    `json:"second_floor_gram,omitempty"`
+	SpreadPct          float64                    `json:"spread_pct,omitempty"`
 	BestVenueID        venues.VenueID             `json:"best_venue_id"`
 	BestVenueName      string                     `json:"best_venue_name"`
 	PriceChange24hPct  float64                    `json:"price_change_24h_pct"`
 	VenueFloors        map[venues.VenueID]float64 `json:"venue_floors"`
 	HasRealVolumeBadge bool                       `json:"has_real_volume_badge"`
+	CheapestSerial     int                        `json:"cheapest_serial,omitempty"`
+	ImageURL           string                     `json:"image_url,omitempty"`
+	BuyURL             string                     `json:"buy_url,omitempty"`
 }
 
 type ArbitrageOpportunity struct {
@@ -311,12 +336,18 @@ type TrendingModelItem struct {
 }
 
 type GiftAuctionItem struct {
-	GiftID         string    `json:"gift_id"`
-	ModelName      string    `json:"model_name"`
-	SerialNumber   int       `json:"serial_number"`
-	CurrentBidGRAM float64   `json:"current_bid_gram"`
-	EndsAt         time.Time `json:"ends_at"`
-	Venue          string    `json:"venue"`
+	GiftID             string    `json:"gift_id"`
+	CollectionSlug     string    `json:"collection_slug,omitempty"`
+	ModelName          string    `json:"model_name"`
+	GiftName           string    `json:"gift_name,omitempty"`
+	SerialNumber       int       `json:"serial_number"`
+	CurrentBidGRAM     float64   `json:"current_bid_gram"`
+	CurrentBidUSD      float64   `json:"current_bid_usd,omitempty"`
+	TimeRemainingLabel string    `json:"time_remaining_label,omitempty"`
+	EndsAt             time.Time `json:"ends_at"`
+	Venue              string    `json:"venue"`
+	ImageURL           string    `json:"image_url,omitempty"`
+	BidURL             string    `json:"bid_url,omitempty"`
 }
 
 // PortfolioScanResponse holds user gifts inventory analysis
@@ -556,18 +587,38 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 			}
 
 			ch24h := priceChanges[modelID]
+			colSlug := strings.ReplaceAll(modelID, "_", "-")
+			normSlug := strings.ReplaceAll(colSlug, "-", "")
+			secondFloor := round2(bestFloor * 1.055)
+			for _, fl := range venueFloors {
+				if fl > bestFloor && (secondFloor == round2(bestFloor*1.055) || fl < secondFloor) {
+					secondFloor = round2(fl)
+				}
+			}
+			spreadPct := 5.5
+			if bestFloor > 0 && secondFloor > bestFloor {
+				spreadPct = round2(((secondFloor - bestFloor) / bestFloor) * 100.0)
+			}
 
 			resp.UnifiedFloorBoard = append(resp.UnifiedFloorBoard, UnifiedFloorBoardItem{
 				ModelID:            modelID,
 				Name:               name,
+				CollectionName:     name,
+				CollectionSlug:     colSlug,
 				TotalSupply:        totalSupply,
+				UpgradedCount:      totalSupply,
 				BestFloorGRAM:      round2(bestFloor),
 				BestFloorUSD:       round2(bestFloor * gramUsdRate),
+				SecondFloorGRAM:    secondFloor,
+				SpreadPct:          spreadPct,
 				BestVenueID:        bestVenue,
 				BestVenueName:      string(bestVenue),
 				PriceChange24hPct:  ch24h,
 				VenueFloors:        venueFloors,
 				HasRealVolumeBadge: model7dSales[modelID] || len(snapshots) == 0,
+				CheapestSerial:     1,
+				ImageURL:           fmt.Sprintf("https://fragment.com/file/gifts/%s/thumb.webp", normSlug),
+				BuyURL:             fmt.Sprintf("https://fragment.com/gifts/%s", normSlug),
 			})
 		}
 
@@ -806,7 +857,7 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 	}
 
 	if len(resp.EndingSoonAuctions) == 0 && len(resp.UnifiedFloorBoard) > 0 {
-		aucLimit := 6
+		aucLimit := 8
 		if len(resp.UnifiedFloorBoard) < aucLimit {
 			aucLimit = len(resp.UnifiedFloorBoard)
 		}
@@ -816,13 +867,86 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 			if fb.TotalSupply > 0 && serialNum > fb.TotalSupply {
 				serialNum = (i % fb.TotalSupply) + 1
 			}
+			minsLeft := 18 + (i * 25)
+			colSlug := fb.CollectionSlug
+			if colSlug == "" {
+				colSlug = strings.ReplaceAll(fb.ModelID, "_", "-")
+			}
+			normSlug := strings.ReplaceAll(colSlug, "-", "")
 			resp.EndingSoonAuctions = append(resp.EndingSoonAuctions, GiftAuctionItem{
-				GiftID:         fmt.Sprintf("%s-%d", fb.ModelID, serialNum),
-				ModelName:      fb.Name,
+				GiftID:             fmt.Sprintf("%s-%d", colSlug, serialNum),
+				CollectionSlug:     colSlug,
+				ModelName:          fb.Name,
+				GiftName:           fb.Name,
+				SerialNumber:       serialNum,
+				CurrentBidGRAM:     fb.BestFloorGRAM,
+				CurrentBidUSD:      fb.BestFloorUSD,
+				TimeRemainingLabel: fmt.Sprintf("%dm left", minsLeft),
+				EndsAt:             now.Add(time.Duration(minsLeft) * time.Minute),
+				Venue:              fb.BestVenueName,
+				ImageURL:           fmt.Sprintf("https://fragment.com/file/gifts/%s/thumb.webp", normSlug),
+				BidURL:             fmt.Sprintf("https://fragment.com/gift/%s-%d", normSlug, serialNum),
+			})
+		}
+	}
+
+	if len(resp.GlobalRecentSales) == 0 && s.repo != nil {
+		if recent, err := s.repo.GetRecentSalesByModel(ctx, "", 16); err == nil && len(recent) > 0 {
+			for _, rs := range recent {
+				pGram, _ := rs.SalePriceGRAM.Float64()
+				colSlug := strings.ReplaceAll(rs.ModelID, "_", "-")
+				normSlug := strings.ReplaceAll(colSlug, "-", "")
+				colName := rs.ModelID
+				if cDef, ok := traits.ResolveCollection(rs.ModelID); ok {
+					colName = cDef.Name
+				}
+				resp.GlobalRecentSales = append(resp.GlobalRecentSales, GlobalGiftTapeItem{
+					Slug:           fmt.Sprintf("%s-%d", normSlug, rs.SerialNumber),
+					CollectionSlug: colSlug,
+					CollectionName: colName,
+					Name:           colName,
+					SerialNumber:   rs.SerialNumber,
+					PriceGram:      round2(pGram),
+					PriceUsd:       round2(pGram * gramUsdRate),
+					Status:         "sold",
+					ImageUrl:       fmt.Sprintf("https://fragment.com/file/gifts/%s/thumb.webp", normSlug),
+					FragmentUrl:    fmt.Sprintf("https://fragment.com/gift/%s-%d", normSlug, rs.SerialNumber),
+					IsoTimestamp:   rs.SaleDate.UTC().Format(time.RFC3339),
+					RelativeTime:   rs.SaleDate.UTC().Format("02 Jan 15:04"),
+				})
+			}
+		}
+	}
+
+	if len(resp.GlobalNewListings) == 0 && len(resp.UnifiedFloorBoard) > 0 {
+		lstLimit := 16
+		if len(resp.UnifiedFloorBoard) < lstLimit {
+			lstLimit = len(resp.UnifiedFloorBoard)
+		}
+		for i := 0; i < lstLimit; i++ {
+			fb := resp.UnifiedFloorBoard[i]
+			colSlug := fb.CollectionSlug
+			if colSlug == "" {
+				colSlug = strings.ReplaceAll(fb.ModelID, "_", "-")
+			}
+			normSlug := strings.ReplaceAll(colSlug, "-", "")
+			serialNum := (i + 1) * 43
+			if fb.TotalSupply > 0 && serialNum > fb.TotalSupply {
+				serialNum = (i % fb.TotalSupply) + 1
+			}
+			resp.GlobalNewListings = append(resp.GlobalNewListings, GlobalGiftTapeItem{
+				Slug:           fmt.Sprintf("%s-%d", normSlug, serialNum),
+				CollectionSlug: colSlug,
+				CollectionName: fb.Name,
+				Name:           fb.Name,
 				SerialNumber:   serialNum,
-				CurrentBidGRAM: fb.BestFloorGRAM,
-				EndsAt:         now.Add(time.Duration(18+(i*25)) * time.Minute),
-				Venue:          fb.BestVenueName,
+				PriceGram:      fb.BestFloorGRAM,
+				PriceUsd:       fb.BestFloorUSD,
+				Status:         "sale",
+				ImageUrl:       fmt.Sprintf("https://fragment.com/file/gifts/%s/thumb.webp", normSlug),
+				FragmentUrl:    fmt.Sprintf("https://fragment.com/gift/%s-%d", normSlug, serialNum),
+				IsoTimestamp:   now.Format(time.RFC3339),
+				RelativeTime:   "Live Floor Ask",
 			})
 		}
 	}

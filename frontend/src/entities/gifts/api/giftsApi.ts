@@ -107,6 +107,11 @@ export const giftsApi = {
 		return res.data;
 	},
 
+	getCollectionsList: async (): Promise<CollectionSummaryItem[]> => {
+		const res = await apiClient.get<CollectionSummaryItem[]>('/gifts/collections');
+		return res.data;
+	},
+
 	// Enriched Single Gift Report (with provenance + on-chain)
 	getEnrichedReport: async (giftID: string): Promise<EnrichedGiftReport> => {
 		const res = await apiClient.get<EnrichedGiftReport>('/gifts/enriched-report', {

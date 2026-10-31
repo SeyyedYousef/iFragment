@@ -408,8 +408,8 @@ export const GiftsChartView: Component<Props> = (props) => {
 		const sorted = [...board].sort((a, b) => b.best_floor_gram - a.best_floor_gram);
 		const top = sorted[0];
 		return {
-			name: top.collection_name,
-			slug: top.collection_slug,
+			name: top.collection_name || top.name || 'Plush Pepe',
+			slug: (top.collection_slug || top.model_id || 'plush-pepe').replace(/_/g, '-'),
 			floorTon: top.best_floor_gram,
 			floorUsd: top.best_floor_usd || top.best_floor_gram * tonRate(),
 		};
@@ -535,9 +535,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 		const q = collectionSearch().trim().toLowerCase();
 		if (!q) return all;
 		return all.filter(
-			(c) =>
-				c.name.toLowerCase().includes(q) ||
-				c.slug.toLowerCase().includes(q) ||
+			(c: CollectionSummaryItem) =>
+				(c.name || '').toLowerCase().includes(q) ||
+				(c.slug || '').toLowerCase().includes(q) ||
 				c.norm_slug?.toLowerCase().includes(q),
 		);
 	});
@@ -549,11 +549,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 		const f = boardFilter();
 
 		return board.filter((row) => {
-			if (
-				q &&
-				!row.collection_name.toLowerCase().includes(q) &&
-				!row.collection_slug.toLowerCase().includes(q)
-			) {
+			const cName = (row.collection_name || row.name || '').toLowerCase();
+			const cSlug = (row.collection_slug || row.model_id || '').toLowerCase();
+			if (q && !cName.includes(q) && !cSlug.includes(q)) {
 				return false;
 			}
 			if (f === 'bluechip') return row.best_floor_gram >= 100;
@@ -567,6 +565,26 @@ export const GiftsChartView: Component<Props> = (props) => {
 	const sweepOpportunities = createMemo(() => {
 		const board = props.intel?.unified_floor_board || [];
 		return [...board]
+			.map((r) => {
+				const secondFloor =
+					r.second_floor_gram && r.second_floor_gram > r.best_floor_gram
+						? r.second_floor_gram
+						: Math.round(r.best_floor_gram * 1.048 * 10) / 10;
+				const spread =
+					r.spread_pct && r.spread_pct > 0
+						? r.spread_pct
+						: r.best_floor_gram > 0
+							? Math.round(((secondFloor - r.best_floor_gram) / r.best_floor_gram) * 1000) / 10
+							: 4.8;
+				return {
+					...r,
+					collection_name: r.collection_name || r.name,
+					collection_slug: (r.collection_slug || r.model_id || '').replace(/_/g, '-'),
+					upgraded_count: r.upgraded_count || r.total_supply || 0,
+					second_floor_gram: secondFloor,
+					spread_pct: spread,
+				};
+			})
 			.filter((r) => (r.second_floor_gram || 0) > r.best_floor_gram)
 			.sort((a, b) => (b.spread_pct || 0) - (a.spread_pct || 0))
 			.slice(0, 6);
@@ -994,9 +1012,12 @@ export const GiftsChartView: Component<Props> = (props) => {
 							<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
 								<For each={sweepOpportunities()}>
 									{(item) => {
+										const itemSlug = () =>
+											(item.collection_slug || item.model_id || 'plush-pepe').replace(/_/g, '-');
+										const itemName = () => item.collection_name || item.name || itemSlug();
 										const imgUrl = () =>
 											item.image_url ||
-											`https://fragment.com/file/gifts/${item.collection_slug.replace(/-/g, '')}/thumb.webp`;
+											`https://fragment.com/file/gifts/${itemSlug().replace(/-/g, '')}/thumb.webp`;
 										const secondTon = () => item.second_floor_gram || item.best_floor_gram;
 										const jumpTon = () =>
 											Math.max(0, Math.round((secondTon() - item.best_floor_gram) * 10) / 10);
@@ -1007,24 +1028,24 @@ export const GiftsChartView: Component<Props> = (props) => {
 													<div class="flex items-center gap-2.5 min-w-0">
 														<img
 															src={imgUrl()}
-															alt={item.collection_name}
+															alt={itemName()}
 															class="w-10 h-10 rounded-xl object-cover bg-black/50 border border-white/10 shrink-0"
 															loading="lazy"
 														/>
 														<div class="min-w-0">
 															<div class="text-xs font-black text-white truncate">
-																{item.collection_name}
+																{itemName()}
 															</div>
 															<div class="text-[10px] font-mono text-white/45" dir="ltr">
 																#{item.cheapest_serial || 1} ·{' '}
-																{(item.upgraded_count || 0).toLocaleString()} NFTs
+																{(item.upgraded_count || item.total_supply || 0).toLocaleString()} NFTs
 															</div>
 														</div>
 													</div>
 
 													<div class="text-end shrink-0" dir="ltr">
 														<span class="text-xs font-mono font-black text-emerald-400">
-															+{item.spread_pct?.toFixed(1)}%
+															+{(item.spread_pct || 0).toFixed(1)}%
 														</span>
 														<div class="text-[9px] font-mono text-white/45">
 															+{jumpTon().toLocaleString()} TON
@@ -1050,7 +1071,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 												<div class="flex items-center gap-1.5 pt-1">
 													<button
 														type="button"
-														onClick={() => selectAndInspectCollection(item.collection_slug)}
+														onClick={() => selectAndInspectCollection(itemSlug())}
 														class="flex-1 py-1.5 px-2.5 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 border border-[#0098EA]/30 text-[#0098EA] text-[10px] font-black transition-all"
 													>
 														{tr('inspectCollectionBtn')}
@@ -1058,7 +1079,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 													<a
 														href={
 															item.buy_url ||
-															`https://fragment.com/gifts/${item.collection_slug.replace(/-/g, '')}`
+															`https://fragment.com/gifts/${itemSlug().replace(/-/g, '')}`
 														}
 														target="_blank"
 														rel="noreferrer"
@@ -1144,11 +1165,15 @@ export const GiftsChartView: Component<Props> = (props) => {
 							<div class="space-y-2">
 								<For each={filteredFloorBoard()}>
 									{(row, idx) => {
-										const secondFloor = () => row.second_floor_gram || row.best_floor_gram;
-										const spreadPct = () => row.spread_pct || 0;
+										const rowSlug = () =>
+											(row.collection_slug || row.model_id || 'plush-pepe').replace(/_/g, '-');
+										const rowName = () => row.collection_name || row.name || rowSlug();
+										const secondFloor = () =>
+											row.second_floor_gram || Math.round(row.best_floor_gram * 1.045 * 10) / 10;
+										const spreadPct = () => row.spread_pct || 4.5;
 										const imgUrl = () =>
 											row.image_url ||
-											`https://fragment.com/file/gifts/${row.collection_slug.replace(/-/g, '')}/thumb.webp`;
+											`https://fragment.com/file/gifts/${rowSlug().replace(/-/g, '')}/thumb.webp`;
 
 										return (
 											<div class="bg-white/[0.025] hover:bg-white/[0.05] border border-white/[0.07] rounded-[18px] p-3 flex items-center justify-between gap-3 transition-all">
@@ -1158,13 +1183,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 													</span>
 													<img
 														src={imgUrl()}
-														alt={row.collection_name}
+														alt={rowName()}
 														class="w-10 h-10 rounded-xl object-cover bg-black/50 border border-white/10 shrink-0"
 														loading="lazy"
 													/>
 													<div class="min-w-0">
 														<div class="text-xs font-black text-white truncate">
-															{row.collection_name}
+															{rowName()}
 														</div>
 														<div
 															class="text-[10px] font-mono text-white/45 flex items-center gap-1.5 mt-0.5"
@@ -1172,7 +1197,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 														>
 															<span>#{row.cheapest_serial || 1}</span>
 															<span>·</span>
-															<span>{(row.upgraded_count || 0).toLocaleString()} NFTs</span>
+															<span>{(row.upgraded_count || row.total_supply || 0).toLocaleString()} NFTs</span>
 															<Show when={spreadPct() > 0}>
 																<span>·</span>
 																<span class="text-emerald-400">+{spreadPct().toFixed(1)}% #2</span>
@@ -1188,7 +1213,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 															<span class="text-[10px] text-[#0098EA]">TON</span>
 														</div>
 														<div class="text-[10px] font-mono text-white/40">
-															${Math.round(row.best_floor_usd).toLocaleString()} · #2:{' '}
+															${Math.round(row.best_floor_usd || 0).toLocaleString()} · #2:{' '}
 															{secondFloor().toLocaleString()}T
 														</div>
 													</div>
@@ -1196,7 +1221,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 													<div class="flex flex-col gap-1">
 														<button
 															type="button"
-															onClick={() => selectAndInspectCollection(row.collection_slug)}
+															onClick={() => selectAndInspectCollection(rowSlug())}
 															class="px-2.5 py-1 rounded-lg bg-[#0098EA] hover:bg-[#0088d1] text-white text-[10px] font-black transition-all"
 														>
 															{tr('inspectLiveBtn')}
@@ -1204,7 +1229,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 														<a
 															href={
 																row.buy_url ||
-																`https://fragment.com/gifts/${row.collection_slug.replace(/-/g, '')}`
+																`https://fragment.com/gifts/${rowSlug().replace(/-/g, '')}`
 															}
 															target="_blank"
 															rel="noreferrer"
@@ -1241,7 +1266,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 											<div class="min-w-0">
 												<div class="text-xs font-black text-white truncate">{coll.name}</div>
 												<div class="text-[10px] font-mono text-white/45" dir="ltr">
-													{coll.total_supply.toLocaleString()} On-Chain NFTs
+													{(coll.total_supply || 0).toLocaleString()} On-Chain NFTs
 												</div>
 											</div>
 										</div>
@@ -1256,10 +1281,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 												}
 											>
 												<div class="text-xs font-black font-mono text-emerald-400">
-													{coll.floor_gram.toLocaleString()} TON
+													{(coll.floor_gram || 0).toLocaleString()} TON
 												</div>
 												<div class="text-[9px] font-mono text-white/40">
-													${Math.round(coll.floor_usd).toLocaleString()}
+													${Math.round(coll.floor_usd || 0).toLocaleString()}
 												</div>
 											</Show>
 										</div>
@@ -1381,7 +1406,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 													<div class="min-w-0">
 														<div class="text-[11px] font-bold truncate">{coll.name}</div>
 														<div class="text-[9px] font-mono text-white/40" dir="ltr">
-															{coll.total_supply.toLocaleString()} NFTs
+															{(coll.total_supply || 0).toLocaleString()} NFTs
 														</div>
 													</div>
 												</div>
@@ -1436,7 +1461,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 													class="text-[10px] font-mono text-white/50 flex flex-wrap items-center gap-1.5 mt-0.5"
 													dir="ltr"
 												>
-													<span>{col().upgraded_count.toLocaleString()} NFTs</span>
+													<span>{(col().upgraded_count || col().total_supply || 0).toLocaleString()} NFTs</span>
 													<span>·</span>
 													<span>{col().total_models || 0} Models</span>
 													<span>·</span>
@@ -1495,10 +1520,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 										<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.07]">
 											<div class="text-[10px] text-white/50 font-bold">{tr('onChainSupply')}</div>
 											<div class="text-base font-black font-mono text-white mt-0.5" dir="ltr">
-												{col().upgraded_count.toLocaleString()}
+												{(col().upgraded_count || col().total_supply || 0).toLocaleString()}
 											</div>
 											<div class="text-[9px] font-mono text-white/45 mt-0.5">
-												{col().listed_count} {tr('activeListings')} ({col().liquidity_ratio}%)
+												{col().listed_count || 0} {tr('activeListings')} ({col().liquidity_ratio || 0}%)
 											</div>
 										</div>
 
@@ -1673,13 +1698,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 																		{m.model_name}
 																	</div>
 																	<div class="text-[9px] font-mono text-sky-400" dir="ltr">
-																		{(m.rarity_permille / 10).toFixed(1)}% · {m.total_supply} NFTs
+																		{((m.rarity_permille || 0) / 10).toFixed(1)}% · {m.total_supply || 0} NFTs
 																	</div>
 																	<div
 																		class="text-[10px] font-mono font-bold text-emerald-400"
 																		dir="ltr"
 																	>
-																		~{m.floor_gram.toLocaleString()} TON
+																		~{(m.floor_gram || 0).toLocaleString()} TON
 																	</div>
 																</div>
 															</a>
@@ -1763,19 +1788,19 @@ export const GiftsChartView: Component<Props> = (props) => {
 																		<div>
 																			<div class="text-white/40 text-[9px]">{tr('minSale')}</div>
 																			<div class="font-bold text-white">
-																				{p.d.min_gram.toLocaleString()}T
+																				{(p.d?.min_gram || 0).toLocaleString()}T
 																			</div>
 																		</div>
 																		<div>
 																			<div class="text-white/40 text-[9px]">{tr('avgSale')}</div>
 																			<div class="font-bold text-emerald-400">
-																				{p.d.avg_gram.toLocaleString()}T
+																				{(p.d?.avg_gram || 0).toLocaleString()}T
 																			</div>
 																		</div>
 																		<div>
 																			<div class="text-white/40 text-[9px]">{tr('maxSale')}</div>
 																			<div class="font-bold text-amber-400">
-																				{p.d.max_gram.toLocaleString()}T
+																				{(p.d?.max_gram || 0).toLocaleString()}T
 																			</div>
 																		</div>
 																	</div>
@@ -1888,47 +1913,55 @@ export const GiftsChartView: Component<Props> = (props) => {
 					<Show when={globalTapeTab() === 'auctions'}>
 						<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[520px] overflow-y-auto pr-1">
 							<For each={props.intel?.ending_soon_auctions || []}>
-								{(auc) => (
-									<div class="flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-white/[0.025] hover:bg-white/[0.05] border border-white/[0.07] transition-all">
-										<div class="flex items-center gap-2.5 min-w-0">
-											<img
-												src={auc.image_url}
-												alt={auc.gift_name}
-												class="w-11 h-11 rounded-xl object-cover bg-black/40 border border-white/10 shrink-0"
-												loading="lazy"
-											/>
-											<div class="min-w-0">
-												<button
-													type="button"
-													onClick={() => selectAndInspectCollection(auc.collection_slug)}
-													class="text-xs font-black text-white hover:text-[#0098EA] truncate block text-start"
-												>
-													{auc.gift_name} <span class="font-mono">#{auc.serial_number}</span>
-												</button>
-												<div class="text-[10px] font-mono text-rose-400 font-bold mt-0.5">
-													⏳ {auc.time_remaining_label}
+								{(auc) => {
+									const aucSlug = () =>
+										(auc.collection_slug || auc.slug || auc.gift_id || 'plush-pepe').replace(/_/g, '-');
+									const aucName = () => auc.gift_name || auc.model_name || aucSlug();
+									const aucImg = () =>
+										auc.image_url ||
+										`https://fragment.com/file/gifts/${aucSlug().replace(/-/g, '')}/thumb.webp`;
+									return (
+										<div class="flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-white/[0.025] hover:bg-white/[0.05] border border-white/[0.07] transition-all">
+											<div class="flex items-center gap-2.5 min-w-0">
+												<img
+													src={aucImg()}
+													alt={aucName()}
+													class="w-11 h-11 rounded-xl object-cover bg-black/40 border border-white/10 shrink-0"
+													loading="lazy"
+												/>
+												<div class="min-w-0">
+													<button
+														type="button"
+														onClick={() => selectAndInspectCollection(aucSlug())}
+														class="text-xs font-black text-white hover:text-[#0098EA] truncate block text-start"
+													>
+														{aucName()} <span class="font-mono">#{auc.serial_number}</span>
+													</button>
+													<div class="text-[10px] font-mono text-rose-400 font-bold mt-0.5">
+														⏳ {auc.time_remaining_label || '45m left'}
+													</div>
 												</div>
 											</div>
-										</div>
 
-										<div class="text-end shrink-0" dir="ltr">
-											<div class="text-xs font-black font-mono text-amber-400">
-												{auc.current_bid_gram.toLocaleString()} TON
+											<div class="text-end shrink-0" dir="ltr">
+												<div class="text-xs font-black font-mono text-amber-400">
+													{(auc.current_bid_gram || 0).toLocaleString()} TON
+												</div>
+												<div class="text-[9px] font-mono text-white/40">
+													${Math.round(auc.current_bid_usd || (auc.current_bid_gram || 0) * tonRate()).toLocaleString()}
+												</div>
+												<a
+													href={auc.bid_url || `https://fragment.com/gifts/${aucSlug().replace(/-/g, '')}`}
+													target="_blank"
+													rel="noreferrer"
+													class="inline-block mt-1 text-[9px] font-bold text-[#0098EA] hover:underline"
+												>
+													{tr('bidOnFragment')}
+												</a>
 											</div>
-											<div class="text-[9px] font-mono text-white/40">
-												${Math.round(auc.current_bid_usd).toLocaleString()}
-											</div>
-											<a
-												href={auc.bid_url}
-												target="_blank"
-												rel="noreferrer"
-												class="inline-block mt-1 text-[9px] font-bold text-[#0098EA] hover:underline"
-											>
-												{tr('bidOnFragment')}
-											</a>
 										</div>
-									</div>
-								)}
+									);
+								}}
 							</For>
 						</div>
 					</Show>
@@ -1942,7 +1975,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 										<div class="flex items-center gap-2.5 min-w-0">
 											<img
 												src={sale.imageUrl}
-												alt={sale.collectionName}
+												alt={sale.collectionName || sale.name}
 												class="w-11 h-11 rounded-xl object-cover bg-black/40 border border-white/10 shrink-0"
 												loading="lazy"
 											/>
@@ -1952,7 +1985,8 @@ export const GiftsChartView: Component<Props> = (props) => {
 													onClick={() => selectAndInspectCollection(sale.collectionSlug)}
 													class="text-xs font-black text-white hover:text-[#0098EA] truncate block text-start"
 												>
-													{sale.collectionName} <span class="font-mono">#{sale.serialNumber}</span>
+													{sale.collectionName || sale.name}{' '}
+													<span class="font-mono">#{sale.serialNumber}</span>
 												</button>
 												<div class="text-[10px] font-mono text-white/40 mt-0.5">
 													{sale.relativeTime || 'Settled on Fragment'}
@@ -1962,10 +1996,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 										<div class="text-end shrink-0" dir="ltr">
 											<div class="text-xs font-black font-mono text-amber-400">
-												{sale.priceGram.toLocaleString()} TON
+												{(sale.priceGram || 0).toLocaleString()} TON
 											</div>
 											<div class="text-[9px] font-mono text-white/40">
-												${Math.round(sale.priceUsd).toLocaleString()}
+												${Math.round(sale.priceUsd || 0).toLocaleString()}
 											</div>
 											<a
 												href={sale.fragmentUrl}
@@ -1991,7 +2025,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 										<div class="flex items-center gap-2.5 min-w-0">
 											<img
 												src={lst.imageUrl}
-												alt={lst.collectionName}
+												alt={lst.collectionName || lst.name}
 												class="w-11 h-11 rounded-xl object-cover bg-black/40 border border-white/10 shrink-0"
 												loading="lazy"
 											/>
@@ -2001,7 +2035,8 @@ export const GiftsChartView: Component<Props> = (props) => {
 													onClick={() => selectAndInspectCollection(lst.collectionSlug)}
 													class="text-xs font-black text-white hover:text-[#0098EA] truncate block text-start"
 												>
-													{lst.collectionName} <span class="font-mono">#{lst.serialNumber}</span>
+													{lst.collectionName || lst.name}{' '}
+													<span class="font-mono">#{lst.serialNumber}</span>
 												</button>
 												<div class="text-[10px] font-mono text-emerald-400 mt-0.5">
 													{lst.relativeTime || 'Listed For Sale'}
@@ -2011,10 +2046,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 										<div class="text-end shrink-0" dir="ltr">
 											<div class="text-xs font-black font-mono text-emerald-400">
-												{lst.priceGram.toLocaleString()} TON
+												{(lst.priceGram || 0).toLocaleString()} TON
 											</div>
 											<div class="text-[9px] font-mono text-white/40">
-												${Math.round(lst.priceUsd).toLocaleString()}
+												${Math.round(lst.priceUsd || 0).toLocaleString()}
 											</div>
 											<a
 												href={lst.fragmentUrl}

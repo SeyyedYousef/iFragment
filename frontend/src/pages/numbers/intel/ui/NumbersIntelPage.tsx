@@ -105,6 +105,13 @@ export const NumbersIntelPage: Component = () => {
 		staleTime: 60 * 1000,
 	}));
 
+	// Pattern Analytics query (for Club Floors Tracker)
+	const patternsQuery = createQuery(() => ({
+		queryKey: ['numbersPatternAnalytics'],
+		queryFn: () => numbersApi.getPatternAnalytics(),
+		staleTime: 300 * 1000,
+	}));
+
 	const intel = () => intelQuery.data;
 	const chartData = () => chartQuery.data?.data;
 	const overview = () => overviewQuery.data;

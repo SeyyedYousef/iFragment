@@ -259,13 +259,18 @@ export interface GiftValuationReport {
 export interface UnifiedFloorBoardItem {
 	model_id: string;
 	name: string;
+	collection_name?: string;
+	collection_slug?: string;
 	gift_slug?: string;
 	norm_slug?: string;
 	gift_name?: string;
 	total_supply: number;
 	upgraded_supply?: number;
+	upgraded_count?: number;
 	best_floor_gram: number;
 	best_floor_usd: number;
+	second_floor_gram?: number;
+	spread_pct?: number;
 	best_venue_id: string;
 	best_venue_name: string;
 	price_change_24h_pct: number;
@@ -326,6 +331,7 @@ export interface TrendingModelItem {
 export interface GiftAuctionItem {
 	gift_id: string;
 	slug?: string;
+	collection_slug?: string;
 	model_name: string;
 	gift_name?: string;
 	serial_number: number;
@@ -335,6 +341,7 @@ export interface GiftAuctionItem {
 	discount_vs_floor_pct?: number;
 	ends_at: string;
 	remaining_seconds?: number;
+	time_remaining_label?: string;
 	venue: string;
 	bid_url?: string;
 	image_url?: string;
@@ -356,6 +363,7 @@ export interface MacroHistoryPoint {
 export interface GlobalGiftCatalogItem {
 	slug: string;
 	collectionSlug: string;
+	collectionName?: string;
 	name: string;
 	serialNumber: number;
 	priceGram: number;
@@ -396,6 +404,7 @@ export interface GiftsIntelResponse {
 		upgradable_collections?: number;
 		total_upgraded_onchain?: number;
 		market_cap_change_24h_pct?: number;
+		mcap_change_pct?: number;
 		volume_24h_gram?: number;
 		volume_24h_usd?: number;
 		volume_change_24h_pct?: number;

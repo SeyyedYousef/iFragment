@@ -24,7 +24,7 @@ export const NumberClubFloorsTracker: Component<Props> = (props) => {
 		const findPattern = (keys: string[]) => patternsList.find((p) => keys.includes(p.pattern_key));
 
 		return NUMBER_CLUB_TIERS.map((tier) => {
-			let floorTonNum = Number.parseFloat(tier.floorTon.replace(/,/g, '')) || baseFloorTon;
+			let floorTonNum = Number.parseFloat(String(tier.floorTon).replace(/,/g, '')) || baseFloorTon;
 			let topSaleTonNum = tier.topSaleTon;
 			let sampleNum = tier.sampleNumber;
 

@@ -104,6 +104,27 @@ jobs:
     needs: [backend-test, frontend-check, openapi-lint]
     if: github.ref == 'refs/heads/main'
     steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: backend/go.sum
+      - name: Build Production Binary on CI Runner
+        working-directory: ./backend
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o main ./cmd/api
+          gzip -9 -f main
+      - name: Upload Prebuilt Binary to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME || 'root' }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          source: "backend/main.gz"
+          target: "/opt/ifragment"
       - name: SSH and Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -116,7 +137,10 @@ jobs:
             set -e
             echo "🚀 [CI/CD] Deploying latest iFragment update..."
             cd /opt/ifragment
-            git pull origin main
-            docker compose -f docker-compose.prod.yml up -d --build
+            git fetch origin main
+            git reset --hard origin/main
+            gunzip -f /opt/ifragment/backend/main.gz
+            chmod +x /opt/ifragment/backend/main
+            docker compose -f docker-compose.prod.yml up -d --build api
             docker image prune -f
             echo "🎉 [CI/CD] iFragment is live and updated!"
