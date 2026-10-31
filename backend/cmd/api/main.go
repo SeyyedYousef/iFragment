@@ -761,7 +761,7 @@ func StartWebhookGuardian(ctx context.Context, db *repository.Database, botRepo 
 	}
 	expectedPrefix := strings.TrimSuffix(backendURL, "/") + "/api/v1/webhook/telegram/"
 
-	ticker := time.NewTicker(2 * time.Minute)
+	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
 	client := &http.Client{Timeout: 10 * time.Second}
