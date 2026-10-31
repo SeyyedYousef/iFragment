@@ -485,17 +485,22 @@ func (r *GiftsRepo) GetRecentSalesByModel(ctx context.Context, modelID string, l
 		limit = 10
 	}
 
+	altModel := strings.ReplaceAll(modelID, "_", "-")
+	if altModel == modelID {
+		altModel = strings.ReplaceAll(modelID, "-", "_")
+	}
+
 	query := `
 		SELECT id, gift_id, model_id, serial_number, venue, currency,
 		       sale_price_raw, sale_price_gram, sale_price_usd, venue_fee_pct,
 		       price_confidence, sale_date, buyer_address, seller_address, tx_hash,
 		       COALESCE(event_index, 0), ton_usd_at_sale
 		FROM gift_sales
-		WHERE model_id = $1 OR $1 = ''
+		WHERE model_id = $1 OR model_id = $2 OR $1 = ''
 		ORDER BY sale_date DESC
-		LIMIT $2`
+		LIMIT $3`
 
-	rows, err := r.db.Pool.Query(ctx, query, modelID, limit)
+	rows, err := r.db.Pool.Query(ctx, query, modelID, altModel, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -831,7 +836,7 @@ func (r *GiftsRepo) GetActiveMarketListings(ctx context.Context, modelID string,
 		FROM market_listings
 		WHERE (model_id = $1 OR model_id = $2 OR $1 = '')
 		  AND is_active = TRUE
-		  AND observed_at >= now() - interval '6 hours'
+		  AND price_gram > 0
 		ORDER BY price_gram ASC
 		LIMIT $3`
 

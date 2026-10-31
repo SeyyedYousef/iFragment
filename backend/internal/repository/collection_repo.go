@@ -705,7 +705,11 @@ func (r *CollectionRepo) GetLatestCollectionData(ctx context.Context) (*Collecti
 			stats.OwnersCount = fmt.Sprintf("%.1fK", float64(liveSnap.liveOwnersCount)/1000.0)
 		}
 		if liveSnap.liveVolume30dTON > stats.Volume30dTON {
-			stats.Volume30dTON = math.Round(liveSnap.liveVolume30dTON*10) / 10
+			v30 := liveSnap.liveVolume30dTON
+			if v30 > 1e11 {
+				v30 /= 1e9
+			}
+			stats.Volume30dTON = math.Round(v30*10) / 10
 		}
 		if liveSnap.buyNowFloorTON > 0 {
 			stats.BuyNowFloorTON = liveSnap.buyNowFloorTON
@@ -878,13 +882,13 @@ func (r *CollectionRepo) GetCollectionHistory(ctx context.Context, timeframe str
 		}
 	}
 
-	if len(points) == 0 {
+	if len(points) < 5 {
 		truncInterval := "day"
 		var intervalDays int
 		switch timeframe {
 		case "24h":
 			truncInterval = "hour"
-			intervalDays = 1
+			intervalDays = 2
 		case "7d":
 			intervalDays = 7
 		case "30d":
@@ -911,6 +915,7 @@ func (r *CollectionRepo) GetCollectionHistory(ctx context.Context, timeframe str
 
 		if hRows, hErr := r.db.Pool.Query(ctx, aggQuery); hErr == nil {
 			defer hRows.Close()
+			var salesPoints []CollectionHistoryPoint
 			for hRows.Next() {
 				var ts time.Time
 				var minP, medP, sumV float64
@@ -922,7 +927,7 @@ func (r *CollectionRepo) GetCollectionHistory(ctx context.Context, timeframe str
 					} else if timeframe == "all" {
 						label = ts.Format("Jan '06")
 					}
-					points = append(points, CollectionHistoryPoint{
+					salesPoints = append(salesPoints, CollectionHistoryPoint{
 						Timestamp:  ts.Format(time.RFC3339),
 						Label:      label,
 						FloorTon:   math.Round(minP*100) / 100,
@@ -931,6 +936,9 @@ func (r *CollectionRepo) GetCollectionHistory(ctx context.Context, timeframe str
 						SalesCount: cnt,
 					})
 				}
+			}
+			if len(salesPoints) > len(points) {
+				points = salesPoints
 			}
 		}
 	}

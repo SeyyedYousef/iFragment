@@ -142,7 +142,10 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 		const f = filterType();
 		const list = allEvents();
 		if (f === 'sales') return list.filter((e) => e.type === 'sale' || e.type === 'auction_settled');
-		if (f === 'transfers') return list.filter((e) => e.type === 'transfer');
+		if (f === 'transfers') {
+			const tr = list.filter((e) => e.type === 'transfer' || e.type === 'listing');
+			return tr.length > 0 ? tr : list;
+		}
 		return list;
 	};
 

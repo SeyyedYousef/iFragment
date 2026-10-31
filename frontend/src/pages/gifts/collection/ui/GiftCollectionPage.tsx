@@ -340,7 +340,7 @@ export const GiftCollectionPage: Component = () => {
 										<div class="flex-1 text-left rtl:text-right min-w-0">
 											<div class="text-xs font-bold truncate text-white">{coll.name}</div>
 											<div class="text-[10px] text-white/40 font-medium">
-												{t('gifts.supplyPrefix')} {coll.total_supply.toLocaleString()} ·{' '}
+												{t('gifts.supplyPrefix')} {(coll.total_supply ?? 0).toLocaleString()} ·{' '}
 												{fmt(coll.floor_gram)} TON
 											</div>
 										</div>
@@ -424,11 +424,15 @@ export const GiftCollectionPage: Component = () => {
 								<div class="text-[11px] text-white/50 flex items-center gap-2 font-medium">
 									<span>
 										{t('gifts.totalSupplyLabel')}{' '}
-										<strong class="text-white">{data()!.total_supply.toLocaleString()}</strong>
+										<strong class="text-white">
+											{(data()!.total_supply ?? 0).toLocaleString()}
+										</strong>
 									</span>
 									<span class="w-[1px] h-3 bg-white/10" />
 									<span class="text-emerald-400 font-bold">
-										{t('gifts.onChainUpgrades', { count: data()!.upgraded_count.toLocaleString() })}
+										{t('gifts.onChainUpgrades', {
+											count: (data()!.upgraded_count ?? data()!.total_supply ?? 0).toLocaleString(),
+										})}
 									</span>
 								</div>
 							</div>
@@ -1106,14 +1110,15 @@ export const GiftCollectionPage: Component = () => {
 												{t('gifts.listed')}
 											</span>
 											<span class="text-sm font-black text-white font-mono mt-0.5 block">
-												{data()!.on_sale_stats!.total_count.toLocaleString()} /{' '}
-												{data()!.total_supply.toLocaleString()}
+												{(data()!.on_sale_stats?.total_count ?? 0).toLocaleString()} /{' '}
+												{(data()!.total_supply ?? 0).toLocaleString()}
 											</span>
 										</div>
 										<div class="text-right rtl:text-left font-mono">
 											<span class="text-[10px] text-white/40 block">
 												{(
-													(data()!.on_sale_stats!.total_count / Math.max(1, data()!.total_supply)) *
+													((data()!.on_sale_stats?.total_count ?? 0) /
+														Math.max(1, data()!.total_supply ?? 1)) *
 													100
 												).toFixed(2)}
 												%
@@ -1621,7 +1626,7 @@ export const GiftCollectionPage: Component = () => {
 												: 'text-white/50 hover:text-white'
 										}`}
 									>
-										{t('gifts.models')} ({data()!.model_floors.length})
+										{t('gifts.models')} ({data()!.model_floors?.length || 0})
 									</button>
 
 									<button
@@ -1663,7 +1668,7 @@ export const GiftCollectionPage: Component = () => {
 							{/* 1. Models List */}
 							<Show when={attributeTab() === 'models'}>
 								<div class="divide-y divide-white/[0.04]">
-									<For each={data()!.model_floors}>
+									<For each={data()!.model_floors || []}>
 										{(model, i) => {
 											const tier = rarityTierBadge(model.rarity_permille);
 											return (
@@ -1707,11 +1712,11 @@ export const GiftCollectionPage: Component = () => {
 														</div>
 														<div class="text-[10px] text-white/40 flex items-center gap-2 mt-0.5">
 															<span>
-																{t('gifts.supplyPrefix')} {model.total_supply.toLocaleString()}
+																{t('gifts.supplyPrefix')} {(model.total_supply ?? 0).toLocaleString()}
 															</span>
 															<span class="w-[1px] h-2.5 bg-white/10" />
 															<span>
-																{t('gifts.rarityPrefix')} {(model.rarity_permille / 10).toFixed(1)}%
+																{t('gifts.rarityPrefix')} {((model.rarity_permille ?? 0) / 10).toFixed(1)}%
 															</span>
 														</div>
 													</div>
@@ -1746,12 +1751,12 @@ export const GiftCollectionPage: Component = () => {
 													<div>
 														<span class="font-bold text-white block">{sym.name}</span>
 														<span class="text-[10px] text-white/40">
-															{t('gifts.supplyPrefix')} {sym.total_supply.toLocaleString()}
+															{t('gifts.supplyPrefix')} {(sym.total_supply ?? 0).toLocaleString()}
 														</span>
 													</div>
 												</div>
 												<span class="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
-													{(sym.rarity_permille / 10).toFixed(1)}%
+													{((sym.rarity_permille ?? 0) / 10).toFixed(1)}%
 												</span>
 											</div>
 										)}
@@ -1935,7 +1940,7 @@ export const GiftCollectionPage: Component = () => {
 												{t('gifts.stepPrefix', { step: step.step })}
 											</span>
 											<span class="font-black text-white font-mono text-xs block mt-0.5">
-												{step.price_stars.toLocaleString()} Stars
+												{(step.price_stars ?? 0).toLocaleString()} Stars
 											</span>
 											<span class="text-[10px] text-white/40 font-mono block">
 												(≈ {fmt(step.price_gram)} TON)

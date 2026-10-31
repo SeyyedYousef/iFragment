@@ -124,10 +124,18 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 		const c = copy();
 		const totalHolders = props.overview?.unique_holders || 48842;
 		const ht = props.overview?.holder_tiers;
-		const whale = ht?.whale_count ?? Math.round(totalHolders * 0.0086);
-		const shark = ht?.shark_count ?? Math.round(totalHolders * 0.0439);
-		const dolphin = ht?.dolphin_count ?? Math.round(totalHolders * 0.171);
-		const retail = ht?.retail_count ?? Math.max(1, totalHolders - whale - shark - dolphin);
+		const htSum =
+			(ht?.whale_count ?? 0) +
+			(ht?.shark_count ?? 0) +
+			(ht?.dolphin_count ?? 0) +
+			(ht?.retail_count ?? 0);
+		const useBackendTiers = ht && htSum >= 50;
+		const whale = useBackendTiers ? ht.whale_count : Math.round(totalHolders * 0.0086);
+		const shark = useBackendTiers ? ht.shark_count : Math.round(totalHolders * 0.0439);
+		const dolphin = useBackendTiers ? ht.dolphin_count : Math.round(totalHolders * 0.171);
+		const retail = useBackendTiers
+			? ht.retail_count
+			: Math.max(1, totalHolders - whale - shark - dolphin);
 		const total = Math.max(1, retail + dolphin + shark + whale);
 
 		return [

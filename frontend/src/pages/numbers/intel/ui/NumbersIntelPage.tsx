@@ -342,7 +342,12 @@ export const NumbersIntelPage: Component = () => {
 				<Show when={activeTab() === 'analytics'}>
 					<div class="space-y-4">
 						<NumberCollectionKpis overview={overview()} />
-						<NumberClubFloorsTracker onSelectNumber={handleSelectNumber} />
+						<NumberClubFloorsTracker
+							patterns={patternsQuery.data}
+							overview={overview()}
+							rate={liveFloor().rate}
+							onSelectNumber={handleSelectNumber}
+						/>
 						<NumberHoldersView overview={overview()} />
 						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-4 backdrop-blur-xl shadow-xl">
 							<div class="flex items-center justify-between mb-3">

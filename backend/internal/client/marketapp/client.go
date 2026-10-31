@@ -560,22 +560,34 @@ func mapMarketAppCollectionToData(col MarketAppCollection) *CollectionData {
 	}
 	if col.ExtraData.Floor != nil {
 		if v, err := strconv.ParseFloat(strings.TrimSpace(*col.ExtraData.Floor), 64); err == nil {
+			if v > 1e10 {
+				v /= 1e9
+			}
 			out.FloorPrice = v
 		}
 	}
 	if col.ExtraData.RentFloor != nil {
 		if v, err := strconv.ParseFloat(strings.TrimSpace(*col.ExtraData.RentFloor), 64); err == nil {
+			if v > 1e10 {
+				v /= 1e9
+			}
 			out.RentFloorPrice = v
 		}
 	}
 	if col.ExtraData.Volume7d != nil {
 		if v, err := strconv.ParseFloat(strings.TrimSpace(*col.ExtraData.Volume7d), 64); err == nil {
+			if v > 1e11 {
+				v /= 1e9
+			}
 			out.Volume7d = v
 			out.Volume24h = v / 7.0
 		}
 	}
 	if col.ExtraData.Volume30d != nil {
 		if v, err := strconv.ParseFloat(strings.TrimSpace(*col.ExtraData.Volume30d), 64); err == nil {
+			if v > 1e11 {
+				v /= 1e9
+			}
 			out.Volume30d = v
 			out.TotalVolume = v
 		}
