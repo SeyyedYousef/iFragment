@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ifragment-cache-v4';
+const CACHE_NAME = 'ifragment-cache-v5';
 const ASSETS_TO_CACHE = [
 	'/',
 	'/manifest.webmanifest',
@@ -68,7 +68,7 @@ self.addEventListener('fetch', (event) => {
 				})
 				.catch(() => {
 					return caches.match('/offline.html') || caches.match('/index.html');
-				})
+				}),
 		);
 		return;
 	}

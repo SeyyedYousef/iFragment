@@ -4,7 +4,7 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover"/>
     <meta name="theme-color" content="#000000"/>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.telegram-user-content.org https://*.telegram.org https://*.t.me https://*.telesco.pe https://api.changes.tg https://*.changes.tg https://fragment.com https://*.fragment.com https://*.tonconnect.org https://api.ifragment.app https://*.sslip.io; script-src 'self' 'unsafe-inline' https://telegram.org https://*.telegram.org; connect-src 'self' ws: wss: https://api.ifragment.app https://*.sslip.io https://*.tonapi.io https://bridge.tonapi.io wss://*.tonconnect.org https://*.tonconnect.org https://*.fragment.com https://api.changes.tg; frame-src 'self' https://fragment.com https://*.tonconnect.org;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.telegram-user-content.org https://telegram.org https://*.telegram.org https://t.me https://*.t.me https://*.telesco.pe https://api.changes.tg https://*.changes.tg https://fragment.com https://*.fragment.com https://*.tonconnect.org https://api.ifragment.app https://*.sslip.io; script-src 'self' 'unsafe-inline' https://telegram.org https://*.telegram.org; connect-src 'self' ws: wss: https://api.ifragment.app https://*.sslip.io https://*.tonapi.io https://bridge.tonapi.io wss://*.tonconnect.org https://*.tonconnect.org https://*.fragment.com https://api.changes.tg; frame-src 'self' https://fragment.com https://*.tonconnect.org;">
     <meta name="description" content="iFragment — Professional Telegram username analytics and marketplace intelligence platform for the TON ecosystem."/>
     <meta name="robots" content="index, follow"/>
     <meta property="og:title" content="iFragment — Premium Analytics"/>
@@ -15,11 +15,13 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
     <link rel="manifest" href="/manifest.webmanifest"/>
     
-    <!-- Load fonts directly in head to prevent FOUC (Flash of Unstyled Content) -->
+    <!-- Preload self-hosted Material Symbols Outlined so all UI icons/symbols render from byte 1 without Google CDN delays -->
+    <link rel="preload" href="/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!-- Non-blocking supplemental display/monospace web fonts (primary Vazirmatn, Manrope, Noto Sans SC & Material Icons are self-hosted) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 
     <style>
       /* ===== iFragment Splash Screen (Zero-JS, First Paint) ===== */
@@ -92,22 +94,24 @@
       }
     </style>
 
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
-      // Force Telegram WebApp header color as early as possible only when running inside real Telegram (v6.1+)
-      if (
-        window.Telegram &&
-        window.Telegram.WebApp &&
-        window.Telegram.WebApp.initData &&
-        typeof window.Telegram.WebApp.isVersionAtLeast === 'function' &&
-        window.Telegram.WebApp.isVersionAtLeast('6.1')
-      ) {
-        try {
-          window.Telegram.WebApp.setHeaderColor('#000000');
-          window.Telegram.WebApp.setBackgroundColor('#000000');
-        } catch(e) {}
-      }
+      window.__applyTgHeader = function () {
+        // Force Telegram WebApp header color as early as possible only when running inside real Telegram (v6.1+)
+        if (
+          window.Telegram &&
+          window.Telegram.WebApp &&
+          window.Telegram.WebApp.initData &&
+          typeof window.Telegram.WebApp.isVersionAtLeast === 'function' &&
+          window.Telegram.WebApp.isVersionAtLeast('6.1')
+        ) {
+          try {
+            window.Telegram.WebApp.setHeaderColor('#000000');
+            window.Telegram.WebApp.setBackgroundColor('#000000');
+          } catch (e) {}
+        }
+      };
     </script>
+    <script async src="https://telegram.org/js/telegram-web-app.js" onload="window.__applyTgHeader&&window.__applyTgHeader()"></script>
     <script>
       // زمان شروع، برای محاسبه حداقل مدت نمایش splash
       window.__SPLASH_START__ = Date.now();
@@ -118,13 +122,14 @@
         if (el) el.classList.add('splash-hidden');
       }, 12000);
     </script>
-    <script type="module" crossorigin src="/assets/index-Cw13DEkS.js"></script>
+    <script type="module" crossorigin src="/assets/index-DRY15HV7.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-data-CGxhlzsZ.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-others-BMRqctl7.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-solid-C-uhCkmR.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-telegram-D9FGs9jG.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-others-PVEr1qOI.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-solid-BxKotZha.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-telegram-ls5Ub-H4.js">
     <link rel="modulepreload" crossorigin href="/assets/vendor-sentry-Y1uabRNM.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-Dbb50Gm7.css">
+    <link rel="stylesheet" crossorigin href="/assets/vendor-others-gNwrcHBN.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-BuE3-cOk.css">
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
