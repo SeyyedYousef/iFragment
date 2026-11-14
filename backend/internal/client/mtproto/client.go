@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
@@ -40,8 +41,9 @@ type Client interface {
 }
 
 type RealClient struct {
-	client *telegram.Client
-	api    *tg.Client
+	client       *telegram.Client
+	api          *tg.Client
+	isBotSession atomic.Bool
 }
 
 // EnsureSessionDir returns the resolved session directory and ensures it exists.
@@ -160,30 +162,82 @@ func NewRealClient(ctx context.Context) (Client, error) {
 	return client, nil
 }
 
-// CheckUsername uses MTProto account.checkUsername
+// CheckUsername uses MTProto account.checkUsername, falling back to
+// contacts.resolveUsername when running under a bot session (BOT_METHOD_INVALID).
 func (c *RealClient) CheckUsername(ctx context.Context, username string) (Status, error) {
+	if c.isBotSession.Load() {
+		return c.checkUsernameViaResolve(ctx, username)
+	}
+
 	ok, err := c.api.AccountCheckUsername(ctx, username)
-	if err != nil {
-		if rpcErr, ok := tgerr.As(err); ok {
-			switch rpcErr.Type {
-			case "USERNAME_OCCUPIED":
-				return StatusOccupied, nil
-			case "USERNAME_PURCHASE_AVAILABLE":
-				return StatusPurchase, nil
-			case "USERNAME_INVALID":
-				return StatusInvalid, nil
-			}
-			if rpcErr.IsCode(420) || strings.HasPrefix(rpcErr.Type, "FLOOD_WAIT") {
-				return StatusUnknown, fmt.Errorf("rate_limit_exceeded: %w", err)
-			}
+	if err == nil {
+		if ok {
+			return StatusAvailable, nil
 		}
-		return StatusUnknown, err
+		// Fallback if ok is false without an explicit RPC error
+		return StatusOccupied, nil
 	}
-	if ok {
-		return StatusAvailable, nil
+
+	if rpcErr, isRPC := tgerr.As(err); isRPC && rpcErr.Type == "BOT_METHOD_INVALID" {
+		if c.isBotSession.CompareAndSwap(false, true) {
+			slog.Warn("MTProto account.checkUsername rejected for bot session (BOT_METHOD_INVALID); falling back to contacts.resolveUsername")
+		}
+		return c.checkUsernameViaResolve(ctx, username)
 	}
-	// Fallback if ok is false but no error
-	return StatusOccupied, nil
+
+	status, handled, mappedErr := classifyUsernameRPCError(err)
+	if handled {
+		return status, mappedErr
+	}
+	return StatusUnknown, err
+}
+
+func (c *RealClient) checkUsernameViaResolve(ctx context.Context, username string) (Status, error) {
+	peer, err := c.ResolveUsername(ctx, username)
+	return classifyResolvedUsername(username, peer, err)
+}
+
+func classifyUsernameRPCError(err error) (Status, bool, error) {
+	rpcErr, isRPC := tgerr.As(err)
+	if !isRPC {
+		return StatusUnknown, false, err
+	}
+	switch rpcErr.Type {
+	case "USERNAME_OCCUPIED":
+		return StatusOccupied, true, nil
+	case "USERNAME_PURCHASE_AVAILABLE":
+		return StatusPurchase, true, nil
+	case "USERNAME_INVALID":
+		return StatusInvalid, true, nil
+	}
+	if rpcErr.IsCode(420) || strings.HasPrefix(rpcErr.Type, "FLOOD_WAIT") {
+		return StatusUnknown, true, fmt.Errorf("rate_limit_exceeded: %w", err)
+	}
+	return StatusUnknown, false, err
+}
+
+func classifyResolvedUsername(username string, peer *tg.ContactsResolvedPeer, err error) (Status, error) {
+	if err == nil && peer != nil {
+		return StatusOccupied, nil
+	}
+
+	if err != nil {
+		status, handled, mappedErr := classifyUsernameRPCError(err)
+		if handled {
+			return status, mappedErr
+		}
+		if rpcErr, isRPC := tgerr.As(err); !isRPC || rpcErr.Type != "USERNAME_NOT_OCCUPIED" {
+			return StatusUnknown, err
+		}
+	}
+
+	if len(username) < 4 || len(username) > 32 {
+		return StatusInvalid, nil
+	}
+	if len(username) < 5 {
+		return StatusPurchase, nil
+	}
+	return StatusAvailable, nil
 }
 
 func (c *RealClient) ResolveUsername(ctx context.Context, username string) (*tg.ContactsResolvedPeer, error) {
