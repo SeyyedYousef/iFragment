@@ -1397,6 +1397,50 @@ func (r *GiftsRepo) GetBackdropFloor(ctx context.Context, modelID, backdropName 
 	return decimal.Zero, false
 }
 
+// GetModelFloor finds the lowest active listing price (or recent sale price) for a specific collection and 3D model variant
+func (r *GiftsRepo) GetModelFloor(ctx context.Context, modelID, modelVariantName string) (decimal.Decimal, bool) {
+	if r.db == nil || r.db.Pool == nil || strings.TrimSpace(modelVariantName) == "" {
+		return decimal.Zero, false
+	}
+
+	altModel := strings.ReplaceAll(modelID, "_", "-")
+	if altModel == modelID {
+		altModel = strings.ReplaceAll(modelID, "-", "_")
+	}
+
+	// 1. Check lowest active listing with matching 3D model variant
+	queryListings := `
+		SELECT MIN(price_gram)
+		FROM market_listings
+		WHERE (model_id = $1 OR model_id = $2 OR $1 = '')
+		  AND is_active = TRUE
+		  AND LOWER(TRIM(model_name)) = LOWER(TRIM($3))
+		  AND price_gram > 0`
+
+	var minPrice *decimal.Decimal
+	err := r.db.Pool.QueryRow(ctx, queryListings, modelID, altModel, modelVariantName).Scan(&minPrice)
+	if err == nil && minPrice != nil && minPrice.GreaterThan(decimal.Zero) {
+		return *minPrice, true
+	}
+
+	// 2. Check recent sales in last 14 days with matching 3D model variant
+	querySales := `
+		SELECT MIN(sale_price_gram)
+		FROM gift_sales
+		WHERE (model_id = $1 OR model_id = $2 OR $1 = '')
+		  AND LOWER(TRIM(model_name)) = LOWER(TRIM($3))
+		  AND sale_date >= now() - interval '14 days'
+		  AND sale_price_gram > 0`
+
+	var minSalePrice *decimal.Decimal
+	err = r.db.Pool.QueryRow(ctx, querySales, modelID, altModel, modelVariantName).Scan(&minSalePrice)
+	if err == nil && minSalePrice != nil && minSalePrice.GreaterThan(decimal.Zero) {
+		return *minSalePrice, true
+	}
+
+	return decimal.Zero, false
+}
+
 // GetOHLCVCandles computes daily OHLCV candlesticks from real executed gift sales
 func (r *GiftsRepo) GetOHLCVCandles(ctx context.Context, modelID string, days int) ([]OHLCVCandleRecord, error) {
 	if r.db == nil || r.db.Pool == nil {

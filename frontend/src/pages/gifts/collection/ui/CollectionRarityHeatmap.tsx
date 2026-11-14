@@ -22,6 +22,18 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 
 	const rate = () => props.gramUsdRate || 0;
 
+	const getTierLabel = (tier: string) => {
+		const keyMap: Record<string, string> = {
+			all: 'common.all',
+			Mythic: 'giftsHeatmap.tierMythic',
+			Legendary: 'giftsHeatmap.tierLegendary',
+			Epic: 'giftsHeatmap.tierEpic',
+			Rare: 'giftsHeatmap.tierRare',
+			Common: 'giftsHeatmap.tierCommon',
+		};
+		return keyMap[tier] ? t(keyMap[tier]) : tier;
+	};
+
 	// Extract unique models and backdrops for 2D matrix
 	const uniqueModels = createMemo(() => {
 		const set = new Set<string>();
@@ -125,7 +137,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 		}
 		if (t === 'epic') {
 			return {
-				bg: 'bg-gradient-to-br from-sky-600/70 via-indigo-600/60 to-blue-700/70 text-white border-sky-400/40 shadow-[0_0_8px_rgba(56,189,248,0.2)]',
+				bg: 'bg-gradient-to-br from-sky-600/70 via-[#2473cc]/65 to-blue-700/70 text-white border-sky-400/40 shadow-[0_0_8px_rgba(56,189,248,0.2)]',
 				badge: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
 				dot: 'bg-sky-400',
 			};
@@ -152,18 +164,18 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 	};
 
 	return (
-		<div class="bg-[#12141C]/90 border border-white/[0.08] rounded-3xl p-4 sm:p-5 shadow-xl space-y-4 text-start relative overflow-hidden backdrop-blur-xl">
+		<div class="bg-[#1b232d]/95 border border-white/[0.08] rounded-3xl p-4 sm:p-5 shadow-xl space-y-4 text-start relative overflow-hidden backdrop-blur-xl">
 			{/* ═══ Header & Mode Switcher ═══ */}
 			<div class="flex items-center justify-between pb-3 border-b border-white/[0.06] flex-wrap gap-2">
 				<div class="flex items-center gap-2">
-					<div class="w-8 h-8 rounded-xl bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA]">
+					<div class="w-8 h-8 rounded-xl bg-[#2990ff]/15 border border-[#2990ff]/30 flex items-center justify-center text-[#2990ff]">
 						<span class="material-symbols-outlined text-lg">grid_view</span>
 					</div>
 					<div>
 						<h3 class="text-xs sm:text-sm font-black text-white flex items-center gap-1.5">
-							<span>{t('gifts.rarityHeatmapTitle') || 'نقشه حرارتی کمیابی صفات'}</span>
+							<span>{t('gifts.rarityHeatmapTitle')}</span>
 							<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400 font-mono">
-								2D MATRIX
+								{t('giftsHeatmap.matrix2dBadge')}
 							</span>
 						</h3>
 						<span class="text-[10px] text-white/40 block">
@@ -184,7 +196,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 						}}
 						class={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
 							viewMode() === 'matrix'
-								? 'bg-[#0098EA] text-white shadow'
+								? 'bg-[#2990ff] text-white shadow'
 								: 'text-white/40 hover:text-white'
 						}`}
 					>
@@ -201,7 +213,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 						}}
 						class={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
 							viewMode() === 'cards'
-								? 'bg-[#0098EA] text-white shadow'
+								? 'bg-[#2990ff] text-white shadow'
 								: 'text-white/40 hover:text-white'
 						}`}
 					>
@@ -265,7 +277,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 					<div class="space-y-2.5">
 						<div class="text-[10px] text-white/40 flex items-center justify-between px-1">
 							<span>{layaT(HEATMAP_I18N.rowsColsDesc)}</span>
-							<span class="text-[#0098EA] font-semibold">{layaT(HEATMAP_I18N.tapToInspect)}</span>
+							<span class="text-[#2990ff] font-semibold">{layaT(HEATMAP_I18N.tapToInspect)}</span>
 						</div>
 
 						<div class="overflow-x-auto rounded-2xl border border-white/[0.07] bg-black/40 p-2 scrollbar-thin">
@@ -316,7 +328,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 																	}}
 																	class={`w-full h-11 rounded-xl p-1 flex flex-col items-center justify-center transition-all active:scale-95 border ${
 																		theme.bg
-																	} ${isSelected ? 'ring-2 ring-[#0098EA] scale-105 z-10' : ''}`}
+																	} ${isSelected ? 'ring-2 ring-[#2990ff] scale-105 z-10' : ''}`}
 																	title={`${model} × ${backdrop}: ${cell?.floor_gram} TON (${cell?.rarity_tier})`}
 																>
 																	<span class="text-[10px] font-black font-mono leading-none">
@@ -342,19 +354,20 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 						{/* Heatmap Legend */}
 						<div class="flex items-center justify-between text-[9px] text-white/40 pt-1 px-1 font-mono">
 							<span class="flex items-center gap-1">
-								<span class="w-2 h-2 rounded-full bg-white/20" /> Common
+								<span class="w-2 h-2 rounded-full bg-white/20" /> {t('giftsHeatmap.tierCommon')}
 							</span>
 							<span class="flex items-center gap-1">
-								<span class="w-2 h-2 rounded-full bg-emerald-500" /> Rare
+								<span class="w-2 h-2 rounded-full bg-emerald-500" /> {t('giftsHeatmap.tierRare')}
 							</span>
 							<span class="flex items-center gap-1">
-								<span class="w-2 h-2 rounded-full bg-sky-500" /> Epic
+								<span class="w-2 h-2 rounded-full bg-sky-500" /> {t('giftsHeatmap.tierEpic')}
 							</span>
 							<span class="flex items-center gap-1">
-								<span class="w-2 h-2 rounded-full bg-amber-500" /> Legendary
+								<span class="w-2 h-2 rounded-full bg-amber-500" /> {t('giftsHeatmap.tierLegendary')}
 							</span>
 							<span class="flex items-center gap-1">
-								<span class="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_6px_#06b6d4]" /> Mythic
+								<span class="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_6px_#06b6d4]" />{' '}
+								{t('giftsHeatmap.tierMythic')}
 							</span>
 						</div>
 					</div>
@@ -378,11 +391,11 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 									}}
 									class={`px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all shrink-0 ${
 										tierFilter().toLowerCase() === tier.toLowerCase()
-											? 'bg-[#0098EA] text-white shadow'
+											? 'bg-[#2990ff] text-white shadow'
 											: 'bg-white/[0.03] text-white/50 hover:text-white border border-white/5'
 									}`}
 								>
-									{tier === 'all' ? t('common.all') || 'همه' : tier}
+									{getTierLabel(tier)}
 								</button>
 							)}
 						</For>
@@ -456,7 +469,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 					const c = selectedCell()!;
 					const theme = getCellTheme(c.rarity_tier);
 					return (
-						<div class="p-3.5 rounded-2xl bg-gradient-to-br from-[#121624] via-[#0E121C] to-[#0A0D15] border border-[#0098EA]/40 space-y-3 shadow-2xl relative overflow-hidden animate-in fade-in">
+						<div class="p-3.5 rounded-2xl bg-gradient-to-br from-[#121624] via-[#0E121C] to-[#0A0D15] border border-[#2990ff]/40 space-y-3 shadow-2xl relative overflow-hidden animate-in fade-in">
 							<div class="flex items-center justify-between border-b border-white/10 pb-2">
 								<div class="flex items-center gap-2">
 									<span class={`w-2 h-2 rounded-full ${theme.dot} animate-pulse`} />
@@ -507,7 +520,7 @@ export const CollectionRarityHeatmap: Component<Props> = (props) => {
 										haptic.impact('light');
 									} catch {}
 								}}
-								class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#0081C8] hover:brightness-110 text-white font-black text-xs text-center shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+								class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#2990ff] to-[#0081C8] hover:brightness-110 text-white font-black text-xs text-center shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
 							>
 								<span>{layaT(HEATMAP_I18N.inspectCertifyModel)}</span>
 								<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_forward</span>

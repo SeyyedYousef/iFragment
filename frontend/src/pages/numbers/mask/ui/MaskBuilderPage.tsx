@@ -5,6 +5,7 @@ import { numbersApi } from '@/entities/numbers/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import { FragStatusPill, TonAmount } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 export const MaskBuilderPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -83,7 +84,6 @@ export const MaskBuilderPage: Component = () => {
 		} else {
 			const char = asciiVal.slice(-1);
 			if (char >= '0' && char <= '9') {
-				// In 4-digit mode, first digit must be 8 for Telegram genesis
 				if (lengthMode() === '4' && index === 0 && char !== '8') {
 					current[index] = '8';
 					setGenesisWarning(true);
@@ -94,7 +94,6 @@ export const MaskBuilderPage: Component = () => {
 				} else {
 					current[index] = char;
 				}
-				// Auto-advance focus to next slot
 				if (index < maxLen - 1 && inputRefs[index + 1]) {
 					inputRefs[index + 1]?.focus();
 					inputRefs[index + 1]?.select();
@@ -134,8 +133,6 @@ export const MaskBuilderPage: Component = () => {
 		let rawDigits = toAscii(text).replace(/\D/g, '');
 		const trimmedText = text.trim();
 
-		// Only strip leading 888 prefix if the input is explicitly a full Telegram number (N-24):
-		// e.g. starts with "+888", or has 11 digits (3 prefix + 8 suffix), or 7 digits (3 prefix + 4 suffix)
 		if (trimmedText.startsWith('+888')) {
 			rawDigits = rawDigits.slice(3);
 		} else if (rawDigits.length === 11 && rawDigits.startsWith('888')) {
@@ -150,7 +147,6 @@ export const MaskBuilderPage: Component = () => {
 			try {
 				haptic.impact('medium');
 			} catch {}
-			// Cleanly overwrite slots, resetting remaining to '*'
 			const next = Array(maxLen).fill('*');
 			for (let i = 0; i < maxLen; i++) {
 				if (i < rawDigits.length) {
@@ -191,24 +187,21 @@ export const MaskBuilderPage: Component = () => {
 	};
 
 	return (
-		<div class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
-			{/* Ambient Glow */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#0098EA]/20 via-[#AF52DE]/10 to-transparent blur-[90px] pointer-events-none z-0" />
-
+		<div class="frag-canvas pb-36 text-white min-h-screen relative selection:bg-[#2990ff]/30 overflow-x-hidden">
 			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
 				{/* Top Navigation */}
-				<div class="flex items-center justify-between mb-4">
-					<div class="flex items-center gap-2.5">
-						<div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#0098EA] to-[#00c6ff] p-[1px] shadow-lg shadow-[#0098EA]/20 flex items-center justify-center">
-							<div class="w-full h-full bg-[#0d111a] rounded-2xl flex items-center justify-center">
-								<span class="material-symbols-outlined text-[#0098EA] text-[22px]">tune</span>
-							</div>
+				<div class="flex items-center justify-between gap-2 mb-4">
+					<div class="flex items-center gap-2.5 min-w-0">
+						<div class="w-10 h-10 rounded-[11px] bg-[#2990ff]/12 border border-[#2990ff]/30 flex items-center justify-center shrink-0">
+							<span class="material-symbols-outlined text-[#2990ff] text-[20px]">tune</span>
 						</div>
-						<div>
-							<h1 class="text-[18px] font-black tracking-tight text-white">
+						<div class="min-w-0">
+							<h1 class="text-[16px] font-semibold tracking-[-0.015em] text-white truncate">
 								{t('numbers.maskBuilderTitle')}
 							</h1>
-							<p class="text-[11px] font-medium text-white/50">{t('numbers.maskBuilderSub')}</p>
+							<p class="text-[11.5px] font-medium text-[#8c9ba5] truncate">
+								{t('numbers.maskBuilderSub')}
+							</p>
 						</div>
 					</div>
 
@@ -220,54 +213,54 @@ export const MaskBuilderPage: Component = () => {
 							} catch {}
 							navigate('/numbers/intel');
 						}}
-						class="px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-bold text-white/80 transition-all active:scale-95"
+						class="px-3 py-1.5 rounded-[9px] frag-btn-secondary text-[11.5px] font-semibold shrink-0"
 					>
 						{t('numbers.intelOverview')}
 					</button>
 				</div>
 
 				{/* 4-Digit vs 8-Digit Length Segmented Switch */}
-				<div class="grid grid-cols-2 bg-[#12141C]/90 p-1 rounded-2xl border border-white/10 mb-4 shadow-lg">
+				<div class="grid grid-cols-2 frag-inset p-1 rounded-[12px] mb-3.5 gap-1">
 					<button
 						type="button"
 						onClick={() => switchLengthMode('8')}
-						class={`py-1.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+						class={`py-2 px-3 rounded-[9px] text-[12px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
 							lengthMode() === '8'
-								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25'
-								: 'text-white/50 hover:text-white'
+								? 'bg-[#2990ff] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
+								: 'text-[#8c9ba5] hover:text-white'
 						}`}
 					>
 						<span>{t('numbers.mode8Digit') || '8-Digit Standard'}</span>
-						<span class="text-[10px] opacity-70 font-mono font-normal">(135.5k)</span>
+						<span class="text-[10.5px] opacity-75 font-mono tabular-nums">(135.5k)</span>
 					</button>
 					<button
 						type="button"
 						onClick={() => switchLengthMode('4')}
-						class={`py-1.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+						class={`py-2 px-3 rounded-[9px] text-[12px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
 							lengthMode() === '4'
-								? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/25'
-								: 'text-white/50 hover:text-white'
+								? 'bg-[#2990ff] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
+								: 'text-[#8c9ba5] hover:text-white'
 						}`}
 					>
 						<span>{t('numbers.mode4Digit') || '4-Digit Genesis'}</span>
-						<span class="text-[10px] opacity-70 font-mono font-normal">(1,000)</span>
+						<span class="text-[10.5px] opacity-75 font-mono tabular-nums">(1,000)</span>
 					</button>
 				</div>
 
-				{/* Visual Selector Box */}
-				<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 mb-4 shadow-xl">
+				{/* Tactile Dialpad Mask Box */}
+				<div class="frag-card-elevated rounded-[16px] p-4 mb-4">
 					<div class="flex items-center justify-between mb-3">
-						<span class="text-xs font-bold text-white/60">{t('numbers.patternQuery')}:</span>
-						<span class="text-xs font-mono font-black text-[#0098EA]">{currentMaskString()}</span>
+						<span class="text-[12px] font-medium text-[#8c9ba5]">{t('numbers.patternQuery')}:</span>
+						<span class="text-[12px] font-mono font-semibold text-[#2990ff] tabular-nums" dir="ltr">
+							{currentMaskString()}
+						</span>
 					</div>
 
-					<div class="flex items-center gap-1.5 justify-center mb-4" dir="ltr">
-						{/* +888 Fixed Badge */}
-						<div class="px-2.5 py-3 rounded-2xl bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] font-mono font-black text-sm flex items-center justify-center select-none">
+					<div class="flex items-center gap-1.5 justify-center mb-3.5" dir="ltr">
+						<div class="px-2.5 h-11 rounded-[10px] bg-[#2990ff]/14 border border-[#2990ff]/35 text-[#2990ff] font-mono font-semibold text-[13.5px] flex items-center justify-center select-none tabular-nums">
 							+888
 						</div>
 
-						{/* Interactive Slot Inputs */}
 						<For each={currentSlots()}>
 							{(slot, idx) => (
 								<input
@@ -283,10 +276,10 @@ export const MaskBuilderPage: Component = () => {
 									onInput={(e) => handleSlotChange(idx(), e.currentTarget.value)}
 									onKeyDown={(e) => handleKeyDown(idx(), e)}
 									onPaste={handlePaste}
-									class={`w-8 h-12 rounded-xl text-center font-mono font-black text-base focus:outline-none transition-all ${
+									class={`w-8 sm:w-9 h-11 rounded-[10px] text-center font-mono font-semibold text-[16px] tabular-nums focus:outline-none transition-all ${
 										slot === '*'
-											? 'bg-white/[0.04] text-white/40 border border-white/10 focus:border-[#0098EA] focus:bg-black/60'
-											: 'bg-[#0098EA]/15 text-white border border-[#0098EA]/50 focus:border-[#0098EA] focus:ring-1 focus:ring-[#0098EA]'
+											? 'bg-[#11161d] text-[#60707c] border border-white/[0.08] focus:border-[#2990ff]'
+											: 'bg-[#2990ff]/14 text-white border border-[#2990ff]/60 focus:border-[#2990ff] ring-1 ring-[#2990ff]/30'
 									}`}
 								/>
 							)}
@@ -294,8 +287,8 @@ export const MaskBuilderPage: Component = () => {
 					</div>
 
 					<Show when={genesisWarning()}>
-						<div class="mb-3 px-3 py-2 rounded-xl bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs flex items-center gap-2 animate-pulse">
-							<span class="material-symbols-outlined text-sm">info</span>
+						<div class="mb-3 px-3 py-2 rounded-[9px] bg-[#ffb340]/12 border border-[#ffb340]/30 text-[#ffb340] text-[11.5px] font-medium flex items-center gap-2">
+							<span class="material-symbols-outlined text-[15px]">info</span>
 							<span>
 								{t('numbers.genesisWarning') || 'Genesis numbers always start with 8 (+888 8XXX)'}
 							</span>
@@ -303,13 +296,13 @@ export const MaskBuilderPage: Component = () => {
 					</Show>
 
 					{/* Quick Preset Pattern Chips */}
-					<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+					<div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
 						<For each={lengthMode() === '4' ? PRESET_PATTERNS_4 : PRESET_PATTERNS_8}>
 							{(preset) => (
 								<button
 									type="button"
 									onClick={() => applyPreset(preset.mask)}
-									class="px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-[11px] font-bold text-white/70 whitespace-nowrap active:scale-95 transition-all"
+									class="px-2.5 py-1 rounded-[7px] frag-btn-secondary text-[11px] font-medium text-[#d7e0e8] whitespace-nowrap active:scale-95"
 								>
 									{preset.label}
 								</button>
@@ -318,9 +311,9 @@ export const MaskBuilderPage: Component = () => {
 					</div>
 				</div>
 
-				{/* Filter Chips: All | For Sale | Taken (Professional Dots without emojis) */}
-				<div class="flex items-center justify-between mb-3">
-					<div class="flex items-center gap-1 bg-[#12141C]/80 p-1 rounded-2xl border border-white/10 text-xs font-bold">
+				{/* Filter Chips & Counter */}
+				<div class="flex items-center justify-between gap-2 mb-3">
+					<div class="flex items-center gap-1 frag-inset p-1 rounded-[11px] text-[11.5px] font-semibold">
 						<button
 							type="button"
 							onClick={() => {
@@ -329,8 +322,10 @@ export const MaskBuilderPage: Component = () => {
 								} catch {}
 								setFilterStatus('all');
 							}}
-							class={`px-3 py-1 rounded-xl transition-all ${
-								filterStatus() === 'all' ? 'bg-[#0098EA] text-white font-black' : 'text-white/50'
+							class={`px-2.5 py-1 rounded-[8px] transition-all ${
+								filterStatus() === 'all'
+									? 'bg-[#2990ff] text-white'
+									: 'text-[#8c9ba5] hover:text-white'
 							}`}
 						>
 							{t('numbers.allResults')}
@@ -343,13 +338,13 @@ export const MaskBuilderPage: Component = () => {
 								} catch {}
 								setFilterStatus('for_sale');
 							}}
-							class={`px-3 py-1 rounded-xl transition-all flex items-center gap-1.5 ${
+							class={`px-2.5 py-1 rounded-[8px] transition-all flex items-center gap-1.5 ${
 								filterStatus() === 'for_sale'
-									? 'bg-amber-500 text-white font-black'
-									: 'text-white/50'
+									? 'bg-[#232d3a] text-[#ffb340] border border-[#ffb340]/30'
+									: 'text-[#8c9ba5] hover:text-white'
 							}`}
 						>
-							<span class="w-2 h-2 rounded-full bg-amber-400" />
+							<span class="w-1.5 h-1.5 rounded-full bg-[#ffb340]" />
 							<span>{t('numbers.forSale')}</span>
 						</button>
 						<button
@@ -360,43 +355,50 @@ export const MaskBuilderPage: Component = () => {
 								} catch {}
 								setFilterStatus('taken');
 							}}
-							class={`px-3 py-1 rounded-xl transition-all flex items-center gap-1.5 ${
-								filterStatus() === 'taken' ? 'bg-slate-700 text-white font-black' : 'text-white/50'
+							class={`px-2.5 py-1 rounded-[8px] transition-all flex items-center gap-1.5 ${
+								filterStatus() === 'taken'
+									? 'bg-[#232d3a] text-white border border-white/[0.1]'
+									: 'text-[#8c9ba5] hover:text-white'
 							}`}
 						>
-							<span class="w-2 h-2 rounded-full bg-slate-400" />
+							<span class="w-1.5 h-1.5 rounded-full bg-[#8c9ba5]" />
 							<span>{t('numbers.taken')}</span>
 						</button>
 					</div>
 
-					<div class="text-[11px] font-mono text-white/40">
-						{filteredResults().length} {t('numbers.allResults')?.toLowerCase() || 'matches'}{' '}
-						(&lt;150ms)
+					<div class="text-[11px] font-mono text-[#60707c] tabular-nums">
+						{filteredResults().length} {t('numbers.allResults')?.toLowerCase() || 'matches'}
 					</div>
 				</div>
 
-				{/* Results List */}
+				{/* Matched Numbers List */}
 				<div class="space-y-2">
 					<For each={filteredResults()}>
 						{(item) => (
-							<div
+							<button
+								type="button"
 								onClick={() => {
 									try {
 										haptic.impact('light');
 									} catch {}
 									navigate(`/numbers/report?n=${encodeURIComponent(item.number)}`);
 								}}
-								class="bg-[#12141C]/80 hover:bg-[#181b26] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-3.5 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all shadow-lg"
+								class="w-full frag-card-interactive rounded-[12px] p-3.5 flex items-center justify-between gap-3 text-start active:scale-[0.99]"
 							>
-								<div class="flex items-center gap-3">
-									<div
-										class={`w-2.5 h-2.5 rounded-full ${
-											item.status === 'for_sale' ? 'bg-amber-400 animate-pulse' : 'bg-slate-600'
+								<div class="flex items-center gap-3 min-w-0">
+									<span
+										class={`w-2 h-2 rounded-full shrink-0 ${
+											item.status === 'for_sale' ? 'bg-[#ffb340]' : 'bg-[#60707c]'
 										}`}
 									/>
-									<div>
-										<div class="text-sm font-black text-white font-mono">{item.display_number}</div>
-										<div class="text-[10px] text-white/40 flex items-center gap-1.5 mt-0.5 font-mono">
+									<div class="min-w-0">
+										<div
+											class="text-[14px] font-semibold text-white font-mono tabular-nums truncate"
+											dir="ltr"
+										>
+											{item.display_number}
+										</div>
+										<div class="text-[11px] text-[#8c9ba5] flex items-center gap-1.5 mt-0.5 font-mono tabular-nums">
 											<span>{item.color}</span>
 											<span>·</span>
 											<span>Rarity {item.rarity_score}/100</span>
@@ -404,22 +406,21 @@ export const MaskBuilderPage: Component = () => {
 									</div>
 								</div>
 
-								<div class="text-right rtl:text-left">
-									<Show when={item.status === 'for_sale' && item.listing_price_ton}>
-										<div class="text-xs font-black text-amber-400 font-mono">
-											{formatTon(item.listing_price_ton)} {t('common.ton')}
-										</div>
-										<div class="text-[9px] text-white/40 uppercase font-bold">
-											{t('numbers.askPrice')}
-										</div>
-									</Show>
-									<Show when={item.status !== 'for_sale'}>
-										<span class="text-[10px] font-bold text-white/50 bg-white/[0.06] px-2 py-0.5 rounded-lg">
-											{t('numbers.taken')}
-										</span>
+								<div class="text-end shrink-0">
+									<Show
+										when={item.status === 'for_sale' && item.listing_price_ton}
+										fallback={<FragStatusPill status="taken" label={t('numbers.taken')} />}
+									>
+										<TonAmount
+											value={formatTon(item.listing_price_ton)}
+											size="sm"
+											unit
+											tone="warning"
+										/>
+										<div class="text-[10px] text-[#8c9ba5] mt-0.5">{t('numbers.askPrice')}</div>
 									</Show>
 								</div>
-							</div>
+							</button>
 						)}
 					</For>
 				</div>

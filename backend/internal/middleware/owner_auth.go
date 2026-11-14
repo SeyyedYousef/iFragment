@@ -298,7 +298,7 @@ func UserBanCheckMiddleware(repo *repository.OwnerRepo) func(http.Handler) http.
 				return
 			}
 
-			if userID != 0 {
+			if userID != 0 && repo != nil && repo.DB() != nil && repo.DB().Pool != nil {
 				ban, err := repo.GetUserBan(r.Context(), userID)
 				if err != nil {
 					slog.Error("UserBanCheckMiddleware: Failed to check ban status", "error", err, "user_id", userID)

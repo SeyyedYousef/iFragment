@@ -237,7 +237,6 @@ func CalcBaseLog(
 		targetSalesCopy[i] = s
 	}
 
-
 	// Compute exact match statistics
 	exactWeights := CalcTimeDecayWeights(exactSalesCopy, cfg.Lambda, now)
 	exactLogPrices := LogPrices(exactSalesCopy)
@@ -257,7 +256,9 @@ func CalcBaseLog(
 		broadMedianLog = WeightedMedian(broadLogPrices, broadWeights)
 	}
 
-	// Bayesian Prior Sliding: slide database median to raw length fallback based on semantic score
+	// Monotonic Semantic-Conditioned Bayesian Prior Sliding:
+	// Higher SemanticScore slides low database medians upward toward FallbackLen5 (and preserves high medians),
+	// whereas low SemanticScore never inflates a low database median upward toward 1,000 TON.
 	if features.SemanticScore > 0 {
 		fallbackPrice5 := cfg.FallbackLen5
 		fallbackLog5 := math.Log(fallbackPrice5)
@@ -270,9 +271,25 @@ func CalcBaseLog(
 			weight = 1.0
 		}
 
-		broadMedianLog = weight*broadMedianLog + (1.0-weight)*fallbackLog5
+		slideTowardPrior := func(obsLog float64) float64 {
+			if obsLog <= 0 {
+				return weight * fallbackLog5
+			}
+			if obsLog < fallbackLog5 {
+				// Observed median is below 1,000 TON: higher SemanticScore pulls upward toward fallbackLog5
+				return (1.0-weight)*obsLog + weight*fallbackLog5
+			}
+			// Observed median is above 1,000 TON: higher SemanticScore preserves the high median
+			return weight*obsLog + (1.0-weight)*fallbackLog5
+		}
+
+		if len(broadSalesCopy) > 0 {
+			broadMedianLog = slideTowardPrior(broadMedianLog)
+		} else {
+			broadMedianLog = weight * fallbackLog5
+		}
 		if exactMedianLog > 0 {
-			exactMedianLog = weight*exactMedianLog + (1.0-weight)*fallbackLog5
+			exactMedianLog = slideTowardPrior(exactMedianLog)
 		}
 	}
 
@@ -335,7 +352,7 @@ func CalcBaseLog(
 	}
 
 	// NOTE: baseLog is already in native-length log-space after target-vs-exact
-	// shrinkage (shrunkExactNativeLog was denormalized at line 295).
+	// shrinkage (shrunkExactNativeLog was denormalized at line 306).
 	// No second denormalization needed — that was causing Double Denormalization bug.
 
 	return baseLog, nEff, mad, saleIDs

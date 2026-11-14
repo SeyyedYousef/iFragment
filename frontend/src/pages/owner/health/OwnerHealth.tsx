@@ -6,10 +6,9 @@ import type {
 	SystemErrorLog,
 	SystemHealthMetrics,
 } from '@/entities/owner/model/types.js';
-import { locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 export const OwnerHealth: Component = () => {
-	const isFa = () => locale() === 'fa';
 	const [isTabVisible, setIsTabVisible] = createSignal(!document.hidden);
 	const [cacheNotice, setCacheNotice] = createSignal<string | null>(null);
 
@@ -43,11 +42,7 @@ export const OwnerHealth: Component = () => {
 	const clearCacheMutation = createMutation(() => ({
 		mutationFn: () => ownerApi.clearCache(),
 		onSuccess: (res) => {
-			setCacheNotice(
-				isFa()
-					? `${res.deleted_keys} کلید کش ارزش‌گذاری و قیمت کف با موفقیت پاکسازی شد.`
-					: `Flushed ${res.deleted_keys} cached valuation & floor keys.`,
-			);
+			setCacheNotice(t('ownerHealthPage.cacheFlushed', { count: res.deleted_keys }));
 			healthQuery.refetch();
 			externalHealthQuery.refetch();
 			setTimeout(() => setCacheNotice(null), 4000);
@@ -70,16 +65,8 @@ export const OwnerHealth: Component = () => {
 			{/* Header */}
 			<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 				<div>
-					<h2 class="text-lg font-black text-white">
-						{isFa()
-							? 'مانیتورینگ زنده اوراکل‌های بلاک‌چین TON و کش موتورهای ارزش‌گذاری'
-							: 'Live TON & Telegram Oracle Health & Valuation Cache'}
-					</h2>
-					<p class="text-xs text-white/50">
-						{isFa()
-							? 'بررسی لحظه‌ای پینگ و وضعیت پاسخگویی Fragment، TonAPI، Nums888، Changes.tg و پاکسازی کش قیمت‌ها'
-							: 'Real-time HTTP probe of Fragment, TonAPI, Nums888, Changes.tg & cache invalidation'}
-					</p>
+					<h2 class="text-lg font-black text-white">{t('ownerHealthPage.title')}</h2>
+					<p class="text-xs text-white/50">{t('ownerHealthPage.subtitle')}</p>
 				</div>
 				<div class="flex items-center gap-3">
 					<button
@@ -91,12 +78,8 @@ export const OwnerHealth: Component = () => {
 						<span class="material-symbols-outlined text-sm">cleaning_services</span>
 						<span>
 							{clearCacheMutation.isPending
-								? isFa()
-									? 'در حال پاکسازی کش...'
-									: 'Flushing...'
-								: isFa()
-									? 'پاکسازی کش قیمت‌ها (Flush Cache)'
-									: 'Flush Valuation Cache'}
+								? t('ownerHealthPage.flushing')
+								: t('ownerHealthPage.flushBtn')}
 						</span>
 					</button>
 					<div class="flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
@@ -129,7 +112,7 @@ export const OwnerHealth: Component = () => {
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>{isFa() ? 'پایگاه داده و لتنسی' : 'Database & I/O Latency'}</span>
+						<span>{t('ownerHealthPage.dbLatencyTitle')}</span>
 						<span class="material-symbols-outlined text-base text-sky-400">database</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-emerald-400">
@@ -145,25 +128,21 @@ export const OwnerHealth: Component = () => {
 
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>{isFa() ? 'کش گزارش‌ها و قیمت‌های کف' : 'Valuation & Floor Cache'}</span>
+						<span>{t('ownerHealthPage.cacheTitle')}</span>
 						<span class="material-symbols-outlined text-base text-cyan-400">memory</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-cyan-400">
-						{healthQuery.isLoading
-							? '...'
-							: `${health()?.cached_valuations_count ?? 0} Keys`}
+						{healthQuery.isLoading ? '...' : `${health()?.cached_valuations_count ?? 0} Keys`}
 					</div>
 					<div class="text-xs text-white/50 font-mono">
 						Hit Rate:{' '}
-						<span class="text-emerald-400 font-bold">
-							{health()?.cache_hit_rate_pct ?? 94}%
-						</span>
+						<span class="text-emerald-400 font-bold">{health()?.cache_hit_rate_pct ?? 94}%</span>
 					</div>
 				</div>
 
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>{isFa() ? 'پردازش و مصرف منابع سرور' : 'Runtime Memory & Load'}</span>
+						<span>{t('ownerHealthPage.runtimeTitle')}</span>
 						<span class="material-symbols-outlined text-base text-amber-400">memory_alt</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-white">
@@ -179,7 +158,7 @@ export const OwnerHealth: Component = () => {
 
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>{isFa() ? 'آپ‌تایم سرور و نرخ TON' : 'Node Uptime & Live TON'}</span>
+						<span>{t('ownerHealthPage.uptimeTonTitle')}</span>
 						<span class="material-symbols-outlined text-base text-emerald-400">timer</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-white">
@@ -200,16 +179,8 @@ export const OwnerHealth: Component = () => {
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-outlined text-cyan-400">hub</span>
 						<div>
-							<h3 class="text-sm font-bold text-white">
-								{isFa()
-									? 'وضعیت زنده اوراکل‌های خارجی (Fragment, TonAPI, Nums888, Changes.tg)'
-									: 'Live Upstream Data Oracles (Fragment, TonAPI, Nums888, Changes.tg)'}
-							</h3>
-							<p class="text-[11px] text-white/45">
-								{isFa()
-									? 'تست مستقیم HTTP از سرور به منابع اصلی قیمت‌گذاری نام کاربری، +888 و گیفت'
-									: 'Live server-to-oracle HTTP latency & status verification'}
-							</p>
+							<h3 class="text-sm font-bold text-white">{t('ownerHealthPage.oraclesTitle')}</h3>
+							<p class="text-[11px] text-white/45">{t('ownerHealthPage.oraclesSubtitle')}</p>
 						</div>
 					</div>
 					<button
@@ -221,12 +192,8 @@ export const OwnerHealth: Component = () => {
 						<span class="material-symbols-outlined text-sm">refresh</span>
 						<span>
 							{externalHealthQuery.isFetching
-								? isFa()
-									? 'در حال پینگ...'
-									: 'Probing...'
-								: isFa()
-									? 'تست مجدد همه اوراکل‌ها'
-									: 'Probe All Oracles'}
+								? t('ownerHealthPage.probing')
+								: t('ownerHealthPage.probeBtn')}
 						</span>
 					</button>
 				</div>
@@ -236,9 +203,7 @@ export const OwnerHealth: Component = () => {
 						when={!externalHealthQuery.isLoading && providers().length > 0}
 						fallback={
 							<div class="col-span-full py-8 text-center text-xs text-white/40">
-								{isFa()
-									? 'در حال ارسال پینگ زنده به سرورهای Fragment، TonAPI و Changes.tg...'
-									: 'Probing live upstream ecosystem endpoints...'}
+								{t('ownerHealthPage.probingAll')}
 							</div>
 						}
 					>
@@ -283,9 +248,7 @@ export const OwnerHealth: Component = () => {
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-outlined text-rose-400">bug_report</span>
-						<span class="text-sm font-bold text-white">
-							{isFa() ? 'لاگ خطاهای اخیر سیستم و اوراکل‌ها' : 'Recent System & Oracle Error Logs'}
-						</span>
+						<span class="text-sm font-bold text-white">{t('ownerHealthPage.errorLogsTitle')}</span>
 					</div>
 				</div>
 
@@ -293,10 +256,10 @@ export const OwnerHealth: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3">{isFa() ? 'ماژول' : 'Source Module'}</th>
-								<th class="pb-3">{isFa() ? 'سطح' : 'Severity'}</th>
-								<th class="pb-3">{isFa() ? 'پیام رویداد' : 'Message'}</th>
-								<th class="pb-3 text-right">{isFa() ? 'زمان' : 'Timestamp'}</th>
+								<th class="pb-3">{t('ownerHealthPage.thSource')}</th>
+								<th class="pb-3">{t('ownerHealthPage.thSeverity')}</th>
+								<th class="pb-3">{t('ownerHealthPage.thMessage')}</th>
+								<th class="pb-3 text-right">{t('ownerHealthPage.thTimestamp')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -306,10 +269,8 @@ export const OwnerHealth: Component = () => {
 									<tr>
 										<td colspan="4" class="py-8 text-center text-emerald-400/70 font-medium">
 											{errorsQuery.isLoading
-												? 'Loading system logs...'
-												: isFa()
-													? '✓ هیچ خطای بحرانی در موتورهای ارزش‌گذاری ثبت نشده است'
-													: '✓ Zero critical errors across valuation engines'}
+												? t('ownerHealthPage.loadingLogs')
+												: t('ownerHealthPage.zeroCriticalErrors')}
 										</td>
 									</tr>
 								}

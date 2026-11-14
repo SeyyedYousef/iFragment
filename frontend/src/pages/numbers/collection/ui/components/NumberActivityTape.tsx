@@ -1,7 +1,7 @@
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/api/numbersApi.js';
-import { useI18n } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface ActivityProps {
 	rate: number;
@@ -20,89 +20,7 @@ interface ActivityEvent {
 	txHash?: string;
 }
 
-const ACTIVITY_COPY: Record<
-	string,
-	{
-		allEvents: string;
-		settledSales: string;
-		transfers: string;
-		liveOnChainTape: string;
-		badgeSale: string;
-		badgeAuction: string;
-		badgeListing: string;
-		badgeTransfer: string;
-		fromLabel: string;
-		toLabel: string;
-		minAgo: string;
-		hrAgo: string;
-		tonviewerBtn: string;
-	}
-> = {
-	fa: {
-		allEvents: 'همه رویدادها',
-		settledSales: 'معاملات تسویه‌شده',
-		transfers: 'انتقال‌های عادی',
-		liveOnChainTape: 'نوار زنده آن‌چین',
-		badgeSale: 'فروش قطعی آن‌چین',
-		badgeAuction: 'تسویه حراج تلمینت',
-		badgeListing: 'ثبت قیمت فروش',
-		badgeTransfer: 'انتقال ساده (بدون حجم)',
-		fromLabel: 'از:',
-		toLabel: 'به:',
-		minAgo: '{m} دقیقه قبل',
-		hrAgo: '{h} ساعت قبل',
-		tonviewerBtn: 'تراکنش در Tonviewer ↗',
-	},
-	en: {
-		allEvents: 'All Events',
-		settledSales: 'Settled Sales',
-		transfers: 'Transfers',
-		liveOnChainTape: 'Live On-Chain Tape',
-		badgeSale: 'Verified On-Chain Sale',
-		badgeAuction: 'Telemint Auction Settled',
-		badgeListing: 'New Market Listing',
-		badgeTransfer: 'Wallet Transfer (Zero Vol)',
-		fromLabel: 'From:',
-		toLabel: 'To:',
-		minAgo: '{m}m ago',
-		hrAgo: '{h}h ago',
-		tonviewerBtn: 'View on Tonviewer ↗',
-	},
-	ru: {
-		allEvents: 'Все события',
-		settledSales: 'Сделки',
-		transfers: 'Переводы',
-		liveOnChainTape: 'Ончейн-лента',
-		badgeSale: 'Подтверждённая продажа',
-		badgeAuction: 'Финал аукциона Telemint',
-		badgeListing: 'Новый листинг',
-		badgeTransfer: 'Перевод (без объёма)',
-		fromLabel: 'От:',
-		toLabel: 'Кому:',
-		minAgo: '{m} мин. назад',
-		hrAgo: '{h} ч. назад',
-		tonviewerBtn: 'Транзакция в Tonviewer ↗',
-	},
-	zh: {
-		allEvents: '全部动态',
-		settledSales: '已结算交易',
-		transfers: '普通转账',
-		liveOnChainTape: '链上实时磁带',
-		badgeSale: '链上真实成交',
-		badgeAuction: 'Telemint 拍卖结标',
-		badgeListing: '新上架挂单',
-		badgeTransfer: '钱包转账 (不计交易量)',
-		fromLabel: '自:',
-		toLabel: '至:',
-		minAgo: '{m} 分钟前',
-		hrAgo: '{h} 小时前',
-		tonviewerBtn: '在 Tonviewer 查看 ↗',
-	},
-};
-
 export const NumberActivityTape: Component<ActivityProps> = (props) => {
-	const { locale } = useI18n();
-	const copy = () => ACTIVITY_COPY[locale()] || ACTIVITY_COPY.fa;
 	const [filterType, setFilterType] = createSignal<'all' | 'sales' | 'transfers'>('all');
 
 	const activityQuery = createQuery(() => ({
@@ -164,29 +82,31 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 		const parsed = Date.parse(isoStr);
 		if (Number.isNaN(parsed)) return isoStr;
 		const diffMin = Math.max(1, Math.floor((Date.now() - parsed) / 60000));
-		if (diffMin < 60) return copy().minAgo.replace('{m}', String(diffMin));
-		if (diffMin < 1440) return copy().hrAgo.replace('{h}', String(Math.floor(diffMin / 60)));
+		if (diffMin < 60) return t('numActivityTape.minAgo', { m: diffMin });
+		if (diffMin < 1440) return t('numActivityTape.hrAgo', { h: Math.floor(diffMin / 60) });
 		return isoStr.slice(0, 10);
 	};
 
 	const getEventBadge = (type: ActivityEvent['type']) => {
-		const c = copy();
 		switch (type) {
 			case 'sale':
 				return {
-					label: c.badgeSale,
+					label: t('numActivityTape.badgeSale'),
 					bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
 				};
 			case 'auction_settled':
 				return {
-					label: c.badgeAuction,
+					label: t('numActivityTape.badgeAuction'),
 					bg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
 				};
 			case 'listing':
-				return { label: c.badgeListing, bg: 'bg-[#0098EA]/15 text-[#0098EA] border-[#0098EA]/30' };
+				return {
+					label: t('numActivityTape.badgeListing'),
+					bg: 'bg-[#2990ff]/15 text-[#2990ff] border-[#2990ff]/30',
+				};
 			case 'transfer':
 				return {
-					label: c.badgeTransfer,
+					label: t('numActivityTape.badgeTransfer'),
 					bg: 'bg-white/[0.06] text-white/60 border-white/10',
 				};
 		}
@@ -201,10 +121,10 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 						type="button"
 						onClick={() => setFilterType('all')}
 						class={`px-3 py-1 rounded-xl text-[10px] font-bold transition-all ${
-							filterType() === 'all' ? 'bg-[#0098EA] text-white shadow-sm' : 'text-white/40'
+							filterType() === 'all' ? 'bg-[#2990ff] text-white shadow-sm' : 'text-white/40'
 						}`}
 					>
-						{copy().allEvents}
+						{t('numActivityTape.allEvents')}
 					</button>
 					<button
 						type="button"
@@ -213,7 +133,7 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 							filterType() === 'sales' ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/40'
 						}`}
 					>
-						{copy().settledSales}
+						{t('numActivityTape.settledSales')}
 					</button>
 					<button
 						type="button"
@@ -222,11 +142,13 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 							filterType() === 'transfers' ? 'bg-white/10 text-white' : 'text-white/40'
 						}`}
 					>
-						{copy().transfers}
+						{t('numActivityTape.transfers')}
 					</button>
 				</div>
 
-				<span class="text-[9px] text-white/40 font-mono pl-2">{copy().liveOnChainTape}</span>
+				<span class="text-[9px] text-white/40 font-mono pl-2">
+					{t('numActivityTape.liveOnChainTape')}
+				</span>
 			</div>
 
 			{/* Events Feed */}
@@ -235,7 +157,7 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 					{(ev) => {
 						const badge = getEventBadge(ev.type);
 						return (
-							<div class="p-3.5 rounded-2xl bg-[#0c101a] border border-white/[0.06] flex items-center justify-between gap-3">
+							<div class="p-3.5 rounded-2xl frag-inset flex items-center justify-between gap-3">
 								<div class="space-y-1 min-w-0">
 									<div class="flex items-center gap-2 flex-wrap">
 										<span class="text-xs font-black text-white font-mono">{ev.displayNumber}</span>
@@ -246,11 +168,11 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 
 									<div class="flex items-center gap-2 text-[10px] text-white/40 font-mono">
 										<span>
-											{copy().fromLabel} {ev.from}
+											{t('numActivityTape.fromLabel')} {ev.from}
 										</span>
 										<Show when={ev.to}>
 											<span>
-												→ {copy().toLabel} {ev.to}
+												→ {t('numActivityTape.toLabel')} {ev.to}
 											</span>
 										</Show>
 										<span>· {formatTimeAgo(ev.timestamp)}</span>
@@ -260,7 +182,8 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 								<div class="text-end shrink-0">
 									<Show when={ev.priceTon}>
 										<div class="text-xs font-black text-white font-mono">
-											{formatTon(ev.priceTon)} <span class="text-[10px] text-[#0098EA]">TON</span>
+											{formatTon(ev.priceTon)}{' '}
+											<span class="text-[10px] text-[#2990ff]">{t('common.ton')}</span>
 										</div>
 										<div class="text-[9px] font-mono text-white/40">{formatUsd(ev.priceTon)}</div>
 									</Show>
@@ -270,9 +193,9 @@ export const NumberActivityTape: Component<ActivityProps> = (props) => {
 											href={`https://tonviewer.com/transaction/${ev.txHash}`}
 											target="_blank"
 											rel="noopener noreferrer"
-											class="text-[9px] font-mono text-[#0098EA] hover:underline block mt-0.5"
+											class="text-[9px] font-mono text-[#2990ff] hover:underline block mt-0.5"
 										>
-											{copy().tonviewerBtn}
+											{t('numActivityTape.tonviewerBtn')}
 										</a>
 									</Show>
 								</div>

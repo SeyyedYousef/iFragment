@@ -51,7 +51,7 @@ describe('InvestorsPromoPage', () => {
 
 	it('renders the promotional image with eager loading and object-cover when config is available', () => {
 		const { getByAltText, getByTestId } = render(() => <InvestorsPromoPage />);
-		const img = getByAltText('Investors Promotional Banner') as HTMLImageElement;
+		const img = getByAltText('fragmentInvestors.bannerAlt') as HTMLImageElement;
 		expect(img).toBeInTheDocument();
 		expect(img.getAttribute('loading')).toBe('eager');
 		expect(img.className).toContain('object-cover');
@@ -80,7 +80,7 @@ describe('InvestorsPromoPage', () => {
 		};
 		const { getByTestId, getByText } = render(() => <InvestorsPromoPage />);
 		expect(getByTestId('investors-empty-state')).toBeInTheDocument();
-		expect(getByText('Investors image is not configured yet.')).toBeInTheDocument();
+		expect(getByText('fragmentInvestors.emptyImage')).toBeInTheDocument();
 		expect(getByTestId('bottom-nav')).toBeInTheDocument();
 	});
 
@@ -94,7 +94,7 @@ describe('InvestorsPromoPage', () => {
 		};
 		const { getByTestId, getByText } = render(() => <InvestorsPromoPage />);
 		expect(getByTestId('investors-error-state')).toBeInTheDocument();
-		const retryBtn = getByText('Retry');
+		const retryBtn = getByText('common.retry');
 		expect(retryBtn).toBeInTheDocument();
 
 		fireEvent.click(retryBtn);
@@ -103,7 +103,7 @@ describe('InvestorsPromoPage', () => {
 
 	it('displays error state when the image fails to load via onError', () => {
 		const { getByAltText, getByTestId } = render(() => <InvestorsPromoPage />);
-		const img = getByAltText('Investors Promotional Banner');
+		const img = getByAltText('fragmentInvestors.bannerAlt');
 		fireEvent.error(img);
 
 		expect(getByTestId('investors-error-state')).toBeInTheDocument();

@@ -229,12 +229,16 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	if effectiveRun < fv.MaxRun {
 		effectiveRun = fv.MaxRun
 	}
+	suffixRun := fv.MaxRun
 
 	// ═══════════════════════════════════════════════════════════════════════
 	// DOMINANT PATTERN CLASSIFICATION for 8-digit Telemint numbers
 	// With beta0 = ln(2450) ≈ 7.8038, the formula is: price = exp(7.80 + beta)
 	// So beta=0 → ~2,450 TON (floor), beta=1 → ~6,660 TON, beta=2 → ~18,100 TON
 	// beta=3 → ~49,200 TON, beta=4 → ~133,800 TON, beta=5 → ~363,500 TON
+	// NOTE: Primary pattern uses suffixRun (fv.MaxRun inside the 8-digit suffix)
+	// while betaPrefixJoin orthogonally rewards leading 8s that extend +888,
+	// preventing collinear triple-counting of leading 8s.
 	// ═══════════════════════════════════════════════════════════════════════
 	if !fv.IsGenesis4Digit {
 		if fv.DistinctDigits == 1 {
@@ -256,46 +260,45 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 				// Target: ~80,000-120,000 TON
 				betaPrimaryPattern = 3.60
 			}
-		} else if effectiveRun >= 7 {
-			// Septa+ Run (7+ identical digits but distinctDigits > 1)
-			// NOTE: uses >= because EffectiveMaxRun includes +888 prefix extension
-			// e.g. +888 8888 8880 has effectiveRun=10 (3 prefix + 7 suffix 8s)
-			if effectiveRun >= 10 {
-				betaPrimaryPattern = 3.90 // Near-monodigit, ~120,000 TON
-			} else if effectiveRun >= 9 {
-				betaPrimaryPattern = 3.60 // ~90,000 TON
-			} else if effectiveRun >= 8 {
-				betaPrimaryPattern = 3.30 // ~66,000 TON
-			} else {
-				betaPrimaryPattern = 3.05 // Pure septa (exactly 7), ~52,000 TON
+		} else if suffixRun >= 7 {
+			// Septa Run (7 identical consecutive digits inside the 8-digit suffix, e.g. 08888888, 88888880)
+			switch fv.MaxRunDigit {
+			case "8":
+				betaPrimaryPattern = 3.35 // +888 0888 8888 / 8888 8880 Sovereign 7-run Grail (~69,500-115,000 TON)
+			case "0", "7", "9":
+				betaPrimaryPattern = 3.18 // +888 0777 7777 / 0999 9999 (~58,500 TON)
+			case "4":
+				betaPrimaryPattern = 2.85 // Tetraphobia discount (~42,300 TON)
+			default:
+				betaPrimaryPattern = 3.05 // Standard septa (~52,000 TON)
 			}
-		} else if fv.VIP.PatternKey == "HALF_BLOCK_QUAD" {
+		} else if fv.VIP.PatternKey == "HALF_BLOCK_QUAD" || fv.RepeatedBlock == "AAAABBBB" {
 			// AAAA BBBB (e.g. 8888 0000, 1111 2222)
 			// Target: ~35,000-75,000 TON
 			if strings.Contains(fv.Suffix, "8888") {
-				betaPrimaryPattern = 3.30 // ~65,000 TON if contains 8888 block
+				betaPrimaryPattern = 3.10 // ~55,000-80,000 TON if contains 8888 block
 			} else {
 				betaPrimaryPattern = 2.75 // ~38,000 TON
 			}
-		} else if fv.VIP.PatternKey == "BINARY_DOUBLE_PAIR" || fv.RepeatedBlock == "AABB_AABB" {
-			// AABB AABB (e.g. 1188 1188, 8800 8800, 7788 7788, 1122 1122)
-			// Luxury 2-digit double pairs: Target ~25,000-35,000 TON
-			if strings.Contains(fv.Suffix, "88") {
+		} else if fv.VIP.PatternKey == "BINARY_DOUBLE_PAIR" || fv.RepeatedBlock == "AABB_AABB" || fv.RepeatedBlock == "ABBA_ABBA" {
+			// AABB AABB or ABBA ABBA (e.g. 1188 1188, 8800 8800, 8008 8008, 1221 1221)
+			// Luxury 2-digit double pairs & dual mirror palindromes: Target ~25,000-35,000 TON
+			if strings.Contains(fv.Suffix, "88") || strings.Contains(fv.Suffix, "8008") {
 				betaPrimaryPattern = 2.45 // ~28,500 TON
 			} else {
 				betaPrimaryPattern = 2.30 // ~24,500 TON
 			}
-		} else if effectiveRun >= 6 {
-			// Hexa Run (6 identical digits in a row)
-			// Target: ~25,000-35,000 TON
+		} else if suffixRun >= 6 {
+			// Hexa Run (6 identical digits in a row inside suffix)
+			// Target: ~25,000-45,000 TON
 			betaPrimaryPattern = 2.40
 		} else if fv.VIP.PatternKey == "FULL_LADDER_SEQUENCE" || (fv.HasMonotonicAsc && len(fv.Suffix) == 8) {
 			// 12345678, 87654321
 			// Target: ~18,000-30,000 TON
 			betaPrimaryPattern = 2.10
-		} else if effectiveRun >= 5 {
-			// Penta Run (5 identical digits in a row)
-			// Target: ~14,000-20,000 TON
+		} else if suffixRun >= 5 {
+			// Penta Run (5 identical digits in a row inside suffix)
+			// Target: ~14,000-26,000 TON
 			betaPrimaryPattern = 1.75
 		} else if fv.VIP.PatternKey == "BINARY_ALTERNATING_ABAB" {
 			// ABAB ABAB (e.g. 8080 8080, 0101 0101)
@@ -313,6 +316,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 			} else {
 				betaPrimaryPattern = 1.65 // ~12,800 TON
 			}
+		} else if fv.IsFullDialPalindrome && !fv.IsPalindrome {
+			// Full-11-digit E.164 Palindrome where +888 mirrors the suffix tail (e.g. +888 1232 1888)
+			betaPrimaryPattern = 1.42
 		} else if fv.IsPalindrome {
 			// 8-digit Palindrome (e.g. 1234 4321)
 			// Target: ~9,000-15,000 TON
@@ -329,10 +335,17 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 			// General quad tail (e.g. 5555, 9999)
 			// Target: ~7,000-11,000 TON
 			betaPrimaryPattern = 1.10
-		} else if effectiveRun >= 4 {
-			// Other Quad Run (4 identical digits inside)
-			// Target: ~5,500-8,500 TON
-			betaPrimaryPattern = 0.85
+		} else if fv.HasPairProgression || fv.RepeatedBlock == "PAIR_LADDER" {
+			// 2-digit pair arithmetic progression (e.g. 10 20 30 40, 01 02 03 04, 80 60 40 20)
+			betaPrimaryPattern = 1.25
+		} else if suffixRun >= 4 {
+			// Other Quad Run (4 identical digits inside, e.g. +888 8888 0011 or +888 8888 1234)
+			// Target: ~8,000-16,000 TON
+			if fv.DistinctDigits <= 3 {
+				betaPrimaryPattern = 1.30
+			} else {
+				betaPrimaryPattern = 0.95
+			}
 		} else if fv.DistinctDigits == 2 {
 			// Binary Vanity (only 2 distinct digits total, non-alternating, non-run)
 			// Target: ~7,000-11,000 TON
@@ -344,10 +357,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		} else if fv.DistinctDigits == 3 {
 			// Ternary Vanity (3 distinct digits across 8 digits)
 			// Target: ~4,700-11,000 TON
-			if fv.MaxRun >= 4 {
-				// e.g. 8888 0011 -> 4 identical digits plus 2 other digits
-				betaPrimaryPattern = 1.25 // ~8,500 TON
-			} else if fv.RunCount2Plus >= 3 {
+			if fv.RunCount2Plus >= 3 {
 				// e.g. 11 22 33 11 or 88 00 11 88
 				betaPrimaryPattern = 1.10 // ~7,300 TON
 			} else if strings.HasPrefix(fv.TailClass, "QUAD_") || strings.HasPrefix(fv.TailClass, "TRIPLE_") {
@@ -371,7 +381,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		betaCultural = math.Max(-0.08, netLucky*0.015)
 	}
 
-	// DialPad physical ergonomics (Vertical columns, Diagonals, Rows)
+	// DialPad physical ergonomics (Vertical columns, Diagonals, Rows, Fitts's Law & ITU-T Q.23 DTMF Harmonics)
 	betaDialPad := 0.0
 	if fv.DialPad.IsColPattern {
 		betaDialPad = 0.28 // Vertical columns: 147 258, 2580 2580 (+32%)
@@ -384,6 +394,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	} else if fv.DialPad.DialPadEleganceScore > 50.0 {
 		betaDialPad = math.Min(0.12, (fv.DialPad.DialPadEleganceScore-50.0)/100.0*0.20)
 	}
+	if fv.DialPad.DTMFConsonanceScore >= 82.0 && fv.DialPad.FittsErgonomicScore >= 75.0 && betaDialPad < 0.24 {
+		betaDialPad += 0.04
+	}
 
 	betaEntropy := 0.0
 	if fv.HarmonicEntropy < 2.0 {
@@ -391,7 +404,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	}
 
 	betaEcho := 0.0
-	if fv.EchoHarmonics == "ECHO_SANDWICH_888" {
+	if fv.EchoHarmonics == "FULL_DIAL_PALINDROME_888" {
+		betaEcho = 0.10
+	} else if fv.EchoHarmonics == "ECHO_SANDWICH_888" {
 		betaEcho = 0.08
 	} else if fv.EchoHarmonics == "CLAMP_888_000" {
 		betaEcho = 0.06
@@ -399,8 +414,12 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 
 	betaSemantic := 0.0
 	if fv.SemanticBonusLogP > 0 && !fv.IsGenesis4Digit && fv.DistinctDigits > 1 {
-		// Bounded semantic bonus (capped at 0.50 so it doesn't inflate beyond primary pattern)
-		betaSemantic = math.Min(0.50, fv.SemanticBonusLogP*0.35)
+		// Suppress collinearity when primary pattern already prices a 5+ run or half-block quad
+		if suffixRun >= 5 || fv.RepeatedBlock == "AAAABBBB" {
+			betaSemantic = math.Min(0.12, fv.SemanticBonusLogP*0.10)
+		} else {
+			betaSemantic = math.Min(0.40, fv.SemanticBonusLogP*0.30)
+		}
 	}
 
 	// Prefix-join continuity: When suffix begins with 8s, extending the Telegram +888 prefix
@@ -728,11 +747,16 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		"category_club":          categoryClub,
 		"vip_tier":               fv.VIP.Tier,
 		"dialpad_geom":           fv.DialPad.GeometryClass,
+		"fitts_index_bits":       fv.DialPad.FittsIndexBits,
+		"fitts_ergonomic_score":  fv.DialPad.FittsErgonomicScore,
+		"dtmf_consonance_score":  fv.DialPad.DTMFConsonanceScore,
+		"compression_ratio":      fv.CompressionRatio,
+		"is_full_dial_palin":     fv.IsFullDialPalindrome,
 		"comps_count":            len(comps),
 		"is_sold_historical":     history.IsSold,
 		"rental_yield_status":    "experimental_simulation",
 		"defi_collateral_status": "experimental_simulation",
-		"signals_count":          38,
+		"signals_count":          48,
 	}
 
 	// 4 Valuation figures (Fair Value, Liquidation Price, Suggested Asking Price, Uncertainty Range)
@@ -851,9 +875,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		ModelCard:             modelCard,
 		LiveListing:           e.buildLiveListingStatus(ctx, normNumber, expectedTON, tonUsdRate, fragmentURL, history.IsSold),
 		CombinatorialScarcity: buildCombinatorialScarcity(fv),
-		CertificateID:      certificateID,
-		EvaluatedAt:        time.Now().UTC(),
-		ReasoningLog:       reasoningLog,
+		BinaryForensics:       ComputeNumberBinaryForensics(normNumber, fv, ""),
+		LayaSystemOne:         layaNumberRes,
+		CertificateID:         certificateID,
+		EvaluatedAt:           time.Now().UTC(),
+		ReasoningLog:          reasoningLog,
 	}
 
 	// Valuation Audit Write (persisted with timeout so RunID is bound to response)
@@ -958,6 +984,15 @@ func buildRarityDNA(fv features.FeatureVector) []RarityBar {
 			Percentile:  math.Min(99.0, fv.LuckyWeight*10.0),
 			IsExact:     true,
 			Description: "Weighted cultural rating across major buying regions",
+		},
+		{
+			Key:         "keypad_dtmf_harmonics",
+			LabelEn:     "ITU-T Keypad & DTMF Harmonics",
+			LabelFa:     "بیومکانیک فیتس و هارمونی صوتی DTMF",
+			Value:       fmt.Sprintf("Ergo %.0f / DTMF %.0f%%", fv.DialPad.FittsErgonomicScore, fv.DialPad.DTMFConsonanceScore),
+			Percentile:  math.Min(99.5, (fv.DialPad.FittsErgonomicScore*0.5+fv.DialPad.DTMFConsonanceScore*0.5)),
+			IsExact:     true,
+			Description: fmt.Sprintf("Fitts ID %.2f bits/tap (%s)", fv.DialPad.FittsIndexBits, fv.DialPad.GeometryClass),
 		},
 	}
 	return bars
@@ -1591,7 +1626,7 @@ func buildCombinatorialScarcity(fv features.FeatureVector) *CombinatorialScarcit
 
 	if fv.IsGenesis4Digit {
 		poolSize = 1000
-		formula = "10^3 = 1,000 fixed 4-digit Genesis block (+888 0xxx)"
+		formula = "10^3 = 1,000 fixed 4-digit Genesis block (+888 8000..8999)"
 		tier = "Mythic Genesis (0.73% of Supply)"
 	} else if fv.DistinctDigits == 1 {
 		poolSize = 10
@@ -1605,7 +1640,11 @@ func buildCombinatorialScarcity(fv features.FeatureVector) *CombinatorialScarcit
 		poolSize = 270
 		formula = "10 * 9 * 3 = 270 hexa-run combinations"
 		tier = "Ultra-Rare Run (0.20% of Supply)"
-	} else if fv.IsPalindrome {
+	} else if fv.RepeatedBlock == "AAAABBBB" || fv.RepeatedBlock == "AABB_AABB" || fv.RepeatedBlock == "ABBA_ABBA" {
+		poolSize = 90
+		formula = "10 * 9 = 90 exact dual-block / mirror-block permutations"
+		tier = "Sovereign Block Symmetry (0.066% of Supply)"
+	} else if fv.IsPalindrome || fv.IsFullDialPalindrome {
 		poolSize = 1365
 		formula = "10^4 / 10^8 = 0.01% mirror symmetry density (~1,365 in minted supply)"
 		tier = "Symmetric Grail (1.00% of Supply)"
@@ -1613,6 +1652,10 @@ func buildCombinatorialScarcity(fv features.FeatureVector) *CombinatorialScarcit
 		poolSize = 1240
 		formula = "C(10,2) * (2^8 - 2) scaled to 136,566 minted supply"
 		tier = "Binary Dual Tier (0.91% of Supply)"
+	} else if fv.HasPairProgression || fv.RepeatedBlock == "PAIR_LADDER" {
+		poolSize = 360
+		formula = "Arithmetic pair progression (p0, p0+d, p0+2d, p0+3d) cohort"
+		tier = "Arithmetic Pair Ladder (0.26% of Supply)"
 	} else if fv.EffectiveMaxRun >= 4 {
 		poolSize = 3200
 		formula = "4+ consecutive identical digit run cohort"

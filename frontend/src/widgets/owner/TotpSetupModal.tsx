@@ -26,7 +26,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 		try {
 			const res = await ownerApi.setupTotp();
 			setSecret(res.secret);
-			setRecoveryCodes(res.recovery_codes);
+			setRecoveryCodes(res.recovery_codes ?? []);
 
 			// Generate QR code data URL
 			const qrUrl = await QRCode.toDataURL(res.provisioning_uri, {

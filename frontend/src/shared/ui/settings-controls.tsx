@@ -4,7 +4,7 @@ import { locale, t } from '@/shared/i18n/index.js';
 
 const isRtl = () => locale() === 'fa';
 
-// Reusable iOS-style Switch Component
+// Reusable Fragment-styled iOS Switch Component
 export const ToggleSwitch: Component<{ checked: boolean; onChange: (v: boolean) => void }> = (
 	props,
 ) => {
@@ -19,13 +19,13 @@ export const ToggleSwitch: Component<{ checked: boolean; onChange: (v: boolean) 
 				hapticFeedback.impactOccurred('light');
 				props.onChange(!props.checked);
 			}}
-			class={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#3390ec] focus:ring-offset-2 focus:ring-offset-[#1c1c1c] ${
-				props.checked ? 'bg-[#34c759]' : 'bg-[#39393d]'
+			class={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#2990ff] focus:ring-offset-2 focus:ring-offset-[#141a22] ${
+				props.checked ? 'bg-[#4cd964] border-[#4cd964]/40' : 'bg-[#232d3a] border-white/[0.1]'
 			}`}
 		>
 			<span
-				class={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform duration-300 shadow-sm ${
-					props.checked ? 'translate-x-[22px]' : 'translate-x-[2px]'
+				class={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform duration-200 shadow-sm ${
+					props.checked ? 'translate-x-[21px]' : 'translate-x-[1px]'
 				}`}
 			/>
 		</button>
@@ -44,7 +44,7 @@ export const SelectField: Component<{
 	return (
 		<div class="flex flex-col gap-1.5 w-full">
 			<div class="flex items-center justify-between">
-				<label for={id} class="text-[15px] font-bold text-white">
+				<label for={id} class="text-[13.5px] font-semibold text-white">
 					{props.label}
 				</label>
 			</div>
@@ -56,14 +56,14 @@ export const SelectField: Component<{
 						hapticFeedback.selectionChanged();
 						props.onChange(e.currentTarget.value);
 					}}
-					class={`w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all ${
-						isRtl() ? 'pr-4 pl-10 text-right' : 'pl-4 pr-10 text-left'
+					class={`w-full bg-[#141a22] text-white text-[14px] font-medium rounded-[10px] py-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-[#2990ff]/50 focus:border-[#2990ff] border border-white/[0.08] transition-all ${
+						isRtl() ? 'pr-3.5 pl-10 text-right' : 'pl-3.5 pr-10 text-left'
 					}`}
 				>
 					<For each={props.options}>{(opt) => <option value={opt.value}>{opt.label}</option>}</For>
 				</select>
 				<span
-					class={`material-symbols-outlined absolute top-1/2 -translate-y-1/2 text-[#a0a4ad] pointer-events-none ${
+					class={`material-symbols-outlined absolute top-1/2 -translate-y-1/2 text-[#8c9ba5] pointer-events-none text-[18px] ${
 						isRtl() ? 'left-3' : 'right-3'
 					}`}
 				>
@@ -71,7 +71,7 @@ export const SelectField: Component<{
 				</span>
 			</div>
 			<Show when={props.description}>
-				<span class="text-[12px] text-[#a0a4ad] leading-snug px-1">{props.description}</span>
+				<span class="text-[11.5px] text-[#8c9ba5] leading-snug px-0.5">{props.description}</span>
 			</Show>
 		</div>
 	);
@@ -90,7 +90,7 @@ export const NumberInputField: Component<{
 	const id = `number-${Math.random().toString(36).substr(2, 9)}`;
 	return (
 		<div class="flex flex-col gap-1.5 w-full">
-			<label for={id} class="text-[15px] font-bold text-white">
+			<label for={id} class="text-[13.5px] font-semibold text-white">
 				{props.label}
 			</label>
 			<div class="relative w-full">
@@ -109,13 +109,11 @@ export const NumberInputField: Component<{
 					onBlur={() => {
 						hapticFeedback.impactOccurred('light');
 					}}
-					class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-[#a0a4ad]"
+					class="w-full bg-[#141a22] text-white font-mono tabular-nums text-[14px] rounded-[10px] py-2.5 px-3.5 focus:outline-none focus:ring-2 focus:ring-[#2990ff]/50 focus:border-[#2990ff] border border-white/[0.08] transition-all placeholder-[#60707c]"
 				/>
 			</div>
 			<Show when={props.description}>
-				<span class="text-[12px] text-on-surface-variant leading-snug px-1">
-					{props.description}
-				</span>
+				<span class="text-[11.5px] text-[#8c9ba5] leading-snug px-0.5">{props.description}</span>
 			</Show>
 		</div>
 	);
@@ -151,7 +149,7 @@ export const StringListField: Component<{
 	const id = `list-${Math.random().toString(36).substr(2, 9)}`;
 	return (
 		<div class="flex flex-col gap-2 w-full">
-			<label for={id} class="text-[15px] font-bold text-white">
+			<label for={id} class="text-[13.5px] font-semibold text-white">
 				{props.label}
 			</label>
 
@@ -163,41 +161,39 @@ export const StringListField: Component<{
 					onInput={(e) => setInputValue(e.currentTarget.value)}
 					onKeyDown={handleKeyDown}
 					placeholder={props.placeholder || 'Type and press enter...'}
-					class="flex-1 bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-on-surface-variant"
+					class="flex-1 bg-[#141a22] text-white text-[13.5px] rounded-[10px] px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#2990ff]/50 focus:border-[#2990ff] border border-white/[0.08] transition-all placeholder-[#60707c]"
 				/>
 				<button
 					type="button"
 					onClick={handleAdd}
 					disabled={!inputValue().trim()}
-					class="w-11 shrink-0 bg-[#3390ec] hover:bg-[#2b7bc9] disabled:opacity-50 text-white rounded-xl flex items-center justify-center transition-colors"
+					class="w-10 shrink-0 frag-btn-primary disabled:opacity-45 rounded-[10px] flex items-center justify-center"
 					aria-label={t('settingsControls.addItem')}
 				>
-					<span class="material-symbols-outlined text-[20px]">add</span>
+					<span class="material-symbols-outlined text-[19px]">add</span>
 				</button>
 			</div>
 
 			<Show when={props.description}>
-				<span class="text-[12px] text-on-surface-variant leading-snug px-1">
-					{props.description}
-				</span>
+				<span class="text-[11.5px] text-[#8c9ba5] leading-snug px-0.5">{props.description}</span>
 			</Show>
 
 			<Show when={props.items.length > 0}>
-				<div class="flex flex-wrap gap-2 mt-1">
+				<div class="flex flex-wrap gap-1.5 mt-0.5">
 					<For each={props.items}>
 						{(item) => (
-							<div class="bg-[#2c2c2e] border border-[#3a3a3c] rounded-lg px-3 py-1.5 flex items-center gap-2">
-								<span class="text-[13px] text-white">{item}</span>
+							<div class="frag-inset rounded-[8px] px-2.5 py-1 flex items-center gap-1.5">
+								<span class="text-[12.5px] font-medium text-white">{item}</span>
 								<button
 									type="button"
 									onClick={() => {
 										hapticFeedback.impactOccurred('light');
 										props.onRemove(item);
 									}}
-									class="text-on-surface-variant hover:text-[#ff3b30] transition-colors flex items-center justify-center"
+									class="text-[#8c9ba5] hover:text-[#ff5c6c] transition-colors flex items-center justify-center"
 									aria-label={t('settingsControls.removeItem')}
 								>
-									<span class="material-symbols-outlined text-[16px]">close</span>
+									<span class="material-symbols-outlined text-[15px]">close</span>
 								</button>
 							</div>
 						)}
@@ -220,33 +216,33 @@ export const InlineButtonField: Component<{
 	const [url, setUrl] = createSignal('');
 
 	const handleAdd = () => {
-		const t = title().trim();
-		const u = url().trim();
-		if (t && u) {
+		const btnTitle = title().trim();
+		const btnUrl = url().trim();
+		if (btnTitle && btnUrl) {
 			hapticFeedback.impactOccurred('light');
-			props.onAdd({ id: Date.now().toString(), title: t, url: u });
+			props.onAdd({ id: Date.now().toString(), title: btnTitle, url: btnUrl });
 			setTitle('');
 			setUrl('');
 		}
 	};
 
 	return (
-		<div class="flex flex-col gap-3 w-full">
-			<div class="text-[15px] font-bold text-white">{props.label}</div>
+		<div class="flex flex-col gap-2.5 w-full">
+			<div class="text-[13.5px] font-semibold text-white">{props.label}</div>
 
 			<Show when={props.description}>
-				<span class="text-[12px] text-on-surface-variant leading-snug px-1 -mt-1">
+				<span class="text-[11.5px] text-[#8c9ba5] leading-snug px-0.5 -mt-1">
 					{props.description}
 				</span>
 			</Show>
 
-			<div class="flex flex-col gap-2 bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c]">
+			<div class="flex flex-col gap-2 frag-inset p-3 rounded-[12px]">
 				<input
 					type="text"
 					value={title()}
 					onInput={(e) => setTitle(e.currentTarget.value)}
 					placeholder="Button Title (e.g. My Channel)"
-					class="w-full bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-on-surface-variant"
+					class="w-full bg-[#11161d] text-white text-[13.5px] rounded-[9px] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2990ff]/50 focus:border-[#2990ff] border border-white/[0.08] transition-all placeholder-[#60707c]"
 				/>
 				<div class="flex gap-2">
 					<input
@@ -254,28 +250,28 @@ export const InlineButtonField: Component<{
 						value={url()}
 						onInput={(e) => setUrl(e.currentTarget.value)}
 						placeholder="URL (e.g. https://t.me/)"
-						class="flex-1 bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-on-surface-variant"
+						class="flex-1 bg-[#11161d] text-white font-mono text-[13px] rounded-[9px] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2990ff]/50 focus:border-[#2990ff] border border-white/[0.08] transition-all placeholder-[#60707c]"
 					/>
 					<button
 						type="button"
 						onClick={handleAdd}
 						disabled={!title().trim() || !url().trim()}
-						class="w-10 shrink-0 bg-[#3390ec] hover:bg-[#2b7bc9] disabled:opacity-50 text-white rounded-lg flex items-center justify-center transition-colors"
+						class="w-10 shrink-0 frag-btn-primary disabled:opacity-45 rounded-[9px] flex items-center justify-center"
 						aria-label={t('settingsControls.addLink')}
 					>
-						<span class="material-symbols-outlined text-[20px]">add</span>
+						<span class="material-symbols-outlined text-[19px]">add</span>
 					</button>
 				</div>
 			</div>
 
 			<Show when={props.buttons.length > 0}>
-				<div class="flex flex-col gap-2 mt-1">
+				<div class="flex flex-col gap-1.5 mt-0.5">
 					<For each={props.buttons}>
 						{(btn) => (
-							<div class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg p-2.5 flex items-center justify-between gap-3 group">
+							<div class="frag-inset rounded-[10px] p-2.5 flex items-center justify-between gap-3 group">
 								<div class="flex flex-col min-w-0">
-									<span class="text-[13px] font-bold text-white truncate">{btn.title}</span>
-									<span class="text-[11px] text-[#3390ec] truncate">{btn.url}</span>
+									<span class="text-[13px] font-semibold text-white truncate">{btn.title}</span>
+									<span class="text-[11px] font-mono text-[#2990ff] truncate">{btn.url}</span>
 								</div>
 								<button
 									type="button"
@@ -283,7 +279,7 @@ export const InlineButtonField: Component<{
 										hapticFeedback.impactOccurred('light');
 										props.onRemove(btn.id);
 									}}
-									class="w-8 h-8 rounded-full bg-[#ff3b30]/10 text-[#ff3b30] flex items-center justify-center hover:bg-[#ff3b30]/20 transition-colors shrink-0"
+									class="w-8 h-8 rounded-[8px] bg-[#ff5c6c]/10 border border-[#ff5c6c]/20 text-[#ff5c6c] flex items-center justify-center hover:bg-[#ff5c6c]/20 transition-colors shrink-0"
 									aria-label={t('settingsControls.removeLink')}
 								>
 									<span class="material-symbols-outlined text-[16px]">delete</span>
@@ -320,17 +316,17 @@ export const SettingsSection: Component<{
 	onEditText?: () => void;
 }> = (props) => {
 	return (
-		<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+		<div class="frag-card rounded-[14px] p-4 flex flex-col gap-3">
 			<div class="flex items-center justify-between gap-3">
 				<div class="flex flex-col flex-1 min-w-0">
-					<span class="text-[15px] font-bold text-white">{props.title}</span>
-					<span class="text-[12px] text-on-surface-variant leading-snug">{props.description}</span>
+					<span class="text-[14px] font-semibold text-white">{props.title}</span>
+					<span class="text-[12px] text-[#8c9ba5] leading-snug mt-0.5">{props.description}</span>
 				</div>
 				<ToggleSwitch checked={props.enabled} onChange={props.onToggle} />
 			</div>
 
 			<Show when={props.enabled && (props.hasWindow || props.hasPenalty || props.hasEditText)}>
-				<div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
+				<div class="h-px bg-white/[0.06] w-full my-0.5" />
 
 				<Show when={props.hasWindow}>
 					<SelectField
@@ -344,27 +340,27 @@ export const SettingsSection: Component<{
 						]}
 					/>
 					<Show when={props.windowVal === 'Custom'}>
-						<div class="grid grid-cols-2 gap-3 mt-1">
-							<div class="flex flex-col gap-1.5">
-								<div class="text-[12px] font-bold text-on-surface-variant">
+						<div class="grid grid-cols-2 gap-2.5 mt-1">
+							<div class="flex flex-col gap-1">
+								<div class="text-[11.5px] font-medium text-[#8c9ba5]">
 									{t('generalSettings.startTime')}
 								</div>
 								<input
 									type="time"
 									value={props.customStart}
 									onInput={(e) => props.onCustomStart!(e.currentTarget.value)}
-									class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+									class="w-full bg-[#141a22] text-white font-mono text-[14px] rounded-[10px] border border-white/[0.08] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2990ff]/50 focus:border-[#2990ff]"
 								/>
 							</div>
-							<div class="flex flex-col gap-1.5">
-								<div class="text-[12px] font-bold text-on-surface-variant">
+							<div class="flex flex-col gap-1">
+								<div class="text-[11.5px] font-medium text-[#8c9ba5]">
 									{t('generalSettings.endTime')}
 								</div>
 								<input
 									type="time"
 									value={props.customEnd}
 									onInput={(e) => props.onCustomEnd!(e.currentTarget.value)}
-									class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+									class="w-full bg-[#141a22] text-white font-mono text-[14px] rounded-[10px] border border-white/[0.08] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2990ff]/50 focus:border-[#2990ff]"
 								/>
 							</div>
 						</div>
@@ -372,7 +368,7 @@ export const SettingsSection: Component<{
 				</Show>
 
 				<Show when={props.hasPenalty}>
-					<div class={props.hasWindow ? 'mt-2' : ''}>
+					<div class={props.hasWindow ? 'mt-1' : ''}>
 						<SelectField
 							label={t('generalSettings.penalty')}
 							value={props.penaltyVal!}
@@ -392,7 +388,7 @@ export const SettingsSection: Component<{
 				<Show when={props.hasEditText}>
 					<button
 						type="button"
-						class="flex items-center gap-2 text-[#3390ec] text-[13px] font-bold mt-2 pt-1"
+						class="inline-flex items-center gap-1.5 text-[#2990ff] hover:text-[#4aa3ff] text-[13px] font-semibold mt-1 pt-1 self-start"
 						onClick={() => {
 							hapticFeedback.impactOccurred('light');
 							props.onEditText?.();

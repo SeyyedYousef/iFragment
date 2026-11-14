@@ -3,6 +3,7 @@ import type {
 	NumberPatternAnalytics,
 	NumbersInstitutionalCollectionOverview,
 } from '@/entities/numbers/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 import { layaT, NUMBER_CLUB_TIERS, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -79,7 +80,7 @@ export const NumberClubFloorsTracker: Component<Props> = (props) => {
 	const current = () => liveTiers().find((c) => c.id === activeClub()) || liveTiers()[0];
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden mb-4">
+		<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden mb-4">
 			{/* Header */}
 			<div class="flex items-center justify-between border-b border-white/5 pb-3">
 				<div class="flex items-center gap-2.5">
@@ -96,7 +97,7 @@ export const NumberClubFloorsTracker: Component<Props> = (props) => {
 					</div>
 				</div>
 				<span class="text-[9px] font-mono font-black text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md">
-					5 LIVE TIERS
+					{t('numClubFloors.fiveLiveTiers')}
 				</span>
 			</div>
 
@@ -128,7 +129,7 @@ export const NumberClubFloorsTracker: Component<Props> = (props) => {
 										{layaT(club.title)}
 									</span>
 									<span class="text-[9px] font-mono text-amber-400 font-bold">
-										Floor: {club.floorTon} TON
+										{t('numClubFloors.floorPrefix')} {club.floorTon} {t('common.ton')}
 									</span>
 								</div>
 							</button>
@@ -138,7 +139,7 @@ export const NumberClubFloorsTracker: Component<Props> = (props) => {
 			</div>
 
 			{/* Active Club Spotlight Card */}
-			<div class="w-full bg-[#08090D] border border-white/5 rounded-[22px] p-4 flex flex-col gap-3 relative shadow-inner">
+			<div class="w-full frag-inset rounded-[22px] p-4 flex flex-col gap-3 relative shadow-inner">
 				<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
 					<div class="flex items-center gap-2">
 						<span
@@ -173,7 +174,7 @@ export const NumberClubFloorsTracker: Component<Props> = (props) => {
 						<span class="text-[13px] font-black text-emerald-400">
 							{current().topSaleTon.toLocaleString()} TON
 						</span>
-						<span class="text-[9px] text-white/40">Verified On-Chain</span>
+						<span class="text-[9px] text-white/40">{t('numClubFloors.verifiedOnChain')}</span>
 					</div>
 
 					<div class="bg-white/[0.02] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
@@ -184,12 +185,12 @@ export const NumberClubFloorsTracker: Component<Props> = (props) => {
 									props.onSelectNumber(current().sampleNumber);
 								}
 							}}
-							class="text-[11px] font-black text-[#0098EA] cursor-pointer hover:underline truncate"
+							class="text-[11px] font-black text-[#2990ff] cursor-pointer hover:underline truncate"
 							dir="ltr"
 						>
 							{current().sampleNumber}
 						</span>
-						<span class="text-[9px] text-[#0098EA]/60">{layaT(NUMBERS_I18N.tapToValuate)}</span>
+						<span class="text-[9px] text-[#2990ff]/60">{layaT(NUMBERS_I18N.tapToValuate)}</span>
 					</div>
 				</div>
 			</div>

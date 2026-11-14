@@ -79,39 +79,43 @@ func NormalizeNumber(raw string) (string, error) {
 
 // FeatureVector represents the complete mathematical profile of an anonymous number
 type FeatureVector struct {
-	Number              string          `json:"number"`                // Normalized: +888XXXXXXXX or +888XXXX
-	Suffix              string          `json:"suffix"`                // Digits after 888 (4 digits for Genesis, 8 for Telemint)
-	IsGenesis4Digit     bool            `json:"is_genesis_4digit"`     // True if 4-digit Genesis Grail (8000..8999, supply=1000)
-	Genesis             GenesisMeta     `json:"genesis"`               // 7-tier micro-segment Genesis details
-	VIP                 VIPTaxonomy     `json:"vip"`                   // Standard Telephony VIP Tiering (Diamond, Platinum, Gold, Silver, Bronze)
-	DialPad             DialPadFeatures `json:"dial_pad"`              // Physical ergonomics and spatial geometry on keypad
-	LeadingEightCount   int             `json:"leading_eight_count"`   // Count of consecutive 8s at start of suffix
-	PrefixJoinRun       int             `json:"prefix_join_run"`       // 3 (from +888) + leading 8s (e.g. +888 8001 -> 4, +888 8888 -> 7)
-	EffectiveMaxRun     int             `json:"effective_max_run"`     // Max contiguous run across the full dial string
-	MaxRun              int             `json:"max_run"`               // Contiguous identical digits inside suffix
-	RunCount2Plus       int             `json:"run_count_2plus"`       // Number of runs of length >= 2
-	RunCount3Plus       int             `json:"run_count_3plus"`       // Number of runs of length >= 3
-	DistinctDigits      int             `json:"distinct_digits"`       // Count of unique digits (1 to 10)
-	BinaryVanity        bool            `json:"binary_vanity"`         // Exactly <= 2 distinct digits (High prestige binary)
-	TernaryVanity       bool            `json:"ternary_vanity"`        // Exactly 3 distinct digits
-	EchoHarmonics       string          `json:"echo_harmonics"`        // "ECHO_SANDWICH_888", "CLAMP_888_000", "PREFIX_MIRROR", "NONE"
-	HarmonicEntropy     float64         `json:"harmonic_entropy"`      // Shannon information entropy (0.0 = pure single digit)
-	IsPalindrome        bool            `json:"is_palindrome"`         // Perfect symmetry
-	MirrorScore         float64         `json:"mirror_score"`          // Structural mirror score 0.0 - 1.0
-	HasMonotonicAsc     bool            `json:"has_monotonic_asc"`     // Contains monotonic ascending run >= 4
-	HasMonotonicDesc    bool            `json:"has_monotonic_desc"`    // Contains monotonic descending run >= 4
-	RepeatedBlock       string          `json:"repeated_block"`        // "AAAA", "ABAB", "AABB", "ABCDABCD", etc.
-	DigitFreq           [10]int         `json:"digit_freq"`            // Frequency array for 0..9
-	LuckyWeight         float64         `json:"lucky_weight"`          // Cultural positive bonus
-	UnluckyWeight       float64         `json:"unlucky_weight"`        // Cultural negative penalty
-	SemanticMatches     []string        `json:"semantic_matches"`      // Matched lexicon pattern names
-	SemanticBonusLogP   float64         `json:"semantic_bonus_log_p"`  // Hedonic log-price bonus from semantic lexicon
-	SemanticRarityBonus float64         `json:"semantic_rarity_bonus"` // Rarity score bonus from semantic lexicon
-	DateLike            bool            `json:"date_like"`             // Contains 19xx/20xx or date pattern
-	TailClass           string          `json:"tail_class"`            // Last 4 digits pattern classification
-	LeadingPattern      string          `json:"leading_pattern"`       // First 2 digits of suffix
-	RarityPercentile    float64         `json:"rarity_percentile"`     // Percentile within 136,566 total supply
-	RarityScore         int             `json:"rarity_score"`          // Composite score 0 - 100
+	Number               string          `json:"number"`                  // Normalized: +888XXXXXXXX or +888XXXX
+	Suffix               string          `json:"suffix"`                  // Digits after 888 (4 digits for Genesis, 8 for Telemint)
+	IsGenesis4Digit      bool            `json:"is_genesis_4digit"`       // True if 4-digit Genesis Grail (8000..8999, supply=1000)
+	Genesis              GenesisMeta     `json:"genesis"`                 // 7-tier micro-segment Genesis details
+	VIP                  VIPTaxonomy     `json:"vip"`                     // Standard Telephony VIP Tiering (Diamond, Platinum, Gold, Silver, Bronze)
+	DialPad              DialPadFeatures `json:"dial_pad"`                // Physical ergonomics, Fitts's Law & DTMF acoustics on keypad
+	LeadingEightCount    int             `json:"leading_eight_count"`     // Count of consecutive 8s at start of suffix
+	PrefixJoinRun        int             `json:"prefix_join_run"`         // 3 (from +888) + leading 8s (e.g. +888 8001 -> 4, +888 8888 -> 7)
+	EffectiveMaxRun      int             `json:"effective_max_run"`       // Max contiguous run across the full dial string
+	MaxRun               int             `json:"max_run"`                 // Contiguous identical digits inside suffix
+	MaxRunDigit          string          `json:"max_run_digit"`           // Digit ('0'..'9') forming the longest run in suffix
+	RunCount2Plus        int             `json:"run_count_2plus"`         // Number of runs of length >= 2
+	RunCount3Plus        int             `json:"run_count_3plus"`         // Number of runs of length >= 3
+	DistinctDigits       int             `json:"distinct_digits"`         // Count of unique digits (1 to 10)
+	BinaryVanity         bool            `json:"binary_vanity"`           // Exactly <= 2 distinct digits (High prestige binary)
+	TernaryVanity        bool            `json:"ternary_vanity"`          // Exactly 3 distinct digits
+	EchoHarmonics        string          `json:"echo_harmonics"`          // "ECHO_SANDWICH_888", "CLAMP_888_000", "PREFIX_SUFFIX_CLAMP_888", "FULL_DIAL_PALINDROME_888"
+	HarmonicEntropy      float64         `json:"harmonic_entropy"`        // Shannon information entropy (0.0 = pure single digit)
+	CompressionRatio     float64         `json:"compression_ratio"`       // Kolmogorov / RLE structural compression ratio [0.0, 1.0]
+	IsPalindrome         bool            `json:"is_palindrome"`           // Perfect suffix symmetry
+	IsFullDialPalindrome bool            `json:"is_full_dial_palindrome"` // Full 11-digit (or 7-digit) E.164 string (888 + suffix) is a palindrome
+	MirrorScore          float64         `json:"mirror_score"`            // Structural mirror score 0.0 - 1.0
+	HasMonotonicAsc      bool            `json:"has_monotonic_asc"`       // Contains monotonic ascending run >= 4
+	HasMonotonicDesc     bool            `json:"has_monotonic_desc"`      // Contains monotonic descending run >= 4
+	HasPairProgression   bool            `json:"has_pair_progression"`    // 2-digit arithmetic progression (e.g. 10 20 30 40, 01 02 03 04)
+	RepeatedBlock        string          `json:"repeated_block"`          // "ALL_SAME", "AAAABBBB", "AABB_AABB", "ABBA_ABBA", "PERIOD_HALF", "PAIR_LADDER", etc.
+	DigitFreq            [10]int         `json:"digit_freq"`              // Frequency array for 0..9
+	LuckyWeight          float64         `json:"lucky_weight"`            // Cultural positive bonus
+	UnluckyWeight        float64         `json:"unlucky_weight"`          // Cultural negative penalty
+	SemanticMatches      []string        `json:"semantic_matches"`        // Matched lexicon pattern names
+	SemanticBonusLogP    float64         `json:"semantic_bonus_log_p"`    // Hedonic log-price bonus from semantic lexicon
+	SemanticRarityBonus  float64         `json:"semantic_rarity_bonus"`   // Rarity score bonus from semantic lexicon
+	DateLike             bool            `json:"date_like"`               // Contains 19xx/20xx or date pattern
+	TailClass            string          `json:"tail_class"`              // Last 4 digits pattern classification
+	LeadingPattern       string          `json:"leading_pattern"`         // First 2 digits of suffix
+	RarityPercentile     float64         `json:"rarity_percentile"`       // Percentile within 136,566 total supply
+	RarityScore          int             `json:"rarity_score"`            // Composite score 0 - 100
 }
 
 // CleanNumber removes whitespace, hyphens, and standardizes input to ASCII digits only
@@ -223,15 +227,20 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 	}
 	fv.HarmonicEntropy = math.Round(entropy*100.0) / 100.0
 
-	// 3. Max Run & Run Counts
+	// 3. Max Run & Run Counts + Dominant Run Digit
 	currentRun := 1
 	maxRun := 1
+	maxRunDigit := suffix[0]
 	run2Plus := 0
 	run3Plus := 0
 
 	for i := 1; i < length; i++ {
 		if suffix[i] == suffix[i-1] {
 			currentRun++
+			if currentRun > maxRun || (currentRun == maxRun && suffix[i] == '8') {
+				maxRun = currentRun
+				maxRunDigit = suffix[i]
+			}
 		} else {
 			if currentRun >= 2 {
 				run2Plus++
@@ -241,6 +250,7 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 			}
 			if currentRun > maxRun {
 				maxRun = currentRun
+				maxRunDigit = suffix[i-1]
 			}
 			currentRun = 1
 		}
@@ -253,16 +263,19 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 	}
 	if currentRun > maxRun {
 		maxRun = currentRun
+		maxRunDigit = suffix[length-1]
 	}
 	fv.MaxRun = maxRun
+	fv.MaxRunDigit = string(maxRunDigit)
 	fv.EffectiveMaxRun = maxRun
 	if fv.PrefixJoinRun > fv.EffectiveMaxRun {
 		fv.EffectiveMaxRun = fv.PrefixJoinRun
+		fv.MaxRunDigit = "8"
 	}
 	fv.RunCount2Plus = run2Plus
 	fv.RunCount3Plus = run3Plus
 
-	// 4. Palindrome & Mirror Score
+	// 4. Palindrome, Full-Dial E.164 Palindrome & Mirror Score
 	isPalin := true
 	matchingRunes := 0
 	halfLen := length / 2
@@ -278,21 +291,52 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 		fv.MirrorScore = float64(matchingRunes) / float64(halfLen)
 	}
 
-	// 5. Monotonic Ascending & Descending Runs (>= 4)
+	// Check Full-11-Digit (or 7-digit) E.164 Dial Palindrome: "888" + suffix
+	fullDial := "888" + suffix
+	isFullDialPal := true
+	fullHalf := len(fullDial) / 2
+	fullMatches := 0
+	for i := 0; i < fullHalf; i++ {
+		if fullDial[i] == fullDial[len(fullDial)-1-i] {
+			fullMatches++
+		} else {
+			isFullDialPal = false
+		}
+	}
+	fv.IsFullDialPalindrome = isFullDialPal
+	if isFullDialPal && fv.MirrorScore < 0.85 {
+		fv.MirrorScore = 0.85
+	}
+
+	// 5. Monotonic Ascending, Descending & Pair Progressions
 	fv.HasMonotonicAsc = checkMonotonic(suffix, true, 4)
 	fv.HasMonotonicDesc = checkMonotonic(suffix, false, 4)
+	fv.HasPairProgression = checkPairProgression(suffix)
 
 	// 6. Repeated Block Detection
 	fv.RepeatedBlock = detectRepeatedBlock(suffix)
 
-	// 7. Dial-Pad Ergonomics & Geometry
+	// Kolmogorov / RLE Structural Compression Ratio
+	maxEntropy := math.Log2(float64(length))
+	if maxEntropy <= 0 {
+		maxEntropy = 1.0
+	}
+	compRatio := 1.0 - (entropy / maxEntropy)
+	if fv.RepeatedBlock == "PERIOD_HALF" || fv.RepeatedBlock == "AABB_AABB" || fv.RepeatedBlock == "ABBA_ABBA" || fv.IsPalindrome || fv.IsFullDialPalindrome || fv.HasPairProgression {
+		compRatio = math.Max(compRatio, 0.55)
+	}
+	fv.CompressionRatio = math.Round(math.Min(1.0, math.Max(0.0, compRatio))*1000.0) / 1000.0
+
+	// 7. Dial-Pad Ergonomics, Fitts's Law & DTMF Acoustics
 	fv.DialPad = AnalyzeDialPad(suffix)
 
 	// 8. Telephony Standard VIP Taxonomy
-	fv.VIP = ClassifyVIPTaxonomy(suffix, fv.EffectiveMaxRun, fv.DistinctDigits, fv.IsPalindrome, fv.HasMonotonicAsc, fv.HasMonotonicDesc)
+	fv.VIP = ClassifyVIPTaxonomy(suffix, fv.EffectiveMaxRun, fv.DistinctDigits, fv.IsPalindrome || fv.IsFullDialPalindrome, fv.HasMonotonicAsc, fv.HasMonotonicDesc)
 
 	// 9. Echo Harmonics (Prefix +888 synergy)
-	if strings.HasSuffix(suffix, "888") && strings.Contains(suffix[:len(suffix)-3], "888") {
+	if fv.IsFullDialPalindrome && !fv.IsPalindrome {
+		fv.EchoHarmonics = "FULL_DIAL_PALINDROME_888"
+	} else if strings.HasSuffix(suffix, "888") && strings.Contains(suffix[:len(suffix)-3], "888") {
 		fv.EchoHarmonics = "ECHO_SANDWICH_888"
 	} else if strings.HasSuffix(suffix, "888") {
 		fv.EchoHarmonics = "PREFIX_SUFFIX_CLAMP_888"
@@ -372,6 +416,24 @@ func checkMonotonic(s string, asc bool, minRun int) bool {
 	return false
 }
 
+// checkPairProgression detects 4 two-digit pairs in arithmetic progression (e.g. 10 20 30 40, 01 02 03 04, 80 60 40 20)
+func checkPairProgression(s string) bool {
+	if len(s) != 8 {
+		return false
+	}
+	p0, err0 := strconv.Atoi(s[0:2])
+	p1, err1 := strconv.Atoi(s[2:4])
+	p2, err2 := strconv.Atoi(s[4:6])
+	p3, err3 := strconv.Atoi(s[6:8])
+	if err0 != nil || err1 != nil || err2 != nil || err3 != nil {
+		return false
+	}
+	step1 := p1 - p0
+	step2 := p2 - p1
+	step3 := p3 - p2
+	return step1 != 0 && step1 == step2 && step2 == step3
+}
+
 func detectRepeatedBlock(s string) string {
 	n := len(s)
 	if n == 0 {
@@ -399,6 +461,11 @@ func detectRepeatedBlock(s string) string {
 	// Check AABB_AABB (repeating double pairs: e.g. 1188 1188, 8800 8800, 7788 7788)
 	if n == 8 && s[0:4] == s[4:8] && s[0] == s[1] && s[2] == s[3] && s[0] != s[2] {
 		return "AABB_AABB"
+	}
+
+	// Check ABBA_ABBA (dual 4-digit mirror palindromes: e.g. 8008 8008, 1221 1221)
+	if n == 8 && s[0:4] == s[4:8] && s[0] == s[3] && s[1] == s[2] && s[0] != s[1] {
+		return "ABBA_ABBA"
 	}
 
 	// Check ABCDABCD (period n/2, e.g. 1234 1234)
@@ -445,6 +512,11 @@ func detectRepeatedBlock(s string) string {
 		if isAABB {
 			return "AABB"
 		}
+	}
+
+	// Check 2-digit arithmetic pair ladder (e.g. 10 20 30 40, 01 02 03 04)
+	if checkPairProgression(s) {
+		return "PAIR_LADDER"
 	}
 
 	return "STANDARD"
@@ -553,27 +625,31 @@ func computeCompositeScore(fv FeatureVector) int {
 		score += 8.0
 	}
 
-	// 3. Palindrome
+	// 3. Palindrome & Full-Dial E.164 Palindrome
 	if fv.IsPalindrome {
 		score += 20.0
+	} else if fv.IsFullDialPalindrome {
+		score += 18.0
 	} else if fv.MirrorScore >= 0.75 {
 		score += 10.0
 	}
 
-	// 4. Monotonic Sequences
+	// 4. Monotonic & Pair Progression Sequences
 	if fv.HasMonotonicAsc || fv.HasMonotonicDesc {
 		score += 15.0
+	} else if fv.HasPairProgression {
+		score += 14.0
 	}
 
 	// 5. Repeated Block Bonus
 	switch fv.RepeatedBlock {
 	case "ALL_SAME":
 		score += 25.0
-	case "AAAABBBB", "AABB_AABB":
+	case "AAAABBBB", "AABB_AABB", "ABBA_ABBA":
 		score += 22.0
 	case "ABAB", "PERIOD_TRIPLET":
 		score += 18.0
-	case "AABB", "PERIOD_HALF":
+	case "AABB", "PERIOD_HALF", "PAIR_LADDER":
 		score += 14.0
 	}
 
@@ -617,7 +693,7 @@ func estimateInitialPercentile(fv FeatureVector) float64 {
 
 	// Genesis numbers belong strictly to the top 0.73% tier (>= 99.27%)
 	if fv.IsGenesis4Digit {
-		pct := 99.27 + (score / 100.0) * 0.729
+		pct := 99.27 + (score/100.0)*0.729
 		if pct > 99.999 {
 			pct = 99.999
 		}
@@ -637,7 +713,7 @@ func estimateInitialPercentile(fv FeatureVector) float64 {
 	if fv.DistinctDigits <= 2 {
 		return 99.80
 	}
-	if fv.IsPalindrome {
+	if fv.IsPalindrome || fv.IsFullDialPalindrome {
 		return 99.20
 	}
 	return pct

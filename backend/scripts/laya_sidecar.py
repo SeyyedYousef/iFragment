@@ -119,10 +119,14 @@ def compute_number_signals(raw_number: str) -> Dict[str, float]:
         return {"scarcity": 0.55, "cn": 0.60, "ru": 0.60, "mena": 0.60}
 
     n = len(suffix)
+    is_genesis = (n == 4)
     distinct = len(set(suffix))
     is_pal = 1.0 if suffix == suffix[::-1] else 0.0
+    full_dial = "888" + suffix
+    is_full_pal = 1.0 if full_dial == full_dial[::-1] else 0.0
+    sym_signal = max(is_pal, is_full_pal * 0.90)
 
-    # Max consecutive run
+    # Max consecutive run & prefix +888 bridge
     max_run = 1
     cur_run = 1
     for i in range(1, n):
@@ -132,25 +136,38 @@ def compute_number_signals(raw_number: str) -> Dict[str, float]:
         else:
             cur_run = 1
 
-    # Chinese numerology: 8 (+), 6 (+), 9 (+), 4 (-)
+    leading_eights = len(suffix) - len(suffix.lstrip("8"))
+    eff_run = max(max_run, 3 + leading_eights) if leading_eights > 0 else max_run
+    genesis_boost = 0.24 if is_genesis else 0.0
+
+    # Chinese numerology: 8 (+), 6 (+), 9 (+), 168/518/888 (+), 4 (-)
     eights = suffix.count("8")
     sixes = suffix.count("6")
     nines = suffix.count("9")
     fours = suffix.count("4")
-    cn_score = 0.52 + (eights * 0.09) + (sixes * 0.05) + (nines * 0.04) - (fours * 0.10) + (max_run - 1) * 0.05
+    combo_cn = 0.10 if any(c in suffix for c in ("168", "518", "888")) else 0.0
+    four_pen = 0.02 if distinct == 1 else fours * 0.10
+    cn_score = 0.52 + genesis_boost * 0.8 + (eights * 0.09) + (sixes * 0.05) + (nines * 0.04) + combo_cn - four_pen + (max_run - 1) * 0.05
     cn_score = max(0.15, min(0.99, cn_score))
 
-    # Russian/CIS prestige: repeating triples/quads, mirror ABBA, low distinct digits
-    ru_score = 0.48 + (max_run >= 3) * 0.22 + is_pal * 0.18 + max(0, 6 - distinct) * 0.07
+    # Russian/CIS prestige: repeating triples/quads, 777/888/999/007/001, mirror ABBA, low distinct digits
+    ru_run_bonus = 0.22 if (max_run >= 3 or eff_run >= 5) else 0.0
+    if any(c in suffix for c in ("777", "888", "999", "007")) or suffix.endswith("001"):
+        ru_run_bonus += 0.10
+    ru_score = 0.48 + genesis_boost + ru_run_bonus + sym_signal * 0.18 + max(0, 6 - distinct) * 0.07
     ru_score = max(0.18, min(0.99, ru_score))
 
     # MENA/Persian VIP prestige: trailing/repeating zeros, 7s, 5s, 8s, long runs
     zeros = suffix.count("0")
     sevens = suffix.count("7")
-    mena_score = 0.50 + (max_run - 1) * 0.09 + zeros * 0.05 + sevens * 0.04 + is_pal * 0.12
+    mena_zero_bonus = zeros * 0.055 + (0.10 if suffix.endswith(("000", "0000")) else 0.0)
+    mena_score = 0.50 + genesis_boost + (max_run - 1) * 0.09 + mena_zero_bonus + sevens * 0.045 + sym_signal * 0.14
     mena_score = max(0.18, min(0.99, mena_score))
 
-    scarcity = max(0.15, min(0.99, (9 - distinct) * 0.10 + (max_run - 1) * 0.08 + is_pal * 0.16))
+    if is_genesis:
+        scarcity = max(0.86, min(0.99, 0.84 + (4 - distinct) * 0.05 + (max_run - 1) * 0.04 + sym_signal * 0.06))
+    else:
+        scarcity = max(0.15, min(0.99, (9 - distinct) * 0.10 + (eff_run - 1) * 0.07 + sym_signal * 0.16))
     return {"scarcity": scarcity, "cn": cn_score, "ru": ru_score, "mena": mena_score}
 
 
@@ -163,33 +180,95 @@ def compute_state_signal_vector(state: Dict[str, Any]) -> Dict[str, float]:
     serial = int(state.get("serial_number") or state.get("serial") or 500)
 
     phonetic = compute_phonetic_quality(username) if username else 0.68
+    if "flow_score" in state and state.get("flow_score") is not None:
+        try:
+            phonetic = 0.60 * phonetic + 0.40 * max(0.10, min(0.99, float(state["flow_score"])))
+        except (ValueError, TypeError):
+            pass
+
+    ergonomic = float(state.get("fitts_ergonomic_score") or state.get("ergonomic_score") or phonetic)
+    viterbi_cov = float(state.get("viterbi_coverage") if state.get("viterbi_coverage") is not None else -1.0)
+    is_dict = bool(state.get("is_dictionary", False))
+    is_gib = bool(state.get("is_gibberish", False))
+    freq_rank = float(state.get("word_freq_rank") or state.get("frequency_rank") or 0)
+
     is_crypto = 1.0 if any(k in username for k in CRYPTO_KEYWORDS) else 0.0
     is_luxury = 1.0 if any(k in username for k in LUXURY_KEYWORDS) else 0.0
     is_biz = 1.0 if any(k in username for k in BUSINESS_KEYWORDS) else 0.0
     is_kw = max(is_crypto, is_luxury, is_biz)
+    if not is_dict and (is_kw > 0 or freq_rank > 0):
+        is_dict = True
+    if viterbi_cov < 0:
+        viterbi_cov = 1.0 if is_dict else phonetic * 0.75
+    if not is_gib and username and not is_dict and phonetic < 0.35 and viterbi_cov < 0.50:
+        is_gib = True
+    if is_gib:
+        phonetic = min(phonetic, 0.22)
+        ergonomic = min(ergonomic, 0.30)
+        is_kw = 0.0
+
     is_tm = 1.0 if any(b == username or (len(b) >= 5 and b in username) for b in BRANDS) else 0.0
+    tm_sev = str(state.get("trademark_severity") or "").lower()
+    if tm_sev in ("exact_match", "high", "direct_infringement"):
+        is_tm = 0.95
+    elif tm_sev in ("confusing_similarity", "medium", "substring"):
+        is_tm = max(is_tm, 0.65)
 
     num_sigs = compute_number_signals(raw_num)
 
     gift_synergy = 0.62
     if backdrop or model_name:
-        if any(c in backdrop for c in ("black", "obsidian", "gold", "emerald", "cyber", "neon", "celestial")):
-            gift_synergy += 0.20
-        if any(s in symbol for s in ("crown", "diamond", "star", "fire", "ton", "pepe")):
-            gift_synergy += 0.10
-        if serial <= 10:
-            gift_synergy += 0.12
-        elif serial <= 100:
-            gift_synergy += 0.06
+        has_special_flag = "has_special_feature" in state and state.get("has_special_feature") is not None
+        has_special = bool(state.get("has_special_feature", True))
+        is_color_match = bool(state.get("is_color_matched", False))
+        delta_e_2000 = float(state.get("delta_e_2000") if state.get("delta_e_2000") is not None else -1.0)
+        model_rarity_pct = float(state.get("model_rarity_pct") or 2.0)
+        backdrop_permille = float(state.get("backdrop_permille") or 20.0)
+
+        if has_special_flag and not has_special:
+            gift_synergy = 0.56
+            if any(c in backdrop for c in ("black", "obsidian", "gold", "emerald", "cyber", "neon", "celestial", "matrix")):
+                gift_synergy = 0.64
+            if model_rarity_pct <= 1.2:
+                gift_synergy = max(gift_synergy, 0.64)
+        else:
+            if any(c in backdrop for c in ("black", "obsidian", "gold", "emerald", "cyber", "neon", "celestial", "matrix")):
+                gift_synergy += 0.20
+            if any(s in symbol for s in ("crown", "diamond", "star", "fire", "ton", "pepe")):
+                gift_synergy += 0.10
+            if is_color_match or (0 <= delta_e_2000 <= 18.0):
+                gift_synergy += 0.14
+            if 0 < model_rarity_pct <= 1.0:
+                gift_synergy += 0.08
+            if 0 < backdrop_permille <= 12.0:
+                gift_synergy += 0.06
+            if serial <= 10:
+                gift_synergy += 0.12
+            elif serial <= 100:
+                gift_synergy += 0.06
         gift_synergy = max(0.20, min(0.98, gift_synergy))
 
-    composite = max(0.15, min(0.98, 0.40 * phonetic + 0.20 * is_kw + 0.20 * num_sigs["scarcity"] + 0.20 * gift_synergy))
+    if username and not raw_num and not backdrop:
+        dict_boost = (0.30 if (0 < freq_rank <= 1500) else 0.22) if is_dict else 0.0
+        len_boost = 0.16 if len(username) <= 4 else (0.08 if len(username) == 5 else 0.0)
+        composite = 0.32 * phonetic + 0.18 * ergonomic + 0.22 * max(is_kw, viterbi_cov * 0.8) + dict_boost + len_boost
+        if is_gib:
+            composite = min(0.18, composite * 0.35)
+        if "_" in username:
+            composite *= 0.68
+        composite = max(0.10, min(0.98, composite))
+    else:
+        composite = max(0.15, min(0.98, 0.40 * phonetic + 0.20 * is_kw + 0.20 * num_sigs["scarcity"] + 0.20 * gift_synergy))
     return {
         "phonetic": phonetic,
+        "ergonomic": ergonomic,
+        "viterbi_coverage": viterbi_cov,
         "keyword": is_kw,
         "is_crypto": is_crypto,
         "is_luxury": is_luxury,
         "is_biz": is_biz,
+        "is_dict": 1.0 if is_dict else 0.0,
+        "is_gibberish": 1.0 if is_gib else 0.0,
         "trademark": is_tm,
         "number_scarcity": num_sigs["scarcity"],
         "cn": num_sigs["cn"],

@@ -30,52 +30,27 @@ type ReportTabKey = 'valuation' | 'forensics' | 'onchain' | 'siblings';
 const QUICK_BENCHMARK_NUMBERS = [
 	{
 		raw: '+888 0888 8888',
-		label: {
-			fa: 'جام مقدس ۸ رقمی (0888)',
-			en: '8D Grail (45K TON)',
-			ru: '8-зн. Грааль (45K TON)',
-			zh: '8位圣杯靓号 (45K TON)',
-		},
+		labelKey: 'numReportPage.bench1',
 		badge: 'GRAIL',
 	},
 	{
 		raw: '+888 8 888',
-		label: {
-			fa: 'جام مقدس ۴ رقمی (#1)',
-			en: '4D Genesis #1 (300K TON)',
-			ru: '4-зн. Genesis #1 (300K TON)',
-			zh: '4位创世 #1 (300K TON)',
-		},
+		labelKey: 'numReportPage.bench2',
 		badge: 'GENESIS #1',
 	},
 	{
 		raw: '+888 0000 0000',
-		label: {
-			fa: 'هشت صفر سلطنتی',
-			en: 'Royal Null 00000000',
-			ru: 'Королевские нули 00000000',
-			zh: '皇家全零 00000000',
-		},
+		labelKey: 'numReportPage.bench3',
 		badge: 'GRAIL',
 	},
 	{
 		raw: '+888 8 115',
-		label: {
-			fa: 'نمونه ۴ رقمی Restricted',
-			en: 'Restricted 4D Sample',
-			ru: 'Ограниченный 4-зн. номер',
-			zh: '受限 4位号码样本',
-		},
+		labelKey: 'numReportPage.bench4',
 		badge: 'RESTRICTED',
 	},
 	{
 		raw: '+888 0777 7777',
-		label: {
-			fa: 'هفت تایی خوش‌شانس',
-			en: 'Lucky 7-Run',
-			ru: 'Счастливые семёрки',
-			zh: '幸运七连号',
-		},
+		labelKey: 'numReportPage.bench5',
 		badge: 'APEX',
 	},
 ];
@@ -155,9 +130,7 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 						? t('numbers.errorTooLong')
 						: t('numbers.errorInvalidLength') || 'Anonymous numbers must be either 4 or 8 digits',
 			formatted:
-				suffix.length > 4
-					? `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}`
-					: `+888 ${suffix}`,
+				suffix.length > 4 ? `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}` : `+888 ${suffix}`,
 			cleanDigits: clean,
 			suffix,
 			tier: 'STANDARD',
@@ -302,7 +275,8 @@ export const NumberReportPage: Component = () => {
 	const playSingleDtmfTone = (rowHz: number, colHz: number, durationMs = 175) => {
 		try {
 			const AudioContextClass =
-				window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+				window.AudioContext ||
+				(window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
 			if (!AudioContextClass) return;
 			if (!audioCtx || audioCtx.state === 'closed') {
 				audioCtx = new AudioContextClass();
@@ -358,10 +332,13 @@ export const NumberReportPage: Component = () => {
 			dtmfTimerIds.push(tId);
 		});
 
-		const endId = window.setTimeout(() => {
-			setIsPlayingDtmf(false);
-			setActiveDtmfIndex(null);
-		}, cells.length * stepMs + 80);
+		const endId = window.setTimeout(
+			() => {
+				setIsPlayingDtmf(false);
+				setActiveDtmfIndex(null);
+			},
+			cells.length * stepMs + 80,
+		);
 		dtmfTimerIds.push(endId);
 	};
 
@@ -464,7 +441,11 @@ export const NumberReportPage: Component = () => {
 	};
 
 	const handleRunCustomMaskSearch = async (overrideMask?: string) => {
-		const rawMask = (overrideMask ?? customMaskInput()).trim().replace(/\+/g, '').replace(/\s+/g, '').toUpperCase();
+		const rawMask = (overrideMask ?? customMaskInput())
+			.trim()
+			.replace(/\+/g, '')
+			.replace(/\s+/g, '')
+			.toUpperCase();
 		if (!rawMask) return;
 		const normalizedMask = rawMask.startsWith('888') ? rawMask : `888${rawMask}`;
 		setCustomMaskInput(normalizedMask);
@@ -602,10 +583,10 @@ export const NumberReportPage: Component = () => {
 			return {
 				name: 'APEX',
 				wrapper:
-					'from-[#0098EA] via-[#0070BA] to-[#004B87] shadow-[0_20px_50px_rgba(0,152,234,0.35),inset_0_2px_10px_rgba(255,255,255,0.3)]',
+					'from-[#2990ff] via-[#0070BA] to-[#004B87] shadow-[0_20px_50px_rgba(41,144,255,0.35),inset_0_2px_10px_rgba(255,255,255,0.3)]',
 				badge:
-					'bg-[#0098EA]/15 border-[#0098EA]/40 text-[#0098EA] shadow-[0_0_15px_rgba(0,152,234,0.3)]',
-				glow: officialHex ? `${officialHex}66` : 'rgba(0,152,234,0.35)',
+					'bg-[#2990ff]/15 border-[#2990ff]/40 text-[#2990ff] shadow-[0_0_15px_rgba(41,144,255,0.3)]',
+				glow: officialHex ? `${officialHex}66` : 'rgba(41,144,255,0.35)',
 			};
 		}
 		return {
@@ -688,8 +669,7 @@ export const NumberReportPage: Component = () => {
 		for (let i = 0; i <= steps; i++) {
 			const tSec = (i / steps) * durationSec;
 			const yVal =
-				0.5 *
-				(Math.sin(2 * Math.PI * fRow * tSec) + Math.sin(2 * Math.PI * fCol * tSec));
+				0.5 * (Math.sin(2 * Math.PI * fRow * tSec) + Math.sin(2 * Math.PI * fCol * tSec));
 			const x = Math.round((i / steps) * width * 10) / 10;
 			const y = Math.round((midY - yVal * 24) * 10) / 10;
 			pts.push(`${i === 0 ? 'M' : 'L'} ${x} ${y}`);
@@ -706,21 +686,15 @@ export const NumberReportPage: Component = () => {
 			x: c.keypad_col * 70 + 35,
 			y: c.keypad_row * 46 + 23,
 		}));
-		const pathStr = coords
-			.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`)
-			.join(' ');
+		const pathStr = coords.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`).join(' ');
 		return { coords, pathStr };
 	});
 
 	return (
 		<div
-			class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden"
+			class="frag-canvas pb-36 text-white min-h-screen relative selection:bg-[#2990ff]/30 overflow-x-hidden"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			{/* Ambient Dynamic Background Glows */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#0098EA]/20 via-[#AF52DE]/10 to-transparent blur-[90px] pointer-events-none z-0" />
-			<div class="fixed bottom-20 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] pointer-events-none z-0" />
-
 			<div class="relative z-10 max-w-[520px] mx-auto px-4 pt-4">
 				{/* ═══════ 1. CLEAN HEADER ═══════ */}
 				<div class="flex items-center justify-between mb-3">
@@ -739,38 +713,26 @@ export const NumberReportPage: Component = () => {
 
 					<div class="text-center flex-1 px-3">
 						<h1 class="text-base font-black text-white flex items-center justify-center gap-1.5">
-							<span>
-								{layaT({
-									fa: 'کالبدشکافی و ارزش‌گذاری شماره',
-									en: 'Telegram Anonymous Number',
-									ru: 'Оценка анонимного номера',
-									zh: 'Telegram 匿名靓号估值',
-								})}
-							</span>
-							<span class="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
+							<span>{t('numReportPage.telegramAnonymousNumber')}</span>
+							<span class="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-[#2990ff]/20 text-[#2990ff] border border-[#2990ff]/30">
 								+888
 							</span>
 						</h1>
 						<p class="text-[11px] font-medium text-white/50">
-							{layaT({
-								fa: 'موتور NV-Engine v7.5 • تحلیل باینری، آکوستیک DTMF و آن‌چین',
-								en: 'NV-Engine v7.5 • Live Binary, DTMF & On-Chain Forensics',
-								ru: 'NV-Engine v7.5 • Бинарный, DTMF и ончейн-анализ',
-								zh: 'NV-Engine v7.5 • 实时二进制、DTMF 声学与链上溯源',
-							})}
+							{t('numReportPage.nvEngineV75Live')}
 						</p>
 					</div>
 
 					<div class="w-10 h-10 flex items-center justify-center">
 						<span class="text-[10px] font-mono font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded-xl">
-							LIVE
+							{t('numReportPage.liveBadge')}
 						</span>
 					</div>
 				</div>
 
 				{/* 🔍 TOP INTERACTIVE NUMBER SEARCH BAR */}
-				<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-1.5 mb-2.5 flex items-center gap-2 shadow-lg">
-					<span class="material-symbols-outlined text-[#0098EA] ml-2 text-xl">dialpad</span>
+				<div class="frag-card-elevated rounded-2xl p-1.5 mb-2.5 flex items-center gap-2 shadow-lg">
+					<span class="material-symbols-outlined text-[#2990ff] ml-2 text-xl">dialpad</span>
 					<input
 						type="text"
 						value={inputNumber()}
@@ -797,16 +759,9 @@ export const NumberReportPage: Component = () => {
 						type="button"
 						onClick={() => void handleRunAnalysis(inputNumber())}
 						disabled={isAnalyzing()}
-						class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#007ebb] text-white font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-[#0098EA]/20 flex items-center gap-1"
+						class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#2990ff] to-[#007ebb] text-white font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-[#2990ff]/20 flex items-center gap-1"
 					>
-						<span>
-							{layaT({
-								fa: 'کالبدشکافی',
-								en: 'Appraise',
-								ru: 'Оценить',
-								zh: '鉴定估值',
-							})}
-						</span>
+						<span>{t('numReportPage.appraise')}</span>
 						<span class="material-symbols-outlined text-xs">arrow_forward</span>
 					</button>
 				</div>
@@ -826,15 +781,15 @@ export const NumberReportPage: Component = () => {
 									}}
 									class={`shrink-0 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold transition-all flex items-center gap-1.5 ${
 										isSelected()
-											? 'bg-[#0098EA]/20 border-[#0098EA]/50 text-white shadow-sm shadow-[#0098EA]/20'
-											: 'bg-[#12141C]/80 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+											? 'bg-[#2990ff]/20 border-[#2990ff]/50 text-white shadow-sm shadow-[#2990ff]/20'
+											: 'bg-[#141a22]/90 border-white/10 text-white/60 hover:text-white hover:border-white/20'
 									}`}
 								>
 									<span class="font-mono font-black text-cyan-300" dir="ltr">
 										{item.raw}
 									</span>
 									<span class="text-white/40">|</span>
-									<span>{layaT(item.label)}</span>
+									<span>{t(item.labelKey)}</span>
 								</button>
 							);
 						}}
@@ -850,8 +805,8 @@ export const NumberReportPage: Component = () => {
 
 				{/* ═══════ 2. STATE 1: SCANNING ANIMATION ═══════ */}
 				<Show when={isAnalyzing()}>
-					<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[32px] p-8 mb-6 text-center relative overflow-hidden shadow-2xl">
-						<div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#0098EA] to-[#00c6ff] mx-auto mb-4 flex items-center justify-center shadow-lg shadow-[#0098EA]/40 animate-pulse">
+					<div class="frag-card-elevated rounded-[18px] p-8 mb-6 text-center relative overflow-hidden shadow-[0_12px_32px_rgba(0,0,0,0.38)]">
+						<div class="w-16 h-16 rounded-[16px] bg-gradient-to-tr from-[#2990ff] to-[#00c6ff] mx-auto mb-4 flex items-center justify-center shadow-lg shadow-[#2990ff]/40 animate-pulse">
 							<span class="material-symbols-outlined text-white text-3xl">psychology</span>
 						</div>
 
@@ -862,7 +817,7 @@ export const NumberReportPage: Component = () => {
 
 						<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
 							<div
-								class="h-full bg-gradient-to-r from-[#0098EA] to-emerald-400 rounded-full transition-all duration-500"
+								class="h-full bg-gradient-to-r from-[#2990ff] to-emerald-400 rounded-full transition-all duration-500"
 								style={{ width: `${((analysisStep() + 1) / analysisSteps().length) * 100}%` }}
 							/>
 						</div>
@@ -873,9 +828,7 @@ export const NumberReportPage: Component = () => {
 				{/* ═══════ 3. STATE 2: PRE-UNLOCK CURIOSITY GATE & PAYWALL ═══════ */}
 				<Show when={!isAnalyzing() && !isUnlocked() && gateData()}>
 					<div class="mb-6 w-full max-w-[460px] mx-auto space-y-4">
-						<div class="bg-gradient-to-br from-[#12141C] via-[#0E1017] to-[#0A0C10] border border-cyan-500/30 rounded-[28px] p-5 shadow-2xl relative overflow-hidden text-start">
-							<div class="absolute -top-12 -right-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-
+						<div class="frag-card-elevated border border-cyan-500/30 rounded-[16px] p-5 shadow-[0_12px_32px_rgba(0,0,0,0.38)] relative overflow-hidden text-start">
 							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 								<div class="flex items-center gap-2">
 									<div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
@@ -883,12 +836,7 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h4 class="text-xs font-black text-white">
-											{layaT({
-												fa: 'تحلیل هوشمند پیش‌ارزیابی آماده است',
-												en: 'Pre-Appraisal Intelligence Ready',
-												ru: 'Предварительный анализ готов',
-												zh: '预评估智能情报已就绪',
-											})}
+											{t('numReportPage.preAppraisalIntelligenceReady')}
 										</h4>
 										<span class="text-[9px] font-bold text-cyan-400 font-mono" dir="ltr">
 											{gateData()?.display_number || validation().formatted}
@@ -896,7 +844,7 @@ export const NumberReportPage: Component = () => {
 									</div>
 								</div>
 								<span class="text-[9px] font-mono font-black uppercase px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-									READY
+									{t('numReportPage.readyBadge')}
 								</span>
 							</div>
 
@@ -932,15 +880,17 @@ export const NumberReportPage: Component = () => {
 							<div class="p-3 rounded-2xl bg-white/[0.02] border border-white/5 relative overflow-hidden">
 								<div class="space-y-1.5 opacity-40 blur-[2px] select-none pointer-events-none">
 									<div class="flex justify-between items-center text-[10px]">
-										<span class="text-white/60">Fair Value Appraisal</span>
+										<span class="text-white/60">{t('numReportPage.previewFairValue')}</span>
 										<span class="font-mono text-cyan-400">█████ TON (≈ $████)</span>
 									</div>
 									<div class="flex justify-between items-center text-[10px]">
-										<span class="text-white/60">Liquidation & Asking Band</span>
-										<span class="font-mono text-amber-400">████ — ████ TON</span>
+										<span class="text-white/60">{t('numReportPage.previewBand')}</span>
+										<span class="font-mono text-amber-400">
+											{'████ — ████'} {t('common.ton')}
+										</span>
 									</div>
 									<div class="flex justify-between items-center text-[10px]">
-										<span class="text-white/60">TEP-62 SHA256 & DTMF Forensics</span>
+										<span class="text-white/60">{t('numReportPage.previewForensics')}</span>
 										<span class="font-mono text-emerald-400">0x████████████</span>
 									</div>
 								</div>
@@ -973,7 +923,7 @@ export const NumberReportPage: Component = () => {
 					<div class="space-y-4">
 						{/* 🚨 UNMINTED SUPPLY FREEZE ALERT BANNER (e.g. if user enters unminted +888 8888 8888) */}
 						<Show when={reportData()?.market_provenance?.is_minted === false}>
-							<div class="bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-[#12141C] border border-amber-400/50 rounded-[26px] p-4 shadow-xl text-start">
+							<div class="bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-[#12141C] border border-amber-400/50 rounded-[16px] p-4 shadow-xl text-start">
 								<div class="flex items-start gap-2.5">
 									<div class="w-9 h-9 rounded-2xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-300 shrink-0 mt-0.5">
 										<span class="material-symbols-outlined text-xl">ac_unit</span>
@@ -981,15 +931,10 @@ export const NumberReportPage: Component = () => {
 									<div class="flex-1 min-w-0">
 										<div class="flex items-center justify-between gap-2 mb-1">
 											<span class="text-xs font-black text-amber-300">
-												{layaT({
-													fa: 'ترکیب ضرب‌نشده (قفل دائمی عرضه دسامبر ۲۰۲۲)',
-													en: 'Unminted Combination (Dec 2022 Supply Freeze)',
-													ru: 'Невыпущенная комбинация (Лимит эмиссии дек. 2022)',
-													zh: '未铸造号码组合（2022年12月发行永久锁定）',
-												})}
+												{t('numReportPage.unmintedCombinationDec2022Supply')}
 											</span>
 											<span class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-200 border border-amber-400/40">
-												136,566 CAP
+												{t('numReportPage.supplyCapBadge')}
 											</span>
 										</div>
 										<p class="text-[11px] text-white/80 leading-relaxed mb-3">
@@ -998,18 +943,11 @@ export const NumberReportPage: Component = () => {
 												: reportData()?.market_provenance?.minted_status_reason_en}
 										</p>
 										<div class="text-[10px] font-bold text-amber-200/90 mb-2">
-											{layaT({
-												fa: 'نسخه‌های واقعی و ضرب‌شده همین الگو در بلاک‌چین:',
-												en: 'Switch to Verified Minted Equivalents on TON:',
-												ru: 'Проверенные выпущенные аналоги в сети TON:',
-												zh: '切换至 TON 链上已铸造的同形态真实靓号：',
-											})}
+											{t('numReportPage.switchToVerifiedMintedEquivalents')}
 										</div>
 										<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
 											<For
-												each={
-													reportData()?.market_provenance?.suggested_minted_alternatives || []
-												}
+												each={reportData()?.market_provenance?.suggested_minted_alternatives || []}
 											>
 												{(alt) => (
 													<button
@@ -1042,7 +980,7 @@ export const NumberReportPage: Component = () => {
 								reportData()?.on_chain_audit?.is_restricted
 							}
 						>
-							<div class="bg-gradient-to-br from-rose-500/20 via-rose-500/10 to-[#12141C] border border-rose-500/50 rounded-[26px] p-4 shadow-xl text-start">
+							<div class="bg-gradient-to-br from-rose-500/20 via-rose-500/10 to-[#12141C] border border-rose-500/50 rounded-[16px] p-4 shadow-xl text-start">
 								<div class="flex items-start gap-2.5">
 									<div class="w-9 h-9 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0 mt-0.5">
 										<span class="material-symbols-outlined text-xl">gpp_bad</span>
@@ -1050,15 +988,10 @@ export const NumberReportPage: Component = () => {
 									<div class="flex-1 min-w-0">
 										<div class="flex items-center justify-between gap-2 mb-1">
 											<span class="text-xs font-black text-rose-300">
-												{layaT({
-													fa: 'هشدار رسمی: این شماره در تلگرام محدود (Restricted) شده است!',
-													en: 'OFFICIAL WARNING: This Number is Restricted on Telegram',
-													ru: 'ВНИМАНИЕ: Этот номер ограничен (Restricted) в Telegram',
-													zh: '官方警告：该号码在 Telegram 上处于受限 (Restricted) 状态',
-												})}
+												{t('numReportPage.officialWarningThisNumberIs')}
 											</span>
 											<span class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/40">
-												tm-restricted-nft
+												{t('numReportPage.restrictedTag')}
 											</span>
 										</div>
 										<p class="text-[11px] text-white/80 leading-relaxed">
@@ -1076,7 +1009,7 @@ export const NumberReportPage: Component = () => {
 						<div
 							class={`w-full p-[2.5px] bg-gradient-to-br ${
 								getNumberTheme().wrapper
-							} rounded-[36px] my-1 relative z-20 transition-all duration-300 shadow-2xl`}
+							} rounded-[36px] my-1 relative z-20 transition-all duration-300 shadow-[0_12px_32px_rgba(0,0,0,0.38)]`}
 						>
 							<div
 								ref={cardRef}
@@ -1139,7 +1072,9 @@ export const NumberReportPage: Component = () => {
 										class="text-[11px] font-mono font-black text-white/70 tracking-wider uppercase bg-white/5 border border-white/10 px-2.5 py-1 rounded-xl shadow-inner flex items-center gap-1 shrink-0"
 										dir="ltr"
 									>
-										<span>👑</span>
+										<span class="material-symbols-outlined text-[13px] text-[#ffb340]">
+											emoji_events
+										</span>
 										<span>#{reportData()?.global_rank || 1}</span>
 										<span class="text-white/30">/</span>
 										<span class="text-white/40">136.5K</span>
@@ -1188,7 +1123,7 @@ export const NumberReportPage: Component = () => {
 										</span>
 										<Show when={copiedHeroNumber()}>
 											<span class="text-[10px] font-black text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
-												Copied ✓
+												{t('numReportPage.copiedBadge')}
 											</span>
 										</Show>
 									</div>
@@ -1198,12 +1133,7 @@ export const NumberReportPage: Component = () => {
 								<div class="flex justify-between items-end border-t border-white/10 pt-3.5 z-10 w-full gap-2">
 									<div class="flex flex-col gap-0.5 text-start min-w-0 flex-1">
 										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest truncate block">
-											{layaT({
-												fa: 'ارزش منصفانه آن‌چین (NV-Engine v7.5)',
-												en: 'FAIR INSTITUTIONAL VALUE',
-												ru: 'СПРАВЕДЛИВАЯ ОНЧЕЙН-ОЦЕНКА',
-												zh: '链上公允估值 (NV-Engine v7.5)',
-											})}
+											{t('numReportPage.fairInstitutionalValue')}
 										</span>
 										<div class="flex items-center gap-1.5 flex-wrap" dir="ltr">
 											<span
@@ -1211,7 +1141,9 @@ export const NumberReportPage: Component = () => {
 											>
 												{formatTon(reportData()?.expected_ton)}
 											</span>
-											<span class="text-xs font-black text-[#0098EA] leading-none">TON</span>
+											<span class="text-xs font-black text-[#2990ff] leading-none">
+												{t('common.ton')}
+											</span>
 											<span class="text-xs text-white/60 font-bold font-mono">
 												(≈ {formatUsd(reportData()?.expected_usd)})
 											</span>
@@ -1229,32 +1161,15 @@ export const NumberReportPage: Component = () => {
 													<div class="w-1.5 h-1.5 bg-rose-400 rounded-full animate-pulse" />
 													<span>
 														{reportData()?.market_provenance?.is_minted === false
-															? layaT({
-																	fa: 'ضرب‌نشده (Unminted)',
-																	en: 'UNMINTED',
-																	ru: 'НЕ ВЫПУЩЕН',
-																	zh: '未铸造',
-																})
-															: layaT({
-																	fa: 'محدودشده (Restricted)',
-																	en: 'RESTRICTED',
-																	ru: 'ОГРАНИЧЕН',
-																	zh: '受限状态',
-																})}
+															? t('numReportPage.unminted')
+															: t('numReportPage.restricted')}
 													</span>
 												</div>
 											}
 										>
 											<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-2.5 py-1 rounded-lg border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-wider text-[9px]">
 												<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />
-												<span>
-													{layaT({
-														fa: 'تاییدشده و سالم (Clean NFT)',
-														en: 'VERIFIED & CLEAN',
-														ru: 'ПРОВЕРЕН И ЧИСТ',
-														zh: '已验证且安全',
-													})}
-												</span>
+												<span>{t('numReportPage.verifiedClean')}</span>
 											</div>
 										</Show>
 										<Show when={(reportData()?.market_provenance?.last_sale_ton || 0) > 0}>
@@ -1269,25 +1184,18 @@ export const NumberReportPage: Component = () => {
 						</div>
 
 						{/* 🧭 4-TAB INSTITUTIONAL NAVIGATION BAR */}
-						<div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-[#12141C]/95 p-1.5 rounded-2xl border border-white/10 shadow-xl sticky top-2 z-30 backdrop-blur-xl">
+						<div class="grid grid-cols-2 sm:grid-cols-4 gap-1 frag-dock p-1.5 rounded-[14px] sticky top-2 z-30">
 							<button
 								type="button"
 								onClick={() => setActiveTab('valuation')}
 								class={`py-2.5 px-2 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${
 									activeTab() === 'valuation'
-										? 'bg-gradient-to-r from-[#0098EA] to-[#0077b6] text-white shadow-md shadow-[#0098EA]/25'
+										? 'bg-[#2990ff] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
 										: 'text-white/60 hover:text-white hover:bg-white/5'
 								}`}
 							>
 								<span class="material-symbols-outlined text-sm">monitoring</span>
-								<span>
-									{layaT({
-										fa: 'ارزش‌گذاری و اقتصاد',
-										en: 'Valuation',
-										ru: 'Оценка',
-										zh: '估值与经济',
-									})}
-								</span>
+								<span>{t('numReportPage.valuation')}</span>
 							</button>
 
 							<button
@@ -1295,19 +1203,12 @@ export const NumberReportPage: Component = () => {
 								onClick={() => setActiveTab('forensics')}
 								class={`py-2.5 px-2 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${
 									activeTab() === 'forensics'
-										? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/25'
+										? 'bg-[#2990ff] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
 										: 'text-white/60 hover:text-white hover:bg-white/5'
 								}`}
 							>
 								<span class="material-symbols-outlined text-sm">memory</span>
-								<span>
-									{layaT({
-										fa: 'باینری و آکوستیک',
-										en: 'Binary & DTMF',
-										ru: 'Бинарный и DTMF',
-										zh: '二进制与声学',
-									})}
-								</span>
+								<span>{t('numReportPage.binaryDtmf')}</span>
 							</button>
 
 							<button
@@ -1321,13 +1222,7 @@ export const NumberReportPage: Component = () => {
 							>
 								<span class="material-symbols-outlined text-sm">verified_user</span>
 								<span>
-									{layaT({
-										fa: 'تاریخچه و امنیت',
-										en: 'On-Chain',
-										ru: 'Ончейн',
-										zh: '链上与安全',
-									})}{' '}
-									({(reportData()?.onchain_history || []).length})
+									{t('numReportPage.onChain')} ({(reportData()?.onchain_history || []).length})
 								</span>
 							</button>
 
@@ -1342,19 +1237,14 @@ export const NumberReportPage: Component = () => {
 							>
 								<span class="material-symbols-outlined text-sm">hub</span>
 								<span>
-									{layaT({
-										fa: 'هم‌الگوها',
-										en: 'Pattern Peers',
-										ru: 'Аналоги',
-										zh: '同形态靓号',
-									})}{' '}
-									({(reportData()?.pattern_siblings || []).length})
+									{t('numReportPage.patternPeers')} ({(reportData()?.pattern_siblings || []).length}
+									)
 								</span>
 							</button>
 						</div>
 
 						{/* ═══════════════════════════════════════════════════════════════════════════
-						    TAB 1: VALUATION & ECONOMICS (ارزش‌گذاری و مهندسی مالی)
+						    TAB 1: VALUATION & ECONOMICS
 						   ═══════════════════════════════════════════════════════════════════════════ */}
 						<Show when={activeTab() === 'valuation'}>
 							<div class="space-y-4">
@@ -1364,35 +1254,27 @@ export const NumberReportPage: Component = () => {
 										<div class="flex items-center justify-between mb-1">
 											<span class="text-xs font-black text-amber-300 flex items-center gap-1.5">
 												<span class="material-symbols-outlined text-base">warning</span>
-												<span>
-													{layaT({
-														fa: 'فیلتر قیمت نمایشی نهنگ (Whale Vanity Ask Detected)',
-														en: 'Whale Vanity Ask Filtered',
-														ru: 'Фильтр завышенной цены кита',
-														zh: '巨鲸虚高挂单过滤',
-													})}
-												</span>
+												<span>{t('numReportPage.whaleVanityAskFiltered')}</span>
 											</span>
 											<span class="text-[10px] font-mono font-black text-amber-300" dir="ltr">
 												Listed: {formatTon(reportData()?.live_listing?.ask_or_bid_ton)} TON
 											</span>
 										</div>
 										<p class="text-[11px] text-white/75 leading-relaxed">
-											{layaT({
-												fa: `مالک فعلی این شماره را با قیمت نمایشی ${formatTon(reportData()?.live_listing?.ask_or_bid_ton)} TON لیست کرده است، اما بر اساس آخرین معامله واقعی روی زنجیره (${formatTon(reportData()?.market_provenance?.last_sale_ton)} TON) و کف بازار، ارزش منصفانه واقعی آن ${formatTon(reportData()?.expected_ton)} TON است.`,
-												en: `Current owner listed a vanity ask of ${formatTon(reportData()?.live_listing?.ask_or_bid_ton)} TON. NV-Engine anchored Fair Value to real on-chain clearing history (${formatTon(reportData()?.expected_ton)} TON).`,
-												ru: `Текущий владелец выставил завышенную цену ${formatTon(reportData()?.live_listing?.ask_or_bid_ton)} TON. NV-Engine опирается на реальные ончейн-сделки (${formatTon(reportData()?.expected_ton)} TON).`,
-												zh: `当前持有者挂出了 ${formatTon(reportData()?.live_listing?.ask_or_bid_ton)} TON 的展示性高价。NV-Engine 基于链上真实成交锚定公允价值为 ${formatTon(reportData()?.expected_ton)} TON。`,
+											{t('numReportPage.whaleVanitySummary', {
+												ask: formatTon(reportData()?.live_listing?.ask_or_bid_ton),
+												lastSale: formatTon(reportData()?.market_provenance?.last_sale_ton),
+												fair: formatTon(reportData()?.expected_ton),
 											})}
 										</p>
 									</div>
 								</Show>
 
 								{/* 📊 4 VALUATION FIGURES GRID */}
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
 									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 										<h3 class="text-xs font-black text-white flex items-center gap-2">
-											<span class="material-symbols-outlined text-[#0098EA] text-base">
+											<span class="material-symbols-outlined text-[#2990ff] text-base">
 												monitoring
 											</span>
 											<span>{layaT(NUMBER_REPORT_I18N.fourFigureMatrix)}</span>
@@ -1406,16 +1288,16 @@ export const NumberReportPage: Component = () => {
 									</div>
 
 									<div class="grid grid-cols-2 gap-2.5 my-3">
-										<div class="p-3.5 rounded-2xl bg-gradient-to-br from-[#0098EA]/15 via-black/40 to-black/60 border border-[#0098EA]/40 shadow-lg shadow-[#0098EA]/10 flex flex-col justify-between">
+										<div class="p-3.5 rounded-2xl bg-gradient-to-br from-[#2990ff]/15 via-black/40 to-black/60 border border-[#2990ff]/40 shadow-lg shadow-[#2990ff]/10 flex flex-col justify-between">
 											<div class="flex items-center justify-between mb-1">
-												<span class="text-[9px] uppercase font-black text-[#0098EA]">
+												<span class="text-[9px] uppercase font-black text-[#2990ff]">
 													{layaT(NUMBER_REPORT_I18N.fairValue)}
 												</span>
-												<span class="w-2 h-2 rounded-full bg-[#0098EA] animate-pulse" />
+												<span class="w-2 h-2 rounded-full bg-[#2990ff] animate-pulse" />
 											</div>
 											<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
 												{formatTon(reportData()?.expected_ton)}{' '}
-												<span class="text-xs text-[#0098EA]">TON</span>
+												<span class="text-xs text-[#2990ff]">{t('common.ton')}</span>
 											</div>
 											<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
 												≈ {formatUsd(reportData()?.expected_usd)}
@@ -1431,7 +1313,7 @@ export const NumberReportPage: Component = () => {
 											</div>
 											<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
 												{formatTon(reportData()?.suggested_ask_ton)}{' '}
-												<span class="text-xs text-amber-400">TON</span>
+												<span class="text-xs text-amber-400">{t('common.ton')}</span>
 											</div>
 											<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
 												≈ {formatUsd(reportData()?.suggested_ask_usd)}
@@ -1449,7 +1331,7 @@ export const NumberReportPage: Component = () => {
 											</div>
 											<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
 												{formatTon(reportData()?.liquidation_ton)}{' '}
-												<span class="text-xs text-rose-400">TON</span>
+												<span class="text-xs text-rose-400">{t('common.ton')}</span>
 											</div>
 											<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
 												≈ {formatUsd(reportData()?.liquidation_usd)}
@@ -1470,7 +1352,7 @@ export const NumberReportPage: Component = () => {
 												dir="ltr"
 											>
 												{formatTon(reportData()?.low_ton)} - {formatTon(reportData()?.high_ton)}{' '}
-												<span class="text-[10px] text-emerald-400">TON</span>
+												<span class="text-[10px] text-emerald-400">{t('common.ton')}</span>
 											</div>
 											<span class="text-[9px] text-white/40 mt-0.5">
 												{layaT(NUMBER_REPORT_I18N.madSigmaBounds)}
@@ -1480,19 +1362,17 @@ export const NumberReportPage: Component = () => {
 
 									<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-[11px] text-white/75 leading-relaxed">
 										<div class="font-bold text-cyan-300 mb-0.5">
-											{layaT({
-												fa: 'خلاصه داوری الگوریتم:',
-												en: 'Executive Valuation Verdict:',
-												ru: 'Вердикт алгоритма оценки:',
-												zh: '算法估值总结：',
-											})}
+											{t('numReportPage.executiveValuationVerdict')}
 										</div>
 										<div>
 											{isRtl()
 												? reportData()?.recommendation?.summary_fa
 												: reportData()?.recommendation?.summary_en}
 										</div>
-										<div class="mt-2 pt-2 border-t border-white/5 text-[10px] font-mono text-white/45" dir="ltr">
+										<div
+											class="mt-2 pt-2 border-t border-white/5 text-[10px] font-mono text-white/45"
+											dir="ltr"
+										>
 											Basis: {reportData()?.price_basis}
 										</div>
 									</div>
@@ -1500,32 +1380,23 @@ export const NumberReportPage: Component = () => {
 
 								{/* 📈 HISTORICAL PRICE & FLOOR-MULTIPLE TRAJECTORY SVG CHART */}
 								<Show when={(reportData()?.price_trajectory || []).length > 0}>
-									<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-cyan-500/30 rounded-[28px] p-5 shadow-xl text-start">
+									<div class="frag-card-elevated border border-cyan-500/30 rounded-[16px] p-5 shadow-xl text-start">
 										<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-2">
 											<div>
 												<h3 class="text-xs font-black text-white flex items-center gap-2">
 													<span class="material-symbols-outlined text-cyan-400 text-base">
 														show_chart
 													</span>
-													<span>
-														{layaT({
-															fa: 'منحنی تاریخی قیمت و ضریب نسبت به کف (Mint ← معاملات ← ارزش فعلی ← هدف ۱۲ ماهه)',
-															en: 'On-Chain Price & Floor-Multiple Trajectory Curve',
-															ru: 'Кривая ончейн-цены и мультипликатора к Floor',
-															zh: '链上历史价格与地板价倍数轨迹曲线',
-														})}
-													</span>
+													<span>{t('numReportPage.onChainPriceFloorMultiple')}</span>
 												</h3>
 												<p class="text-[10px] text-white/50 mt-0.5">
-													{layaT({
-														fa: 'ترسیم دقیق مسیر رشد دارایی از ضرب اولیه دسامبر ۲۰۲۲ تا ارزش منصفانه کنونی و هدف صعودی',
-														en: 'Complete lifecycle trajectory from Dec 2022 Genesis Mint to Today & 12M Bull Target',
-														ru: 'Полная траектория от минта декабря 2022 до текущей справедливой цены и цели 12М',
-														zh: '从 2022 年 12 月创世铸造至今及未来 12 个月目标的完整价值轨迹',
-													})}
+													{t('numReportPage.completeLifecycleTrajectoryFromDec')}
 												</p>
 											</div>
-											<span class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-500/30" dir="ltr">
+											<span
+												class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+												dir="ltr"
+											>
 												{
 													reportData()?.price_trajectory?.[
 														(reportData()?.price_trajectory?.length || 2) - 2
@@ -1543,12 +1414,8 @@ export const NumberReportPage: Component = () => {
 											const span = Math.max(1, maxTon - minTon);
 											const coords = pts.map((p, i) => {
 												const x =
-													pts.length === 1
-														? 180
-														: Math.round(28 + (i / (pts.length - 1)) * 304);
-												const y = Math.round(
-													102 - ((p.price_ton - minTon) / span) * 74,
-												);
+													pts.length === 1 ? 180 : Math.round(28 + (i / (pts.length - 1)) * 304);
+												const y = Math.round(102 - ((p.price_ton - minTon) / span) * 74);
 												return { ...p, x, y };
 											});
 											const linePath = coords
@@ -1561,30 +1428,12 @@ export const NumberReportPage: Component = () => {
 
 											return (
 												<div>
-													<div class="bg-black/50 rounded-2xl border border-white/5 p-3 mb-3">
-														<svg
-															viewBox="0 0 360 128"
-															class="w-full h-32 overflow-visible"
-															dir="ltr"
-														>
+													<div class="frag-inset rounded-[12px] p-3 mb-3" dir="ltr">
+														<svg viewBox="0 0 360 128" class="w-full h-32 overflow-visible">
 															<defs>
-																<linearGradient
-																	id="trajGrad888"
-																	x1="0"
-																	y1="0"
-																	x2="0"
-																	y2="1"
-																>
-																	<stop
-																		offset="0%"
-																		stop-color="#0098EA"
-																		stop-opacity="0.42"
-																	/>
-																	<stop
-																		offset="100%"
-																		stop-color="#0098EA"
-																		stop-opacity="0.0"
-																	/>
+																<linearGradient id="trajGrad888" x1="0" y1="0" x2="0" y2="1">
+																	<stop offset="0%" stop-color="#2990ff" stop-opacity="0.42" />
+																	<stop offset="100%" stop-color="#2990ff" stop-opacity="0.0" />
 																</linearGradient>
 															</defs>
 															<line
@@ -1611,13 +1460,11 @@ export const NumberReportPage: Component = () => {
 																stroke="rgba(255,255,255,0.06)"
 																stroke-dasharray="3 3"
 															/>
-															{areaPath && (
-																<path d={areaPath} fill="url(#trajGrad888)" />
-															)}
+															{areaPath && <path d={areaPath} fill="url(#trajGrad888)" />}
 															<path
 																d={linePath}
 																fill="none"
-																stroke="#0098EA"
+																stroke="#2990ff"
 																stroke-width="2.5"
 																stroke-linecap="round"
 																stroke-linejoin="round"
@@ -1628,18 +1475,14 @@ export const NumberReportPage: Component = () => {
 																		<circle
 																			cx={pt.x}
 																			cy={pt.y}
-																			r={
-																				pt.point_type === 'FairValue'
-																					? '5.5'
-																					: '4'
-																			}
+																			r={pt.point_type === 'FairValue' ? '5.5' : '4'}
 																			fill={
 																				pt.point_type === 'Mint'
 																					? '#f59e0b'
 																					: pt.point_type === 'Sale'
 																						? '#10b981'
 																						: pt.point_type === 'FairValue'
-																							? '#0098EA'
+																							? '#2990ff'
 																							: '#a855f7'
 																			}
 																			stroke="#08090D"
@@ -1685,10 +1528,7 @@ export const NumberReportPage: Component = () => {
 																	>
 																		{formatTon(pt.price_ton)} TON
 																	</span>
-																	<span
-																		class="text-[9px] font-mono text-cyan-300 block"
-																		dir="ltr"
-																	>
+																	<span class="text-[9px] font-mono text-cyan-300 block" dir="ltr">
 																		{pt.floor_multiple}× Floor ({formatUsd(pt.price_usd)})
 																	</span>
 																</div>
@@ -1703,21 +1543,14 @@ export const NumberReportPage: Component = () => {
 
 								{/* 🐋 OWNER COST-BASIS, UNREALIZED PNL & SELLER NEGOTIATION LEVERAGE */}
 								<Show when={reportData()?.owner_intelligence}>
-									<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-amber-500/30 rounded-[28px] p-5 shadow-xl text-start">
+									<div class="frag-card-elevated border border-amber-500/30 rounded-[16px] p-5 shadow-xl text-start">
 										<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-2">
 											<div>
 												<h3 class="text-xs font-black text-white flex items-center gap-2">
 													<span class="material-symbols-outlined text-amber-400 text-base">
 														account_balance_wallet
 													</span>
-													<span>
-														{layaT({
-															fa: 'کالبدشکافی بهای تمام‌شده مالک، سود تحقق‌نیافته (PnL) و اهرم مذاکره خرید',
-															en: 'Owner Cost-Basis, Unrealized PnL & Negotiation Leverage',
-															ru: 'Себестоимость владельца, нереализованный PnL и переговорный рычаг',
-															zh: '持有者建仓成本、未实现盈亏 (PnL) 与议价杠杆分析',
-														})}
-													</span>
+													<span>{t('numReportPage.ownerCostBasisUnrealizedPnl')}</span>
 												</h3>
 												<p class="text-[10px] text-white/50 mt-0.5">
 													{isRtl()
@@ -1725,7 +1558,10 @@ export const NumberReportPage: Component = () => {
 														: reportData()?.owner_intelligence?.holder_tier_en}
 												</p>
 											</div>
-											<span class="text-[9px] font-mono font-black px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30" dir="ltr">
+											<span
+												class="text-[9px] font-mono font-black px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30"
+												dir="ltr"
+											>
 												{reportData()?.owner_intelligence?.total_numbers_held || 1}× +888 HELD
 											</span>
 										</div>
@@ -1733,12 +1569,7 @@ export const NumberReportPage: Component = () => {
 										<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-center">
 											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 												<span class="text-[9px] text-white/40 block mb-0.5">
-													{layaT({
-														fa: 'بهای ورود مالک',
-														en: 'Owner Entry Cost',
-														ru: 'Цена входа',
-														zh: '持有者入场成本',
-													})}
+													{t('numReportPage.ownerEntryCost')}
 												</span>
 												<span class="text-xs font-mono font-black text-white block" dir="ltr">
 													{formatTon(reportData()?.owner_intelligence?.entry_cost_ton)} TON
@@ -1751,12 +1582,7 @@ export const NumberReportPage: Component = () => {
 
 											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 												<span class="text-[9px] text-white/40 block mb-0.5">
-													{layaT({
-														fa: 'سود تحقق‌نیافته مالک',
-														en: 'Owner Unrealized PnL',
-														ru: 'Нереализованный PnL',
-														zh: '未实现盈亏',
-													})}
+													{t('numReportPage.ownerUnrealizedPnl')}
 												</span>
 												<span
 													class={`text-xs font-mono font-black block ${
@@ -1781,12 +1607,7 @@ export const NumberReportPage: Component = () => {
 
 											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 												<span class="text-[9px] text-white/40 block mb-0.5">
-													{layaT({
-														fa: 'موجودی نقد کیف‌پول مالک',
-														en: 'Owner Liquid TON',
-														ru: 'Ликвидный баланс TON',
-														zh: '钱包流动 TON 余额',
-													})}
+													{t('numReportPage.ownerLiquidTon')}
 												</span>
 												<span class="text-xs font-mono font-black text-cyan-300 block" dir="ltr">
 													{formatTon(reportData()?.owner_intelligence?.liquid_balance_ton)} TON
@@ -1798,43 +1619,26 @@ export const NumberReportPage: Component = () => {
 
 											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 												<span class="text-[9px] text-white/40 block mb-0.5">
-													{layaT({
-														fa: 'انعطاف فروشنده',
-														en: 'Seller Flexibility',
-														ru: 'Гибкость продавца',
-														zh: '卖家议价弹性',
-													})}
+													{t('numReportPage.sellerFlexibility')}
 												</span>
 												<span class="text-xs font-mono font-black text-amber-300 block" dir="ltr">
 													{reportData()?.owner_intelligence?.seller_negotiation_score}/100
 												</span>
 												<span class="text-[9px] text-white/40">
-													{(reportData()?.owner_intelligence?.seller_negotiation_score || 50) >=
-													60
-														? layaT({
-																fa: 'منعطف',
-																en: 'Flexible',
-																ru: 'Гибкий',
-																zh: '可议价',
-															})
-														: layaT({
-																fa: 'نگهدارنده سرسخت',
-																en: 'Diamond Hands',
-																ru: 'Держит крепко',
-																zh: '坚定持有',
-															})}
+													{(reportData()?.owner_intelligence?.seller_negotiation_score || 50) >= 60
+														? t('numReportPage.flexible')
+														: t('numReportPage.diamondHands')}
 												</span>
 											</div>
 										</div>
 
 										<div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-white/85 leading-relaxed">
 											<div class="font-black text-amber-300 mb-0.5">
-												{layaT({
-													fa: `استراتژی مذاکره (${reportData()?.owner_intelligence?.negotiation_stance_fa}):`,
-													en: 'Institutional Negotiation Strategy:',
-													ru: 'Институциональная стратегия переговоров:',
-													zh: '机构级议价策略建议：',
-												})}
+												{t('numReportPage.negotiationStrategyHeading')}
+												{isRtl() && reportData()?.owner_intelligence?.negotiation_stance_fa
+													? ` (${reportData()?.owner_intelligence?.negotiation_stance_fa})`
+													: ''}
+												:
 											</div>
 											<div>{reportData()?.owner_intelligence?.negotiation_strategy_fa}</div>
 										</div>
@@ -1842,35 +1646,23 @@ export const NumberReportPage: Component = () => {
 								</Show>
 
 								{/* 🤝 FRAGMENT MAKE-AN-OFFER (0.05% FEE) & 5% PROTOCOL NET PROCEEDS SIMULATOR */}
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
 									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 										<h3 class="text-xs font-black text-white flex items-center gap-2">
 											<span class="material-symbols-outlined text-emerald-400 text-base">
 												handshake
 											</span>
-											<span>
-												{layaT({
-													fa: 'شبیه‌ساز ثبت پیشنهاد (Make an Offer) و خالص دریافتی فروشنده',
-													en: 'Fragment Make-an-Offer (0.05%) & Net Proceeds Simulator',
-													ru: 'Симулятор оффера Fragment (0.05%) и чистой выручки продавца',
-													zh: 'Fragment 报价模拟器 (0.05% 费率) 与卖家净收益测算',
-												})}
-											</span>
+											<span>{t('numReportPage.fragmentMakeAnOffer0')}</span>
 										</h3>
 										<span class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-											0.05% OFFER FEE
+											{t('numReportPage.offerFeeBadge')}
 										</span>
 									</div>
 
 									<div class="mb-3">
 										<div class="flex items-center justify-between text-[11px] mb-1.5">
 											<span class="text-white/60">
-												{layaT({
-													fa: 'نسبت پیشنهاد خرید نسبت به ارزش منصفانه:',
-													en: 'Offer Percentage of Fair Value:',
-													ru: 'Процент оффера от справедливой цены:',
-													zh: '报价占公允价值比例：',
-												})}
+												{t('numReportPage.offerPercentageOfFairValue')}
 											</span>
 											<span class="font-mono font-black text-cyan-300" dir="ltr">
 												{customOfferPct()}% ({formatTon(simulatedOfferStats().offerTon)} TON)
@@ -1883,19 +1675,14 @@ export const NumberReportPage: Component = () => {
 											step="1"
 											value={customOfferPct()}
 											onInput={(e) => setCustomOfferPct(Number(e.currentTarget.value))}
-											class="w-full accent-[#0098EA] cursor-pointer"
+											class="w-full accent-[#2990ff] cursor-pointer"
 										/>
 									</div>
 
 									<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
 										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'مبلغ پیشنهاد شما',
-													en: 'Your Offer',
-													ru: 'Ваш оффер',
-													zh: '您的出价',
-												})}
+												{t('numReportPage.yourOffer')}
 											</span>
 											<span class="text-xs font-mono font-black text-white block" dir="ltr">
 												{formatTon(simulatedOfferStats().offerTon)} TON
@@ -1907,27 +1694,19 @@ export const NumberReportPage: Component = () => {
 
 										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'کارمزد پیشنهاد (0.05%)',
-													en: 'Offer Fee (0.05%)',
-													ru: 'Комиссия оффера (0.05%)',
-													zh: '报价手续费 (0.05%)',
-												})}
+												{t('numReportPage.offerFee005')}
 											</span>
 											<span class="text-xs font-mono font-black text-amber-300 block" dir="ltr">
 												{simulatedOfferStats().feeTon} TON
 											</span>
-											<span class="text-[9px] text-white/40">Fragment Contract</span>
+											<span class="text-[9px] text-white/40">
+												{t('numReportPage.fragmentContractLabel')}
+											</span>
 										</div>
 
 										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'خالص دریافتی فروشنده (-5%)',
-													en: 'Seller Net (-5%)',
-													ru: 'Чистыми продавцу (-5%)',
-													zh: '卖家净得 (-5%)',
-												})}
+												{t('numReportPage.sellerNet5')}
 											</span>
 											<span class="text-xs font-mono font-black text-emerald-400 block" dir="ltr">
 												{formatTon(simulatedOfferStats().sellerNetTon)} TON
@@ -1939,12 +1718,7 @@ export const NumberReportPage: Component = () => {
 
 										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'شانس پذیرش مالک',
-													en: 'Acceptance Odds',
-													ru: 'Шанс принятия',
-													zh: '成交概率',
-												})}
+												{t('numReportPage.acceptanceOdds')}
 											</span>
 											<span class="text-xs font-mono font-black text-cyan-300 block" dir="ltr">
 												{simulatedOfferStats().acceptProb}%
@@ -1958,28 +1732,19 @@ export const NumberReportPage: Component = () => {
 
 								{/* 💸 TRANSACTION FINANCIAL ENGINEERING & 5% PROTOCOL FEE */}
 								<NumberFinancialEngineeringCard
-									expectedTon={
-										reportData()?.expected_ton ? Number(reportData()!.expected_ton) : 0
-									}
+									expectedTon={reportData()?.expected_ton ? Number(reportData()!.expected_ton) : 0}
 									expectedUsd={reportData()?.expected_usd}
 									tonUsdRate={reportData()?.ton_usd_rate}
 								/>
 
 								{/* 📈 MARKET DEPTH, RENTAL YIELD & SELLING PROBABILITIES */}
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
 									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 										<h3 class="text-xs font-black text-white flex items-center gap-2">
-											<span class="material-symbols-outlined text-[#0098EA] text-base">
+											<span class="material-symbols-outlined text-[#2990ff] text-base">
 												waterfall_chart
 											</span>
-											<span>
-												{layaT({
-													fa: 'عمق نقدشوندگی، اجاره ماهانه و احتمال فروش',
-													en: 'Liquidity Depth, Rental Yield & Selling Probabilities',
-													ru: 'Глубина ликвидности, доходность аренды и вероятность продажи',
-													zh: '流动性深度、月度租金收益与售出概率',
-												})}
-											</span>
+											<span>{t('numReportPage.liquidityDepthRentalYieldSelling')}</span>
 										</h3>
 										<span class="text-[9px] uppercase font-mono font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-md">
 											~{reportData()?.rental_yield?.est_apy || 9.8}% APY
@@ -1989,12 +1754,7 @@ export const NumberReportPage: Component = () => {
 									<div class="grid grid-cols-3 gap-2 mb-3 text-center">
 										<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'کف باشگاه هم‌ردیف',
-													en: 'Club Floor',
-													ru: 'Флор клуба',
-													zh: '同级地板价',
-												})}
+												{t('numReportPage.clubFloor')}
 											</span>
 											<span class="text-xs font-mono font-black text-white" dir="ltr">
 												{formatTon(reportData()?.market_depth?.club_floor_ton)} TON
@@ -2002,12 +1762,7 @@ export const NumberReportPage: Component = () => {
 										</div>
 										<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'اجاره تخمینی ماهانه',
-													en: 'Est. Monthly Rent',
-													ru: 'Аренда в месяц',
-													zh: '预估月租金',
-												})}
+												{t('numReportPage.estMonthlyRent')}
 											</span>
 											<span class="text-xs font-mono font-black text-emerald-400" dir="ltr">
 												~{formatTon(reportData()?.rental_yield?.monthly_yield_ton)} TON
@@ -2015,12 +1770,7 @@ export const NumberReportPage: Component = () => {
 										</div>
 										<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'وثیقه دیفای (65% LTV)',
-													en: 'DeFi Collateral',
-													ru: 'Залог DeFi (65%)',
-													zh: 'DeFi 抵押额 (65%)',
-												})}
+												{t('numReportPage.defiCollateral')}
 											</span>
 											<span class="text-xs font-mono font-black text-cyan-300" dir="ltr">
 												{formatTon(reportData()?.collateral_value_ton)} TON
@@ -2031,12 +1781,7 @@ export const NumberReportPage: Component = () => {
 									<div class="grid grid-cols-3 gap-2 text-center">
 										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'فروش تا ۷ روز',
-													en: '7-Day Sale Prob',
-													ru: 'Продажа за 7 дн.',
-													zh: '7天售出率',
-												})}
+												{t('numReportPage.k_7DaySaleProb')}
 											</span>
 											<span class="text-xs font-black font-mono text-amber-400">
 												{reportData()?.selling_probabilities?.p_7d ?? 85}%
@@ -2044,12 +1789,7 @@ export const NumberReportPage: Component = () => {
 										</div>
 										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'فروش تا ۳۰ روز',
-													en: '30-Day Sale Prob',
-													ru: 'Продажа за 30 дн.',
-													zh: '30天售出率',
-												})}
+												{t('numReportPage.k_30DaySaleProb')}
 											</span>
 											<span class="text-xs font-black font-mono text-cyan-400">
 												{reportData()?.selling_probabilities?.p_30d ?? 96}%
@@ -2057,12 +1797,7 @@ export const NumberReportPage: Component = () => {
 										</div>
 										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'فروش تا ۹۰ روز',
-													en: '90-Day Sale Prob',
-													ru: 'Продажа за 90 дн.',
-													zh: '90天售出率',
-												})}
+												{t('numReportPage.k_90DaySaleProb')}
 											</span>
 											<span class="text-xs font-black font-mono text-emerald-400">
 												{reportData()?.selling_probabilities?.p_90d ?? 99}%
@@ -2079,21 +1814,14 @@ export const NumberReportPage: Component = () => {
 						<Show when={activeTab() === 'forensics'}>
 							<div class="space-y-4">
 								{/* 🎹 INTERACTIVE 3x4 KEYPAD TRAJECTORY & WEB AUDIO DTMF SYNTHESIZER */}
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-purple-500/30 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="frag-card-elevated border border-purple-500/30 rounded-[16px] p-5 shadow-xl text-start">
 									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-2">
 										<div>
 											<h3 class="text-xs font-black text-white flex items-center gap-2">
 												<span class="material-symbols-outlined text-purple-400 text-base">
 													graphic_eq
 												</span>
-												<span>
-													{layaT({
-														fa: 'سینتی‌سایزر صوتی DTMF (ITU-T Q.23) و هندسه حرکت کی‌پد',
-														en: 'ITU-T Q.23 DTMF Acoustic Synthesizer & Keypad Trajectory',
-														ru: 'Акустический синтезатор DTMF (ITU-T Q.23) и траектория набора',
-														zh: 'ITU-T Q.23 双音多频 (DTMF) 声学合成器与拨号盘轨迹',
-													})}
-												</span>
+												<span>{t('numReportPage.ituTQ23Dtmf')}</span>
 											</h3>
 											<p class="text-[10px] text-white/50 mt-0.5">
 												{isRtl()
@@ -2116,18 +1844,8 @@ export const NumberReportPage: Component = () => {
 											</span>
 											<span>
 												{isPlayingDtmf()
-													? layaT({
-															fa: 'توقف پخش',
-															en: 'Stop Audio',
-															ru: 'Стоп',
-															zh: '停止播放',
-														})
-													: layaT({
-															fa: 'پخش سیگنال صوتی شماره',
-															en: 'Play DTMF Dial Tones',
-															ru: 'Прослушать DTMF сигнал',
-															zh: '播放拨号音频信号',
-														})}
+													? t('numReportPage.stopAudio')
+													: t('numReportPage.playDtmfDialTones')}
 											</span>
 										</button>
 									</div>
@@ -2135,12 +1853,7 @@ export const NumberReportPage: Component = () => {
 									{/* Interactive Digit Sequence Strip (Click any digit to hear its dual-frequency tone) */}
 									<div class="mb-4">
 										<div class="text-[10px] text-white/50 mb-1.5">
-											{layaT({
-												fa: 'روی هر رقم کلیک کنید تا فرکانس دوگانه استاندارد مخابراتی (Row Hz + Col Hz) آن پخش شود:',
-												en: 'Click any digit cell to synthesize its exact ITU-T Q.23 dual-tone frequency:',
-												ru: 'Нажмите на любую цифру для синтеза двухтональной частоты ITU-T Q.23:',
-												zh: '点击任意数字格即可合成播放标准 ITU-T Q.23 双音频频率：',
-											})}
+											{t('numReportPage.clickAnyDigitCellTo')}
 										</div>
 										<div class="grid grid-cols-4 sm:grid-cols-8 gap-1.5" dir="ltr">
 											<For each={reportData()?.binary_forensics?.digits_matrix || []}>
@@ -2185,8 +1898,7 @@ export const NumberReportPage: Component = () => {
 														const isActiveNow = () => {
 															const idx = activeDtmfIndex();
 															if (idx === null) return false;
-															const cell =
-																reportData()?.binary_forensics?.digits_matrix?.[idx];
+															const cell = reportData()?.binary_forensics?.digits_matrix?.[idx];
 															return cell?.digit === keyChar;
 														};
 														return (
@@ -2240,7 +1952,11 @@ export const NumberReportPage: Component = () => {
 														<circle
 															cx={pt.x}
 															cy={pt.y}
-															r={i() === 0 || i() === keypadVectorData().coords.length - 1 ? '4.5' : '3'}
+															r={
+																i() === 0 || i() === keypadVectorData().coords.length - 1
+																	? '4.5'
+																	: '3'
+															}
 															fill={
 																i() === 0
 																	? '#00f2fe'
@@ -2259,12 +1975,7 @@ export const NumberReportPage: Component = () => {
 										<div class="space-y-2 text-xs">
 											<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex justify-between items-center">
 												<span class="text-white/60 text-[10px]">
-													{layaT({
-														fa: 'فاصله منهتن روی کی‌پد:',
-														en: 'Keypad Manhattan Distance:',
-														ru: 'Манхэттенское расстояние:',
-														zh: '拨号盘曼哈顿距离：',
-													})}
+													{t('numReportPage.keypadManhattanDistance')}
 												</span>
 												<span class="font-mono font-black text-purple-300" dir="ltr">
 													{reportData()?.binary_forensics?.keypad_manhattan_distance ?? 0} steps
@@ -2272,12 +1983,7 @@ export const NumberReportPage: Component = () => {
 											</div>
 											<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex justify-between items-center">
 												<span class="text-white/60 text-[10px]">
-													{layaT({
-														fa: 'امتیاز ارگونومی شماره‌گیری:',
-														en: 'Ergonomic Dial Score:',
-														ru: 'Эргономика набора:',
-														zh: '拨号人体工学评分：',
-													})}
+													{t('numReportPage.ergonomicDialScore')}
 												</span>
 												<span class="font-mono font-black text-emerald-400" dir="ltr">
 													{reportData()?.binary_forensics?.keypad_ergonomic_score ?? 90} / 100
@@ -2285,12 +1991,7 @@ export const NumberReportPage: Component = () => {
 											</div>
 											<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex justify-between items-center">
 												<span class="text-white/60 text-[10px]">
-													{layaT({
-														fa: 'آنتروپی شانون و فشرده‌سازی:',
-														en: 'Shannon Entropy:',
-														ru: 'Энтропия Шеннона:',
-														zh: '香农信息熵：',
-													})}
+													{t('numReportPage.shannonEntropy')}
 												</span>
 												<span class="font-mono font-black text-cyan-300" dir="ltr">
 													{reportData()?.binary_forensics?.shannon_entropy_bits} bits (
@@ -2316,7 +2017,10 @@ export const NumberReportPage: Component = () => {
 													Hz
 												</span>
 											</div>
-											<svg viewBox="0 0 320 64" class="w-full h-16 bg-[#07080C] rounded-xl border border-white/5 p-1">
+											<svg
+												viewBox="0 0 320 64"
+												class="w-full h-16 bg-[#07080C] rounded-xl border border-white/5 p-1"
+											>
 												<line
 													x1="0"
 													y1="32"
@@ -2338,22 +2042,18 @@ export const NumberReportPage: Component = () => {
 								</div>
 
 								{/* 🧮 PER-DIGIT 8-BIT ASCII, 4-BIT BCD NIBBLE & HAMMING WEIGHT TABLE */}
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
 									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 										<h3 class="text-xs font-black text-white flex items-center gap-2">
 											<span class="material-symbols-outlined text-cyan-400 text-base">
 												terminal
 											</span>
-											<span>
-												{layaT({
-													fa: 'ماتریس بایت‌به‌بایت ASCII، کد باینری BCD و وزن همینگ',
-													en: 'Byte-Level 8-Bit ASCII, 4-Bit BCD Nibble & Hamming Matrix',
-													ru: 'Побайтовая матрица ASCII (8 бит), BCD (4 бита) и веса Хэмминга',
-													zh: '字节级 8 位 ASCII、4 位 BCD 半字节与汉明权重矩阵',
-												})}
-											</span>
+											<span>{t('numReportPage.byteLevel8BitAscii')}</span>
 										</h3>
-										<span class="text-[9px] font-mono font-black text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded-md" dir="ltr">
+										<span
+											class="text-[9px] font-mono font-black text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded-md"
+											dir="ltr"
+										>
 											HW={reportData()?.binary_forensics?.total_hamming_weight} bits
 										</span>
 									</div>
@@ -2363,10 +2063,10 @@ export const NumberReportPage: Component = () => {
 											<thead>
 												<tr class="text-white/40 border-b border-white/10">
 													<th class="py-1.5 px-2">#</th>
-													<th class="py-1.5 px-2">Digit</th>
-													<th class="py-1.5 px-2">ASCII Hex</th>
-													<th class="py-1.5 px-2">8-Bit Binary</th>
-													<th class="py-1.5 px-2">4-Bit BCD</th>
+													<th class="py-1.5 px-2">{t('numReportPage.colDigit')}</th>
+													<th class="py-1.5 px-2">{t('numReportPage.colAsciiHex')}</th>
+													<th class="py-1.5 px-2">{t('numReportPage.colBinary8')}</th>
+													<th class="py-1.5 px-2">{t('numReportPage.colBcd4')}</th>
 													<th class="py-1.5 px-2">DTMF (Row/Col)</th>
 												</tr>
 											</thead>
@@ -2393,28 +2093,24 @@ export const NumberReportPage: Component = () => {
 								</div>
 
 								{/* 🔐 TEP-62 SHA-256 256-BIT INDEX & TVM BAG-OF-CELLS (BOC) FORENSICS */}
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start space-y-2.5">
+								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start space-y-2.5">
 									<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
 										<h3 class="text-xs font-black text-white flex items-center gap-2">
 											<span class="material-symbols-outlined text-emerald-400 text-base">
 												token
 											</span>
-											<span>
-												{layaT({
-													fa: 'شناسه ۲۵۶ بیتی TEP-62 و سلول‌های باینری TVM BOC',
-													en: 'TEP-62 256-Bit SHA-256 Index & TVM Bag-of-Cells (BOC)',
-													ru: '256-битный индекс TEP-62 SHA-256 и ячейки TVM BOC',
-													zh: 'TEP-62 256 位 SHA-256 索引与 TVM 单元包 (BOC)',
-												})}
-											</span>
+											<span>{t('numReportPage.tep62256BitSha')}</span>
 										</h3>
-										<span class="text-[9px] font-mono text-emerald-400 font-bold">TON TVM</span>
+										<span class="text-[9px] font-mono text-emerald-400 font-bold">
+											{t('numReportPage.tonTvmBadge')}
+										</span>
 									</div>
 
 									<div class="p-3 rounded-2xl bg-black/50 border border-white/5">
 										<div class="flex items-center justify-between mb-1">
 											<span class="text-[10px] text-white/50">
-												TEP-62 Item Index — SHA-256("{reportData()?.binary_forensics?.clean_digits}"):
+												TEP-62 Item Index — SHA-256("{reportData()?.binary_forensics?.clean_digits}
+												"):
 											</span>
 											<button
 												type="button"
@@ -2457,13 +2153,17 @@ export const NumberReportPage: Component = () => {
 									<Show when={reportData()?.binary_forensics?.tvm_code_hash}>
 										<div class="grid grid-cols-1 sm:grid-cols-2 gap-2" dir="ltr">
 											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block">TVM Code Hash:</span>
+												<span class="text-[9px] text-white/40 block">
+													{t('numReportPage.tvmCodeHash')}
+												</span>
 												<span class="text-[9px] font-mono text-white/80 break-all">
 													{reportData()?.binary_forensics?.tvm_code_hash}
 												</span>
 											</div>
 											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block">TVM Data Hash:</span>
+												<span class="text-[9px] text-white/40 block">
+													{t('numReportPage.tvmDataHash')}
+												</span>
 												<span class="text-[9px] font-mono text-white/80 break-all">
 													{reportData()?.binary_forensics?.tvm_data_hash}
 												</span>
@@ -2487,26 +2187,18 @@ export const NumberReportPage: Component = () => {
 						<Show when={activeTab() === 'onchain'}>
 							<div class="space-y-4">
 								{/* 🎨 OFFICIAL NFT COLOR PLATE & MULTI-MARKETPLACE LAUNCHPAD */}
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
 									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 										<h3 class="text-xs font-black text-white flex items-center gap-2">
 											<span class="material-symbols-outlined text-amber-400 text-base">
 												palette
 											</span>
-											<span>
-												{layaT({
-													fa: 'پلیت رنگی رسمی NFT، قرارداد تلمینت و لینک بازارها',
-													en: 'Official NFT Color Plate & Marketplace Explorer',
-													ru: 'Официальная цветовая палитра NFT и маркетплейсы',
-													zh: '官方 NFT 色板、Telemint 合约与市场链接',
-												})}
-											</span>
+											<span>{t('numReportPage.officialNftColorPlateMarketplace')}</span>
 										</h3>
 										<span
 											class="text-[10px] font-mono font-black px-2 py-0.5 rounded-md border border-white/20 text-white"
 											style={{
-												'background-color':
-													reportData()?.market_provenance?.color_hex || '#8D66E3',
+												'background-color': reportData()?.market_provenance?.color_hex || '#8D66E3',
 											}}
 											dir="ltr"
 										>
@@ -2517,12 +2209,7 @@ export const NumberReportPage: Component = () => {
 									<div class="grid grid-cols-2 gap-2.5 mb-3">
 										<div class="p-3 rounded-2xl bg-black/40 border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'نام و رده پلیت رنگی:',
-													en: 'Official Plate Color:',
-													ru: 'Официальный цвет палитры:',
-													zh: '官方色板颜色与等级：',
-												})}
+												{t('numReportPage.officialPlateColor')}
 											</span>
 											<span class="text-xs font-black text-white block">
 												{isRtl()
@@ -2536,12 +2223,7 @@ export const NumberReportPage: Component = () => {
 
 										<div class="p-3 rounded-2xl bg-black/40 border border-white/5">
 											<span class="text-[9px] text-white/40 block mb-0.5">
-												{layaT({
-													fa: 'آدرس قرارداد NFT:',
-													en: 'NFT Contract Address:',
-													ru: 'Адрес NFT-контракта:',
-													zh: 'NFT 合约地址：',
-												})}
+												{t('numReportPage.nftContractAddress')}
 											</span>
 											<div class="flex items-center justify-between gap-1" dir="ltr">
 												<span class="text-xs font-mono font-black text-cyan-300 truncate">
@@ -2574,9 +2256,9 @@ export const NumberReportPage: Component = () => {
 											href={reportData()?.market_provenance?.fragment_url}
 											target="_blank"
 											rel="noopener noreferrer"
-											class="py-2 px-2.5 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 border border-[#0098EA]/40 text-center text-[10px] font-black text-cyan-300 flex items-center justify-center gap-1"
+											class="py-2 px-2.5 rounded-xl bg-[#2990ff]/15 hover:bg-[#2990ff]/25 border border-[#2990ff]/40 text-center text-[10px] font-black text-cyan-300 flex items-center justify-center gap-1"
 										>
-											<span>Fragment</span>
+											<span>{t('numReportPage.venueFragment')}</span>
 											<span class="material-symbols-outlined text-xs">open_in_new</span>
 										</a>
 										<a
@@ -2585,7 +2267,7 @@ export const NumberReportPage: Component = () => {
 											rel="noopener noreferrer"
 											class="py-2 px-2.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-center text-[10px] font-black text-purple-300 flex items-center justify-center gap-1"
 										>
-											<span>Nums888</span>
+											<span>{t('numReportPage.venueNums888')}</span>
 											<span class="material-symbols-outlined text-xs">open_in_new</span>
 										</a>
 										<a
@@ -2594,7 +2276,7 @@ export const NumberReportPage: Component = () => {
 											rel="noopener noreferrer"
 											class="py-2 px-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-center text-[10px] font-black text-emerald-300 flex items-center justify-center gap-1"
 										>
-											<span>Getgems</span>
+											<span>{t('numReportPage.venueGetgems')}</span>
 											<span class="material-symbols-outlined text-xs">open_in_new</span>
 										</a>
 										<a
@@ -2603,7 +2285,7 @@ export const NumberReportPage: Component = () => {
 											rel="noopener noreferrer"
 											class="py-2 px-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-center text-[10px] font-black text-amber-300 flex items-center justify-center gap-1"
 										>
-											<span>Marketapp</span>
+											<span>{t('numReportPage.venueMarketapp')}</span>
 											<span class="material-symbols-outlined text-xs">open_in_new</span>
 										</a>
 										<a
@@ -2612,7 +2294,7 @@ export const NumberReportPage: Component = () => {
 											rel="noopener noreferrer"
 											class="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-center text-[10px] font-black text-white/80 flex items-center justify-center gap-1"
 										>
-											<span>Tonviewer</span>
+											<span>{t('numReportPage.venueTonviewer')}</span>
 											<span class="material-symbols-outlined text-xs">open_in_new</span>
 										</a>
 									</div>
@@ -2622,12 +2304,7 @@ export const NumberReportPage: Component = () => {
 										<div class="mt-4 pt-3.5 border-t border-white/10">
 											<div class="flex items-center justify-between mb-2">
 												<span class="text-[10px] font-black text-white/70">
-													{layaT({
-														fa: 'ماتریس ۲۰ پلیت رنگی رسمی تلمینت و جایگاه ضریب این شماره:',
-														en: '20-Color Official Telemint Plate Rarity & Multiplier Matrix:',
-														ru: 'Матрица 20 официальных цветовых палитр Telemint и множителей:',
-														zh: 'Telemint 20 色官方色板稀有度与溢价倍率矩阵：',
-													})}
+													{t('numReportPage.k_20ColorOfficialTelemintPlate')}
 												</span>
 												<a
 													href={reportData()?.market_provenance?.nft_image_url}
@@ -2636,7 +2313,7 @@ export const NumberReportPage: Component = () => {
 													class="text-[9px] font-mono text-cyan-400 hover:underline"
 													dir="ltr"
 												>
-													Official .webp Plate ↗
+													{t('numReportPage.officialPlateLink')}
 												</a>
 											</div>
 											<div class="grid grid-cols-4 sm:grid-cols-5 gap-1.5" dir="ltr">
@@ -2669,28 +2346,24 @@ export const NumberReportPage: Component = () => {
 
 								{/* 🐋 LIVE OWNER WHALE PORTFOLIO X-RAY (ALL +888 NUMBERS HELD BY CURRENT OWNER) */}
 								<Show when={reportData()?.owner_intelligence}>
-									<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-emerald-500/30 rounded-[28px] p-5 shadow-xl text-start">
+									<div class="frag-card-elevated border border-emerald-500/30 rounded-[16px] p-5 shadow-xl text-start">
 										<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-2">
 											<div>
 												<h3 class="text-xs font-black text-white flex items-center gap-2">
 													<span class="material-symbols-outlined text-emerald-400 text-base">
 														radar
 													</span>
-													<span>
-														{layaT({
-															fa: 'اشعه ایکس کیف‌پول مالک فعلی و سایر شماره‌های +888 او در بلاک‌چین',
-															en: 'Live Owner Whale Portfolio X-Ray & Co-Held +888 Numbers',
-															ru: 'Рентген портфеля владельца и другие номера +888 в кошельке',
-															zh: '当前持有者巨鲸钱包透视及名下其他 +888 号码',
-														})}
-													</span>
+													<span>{t('numReportPage.liveOwnerWhalePortfolioX')}</span>
 												</h3>
 												<p class="text-[10px] text-white/50 mt-0.5 font-mono" dir="ltr">
 													{shortAddr(reportData()?.owner_intelligence?.owner_address)} •{' '}
 													{reportData()?.owner_intelligence?.wallet_workchain}
 												</p>
 											</div>
-											<span class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" dir="ltr">
+											<span
+												class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+												dir="ltr"
+											>
 												{reportData()?.owner_intelligence?.total_numbers_held || 1} NUMBERS IN VAULT
 											</span>
 										</div>
@@ -2698,12 +2371,7 @@ export const NumberReportPage: Component = () => {
 										<div class="grid grid-cols-3 gap-2 mb-3 text-center">
 											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 												<span class="text-[9px] text-white/40 block mb-0.5">
-													{layaT({
-														fa: 'تعداد کل شماره‌های مالک',
-														en: 'Total Numbers Held',
-														ru: 'Всего номеров у владельца',
-														zh: '持有号码总数',
-													})}
+													{t('numReportPage.totalNumbersHeld')}
 												</span>
 												<span class="text-xs font-mono font-black text-white" dir="ltr">
 													{reportData()?.owner_intelligence?.total_numbers_held} Lines
@@ -2711,12 +2379,7 @@ export const NumberReportPage: Component = () => {
 											</div>
 											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 												<span class="text-[9px] text-white/40 block mb-0.5">
-													{layaT({
-														fa: 'سرمایه‌گذاری ثبت‌شده مالک',
-														en: 'Total Invested',
-														ru: 'Всего инвестировано',
-														zh: '已记录总投入',
-													})}
+													{t('numReportPage.totalInvested')}
 												</span>
 												<span class="text-xs font-mono font-black text-amber-300" dir="ltr">
 													{formatTon(reportData()?.owner_intelligence?.total_invested_ton)} TON
@@ -2724,17 +2387,10 @@ export const NumberReportPage: Component = () => {
 											</div>
 											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
 												<span class="text-[9px] text-white/40 block mb-0.5">
-													{layaT({
-														fa: 'ارزش تخمینی کل سبد',
-														en: 'Est. Vault Worth',
-														ru: 'Оценка портфеля',
-														zh: '组合预估总值',
-													})}
+													{t('numReportPage.estVaultWorth')}
 												</span>
 												<span class="text-xs font-mono font-black text-emerald-400" dir="ltr">
-													{formatTon(
-														reportData()?.owner_intelligence?.portfolio_floor_worth_ton,
-													)}{' '}
+													{formatTon(reportData()?.owner_intelligence?.portfolio_floor_worth_ton)}{' '}
 													TON
 												</span>
 											</div>
@@ -2752,22 +2408,16 @@ export const NumberReportPage: Component = () => {
 													>
 														<div class="min-w-0">
 															<div class="flex items-center gap-1.5">
-																<span
-																	class="font-mono font-black text-xs text-white"
-																	dir="ltr"
-																>
+																<span class="font-mono font-black text-xs text-white" dir="ltr">
 																	{held.display_number}
 																</span>
 																<Show when={held.is_current_number}>
 																	<span class="text-[8px] font-mono font-black px-1.5 py-0.5 rounded bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">
-																		CURRENT
+																		{t('numReportPage.currentBadge')}
 																	</span>
 																</Show>
 															</div>
-															<div
-																class="text-[9px] font-mono text-white/45 mt-0.5"
-																dir="ltr"
-															>
+															<div class="text-[9px] font-mono text-white/45 mt-0.5" dir="ltr">
 																Acquired: {held.acquired_date}
 															</div>
 														</div>
@@ -2795,12 +2445,7 @@ export const NumberReportPage: Component = () => {
 																	}}
 																	class="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/40 text-[10px] font-black text-emerald-300 transition-all active:scale-95"
 																>
-																	{layaT({
-																		fa: 'کالبدشکافی',
-																		en: 'Appraise',
-																		ru: 'Оценить',
-																		zh: '深度评估',
-																	})}
+																	{t('numReportPage.appraise_2')}
 																</button>
 															</Show>
 														</div>
@@ -2812,20 +2457,13 @@ export const NumberReportPage: Component = () => {
 								</Show>
 
 								{/* 📜 COMPLETE ON-CHAIN LIFECYCLE LEDGER (MINT, SALE, TRANSFER) */}
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
 									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 										<h3 class="text-xs font-black text-white flex items-center gap-2">
 											<span class="material-symbols-outlined text-emerald-400 text-base">
 												history_edu
 											</span>
-											<span>
-												{layaT({
-													fa: 'دفترکل کامل رویدادهای آن‌چین (Mint / Sale / Transfer)',
-													en: 'Complete On-Chain Lifecycle Ledger (Mint / Sale / Transfer)',
-													ru: 'Полный ончейн-реестр транзакций (Mint / Sale / Transfer)',
-													zh: '完整链上生命周期账本 (Mint / Sale / Transfer)',
-												})}
-											</span>
+											<span>{t('numReportPage.completeOnChainLifecycleLedger')}</span>
 										</h3>
 										<span class="text-[9px] font-mono font-bold text-emerald-400">
 											{(reportData()?.onchain_history || []).length} TXs
@@ -2836,12 +2474,7 @@ export const NumberReportPage: Component = () => {
 										when={(reportData()?.onchain_history || []).length > 0}
 										fallback={
 											<div class="p-5 rounded-2xl bg-black/40 border border-white/5 text-center text-xs text-white/50">
-												{layaT({
-													fa: 'هیچ تراکنش آن‌چینی برای این ترکیب ثبت نشده است.',
-													en: 'No on-chain transactions recorded for this combination.',
-													ru: 'Ончейн-транзакции для этой комбинации не найдены.',
-													zh: '该号码组合暂无链上交易记录。',
-												})}
+												{t('numReportPage.noOnChainTransactionsRecorded')}
 											</div>
 										}
 									>
@@ -2883,16 +2516,10 @@ export const NumberReportPage: Component = () => {
 																	</span>
 																}
 															>
-																<div
-																	class="font-mono font-black text-white text-xs"
-																	dir="ltr"
-																>
+																<div class="font-mono font-black text-white text-xs" dir="ltr">
 																	{formatTon(ev.price_ton)} TON
 																</div>
-																<div
-																	class="text-[9px] font-mono text-white/45"
-																	dir="ltr"
-																>
+																<div class="text-[9px] font-mono text-white/45" dir="ltr">
 																	≈ {formatUsd(ev.price_usd)}
 																</div>
 															</Show>
@@ -2901,10 +2528,10 @@ export const NumberReportPage: Component = () => {
 																	href={ev.tonscan_url}
 																	target="_blank"
 																	rel="noopener noreferrer"
-																	class="text-[9px] font-mono text-[#0098EA] hover:underline inline-flex items-center gap-0.5 mt-0.5"
+																	class="text-[9px] font-mono text-[#2990ff] hover:underline inline-flex items-center gap-0.5 mt-0.5"
 																	dir="ltr"
 																>
-																	<span>TX Proof</span>
+																	<span>{t('numReportPage.txProofLink')}</span>
 																	<span class="material-symbols-outlined text-[10px]">
 																		open_in_new
 																	</span>
@@ -2919,23 +2546,16 @@ export const NumberReportPage: Component = () => {
 								</div>
 
 								{/* 🛡️ SIM-FREE LOGIN & 2FA ANTI-TAKEOVER SECURITY PLAYBOOK */}
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
 									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 										<h3 class="text-xs font-black text-white flex items-center gap-2">
 											<span class="material-symbols-outlined text-cyan-400 text-base">
 												shield_lock
 											</span>
-											<span>
-												{layaT({
-													fa: 'پروتکل امنیتی لاگین بدون سیم‌کارت و محافظت از نشست‌های تلگرام',
-													en: 'SIM-Free Login & 2FA Anti-Takeover Security Playbook',
-													ru: 'Протокол безопасности входа без SIM и защита сессий Telegram',
-													zh: '免 SIM 卡登录与 2FA 防盗号安全指南',
-												})}
-											</span>
+											<span>{t('numReportPage.simFreeLogin2faAnti')}</span>
 										</h3>
 										<span class="text-[9px] font-mono font-black text-emerald-400">
-											ZERO SIM-SWAP
+											{t('numReportPage.zeroSimSwapBadge')}
 										</span>
 									</div>
 
@@ -2960,38 +2580,29 @@ export const NumberReportPage: Component = () => {
 						</Show>
 
 						{/* ═══════════════════════════════════════════════════════════════════════════
-						    TAB 4: PATTERN SIBLINGS & COMPARABLE SALES (شماره‌های هم‌الگو و مشابه)
+						    TAB 4: PATTERN SIBLINGS & COMPARABLE SALES
 						   ═══════════════════════════════════════════════════════════════════════════ */}
 						<Show when={activeTab() === 'siblings'}>
 							<div class="space-y-4">
 								{/* 🔬 INTERACTIVE CUSTOM PATTERN MASK LAB & BARGAIN SNIPER */}
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-amber-500/35 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="frag-card-elevated border border-amber-500/35 rounded-[16px] p-5 shadow-xl text-start">
 									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-2">
 										<div>
 											<h3 class="text-xs font-black text-white flex items-center gap-2">
 												<span class="material-symbols-outlined text-amber-400 text-base">
 													science
 												</span>
-												<span>
-													{layaT({
-														fa: 'آزمایشگاه زنده ماسک الگو و شکارچی ارزان‌ترین هم‌خانواده‌ها',
-														en: 'Interactive Pattern Mask Lab & Live Sibling Bargain Sniper',
-														ru: 'Лаборатория масок паттернов и поиск выгодных аналогов',
-														zh: '实时规律掩码实验室与同族低价猎手',
-													})}
-												</span>
+												<span>{t('numReportPage.interactivePatternMaskLabLive')}</span>
 											</h3>
 											<p class="text-[10px] text-white/50 mt-0.5">
-												{layaT({
-													fa: 'با استفاده از حروف A, B, C, X هر الگوی دلخواه را مستقیماً از دیتابیس زنده Nums888 استخراج و مقایسه کنید:',
-													en: 'Use wildcard letters (A, B, C, X) to query live pattern cohorts directly from Nums888:',
-													ru: 'Используйте символы A, B, C, X для поиска живых номеров по маске в базе Nums888:',
-													zh: '使用通配符 (A, B, C, X) 直接从 Nums888 实时检索并对比同规律号码：',
-												})}
+												{t('numReportPage.useWildcardLettersAB')}
 											</p>
 										</div>
-										<span class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30" dir="ltr">
-											MASK ENGINE
+										<span
+											class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30"
+											dir="ltr"
+										>
+											{t('numReportPage.maskEngineBadge')}
 										</span>
 									</div>
 
@@ -3015,22 +2626,15 @@ export const NumberReportPage: Component = () => {
 											class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs font-black hover:brightness-110 active:scale-95 transition-all"
 										>
 											{maskSearchLoading()
-												? layaT({
-														fa: 'در حال جستجو...',
-														en: 'Scanning...',
-														ru: 'Поиск...',
-														zh: '扫描中...',
-													})
-												: layaT({
-														fa: 'جستجوی ماسک',
-														en: 'Scan Mask',
-														ru: 'Найти по маске',
-														zh: '搜索掩码',
-													})}
+												? t('numReportPage.scanning')
+												: t('numReportPage.scanMask')}
 										</button>
 									</div>
 
-									<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-2" dir="ltr">
+									<div
+										class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-2"
+										dir="ltr"
+									>
 										<For
 											each={[
 												{ mask: '8888AAA', label: '4D Triple (8AAA)' },
@@ -3056,11 +2660,9 @@ export const NumberReportPage: Component = () => {
 										<div class="mt-3 pt-3 border-t border-white/10 space-y-2">
 											<div class="flex items-center justify-between text-[10px] text-white/60">
 												<span>
-													{layaT({
-														fa: `نتایج زنده ماسک ${customMaskInput()} (${(customMaskResults() || []).length} مورد):`,
-														en: `Live Nums888 Matches for ${customMaskInput()} (${(customMaskResults() || []).length}):`,
-														ru: `Найдено в Nums888 по маске ${customMaskInput()} (${(customMaskResults() || []).length}):`,
-														zh: `Nums888 掩码 ${customMaskInput()} 实时匹配 (${(customMaskResults() || []).length})：`,
+													{t('numReportPage.liveMaskMatches', {
+														mask: customMaskInput(),
+														count: (customMaskResults() || []).length,
 													})}
 												</span>
 												<button
@@ -3068,24 +2670,14 @@ export const NumberReportPage: Component = () => {
 													onClick={() => setCustomMaskResults(null)}
 													class="text-rose-400 hover:underline text-[10px]"
 												>
-													{layaT({
-														fa: 'بستن نتایج ماسک',
-														en: 'Clear',
-														ru: 'Очистить',
-														zh: '清除结果',
-													})}
+													{t('numReportPage.clear')}
 												</button>
 											</div>
 											<Show
 												when={(customMaskResults() || []).length > 0}
 												fallback={
 													<div class="p-3 rounded-xl bg-black/40 text-center text-[11px] text-white/45">
-														{layaT({
-															fa: 'هیچ شماره ضرب‌شده‌ای با این ماسک در بلاک‌چین یافت نشد.',
-															en: 'No minted numbers matched this custom mask.',
-															ru: 'Сминченных номеров по этой маске не найдено.',
-															zh: '未找到符合该自定义掩码的已铸造号码。',
-														})}
+														{t('numReportPage.noMintedNumbersMatchedThis')}
 													</div>
 												}
 											>
@@ -3128,12 +2720,7 @@ export const NumberReportPage: Component = () => {
 																		}}
 																		class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/40 text-[10px] font-black text-amber-300"
 																	>
-																		{layaT({
-																			fa: 'کالبدشکافی',
-																			en: 'Appraise',
-																			ru: 'Оценить',
-																			zh: '深度评估',
-																		})}
+																		{t('numReportPage.appraise_3')}
 																	</button>
 																</div>
 															</div>
@@ -3145,33 +2732,19 @@ export const NumberReportPage: Component = () => {
 									</Show>
 								</div>
 
-								<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
 									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
 										<div>
 											<h3 class="text-xs font-black text-white flex items-center gap-2">
-												<span class="material-symbols-outlined text-amber-400 text-base">
-													hub
-												</span>
-												<span>
-													{layaT({
-														fa: 'شماره‌های هم‌الگو و هم‌خانواده در بلاک‌چین (Live Pattern Siblings)',
-														en: 'Live Structural Pattern Siblings on TON',
-														ru: 'Структурно похожие номера в блокчейне TON',
-														zh: 'TON 链上同结构规律号码 (Pattern Siblings)',
-													})}
-												</span>
+												<span class="material-symbols-outlined text-amber-400 text-base">hub</span>
+												<span>{t('numReportPage.liveStructuralPatternSiblingsOn')}</span>
 											</h3>
 											<p class="text-[10px] text-white/50 mt-0.5">
-												{layaT({
-													fa: 'استخراج زنده از Nums888 بر اساس ماسک ساختاری مشابه؛ برای کالبدشکافی هر شماره روی آن کلیک کنید.',
-													en: 'Scraped live from Nums888 pattern mask; click any sibling to appraise.',
-													ru: 'Живые данные из Nums888 по структурной маске; нажмите для оценки.',
-													zh: '基于相同结构掩码从 Nums888 实时提取；点击任意号码即可深度评估。',
-												})}
+												{t('numReportPage.scrapedLiveFromNums888Pattern')}
 											</p>
 										</div>
 										<span class="text-[9px] font-mono font-black text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-md">
-											LIVE PEERS
+											{t('numReportPage.livePeersBadge')}
 										</span>
 									</div>
 
@@ -3179,12 +2752,7 @@ export const NumberReportPage: Component = () => {
 										when={(reportData()?.pattern_siblings || []).length > 0}
 										fallback={
 											<div class="p-6 text-center text-xs text-white/40 bg-black/40 rounded-2xl border border-white/5">
-												{layaT({
-													fa: 'در حال حاضر هم‌خانواده دیگری برای این ماسک یافت نشد.',
-													en: 'No additional pattern siblings found.',
-													ru: 'Других номеров с такой же структурной маской не найдено.',
-													zh: '暂未找到更多相同结构掩码的同族号码。',
-												})}
+												{t('numReportPage.noAdditionalPatternSiblingsFound')}
 											</div>
 										}
 									>
@@ -3199,29 +2767,18 @@ export const NumberReportPage: Component = () => {
 															/>
 															<div class="min-w-0">
 																<div class="flex items-center gap-1.5 flex-wrap">
-																	<span
-																		class="font-mono font-black text-xs text-white"
-																		dir="ltr"
-																	>
+																	<span class="font-mono font-black text-xs text-white" dir="ltr">
 																		{sib.display_number}
 																	</span>
 																	<Show when={sib.is_restricted}>
 																		<span class="text-[8px] font-mono font-black px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-																			RESTRICTED
+																			{t('numReportPage.restrictedBadge')}
 																		</span>
 																	</Show>
 																</div>
 																<div class="text-[10px] text-white/50 truncate">
-																	{isRtl()
-																		? sib.similarity_reason_fa
-																		: sib.similarity_reason_en}{' '}
-																	• {sib.owners_count}{' '}
-																	{layaT({
-																		fa: 'مالک',
-																		en: 'Owners',
-																		ru: 'Владельцев',
-																		zh: '位持有者',
-																	})}
+																	{isRtl() ? sib.similarity_reason_fa : sib.similarity_reason_en} •{' '}
+																	{sib.owners_count} {t('numReportPage.owners')}
 																</div>
 															</div>
 														</div>
@@ -3245,14 +2802,9 @@ export const NumberReportPage: Component = () => {
 																	setActiveTab('valuation');
 																	void handleRunAnalysis(sib.display_number);
 																}}
-																class="px-2.5 py-1.5 rounded-xl bg-[#0098EA]/20 hover:bg-[#0098EA]/35 border border-[#0098EA]/40 text-[10px] font-black text-cyan-300 transition-all active:scale-95"
+																class="px-2.5 py-1.5 rounded-xl bg-[#2990ff]/20 hover:bg-[#2990ff]/35 border border-[#2990ff]/40 text-[10px] font-black text-cyan-300 transition-all active:scale-95"
 															>
-																{layaT({
-																	fa: 'کالبدشکافی',
-																	en: 'Appraise',
-																	ru: 'Оценить',
-																	zh: '深度评估',
-																})}
+																{t('numReportPage.appraise_4')}
 															</button>
 														</div>
 													</div>
@@ -3266,9 +2818,7 @@ export const NumberReportPage: Component = () => {
 								<NumberDigitalCertificateCard
 									certificateId={reportData()?.certificate_id}
 									number={reportData()?.number || inputNumber()}
-									expectedTon={
-										reportData()?.expected_ton ? Number(reportData()!.expected_ton) : 0
-									}
+									expectedTon={reportData()?.expected_ton ? Number(reportData()!.expected_ton) : 0}
 									confidence={reportData()?.confidence_score}
 								/>
 							</div>
@@ -3282,7 +2832,7 @@ export const NumberReportPage: Component = () => {
 								class={`py-3 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
 									isMonitored()
 										? 'bg-amber-400/15 border-amber-400/40 text-amber-300'
-										: 'bg-[#12141C]/80 border-white/10 text-white/70 hover:bg-white/5'
+										: 'bg-[#141a22]/90 border-white/10 text-white/70 hover:bg-white/5'
 								}`}
 							>
 								<span class="material-symbols-outlined text-lg">
@@ -3301,7 +2851,7 @@ export const NumberReportPage: Component = () => {
 								}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="py-3 px-2 rounded-2xl bg-gradient-to-r from-[#0098EA] via-[#00c6ff] to-[#0098EA] text-white border border-[#0098EA]/30 flex flex-col items-center justify-center gap-1 shadow-md shadow-[#0098EA]/20 active:scale-95 transition-all hover:brightness-110"
+								class="py-3 px-2 rounded-2xl bg-gradient-to-r from-[#2990ff] via-[#00c6ff] to-[#2990ff] text-white border border-[#2990ff]/30 flex flex-col items-center justify-center gap-1 shadow-md shadow-[#2990ff]/20 active:scale-95 transition-all hover:brightness-110"
 							>
 								<span class="material-symbols-outlined text-lg">open_in_new</span>
 								<span class="text-[10px] font-black tracking-tight">
@@ -3316,7 +2866,7 @@ export const NumberReportPage: Component = () => {
 								class={`py-3 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
 									isWatching()
 										? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-										: 'bg-[#12141C]/80 border-white/10 text-white/70 hover:bg-white/5'
+										: 'bg-[#141a22]/90 border-white/10 text-white/70 hover:bg-white/5'
 								}`}
 							>
 								<span class="material-symbols-outlined text-lg">

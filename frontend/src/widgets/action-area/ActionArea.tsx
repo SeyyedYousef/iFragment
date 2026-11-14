@@ -267,15 +267,15 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			const supply = catalogItem?.supply || 0;
 
 			// Determine serial tier badge
-			let serialTag = 'VERIFIED GIFT NFT';
+			let serialTag = 'Verified Gift NFT';
 			if (serialNum === 1) {
-				serialTag = '👑 GENESIS MINT (#1)';
+				serialTag = 'Genesis Mint (#1)';
 			} else if (serialNum >= 2 && serialNum <= 9) {
-				serialTag = `💎 SINGLE DIGIT (#${serialNum})`;
+				serialTag = `Single Digit (#${serialNum})`;
 			} else if (serialNum >= 10 && serialNum <= 99) {
-				serialTag = `⚡ DOUBLE DIGIT (#${serialNum})`;
+				serialTag = `Double Digit (#${serialNum})`;
 			} else if ([420, 777, 888, 999, 1000].includes(serialNum)) {
-				serialTag = `✨ SACRED SERIAL (#${serialNum})`;
+				serialTag = `Sacred Serial (#${serialNum})`;
 			}
 
 			const subtitle =
@@ -323,7 +323,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				slug: `${catalogItem.slug}-1`,
 				serial: 1,
 				emoji: catalogItem.emoji || '🎁',
-				tag: 'OFFICIAL COLLECTION (#1)',
+				tag: 'Official Collection (#1)',
 				floorTon: 0,
 				supply: catalogItem.supply,
 			};
@@ -808,117 +808,125 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 	return (
 		<main
-			class="action-area w-full relative overflow-visible font-sans pb-20"
+			class="action-area w-full relative overflow-visible font-frag-sans pb-16"
 			aria-label={t('actionArea.analysisSection')}
 		>
-			{/* Ambient light */}
-			<div
-				class="absolute top-[20%] left-1/2 -translate-x-1/2 w-[70%] h-[40%] rounded-full pointer-events-none transition-all duration-1000 z-0"
-				style={{
-					background: `radial-gradient(ellipse, ${isFocused() ? 'rgba(51,144,236,0.15)' : 'rgba(51,144,236,0.05)'} 0%, transparent 70%)`,
-					filter: 'blur(60px)',
-				}}
-			/>
-
-			<div class="relative z-10 w-full max-w-[520px] mx-auto pt-8 px-5">
+			<div class="relative z-10 w-full max-w-[500px] mx-auto pt-4 px-4">
 				<div class="flex flex-col w-full">
 					{/* ━━━ HEADER ━━━ */}
 					<Motion.div
-						initial={{ opacity: 0, y: 16 }}
+						initial={{ opacity: 0, y: 12 }}
 						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.7, easing: [0.16, 1, 0.3, 1] }}
-						class="text-center w-full mb-8 flex flex-col items-center"
+						transition={{ duration: 0.35, easing: [0.16, 1, 0.3, 1] }}
+						class="text-center w-full mb-5 flex flex-col items-center"
 					>
-						<div class="flex items-center justify-center gap-3 mb-5">
-							<div class="relative">
-								<button
-									type="button"
-									onClick={() => {
-										if (props.activeTab === 'collectibles') {
-											navigate('/numbers/intel');
-										} else if (props.activeTab === 'gifts') {
-											navigate('/gifts/intel');
-										} else {
-											navigate('/collection-info');
-										}
-									}}
-									class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] hover:bg-white/[0.08] transition-colors"
-								>
-									<span class="material-symbols-outlined text-[14px] text-white/70">
-										collections_bookmark
-									</span>
-									<span class="text-[10px] font-semibold text-white/70 tracking-[0.2em] uppercase">
-										{props.activeTab === 'gifts'
-											? t('home.giftsIntel')
-											: props.activeTab === 'collectibles'
-												? t('home.numbersIntel')
-												: t('home.collectionInfo')}
-									</span>
-								</button>
-							</div>
+						<div class="flex items-center justify-center mb-3.5">
+							<button
+								type="button"
+								onClick={() => {
+									if (props.activeTab === 'collectibles') {
+										navigate('/numbers/intel');
+									} else if (props.activeTab === 'gifts') {
+										navigate('/gifts/intel');
+									} else {
+										navigate('/collection-info');
+									}
+								}}
+								class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1b232d] hover:bg-[#232d3a] border border-white/[0.08] hover:border-[#2990FF]/40 text-[12px] font-medium text-[#c7d0d9] hover:text-white transition-colors"
+							>
+								<span class="material-symbols-outlined text-[15px] text-[#2990FF]">
+									collections_bookmark
+								</span>
+								<span>
+									{props.activeTab === 'gifts'
+										? t('home.giftsIntel')
+										: props.activeTab === 'collectibles'
+											? t('home.numbersIntel')
+											: t('home.collectionInfo')}
+								</span>
+								<span class="material-symbols-outlined text-[14px] text-[#60707c] rtl:rotate-180">
+									chevron_right
+								</span>
+							</button>
 						</div>
 
-						<h2 class="text-[32px] md:text-[42px] font-extrabold tracking-tight leading-[1.2] mb-2.5 text-white">
+						<h2 class="text-[24px] sm:text-[30px] font-semibold tracking-[-0.025em] leading-[1.2] mb-2 text-white">
 							{t(keys().title)}
 						</h2>
-						<p class="text-white/50 text-[14px] font-medium max-w-[400px] leading-[1.6] mx-auto">
+						<p class="text-[#8c9ba5] text-[13px] font-normal max-w-[380px] leading-[1.6] mx-auto">
 							{t(keys().description)}
 						</p>
 					</Motion.div>
 
 					{/* ━━━ FORMAT GUIDE (ACCORDION) ━━━ */}
 					<Show when={props.activeTab === 'collectibles' && showNumberGuide()}>
-						<div class="mb-5 bg-[#12141C]/90 border border-[#0098EA]/30 rounded-[24px] p-4 shadow-xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+						<div class="mb-4 frag-card p-4 border-[#2990FF]/35">
 							<div class="flex items-center justify-between mb-2">
 								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-sm text-[#0098EA]">info</span>
-									<h3 class="text-xs font-black text-white">{t('numbers.formatGuideTitle')}</h3>
+									<span class="material-symbols-outlined text-[16px] text-[#2990FF]">info</span>
+									<h3 class="text-[13px] font-semibold text-white">
+										{t('numbers.formatGuideTitle')}
+									</h3>
 								</div>
 								<button
 									type="button"
 									onClick={() => setShowNumberGuide(false)}
-									class="text-white/40 hover:text-white text-xs font-bold"
+									class="w-7 h-7 rounded-[8px] bg-white/[0.04] hover:bg-white/[0.08] text-[#8c9ba5] hover:text-white flex items-center justify-center transition-colors"
 								>
-									✕
+									<span class="material-symbols-outlined text-[16px]">close</span>
 								</button>
 							</div>
-							<p class="text-[11px] text-white/60 mb-3 leading-relaxed">
+							<p class="text-[12px] text-[#8c9ba5] mb-3 leading-relaxed">
 								{t('numbers.formatGuideSubtitle')}
 							</p>
 
 							<div class="grid grid-cols-1 xs:grid-cols-2 gap-2 text-xs">
-								<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
-									<span class="text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1 mb-1.5">
-										<span class="material-symbols-outlined text-xs">check_circle</span>
+								<div class="p-3 rounded-[10px] bg-[#4cd964]/10 border border-[#4cd964]/25">
+									<span class="text-[11px] font-semibold text-[#4cd964] flex items-center gap-1 mb-1.5">
+										<span class="material-symbols-outlined text-[14px]">check_circle</span>
 										{t('numbers.formatValidBadge')}
 									</span>
-									<div class="space-y-1 font-mono text-[11px] text-white/90" dir="ltr">
-										<div class="bg-black/30 px-2 py-1 rounded-lg">
-											8888 8888 <span class="text-[9px] text-emerald-400">✓</span>
+									<div class="space-y-1 font-mono text-[11.5px] text-white/90" dir="ltr">
+										<div class="bg-[#141a22] px-2.5 py-1 rounded-[6px] flex items-center justify-between">
+											<span>8888 8888</span>
+											<span class="text-[10px] text-[#4cd964]">
+												{t('numbers.formatValidSample')}
+											</span>
 										</div>
-										<div class="bg-black/30 px-2 py-1 rounded-lg">
-											0123 4567 <span class="text-[9px] text-emerald-400">✓</span>
+										<div class="bg-[#141a22] px-2.5 py-1 rounded-[6px] flex items-center justify-between">
+											<span>0123 4567</span>
+											<span class="text-[10px] text-[#4cd964]">
+												{t('numbers.formatValidSample')}
+											</span>
 										</div>
-										<div class="bg-black/30 px-2 py-1 rounded-lg">
-											8888 <span class="text-[9px] text-emerald-400">✓ (Genesis)</span>
+										<div class="bg-[#141a22] px-2.5 py-1 rounded-[6px] flex items-center justify-between">
+											<span>8888</span>
+											<span class="text-[10px] text-[#4cd964]">
+												{t('numbers.formatGenesisTag')}
+											</span>
 										</div>
 									</div>
 								</div>
 
-								<div class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25">
-									<span class="text-[10px] font-black uppercase text-rose-400 flex items-center gap-1 mb-1.5">
-										<span class="material-symbols-outlined text-xs">cancel</span>
+								<div class="p-3 rounded-[10px] bg-[#ff5c6c]/10 border border-[#ff5c6c]/25">
+									<span class="text-[11px] font-semibold text-[#ff5c6c] flex items-center gap-1 mb-1.5">
+										<span class="material-symbols-outlined text-[14px]">cancel</span>
 										{t('numbers.formatInvalidBadge')}
 									</span>
-									<div class="space-y-1 font-mono text-[11px] text-white/90" dir="ltr">
-										<div class="bg-black/30 px-2 py-1 rounded-lg">
-											0912 ... <span class="text-[9px] text-rose-400">✗ Regular Sim</span>
+									<div class="space-y-1 font-mono text-[11.5px] text-white/90" dir="ltr">
+										<div class="bg-[#141a22] px-2.5 py-1 rounded-[6px] flex items-center justify-between">
+											<span>0912…</span>
+											<span class="text-[10px] text-[#ff5c6c]">
+												{t('numbers.formatRegularSim')}
+											</span>
 										</div>
-										<div class="bg-black/30 px-2 py-1 rounded-lg">
-											12 <span class="text-[9px] text-rose-400">✗ Too short</span>
+										<div class="bg-[#141a22] px-2.5 py-1 rounded-[6px] flex items-center justify-between">
+											<span>12</span>
+											<span class="text-[10px] text-[#ff5c6c]">{t('numbers.formatTooShort')}</span>
 										</div>
-										<div class="bg-black/30 px-2 py-1 rounded-lg">
-											1234567890 <span class="text-[9px] text-rose-400">✗ Too long</span>
+										<div class="bg-[#141a22] px-2.5 py-1 rounded-[6px] flex items-center justify-between">
+											<span>1234567890</span>
+											<span class="text-[10px] text-[#ff5c6c]">{t('numbers.formatTooLong')}</span>
 										</div>
 									</div>
 								</div>
@@ -928,50 +936,34 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 					{/* ━━━ SEARCH COMPONENT ━━━ */}
 					<Motion.div
-						initial={{ opacity: 0, y: 12 }}
+						initial={{ opacity: 0, y: 10 }}
 						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.5, delay: 0.08, easing: [0.16, 1, 0.3, 1] }}
-						class="w-full relative z-20 mb-8"
+						transition={{ duration: 0.32, easing: [0.16, 1, 0.3, 1] }}
+						class="w-full relative z-20 mb-6"
 					>
-						{/* Outer glow on focus */}
 						<div
-							class="absolute inset-[-4px] rounded-[32px] transition-all duration-700 ease-out z-[-1] pointer-events-none"
+							class="frag-card-elevated w-full rounded-[16px] overflow-hidden transition-colors duration-200"
 							style={{
-								background:
-									isFocused() || searchQuery()
-										? `linear-gradient(135deg, ${inputStateColors().glow}, transparent, ${inputStateColors().glowSoft})`
-										: 'transparent',
-								filter: 'blur(20px)',
-								opacity: isFocused() || searchQuery() ? 0.4 : 0,
-							}}
-						/>
-
-						{/* Glassmorphic Container */}
-						<div
-							class="relative w-full rounded-[28px] transition-all duration-500 overflow-hidden backdrop-blur-2xl"
-							style={{
-								background: 'rgba(20, 20, 22, 0.45)',
-								border: `1px solid ${inputStateColors().borderTop}`,
-								'box-shadow': isFocused()
-									? '0 20px 40px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
-									: '0 10px 30px -10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)',
+								'border-color': isFocused()
+									? inputStateColors().borderTop
+									: 'rgba(255, 255, 255, 0.09)',
 							}}
 						>
 							<div class="flex flex-col p-2">
 								{/* Input Row */}
-								<div class="flex items-center px-3 py-3 gap-2.5" dir="ltr">
+								<div class="flex items-center px-3 py-2.5 gap-2.5" dir="ltr">
 									<Show
 										when={props.activeTab === 'collectibles'}
 										fallback={
 											<Show when={props.activeTab === 'username'}>
 												<span
-													class="text-[24px] font-medium transition-colors duration-300 min-w-[20px]"
+													class="text-[22px] font-semibold transition-colors duration-200 min-w-[20px] select-none"
 													style={{
 														color: isFocused()
 															? searchQuery()
 																? inputStateColors().icon
-																: '#3390ec'
-															: 'rgba(255,255,255,0.2)',
+																: '#2990FF'
+															: '#2990FF',
 													}}
 												>
 													@
@@ -980,14 +972,14 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										}
 									>
 										{/* Fixed +888 Prefix Badge */}
-										<div class="px-3 py-1.5 rounded-xl bg-[#0098EA]/15 border border-[#0098EA]/30 text-[#0098EA] font-mono font-black text-sm select-none shrink-0 flex items-center gap-1 shadow-sm">
+										<div class="px-2.5 py-1 rounded-[8px] bg-[#2990FF]/12 border border-[#2990FF]/30 text-[#64b5ff] font-mono font-semibold text-[13px] select-none shrink-0 flex items-center">
 											<span>+888</span>
 										</div>
 									</Show>
 
 									<input
 										id="search-input"
-										class="flex-1 bg-transparent border-none focus:ring-0 outline-none text-left font-mono text-[16px] sm:text-[19px] font-bold text-white placeholder:text-white/20 tracking-wider min-w-0"
+										class="flex-1 bg-transparent border-none focus:ring-0 outline-none text-left font-mono text-[16px] sm:text-[18px] font-semibold text-white placeholder:text-[#60707c] tracking-tight min-w-0"
 										placeholder={
 											props.activeTab === 'collectibles'
 												? '8888 8888'
@@ -1006,11 +998,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										onFocus={() => setIsFocused(true)}
 										onBlur={() => setIsFocused(false)}
 										autocomplete="off"
+										autocapitalize="off"
 										spellcheck={false}
 									/>
 
 									<div class="flex items-center gap-1.5 shrink-0">
-										{/* Paste from Clipboard Button for Gifts & Collectibles */}
 										<button
 											type="button"
 											onClick={async () => {
@@ -1022,10 +1014,10 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 													}
 												} catch {}
 											}}
-											class="px-2.5 py-1 rounded-xl bg-white/[0.05] hover:bg-white/10 border border-white/10 text-white/60 hover:text-white text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95"
+											class="px-2.5 py-1.5 rounded-[8px] bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] text-[#a9b6bf] hover:text-white text-[11px] font-medium flex items-center gap-1 transition-colors active:scale-95"
 											title={t('common.pasteBtn') || 'Paste'}
 										>
-											<span class="material-symbols-outlined text-[14px] text-[#0098EA]">
+											<span class="material-symbols-outlined text-[14px] text-[#2990FF]">
 												content_paste
 											</span>
 											<span class="hidden xs:inline">Paste</span>
@@ -1039,7 +1031,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 													setShowNumberGuide(false);
 													setServerVerified(null);
 												}}
-												class="w-7 h-7 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/40 hover:text-white transition-all flex items-center justify-center active:scale-90"
+												class="w-7 h-7 rounded-[8px] bg-white/[0.05] hover:bg-white/[0.1] text-[#8c9ba5] hover:text-white transition-colors flex items-center justify-center active:scale-90"
 											>
 												<span class="material-symbols-outlined text-[16px]">close</span>
 											</button>
@@ -1052,37 +1044,37 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									<Motion.div
 										initial={{ opacity: 0, height: 0 }}
 										animate={{ opacity: 1, height: 'auto' }}
-										class="px-5 pb-3 flex items-center gap-2"
+										class="px-3.5 pb-2.5 flex items-center gap-1.5"
 									>
-										<span class="material-symbols-outlined text-[15px] text-[#ff453a]">error</span>
-										<span class="text-[13px] font-medium text-[#ff453a]">{searchError()}</span>
+										<span class="material-symbols-outlined text-[15px] text-[#ff5c6c]">error</span>
+										<span class="text-[12.5px] font-medium text-[#ff5c6c]">{searchError()}</span>
 									</Motion.div>
 								</Show>
 
-								{/* 🎁 Reactive Live Recognition Card for Gifts */}
+								{/* Reactive Live Recognition Card for Gifts */}
 								<Show when={props.activeTab === 'gifts' && giftsValidation().isValid}>
-									<div class="mx-1 mb-1.5 p-3 rounded-[22px] bg-gradient-to-r from-emerald-500/10 via-[#0098EA]/10 to-transparent border border-emerald-500/30 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+									<div class="mx-1 mb-1.5 frag-inset p-3 border-[#4cd964]/30">
 										<div class="flex items-center justify-between gap-2 mb-1.5">
 											<div class="flex items-center gap-2.5 min-w-0">
-												<div class="w-7 h-7 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden p-0.5">
+												<div class="w-8 h-8 rounded-[8px] bg-[#1b232d] border border-white/[0.08] flex items-center justify-center shrink-0 overflow-hidden p-0.5">
 													<GiftThumbnail
 														slug={giftsValidation().slug.replace(/-\d+$/, '')}
 														name={giftsValidation().title}
 														class="w-full h-full object-contain"
 													/>
 												</div>
-												<div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,199,89,0.8)] animate-pulse shrink-0" />
-												<span class="text-[13px] font-black text-white tracking-tight truncate">
+												<span class="w-1.5 h-1.5 rounded-full bg-[#4cd964] shrink-0" />
+												<span class="text-[13px] font-semibold text-white tracking-tight truncate">
 													{giftsValidation().title}
 												</span>
 											</div>
-											<span class="text-[9px] font-mono font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 shrink-0">
+											<span class="text-[10.5px] font-mono font-medium px-2 py-0.5 rounded-[6px] bg-[#4cd964]/12 border border-[#4cd964]/30 text-[#4cd964] shrink-0">
 												{giftsValidation().tag}
 											</span>
 										</div>
-										<div class="flex items-center justify-between text-[11px] text-white/70 pt-0.5 border-t border-white/[0.06] mt-1">
+										<div class="flex items-center justify-between text-[11px] text-[#8c9ba5] pt-1.5 border-t border-white/[0.06]">
 											<span class="truncate">{giftsValidation().subtitle}</span>
-											<span class="text-emerald-400 font-bold text-[10px] shrink-0 flex items-center gap-1">
+											<span class="text-[#4cd964] font-medium text-[11px] shrink-0 inline-flex items-center gap-1">
 												<span class="material-symbols-outlined text-[13px]">verified</span>
 												<span>{layaT(GIFTS_I18N.verifiedBadge)}</span>
 											</span>
@@ -1090,71 +1082,67 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									</div>
 								</Show>
 
-								{/* Reactive Realtime Validation & VIP Live Intelligence for Collectible Numbers */}
+								{/* Reactive Realtime Validation for Collectible Numbers */}
 								<Show when={props.activeTab === 'collectibles' && searchQuery().trim().length > 0}>
-									{/* 1. Client format error */}
 									<Show when={numbersValidation().error}>
-										<div class="px-4 pb-2.5 pt-1 flex items-center justify-between text-xs font-bold text-rose-400 animate-in fade-in">
+										<div class="px-3.5 pb-2 pt-1 flex items-center justify-between text-[12px] font-medium text-[#ff5c6c]">
 											<span class="flex items-center gap-1.5">
-												<span class="material-symbols-outlined text-sm">warning</span>
+												<span class="material-symbols-outlined text-[15px]">warning</span>
 												<span>{numbersValidation().error}</span>
 											</span>
 											<button
 												type="button"
 												onClick={() => setShowNumberGuide(true)}
-												class="text-[11px] text-[#0098EA] underline hover:brightness-120"
+												class="text-[11px] text-[#2990FF] hover:underline"
 											>
 												{t('numbers.formatGuideBtn')}
 											</button>
 										</div>
 									</Show>
 
-									{/* 2. On-chain Verifying state */}
 									<Show when={!numbersValidation().error && isVerifying()}>
-										<div class="px-4 pb-2.5 pt-1 flex items-center gap-2 text-xs font-bold text-[#0098EA] animate-pulse">
-											<span class="w-2 h-2 rounded-full bg-[#0098EA] animate-ping" />
+										<div class="px-3.5 pb-2 pt-1 flex items-center gap-2 text-[12px] font-medium text-[#64b5ff]">
+											<span class="w-2 h-2 rounded-full bg-[#2990FF] animate-pulse" />
 											<span>{t('numbers.verifyingStatus')}</span>
 										</div>
 									</Show>
 
-									{/* 3. Server unminted error */}
 									<Show
 										when={!numbersValidation().error && !isVerifying() && serverVerified()?.error}
 									>
-										<div class="px-4 pb-2.5 pt-1 flex items-center justify-between text-xs font-bold text-rose-400 animate-in fade-in">
+										<div class="px-3.5 pb-2 pt-1 flex items-center justify-between text-[12px] font-medium text-[#ff5c6c]">
 											<span class="flex items-center gap-1.5">
-												<span class="material-symbols-outlined text-sm">cancel</span>
+												<span class="material-symbols-outlined text-[15px]">cancel</span>
 												<span>{serverVerified()?.error || t('numbers.errorUnmintedServer')}</span>
 											</span>
 											<button
 												type="button"
 												onClick={() => setShowNumberGuide(true)}
-												class="text-[11px] text-[#0098EA] underline hover:brightness-120"
+												class="text-[11px] text-[#2990FF] hover:underline"
 											>
 												{t('numbers.formatGuideBtn')}
 											</button>
 										</div>
 									</Show>
 
-									{/* 4. Valid & Ready - Minimalist VIP Live Intelligence Card */}
 									<Show
 										when={numbersValidation().isValid && !isVerifying() && !serverVerified()?.error}
 									>
-										<div class="mx-1 mb-1.5 p-3 rounded-[20px] bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
+										<div class="mx-1 mb-1.5 frag-inset p-3">
 											<div class="flex items-center justify-between gap-2 mb-1">
-												<div class="flex items-center gap-2">
-													<div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,199,89,0.8)] animate-pulse shrink-0" />
-													<span class="text-[13px] font-bold text-white tracking-tight">
+												<div class="flex items-center gap-2 min-w-0">
+													<span class="w-1.5 h-1.5 rounded-full bg-[#4cd964] shrink-0" />
+													<span class="text-[13px] font-semibold text-white truncate">
 														{numbersValidation().pattern?.name}
 													</span>
 												</div>
-												<span class="text-[9px] font-mono font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-white/80 shrink-0">
+												<span class="text-[10.5px] font-mono font-medium px-2 py-0.5 rounded-[6px] bg-white/[0.05] border border-white/[0.08] text-[#c7d0d9] shrink-0">
 													{numbersValidation().pattern?.tier}
 												</span>
 											</div>
-											<div class="flex items-center justify-between text-[11px] text-white/50 pt-0.5">
-												<span>{numbersValidation().pattern?.subtitle}</span>
-												<span class="text-emerald-400 font-semibold text-[10px] shrink-0">
+											<div class="flex items-center justify-between text-[11px] text-[#8c9ba5] pt-1 border-t border-white/[0.05]">
+												<span class="truncate">{numbersValidation().pattern?.subtitle}</span>
+												<span class="text-[#4cd964] font-medium text-[11px] shrink-0">
 													{numbersValidation().pattern?.rarity}
 												</span>
 											</div>
@@ -1164,55 +1152,41 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							</div>
 						</div>
 
-						{/* Analyze Button */}
+						{/* Primary CTA Button — Fragment Telegram Blue */}
 						<button
 							type="button"
 							onClick={handleAnalyze}
 							disabled={isAnalyzeDisabled()}
-							class="relative w-full h-[60px] rounded-[22px] font-black text-[15px] flex items-center justify-center gap-2 transition-all duration-300 overflow-hidden group mt-4"
-							style={{
-								background:
-									analyzeState() === 'success'
-										? 'linear-gradient(135deg, #28a745, #30d158)'
-										: isAnalyzeDisabled()
-											? 'rgba(255,255,255,0.04)'
-											: 'linear-gradient(135deg, #ffffff, #e0e0e0)',
-								color:
-									analyzeState() === 'success'
-										? '#fff'
-										: isAnalyzeDisabled()
-											? 'rgba(255,255,255,0.25)'
-											: '#000',
-								cursor: isAnalyzeDisabled() ? 'not-allowed' : 'pointer',
-								'box-shadow': !isAnalyzeDisabled()
-									? '0 8px 24px -6px rgba(255,255,255,0.2)'
-									: 'none',
-							}}
+							class={`relative w-full h-12 rounded-[12px] font-semibold text-[14px] flex items-center justify-center gap-2 mt-3 transition-all ${
+								analyzeState() === 'success'
+									? 'bg-[#32d74b] text-white'
+									: isAnalyzeDisabled()
+										? 'bg-white/[0.05] border border-white/[0.07] text-white/30 cursor-not-allowed'
+										: 'frag-btn-primary cursor-pointer'
+							}`}
 						>
 							<Show when={analyzeState() === 'loading'}>
-								<div class="w-5 h-5 rounded-full border-[2.5px] border-black/20 border-t-black animate-spin" />
+								<div class="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
 							</Show>
-							<span class="relative z-10 transition-transform group-hover:scale-[1.02]">
-								{getButtonText()}
-							</span>
+							<span class="truncate">{getButtonText()}</span>
 							<Show when={analyzeState() === 'idle' && !isAnalyzeDisabled()}>
-								<span class="material-symbols-outlined text-[18px] rtl:rotate-180 relative z-10 group-hover:translate-x-1 transition-transform">
+								<span class="material-symbols-outlined text-[18px] rtl:rotate-180">
 									arrow_forward
 								</span>
 							</Show>
 						</button>
 					</Motion.div>
 
-					{/* ━━━ TAB-AWARE DYNAMIC TRENDING (CONVERT & CYCLE ENGINE) ━━━ */}
+					{/* ━━━ TAB-AWARE DYNAMIC TRENDING ━━━ */}
 					<Motion.div
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}
-						transition={{ duration: 0.5, delay: 0.2 }}
-						class="w-full mb-8 flex flex-col items-center"
+						transition={{ duration: 0.35, delay: 0.1 }}
+						class="w-full mb-4 flex flex-col items-center"
 					>
-						<div class="flex items-center justify-between w-full max-w-[460px] px-2 mb-3.5">
-							<span class="text-[11px] font-bold text-white/40 uppercase tracking-[0.2em] flex items-center gap-1.5">
-								<span class="material-symbols-outlined text-[15px] text-amber-400">
+						<div class="flex items-center justify-between w-full px-1 mb-2.5">
+							<span class="text-[12px] font-medium text-[#8c9ba5] flex items-center gap-1.5">
+								<span class="material-symbols-outlined text-[16px] text-[#ffb340]">
 									trending_up
 								</span>
 								<span>{t('action.trending.title')}</span>
@@ -1222,10 +1196,10 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 								<button
 									type="button"
 									onClick={handleCycleTrending}
-									class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[11px] font-medium text-white/70 hover:text-white transition-all active:scale-95 group"
+									class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[8px] bg-[#1b232d] hover:bg-[#232d3a] border border-white/[0.08] text-[11px] font-medium text-[#c7d0d9] hover:text-white transition-colors active:scale-95 group"
 								>
 									<span
-										class={`material-symbols-outlined text-[13px] text-[#0098EA] transition-transform duration-500 ${isRotating() ? 'rotate-180' : 'group-hover:rotate-45'}`}
+										class={`material-symbols-outlined text-[14px] text-[#2990FF] transition-transform duration-300 ${isRotating() ? 'rotate-180' : ''}`}
 									>
 										cached
 									</span>
@@ -1234,17 +1208,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							</Show>
 						</div>
 
-						<div class="flex flex-wrap justify-center gap-2.5 w-full" dir="ltr">
+						<div class="flex flex-wrap justify-center gap-2 w-full" dir="ltr">
 							<For each={trendingItems()}>
-								{(item, idx) => (
-									<Motion.button
-										initial={{ opacity: 0, y: 8 }}
-										animate={{ opacity: 1, y: 0 }}
-										transition={{
-											duration: 0.35,
-											delay: idx() * 0.04,
-											easing: [0.16, 1, 0.3, 1],
-										}}
+								{(item) => (
+									<button
+										type="button"
 										onClick={() => {
 											try {
 												haptic.selection();
@@ -1253,19 +1221,19 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 											const el = document.getElementById('search-input');
 											if (el) el.focus();
 										}}
-										class="group relative px-4 py-2.5 rounded-[16px] bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white text-[13px] font-mono font-medium transition-all duration-300 active:scale-95 flex items-center gap-1.5 border border-white/[0.05] hover:border-white/15 shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
+										class="group px-3 py-1.5 rounded-[10px] bg-[#1b232d] hover:bg-[#232d3a] text-[#d0d7dd] hover:text-white text-[12.5px] font-mono font-medium transition-colors active:scale-95 flex items-center gap-1 border border-white/[0.07] hover:border-[#2990FF]/40"
 									>
 										<Show when={props.activeTab === 'username'}>
-											<span class="text-white/25">@</span>
+											<span class="text-[#2990FF]">@</span>
 										</Show>
 										<Show when={props.activeTab === 'collectibles' && !item.startsWith('+')}>
-											<span class="text-[#0098EA]/60 font-bold">+888 </span>
+											<span class="text-[#2990FF] font-semibold">+888 </span>
 										</Show>
-										<span class="tracking-wider">{item}</span>
-										<span class="material-symbols-outlined text-[12px] opacity-0 group-hover:opacity-60 -translate-x-1 group-hover:translate-x-0 transition-all text-white">
+										<span>{item}</span>
+										<span class="material-symbols-outlined text-[13px] text-[#60707c] group-hover:text-[#2990FF] transition-colors">
 											arrow_outward
 										</span>
-									</Motion.button>
+									</button>
 								)}
 							</For>
 						</div>
@@ -1275,13 +1243,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 			{/* ━━━ NO CREDITS MODAL ━━━ */}
 			<Show when={showNoCreditsModal()}>
-				<div class="fixed inset-0 z-[100] flex items-center justify-center p-5 bg-black/80 backdrop-blur-md animate-fade-in">
-					<div class="bg-[#12141C] w-full max-w-sm rounded-[32px] p-7 flex flex-col items-center text-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/10 relative overflow-hidden animate-slide-up">
-						<div class="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
-							<span class="material-symbols-outlined text-amber-400 text-3xl">bolt</span>
+				<div class="fixed inset-0 z-[100] flex items-center justify-center p-5 bg-black/75 backdrop-blur-md">
+					<div class="frag-sheet w-full max-w-sm rounded-[20px] p-6 flex flex-col items-center text-center">
+						<div class="w-12 h-12 rounded-[12px] bg-[#ffb340]/12 border border-[#ffb340]/25 flex items-center justify-center mb-4">
+							<span class="material-symbols-outlined text-[#ffb340] text-[24px]">bolt</span>
 						</div>
-						<h3 class="text-xl font-bold text-white mb-2">{t('noCreditsModal.title')}</h3>
-						<p class="text-xs text-white/60 mb-6 leading-relaxed">
+						<h3 class="text-[17px] font-semibold text-white mb-1.5">{t('noCreditsModal.title')}</h3>
+						<p class="text-[12.5px] text-[#8c9ba5] mb-5 leading-relaxed">
 							{t('noCreditsModal.description')}
 						</p>
 						<button
@@ -1290,9 +1258,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 								setShowNoCreditsModal(false);
 								navigate('/leaderboard');
 							}}
-							class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#3390EC] to-[#2071C4] text-white font-semibold text-sm mb-3 active:scale-98 transition-transform"
+							class="frag-btn-primary w-full h-11 px-5 rounded-[11px] font-semibold text-[13px] mb-2.5"
 						>
-							{t('noCreditsModal.earnCredits') || 'دریافت کریدت رایگان (لیدربورد)'}
+							{t('noCreditsModal.earnCredits') || 'Earn free credits'}
 						</button>
 						<button
 							type="button"
@@ -1300,9 +1268,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 								setShowNoCreditsModal(false);
 								window.open('https://t.me/FragmentInvestors', '_blank');
 							}}
-							class="w-full py-3 px-6 rounded-2xl bg-white/[0.05] hover:bg-white/10 text-white/80 font-medium text-xs transition-colors"
+							class="frag-btn-secondary w-full h-10 px-5 rounded-[11px] font-medium text-[12.5px]"
 						>
-							💬 ورود به گروه @FragmentInvestors
+							{'@FragmentInvestors'}
 						</button>
 					</div>
 				</div>
@@ -1310,35 +1278,36 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 			{/* ━━━ NUMBER FORMAT GUIDE MODAL ━━━ */}
 			<Show when={showNumberGuide()}>
-				<div class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/85 backdrop-blur-lg animate-fade-in">
-					<div class="bg-[#12141C] w-full max-w-sm rounded-[32px] p-6 flex flex-col items-center text-center shadow-[0_20px_60px_rgba(0,0,0,0.9)] border border-white/10 relative overflow-hidden animate-slide-up">
-						<div class="w-14 h-14 rounded-2xl bg-[#0098EA]/10 border border-[#0098EA]/20 flex items-center justify-center mb-3 text-[#0098EA]">
-							<span class="material-symbols-outlined text-3xl">dialpad</span>
+				<div class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+					<div class="frag-sheet w-full max-w-sm rounded-[20px] p-5 flex flex-col items-center text-center">
+						<div class="w-12 h-12 rounded-[12px] bg-[#2990FF]/12 border border-[#2990FF]/25 flex items-center justify-center mb-3 text-[#2990FF]">
+							<span class="material-symbols-outlined text-[24px]">dialpad</span>
 						</div>
-						<h3 class="text-lg font-bold text-white mb-1.5">{t('numbers.formatGuideTitle')}</h3>
-						<p class="text-xs text-white/60 mb-5 leading-relaxed">
+						<h3 class="text-[16px] font-semibold text-white mb-1">
+							{t('numbers.formatGuideTitle')}
+						</h3>
+						<p class="text-[12px] text-[#8c9ba5] mb-4 leading-relaxed">
 							{t('numbers.formatGuideSubtitle')}
 						</p>
 
-						<div class="w-full space-y-2.5 mb-5 text-left">
-							{/* Valid Formats */}
-							<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-								<span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block mb-1.5 flex items-center gap-1">
-									<span class="material-symbols-outlined text-xs">check_circle</span>
+						<div class="w-full space-y-2.5 mb-4 text-start">
+							<div class="p-3 rounded-[12px] bg-[#4cd964]/10 border border-[#4cd964]/25">
+								<span class="text-[11px] font-semibold text-[#4cd964] flex items-center gap-1 mb-1.5">
+									<span class="material-symbols-outlined text-[14px]">check_circle</span>
 									{t('numbers.formatValidBadge')}
 								</span>
-								<div class="space-y-1 text-xs font-mono text-white/90">
+								<div class="space-y-1 text-[12px] font-mono text-white/90" dir="ltr">
 									<button
 										type="button"
 										onClick={() => {
 											updateSearchQuery('00000000');
 											setShowNumberGuide(false);
 										}}
-										class="w-full text-left p-1 rounded hover:bg-emerald-500/15 flex items-center justify-between group transition-colors"
+										class="w-full text-left px-2 py-1 rounded-[6px] hover:bg-[#4cd964]/15 flex items-center justify-between transition-colors"
 									>
 										<span>+888 0000 0000</span>
-										<span class="text-[10px] font-sans text-emerald-400/70 group-hover:text-emerald-300">
-											8 Digits Standard
+										<span class="text-[10.5px] font-frag-sans text-[#4cd964]">
+											{t('numbers.formatEightDigits')}
 										</span>
 									</button>
 									<button
@@ -1347,30 +1316,29 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 											updateSearchQuery('8000');
 											setShowNumberGuide(false);
 										}}
-										class="w-full text-left p-1 rounded hover:bg-emerald-500/15 flex items-center justify-between group transition-colors"
+										class="w-full text-left px-2 py-1 rounded-[6px] hover:bg-[#4cd964]/15 flex items-center justify-between transition-colors"
 									>
 										<span>+888 8000</span>
-										<span class="text-[10px] font-sans text-emerald-400/70 group-hover:text-emerald-300">
-											4 Digits Genesis
+										<span class="text-[10.5px] font-frag-sans text-[#4cd964]">
+											{t('numbers.formatFourDigitsGenesis')}
 										</span>
 									</button>
 								</div>
 							</div>
 
-							{/* Invalid Formats */}
-							<div class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-								<span class="text-[10px] font-bold uppercase tracking-wider text-rose-400 block mb-1.5 flex items-center gap-1">
-									<span class="material-symbols-outlined text-xs">cancel</span>
+							<div class="p-3 rounded-[12px] bg-[#ff5c6c]/10 border border-[#ff5c6c]/25">
+								<span class="text-[11px] font-semibold text-[#ff5c6c] flex items-center gap-1 mb-1.5">
+									<span class="material-symbols-outlined text-[14px]">cancel</span>
 									{t('numbers.formatInvalidBadge')}
 								</span>
-								<div class="space-y-1 text-xs font-mono text-white/60">
-									<div class="flex items-center justify-between p-1">
-										<span class="line-through">+98 912...</span>
-										<span class="text-[10px] font-sans text-rose-400/70">Cellular / SIM</span>
+								<div class="space-y-1 text-[12px] font-mono text-[#8c9ba5]" dir="ltr">
+									<div class="flex items-center justify-between px-2 py-1">
+										<span class="line-through">+98 912…</span>
+										<span class="text-[10.5px] font-frag-sans text-[#ff5c6c]">Cellular / SIM</span>
 									</div>
-									<div class="flex items-center justify-between p-1">
+									<div class="flex items-center justify-between px-2 py-1">
 										<span class="line-through">+888 12</span>
-										<span class="text-[10px] font-sans text-rose-400/70">&lt; 4 Digits</span>
+										<span class="text-[10.5px] font-frag-sans text-[#ff5c6c]">&lt; 4 digits</span>
 									</div>
 								</div>
 							</div>
@@ -1379,7 +1347,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						<button
 							type="button"
 							onClick={() => setShowNumberGuide(false)}
-							class="w-full py-3 px-6 rounded-2xl bg-[#0098EA] hover:bg-[#0087d1] text-white font-bold text-xs active:scale-98 transition-all shadow-[0_0_20px_rgba(0,152,234,0.3)]"
+							class="frag-btn-primary w-full h-11 px-5 rounded-[11px] font-semibold text-[13px]"
 						>
 							{t('common.close')}
 						</button>

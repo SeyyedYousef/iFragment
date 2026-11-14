@@ -233,7 +233,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 							}}
 							class={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-1.5 ${
 								isActive()
-									? 'bg-[#0098EA]/20 border-[#0098EA] text-[#0098EA] shadow-[0_0_12px_rgba(0,152,234,0.3)]'
+									? 'bg-[#2990ff]/20 border-[#2990ff] text-[#2990ff] shadow-[0_0_12px_rgba(41,144,255,0.3)]'
 									: 'bg-white/[0.03] border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.06]'
 							}`}
 						>
@@ -246,7 +246,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 			</div>
 
 			{/* Filters Accordion / Control Bar */}
-			<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-4 backdrop-blur-xl shadow-xl">
+			<div class="frag-card rounded-2xl p-4 backdrop-blur-xl shadow-xl">
 				<div class="flex items-center justify-between">
 					<button
 						type="button"
@@ -256,12 +256,12 @@ export const NumbersTableView: Component<Props> = (props) => {
 							} catch {}
 							setIsFiltersOpen(!isFiltersOpen());
 						}}
-						class="flex items-center gap-2 text-sm font-black text-white hover:text-[#0098EA] transition-all"
+						class="flex items-center gap-2 text-sm font-black text-white hover:text-[#2990ff] transition-all"
 					>
-						<span class="material-symbols-outlined text-lg text-[#0098EA]">tune</span>
+						<span class="material-symbols-outlined text-lg text-[#2990ff]">tune</span>
 						<span>{t('numbers.filtersTitle') || 'Advanced Filters'}</span>
 						<Show when={activeFiltersCount() > 0}>
-							<span class="px-2 py-0.5 text-[10px] font-black rounded-full bg-[#0098EA] text-white">
+							<span class="px-2 py-0.5 text-[10px] font-black rounded-full bg-[#2990ff] text-white">
 								{activeFiltersCount()}
 							</span>
 						</Show>
@@ -298,17 +298,17 @@ export const NumbersTableView: Component<Props> = (props) => {
 							<div class="relative">
 								<input
 									type="text"
-									placeholder="e.g. 8888000 or +888..."
+									placeholder={t('numTable.maskPlaceholder')}
 									value={localMask()}
 									onInput={(e) => handleMaskInput(e.currentTarget.value)}
-									class="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-8 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#0098EA] font-mono transition-all"
+									class="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-8 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#2990ff] font-mono transition-all"
 								/>
 								<Show when={localMask()}>
 									<button
 										type="button"
 										onClick={handleClearMask}
 										class="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
-										title="Clear search"
+										title={t('numTable.clearSearch')}
 									>
 										<span class="material-symbols-outlined text-sm">close</span>
 									</button>
@@ -319,14 +319,14 @@ export const NumbersTableView: Component<Props> = (props) => {
 						{/* 2. Sale Type */}
 						<div>
 							<label class="block text-[11px] font-extrabold text-white/50 mb-1.5 uppercase tracking-wider">
-								Sale Type
+								{t('numTable.saleTypeLabel')}
 							</label>
 							<div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
 								{[
-									{ id: '', label: 'Any' },
-									{ id: 'auction', label: 'Auction' },
-									{ id: 'for_sale', label: 'Fixed Price' },
-									{ id: 'not_for_sale', label: 'Not For Sale' },
+									{ id: '', label: t('numbers.filterAny') },
+									{ id: 'auction', label: t('numbers.filterAuctions') },
+									{ id: 'for_sale', label: t('numbers.filterFixedPrice') },
+									{ id: 'not_for_sale', label: t('numbers.filterNotForSale') },
 								].map((item) => (
 									<button
 										type="button"
@@ -342,7 +342,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 										}}
 										class={`px-3 py-1.5 rounded-xl text-xs font-bold text-center border transition-all ${
 											filters().saleType === item.id
-												? 'bg-[#0098EA]/20 border-[#0098EA] text-[#0098EA]'
+												? 'bg-[#2990ff]/20 border-[#2990ff] text-[#2990ff]'
 												: 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
 										}`}
 									>
@@ -380,7 +380,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 										}}
 										class={`px-3 py-1.5 rounded-xl text-xs font-bold text-center border transition-all ${
 											filters().numberType === item.id
-												? 'bg-[#0098EA]/20 border-[#0098EA] text-[#0098EA]'
+												? 'bg-[#2990ff]/20 border-[#2990ff] text-[#2990ff]'
 												: 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
 										}`}
 									>
@@ -416,7 +416,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 										}}
 										class={`px-3 py-1.5 rounded-xl text-xs font-bold text-center border transition-all ${
 											filters().ownersHistory === item.id
-												? 'bg-[#0098EA]/20 border-[#0098EA] text-[#0098EA]'
+												? 'bg-[#2990ff]/20 border-[#2990ff] text-[#2990ff]'
 												: 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
 										}`}
 									>
@@ -436,7 +436,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 									<button
 										type="button"
 										onClick={() => setFilters((prev) => ({ ...prev, nftColors: [], page: 1 }))}
-										class="text-[10px] text-[#0098EA] hover:underline"
+										class="text-[10px] text-[#2990ff] hover:underline"
 									>
 										{t('numbers.filterClearColors') || 'Clear colors'}
 									</button>
@@ -481,7 +481,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 			</div>
 
 			{/* Results Table (50 real numbers per page) */}
-			<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl backdrop-blur-xl shadow-xl overflow-hidden">
+			<div class="frag-card rounded-2xl backdrop-blur-xl shadow-xl overflow-hidden">
 				<div class="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<span
@@ -512,7 +512,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 										<div class="flex items-center gap-2.5">
 											<div class="w-3.5 h-3.5 rounded-full bg-white/10" />
 											<div class="flex items-center gap-1.5">
-												<div class="w-10 h-5 rounded bg-[#0098EA]/15" />
+												<div class="w-10 h-5 rounded bg-[#2990ff]/15" />
 												<div class="w-20 h-5 rounded bg-white/10" />
 											</div>
 										</div>
@@ -536,9 +536,9 @@ export const NumbersTableView: Component<Props> = (props) => {
 								<button
 									type="button"
 									onClick={resetFilters}
-									class="text-xs text-[#0098EA] font-extrabold hover:underline pt-2"
+									class="text-xs text-[#2990ff] font-extrabold hover:underline pt-2"
 								>
-									Clear filters
+									{t('numTable.clearFilters')}
 								</button>
 							</div>
 						}
@@ -548,14 +548,10 @@ export const NumbersTableView: Component<Props> = (props) => {
 							<table class="w-full text-left border-collapse min-w-[460px]">
 								<thead>
 									<tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] font-black text-white/40 uppercase tracking-wider">
-										<th class="py-3 px-4">{t('numbers.colNumber') || 'Number'}</th>
-										<th class="py-3 px-4 text-center">
-											{t('numbers.colLastSaleBid') || 'Last Sale / Bid'}
-										</th>
-										<th class="py-3 px-4 text-center">{t('numbers.colOwners') || 'Owners'}</th>
-										<th class="py-3 px-4 text-right">
-											{t('numbers.colCurrentOwner') || 'Current Owner'}
-										</th>
+										<th class="py-3 px-4">{t('numbers.colNumber')}</th>
+										<th class="py-3 px-4 text-center">{t('numbers.colLastSaleBid')}</th>
+										<th class="py-3 px-4 text-center">{t('numbers.colOwners')}</th>
+										<th class="py-3 px-4 text-right">{t('numbers.colCurrentOwner')}</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-white/[0.04] text-xs">
@@ -583,10 +579,10 @@ export const NumbersTableView: Component<Props> = (props) => {
 																	const p = splitNumberPrefix(item.display_number || item.number);
 																	return (
 																		<div class="flex items-center gap-1.5 font-mono">
-																			<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-[#0098EA]/15 text-[#0098EA] border border-[#0098EA]/30 shrink-0 select-none">
+																			<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-[#2990ff]/15 text-[#2990ff] border border-[#2990ff]/30 shrink-0 select-none">
 																				+888
 																			</span>
-																			<span class="font-black text-white text-xs tracking-wider group-hover:text-[#0098EA] transition-colors">
+																			<span class="font-black text-white text-xs tracking-wider group-hover:text-[#2990ff] transition-colors">
 																				{p.body || p.rawDigits}
 																			</span>
 																			<Show when={item.is_restricted}>
@@ -600,7 +596,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 																						setShowRestrictedModal(true);
 																					}}
 																					class="text-[9px] px-1 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-sans leading-none flex items-center hover:bg-rose-500/30 transition-colors"
-																					title="Restricted on Telegram (Click for details)"
+																					title={t('numTable.restrictedTooltip')}
 																				>
 																					<span class="material-symbols-outlined text-[10px]">
 																						warning
@@ -610,9 +606,9 @@ export const NumbersTableView: Component<Props> = (props) => {
 																			<Show when={item.is_estimated}>
 																				<span
 																					class="text-[8px] font-mono px-1 py-0.5 rounded bg-amber-400/10 text-amber-300/80 border border-amber-400/20 leading-none select-none"
-																					title="Estimated data"
+																					title={t('numTable.estimatedDataTitle')}
 																				>
-																					EST
+																					{t('numTable.estBadge')}
 																				</span>
 																			</Show>
 																		</div>
@@ -625,7 +621,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 																	target="_blank"
 																	rel="noreferrer"
 																	onClick={(e) => e.stopPropagation()}
-																	class="text-[9px] font-bold text-white/40 hover:text-[#0098EA] transition-colors flex items-center gap-0.5"
+																	class="text-[9px] font-bold text-white/40 hover:text-[#2990ff] transition-colors flex items-center gap-0.5"
 																>
 																	<span class="material-symbols-outlined text-[10px]">
 																		open_in_new
@@ -650,7 +646,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 														fallback={
 															<>
 																<div class="font-black text-white font-mono flex items-center justify-center gap-1.5">
-																	<span class="w-1.5 h-1.5 rounded-full bg-[#0098EA]" />
+																	<span class="w-1.5 h-1.5 rounded-full bg-[#2990ff]" />
 																	<span>{formatTon(item.last_sale_ton)}</span>
 																</div>
 																<div class="text-[10px] text-white/40 mt-0.5 hover:text-white transition-colors">
@@ -683,7 +679,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 																e.stopPropagation();
 																props.onViewOwnerPortfolio?.(item.current_owner);
 															}}
-															class="font-mono text-[11px] text-white/60 hover:text-[#0098EA] underline decoration-dotted transition-colors max-w-[120px] sm:max-w-none truncate"
+															class="font-mono text-[11px] text-white/60 hover:text-[#2990ff] underline decoration-dotted transition-colors max-w-[120px] sm:max-w-none truncate"
 															title={t('numbers.viewPortfolio') || 'View Portfolio'}
 														>
 															{item.current_owner.length > 15
@@ -765,7 +761,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 												}}
 												class={`min-w-[28px] h-7 px-1.5 rounded-lg text-xs font-mono font-bold transition-all border ${
 													isCur()
-														? 'bg-[#0098EA] border-[#0098EA] text-white shadow-md'
+														? 'bg-[#2990ff] border-[#2990ff] text-white shadow-md'
 														: 'bg-white/[0.03] border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.08]'
 												}`}
 											>
@@ -817,11 +813,11 @@ export const NumbersTableView: Component<Props> = (props) => {
 									placeholder={String(filters().page)}
 									value={jumpPageInput()}
 									onInput={(e) => setJumpPageInput(e.currentTarget.value)}
-									class="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center font-mono focus:outline-none focus:border-[#0098EA]"
+									class="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center font-mono focus:outline-none focus:border-[#2990ff]"
 								/>
 								<button
 									type="submit"
-									class="px-2.5 py-1 rounded-lg bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] font-bold text-xs hover:bg-[#0098EA] hover:text-white transition-all"
+									class="px-2.5 py-1 rounded-lg bg-[#2990ff]/20 border border-[#2990ff]/40 text-[#2990ff] font-bold text-xs hover:bg-[#2990ff] hover:text-white transition-all"
 								>
 									➔
 								</button>
@@ -838,7 +834,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 					onClick={() => setShowRestrictedModal(false)}
 				>
 					<div
-						class="bg-[#12141C] border border-rose-500/30 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4"
+						class="bg-[#1b232d] border border-rose-500/30 rounded-[16px] p-6 max-w-sm w-full shadow-[0_12px_32px_rgba(0,0,0,0.38)] space-y-4"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<div class="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">

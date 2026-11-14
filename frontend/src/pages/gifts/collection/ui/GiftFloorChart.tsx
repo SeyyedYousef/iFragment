@@ -287,17 +287,19 @@ export const GiftFloorChart: Component<Props> = (props) => {
 	};
 
 	return (
-		<div class="bg-[#12141C]/90 border border-white/[0.08] rounded-3xl p-4 sm:p-5 shadow-xl space-y-3.5 relative overflow-hidden backdrop-blur-xl">
+		<div class="bg-[#1b232d]/95 border border-white/[0.08] rounded-3xl p-4 sm:p-5 shadow-xl space-y-3.5 relative overflow-hidden backdrop-blur-xl">
 			{/* Header with Title & Readout */}
 			<div class="flex items-start justify-between relative z-10">
 				<div>
 					<div class="flex items-center gap-2">
-						<span class="text-xs uppercase font-extrabold text-[#0098EA] tracking-wider flex items-center gap-1">
+						<span class="text-xs uppercase font-extrabold text-[#2990ff] tracking-wider flex items-center gap-1">
 							<span class="material-symbols-outlined text-[15px]">trending_up</span>
-							<span>{t('gifts.floorPriceHistory') || 'روند معاملات و قیمت کف'}</span>
+							<span>{t('gifts.floorPriceHistory')}</span>
 						</span>
 						<span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-							{chartMode() === 'candles' ? 'OHLCV TradingView' : 'Live Snapshots'}
+							{chartMode() === 'candles'
+								? t('giftsFloorChart.ohlcvBadge')
+								: t('giftsFloorChart.liveSnapshotsBadge')}
 						</span>
 					</div>
 
@@ -341,18 +343,18 @@ export const GiftFloorChart: Component<Props> = (props) => {
 						</Show>
 						<Show when={chartMode() === 'line'}>
 							<Show when={hoverIdx() !== null && currentPoint()}>
-								<span class="text-[#0098EA] font-semibold">
+								<span class="text-[#2990ff] font-semibold">
 									{fmtDate(currentPoint()!.timestamp)}
 								</span>
 							</Show>
 							<Show when={hoverIdx() === null}>
 								<span>
-									{t('gifts.high24h') || 'سقف'}:{' '}
+									{t('gifts.high24h')}:{' '}
 									<strong class="text-white/70">{fmtVal(chartMetrics().max)}</strong>
 								</span>
 								<span class="w-[1px] h-2.5 bg-white/10" />
 								<span>
-									{t('gifts.low24h') || 'کف'}:{' '}
+									{t('gifts.low24h')}:{' '}
 									<strong class="text-white/70">{fmtVal(chartMetrics().min)}</strong>
 								</span>
 							</Show>
@@ -375,11 +377,11 @@ export const GiftFloorChart: Component<Props> = (props) => {
 								}}
 								class={`px-2 py-0.5 rounded-lg transition-all ${
 									chartMode() === 'line'
-										? 'bg-[#0098EA] text-white shadow'
+										? 'bg-[#2990ff] text-white shadow'
 										: 'text-white/40 hover:text-white'
 								}`}
 							>
-								Line
+								{t('giftsFloorChart.lineMode')}
 							</button>
 							<button
 								type="button"
@@ -391,11 +393,11 @@ export const GiftFloorChart: Component<Props> = (props) => {
 								}}
 								class={`px-2 py-0.5 rounded-lg transition-all ${
 									chartMode() === 'candles'
-										? 'bg-[#0098EA] text-white shadow'
+										? 'bg-[#2990ff] text-white shadow'
 										: 'text-white/40 hover:text-white'
 								}`}
 							>
-								Candles
+								{t('giftsFloorChart.candleMode')}
 							</button>
 						</div>
 
@@ -411,11 +413,11 @@ export const GiftFloorChart: Component<Props> = (props) => {
 								}}
 								class={`px-2 py-0.5 rounded-lg transition-all ${
 									currency() === 'ton'
-										? 'bg-[#0098EA] text-white shadow'
+										? 'bg-[#2990ff] text-white shadow'
 										: 'text-white/40 hover:text-white'
 								}`}
 							>
-								TON
+								{t('common.ton')}
 							</button>
 							<button
 								type="button"
@@ -427,11 +429,11 @@ export const GiftFloorChart: Component<Props> = (props) => {
 								}}
 								class={`px-2 py-0.5 rounded-lg transition-all ${
 									currency() === 'usd'
-										? 'bg-[#0098EA] text-white shadow'
+										? 'bg-[#2990ff] text-white shadow'
 										: 'text-white/40 hover:text-white'
 								}`}
 							>
-								USD
+								{t('common.usd')}
 							</button>
 						</div>
 					</div>
@@ -472,11 +474,11 @@ export const GiftFloorChart: Component<Props> = (props) => {
 						<span class="material-symbols-outlined text-3xl text-white/20 mb-1">show_chart</span>
 						<p class="text-xs font-bold text-white/50 font-mono">
 							{chartMode() === 'candles'
-								? 'Candlestick trades loading...'
-								: 'Historical data unavailable'}
+								? t('giftsFloorChart.candlesLoading')
+								: t('giftsFloorChart.historyUnavailable')}
 						</p>
 						<p class="text-[10px] text-white/30 mt-0.5">
-							Verified trade executions and daily snapshots recorded on-chain
+							{t('giftsFloorChart.verifiedOnChainSub')}
 						</p>
 					</div>
 				}
@@ -495,9 +497,9 @@ export const GiftFloorChart: Component<Props> = (props) => {
 					>
 						<defs>
 							<linearGradient id="floorAreaGrad" x1="0" y1="0" x2="0" y2="1">
-								<stop offset="0%" stop-color="#0098EA" stop-opacity="0.32" />
-								<stop offset="60%" stop-color="#0098EA" stop-opacity="0.06" />
-								<stop offset="100%" stop-color="#0098EA" stop-opacity="0.0" />
+								<stop offset="0%" stop-color="#2990ff" stop-opacity="0.32" />
+								<stop offset="60%" stop-color="#2990ff" stop-opacity="0.06" />
+								<stop offset="100%" stop-color="#2990ff" stop-opacity="0.0" />
 							</linearGradient>
 							<filter id="floorNeonGlow" x="-20%" y="-20%" width="140%" height="140%">
 								<feGaussianBlur stdDeviation="3" result="blur" />
@@ -586,7 +588,7 @@ export const GiftFloorChart: Component<Props> = (props) => {
 								<path
 									d={svgPaths().line}
 									fill="none"
-									stroke="#0098EA"
+									stroke="#2990ff"
 									stroke-width="2.5"
 									stroke-linecap="round"
 									stroke-linejoin="round"
@@ -605,25 +607,18 @@ export const GiftFloorChart: Component<Props> = (props) => {
 												y1={padding.top - 5}
 												x2={cp.x}
 												y2={height - padding.bottom + 5}
-												stroke="#0098EA"
+												stroke="#2990ff"
 												stroke-width="1.5"
 												stroke-dasharray="3 3"
 												opacity="0.8"
 											/>
-											<circle
-												cx={cp.x}
-												cy={cp.y}
-												r="7"
-												fill="#0098EA"
-												opacity="0.3"
-												class="animate-ping"
-											/>
+											<circle cx={cp.x} cy={cp.y} r="7" fill="#2990ff" opacity="0.3" />
 											<circle
 												cx={cp.x}
 												cy={cp.y}
 												r="5"
-												fill="#0A0E17"
-												stroke="#0098EA"
+												fill="#141a22"
+												stroke="#2990ff"
 												stroke-width="2.5"
 											/>
 											<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
@@ -649,7 +644,7 @@ export const GiftFloorChart: Component<Props> = (props) => {
 											transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
 										}}
 									>
-										<div class="bg-[#0b101c]/95 border border-[#0098EA]/40 rounded-xl p-2 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap min-w-[110px]">
+										<div class="bg-[#0b101c]/95 border border-[#2990ff]/40 rounded-xl p-2 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap min-w-[110px]">
 											<div class="text-white font-black text-xs">{fmtVal(cp.val)}</div>
 											<div class="text-white/50 text-[9px] mt-0.5">{fmtDate(cp.timestamp)}</div>
 											<Show when={cp.venue_breakdown}>
@@ -686,31 +681,35 @@ export const GiftFloorChart: Component<Props> = (props) => {
 										<div class="bg-[#0b101c]/95 border border-cyan-500/40 rounded-xl p-2 shadow-2xl backdrop-blur-md text-[9.5px] font-mono whitespace-nowrap min-w-[125px]">
 											<div class="flex items-center justify-between gap-2 font-bold mb-1">
 												<span class={cc.isBullish ? 'text-emerald-400' : 'text-rose-400'}>
-													{cc.isBullish ? '▲ Bullish' : '▼ Bearish'}
+													{cc.isBullish
+														? t('giftsFloorChart.bullish')
+														: t('giftsFloorChart.bearish')}
 												</span>
 												<span class="text-white/50 text-[8.5px]">{fmtDate(cc.timestamp)}</span>
 											</div>
 											<div class="space-y-0.5 text-[9px] text-white/70">
 												<div class="flex justify-between">
-													<span>Open:</span>
+													<span>{t('giftsFloorChart.open')}</span>
 													<span class="text-white font-bold">{fmtVal(cc.openVal)}</span>
 												</div>
 												<div class="flex justify-between">
-													<span>High:</span>
+													<span>{t('giftsFloorChart.high')}</span>
 													<span class="text-emerald-400 font-bold">{fmtVal(cc.highVal)}</span>
 												</div>
 												<div class="flex justify-between">
-													<span>Low:</span>
+													<span>{t('giftsFloorChart.low')}</span>
 													<span class="text-rose-400 font-bold">{fmtVal(cc.lowVal)}</span>
 												</div>
 												<div class="flex justify-between">
-													<span>Close:</span>
+													<span>{t('giftsFloorChart.close')}</span>
 													<span class="text-white font-bold">{fmtVal(cc.closeVal)}</span>
 												</div>
 												<Show when={cc.volume_gram > 0}>
 													<div class="flex justify-between border-t border-white/10 pt-0.5 mt-0.5 text-cyan-300">
-														<span>Vol:</span>
-														<span>{cc.volume_gram.toFixed(1)} TON</span>
+														<span>{t('giftsFloorChart.vol')}</span>
+														<span>
+															{cc.volume_gram.toFixed(1)} {t('common.ton')}
+														</span>
 													</div>
 												</Show>
 											</div>
@@ -724,7 +723,7 @@ export const GiftFloorChart: Component<Props> = (props) => {
 					{/* Timeline Date Bounds */}
 					<div class="absolute bottom-1 left-3 right-3 flex justify-between text-[9px] font-mono text-white/30 pointer-events-none">
 						<span>{activePoints()[0] ? fmtDate(activePoints()[0].timestamp) : ''}</span>
-						<span class="text-[#0098EA] font-semibold">{t('gifts.now') || 'Now'}</span>
+						<span class="text-[#2990ff] font-semibold">{t('gifts.now') || 'Now'}</span>
 					</div>
 				</div>
 			</Show>

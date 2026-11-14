@@ -224,7 +224,7 @@ func main() {
 		if appUrl := os.Getenv("APP_URL"); appUrl != "" {
 			allowedOriginsStr = appUrl
 		} else {
-			allowedOriginsStr = "http://localhost:5173,http://127.0.0.1:5173"
+			allowedOriginsStr = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000"
 		}
 	}
 	allowedOrigins := strings.Split(allowedOriginsStr, ",")
@@ -264,7 +264,12 @@ func main() {
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				metricsToken := os.Getenv("METRICS_TOKEN")
-				if metricsToken != "" {
+				if metricsToken == "" {
+					if os.Getenv("APP_ENV") == "production" {
+						w.WriteHeader(http.StatusUnauthorized)
+						return
+					}
+				} else {
 					auth := r.Header.Get("Authorization")
 					if auth != "Bearer "+metricsToken {
 						w.WriteHeader(http.StatusUnauthorized)

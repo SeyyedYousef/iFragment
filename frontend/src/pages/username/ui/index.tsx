@@ -26,6 +26,18 @@ import {
 	saveReport,
 } from '@/shared/lib/report-cache.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
+import {
+	FragHandle,
+	FragKV,
+	FragNftTile,
+	FragSectionHeader,
+	FragStat,
+	FragStatusPill,
+	normalizeFragStatus,
+	primaryMintFloorTon,
+	TonAmount,
+	TonIcon,
+} from '@/shared/ui/fragment/FragmentPrimitives.js';
 import { UnifiedPaywallGate } from '@/widgets/paywall/index.js';
 import { LayaCategoriesExplorer } from './components/LayaCategoriesExplorer.js';
 import { LayaMultiDimensionalCard } from './components/LayaMultiDimensionalCard.js';
@@ -425,14 +437,6 @@ export const UsernamePage: Component = () => {
 	const navigate = useNavigate();
 	const username = () => (searchParams.u || '').replace(/^@/, '').toLowerCase().trim();
 
-	const tr = (fa: string, en: string, ru?: string, zh?: string) => {
-		const loc = locale() || 'en';
-		if (loc === 'fa') return fa;
-		if (loc === 'ru') return ru || en;
-		if (loc === 'zh') return zh || en;
-		return en;
-	};
-
 	let cardRef: HTMLDivElement | undefined;
 	let hiddenCardRef: HTMLDivElement | undefined;
 	let pollIntervalId: any = null;
@@ -463,64 +467,38 @@ export const UsernamePage: Component = () => {
 		const priced = (item.sale_price ?? 0) > 0;
 		if (status === 'sold' && priced) {
 			return {
-				label: tr('فروخته شده (تایید شده)', 'VERIFIED SALE', 'ПРОДАНО', '已成交验证'),
-				class: 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/30',
+				label: t('usernamePage.badgeVerifiedSale'),
+				class: 'bg-[#10b981]/15 text-[#4cd964] border-[#10b981]/30',
 			};
 		}
 		if (status === 'on_auction') {
 			return {
-				label: tr('در حال حراج زنده', 'LIVE AUCTION', 'АУКЦИОН', '拍卖中'),
-				class: 'bg-amber-400/15 text-amber-400 border-amber-400/30',
+				label: t('usernamePage.badgeLiveAuction'),
+				class: 'bg-amber-400/15 text-[#ffb340] border-amber-400/30',
 			};
 		}
 		if (status === 'on_sale') {
 			return {
-				label: tr('آگهی فروش فعال', 'FOR SALE', 'В ПРОДАЖЕ', '在售'),
-				class: 'bg-[#0098EA]/15 text-[#0098EA] border-[#0098EA]/30',
+				label: t('usernamePage.badgeForSale'),
+				class: 'bg-[#2990FF]/15 text-[#2990FF] border-[#2990FF]/30',
 			};
 		}
 		if (status === 'taken' || status === 'sold') {
 			return {
-				label: tr('ثبت شده / فعال', 'TAKEN', 'ЗАНЯТ', '已占用'),
+				label: t('usernamePage.badgeTaken'),
 				class: 'bg-white/10 text-white/60 border-white/15',
 			};
 		}
 		if (status === 'available') {
 			return {
-				label: tr('آزاد برای ثبت', 'AVAILABLE', 'ДОСТУПЕН', '可注册'),
-				class: 'bg-emerald-400/10 text-emerald-300 border-emerald-400/20',
+				label: t('usernamePage.badgeAvailable'),
+				class: 'bg-emerald-400/10 text-[#4cd964] border-emerald-400/20',
 			};
 		}
 		return {
-			label: tr('بررسی شده', 'CHECKED', 'ПРОВЕРЕН', '已核验'),
-			class: 'bg-white/5 text-white/40 border-white/10',
+			label: t('usernamePage.badgeChecked'),
+			class: 'bg-white/5 text-[#8c9ba5] border-white/[0.08]',
 		};
-	};
-
-	const portfolioBadge = (status: string) => {
-		switch (status) {
-			case 'on_sale':
-			case 'sale':
-				return {
-					label: tr('آگهی فروش', 'LISTED', 'В ПРОДАЖЕ', '在售'),
-					class: 'bg-[#0098EA]/15 text-[#0098EA] border-[#0098EA]/30',
-				};
-			case 'on_auction':
-				return {
-					label: tr('در حراج', 'AUCTION', 'АУКЦИОН', '拍卖中'),
-					class: 'bg-amber-400/15 text-amber-400 border-amber-400/30',
-				};
-			case 'bought':
-				return {
-					label: tr('خریداری شده', 'ACQUIRED', 'КУПЛЕН', '已购入'),
-					class: 'bg-cyan-400/15 text-cyan-300 border-cyan-400/30',
-				};
-			default:
-				return {
-					label: tr('نگهداری (Hold)', 'HOLDING', 'В КОШЕЛЬКЕ', '持有中'),
-					class: 'bg-emerald-400/15 text-emerald-400 border-emerald-400/30',
-				};
-		}
 	};
 
 	const hasPortfolio = () => (data()?.portfolio?.items?.length ?? 0) > 0;
@@ -588,28 +566,24 @@ export const UsernamePage: Component = () => {
 			return {
 				wrapper:
 					'from-[#ffaa00] via-[#ff7700] to-[#e65100] shadow-[0_20px_50px_rgba(255,119,0,0.35),inset_0_2px_10px_rgba(255,255,255,0.3)]',
-				badge:
-					'bg-[#ffaa00]/15 border-[#ffaa00]/40 text-[#ffaa00] shadow-[0_0_15px_rgba(255,170,0,0.25)]',
+				badge: 'bg-[#ffaa00]/15 border-[#ffaa00]/40 text-[#ffaa00]',
 				text: 'from-[#ffeaa7] via-[#ffaa00] to-[#ff7700]',
 				glow: 'rgba(255,119,0,0.3)',
 			};
 		}
 		if (tStr.includes('epic') || tStr.includes('elite') || tStr.includes('apex')) {
 			return {
-				wrapper:
-					'from-[#0098EA] via-[#0070BA] to-[#004B87] shadow-[0_20px_50px_rgba(0,152,234,0.35),inset_0_2px_10px_rgba(255,255,255,0.3)]',
-				badge:
-					'bg-[#0098EA]/15 border-[#0098EA]/40 text-[#0098EA] shadow-[0_0_15px_rgba(0,152,234,0.25)]',
-				text: 'from-[#e0f2fe] via-[#38bdf8] to-[#0098EA]',
-				glow: 'rgba(0,152,234,0.3)',
+				wrapper: 'from-[#2990FF] via-[#2280e6] to-[#004B87]',
+				badge: 'bg-[#2990FF]/15 border-[#2990FF]/40 text-[#2990FF]',
+				text: 'from-[#e0f2fe] via-[#38bdf8] to-[#2990FF]',
+				glow: 'rgba(41, 144, 255,0.3)',
 			};
 		}
 		if (tStr.includes('rare') || tStr.includes('premium') || tStr.includes('grand')) {
 			return {
 				wrapper:
 					'from-[#10b981] via-[#059669] to-[#047857] shadow-[0_20px_50px_rgba(16,185,129,0.35),inset_0_2px_10px_rgba(255,255,255,0.3)]',
-				badge:
-					'bg-[#10b981]/15 border-[#10b981]/40 text-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.25)]',
+				badge: 'bg-[#10b981]/15 border-[#10b981]/40 text-[#4cd964]',
 				text: 'from-[#a7f3d0] via-[#10b981] to-[#059669]',
 				glow: 'rgba(16,185,129,0.3)',
 			};
@@ -957,7 +931,7 @@ export const UsernamePage: Component = () => {
 		if (score >= 80)
 			return { color: '#10b981', label: t('valuation.conf_high') || 'HIGH CONFIDENCE' };
 		if (score >= 60)
-			return { color: '#0098EA', label: t('valuation.conf_medium') || 'MODERATE CONFIDENCE' };
+			return { color: '#2990FF', label: t('valuation.conf_medium') || 'MODERATE CONFIDENCE' };
 		if (score >= 45)
 			return { color: '#f59e0b', label: t('valuation.conf_low') || 'LOW CONFIDENCE' };
 		return { color: '#ff4a4a', label: t('valuation.conf_thin') || 'THIN DATA' };
@@ -1015,62 +989,23 @@ export const UsernamePage: Component = () => {
 		return list;
 	});
 
-	const liveMarketBadge = () => {
-		const st = (data()?.live_market?.status || data()?.status || '').toLowerCase();
-		if (st === 'on_auction') {
-			return {
-				label: tr('در حراج زنده فرگمنت', 'ON AUCTION (FRAGMENT)', 'НА АУКЦИОНЕ', '拍卖中'),
-				class: 'bg-amber-400/15 border-amber-400/40 text-amber-400',
-				dot: 'bg-amber-400 animate-ping',
-			};
-		}
-		if (st === 'on_sale') {
-			return {
-				label: tr('آگهی فروش در فرگمنت', 'FOR SALE (FRAGMENT)', 'В ПРОДАЖЕ', '固定价在售'),
-				class: 'bg-[#0098EA]/15 border-[#0098EA]/40 text-[#0098EA]',
-				dot: 'bg-[#0098EA] animate-pulse',
-			};
-		}
-		if (st === 'sold') {
-			return {
-				label: tr('فروخته شده (NFT)', 'SOLD TELEMINT NFT', 'ПРОДАН (NFT)', '已售出 NFT'),
-				class: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400',
-				dot: 'bg-emerald-400',
-			};
-		}
-		if (st === 'available') {
-			return {
-				label: tr('آزاد برای ثبت / حراج', 'AVAILABLE ON FRAGMENT', 'ДОСТУПЕН', '可铸造'),
-				class: 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300',
-				dot: 'bg-cyan-400',
-			};
-		}
-		return {
-			label: tr('فعال در تلگرام', 'TAKEN / ACTIVE', 'ЗАНЯТ', '已激活'),
-			class: 'bg-white/10 border-white/20 text-white/70',
-			dot: 'bg-white/50',
-		};
-	};
-
 	return (
 		<Show
 			when={!loading()}
 			fallback={
-				<div class="flex flex-col justify-center items-center h-screen bg-[#030303] text-white/60 gap-5 relative overflow-hidden">
-					<div class="absolute inset-0 bg-gradient-to-b from-[#0098EA]/15 to-transparent blur-[120px]" />
+				<div class="flex flex-col justify-center items-center h-screen frag-canvas text-white/60 gap-5 relative overflow-hidden">
+					<div class="absolute inset-0 bg-gradient-to-b from-[#2990FF]/15 to-transparent blur-[120px]" />
 					<div class="relative flex items-center justify-center w-20 h-20">
-						<div class="absolute w-full h-full border-[3px] border-white/5 border-t-[#0098EA] rounded-full animate-spin shadow-[0_0_20px_rgba(0,152,234,0.6)]" />
-						<span class="material-symbols-outlined text-[24px] text-[#0098EA] animate-pulse">
+						<div class="absolute w-full h-full border-[3px] border-white/[0.06] border-t-[#2990FF] rounded-full animate-spin" />
+						<span class="material-symbols-outlined text-[24px] text-[#2990FF] animate-pulse">
 							radar
 						</span>
 					</div>
 					<div class="flex flex-col items-center gap-1">
-						<span class="text-[13px] font-black tracking-[4px] uppercase text-[#0098EA] animate-pulse">
-							{t('valuation.analyzing') || 'DECRYPTING'}
+						<span class="text-[13px] font-semibold text-[#2990FF] animate-pulse">
+							{t('valuation.analyzing') || 'Analyzing handle…'}
 						</span>
-						<span class="text-[10px] font-mono font-bold text-white/40 tracking-widest">
-							{t('valuation.onChainIntel')}
-						</span>
+						<span class="text-[11px] font-bold text-[#8c9ba5]">{t('valuation.onChainIntel')}</span>
 					</div>
 				</div>
 			}
@@ -1078,93 +1013,72 @@ export const UsernamePage: Component = () => {
 			<Show
 				when={!error()}
 				fallback={
-					<div class="min-h-screen bg-[#030303] text-white flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+					<div class="min-h-screen frag-canvas text-white flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
 						<div class="absolute inset-0 bg-gradient-to-b from-[#ff4a4a]/15 to-transparent blur-[120px]" />
-						<div class="w-24 h-24 rounded-[24px] bg-[#ff4a4a]/10 flex items-center justify-center mb-6 border border-[#ff4a4a]/30 shadow-[0_0_30px_rgba(255,74,74,0.2)] z-10">
-							<span class="material-symbols-outlined text-[48px] text-[#ff4a4a] drop-shadow-md">
-								gpp_bad
-							</span>
+						<div class="w-24 h-24 rounded-[10px] bg-[#ff4a4a]/10 flex items-center justify-center mb-6 border border-[#ff4a4a]/30 z-10">
+							<span class="material-symbols-outlined text-[48px] text-[#ff4a4a]">gpp_bad</span>
 						</div>
-						<h1 class="text-[22px] font-black mb-2 tracking-tight z-10 font-mono">
-							{t('valuation.error_title') || 'INTELLIGENCE FAILED'}
+						<h1 class="text-[22px] font-semibold mb-2 tracking-tight z-10 font-mono">
+							{t('valuation.error_title') || 'Appraisal unavailable'}
 						</h1>
-						<p class="text-[13px] text-white/50 leading-relaxed mb-8 max-w-[280px] font-medium z-10">
+						<p class="text-[13px] text-[#8c9ba5] leading-relaxed mb-8 max-w-[280px] font-medium z-10">
 							{error()}
 						</p>
 						<button
 							type="button"
 							onClick={() => window.history.back()}
-							class="h-14 px-10 bg-[#12141C]/80 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[13px] rounded-[16px] transition-all active:scale-95 shadow-sm z-10 backdrop-blur-md"
+							class="h-14 px-10 bg-[#1b232d] hover:bg-white/10 border border-white/[0.08] text-white font-semibold text-[13px] rounded-[10px] transition-all active:scale-95 shadow-sm z-10 backdrop-blur-md"
 						>
-							{t('valuation.back') || 'RETURN TO BASE'}
+							{t('valuation.back') || 'Back'}
 						</button>
 					</div>
 				}
 			>
 				<div
-					class="min-h-screen bg-[#030303] text-white px-4 py-4 flex flex-col items-center font-sans pb-32 select-none relative overflow-x-hidden overflow-y-auto w-full"
+					class="min-h-screen frag-canvas text-white px-4 py-4 flex flex-col items-center font-frag-sans pb-32 select-none relative overflow-x-hidden overflow-y-auto w-full"
 					style={{ 'touch-action': 'pan-y' }}
 					dir={isRtl() ? 'rtl' : 'ltr'}
 				>
 					{/* Ambient Dynamic Background */}
 					<div
-						class="fixed top-0 left-1/2 -translate-x-1/2 w-[150vw] h-[500px] blur-[120px] pointer-events-none z-0 opacity-35 transition-colors duration-1000"
+						class="fixed top-0 left-1/2 -translate-x-1/2 w-[150vw] h-[500px] blur-[120px] pointer-events-none z-0 opacity-[0.10] transition-colors duration-1000"
 						style={{
 							background: `radial-gradient(circle, ${
 								accessGranted()
 									? getTierTheme(data()?.rarity?.tier || '').glow
-									: 'rgba(0,152,234,0.25)'
+									: 'rgba(41, 144, 255,0.25)'
 							} 0%, transparent 60%)`,
 						}}
 					/>
 
-					<div class="w-full max-w-[440px] flex flex-col items-center gap-3.5 relative z-10">
+					<div class="w-full max-w-[500px] flex flex-col items-center gap-3.5 relative z-10">
 						<Show
 							when={username()}
 							fallback={
 								/* ═══════ MODE A: USERNAME DISCOVERY & VALUATION HUB ═══════ */
-								<div class="w-full max-w-[440px] flex flex-col items-center gap-4 relative z-10 pt-2 pb-12">
-									<div class="w-full flex flex-col items-center text-center gap-2">
-										<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0098EA]/10 border border-[#0098EA]/30 text-[#0098EA] text-[11px] font-mono font-black tracking-widest uppercase shadow-[0_0_15px_rgba(0,152,234,0.2)]">
-											<span class="w-2 h-2 rounded-full bg-[#0098EA] animate-ping" />
-											<span>TEP-62 TELEMINT · AVM v7.0</span>
+								<div class="w-full max-w-[500px] flex flex-col items-center gap-4 relative z-10 pt-2 pb-12">
+									<div class="w-full flex flex-col items-start text-start gap-2 pt-1">
+										<div class="inline-flex items-center gap-1.5 text-[12px] text-[#8c9ba5]">
+											<TonIcon size={13} />
+											<span>{t('usernamePage.heroEyebrow')}</span>
+											<span class="text-white/15">·</span>
+											<span class="font-mono">{'AVM v8.0'}</span>
 										</div>
-										<h1 class="text-[26px] font-black tracking-tight text-white font-mono drop-shadow-md">
+										<h1 class="text-[26px] leading-[1.15] font-semibold tracking-[-0.025em] text-white">
 											{layaT(USERNAME_I18N.radarTitle)}
 										</h1>
-										<p class="text-[12px] text-white/60 font-medium max-w-[320px] leading-relaxed">
+										<p class="text-[13px] text-[#8c9ba5] leading-relaxed max-w-[360px]">
 											{layaT(USERNAME_I18N.radarDesc)}
 										</p>
 									</div>
 
-									{/* Interactive Cyber Search Input */}
-									<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 flex flex-col gap-3.5 shadow-2xl relative overflow-hidden text-start">
-										<div class="absolute inset-0 bg-gradient-to-br from-[#0098EA]/5 via-transparent to-emerald-500/5 pointer-events-none" />
-
-										<div class="flex items-center justify-between text-[11px] font-mono font-bold text-white/50 px-1">
-											<span>{layaT(USERNAME_I18N.searchHandle)}</span>
-											<Show when={searchTerm().length > 0}>
-												<span
-													class={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold ${
-														searchTerm().length < 4
-															? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
-															: searchTerm().length === 4
-																? 'bg-amber-400/15 text-amber-400 border border-amber-400/30'
-																: 'bg-emerald-400/15 text-emerald-400 border border-emerald-400/30'
-													}`}
-												>
-													{searchTerm().length} {layaT(USERNAME_I18N.charsLabel)} ·{' '}
-													{searchTerm().length < 4
-														? layaT(USERNAME_I18N.charShort)
-														: searchTerm().length === 4
-															? layaT(USERNAME_I18N.charGrail)
-															: layaT(USERNAME_I18N.charStandard)}
-												</span>
-											</Show>
-										</div>
-
-										<div class="relative flex items-center w-full">
-											<span class="absolute left-4 text-[22px] font-mono font-bold text-white/30 select-none pointer-events-none">
+									{/* Fragment-style @username search with live address preview */}
+									<div class="frag-card w-full p-3 flex flex-col gap-3 text-start">
+										<div class="relative flex items-center w-full" dir="ltr">
+											<span class="material-symbols-outlined absolute left-3.5 text-[19px] text-[#60707c] pointer-events-none">
+												search
+											</span>
+											<span class="absolute left-10 text-[16px] font-medium text-[#2990ff] pointer-events-none select-none">
 												@
 											</span>
 											<input
@@ -1181,40 +1095,84 @@ export const UsernamePage: Component = () => {
 													}
 												}}
 												placeholder={layaT(USERNAME_I18N.inputPlaceholder)}
-												class="w-full h-14 bg-[#08090D] border border-white/10 focus:border-[#0098EA]/70 rounded-[18px] pl-10 pr-10 text-white font-mono font-bold text-[16px] tracking-wide placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-[#0098EA]/30 transition-all shadow-inner"
-												dir="ltr"
+												class="w-full h-12 bg-[#141a22] border border-white/[0.08] focus:border-[#2990ff]/70 rounded-[10px] pl-[3.4rem] pr-10 text-white font-medium text-[16px] tracking-[-0.01em] placeholder:text-[#60707c] focus:outline-none focus:ring-4 focus:ring-[#2990ff]/12 transition-[border-color,box-shadow]"
+												autocomplete="off"
+												autocapitalize="off"
+												spellcheck={false}
 											/>
 											<Show when={searchTerm().length > 0}>
 												<button
 													type="button"
 													onClick={() => setSearchTerm('')}
-													class="absolute right-3.5 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white flex items-center justify-center transition-colors"
+													class="absolute right-2.5 w-7 h-7 rounded-[7px] text-[#8c9ba5] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+													aria-label="clear"
 												>
-													<span class="material-symbols-outlined text-[16px]">close</span>
+													<span class="material-symbols-outlined text-[17px]">close</span>
 												</button>
 											</Show>
 										</div>
 
-										<div class="grid grid-cols-2 gap-2.5 pt-1">
+										<Show when={searchTerm().length > 0}>
+											<div class="frag-table-container">
+												<FragKV label={t('usernamePage.webAddress')}>
+													<span class="font-mono" dir="ltr">
+														t.me/{searchTerm()}
+													</span>
+												</FragKV>
+												<FragKV label={t('usernamePage.tonWeb3Address')}>
+													<span class="font-mono" dir="ltr">
+														{searchTerm()}.t.me
+													</span>
+												</FragKV>
+												<FragKV
+													label={t('usernamePage.lengthLabel')}
+													hint={
+														searchTerm().length < 4
+															? layaT(USERNAME_I18N.charShort)
+															: searchTerm().length === 4
+																? layaT(USERNAME_I18N.charGrail)
+																: layaT(USERNAME_I18N.charStandard)
+													}
+												>
+													<span
+														class={`font-mono tabular-nums ${
+															searchTerm().length < 4
+																? 'text-[#ff6b6b]'
+																: searchTerm().length === 4
+																	? 'text-[#ffb340]'
+																	: 'text-white'
+														}`}
+													>
+														{searchTerm().length} {layaT(USERNAME_I18N.charsLabel)}
+													</span>
+												</FragKV>
+												<Show when={searchTerm().length >= 4}>
+													<FragKV label={t('usernamePage.primaryAuctionMinBid')} hint="TeleMint">
+														<TonAmount size="sm" value={primaryMintFloorTon(searchTerm().length)} />
+													</FragKV>
+												</Show>
+											</div>
+										</Show>
+
+										<div class="grid grid-cols-2 gap-2">
 											<button
 												type="button"
 												disabled={searchTerm().length < 4}
 												onClick={() => openReport(searchTerm())}
-												class="h-12 rounded-[16px] bg-gradient-to-r from-[#0098EA] to-[#0070BA] hover:from-[#00a6ff] hover:to-[#0080d0] disabled:opacity-40 disabled:pointer-events-none text-white font-mono font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(0,152,234,0.4)] active:scale-[0.98] transition-all"
+												class="h-11 rounded-[10px] bg-[#2990ff] hover:bg-[#3d9bff] active:bg-[#2280e6] disabled:opacity-40 disabled:pointer-events-none text-white text-[14px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
 											>
-												<span class="material-symbols-outlined text-[18px]">query_stats</span>
 												<span>{layaT(USERNAME_I18N.btnValuate)}</span>
 											</button>
 											<button
 												type="button"
 												disabled={searchTerm().length < 4 || verifyingOnChain()}
 												onClick={() => fetchVerification(searchTerm())}
-												class="h-12 rounded-[16px] bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:pointer-events-none border border-white/10 hover:border-white/20 text-white font-mono font-bold text-[12px] uppercase tracking-wider flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+												class="h-11 rounded-[10px] bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] disabled:opacity-40 disabled:pointer-events-none text-white text-[14px] font-medium flex items-center justify-center gap-1.5 transition-colors"
 											>
 												<span
-													class={`material-symbols-outlined text-[18px] text-cyan-400 ${verifyingOnChain() ? 'animate-spin' : ''}`}
+													class={`material-symbols-outlined text-[17px] text-[#8c9ba5] ${verifyingOnChain() ? 'animate-spin' : ''}`}
 												>
-													{verifyingOnChain() ? 'sync' : 'verified'}
+													{verifyingOnChain() ? 'progress_activity' : 'verified'}
 												</span>
 												<span>{layaT(USERNAME_I18N.btnVerifyOnChain)}</span>
 											</button>
@@ -1224,29 +1182,29 @@ export const UsernamePage: Component = () => {
 									{/* On-Chain Instant Verification Box */}
 									<Show when={verificationData()}>
 										{(ver) => (
-											<div class="w-full bg-[#12141C]/95 backdrop-blur-2xl border border-emerald-500/30 rounded-[24px] p-4 flex flex-col gap-3 shadow-xl text-start">
-												<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
+											<div class="w-full frag-card p-4 flex flex-col gap-3 text-start">
+												<div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
 													<div class="flex items-center gap-2">
 														<span
 															class={`material-symbols-outlined text-[18px] ${
 																ver().is_minted_nft && ver().collection_verified
-																	? 'text-emerald-400'
-																	: 'text-amber-400'
+																	? 'text-[#4cd964]'
+																	: 'text-[#ffb340]'
 															}`}
 														>
 															{ver().is_minted_nft && ver().collection_verified
 																? 'verified'
 																: 'info'}
 														</span>
-														<span class="text-[13px] font-black font-mono text-white" dir="ltr">
+														<span class="text-[13px] font-semibold font-mono text-white" dir="ltr">
 															@{ver().username}
 														</span>
 													</div>
 													<span
-														class={`text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-[6px] border ${
+														class={`text-[11px] font-mono font-semibold px-2 py-0.5 rounded-[6px] border ${
 															ver().is_minted_nft && ver().collection_verified
-																? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-																: 'bg-amber-400/15 border-amber-400/30 text-amber-400'
+																? 'bg-emerald-500/15 border-emerald-500/30 text-[#4cd964]'
+																: 'bg-amber-400/15 border-amber-400/30 text-[#ffb340]'
 														}`}
 													>
 														{ver().is_minted_nft && ver().collection_verified
@@ -1257,17 +1215,21 @@ export const UsernamePage: Component = () => {
 
 												<div class="flex flex-col gap-1.5 text-[11px] font-mono text-white/70">
 													<div class="flex justify-between items-center">
-														<span class="text-white/40">{layaT(USERNAME_I18N.telegramStatus)}</span>
+														<span class="text-[#8c9ba5]">
+															{layaT(USERNAME_I18N.telegramStatus)}
+														</span>
 														<span class="text-white font-bold">{ver().telegram_status}</span>
 													</div>
 													<Show when={ver().telemint_provenance?.item_address}>
 														<div class="flex justify-between items-center">
-															<span class="text-white/40">{layaT(USERNAME_I18N.itemContract)}</span>
+															<span class="text-[#8c9ba5]">
+																{layaT(USERNAME_I18N.itemContract)}
+															</span>
 															<a
 																href={`https://tonviewer.com/${ver().telemint_provenance.item_address}`}
 																target="_blank"
 																rel="noreferrer"
-																class="text-[#0098EA] hover:underline"
+																class="text-[#2990FF] hover:underline"
 																dir="ltr"
 															>
 																{ver().telemint_provenance.item_address!.slice(0, 6)}...
@@ -1280,7 +1242,7 @@ export const UsernamePage: Component = () => {
 												<button
 													type="button"
 													onClick={() => openReport(ver().username)}
-													class="w-full h-10 rounded-[14px] bg-[#0098EA]/20 hover:bg-[#0098EA]/30 border border-[#0098EA]/40 text-[#0098EA] font-mono font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all mt-1"
+													class="w-full h-10 rounded-[10px] bg-[#2990FF]/20 hover:bg-[#2990FF]/30 border border-[#2990FF]/40 text-[#2990FF] font-mono font-semibold text-[11px] flex items-center justify-center gap-1.5 active:scale-95 transition-all mt-1"
 												>
 													<span>{layaT(USERNAME_I18N.viewFullReport)}</span>
 													<span class="material-symbols-outlined text-[15px]">arrow_forward</span>
@@ -1289,44 +1251,38 @@ export const UsernamePage: Component = () => {
 										)}
 									</Show>
 
-									{/* Curated Trending Handles */}
-									<div class="w-full flex flex-col gap-2.5 text-start">
-										<div class="flex items-center justify-between px-1">
-											<span class="text-[11px] font-mono font-black text-white/50 uppercase tracking-wider flex items-center gap-1.5">
-												<span class="material-symbols-outlined text-[16px] text-amber-400">
-													local_fire_department
-												</span>
+									{/* Trending — rendered as a Fragment table */}
+									<div class="w-full flex flex-col gap-2 text-start">
+										<div class="flex items-baseline justify-between px-0.5">
+											<span class="text-[14px] font-semibold text-white tracking-[-0.01em]">
 												{layaT(USERNAME_I18N.trendingHandles)}
 											</span>
-											<span class="text-[10px] font-mono text-white/30">
+											<span class="text-[12px] text-[#60707c]">
 												{layaT(USERNAME_I18N.tapToInspect)}
 											</span>
 										</div>
-										<div class="flex flex-wrap gap-2">
+										<div class="frag-table-container">
+											<div class="frag-table-header grid grid-cols-[1fr_auto_20px] gap-3 px-3.5 py-2">
+												<span>{t('usernamePage.usernameCol')}</span>
+												<span class="text-end">{t('usernamePage.lengthCol')}</span>
+												<span />
+											</div>
 											<For
-												each={[
-													'news',
-													'durov',
-													'bank',
-													'crypto',
-													'rolex',
-													'sara',
-													'rare',
-													'auto',
-													'gift',
-													'king',
-													'doge',
-												]}
+												each={['news', 'durov', 'bank', 'crypto', 'rolex', 'rare', 'gift', 'king']}
 											>
 												{(h) => (
 													<button
 														type="button"
 														onClick={() => openReport(h)}
-														class="px-3 py-2 rounded-[14px] bg-white/[0.04] hover:bg-[#0098EA]/15 border border-white/10 hover:border-[#0098EA]/40 text-white/80 hover:text-white font-mono font-bold text-[12px] transition-all active:scale-95 flex items-center gap-1 shadow-sm"
-														dir="ltr"
+														class="frag-table-row w-full grid grid-cols-[1fr_auto_20px] gap-3 items-center px-3.5 py-2.5 text-start"
 													>
-														<span class="text-[#0098EA]">@</span>
-														<span>{h}</span>
+														<FragHandle handle={h} size="sm" subline />
+														<span class="text-[12px] font-mono text-[#8c9ba5] tabular-nums text-end">
+															{h.length} {t('usernamePage.charsUnit')}
+														</span>
+														<span class="material-symbols-outlined text-[18px] text-[#60707c] rtl:rotate-180">
+															chevron_right
+														</span>
 													</button>
 												)}
 											</For>
@@ -1338,13 +1294,13 @@ export const UsernamePage: Component = () => {
 									<Show when={recents().length > 0}>
 										<div class="w-full flex flex-col gap-2.5 text-start">
 											<div class="flex items-center justify-between px-1">
-												<span class="text-[11px] font-mono font-black text-white/50 uppercase tracking-wider flex items-center gap-1.5">
-													<span class="material-symbols-outlined text-[16px] text-[#0098EA]">
+												<span class="text-[11px] font-semibold text-[#8c9ba5] flex items-center gap-1.5">
+													<span class="material-symbols-outlined text-[16px] text-[#2990FF]">
 														history
 													</span>
 													{layaT(USERNAME_I18N.recentAudits)}
 												</span>
-												<span class="text-[10px] font-mono text-white/30">
+												<span class="text-[11px] font-mono text-[#60707c]">
 													{recents().length} {layaT(USERNAME_I18N.itemsCount)}
 												</span>
 											</div>
@@ -1354,7 +1310,7 @@ export const UsernamePage: Component = () => {
 														<button
 															type="button"
 															onClick={() => openReport(rep.username)}
-															class="p-3 rounded-[16px] bg-[#08090D] hover:bg-white/[0.04] border border-white/5 hover:border-[#0098EA]/30 transition-all text-start flex items-center justify-between gap-2 active:scale-95"
+															class="p-3 rounded-[10px] bg-[#141a22] hover:bg-white/[0.04] border border-white/[0.06] hover:border-[#2990FF]/30 transition-all text-start flex items-center justify-between gap-2 active:scale-95"
 														>
 															<div class="flex flex-col min-w-0">
 																<span
@@ -1363,17 +1319,17 @@ export const UsernamePage: Component = () => {
 																>
 																	@{rep.username}
 																</span>
-																<span class="text-white/40 text-[10px] font-mono">
+																<span class="text-[#8c9ba5] text-[11px] font-mono">
 																	{new Date(rep.savedAt).toLocaleDateString()}
 																</span>
 															</div>
 															<div class="flex flex-col items-end shrink-0">
-																<span class="text-emerald-400 font-mono font-black text-[12px]">
+																<span class="text-[#4cd964] font-mono font-semibold text-[12px]">
 																	{rep.expectedTon
 																		? `${fmtTon(parseFloat(rep.expectedTon))} TON`
 																		: 'View'}
 																</span>
-																<span class="text-[9px] font-black uppercase text-[#0098EA] bg-[#0098EA]/10 px-1.5 py-0.5 rounded">
+																<span class="text-[11px] font-semibold text-[#2990FF] bg-[#2990FF]/10 px-1.5 py-0.5 rounded">
 																	{rep.tier || 'STANDARD'}
 																</span>
 															</div>
@@ -1386,50 +1342,33 @@ export const UsernamePage: Component = () => {
 								</div>
 							}
 						>
-							{/* ═══════ STICKY REPORT HEADER & QUICK SWITCH BAR ═══════ */}
-							<div class="w-full bg-[#12141C]/95 backdrop-blur-2xl border border-white/10 rounded-[22px] p-3 flex flex-col gap-2.5 shadow-xl">
-								<div class="flex items-center justify-between gap-2">
-									<div class="flex items-center gap-2.5 min-w-0">
-										<Show
-											when={data()?.telemint_provenance?.is_authentic}
-											fallback={
-												<div class="w-10 h-10 rounded-[14px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA] font-mono font-black text-[18px] shrink-0">
-													@
-												</div>
-											}
+							{/* ═══════ COMPACT FRAGMENT BREADCRUMB & QUICK SWITCH BAR ═══════ */}
+							<div class="w-full flex flex-col gap-2">
+								<div class="frag-card w-full px-3 py-2 flex items-center justify-between gap-2">
+									<div class="flex items-center gap-1.5 min-w-0">
+										<button
+											type="button"
+											onClick={() => navigate('/username/report')}
+											class="w-8 h-8 rounded-[8px] bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[#8c9ba5] hover:text-white flex items-center justify-center shrink-0 transition-colors"
+											title={t('usernamePage.allUsernamesTitle')}
 										>
-											<img
-												src={`https://nft.fragment.com/username/${username()}.webp`}
-												alt={`@${username()}`}
-												class="w-10 h-10 rounded-[14px] object-cover border border-white/15 shrink-0 bg-[#08090D]"
-												onError={(e) => {
-													e.currentTarget.style.display = 'none';
-												}}
-											/>
-										</Show>
-										<div class="flex flex-col text-start min-w-0">
-											<div class="flex items-center gap-1.5">
-												<span
-													class="text-[16px] font-mono font-black text-white truncate"
-													dir="ltr"
-												>
-													@{data()?.username || username()}
-												</span>
-												<Show when={data()?.telemint_provenance?.is_authentic}>
-													<span
-														class="material-symbols-outlined text-[16px] text-[#0098EA] shrink-0"
-														title="Official TeleMint NFT"
-													>
-														verified
-													</span>
-												</Show>
-											</div>
-											<div class="flex items-center gap-1.5">
-												<span class={`w-1.5 h-1.5 rounded-full ${liveMarketBadge().dot}`} />
-												<span class="text-[10px] font-mono font-bold text-white/60 truncate">
-													{liveMarketBadge().label}
-												</span>
-											</div>
+											<span class="material-symbols-outlined text-[18px] rtl:rotate-180">
+												arrow_back
+											</span>
+										</button>
+										<div class="flex items-center gap-1.5 min-w-0 text-[13px] font-medium">
+											<button
+												type="button"
+												onClick={() => navigate('/collection-info')}
+												class="text-[#8c9ba5] hover:text-white truncate transition-colors hidden sm:inline"
+											>
+												{t('usernamePage.usernamesCrumb')}
+											</button>
+											<span class="text-white/20 hidden sm:inline">/</span>
+											<span class="font-semibold text-white truncate" dir="ltr">
+												<span class="text-[#2990FF]">@</span>
+												{data()?.username || username()}
+											</span>
 										</div>
 									</div>
 
@@ -1437,23 +1376,39 @@ export const UsernamePage: Component = () => {
 										<button
 											type="button"
 											onClick={() => setShowQuickSearch((prev) => !prev)}
-											class="h-9 px-3 rounded-[12px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white flex items-center gap-1 text-[11px] font-mono font-bold transition-all active:scale-95"
+											class={`h-8 px-2.5 rounded-[8px] border text-[12px] font-medium flex items-center gap-1 transition-colors ${
+												showQuickSearch()
+													? 'bg-[#2990FF]/15 border-[#2990FF]/40 text-[#2990FF]'
+													: 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.07] text-[#a9b6bf] hover:text-white'
+											}`}
 										>
-											<span class="material-symbols-outlined text-[16px] text-[#0098EA]">
-												search
-											</span>
-											<span>{tr('جستجوی شناسه', 'Search', 'Поиск', '搜索')}</span>
+											<span class="material-symbols-outlined text-[15px]">search</span>
+											<span>{t('usernamePage.switchBtn')}</span>
 										</button>
+
+										<button
+											type="button"
+											onClick={() =>
+												handleCopy(`https://fragment.com/username/${username()}`, 'frag_link')
+											}
+											class="w-8 h-8 rounded-[8px] bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] text-[#a9b6bf] hover:text-white flex items-center justify-center transition-colors"
+											title={t('usernamePage.copyFragmentUrl')}
+										>
+											<span class="material-symbols-outlined text-[15px]">
+												{copiedText() === 'frag_link' ? 'check' : 'link'}
+											</span>
+										</button>
+
 										<Show when={accessGranted()}>
 											<button
 												type="button"
 												disabled={refreshing()}
 												onClick={() => fetchValuation(username(), { force: true })}
-												class="w-9 h-9 rounded-[12px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white flex items-center justify-center transition-all active:scale-95"
-												title="Refresh Live Data"
+												class="w-8 h-8 rounded-[8px] bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] text-[#a9b6bf] hover:text-white flex items-center justify-center transition-colors"
+												title={t('usernamePage.refreshTelemetry')}
 											>
 												<span
-													class={`material-symbols-outlined text-[17px] ${refreshing() ? 'animate-spin text-[#0098EA]' : ''}`}
+													class={`material-symbols-outlined text-[16px] ${refreshing() ? 'animate-spin text-[#2990FF]' : ''}`}
 												>
 													refresh
 												</span>
@@ -1462,11 +1417,13 @@ export const UsernamePage: Component = () => {
 									</div>
 								</div>
 
-								{/* Collapsible Quick Search Input */}
 								<Show when={showQuickSearch()}>
-									<div class="flex items-center gap-2 pt-2 border-t border-white/5">
-										<div class="relative flex-1">
-											<span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 font-mono font-bold text-[14px]">
+									<div class="frag-card p-2.5 flex items-center gap-2">
+										<div class="relative flex-1 flex items-center" dir="ltr">
+											<span class="material-symbols-outlined absolute left-3 text-[16px] text-[#60707c] pointer-events-none">
+												search
+											</span>
+											<span class="absolute left-8 text-[14px] font-medium text-[#2990FF] pointer-events-none select-none">
 												@
 											</span>
 											<input
@@ -1482,23 +1439,20 @@ export const UsernamePage: Component = () => {
 														openReport(quickQuery());
 													}
 												}}
-												placeholder={tr(
-													'نام کاربری جدید (مثلاً news یا rolex)',
-													'Enter another handle...',
-													'Введите другой юзернейм...',
-													'输入其他用户名...',
-												)}
-												class="w-full h-10 bg-[#08090D] border border-white/10 focus:border-[#0098EA] rounded-[12px] pl-7 pr-3 text-white font-mono font-bold text-[13px] focus:outline-none"
-												dir="ltr"
+												placeholder={t('usernamePage.switchPlaceholder')}
+												class="w-full h-9 bg-[#141a22] border border-white/[0.08] focus:border-[#2990FF]/70 rounded-[8px] pl-12 pr-3 text-white font-medium text-[13px] placeholder:text-[#60707c] focus:outline-none"
+												autocomplete="off"
+												autocapitalize="off"
+												spellcheck={false}
 											/>
 										</div>
 										<button
 											type="button"
 											disabled={quickQuery().length < 4}
 											onClick={() => openReport(quickQuery())}
-											class="h-10 px-4 rounded-[12px] bg-[#0098EA] hover:bg-[#0086cf] disabled:opacity-40 text-white font-mono font-black text-[11px] uppercase tracking-wider shrink-0"
+											class="h-9 px-3.5 rounded-[8px] bg-[#2990FF] hover:bg-[#3d9bff] disabled:opacity-40 text-white font-semibold text-[12px] shrink-0 transition-colors"
 										>
-											{tr('بررسی', 'GO', 'ПЕРЕЙТИ', '查询')}
+											{t('usernamePage.goBtn')}
 										</button>
 									</div>
 								</Show>
@@ -1508,56 +1462,52 @@ export const UsernamePage: Component = () => {
 							<Show
 								when={accessGranted() && data()}
 								fallback={
-									<div class="w-full max-w-[440px] mx-auto my-1 flex flex-col gap-3 relative z-20">
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 flex flex-col items-center text-center relative overflow-hidden shadow-2xl">
-											<div class="absolute inset-0 bg-gradient-to-br from-[#0098EA]/10 via-transparent to-emerald-500/10 pointer-events-none" />
-
-											<div class="flex items-center gap-2 mb-2 z-10">
-												<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
-												<span class="text-[11px] font-mono font-black uppercase tracking-widest text-emerald-400">
-													{t('valuation.report_ready') || 'APPRAISAL READY'}
-												</span>
+									<div class="w-full max-w-[500px] mx-auto my-1 flex flex-col gap-3 relative z-20">
+										<div class="frag-collectible-pass w-full overflow-hidden text-start">
+											<div class="p-4 pb-3.5 flex gap-3.5">
+												<FragNftTile handle={username()} class="w-[88px] h-[88px] shrink-0" />
+												<div class="flex flex-col min-w-0 flex-1 justify-center gap-1.5">
+													<div class="flex items-center gap-1.5 flex-wrap">
+														<span class="inline-flex items-center gap-1.5 h-[22px] px-2 rounded-[6px] text-[11px] font-medium text-[#4cd964] bg-[#4cd964]/10 border border-[#4cd964]/25">
+															<span class="w-1.5 h-1.5 rounded-full bg-[#4cd964] animate-pulse" />
+															{t('valuation.report_ready') || 'Appraisal ready'}
+														</span>
+														<Show when={verificationData()}>
+															{(ver) => (
+																<FragStatusPill
+																	status={normalizeFragStatus(
+																		ver().is_minted_nft
+																			? ver().telegram_status || 'sold'
+																			: 'unminted',
+																	)}
+																/>
+															)}
+														</Show>
+													</div>
+													<span
+														class="text-[24px] font-semibold text-white tracking-[-0.025em] leading-none truncate"
+														dir="ltr"
+													>
+														<span class="text-[#2990FF]">@</span>
+														{username()}
+													</span>
+													<div class="flex items-center gap-1.5 flex-wrap" dir="ltr">
+														<span class="frag-link-chip">t.me/{username()}</span>
+														<span class="frag-link-chip">{username()}.t.me</span>
+													</div>
+												</div>
 											</div>
 
-											<h3
-												class="text-[26px] font-black text-white font-mono tracking-tight drop-shadow-md z-10"
-												dir="ltr"
-											>
-												@{username()}
-											</h3>
-
-											<Show when={verificationData()}>
-												{(ver) => (
-													<div class="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono text-white/70 z-10 my-1">
-														<span
-															class={`w-2 h-2 rounded-full ${ver().is_minted_nft ? 'bg-emerald-400' : 'bg-amber-400'}`}
-														/>
-														<span class="font-bold">
-															{ver().is_minted_nft ? 'TELEMINT NFT (ON-CHAIN)' : 'UNMINTED HANDLE'}
-														</span>
-														<span class="text-white/30">|</span>
-														<span class="capitalize">{ver().telegram_status}</span>
-													</div>
-												)}
-											</Show>
-
-											<div class="w-full bg-white/5 border border-white/10 rounded-[20px] p-4 flex flex-col items-center justify-center my-3 relative overflow-hidden backdrop-blur-md z-10 shadow-inner">
-												<span class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
-													{t('valuation.estimated_price') || 'ESTIMATED FAIR VALUE'}
-												</span>
-												<div class="flex items-center gap-2 filter blur-[6px] select-none opacity-80">
-													<span class="text-[26px] font-black text-white font-mono">✦✦,✦✦✦</span>
-													<span class="text-[16px] font-bold text-[#0098EA]">TON</span>
-												</div>
-												<span class="text-[10px] text-white/40 font-mono filter blur-[3px] mt-0.5">
-													≈ $✦✦✦,✦✦✦ USD
-												</span>
-
-												<div class="absolute inset-0 flex items-center justify-center bg-black/35 backdrop-blur-[1px]">
-													<span class="px-3.5 py-1.5 rounded-[12px] bg-[#0098EA]/20 border border-[#0098EA]/50 text-[#0098EA] text-[11px] font-mono font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
-														<span class="material-symbols-outlined text-[15px]">lock</span>
-														{t('valuation.locked_tap_to_decrypt') || 'DECRYPT REPORT'}
+											<div class="relative border-t border-white/[0.07] bg-black/[0.16] p-4 flex items-center justify-between gap-3">
+												<div class="flex flex-col gap-1.5 filter blur-[5px] select-none opacity-75">
+													<span class="text-[11px] text-[#8c9ba5]">
+														{t('valuation.estimated_price') || 'Estimated fair value'}
 													</span>
+													<TonAmount size="lg" value="18,450" usd="96,860" />
+												</div>
+												<div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[#2990FF]/15 border border-[#2990FF]/40 text-[#2990FF] text-[12px] font-medium shrink-0">
+													<span class="material-symbols-outlined text-[15px]">lock</span>
+													<span>{t('valuation.locked_tap_to_decrypt') || 'Unlock report'}</span>
 												</div>
 											</div>
 										</div>
@@ -1581,81 +1531,54 @@ export const UsernamePage: Component = () => {
 									</div>
 								}
 							>
-								{/* ═══════ 4-TAB SEGMENTED NAVIGATION BAR ═══════ */}
-								<div class="w-full grid grid-cols-4 gap-1.5 p-1.5 rounded-[20px] bg-[#12141C]/95 border border-white/10 shadow-lg sticky top-2 z-30 backdrop-blur-2xl">
-									<button
-										type="button"
-										onClick={() => {
-											haptic.impact('light');
-											setActiveTab('valuation');
-										}}
-										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
-											activeTab() === 'valuation'
-												? 'bg-[#0098EA] text-white shadow-[0_4px_15px_rgba(0,152,234,0.35)]'
-												: 'text-white/50 hover:text-white hover:bg-white/5'
-										}`}
-									>
-										<span class="material-symbols-outlined text-[18px]">diamond</span>
-										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{tr('ارزش‌گذاری', 'Valuation', 'Оценка', '估值与市场')}
-										</span>
-									</button>
-
-									<button
-										type="button"
-										onClick={() => {
-											haptic.impact('light');
-											setActiveTab('onchain');
-										}}
-										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
-											activeTab() === 'onchain'
-												? 'bg-[#0098EA] text-white shadow-[0_4px_15px_rgba(0,152,234,0.35)]'
-												: 'text-white/50 hover:text-white hover:bg-white/5'
-										}`}
-									>
-										<span class="material-symbols-outlined text-[18px]">
-											account_balance_wallet
-										</span>
-										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{tr('زنجیره و نهنگ', 'On-Chain', 'Ончейн', '链上与巨鲸')}
-										</span>
-									</button>
-
-									<button
-										type="button"
-										onClick={() => {
-											haptic.impact('light');
-											setActiveTab('similar');
-										}}
-										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all relative ${
-											activeTab() === 'similar'
-												? 'bg-[#0098EA] text-white shadow-[0_4px_15px_rgba(0,152,234,0.35)]'
-												: 'text-white/50 hover:text-white hover:bg-white/5'
-										}`}
-									>
-										<span class="material-symbols-outlined text-[18px]">hub</span>
-										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{tr('موارد مشابه', 'Similar', 'Похожие', '相似对比')}
-										</span>
-									</button>
-
-									<button
-										type="button"
-										onClick={() => {
-											haptic.impact('light');
-											setActiveTab('anatomy');
-										}}
-										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
-											activeTab() === 'anatomy'
-												? 'bg-[#0098EA] text-white shadow-[0_4px_15px_rgba(0,152,234,0.35)]'
-												: 'text-white/50 hover:text-white hover:bg-white/5'
-										}`}
-									>
-										<span class="material-symbols-outlined text-[18px]">psychology</span>
-										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{tr('کالبدشکافی', 'Anatomy', 'Анатомия', '结构与合规')}
-										</span>
-									</button>
+								{/* ═══════ FRAGMENT-STYLE UNDERLINE TABS ═══════ */}
+								<div class="w-full sticky top-0 z-30 bg-[#12171e]/90 backdrop-blur-xl border-b border-white/[0.07]">
+									<div class="grid grid-cols-4">
+										<For
+											each={
+												[
+													{
+														id: 'valuation',
+														label: () => t('usernamePage.tabValuation'),
+													},
+													{
+														id: 'onchain',
+														label: () => t('usernamePage.tabOnchain'),
+													},
+													{
+														id: 'similar',
+														label: () => t('usernamePage.tabSimilar'),
+													},
+													{
+														id: 'anatomy',
+														label: () => t('usernamePage.tabAnatomy'),
+													},
+												] as const
+											}
+										>
+											{(tab) => (
+												<button
+													type="button"
+													onClick={() => {
+														haptic.impact('light');
+														setActiveTab(tab.id);
+													}}
+													class={`relative h-11 text-[13px] font-medium transition-colors ${
+														activeTab() === tab.id
+															? 'text-white'
+															: 'text-[#8c9ba5] hover:text-white'
+													}`}
+												>
+													{tab.label()}
+													<span
+														class={`absolute bottom-[-1px] left-1/2 -translate-x-1/2 h-[2px] rounded-full bg-[#2990ff] transition-all duration-200 ${
+															activeTab() === tab.id ? 'w-[56%] opacity-100' : 'w-0 opacity-0'
+														}`}
+													/>
+												</button>
+											)}
+										</For>
+									</div>
 								</div>
 
 								{/* ════════════════════════════════════════════════════════════════
@@ -1663,107 +1586,183 @@ export const UsernamePage: Component = () => {
 								    ════════════════════════════════════════════════════════════════ */}
 								<Show when={activeTab() === 'valuation'}>
 									<div class="w-full flex flex-col gap-3.5">
-										{/* 3D Interactive Certificate Card */}
+										{/* Collectible pass — Fragment NFT artwork + appraisal header */}
 										<div
-											class={`w-full aspect-square p-[3px] bg-gradient-to-br ${
-												getTierTheme(data()?.rarity?.tier || '').wrapper
-											} rounded-[44px] relative z-20 transition-all duration-300`}
+											ref={cardRef}
+											onMouseMove={handleMouseMove}
+											onMouseLeave={handleMouseLeave}
+											onTouchMove={handleTouchMove}
+											onTouchEnd={handleTouchEnd}
+											onTouchCancel={handleTouchEnd}
+											class="frag-collectible-pass w-full relative overflow-hidden text-start"
+											style={{
+												transform: `perspective(1400px) rotateX(${tilt().x * 0.3}deg) rotateY(${tilt().y * 0.3}deg)`,
+												transition: 'transform 0.12s ease-out',
+											}}
 										>
 											<div
-												ref={cardRef}
-												onMouseMove={handleMouseMove}
-												onMouseLeave={handleMouseLeave}
-												onTouchMove={handleTouchMove}
-												onTouchEnd={handleTouchEnd}
-												onTouchCancel={handleTouchEnd}
-												class="w-full h-full bg-[#08090D] rounded-[41px] p-7 relative overflow-hidden flex flex-col justify-between shadow-inner"
+												class="absolute inset-0 pointer-events-none"
 												style={{
-													transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
-													'background-image':
-														'radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px)',
-													'background-size': '24px 24px',
-													transition: 'transform 0.1s ease-out',
+													background: `radial-gradient(circle at ${tilt().glossX}% ${tilt().glossY}%, rgba(255,255,255,0.07) 0%, transparent 55%)`,
 												}}
-											>
-												<div
-													class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-80"
-													style={{
-														background: `radial-gradient(circle at ${tilt().glossX}% ${
-															tilt().glossY
-														}%, rgba(255,255,255,0.38) 0%, transparent 60%)`,
-													}}
+											/>
+
+											{/* Identity */}
+											<div class="relative p-4 pb-3.5 flex gap-3.5">
+												<FragNftTile
+													handle={data()?.username || username()}
+													class="w-[104px] h-[104px] shrink-0"
 												/>
-
-												<div class="flex justify-between items-center z-10">
-													<span
-														class={`px-3.5 py-1.5 border rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm ${
-															getTierTheme(data()?.rarity?.tier || '').badge
-														}`}
-													>
-														{data()?.rarity?.tier || 'STANDARD'}
-													</span>
-													<span class="text-[10px] font-mono font-black text-white/40 tracking-[3px] uppercase bg-white/5 border border-white/10 px-3 py-1.5 rounded-[12px]">
-														{data()?.model_version || 'AVM v7.0'}
-													</span>
-												</div>
-
-												<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-4 w-full gap-2">
-													<div
-														class="absolute w-full h-[150px] opacity-65 -z-10 pointer-events-none mix-blend-screen"
-														style={{
-															background: `radial-gradient(ellipse 60% 60% at 50% 50%, ${
-																getTierTheme(data()?.rarity?.tier || '').glow
-															}, transparent 70%)`,
-														}}
-													/>
-													<div class="flex items-center justify-center gap-2 w-full">
-														<span class="text-white/20 font-black text-[24px] select-none">✦</span>
-														<span
-															class="inline-block font-black tracking-tighter text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[78%] pb-1"
-															style={{ 'font-size': getFontSize(data()?.username || username()) }}
-															dir="ltr"
-														>
-															@{data()?.username || username()}
-														</span>
-														<span class="text-white/20 font-black text-[24px] select-none">✦</span>
-													</div>
-													<div class="flex flex-wrap items-center justify-center gap-1.5 max-w-[90%]">
-														<For each={(data()?.tags || []).slice(0, 4)}>
-															{(tag) => (
-																<span class="px-2 py-0.5 rounded-md bg-white/[0.06] border border-white/10 text-[9px] font-mono font-bold text-white/70">
-																	{tag}
-																</span>
+												<div class="flex flex-col min-w-0 flex-1 gap-2 justify-center">
+													<div class="flex items-center gap-1.5 flex-wrap">
+														<FragStatusPill
+															status={normalizeFragStatus(
+																data()?.live_market?.status || data()?.status,
 															)}
-														</For>
+															pulse={data()?.live_market?.status === 'on_auction'}
+														/>
+														<span class="h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] font-medium text-[#a9b6bf] bg-white/[0.04] border border-white/[0.07] capitalize">
+															{(data()?.rarity?.tier || 'standard').toLowerCase()}
+														</span>
+													</div>
+													<span
+														class="font-semibold text-white tracking-[-0.03em] leading-none truncate"
+														style={{
+															'font-size':
+																(data()?.username || username()).length <= 5
+																	? '30px'
+																	: (data()?.username || username()).length <= 8
+																		? '25px'
+																		: '20px',
+														}}
+														dir="ltr"
+													>
+														<span class="text-[#2990ff]">@</span>
+														{data()?.username || username()}
+													</span>
+													<div class="flex items-center gap-1.5 flex-wrap" dir="ltr">
+														<a
+															href={`https://t.me/${data()?.username || username()}`}
+															target="_blank"
+															rel="noreferrer"
+															class="frag-link-chip"
+														>
+															t.me/{data()?.username || username()}
+														</a>
+														<a
+															href={`https://${data()?.username || username()}.t.me`}
+															target="_blank"
+															rel="noreferrer"
+															class="frag-link-chip"
+														>
+															{data()?.username || username()}.t.me
+														</a>
+													</div>
+												</div>
+											</div>
+
+											<Show when={(data()?.tags || []).length > 0}>
+												<div class="relative px-4 pb-3.5 flex flex-wrap gap-1.5">
+													<For each={(data()?.tags || []).slice(0, 5)}>
+														{(tag) => (
+															<span class="h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] text-[#a9b6bf] bg-white/[0.035] border border-white/[0.06]">
+																{tag}
+															</span>
+														)}
+													</For>
+												</div>
+											</Show>
+
+											{/* Appraisal */}
+											<div class="relative border-t border-white/[0.07] bg-black/[0.14] px-4 pt-3.5 pb-4 flex flex-col gap-4">
+												<div class="flex items-end justify-between gap-3">
+													<div class="flex flex-col gap-2 min-w-0">
+														<span class="text-[12px] text-[#8c9ba5]">
+															{t('usernamePage.estimatedFairValue')}
+														</span>
+														<TonAmount
+															size="xl"
+															value={fmtTon(expectedTon())}
+															usd={fmtUsd(parseFloat(data()?.expected_usd || '0'))}
+														/>
+													</div>
+													<div class="flex flex-col items-end gap-1.5 shrink-0">
+														<span class="h-7 min-w-[42px] px-2 rounded-[7px] inline-flex items-center justify-center font-mono font-semibold text-[13px] text-white bg-white/[0.06] border border-white/[0.1]">
+															{data()?.quality_grade || 'AA+'}
+														</span>
+														<span
+															class="text-[11px] font-mono tabular-nums"
+															style={{ color: confidenceTheme().color }}
+														>
+															{t('usernamePage.confidence')} {data()?.confidence_score ?? 0}%
+														</span>
 													</div>
 												</div>
 
-												<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
-													<div class="flex flex-col gap-1 text-left">
-														<span class="text-[9px] font-black text-white/40 uppercase tracking-widest">
-															{t('valuation.estimated_price') || 'ESTIMATED FAIR VALUE'}
-														</span>
-														<div class="flex items-center gap-2">
-															<span class="text-[32px] font-black text-white font-mono leading-none tracking-tight">
-																{fmtTon(expectedTon())}
-															</span>
-															<span class="text-[14px] font-black text-[#0098EA] leading-none">
-																TON
-															</span>
-														</div>
+												{/* P10 · P50 · P90 range with live market markers */}
+												<div class="flex flex-col gap-2" dir="ltr">
+													<div class="relative h-[6px] rounded-full bg-white/[0.06]">
+														<div
+															class="absolute inset-y-0 rounded-full bg-gradient-to-r from-[#2990ff]/20 via-[#2990ff]/70 to-[#2990ff]/20"
+															style={{ left: '4%', right: '4%' }}
+														/>
+														{(() => {
+															const lm = data()?.live_market;
+															const mk = lm?.is_vanity_ask
+																? 0
+																: lm?.current_bid_ton || lm?.buy_now_ton || 0;
+															return (
+																<Show when={mk > 0}>
+																	<div
+																		class="absolute top-1/2 w-[9px] h-[9px] rotate-45 bg-[#ffb340] border-[1.5px] border-[#1b232d] -translate-x-1/2 -translate-y-1/2"
+																		style={{ left: `${bandPosition(mk)}%` }}
+																		title={t('usernamePage.liveBidAsk')}
+																	/>
+																</Show>
+															);
+														})()}
+														<Show when={(data()?.history?.highest_past_sale_ton ?? 0) > 0}>
+															<div
+																class="absolute top-1/2 w-[9px] h-[9px] rounded-full bg-[#4cd964] border-[1.5px] border-[#1b232d] -translate-x-1/2 -translate-y-1/2"
+																style={{
+																	left: `${bandPosition(data()?.history?.highest_past_sale_ton ?? 0)}%`,
+																}}
+																title={t('usernamePage.lastRealizedSale')}
+															/>
+														</Show>
+														<div
+															class="absolute top-1/2 w-[3px] h-[16px] rounded-full bg-white -translate-x-1/2 -translate-y-1/2"
+															style={{ left: `${bandPosition(expectedTon())}%` }}
+														/>
 													</div>
-													<div class="flex flex-col items-end gap-1.5">
-														<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-2.5 py-1 rounded-[9px] border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-widest text-[9px]">
-															<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />
-															<span>
-																{data()?.quality_grade || 'AA+'} · {data()?.confidence_score}%
-															</span>
-														</div>
-														<span class="text-[13px] text-white/70 font-black leading-none font-mono">
-															≈ ${fmtUsd(parseFloat(data()?.expected_usd || '0'))}
+													<div class="flex justify-between text-[11px] font-mono tabular-nums text-[#8c9ba5]">
+														<span>P10 {fmtTon(lowTon())}</span>
+														<span class="text-white">P50 {fmtTon(expectedTon())}</span>
+														<span>P90 {fmtTon(highTon())}</span>
+													</div>
+													<div class="flex items-center gap-3 text-[11px] text-[#60707c]">
+														<span class="inline-flex items-center gap-1.5">
+															<span class="w-[3px] h-[10px] rounded-full bg-white" />
+															{'AVM'}
+														</span>
+														<span class="inline-flex items-center gap-1.5">
+															<span class="w-[7px] h-[7px] rotate-45 bg-[#ffb340]" />
+															{t('usernamePage.liveMarketLegend')}
+														</span>
+														<span class="inline-flex items-center gap-1.5">
+															<span class="w-[7px] h-[7px] rounded-full bg-[#4cd964]" />
+															{t('usernamePage.lastSaleLegend')}
 														</span>
 													</div>
 												</div>
+											</div>
+
+											<div
+												class="relative flex items-center justify-between px-4 py-2.5 border-t border-white/[0.07] text-[11px] font-mono text-[#60707c]"
+												dir="ltr"
+											>
+												<span>{data()?.model_version || 'AVM v8.0'} · LAYA System 1</span>
+												<span>{'TEP-62 · TeleMint'}</span>
 											</div>
 										</div>
 
@@ -1773,151 +1772,138 @@ export const UsernamePage: Component = () => {
 												type="button"
 												onClick={handleShareToStory}
 												disabled={sharing()}
-												class="h-11 bg-[#0098EA] hover:bg-[#0086cf] text-white font-black text-[11px] uppercase tracking-wider rounded-[16px] flex items-center justify-center gap-1.5 shadow-[0_6px_20px_rgba(0,152,234,0.3)] active:scale-95 transition-all"
+												class="h-11 bg-[#2990FF] hover:bg-[#3d9bff] text-white font-semibold text-[11px] rounded-[10px] flex items-center justify-center gap-1.5 active:scale-95 transition-all"
 											>
 												<span class="material-symbols-outlined text-[17px]">auto_awesome</span>
 												<span>
 													{sharing()
-														? tr('در حال ساخت...', 'Preparing...')
-														: tr('اشتراک در استوری', 'Share Story')}
+														? t('usernamePage.preparingStory')
+														: t('usernamePage.shareStory')}
 												</span>
 											</button>
 											<button
 												type="button"
 												onClick={handleSendToChat}
 												disabled={downloading() || sent()}
-												class="h-11 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black text-[11px] uppercase tracking-wider rounded-[16px] flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+												class="h-11 bg-white/5 hover:bg-white/10 border border-white/[0.08] text-white font-semibold text-[11px] rounded-[10px] flex items-center justify-center gap-1.5 active:scale-95 transition-all"
 											>
 												<span class="material-symbols-outlined text-[17px]">
 													{sent() ? 'check' : 'send'}
 												</span>
 												<span>
-													{sent()
-														? tr('ارسال شد', 'Sent')
-														: tr('ارسال کارت به چت', 'Send Certificate')}
+													{sent() ? t('usernamePage.sent') : t('usernamePage.sendCertificate')}
 												</span>
 											</button>
 										</div>
 
-										{/* Live Market Status & Direct Marketplace Links */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3 shadow-xl text-start">
-											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#0098EA]">
-														storefront
-													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{tr(
-															'وضعیت زنده بازار و فرگمنت',
-															'LIVE FRAGMENT MARKET STATUS',
-															'СТАТУС РЫНКА FRAGMENT',
-															'FRAGMENT 实时市场状态',
+										{/* Live Fragment market — Fragment ".tm-section" layout */}
+										<div class="frag-card w-full p-4 flex flex-col gap-3 text-start">
+											<FragSectionHeader
+												title={t('usernamePage.onFragmentTitle')}
+												subtitle={t('usernamePage.onFragmentSub')}
+												right={
+													<FragStatusPill
+														status={normalizeFragStatus(
+															data()?.live_market?.status || data()?.status,
 														)}
-													</span>
-												</div>
-												<span
-													class={`text-[9px] font-mono font-black uppercase px-2.5 py-1 rounded-[8px] border ${liveMarketBadge().class}`}
-												>
-													{data()?.live_market?.raw_status_text || liveMarketBadge().label}
-												</span>
-											</div>
+														label={data()?.live_market?.raw_status_text || undefined}
+														pulse={data()?.live_market?.status === 'on_auction'}
+													/>
+												}
+											/>
 
-											{/* Whale Vanity / Showcase Listing Alert (e.g. @rare listed at 888,888,888 TON) */}
 											<Show when={data()?.live_market?.is_vanity_ask}>
-												<div class="bg-amber-500/10 border border-amber-500/35 rounded-[16px] p-3.5 flex flex-col gap-1.5">
-													<div class="flex items-center justify-between gap-2">
-														<div class="flex items-center gap-1.5">
-															<span class="material-symbols-outlined text-amber-400 text-[18px]">
-																warning
-															</span>
-															<span class="text-[11px] font-black text-amber-300 uppercase">
-																{tr(
-																	'تشخیص قیمت نمایشی نهنگ (Vanity / Showcase Ask)',
-																	'WHALE VANITY / SHOWCASE LISTING DETECTED',
-																)}
-															</span>
-														</div>
-														<span class="text-[9px] font-mono font-black px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
-															FILTERED BY AVM v7.2
+												<div class="frag-inset px-3 py-2.5 flex gap-2.5 items-start !border-[#ffb340]/25">
+													<span class="material-symbols-outlined text-[16px] text-[#ffb340] mt-[1px]">
+														info
+													</span>
+													<div class="flex flex-col gap-1 min-w-0">
+														<span class="text-[13px] font-semibold text-[#ffb340]">
+															{t('usernamePage.showcaseAskDetected')}
 														</span>
+														<p class="text-[12px] text-[#a9b6bf] leading-relaxed">
+															{locale() === 'en' && data()?.live_market?.vanity_ask_warning
+																? data()?.live_market?.vanity_ask_warning
+																: t('usernamePage.vanityAskDesc', {
+																		askTon: fmtTon(data()?.live_market?.buy_now_ton),
+																		askUsd: fmtUsd(data()?.live_market?.buy_now_usd),
+																		pastTon: fmtTon(data()?.history?.highest_past_sale_ton),
+																	})}
+														</p>
 													</div>
-													<p class="text-[11px] text-white/75 leading-relaxed">
-														{tr(
-															`مالک فعلی قیمت نمایشی ${fmtTon(data()?.live_market?.buy_now_ton)} TON (≈ $${fmtUsd(data()?.live_market?.buy_now_usd)}) را صرفاً جهت نمایش کلکسیونی ثبت کرده است. موتور AVM v7.2 این عدد غیرواقعی را از میانگین ارزش‌گذاری حذف کرده و قیمت منصفانه را بر اساس معامله واقعی فرگمنت (${fmtTon(data()?.history?.highest_past_sale_ton)} TON) و هم‌ترازهای معنایی محاسبه نموده است.`,
-															data()?.live_market?.vanity_ask_warning ||
-																'Extreme showcase ask detected and excluded from fair value blend.',
-														)}
-													</p>
 												</div>
 											</Show>
 
-											<div class="grid grid-cols-2 gap-2.5">
-												<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-black text-white/40 uppercase">
-														{data()?.live_market?.status === 'on_auction'
-															? tr('بالاترین پیشنهاد فعلی', 'CURRENT HIGHEST BID')
+											<div class="grid grid-cols-2 gap-2">
+												<FragStat
+													label={
+														data()?.live_market?.status === 'on_auction'
+															? t('usernamePage.highestBid')
 															: data()?.live_market?.status === 'on_sale'
 																? data()?.live_market?.is_vanity_ask
-																	? tr('قیمت نمایشی ثبت‌شده (Ask)', 'SHOWCASE VANITY ASK')
-																	: tr('قیمت فروش فوری (Ask)', 'ACTIVE BUY-NOW ASK')
-																: tr('آخرین معامله ثبت‌شده', 'HIGHEST RECORDED SALE')}
-													</span>
-													<span
-														class={`text-[15px] font-mono font-black ${
-															data()?.live_market?.is_vanity_ask
-																? 'text-amber-400'
-																: 'text-emerald-400'
-														}`}
-													>
-														{data()?.live_market?.current_bid_ton
-															? `${fmtTon(data()?.live_market?.current_bid_ton)} TON`
-															: data()?.live_market?.buy_now_ton
-																? `${fmtTon(data()?.live_market?.buy_now_ton)} TON`
-																: data()?.history?.highest_past_sale_ton
-																	? `${fmtTon(data()?.history?.highest_past_sale_ton)} TON`
-																	: tr('بدون سابقه فروش', 'No Prior Sale')}
-													</span>
+																	? t('usernamePage.showcaseAsk')
+																	: t('usernamePage.buyNow')
+																: t('usernamePage.highestRecordedSale')
+													}
+													sub={
+														(data()?.history?.highest_past_sale_ton ?? 0) > 0 &&
+														data()?.live_market?.status === 'on_sale' ? (
+															<span class="text-[#4cd964]">
+																{t('usernamePage.pastSale')}{' '}
+																{fmtTon(data()?.history?.highest_past_sale_ton)}
+															</span>
+														) : data()?.live_market?.ask_vs_estimate_pct !== undefined ? (
+															<span
+																class={
+																	(data()?.live_market?.ask_vs_estimate_pct || 0) <= 0
+																		? 'text-[#4cd964]'
+																		: 'text-[#ffb340]'
+																}
+															>
+																{(data()?.live_market?.ask_vs_estimate_pct || 0) > 0 ? '+' : ''}
+																{data()?.live_market?.ask_vs_estimate_pct}%{' '}
+																{t('usernamePage.vsAvm')}
+															</span>
+														) : undefined
+													}
+												>
 													<Show
 														when={
-															(data()?.history?.highest_past_sale_ton ?? 0) > 0 &&
-															data()?.live_market?.status === 'on_sale'
+															data()?.live_market?.current_bid_ton ||
+															data()?.live_market?.buy_now_ton ||
+															data()?.history?.highest_past_sale_ton
 														}
 														fallback={
-															<Show when={data()?.live_market?.ask_vs_estimate_pct !== undefined}>
-																<span
-																	class={`text-[10px] font-mono font-bold ${
-																		(data()?.live_market?.ask_vs_estimate_pct || 0) <= 0
-																			? 'text-emerald-400'
-																			: 'text-amber-400'
-																	}`}
-																>
-																	{(data()?.live_market?.ask_vs_estimate_pct || 0) > 0 ? '+' : ''}
-																	{data()?.live_market?.ask_vs_estimate_pct}% vs Fair Value
-																</span>
-															</Show>
+															<span class="font-frag-sans font-medium text-[#8c9ba5]">
+																{t('usernamePage.noPriorSale')}
+															</span>
 														}
 													>
-														<span class="text-[10px] font-mono font-bold text-emerald-400">
-															{tr('معامله واقعی قبلی:', 'Verified Past Sale:')}{' '}
-															{fmtTon(data()?.history?.highest_past_sale_ton)} TON
-														</span>
+														<TonAmount
+															size="md"
+															value={fmtTon(
+																data()?.live_market?.current_bid_ton ||
+																	data()?.live_market?.buy_now_ton ||
+																	data()?.history?.highest_past_sale_ton,
+															)}
+															tone={data()?.live_market?.is_vanity_ask ? 'warning' : 'default'}
+														/>
 													</Show>
-												</div>
+												</FragStat>
 
-												<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-black text-white/40 uppercase">
-														{tr('نقدشوندگی و زمان فروش', 'LIQUIDITY & SELL TIME')}
-													</span>
-													<span class="text-[13px] font-mono font-black text-white truncate">
-														{data()?.estimated_sell_time || '3 – 10 Days'}
-													</span>
-													<span class="text-[10px] font-mono text-[#0098EA] truncate">
-														{data()?.liquidity_rating || 'Active Liquidity'}
-													</span>
-												</div>
+												<FragStat
+													label={t('usernamePage.estTimeToSell')}
+													sub={
+														<span class="text-[#8c9ba5]">
+															{data()?.liquidity_rating || 'Active liquidity'}
+														</span>
+													}
+												>
+													{data()?.estimated_sell_time || '3 – 10 Days'}
+												</FragStat>
 											</div>
 
-											<div class="grid grid-cols-3 gap-2 pt-1">
+											<div class="flex flex-col gap-2 pt-0.5">
 												<a
 													href={
 														data()?.live_market?.fragment_url ||
@@ -1925,144 +1911,126 @@ export const UsernamePage: Component = () => {
 													}
 													target="_blank"
 													rel="noreferrer"
-													class="h-10 rounded-[12px] bg-[#0098EA]/15 hover:bg-[#0098EA]/25 border border-[#0098EA]/35 text-[#0098EA] font-mono font-black text-[11px] flex items-center justify-center gap-1 transition-all"
+													class="h-11 rounded-[10px] bg-[#2990ff] hover:bg-[#3d9bff] text-white text-[14px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
 												>
-													<span>Fragment</span>
-													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+													<span>{t('usernamePage.viewOnFragment')}</span>
+													<span class="material-symbols-outlined text-[16px]">north_east</span>
 												</a>
-												<a
-													href={data()?.live_market?.getgems_url || 'https://getgems.io/Usernames'}
-													target="_blank"
-													rel="noreferrer"
-													class="h-10 rounded-[12px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 font-mono font-bold text-[11px] flex items-center justify-center gap-1 transition-all"
-												>
-													<span>Getgems</span>
-													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
-												</a>
-												<a
-													href={data()?.live_market?.telegram_url || `https://t.me/${username()}`}
-													target="_blank"
-													rel="noreferrer"
-													class="h-10 rounded-[12px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 font-mono font-bold text-[11px] flex items-center justify-center gap-1 transition-all"
-												>
-													<span>t.me</span>
-													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
-												</a>
+												<div class="grid grid-cols-2 gap-2">
+													<a
+														href={
+															data()?.live_market?.getgems_url || 'https://getgems.io/Usernames'
+														}
+														target="_blank"
+														rel="noreferrer"
+														class="h-10 rounded-[10px] bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-white text-[13px] font-medium flex items-center justify-center gap-1.5 transition-colors"
+													>
+														{'Getgems'}
+														<span class="material-symbols-outlined text-[14px] text-[#8c9ba5]">
+															north_east
+														</span>
+													</a>
+													<a
+														href={data()?.live_market?.telegram_url || `https://t.me/${username()}`}
+														target="_blank"
+														rel="noreferrer"
+														class="h-10 rounded-[10px] bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-white text-[13px] font-medium flex items-center justify-center gap-1.5 transition-colors"
+													>
+														t.me/{username()}
+														<span class="material-symbols-outlined text-[14px] text-[#8c9ba5]">
+															north_east
+														</span>
+													</a>
+												</div>
 											</div>
 										</div>
 
-										{/* Quantitative Price Band (P10 / P50 / P90) & Price Basis Breakdown */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-5 flex flex-col gap-4 shadow-xl text-start">
-											<div class="flex items-center justify-between gap-2 border-b border-white/5 pb-3">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[20px] text-[#0098EA]">
-														monitoring
-													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{tr(
-															'بازه ارزش‌گذاری کمی (P10 / P50 / P90)',
-															'BAYESIAN VALUATION BAND',
-															'ДИАПАЗОН ОЦЕНКИ',
-															'贝叶斯估值区间',
-														)}
-													</span>
-												</div>
-												<button
-													type="button"
-													onClick={() => setShowMethodologyModal(true)}
-													class="text-[10px] font-mono font-bold text-[#0098EA] hover:underline flex items-center gap-1"
-												>
-													<span>{tr('روش‌شناسی', 'Methodology')}</span>
-													<span class="material-symbols-outlined text-[14px]">info</span>
-												</button>
-											</div>
+										{/* Valuation distribution & empirical basis */}
+										<div class="frag-card w-full p-4 flex flex-col gap-3.5 text-start">
+											<FragSectionHeader
+												icon="monitoring"
+												title={t('usernamePage.valDistTitle')}
+												right={
+													<button
+														type="button"
+														onClick={() => setShowMethodologyModal(true)}
+														class="text-[12px] font-medium text-[#2990FF] hover:underline inline-flex items-center gap-1"
+													>
+														<span>{t('usernamePage.methodology')}</span>
+														<span class="material-symbols-outlined text-[14px]">info</span>
+													</button>
+												}
+											/>
 
-											<div class="relative w-full h-3.5 bg-[#08090D] rounded-full overflow-hidden border border-white/5">
-												<div class="absolute inset-y-0 left-0 right-0 bg-gradient-to-r from-emerald-500/20 via-[#0098EA]/60 to-amber-500/30" />
-												<div
-													class="absolute top-0 bottom-0 w-2 bg-white shadow-[0_0_12px_#0098EA] rounded-full -translate-x-1/2"
-													style={{ left: `${bandPosition(expectedTon())}%` }}
-												/>
-											</div>
-
-											<div class="grid grid-cols-3 gap-2 text-center">
-												<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
-														{tr('کف محافظه‌کارانه (P10)', 'P10 FLOOR')}
+											<div class="grid grid-cols-3 gap-2">
+												<div class="frag-inset p-3 flex flex-col gap-1.5">
+													<span class="text-[11px] text-[#8c9ba5]">
+														{t('usernamePage.floorP10')}
 													</span>
-													<span class="text-[13px] font-mono font-black text-white/80">
-														{fmtTon(lowTon())} TON
-													</span>
-													<span class="text-[9px] font-mono text-white/40">
-														≈ ${fmtUsd(parseFloat(data()?.low_usd || '0'))}
-													</span>
+													<TonAmount
+														size="sm"
+														value={fmtTon(lowTon())}
+														usd={fmtUsd(parseFloat(data()?.low_usd || '0'))}
+													/>
 												</div>
-												<div class="bg-[#0098EA]/10 border border-[#0098EA]/35 rounded-[14px] p-2.5 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-black text-[#0098EA] uppercase">
-														{tr('ارزش منصفانه (P50)', 'P50 FAIR VALUE')}
+												<div class="frag-inset p-3 flex flex-col gap-1.5 !bg-[#2990FF]/10 !border-[#2990FF]/35">
+													<span class="text-[11px] font-medium text-[#2990FF]">
+														{t('usernamePage.fairP50')}
 													</span>
-													<span class="text-[15px] font-mono font-black text-white">
-														{fmtTon(expectedTon())} TON
-													</span>
-													<span class="text-[9px] font-mono text-[#0098EA]">
-														≈ ${fmtUsd(parseFloat(data()?.expected_usd || '0'))}
-													</span>
+													<TonAmount
+														size="sm"
+														value={fmtTon(expectedTon())}
+														usd={fmtUsd(parseFloat(data()?.expected_usd || '0'))}
+													/>
 												</div>
-												<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
-														{tr('سقف صعودی (P90)', 'P90 CEILING')}
+												<div class="frag-inset p-3 flex flex-col gap-1.5">
+													<span class="text-[11px] text-[#8c9ba5]">
+														{t('usernamePage.ceilingP90')}
 													</span>
-													<span class="text-[13px] font-mono font-black text-amber-400">
-														{fmtTon(highTon())} TON
-													</span>
-													<span class="text-[9px] font-mono text-white/40">
-														≈ ${fmtUsd(parseFloat(data()?.high_usd || '0'))}
-													</span>
+													<TonAmount
+														size="sm"
+														tone="warning"
+														value={fmtTon(highTon())}
+														usd={fmtUsd(parseFloat(data()?.high_usd || '0'))}
+													/>
 												</div>
 											</div>
 
-											{/* Method & Basis Summary */}
-											<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex flex-col gap-2">
-												<div class="flex items-center justify-between">
-													<span class="text-[10px] font-mono text-white/40 uppercase">
-														{tr('مبنای محاسبه مدل:', 'Pricing Basis:')}
+											<div class="frag-table-container">
+												<FragKV label={t('usernamePage.pricingBasis')}>
+													<span class="font-mono text-[12px]">
+														{data()?.price_basis?.method || 'AVM v8.0 Empirical Bayesian'}
 													</span>
+												</FragKV>
+												<FragKV label={t('usernamePage.confidenceScore')}>
 													<span
-														class="text-[10px] font-mono font-black uppercase"
+														class="font-mono tabular-nums"
 														style={{ color: confidenceTheme().color }}
 													>
-														{confidenceTheme().label} ({data()?.confidence_score}%)
+														{confidenceTheme().label} · {data()?.confidence_score ?? 0}%
 													</span>
-												</div>
-												<p class="text-[11px] font-mono font-bold text-white/85 leading-relaxed">
-													{data()?.price_basis?.method || 'AVM v7.2 Empirical Bayesian Valuation'}
-												</p>
-												<div class="grid grid-cols-3 gap-2 pt-1 border-t border-white/5 text-[10px] font-mono">
-													<div class="flex flex-col">
-														<span class="text-white/40">{tr('معاملات مستقیم', 'Exact Sales')}</span>
-														<span class="text-white font-bold">
-															{data()?.price_basis?.exact_sales ??
-																data()?.history?.transactions?.length ??
-																0}
-														</span>
-													</div>
-													<div class="flex flex-col">
-														<span class="text-white/40">{tr('معاملات هم‌تراز', 'Comp Sales')}</span>
-														<span class="text-white font-bold">
-															{data()?.comparable_sales_count || 0}
-														</span>
-													</div>
-													<div class="flex flex-col">
-														<span class="text-white/40">{tr('صدک کمیابی', 'Percentile')}</span>
-														<span class="text-emerald-400 font-bold">
-															Top {(100 - (data()?.percentile_rank || 85)).toFixed(1)}%
-														</span>
-													</div>
-												</div>
+												</FragKV>
+												<FragKV label={t('usernamePage.directSettlements')}>
+													<span class="font-mono tabular-nums">
+														{data()?.price_basis?.exact_sales ??
+															data()?.history?.transactions?.length ??
+															0}
+													</span>
+												</FragKV>
+												<FragKV label={t('usernamePage.comparableSales')}>
+													<span class="font-mono tabular-nums">
+														{data()?.comparable_sales_count || 0}
+													</span>
+												</FragKV>
+												<FragKV label={t('usernamePage.scarcityRank')}>
+													<span class="font-mono text-[#4cd964] tabular-nums" dir="ltr">
+														Top {(100 - (data()?.percentile_rank || 85)).toFixed(1)}%
+													</span>
+												</FragKV>
 											</div>
 										</div>
 
-										{/* Fragment.com Capabilities, Make-an-Offer Calculator & Protocol Rules */}
+										{/* Fragment protocol tools & Make-an-Offer calculator */}
 										<Show when={data()?.fragment_capabilities}>
 											{(fc) => {
 												const offerAmountTon = () => {
@@ -2079,128 +2047,113 @@ export const UsernamePage: Component = () => {
 													);
 												};
 												return (
-													<div class="w-full bg-gradient-to-br from-[#0098EA]/12 via-[#12141C]/95 to-[#08090D] backdrop-blur-2xl border border-[#0098EA]/30 rounded-[26px] p-5 flex flex-col gap-4 shadow-xl text-start">
-														<div class="flex items-center justify-between border-b border-white/5 pb-3">
-															<div class="flex items-center gap-2">
-																<span class="material-symbols-outlined text-[20px] text-[#0098EA]">
-																	tune
+													<div class="frag-card w-full p-4 flex flex-col gap-3.5 text-start">
+														<FragSectionHeader
+															icon="tune"
+															title={t('usernamePage.protocolToolsTitle')}
+															subtitle={t('usernamePage.protocolToolsSub')}
+															right={
+																<span class="h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] font-mono text-[#2990FF] bg-[#2990FF]/10 border border-[#2990FF]/25">
+																	{t('usernamePage.offerFeeBadge')}
 																</span>
-																<div class="flex flex-col">
-																	<span class="text-[12px] font-black uppercase tracking-wider text-white">
-																		{tr(
-																			'قابلیت‌ها و عملیات مستقیم در Fragment.com',
-																			'FRAGMENT.COM PROTOCOL CAPABILITIES & TOOLS',
-																		)}
-																	</span>
-																	<span class="text-[10px] font-mono text-white/45">
-																		{tr(
-																			'ماشین‌حساب پیشنهاد خرید (Make Offer)، ارتقای ربات و لینک‌های مستقیم',
-																			'Make-an-Offer Fee Calculator, Bot Upgrade & Protocol Endpoints',
-																		)}
-																	</span>
-																</div>
-															</div>
-															<span class="text-[9px] font-mono font-black text-[#0098EA] bg-[#0098EA]/15 border border-[#0098EA]/35 px-2.5 py-1 rounded-[8px]">
-																FEE: 0.05%
-															</span>
-														</div>
+															}
+														/>
 
-														{/* Interactive Make-an-Offer Fee Calculator (offerFeeMult = 0.0005) */}
-														<div class="bg-[#08090D] border border-white/10 rounded-[18px] p-3.5 flex flex-col gap-3">
-															<div class="flex items-center justify-between">
-																<span class="text-[11px] font-bold text-white">
-																	{tr(
-																		'شبیه‌ساز ثبت پیشنهاد خرید (Make an Offer) در فرگمنت',
-																		'Fragment Make-an-Offer Fee Simulator',
-																	)}
+														<div class="frag-inset p-3.5 flex flex-col gap-3">
+															<div class="flex items-center justify-between gap-2 text-[12px]">
+																<span class="font-medium text-white">
+																	{t('usernamePage.offerCalcTitle')}
 																</span>
-																<span class="text-[9px] font-mono text-white/40">
-																	Min {fc().offer_fee_min_ton} TON · Max {fc().offer_fee_max_ton} TON
+																<span class="text-[11px] font-mono text-[#60707c]" dir="ltr">
+																	{fc().offer_fee_min_ton}–{fc().offer_fee_max_ton} TON
 																</span>
 															</div>
 
-															<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center">
+															<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-stretch">
 																<div class="flex flex-col gap-1">
-																	<span class="text-[9px] font-mono text-white/45 uppercase">
-																		{tr('مبلغ پیشنهادی شما (TON):', 'Your Offer Amount (TON):')}
+																	<span class="text-[11px] text-[#8c9ba5]">
+																		{t('usernamePage.yourOfferAmount')}
 																	</span>
-																	<div class="flex items-center bg-[#12141C] border border-white/15 focus-within:border-[#0098EA] rounded-[12px] px-3 h-10">
+																	<div
+																		class="flex items-center gap-2 bg-[#1b232d] border border-white/[0.1] focus-within:border-[#2990FF] rounded-[8px] px-3 h-10"
+																		dir="ltr"
+																	>
+																		<TonIcon size={14} />
 																		<input
 																			type="number"
 																			value={customOfferInput() || String(fc().suggested_offer_ton)}
 																			onInput={(e) => setCustomOfferInput(e.currentTarget.value)}
 																			placeholder={String(fc().suggested_offer_ton)}
-																			class="w-full bg-transparent text-white font-mono font-black text-[13px] focus:outline-none"
-																			dir="ltr"
+																			class="w-full bg-transparent text-white font-mono font-semibold text-[13px] tabular-nums focus:outline-none"
 																		/>
-																		<span class="text-[10px] font-mono font-black text-[#0098EA]">
-																			TON
+																		<span class="text-[11px] font-mono text-[#60707c]">
+																			{'TON'}
 																		</span>
 																	</div>
 																</div>
 
-																<div class="bg-[#12141C] border border-white/5 rounded-[12px] p-2.5 flex items-center justify-between">
-																	<div class="flex flex-col">
-																		<span class="text-[9px] font-mono text-white/40 uppercase">
-																			{tr('کارمزد ارسال پیشنهاد (0.05%):', 'Protocol Offer Fee (0.05%):')}
+																<div class="bg-[#1b232d] border border-white/[0.06] rounded-[8px] px-3 py-2 flex items-center justify-between gap-2">
+																	<div class="flex flex-col gap-0.5 min-w-0">
+																		<span class="text-[11px] text-[#8c9ba5]">
+																			{t('usernamePage.offerFeeLabel')}
 																		</span>
-																		<span class="text-[14px] font-mono font-black text-amber-400">
-																			{offerFeeTon()} TON
-																		</span>
-																		<span class="text-[9px] font-mono text-white/40">
-																			≈ ${(offerFeeTon() * (data()?.ton_usd_rate || 5.25)).toFixed(2)}{' '}
-																			USD
-																		</span>
+																		<TonAmount
+																			size="sm"
+																			tone="warning"
+																			value={offerFeeTon()}
+																			usd={(offerFeeTon() * (data()?.ton_usd_rate || 5.25)).toFixed(
+																				2,
+																			)}
+																		/>
 																	</div>
 																	<a
 																		href={fc().direct_links.fragment_url}
 																		target="_blank"
 																		rel="noreferrer"
-																		class="px-3 py-2 rounded-[10px] bg-[#0098EA] hover:bg-[#0086cf] text-white font-mono font-black text-[10px] uppercase shrink-0"
+																		class="h-8 px-3 rounded-[8px] bg-[#2990FF] hover:bg-[#3d9bff] text-white font-medium text-[12px] inline-flex items-center gap-1 shrink-0 transition-colors"
 																	>
-																		{tr('ثبت پیشنهاد ↗', 'Make Offer ↗')}
+																		<span>{t('usernamePage.makeOfferBtn')}</span>
+																		<span class="material-symbols-outlined text-[14px]">
+																			north_east
+																		</span>
 																	</a>
 																</div>
 															</div>
 														</div>
 
-														{/* Fragment Protocol Capabilities Matrix */}
-														<div class="grid grid-cols-3 gap-2 text-center">
-															<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
-																<span class="text-[8px] font-mono text-white/40 uppercase">
-																	{tr('ارتقای ربات تلگرام', 'BOT UPGRADE FEE')}
-																</span>
-																<span class="text-[12px] font-mono font-black text-white">
-																	{fmtTon(fc().bot_upgrade_fee_ton)} TON
-																</span>
-																<span class="text-[9px] font-mono text-cyan-400">
-																	{fc().is_assigned_to_bot
-																		? tr('فعال روی ربات ✓', 'Assigned to Bot')
-																		: tr('هزینه اتصال به Bot', 'One-time Bot Fee')}
-																</span>
-															</div>
+														<div class="grid grid-cols-3 gap-2">
+															<FragStat
+																label={t('usernamePage.botUpgrade')}
+																sub={
+																	<span class="text-[#64b5ff]">
+																		{fc().is_assigned_to_bot
+																			? t('usernamePage.activeBot')
+																			: t('usernamePage.oneTimeFee')}
+																	</span>
+																}
+															>
+																<TonAmount size="sm" value={fmtTon(fc().bot_upgrade_fee_ton)} />
+															</FragStat>
 
-															<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
-																<span class="text-[8px] font-mono text-white/40 uppercase">
-																	{tr('سقف اتصال همزمان', 'PROFILE STACKING')}
-																</span>
-																<span class="text-[12px] font-mono font-black text-white">
-																	{fc().max_collectibles_per_profile} Handles
-																</span>
-																<span class="text-[9px] font-mono text-emerald-400">
-																	{tr('قابل چیدمان در پروفایل', 'Multi-Handle Ready')}
-																</span>
-															</div>
+															<FragStat
+																label={t('usernamePage.profileLimit')}
+																sub={
+																	<span class="text-[#4cd964]">{t('usernamePage.stackable')}</span>
+																}
+															>
+																{fc().max_collectibles_per_profile} {t('usernamePage.handlesUnit')}
+															</FragStat>
 
-															<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
-																<span class="text-[8px] font-mono text-white/40 uppercase">
-																	{tr('ابرداده استاندارد NFT', 'TEP-64 METADATA')}
+															<div class="frag-inset px-3 py-2.5 flex flex-col gap-1 min-w-0">
+																<span class="text-[11px] text-[#8c9ba5] leading-tight truncate">
+																	{t('usernamePage.tep64Data')}
 																</span>
 																<a
 																	href={fc().direct_links.nft_json_url}
 																	target="_blank"
 																	rel="noreferrer"
-																	class="text-[11px] font-mono font-black text-[#0098EA] hover:underline"
+																	class="text-[12px] font-mono font-semibold text-[#2990FF] hover:underline truncate"
+																	dir="ltr"
 																>
 																	{username()}.json ↗
 																</a>
@@ -2208,7 +2161,7 @@ export const UsernamePage: Component = () => {
 																	href={fc().direct_links.web_subdomain_url}
 																	target="_blank"
 																	rel="noreferrer"
-																	class="text-[9px] font-mono text-white/50 hover:text-white truncate"
+																	class="text-[11px] font-mono text-[#60707c] hover:text-white truncate"
 																	dir="ltr"
 																>
 																	{username()}.t.me ↗
@@ -2220,58 +2173,55 @@ export const UsernamePage: Component = () => {
 											}}
 										</Show>
 
-										{/* Transaction Economics & MarketApp Rental Yield */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-5 flex flex-col gap-3.5 shadow-xl text-start">
-											<div class="flex items-center justify-between border-b border-white/5 pb-3">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[20px] text-emerald-400">
-														payments
+										{/* Transaction economics & estimated rental yield */}
+										<div class="frag-card w-full p-4 flex flex-col gap-3.5 text-start">
+											<FragSectionHeader
+												icon="payments"
+												title={layaT(USERNAME_I18N.txEconomics)}
+												right={
+													<span class="h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] font-mono text-[#4cd964] bg-[#4cd964]/10 border border-[#4cd964]/25">
+														{t('usernamePage.fragmentFeeBadge')}
 													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{layaT(USERNAME_I18N.txEconomics)}
-													</span>
-												</div>
-												<span class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-2 py-0.5 rounded-[6px]">
-													Fragment 5% Fee
-												</span>
-											</div>
+												}
+											/>
 
-											<div class="grid grid-cols-2 gap-2.5">
-												<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-black text-white/40 uppercase">
-														{layaT(USERNAME_I18N.netSellerProceeds)}
-													</span>
-													<span class="text-emerald-400 font-mono font-black text-[15px]">
-														{fmtTon(Math.max(0, expectedTon() - Math.max(5, expectedTon() * 0.05)))}{' '}
-														TON
-													</span>
-													<span class="text-[10px] font-mono text-white/40">
-														-{fmtTon(Math.max(5, Math.round(expectedTon() * 0.05)))} TON Fee
-													</span>
-												</div>
+											<div class="grid grid-cols-2 gap-2">
+												<FragStat
+													label={layaT(USERNAME_I18N.netSellerProceeds)}
+													sub={
+														<span>
+															−{fmtTon(Math.max(5, Math.round(expectedTon() * 0.05)))} TON fee
+														</span>
+													}
+												>
+													<TonAmount
+														size="md"
+														tone="positive"
+														value={fmtTon(
+															Math.max(0, expectedTon() - Math.max(5, expectedTon() * 0.05)),
+														)}
+													/>
+												</FragStat>
 
-												<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-black text-white/40 uppercase">
-														{tr('درآمد اجاره ماهانه (MarketApp)', 'EST. MONTHLY RENT')}
-													</span>
-													{(() => {
-														const uLen = data()?.length || username().length || 6;
-														const rate =
-															uLen <= 4 ? 0.045 : uLen === 5 ? 0.038 : uLen === 6 ? 0.032 : 0.025;
-														const monthlyTon = Math.max(1, Math.round(expectedTon() * rate));
-														const apy = (rate * 12 * 100).toFixed(1);
-														return (
-															<>
-																<span class="text-[#0098EA] font-mono font-black text-[15px]">
-																	~{fmtTon(monthlyTon)} TON/mo
-																</span>
-																<span class="text-[10px] font-mono text-emerald-400">
-																	~{apy}% Est. APY
-																</span>
-															</>
-														);
-													})()}
-												</div>
+												{(() => {
+													const uLen = data()?.length || username().length || 6;
+													const rate =
+														uLen <= 4 ? 0.045 : uLen === 5 ? 0.038 : uLen === 6 ? 0.032 : 0.025;
+													const monthlyTon = Math.max(1, Math.round(expectedTon() * rate));
+													const apy = (rate * 12 * 100).toFixed(1);
+													return (
+														<FragStat
+															label={t('usernamePage.estMonthlyRent')}
+															sub={<span class="text-[#4cd964]">~{apy}% est. APY</span>}
+														>
+															<span class="inline-flex items-center gap-1" dir="ltr">
+																<TonIcon size={13} />
+																<span>~{fmtTon(monthlyTon)}</span>
+																<span class="text-[11px] text-[#8c9ba5] font-normal">/mo</span>
+															</span>
+														</FragStat>
+													);
+												})()}
 											</div>
 										</div>
 									</div>
@@ -2283,280 +2233,169 @@ export const UsernamePage: Component = () => {
 								<Show when={activeTab() === 'onchain'}>
 									<div class="w-full flex flex-col gap-3.5 text-start">
 										{/* 1. TEP-62 TeleMint Smart Contract Provenance */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-5 flex flex-col gap-3.5 shadow-xl">
-											<div class="flex items-center justify-between border-b border-white/5 pb-3">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[20px] text-cyan-400">
-														verified_user
-													</span>
-													<div class="flex flex-col">
-														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{tr(
-																'اصالت قرارداد هوشمند TEP-62 TeleMint',
-																'TEP-62 TELEMINT PROVENANCE',
-																'ОНЧЕЙН АУДИТ TELEMINT',
-																'TEP-62 链上合约溯源',
-															)}
+										<div class="frag-card w-full p-4 flex flex-col gap-3">
+											<FragSectionHeader
+												icon="verified_user"
+												title={t('usernamePage.telemintProvenance')}
+												subtitle={`${data()?.username || username()}.t.me`}
+												right={
+													<FragStatusPill
+														status={data()?.telemint_provenance?.is_authentic ? 'sold' : 'unminted'}
+														label={
+															data()?.telemint_provenance?.is_authentic
+																? t('usernamePage.officialNft')
+																: t('usernamePage.unminted')
+														}
+													/>
+												}
+											/>
+
+											<div class="frag-table-container">
+												<Show when={data()?.telemint_provenance?.item_address}>
+													<FragKV
+														label={t('usernamePage.nftItemContract')}
+														copyValue={data()?.telemint_provenance?.item_address || ''}
+														href={`https://tonviewer.com/${data()?.telemint_provenance?.item_address}`}
+													>
+														<span class="font-mono text-[12px]" dir="ltr">
+															{data()?.telemint_provenance?.item_address?.slice(0, 8)}…
+															{data()?.telemint_provenance?.item_address?.slice(-6)}
 														</span>
-														<span class="text-[10px] font-mono text-white/40">
-															{data()?.username || username()}.t.me
+													</FragKV>
+												</Show>
+												<Show when={data()?.telemint_provenance?.code_hash}>
+													<FragKV
+														label={t('usernamePage.tvmCodeHash')}
+														copyValue={data()?.telemint_provenance?.code_hash || ''}
+													>
+														<span class="font-mono text-[12px] text-[#64b5ff]" dir="ltr">
+															{data()?.telemint_provenance?.code_hash?.slice(0, 14)}…
 														</span>
-													</div>
-												</div>
-												<span
-													class={`text-[9px] font-mono font-black uppercase px-2.5 py-1 rounded-[8px] border ${
-														data()?.telemint_provenance?.is_authentic
-															? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
-															: 'bg-amber-400/15 border-amber-400/35 text-amber-400'
-													}`}
-												>
-													{data()?.telemint_provenance?.is_authentic
-														? tr('NFT رسمی تلگرام', 'OFFICIAL NFT', 'ОФИЦ. NFT', '官方 NFT')
-														: tr('غیر توکنایز (وب ۲)', 'UNMINTED', 'НЕ NFT', '未铸造')}
-												</span>
+													</FragKV>
+												</Show>
+												<Show when={data()?.telemint_provenance?.data_hash}>
+													<FragKV
+														label={t('usernamePage.tvmDataHash')}
+														copyValue={data()?.telemint_provenance?.data_hash || ''}
+													>
+														<span class="font-mono text-[12px] text-[#a9b6bf]" dir="ltr">
+															{data()?.telemint_provenance?.data_hash?.slice(0, 14)}…
+														</span>
+													</FragKV>
+												</Show>
 											</div>
 
-											<div class="flex flex-col gap-2 text-[11px] font-mono">
-												<Show when={data()?.telemint_provenance?.item_address}>
-													<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex items-center justify-between gap-2">
-														<div class="flex flex-col min-w-0">
-															<span class="text-[9px] text-white/40 uppercase">
-																{tr('آدرس قرارداد NFT آیتم:', 'NFT Item Contract:')}
-															</span>
-															<span class="text-white font-bold truncate" dir="ltr">
-																{data()?.telemint_provenance?.item_address}
-															</span>
-														</div>
-														<div class="flex items-center gap-1 shrink-0">
-															<button
-																type="button"
-																onClick={() =>
-																	handleCopy(
-																		data()?.telemint_provenance?.item_address || '',
-																		'nft_addr',
-																	)
-																}
-																class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70"
-															>
-																<span class="material-symbols-outlined text-[15px]">
-																	{copiedText() === 'nft_addr' ? 'check' : 'content_copy'}
-																</span>
-															</button>
-															<a
-																href={`https://tonviewer.com/${data()?.telemint_provenance?.item_address}`}
-																target="_blank"
-																rel="noreferrer"
-																class="p-1.5 rounded-lg bg-[#0098EA]/15 text-[#0098EA]"
-															>
-																<span class="material-symbols-outlined text-[15px]">
-																	open_in_new
-																</span>
-															</a>
-														</div>
-													</div>
-												</Show>
-
-												<Show when={data()?.telemint_provenance?.code_hash}>
-													<div class="grid grid-cols-2 gap-2">
-														<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col">
-															<span class="text-[9px] text-white/40 uppercase">TVM Code Hash</span>
-															<span class="text-cyan-300 font-bold truncate" dir="ltr">
-																{data()?.telemint_provenance?.code_hash?.slice(0, 14)}...
-															</span>
-														</div>
-														<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col">
-															<span class="text-[9px] text-white/40 uppercase">TVM Data Hash</span>
-															<span class="text-white/70 font-bold truncate" dir="ltr">
-																{data()?.telemint_provenance?.data_hash?.slice(0, 14)}...
-															</span>
-														</div>
-													</div>
-												</Show>
-
-												<p class="text-[11px] text-white/60 font-sans leading-relaxed pt-1">
+											<Show when={data()?.telemint_provenance?.details}>
+												<p class="text-[12px] text-[#8c9ba5] leading-relaxed">
 													{data()?.telemint_provenance?.details}
 												</p>
-											</div>
+											</Show>
 										</div>
 
-										{/* 1B. Binary & TVM Byte-Level BOC Forensics Inspector */}
+										{/* 2. Binary & TVM Byte-Level BOC Forensics Inspector */}
 										<Show when={data()?.binary_forensics}>
 											{(bf) => (
-												<div class="w-full bg-gradient-to-br from-cyan-500/10 via-[#12141C]/95 to-[#08090D] backdrop-blur-2xl border border-cyan-500/30 rounded-[26px] p-5 flex flex-col gap-3.5 shadow-xl">
-													<div class="flex items-center justify-between border-b border-white/5 pb-3">
-														<div class="flex items-center gap-2">
-															<span class="material-symbols-outlined text-[20px] text-cyan-400">
-																memory
+												<div class="frag-card w-full p-4 flex flex-col gap-3.5">
+													<FragSectionHeader
+														icon="memory"
+														title={t('usernamePage.binaryForensicsTitle')}
+														subtitle={`${bf().boc_magic_prefix} · ${bf().total_bits}-bit UTF-8`}
+														right={
+															<span
+																class="h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] font-mono text-[#64b5ff] bg-[#2990FF]/10 border border-[#2990FF]/25"
+																dir="ltr"
+															>
+																H(X) = {bf().shannon_entropy_bits} b/ch
 															</span>
-															<div class="flex flex-col">
-																<span class="text-[12px] font-black uppercase tracking-wider text-white">
-																	{tr(
-																		'کالبدشکافی باینری، بیت‌استریم UTF-8 و سلول BOC ماشین مجازی TON',
-																		'BINARY BITSTREAM & TVM BAG-OF-CELLS (BOC) FORENSICS',
-																	)}
-																</span>
-																<span class="text-[10px] font-mono text-cyan-400/80" dir="ltr">
-																	{bf().boc_magic_prefix} · {bf().total_bits}-Bit Payload
-																</span>
-															</div>
-														</div>
-														<span class="text-[9px] font-mono font-black text-cyan-300 bg-cyan-500/15 border border-cyan-500/35 px-2.5 py-1 rounded-[8px]">
-															H(X) = {bf().shannon_entropy_bits} b/ch
-														</span>
-													</div>
+														}
+													/>
 
-													{/* Top Binary KPIs */}
-													<div class="grid grid-cols-4 gap-2 text-center font-mono">
-														<div class="bg-[#08090D] border border-white/5 rounded-[12px] p-2 flex flex-col">
-															<span class="text-[8px] text-white/40 uppercase">ASCII HEX</span>
-															<span class="text-[11px] font-black text-cyan-300 truncate" dir="ltr">
+													<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+														<FragStat label={t('usernamePage.asciiHex')}>
+															<span class="text-[#64b5ff] text-[12px]" dir="ltr">
 																{bf().ascii_hex_spaced}
 															</span>
-														</div>
-														<div class="bg-[#08090D] border border-white/5 rounded-[12px] p-2 flex flex-col">
-															<span class="text-[8px] text-white/40 uppercase">HAMMING WT</span>
-															<span class="text-[11px] font-black text-white">
-																{bf().set_bits_popcount}/{bf().total_bits} ({bf().hamming_weight_pct}%)
+														</FragStat>
+														<FragStat label={t('usernamePage.hammingWeight')}>
+															<span class="text-[12px]" dir="ltr">
+																{bf().set_bits_popcount}/{bf().total_bits} (
+																{bf().hamming_weight_pct}%)
 															</span>
-														</div>
-														<div class="bg-[#08090D] border border-white/5 rounded-[12px] p-2 flex flex-col">
-															<span class="text-[8px] text-white/40 uppercase">SHANNON H(X)</span>
-															<span class="text-[11px] font-black text-emerald-400">
+														</FragStat>
+														<FragStat label={t('usernamePage.shannonEntropy')}>
+															<span class="text-[#4cd964] text-[12px]" dir="ltr">
 																{bf().shannon_entropy_bits} bits
 															</span>
-														</div>
-														<div class="bg-[#08090D] border border-white/5 rounded-[12px] p-2 flex flex-col">
-															<span class="text-[8px] text-white/40 uppercase">HAND ALT</span>
-															<span class="text-[11px] font-black text-amber-400">
-																{bf().hand_alternation_pct}% ({bf().left_hand_keys}L/{bf().right_hand_keys}R)
+														</FragStat>
+														<FragStat label={t('usernamePage.handAlternation')}>
+															<span class="text-[#ffb340] text-[12px]" dir="ltr">
+																{bf().hand_alternation_pct}% ({bf().left_hand_keys}L/
+																{bf().right_hand_keys}R)
 															</span>
-														</div>
+														</FragStat>
 													</div>
 
-													{/* TEP-62 256-Bit SHA-256 Index & TeleMint Token BOC Cell */}
-													<div class="flex flex-col gap-2 font-mono text-[10px]">
-														<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex items-center justify-between gap-2">
-															<div class="flex flex-col min-w-0">
-																<span class="text-[8px] text-white/40 uppercase">
-																	{tr(
-																		'ایندکس ۲۵۶ بیتی قرارداد هوشمند (TEP-62 uint256 = SHA-256):',
-																		'TEP-62 256-Bit NFT Index (sha256(username)):',
-																	)}
-																</span>
-																<span class="text-cyan-300 font-bold truncate" dir="ltr">
-																	{bf().tep62_sha256_index}
-																</span>
-															</div>
-															<button
-																type="button"
-																onClick={() => handleCopy(bf().tep62_sha256_index, 'sha256_idx')}
-																class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 shrink-0"
-															>
-																<span class="material-symbols-outlined text-[14px]">
-																	{copiedText() === 'sha256_idx' ? 'check' : 'content_copy'}
-																</span>
-															</button>
-														</div>
-
-														<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex items-center justify-between gap-2">
-															<div class="flex flex-col min-w-0">
-																<span class="text-[8px] text-white/40 uppercase">
-																	{tr(
-																		'سلول باینری نام توکن (get_telemint_token_name BOC Hex):',
-																		'TeleMint Token Name BOC Cell (get_telemint_token_name):',
-																	)}
-																</span>
-																<span class="text-emerald-400 font-bold truncate" dir="ltr">
-																	{bf().telemint_token_cell_boc}
-																</span>
-															</div>
-															<button
-																type="button"
-																onClick={() =>
-																	handleCopy(bf().telemint_token_cell_boc, 'boc_cell')
-																}
-																class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 shrink-0"
-															>
-																<span class="material-symbols-outlined text-[14px]">
-																	{copiedText() === 'boc_cell' ? 'check' : 'content_copy'}
-																</span>
-															</button>
-														</div>
-
-														{/* Decoded TVM Auction Config if present on-chain */}
+													<div class="frag-table-container">
+														<FragKV
+															label="TEP-62 SHA-256 index"
+															copyValue={bf().tep62_sha256_index}
+														>
+															<span class="font-mono text-[12px] text-[#64b5ff]" dir="ltr">
+																{bf().tep62_sha256_index.slice(0, 14)}…
+																{bf().tep62_sha256_index.slice(-8)}
+															</span>
+														</FragKV>
+														<FragKV
+															label={t('usernamePage.telemintBocCell')}
+															copyValue={bf().telemint_token_cell_boc}
+														>
+															<span class="font-mono text-[12px] text-[#4cd964]" dir="ltr">
+																{bf().telemint_token_cell_boc.slice(0, 18)}…
+															</span>
+														</FragKV>
 														<Show when={bf().auction_config}>
 															{(ac) => (
-																<div class="bg-[#08090D] border border-cyan-500/20 rounded-[14px] p-3 flex flex-col gap-1.5">
-																	<div class="flex items-center justify-between">
-																		<span class="text-[9px] font-black text-cyan-400 uppercase">
-																			{tr(
-																				'پیکربندی حراج درون‌زنجیره‌ای (get_telemint_auction_config)',
-																				'TVM Decoded Auction Config (get_telemint_auction_config)',
-																			)}
-																		</span>
-																		<Show when={bf().last_transaction_lt}>
-																			<span class="text-[9px] text-white/40" dir="ltr">
-																				LT: {bf().last_transaction_lt}
-																			</span>
-																		</Show>
-																	</div>
-																	<div class="grid grid-cols-3 gap-2 pt-1 text-[10px]">
-																		<div class="flex flex-col">
-																			<span class="text-white/40 text-[8px]">MIN BID / ASK</span>
-																			<span class="text-white font-bold">
-																				{fmtTon(ac().initialMinBidTon)} TON
-																			</span>
-																		</div>
-																		<div class="flex flex-col">
-																			<span class="text-white/40 text-[8px]">MIN STEP</span>
-																			<span class="text-emerald-400 font-bold">
-																				{ac().minBidStepPct}% Step
-																			</span>
-																		</div>
-																		<div class="flex flex-col">
-																			<span class="text-white/40 text-[8px]">ANTI-SNIPE</span>
-																			<span class="text-amber-400 font-bold">
-																				{Math.round(ac().minExtendTimeSec / 60)}m Window
-																			</span>
-																		</div>
-																	</div>
-																</div>
+																<FragKV label={t('usernamePage.tvmAuctionConfig')}>
+																	<span class="font-mono text-[12px]" dir="ltr">
+																		Min {fmtTon(ac().initialMinBidTon)} TON · {ac().minBidStepPct}%
+																		· {Math.round(ac().minExtendTimeSec / 60)}m
+																	</span>
+																</FragKV>
 															)}
 														</Show>
 													</div>
 
 													{/* Per-Character 8-Bit UTF-8 Binary Matrix */}
-													<div class="flex flex-col rounded-[16px] overflow-hidden bg-[#08090D] border border-white/5">
-														<div class="grid grid-cols-6 p-2.5 bg-white/[0.03] text-[8px] font-mono font-black text-white/40 uppercase tracking-wider border-b border-white/5 text-center">
-															<span>CHAR</span>
-															<span>ASCII</span>
-															<span>HEX</span>
-															<span class="col-span-2">8-BIT UTF-8 BINARY</span>
-															<span>MORSE / KEY</span>
+													<div class="frag-table-container">
+														<div
+															class="frag-table-header grid grid-cols-6 px-3 py-2 text-center"
+															dir="ltr"
+														>
+															<span>{t('usernamePage.colChar')}</span>
+															<span>{t('usernamePage.colAscii')}</span>
+															<span>{t('usernamePage.colHex')}</span>
+															<span class="col-span-2">{t('usernamePage.colUtf8')}</span>
+															<span>Morse / Key</span>
 														</div>
 														<For each={bf().bitstream_matrix}>
-															{(row, idx) => (
+															{(row) => (
 																<div
-																	class={`grid grid-cols-6 p-2.5 items-center text-[11px] font-mono text-center ${
-																		idx() !== bf().bitstream_matrix.length - 1
-																			? 'border-b border-white/5'
-																			: ''
-																	}`}
+																	class="frag-table-row grid grid-cols-6 px-3 py-2.5 items-center text-[11px] font-mono text-center"
 																	dir="ltr"
 																>
-																	<span class="text-white font-black text-[13px]">
+																	<span class="text-white font-semibold text-[13px]">
 																		'{row.char}'
 																	</span>
-																	<span class="text-white/60">{row.ascii_dec}</span>
-																	<span class="text-cyan-400 font-bold">{row.hex_byte}</span>
+																	<span class="text-[#8c9ba5]">{row.ascii_dec}</span>
+																	<span class="text-[#64b5ff] font-medium">{row.hex_byte}</span>
 																	<div class="col-span-2 flex items-center justify-center gap-0.5">
 																		<For each={row.binary_8bit.split('')}>
 																			{(bit) => (
 																				<span
-																					class={`w-3.5 h-4 rounded-[3px] flex items-center justify-center text-[9px] font-black ${
+																					class={`w-3.5 h-4 rounded-[3px] flex items-center justify-center text-[10px] font-semibold ${
 																						bit === '1'
-																							? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40'
-																							: 'bg-white/[0.03] text-white/30'
+																							? 'bg-[#2990FF]/25 text-[#64b5ff] border border-[#2990FF]/40'
+																							: 'bg-white/[0.03] text-[#60707c]'
 																					}`}
 																				>
 																					{bit}
@@ -2564,7 +2403,7 @@ export const UsernamePage: Component = () => {
 																			)}
 																		</For>
 																	</div>
-																	<span class="text-amber-400/90 text-[10px]">
+																	<span class="text-[#ffb340] text-[11px]">
 																		{row.morse} · {row.keyboard_hand}
 																	</span>
 																</div>
@@ -2575,111 +2414,76 @@ export const UsernamePage: Component = () => {
 											)}
 										</Show>
 
-										{/* 2. Cross-Chain .ton TON DNS Sister Domain Synergy */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/25 rounded-[26px] p-5 flex flex-col gap-3 shadow-xl">
-											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[20px] text-[#0098EA]">
-														language
-													</span>
-													<div class="flex flex-col">
-														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{tr(
-																'هم‌افزایی دامنه وب۳ (TON DNS .ton)',
-																'TON DNS (.TON) SISTER DOMAIN',
-																'СИНЕРГИЯ ДОМЕНА .TON',
-																'TON DNS (.ton) 域名协同',
-															)}
-														</span>
-														<span class="text-[10px] font-mono text-[#0098EA]" dir="ltr">
-															{data()?.ton_dns_domain?.domain || `${username()}.ton`}
-														</span>
-													</div>
-												</div>
-												<span
-													class={`text-[9px] font-mono font-black uppercase px-2.5 py-1 rounded-[8px] border ${
-														data()?.ton_dns_domain?.sameOwnerSynergy
-															? 'bg-amber-400/15 border-amber-400/40 text-amber-400'
-															: data()?.ton_dns_domain?.exists
-																? 'bg-[#0098EA]/15 border-[#0098EA]/35 text-[#0098EA]'
-																: 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
-													}`}
-												>
-													{data()?.ton_dns_domain?.sameOwnerSynergy
-														? tr(
-																'مالک یکسان با @!',
-																'UNIFIED WHALE OWNER',
-																'ЕДИНЫЙ ВЛАДЕЛЕЦ',
-																'同巨鲸持有',
-															)
-														: data()?.ton_dns_domain?.exists
-															? tr(
-																	'ثبت شده در TON DNS',
-																	'MINTED ON TON DNS',
-																	'ЗАРЕГИСТРИРОВАН',
-																	'已注册',
-																)
-															: tr('آزاد برای ثبت', 'AVAILABLE (.TON)', 'СВОБОДЕН', '可注册')}
-												</span>
-											</div>
-											<p class="text-[11px] text-white/75 leading-relaxed">
+										{/* 3. Cross-Chain .ton TON DNS Sister Domain Synergy */}
+										<div class="frag-card w-full p-4 flex flex-col gap-3">
+											<FragSectionHeader
+												icon="language"
+												title={t('usernamePage.tonDnsTitle')}
+												subtitle={data()?.ton_dns_domain?.domain || `${username()}.ton`}
+												right={
+													<FragStatusPill
+														status={
+															data()?.ton_dns_domain?.sameOwnerSynergy
+																? 'on_auction'
+																: data()?.ton_dns_domain?.exists
+																	? 'on_sale'
+																	: 'available'
+														}
+														label={
+															data()?.ton_dns_domain?.sameOwnerSynergy
+																? t('usernamePage.unifiedOwner')
+																: data()?.ton_dns_domain?.exists
+																	? t('usernamePage.minted')
+																	: t('usernamePage.availableDotTon')
+														}
+													/>
+												}
+											/>
+											<p class="text-[12px] text-[#c7d0d9] leading-relaxed">
 												{data()?.risk_audit?.ton_dns_synergy}
 											</p>
 											<Show when={data()?.ton_dns_domain?.nftAddress}>
-												<div class="flex items-center justify-between bg-[#08090D] border border-white/5 rounded-[12px] px-3 py-2 text-[10px] font-mono">
-													<span class="text-white/40">.ton NFT Address:</span>
-													<a
+												<div class="frag-table-container">
+													<FragKV
+														label={t('usernamePage.tonNftAddress')}
+														copyValue={data()?.ton_dns_domain?.nftAddress || ''}
 														href={`https://tonviewer.com/${data()?.ton_dns_domain?.nftAddress}`}
-														target="_blank"
-														rel="noreferrer"
-														class="text-[#0098EA] hover:underline"
-														dir="ltr"
 													>
-														{data()?.ton_dns_domain?.nftAddress?.slice(0, 8)}...
-														{data()?.ton_dns_domain?.nftAddress?.slice(-6)} ↗
-													</a>
+														<span class="font-mono text-[12px]" dir="ltr">
+															{data()?.ton_dns_domain?.nftAddress?.slice(0, 8)}…
+															{data()?.ton_dns_domain?.nftAddress?.slice(-6)}
+														</span>
+													</FragKV>
 												</div>
 											</Show>
 										</div>
 
-										{/* 3. Live Telegram Identity & Audience Telemetry (from t.me/{u}) */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-5 flex flex-col gap-3.5 shadow-xl">
-											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[20px] text-[#0098EA]">
-														campaign
+										{/* 4. Live Telegram Identity & Audience Telemetry */}
+										<div class="frag-card w-full p-4 flex flex-col gap-3">
+											<FragSectionHeader
+												icon="campaign"
+												title={t('usernamePage.liveTgEntity')}
+												right={
+													<span class="h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] font-mono text-[#a9b6bf] bg-white/[0.04] border border-white/[0.07] capitalize">
+														{data()?.entity_info?.type?.toLowerCase() || 'unassigned'}
 													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{tr(
-															'وضعیت زنده در تلگرام و مخاطبان (t.me)',
-															'LIVE TELEGRAM ENTITY & AUDIENCE',
-															'ПРОФИЛЬ И АУДИТОРИЯ TELEGRAM',
-															'TELEGRAM 实时实体与受众',
-														)}
-													</span>
-												</div>
-												<span class="text-[9px] font-mono font-black uppercase px-2.5 py-1 rounded-[8px] bg-white/5 border border-white/10 text-white/70">
-													{data()?.entity_info?.type?.toUpperCase() || 'UNASSIGNED'}
-												</span>
-											</div>
+												}
+											/>
 
 											<Show
 												when={ownerProfile() || (data()?.entity_info?.title ?? '') !== ''}
 												fallback={
-													<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 text-[11px] text-white/50">
-														{tr(
-															'این نام کاربری در حال حاضر به هیچ کانال، ربات یا اکانت عمومی در تلگرام متصل نیست (پارک شده در کیف پول یا آزاد).',
-															'Handle is not currently assigned to an active public Telegram profile, channel, or bot (parked in wallet or unassigned).',
-														)}
+													<div class="frag-inset p-3.5 text-[12px] text-[#8c9ba5] leading-relaxed">
+														{t('usernamePage.unassignedEntityDesc')}
 													</div>
 												}
 											>
-												<div class="flex items-center justify-between gap-3 bg-[#08090D] border border-white/10 rounded-[18px] p-3.5">
+												<div class="frag-inset p-3 flex items-center justify-between gap-3">
 													<div class="flex items-center gap-3 min-w-0">
 														<Show
 															when={data()?.entity_info?.avatar_url}
 															fallback={
-																<div class="w-11 h-11 rounded-full bg-gradient-to-tr from-[#0098EA] to-cyan-400 flex items-center justify-center text-white font-black text-[16px] shrink-0">
+																<div class="w-10 h-10 rounded-full bg-gradient-to-b from-[#3a9bff] to-[#1f6fd1] flex items-center justify-center text-white font-semibold text-[15px] shrink-0">
 																	{(
 																		data()?.entity_info?.title?.[0] ||
 																		username()[0] ||
@@ -2691,21 +2495,21 @@ export const UsernamePage: Component = () => {
 															<img
 																src={data()?.entity_info?.avatar_url}
 																alt={data()?.entity_info?.title}
-																class="w-11 h-11 rounded-full object-cover border border-white/15 shrink-0"
+																class="w-10 h-10 rounded-full object-cover border border-white/15 shrink-0"
 															/>
 														</Show>
 														<div class="flex flex-col min-w-0">
 															<div class="flex items-center gap-1.5">
-																<span class="text-white font-bold text-[13px] truncate">
+																<span class="text-white font-semibold text-[13px] truncate">
 																	{data()?.entity_info?.title || ownerProfile()?.first_name}
 																</span>
 																<Show when={data()?.entity_info?.verified}>
-																	<span class="material-symbols-outlined text-[#0098EA] text-[15px] shrink-0">
+																	<span class="material-symbols-outlined filled-icon text-[#2990FF] text-[15px] shrink-0">
 																		verified
 																	</span>
 																</Show>
 															</div>
-															<span class="text-[11px] font-mono text-emerald-400 font-bold">
+															<span class="text-[11px] font-mono text-[#4cd964]">
 																{data()?.entity_info?.extra_text ||
 																	(data()?.entity_info?.members
 																		? `${fmtTon(data()?.entity_info?.members)} subscribers`
@@ -2717,117 +2521,89 @@ export const UsernamePage: Component = () => {
 														href={`https://t.me/${username()}`}
 														target="_blank"
 														rel="noreferrer"
-														class="px-3 py-1.5 rounded-[10px] bg-[#0098EA]/15 border border-[#0098EA]/30 text-[#0098EA] font-mono font-bold text-[10px] shrink-0"
+														class="h-8 px-3 rounded-[8px] bg-[#2990FF]/12 border border-[#2990FF]/30 text-[#2990FF] font-mono font-medium text-[11px] inline-flex items-center gap-1 shrink-0 hover:bg-[#2990FF]/20 transition-colors"
 													>
-														t.me ↗
+														<span>{'t.me'}</span>
+														<span class="material-symbols-outlined text-[13px]">north_east</span>
 													</a>
 												</div>
 												<Show when={data()?.entity_info?.bio}>
-													<p class="text-[11px] text-white/65 bg-[#08090D]/70 border border-white/5 rounded-[14px] p-3 leading-relaxed">
+													<p class="frag-inset p-3 text-[12px] text-[#a9b6bf] leading-relaxed">
 														{data()?.entity_info?.bio}
 													</p>
 												</Show>
 											</Show>
 										</div>
 
-										{/* 4. Complete Fragment Ownership History */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-5 flex flex-col gap-3.5 shadow-xl">
-											<div class="flex items-center justify-between border-b border-white/5 pb-3">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[20px] text-amber-400">
-														history
-													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{t('valuation.history_title') || 'FRAGMENT OWNERSHIP HISTORY'}
-													</span>
-												</div>
-												<Show when={data()?.history?.highest_past_sale_ton}>
-													<span class="text-[10px] font-mono font-black text-amber-400 bg-amber-400/10 border border-amber-400/25 px-2.5 py-1 rounded-[8px]">
-														MAX: {fmtTon(data()?.history?.highest_past_sale_ton)} TON
-													</span>
-												</Show>
-											</div>
+										{/* 5. Fragment Ownership History */}
+										<div class="frag-card w-full p-4 flex flex-col gap-3">
+											<FragSectionHeader
+												icon="history"
+												title={t('usernamePage.ownershipHistory')}
+												right={
+													<Show when={data()?.history?.highest_past_sale_ton}>
+														<TonAmount
+															size="sm"
+															tone="warning"
+															value={fmtTon(data()?.history?.highest_past_sale_ton)}
+														/>
+													</Show>
+												}
+											/>
 
 											<Show when={data()?.history?.owner_address}>
-												<div class="flex items-center justify-between bg-[#08090D] border border-white/5 rounded-[16px] p-3 gap-2">
-													<div class="flex flex-col min-w-0">
-														<span class="text-[9px] font-black text-white/40 uppercase">
-															{t('valuation.owner') || 'Current Owner Wallet:'}
+												<div class="frag-table-container">
+													<FragKV
+														label={t('valuation.owner') || 'Owner wallet'}
+														copyValue={data()?.history?.owner_address || ''}
+														href={`https://tonviewer.com/${data()?.history?.owner_address}`}
+													>
+														<span class="font-mono text-[12px]" dir="ltr">
+															{data()?.history?.owner_address?.slice(0, 6)}…
+															{data()?.history?.owner_address?.slice(-6)}
 														</span>
-														<span
-															class="text-white font-mono font-black text-[11px] truncate"
-															dir="ltr"
-														>
-															{data()?.history?.owner_address}
-														</span>
-													</div>
-													<div class="flex items-center gap-1 shrink-0">
-														<button
-															type="button"
-															onClick={() =>
-																handleCopy(data()?.history?.owner_address || '', 'owner_wallet')
-															}
-															class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70"
-														>
-															<span class="material-symbols-outlined text-[15px]">
-																{copiedText() === 'owner_wallet' ? 'check' : 'content_copy'}
-															</span>
-														</button>
-														<a
-															href={`https://tonviewer.com/${data()?.history?.owner_address}`}
-															target="_blank"
-															rel="noreferrer"
-															class="p-1.5 rounded-lg bg-[#0098EA]/15 text-[#0098EA]"
-														>
-															<span class="material-symbols-outlined text-[15px]">open_in_new</span>
-														</a>
-													</div>
+													</FragKV>
 												</div>
 											</Show>
 
 											<Show
 												when={(data()?.history?.transactions?.length ?? 0) > 0}
 												fallback={
-													<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-4 text-center text-[11px] text-white/50 font-mono">
-														{tr(
-															'هیچ معامله ثبت‌شده قبلی در تاریخچه فرگمنت برای این نام کاربری یافت نشد.',
-															'No settled sale transactions recorded on Fragment for this handle yet.',
-														)}
+													<div class="frag-inset p-4 text-center text-[12px] text-[#8c9ba5]">
+														{t('usernamePage.noSettledSales')}
 													</div>
 												}
 											>
-												<div class="flex flex-col rounded-[16px] overflow-hidden bg-[#08090D] border border-white/5">
-													<div class="grid grid-cols-3 p-3 bg-white/[0.03] text-[9px] font-black text-white/40 uppercase tracking-widest border-b border-white/5">
-														<span class="text-start">{t('valuation.sale_price') || 'EVENT / PRICE'}</span>
-														<span class="text-center">{t('valuation.date') || 'DATE'}</span>
-														<span class="text-end">{t('valuation.buyer') || 'RECIPIENT WALLET'}</span>
+												<div class="frag-table-container">
+													<div class="frag-table-header grid grid-cols-3 px-3.5 py-2">
+														<span class="text-start">
+															{t('valuation.sale_price') || 'Price / event'}
+														</span>
+														<span class="text-center">{t('valuation.date') || 'Date'}</span>
+														<span class="text-end">{t('valuation.buyer') || 'Recipient'}</span>
 													</div>
 													<For each={data()?.history?.transactions}>
-														{(tx, idx) => {
+														{(tx) => {
 															const isTransfer =
 																tx.event_type === 'transfer' ||
 																tx.sale_price_ton.toLowerCase().includes('transfer');
 															return (
-																<div
-																	class={`grid grid-cols-3 p-3 items-center text-[12px] ${
-																		idx() !== (data()?.history?.transactions?.length || 0) - 1
-																			? 'border-b border-white/5'
-																			: ''
-																	}`}
-																>
+																<div class="frag-table-row grid grid-cols-3 px-3.5 py-2.5 items-center text-[12px]">
 																	<Show
 																		when={!isTransfer}
 																		fallback={
-																			<span class="text-cyan-400 font-mono font-bold text-[10px] text-start">
-																				⇄ P2P Transfer
+																			<span class="text-[#64b5ff] font-mono text-[11px] text-start">
+																				{t('usernamePage.p2pTransfer')}
 																			</span>
 																		}
 																	>
-																		<span class="text-emerald-400 font-mono font-black text-start">
-																			{tx.sale_price_ton} TON
-																		</span>
+																		<TonAmount
+																			size="sm"
+																			tone="positive"
+																			value={tx.sale_price_ton}
+																		/>
 																	</Show>
-																	<span class="text-white/50 text-[10px] font-mono font-bold text-center">
+																	<span class="text-[#8c9ba5] text-[11px] font-mono text-center">
 																		{new Date(tx.date).toLocaleDateString('en-GB', {
 																			day: 'numeric',
 																			month: 'short',
@@ -2842,11 +2618,11 @@ export const UsernamePage: Component = () => {
 																		}
 																		target="_blank"
 																		rel="noreferrer"
-																		class="text-[#0098EA] hover:underline font-mono font-bold text-[11px] truncate text-end"
+																		class="text-[#2990FF] hover:underline font-mono text-[11px] truncate text-end"
 																		dir="ltr"
 																	>
 																		{tx.buyer && tx.buyer.length > 12
-																			? `${tx.buyer.slice(0, 4)}...${tx.buyer.slice(-4)}`
+																			? `${tx.buyer.slice(0, 4)}…${tx.buyer.slice(-4)}`
 																			: tx.buyer || 'Fragment'}
 																	</a>
 																</div>
@@ -2857,74 +2633,45 @@ export const UsernamePage: Component = () => {
 											</Show>
 										</div>
 
-										{/* 5. Live Fragment Bid History (Auction Offers Table) */}
+										{/* 6. Live Fragment Bid History */}
 										<Show when={(data()?.live_market?.offers?.length ?? 0) > 0}>
-											<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-amber-500/25 rounded-[26px] p-5 flex flex-col gap-3.5 shadow-xl">
-												<div class="flex items-center justify-between border-b border-white/5 pb-3">
-													<div class="flex items-center gap-2">
-														<span class="material-symbols-outlined text-[20px] text-amber-400">
-															gavel
+											<div class="frag-card w-full p-4 flex flex-col gap-3">
+												<FragSectionHeader
+													icon="gavel"
+													title={t('usernamePage.auctionBidHistory')}
+													right={
+														<span class="h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] font-mono text-[#ffb340] bg-[#ffb340]/10 border border-[#ffb340]/25">
+															{data()?.live_market?.offers?.length} bids
 														</span>
-														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{tr(
-																'تاریخچه پیشنهادهای حراج فرگمنت',
-																'FRAGMENT AUCTION BID HISTORY',
-																'ИСТОРИЯ СТАВОК FRAGMENT',
-																'FRAGMENT 拍卖出价记录',
-															)}
-														</span>
-													</div>
-													<span class="text-[10px] font-mono font-black text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2.5 py-0.5 rounded-[8px]">
-														{data()?.live_market?.offers?.length} BIDS
-													</span>
-												</div>
+													}
+												/>
 
 												<Show when={data()?.live_market?.bid_analytics}>
 													{(ba) => (
-														<div class="grid grid-cols-3 gap-2 text-center">
-															<div class="bg-[#08090D] border border-white/5 rounded-[12px] p-2 flex flex-col">
-																<span class="text-[8px] font-mono text-white/40 uppercase">
-																	{tr('شرکت‌کنندگان یکتا', 'UNIQUE BIDDERS')}
-																</span>
-																<span class="text-[13px] font-mono font-black text-white">
-																	{ba().unique_bidders_count}
-																</span>
-															</div>
-															<div class="bg-[#08090D] border border-white/5 rounded-[12px] p-2 flex flex-col">
-																<span class="text-[8px] font-mono text-white/40 uppercase">
-																	{tr('پیشنهاد شروع', 'OPENING BID')}
-																</span>
-																<span class="text-[13px] font-mono font-black text-white/80">
-																	{fmtTon(ba().opening_bid_ton)} TON
-																</span>
-															</div>
-															<div class="bg-[#08090D] border border-white/5 rounded-[12px] p-2 flex flex-col">
-																<span class="text-[8px] font-mono text-white/40 uppercase">
-																	{tr('ضریب جهش حراج', 'BID JUMP')}
-																</span>
-																<span class="text-[13px] font-mono font-black text-amber-400">
-																	{ba().bid_jump_multiple}x
-																</span>
-															</div>
+														<div class="grid grid-cols-3 gap-2">
+															<FragStat label={t('usernamePage.bidders')}>
+																{ba().unique_bidders_count}
+															</FragStat>
+															<FragStat label={t('usernamePage.openingBid')}>
+																<TonAmount size="sm" value={fmtTon(ba().opening_bid_ton)} />
+															</FragStat>
+															<FragStat label={t('usernamePage.bidJump')}>
+																<span class="text-[#ffb340]">{ba().bid_jump_multiple}×</span>
+															</FragStat>
 														</div>
 													)}
 												</Show>
 
-												<div class="flex flex-col rounded-[16px] overflow-hidden bg-[#08090D] border border-white/5 max-h-[240px] overflow-y-auto">
+												<div class="frag-table-container max-h-[240px] overflow-y-auto">
 													<For each={data()?.live_market?.offers?.slice(0, 15)}>
-														{(offer, idx) => (
-															<div
-																class={`grid grid-cols-3 p-3 items-center text-[11px] font-mono ${
-																	idx() !==
-																	Math.min(15, data()?.live_market?.offers?.length || 0) - 1
-																		? 'border-b border-white/5'
-																		: ''
-																}`}
-															>
-																<span class="text-amber-400 font-black text-start">
-																	{fmtTon(offer.price_ton)} TON
-																</span>
-																<span class="text-white/40 text-[10px] text-center">
+														{(offer) => (
+															<div class="frag-table-row grid grid-cols-3 px-3.5 py-2.5 items-center text-[12px] font-mono">
+																<TonAmount
+																	size="sm"
+																	tone="warning"
+																	value={fmtTon(offer.price_ton)}
+																/>
+																<span class="text-[#8c9ba5] text-[11px] text-center">
 																	{offer.date
 																		? new Date(offer.date).toLocaleDateString('en-GB', {
 																				day: 'numeric',
@@ -2939,11 +2686,11 @@ export const UsernamePage: Component = () => {
 																	}
 																	target="_blank"
 																	rel="noreferrer"
-																	class="text-white/75 hover:text-[#0098EA] text-end truncate"
+																	class="text-[#a9b6bf] hover:text-[#2990FF] text-end truncate text-[11px]"
 																	dir="ltr"
 																>
 																	{offer.from
-																		? `${offer.from.slice(0, 4)}...${offer.from.slice(-4)}`
+																		? `${offer.from.slice(0, 4)}…${offer.from.slice(-4)}`
 																		: 'Bidder'}
 																</a>
 															</div>
@@ -2953,98 +2700,74 @@ export const UsernamePage: Component = () => {
 											</div>
 										</Show>
 
-										{/* 6. Holder Whale Wallet & Live On-Chain Portfolio */}
+										{/* 7. Holder Whale Wallet & Live On-Chain Portfolio */}
 										<Show when={hasPortfolio() || (data()?.wallet_info?.balance ?? 0) > 0}>
-											<div class="w-full bg-gradient-to-br from-amber-500/10 via-[#12141C]/90 to-[#08090D] backdrop-blur-2xl border border-amber-500/30 rounded-[26px] p-5 flex flex-col gap-3.5 shadow-xl">
-												<div class="flex items-center justify-between border-b border-white/5 pb-3">
-													<div class="flex items-center gap-2">
-														<span class="material-symbols-outlined text-[20px] text-amber-400">
-															account_balance_wallet
+											<div class="frag-card w-full p-4 flex flex-col gap-3">
+												<FragSectionHeader
+													icon="account_balance_wallet"
+													title={t('usernamePage.holderPortfolioTitle')}
+													subtitle={t('usernamePage.holderPortfolioSub')}
+													right={
+														<span
+															class={`h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] font-medium border ${
+																data()?.wallet_info?.is_whale
+																	? 'bg-[#ffb340]/10 border-[#ffb340]/25 text-[#ffb340]'
+																	: 'bg-[#2990FF]/10 border-[#2990FF]/25 text-[#2990FF]'
+															}`}
+														>
+															{data()?.wallet_info?.is_whale
+																? t('usernamePage.whaleWallet')
+																: t('usernamePage.collector')}
 														</span>
-														<div class="flex flex-col">
-															<span class="text-[12px] font-black uppercase tracking-wider text-white">
-																{t('valuation.whale_portfolio_title') || 'HOLDER WHALE PORTFOLIO'}
-															</span>
-															<span class="text-[10px] font-mono text-white/40">
-																{tr(
-																	'موجودی زنده TON و سایر شناسه‌های همین کیف پول',
-																	'Live TonAPI Wallet Balance & Other Usernames',
-																)}
-															</span>
-														</div>
-													</div>
-													<span
-														class={`text-[9px] font-mono font-black px-2.5 py-1 rounded-[8px] border ${
-															data()?.wallet_info?.is_whale
-																? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
-																: 'bg-[#0098EA]/15 border-[#0098EA]/30 text-[#0098EA]'
-														}`}
-													>
-														{data()?.wallet_info?.is_whale ? '🐋 WHALE WALLET' : '👤 COLLECTOR'}
-													</span>
-												</div>
+													}
+												/>
 
 												<div class="grid grid-cols-3 gap-2">
-													<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col">
-														<span class="text-[8px] font-mono text-white/40 uppercase">
-															{tr('موجودی کیف پول', 'TON BALANCE')}
-														</span>
-														<span class="text-[13px] font-mono font-black text-amber-400">
-															{fmtTon(data()?.wallet_info?.balance)} TON
-														</span>
-													</div>
-													<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col">
-														<span class="text-[8px] font-mono text-white/40 uppercase">
-															{tr('تعداد شناسه‌ها', 'USERNAME NFTS')}
-														</span>
-														<span class="text-[13px] font-mono font-black text-white">
-															{data()?.wallet_info?.nft_count ||
-																data()?.portfolio?.total_count ||
-																1}
-														</span>
-													</div>
-													<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col">
-														<span class="text-[8px] font-mono text-white/40 uppercase">
-															{tr('ارزش کل پرتفوی', 'EST. PORTFOLIO')}
-														</span>
-														<span class="text-[13px] font-mono font-black text-emerald-400">
-															{fmtTon(data()?.portfolio?.total_est_value_ton)} TON
-														</span>
-													</div>
+													<FragStat label={t('usernamePage.walletBalance')}>
+														<TonAmount
+															size="sm"
+															tone="warning"
+															value={fmtTon(data()?.wallet_info?.balance)}
+														/>
+													</FragStat>
+													<FragStat label={t('usernamePage.walletHandles')}>
+														{data()?.wallet_info?.nft_count || data()?.portfolio?.total_count || 1}
+													</FragStat>
+													<FragStat label={t('usernamePage.walletEstValue')}>
+														<TonAmount
+															size="sm"
+															tone="positive"
+															value={fmtTon(data()?.portfolio?.total_est_value_ton)}
+														/>
+													</FragStat>
 												</div>
 
 												<Show when={hasPortfolio()}>
-													<div class="flex flex-col gap-2 max-h-[260px] overflow-y-auto pr-1">
+													<div class="frag-table-container max-h-[260px] overflow-y-auto">
 														<For each={data()?.portfolio?.items}>
 															{(item) => {
-																const badge = portfolioBadge(item.status);
+																const clean = item.username.replace('@', '');
 																return (
-																	<div
+																	<button
+																		type="button"
 																		onClick={() => openReport(item.username)}
-																		class="flex items-center justify-between gap-2 bg-[#08090D] hover:bg-white/[0.04] border border-white/5 hover:border-amber-400/30 rounded-[14px] p-3 cursor-pointer transition-all active:scale-[0.98]"
+																		class="frag-table-row w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-start"
 																	>
-																		<div class="flex items-center gap-2 min-w-0">
-																			<span class="text-amber-400/60 text-[12px] font-mono">✦</span>
-																			<span
-																				class="text-white font-mono font-black text-[13px] truncate"
-																				dir="ltr"
-																			>
-																				@{item.username}
-																			</span>
+																		<div class="flex items-center gap-2.5 min-w-0">
+																			<FragNftTile
+																				handle={clean}
+																				class="w-8 h-8 shrink-0"
+																				rounded="rounded-[6px]"
+																			/>
+																			<FragHandle handle={clean} size="sm" />
 																		</div>
 																		<div class="flex items-center gap-2 shrink-0">
 																			<Show when={(item.last_sale_ton ?? 0) > 0}>
-																				<span class="text-amber-400 font-mono font-black text-[11px]">
-																					{fmtTon(item.last_sale_ton)} TON
-																				</span>
+																				<TonAmount size="sm" value={fmtTon(item.last_sale_ton)} />
 																			</Show>
-																			<span
-																				class={`text-[9px] font-black px-2 py-0.5 rounded-[6px] border ${badge.class}`}
-																			>
-																				{badge.label}
-																			</span>
+																			<FragStatusPill status={normalizeFragStatus(item.status)} />
 																		</div>
-																	</div>
+																	</button>
 																);
 															}}
 														</For>
@@ -3060,55 +2783,35 @@ export const UsernamePage: Component = () => {
 								    ════════════════════════════════════════════════════════════════ */}
 								<Show when={activeTab() === 'similar'}>
 									<div class="w-full flex flex-col gap-3.5 text-start">
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[26px] p-5 flex flex-col gap-4 shadow-xl">
-											<div class="flex items-center justify-between border-b border-white/5 pb-3">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[21px] text-[#0098EA]">
-														psychology
+										<div class="frag-card w-full p-4 flex flex-col gap-3.5">
+											<FragSectionHeader
+												icon="hub"
+												title={t('usernamePage.comparablesTitle')}
+												subtitle={t('usernamePage.comparablesSub')}
+												right={
+													<span class="h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] font-mono text-[#2990FF] bg-[#2990FF]/10 border border-[#2990FF]/25">
+														{similarCounts().all}
 													</span>
-													<div class="flex flex-col">
-														<span class="text-[13px] font-black uppercase tracking-wider text-white">
-															{tr(
-																'موتور تشابه معنایی، مفهومی و معاملات هم‌تراز',
-																'SEMANTIC MEANING GRAPH & COMPARABLE HANDLES',
-															)}
-														</span>
-														<span class="text-[10px] font-mono text-white/45">
-															{tr(
-																'تمرکز بر هم‌معنی‌های مستقیم (مانند @cars ↔ @auto و @rare ↔ @uncommon) + ریشه فرگمنت',
-																'Direct Conceptual Synonyms (@cars ↔ @auto, @rare ↔ @uncommon) + Live Fragment',
-															)}
-														</span>
-													</div>
-												</div>
-												<span class="text-[10px] font-mono font-black text-[#0098EA] bg-[#0098EA]/10 border border-[#0098EA]/30 px-2.5 py-1 rounded-[8px]">
-													{similarCounts().all} {tr('مورد', 'ITEMS')}
-												</span>
-											</div>
+												}
+											/>
 
-											{/* Semantic Cluster Highlight Banner */}
+											{/* Semantic cluster quick-jump chips */}
 											{(() => {
 												const topSemantic = (data()?.similar || []).filter(
 													(s) => s.category === 'semantic',
 												);
 												const clusterName =
 													topSemantic.find((s) => s.semantic_cluster)?.semantic_cluster ||
-													tr('خوشه معنایی و لغوی مستقیم', 'Direct Lexical & Conceptual Cluster');
+													t('usernamePage.semanticClusterDefault');
 												return (
 													<Show when={topSemantic.length > 0}>
-														<div class="bg-gradient-to-r from-emerald-500/10 via-[#0098EA]/10 to-transparent border border-emerald-500/25 rounded-[16px] p-3.5 flex flex-col gap-2">
-															<div class="flex items-center justify-between">
-																<div class="flex items-center gap-1.5">
-																	<span class="material-symbols-outlined text-emerald-400 text-[17px]">
-																		auto_awesome
-																	</span>
-																	<span class="text-[11px] font-black text-emerald-300">
-																		{tr('خوشه معنایی تشخیص‌داده‌شده:', 'Detected Meaning Cluster:')}{' '}
-																		{clusterName}
-																	</span>
-																</div>
-																<span class="text-[9px] font-mono font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded">
-																	{topSemantic.length} SYNONYMS
+														<div class="frag-inset p-3 flex flex-col gap-2">
+															<div class="flex items-center justify-between gap-2 text-[12px]">
+																<span class="font-medium text-[#4cd964] truncate">
+																	{clusterName}
+																</span>
+																<span class="text-[11px] font-mono text-[#8c9ba5] shrink-0">
+																	{topSemantic.length} {t('usernamePage.synonymsUnit')}
 																</span>
 															</div>
 															<div class="flex flex-wrap gap-1.5">
@@ -3117,13 +2820,16 @@ export const UsernamePage: Component = () => {
 																		<button
 																			type="button"
 																			onClick={() => openReport(syn.username)}
-																			class="px-2.5 py-1 rounded-[9px] bg-[#08090D] hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-mono font-black text-[11px] flex items-center gap-1 transition-all"
+																			class="px-2.5 py-1 rounded-[7px] bg-[#1b232d] hover:bg-[#232d3a] border border-white/[0.08] text-[12px] font-medium flex items-center gap-1.5 transition-colors"
 																			dir="ltr"
 																		>
-																			<span>@{syn.username}</span>
+																			<span class="text-white">
+																				<span class="text-[#2990FF]">@</span>
+																				{syn.username}
+																			</span>
 																			<Show when={(syn.sale_price ?? 0) > 0}>
-																				<span class="text-[9px] text-white/50">
-																					({fmtTon(syn.sale_price)}T)
+																				<span class="text-[11px] font-mono text-[#8c9ba5]">
+																					{fmtTon(syn.sale_price)}
 																				</span>
 																			</Show>
 																		</button>
@@ -3135,49 +2841,45 @@ export const UsernamePage: Component = () => {
 												);
 											})()}
 
-											{/* 4 Sub-Filter Pills with Live Counts */}
-											<div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-mono">
+											{/* Neutral Fragment segmented filter */}
+											<div class="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-[#141a22] p-1 rounded-[10px] border border-white/[0.06] text-[11px]">
 												<button
 													type="button"
 													onClick={() => setSimilarFilter('all')}
-													class={`py-2 px-2.5 rounded-[12px] border flex items-center justify-between transition-all ${
+													class={`py-1.5 px-2.5 rounded-[7px] flex items-center justify-between transition-colors ${
 														similarFilter() === 'all'
-															? 'bg-[#0098EA]/20 border-[#0098EA]/50 text-[#0098EA] font-black'
-															: 'bg-[#08090D] border-white/10 text-white/60 hover:text-white'
+															? 'bg-[#232d3a] text-white font-medium'
+															: 'text-[#8c9ba5] hover:text-white'
 													}`}
 												>
-													<span>{tr('همه موارد', 'All Matches')}</span>
-													<span class="px-1.5 py-0.5 rounded bg-white/10 text-[9px]">
-														{similarCounts().all}
-													</span>
+													<span>{t('usernamePage.filterAll')}</span>
+													<span class="font-mono text-[#60707c]">{similarCounts().all}</span>
 												</button>
 
 												<button
 													type="button"
 													onClick={() => setSimilarFilter('semantic')}
-													class={`py-2 px-2.5 rounded-[12px] border flex items-center justify-between transition-all ${
+													class={`py-1.5 px-2.5 rounded-[7px] flex items-center justify-between transition-colors ${
 														similarFilter() === 'semantic'
-															? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-black'
-															: 'bg-[#08090D] border-white/10 text-white/60 hover:text-white'
+															? 'bg-[#232d3a] text-white font-medium'
+															: 'text-[#8c9ba5] hover:text-white'
 													}`}
 												>
-													<span>{tr('هم‌معنی و مفهومی', 'Semantic Meaning')}</span>
-													<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px]">
-														{similarCounts().semantic}
-													</span>
+													<span>{t('usernamePage.filterSemantic')}</span>
+													<span class="font-mono text-[#4cd964]">{similarCounts().semantic}</span>
 												</button>
 
 												<button
 													type="button"
 													onClick={() => setSimilarFilter('live_fragment')}
-													class={`py-2 px-2.5 rounded-[12px] border flex items-center justify-between transition-all ${
+													class={`py-1.5 px-2.5 rounded-[7px] flex items-center justify-between transition-colors ${
 														similarFilter() === 'live_fragment'
-															? 'bg-[#0098EA]/20 border-[#0098EA]/50 text-[#0098EA] font-black'
-															: 'bg-[#08090D] border-white/10 text-white/60 hover:text-white'
+															? 'bg-[#232d3a] text-white font-medium'
+															: 'text-[#8c9ba5] hover:text-white'
 													}`}
 												>
-													<span>{tr('ریشه مشابه (فرگمنت)', 'Fragment Root')}</span>
-													<span class="px-1.5 py-0.5 rounded bg-white/10 text-[9px]">
+													<span>{t('usernamePage.filterFragmentRoot')}</span>
+													<span class="font-mono text-[#60707c]">
 														{similarCounts().live_fragment}
 													</span>
 												</button>
@@ -3185,78 +2887,81 @@ export const UsernamePage: Component = () => {
 												<button
 													type="button"
 													onClick={() => setSimilarFilter('structural')}
-													class={`py-2 px-2.5 rounded-[12px] border flex items-center justify-between transition-all ${
+													class={`py-1.5 px-2.5 rounded-[7px] flex items-center justify-between transition-colors ${
 														similarFilter() === 'structural'
-															? 'bg-[#0098EA]/20 border-[#0098EA]/50 text-[#0098EA] font-black'
-															: 'bg-[#08090D] border-white/10 text-white/60 hover:text-white'
+															? 'bg-[#232d3a] text-white font-medium'
+															: 'text-[#8c9ba5] hover:text-white'
 													}`}
 												>
-													<span>{tr('هم‌طول و ساختار', 'Same Length')}</span>
-													<span class="px-1.5 py-0.5 rounded bg-white/10 text-[9px]">
-														{similarCounts().structural}
-													</span>
+													<span>{t('usernamePage.filterSameLength')}</span>
+													<span class="font-mono text-[#60707c]">{similarCounts().structural}</span>
 												</button>
 											</div>
 
-											<div class="flex flex-col gap-2.5">
+											{/* Order-book comparables rows */}
+											<div class="frag-table-container">
+												<div class="frag-table-header flex items-center justify-between px-3.5 py-2">
+													<span>{t('usernamePage.colHandle')}</span>
+													<span>{t('usernamePage.colPriceAction')}</span>
+												</div>
 												<For each={filteredSimilar()}>
 													{(item) => {
 														const badge = similarBadge(item);
 														const hasPrice = (item.sale_price ?? 0) > 0;
-														const isSemantic = item.category === 'semantic';
+														const clean = item.username.replace('@', '');
 														return (
-															<div
+															<button
+																type="button"
 																onClick={() => openReport(item.username)}
-																class={`flex items-center justify-between gap-3 bg-[#08090D] hover:bg-white/[0.04] p-3.5 rounded-[18px] border transition-all cursor-pointer group ${
-																	isSemantic
-																		? 'border-emerald-500/20 hover:border-emerald-400/50'
-																		: 'border-white/5 hover:border-[#0098EA]/35'
-																}`}
+																class="frag-table-row w-full flex items-center justify-between gap-3 px-3.5 py-3 text-start"
 															>
-																<div class="flex flex-col gap-1 min-w-0 flex-1">
-																	<div class="flex items-center gap-2 min-w-0 flex-wrap">
-																		<span
-																			class="text-[#0098EA] font-mono font-black text-[14px] group-hover:underline truncate"
-																			dir="ltr"
-																		>
-																			@{item.username}
-																		</span>
-																		<span
-																			class={`text-[9px] font-black uppercase px-2 py-0.5 rounded-[6px] border shrink-0 whitespace-nowrap ${badge.class}`}
-																		>
-																			{badge.label}
-																		</span>
-																		<Show when={item.semantic_score}>
-																			<span class="text-[9px] font-mono font-black text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded">
-																				{item.semantic_score}% MEANING
+																<div class="flex items-center gap-3 min-w-0">
+																	<FragNftTile
+																		handle={clean}
+																		class="w-9 h-9 shrink-0"
+																		rounded="rounded-[8px]"
+																	/>
+																	<div class="flex flex-col min-w-0 gap-1">
+																		<div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+																			<FragHandle handle={clean} size="sm" />
+																			<Show when={item.semantic_score}>
+																				<span class="text-[11px] font-mono text-[#4cd964] tabular-nums">
+																					{item.semantic_score}%
+																				</span>
+																			</Show>
+																			<span class="text-[11px] text-[#8c9ba5]">
+																				· {badge.label}
 																			</span>
-																		</Show>
+																		</div>
+																		<span class="text-[#60707c] text-[11px] truncate">
+																			{item.reason}
+																		</span>
 																	</div>
-																	<span class="text-white/55 text-[11px] font-medium truncate">
-																		{item.reason}
-																	</span>
 																</div>
 
-																<div class="flex flex-col items-end shrink-0">
-																	<Show
-																		when={hasPrice}
-																		fallback={
-																			<span class="text-emerald-400/80 text-[10px] font-mono font-bold">
-																				{tr('تحلیل هم‌معنی ←', 'Inspect ↗')}
+																<Show
+																	when={hasPrice}
+																	fallback={
+																		<span class="text-[#2990FF] text-[12px] font-medium shrink-0 inline-flex items-center gap-0.5">
+																			{t('usernamePage.inspectBtn')}
+																			<span class="material-symbols-outlined text-[14px] rtl:rotate-180">
+																				chevron_right
 																			</span>
-																		}
-																	>
-																		<span class="text-white font-mono font-black text-[13px] whitespace-nowrap">
-																			{fmtTon(item.sale_price)} TON
 																		</span>
-																		<Show when={(item.sale_price_usd ?? 0) > 0}>
-																			<span class="text-white/40 text-[10px] font-mono font-bold whitespace-nowrap">
-																				≈ ${fmtUsd(item.sale_price_usd)}
-																			</span>
-																		</Show>
-																	</Show>
-																</div>
-															</div>
+																	}
+																>
+																	<TonAmount
+																		size="md"
+																		class="items-end shrink-0"
+																		value={fmtTon(item.sale_price)}
+																		usd={
+																			(item.sale_price_usd ?? 0) > 0
+																				? fmtUsd(item.sale_price_usd)
+																				: null
+																		}
+																	/>
+																</Show>
+															</button>
 														);
 													}}
 												</For>
@@ -3271,61 +2976,56 @@ export const UsernamePage: Component = () => {
 								<Show when={activeTab() === 'anatomy'}>
 									<div class="w-full flex flex-col gap-3.5 text-start">
 										{/* 1. Linguistic Meaning & Datamuse Dictionary */}
-										<div class="w-full bg-gradient-to-br from-[#0098EA]/15 via-[#12141C]/90 to-[#08090D] backdrop-blur-2xl border border-[#0098EA]/30 rounded-[26px] p-5 flex flex-col gap-3 shadow-xl">
-											<div class="flex items-center justify-between border-b border-[#0098EA]/20 pb-2.5">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[20px] text-[#0098EA]">
-														translate
-													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-[#0098EA]">
-														{t('valuation.ling_meaning_title') || 'LEXICAL MEANING & DICTIONARY'}
-													</span>
-												</div>
-												<span
-													class={`text-[9px] font-black uppercase px-2.5 py-1 rounded-[8px] border ${
-														data()?.dictionary?.is_word
-															? 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/40'
-															: 'bg-white/5 text-white/40 border-white/10'
-													}`}
-												>
-													{data()?.dictionary?.is_word
-														? t('valuation.dict_word_title') || 'DICTIONARY WORD'
-														: t('valuation.dict_none') || 'GENERIC HANDLE'}
-												</span>
-											</div>
+										<div class="frag-card w-full p-4 flex flex-col gap-3">
+											<FragSectionHeader
+												icon="translate"
+												title={t('usernamePage.lexicalTitle')}
+												right={
+													<FragStatusPill
+														status={data()?.dictionary?.is_word ? 'sold' : 'taken'}
+														label={
+															data()?.dictionary?.is_word
+																? t('valuation.dict_word_title') || 'Dictionary word'
+																: t('valuation.dict_none') || 'Brand / generic'
+														}
+													/>
+												}
+											/>
 
 											<Show
 												when={data()?.dictionary?.is_word && data()?.dictionary?.definition}
 												fallback={
-													<div class="bg-[#08090D]/70 rounded-[16px] p-3.5 border border-white/5 text-white/50 text-[11px]">
+													<div class="frag-inset p-3.5 text-[#8c9ba5] text-[12px] leading-relaxed">
 														{t('valuation.not_dict_word_desc') ||
-															'Non-dictionary brand/alphanumeric handle without recorded standard English dictionary definitions.'}
+															'Non-dictionary brand or alphanumeric handle without a standard English dictionary entry.'}
 													</div>
 												}
 											>
-												<div class="bg-[#08090D]/90 rounded-[16px] p-3.5 border border-[#0098EA]/20 text-white/90 text-[12px] leading-relaxed flex flex-col gap-1">
+												<div class="frag-inset p-3.5 text-white/90 text-[13px] leading-relaxed flex flex-col gap-1.5">
 													<div class="flex items-center justify-between">
 														<Show when={data()?.dictionary?.part_of_speech}>
-															<span class="text-[10px] text-[#0098EA] font-mono font-bold uppercase">
+															<span class="text-[11px] text-[#2990FF] font-mono">
 																[{data()?.dictionary?.part_of_speech}]
 															</span>
 														</Show>
 														<Show when={(data()?.dictionary?.word_frequency ?? 0) > 0}>
-															<span class="text-[10px] text-emerald-400 font-mono font-bold">
-																Freq: {data()?.dictionary?.word_frequency}/M words
+															<span class="text-[11px] text-[#4cd964] font-mono tabular-nums">
+																{data()?.dictionary?.word_frequency}/M words
 															</span>
 														</Show>
 													</div>
-													<span class="italic">"{data()?.dictionary?.definition}"</span>
+													<span class="italic text-[#d0d7dd]">
+														"{data()?.dictionary?.definition}"
+													</span>
 												</div>
 											</Show>
 
 											<Show when={data()?.wikipedia_summary}>
-												<div class="bg-[#08090D]/80 rounded-[16px] p-3.5 border border-white/5 flex flex-col gap-1">
-													<span class="text-[10px] font-black text-amber-400 uppercase tracking-wider">
-														{t('valuation.wiki_summary_title') || 'BENCHMARK CONTEXT'}
+												<div class="frag-inset p-3.5 flex flex-col gap-1">
+													<span class="text-[11px] font-medium text-[#ffb340]">
+														{t('valuation.wiki_summary_title') || 'Reference context'}
 													</span>
-													<p class="text-[11px] text-white/75 leading-relaxed">
+													<p class="text-[12px] text-[#a9b6bf] leading-relaxed">
 														{data()?.wikipedia_summary}
 													</p>
 												</div>
@@ -3333,93 +3033,60 @@ export const UsernamePage: Component = () => {
 										</div>
 
 										{/* 2. Structural & Phonetic Anatomy */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-5 flex flex-col gap-3.5 shadow-xl">
-											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[20px] text-[#0098EA]">
-														dna
-													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{t('valuation.anatomy_title') || 'STRUCTURAL ANATOMY'}
-													</span>
-												</div>
-												<span class="text-[10px] font-mono font-black text-white/50 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-[8px]">
-													{data()?.length || username().length} CHARS · SEO {data()?.seo?.score}/100
-												</span>
-											</div>
-
-											<div class="grid grid-cols-2 gap-2.5">
-												<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex items-center justify-between">
-													<div class="flex flex-col">
-														<span class="text-white/40 text-[9px] font-black uppercase">
-															{t('valuation.letters_only') || 'LETTERS ONLY'}
-														</span>
-														<span class="text-[12px] font-bold text-white">
-															{data()?.structure?.letters_only ? 'Pure Alpha' : 'Mixed'}
-														</span>
-													</div>
+										<div class="frag-card w-full p-4 flex flex-col gap-3">
+											<FragSectionHeader
+												icon="genetics"
+												title={t('usernamePage.anatomyTitle')}
+												right={
 													<span
-														class={`material-symbols-outlined text-[19px] ${
-															data()?.structure?.letters_only ? 'text-[#10b981]' : 'text-amber-400'
-														}`}
+														class="h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] font-mono text-[#a9b6bf] bg-white/[0.04] border border-white/[0.07]"
+														dir="ltr"
 													>
-														{data()?.structure?.letters_only ? 'check_circle' : 'info'}
+														{data()?.length || username().length} chars · SEO {data()?.seo?.score}
+														/100
 													</span>
-												</div>
+												}
+											/>
 
-												<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex items-center justify-between">
-													<div class="flex flex-col">
-														<span class="text-white/40 text-[9px] font-black uppercase">
-															{tr('روانی تلفظ آوایی', 'PRONOUNCEABILITY')}
-														</span>
-														<span class="text-[12px] font-bold text-white">
-															{data()?.structure?.is_pronounceable
-																? tr('بسیار خوش‌آوا', 'Fluent CVCV')
-																: tr('استاندارد', 'Standard')}
-														</span>
-													</div>
-													<span class="material-symbols-outlined text-[19px] text-[#0098EA]">
-														record_voice_over
-													</span>
-												</div>
-
-												<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex items-center justify-between">
-													<div class="flex flex-col">
-														<span class="text-white/40 text-[9px] font-black uppercase">
-															{t('valuation.has_digits') || 'NUMBERS'}
-														</span>
-														<span class="text-[12px] font-bold text-white">
-															{data()?.structure?.has_digits ? 'Contains Digits' : 'No Digits'}
-														</span>
-													</div>
+											<div class="grid grid-cols-2 gap-2">
+												<FragStat label={t('usernamePage.characterSet')}>
 													<span
-														class={`material-symbols-outlined text-[19px] ${
-															data()?.structure?.has_digits ? 'text-amber-400' : 'text-[#10b981]'
-														}`}
+														class={
+															data()?.structure?.letters_only ? 'text-[#4cd964]' : 'text-[#ffb340]'
+														}
 													>
-														{data()?.structure?.has_digits ? 'pin' : 'check_circle'}
+														{data()?.structure?.letters_only ? 'Pure alpha' : 'Mixed alphanumeric'}
 													</span>
-												</div>
-
-												<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex items-center justify-between">
-													<div class="flex flex-col">
-														<span class="text-white/40 text-[9px] font-black uppercase">
-															{t('valuation.has_underscore') || 'UNDERSCORE (_)'}
-														</span>
-														<span class="text-[12px] font-bold text-white">
-															{data()?.structure?.has_underscore ? 'Contains (_)' : 'Clean (No _)'}
-														</span>
-													</div>
+												</FragStat>
+												<FragStat label={t('usernamePage.pronounceability')}>
+													{data()?.structure?.is_pronounceable
+														? t('usernamePage.fluent')
+														: t('usernamePage.standard')}
+												</FragStat>
+												<FragStat label={t('usernamePage.digitsLabel')}>
 													<span
-														class={`material-symbols-outlined text-[19px] ${
+														class={
+															data()?.structure?.has_digits ? 'text-[#ffb340]' : 'text-[#4cd964]'
+														}
+													>
+														{data()?.structure?.has_digits
+															? t('usernamePage.containsDigits')
+															: t('usernamePage.noDigits')}
+													</span>
+												</FragStat>
+												<FragStat label={t('usernamePage.underscoreLabel')}>
+													<span
+														class={
 															data()?.structure?.has_underscore
-																? 'text-amber-400'
-																: 'text-[#10b981]'
-														}`}
+																? 'text-[#ffb340]'
+																: 'text-[#4cd964]'
+														}
 													>
-														{data()?.structure?.has_underscore ? 'horizontal_rule' : 'check_circle'}
+														{data()?.structure?.has_underscore
+															? t('usernamePage.containsUnderscore')
+															: t('usernamePage.clean')}
 													</span>
-												</div>
+												</FragStat>
 											</div>
 										</div>
 
@@ -3438,62 +3105,51 @@ export const UsernamePage: Component = () => {
 
 										{/* 4. Homoglyph & Anti-Phishing Visual Twins Radar */}
 										<Show when={(data()?.homoglyph_twins?.length ?? 0) > 0}>
-											<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-amber-500/25 rounded-[26px] p-5 flex flex-col gap-3 shadow-xl">
-												<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-													<div class="flex items-center gap-2">
-														<span class="material-symbols-outlined text-[20px] text-amber-400">
-															shield_lock
+											<div class="frag-card w-full p-4 flex flex-col gap-3">
+												<FragSectionHeader
+													icon="shield_lock"
+													title={t('usernamePage.visualTwinsTitle')}
+													right={
+														<span class="h-[22px] px-2 rounded-[6px] inline-flex items-center text-[11px] font-mono text-[#ffb340] bg-[#ffb340]/10 border border-[#ffb340]/25">
+															{data()?.homoglyph_twins?.length} twins
 														</span>
-														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{tr(
-																'رادار همزادهای فیشینگ و تشابه بصری',
-																'HOMOGLYPH & SPOOFING TWINS RADAR',
-																'РАДАР ОМОГЛИФОВ И ФИШИНГА',
-																'同形异义词与防钓鱼雷达',
-															)}
-														</span>
-													</div>
-													<span class="text-[9px] font-mono font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded">
-														{data()?.homoglyph_twins?.length} TWINS
-													</span>
-												</div>
+													}
+												/>
 
-												<div class="flex flex-col gap-2">
+												<div class="frag-table-container">
 													<For each={data()?.homoglyph_twins}>
 														{(tw) => (
-															<div
+															<button
+																type="button"
 																onClick={() => openReport(tw.twin)}
-																class="flex items-center justify-between bg-[#08090D] hover:bg-white/[0.04] border border-white/5 rounded-[14px] p-3 cursor-pointer transition-all"
+																class="frag-table-row w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-start"
 															>
-																<div class="flex flex-col min-w-0">
+																<div class="flex flex-col min-w-0 gap-0.5">
 																	<div class="flex items-center gap-2">
-																		<span
-																			class="text-white font-mono font-black text-[13px]"
-																			dir="ltr"
-																		>
-																			@{tw.twin}
-																		</span>
-																		<span class="text-[9px] font-mono font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded">
-																			{tw.risk_level} RISK
+																		<FragHandle handle={tw.twin} size="sm" />
+																		<span class="text-[11px] font-mono text-[#ffb340] bg-[#ffb340]/10 border border-[#ffb340]/25 px-1.5 py-0.5 rounded-[5px] lowercase">
+																			{tw.risk_level} risk
 																		</span>
 																	</div>
-																	<span class="text-[10px] text-white/45">{tw.similarity}</span>
+																	<span class="text-[11px] text-[#8c9ba5] truncate">
+																		{tw.similarity}
+																	</span>
 																</div>
-																<div class="flex flex-col items-end shrink-0">
-																	<Show
-																		when={(tw.price_ton ?? 0) > 0}
-																		fallback={
-																			<span class="text-[10px] font-mono text-white/40 uppercase">
-																				{tw.status}
-																			</span>
-																		}
-																	>
-																		<span class="text-[12px] font-mono font-black text-emerald-400">
-																			{fmtTon(tw.price_ton)} TON
+																<Show
+																	when={(tw.price_ton ?? 0) > 0}
+																	fallback={
+																		<span class="text-[11px] text-[#8c9ba5] shrink-0">
+																			{tw.status}
 																		</span>
-																	</Show>
-																</div>
-															</div>
+																	}
+																>
+																	<TonAmount
+																		size="sm"
+																		tone="positive"
+																		value={fmtTon(tw.price_ton)}
+																	/>
+																</Show>
+															</button>
 														)}
 													</For>
 												</div>
@@ -3510,12 +3166,12 @@ export const UsernamePage: Component = () => {
 
 								{/* Audit Footer */}
 								<div class="w-full flex flex-col items-center gap-1 pt-3 opacity-45 text-center">
-									<span class="text-white/60 text-[10px] font-mono">
+									<span class="text-white/60 text-[11px] font-mono">
 										{t('valuation.data_freshness_stamp', {
 											date: new Date().toLocaleDateString('en-GB'),
 										}) || `Live On-Chain Audit · ${new Date().toLocaleDateString('en-GB')}`}
 									</span>
-									<span class="text-white/40 text-[10px] font-mono">
+									<span class="text-[#8c9ba5] text-[11px] font-mono">
 										1 TON ≈ ${data()?.ton_usd_rate?.toFixed(2) || '5.25'} USD (Live TonAPI Rate)
 									</span>
 								</div>
@@ -3526,15 +3182,15 @@ export const UsernamePage: Component = () => {
 					{/* ═══════ METHODOLOGY MODAL ═══════ */}
 					<Show when={showMethodologyModal()}>
 						<div class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-							<div class="bg-[#12141C] border border-white/10 rounded-[32px] p-6 max-w-sm w-full flex flex-col gap-4 text-start">
-								<div class="flex items-center justify-between border-b border-white/5 pb-3">
-									<h3 class="text-white font-black text-[16px]">
-										{t('valuation.confidence_methodology') || 'AVM v7.0 Methodology'}
+							<div class="frag-card p-6 max-w-sm w-full flex flex-col gap-4 text-start">
+								<div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
+									<h3 class="text-white font-semibold text-[16px]">
+										{t('valuation.confidence_methodology') || 'AVM v8.0 Methodology'}
 									</h3>
 									<button
 										type="button"
 										onClick={() => setShowMethodologyModal(false)}
-										class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/60"
+										class="w-8 h-8 rounded-[8px] bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] flex items-center justify-center text-[#8c9ba5] hover:text-white transition-colors"
 									>
 										<span class="material-symbols-outlined text-[18px]">close</span>
 									</button>
@@ -3546,7 +3202,7 @@ export const UsernamePage: Component = () => {
 								<button
 									type="button"
 									onClick={() => setShowMethodologyModal(false)}
-									class="w-full h-11 bg-[#0098EA] text-white font-black text-[12px] rounded-[16px] uppercase"
+									class="w-full h-11 bg-[#2990FF] text-white font-semibold text-[12px] rounded-[10px]"
 								>
 									{t('valuation.close') || 'Close'}
 								</button>
@@ -3554,68 +3210,59 @@ export const UsernamePage: Component = () => {
 						</div>
 					</Show>
 
-					{/* ═══════ HIDDEN EXPORT CARD (@skulls Obsidian Luxury Design) ═══════ */}
+					{/* ═══════ HIDDEN EXPORT CARD (Fragment Sovereign Pass Design) ═══════ */}
 					<div class="fixed left-[-9999px] top-[-9999px] pointer-events-none" dir="ltr">
 						<div
 							ref={hiddenCardRef}
-							class={`w-[400px] h-[400px] p-[3px] bg-gradient-to-br ${
-								getTierTheme(data()?.rarity?.tier || '').wrapper
-							} rounded-[40px] flex flex-col overflow-hidden bg-[#050609]`}
+							class="w-[400px] h-[400px] rounded-[24px] p-7 flex flex-col justify-between relative overflow-hidden bg-[#141a22] border border-white/[0.12] font-frag-sans"
+							style={{
+								'background-image':
+									'radial-gradient(circle at 50% 0%, rgba(41,144,255,0.22) 0%, transparent 62%), radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)',
+								'background-size': '100% 100%, 16px 16px',
+							}}
 						>
-							<div class="w-full h-full bg-[#08090D] rounded-[37px] p-7 flex flex-col justify-between relative overflow-hidden">
-								<div class="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
-								<div class="flex justify-between items-center z-10">
-									<span
-										class={`px-3.5 py-1.5 border rounded-[12px] text-[10px] font-black tracking-[0.18em] uppercase shadow-sm ${
-											getTierTheme(data()?.rarity?.tier || '').badge
-										}`}
-									>
-										{data()?.rarity?.tier || 'COMMON'}
-									</span>
-									<span class="text-[10px] font-mono font-black text-white/60 tracking-[4px] uppercase bg-white/[0.04] border border-white/10 px-3.5 py-1.5 rounded-[12px]">
-										{'IFRAGMENT'}
-									</span>
-								</div>
+							<div class="flex justify-between items-center z-10">
+								<span
+									class={`px-3 py-1 border rounded-[8px] text-[11px] font-medium capitalize ${
+										getTierTheme(data()?.rarity?.tier || '').badge
+									}`}
+								>
+									{(data()?.rarity?.tier || 'standard').toLowerCase()}
+								</span>
+								<span class="text-[11px] font-mono text-[#8c9ba5] bg-white/[0.04] border border-white/[0.08] px-3 py-1 rounded-[8px]">
+									{'iFragment · AVM v8.0'}
+								</span>
+							</div>
 
-								<div class="flex flex-col justify-center items-center z-10 text-center flex-grow py-4 w-full">
-									<div class="inline-flex items-center justify-center gap-2.5 max-w-full">
-										<span class="text-sky-300/90 text-lg select-none">✦</span>
-										<span
-											class="inline-block font-black tracking-tighter text-white truncate max-w-[82%]"
-											style={{ 'font-size': getFontSize(data()?.username || username()) }}
-											dir="ltr"
-										>
-											@{data()?.username || username()}
-										</span>
-										<span class="text-sky-300/90 text-lg select-none">✦</span>
-									</div>
-								</div>
+							<div class="flex flex-col justify-center items-center z-10 text-center flex-grow py-4 w-full gap-2">
+								<span
+									class="inline-block font-semibold tracking-[-0.03em] text-white truncate max-w-[92%]"
+									style={{ 'font-size': getFontSize(data()?.username || username()) }}
+									dir="ltr"
+								>
+									<span class="text-[#2990FF]">@</span>
+									{data()?.username || username()}
+								</span>
+								<span class="text-[12px] font-mono text-[#60707c]">
+									t.me/{data()?.username || username()}
+								</span>
+							</div>
 
-								<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
-									<div class="flex flex-col gap-1 text-left">
-										<span class="text-[9px] font-black text-white/45 uppercase tracking-[0.16em]">
-											ESTIMATED MARKET PRICE
-										</span>
-										<div class="flex items-center gap-2">
-											<span class="w-6 h-6 rounded-full bg-[#0098EA] inline-flex items-center justify-center text-white text-[11px] font-black shadow-[0_0_12px_rgba(0,152,234,0.45)]">
-												▼
-											</span>
-											<span class="text-[28px] font-black text-white leading-none tracking-tight">
-												{fmtTon(expectedTon())}
-											</span>
-											<span class="text-[13px] font-black text-[#0098EA] mb-0.5">
-												TON
-											</span>
-										</div>
-									</div>
-									<div class="flex flex-col items-end gap-1.5">
-										<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-[8px] font-black text-emerald-400 tracking-widest uppercase">
-											● VERIFIED
-										</span>
-										<span class="text-[14px] text-white/75 font-black leading-none font-mono">
-											≈ ${fmtUsd(parseFloat(data()?.expected_usd || '0') || expectedTon() * 3.48)}
-										</span>
-									</div>
+							<div class="flex justify-between items-end border-t border-white/[0.08] pt-4 z-10">
+								<div class="flex flex-col gap-1.5 text-left">
+									<span class="text-[11px] text-[#8c9ba5]">
+										{t('usernamePage.estimatedFairValue')}
+									</span>
+									<TonAmount size="xl" value={fmtTon(expectedTon())} />
+								</div>
+								<div class="flex flex-col items-end gap-1.5">
+									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[6px] bg-[#4cd964]/12 border border-[#4cd964]/30 text-[11px] font-medium text-[#4cd964]">
+										<span class="w-1.5 h-1.5 rounded-full bg-[#4cd964]" />
+										{data()?.quality_grade || 'AA+'} · {data()?.confidence_score ?? 90}%
+									</span>
+									<span class="text-[13px] text-[#a9b6bf] font-mono tabular-nums leading-none">
+										≈ ${fmtUsd(parseFloat(data()?.expected_usd || '0') || expectedTon() * 5.25)}
+									</span>
 								</div>
 							</div>
 						</div>

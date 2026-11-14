@@ -1,13 +1,6 @@
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import { toPng } from 'html-to-image';
-import {
-	createEffect,
-	createMemo,
-	createSignal,
-	For,
-	onCleanup,
-	Show,
-} from 'solid-js';
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js';
 import { giftsApi } from '@/entities/gifts/api/giftsApi.js';
 import type {
 	ComparableGiftSale,
@@ -15,15 +8,11 @@ import type {
 	EnrichedGiftReport,
 } from '@/entities/gifts/model/types.js';
 import { GiftThumbnail } from '@/entities/gifts/ui/GiftThumbnail.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { isRtl, locale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import {
-	CreditStoreSheet,
-	UnifiedPaywallGate,
-	useWallet,
-} from '@/widgets/paywall/index.js';
+import { CreditStoreSheet, UnifiedPaywallGate, useWallet } from '@/widgets/paywall/index.js';
 
 function formatUsd(val: number | string | undefined | null): string {
 	const num = typeof val === 'string' ? Number.parseFloat(val) : (val ?? 0);
@@ -50,11 +39,12 @@ function formatTon(val: number | string | undefined | null): string {
 }
 
 function formatDateLocale(iso?: string): string {
-	if (!iso) return isRtl() ? 'نامشخص' : 'Unknown';
+	if (!iso) return t('giftReport.unknownDate');
 	try {
 		const d = new Date(iso);
 		if (Number.isNaN(d.getTime())) return iso;
-		return d.toLocaleDateString(isRtl() ? 'fa-IR' : 'en-US', {
+		const locMap: Record<string, string> = { fa: 'fa-IR', ru: 'ru-RU', zh: 'zh-CN', en: 'en-US' };
+		return d.toLocaleDateString(locMap[locale()] || 'en-US', {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric',
@@ -157,9 +147,9 @@ export const GiftReportPage = () => {
 	const [simModel, setSimModel] = createSignal<string>('');
 	const [simBackdrop, setSimBackdrop] = createSignal<string>('');
 	const [simSymbol, setSimSymbol] = createSignal<string>('');
-	const [catalogSubTab, setCatalogSubTab] = createSignal<
-		'models' | 'backdrops' | 'symbols'
-	>('models');
+	const [catalogSubTab, setCatalogSubTab] = createSignal<'models' | 'backdrops' | 'symbols'>(
+		'models',
+	);
 
 	// 3D Holographic Card Tilt State
 	let heroCardRef: HTMLDivElement | undefined;
@@ -170,28 +160,11 @@ export const GiftReportPage = () => {
 		glossY: 50,
 	});
 
-	const tr = (fa: string, en: string, ru?: string, zh?: string) => {
-		if (isRtl()) return fa;
-		return en || ru || zh || fa;
-	};
-
 	const scanMessages = createMemo(() => [
-		tr(
-			'واکاوی رجیستری گیفت‌های تلگرام و استاندارد TEP-62...',
-			'Scanning Telegram Gift Registry & TEP-62 Contract...',
-		),
-		tr(
-			'استخراج DNA سه‌محوره (Model, Backdrop, Symbol)...',
-			'Extracting 3-Axis Trait DNA (Model, Backdrop, Symbol)...',
-		),
-		tr(
-			'بررسی ماتریس کف قیمت در ۶ مارکت‌پلیس فعال...',
-			'Querying 4-Floor Matrix Across 6 Active Marketplaces...',
-		),
-		tr(
-			'محاسبه ارزش منصفانه ۴ پایه‌ای (GV Engine v4.2)...',
-			'Computing Bayesian 4-Pillar Valuation (GV Engine v4.2)...',
-		),
+		t('giftReport.scanStep1'),
+		t('giftReport.scanStep2'),
+		t('giftReport.scanStep3'),
+		t('giftReport.scanStep4'),
 	]);
 
 	let scanTimer: ReturnType<typeof setInterval> | undefined;
@@ -283,14 +256,7 @@ export const GiftReportPage = () => {
 				setIsUnlocked(false);
 			}
 		} catch (e: unknown) {
-			setError(
-				e instanceof Error
-					? e.message
-					: tr(
-							'خطا در برقراری ارتباط با موتور ارزش‌گذاری گیفت',
-							'Failed to connect to Gift Valuation Engine',
-						),
-			);
+			setError(e instanceof Error ? e.message : t('giftReport.connectEngineError'));
 		} finally {
 			setLoading(false);
 			if (scanTimer) clearInterval(scanTimer);
@@ -388,10 +354,9 @@ export const GiftReportPage = () => {
 			} catch {}
 			const status = (err as { response?: { status?: number } })?.response?.status;
 			const msg =
-				(err as { response?: { data?: { error?: string; message?: string } } })?.response
-					?.data?.error ||
-				(err as { response?: { data?: { message?: string } } })?.response?.data
-					?.message ||
+				(err as { response?: { data?: { error?: string; message?: string } } })?.response?.data
+					?.error ||
+				(err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
 				(err instanceof Error ? err.message : '');
 
 			if (
@@ -402,13 +367,7 @@ export const GiftReportPage = () => {
 			) {
 				setStoreOpen(true);
 			} else {
-				setUnlockError(
-					msg ||
-						tr(
-							'خطا در بازگشایی گزارش با کردیت. لطفاً دوباره تلاش کنید.',
-							'Failed to unlock gift report with credit.',
-						),
-				);
+				setUnlockError(msg || t('giftReport.unlockCreditError'));
 			}
 		} finally {
 			setUnlocking(false);
@@ -540,29 +499,21 @@ export const GiftReportPage = () => {
 		return {
 			center_hex: '#1e293b',
 			edge_hex: '#0f172a',
-			pattern_hex: '#38bdf8',
+			pattern_hex: '#5aaeff',
 			text_hex: '#f8fafc',
 		};
 	});
 
-	const modelTrait = createMemo(() =>
-		report()?.trait_dna?.find((x) => x.axis_key === 'model'),
-	);
+	const modelTrait = createMemo(() => report()?.trait_dna?.find((x) => x.axis_key === 'model'));
 	const backdropTrait = createMemo(() =>
 		report()?.trait_dna?.find((x) => x.axis_key === 'backdrop'),
 	);
-	const symbolTrait = createMemo(() =>
-		report()?.trait_dna?.find((x) => x.axis_key === 'symbol'),
-	);
+	const symbolTrait = createMemo(() => report()?.trait_dna?.find((x) => x.axis_key === 'symbol'));
 
 	const fairValueTon = createMemo(() => {
 		const r = report();
 		if (!r) return 0;
-		return (
-			r.pillars?.fair_value_gram ||
-			Number.parseFloat(String(r.expected_gram || '0')) ||
-			0
-		);
+		return r.pillars?.fair_value_gram || Number.parseFloat(String(r.expected_gram || '0')) || 0;
 	});
 
 	const fairValueUsd = createMemo(() => {
@@ -625,8 +576,7 @@ export const GiftReportPage = () => {
 		const range = Math.max(1, maxP - minP);
 
 		return sales.map((s, idx) => {
-			const x =
-				sales.length === 1 ? 50 : Math.round((idx / (sales.length - 1)) * 88 + 6);
+			const x = sales.length === 1 ? 50 : Math.round((idx / (sales.length - 1)) * 88 + 6);
 			const y = Math.round(86 - ((s.sale_price_gram - minP) / range) * 70);
 			return {
 				x,
@@ -645,38 +595,28 @@ export const GiftReportPage = () => {
 			return {
 				label: 'GRAIL TIER',
 				badge: 'bg-amber-500/20 text-amber-300 border-amber-400/40',
-				wrapper: 'from-amber-400/50 via-[#0098EA]/40 to-purple-500/50',
+				wrapper: 'from-amber-400/50 via-[#2990ff]/40 to-[#5aaeff]/40',
 			};
 		}
 		if (sn <= 99 || score >= 82) {
 			return {
 				label: 'APEX COLLECTIBLE',
-				badge: 'bg-purple-500/20 text-purple-300 border-purple-400/40',
-				wrapper: 'from-purple-500/40 via-[#0098EA]/40 to-emerald-400/40',
+				badge: 'bg-[#2990ff]/15 text-[#7ec0ff] border-[#5aaeff]/35',
+				wrapper: 'from-[#2990ff]/40 via-white/15 to-[#4cd964]/35',
 			};
 		}
 		return {
 			label: 'VERIFIED TEP-62',
-			badge: 'bg-[#0098EA]/20 text-[#38bdf8] border-[#0098EA]/40',
-			wrapper: 'from-[#0098EA]/40 via-white/15 to-emerald-500/30',
+			badge: 'bg-[#2990ff]/20 text-[#5aaeff] border-[#2990ff]/40',
+			wrapper: 'from-[#2990ff]/40 via-white/15 to-emerald-500/30',
 		};
 	});
 
 	return (
 		<div
-			class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden"
+			class="frag-canvas pb-36 text-[#f3f5f8] min-h-screen relative font-sans selection:bg-[#2990ff]/30 overflow-x-clip"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			{/* Ambient Dynamic Backdrop Glow */}
-			<div
-				class="fixed top-[-12%] left-[-10%] w-[380px] h-[380px] rounded-full blur-[135px] pointer-events-none z-0 opacity-25 transition-colors duration-700"
-				style={{ background: backdropColors().center_hex }}
-			/>
-			<div
-				class="fixed bottom-[-12%] right-[-10%] w-[360px] h-[360px] rounded-full blur-[135px] pointer-events-none z-0 opacity-20 transition-colors duration-700"
-				style={{ background: '#0098EA' }}
-			/>
-
 			<div class="max-w-[520px] mx-auto px-4 pt-4 relative z-10 flex flex-col gap-3.5">
 				{/* ═══════ 1. TOP INSTITUTIONAL HEADER ═══════ */}
 				<div class="flex items-center justify-between gap-2">
@@ -689,7 +629,7 @@ export const GiftReportPage = () => {
 								} catch {}
 								navigate('/gifts');
 							}}
-							class="w-10 h-10 rounded-[14px] bg-[#12141C] border border-white/10 flex items-center justify-center text-white/75 hover:text-white active:scale-95 transition-all shrink-0"
+							class="w-10 h-10 rounded-[14px] bg-[#1b232d] border border-white/10 flex items-center justify-center text-white/75 hover:text-white active:scale-95 transition-all shrink-0"
 							aria-label="Back"
 						>
 							<span class="material-symbols-outlined text-[20px]">
@@ -699,20 +639,14 @@ export const GiftReportPage = () => {
 						<div class="min-w-0">
 							<div class="flex items-center gap-1.5">
 								<h1 class="text-[15px] font-black tracking-tight text-white truncate">
-									{tr(
-										'کارشناسی و کالبدشکافی گیفت',
-										'Telegram Gift Appraisal',
-									)}
+									{t('giftReport.pageTitle')}
 								</h1>
-								<span class="px-1.5 py-0.5 rounded-md bg-[#0098EA]/15 border border-[#0098EA]/30 text-[#38bdf8] text-[9px] font-mono font-black uppercase shrink-0">
-									TEP-62
+								<span class="px-1.5 py-0.5 rounded-md bg-[#2990ff]/15 border border-[#2990ff]/30 text-[#5aaeff] text-[9px] font-mono font-black uppercase shrink-0">
+									{t('giftReport.badgeTep62')}
 								</span>
 							</div>
 							<p class="text-[10px] text-white/45 font-medium truncate">
-								{tr(
-									'ارزش‌گذاری ۴ پایه‌ای، ماتریس کف تریت و رصد آن‌چین TON',
-									'4-Pillar GV Engine, Trait Floor Matrix & On-Chain Telemetry',
-								)}
+								{t('giftReport.pageSubtitle')}
 							</p>
 						</div>
 					</div>
@@ -720,30 +654,27 @@ export const GiftReportPage = () => {
 					<div class="flex items-center gap-1.5 shrink-0">
 						<A
 							href={`/gifts/collection?c=${encodeURIComponent(
-								report()?.collection_id ||
-									parsedTarget().slug.replace(/_/g, '-'),
+								report()?.collection_id || parsedTarget().slug.replace(/_/g, '-'),
 							)}`}
-							class="h-9 px-2.5 rounded-[12px] bg-[#12141C] border border-white/10 hover:border-[#0098EA]/40 text-[10px] font-bold text-white/75 hover:text-white flex items-center gap-1 transition-all"
+							class="h-9 px-2.5 rounded-[12px] bg-[#1b232d] border border-white/10 hover:border-[#2990ff]/40 text-[10px] font-bold text-white/75 hover:text-white flex items-center gap-1 transition-all"
 						>
-							<span class="material-symbols-outlined text-[15px] text-[#0098EA]">
-								grid_view
-							</span>
-							<span>{tr('کلکسیون', 'Collection')}</span>
+							<span class="material-symbols-outlined text-[15px] text-[#2990ff]">grid_view</span>
+							<span>{t('giftReport.collectionBtn')}</span>
 						</A>
 						<div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25">
 							<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
 							<span class="text-[9px] font-mono font-black text-emerald-400 uppercase tracking-wider">
-								LIVE
+								{t('common.live')}
 							</span>
 						</div>
 					</div>
 				</div>
 
 				{/* ═══════ 2. SEARCH BAR & QUICK BENCHMARK CHIPS ═══════ */}
-				<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[22px] p-3 flex flex-col gap-2.5 shadow-xl">
+				<div class="bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-3 flex flex-col gap-2.5 shadow-xl">
 					<form onSubmit={handleSearchSubmit} class="flex items-center gap-2">
 						<div class="relative flex-1">
-							<span class="material-symbols-outlined text-[18px] text-[#0098EA] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+							<span class="material-symbols-outlined text-[18px] text-[#2990ff] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
 								redeem
 							</span>
 							<input
@@ -752,7 +683,7 @@ export const GiftReportPage = () => {
 								onInput={(e) => setSearchInput(e.currentTarget.value)}
 								placeholder="plush_pepe-42 or t.me/nft/PlushPepe-42"
 								dir="ltr"
-								class="w-full h-10 bg-[#08090D] border border-white/10 focus:border-[#0098EA] rounded-[13px] pl-9 pr-8 text-[12px] font-mono font-bold text-white placeholder:text-white/30 focus:outline-none transition-colors"
+								class="w-full h-10 bg-[#141a22] border border-white/10 focus:border-[#2990ff] rounded-[13px] pl-9 pr-8 text-[12px] font-mono font-bold text-white placeholder:text-white/30 focus:outline-none transition-colors"
 							/>
 							<Show when={searchInput().length > 0}>
 								<button
@@ -760,29 +691,22 @@ export const GiftReportPage = () => {
 									onClick={() => setSearchInput('')}
 									class="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/35 hover:text-white"
 								>
-									<span class="material-symbols-outlined text-[16px]">
-										close
-									</span>
+									<span class="material-symbols-outlined text-[16px]">close</span>
 								</button>
 							</Show>
 						</div>
 						<button
 							type="submit"
 							disabled={loading()}
-							class="h-10 px-4 rounded-[13px] bg-[#0098EA] hover:bg-[#0086cf] disabled:opacity-50 text-white font-black text-[11px] flex items-center gap-1.5 shadow-[0_4px_14px_rgba(0,152,234,0.3)] active:scale-95 transition-all shrink-0"
+							class="h-10 px-4 rounded-[13px] bg-[#2990ff] hover:bg-[#2481cc] disabled:opacity-50 text-white font-black text-[11px] flex items-center gap-1.5 shadow-[0_4px_14px_rgba(41,144,255,0.3)] active:scale-95 transition-all shrink-0"
 						>
-							<span class="material-symbols-outlined text-[16px]">
-								travel_explore
-							</span>
-							<span>{tr('کالبدشکافی', 'Appraise')}</span>
+							<span class="material-symbols-outlined text-[16px]">travel_explore</span>
+							<span>{t('giftReport.appraiseBtn')}</span>
 						</button>
 					</form>
 
 					{/* Quick Benchmark Gift Chips */}
-					<div
-						class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5"
-						dir="ltr"
-					>
+					<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" dir="ltr">
 						<For each={BENCHMARK_GIFTS}>
 							{(item) => {
 								const isActive = () => giftQuery() === item.id;
@@ -792,12 +716,12 @@ export const GiftReportPage = () => {
 										onClick={() => selectQuickGift(item.id)}
 										class={`px-2.5 py-1 rounded-[10px] text-[10px] font-mono font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
 											isActive()
-												? 'bg-[#0098EA]/20 text-white border-[#0098EA]/50 shadow-[0_2px_10px_rgba(0,152,234,0.2)]'
-												: 'bg-[#08090D] text-white/55 border-white/5 hover:text-white hover:border-white/15'
+												? 'bg-[#2990ff]/20 text-white border-[#2990ff]/50 shadow-[0_2px_10px_rgba(41,144,255,0.2)]'
+												: 'bg-[#141a22] text-white/55 border-white/5 hover:text-white hover:border-white/15'
 										}`}
 									>
 										<span>{item.label}</span>
-										<span class="text-[8px] px-1 py-0.2 rounded bg-white/5 text-[#38bdf8]">
+										<span class="text-[8px] px-1 py-0.2 rounded bg-white/5 text-[#5aaeff]">
 											{item.tag}
 										</span>
 									</button>
@@ -808,7 +732,7 @@ export const GiftReportPage = () => {
 				</div>
 
 				{/* ═══════ 3. COMPACT ASSET IDENTITY BAR ═══════ */}
-				<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[22px] p-3 flex items-center justify-between gap-2 shadow-lg">
+				<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-3 flex items-center justify-between gap-2 shadow-lg">
 					<div class="flex items-center gap-2.5 min-w-0">
 						<div
 							class="w-11 h-11 rounded-[14px] p-1 flex items-center justify-center border border-white/15 shrink-0 overflow-hidden relative"
@@ -819,23 +743,20 @@ export const GiftReportPage = () => {
 							<GiftThumbnail
 								slug={parsedTarget().slug}
 								model={report()?.selected_model || gate()?.selected_model}
-								serial={parsedTarget().serial}
-								imageUrl={report()?.image_url || gate()?.image_url}
-								alt={parsedTarget().prettyTitle}
+								serialNumber={parsedTarget().serial}
+								customImageUrl={report()?.image_url || gate()?.image_url}
+								name={parsedTarget().prettyTitle}
 								size="sm"
 							/>
 						</div>
 						<div class="flex flex-col min-w-0 text-start">
 							<div class="flex items-center gap-1.5">
-								<span
-									class="text-[15px] font-mono font-black text-white truncate"
-									dir="ltr"
-								>
+								<span class="text-[15px] font-mono font-black text-white truncate" dir="ltr">
 									{report()?.display_title || parsedTarget().prettyTitle}
 								</span>
 								<span
-									class="material-symbols-outlined text-[16px] text-[#0098EA] shrink-0"
-									title="Verified Telegram Collectible Gift"
+									class="material-symbols-outlined text-[16px] text-[#2990ff] shrink-0"
+									title={t('giftReport.verifiedCollectibleTitle')}
 								>
 									verified
 								</span>
@@ -843,18 +764,13 @@ export const GiftReportPage = () => {
 							<div class="flex items-center gap-1.5">
 								<span
 									class={`w-1.5 h-1.5 rounded-full ${
-										report()?.custody_type === 'on_chain_nft'
-											? 'bg-emerald-400'
-											: 'bg-[#0098EA]'
+										report()?.custody_type === 'on_chain_nft' ? 'bg-emerald-400' : 'bg-[#2990ff]'
 									}`}
 								/>
 								<span class="text-[10px] font-mono font-bold text-white/60 truncate">
 									{isUnlocked() && report()
 										? `${modelTrait()?.value || report()?.selected_model || 'Original'} · ${backdropTrait()?.value || 'Verified'}`
-										: tr(
-												'آماده رمزگشایی گزارش کامل',
-												'Appraisal Ready to Decrypt',
-											)}
+										: t('giftReport.readyToDecrypt')}
 								</span>
 							</div>
 						</div>
@@ -871,7 +787,7 @@ export const GiftReportPage = () => {
 										? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
 										: 'bg-white/5 border-white/10 text-white/65 hover:text-white'
 								}`}
-								title={tr('افزودن به دیده‌بان قیمت', 'Watchlist Alert')}
+								title={t('giftReport.watchlistAlertTitle')}
 							>
 								<span class="material-symbols-outlined text-[18px]">
 									{watched() ? 'notifications_active' : 'notifications'}
@@ -883,11 +799,11 @@ export const GiftReportPage = () => {
 							disabled={loading()}
 							onClick={() => void loadGiftIntelligence(giftQuery())}
 							class="w-9 h-9 rounded-[12px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white flex items-center justify-center transition-all active:scale-95"
-							title={tr('بروزرسانی زنده', 'Refresh Live Data')}
+							title={t('giftReport.refreshLiveTitle')}
 						>
 							<span
 								class={`material-symbols-outlined text-[18px] ${
-									loading() ? 'animate-spin text-[#0098EA]' : ''
+									loading() ? 'animate-spin text-[#2990ff]' : ''
 								}`}
 							>
 								refresh
@@ -898,21 +814,18 @@ export const GiftReportPage = () => {
 
 				{/* ═══════ 4. STATE 1: SCANNING ANIMATION ═══════ */}
 				<Show when={loading()}>
-					<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-7 flex flex-col items-center justify-center text-center gap-4 shadow-2xl my-2">
+					<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-7 flex flex-col items-center justify-center text-center gap-4 shadow-2xl my-2">
 						<div class="relative w-16 h-16 flex items-center justify-center">
-							<div class="absolute inset-0 rounded-full border-2 border-[#0098EA]/20 border-t-[#0098EA] animate-spin" />
-							<span class="material-symbols-outlined text-[28px] text-[#0098EA] animate-pulse">
+							<div class="absolute inset-0 rounded-full border-2 border-[#2990ff]/20 border-t-[#2990ff] animate-spin" />
+							<span class="material-symbols-outlined text-[28px] text-[#2990ff] animate-pulse">
 								redeem
 							</span>
 						</div>
 						<div class="flex flex-col gap-1">
-							<span
-								class="text-[15px] font-mono font-black text-white"
-								dir="ltr"
-							>
+							<span class="text-[15px] font-mono font-black text-white" dir="ltr">
 								{parsedTarget().prettyTitle}
 							</span>
-							<span class="text-[12px] font-bold text-[#38bdf8] min-h-[20px]">
+							<span class="text-[12px] font-bold text-[#5aaeff] min-h-[20px]">
 								{scanMessages()[scanStep()]}
 							</span>
 						</div>
@@ -921,7 +834,7 @@ export const GiftReportPage = () => {
 								{(idx) => (
 									<div
 										class={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-											scanStep() >= idx ? 'bg-[#0098EA]' : 'bg-white/10'
+											scanStep() >= idx ? 'bg-[#2990ff]' : 'bg-white/10'
 										}`}
 									/>
 								)}
@@ -933,16 +846,14 @@ export const GiftReportPage = () => {
 				{/* ═══════ 5. ERROR BANNER ═══════ */}
 				<Show when={!loading() && error()}>
 					<div class="w-full bg-rose-500/10 border border-rose-500/30 rounded-[24px] p-5 text-center flex flex-col items-center gap-3">
-						<span class="material-symbols-outlined text-[32px] text-rose-400">
-							error
-						</span>
+						<span class="material-symbols-outlined text-[32px] text-rose-400">error</span>
 						<p class="text-[12px] font-bold text-rose-200">{error()}</p>
 						<button
 							type="button"
 							onClick={() => void loadGiftIntelligence(giftQuery())}
 							class="h-10 px-5 rounded-[12px] bg-rose-500 hover:bg-rose-600 text-white font-black text-[11px]"
 						>
-							{tr('تلاش مجدد', 'Try Again')}
+							{t('giftReport.tryAgainBtn')}
 						</button>
 					</div>
 				</Show>
@@ -954,17 +865,13 @@ export const GiftReportPage = () => {
 						fallback={
 							<div class="w-full flex flex-col gap-3.5 relative z-20">
 								{/* Pre-Appraisal Curiosity Teaser Card (Matches Username & Number Reports) */}
-								<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 flex flex-col items-center text-center relative overflow-hidden shadow-2xl">
-									<div class="absolute inset-0 bg-gradient-to-br from-[#0098EA]/10 via-transparent to-emerald-500/10 pointer-events-none" />
+								<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-5 flex flex-col items-center text-center relative overflow-hidden shadow-2xl">
+									<div class="absolute inset-0 bg-gradient-to-br from-[#2990ff]/10 via-transparent to-emerald-500/10 pointer-events-none" />
 
 									<div class="flex items-center gap-2 mb-2 z-10">
 										<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
 										<span class="text-[11px] font-mono font-black uppercase tracking-widest text-emerald-400">
-											{t('valuation.report_ready') ||
-												tr(
-													'گزارش کارشناسی آماده رمزگشایی است',
-													'GIFT APPRAISAL READY',
-												)}
+											{t('valuation.report_ready') || t('giftReport.giftAppraisalReady')}
 										</span>
 									</div>
 
@@ -979,12 +886,10 @@ export const GiftReportPage = () => {
 
 									<div class="flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 z-10 my-1.5">
 										<span class="w-2 h-2 rounded-full bg-emerald-400" />
-										<span class="font-bold">TEP-62 COLLECTIBLE GIFT</span>
+										<span class="font-bold">{t('giftReport.tep62CollectibleBadge')}</span>
 										<Show when={gate()?.selected_model}>
 											<span class="text-white/30">|</span>
-											<span class="text-[#38bdf8] font-bold">
-												Model: {gate()?.selected_model}
-											</span>
+											<span class="text-[#5aaeff] font-bold">Model: {gate()?.selected_model}</span>
 										</Show>
 										<Show when={gate()?.floor_price_gram}>
 											<span class="text-white/30">|</span>
@@ -996,63 +901,49 @@ export const GiftReportPage = () => {
 
 									{/* 3-Metric Pre-Unlock Telemetry Strip */}
 									<div class="w-full grid grid-cols-3 gap-2 my-2.5 z-10">
-										<div class="bg-[#08090D]/90 border border-white/8 rounded-[14px] p-2.5 flex flex-col items-center">
-											<span class="text-[15px] font-mono font-black text-[#38bdf8]">
+										<div class="bg-[#141a22]/90 border border-white/8 rounded-[14px] p-2.5 flex flex-col items-center">
+											<span class="text-[15px] font-mono font-black text-[#5aaeff]">
 												{gate()?.signals_analyzed || 28}
 											</span>
 											<span class="text-[9px] text-white/50 font-bold">
-												{tr('سیگنال آن‌چین', 'On-Chain Signals')}
+												{t('giftReport.onChainSignals')}
 											</span>
 										</div>
-										<div class="bg-[#08090D]/90 border border-white/8 rounded-[14px] p-2.5 flex flex-col items-center">
+										<div class="bg-[#141a22]/90 border border-white/8 rounded-[14px] p-2.5 flex flex-col items-center">
 											<span class="text-[15px] font-mono font-black text-emerald-400">
 												{gate()?.data_sources_count || 6}
 											</span>
 											<span class="text-[9px] text-white/50 font-bold">
-												{tr('مارکت‌پلیس زنده', 'Live Venues')}
+												{t('giftReport.liveVenues')}
 											</span>
 										</div>
-										<div class="bg-[#08090D]/90 border border-white/8 rounded-[14px] p-2.5 flex flex-col items-center">
+										<div class="bg-[#141a22]/90 border border-white/8 rounded-[14px] p-2.5 flex flex-col items-center">
 											<span class="text-[15px] font-mono font-black text-amber-400">
-												4-Axis
+												{t('giftReport.fourAxisValue')}
 											</span>
 											<span class="text-[9px] text-white/50 font-bold">
-												{tr('ماتریس کف تریت', 'Trait Floors')}
+												{t('giftReport.traitFloors')}
 											</span>
 										</div>
 									</div>
 
 									{/* Blurred Price Preview Box */}
-									<div class="w-full bg-white/5 border border-white/10 rounded-[20px] p-4 flex flex-col items-center justify-center my-1.5 relative overflow-hidden backdrop-blur-md z-10 shadow-inner">
+									<div class="w-full bg-white/5 border border-white/[0.08] rounded-2xl p-4 flex flex-col items-center justify-center my-1.5 relative overflow-hidden backdrop-blur-md z-10 shadow-inner">
 										<span class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
-											{t('valuation.estimated_price') ||
-												tr(
-													'برآورد ارزش منصفانه (Fair Value)',
-													'ESTIMATED FAIR VALUE',
-												)}
+											{t('valuation.estimated_price') || t('giftReport.estimatedFairValue')}
 										</span>
 										<div class="flex items-center gap-2 filter blur-[6px] select-none opacity-80">
-											<span class="text-[26px] font-black text-white font-mono">
-												✦,✦✦✦
-											</span>
-											<span class="text-[16px] font-bold text-[#0098EA]">
-												TON
-											</span>
+											<span class="text-[26px] font-black text-white font-mono">✦,✦✦✦</span>
+											<span class="text-[16px] font-bold text-[#2990ff]">{t('common.ton')}</span>
 										</div>
 										<span class="text-[10px] text-white/40 font-mono filter blur-[3px] mt-0.5">
 											≈ $✦✦,✦✦✦ USD · P10 / P50 / P90
 										</span>
 
 										<div class="absolute inset-0 flex items-center justify-center bg-black/35 backdrop-blur-[1px]">
-											<span class="px-3.5 py-1.5 rounded-[12px] bg-[#0098EA]/20 border border-[#0098EA]/50 text-[#38bdf8] text-[11px] font-mono font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
-												<span class="material-symbols-outlined text-[15px]">
-													lock
-												</span>
-												{t('valuation.locked_tap_to_decrypt') ||
-													tr(
-														'بازگشایی با ۱ کردیت تحلیلی',
-														'UNLOCK WITH 1 INTEL CREDIT',
-													)}
+											<span class="px-3.5 py-1.5 rounded-[12px] bg-[#2990ff]/20 border border-[#2990ff]/50 text-[#5aaeff] text-[11px] font-mono font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
+												<span class="material-symbols-outlined text-[15px]">lock</span>
+												{t('valuation.locked_tap_to_decrypt') || t('giftReport.unlockWith1Credit')}
 											</span>
 										</div>
 									</div>
@@ -1062,21 +953,15 @@ export const GiftReportPage = () => {
 								<UnifiedPaywallGate
 									vertical="gift"
 									targetTitle={parsedTarget().prettyTitle}
-									targetSubtitle={tr(
-										'گزارش کامل ارزش‌گذاری ۴ پایه‌ای، ماتریس کف تریت، شبیه‌ساز تریت و تاریخچه مالکیت',
-										'Full 4-Pillar Valuation, Trait Floor Matrix, What-If Simulator & Provenance',
-									)}
+									targetSubtitle={t('giftReport.paywallTargetSubtitle')}
 									targetGiftSlug={parsedTarget().slug}
 									targetGiftModel={gate()?.selected_model}
 									targetGiftSerial={parsedTarget().serial}
 									targetImage={gate()?.image_url}
-									targetBadge={
-										t('paywall.ready_for_appraisal') || 'READY FOR APPRAISAL'
-									}
-									unlockCtaText={tr(
-										`بازگشایی گزارش ${parsedTarget().prettyTitle} (۱ کردیت)`,
-										`Unlock ${parsedTarget().prettyTitle} (1 Credit)`,
-									)}
+									targetBadge={t('paywall.ready_for_appraisal') || 'READY FOR APPRAISAL'}
+									unlockCtaText={t('giftReport.unlockGiftCta', {
+										title: parsedTarget().prettyTitle,
+									})}
 									onUnlock={handleUnlockWithCredit}
 									unlocking={unlocking()}
 									error={unlockError()}
@@ -1087,7 +972,7 @@ export const GiftReportPage = () => {
 						{(rep) => (
 							<div class="w-full flex flex-col gap-3.5">
 								{/* ═══════ 4-TAB STICKY SEGMENTED NAVIGATION BAR ═══════ */}
-								<div class="w-full grid grid-cols-4 gap-1.5 p-1.5 rounded-[20px] bg-[#12141C]/95 border border-white/10 shadow-lg sticky top-2 z-30 backdrop-blur-2xl">
+								<div class="w-full grid grid-cols-4 gap-1.5 p-1.5 rounded-[20px] bg-[#1b232d]/95 border border-white/10 shadow-lg sticky top-2 z-30 backdrop-blur-2xl">
 									<button
 										type="button"
 										onClick={() => {
@@ -1098,15 +983,13 @@ export const GiftReportPage = () => {
 										}}
 										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
 											activeTab() === 'valuation'
-												? 'bg-[#0098EA] text-white shadow-[0_4px_15px_rgba(0,152,234,0.35)]'
+												? 'bg-[#2990ff] text-white shadow-[0_4px_15px_rgba(41,144,255,0.35)]'
 												: 'text-white/50 hover:text-white hover:bg-white/5'
 										}`}
 									>
-										<span class="material-symbols-outlined text-[18px]">
-											diamond
-										</span>
+										<span class="material-symbols-outlined text-[18px]">diamond</span>
 										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{tr('ارزش‌گذاری', 'Valuation')}
+											{t('giftReport.tabValuation')}
 										</span>
 									</button>
 
@@ -1120,15 +1003,13 @@ export const GiftReportPage = () => {
 										}}
 										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
 											activeTab() === 'traits'
-												? 'bg-[#0098EA] text-white shadow-[0_4px_15px_rgba(0,152,234,0.35)]'
+												? 'bg-[#2990ff] text-white shadow-[0_4px_15px_rgba(41,144,255,0.35)]'
 												: 'text-white/50 hover:text-white hover:bg-white/5'
 										}`}
 									>
-										<span class="material-symbols-outlined text-[18px]">
-											palette
-										</span>
+										<span class="material-symbols-outlined text-[18px]">palette</span>
 										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{tr('تریت و کمیابی', 'Trait DNA')}
+											{t('giftReport.tabTraitDna')}
 										</span>
 									</button>
 
@@ -1142,7 +1023,7 @@ export const GiftReportPage = () => {
 										}}
 										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
 											activeTab() === 'onchain'
-												? 'bg-[#0098EA] text-white shadow-[0_4px_15px_rgba(0,152,234,0.35)]'
+												? 'bg-[#2990ff] text-white shadow-[0_4px_15px_rgba(41,144,255,0.35)]'
 												: 'text-white/50 hover:text-white hover:bg-white/5'
 										}`}
 									>
@@ -1150,7 +1031,7 @@ export const GiftReportPage = () => {
 											account_balance_wallet
 										</span>
 										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{tr('زنجیره و نهنگ', 'On-Chain')}
+											{t('giftReport.tabOnChain')}
 										</span>
 									</button>
 
@@ -1164,15 +1045,13 @@ export const GiftReportPage = () => {
 										}}
 										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
 											activeTab() === 'comps'
-												? 'bg-[#0098EA] text-white shadow-[0_4px_15px_rgba(0,152,234,0.35)]'
+												? 'bg-[#2990ff] text-white shadow-[0_4px_15px_rgba(41,144,255,0.35)]'
 												: 'text-white/50 hover:text-white hover:bg-white/5'
 										}`}
 									>
-										<span class="material-symbols-outlined text-[18px]">
-											monitoring
-										</span>
+										<span class="material-symbols-outlined text-[18px]">monitoring</span>
 										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{tr('معاملات و ریسک', 'Comps & Risk')}
+											{t('giftReport.tabCompsRisk')}
 										</span>
 									</button>
 								</div>
@@ -1183,48 +1062,42 @@ export const GiftReportPage = () => {
 								<Show when={activeTab() === 'valuation'}>
 									<div class="w-full flex flex-col gap-3.5">
 										{/* 3-Mode Hero View Switcher */}
-										<div class="w-full flex items-center justify-between gap-1.5 bg-[#12141C]/90 border border-white/10 rounded-[16px] p-1">
+										<div class="w-full flex items-center justify-between gap-1.5 bg-[#1b232d]/95 border border-white/10 rounded-[16px] p-1">
 											<button
 												type="button"
 												onClick={() => setHeroMode('card')}
 												class={`flex-1 py-2 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
 													heroMode() === 'card'
-														? 'bg-[#0098EA]/20 text-[#38bdf8] border border-[#0098EA]/40'
+														? 'bg-[#2990ff]/20 text-[#5aaeff] border border-[#2990ff]/40'
 														: 'text-white/50 hover:text-white'
 												}`}
 											>
-												<span class="material-symbols-outlined text-[15px]">
-													view_in_ar
-												</span>
-												<span>{tr('کارت هولوگرافیک 3D', '3D Holo Card')}</span>
+												<span class="material-symbols-outlined text-[15px]">view_in_ar</span>
+												<span>{t('giftReport.heroHoloCard')}</span>
 											</button>
 											<button
 												type="button"
 												onClick={() => setHeroMode('wear')}
 												class={`flex-1 py-2 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
 													heroMode() === 'wear'
-														? 'bg-[#0098EA]/20 text-[#38bdf8] border border-[#0098EA]/40'
+														? 'bg-[#2990ff]/20 text-[#5aaeff] border border-[#2990ff]/40'
 														: 'text-white/50 hover:text-white'
 												}`}
 											>
-												<span class="material-symbols-outlined text-[15px]">
-													person_celebrate
-												</span>
-												<span>{tr('نمای پروفایل تلگرام', 'Profile Wear')}</span>
+												<span class="material-symbols-outlined text-[15px]">person_celebrate</span>
+												<span>{t('giftReport.heroProfileWear')}</span>
 											</button>
 											<button
 												type="button"
 												onClick={() => setHeroMode('cert')}
 												class={`flex-1 py-2 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
 													heroMode() === 'cert'
-														? 'bg-[#0098EA]/20 text-[#38bdf8] border border-[#0098EA]/40'
+														? 'bg-[#2990ff]/20 text-[#5aaeff] border border-[#2990ff]/40'
 														: 'text-white/50 hover:text-white'
 												}`}
 											>
-												<span class="material-symbols-outlined text-[15px]">
-													verified_user
-												</span>
-												<span>{tr('سند دیجیتال', 'Certificate')}</span>
+												<span class="material-symbols-outlined text-[15px]">verified_user</span>
+												<span>{t('giftReport.heroCertificate')}</span>
 											</button>
 										</div>
 
@@ -1235,14 +1108,11 @@ export const GiftReportPage = () => {
 											>
 												<div
 													ref={heroCardRef}
-													onMouseMove={(e) =>
-														handleCardPointerMove(e.clientX, e.clientY)
-													}
+													onMouseMove={(e) => handleCardPointerMove(e.clientX, e.clientY)}
 													onMouseLeave={resetCardTilt}
 													onTouchMove={(e) => {
 														const t0 = e.touches[0];
-														if (t0)
-															handleCardPointerMove(t0.clientX, t0.clientY);
+														if (t0) handleCardPointerMove(t0.clientX, t0.clientY);
 													}}
 													onTouchEnd={resetCardTilt}
 													class="w-full h-full rounded-[39px] p-6 relative overflow-hidden flex flex-col justify-between shadow-inner select-none"
@@ -1250,7 +1120,7 @@ export const GiftReportPage = () => {
 														transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
 														background: darkCardBg()
 															? '#08090D'
-															: `radial-gradient(circle at 50% 42%, ${backdropColors().center_hex} 0%, ${backdropColors().edge_hex} 88%, #06070B 100%)`,
+															: `radial-gradient(circle at 50% 42%, ${backdropColors().center_hex} 0%, ${backdropColors().edge_hex} 88%, #11161d 100%)`,
 														transition: 'transform 0.12s ease-out',
 													}}
 												>
@@ -1284,15 +1154,14 @@ export const GiftReportPage = () => {
 																class="px-2.5 py-1 rounded-[10px] bg-black/35 hover:bg-black/55 border border-white/15 text-[9px] font-mono font-bold text-white/80 backdrop-blur-md"
 															>
 																{darkCardBg()
-																	? tr('پس‌زمینه رنگی', 'Chromatic BG')
-																	: tr('زمینه تاریک', 'Dark BG')}
+																	? t('giftReport.bgChromatic')
+																	: t('giftReport.bgDark')}
 															</button>
 															<span
 																class="text-[11px] font-mono font-black text-white bg-black/40 border border-white/15 px-3 py-1 rounded-[12px] backdrop-blur-md"
 																dir="ltr"
 															>
-																#{rep().serial_number} · Rank #
-																{rep().rarity_rank || 1}
+																#{rep().serial_number} · Rank #{rep().rarity_rank || 1}
 															</span>
 														</div>
 													</div>
@@ -1329,8 +1198,7 @@ export const GiftReportPage = () => {
 															class="text-[22px] font-black text-white font-mono tracking-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
 															dir="ltr"
 														>
-															{rep().display_title ||
-																parsedTarget().prettyTitle}
+															{rep().display_title || parsedTarget().prettyTitle}
 														</h2>
 
 														<div class="flex flex-wrap items-center justify-center gap-1.5 max-w-[95%]">
@@ -1368,20 +1236,14 @@ export const GiftReportPage = () => {
 													<div class="flex justify-between items-end border-t border-white/15 pt-3.5 z-10 bg-black/25 -mx-6 -mb-6 px-6 py-4 backdrop-blur-md">
 														<div class="flex flex-col gap-0.5 text-start">
 															<span class="text-[9px] font-black text-white/55 uppercase tracking-widest">
-																{tr(
-																	'ارزش منصفانه کارشناسی',
-																	'ESTIMATED FAIR VALUE',
-																)}
+																{t('giftReport.cardEstimatedFairValue')}
 															</span>
-															<div
-																class="flex items-baseline gap-1.5"
-																dir="ltr"
-															>
+															<div class="flex items-baseline gap-1.5" dir="ltr">
 																<span class="text-[28px] font-black text-white font-mono leading-none tracking-tight">
 																	{formatTon(fairValueTon())}
 																</span>
-																<span class="text-[13px] font-black text-[#38bdf8]">
-																	TON
+																<span class="text-[13px] font-black text-[#5aaeff]">
+																	{t('common.ton')}
 																</span>
 															</div>
 														</div>
@@ -1389,9 +1251,7 @@ export const GiftReportPage = () => {
 														<div class="flex flex-col items-end gap-1">
 															<div class="flex items-center gap-1.5 bg-emerald-500/20 px-2.5 py-0.5 rounded-[8px] border border-emerald-400/40 text-emerald-300 font-mono font-black text-[9px]">
 																<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-																<span>
-																	CONFIDENCE {rep().confidence_score || 94}%
-																</span>
+																<span>CONFIDENCE {rep().confidence_score || 94}%</span>
 															</div>
 															<span
 																class="text-[13px] text-white/85 font-black font-mono leading-none"
@@ -1407,7 +1267,7 @@ export const GiftReportPage = () => {
 
 										{/* HERO MODE 2: Telegram Profile Wear Showcase Simulator */}
 										<Show when={heroMode() === 'wear'}>
-											<div class="w-full rounded-[32px] overflow-hidden border border-white/15 bg-[#12141C] shadow-2xl">
+											<div class="w-full rounded-[32px] overflow-hidden border border-white/15 bg-[#1b232d] shadow-2xl">
 												<div
 													class="p-6 relative flex flex-col items-center text-center overflow-hidden"
 													style={{
@@ -1415,10 +1275,7 @@ export const GiftReportPage = () => {
 													}}
 												>
 													<span class="px-3 py-1 rounded-full bg-black/35 border border-white/15 text-[9px] font-mono font-bold text-white/80 mb-3 backdrop-blur-md">
-														{tr(
-															'شبیه‌ساز نمایش در هدر پروفایل تلگرام (Profile Wear)',
-															'Telegram Profile Header Wear Preview',
-														)}
+														{t('giftReport.profileWearHeader')}
 													</span>
 													<div class="relative w-24 h-24 rounded-full bg-black/35 border-2 border-white/30 flex items-center justify-center p-2 shadow-2xl">
 														<img
@@ -1431,7 +1288,7 @@ export const GiftReportPage = () => {
 															class="w-full h-full object-contain drop-shadow-lg"
 														/>
 														<span
-															class="absolute -bottom-1.5 px-2 py-0.5 rounded-full bg-[#0098EA] text-[9px] font-mono font-black text-white shadow"
+															class="absolute -bottom-1.5 px-2 py-0.5 rounded-full bg-[#2990ff] text-[9px] font-mono font-black text-white shadow"
 															dir="ltr"
 														>
 															#{rep().serial_number}
@@ -1443,27 +1300,18 @@ export const GiftReportPage = () => {
 																rep().owner_name ||
 																'Telegram Collector'}
 														</span>
-														<span class="material-symbols-outlined text-[17px] text-[#38bdf8]">
+														<span class="material-symbols-outlined text-[17px] text-[#5aaeff]">
 															verified
 														</span>
 													</div>
 													<span class="text-[11px] text-white/75 font-mono mt-0.5">
-														Wearing {rep().display_title} ·{' '}
-														{backdropTrait()?.value}
+														Wearing {rep().display_title} · {backdropTrait()?.value}
 													</span>
 												</div>
-												<div class="p-4 bg-[#08090D] flex items-center justify-between text-[11px]">
-													<span class="text-white/55">
-														{tr(
-															'وضعیت نمایش در ویترین پروفایل:',
-															'Profile Showcase Status:',
-														)}
-													</span>
+												<div class="p-4 bg-[#141a22] flex items-center justify-between text-[11px]">
+													<span class="text-white/55">{t('giftReport.profileShowcaseStatus')}</span>
 													<span class="font-mono font-bold text-emerald-400">
-														{tr(
-															'فعال و قابل اتصال به Status تلگرام ✓',
-															'Ready for Emoji Status & Profile Pin ✓',
-														)}
+														{t('giftReport.readyForEmojiStatus')}
 													</span>
 												</div>
 											</div>
@@ -1471,77 +1319,57 @@ export const GiftReportPage = () => {
 
 										{/* HERO MODE 3: Institutional Digital Certificate */}
 										<Show when={heroMode() === 'cert'}>
-											<div class="w-full bg-gradient-to-br from-[#12141C] via-[#0B0D14] to-[#08090D] border-2 border-[#0098EA]/35 rounded-[32px] p-5 flex flex-col gap-4 shadow-2xl relative overflow-hidden">
+											<div class="w-full bg-[#1b232d]/95 border border-[#2990ff]/35 rounded-2xl p-5 flex flex-col gap-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_40px_rgba(0,0,0,0.45)] relative overflow-hidden">
 												<div class="flex items-center justify-between border-b border-white/10 pb-3">
 													<div class="flex items-center gap-2">
-														<span class="material-symbols-outlined text-[22px] text-[#0098EA]">
+														<span class="material-symbols-outlined text-[22px] text-[#2990ff]">
 															workspace_premium
 														</span>
 														<div class="flex flex-col">
 															<span class="text-[11px] font-black uppercase tracking-wider text-white">
-																{tr(
-																	'گواهی رسمی کارشناسی iFragment',
-																	'iFRAGMENT INSTITUTIONAL CERTIFICATE',
-																)}
+																{t('giftReport.institutionalCert')}
 															</span>
-															<span
-																class="text-[9px] font-mono text-white/45"
-																dir="ltr"
-															>
+															<span class="text-[9px] font-mono text-white/45" dir="ltr">
 																{rep().certificate_id ||
 																	`IFRAG-GIFT-${rep().gift_id.toUpperCase()}`}
 															</span>
 														</div>
 													</div>
 													<span class="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 text-[9px] font-mono font-black">
-														VERIFIED TEP-62
+														{t('giftReport.verifiedTep62Badge')}
 													</span>
 												</div>
 
 												<div class="grid grid-cols-2 gap-2.5 text-[11px]">
-													<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
+													<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
 														<span class="text-[9px] text-white/40 uppercase font-mono">
-															{tr('دارایی مورد ارزیابی', 'ASSET TITLE')}
+															{t('giftReport.certAssetTitle')}
 														</span>
-														<span
-															class="font-mono font-black text-white text-[13px]"
-															dir="ltr"
-														>
+														<span class="font-mono font-black text-white text-[13px]" dir="ltr">
 															{rep().display_title}
 														</span>
 													</div>
-													<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
+													<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
 														<span class="text-[9px] text-white/40 uppercase font-mono">
-															{tr('ارزش منصفانه (P50)', 'FAIR VALUE (P50)')}
+															{t('giftReport.certFairValueP50')}
 														</span>
-														<span
-															class="font-mono font-black text-[#38bdf8] text-[13px]"
-															dir="ltr"
-														>
-															{formatTon(fairValueTon())} TON (
-															{formatUsd(fairValueUsd())})
+														<span class="font-mono font-black text-[#5aaeff] text-[13px]" dir="ltr">
+															{formatTon(fairValueTon())} TON ({formatUsd(fairValueUsd())})
 														</span>
 													</div>
-													<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
+													<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
 														<span class="text-[9px] text-white/40 uppercase font-mono">
-															{tr('امتیاز کمیابی ترکیبی', 'HARMONIC RARITY')}
+															{t('giftReport.certHarmonicRarity')}
 														</span>
-														<span
-															class="font-mono font-black text-amber-400 text-[13px]"
-															dir="ltr"
-														>
-															{rep().rarity_score}/100 (Rank #
-															{rep().rarity_rank})
+														<span class="font-mono font-black text-amber-400 text-[13px]" dir="ltr">
+															{rep().rarity_score}/100 (Rank #{rep().rarity_rank})
 														</span>
 													</div>
-													<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
+													<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
 														<span class="text-[9px] text-white/40 uppercase font-mono">
-															{tr('موتور ارزش‌گذاری', 'VALUATION ENGINE')}
+															{t('giftReport.certValuationEngine')}
 														</span>
-														<span
-															class="font-mono font-bold text-white/85 text-[11px]"
-															dir="ltr"
-														>
+														<span class="font-mono font-bold text-white/85 text-[11px]" dir="ltr">
 															{rep().model_version || 'GV Engine v4.2'}
 														</span>
 													</div>
@@ -1555,15 +1383,13 @@ export const GiftReportPage = () => {
 												type="button"
 												onClick={handleShareCertificateStory}
 												disabled={sharingStory()}
-												class="h-11 bg-[#0098EA] hover:bg-[#0086cf] text-white font-black text-[11px] uppercase tracking-wider rounded-[16px] flex items-center justify-center gap-1.5 shadow-[0_6px_20px_rgba(0,152,234,0.3)] active:scale-95 transition-all"
+												class="h-11 bg-[#2990ff] hover:bg-[#2481cc] text-white font-black text-[11px] uppercase tracking-wider rounded-[16px] flex items-center justify-center gap-1.5 shadow-[0_6px_20px_rgba(41,144,255,0.3)] active:scale-95 transition-all"
 											>
-												<span class="material-symbols-outlined text-[17px]">
-													auto_awesome
-												</span>
+												<span class="material-symbols-outlined text-[17px]">auto_awesome</span>
 												<span>
 													{sharingStory()
-														? tr('در حال ساخت...', 'Preparing...')
-														: tr('اشتراک در استوری', 'Share Story')}
+														? t('giftReport.preparingStory')
+														: t('giftReport.shareStory')}
 												</span>
 											</button>
 											<button
@@ -1572,47 +1398,37 @@ export const GiftReportPage = () => {
 												disabled={downloadingCert()}
 												class="h-11 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black text-[11px] uppercase tracking-wider rounded-[16px] flex items-center justify-center gap-1.5 active:scale-95 transition-all"
 											>
-												<span class="material-symbols-outlined text-[17px]">
-													download
-												</span>
+												<span class="material-symbols-outlined text-[17px]">download</span>
 												<span>
 													{downloadingCert()
-														? tr('در حال ذخیره...', 'Saving...')
-														: tr('ذخیره کارت کارشناسی', 'Save Certificate')}
+														? t('giftReport.savingCert')
+														: t('giftReport.saveCert')}
 												</span>
 											</button>
 										</div>
 
 										{/* ═══════ 4-FLOOR MATRIX CARD (Collection / Model / Backdrop / Symbol) ═══════ */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3 shadow-xl text-start">
+										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
 											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
 												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#0098EA]">
+													<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
 														grid_on
 													</span>
 													<div class="flex flex-col">
 														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{tr(
-																'ماتریس ۴گانه کف قیمت (4-Floor Matrix)',
-																'4-AXIS TRAIT FLOOR MATRIX',
-															)}
+															{t('giftReport.fourAxisTitle')}
 														</span>
 														<span class="text-[10px] text-white/45">
-															{tr(
-																'مقایسه کف کلکسیون با کف واقعی مدل، پس‌زمینه و نماد',
-																'Collection Floor vs Exact Model, Backdrop & Symbol Floors',
-															)}
+															{t('giftReport.fourAxisSubtitle')}
 														</span>
 													</div>
 												</div>
-												<span class="px-2 py-1 rounded-[8px] bg-[#0098EA]/15 border border-[#0098EA]/35 text-[9px] font-mono font-black text-[#38bdf8] uppercase">
+												<span class="px-2 py-1 rounded-[8px] bg-[#2990ff]/15 border border-[#2990ff]/35 text-[9px] font-mono font-black text-[#5aaeff] uppercase">
 													{rep().floor_matrix?.dominant_floor_driver === 'model'
 														? 'MODEL DRIVEN'
-														: rep().floor_matrix?.dominant_floor_driver ===
-																'backdrop'
+														: rep().floor_matrix?.dominant_floor_driver === 'backdrop'
 															? 'BACKDROP DRIVEN'
-															: rep().floor_matrix?.dominant_floor_driver ===
-																	'serial_grail'
+															: rep().floor_matrix?.dominant_floor_driver === 'serial_grail'
 																? 'SERIAL GRAIL'
 																: 'FLOOR ANCHORED'}
 												</span>
@@ -1627,31 +1443,24 @@ export const GiftReportPage = () => {
 													}
 													target="_blank"
 													rel="noreferrer"
-													class="bg-[#08090D] hover:bg-white/[0.03] border border-white/8 rounded-[16px] p-3 flex flex-col gap-1 transition-all"
+													class="bg-[#141a22] hover:bg-white/[0.03] border border-white/8 rounded-[16px] p-3 flex flex-col gap-1 transition-all"
 												>
 													<div class="flex items-center justify-between">
 														<span class="text-[9px] font-mono font-bold text-white/45 uppercase">
-															{tr('۱. کف کلکسیون', '1. COLLECTION FLOOR')}
+															{t('giftReport.floor1Collection')}
 														</span>
 														<span class="material-symbols-outlined text-[13px] text-white/30">
 															open_in_new
 														</span>
 													</div>
-													<span
-														class="text-[15px] font-mono font-black text-white"
-														dir="ltr"
-													>
+													<span class="text-[15px] font-mono font-black text-white" dir="ltr">
 														{formatTon(collectionFloorTon())} TON
 													</span>
-													<span
-														class="text-[10px] font-mono text-white/45"
-														dir="ltr"
-													>
+													<span class="text-[10px] font-mono text-white/45" dir="ltr">
 														≈{' '}
 														{formatUsd(
 															rep().floor_matrix?.collection_floor_usd ||
-																collectionFloorTon() *
-																	(rep().gram_usd_rate || 1.5),
+																collectionFloorTon() * (rep().gram_usd_rate || 1.5),
 														)}
 													</span>
 												</a>
@@ -1664,18 +1473,16 @@ export const GiftReportPage = () => {
 													}
 													target="_blank"
 													rel="noreferrer"
-													class={`bg-[#08090D] hover:bg-white/[0.03] border rounded-[16px] p-3 flex flex-col gap-1 transition-all ${
-														rep().floor_matrix?.dominant_floor_driver ===
-														'model'
-															? 'border-[#0098EA]/50 bg-[#0098EA]/5'
+													class={`bg-[#141a22] hover:bg-white/[0.03] border rounded-[16px] p-3 flex flex-col gap-1 transition-all ${
+														rep().floor_matrix?.dominant_floor_driver === 'model'
+															? 'border-[#2990ff]/50 bg-[#2990ff]/5'
 															: 'border-white/8'
 													}`}
 												>
 													<div class="flex items-center justify-between">
-														<span class="text-[9px] font-mono font-bold text-[#38bdf8] uppercase truncate">
-															{tr('۲. کف مدل:', '2. MODEL:')}{' '}
-															{rep().floor_matrix?.model_name ||
-																modelTrait()?.value}
+														<span class="text-[9px] font-mono font-bold text-[#5aaeff] uppercase truncate">
+															{t('giftReport.floor2Model')}{' '}
+															{rep().floor_matrix?.model_name || modelTrait()?.value}
 														</span>
 														<span class="text-[9px] font-mono text-white/40">
 															{rep().floor_matrix?.model_rarity_pct ||
@@ -1684,10 +1491,7 @@ export const GiftReportPage = () => {
 															%
 														</span>
 													</div>
-													<span
-														class="text-[15px] font-mono font-black text-emerald-400"
-														dir="ltr"
-													>
+													<span class="text-[15px] font-mono font-black text-emerald-400" dir="ltr">
 														{formatTon(
 															rep().floor_matrix?.model_floor_gram ||
 																modelTrait()?.floor_gram ||
@@ -1695,14 +1499,10 @@ export const GiftReportPage = () => {
 														)}{' '}
 														TON
 													</span>
-													<span
-														class="text-[10px] font-mono text-white/45"
-														dir="ltr"
-													>
+													<span class="text-[10px] font-mono text-white/45" dir="ltr">
 														≈{' '}
 														{formatUsd(
-															rep().floor_matrix?.model_floor_usd ||
-																modelTrait()?.floor_usd,
+															rep().floor_matrix?.model_floor_usd || modelTrait()?.floor_usd,
 														)}
 													</span>
 												</a>
@@ -1715,18 +1515,16 @@ export const GiftReportPage = () => {
 													}
 													target="_blank"
 													rel="noreferrer"
-													class={`bg-[#08090D] hover:bg-white/[0.03] border rounded-[16px] p-3 flex flex-col gap-1 transition-all ${
-														rep().floor_matrix?.dominant_floor_driver ===
-														'backdrop'
-															? 'border-[#0098EA]/50 bg-[#0098EA]/5'
+													class={`bg-[#141a22] hover:bg-white/[0.03] border rounded-[16px] p-3 flex flex-col gap-1 transition-all ${
+														rep().floor_matrix?.dominant_floor_driver === 'backdrop'
+															? 'border-[#2990ff]/50 bg-[#2990ff]/5'
 															: 'border-white/8'
 													}`}
 												>
 													<div class="flex items-center justify-between">
-														<span class="text-[9px] font-mono font-bold text-purple-300 uppercase truncate">
-															{tr('۳. کف پس‌زمینه:', '3. BACKDROP:')}{' '}
-															{rep().floor_matrix?.backdrop_name ||
-																backdropTrait()?.value}
+														<span class="text-[9px] font-mono font-bold text-[#7ec0ff] uppercase truncate">
+															{t('giftReport.floor3Backdrop')}{' '}
+															{rep().floor_matrix?.backdrop_name || backdropTrait()?.value}
 														</span>
 														<span class="text-[9px] font-mono text-white/40">
 															{rep().floor_matrix?.backdrop_rarity_pct ||
@@ -1735,10 +1533,7 @@ export const GiftReportPage = () => {
 															%
 														</span>
 													</div>
-													<span
-														class="text-[15px] font-mono font-black text-white"
-														dir="ltr"
-													>
+													<span class="text-[15px] font-mono font-black text-white" dir="ltr">
 														{formatTon(
 															rep().floor_matrix?.backdrop_floor_gram ||
 																backdropTrait()?.floor_gram ||
@@ -1746,14 +1541,10 @@ export const GiftReportPage = () => {
 														)}{' '}
 														TON
 													</span>
-													<span
-														class="text-[10px] font-mono text-white/45"
-														dir="ltr"
-													>
+													<span class="text-[10px] font-mono text-white/45" dir="ltr">
 														≈{' '}
 														{formatUsd(
-															rep().floor_matrix?.backdrop_floor_usd ||
-																backdropTrait()?.floor_usd,
+															rep().floor_matrix?.backdrop_floor_usd || backdropTrait()?.floor_usd,
 														)}
 													</span>
 												</a>
@@ -1766,13 +1557,12 @@ export const GiftReportPage = () => {
 													}
 													target="_blank"
 													rel="noreferrer"
-													class="bg-[#08090D] hover:bg-white/[0.03] border border-white/8 rounded-[16px] p-3 flex flex-col gap-1 transition-all"
+													class="bg-[#141a22] hover:bg-white/[0.03] border border-white/8 rounded-[16px] p-3 flex flex-col gap-1 transition-all"
 												>
 													<div class="flex items-center justify-between">
 														<span class="text-[9px] font-mono font-bold text-amber-300 uppercase truncate">
-															{tr('۴. کف نماد:', '4. SYMBOL:')}{' '}
-															{rep().floor_matrix?.symbol_name ||
-																symbolTrait()?.value}
+															{t('giftReport.floor4Symbol')}{' '}
+															{rep().floor_matrix?.symbol_name || symbolTrait()?.value}
 														</span>
 														<span class="text-[9px] font-mono text-white/40">
 															{rep().floor_matrix?.symbol_rarity_pct ||
@@ -1781,10 +1571,7 @@ export const GiftReportPage = () => {
 															%
 														</span>
 													</div>
-													<span
-														class="text-[15px] font-mono font-black text-white"
-														dir="ltr"
-													>
+													<span class="text-[15px] font-mono font-black text-white" dir="ltr">
 														{formatTon(
 															rep().floor_matrix?.symbol_floor_gram ||
 																symbolTrait()?.floor_gram ||
@@ -1792,14 +1579,10 @@ export const GiftReportPage = () => {
 														)}{' '}
 														TON
 													</span>
-													<span
-														class="text-[10px] font-mono text-white/45"
-														dir="ltr"
-													>
+													<span class="text-[10px] font-mono text-white/45" dir="ltr">
 														≈{' '}
 														{formatUsd(
-															rep().floor_matrix?.symbol_floor_usd ||
-																symbolTrait()?.floor_usd,
+															rep().floor_matrix?.symbol_floor_usd || symbolTrait()?.floor_usd,
 														)}
 													</span>
 												</a>
@@ -1811,9 +1594,9 @@ export const GiftReportPage = () => {
 													rep().recommendation?.summary_fa
 												}
 											>
-												<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 text-[11px] text-white/80 leading-relaxed">
-													<span class="text-[#38bdf8] font-black">
-														{tr('تحلیل محرک قیمت: ', 'Price Driver Analysis: ')}
+												<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-3 text-[11px] text-white/80 leading-relaxed">
+													<span class="text-[#5aaeff] font-black">
+														{t('giftReport.priceDriverAnalysis')}
 													</span>
 													{isRtl()
 														? rep().floor_matrix?.driver_explanation_fa ||
@@ -1825,17 +1608,14 @@ export const GiftReportPage = () => {
 										</div>
 
 										{/* ═══════ 4-PILLAR VALUATION & P10 / P50 / P90 QUANTITATIVE BAND ═══════ */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3.5 shadow-xl text-start">
+										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3.5 shadow-xl text-start">
 											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
 												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#0098EA]">
+													<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
 														analytics
 													</span>
 													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{tr(
-															'ارزش‌گذاری ۴ پایه‌ای (P10 / P50 / P90 & Stars)',
-															'4-PILLAR BAYESIAN VALUATION BAND',
-														)}
+														{t('giftReport.fourPillarBandTitle')}
 													</span>
 												</div>
 												<span class="text-[10px] font-mono font-bold text-emerald-400">
@@ -1844,120 +1624,80 @@ export const GiftReportPage = () => {
 											</div>
 
 											<div class="grid grid-cols-3 gap-2 text-center">
-												<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
+												<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
 													<span class="text-[9px] font-mono font-bold text-white/45 uppercase">
-														{tr('نقدشوندگی سریع (P10)', 'LIQUIDATION (P10)')}
+														{t('giftReport.liquidationP10')}
 													</span>
-													<span
-														class="text-[13px] font-mono font-black text-emerald-400"
-														dir="ltr"
-													>
+													<span class="text-[13px] font-mono font-black text-emerald-400" dir="ltr">
 														{formatTon(liquidationTon())} TON
 													</span>
-													<span
-														class="text-[9px] font-mono text-white/40"
-														dir="ltr"
-													>
-														≈{' '}
-														{formatUsd(
-															rep().pillars?.liquidation_value_usd ||
-																rep().low_usd,
-														)}
+													<span class="text-[9px] font-mono text-white/40" dir="ltr">
+														≈ {formatUsd(rep().pillars?.liquidation_value_usd || rep().low_usd)}
 													</span>
 												</div>
 
-												<div class="bg-[#0098EA]/12 border border-[#0098EA]/40 rounded-[14px] p-2.5 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-black text-[#38bdf8] uppercase">
-														{tr('ارزش منصفانه (P50)', 'FAIR VALUE (P50)')}
+												<div class="bg-[#2990ff]/12 border border-[#2990ff]/40 rounded-[14px] p-2.5 flex flex-col gap-0.5">
+													<span class="text-[9px] font-mono font-black text-[#5aaeff] uppercase">
+														{t('giftReport.fairValueP50')}
 													</span>
-													<span
-														class="text-[15px] font-mono font-black text-white"
-														dir="ltr"
-													>
+													<span class="text-[15px] font-mono font-black text-white" dir="ltr">
 														{formatTon(fairValueTon())} TON
 													</span>
-													<span
-														class="text-[9px] font-mono text-[#38bdf8]"
-														dir="ltr"
-													>
+													<span class="text-[9px] font-mono text-[#5aaeff]" dir="ltr">
 														≈ {formatUsd(fairValueUsd())}
 													</span>
 												</div>
 
-												<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
+												<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
 													<span class="text-[9px] font-mono font-bold text-white/45 uppercase">
-														{tr('پیشنهاد فروش (P90)', 'OPTIMAL ASK (P90)')}
+														{t('giftReport.optimalAskP90')}
 													</span>
-													<span
-														class="text-[13px] font-mono font-black text-amber-400"
-														dir="ltr"
-													>
+													<span class="text-[13px] font-mono font-black text-amber-400" dir="ltr">
 														{formatTon(suggestedAskTon())} TON
 													</span>
-													<span
-														class="text-[9px] font-mono text-white/40"
-														dir="ltr"
-													>
-														≈{' '}
-														{formatUsd(
-															rep().pillars?.suggested_ask_usd ||
-																rep().high_usd,
-														)}
+													<span class="text-[9px] font-mono text-white/40" dir="ltr">
+														≈ {formatUsd(rep().pillars?.suggested_ask_usd || rep().high_usd)}
 													</span>
 												</div>
 											</div>
 
 											{/* Interactive Offer & Seller Net Proceeds Calculator */}
-											<div class="bg-[#08090D] border border-white/8 rounded-[18px] p-3.5 flex flex-col gap-2.5">
+											<div class="bg-[#141a22] border border-white/8 rounded-[18px] p-3.5 flex flex-col gap-2.5">
 												<div class="flex items-center justify-between">
 													<span class="text-[11px] font-black text-white">
-														{tr(
-															'ماشین‌حساب پیشنهاد خرید و دریافتی خالص فروشنده',
-															'Interactive Offer & Net Seller Proceeds Simulator',
-														)}
+														{t('giftReport.offerSimulatorTitle')}
 													</span>
-													<span
-														class="text-[11px] font-mono font-black text-[#38bdf8]"
-														dir="ltr"
-													>
+													<span class="text-[11px] font-mono font-black text-[#5aaeff]" dir="ltr">
 														{formatTon(activeOfferTon())} TON
 													</span>
 												</div>
 
 												<input
 													type="range"
-													min={Math.max(
-														1,
-														Math.round(liquidationTon() * 0.7),
-													)}
-													max={Math.max(
-														10,
-														Math.round(suggestedAskTon() * 1.4),
-													)}
+													min={Math.max(1, Math.round(liquidationTon() * 0.7))}
+													max={Math.max(10, Math.round(suggestedAskTon() * 1.4))}
 													step={1}
 													value={activeOfferTon()}
 													onInput={(e) =>
-														setCustomOfferTon(
-															Number.parseFloat(e.currentTarget.value),
-														)
+														setCustomOfferTon(Number.parseFloat(e.currentTarget.value))
 													}
-													class="w-full accent-[#0098EA] cursor-pointer"
+													class="w-full accent-[#2990ff] cursor-pointer"
 												/>
 
 												<div class="grid grid-cols-3 gap-2 pt-1 text-center text-[10px] font-mono">
-													<div class="bg-[#12141C] rounded-[10px] p-2 border border-white/5">
+													<div class="bg-[#1b232d] rounded-[10px] p-2 border border-white/5">
 														<div class="text-white/40">Portals (2.5%)</div>
 														<div class="text-emerald-400 font-black mt-0.5">
 															{formatTon(activeOfferTon() * 0.975 - 0.05)} TON
 														</div>
 													</div>
-													<div class="bg-[#12141C] rounded-[10px] p-2 border border-white/5">
+													<div class="bg-[#1b232d] rounded-[10px] p-2 border border-white/5">
 														<div class="text-white/40">Tonnel (3.5%)</div>
 														<div class="text-white font-black mt-0.5">
 															{formatTon(activeOfferTon() * 0.965 - 0.03)} TON
 														</div>
 													</div>
-													<div class="bg-[#12141C] rounded-[10px] p-2 border border-white/5">
+													<div class="bg-[#1b232d] rounded-[10px] p-2 border border-white/5">
 														<div class="text-white/40">Fragment (5%)</div>
 														<div class="text-amber-300 font-black mt-0.5">
 															{formatTon(activeOfferTon() * 0.95 - 0.08)} TON
@@ -1969,7 +1709,7 @@ export const GiftReportPage = () => {
 
 										{/* ═══════ MULTI-VENUE EXIT PLANNER (6 Marketplaces) ═══════ */}
 										<Show when={rep().exit_planner?.options?.length}>
-											<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3 shadow-xl text-start">
+											<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
 												<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
 													<div class="flex items-center gap-2">
 														<span class="material-symbols-outlined text-[19px] text-emerald-400">
@@ -1977,16 +1717,10 @@ export const GiftReportPage = () => {
 														</span>
 														<div class="flex flex-col">
 															<span class="text-[12px] font-black uppercase tracking-wider text-white">
-																{tr(
-																	'مسیریاب فروش و مقایسه کارمزد مارکت‌پلیس‌ها',
-																	'CROSS-VENUE EXIT PLANNER & FEE MATRIX',
-																)}
+																{t('giftReport.exitPlannerTitle')}
 															</span>
 															<span class="text-[10px] text-white/45">
-																{tr(
-																	'رتبه‌بندی ۶ بازار بر اساس بیشترین دریافتی خالص پس از کسر کارمزد',
-																	'Ranked by Highest Net Seller Payout After Protocol Fees',
-																)}
+																{t('giftReport.exitPlannerSubtitle')}
 															</span>
 														</div>
 													</div>
@@ -2002,7 +1736,7 @@ export const GiftReportPage = () => {
 																class={`rounded-[16px] p-3 border flex items-center justify-between gap-2 ${
 																	idx() === 0
 																		? 'bg-emerald-500/[0.07] border-emerald-500/35'
-																		: 'bg-[#08090D] border-white/6'
+																		: 'bg-[#141a22] border-white/6'
 																}`}
 															>
 																<div class="flex items-center gap-2.5 min-w-0">
@@ -2026,21 +1760,15 @@ export const GiftReportPage = () => {
 																		</div>
 																		<span class="text-[10px] text-white/45 truncate">
 																			{opt.requires_kyc
-																				? tr('نیازمند KYC', 'KYC Required')
-																				: tr(
-																						'بدون نیاز به احراز هویت',
-																						'No KYC · Instant',
-																					)}{' '}
+																				? t('giftReport.kycRequired')
+																				: t('giftReport.noKycInstant')}{' '}
 																			· ~{opt.estimated_days_to_sell}d
 																		</span>
 																	</div>
 																</div>
 
 																<div class="flex items-center gap-2.5 shrink-0">
-																	<div
-																		class="flex flex-col items-end"
-																		dir="ltr"
-																	>
+																	<div class="flex flex-col items-end" dir="ltr">
 																		<span class="text-[13px] font-mono font-black text-emerald-400">
 																			{formatTon(opt.net_payout_gram)} TON
 																		</span>
@@ -2053,7 +1781,7 @@ export const GiftReportPage = () => {
 																			href={opt.deep_link}
 																			target="_blank"
 																			rel="noreferrer"
-																			class="w-8 h-8 rounded-[10px] bg-white/8 hover:bg-[#0098EA] text-white flex items-center justify-center transition-colors"
+																			class="w-8 h-8 rounded-[10px] bg-white/8 hover:bg-[#2990ff] text-white flex items-center justify-center transition-colors"
 																		>
 																			<span class="material-symbols-outlined text-[15px]">
 																				open_in_new
@@ -2070,56 +1798,41 @@ export const GiftReportPage = () => {
 
 										{/* ═══════ 12-MONTH GROWTH PROJECTION (Bull / Base / Bear) ═══════ */}
 										<Show when={rep().projection}>
-											<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3 shadow-xl text-start">
+											<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
 												<div class="flex items-center gap-2 border-b border-white/5 pb-2">
-													<span class="material-symbols-outlined text-[18px] text-[#0098EA]">
+													<span class="material-symbols-outlined text-[18px] text-[#2990ff]">
 														trending_up
 													</span>
 													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{tr(
-															'چشم‌انداز سناریوهای قیمتی (Bull / Base / Bear)',
-															'FORWARD VALUATION SCENARIOS',
-														)}
+														{t('giftReport.forwardScenariosTitle')}
 													</span>
 												</div>
 												<div class="grid grid-cols-3 gap-2 text-center">
-													<div class="bg-[#08090D] border border-rose-500/20 rounded-[14px] p-2.5">
+													<div class="bg-[#141a22] border border-rose-500/20 rounded-[14px] p-2.5">
 														<div class="text-[9px] font-mono text-rose-400 font-bold">
-															{tr('سناریوی رکودی', 'BEAR CASE')}
+															{t('giftReport.bearCase')}
 														</div>
-														<div
-															class="text-[13px] font-mono font-black text-white mt-1"
-															dir="ltr"
-														>
+														<div class="text-[13px] font-mono font-black text-white mt-1" dir="ltr">
 															{formatTon(rep().projection?.bear_gram)} TON
 														</div>
-														<div
-															class="text-[9px] font-mono text-white/40"
-															dir="ltr"
-														>
+														<div class="text-[9px] font-mono text-white/40" dir="ltr">
 															{formatUsd(rep().projection?.bear_usd)}
 														</div>
 													</div>
-													<div class="bg-[#08090D] border border-[#0098EA]/30 rounded-[14px] p-2.5">
-														<div class="text-[9px] font-mono text-[#38bdf8] font-bold">
-															{tr('سناریوی پایه', 'BASE CASE')}
+													<div class="bg-[#141a22] border border-[#2990ff]/30 rounded-[14px] p-2.5">
+														<div class="text-[9px] font-mono text-[#5aaeff] font-bold">
+															{t('giftReport.baseCase')}
 														</div>
-														<div
-															class="text-[13px] font-mono font-black text-white mt-1"
-															dir="ltr"
-														>
+														<div class="text-[13px] font-mono font-black text-white mt-1" dir="ltr">
 															{formatTon(rep().projection?.base_gram)} TON
 														</div>
-														<div
-															class="text-[9px] font-mono text-white/40"
-															dir="ltr"
-														>
+														<div class="text-[9px] font-mono text-white/40" dir="ltr">
 															{formatUsd(rep().projection?.base_usd)}
 														</div>
 													</div>
-													<div class="bg-[#08090D] border border-emerald-500/25 rounded-[14px] p-2.5">
+													<div class="bg-[#141a22] border border-emerald-500/25 rounded-[14px] p-2.5">
 														<div class="text-[9px] font-mono text-emerald-400 font-bold">
-															{tr('سناریوی صعودی', 'BULL CASE')}
+															{t('giftReport.bullCase')}
 														</div>
 														<div
 															class="text-[13px] font-mono font-black text-emerald-400 mt-1"
@@ -2127,10 +1840,7 @@ export const GiftReportPage = () => {
 														>
 															{formatTon(rep().projection?.bull_gram)} TON
 														</div>
-														<div
-															class="text-[9px] font-mono text-white/40"
-															dir="ltr"
-														>
+														<div class="text-[9px] font-mono text-white/40" dir="ltr">
 															{formatUsd(rep().projection?.bull_usd)}
 														</div>
 													</div>
@@ -2146,28 +1856,22 @@ export const GiftReportPage = () => {
 								<Show when={activeTab() === 'traits'}>
 									<div class="w-full flex flex-col gap-3.5">
 										{/* 3-Axis Trait DNA Breakdown */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3.5 shadow-xl text-start">
+										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3.5 shadow-xl text-start">
 											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
 												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#0098EA]">
+													<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
 														biotech
 													</span>
 													<div class="flex flex-col">
 														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{tr(
-																'کالبدشکافی ۳ محور تریت (3-Axis Trait DNA)',
-																'3-AXIS TRAIT DNA & SCARCITY',
-															)}
+															{t('giftReport.traitDnaTitle')}
 														</span>
 														<span class="text-[10px] text-white/45">
-															{tr(
-																'فراوانی دقیق، سطح کمیابی و کف قیمت مستقل هر ویژگی',
-																'Exact Permille Rarity, Tier & Independent Trait Floor',
-															)}
+															{t('giftReport.traitDnaSubtitle')}
 														</span>
 													</div>
 												</div>
-												<span class="px-2.5 py-1 rounded-[8px] bg-purple-500/15 border border-purple-500/35 text-[9px] font-mono font-black text-purple-300">
+												<span class="px-2.5 py-1 rounded-[8px] bg-[#2990ff]/12 border border-[#2990ff]/30 text-[9px] font-mono font-black text-[#7ec0ff]">
 													SCORE {rep().rarity_score}/100
 												</span>
 											</div>
@@ -2175,7 +1879,7 @@ export const GiftReportPage = () => {
 											<div class="flex flex-col gap-2.5">
 												<For each={rep().trait_dna || []}>
 													{(bar) => (
-														<div class="bg-[#08090D] border border-white/8 rounded-[18px] p-3.5 flex flex-col gap-2.5">
+														<div class="bg-[#141a22] border border-white/8 rounded-[18px] p-3.5 flex flex-col gap-2.5">
 															<div class="flex items-center justify-between gap-2">
 																<div class="flex items-center gap-2.5 min-w-0">
 																	<Show
@@ -2217,7 +1921,7 @@ export const GiftReportPage = () => {
 
 																<div class="flex flex-col items-end shrink-0">
 																	<div class="flex items-center gap-1.5">
-																		<span class="px-2 py-0.5 rounded bg-[#0098EA]/15 border border-[#0098EA]/30 text-[9px] font-mono font-black text-[#38bdf8]">
+																		<span class="px-2 py-0.5 rounded bg-[#2990ff]/15 border border-[#2990ff]/30 text-[9px] font-mono font-black text-[#5aaeff]">
 																			{bar.percentile}%
 																		</span>
 																		<span class="px-2 py-0.5 rounded bg-white/8 text-[9px] font-mono font-bold text-white/75">
@@ -2238,7 +1942,7 @@ export const GiftReportPage = () => {
 															{/* Rarity Progress Bar */}
 															<div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
 																<div
-																	class="h-full bg-gradient-to-r from-[#0098EA] to-emerald-400 rounded-full"
+																	class="h-full bg-gradient-to-r from-[#2990ff] to-emerald-400 rounded-full"
 																	style={{
 																		width: `${Math.max(6, Math.min(100, 100 - (bar.percentile || 1) * 8))}%`,
 																	}}
@@ -2248,10 +1952,7 @@ export const GiftReportPage = () => {
 															{/* Backdrop 4-Hex Swatches */}
 															<Show when={bar.colors}>
 																{(cols) => (
-																	<div
-																		class="grid grid-cols-4 gap-1.5 pt-1"
-																		dir="ltr"
-																	>
+																	<div class="grid grid-cols-4 gap-1.5 pt-1" dir="ltr">
 																		<For
 																			each={[
 																				{
@@ -2269,10 +1970,8 @@ export const GiftReportPage = () => {
 																			{(sw) => (
 																				<button
 																					type="button"
-																					onClick={() =>
-																						copyText(sw.hex, `hex_${sw.label}`)
-																					}
-																					class="bg-[#12141C] hover:bg-white/10 border border-white/8 rounded-[10px] p-1.5 flex items-center gap-1.5 transition-all"
+																					onClick={() => copyText(sw.hex, `hex_${sw.label}`)}
+																					class="bg-[#1b232d] hover:bg-white/10 border border-white/8 rounded-[10px] p-1.5 flex items-center gap-1.5 transition-all"
 																				>
 																					<span
 																						class="w-3.5 h-3.5 rounded-md border border-white/25 shrink-0"
@@ -2307,53 +2006,38 @@ export const GiftReportPage = () => {
 										</div>
 
 										{/* Joint Rarity, Serial Gravity & Color-Match Harmony */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3 shadow-xl text-start">
+										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
 											<div class="flex items-center gap-2 border-b border-white/5 pb-2">
 												<span class="material-symbols-outlined text-[18px] text-amber-400">
 													auto_awesome
 												</span>
 												<span class="text-[12px] font-black uppercase tracking-wider text-white">
-													{tr(
-														'جاذبه شماره سریال و هماهنگی رنگ (Serial & Color Intel)',
-														'SERIAL GRAVITY & CHROMATIC HARMONY',
-													)}
+													{t('giftReport.serialGravitySection')}
 												</span>
 											</div>
 
 											<div class="grid grid-cols-2 gap-2.5">
-												<div class="bg-[#08090D] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
+												<div class="bg-[#141a22] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
 													<span class="text-[9px] font-mono text-white/40 uppercase">
-														{tr(
-															'ضریب شماره سریال',
-															'SERIAL GRAVITY MULTIPLIER',
-														)}
+														{t('giftReport.serialGravityMultiplier')}
 													</span>
-													<span
-														class="text-[16px] font-mono font-black text-amber-400"
-														dir="ltr"
-													>
-														#{rep().serial_number} ·{' '}
-														{rep().serial_intel?.multiplier || 1}x
+													<span class="text-[16px] font-mono font-black text-amber-400" dir="ltr">
+														#{rep().serial_number} · {rep().serial_intel?.multiplier || 1}x
 													</span>
 													<span class="text-[10px] text-white/65">
-														{rep().serial_intel?.description ||
-															rep().serial_intel?.tier}
+														{rep().serial_intel?.description || rep().serial_intel?.tier}
 													</span>
 												</div>
 
-												<div class="bg-[#08090D] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
+												<div class="bg-[#141a22] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
 													<span class="text-[9px] font-mono text-white/40 uppercase">
-														{tr('آنتروپی و کمیابی مشترک', 'SURPRISAL ENTROPY')}
+														{t('giftReport.surprisalEntropy')}
 													</span>
-													<span
-														class="text-[16px] font-mono font-black text-[#38bdf8]"
-														dir="ltr"
-													>
+													<span class="text-[16px] font-mono font-black text-[#5aaeff]" dir="ltr">
 														{rep().joint_rarity?.surprisal_bits || 14.2} bits
 													</span>
 													<span class="text-[10px] text-white/65">
-														{rep().color_match_intel?.harmony_class ||
-															'Standard Contrast'}
+														{rep().color_match_intel?.harmony_class || 'Standard Contrast'}
 													</span>
 												</div>
 											</div>
@@ -2362,30 +2046,24 @@ export const GiftReportPage = () => {
 										{/* Interactive "What-If" Trait Simulator & Collection Catalog */}
 										<Show when={rep().collection_catalog}>
 											{(cat) => (
-												<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[26px] p-4 flex flex-col gap-3.5 shadow-xl text-start">
+												<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-[#2990ff]/30 rounded-[26px] p-4 flex flex-col gap-3.5 shadow-xl text-start">
 													<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
 														<div class="flex items-center gap-2">
-															<span class="material-symbols-outlined text-[19px] text-[#0098EA]">
+															<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
 																tune
 															</span>
 															<div class="flex flex-col">
 																<span class="text-[12px] font-black uppercase tracking-wider text-white">
-																	{tr(
-																		'شبیه‌ساز تعاملی تریت (What-If Simulator)',
-																		'INTERACTIVE TRAIT SIMULATOR & CATALOG',
-																	)}
+																	{t('giftReport.whatIfSimulatorTitle')}
 																</span>
 																<span class="text-[10px] text-white/45">
-																	{tr(
-																		'تغییر مدل یا پس‌زمینه برای مشاهده تاثیر آنی بر قیمت گیفت',
-																		'Test any Model, Backdrop or Symbol to recalculate Fair Value',
-																	)}
+																	{t('giftReport.whatIfSimulatorSubtitle')}
 																</span>
 															</div>
 														</div>
 														<Show when={simulating()}>
-															<span class="text-[10px] font-mono text-[#38bdf8] animate-pulse">
-																{tr('در حال محاسبه...', 'Recalculating...')}
+															<span class="text-[10px] font-mono text-[#5aaeff] animate-pulse">
+																{t('giftReport.recalculating')}
 															</span>
 														</Show>
 													</div>
@@ -2393,20 +2071,16 @@ export const GiftReportPage = () => {
 													<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
 														<div class="flex flex-col gap-1">
 															<span class="text-[9px] font-mono text-white/45">
-																{tr('انتخاب مدل (Model):', 'Select Model:')}
+																{t('giftReport.selectModelLabel')}
 															</span>
 															<select
 																value={simModel()}
 																onChange={(e) => {
 																	const v = e.currentTarget.value;
 																	setSimModel(v);
-																	void handleSimulateTraits(
-																		v,
-																		simBackdrop(),
-																		simSymbol(),
-																	);
+																	void handleSimulateTraits(v, simBackdrop(), simSymbol());
 																}}
-																class="h-9 bg-[#08090D] border border-white/15 rounded-[10px] px-2.5 text-[11px] font-mono text-white focus:border-[#0098EA] focus:outline-none"
+																class="h-9 bg-[#141a22] border border-white/15 rounded-[10px] px-2.5 text-[11px] font-mono text-white focus:border-[#2990ff] focus:outline-none"
 																dir="ltr"
 															>
 																<For each={cat().models}>
@@ -2421,23 +2095,16 @@ export const GiftReportPage = () => {
 
 														<div class="flex flex-col gap-1">
 															<span class="text-[9px] font-mono text-white/45">
-																{tr(
-																	'انتخاب پس‌زمینه (Backdrop):',
-																	'Select Backdrop:',
-																)}
+																{t('giftReport.selectBackdropLabel')}
 															</span>
 															<select
 																value={simBackdrop()}
 																onChange={(e) => {
 																	const v = e.currentTarget.value;
 																	setSimBackdrop(v);
-																	void handleSimulateTraits(
-																		simModel(),
-																		v,
-																		simSymbol(),
-																	);
+																	void handleSimulateTraits(simModel(), v, simSymbol());
 																}}
-																class="h-9 bg-[#08090D] border border-white/15 rounded-[10px] px-2.5 text-[11px] font-mono text-white focus:border-[#0098EA] focus:outline-none"
+																class="h-9 bg-[#141a22] border border-white/15 rounded-[10px] px-2.5 text-[11px] font-mono text-white focus:border-[#2990ff] focus:outline-none"
 																dir="ltr"
 															>
 																<For each={cat().backdrops}>
@@ -2452,20 +2119,16 @@ export const GiftReportPage = () => {
 
 														<div class="flex flex-col gap-1">
 															<span class="text-[9px] font-mono text-white/45">
-																{tr('انتخاب نماد (Symbol):', 'Select Symbol:')}
+																{t('giftReport.selectSymbolLabel')}
 															</span>
 															<select
 																value={simSymbol()}
 																onChange={(e) => {
 																	const v = e.currentTarget.value;
 																	setSimSymbol(v);
-																	void handleSimulateTraits(
-																		simModel(),
-																		simBackdrop(),
-																		v,
-																	);
+																	void handleSimulateTraits(simModel(), simBackdrop(), v);
 																}}
-																class="h-9 bg-[#08090D] border border-white/15 rounded-[10px] px-2.5 text-[11px] font-mono text-white focus:border-[#0098EA] focus:outline-none"
+																class="h-9 bg-[#141a22] border border-white/15 rounded-[10px] px-2.5 text-[11px] font-mono text-white focus:border-[#2990ff] focus:outline-none"
 																dir="ltr"
 															>
 																<For each={cat().symbols}>
@@ -2486,34 +2149,33 @@ export const GiftReportPage = () => {
 															onClick={() => setCatalogSubTab('models')}
 															class={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
 																catalogSubTab() === 'models'
-																	? 'bg-[#0098EA] text-white'
-																	: 'bg-[#08090D] text-white/55'
+																	? 'bg-[#2990ff] text-white'
+																	: 'bg-[#141a22] text-white/55'
 															}`}
 														>
-															{tr('مدل‌ها', 'Models')} ({cat().models.length})
+															{t('giftReport.modelsTab')} ({cat().models.length})
 														</button>
 														<button
 															type="button"
 															onClick={() => setCatalogSubTab('backdrops')}
 															class={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
 																catalogSubTab() === 'backdrops'
-																	? 'bg-[#0098EA] text-white'
-																	: 'bg-[#08090D] text-white/55'
+																	? 'bg-[#2990ff] text-white'
+																	: 'bg-[#141a22] text-white/55'
 															}`}
 														>
-															{tr('پس‌زمینه‌ها', 'Backdrops')} (
-															{cat().backdrops.length})
+															{t('giftReport.backdropsTab')} ({cat().backdrops.length})
 														</button>
 														<button
 															type="button"
 															onClick={() => setCatalogSubTab('symbols')}
 															class={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
 																catalogSubTab() === 'symbols'
-																	? 'bg-[#0098EA] text-white'
-																	: 'bg-[#08090D] text-white/55'
+																	? 'bg-[#2990ff] text-white'
+																	: 'bg-[#141a22] text-white/55'
 															}`}
 														>
-															{tr('نمادها', 'Symbols')} ({cat().symbols.length})
+															{t('giftReport.symbolsTab')} ({cat().symbols.length})
 														</button>
 													</div>
 
@@ -2538,15 +2200,9 @@ export const GiftReportPage = () => {
 																				simBackdrop(),
 																				simSymbol(),
 																			);
-																		} else if (
-																			catalogSubTab() === 'backdrops'
-																		) {
+																		} else if (catalogSubTab() === 'backdrops') {
 																			setSimBackdrop(item.name);
-																			void handleSimulateTraits(
-																				simModel(),
-																				item.name,
-																				simSymbol(),
-																			);
+																			void handleSimulateTraits(simModel(), item.name, simSymbol());
 																		} else {
 																			setSimSymbol(item.name);
 																			void handleSimulateTraits(
@@ -2556,7 +2212,7 @@ export const GiftReportPage = () => {
 																			);
 																		}
 																	}}
-																	class="bg-[#08090D] hover:bg-white/5 border border-white/6 rounded-[12px] p-2 flex items-center justify-between gap-2 text-left transition-all"
+																	class="bg-[#141a22] hover:bg-white/5 border border-white/6 rounded-[12px] p-2 flex items-center justify-between gap-2 text-left transition-all"
 																	dir="ltr"
 																>
 																	<div class="flex items-center gap-2 min-w-0">
@@ -2572,7 +2228,7 @@ export const GiftReportPage = () => {
 																			{item.name}
 																		</span>
 																	</div>
-																	<span class="text-[9px] font-mono text-[#38bdf8] shrink-0">
+																	<span class="text-[9px] font-mono text-[#5aaeff] shrink-0">
 																		{item.rarity_pct}%
 																	</span>
 																</button>
@@ -2585,17 +2241,14 @@ export const GiftReportPage = () => {
 
 										{/* Same-Serial Cross-Collection Siblings */}
 										<Show when={rep().same_serial_siblings?.length}>
-											<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3 shadow-xl text-start">
+											<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
 												<div class="flex items-center justify-between border-b border-white/5 pb-2">
 													<div class="flex items-center gap-2">
-														<span class="material-symbols-outlined text-[18px] text-[#0098EA]">
+														<span class="material-symbols-outlined text-[18px] text-[#2990ff]">
 															tag
 														</span>
 														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{tr(
-																`هم‌ترازهای سریال #${rep().serial_number} در سایر کلکسیون‌ها`,
-																`SAME-SERIAL #${rep().serial_number} SIBLINGS`,
-															)}
+															{t('giftReport.sameSerialSiblings', { serial: rep().serial_number })}
 														</span>
 													</div>
 												</div>
@@ -2606,7 +2259,7 @@ export const GiftReportPage = () => {
 															<button
 																type="button"
 																onClick={() => selectQuickGift(sib.gift_id)}
-																class="bg-[#08090D] hover:bg-white/5 border border-white/8 rounded-[14px] p-2.5 flex items-center justify-between gap-2 transition-all text-start"
+																class="bg-[#141a22] hover:bg-white/5 border border-white/8 rounded-[14px] p-2.5 flex items-center justify-between gap-2 transition-all text-start"
 															>
 																<div class="flex flex-col min-w-0">
 																	<span
@@ -2619,8 +2272,7 @@ export const GiftReportPage = () => {
 																		class="text-[10px] font-mono text-emerald-400 font-bold"
 																		dir="ltr"
 																	>
-																		~{formatTon(sib.estimated_serial_value_gram)}{' '}
-																		TON
+																		~{formatTon(sib.estimated_serial_value_gram)} TON
 																	</span>
 																</div>
 																<span class="material-symbols-outlined text-[15px] text-white/35">
@@ -2641,18 +2293,15 @@ export const GiftReportPage = () => {
 								<Show when={activeTab() === 'onchain'}>
 									<div class="w-full flex flex-col gap-3.5">
 										{/* Custody, Host Profile & Whale Owner Intelligence */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3.5 shadow-xl text-start">
+										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3.5 shadow-xl text-start">
 											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
 												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#0098EA]">
+													<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
 														shield_person
 													</span>
 													<div class="flex flex-col">
 														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{tr(
-																'اطلاعات مالک، کیف‌پول و وضعیت نگهداری (Custody)',
-																'OWNER INTELLIGENCE & ON-CHAIN CUSTODY',
-															)}
+															{t('giftReport.ownerCustodyTitle')}
 														</span>
 														<span class="text-[10px] text-white/45">
 															{rep().upgrade_info?.custody_notice}
@@ -2667,9 +2316,9 @@ export const GiftReportPage = () => {
 											</div>
 
 											<div class="grid grid-cols-2 gap-2.5">
-												<div class="bg-[#08090D] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
+												<div class="bg-[#141a22] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
 													<span class="text-[9px] font-mono text-white/40 uppercase">
-														{tr('مالک / میزبان پروفایل', 'CURRENT OWNER / HOST')}
+														{t('giftReport.currentOwnerHost')}
 													</span>
 													<span
 														class="text-[13px] font-mono font-black text-white truncate"
@@ -2680,16 +2329,16 @@ export const GiftReportPage = () => {
 															rep().owner_name ||
 															'Verified Collector'}
 													</span>
-													<span class="text-[10px] text-[#38bdf8] font-bold truncate">
+													<span class="text-[10px] text-[#5aaeff] font-bold truncate">
 														{rep().owner_intelligence?.whale_tier_fa ||
 															rep().owner_intelligence?.whale_tier ||
 															'Active Holder'}
 													</span>
 												</div>
 
-												<div class="bg-[#08090D] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
+												<div class="bg-[#141a22] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
 													<span class="text-[9px] font-mono text-white/40 uppercase">
-														{tr('آدرس کیف‌پول TON', 'TON WALLET ADDRESS')}
+														{t('giftReport.tonWalletAddress')}
 													</span>
 													<div class="flex items-center justify-between gap-1">
 														<span
@@ -2702,8 +2351,7 @@ export const GiftReportPage = () => {
 														</span>
 														<Show
 															when={
-																rep().owner_wallet?.wallet_address ||
-																rep().on_chain?.owner_address
+																rep().owner_wallet?.wallet_address || rep().on_chain?.owner_address
 															}
 														>
 															<button
@@ -2716,7 +2364,7 @@ export const GiftReportPage = () => {
 																		'owner_addr',
 																	)
 																}
-																class="text-[#38bdf8] text-[10px] font-mono shrink-0"
+																class="text-[#5aaeff] text-[10px] font-mono shrink-0"
 															>
 																{copiedKey() === 'owner_addr' ? '✓' : 'Copy'}
 															</button>
@@ -2725,7 +2373,7 @@ export const GiftReportPage = () => {
 													<span class="text-[10px] text-white/45 truncate">
 														{rep().owner_wallet?.is_escrow
 															? rep().owner_wallet?.escrow_name
-															: tr('نگهداری غیرامانی', 'Self-Custody')}
+															: t('giftReport.selfCustody')}
 													</span>
 												</div>
 											</div>
@@ -2739,12 +2387,10 @@ export const GiftReportPage = () => {
 													}
 													target="_blank"
 													rel="noreferrer"
-													class="h-9 rounded-[11px] bg-[#0098EA]/15 hover:bg-[#0098EA]/25 border border-[#0098EA]/35 text-[#38bdf8] font-mono font-black text-[10px] flex items-center justify-center gap-1"
+													class="h-9 rounded-[11px] bg-[#2990ff]/15 hover:bg-[#2990ff]/25 border border-[#2990ff]/35 text-[#5aaeff] font-mono font-black text-[10px] flex items-center justify-center gap-1"
 												>
-													<span>Fragment</span>
-													<span class="material-symbols-outlined text-[13px]">
-														open_in_new
-													</span>
+													<span>{t('giftReport.linkFragment')}</span>
+													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
 												</a>
 												<a
 													href={
@@ -2757,52 +2403,40 @@ export const GiftReportPage = () => {
 													class="h-9 rounded-[11px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 font-mono font-bold text-[10px] flex items-center justify-center gap-1"
 												>
 													<span>t.me/nft</span>
-													<span class="material-symbols-outlined text-[13px]">
-														open_in_new
-													</span>
+													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
 												</a>
 												<a
-													href={
-														rep().on_chain?.tonviewer_url ||
-														'https://tonviewer.com'
-													}
+													href={rep().on_chain?.tonviewer_url || 'https://tonviewer.com'}
 													target="_blank"
 													rel="noreferrer"
 													class="h-9 rounded-[11px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 font-mono font-bold text-[10px] flex items-center justify-center gap-1"
 												>
-													<span>Tonviewer</span>
-													<span class="material-symbols-outlined text-[13px]">
-														open_in_new
-													</span>
+													<span>{t('giftReport.linkTonviewer')}</span>
+													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
 												</a>
 											</div>
 										</div>
 
 										{/* Provenance & Ownership History Timeline */}
 										<Show when={rep().provenance?.length}>
-											<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3 shadow-xl text-start">
+											<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
 												<div class="flex items-center gap-2 border-b border-white/5 pb-2">
-													<span class="material-symbols-outlined text-[18px] text-[#0098EA]">
+													<span class="material-symbols-outlined text-[18px] text-[#2990ff]">
 														history
 													</span>
 													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{tr(
-															'تاریخچه منشأ و معاملات زنجیره (Provenance)',
-															'ON-CHAIN PROVENANCE TIMELINE',
-														)}
+														{t('giftReport.provenanceTitle')}
 													</span>
 												</div>
 
 												<div class="flex flex-col gap-2">
 													<For each={rep().provenance || []}>
 														{(ev) => (
-															<div class="bg-[#08090D] border border-white/6 rounded-[14px] p-3 flex items-center justify-between gap-2">
+															<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3 flex items-center justify-between gap-2">
 																<div class="flex items-center gap-2.5 min-w-0">
-																	<span class="w-8 h-8 rounded-xl bg-[#0098EA]/15 border border-[#0098EA]/30 text-[#38bdf8] flex items-center justify-center shrink-0">
+																	<span class="w-8 h-8 rounded-xl bg-[#2990ff]/15 border border-[#2990ff]/30 text-[#5aaeff] flex items-center justify-center shrink-0">
 																		<span class="material-symbols-outlined text-[16px]">
-																			{ev.event_type === 'upgraded'
-																				? 'auto_awesome'
-																				: 'swap_horiz'}
+																			{ev.event_type === 'upgraded' ? 'auto_awesome' : 'swap_horiz'}
 																		</span>
 																	</span>
 																	<div class="flex flex-col min-w-0">
@@ -2849,37 +2483,28 @@ export const GiftReportPage = () => {
 										{/* Binary & MTProto Forensics */}
 										<Show when={rep().binary_forensics}>
 											{(bf) => (
-												<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3 shadow-xl text-start">
+												<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
 													<div class="flex items-center justify-between border-b border-white/5 pb-2">
 														<div class="flex items-center gap-2">
-															<span class="material-symbols-outlined text-[18px] text-purple-400">
+															<span class="material-symbols-outlined text-[18px] text-[#5aaeff]">
 																terminal
 															</span>
 															<span class="text-[12px] font-black uppercase tracking-wider text-white">
-																{tr(
-																	'کالبدشکافی باینری و استاندارد MTProto / TEP-62',
-																	'MTPROTO & TEP-62 BINARY FORENSICS',
-																)}
+																{t('giftReport.binaryForensicsTitle')}
 															</span>
 														</div>
 													</div>
 
 													<div class="grid grid-cols-2 gap-2 text-[10px] font-mono">
-														<div class="bg-[#08090D] border border-white/5 rounded-[12px] p-2.5">
-															<div class="text-white/40">TL Constructor</div>
-															<div
-																class="text-[#38bdf8] font-bold truncate mt-0.5"
-																dir="ltr"
-															>
+														<div class="bg-[#141a22] border border-white/5 rounded-[12px] p-2.5">
+															<div class="text-white/40">{t('giftReport.tlConstructorLabel')}</div>
+															<div class="text-[#5aaeff] font-bold truncate mt-0.5" dir="ltr">
 																{bf().mtproto_constructor}
 															</div>
 														</div>
-														<div class="bg-[#08090D] border border-white/5 rounded-[12px] p-2.5">
-															<div class="text-white/40">Upgraded Supply</div>
-															<div
-																class="text-emerald-400 font-bold mt-0.5"
-																dir="ltr"
-															>
+														<div class="bg-[#141a22] border border-white/5 rounded-[12px] p-2.5">
+															<div class="text-white/40">{t('giftReport.upgradedSupplyLabel')}</div>
+															<div class="text-emerald-400 font-bold mt-0.5" dir="ltr">
 																{bf().issued_count.toLocaleString()} /{' '}
 																{bf().total_supply_count.toLocaleString()} (
 																{bf().upgraded_percentage}%)
@@ -2892,34 +2517,28 @@ export const GiftReportPage = () => {
 															href={bf().lottie_url}
 															target="_blank"
 															rel="noreferrer"
-															class="h-8 rounded-[10px] bg-[#08090D] hover:bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 flex items-center justify-center gap-1"
+															class="h-8 rounded-[10px] bg-[#141a22] hover:bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 flex items-center justify-center gap-1"
 														>
-															<span>Lottie JSON</span>
-															<span class="material-symbols-outlined text-[12px]">
-																open_in_new
-															</span>
+															<span>{t('giftReport.lottieJsonBtn')}</span>
+															<span class="material-symbols-outlined text-[12px]">open_in_new</span>
 														</a>
 														<a
 															href={bf().webp_url}
 															target="_blank"
 															rel="noreferrer"
-															class="h-8 rounded-[10px] bg-[#08090D] hover:bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 flex items-center justify-center gap-1"
+															class="h-8 rounded-[10px] bg-[#141a22] hover:bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 flex items-center justify-center gap-1"
 														>
-															<span>Official WebP</span>
-															<span class="material-symbols-outlined text-[12px]">
-																open_in_new
-															</span>
+															<span>{t('giftReport.officialWebpBtn')}</span>
+															<span class="material-symbols-outlined text-[12px]">open_in_new</span>
 														</a>
 														<a
 															href={bf().metadata_json_url}
 															target="_blank"
 															rel="noreferrer"
-															class="h-8 rounded-[10px] bg-[#08090D] hover:bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 flex items-center justify-center gap-1"
+															class="h-8 rounded-[10px] bg-[#141a22] hover:bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 flex items-center justify-center gap-1"
 														>
-															<span>TEP-64 JSON</span>
-															<span class="material-symbols-outlined text-[12px]">
-																open_in_new
-															</span>
+															<span>{t('giftReport.tep64JsonBtn')}</span>
+															<span class="material-symbols-outlined text-[12px]">open_in_new</span>
 														</a>
 													</div>
 												</div>
@@ -2934,29 +2553,23 @@ export const GiftReportPage = () => {
 								<Show when={activeTab() === 'comps'}>
 									<div class="w-full flex flex-col gap-3.5">
 										{/* Settled Comparable Sales & SVG Price Trajectory */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3.5 shadow-xl text-start">
+										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3.5 shadow-xl text-start">
 											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
 												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#0098EA]">
+													<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
 														ssid_chart
 													</span>
 													<div class="flex flex-col">
 														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{tr(
-																'معاملات مشابه تسویه‌شده (Verified Comps)',
-																'SETTLED COMPARABLE SALES',
-															)}
+															{t('giftReport.compsTitle')}
 														</span>
 														<span class="text-[10px] text-white/45">
-															{tr(
-																'معاملات واقعی ثبت‌شده برای همین مدل، پس‌زمینه و کلکسیون',
-																'Real settled trades for matching Model, Backdrop & Collection',
-															)}
+															{t('giftReport.compsSubtitle')}
 														</span>
 													</div>
 												</div>
-												<span class="text-[10px] font-mono font-bold text-[#38bdf8]">
-													{filteredComps().length} Deals
+												<span class="text-[10px] font-mono font-bold text-[#5aaeff]">
+													{filteredComps().length} {t('giftReport.dealsSuffix')}
 												</span>
 											</div>
 
@@ -2966,19 +2579,19 @@ export const GiftReportPage = () => {
 													each={[
 														{
 															id: 'all' as const,
-															label: tr('همه معاملات', 'All Sales'),
+															label: t('giftReport.compAllSales'),
 														},
 														{
 															id: 'exact_model' as const,
-															label: tr('همین مدل', 'Exact Model'),
+															label: t('giftReport.compExactModel'),
 														},
 														{
 															id: 'exact_backdrop' as const,
-															label: tr('همین پس‌زمینه', 'Exact Backdrop'),
+															label: t('giftReport.compExactBackdrop'),
 														},
 														{
 															id: 'collection_floor' as const,
-															label: tr('کف کلکسیون', 'Collection'),
+															label: t('giftReport.compCollection'),
 														},
 													]}
 												>
@@ -2988,8 +2601,8 @@ export const GiftReportPage = () => {
 															onClick={() => setCompFilter(f.id)}
 															class={`px-2.5 py-1 rounded-[10px] text-[10px] font-bold whitespace-nowrap transition-all ${
 																compFilter() === f.id
-																	? 'bg-[#0098EA] text-white'
-																	: 'bg-[#08090D] text-white/55 hover:text-white'
+																	? 'bg-[#2990ff] text-white'
+																	: 'bg-[#141a22] text-white/55 hover:text-white'
 															}`}
 														>
 															{f.label}
@@ -3000,7 +2613,7 @@ export const GiftReportPage = () => {
 
 											{/* SVG Price Trajectory Chart */}
 											<Show when={compChartPoints().length > 1}>
-												<div class="w-full h-32 bg-[#08090D] border border-white/5 rounded-[16px] p-2 relative">
+												<div class="w-full h-32 bg-[#141a22] border border-white/5 rounded-[16px] p-2 relative">
 													<svg
 														viewBox="0 0 100 100"
 														preserveAspectRatio="none"
@@ -3008,21 +2621,14 @@ export const GiftReportPage = () => {
 													>
 														<polyline
 															fill="none"
-															stroke="#0098EA"
+															stroke="#2990ff"
 															stroke-width="2"
 															points={compChartPoints()
 																.map((p) => `${p.x},${p.y}`)
 																.join(' ')}
 														/>
 														<For each={compChartPoints()}>
-															{(pt) => (
-																<circle
-																	cx={pt.x}
-																	cy={pt.y}
-																	r="2.5"
-																	fill="#38bdf8"
-																/>
-															)}
+															{(pt) => <circle cx={pt.x} cy={pt.y} r="2.5" fill="#5aaeff" />}
 														</For>
 													</svg>
 												</div>
@@ -3032,13 +2638,10 @@ export const GiftReportPage = () => {
 												<For each={filteredComps()}>
 													{(comp) => (
 														<a
-															href={
-																comp.tonviewer_url ||
-																`https://fragment.com/gifts`
-															}
+															href={comp.tonviewer_url || `https://fragment.com/gifts`}
 															target="_blank"
 															rel="noreferrer"
-															class="bg-[#08090D] hover:bg-white/[0.03] border border-white/6 rounded-[14px] p-3 flex items-center justify-between gap-2 transition-all"
+															class="bg-[#141a22] hover:bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 flex items-center justify-between gap-2 transition-all"
 														>
 															<div class="flex items-center gap-2.5 min-w-0">
 																<span
@@ -3052,16 +2655,12 @@ export const GiftReportPage = () => {
 																		{comp.model_id} · {comp.backdrop_name}
 																	</span>
 																	<span class="text-[9px] font-mono text-white/45">
-																		{comp.venue} ·{' '}
-																		{formatDateLocale(comp.sale_date)}
+																		{comp.venue} · {formatDateLocale(comp.sale_date)}
 																	</span>
 																</div>
 															</div>
 
-															<div
-																class="flex flex-col items-end shrink-0"
-																dir="ltr"
-															>
+															<div class="flex flex-col items-end shrink-0" dir="ltr">
 																<span class="text-[13px] font-mono font-black text-emerald-400">
 																	{formatTon(comp.sale_price_gram)} TON
 																</span>
@@ -3077,17 +2676,14 @@ export const GiftReportPage = () => {
 
 										{/* Live Trait Active Listings Orderbook */}
 										<Show when={rep().trait_active_listings?.length}>
-											<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3 shadow-xl text-start">
+											<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
 												<div class="flex items-center justify-between border-b border-white/5 pb-2">
 													<div class="flex items-center gap-2">
 														<span class="material-symbols-outlined text-[18px] text-emerald-400">
 															storefront
 														</span>
 														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{tr(
-																'اردربوک زنده لیستینگ‌های هم‌تریت در فرگمنت',
-																'LIVE TRAIT ORDERBOOK LISTINGS',
-															)}
+															{t('giftReport.liveTraitOrderbookTitle')}
 														</span>
 													</div>
 												</div>
@@ -3099,20 +2695,17 @@ export const GiftReportPage = () => {
 																href={lst.fragment_url}
 																target="_blank"
 																rel="noreferrer"
-																class="bg-[#08090D] hover:bg-white/[0.04] border border-white/6 rounded-[14px] p-3 flex items-center justify-between gap-2 transition-all"
+																class="bg-[#141a22] hover:bg-white/[0.04] border border-white/[0.06] rounded-xl p-3 flex items-center justify-between gap-2 transition-all"
 															>
 																<div class="flex flex-col min-w-0">
 																	<span class="text-[11px] font-bold text-white truncate">
 																		{lst.trait_value} (#{lst.serial_number})
 																	</span>
-																	<span class="text-[9px] font-mono text-[#38bdf8]">
-																		Fragment Active Listing ↗
+																	<span class="text-[9px] font-mono text-[#5aaeff]">
+																		{t('giftReport.fragmentActiveListing')}
 																	</span>
 																</div>
-																<div
-																	class="flex flex-col items-end shrink-0"
-																	dir="ltr"
-																>
+																<div class="flex flex-col items-end shrink-0" dir="ltr">
 																	<span class="text-[13px] font-mono font-black text-white">
 																		{formatTon(lst.price_gram)} TON
 																	</span>
@@ -3128,17 +2721,14 @@ export const GiftReportPage = () => {
 										</Show>
 
 										{/* Crafting Forge Verdict & Institutional Risk Audit */}
-										<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[26px] p-4 flex flex-col gap-3 shadow-xl text-start">
+										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
 											<div class="flex items-center justify-between border-b border-white/5 pb-2">
 												<div class="flex items-center gap-2">
 													<span class="material-symbols-outlined text-[18px] text-emerald-400">
 														verified_user
 													</span>
 													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{tr(
-															'ممیزی ریسک، اصالت قرارداد و کارگاه کرفت',
-															'RISK AUDIT & CRAFTING FORGE VERDICT',
-														)}
+														{t('giftReport.riskAuditTitle')}
 													</span>
 												</div>
 												<span class="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-mono font-black text-emerald-400">
@@ -3148,18 +2738,11 @@ export const GiftReportPage = () => {
 
 											<Show when={rep().crafting_forge}>
 												{(cf) => (
-													<div class="bg-[#08090D] border border-amber-500/25 rounded-[14px] p-3 flex flex-col gap-1">
+													<div class="bg-[#141a22] border border-amber-500/25 rounded-[14px] p-3 flex flex-col gap-1">
 														<span class="text-[10px] font-mono font-black text-amber-300 uppercase">
-															{cf().burn_candidate_verdict ===
-															'DO_NOT_BURN_PREMIUM'
-																? tr(
-																		'⛔ حکم کارگاه کرفت: ممنوعیت سوزاندن (دارای پریمیوم)',
-																		'⛔ FORGE VERDICT: DO NOT BURN (PREMIUM ASSET)',
-																	)
-																: tr(
-																		'کارگاه کرفت (Crafting Forge)',
-																		'Crafting Forge Status',
-																	)}
+															{cf().burn_candidate_verdict === 'DO_NOT_BURN_PREMIUM'
+																? t('giftReport.forgeDoNotBurn')
+																: t('giftReport.forgeStatus')}
 														</span>
 														<p class="text-[11px] text-white/75 leading-relaxed">
 															{cf().burn_candidate_reason_fa}
@@ -3171,12 +2754,10 @@ export const GiftReportPage = () => {
 											<div class="flex flex-col gap-2">
 												<For each={rep().risk_audit?.risk_checklist || []}>
 													{(chk) => (
-														<div class="bg-[#08090D] border border-white/6 rounded-[14px] p-3 flex items-start gap-2.5">
+														<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3 flex items-start gap-2.5">
 															<span
 																class={`material-symbols-outlined text-[18px] shrink-0 mt-0.5 ${
-																	chk.passed
-																		? 'text-emerald-400'
-																		: 'text-amber-400'
+																	chk.passed ? 'text-emerald-400' : 'text-amber-400'
 																}`}
 															>
 																{chk.passed ? 'check_circle' : 'warning'}
@@ -3203,11 +2784,7 @@ export const GiftReportPage = () => {
 			</div>
 
 			{/* Credit Store Bottom Sheet for Top-Up */}
-			<CreditStoreSheet
-				open={storeOpen()}
-				onClose={() => setStoreOpen(false)}
-				vertical="gift"
-			/>
+			<CreditStoreSheet open={storeOpen()} onClose={() => setStoreOpen(false)} vertical="gift" />
 		</div>
 	);
 };

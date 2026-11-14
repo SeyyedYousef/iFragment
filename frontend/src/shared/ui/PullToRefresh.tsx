@@ -82,14 +82,14 @@ export const PullToRefresh: Component<PullToRefreshProps> = (props) => {
 				}}
 			>
 				<div
-					class="w-8 h-8 rounded-full bg-[#12141C] border border-white/10 shadow-lg flex items-center justify-center mb-2"
+					class="w-8 h-8 rounded-full frag-dock flex items-center justify-center mb-2"
 					style={{
 						transform: `rotate(${pullDistance() * 3}deg)`,
 						opacity: Math.min(1, pullDistance() / THRESHOLD),
 					}}
 				>
 					<span
-						class={`material-symbols-outlined text-[18px] text-white/70 ${isRefreshing() ? 'animate-spin' : ''}`}
+						class={`material-symbols-outlined text-[17px] text-[#2990ff] ${isRefreshing() ? 'animate-spin' : ''}`}
 					>
 						refresh
 					</span>

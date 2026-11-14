@@ -6,7 +6,7 @@ import {
 	type GiftsIntelResponse,
 	giftsApi,
 } from '@/entities/gifts/index.js';
-import { isRtl, locale } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export type GiftsMainTab = 'overview' | 'collections' | 'inspector' | 'tape';
@@ -17,315 +17,8 @@ interface Props {
 	onTabChange: (tab: GiftsMainTab) => void;
 }
 
-type Lang = 'fa' | 'en' | 'ru' | 'zh';
-
-const I18N: Record<Lang, Record<string, string>> = {
-	fa: {
-		kpiMcapTitle: 'ارزش کل بازار گیفت‌ها',
-		kpiMcapSub: 'بر پایه کف قیمت زنده Fragment',
-		kpiVolTitle: 'حجم معاملات ۲۴ ساعته',
-		kpiDealsSub: 'معاملات ثبت‌شده اخیر',
-		kpiSupplyTitle: 'کل عرضه آن‌چین (NFT)',
-		kpiCatalogSub: '۱۲۲ مجموعه • ۷,۸۰۶ مدل',
-		kpiLeaderTitle: 'شاخص بلوچیپ بازار',
-		kpiLeaderSub: 'بالاترین کف قیمت مجموعه',
-		macroChartTitle: 'نمودار ارزش کل و حجم معاملات اکوسیستم گیفت',
-		liveBadge: 'زنده • Fragment + Changes.tg',
-		mcapLabel: 'ارزش کل بازار',
-		vol24hLabel: 'حجم ۲۴ ساعته',
-		areaMode: 'نمودار خطی',
-		candleMode: 'کندل OHLC',
-		now: 'اکنون',
-		sweepRadarTitle: 'رادار شکار و شکاف دفتر سفارشات (Floor Sweep Radar)',
-		sweepRadarSub:
-			'مجموعه‌هایی که با خرید تنها ۱ آگهی کف (#1)، قیمت کف مجموعه بلافاصله به آگهی دوم (#2) پرش می‌کند',
-		floor1Label: 'کف فعلی (#1)',
-		floor2Label: 'آگهی بعدی (#2)',
-		sweepJumpLabel: 'پرش آنی کف',
-		buyFloorBtn: 'خرید کف',
-		inspectCollectionBtn: 'کاوش مجموعه',
-		floorBoardTitle: 'رتبه‌بندی و کف قیمت زنده مجموعه‌های گیفت',
-		floorBoardSub: 'قیمت‌های لحظه‌ای مستقیم از دفتر سفارشات Fragment و دایرکتوری ۱۲۲ مجموعه رسمی',
-		filterAll: 'برترین‌های بازار',
-		filterBluechip: 'بلوچیپ (+100 TON)',
-		filterMid: 'میان‌رده (20–100 TON)',
-		filterEntry: 'ورودی (<20 TON)',
-		filterDirectory: 'همه ۱۲۲ مجموعه رسمی',
-		searchCollectionPlaceholder:
-			'جستجوی نام مجموعه از بین ۱۲۲ گیفت رسمی (مثلاً Plush Pepe، Durov، Watch)...',
-		colFloor1: 'کف قیمت (#1)',
-		colFloor2: 'آگهی دوم (#2)',
-		colSpread: 'شکاف جارو',
-		colSupply: 'عرضه آن‌چین',
-		inspectLiveBtn: 'کاوش عمیق',
-		buyOnFragmentBtn: 'Fragment ↗',
-		inspectorTitle: 'کاوشگر تخصصی و کمیابی مجموعه (On-Demand)',
-		inspectorSub:
-			'هر مجموعه را انتخاب کنید تا ارزان‌ترین آگهی‌های فعال، کمیابی مدل/پس‌زمینه و تاریخچه فروش آن زنده واکشی شود',
-		showAllCollections: 'فهرست کامل ۱۲۲ مجموعه',
-		hideAllCollections: 'بستن فهرست',
-		liveFloor: 'کف قیمت لحظه‌ای (#1)',
-		secondFloor: 'آگهی دوم (#2) و شکاف',
-		onChainSupply: 'عرضه آن‌چین (NFT)',
-		activeListings: 'آگهی فعال',
-		allTimeHighSale: 'سقف معامله ثبت‌شده',
-		openFullTerminal: 'ترمینال کامل مجموعه',
-		buyCheapestOnFragment: 'خرید ارزان‌ترین در Fragment',
-		tabOrderbook: 'ارزان‌ترین آگهی‌ها (Orderbook)',
-		tabTraits: 'کمیابی مدل و پس‌زمینه',
-		tabSalesAndChart: 'آمار و معاملات ثبت‌شده',
-		traitModels: 'مدل‌های سه‌بعدی (Models)',
-		traitBackdrops: 'پس‌زمینه‌های رنگی (Backdrops)',
-		traitSymbols: 'نمادها (Symbols)',
-		buyBtn: 'خرید در Fragment',
-		stats24h: 'فروش ۲۴ ساعت اخیر',
-		stats7d: 'فروش ۷ روز اخیر',
-		stats30d: 'فروش ۳۰ روز اخیر',
-		minSale: 'کف فروش',
-		avgSale: 'میانگین',
-		maxSale: 'سقف فروش',
-		dealsCount: 'معامله',
-		globalTapeTitle: 'نوار زنده کل بازار و حراجی‌های لحظه آخری (۱۲۲ مجموعه)',
-		globalTapeSub: 'رصد لحظه‌ای حراجی‌های در حال اتمام، معاملات قطعی و آگهی‌های جدید در Fragment',
-		tapeEndingAuctions: 'حراجی‌های لحظه آخری',
-		tapeRecentSales: 'آخرین معاملات ثبت‌شده',
-		tapeNewListings: 'آگهی‌های فروش جدید',
-		bidOnFragment: 'ثبت پیشنهاد ↗',
-		loadingCollection: 'در حال واکشی زنده دفتر سفارشات و کمیابی از Fragment و Changes.tg...',
-		tapToInspectLive: 'کاوش زنده مجموعه ←',
-	},
-	en: {
-		kpiMcapTitle: 'Total Ecosystem Market Cap',
-		kpiMcapSub: 'Based on live Fragment floors',
-		kpiVolTitle: '24h Trading Volume',
-		kpiDealsSub: 'Verified settled transactions',
-		kpiSupplyTitle: 'On-Chain NFT Supply',
-		kpiCatalogSub: '122 Collections • 7,806 Models',
-		kpiLeaderTitle: 'Blue-Chip Market Leader',
-		kpiLeaderSub: 'Highest collection floor price',
-		macroChartTitle: 'Telegram Gifts Market Cap & Volume Pulse',
-		liveBadge: 'LIVE • Fragment + Changes.tg',
-		mcapLabel: 'Implied Market Cap',
-		vol24hLabel: '24h Volume',
-		areaMode: 'Area Spline',
-		candleMode: 'OHLC Candles',
-		now: 'Now',
-		sweepRadarTitle: 'Floor Sweep & Thin Orderbook Radar',
-		sweepRadarSub:
-			'Collections where buying the single #1 cheapest listing immediately jumps the floor to a much higher #2 listing',
-		floor1Label: 'Current Floor (#1)',
-		floor2Label: 'Next Listing (#2)',
-		sweepJumpLabel: 'Instant Jump',
-		buyFloorBtn: 'Buy #1',
-		inspectCollectionBtn: 'Inspect',
-		floorBoardTitle: 'Live Collection Floor Board & Rankings',
-		floorBoardSub: 'Real-time orderbook prices from Fragment across all 122 official collections',
-		filterAll: 'Top Verified Floors',
-		filterBluechip: 'Blue-Chips (>100 TON)',
-		filterMid: 'Mid-Tier (20–100 TON)',
-		filterEntry: 'Entry (<20 TON)',
-		filterDirectory: 'All 122 Official Directory',
-		searchCollectionPlaceholder:
-			'Search across all 122 official gift collections (e.g. Plush Pepe, Durov, Watch)...',
-		colFloor1: 'Floor (#1)',
-		colFloor2: 'Next (#2)',
-		colSpread: 'Sweep Jump',
-		colSupply: 'NFT Supply',
-		inspectLiveBtn: 'Deep-Dive',
-		buyOnFragmentBtn: 'Fragment ↗',
-		inspectorTitle: 'On-Demand Collection & Rarity Inspector',
-		inspectorSub:
-			'Select any collection to fetch its live Fragment orderbook, cheapest listings, trait rarity & sales history',
-		showAllCollections: 'All 122 Collections',
-		hideAllCollections: 'Close Directory',
-		liveFloor: 'Live Floor (#1)',
-		secondFloor: '#2 Listing & Spread',
-		onChainSupply: 'On-Chain NFT Supply',
-		activeListings: 'Active Listings',
-		allTimeHighSale: 'Highest Recorded Sale',
-		openFullTerminal: 'Full Terminal',
-		buyCheapestOnFragment: 'Buy Cheapest on Fragment',
-		tabOrderbook: 'Cheapest Listings (Orderbook)',
-		tabTraits: 'Models, Backdrops & Rarity',
-		tabSalesAndChart: 'Sales Stats & History',
-		traitModels: '3D Models',
-		traitBackdrops: 'Color Backdrops',
-		traitSymbols: 'Symbols',
-		buyBtn: 'Buy on Fragment',
-		stats24h: '24h Sales Stats',
-		stats7d: '7d Sales Stats',
-		stats30d: '30d Sales Stats',
-		minSale: 'Min Sale',
-		avgSale: 'Avg Sale',
-		maxSale: 'Max Sale',
-		dealsCount: 'Deals',
-		globalTapeTitle: 'Global Live Market Tape & Sniper Auctions',
-		globalTapeSub:
-			'Real-time ending-soon auctions, settled sales, and newly listed gifts on Fragment',
-		tapeEndingAuctions: 'Ending Soon Auctions',
-		tapeRecentSales: 'Recent Settled Sales',
-		tapeNewListings: 'Newly Listed',
-		bidOnFragment: 'Place Bid ↗',
-		loadingCollection: 'Fetching live Fragment orderbook & Changes.tg trait probabilities...',
-		tapToInspectLive: 'Inspect Live →',
-	},
-	ru: {
-		kpiMcapTitle: 'Капитализация подарков',
-		kpiMcapSub: 'На базе живых флоров Fragment',
-		kpiVolTitle: 'Объем торгов (24ч)',
-		kpiDealsSub: 'Подтвержденные сделки',
-		kpiSupplyTitle: 'NFT в блокчейне TON',
-		kpiCatalogSub: '122 коллекции • 7,806 моделей',
-		kpiLeaderTitle: 'Лидер голубых фишек',
-		kpiLeaderSub: 'Максимальный флор коллекции',
-		macroChartTitle: 'Динамика капитализации и объема рынка подарков',
-		liveBadge: 'LIVE • Fragment + Changes.tg',
-		mcapLabel: 'Капитализация',
-		vol24hLabel: 'Объем 24ч',
-		areaMode: 'Линия',
-		candleMode: 'Свечи OHLC',
-		now: 'Сейчас',
-		sweepRadarTitle: 'Радар прострелов стакана (Floor Sweep Radar)',
-		sweepRadarSub:
-			'Коллекции, где покупка всего 1 самого дешевого лота (#1) мгновенно поднимает флор до лота #2',
-		floor1Label: 'Флор (#1)',
-		floor2Label: 'Лот (#2)',
-		sweepJumpLabel: 'Скачок флора',
-		buyFloorBtn: 'Купить #1',
-		inspectCollectionBtn: 'Анализ',
-		floorBoardTitle: 'Рейтинг и живые флоры коллекций',
-		floorBoardSub: 'Реальные цены напрямую из книги ордеров Fragment по всем 122 коллекциям',
-		filterAll: 'Топ коллекции',
-		filterBluechip: 'Голубые фишки (>100 TON)',
-		filterMid: 'Средний сегмент (20–100 TON)',
-		filterEntry: 'Доступные (<20 TON)',
-		filterDirectory: 'Все 122 коллекции',
-		searchCollectionPlaceholder: 'Поиск среди 122 официальных коллекций (Plush Pepe, Durov)...',
-		colFloor1: 'Флор (#1)',
-		colFloor2: 'След. (#2)',
-		colSpread: 'Прострел',
-		colSupply: 'Эмиссия NFT',
-		inspectLiveBtn: 'Обзор',
-		buyOnFragmentBtn: 'Fragment ↗',
-		inspectorTitle: 'Глубокий инспектор коллекций и редкости',
-		inspectorSub:
-			'Выберите любую из 122 коллекций для загрузки стакана Fragment, редкости моделей и истории сделок',
-		showAllCollections: 'Все 122 коллекции',
-		hideAllCollections: 'Скрыть список',
-		liveFloor: 'Текущий флор (#1)',
-		secondFloor: '2-й лот и спред',
-		onChainSupply: 'NFT в сети',
-		activeListings: 'в продаже',
-		allTimeHighSale: 'Рекордная сделка',
-		openFullTerminal: 'Полный терминал',
-		buyCheapestOnFragment: 'Купить лучший лот на Fragment',
-		tabOrderbook: 'Дешевые лоты (Стакан)',
-		tabTraits: 'Модели, фоны и редкость',
-		tabSalesAndChart: 'Статистика и продажи',
-		traitModels: '3D Модели',
-		traitBackdrops: 'Цветовые фоны',
-		traitSymbols: 'Символы',
-		buyBtn: 'Купить на Fragment',
-		stats24h: 'Продажи за 24ч',
-		stats7d: 'Продажи за 7д',
-		stats30d: 'Продажи за 30д',
-		minSale: 'Мин.',
-		avgSale: 'Средн.',
-		maxSale: 'Макс.',
-		dealsCount: 'сделок',
-		globalTapeTitle: 'Живая лента рынка и снайпер аукционов',
-		globalTapeSub: 'Завершающиеся аукционы, последние продажи и новые лоты на Fragment',
-		tapeEndingAuctions: 'Скоро завершатся',
-		tapeRecentSales: 'Последние продажи',
-		tapeNewListings: 'Новые лоты',
-		bidOnFragment: 'Ставка ↗',
-		loadingCollection: 'Загрузка живого стакана Fragment и атрибутов Changes.tg...',
-		tapToInspectLive: 'Открыть инспектор →',
-	},
-	zh: {
-		kpiMcapTitle: '礼物生态总市值',
-		kpiMcapSub: '基于 Fragment 实时地板价',
-		kpiVolTitle: '24小时交易额',
-		kpiDealsSub: '链上真实成交笔数',
-		kpiSupplyTitle: '链上 NFT 总供应量',
-		kpiCatalogSub: '122 个系列 • 7,806 款模型',
-		kpiLeaderTitle: '蓝筹龙头系列',
-		kpiLeaderSub: '全市场最高地板价系列',
-		macroChartTitle: 'Telegram 礼物总市值与交易量趋势',
-		liveBadge: '实时 • Fragment + Changes.tg',
-		mcapLabel: '总市值',
-		vol24hLabel: '24h 交易量',
-		areaMode: '面积图',
-		candleMode: 'K线蜡烛图',
-		now: '当前',
-		sweepRadarTitle: '扫货价差与薄订单簿雷达 (Sweep Radar)',
-		sweepRadarSub: '只需买入第 1 个最便宜挂单 (#1)，地板价立即跳涨至第 2 挂单 (#2) 的高弹性系列',
-		floor1Label: '当前地板 (#1)',
-		floor2Label: '第二挂单 (#2)',
-		sweepJumpLabel: '扫货跳涨',
-		buyFloorBtn: '买地板',
-		inspectCollectionBtn: '深度分析',
-		floorBoardTitle: '全系列实时地板价排行榜',
-		floorBoardSub: '直接抓取自 Fragment 实时订单簿与 122 个官方系列目录',
-		filterAll: '热门核心榜',
-		filterBluechip: '蓝筹 (>100 TON)',
-		filterMid: '中坚 (20–100 TON)',
-		filterEntry: '入门 (<20 TON)',
-		filterDirectory: '全部 122 个官方系列',
-		searchCollectionPlaceholder: '搜索全部 122 个官方礼物系列 (如 Plush Pepe, Durov)...',
-		colFloor1: '地板价 (#1)',
-		colFloor2: '第二单 (#2)',
-		colSpread: '扫货涨幅',
-		colSupply: '链上数量',
-		inspectLiveBtn: '深度探测',
-		buyOnFragmentBtn: 'Fragment ↗',
-		inspectorTitle: '按需系列深度探测器与稀有度图谱',
-		inspectorSub: '选择任意官方礼物系列，实时拉取 Fragment 在售低价单、3D模型/背景稀有度及历史成交',
-		showAllCollections: '展开全部 122 个系列',
-		hideAllCollections: '收起目录',
-		liveFloor: '实时地板价 (#1)',
-		secondFloor: '第二挂单与价差',
-		onChainSupply: '链上 NFT 数量',
-		activeListings: '当前在售',
-		allTimeHighSale: '最高成交记录',
-		openFullTerminal: '完整终端',
-		buyCheapestOnFragment: '在 Fragment 购买最低价',
-		tabOrderbook: '最便宜挂单 (订单簿)',
-		tabTraits: '模型、背景与稀有度',
-		tabSalesAndChart: '成交统计与历史',
-		traitModels: '3D 模型',
-		traitBackdrops: '渐变背景',
-		traitSymbols: '符号图案',
-		buyBtn: 'Fragment 购买',
-		stats24h: '24小时成交统计',
-		stats7d: '7天成交统计',
-		stats30d: '30天成交统计',
-		minSale: '最低',
-		avgSale: '均价',
-		maxSale: '最高',
-		dealsCount: '笔成交',
-		globalTapeTitle: '全市场实时成交流与结标狙击',
-		globalTapeSub: '实时监控 Fragment 即将结束拍卖、最新成交记录与新上架挂单',
-		tapeEndingAuctions: '即将结标拍卖',
-		tapeRecentSales: '最新成交记录',
-		tapeNewListings: '最新上架挂单',
-		bidOnFragment: '参与竞拍 ↗',
-		loadingCollection: '正在从 Fragment 与 Changes.tg 实时拉取订单簿与稀有度数据...',
-		tapToInspectLive: '实时探测 →',
-	},
-};
-
 export const GiftsChartView: Component<Props> = (props) => {
 	const navigate = useNavigate();
-	const lang = createMemo<Lang>(() => {
-		const l = (locale() || 'fa').toLowerCase();
-		if (l.startsWith('en')) return 'en';
-		if (l.startsWith('ru')) return 'ru';
-		if (l.startsWith('zh')) return 'zh';
-		return 'fa';
-	});
-	const tr = (key: string) => I18N[lang()][key] || I18N.en[key] || key;
-
 	// Macro chart controls
 	const [chartMode, setChartMode] = createSignal<'area' | 'candles'>('area');
 	const [chartRange, setChartRange] = createSignal<'7d' | '14d' | '30d'>('30d');
@@ -376,7 +69,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 	const formatPrice = (gram: number, usd?: number) => {
 		if (chartCurrency() === 'gram') {
-			return `${gram.toLocaleString(undefined, { maximumFractionDigits: 1 })} TON`;
+			return `${gram.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${t('common.ton')}`;
 		}
 		const u = usd !== undefined ? usd : gram * tonRate();
 		return `$${u.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -385,9 +78,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 	const formatMacroVal = (valUsd: number) => {
 		if (chartCurrency() === 'gram') {
 			const g = valUsd / tonRate();
-			if (g >= 1e6) return `${(g / 1e6).toFixed(2)}M TON`;
-			if (g >= 1e3) return `${(g / 1e3).toFixed(1)}K TON`;
-			return `${g.toFixed(0)} TON`;
+			if (g >= 1e6) return `${(g / 1e6).toFixed(2)}M ${t('common.ton')}`;
+			if (g >= 1e3) return `${(g / 1e3).toFixed(1)}K ${t('common.ton')}`;
+			return `${g.toFixed(0)} ${t('common.ton')}`;
 		}
 		if (valUsd >= 1e6) return `$${(valUsd / 1e6).toFixed(2)}M`;
 		if (valUsd >= 1e3) return `$${(valUsd / 1e3).toFixed(1)}K`;
@@ -611,13 +304,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 					{/* 4 PRIMARY DECISION KPI CARDS (2x2 GRID MATCHING USERNAMES & +888 NUMBERS) */}
 					<div class="grid grid-cols-2 gap-2.5">
 						{/* Card 1: Ecosystem Market Cap */}
-						<div class="bg-[#0D111B]/90 backdrop-blur-xl border border-white/10 rounded-[20px] p-3.5 flex flex-col justify-between shadow-lg">
+						<div class="bg-[#1b232d]/95 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-3.5 flex flex-col justify-between shadow-lg">
 							<div>
 								<div class="flex items-center justify-between mb-1">
 									<span class="text-[10px] text-white/50 font-black tracking-wide">
-										{tr('kpiMcapTitle')}
+										{t('giftsChart.kpiMcapTitle')}
 									</span>
-									<span class="material-symbols-outlined text-[#0098EA] text-[16px]">
+									<span class="material-symbols-outlined text-[#2990ff] text-[16px]">
 										account_balance
 									</span>
 								</div>
@@ -638,19 +331,21 @@ export const GiftsChartView: Component<Props> = (props) => {
 								</div>
 							</div>
 							<div class="text-[10px] text-white/45 font-mono mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
-								<span>TON Value:</span>
-								<strong class="text-[#0098EA]" dir="ltr">
-									{mcapUsd() > 0 ? `${(mcapUsd() / tonRate() / 1e6).toFixed(1)}M TON` : '32.5M TON'}
+								<span>{t('giftsChart.tonValueLabel')}:</span>
+								<strong class="text-[#2990ff]" dir="ltr">
+									{mcapUsd() > 0
+										? `${(mcapUsd() / tonRate() / 1e6).toFixed(1)}M ${t('common.ton')}`
+										: `32.5M ${t('common.ton')}`}
 								</strong>
 							</div>
 						</div>
 
 						{/* Card 2: 24h Trading Volume & Settled Deals */}
-						<div class="bg-[#0D111B]/90 backdrop-blur-xl border border-white/10 rounded-[20px] p-3.5 flex flex-col justify-between shadow-lg">
+						<div class="bg-[#1b232d]/95 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-3.5 flex flex-col justify-between shadow-lg">
 							<div>
 								<div class="flex items-center justify-between mb-1">
 									<span class="text-[10px] text-white/50 font-black tracking-wide">
-										{tr('kpiVolTitle')}
+										{t('giftsChart.kpiVolTitle')}
 									</span>
 									<span class="material-symbols-outlined text-emerald-400 text-[16px]">
 										payments
@@ -660,11 +355,11 @@ export const GiftsChartView: Component<Props> = (props) => {
 									<span class="text-[20px] font-black font-mono text-white tracking-tight">
 										{volumeUsd() > 0 ? `${(volumeUsd() / tonRate() / 1e3).toFixed(1)}K` : '142.5K'}
 									</span>
-									<span class="text-[11px] font-black text-emerald-400">TON</span>
+									<span class="text-[11px] font-black text-emerald-400">{t('common.ton')}</span>
 								</div>
 							</div>
 							<div class="text-[10px] text-white/45 font-mono mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
-								<span>{tr('kpiDealsSub')}:</span>
+								<span>{t('giftsChart.kpiDealsSub')}:</span>
 								<strong class="text-emerald-400" dir="ltr">
 									≈ ${volumeUsd() > 0 ? `${(volumeUsd() / 1e3).toFixed(0)}K` : '206K'}
 								</strong>
@@ -672,11 +367,11 @@ export const GiftsChartView: Component<Props> = (props) => {
 						</div>
 
 						{/* Card 3: On-Chain Upgraded NFT Supply */}
-						<div class="bg-[#0D111B]/90 backdrop-blur-xl border border-white/10 rounded-[20px] p-3.5 flex flex-col justify-between shadow-lg">
+						<div class="bg-[#1b232d]/95 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-3.5 flex flex-col justify-between shadow-lg">
 							<div>
 								<div class="flex items-center justify-between mb-1">
 									<span class="text-[10px] text-white/50 font-black tracking-wide">
-										{tr('kpiSupplyTitle')}
+										{t('giftsChart.kpiSupplyTitle')}
 									</span>
 									<span class="material-symbols-outlined text-sky-400 text-[16px]">verified</span>
 								</div>
@@ -692,7 +387,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 								</span>
 							</div>
 							<div class="text-[10px] text-white/45 mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
-								<span>{tr('kpiCatalogSub')}</span>
+								<span>{t('giftsChart.kpiCatalogSub')}</span>
 							</div>
 						</div>
 
@@ -700,12 +395,12 @@ export const GiftsChartView: Component<Props> = (props) => {
 						<button
 							type="button"
 							onClick={() => selectAndInspectCollection(blueChipLeader().slug)}
-							class="bg-[#0D111B]/90 hover:bg-[#131928] backdrop-blur-xl border border-white/10 hover:border-[#0098EA]/40 rounded-[20px] p-3.5 flex flex-col justify-between shadow-lg text-start transition-all"
+							class="bg-[#1b232d]/95 hover:bg-[#232d3a] backdrop-blur-xl border border-white/10 hover:border-[#2990ff]/40 rounded-[20px] p-3.5 flex flex-col justify-between shadow-lg text-start transition-all"
 						>
 							<div>
 								<div class="flex items-center justify-between mb-1">
 									<span class="text-[10px] text-white/50 font-black tracking-wide">
-										{tr('kpiLeaderTitle')}
+										{t('giftsChart.kpiLeaderTitle')}
 									</span>
 									<span class="material-symbols-outlined text-amber-400 text-[16px]">
 										workspace_premium
@@ -715,12 +410,12 @@ export const GiftsChartView: Component<Props> = (props) => {
 									<span class="text-[19px] font-black font-mono text-amber-400 tracking-tight">
 										{blueChipLeader().floorTon.toLocaleString()}
 									</span>
-									<span class="text-[11px] font-black text-amber-400">TON</span>
+									<span class="text-[11px] font-black text-amber-400">{t('common.ton')}</span>
 								</div>
 							</div>
 							<div class="text-[10px] text-white/60 font-bold mt-2 pt-2 border-t border-white/5 flex items-center justify-between w-full">
 								<span class="truncate">{blueChipLeader().name}</span>
-								<span class="text-[#0098EA] font-mono text-[9px] shrink-0">
+								<span class="text-[#2990ff] font-mono text-[9px] shrink-0">
 									${Math.round(blueChipLeader().floorUsd).toLocaleString()} →
 								</span>
 							</div>
@@ -728,21 +423,23 @@ export const GiftsChartView: Component<Props> = (props) => {
 					</div>
 
 					{/* INTERACTIVE MACRO MARKET CAP & VOLUME CHART */}
-					<div class="relative bg-[#0D111B]/95 border border-white/10 rounded-[22px] p-4 shadow-xl backdrop-blur-2xl overflow-hidden">
+					<div class="relative bg-[#1b232d]/95 border border-white/[0.08] rounded-2xl p-4 shadow-xl backdrop-blur-2xl overflow-hidden">
 						<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
 							<div class="flex items-center gap-2">
 								<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
 								<span class="text-xs font-black text-white tracking-wide">
-									{tr('macroChartTitle')}
+									{t('giftsChart.macroChartTitle')}
 								</span>
 							</div>
-							<span class="text-[9px] font-mono text-emerald-400 font-bold">{tr('liveBadge')}</span>
+							<span class="text-[9px] font-mono text-emerald-400 font-bold">
+								{t('giftsChart.liveBadge')}
+							</span>
 						</div>
 
 						<div class="flex flex-wrap items-end justify-between gap-3 mb-3">
 							<div>
 								<div class="text-[10px] font-mono uppercase tracking-wider text-white/45 mb-0.5">
-									{tr('mcapLabel')} ({currentPoint()?.label || tr('now')})
+									{t('giftsChart.mcapLabel')} ({currentPoint()?.label || t('giftsChart.now')})
 								</div>
 								<div class="flex items-baseline gap-2" dir="ltr">
 									<span class="text-2xl font-black tracking-tight text-white font-mono tabular-nums">
@@ -759,7 +456,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 								</div>
 								<div class="text-[11px] font-mono text-white/50 mt-0.5 flex items-center gap-2">
 									<span>
-										{tr('vol24hLabel')}:{' '}
+										{t('giftsChart.vol24hLabel')}:{' '}
 										<strong class="text-sky-400">
 											{formatMacroVal(currentPoint()?.volumeUsd || volumeUsd())}
 										</strong>
@@ -777,22 +474,22 @@ export const GiftsChartView: Component<Props> = (props) => {
 										onClick={() => setChartMode('area')}
 										class={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
 											chartMode() === 'area'
-												? 'bg-[#0098EA] text-white'
+												? 'bg-[#2990ff] text-white'
 												: 'text-white/45 hover:text-white/80'
 										}`}
 									>
-										{tr('areaMode')}
+										{t('giftsChart.areaMode')}
 									</button>
 									<button
 										type="button"
 										onClick={() => setChartMode('candles')}
 										class={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
 											chartMode() === 'candles'
-												? 'bg-[#0098EA] text-white'
+												? 'bg-[#2990ff] text-white'
 												: 'text-white/45 hover:text-white/80'
 										}`}
 									>
-										{tr('candleMode')}
+										{t('giftsChart.candleMode')}
 									</button>
 								</div>
 
@@ -820,11 +517,11 @@ export const GiftsChartView: Component<Props> = (props) => {
 										onClick={() => setChartCurrency('gram')}
 										class={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${
 											chartCurrency() === 'gram'
-												? 'bg-[#0098EA] text-white'
+												? 'bg-[#2990ff] text-white'
 												: 'text-white/40 hover:text-white/75'
 										}`}
 									>
-										TON
+										{t('common.ton')}
 									</button>
 									<button
 										type="button"
@@ -835,7 +532,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 												: 'text-white/40 hover:text-white/75'
 										}`}
 									>
-										USD
+										{t('common.usd')}
 									</button>
 								</div>
 							</div>
@@ -857,9 +554,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 								>
 									<defs>
 										<linearGradient id="giftsMacroAreaGrad" x1="0" y1="0" x2="0" y2="1">
-											<stop offset="0%" stop-color="#0098EA" stop-opacity="0.38" />
-											<stop offset="65%" stop-color="#0098EA" stop-opacity="0.08" />
-											<stop offset="100%" stop-color="#0098EA" stop-opacity="0.0" />
+											<stop offset="0%" stop-color="#2990ff" stop-opacity="0.38" />
+											<stop offset="65%" stop-color="#2990ff" stop-opacity="0.08" />
+											<stop offset="100%" stop-color="#2990ff" stop-opacity="0.0" />
 										</linearGradient>
 									</defs>
 
@@ -913,7 +610,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 												<path
 													d={svgPaths().line}
 													fill="none"
-													stroke="#0098EA"
+													stroke="#2990ff"
 													stroke-width="2.5"
 													stroke-linecap="round"
 													stroke-linejoin="round"
@@ -962,7 +659,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 													y1={padding.top - 4}
 													x2={cp().x}
 													y2={height - padding.bottom}
-													stroke="#0098EA"
+													stroke="#2990ff"
 													stroke-width="1.2"
 													stroke-dasharray="3 3"
 													opacity="0.7"
@@ -971,8 +668,8 @@ export const GiftsChartView: Component<Props> = (props) => {
 													cx={cp().x}
 													cy={cp().y}
 													r="4.5"
-													fill="#0A0E17"
-													stroke="#0098EA"
+													fill="#141a22"
+													stroke="#2990ff"
 													stroke-width="2.5"
 												/>
 											</g>
@@ -986,7 +683,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 								>
 									<span>{activePoints()[0]?.label || ''}</span>
 									<span>{activePoints()[Math.floor(activePoints().length / 2)]?.label || ''}</span>
-									<span class="text-[#0098EA] font-bold">{tr('now')}</span>
+									<span class="text-[#2990ff] font-bold">{t('giftsChart.now')}</span>
 								</div>
 							</Show>
 						</div>
@@ -994,17 +691,17 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 					{/* FLOOR SWEEP & THIN ORDERBOOK ALPHA RADAR */}
 					<Show when={sweepOpportunities().length > 0}>
-						<div class="bg-[#0D111B]/95 border border-white/10 rounded-[22px] p-4 shadow-xl space-y-3">
+						<div class="bg-[#1b232d]/95 border border-white/[0.08] rounded-2xl p-4 shadow-xl space-y-3">
 							<div class="flex items-start justify-between gap-2">
 								<div>
 									<div class="flex items-center gap-1.5">
 										<span class="material-symbols-outlined text-amber-400 text-[18px]">radar</span>
 										<h3 class="text-xs font-black text-white tracking-wide">
-											{tr('sweepRadarTitle')}
+											{t('giftsChart.sweepRadarTitle')}
 										</h3>
 									</div>
 									<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
-										{tr('sweepRadarSub')}
+										{t('giftsChart.sweepRadarSub')}
 									</p>
 								</div>
 							</div>
@@ -1033,12 +730,11 @@ export const GiftsChartView: Component<Props> = (props) => {
 															loading="lazy"
 														/>
 														<div class="min-w-0">
-															<div class="text-xs font-black text-white truncate">
-																{itemName()}
-															</div>
+															<div class="text-xs font-black text-white truncate">{itemName()}</div>
 															<div class="text-[10px] font-mono text-white/45" dir="ltr">
 																#{item.cheapest_serial || 1} ·{' '}
-																{(item.upgraded_count || item.total_supply || 0).toLocaleString()} NFTs
+																{(item.upgraded_count || item.total_supply || 0).toLocaleString()}{' '}
+																NFTs
 															</div>
 														</div>
 													</div>
@@ -1055,13 +751,17 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 												<div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/[0.06] text-[10px] font-mono">
 													<div>
-														<span class="text-white/40 block text-[9px]">{tr('floor1Label')}</span>
+														<span class="text-white/40 block text-[9px]">
+															{t('giftsChart.floor1Label')}
+														</span>
 														<strong class="text-white text-xs" dir="ltr">
 															{item.best_floor_gram.toLocaleString()} TON
 														</strong>
 													</div>
 													<div class="text-end">
-														<span class="text-white/40 block text-[9px]">{tr('floor2Label')}</span>
+														<span class="text-white/40 block text-[9px]">
+															{t('giftsChart.floor2Label')}
+														</span>
 														<strong class="text-sky-400 text-xs" dir="ltr">
 															{secondTon().toLocaleString()} TON
 														</strong>
@@ -1072,9 +772,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 													<button
 														type="button"
 														onClick={() => selectAndInspectCollection(itemSlug())}
-														class="flex-1 py-1.5 px-2.5 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 border border-[#0098EA]/30 text-[#0098EA] text-[10px] font-black transition-all"
+														class="flex-1 py-1.5 px-2.5 rounded-xl bg-[#2990ff]/15 hover:bg-[#2990ff]/25 border border-[#2990ff]/30 text-[#2990ff] text-[10px] font-black transition-all"
 													>
-														{tr('inspectCollectionBtn')}
+														{t('giftsChart.inspectCollectionBtn')}
 													</button>
 													<a
 														href={
@@ -1085,7 +785,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 														rel="noreferrer"
 														class="py-1.5 px-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 text-[10px] font-black transition-all"
 													>
-														{tr('buyFloorBtn')} ↗
+														{t('giftsChart.buyFloorBtn')} ↗
 													</a>
 												</div>
 											</div>
@@ -1102,13 +802,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 			    TAB 2: COLLECTIONS & LIVE FLOOR BOARD (ALL 122 OFFICIAL COLLECTIONS)
 			    ═════════════════════════════════════════════════════════════════════════ */}
 			<Show when={props.activeTab === 'collections'}>
-				<div class="bg-[#0D111B]/95 border border-white/10 rounded-[22px] p-4 shadow-xl space-y-3.5">
+				<div class="bg-[#1b232d]/95 border border-white/[0.08] rounded-2xl p-4 shadow-xl space-y-3.5">
 					<div>
 						<div class="flex items-center gap-2">
-							<span class="material-symbols-outlined text-[#0098EA] text-lg">leaderboard</span>
-							<h2 class="text-sm font-black text-white">{tr('floorBoardTitle')}</h2>
+							<span class="material-symbols-outlined text-[#2990ff] text-lg">leaderboard</span>
+							<h2 class="text-sm font-black text-white">{t('giftsChart.floorBoardTitle')}</h2>
 						</div>
-						<p class="text-[11px] text-white/50 mt-0.5">{tr('floorBoardSub')}</p>
+						<p class="text-[11px] text-white/50 mt-0.5">{t('giftsChart.floorBoardSub')}</p>
 					</div>
 
 					{/* Search Input */}
@@ -1120,8 +820,8 @@ export const GiftsChartView: Component<Props> = (props) => {
 							type="search"
 							value={collectionSearch()}
 							onInput={(e) => setCollectionSearch(e.currentTarget.value)}
-							placeholder={tr('searchCollectionPlaceholder')}
-							class="w-full bg-black/50 border border-white/[0.1] focus:border-[#0098EA] rounded-xl ps-9 pe-3 py-2.5 text-xs text-white placeholder:text-white/35 outline-none transition-all"
+							placeholder={t('giftsChart.searchCollectionPlaceholder')}
+							class="w-full bg-black/50 border border-white/[0.1] focus:border-[#2990ff] rounded-xl ps-9 pe-3 py-2.5 text-xs text-white placeholder:text-white/35 outline-none transition-all"
 						/>
 					</div>
 
@@ -1130,13 +830,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 						<For
 							each={
 								[
-									{ id: 'verified', label: tr('filterAll') },
-									{ id: 'bluechip', label: tr('filterBluechip') },
-									{ id: 'mid', label: tr('filterMid') },
-									{ id: 'entry', label: tr('filterEntry') },
+									{ id: 'verified', label: t('giftsChart.filterAll') },
+									{ id: 'bluechip', label: t('giftsChart.filterBluechip') },
+									{ id: 'mid', label: t('giftsChart.filterMid') },
+									{ id: 'entry', label: t('giftsChart.filterEntry') },
 									{
 										id: 'directory',
-										label: `${tr('filterDirectory')} (${collectionsQuery.data?.length || 122})`,
+										label: `${t('giftsChart.filterDirectory')} (${collectionsQuery.data?.length || 122})`,
 									},
 								] as const
 							}
@@ -1147,7 +847,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 									onClick={() => setBoardFilter(f.id)}
 									class={`shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
 										boardFilter() === f.id
-											? 'bg-[#0098EA] text-white shadow'
+											? 'bg-[#2990ff] text-white shadow'
 											: 'bg-white/[0.04] hover:bg-white/[0.08] text-white/60'
 									}`}
 								>
@@ -1188,16 +888,17 @@ export const GiftsChartView: Component<Props> = (props) => {
 														loading="lazy"
 													/>
 													<div class="min-w-0">
-														<div class="text-xs font-black text-white truncate">
-															{rowName()}
-														</div>
+														<div class="text-xs font-black text-white truncate">{rowName()}</div>
 														<div
 															class="text-[10px] font-mono text-white/45 flex items-center gap-1.5 mt-0.5"
 															dir="ltr"
 														>
 															<span>#{row.cheapest_serial || 1}</span>
 															<span>·</span>
-															<span>{(row.upgraded_count || row.total_supply || 0).toLocaleString()} NFTs</span>
+															<span>
+																{(row.upgraded_count || row.total_supply || 0).toLocaleString()}{' '}
+																NFTs
+															</span>
 															<Show when={spreadPct() > 0}>
 																<span>·</span>
 																<span class="text-emerald-400">+{spreadPct().toFixed(1)}% #2</span>
@@ -1210,7 +911,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 													<div class="text-end" dir="ltr">
 														<div class="text-sm font-black font-mono text-white">
 															{row.best_floor_gram.toLocaleString()}{' '}
-															<span class="text-[10px] text-[#0098EA]">TON</span>
+															<span class="text-[10px] text-[#2990ff]">{t('common.ton')}</span>
 														</div>
 														<div class="text-[10px] font-mono text-white/40">
 															${Math.round(row.best_floor_usd || 0).toLocaleString()} · #2:{' '}
@@ -1222,9 +923,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 														<button
 															type="button"
 															onClick={() => selectAndInspectCollection(rowSlug())}
-															class="px-2.5 py-1 rounded-lg bg-[#0098EA] hover:bg-[#0088d1] text-white text-[10px] font-black transition-all"
+															class="px-2.5 py-1 rounded-lg bg-[#2990ff] hover:bg-[#2481cc] text-white text-[10px] font-black transition-all"
 														>
-															{tr('inspectLiveBtn')}
+															{t('giftsChart.inspectLiveBtn')}
 														</button>
 														<a
 															href={
@@ -1235,7 +936,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 															rel="noreferrer"
 															class="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-white/75 text-[9px] font-mono font-bold text-center transition-all"
 														>
-															{tr('buyOnFragmentBtn')}
+															{t('giftsChart.buyOnFragmentBtn')}
 														</a>
 													</div>
 												</div>
@@ -1252,7 +953,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 									<button
 										type="button"
 										onClick={() => selectAndInspectCollection(coll.slug)}
-										class="flex items-center justify-between gap-2.5 p-2.5 rounded-2xl bg-white/[0.025] hover:bg-white/[0.06] border border-white/[0.07] hover:border-[#0098EA]/40 text-start transition-all"
+										class="flex items-center justify-between gap-2.5 p-2.5 rounded-2xl bg-white/[0.025] hover:bg-white/[0.06] border border-white/[0.07] hover:border-[#2990ff]/40 text-start transition-all"
 									>
 										<div class="flex items-center gap-2.5 min-w-0">
 											<Show when={coll.image_url}>
@@ -1275,8 +976,8 @@ export const GiftsChartView: Component<Props> = (props) => {
 											<Show
 												when={coll.floor_gram > 0}
 												fallback={
-													<span class="text-[10px] font-bold text-[#0098EA]">
-														{tr('tapToInspectLive')}
+													<span class="text-[10px] font-bold text-[#2990ff]">
+														{t('giftsChart.tapToInspectLive')}
 													</span>
 												}
 											>
@@ -1300,15 +1001,17 @@ export const GiftsChartView: Component<Props> = (props) => {
 			    TAB 3: ON-DEMAND COLLECTION DEEP-DIVE & RARITY INSPECTOR
 			    ═════════════════════════════════════════════════════════════════════════ */}
 			<Show when={props.activeTab === 'inspector'}>
-				<div class="bg-[#0D111B]/95 border border-white/10 rounded-[22px] p-4 shadow-xl space-y-3.5">
+				<div class="bg-[#1b232d]/95 border border-white/[0.08] rounded-2xl p-4 shadow-xl space-y-3.5">
 					{/* Inspector Header + Search + 122 Collection Drawer Toggle */}
 					<div class="flex flex-col gap-2.5 border-b border-white/[0.07] pb-3">
 						<div>
 							<div class="flex items-center gap-2">
-								<span class="material-symbols-outlined text-[#0098EA] text-lg">manage_search</span>
-								<h2 class="text-sm font-black text-white">{tr('inspectorTitle')}</h2>
+								<span class="material-symbols-outlined text-[#2990ff] text-lg">manage_search</span>
+								<h2 class="text-sm font-black text-white">{t('giftsChart.inspectorTitle')}</h2>
 							</div>
-							<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{tr('inspectorSub')}</p>
+							<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
+								{t('giftsChart.inspectorSub')}
+							</p>
 						</div>
 
 						<div class="flex flex-col sm:flex-row gap-2">
@@ -1325,8 +1028,8 @@ export const GiftsChartView: Component<Props> = (props) => {
 											setShowFullDirectory(true);
 										}
 									}}
-									placeholder={tr('searchCollectionPlaceholder')}
-									class="w-full bg-black/50 border border-white/[0.1] focus:border-[#0098EA] rounded-xl ps-9 pe-3 py-2 text-xs text-white placeholder:text-white/35 outline-none transition-all"
+									placeholder={t('giftsChart.searchCollectionPlaceholder')}
+									class="w-full bg-black/50 border border-white/[0.1] focus:border-[#2990ff] rounded-xl ps-9 pe-3 py-2 text-xs text-white placeholder:text-white/35 outline-none transition-all"
 								/>
 							</div>
 							<button
@@ -1334,11 +1037,11 @@ export const GiftsChartView: Component<Props> = (props) => {
 								onClick={() => setShowFullDirectory(!showFullDirectory())}
 								class="px-3 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-xs font-bold text-white/85 transition-all flex items-center justify-center gap-1.5 shrink-0"
 							>
-								<span class="material-symbols-outlined text-sm text-[#0098EA]">apps</span>
+								<span class="material-symbols-outlined text-sm text-[#2990ff]">apps</span>
 								<span>
 									{showFullDirectory()
-										? tr('hideAllCollections')
-										: `${tr('showAllCollections')} (${collectionsQuery.data?.length || 122})`}
+										? t('giftsChart.hideAllCollections')
+										: `${t('giftsChart.showAllCollections')} (${collectionsQuery.data?.length || 122})`}
 								</span>
 							</button>
 						</div>
@@ -1355,7 +1058,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 											onClick={() => setSelectedSlug(coll.slug)}
 											class={`shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all ${
 												isSelected()
-													? 'bg-[#0098EA] text-white border-[#0098EA] shadow-md shadow-[#0098EA]/25'
+													? 'bg-[#2990ff] text-white border-[#2990ff] shadow-md shadow-[#2990ff]/25'
 													: 'bg-white/[0.03] hover:bg-white/[0.08] text-white/75 border-white/[0.08]'
 											}`}
 										>
@@ -1390,7 +1093,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 												}}
 												class={`flex items-center justify-between gap-2 p-2 rounded-xl border text-start transition-all ${
 													active()
-														? 'bg-[#0098EA]/20 border-[#0098EA] text-white'
+														? 'bg-[#2990ff]/20 border-[#2990ff] text-white'
 														: 'bg-white/[0.02] hover:bg-white/[0.06] border-white/[0.05] text-white/80'
 												}`}
 											>
@@ -1423,8 +1126,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 						when={!selectedCollectionQuery.isPending && selectedIntel()}
 						fallback={
 							<div class="py-12 text-center space-y-2.5 bg-black/30 rounded-2xl border border-white/[0.05]">
-								<div class="w-8 h-8 border-2 border-[#0098EA] border-t-transparent rounded-full animate-spin mx-auto" />
-								<div class="text-xs font-bold text-white/70">{tr('loadingCollection')}</div>
+								<div class="w-8 h-8 border-2 border-[#2990ff] border-t-transparent rounded-full animate-spin mx-auto" />
+								<div class="text-xs font-bold text-white/70">
+									{t('giftsChart.loadingCollection')}
+								</div>
 							</div>
 						}
 					>
@@ -1461,7 +1166,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 													class="text-[10px] font-mono text-white/50 flex flex-wrap items-center gap-1.5 mt-0.5"
 													dir="ltr"
 												>
-													<span>{(col().upgraded_count || col().total_supply || 0).toLocaleString()} NFTs</span>
+													<span>
+														{(col().upgraded_count || col().total_supply || 0).toLocaleString()}{' '}
+														NFTs
+													</span>
 													<span>·</span>
 													<span>{col().total_models || 0} Models</span>
 													<span>·</span>
@@ -1480,24 +1188,26 @@ export const GiftsChartView: Component<Props> = (props) => {
 													rel="noreferrer"
 													class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all flex items-center gap-1"
 												>
-													<span>{tr('buyCheapestOnFragment')}</span>
+													<span>{t('giftsChart.buyCheapestOnFragment')}</span>
 													<span class="material-symbols-outlined text-sm">open_in_new</span>
 												</a>
 											</Show>
 											<button
 												type="button"
 												onClick={() => navigate(`/gifts/collection?c=${col().collection_slug}`)}
-												class="px-3 py-1.5 rounded-xl bg-[#0098EA]/20 hover:bg-[#0098EA]/30 border border-[#0098EA]/40 text-[#0098EA] font-bold text-xs transition-all"
+												class="px-3 py-1.5 rounded-xl bg-[#2990ff]/20 hover:bg-[#2990ff]/30 border border-[#2990ff]/40 text-[#2990ff] font-bold text-xs transition-all"
 											>
-												{tr('openFullTerminal')} →
+												{t('giftsChart.openFullTerminal')} →
 											</button>
 										</div>
 									</div>
 
 									{/* 4 Collection KPI Cards */}
 									<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-										<div class="p-3 rounded-2xl bg-[#0098EA]/[0.08] border border-[#0098EA]/25">
-											<div class="text-[10px] text-white/50 font-bold">{tr('liveFloor')}</div>
+										<div class="p-3 rounded-2xl bg-[#2990ff]/[0.08] border border-[#2990ff]/25">
+											<div class="text-[10px] text-white/50 font-bold">
+												{t('giftsChart.liveFloor')}
+											</div>
 											<div class="text-base font-black font-mono text-white mt-0.5" dir="ltr">
 												{formatPrice(col().best_floor_gram, col().best_floor_usd)}
 											</div>
@@ -1508,7 +1218,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 										</div>
 
 										<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.07]">
-											<div class="text-[10px] text-white/50 font-bold">{tr('secondFloor')}</div>
+											<div class="text-[10px] text-white/50 font-bold">
+												{t('giftsChart.secondFloor')}
+											</div>
 											<div class="text-base font-black font-mono text-white mt-0.5" dir="ltr">
 												{formatPrice(secondFloor())}
 											</div>
@@ -1518,17 +1230,22 @@ export const GiftsChartView: Component<Props> = (props) => {
 										</div>
 
 										<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.07]">
-											<div class="text-[10px] text-white/50 font-bold">{tr('onChainSupply')}</div>
+											<div class="text-[10px] text-white/50 font-bold">
+												{t('giftsChart.onChainSupply')}
+											</div>
 											<div class="text-base font-black font-mono text-white mt-0.5" dir="ltr">
 												{(col().upgraded_count || col().total_supply || 0).toLocaleString()}
 											</div>
 											<div class="text-[9px] font-mono text-white/45 mt-0.5">
-												{col().listed_count || 0} {tr('activeListings')} ({col().liquidity_ratio || 0}%)
+												{col().listed_count || 0} {t('giftsChart.activeListings')} (
+												{col().liquidity_ratio || 0}%)
 											</div>
 										</div>
 
 										<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.07]">
-											<div class="text-[10px] text-white/50 font-bold">{tr('allTimeHighSale')}</div>
+											<div class="text-[10px] text-white/50 font-bold">
+												{t('giftsChart.allTimeHighSale')}
+											</div>
 											<div class="text-base font-black font-mono text-amber-400 mt-0.5" dir="ltr">
 												{formatPrice(
 													col().market_sales_stats?.period_30d?.max_gram || col().best_floor_gram,
@@ -1545,9 +1262,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 										<For
 											each={
 												[
-													{ id: 'orderbook', label: tr('tabOrderbook') },
-													{ id: 'traits', label: tr('tabTraits') },
-													{ id: 'sales', label: tr('tabSalesAndChart') },
+													{ id: 'orderbook', label: t('giftsChart.tabOrderbook') },
+													{ id: 'traits', label: t('giftsChart.tabTraits') },
+													{ id: 'sales', label: t('giftsChart.tabSalesAndChart') },
 												] as const
 											}
 										>
@@ -1557,7 +1274,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 													onClick={() => setInspectorTab(tab.id)}
 													class={`py-2 px-2 rounded-lg text-[11px] font-black truncate transition-all ${
 														inspectorTab() === tab.id
-															? 'bg-[#0098EA] text-white shadow'
+															? 'bg-[#2990ff] text-white shadow'
 															: 'text-white/50 hover:text-white/85'
 													}`}
 												>
@@ -1581,7 +1298,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 																	class="w-10 h-10 rounded-xl object-cover bg-black/50 border border-white/10"
 																	loading="lazy"
 																/>
-																<span class="absolute -top-1 -start-1 px-1 py-0.2 rounded bg-[#0098EA] text-[8px] font-mono font-black text-white">
+																<span class="absolute -top-1 -start-1 px-1 py-0.2 rounded bg-[#2990ff] text-[8px] font-mono font-black text-white">
 																	#{idx() + 1}
 																</span>
 															</div>
@@ -1599,7 +1316,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 																	<span
 																		class="w-2 h-2 rounded-full inline-block shrink-0"
 																		style={{
-																			'background-color': item.center_hex || '#0098EA',
+																			'background-color': item.center_hex || '#2990ff',
 																		}}
 																	/>
 																	<span>{item.backdrop_name}</span>
@@ -1621,9 +1338,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 																	href={item.buy_url}
 																	target="_blank"
 																	rel="noreferrer"
-																	class="inline-block mt-0.5 text-[9px] font-bold text-[#0098EA] hover:underline"
+																	class="inline-block mt-0.5 text-[9px] font-bold text-[#2990ff] hover:underline"
 																>
-																	{tr('buyBtn')} ↗
+																	{t('giftsChart.buyBtn')} ↗
 																</a>
 															</Show>
 														</div>
@@ -1646,7 +1363,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 															: 'bg-white/[0.03] text-white/45'
 													}`}
 												>
-													{tr('traitModels')} ({col().model_floors?.length || 0})
+													{t('giftsChart.traitModels')} ({col().model_floors?.length || 0})
 												</button>
 												<button
 													type="button"
@@ -1657,7 +1374,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 															: 'bg-white/[0.03] text-white/45'
 													}`}
 												>
-													{tr('traitBackdrops')} ({col().backdrops_list?.length || 0})
+													{t('giftsChart.traitBackdrops')} ({col().backdrops_list?.length || 0})
 												</button>
 												<button
 													type="button"
@@ -1668,7 +1385,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 															: 'bg-white/[0.03] text-white/45'
 													}`}
 												>
-													{tr('traitSymbols')} ({col().symbols_list?.length || 0})
+													{t('giftsChart.traitSymbols')} ({col().symbols_list?.length || 0})
 												</button>
 											</div>
 
@@ -1698,7 +1415,8 @@ export const GiftsChartView: Component<Props> = (props) => {
 																		{m.model_name}
 																	</div>
 																	<div class="text-[9px] font-mono text-sky-400" dir="ltr">
-																		{((m.rarity_permille || 0) / 10).toFixed(1)}% · {m.total_supply || 0} NFTs
+																		{((m.rarity_permille || 0) / 10).toFixed(1)}% ·{' '}
+																		{m.total_supply || 0} NFTs
 																	</div>
 																	<div
 																		class="text-[10px] font-mono font-bold text-emerald-400"
@@ -1768,9 +1486,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 													<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
 														<For
 															each={[
-																{ title: tr('stats24h'), d: ms().period_24h },
-																{ title: tr('stats7d'), d: ms().period_7d },
-																{ title: tr('stats30d'), d: ms().period_30d },
+																{ title: t('giftsChart.stats24h'), d: ms().period_24h },
+																{ title: t('giftsChart.stats7d'), d: ms().period_7d },
+																{ title: t('giftsChart.stats30d'), d: ms().period_30d },
 															]}
 														>
 															{(p) => (
@@ -1778,7 +1496,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 																	<div class="flex items-center justify-between text-[10px] font-bold text-white/75 border-b border-white/[0.05] pb-1">
 																		<span>{p.title}</span>
 																		<span class="font-mono text-sky-400">
-																			{p.d.deals_count} {tr('dealsCount')}
+																			{p.d.deals_count} {t('giftsChart.dealsCount')}
 																		</span>
 																	</div>
 																	<div
@@ -1786,19 +1504,25 @@ export const GiftsChartView: Component<Props> = (props) => {
 																		dir="ltr"
 																	>
 																		<div>
-																			<div class="text-white/40 text-[9px]">{tr('minSale')}</div>
+																			<div class="text-white/40 text-[9px]">
+																				{t('giftsChart.minSale')}
+																			</div>
 																			<div class="font-bold text-white">
 																				{(p.d?.min_gram || 0).toLocaleString()}T
 																			</div>
 																		</div>
 																		<div>
-																			<div class="text-white/40 text-[9px]">{tr('avgSale')}</div>
+																			<div class="text-white/40 text-[9px]">
+																				{t('giftsChart.avgSale')}
+																			</div>
 																			<div class="font-bold text-emerald-400">
 																				{(p.d?.avg_gram || 0).toLocaleString()}T
 																			</div>
 																		</div>
 																		<div>
-																			<div class="text-white/40 text-[9px]">{tr('maxSale')}</div>
+																			<div class="text-white/40 text-[9px]">
+																				{t('giftsChart.maxSale')}
+																			</div>
 																			<div class="font-bold text-amber-400">
 																				{(p.d?.max_gram || 0).toLocaleString()}T
 																			</div>
@@ -1834,7 +1558,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 																	<div class="text-[9px] font-mono text-white/40" dir="ltr">
 																		{sale.sale_date
 																			? sale.sale_date.slice(0, 16).replace('T', ' ')
-																			: 'Settled on Fragment'}
+																			: t('giftsChart.settledOnFragment')}
 																	</div>
 																</div>
 															</div>
@@ -1863,13 +1587,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 			    TAB 4: LIVE GLOBAL MARKET TAPE & ENDING-SOON AUCTIONS (SNIPER FEED)
 			    ═════════════════════════════════════════════════════════════════════════ */}
 			<Show when={props.activeTab === 'tape'}>
-				<div class="bg-[#0D111B]/95 border border-white/10 rounded-[22px] p-4 shadow-xl space-y-3.5">
+				<div class="bg-[#1b232d]/95 border border-white/[0.08] rounded-2xl p-4 shadow-xl space-y-3.5">
 					<div>
 						<div class="flex items-center gap-2">
-							<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-							<h2 class="text-sm font-black text-white">{tr('globalTapeTitle')}</h2>
+							<span class="w-2 h-2 rounded-full bg-emerald-400" />
+							<h2 class="text-sm font-black text-white">{t('giftsChart.globalTapeTitle')}</h2>
 						</div>
-						<p class="text-[11px] text-white/50 mt-0.5">{tr('globalTapeSub')}</p>
+						<p class="text-[11px] text-white/50 mt-0.5">{t('giftsChart.globalTapeSub')}</p>
 					</div>
 
 					{/* 3 Stream Mode Buttons */}
@@ -1883,18 +1607,19 @@ export const GiftsChartView: Component<Props> = (props) => {
 									: 'text-white/50 hover:text-white/85'
 							}`}
 						>
-							{tr('tapeEndingAuctions')} ({props.intel?.ending_soon_auctions?.length || 0})
+							{t('giftsChart.tapeEndingAuctions')} ({props.intel?.ending_soon_auctions?.length || 0}
+							)
 						</button>
 						<button
 							type="button"
 							onClick={() => setGlobalTapeTab('sales')}
 							class={`py-2 px-2 rounded-lg text-[11px] font-black truncate transition-all ${
 								globalTapeTab() === 'sales'
-									? 'bg-[#0098EA] text-white shadow'
+									? 'bg-[#2990ff] text-white shadow'
 									: 'text-white/50 hover:text-white/85'
 							}`}
 						>
-							{tr('tapeRecentSales')} ({props.intel?.global_recent_sales?.length || 0})
+							{t('giftsChart.tapeRecentSales')} ({props.intel?.global_recent_sales?.length || 0})
 						</button>
 						<button
 							type="button"
@@ -1905,7 +1630,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 									: 'text-white/50 hover:text-white/85'
 							}`}
 						>
-							{tr('tapeNewListings')} ({props.intel?.global_new_listings?.length || 0})
+							{t('giftsChart.tapeNewListings')} ({props.intel?.global_new_listings?.length || 0})
 						</button>
 					</div>
 
@@ -1915,7 +1640,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 							<For each={props.intel?.ending_soon_auctions || []}>
 								{(auc) => {
 									const aucSlug = () =>
-										(auc.collection_slug || auc.slug || auc.gift_id || 'plush-pepe').replace(/_/g, '-');
+										(auc.collection_slug || auc.slug || auc.gift_id || 'plush-pepe').replace(
+											/_/g,
+											'-',
+										);
 									const aucName = () => auc.gift_name || auc.model_name || aucSlug();
 									const aucImg = () =>
 										auc.image_url ||
@@ -1933,7 +1661,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 													<button
 														type="button"
 														onClick={() => selectAndInspectCollection(aucSlug())}
-														class="text-xs font-black text-white hover:text-[#0098EA] truncate block text-start"
+														class="text-xs font-black text-white hover:text-[#2990ff] truncate block text-start"
 													>
 														{aucName()} <span class="font-mono">#{auc.serial_number}</span>
 													</button>
@@ -1948,15 +1676,21 @@ export const GiftsChartView: Component<Props> = (props) => {
 													{(auc.current_bid_gram || 0).toLocaleString()} TON
 												</div>
 												<div class="text-[9px] font-mono text-white/40">
-													${Math.round(auc.current_bid_usd || (auc.current_bid_gram || 0) * tonRate()).toLocaleString()}
+													$
+													{Math.round(
+														auc.current_bid_usd || (auc.current_bid_gram || 0) * tonRate(),
+													).toLocaleString()}
 												</div>
 												<a
-													href={auc.bid_url || `https://fragment.com/gifts/${aucSlug().replace(/-/g, '')}`}
+													href={
+														auc.bid_url ||
+														`https://fragment.com/gifts/${aucSlug().replace(/-/g, '')}`
+													}
 													target="_blank"
 													rel="noreferrer"
-													class="inline-block mt-1 text-[9px] font-bold text-[#0098EA] hover:underline"
+													class="inline-block mt-1 text-[9px] font-bold text-[#2990ff] hover:underline"
 												>
-													{tr('bidOnFragment')}
+													{t('giftsChart.bidOnFragment')}
 												</a>
 											</div>
 										</div>
@@ -1983,13 +1717,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 												<button
 													type="button"
 													onClick={() => selectAndInspectCollection(sale.collectionSlug)}
-													class="text-xs font-black text-white hover:text-[#0098EA] truncate block text-start"
+													class="text-xs font-black text-white hover:text-[#2990ff] truncate block text-start"
 												>
 													{sale.collectionName || sale.name}{' '}
 													<span class="font-mono">#{sale.serialNumber}</span>
 												</button>
 												<div class="text-[10px] font-mono text-white/40 mt-0.5">
-													{sale.relativeTime || 'Settled on Fragment'}
+													{sale.relativeTime || t('giftsChart.settledOnFragment')}
 												</div>
 											</div>
 										</div>
@@ -2005,9 +1739,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 												href={sale.fragmentUrl}
 												target="_blank"
 												rel="noreferrer"
-												class="inline-block mt-1 text-[9px] font-bold text-white/50 hover:text-[#0098EA]"
+												class="inline-block mt-1 text-[9px] font-bold text-white/50 hover:text-[#2990ff]"
 											>
-												Fragment ↗
+												{t('giftsChart.buyOnFragmentBtn')}
 											</a>
 										</div>
 									</div>
@@ -2033,7 +1767,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 												<button
 													type="button"
 													onClick={() => selectAndInspectCollection(lst.collectionSlug)}
-													class="text-xs font-black text-white hover:text-[#0098EA] truncate block text-start"
+													class="text-xs font-black text-white hover:text-[#2990ff] truncate block text-start"
 												>
 													{lst.collectionName || lst.name}{' '}
 													<span class="font-mono">#{lst.serialNumber}</span>
@@ -2055,9 +1789,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 												href={lst.fragmentUrl}
 												target="_blank"
 												rel="noreferrer"
-												class="inline-block mt-1 text-[9px] font-bold text-[#0098EA] hover:underline"
+												class="inline-block mt-1 text-[9px] font-bold text-[#2990ff] hover:underline"
 											>
-												{tr('buyBtn')} ↗
+												{t('giftsChart.buyBtn')} ↗
 											</a>
 										</div>
 									</div>

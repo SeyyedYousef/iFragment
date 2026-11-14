@@ -1,4 +1,5 @@
 import { type Component, createMemo } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 import { GIFTS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
@@ -79,9 +80,8 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 	const fmt = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 });
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
+		<div class="bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
 			{/* Decorative ambient glow */}
-			<div class="absolute -top-8 -right-8 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
 			{/* Header */}
 			<div class="flex items-center justify-between border-b border-white/5 pb-3">
@@ -107,13 +107,13 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 			{/* Valuation Impact Grid */}
 			<div class="grid grid-cols-2 gap-2.5">
 				{/* Baseline Fair Value */}
-				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 flex flex-col gap-0.5">
+				<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3 flex flex-col gap-0.5">
 					<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
 						{layaT(GIFTS_I18N.independentFloor)}
 					</span>
 					<div class="flex items-baseline gap-1 font-mono">
 						<span class="text-base font-black text-white">{fmt(base())}</span>
-						<span class="text-[10px] font-bold text-[#0098EA]">TON</span>
+						<span class="text-[10px] font-bold text-[#2990ff]">{t('common.ton')}</span>
 					</div>
 					<span class="text-[8px] font-mono text-white/40">
 						{layaT(GIFTS_I18N.independentFloorSubtitle)}
@@ -121,7 +121,7 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 				</div>
 
 				{/* Synergy-Adjusted Value */}
-				<div class="bg-gradient-to-r from-amber-950/30 via-[#0E0C08] to-[#08090D] border border-amber-500/30 rounded-[18px] p-3 flex flex-col gap-0.5">
+				<div class="bg-[#141a22] border border-amber-500/30 rounded-[18px] p-3 flex flex-col gap-0.5">
 					<span class="text-[9px] font-mono font-bold text-amber-400 uppercase">
 						{layaT(GIFTS_I18N.synergyAdjusted)}
 					</span>
@@ -129,12 +129,12 @@ export const GiftTraitSynergyCard: Component<Props> = (props) => {
 						<span class="text-base font-black text-amber-300">
 							{fmt(synergy().adjustedValueTon)}
 						</span>
-						<span class="text-[10px] font-bold text-amber-400">TON</span>
+						<span class="text-[10px] font-bold text-amber-400">{t('common.ton')}</span>
 					</div>
 					<span class="text-[8px] font-mono text-emerald-400 font-bold">
 						{synergy().bonusTon >= 0
-							? `+${fmt(synergy().bonusTon)} TON (${Math.round((synergy().multiplier - 1) * 100)}%)`
-							: `${fmt(synergy().bonusTon)} TON`}
+							? `+${fmt(synergy().bonusTon)} ${t('common.ton')} (${Math.round((synergy().multiplier - 1) * 100)}%)`
+							: `${fmt(synergy().bonusTon)} ${t('common.ton')}`}
 					</span>
 				</div>
 			</div>

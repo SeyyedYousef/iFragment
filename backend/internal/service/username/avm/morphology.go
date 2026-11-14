@@ -2,39 +2,47 @@ package avm
 
 import "math"
 
-// MorphFeatures describes the morphological properties of a username
-// used for multiplier stacking and confounder isolation.
+// MorphFeatures describes the morphological, biomechanical, optical, and information-theoretic
+// properties of a username used for multiplier stacking and confounder isolation.
 type MorphFeatures struct {
-	HasNumbers            bool
-	HasAlpha              bool
-	HasUnderscore         bool
-	HasCheapSuffix        bool
-	HasCheapPrefix        bool
-	HasRepetition         bool
-	IsDictionary          bool
-	CharLength            int
-	SemanticScore         float64 // Added for prior sliding logic
-	FlowScore             float64
-	IsPalindrome          bool
-	IsKeyboardPattern     bool
-	IsCombo               bool
-	ComboValue            float64
-	IsTechPattern         bool
-	HasGoldenYear         bool
-	AffixBonus            float64
-	TierMultiplier        float64
-	FrequencyRank         int
-	IsHyped               bool
-	EuphonyScore          float64
-	IsAesthetic           bool
-	HasBrandableSuffix    bool
-	IsAcronym             bool
-	IsUnderscoreCompound  bool
-	VisualSymmetry        float64
-	IsABAB                bool
-	IsAABB                bool
-	IsSymmetricRepetition bool
-	IsGibberish           bool
+	HasNumbers             bool
+	HasAlpha               bool
+	HasUnderscore          bool
+	HasCheapSuffix         bool
+	HasCheapPrefix         bool
+	HasRepetition          bool
+	IsDictionary           bool
+	CharLength             int
+	SemanticScore          float64 // Added for prior sliding logic
+	FlowScore              float64
+	IsPalindrome           bool
+	IsKeyboardPattern      bool
+	IsCombo                bool
+	ComboValue             float64
+	IsTechPattern          bool
+	HasGoldenYear          bool
+	AffixBonus             float64
+	TierMultiplier         float64
+	FrequencyRank          int
+	IsHyped                bool
+	EuphonyScore           float64
+	IsAesthetic            bool
+	HasBrandableSuffix     bool
+	IsAcronym              bool
+	IsUnderscoreCompound   bool
+	VisualSymmetry         float64
+	IsABAB                 bool
+	IsAABB                 bool
+	IsSymmetricRepetition  bool
+	IsGibberish            bool
+	FittsIndexBits         float64
+	FittsErgonomicScore    float64
+	HandAlternationPct     int
+	OpticalKerningSymmetry float64
+	ShannonEntropyBits     float64
+	ViterbiCoverage        float64
+	ViterbiTokens          []string
+	IsCleanCompound        bool
 }
 
 // IsGibberishString checks if a username is a meaningless random string (e.g. fhhff, xqzkw).
@@ -74,8 +82,9 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		morphLog += math.Log(0.15)
 	}
 
-	// has_numbers discount (applies to mixed alpha-numeric names like @abc123, NOT to pure numeric names like @8888)
-	if features.HasNumbers && features.HasAlpha {
+	// has_numbers discount (applies to mixed alpha-numeric names like @abc123, NOT to pure numeric names like @8888,
+	// and suppressed when IsTechPattern is true for canonical tokens like web3/l2)
+	if features.HasNumbers && features.HasAlpha && !features.IsTechPattern {
 		if m, ok := multipliers["has_numbers"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
@@ -199,6 +208,14 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 
 	if features.IsAesthetic && !features.IsDictionary {
 		morphLog += math.Log(1.0 + features.EuphonyScore) // Smooth names get an aesthetic premium
+	}
+
+	// Phase 8 Biomechanical Fitts's Law & Optical Kerning Harmony
+	if !features.IsGibberish && !features.HasUnderscore && features.FittsErgonomicScore >= 0.72 {
+		morphLog += math.Log(1.0 + (features.FittsErgonomicScore-0.70)*0.30)
+	}
+	if !features.IsGibberish && features.OpticalKerningSymmetry >= 0.80 {
+		morphLog += math.Log(1.05)
 	}
 
 	// Clamp the total morph log

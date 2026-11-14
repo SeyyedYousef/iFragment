@@ -130,7 +130,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			}
 			ctx := context.WithValue(r.Context(), UserContextKey, user)
 			ctx = context.WithValue(ctx, UserIDKey, claims.UserID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			serveAuthenticatedUser(w, r.WithContext(ctx), next)
 			return
 		}
 
@@ -138,7 +138,12 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// OptionalAuthMiddleware populates UserContextKey and UserIDKey if valid Bearer token or Telegram InitData is present,
+func serveAuthenticatedUser(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	handler := BlockImpersonatedWrites(UserBanCheckMiddleware(ownerRepo)(next))
+	handler.ServeHTTP(w, r)
+}
+
+// OptionalAuthMiddleware populates UserContextKey and UserIDKey if valid Bearer token or cryptographically verified Telegram InitData is present,
 // but allows unauthenticated guest requests to proceed cleanly.
 func OptionalAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -158,6 +163,18 @@ func OptionalAuthMiddleware(next http.Handler) http.Handler {
 				})
 				if err == nil && token.Valid {
 					if claims, ok := token.Claims.(*JWTClaims); ok {
+						if claims.ID != "" {
+							if ownerRepo == nil {
+								next.ServeHTTP(w, r)
+								return
+							}
+							sess, sessErr := ownerRepo.GetImpersonationSession(r.Context(), claims.ID)
+							if sessErr != nil || sess == nil || sess.EndedAt != nil {
+								next.ServeHTTP(w, r)
+								return
+							}
+						}
+
 						user := map[string]interface{}{
 							"id":           claims.UserID,
 							"username":     claims.Username,
@@ -168,34 +185,30 @@ func OptionalAuthMiddleware(next http.Handler) http.Handler {
 						}
 						ctx := context.WithValue(r.Context(), UserContextKey, user)
 						ctx = context.WithValue(ctx, UserIDKey, claims.UserID)
-						next.ServeHTTP(w, r.WithContext(ctx))
+						serveAuthenticatedUser(w, r.WithContext(ctx), next)
 						return
 					}
 				}
 			}
 		}
 
-		// Also check Telegram InitData if present in header
+		// Cryptographically verify Telegram InitData before trusting any user claims.
 		if initData := r.Header.Get("X-Telegram-Init-Data"); initData != "" {
-			if values, err := url.ParseQuery(initData); err == nil {
-				if userData := values.Get("user"); userData != "" {
-					var userObj map[string]interface{}
-					if err := json.Unmarshal([]byte(userData), &userObj); err == nil {
-						ctx := context.WithValue(r.Context(), UserContextKey, userObj)
-						if idVal, ok := userObj["id"]; ok {
-							switch v := idVal.(type) {
-							case float64:
-								ctx = context.WithValue(ctx, UserIDKey, int64(v))
-							case int64:
-								ctx = context.WithValue(ctx, UserIDKey, v)
-							case int:
-								ctx = context.WithValue(ctx, UserIDKey, int64(v))
-							}
+			if verifiedUID, verifyErr := VerifyInitDataAndExtractUserID(initData); verifyErr == nil && verifiedUID > 0 {
+				userObj := map[string]interface{}{"id": verifiedUID}
+				if values, err := url.ParseQuery(initData); err == nil {
+					if userData := values.Get("user"); userData != "" {
+						var parsed map[string]interface{}
+						if err := json.Unmarshal([]byte(userData), &parsed); err == nil && parsed != nil {
+							parsed["id"] = verifiedUID
+							userObj = parsed
 						}
-						next.ServeHTTP(w, r.WithContext(ctx))
-						return
 					}
 				}
+				ctx := context.WithValue(r.Context(), UserContextKey, userObj)
+				ctx = context.WithValue(ctx, UserIDKey, verifiedUID)
+				serveAuthenticatedUser(w, r.WithContext(ctx), next)
+				return
 			}
 		}
 

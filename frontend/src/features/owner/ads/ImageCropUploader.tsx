@@ -70,11 +70,11 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 			!file.type.startsWith('image/') &&
 			!/\.(jpe?g|png|webp|gif|bmp|avif|heic|svg)$/i.test(file.name)
 		) {
-			setErrorMessage(t('imageCrop.invalidFormat') || 'Only image files are supported');
+			setErrorMessage(t('imageCrop.invalidFormat'));
 			return;
 		}
 		if (file.size > maxFileSizeMB() * 1024 * 1024) {
-			setErrorMessage(`File size exceeds maximum allowed limit of ${maxFileSizeMB()}MB`);
+			setErrorMessage(t('imageCrop.fileTooLarge', { max: maxFileSizeMB() }));
 			return;
 		}
 
@@ -151,7 +151,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 			canvas.toBlob(
 				async (blob) => {
 					if (!blob) {
-						setErrorMessage('Failed to generate image from canvas');
+						setErrorMessage(t('imageCrop.canvasFailed'));
 						setIsUploading(false);
 						return;
 					}
@@ -166,7 +166,9 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 						setImageSrc(null);
 						setImageEl(null);
 					} catch (err: any) {
-						setErrorMessage(err.response?.data?.error || err.message || 'Upload failed');
+						setErrorMessage(
+							err.response?.data?.error || err.message || t('imageCrop.uploadFailed'),
+						);
 					} finally {
 						setIsUploading(false);
 					}
@@ -175,7 +177,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 				outputQuality(),
 			);
 		} catch (err: any) {
-			setErrorMessage(err.message || 'Error processing crop');
+			setErrorMessage(err.message || t('imageCrop.cropError'));
 			setIsUploading(false);
 		}
 	};
@@ -221,20 +223,20 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 							when={!showRemoveConfirm()}
 							fallback={
 								<div class="flex items-center gap-2 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-1.5 text-xs text-rose-300">
-									<span>Remove this image?</span>
+									<span>{t('imageCrop.removeConfirm')}</span>
 									<button
 										type="button"
 										onClick={handleConfirmRemove}
 										class="px-2.5 py-1 bg-rose-500 hover:bg-rose-400 text-white rounded-lg font-semibold text-[11px] transition"
 									>
-										Confirm
+										{t('imageCrop.confirm')}
 									</button>
 									<button
 										type="button"
 										onClick={() => setShowRemoveConfirm(false)}
 										class="px-2 py-1 text-white/60 hover:text-white text-[11px] transition"
 									>
-										Cancel
+										{t('imageCrop.cancel')}
 									</button>
 								</div>
 							}
@@ -246,7 +248,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 									class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 text-white/60 text-xs font-medium transition"
 								>
 									<span class="material-symbols-outlined text-sm">delete</span>
-									<span>Remove</span>
+									<span>{t('imageCrop.remove')}</span>
 								</button>
 							</Show>
 							<button
@@ -255,7 +257,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 								class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs font-medium transition"
 							>
 								<span class="material-symbols-outlined text-sm">swap_horiz</span>
-								<span>Replace</span>
+								<span>{t('imageCrop.replace')}</span>
 							</button>
 						</Show>
 					</div>
@@ -282,8 +284,12 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					</div>
 					<div class="text-sm font-medium text-white">{t('imageCrop.dragDrop')}</div>
 					<div class="text-xs text-white/50 mt-1">
-						{t('imageCrop.formats')} • Max {maxFileSizeMB()}MB • Output {targetWidth()}×
-						{targetHeight()}
+						{t('imageCrop.formats')} •{' '}
+						{t('imageCrop.formatsSpecs', {
+							max: maxFileSizeMB(),
+							width: targetWidth(),
+							height: targetHeight(),
+						})}
 					</div>
 				</div>
 			</Show>
@@ -337,10 +343,10 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 						<Show when={aspectRatio() < 0.75}>
 							<div class="absolute inset-0 pointer-events-none flex flex-col justify-between">
 								<div class="h-[7.3%] border-b border-dashed border-sky-400/50 bg-sky-500/10 flex items-center justify-center text-[10px] text-sky-300 font-mono tracking-wider">
-									Telegram Header (Top Safe Zone)
+									{t('imageCrop.safeZoneTop')}
 								</div>
 								<div class="h-[13.5%] border-t border-dashed border-amber-400/50 bg-amber-500/10 flex items-center justify-center text-[10px] text-amber-300 font-mono tracking-wider">
-									BottomNav Area (Bottom Safe Zone)
+									{t('imageCrop.safeZoneBottom')}
 								</div>
 							</div>
 						</Show>
@@ -382,7 +388,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 						>
 							<Show when={isUploading()} fallback={<span>{t('imageCrop.applyUpload')}</span>}>
 								<div class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black border-t-transparent" />
-								<span>Processing... {uploadProgress()}%</span>
+								<span>{t('imageCrop.processingPct', { progress: uploadProgress() })}</span>
 							</Show>
 						</button>
 					</div>

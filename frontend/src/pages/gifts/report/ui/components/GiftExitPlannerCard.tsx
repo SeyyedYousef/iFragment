@@ -1,4 +1,5 @@
 import { type Component, createMemo, For, Show } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 import { GIFTS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
@@ -110,7 +111,7 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 	const fmt = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
+		<div class="bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
 			{/* Header */}
 			<div class="flex items-center justify-between border-b border-white/5 pb-3">
 				<div class="flex items-center gap-2.5">
@@ -132,7 +133,7 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 			</div>
 
 			{/* Top Recommendation Banner */}
-			<div class="bg-gradient-to-r from-emerald-950/40 via-[#0A160F] to-[#08090D] border border-emerald-500/30 rounded-[20px] p-4 flex items-center justify-between gap-3">
+			<div class="bg-[#141a22] border border-emerald-500/30 rounded-[20px] p-4 flex items-center justify-between gap-3">
 				<div class="flex flex-col gap-1">
 					<div class="flex items-center gap-2">
 						<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -152,7 +153,7 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 						<span class="text-[18px] font-black text-emerald-400">
 							{fmt(bestVenue()?.netTon || 0)}
 						</span>
-						<span class="text-[10px] font-bold text-emerald-400">TON</span>
+						<span class="text-[10px] font-bold text-emerald-400">{t('common.ton')}</span>
 					</div>
 					<span class="text-[9px] text-white/40">≈ ${bestVenue()?.netUsd}</span>
 				</div>
@@ -179,18 +180,22 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 									</Show>
 								</div>
 								<span class="text-[9px] font-mono text-white/40">
-									Fee: {venue.feePct}% {venue.minFeeTon > 0 ? `(min ${venue.minFeeTon} TON)` : ''} ·
-									Gas: ~{venue.gasTon} TON
+									{t('giftsExitPlanner.feePrefix')} {venue.feePct}%{' '}
+									{venue.minFeeTon > 0
+										? `(${t('giftsExitPlanner.minPrefix')} ${venue.minFeeTon} ${t('common.ton')})`
+										: ''}{' '}
+									· {t('giftsExitPlanner.gasPrefix')}
+									{venue.gasTon} {t('common.ton')}
 								</span>
 							</div>
 
 							<div class="flex flex-col items-end font-mono">
 								<div class="flex items-baseline gap-1">
 									<span class="text-sm font-black text-white">{fmt(venue.netTon)}</span>
-									<span class="text-[10px] font-bold text-[#0098EA]">TON</span>
+									<span class="text-[10px] font-bold text-[#2990ff]">{t('common.ton')}</span>
 								</div>
 								<span class="text-[9px] text-white/40">
-									{layaT(GIFTS_I18N.deductionLabel)} -{fmt(venue.totalCostTon)} TON
+									{layaT(GIFTS_I18N.deductionLabel)} -{fmt(venue.totalCostTon)} {t('common.ton')}
 								</span>
 							</div>
 						</div>

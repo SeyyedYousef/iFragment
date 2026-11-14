@@ -100,7 +100,7 @@ export const ImpersonationBanner: Component = () => {
 				}`}
 			>
 				<div class="flex items-center gap-2 flex-wrap">
-					<span class="inline-block w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
+					<span class="inline-block w-2.5 h-2.5 rounded-full bg-white shrink-0" />
 					<span class="truncate max-w-[220px]">
 						{(
 							t('impersonation.banner' as any, { username: impersonatedUser() || '' }) ||

@@ -60,59 +60,55 @@ func ComputeJointRarity(totalSupply, serial, backdropPermille, symbolPermille in
 	// Normalized entropy across practical max bounds (50 bits)
 	normalizedEntropy := math.Min(1.0, surprisal/50.0)
 
-	// 6. Count Ultra-Rare Traits (Top 2% or 5%)
+	// 6. Count Genuinely Rare Traits (Top 1% or Apex Milestones)
 	rareCount := 0
-	if backdropPermille <= 20 {
+	if backdropPermille <= 10 {
 		rareCount++
 	}
-	if symbolPermille <= 25 {
+	if symbolPermille <= 10 {
 		rareCount++
 	}
-	if serial <= 10 || (serial <= 100 && totalSupply >= 5000) {
+	if serial == 1 {
+		rareCount += 2 // Genesis sovereign milestone
+	} else if serial <= 9 {
 		rareCount++
 	}
-	if totalSupply <= 2500 || craftedFlag {
+	if totalSupply <= 1500 || (craftedFlag && totalSupply <= 3000) {
 		rareCount++
 	}
 
 	// 7. Combinatorial Synergy Multiplier (Super-Additive Value)
 	betaSynergy := 0.0
 	rarityClass := "STANDARD_FLOOR"
-	harmonicScore := math.Min(99.9, surprisal*3.0)
+	harmonicScore := math.Min(99.9, surprisal*2.5)
 	descEn := "Standard collectible baseline with balanced trait distribution."
 	descFa := "گیفت کلکسیونی استاندارد با توزیع متعادل صفات."
 
 	switch {
 	case rareCount >= 3:
 		rarityClass = "TRIPLE_GOD_TIER"
-		betaSynergy = 0.55
+		betaSynergy = 0.50
 		harmonicScore = 99.8
 		descEn = "Triple God-Tier Holy Grail: Simultaneous legendary model, ultra-rare backdrop, and single-digit serial."
 		descFa = "جام مقدس سه‌گانه: همزمانی مدل افسانه‌ای، بک‌دراپ فوق‌نایاب و سریال تک‌رقمی."
 	case rareCount == 2:
 		rarityClass = "DOUBLE_GOD_TIER"
-		betaSynergy = 0.35
+		betaSynergy = 0.30
 		harmonicScore = 96.5
-		descEn = "Double God-Tier Grail: Dual high-tier rarity attributes commanding exponential collector premium."
-		descFa = "جام مقدس دوگانه: دو صفت فوق‌نایاب همزمان با پرمیوم تصاعدی کلکسیونرها."
-	case surprisal >= 18.0 || rareCount == 1:
-		rarityClass = "LEGENDARY_GRAIL"
-		betaSynergy = 0.20
-		harmonicScore = 90.0
-		descEn = "Legendary Grail: Standout high-scarcity attribute with strong secondary market demand."
-		descFa = "گیفت افسانه‌ای: دارای صفت کمیاب با تقاضای بالای بازار ثانویه."
-	case surprisal >= 12.0:
-		rarityClass = "EPIC_COLLECTIBLE"
-		betaSynergy = 0.10
-		harmonicScore = 80.0
-		descEn = "Epic Collectible: Low-supply and favorable trait configuration."
-		descFa = "کلکسیونی حماسی: عرضه محدود و ترکیب صفات جذاب."
-	case surprisal >= 8.0:
+		descEn = "Double God-Tier Grail: Dual high-tier rarity attributes commanding collector premium."
+		descFa = "جام مقدس دوگانه: دو صفت فوق‌نایاب همزمان با پرمیوم کلکسیونرها."
+	case rareCount == 1:
 		rarityClass = "RARE_CURATED"
-		betaSynergy = 0.04
-		harmonicScore = 70.0
-		descEn = "Rare Curated: Above-average rarity in the general collection pool."
-		descFa = "کلکسیونی نایاب: صفات برتر از میانگین کلکسیون."
+		betaSynergy = 0.12
+		harmonicScore = 85.0
+		descEn = "Rare Curated: Standout scarcity attribute with strong secondary market interest."
+		descFa = "کلکسیونی نایاب: دارای صفت کمیاب با توجه بازار ثانویه."
+	default:
+		rarityClass = "STANDARD_FLOOR"
+		betaSynergy = 0.0
+		harmonicScore = math.Max(40.0, math.Min(75.0, surprisal*2.0))
+		descEn = "Standard collectible baseline aligned with collection floor."
+		descFa = "گیفت کلکسیونی استاندارد منطبق بر کف قیمت (Floor) بازار."
 	}
 
 	return JointRarityAnalysis{

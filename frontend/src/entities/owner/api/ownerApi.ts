@@ -54,30 +54,31 @@ export const ownerApi = {
 	login: async (password: string, telegramId?: number): Promise<OwnerAuthResponse> => {
 		const { data } = await ownerHttp.post<OwnerAuthResponse>('/auth/login', {
 			password,
-			telegram_id: telegramId,
+			telegram_user_id: telegramId,
 		});
 		return data;
 	},
 
 	verifyTotp: async (tempToken: string, totpCode: string): Promise<{ token: string }> => {
-		const { data } = await ownerHttp.post<{ token: string }>('/auth/verify-totp', {
+		const { data } = await ownerHttp.post<{ token: string }>('/auth/totp/verify', {
 			temp_token: tempToken,
-			totp_code: totpCode,
+			code: totpCode,
 		});
 		return data;
 	},
 
 	setupTotp: async (): Promise<TotpSetupResponse> => {
-		const { data } = await ownerHttp.post<TotpSetupResponse>('/auth/setup-totp');
+		const { data } = await ownerHttp.post<TotpSetupResponse>('/auth/totp/setup', {});
 		return data;
 	},
 
-	confirmTotpSetup: async (secret: string, code: string, recoveryCodes: string[]) => {
-		const { data } = await ownerHttp.post('/auth/confirm-totp', {
-			secret,
-			code,
-			recovery_codes: recoveryCodes,
-		});
+	verifyTotpSetup: async (code: string) => {
+		const { data } = await ownerHttp.post('/auth/totp/verify-setup', { code });
+		return data;
+	},
+
+	confirmTotpSetup: async (_secret: string, code: string, _recoveryCodes: string[]) => {
+		const { data } = await ownerHttp.post('/auth/totp/verify-setup', { code });
 		return data;
 	},
 
@@ -85,7 +86,7 @@ export const ownerApi = {
 	// 2. Command Center & Live Valuation Telemetry
 	// =========================================================================
 	getDashboardMetrics: async (): Promise<DashboardMetrics> => {
-		const { data } = await ownerHttp.get<DashboardMetrics>('/dashboard');
+		const { data } = await ownerHttp.get<DashboardMetrics>('/dashboard/stats');
 		return data;
 	},
 
@@ -98,12 +99,14 @@ export const ownerApi = {
 		limit?: number;
 		offset?: number;
 	}): Promise<UserSearchResponse> => {
-		const { data } = await ownerHttp.get<UserSearchResponse>('/users', { params });
+		const { data } = await ownerHttp.get<UserSearchResponse>('/users/search', { params });
 		return data;
 	},
 
 	impersonateUser: async (targetUserId: number): Promise<{ token: string }> => {
-		const { data } = await ownerHttp.post<{ token: string }>(`/users/${targetUserId}/impersonate`);
+		const { data } = await ownerHttp.post<{ token: string }>('/users/impersonate', {
+			target_user_id: targetUserId,
+		});
 		return data;
 	},
 
@@ -113,16 +116,19 @@ export const ownerApi = {
 		reason: string,
 		durationSeconds?: number,
 	) => {
-		const { data } = await ownerHttp.post(`/users/${targetUserId}/ban`, {
+		const { data } = await ownerHttp.post('/users/ban', {
+			target_user_id: targetUserId,
 			ban_type: banType,
 			reason,
-			duration_seconds: durationSeconds,
+			duration_seconds: durationSeconds || 0,
 		});
 		return data;
 	},
 
 	unbanUser: async (targetUserId: number) => {
-		const { data } = await ownerHttp.post(`/users/${targetUserId}/unban`);
+		const { data } = await ownerHttp.post('/users/unban', {
+			target_user_id: targetUserId,
+		});
 		return data;
 	},
 
@@ -131,11 +137,16 @@ export const ownerApi = {
 		delta: number,
 		reason: string,
 	): Promise<{ status: string; new_credits: number }> => {
-		const { data } = await ownerHttp.post<{ status: string; new_credits: number }>(
-			`/users/${targetUserId}/intel-credits`,
-			{ delta, reason },
-		);
-		return data;
+		const { data } = await ownerHttp.post<{
+			success?: boolean;
+			status?: string;
+			new_intel_credit?: number;
+			new_credits?: number;
+		}>('/users/adjust-credits', { user_id: targetUserId, delta, reason });
+		return {
+			status: data?.status ?? (data?.success ? 'ok' : 'ok'),
+			new_credits: data?.new_intel_credit ?? data?.new_credits ?? 0,
+		};
 	},
 
 	toggleUserVip: async (
@@ -144,8 +155,8 @@ export const ownerApi = {
 		reason: string,
 	): Promise<{ status: string; is_premium: boolean }> => {
 		const { data } = await ownerHttp.post<{ status: string; is_premium: boolean }>(
-			`/users/${targetUserId}/vip`,
-			{ is_premium: isPremium, reason },
+			'/users/toggle-vip',
+			{ target_user_id: targetUserId, is_premium: isPremium, reason },
 		);
 		return data;
 	},
@@ -153,12 +164,17 @@ export const ownerApi = {
 	flagUser: async (
 		targetUserId: number,
 		isFlagged: boolean,
+		reason = '',
 	): Promise<{ status: string; is_flagged: boolean }> => {
-		const { data } = await ownerHttp.post<{ status: string; is_flagged: boolean }>(
-			`/users/${targetUserId}/flag`,
-			{ is_flagged: isFlagged },
-		);
-		return data;
+		const { data } = await ownerHttp.post<{
+			status?: string;
+			success?: boolean;
+			is_flagged?: boolean;
+		}>('/users/flag', { target_user_id: targetUserId, is_flagged: isFlagged, reason });
+		return {
+			status: data?.status ?? (data?.success ? 'ok' : 'ok'),
+			is_flagged: data?.is_flagged ?? isFlagged,
+		};
 	},
 
 	// =========================================================================
@@ -180,15 +196,17 @@ export const ownerApi = {
 	// 5. MTProto Session & Telegram Core Bridge Manager
 	// =========================================================================
 	listUserbots: async (): Promise<ManagedUserbot[]> => {
-		const { data } = await ownerHttp.get<{ userbots: ManagedUserbot[] }>('/userbots');
-		return data.userbots || [];
+		const { data } = await ownerHttp.get<ManagedUserbot[] | { userbots: ManagedUserbot[] }>(
+			'/userbots',
+		);
+		return Array.isArray(data) ? data : data?.userbots || [];
 	},
 
 	sendUserbotCode: async (
 		phoneNumber: string,
 	): Promise<{ phone_code_hash: string; dc_id?: number }> => {
 		const { data } = await ownerHttp.post<{ phone_code_hash: string; dc_id?: number }>(
-			'/userbots/send-code',
+			'/userbot/send-code',
 			{
 				phone_number: phoneNumber,
 			},
@@ -203,7 +221,7 @@ export const ownerApi = {
 		password2fa?: string,
 		accountLabel?: string,
 	) => {
-		const { data } = await ownerHttp.post('/userbots/verify-code', {
+		const { data } = await ownerHttp.post('/userbot/verify-code', {
 			phone_number: phoneNumber,
 			code,
 			phone_code_hash: phoneCodeHash,
@@ -242,8 +260,8 @@ export const ownerApi = {
 	// 7. Intel Credit & VIP Promo Codes (⚡)
 	// =========================================================================
 	listPromos: async (): Promise<PromoCode[]> => {
-		const { data } = await ownerHttp.get<{ promos: PromoCode[] }>('/promos');
-		return data.promos || [];
+		const { data } = await ownerHttp.get<PromoCode[] | { promos: PromoCode[] }>('/promos');
+		return Array.isArray(data) ? data : data?.promos || [];
 	},
 
 	createPromo: async (
@@ -256,7 +274,7 @@ export const ownerApi = {
 	) => {
 		const { data } = await ownerHttp.post('/promos', {
 			code,
-			credit_amount: creditAmount,
+			reward_amount: creditAmount,
 			max_uses: maxUses,
 			expires_at: expiresAt,
 			grant_vip_days: grantVipDays || 0,
@@ -274,13 +292,15 @@ export const ownerApi = {
 	// 8. Telegram Broadcasts & Audience Messaging
 	// =========================================================================
 	listBroadcasts: async (): Promise<BroadcastMessage[]> => {
-		const { data } = await ownerHttp.get<{ broadcasts: BroadcastMessage[] }>('/broadcasts');
-		return data.broadcasts || [];
+		const { data } = await ownerHttp.get<BroadcastMessage[] | { broadcasts: BroadcastMessage[] }>(
+			'/broadcasts',
+		);
+		return Array.isArray(data) ? data : data?.broadcasts || [];
 	},
 
 	getAudienceCount: async (target: string): Promise<{ count: number }> => {
 		const { data } = await ownerHttp.get<{ count: number }>('/broadcasts/audience-count', {
-			params: { target },
+			params: { audience: target },
 		});
 		return data;
 	},
@@ -315,17 +335,20 @@ export const ownerApi = {
 	},
 
 	getFinanceOrders: async (limit = 25, offset = 0): Promise<FinanceOrder[]> => {
-		const { data } = await ownerHttp.get<{ orders: FinanceOrder[] }>('/finance/orders', {
-			params: { limit, offset },
-		});
-		return data.orders || [];
+		const { data } = await ownerHttp.get<FinanceOrder[] | { orders: FinanceOrder[] }>(
+			'/finance/orders',
+			{
+				params: { limit, offset },
+			},
+		);
+		return Array.isArray(data) ? data : data?.orders || [];
 	},
 
 	// =========================================================================
 	// 10. Ecosystem Oracle Health & Valuation Cache Control
 	// =========================================================================
 	getHealth: async (): Promise<SystemHealthMetrics> => {
-		const { data } = await ownerHttp.get<SystemHealthMetrics>('/health');
+		const { data } = await ownerHttp.get<SystemHealthMetrics>('/health/metrics');
 		return data;
 	},
 
@@ -343,49 +366,72 @@ export const ownerApi = {
 	},
 
 	clearCache: async (): Promise<{ status: string; deleted_keys: number }> => {
-		const { data } = await ownerHttp.post<{ status: string; deleted_keys: number }>(
-			'/health/clear-cache',
-		);
-		return data;
+		const { data } = await ownerHttp.post<{
+			success?: boolean;
+			status?: string;
+			deleted_keys?: number;
+		}>('/cache/clear');
+		return {
+			status: data?.status ?? (data?.success ? 'ok' : 'ok'),
+			deleted_keys: data?.deleted_keys ?? 0,
+		};
 	},
 
 	getSystemErrors: async (limit = 50): Promise<SystemErrorLog[]> => {
-		const { data } = await ownerHttp.get<{ errors: SystemErrorLog[] }>('/health/errors', {
-			params: { limit },
-		});
-		return data.errors || [];
+		const { data } = await ownerHttp.get<SystemErrorLog[] | { errors: SystemErrorLog[] }>(
+			'/health/errors',
+			{
+				params: { limit },
+			},
+		);
+		return Array.isArray(data) ? data : data?.errors || [];
 	},
 
 	// =========================================================================
 	// 11. Ads & Banners Management
 	// =========================================================================
 	listAdCampaigns: async (slot?: string): Promise<AdCampaign[]> => {
-		const { data } = await ownerHttp.get<{ ads: AdCampaign[] }>('/ads', {
+		const { data } = await ownerHttp.get<AdCampaign[] | { ads: AdCampaign[] }>('/ads', {
 			params: slot ? { slot } : {},
 		});
-		return data.ads || [];
+		return Array.isArray(data) ? data : data?.ads || [];
 	},
 
 	createAdCampaign: async (ad: Partial<AdCampaign>): Promise<AdCampaign> => {
-		const { data } = await ownerHttp.post<{ ad: AdCampaign }>('/ads', ad);
-		return data.ad;
+		const { data } = await ownerHttp.post<AdCampaign | { ad: AdCampaign }>('/ads', ad);
+		return (data as { ad?: AdCampaign })?.ad ?? (data as AdCampaign);
 	},
 
 	updateAdCampaign: async (id: string, ad: Partial<AdCampaign>): Promise<AdCampaign> => {
-		const { data } = await ownerHttp.put<{ ad: AdCampaign }>(`/ads/${id}`, ad);
-		return data.ad;
+		const { data } = await ownerHttp.put<AdCampaign | { ad: AdCampaign }>(`/ads/${id}`, ad);
+		return (data as { ad?: AdCampaign })?.ad ?? (data as AdCampaign);
 	},
 
 	deleteAdCampaign: async (id: string): Promise<void> => {
 		await ownerHttp.delete(`/ads/${id}`);
 	},
 
-	uploadAdImage: async (blob: Blob, slot: string): Promise<{ image_url: string }> => {
+	uploadAdImage: async (
+		blob: Blob,
+		slot: string,
+	): Promise<{
+		url: string;
+		width: number;
+		height: number;
+		size_bytes: number;
+		mime_type?: string;
+	}> => {
 		const formData = new FormData();
 		formData.append('file', blob, `${slot}_banner.webp`);
 		formData.append('slot', slot);
 
-		const { data } = await ownerHttp.post<{ image_url: string }>('/ads/upload', formData);
+		const { data } = await ownerHttp.post<{
+			url: string;
+			width: number;
+			height: number;
+			size_bytes: number;
+			mime_type?: string;
+		}>('/ads/upload', formData);
 		return data;
 	},
 };

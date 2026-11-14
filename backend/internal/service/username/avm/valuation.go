@@ -7,13 +7,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
 	"ifragment-backend/internal/client/fragment"
 	"ifragment-backend/internal/client/marketapp"
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
 	"log/slog"
 	"math"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -203,6 +203,10 @@ type ValuationResult struct {
 
 	// Homoglyph & Spoofing Defense Matrix
 	HomoglyphSpoofingMatrix *HomoglyphMatrixDto `json:"homoglyph_spoofing_matrix,omitempty"`
+
+	// Binary / TVM BOC / Fitts's Law Biomechanical Forensics & Fragment Capabilities
+	BinaryForensics      *BinaryForensicsDto      `json:"binary_forensics,omitempty"`
+	FragmentCapabilities *FragmentCapabilitiesDto `json:"fragment_capabilities,omitempty"`
 }
 
 type SellerConvictionDto struct {
@@ -302,7 +306,6 @@ func VerifyValuationCertificate(username, version, expectedTON string, confidenc
 	return hmac.Equal(expectedMac, sigBytes)
 }
 
-
 // ModelAccuracyDto reports how the model has actually performed against sales that
 // happened after a valuation was issued. Without it, "confidence" is self-reported.
 type ModelAccuracyDto struct {
@@ -365,6 +368,9 @@ type LiveMarketDto struct {
 	// expected value, in percent. This is the single most decision-relevant number
 	// on the page when the username is actually purchasable.
 	AskVsEstimatePct float64 `json:"ask_vs_estimate_pct,omitempty"`
+	IsVanityAsk      bool    `json:"is_vanity_ask,omitempty"`
+	VanityAskWarning string  `json:"vanity_ask_warning,omitempty"`
+	ArbitrageSignal  string  `json:"arbitrage_signal,omitempty"`
 	CheckedAt        string  `json:"checked_at"`
 }
 
@@ -555,73 +561,73 @@ func CheckHomoglyphRisk(username string) (bool, string) {
 func CheckTrademarkRisk(username string) (bool, string) {
 	u := strings.TrimPrefix(strings.ToLower(username), "@")
 	brands := map[string]string{
-		"clash":       "Clash of Clans / Supercell",
-		"telegram":    "Telegram FZ-LLC",
-		"durov":       "Pavel Durov / Telegram",
-		"wallet":      "Telegram Wallet",
-		"fragment":    "Fragment Auction Platform",
-		"toncoin":     "TON Foundation",
-		"getgems":     "Getgems NFT Marketplace",
-		"notcoin":     "Notcoin Ecosystem",
-		"catizen":     "Catizen AI",
-		"hamster":     "Hamster Kombat",
-		"bitcoin":     "Bitcoin Foundation",
-		"ethereum":    "Ethereum Foundation",
-		"binance":     "Binance Exchange",
-		"coinbase":    "Coinbase Global Inc.",
-		"kraken":      "Payward / Kraken Exchange",
-		"bybit":       "Bybit Fintech Ltd.",
-		"okx":         "OKX Exchange",
-		"tether":      "Tether Operations Ltd.",
-		"solana":      "Solana Foundation",
-		"ripple":      "Ripple Labs Inc.",
-		"metamask":    "Consensys / MetaMask",
-		"ledger":      "Ledger SAS",
-		"trezor":      "SatoshiLabs / Trezor",
-		"uniswap":     "Uniswap Labs",
-		"opensea":     "Ozone Networks / OpenSea",
-		"apple":       "Apple Inc.",
-		"iphone":      "Apple Inc.",
-		"macbook":     "Apple Inc.",
-		"google":      "Google LLC",
-		"youtube":     "Google / YouTube LLC",
-		"android":     "Google LLC",
-		"meta":        "Meta Platforms Inc.",
-		"instagram":   "Meta Platforms / Instagram",
-		"whatsapp":    "Meta Platforms / WhatsApp",
-		"facebook":    "Meta Platforms Inc.",
-		"microsoft":   "Microsoft Corporation",
-		"windows":     "Microsoft Corporation",
-		"openai":      "OpenAI Inc.",
-		"chatgpt":     "OpenAI Inc.",
-		"anthropic":   "Anthropic PBC",
-		"nvidia":      "NVIDIA Corporation",
-		"amazon":      "Amazon Technologies Inc.",
-		"netflix":     "Netflix Inc.",
-		"spotify":     "Spotify AB",
-		"tiktok":      "ByteDance / TikTok",
-		"discord":     "Discord Inc.",
-		"tesla":       "Tesla Inc.",
-		"spacex":      "Space Exploration Technologies",
-		"starlink":    "SpaceX / Starlink",
-		"nike":        "Nike Inc.",
-		"adidas":      "Adidas AG",
-		"rolex":       "Rolex SA",
-		"gucci":       "Guccio Gucci S.p.A.",
-		"prada":       "Prada S.p.A.",
-		"hermes":      "Hermès International",
-		"cartier":     "Cartier International AG",
+		"clash":        "Clash of Clans / Supercell",
+		"telegram":     "Telegram FZ-LLC",
+		"durov":        "Pavel Durov / Telegram",
+		"wallet":       "Telegram Wallet",
+		"fragment":     "Fragment Auction Platform",
+		"toncoin":      "TON Foundation",
+		"getgems":      "Getgems NFT Marketplace",
+		"notcoin":      "Notcoin Ecosystem",
+		"catizen":      "Catizen AI",
+		"hamster":      "Hamster Kombat",
+		"bitcoin":      "Bitcoin Foundation",
+		"ethereum":     "Ethereum Foundation",
+		"binance":      "Binance Exchange",
+		"coinbase":     "Coinbase Global Inc.",
+		"kraken":       "Payward / Kraken Exchange",
+		"bybit":        "Bybit Fintech Ltd.",
+		"okx":          "OKX Exchange",
+		"tether":       "Tether Operations Ltd.",
+		"solana":       "Solana Foundation",
+		"ripple":       "Ripple Labs Inc.",
+		"metamask":     "Consensys / MetaMask",
+		"ledger":       "Ledger SAS",
+		"trezor":       "SatoshiLabs / Trezor",
+		"uniswap":      "Uniswap Labs",
+		"opensea":      "Ozone Networks / OpenSea",
+		"apple":        "Apple Inc.",
+		"iphone":       "Apple Inc.",
+		"macbook":      "Apple Inc.",
+		"google":       "Google LLC",
+		"youtube":      "Google / YouTube LLC",
+		"android":      "Google LLC",
+		"meta":         "Meta Platforms Inc.",
+		"instagram":    "Meta Platforms / Instagram",
+		"whatsapp":     "Meta Platforms / WhatsApp",
+		"facebook":     "Meta Platforms Inc.",
+		"microsoft":    "Microsoft Corporation",
+		"windows":      "Microsoft Corporation",
+		"openai":       "OpenAI Inc.",
+		"chatgpt":      "OpenAI Inc.",
+		"anthropic":    "Anthropic PBC",
+		"nvidia":       "NVIDIA Corporation",
+		"amazon":       "Amazon Technologies Inc.",
+		"netflix":      "Netflix Inc.",
+		"spotify":      "Spotify AB",
+		"tiktok":       "ByteDance / TikTok",
+		"discord":      "Discord Inc.",
+		"tesla":        "Tesla Inc.",
+		"spacex":       "Space Exploration Technologies",
+		"starlink":     "SpaceX / Starlink",
+		"nike":         "Nike Inc.",
+		"adidas":       "Adidas AG",
+		"rolex":        "Rolex SA",
+		"gucci":        "Guccio Gucci S.p.A.",
+		"prada":        "Prada S.p.A.",
+		"hermes":       "Hermès International",
+		"cartier":      "Cartier International AG",
 		"louisvuitton": "Louis Vuitton Malletier",
-		"chanel":      "Chanel Limited",
-		"ferrari":     "Ferrari N.V.",
-		"porsche":     "Dr. Ing. h.c. F. Porsche AG",
-		"lamborghini": "Automobili Lamborghini S.p.A.",
-		"visa":        "Visa International Service",
-		"mastercard":  "Mastercard International",
-		"paypal":      "PayPal Holdings Inc.",
-		"stripe":      "Stripe Inc.",
-		"revolut":     "Revolut Ltd.",
-		"blackrock":   "BlackRock Inc.",
+		"chanel":       "Chanel Limited",
+		"ferrari":      "Ferrari N.V.",
+		"porsche":      "Dr. Ing. h.c. F. Porsche AG",
+		"lamborghini":  "Automobili Lamborghini S.p.A.",
+		"visa":         "Visa International Service",
+		"mastercard":   "Mastercard International",
+		"paypal":       "PayPal Holdings Inc.",
+		"stripe":       "Stripe Inc.",
+		"revolut":      "Revolut Ltd.",
+		"blackrock":    "BlackRock Inc.",
 	}
 	for b, brandName := range brands {
 		if u == b || (len(b) >= 4 && len(u) >= 4 && strings.Contains(u, b)) {
@@ -681,7 +687,7 @@ type ValuationRarity struct {
 // ClassifyUsername extracts the segment and morphology features.
 func ClassifyUsername(username string) (segment string, charLen int16, features MorphFeatures) {
 	lower := strings.ToLower(username)
-	decoded := DecodeLeet(lower)
+	decoded := DecodeLeetSmart(lower)
 	charLen = int16(len([]rune(lower)))
 
 	hasNumbers := false
@@ -831,36 +837,47 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 		}
 	}
 
+	fittsBits, fittsErgo, handAltPct := ComputeFittsBiomechanics(lower)
+	kerningSym := ComputeOpticalKerningSymmetry(lower)
+	viterbiSeg := ViterbiSegmentUsername(lower)
+
 	features = MorphFeatures{
-		HasNumbers:            hasNumbers,
-		HasAlpha:              hasAlpha,
-		HasUnderscore:         hasUnderscore,
-		HasCheapSuffix:        hasCheapSuffix,
-		HasCheapPrefix:        hasCheapPrefix,
-		HasRepetition:         hasRepetition,
-		IsDictionary:          isDict,
-		CharLength:            int(charLen),
-		FlowScore:             AnalyzeFlow(decoded),
-		IsPalindrome:          IsPalindrome(lower),
-		IsKeyboardPattern:     IsKeyboardPattern(lower),
-		IsCombo:               comboRes.IsCombo,
-		ComboValue:            comboRes.Value,
-		IsTechPattern:         techRes.IsTechPattern,
-		HasGoldenYear:         yearRes.HasYear,
-		AffixBonus:            affixRes.Bonus,
-		TierMultiplier:        tierRes.Multiplier,
-		FrequencyRank:         RankWord(decoded),
-		IsHyped:               IsHyped(decoded),
-		EuphonyScore:          euphonyScore,
-		IsAesthetic:           isAesthetic,
-		HasBrandableSuffix:    hasBrandableSuffix,
-		IsAcronym:             isAcronym,
-		IsUnderscoreCompound:  isUnderscoreCompound,
-		VisualSymmetry:        visualSymmetry,
-		IsABAB:                isABAB,
-		IsAABB:                isAABB,
-		IsSymmetricRepetition: isSymmetricRepetition,
-		IsGibberish:           IsGibberishString(lower, isDict, RankWord(decoded), AnalyzeFlow(decoded)),
+		HasNumbers:             hasNumbers,
+		HasAlpha:               hasAlpha,
+		HasUnderscore:          hasUnderscore,
+		HasCheapSuffix:         hasCheapSuffix,
+		HasCheapPrefix:         hasCheapPrefix,
+		HasRepetition:          hasRepetition,
+		IsDictionary:           isDict,
+		CharLength:             int(charLen),
+		FlowScore:              AnalyzeFlow(decoded),
+		IsPalindrome:           IsPalindrome(lower),
+		IsKeyboardPattern:      IsKeyboardPattern(lower),
+		IsCombo:                comboRes.IsCombo,
+		ComboValue:             comboRes.Value,
+		IsTechPattern:          techRes.IsTechPattern,
+		HasGoldenYear:          yearRes.HasYear,
+		AffixBonus:             affixRes.Bonus,
+		TierMultiplier:         tierRes.Multiplier,
+		FrequencyRank:          RankWord(decoded),
+		IsHyped:                IsHyped(decoded),
+		EuphonyScore:           euphonyScore,
+		IsAesthetic:            isAesthetic,
+		HasBrandableSuffix:     hasBrandableSuffix,
+		IsAcronym:              isAcronym,
+		IsUnderscoreCompound:   isUnderscoreCompound,
+		VisualSymmetry:         visualSymmetry,
+		IsABAB:                 isABAB,
+		IsAABB:                 isAABB,
+		IsSymmetricRepetition:  isSymmetricRepetition,
+		IsGibberish:            IsGibberishString(lower, isDict, RankWord(decoded), AnalyzeFlow(decoded)),
+		FittsIndexBits:         fittsBits,
+		FittsErgonomicScore:    fittsErgo,
+		HandAlternationPct:     handAltPct,
+		OpticalKerningSymmetry: kerningSym,
+		ViterbiCoverage:        viterbiSeg.CoverageRatio,
+		ViterbiTokens:          viterbiSeg.Tokens,
+		IsCleanCompound:        viterbiSeg.IsCleanCompound,
 	}
 
 	return segment, charLen, features
@@ -967,10 +984,10 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		if cloned.LiveMarket != nil {
 			lm := *cloned.LiveMarket
 			if lm.CurrentBidTON > 0 {
-				lm.CurrentBidUSD = math.Round(lm.CurrentBidTON * effectiveRate * 100) / 100
+				lm.CurrentBidUSD = math.Round(lm.CurrentBidTON*effectiveRate*100) / 100
 			}
 			if lm.BuyNowTON > 0 {
-				lm.BuyNowUSD = math.Round(lm.BuyNowTON * effectiveRate * 100) / 100
+				lm.BuyNowUSD = math.Round(lm.BuyNowTON*effectiveRate*100) / 100
 			}
 			cloned.LiveMarket = &lm
 		}
@@ -1054,9 +1071,10 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	}
 
 	var (
-		marketappPrice float64
-		marketItem     *marketapp.ItemData
-		liveStatus     string
+		marketappPrice         float64
+		marketappRealizedPrice float64
+		marketItem             *marketapp.ItemData
+		liveStatus             string
 	)
 
 	// Structured item data first: carries live sale state (bid, buy-now,
@@ -1068,13 +1086,16 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		if s.marketappClient != nil {
 			if itemData, err := s.marketappClient.GetItem(mCtx, username); err == nil && itemData != nil {
 				marketItem = itemData
+				if itemData.HighestBid > 0 {
+					marketappRealizedPrice = itemData.HighestBid
+				} else if len(itemData.PastSales) > 0 && itemData.PastSales[0].Price > 0 {
+					marketappRealizedPrice = itemData.PastSales[0].Price
+				}
 				switch {
 				case itemData.BuyNowPrice > 0:
 					marketappPrice = itemData.BuyNowPrice
-				case itemData.HighestBid > 0:
-					marketappPrice = itemData.HighestBid
-				case len(itemData.PastSales) > 0:
-					marketappPrice = itemData.PastSales[0].Price
+				case marketappRealizedPrice > 0:
+					marketappPrice = marketappRealizedPrice
 				}
 			}
 		}
@@ -1127,9 +1148,13 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 
 	if marketappPrice > 0 {
 		reasoning["marketapp_price_found"] = marketappPrice
+	}
+	if marketappRealizedPrice > 0 {
+		reasoning["marketapp_realized_price_ton"] = marketappRealizedPrice
 		targetComps = append(targetComps, ComparableSale{
 			ID:            0,
-			PriceTON:      marketappPrice,
+			PriceTON:      marketappRealizedPrice,
+			RawPriceTON:   marketappRealizedPrice,
 			SaleDate:      now,
 			CharLength:    int(charLen),
 			HasNumbers:    features.HasNumbers,
@@ -1681,7 +1706,6 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	reasoning["confidence_score"] = calibratedConfidence
 	reasoning["calibration_note"] = calibNote
 
-
 	// Dynamic Liquidity & Velocity calculation
 	liquidityScore := 40
 	if features.IsDictionary {
@@ -2033,9 +2057,9 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		}
 	}
 
-	p10Val := math.Round(expectedTON*0.70*100) / 100
+	p10Val := math.Round(lowTON*100) / 100
 	p50Val := math.Round(expectedTON*100) / 100
-	p90Val := math.Round(expectedTON*1.35*100) / 100
+	p90Val := math.Round(highTON*100) / 100
 	p10USDVal := 0.0
 	p50USDVal := 0.0
 	p90USDVal := 0.0
@@ -2043,6 +2067,21 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		p10USDVal = math.Round(p10Val*tonRate*100) / 100
 		p50USDVal = math.Round(p50Val*tonRate*100) / 100
 		p90USDVal = math.Round(p90Val*tonRate*100) / 100
+	}
+
+	binaryForensics, fragmentCapabilities := ComputeBinaryAndBiomechanicalForensics(username)
+	if binaryForensics != nil {
+		features.ShannonEntropyBits = binaryForensics.ShannonEntropyBits
+		reasoning["binary_forensics"] = map[string]any{
+			"ascii_hex_payload":        binaryForensics.AsciiHexPayload,
+			"shannon_entropy_bits":     binaryForensics.ShannonEntropyBits,
+			"fitts_index_bits":         binaryForensics.FittsIndexBits,
+			"fitts_ergonomic_score":    binaryForensics.FittsErgonomicScore,
+			"hand_alternation_pct":     binaryForensics.HandAlternationPct,
+			"optical_kerning_symmetry": binaryForensics.OpticalKerningSymmetry,
+			"viterbi_tokens":           binaryForensics.ViterbiTokens,
+			"viterbi_coverage":         binaryForensics.ViterbiCoverage,
+		}
 	}
 
 	fragMarketStatus := "unlisted"
@@ -2190,8 +2229,8 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		ModelAccuracy:      s.GetModelAccuracy(ctx),
 
 		// AVM v7.0 Novel Signals & Self-Calibration Fields (Phase 5)
-		HomoglyphTwins:  homoglyphTwins,
-		RentYield:       &rentYield,
+		HomoglyphTwins: homoglyphTwins,
+		RentYield:      &rentYield,
 		SellerHoldConviction: func() *SellerConvictionDto {
 			convictionScore := 50
 			stance := "Standard Market Seller"
@@ -2251,17 +2290,18 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 				Twins:               homoglyphTwins,
 			}
 		}(),
-		BandMethod:      bandMethod,
-		CalibrationNote: calibNote,
-		DataFreshness:   now,
-		AVMVersion:      ModelVersion,
+		BandMethod:           bandMethod,
+		CalibrationNote:      calibNote,
+		DataFreshness:        now,
+		AVMVersion:           ModelVersion,
+		BinaryForensics:      binaryForensics,
+		FragmentCapabilities: fragmentCapabilities,
 		LayaSystemOne: func() *LayaUsernameResult {
 			if semResult != nil && semResult.Laya != nil {
 				return semResult.Laya
 			}
 			return nil
 		}(),
-
 
 		InvestmentGrade: func() string {
 			if expectedTON > 50000 {
@@ -2515,7 +2555,12 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		// dictionary word). We do not have a real audience figure here, so the
 		// field is left at zero rather than invented.
 		EntityInfo: &EntityInfoDto{
-			Type:     func() string { if dictData.IsWord { return "Brand / Corporate" }; return "Individual Creator" }(),
+			Type: func() string {
+				if dictData.IsWord {
+					return "Brand / Corporate"
+				}
+				return "Individual Creator"
+			}(),
 			Verified: dictData.IsWord || charLen <= 4,
 		},
 
@@ -2716,7 +2761,7 @@ func (s *ValuationService) GetModelAccuracy(ctx context.Context) *ModelAccuracyD
 	fresh := &ModelAccuracyDto{
 		SampleSize:     len(points),
 		MedianErrorPct: math.Round(median*10) / 10,
-		WithinBandPct:  math.Round(float64(inBand) / float64(len(points)) * 1000) / 10,
+		WithinBandPct:  math.Round(float64(inBand)/float64(len(points))*1000) / 10,
 		EvaluatedAt:    time.Now().UTC().Format(time.RFC3339),
 	}
 
@@ -2732,7 +2777,6 @@ func (s *ValuationService) GetModelAccuracy(ctx context.Context) *ModelAccuracyD
 func (s *ValuationService) GetCalibrationSummary(ctx context.Context) (*ModelCalibrationSummary, error) {
 	return RunModelCalibration(ctx, s.db, ModelVersion)
 }
-
 
 // Collection-wide stats are identical for every username and change slowly, so
 // they are fetched once and shared rather than re-requested per valuation.
@@ -2880,6 +2924,15 @@ func buildLiveMarket(username string, item *marketapp.ItemData, fragmentStatus s
 	}
 	if ask > 0 && expectedTON > 0 {
 		lm.AskVsEstimatePct = math.Round(((ask/expectedTON)-1)*1000) / 10
+		if lm.BuyNowTON > expectedTON*3.5 {
+			lm.IsVanityAsk = true
+			lm.VanityAskWarning = "Showcase / Vanity Listing: Seller's Buy-Now ask exceeds intrinsic fair market value by >250% and is excluded from realized price floors."
+			lm.ArbitrageSignal = "OVERPRICED_VANITY_ASK"
+		} else if ask <= expectedTON*0.80 {
+			lm.ArbitrageSignal = "UNDERVALUED_BUY_OPPORTUNITY"
+		} else {
+			lm.ArbitrageSignal = "FAIR_MARKET_ASK"
+		}
 	}
 
 	if lm.Status == "" {
@@ -2907,8 +2960,99 @@ func SalesToComparables(sales []repository.Sale, cfg EngineConfig) []ComparableS
 	return comps
 }
 
+type knnAnchorEntry struct {
+	name        string
+	basePrice   float64
+	genesisDate time.Time
+	lenNorm     float64
+	freqNorm    float64
+	wikiProxy   float64
+	flowScore   float64
+	ergoScore   float64
+	tagWeight   float64
+}
+
+var (
+	knnAnchorsOnce sync.Once
+	knnAnchorList  []knnAnchorEntry
+)
+
+func initKNNAnchorIndex() {
+	seen := make(map[string]float64, len(HistoricalSales)+len(ValuationAnchors))
+	for k, v := range HistoricalSales {
+		seen[k] = v
+	}
+	for k, v := range ValuationAnchors {
+		if _, exists := seen[k]; !exists {
+			seen[k] = v
+		}
+	}
+
+	names := make([]string, 0, len(seen))
+	for k := range seen {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+
+	defaultGenesis := time.Date(2022, 11, 15, 0, 0, 0, 0, time.UTC)
+	knnAnchorList = make([]knnAnchorEntry, 0, len(names))
+
+	for _, name := range names {
+		basePrice := seen[name]
+		gDate := defaultGenesis
+		if dt, ok := knownGenesisAuctionDates[name]; ok {
+			gDate = dt
+		}
+
+		freqNorm := 0.55
+		if r := RankWord(name); r > 0 {
+			if r <= 1000 {
+				freqNorm = 1.0 - (float64(r)/1000.0)*0.10
+			} else if r <= 5000 {
+				freqNorm = 0.90 - (float64(r-1000)/4000.0)*0.20
+			} else {
+				freqNorm = 0.70 - (float64(r-5000)/5000.0)*0.30
+			}
+		}
+
+		wikiProxy := 0.35
+		if basePrice >= 50000 {
+			wikiProxy = 0.85
+		} else if basePrice >= 15000 {
+			wikiProxy = 0.65
+		} else if r := RankWord(name); r > 0 && r <= 2000 {
+			wikiProxy = 0.55
+		}
+
+		flow := AnalyzeFlow(name)
+		_, ergo, _ := ComputeFittsBiomechanics(name)
+
+		tagW := 1.0
+		switch name {
+		case "crypto", "wallet", "bitcoin", "ton", "defi", "nft", "dex", "swap", "coin", "token", "pay", "bank", "trade", "market", "money", "whale":
+			tagW += 2.0
+		case "rare", "apex", "prime", "legend", "vault", "epic", "supreme", "noble", "royal", "king", "gold", "vip", "crown", "rich":
+			tagW += 1.8
+		case "ai", "chat", "news", "music", "video", "auto", "car", "tech", "app", "bot", "durov", "dogs", "cats":
+			tagW += 1.5
+		}
+
+		knnAnchorList = append(knnAnchorList, knnAnchorEntry{
+			name:        name,
+			basePrice:   basePrice,
+			genesisDate: gDate,
+			lenNorm:     float64(len(name)) / 10.0,
+			freqNorm:    freqNorm,
+			wikiProxy:   wikiProxy,
+			flowScore:   flow,
+			ergoScore:   ergo,
+			tagWeight:   tagW,
+		})
+	}
+}
+
 // CalculateSemanticKNNFloor finds similar high-value sold dictionary anchors for premium words
-// using a 5D k-Nearest Neighbors (k-NN) vector similarity model over HistoricalSales.
+// using a deterministic 6D k-Nearest Neighbors (k-NN) vector similarity model over HistoricalSales.
 func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResult *SemanticResult) float64 {
 	// STRICT GIBBERISH GUARD: Never elevate random gibberish (e.g. @fhhff, @xqzkw)
 	if features.IsGibberish || (!features.IsDictionary && features.SemanticScore < 40) {
@@ -2927,16 +3071,38 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 		return 0
 	}
 
-	// Build 5D Feature Vector for target username:
-	// v = [charLenNorm, wordFreqNorm, wikiScoreNorm, flowScoreNorm, tagWeightNorm]
-	vFreq := 0.0
-	vWiki := 0.0
+	knnAnchorsOnce.Do(initKNNAnchorIndex)
+
+	// Build 6D Feature Vector for target username:
+	// v = [charLenNorm, wordFreqNorm, wikiScoreNorm, flowScoreNorm, ergoScoreNorm, tagWeightNorm]
+	vFreq := 0.55
+	if features.FrequencyRank > 0 {
+		if features.FrequencyRank <= 1000 {
+			vFreq = 1.0 - (float64(features.FrequencyRank)/1000.0)*0.10
+		} else if features.FrequencyRank <= 5000 {
+			vFreq = 0.90 - (float64(features.FrequencyRank-1000)/4000.0)*0.20
+		} else {
+			vFreq = 0.70 - (float64(features.FrequencyRank-5000)/5000.0)*0.30
+		}
+	}
+	vWiki := 0.40
 	vFlow := features.FlowScore
+	if vFlow <= 0 {
+		vFlow = AnalyzeFlow(lower)
+	}
+	vErgo := features.FittsErgonomicScore
+	if vErgo <= 0 {
+		_, vErgo, _ = ComputeFittsBiomechanics(lower)
+	}
 	vTag := 1.0
 
 	if semResult != nil {
-		vFreq = semResult.WordFreqScore / 100.0
-		vWiki = float64(semResult.WikiScore) / 100.0
+		if semResult.WordFreqScore > 0 {
+			vFreq = semResult.WordFreqScore / 100.0
+		}
+		if semResult.WikiScore > 0 {
+			vWiki = float64(semResult.WikiScore) / 100.0
+		}
 		for _, tag := range semResult.Tags {
 			switch tag {
 			case "crypto_ultra_premium":
@@ -2950,62 +3116,42 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 	}
 
 	type neighbor struct {
+		name     string
 		priceTON float64
 		dist     float64
 	}
 
-	neighbors := make([]neighbor, 0, len(HistoricalSales)+len(ValuationAnchors))
+	targetLenNorm := float64(charLen) / 10.0
+	neighbors := make([]neighbor, 0, len(knnAnchorList))
+	now := time.Now().UTC().Truncate(24 * time.Hour)
 
-	addNeighbor := func(anchorName string, basePrice float64) {
-		aLen := len(anchorName)
-		aLenNorm := float64(aLen) / 10.0
-		targetLenNorm := float64(charLen) / 10.0
+	for _, a := range knnAnchorList {
+		dLen := math.Abs(targetLenNorm - a.lenNorm)
+		dFreq := math.Abs(vFreq - a.freqNorm)
+		dWiki := math.Abs(vWiki - a.wikiProxy)
+		dFlow := math.Abs(vFlow - a.flowScore)
+		dErgo := math.Abs(vErgo - a.ergoScore)
+		dTag := math.Abs(vTag-a.tagWeight) * 0.25
 
-		// Feature distance components
-		dLen := math.Abs(targetLenNorm - aLenNorm)
-		dFreq := math.Abs(vFreq - 0.50) // Baseline anchor frequency approximation
-		dWiki := math.Abs(vWiki - 0.30)
-		dFlow := math.Abs(vFlow - 0.70)
-		dTag := 0.0
+		// 6D Weighted Euclidean Distance
+		dist := math.Sqrt(3.5*dLen*dLen + 2.0*dFreq*dFreq + 1.0*dWiki*dWiki + 1.0*dFlow*dFlow + 0.8*dErgo*dErgo + 1.5*dTag*dTag)
 
-		if (strings.Contains(anchorName, "crypto") || anchorName == "ton" || anchorName == "trade") && vTag > 1.5 {
-			dTag = 0.0
-		} else if vTag > 1.5 {
-			dTag = 0.3
-		}
-
-		// 5D Weighted Distance
-		dist := math.Sqrt(3.0*dLen*dLen + 2.0*dFreq*dFreq + 1.0*dWiki*dWiki + 1.0*dFlow*dFlow + 1.5*dTag*dTag)
-
-		// Appreciate anchor price to current date (dynamic from Genesis start Nov 2022)
-		genesisDate := time.Date(2022, 11, 15, 0, 0, 0, 0, time.UTC)
-		if dt, hasExact := knownGenesisAuctionDates[anchorName]; hasExact {
-			genesisDate = dt
-		}
-		yearsAgo := math.Min(8.0, math.Max(1.0, time.Since(genesisDate).Hours()/(24.0*365.25)))
-		appreciatedPrice := basePrice * math.Pow(1.20, yearsAgo)
+		yearsAgo := math.Min(8.0, math.Max(1.0, now.Sub(a.genesisDate).Hours()/(24.0*365.25)))
+		appreciatedPrice := a.basePrice * math.Pow(1.20, yearsAgo)
 
 		neighbors = append(neighbors, neighbor{
+			name:     a.name,
 			priceTON: appreciatedPrice,
 			dist:     dist,
 		})
 	}
 
-	seenAnchors := make(map[string]bool)
-	for anchorName, basePrice := range HistoricalSales {
-		seenAnchors[anchorName] = true
-		addNeighbor(anchorName, basePrice)
-	}
-	for anchorName, basePrice := range ValuationAnchors {
-		if !seenAnchors[anchorName] {
-			seenAnchors[anchorName] = true
-			addNeighbor(anchorName, basePrice)
-		}
-	}
-
-	// Sort neighbors by distance ascending using O(N log N) sort.Slice
+	// Deterministic sort by distance ascending, breaking ties alphabetically by name
 	sort.Slice(neighbors, func(i, j int) bool {
-		return neighbors[i].dist < neighbors[j].dist
+		if math.Abs(neighbors[i].dist-neighbors[j].dist) > 1e-9 {
+			return neighbors[i].dist < neighbors[j].dist
+		}
+		return neighbors[i].name < neighbors[j].name
 	})
 
 	// Take top k=5 nearest neighbors
@@ -3136,4 +3282,3 @@ func CalculateVenueFee(venue string, priceTON float64) float64 {
 		return math.Max(5.0, math.Round((priceTON*0.05)*100)/100)
 	}
 }
-

@@ -277,20 +277,9 @@ func (c *EcosystemTrackerClient) fetchFromFreeFragmentAnchor(ctx context.Context
 	}
 	html := string(bodyBytes)
 
-	matches := reFragmentFloor.FindStringSubmatch(html)
-	if len(matches) < 2 {
+	anchorFloor, activeListings := extractFragmentCardsFloor(html, normSlug)
+	if activeListings <= 0 || anchorFloor.LessThanOrEqual(decimal.Zero) {
 		return nil, ErrNoFloorData
-	}
-
-	cleanPrice := strings.ReplaceAll(matches[1], ",", "")
-	anchorFloor, err := decimal.NewFromString(cleanPrice)
-	if err != nil || anchorFloor.LessThanOrEqual(decimal.Zero) {
-		return nil, ErrNoFloorData
-	}
-
-	activeListings := strings.Count(html, `class="tm-grid-item"`)
-	if activeListings <= 0 {
-		activeListings = 1
 	}
 
 	c.mu.RLock()

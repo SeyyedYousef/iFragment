@@ -3,6 +3,7 @@ import { useNavigate } from '@solidjs/router';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { type DictPaths, locale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { TonIcon } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 const isRtl = () => locale() === 'fa';
 
@@ -78,31 +79,40 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 		icon: string;
 		labelKey: DictPaths;
 		badge: string;
-		activeClasses: string;
+		activeBorder: string;
+		activeBg: string;
+		iconColor: string;
+		dotColor: string;
 	}[] = [
 		{
 			id: 'username',
-			icon: 'person_search',
+			icon: 'alternate_email',
 			labelKey: 'action.username.label',
-			badge: 'AVM v7.0',
-			activeClasses:
-				'bg-gradient-to-b from-[#3390ec]/25 via-[#3390ec]/10 to-[#141824] border-[#3390ec]/50 text-white shadow-[0_8px_25px_rgba(51,144,236,0.25)]',
+			badge: 'AVM v8.0',
+			activeBorder: 'border-[#2990FF]/55',
+			activeBg: 'bg-[#2990FF]/[0.11]',
+			iconColor: 'text-[#2990FF]',
+			dotColor: 'bg-[#2990FF]',
 		},
 		{
 			id: 'collectibles',
 			icon: 'tag',
 			labelKey: 'action.collectibles.label',
 			badge: '+888 No-SIM',
-			activeClasses:
-				'bg-gradient-to-b from-emerald-500/25 via-emerald-500/10 to-[#141824] border-emerald-400/50 text-white shadow-[0_8px_25px_rgba(16,185,129,0.25)]',
+			activeBorder: 'border-[#4cd964]/50',
+			activeBg: 'bg-[#4cd964]/[0.09]',
+			iconColor: 'text-[#4cd964]',
+			dotColor: 'bg-[#4cd964]',
 		},
 		{
 			id: 'gifts',
-			icon: 'redeem',
+			icon: 'featured_seasonal_and_gifts',
 			labelKey: 'action.gifts.label',
 			badge: '4-Floor Live',
-			activeClasses:
-				'bg-gradient-to-b from-purple-500/25 via-amber-500/10 to-[#141824] border-purple-400/50 text-white shadow-[0_8px_25px_rgba(168,85,247,0.25)]',
+			activeBorder: 'border-[#ffb340]/50',
+			activeBg: 'bg-[#ffb340]/[0.09]',
+			iconColor: 'text-[#ffb340]',
+			dotColor: 'bg-[#ffb340]',
 		},
 	];
 
@@ -115,55 +125,38 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 
 	return (
 		<div
-			class={`relative bg-[#080A10] overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col items-center px-margin-main z-10 ${
-				props.activeTab ? 'pt-5 pb-12' : 'pt-10 pb-20 min-h-[85vh] justify-center'
+			class={`relative overflow-hidden transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col items-center px-4 z-10 font-frag-sans ${
+				props.activeTab ? 'pt-4 pb-8' : 'pt-8 pb-16 min-h-[82vh] justify-center'
 			}`}
 		>
-			{/* Floating Light Orbs (Emerald & Telegram Blue glow) */}
-			<div
-				class={`orb w-64 h-64 top-0 ${isRtl() ? '-right-24' : '-left-24'} opacity-40 pointer-events-none`}
-				style={{
-					background:
-						'radial-gradient(circle, rgba(16,185,129,0.25) 0%, rgba(6,182,212,0.15) 50%, transparent 70%)',
-					animation: 'orb-float-1 12s ease-in-out infinite',
-				}}
-			/>
-			<div
-				class={`orb w-48 h-48 top-24 ${isRtl() ? 'left-[-10%]' : 'right-[-10%]'} opacity-30 pointer-events-none`}
-				style={{
-					background: 'radial-gradient(circle, rgba(0,136,204,0.3) 0%, transparent 70%)',
-					animation: 'orb-float-2 15s ease-in-out infinite',
-				}}
-			/>
-
-			{/* Hero Heading, Universal Search & Description when on Landing Overview */}
+			{/* Hero Heading, Universal Search & Description on Landing Overview */}
 			<Show when={!props.activeTab}>
 				<Motion.div
-					initial={{ opacity: 0, y: 16 }}
+					initial={{ opacity: 0, y: 14 }}
 					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.45, easing: [0.16, 1, 0.3, 1] }}
-					class="w-full max-w-[420px] mx-auto text-center mb-7 relative z-20 flex flex-col items-center"
+					transition={{ duration: 0.38, easing: [0.16, 1, 0.3, 1] }}
+					class="w-full max-w-[460px] mx-auto text-center mb-6 relative z-20 flex flex-col items-center"
 				>
-					<div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.04] border border-white/10 mb-3.5">
-						<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-						<span class="text-[10px] font-black uppercase tracking-[0.22em] text-white/75">
-							{t('hero.promoBadge')}
-						</span>
+					<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1b232d]/90 border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] mb-4">
+						<TonIcon size={13} />
+						<span class="w-1.5 h-1.5 rounded-full bg-[#4cd964]" aria-hidden="true" />
+						<span class="text-[11px] font-medium text-[#c7d0d9]">{t('hero.promoBadge')}</span>
 					</div>
-					<h1 class="text-[28px] sm:text-[34px] font-black tracking-tight leading-[1.3] text-white mb-3">
+
+					<h1 class="text-[28px] sm:text-[34px] font-semibold tracking-[-0.025em] leading-[1.2] text-white mb-2.5">
 						{t('hero.title')}
 					</h1>
-					<p class="text-[13px] sm:text-[14px] text-white/55 font-medium leading-[1.8] max-w-[340px] mb-5">
+					<p class="text-[13.5px] sm:text-[14px] text-[#8c9ba5] font-normal leading-[1.65] max-w-[360px] mb-5">
 						{t('hero.description')}
 					</p>
 
-					{/* Universal Smart Search Bar */}
+					{/* Universal Smart Search Bar — Fragment style */}
 					<form
 						onSubmit={handleUniversalSubmit}
-						class="w-full relative flex items-center bg-[#121622]/95 border border-white/12 focus-within:border-[#0098EA]/60 rounded-[20px] p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.55)] transition-all"
+						class="w-full frag-card rounded-[14px] p-1.5 flex items-center gap-1.5 border border-white/[0.09] focus-within:border-[#2990FF]/65 focus-within:ring-2 focus-within:ring-[#2990FF]/15 transition-all"
 					>
-						<div class="px-2.5 flex items-center text-white/40">
-							<span class="material-symbols-outlined text-[20px]" aria-hidden="true">
+						<div class="pl-2.5 pr-1 flex items-center text-[#60707c] shrink-0">
+							<span class="material-symbols-outlined text-[19px]" aria-hidden="true">
 								search
 							</span>
 						</div>
@@ -174,17 +167,21 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 							placeholder={t('hero.smartSearch')}
 							aria-label={t('hero.smartSearch')}
 							dir={quickQuery() ? 'ltr' : isRtl() ? 'rtl' : 'ltr'}
-							class="flex-1 bg-transparent text-white text-[13px] font-bold placeholder:text-white/35 focus:outline-none px-1 py-2"
+							class="flex-1 min-w-0 bg-transparent text-white text-[13.5px] font-medium placeholder:text-[#60707c] focus:outline-none py-2 px-1"
+							autocomplete="off"
+							autocapitalize="off"
+							spellcheck={false}
 						/>
 						<Show when={detectedType()}>
 							<span
-								class={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-[10px] mx-1.5 shrink-0 ${
+								class={`text-[10px] font-mono font-semibold px-2 py-1 rounded-[7px] border shrink-0 ${
 									detectedType() === 'number'
-										? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+										? 'bg-[#4cd964]/12 text-[#4cd964] border-[#4cd964]/30'
 										: detectedType() === 'gift'
-											? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-											: 'bg-[#0098EA]/20 text-[#38bdf8] border border-[#0098EA]/30'
+											? 'bg-[#ffb340]/12 text-[#ffb340] border-[#ffb340]/30'
+											: 'bg-[#2990FF]/12 text-[#64b5ff] border-[#2990FF]/30'
 								}`}
+								dir="ltr"
 							>
 								{detectedType() === 'number'
 									? '+888'
@@ -195,7 +192,7 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 						</Show>
 						<button
 							type="submit"
-							class="px-4 py-2 rounded-[14px] bg-[#0098EA] hover:bg-[#0098EA]/90 text-white text-[12px] font-black tracking-wide active:scale-95 transition-all shrink-0 shadow-[0_4px_14px_rgba(0,152,234,0.4)]"
+							class="frag-btn-primary px-4 h-9 rounded-[10px] text-[12.5px] font-semibold shrink-0"
 						>
 							{t('hero.smartSearchBtn')}
 						</button>
@@ -203,11 +200,11 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 				</Motion.div>
 			</Show>
 
-			{/* 3-Vertical Category Selector Cards */}
+			{/* 3-Pillar Selector Cards */}
 			<Motion.nav
 				animate={{ y: 0, opacity: 1 }}
-				transition={{ duration: 0.4 }}
-				class="w-full max-w-[420px] grid grid-cols-3 gap-2.5 relative z-20"
+				transition={{ duration: 0.35 }}
+				class="w-full max-w-[460px] grid grid-cols-3 gap-2.5 relative z-20"
 				role="tablist"
 				aria-label={t('heroTabs.analysisCategories')}
 			>
@@ -221,19 +218,25 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 								role="tab"
 								aria-selected={isSelected()}
 								aria-label={t(tab.labelKey)}
-								class={`flex flex-col justify-between gap-2 rounded-[20px] border p-3.5 min-h-[82px] transition-all duration-300 relative overflow-hidden active:scale-95 ${
+								class={`flex flex-col justify-between gap-2.5 rounded-[14px] border p-3 min-h-[82px] transition-all duration-200 relative overflow-hidden active:scale-[0.97] text-start ${
 									isSelected()
-										? tab.activeClasses
-										: 'bg-[#141720]/90 border-white/[0.07] text-white/85 hover:bg-white/[0.07] hover:text-white'
+										? `${tab.activeBg} ${tab.activeBorder} text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_26px_rgba(0,0,0,0.32)]`
+										: 'frag-card text-[#c7d0d9] hover:border-white/[0.16] hover:text-white'
 								}`}
 							>
-								<div class="flex items-center justify-between w-full">
-									<span class="text-[8px] font-mono font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/[0.06] text-white/60">
+								<Show when={isSelected()}>
+									<span
+										class={`absolute inset-x-3 top-0 h-[2px] rounded-b-full ${tab.dotColor}`}
+										aria-hidden="true"
+									/>
+								</Show>
+								<div class="flex items-center justify-between w-full gap-1">
+									<span class="text-[9.5px] font-mono font-medium px-1.5 py-0.5 rounded-[6px] bg-[#141a22]/90 border border-white/[0.06] text-[#8c9ba5] truncate">
 										{tab.badge}
 									</span>
 									<span
-										class={`material-symbols-outlined shrink-0 transition-all duration-300 ${
-											isSelected() ? 'text-[20px] text-white' : 'text-[20px] text-white/65'
+										class={`material-symbols-outlined shrink-0 text-[19px] transition-colors ${
+											isSelected() ? tab.iconColor : 'text-[#8c9ba5]'
 										}`}
 										style={{
 											'font-variation-settings': isSelected() ? '"FILL" 1' : '"FILL" 0',
@@ -243,7 +246,7 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 										{tab.icon}
 									</span>
 								</div>
-								<span class="text-[12px] font-black leading-snug text-start w-full">
+								<span class="text-[12.5px] font-semibold leading-snug text-start w-full">
 									{t(tab.labelKey)}
 								</span>
 							</button>
@@ -251,19 +254,6 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 					}}
 				</For>
 			</Motion.nav>
-
-			{/* Helper Prompt Below Category Cards */}
-			<Show when={!props.activeTab}>
-				<Motion.p
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					transition={{ duration: 0.4, delay: 0.1 }}
-					class="mt-6 text-[12px] sm:text-[13px] font-semibold text-white/45 text-center relative z-20"
-				>
-					{t('hero.selectToStart')}
-				</Motion.p>
-			</Show>
 		</div>
 	);
 };
-

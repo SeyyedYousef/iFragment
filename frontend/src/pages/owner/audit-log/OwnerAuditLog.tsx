@@ -2,10 +2,9 @@ import { createQuery } from '@tanstack/solid-query';
 import { type Component, createEffect, createSignal, For, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { AuditLogEntry } from '@/entities/owner/model/types.js';
-import { locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 export const OwnerAuditLog: Component = () => {
-	const isFa = () => locale() === 'fa';
 	const [actionFilter, setActionFilter] = createSignal('');
 	const [searchKeyword, setSearchKeyword] = createSignal('');
 	const [debouncedKeyword, setDebouncedKeyword] = createSignal('');
@@ -43,15 +42,9 @@ export const OwnerAuditLog: Component = () => {
 			{/* Header */}
 			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
-					<h2 class="text-lg font-black text-white">
-						{isFa()
-							? 'دفترکل تغییرناپذیر لاگ امنیتی (Security Audit Ledger)'
-							: 'Immutable Security & Admin Audit Ledger'}
-					</h2>
+					<h2 class="text-lg font-black text-white">{t('ownerAuditPage.title')}</h2>
 					<p class="text-xs text-white/50">
-						{isFa()
-							? `ثبت دقیق تمامی عملیات‌های حساس، تغییرات تعرفه، شارژ کریدیت ⚡ و مدیریت نشست‌های MTProto (${total().toLocaleString()} رویداد)`
-							: `Complete cryptographic audit trail across all Owner actions (${total().toLocaleString()} events)`}
+						{t('ownerAuditPage.subtitle', { count: total().toLocaleString() })}
 					</p>
 				</div>
 			</div>
@@ -64,11 +57,7 @@ export const OwnerAuditLog: Component = () => {
 					</span>
 					<input
 						type="text"
-						placeholder={
-							isFa()
-								? 'جستجو در جزئیات عملیات، آیدی کاربر یا نوع دستور...'
-								: 'Search audit payload, target user ID, or action...'
-						}
+						placeholder={t('ownerAuditPage.searchPlaceholder')}
 						value={searchKeyword()}
 						onInput={(e) => setSearchKeyword(e.currentTarget.value)}
 						class="w-full h-11 pl-10 pr-4 rounded-2xl bg-white/5 border border-white/15 text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none transition"
@@ -83,16 +72,20 @@ export const OwnerAuditLog: Component = () => {
 					}}
 					class="h-11 px-4 rounded-2xl bg-[#0e111a] border border-white/15 text-white text-xs focus:border-cyan-400 focus:outline-none"
 				>
-					<option value="">{isFa() ? 'همه نوع عملیات‌ها' : 'All Action Types'}</option>
-					<option value="owner_login">owner_login</option>
-					<option value="adjust_intel_credits">adjust_intel_credits (⚡)</option>
-					<option value="toggle_vip">toggle_vip (★)</option>
-					<option value="update_settings">update_settings</option>
-					<option value="connect_mtproto_session">connect_mtproto_session</option>
-					<option value="delete_userbot">delete_userbot</option>
-					<option value="create_promo">create_promo</option>
-					<option value="ban_user">ban_user</option>
-					<option value="clear_cache">clear_cache</option>
+					<option value="">{t('ownerAuditPage.allActionTypes')}</option>
+					<option value="owner_login">{t('ownerAuditPage.act_owner_login')}</option>
+					<option value="adjust_intel_credits">
+						{t('ownerAuditPage.act_adjust_intel_credits')}
+					</option>
+					<option value="toggle_vip">{t('ownerAuditPage.act_toggle_vip')}</option>
+					<option value="update_settings">{t('ownerAuditPage.act_update_settings')}</option>
+					<option value="connect_mtproto_session">
+						{t('ownerAuditPage.act_connect_mtproto_session')}
+					</option>
+					<option value="delete_userbot">{t('ownerAuditPage.act_delete_userbot')}</option>
+					<option value="create_promo">{t('ownerAuditPage.act_create_promo')}</option>
+					<option value="ban_user">{t('ownerAuditPage.act_ban_user')}</option>
+					<option value="clear_cache">{t('ownerAuditPage.act_clear_cache')}</option>
 				</select>
 			</div>
 
@@ -102,11 +95,11 @@ export const OwnerAuditLog: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3">{isFa() ? 'عملیات' : 'Action'}</th>
-								<th class="pb-3">{isFa() ? 'اپراتور / هدف' : 'Operator / Target'}</th>
-								<th class="pb-3">{isFa() ? 'جزئیات (Payload)' : 'Payload'}</th>
-								<th class="pb-3">{isFa() ? 'شبکه' : 'Network'}</th>
-								<th class="pb-3 text-right">{isFa() ? 'زمان ثبت' : 'Timestamp'}</th>
+								<th class="pb-3">{t('ownerAuditPage.thAction')}</th>
+								<th class="pb-3">{t('ownerAuditPage.thOperatorTarget')}</th>
+								<th class="pb-3">{t('ownerAuditPage.thPayload')}</th>
+								<th class="pb-3">{t('ownerAuditPage.thNetwork')}</th>
+								<th class="pb-3 text-right">{t('ownerAuditPage.thTimestamp')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -116,10 +109,8 @@ export const OwnerAuditLog: Component = () => {
 									<tr>
 										<td colspan="5" class="py-8 text-center text-white/40">
 											{auditQuery.isLoading
-												? 'Loading audit trail...'
-												: isFa()
-													? 'هیچ رویدادی مطابق فیلتر یافت نشد'
-													: 'No audit events matching filter'}
+												? t('ownerAuditPage.loadingTrail')
+												: t('ownerAuditPage.noEvents')}
 										</td>
 									</tr>
 								}
@@ -133,10 +124,12 @@ export const OwnerAuditLog: Component = () => {
 												</span>
 											</td>
 											<td class="py-3 font-mono text-white/80">
-												<div>Owner #{log.owner_id}</div>
+												<div>{t('ownerAuditPage.ownerPrefix', { id: log.owner_id })}</div>
 												<Show when={log.target_user_id || log.target_id}>
 													<div class="text-[11px] text-cyan-400">
-														Target: {log.target_user_id || log.target_id}
+														{t('ownerAuditPage.targetPrefix', {
+															id: log.target_user_id || log.target_id,
+														})}
 													</div>
 												</Show>
 											</td>
@@ -173,10 +166,10 @@ export const OwnerAuditLog: Component = () => {
 							disabled={page() === 0}
 							class="px-3 py-1.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 disabled:opacity-40"
 						>
-							{isFa() ? 'قبلی' : 'Previous'}
+							{t('ownerAuditPage.previous')}
 						</button>
 						<span class="text-white/50">
-							Page {page() + 1} / {totalPages()}
+							{t('ownerAuditPage.pageOf', { page: page() + 1, total: totalPages() })}
 						</span>
 						<button
 							type="button"
@@ -184,7 +177,7 @@ export const OwnerAuditLog: Component = () => {
 							disabled={page() >= totalPages() - 1}
 							class="px-3 py-1.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 disabled:opacity-40"
 						>
-							{isFa() ? 'بعدی' : 'Next'}
+							{t('ownerAuditPage.next')}
 						</button>
 					</div>
 				</Show>

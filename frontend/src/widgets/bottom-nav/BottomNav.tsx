@@ -1,10 +1,30 @@
 import { useLocation, useNavigate } from '@solidjs/router';
 import { initData } from '@tma.js/sdk-solid';
-import { type Component, createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import {
+	type Component,
+	createEffect,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from 'solid-js';
 import { profilePhotoUrl } from '@/entities/user/index.js';
 import { buildAvatarUrl } from '@/shared/api/config.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+
+interface NavTab {
+	readonly href: string;
+	readonly icon: string;
+	readonly labelKey: string;
+}
+
+const NAV_TABS: readonly NavTab[] = [
+	{ href: '/', icon: 'home', labelKey: 'bottomNav.home' },
+	{ href: '/investors', icon: 'handshake', labelKey: 'bottomNav.dashboard' },
+	{ href: '/leaderboard', icon: 'leaderboard', labelKey: 'bottomNav.leaderboard' },
+];
 
 export const BottomNav: Component = () => {
 	let routerLocation: ReturnType<typeof useLocation> | null = null;
@@ -22,7 +42,9 @@ export const BottomNav: Component = () => {
 	const currentPath = () => routerLocation?.pathname || hashPath() || '/';
 	const safeGo = (href: string, e: MouseEvent) => {
 		e.preventDefault();
-		haptic.selection();
+		try {
+			haptic.selection();
+		} catch {}
 		if (routerNavigate) {
 			routerNavigate(href);
 		} else if (typeof window !== 'undefined') {
@@ -32,7 +54,6 @@ export const BottomNav: Component = () => {
 	const user = () => initData.user() as any;
 	const [imgError, setImgError] = createSignal(false);
 	const [navVisible, setNavVisible] = createSignal(true);
-
 	const [fallbackAttempted, setFallbackAttempted] = createSignal(false);
 
 	const directTgPhoto = () => {
@@ -54,13 +75,11 @@ export const BottomNav: Component = () => {
 	};
 
 	const avatarUrl = () => {
-		if (imgError() && !fallbackAttempted()) {
-			// Primary URL failed; try direct Telegram CDN as fallback
-			const fallback = directTgPhoto();
-			if (fallback) return fallback;
-		}
-		if (imgError() && fallbackAttempted()) {
-			// Both primary and fallback failed
+		if (imgError()) {
+			if (!fallbackAttempted()) {
+				const fallback = directTgPhoto();
+				if (fallback && fallback !== primaryAvatarUrl()) return fallback;
+			}
 			return undefined;
 		}
 		return primaryAvatarUrl();
@@ -77,7 +96,7 @@ export const BottomNav: Component = () => {
 
 	onMount(() => {
 		let lastScrollY = window.scrollY || 0;
-		let scrollTimeout: any = null;
+		let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
 		const onHashChange = () => {
 			setHashPath(window.location.hash.replace(/^#/, '') || '/');
 		};
@@ -92,8 +111,8 @@ export const BottomNav: Component = () => {
 			if (
 				target &&
 				'scrollTop' in target &&
-				(target as any) !== document &&
-				(target as any) !== document.documentElement
+				(target as unknown) !== document &&
+				(target as unknown) !== document.documentElement
 			) {
 				currentScrollY = (target as HTMLElement).scrollTop;
 				docHeight = (target as HTMLElement).scrollHeight;
@@ -108,27 +127,24 @@ export const BottomNav: Component = () => {
 
 			if (isNearTop || isNearBottom) {
 				setNavVisible(true);
-			} else if (diff > 12) {
-				// Scrolling down
+			} else if (diff > 14) {
 				setNavVisible(false);
 			} else if (diff < -8) {
-				// Scrolling up
 				setNavVisible(true);
 			}
 
 			lastScrollY = currentScrollY;
 
 			if (scrollTimeout) clearTimeout(scrollTimeout);
-			// Reveal navigation when scrolling stops for 1.2 seconds
 			scrollTimeout = setTimeout(() => {
 				setNavVisible(true);
-			}, 1200);
+			}, 1100);
 		};
 
-		window.addEventListener('scroll', handleScroll, { passive: true });
+		window.addEventListener('scroll', handleScroll, { passive: true, capture: true });
 
 		onCleanup(() => {
-			window.removeEventListener('scroll', handleScroll);
+			window.removeEventListener('scroll', handleScroll, { capture: true });
 			window.removeEventListener('hashchange', onHashChange);
 			if (scrollTimeout) clearTimeout(scrollTimeout);
 		});
@@ -137,133 +153,143 @@ export const BottomNav: Component = () => {
 	const isActive = (path: string) => {
 		const p = currentPath();
 		if (path === '/') return p === '/';
+		if (path === '/investors')
+			return (
+				p === '/investors' ||
+				p === '/dashboard' ||
+				p.startsWith('/investors/') ||
+				p.startsWith('/dashboard/')
+			);
 		return p === path || p.startsWith(`${path}/`);
+	};
+
+	const activeTabIndex = () => NAV_TABS.findIndex((tab) => isActive(tab.href));
+
+	const userInitial = () => {
+		const fn = user()?.firstName || user()?.first_name;
+		return fn ? String(fn)[0]?.toUpperCase() : 'U';
 	};
 
 	return (
 		<nav
-			aria-label={t('bottomNav.profile')}
-			class={`fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-[99] flex items-center justify-between gap-2.5 transition-all duration-300 ease-out ${
+			aria-label={t('common.mainNavigation')}
+			class={`fixed left-1/2 -translate-x-1/2 w-[calc(100%-24px)] max-w-[448px] z-[99] font-frag-sans flex items-center gap-2.5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
 				navVisible()
 					? 'translate-y-0 opacity-100 pointer-events-auto'
-					: 'translate-y-28 opacity-0 pointer-events-none'
+					: 'translate-y-24 opacity-0 pointer-events-none'
 			}`}
-			style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+			style={{ bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
 			dir="ltr"
 		>
+			{/* Main 3-Tab Liquid Glass Stadium Island */}
 			<div
-				class="flex-1 backdrop-blur-2xl rounded-[28px] shadow-[0_16px_50px_rgba(0,0,0,0.85)] flex items-center justify-between px-2 py-1.5 border h-16 transition-all bg-[#0D0F17]/95 border-white/15 hover:border-white/25"
-				dir="ltr"
+				class="frag-dock flex-1 min-w-0 h-[62px] rounded-full p-[5px] relative overflow-hidden"
+				data-testid="bottom-nav-pill"
 			>
-				<a
-					href="#/"
-					onClick={(e) => safeGo('/', e)}
-					class={`flex-1 h-13 rounded-[20px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
-						isActive('/')
-							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/35 shadow-sm scale-102'
-							: 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
-					}`}
-				>
-					<span
-						class="material-symbols-outlined text-[22px]"
-						style={{ 'font-variation-settings': isActive('/') ? '"FILL" 1' : '"FILL" 0' }}
-					>
-						home
-					</span>
-					<span class="text-[10px] font-black tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 leading-tight">
-						{t('bottomNav.home')}
-					</span>
-				</a>
+				{/* Sliding Frosted Liquid Glass Lens */}
+				<div aria-hidden="true" class="pointer-events-none absolute inset-[5px] grid grid-cols-3">
+					<Show when={activeTabIndex() >= 0}>
+						<div
+							class="h-full frag-dock-lens rounded-full transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
+							style={{ transform: `translateX(${activeTabIndex() * 100}%)` }}
+						/>
+					</Show>
+				</div>
 
-				<a
-					href="#/investors"
-					onClick={(e) => safeGo('/investors', e)}
-					class={`flex-1 h-13 rounded-[20px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
-						isActive('/investors') || isActive('/dashboard')
-							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/35 shadow-sm scale-102'
-							: 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
-					}`}
-				>
-					<span
-						class="material-symbols-outlined text-[22px]"
-						style={{
-							'font-variation-settings':
-								isActive('/investors') || isActive('/dashboard') ? '"FILL" 1' : '"FILL" 0',
+				{/* Primary 3 Navigation Tabs */}
+				<div class="relative z-10 grid grid-cols-3 h-full">
+					<For each={NAV_TABS}>
+						{(tab) => {
+							const active = () => isActive(tab.href);
+							return (
+								<button
+									type="button"
+									onClick={(e) => safeGo(tab.href, e)}
+									aria-current={active() ? 'page' : undefined}
+									class={`h-full rounded-full flex flex-col items-center justify-center gap-[2px] relative min-w-0 px-2 transition-all duration-200 active:scale-[0.95] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2990ff]/70 cursor-pointer ${
+										active() ? 'text-white' : 'text-[#8b9aa7] hover:text-[#dce6f0]'
+									}`}
+								>
+									<span
+										class={`material-symbols-outlined text-[20px] leading-none transition-all duration-200 ${
+											active() ? 'text-[#5aaeff] -translate-y-[0.5px]' : ''
+										}`}
+										style={{
+											'font-variation-settings': active()
+												? '"FILL" 1, "wght" 500'
+												: '"FILL" 0, "wght" 400',
+										}}
+									>
+										{tab.icon}
+									</span>
+									<span
+										class={`text-[10.5px] leading-none tracking-[-0.015em] truncate max-w-full transition-colors duration-200 ${
+											active() ? 'font-semibold text-white' : 'font-medium'
+										}`}
+									>
+										{t(tab.labelKey)}
+									</span>
+								</button>
+							);
 						}}
-					>
-						handshake
-					</span>
-					<span class="text-[10px] font-bold tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 leading-tight">
-						{t('bottomNav.dashboard')}
-					</span>
-				</a>
-
-				<a
-					href="#/leaderboard"
-					onClick={(e) => safeGo('/leaderboard', e)}
-					class={`flex-1 h-13 rounded-[20px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
-						isActive('/leaderboard')
-							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/35 shadow-sm scale-102'
-							: 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
-					}`}
-				>
-					<span
-						class="material-symbols-outlined text-[22px]"
-						style={{
-							'font-variation-settings': isActive('/leaderboard') ? '"FILL" 1' : '"FILL" 0',
-						}}
-					>
-						leaderboard
-					</span>
-					<span class="text-[10px] font-bold tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 leading-tight">
-						{t('bottomNav.leaderboard')}
-					</span>
-				</a>
+					</For>
+				</div>
 			</div>
 
-			{/* Profile Link */}
-			<a
-				href="#/profile"
+			{/* Detached Profile Avatar Liquid Glass Orb */}
+			<button
+				type="button"
 				onClick={(e) => safeGo('/profile', e)}
 				aria-label={t('bottomNav.profile')}
-				class={`flex flex-col items-center cursor-pointer transition-all shrink-0 ${isActive('/profile') ? 'scale-105' : 'hover:scale-102'}`}
+				aria-current={isActive('/profile') ? 'page' : undefined}
+				data-testid="bottom-nav-profile"
+				class={`w-[62px] h-[62px] shrink-0 rounded-full p-[4px] relative flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2990ff]/75 cursor-pointer ${
+					isActive('/profile')
+						? 'frag-dock-orb-active scale-[1.03]'
+						: 'frag-dock-orb hover:scale-[1.03]'
+				}`}
 			>
 				<div
-					class={`w-16 h-16 rounded-[28px] backdrop-blur-2xl shadow-[0_16px_50px_rgba(0,0,0,0.85)] border-[2.5px] flex items-center justify-center overflow-hidden transition-all bg-[#0D0F17]/95 ${
+					class={`w-full h-full rounded-full overflow-hidden flex items-center justify-center relative border transition-colors duration-200 ${
 						isActive('/profile')
-							? 'border-[#3390ec] shadow-[#3390ec]/40 ring-2 ring-[#3390ec]/20'
-							: 'border-white/15'
+							? 'border-[#5aaeff]/75 bg-[#141d29]'
+							: 'border-white/[0.14] bg-[#141a22]'
 					}`}
 				>
 					<Show
 						when={avatarUrl()}
 						fallback={
-							<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#10b981] text-white font-black text-lg">
-								{user()?.firstName || user()?.first_name
-									? (user()?.firstName || user()?.first_name)?.[0]?.toUpperCase()
-									: 'U'}
-							</div>
+							<span class="w-full h-full rounded-full bg-gradient-to-b from-[#3396ff] via-[#2274d4] to-[#133b6e] flex items-center justify-center text-[17px] font-semibold tracking-tight text-white leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
+								{userInitial()}
+							</span>
 						}
 					>
 						<img
-							alt="Profile"
+							alt={t('bottomNav.profile')}
 							class="w-full h-full object-cover"
 							src={avatarUrl()!}
 							loading="lazy"
 							referrerPolicy="no-referrer"
 							onError={() => {
 								if (!imgError()) {
-									// First failure: try fallback to direct Telegram CDN
 									setImgError(true);
 								} else {
-									// Fallback also failed: show initial letter
 									setFallbackAttempted(true);
 								}
 							}}
 						/>
 					</Show>
 				</div>
-			</a>
+
+				<Show when={isActive('/profile')}>
+					<span
+						aria-hidden="true"
+						class="w-3.5 h-3.5 rounded-full bg-[#11161d] p-[2.5px] absolute -bottom-0.5 right-0.5 shadow-[0_2px_6px_rgba(0,0,0,0.65)]"
+					>
+						<span class="block w-full h-full rounded-full bg-[#2990ff] shadow-[0_0_8px_rgba(41,144,255,0.85)]" />
+					</span>
+				</Show>
+			</button>
 		</nav>
 	);
 };

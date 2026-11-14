@@ -1,6 +1,6 @@
 import { type Component, createSignal, For, Show } from 'solid-js';
 import type { NumberMarketListing } from '@/entities/numbers/model/types.js';
-import { useI18n } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface MarketViewProps {
 	listings: NumberMarketListing[];
@@ -16,89 +16,7 @@ interface MarketViewProps {
 	isLoading?: boolean;
 }
 
-const MARKET_COPY: Record<
-	string,
-	{
-		allVenues: string;
-		allTypes: string;
-		fixedAsk: string;
-		activeAuction: string;
-		searchPlaceholder: string;
-		syncingListings: string;
-		noListingsFound: string;
-		auctionTag: string;
-		buyNowTag: string;
-		aboveFloor: string;
-		prevPage: string;
-		nextPage: string;
-		pageLabel: string;
-	}
-> = {
-	fa: {
-		allVenues: 'همه بازارها',
-		allTypes: 'همه انواع',
-		fixedAsk: 'قیمت مقطوع',
-		activeAuction: 'حراجی فعال',
-		searchPlaceholder: 'فیلتر سریع شماره در این صفحه (مثلاً 8888)...',
-		syncingListings: 'در حال همگام‌سازی لیستینگ‌ها...',
-		noListingsFound: 'آیتم منطبقی یافت نشد',
-		auctionTag: 'حراجی',
-		buyNowTag: 'فروش فوری',
-		aboveFloor: 'از کف',
-		prevPage: 'صفحه قبل',
-		nextPage: 'صفحه بعد',
-		pageLabel: 'صفحه',
-	},
-	en: {
-		allVenues: 'All Venues',
-		allTypes: 'All Types',
-		fixedAsk: 'Fixed Price',
-		activeAuction: 'Live Auction',
-		searchPlaceholder: 'Quick filter numbers on this page (e.g. 8888)...',
-		syncingListings: 'Syncing live listings...',
-		noListingsFound: 'No matching listings found',
-		auctionTag: 'Auction',
-		buyNowTag: 'Buy Now',
-		aboveFloor: 'above floor',
-		prevPage: 'Prev',
-		nextPage: 'Next',
-		pageLabel: 'Page',
-	},
-	ru: {
-		allVenues: 'Все маркеты',
-		allTypes: 'Все типы',
-		fixedAsk: 'Фикс. цена',
-		activeAuction: 'Аукцион',
-		searchPlaceholder: 'Быстрый фильтр номеров (напр. 8888)...',
-		syncingListings: 'Синхронизация листингов...',
-		noListingsFound: 'Подходящие листинги не найдены',
-		auctionTag: 'Аукцион',
-		buyNowTag: 'Купить сейчас',
-		aboveFloor: 'выше пола',
-		prevPage: 'Назад',
-		nextPage: 'Далее',
-		pageLabel: 'Стр.',
-	},
-	zh: {
-		allVenues: '全部市场',
-		allTypes: '全部类型',
-		fixedAsk: '一口价',
-		activeAuction: '实时拍卖',
-		searchPlaceholder: '快速筛选当前页号码 (例如 8888)...',
-		syncingListings: '正在同步实时挂单...',
-		noListingsFound: '未找到匹配的在售号码',
-		auctionTag: '拍卖中',
-		buyNowTag: '一口价',
-		aboveFloor: '高于地板价',
-		prevPage: '上一页',
-		nextPage: '下一页',
-		pageLabel: '第',
-	},
-};
-
 export const NumberMarketView: Component<MarketViewProps> = (props) => {
-	const { locale } = useI18n();
-	const copy = () => MARKET_COPY[locale()] || MARKET_COPY.fa;
 	const [searchFilter, setSearchFilter] = createSignal('');
 
 	const formatTon = (nano?: number | null) => {
@@ -133,7 +51,7 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 	return (
 		<div class="space-y-3">
 			{/* Filters Bar */}
-			<div class="bg-[#0e121d]/90 border border-white/[0.08] rounded-2xl p-3 backdrop-blur-xl">
+			<div class="bg-[#141a22]/90 border border-white/[0.08] rounded-2xl p-3 backdrop-blur-xl">
 				<div class="flex items-center justify-between gap-2 flex-wrap mb-2.5">
 					{/* Venue Filter */}
 					<div class="flex items-center bg-white/[0.03] p-0.5 rounded-xl border border-white/[0.06]">
@@ -141,37 +59,37 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 							type="button"
 							onClick={() => props.onVenueChange('all')}
 							class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-								props.venue === 'all' ? 'bg-[#0098EA] text-white shadow-sm' : 'text-white/40'
+								props.venue === 'all' ? 'bg-[#2990ff] text-white shadow-sm' : 'text-white/40'
 							}`}
 						>
-							{copy().allVenues}
+							{t('numMarket.allVenues')}
 						</button>
 						<button
 							type="button"
 							onClick={() => props.onVenueChange('fragment')}
 							class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-								props.venue === 'fragment' ? 'bg-[#0098EA] text-white shadow-sm' : 'text-white/40'
+								props.venue === 'fragment' ? 'bg-[#2990ff] text-white shadow-sm' : 'text-white/40'
 							}`}
 						>
-							Fragment
+							{t('numMarket.venueFragment')}
 						</button>
 						<button
 							type="button"
 							onClick={() => props.onVenueChange('getgems')}
 							class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-								props.venue === 'getgems' ? 'bg-[#0098EA] text-white shadow-sm' : 'text-white/40'
+								props.venue === 'getgems' ? 'bg-[#2990ff] text-white shadow-sm' : 'text-white/40'
 							}`}
 						>
-							Getgems
+							{t('numMarket.venueGetgems')}
 						</button>
 						<button
 							type="button"
 							onClick={() => props.onVenueChange('marketapp')}
 							class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-								props.venue === 'marketapp' ? 'bg-[#0098EA] text-white shadow-sm' : 'text-white/40'
+								props.venue === 'marketapp' ? 'bg-[#2990ff] text-white shadow-sm' : 'text-white/40'
 							}`}
 						>
-							Marketapp
+							{t('numMarket.venueMarketapp')}
 						</button>
 					</div>
 
@@ -184,7 +102,7 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 								props.listingType === 'all' ? 'bg-cyan-500/20 text-cyan-300' : 'text-white/40'
 							}`}
 						>
-							{copy().allTypes}
+							{t('numMarket.allTypes')}
 						</button>
 						<button
 							type="button"
@@ -193,7 +111,7 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 								props.listingType === 'ask' ? 'bg-cyan-500/20 text-cyan-300' : 'text-white/40'
 							}`}
 						>
-							{copy().fixedAsk}
+							{t('numMarket.fixedAsk')}
 						</button>
 						<button
 							type="button"
@@ -202,7 +120,7 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 								props.listingType === 'auction' ? 'bg-cyan-500/20 text-cyan-300' : 'text-white/40'
 							}`}
 						>
-							{copy().activeAuction}
+							{t('numMarket.activeAuction')}
 						</button>
 					</div>
 				</div>
@@ -216,8 +134,8 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 						type="text"
 						value={searchFilter()}
 						onInput={(e) => setSearchFilter(e.currentTarget.value)}
-						placeholder={copy().searchPlaceholder}
-						class="w-full pl-3 pr-9 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#0098EA]/50 font-mono"
+						placeholder={t('numMarket.searchPlaceholder')}
+						class="w-full pl-3 pr-9 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#2990ff]/50 font-mono"
 					/>
 				</div>
 			</div>
@@ -227,32 +145,34 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 				<Show
 					when={!props.isLoading && filteredItems().length > 0}
 					fallback={
-						<div class="text-center py-10 bg-[#0e121d]/50 rounded-2xl border border-white/[0.05]">
+						<div class="text-center py-10 bg-[#141a22]/50 rounded-2xl border border-white/[0.05]">
 							<Show when={props.isLoading}>
-								<div class="w-6 h-6 border-2 border-[#0098EA]/30 border-t-[#0098EA] rounded-full animate-spin mx-auto mb-2" />
-								<span class="text-xs text-white/40 font-mono">{copy().syncingListings}</span>
+								<div class="w-6 h-6 border-2 border-[#2990ff]/30 border-t-[#2990ff] rounded-full animate-spin mx-auto mb-2" />
+								<span class="text-xs text-white/40 font-mono">
+									{t('numMarket.syncingListings')}
+								</span>
 							</Show>
 							<Show when={!props.isLoading}>
 								<span class="material-symbols-outlined text-3xl text-white/20 mb-1 block">
 									inventory_2
 								</span>
-								<span class="text-xs text-white/50 block">{copy().noListingsFound}</span>
+								<span class="text-xs text-white/50 block">{t('numMarket.noListingsFound')}</span>
 							</Show>
 						</div>
 					}
 				>
 					<For each={filteredItems()}>
 						{(item) => (
-							<div class="p-3.5 rounded-2xl bg-[#0c101a] border border-white/[0.06] hover:border-[#0098EA]/30 flex items-center justify-between gap-3 transition-all group">
+							<div class="p-3.5 rounded-2xl frag-inset hover:border-[#2990ff]/30 flex items-center justify-between gap-3 transition-all group">
 								{/* Left: Number & Badges */}
 								<div class="space-y-1 min-w-0">
 									<div class="flex items-center gap-2 flex-wrap">
-										<span class="text-sm font-black text-white font-mono tracking-tight group-hover:text-[#0098EA] transition-colors">
+										<span class="text-sm font-black text-white font-mono tracking-tight group-hover:text-[#2990ff] transition-colors">
 											{item.display_number || item.number}
 										</span>
 										<Show when={item.is_genesis}>
 											<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-												GENESIS
+												{t('numMarket.genesisBadge')}
 											</span>
 										</Show>
 										<Show when={item.pattern_tag}>
@@ -266,11 +186,13 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 										<span class="capitalize">{item.venue}</span>
 										<span>·</span>
 										<span class="capitalize">
-											{item.listing_type === 'auction' ? copy().auctionTag : copy().buyNowTag}
+											{item.listing_type === 'auction'
+												? t('numMarket.auctionTag')
+												: t('numMarket.buyNowTag')}
 										</span>
 										<Show when={item.difference_from_floor_pct > 0}>
 											<span class="text-amber-400/80">
-												+{item.difference_from_floor_pct.toFixed(1)}% {copy().aboveFloor}
+												+{item.difference_from_floor_pct.toFixed(1)}% {t('numMarket.aboveFloor')}
 											</span>
 										</Show>
 									</div>
@@ -281,7 +203,7 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 									<div>
 										<div class="text-sm font-black text-white font-mono">
 											{formatTon(item.ask_price_nano_ton || item.current_bid_nano_ton)}{' '}
-											<span class="text-[10px] text-[#0098EA]">TON</span>
+											<span class="text-[10px] text-[#2990ff]">{t('common.ton')}</span>
 										</div>
 										<div class="text-[10px] font-mono text-white/40">
 											{formatUsd(item.ask_price_nano_ton || item.current_bid_nano_ton)}
@@ -292,7 +214,7 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 										href={getListingUrl(item)}
 										target="_blank"
 										rel="noopener noreferrer"
-										class="w-9 h-9 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA] text-[#0098EA] hover:text-white border border-[#0098EA]/30 flex items-center justify-center transition-all active:scale-95"
+										class="w-9 h-9 rounded-xl bg-[#2990ff]/15 hover:bg-[#2990ff] text-[#2990ff] hover:text-white border border-[#2990ff]/30 flex items-center justify-center transition-all active:scale-95"
 									>
 										<span class="material-symbols-outlined text-base">open_in_new</span>
 									</a>
@@ -312,10 +234,10 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 						onClick={() => props.onPageChange(props.page - 1)}
 						class="px-3 py-1.5 rounded-xl bg-white/[0.04] disabled:opacity-30 text-xs font-bold text-white"
 					>
-						{copy().prevPage}
+						{t('numMarket.prevPage')}
 					</button>
 					<span class="text-xs font-mono text-white/50">
-						{copy().pageLabel} {props.page}
+						{t('numMarket.pageLabel')} {props.page}
 					</span>
 					<button
 						type="button"
@@ -323,7 +245,7 @@ export const NumberMarketView: Component<MarketViewProps> = (props) => {
 						onClick={() => props.onPageChange(props.page + 1)}
 						class="px-3 py-1.5 rounded-xl bg-white/[0.04] disabled:opacity-30 text-xs font-bold text-white"
 					>
-						{copy().nextPage}
+						{t('numMarket.nextPage')}
 					</button>
 				</div>
 			</Show>

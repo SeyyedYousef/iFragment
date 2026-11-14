@@ -129,9 +129,27 @@ type GiftValuation struct {
 	Recommendation     ValuationActionVerdict         `json:"recommendation"`
 	PreMintState       *PreMintExpectationDto         `json:"pre_mint_state,omitempty"`
 	ColorMatchIntel    *ColorMatchAnalysisDto         `json:"color_match_intel,omitempty"`
+	FloorMatrix        *GiftFloorMatrixDto            `json:"floor_matrix,omitempty"`
+	BinaryForensics    *GiftBinaryForensicsDto        `json:"binary_forensics,omitempty"`
+	LayaSystemOne      *LayaGiftResult                `json:"laya_system_one,omitempty"`
 	CertificateID      string                         `json:"certificate_id"`
 	EvaluatedAt        time.Time                      `json:"evaluated_at"`
 	ReasoningLog       map[string]interface{}         `json:"reasoning_log"`
+}
+
+// GiftFloorMatrixDto decomposes the 4-Regime Dominant Trait-Floor & Floor-Lock Law
+// for Telegram Collectible Gifts (Collection Floor vs Model Floor vs Backdrop Floor vs Special Grail).
+type GiftFloorMatrixDto struct {
+	CollectionFloorGRAM     float64  `json:"collection_floor_gram"`
+	ModelFloorGRAM          float64  `json:"model_floor_gram"`
+	BackdropFloorGRAM       float64  `json:"backdrop_floor_gram"`
+	DominantFloorGRAM       float64  `json:"dominant_floor_gram"`
+	DominantFloorDriver     string   `json:"dominant_floor_driver"`     // "collection_floor" | "model_floor" | "backdrop_floor"
+	FloorLockRegime         string   `json:"floor_lock_regime"`         // "COLLECTION_FLOOR_LOCKED" | "MODEL_FLOOR_LOCKED" | "BACKDROP_FLOOR_LOCKED" | "SPECIAL_COLLECTOR_GRAIL"
+	IsFloorLocked           bool     `json:"is_floor_locked"`           // true when item has no secondary special collector features
+	HasSpecialFeature       bool     `json:"has_special_feature"`       // true only when serial grail, monochrome color match, dual rare traits, or ultra-rare symbol is present
+	SpecialFeaturesDetected []string `json:"special_features_detected"` // list of triggered special collector features
+	CompoundMultiplier      float64  `json:"compound_multiplier"`       // 1.00x for floor-locked regimes; >1.00x for special collector grails
 }
 
 // PreMintExpectationDto reports whether a gift's on-chain traits are revealed or unrevealed (pre-upgrade EV)

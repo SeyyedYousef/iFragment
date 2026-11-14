@@ -6,6 +6,18 @@ import { render } from 'solid-js/web';
 import { init } from '@/app/init.js';
 import { Root } from '@/app/Root.js';
 import { bootstrapAuth } from '@/shared/api/axios.js';
+import '@fontsource/manrope/400.css';
+import '@fontsource/manrope/500.css';
+import '@fontsource/manrope/600.css';
+import '@fontsource/manrope/700.css';
+import '@fontsource/manrope/800.css';
+import '@fontsource/vazirmatn/400.css';
+import '@fontsource/vazirmatn/500.css';
+import '@fontsource/vazirmatn/600.css';
+import '@fontsource/vazirmatn/700.css';
+import '@fontsource/noto-sans-sc/400.css';
+import '@fontsource/noto-sans-sc/700.css';
+import { preloadCriticalFonts } from '@/shared/lib/preload-assets.js';
 import { hideSplash } from '@/shared/lib/splash.js';
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary.js';
 
@@ -91,6 +103,9 @@ function applyPreviewMockEnv() {
 async function startApp() {
 	const root = document.getElementById('root');
 	if (!root) return;
+
+	// Begin loading icon and primary UI font faces immediately so all icons/emojis are ready before splash hides
+	const criticalFontsPromise = preloadCriticalFonts(3500);
 
 	// Prevent iOS Safari native pinch-to-zoom gesture
 	document.addEventListener('gesturestart', (e) => {
@@ -181,6 +196,9 @@ async function startApp() {
 			),
 			root,
 		);
+
+		// 5.5. Ensure self-hosted icon & UI fonts are downloaded and decoded before revealing the UI
+		await criticalFontsPromise;
 
 		// 6. Hide splash — دو rAF پشت سر هم تضمین می‌کند اولین فریم واقعی
 		//    اپ روی صفحه نقاشی شده باشد و کاربر بین splash و UI، فلش سیاه نبیند.

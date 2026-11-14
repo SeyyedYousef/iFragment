@@ -109,21 +109,18 @@ export const IdentityHero = (props: Props) => {
 	return (
 		<>
 			<div class="relative w-full flex flex-col items-center px-4 z-20 select-none">
-				{/* Restrained Hero Glass Cover */}
-				<div class="absolute top-0 inset-x-0 bottom-0 bg-[#0D1017]/90 backdrop-blur-2xl rounded-[28px] overflow-hidden border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)] -z-10">
-					<div class="absolute -right-8 -top-8 w-40 h-40 bg-[#0098EA]/15 rounded-full blur-[50px] pointer-events-none" />
-					<div class="absolute -left-8 -bottom-8 w-40 h-40 bg-[#06b6d4]/10 rounded-full blur-[50px] pointer-events-none" />
-				</div>
+				{/* Fragment Elevated Glass Card Cover */}
+				<div class="frag-card-elevated absolute inset-0 rounded-2xl overflow-hidden -z-10" />
 
 				{/* Avatar Container */}
 				<div class="relative mt-5 mb-3">
-					<div class="relative w-[92px] h-[92px] rounded-full p-[2px] bg-gradient-to-br from-[#0098EA]/40 via-white/10 to-transparent shadow-2xl">
-						<div class="w-full h-full rounded-full bg-[#08090D] overflow-hidden flex items-center justify-center relative">
+					<div class="relative w-[92px] h-[92px] rounded-full p-[2px] bg-gradient-to-br from-[#2990ff]/50 via-white/15 to-transparent shadow-[0_12px_32px_rgba(0,0,0,0.45)]">
+						<div class="w-full h-full rounded-full bg-[#141a22] overflow-hidden flex items-center justify-center relative">
 							<Show
 								when={avatarUrl()}
 								fallback={
-									<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#151822] to-[#08090D]">
-										<span class="text-3xl font-black text-[#0098EA]">{initialLetter()}</span>
+									<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1b232d] to-[#11161d]">
+										<span class="text-3xl font-bold text-[#5aaeff]">{initialLetter()}</span>
 									</div>
 								}
 							>
@@ -149,14 +146,14 @@ export const IdentityHero = (props: Props) => {
 					<button
 						type="button"
 						onClick={handleOpenEmojiModal}
-						class="absolute -bottom-1 -right-1 w-7 h-7 bg-[#12141C] hover:bg-[#1A1D27] active:scale-90 border border-white/20 rounded-full flex items-center justify-center text-[14px] shadow-lg transition-all"
+						class="absolute -bottom-1 -right-1 w-7 h-7 bg-[#1b232d] hover:bg-[#232d3a] active:scale-90 border border-white/15 rounded-full flex items-center justify-center text-[14px] shadow-lg transition-all"
 						title={t('emoji.setStatus' as any) || 'Set Telegram Emoji Status'}
 						aria-label={t('emoji.setStatus' as any) || 'Set Telegram Emoji Status'}
 					>
 						<Show
 							when={props.stats?.emojiStatus}
 							fallback={
-								<span class="material-symbols-outlined text-[14px] text-white/60">
+								<span class="material-symbols-outlined text-[14px] text-[#8ca0b5]">
 									add_reaction
 								</span>
 							}
@@ -169,32 +166,32 @@ export const IdentityHero = (props: Props) => {
 				{/* User Info & Badges */}
 				<div class="flex flex-col items-center w-full text-center z-10 px-4 pb-5 space-y-2">
 					<div class="flex items-center justify-center gap-1.5 flex-wrap">
-						<h1 class="text-[20px] font-black leading-tight text-white tracking-tight">
+						<h1 class="text-[20px] font-bold leading-tight text-white tracking-tight">
 							<bdi>{displayName()}</bdi>
 						</h1>
 						<Show when={props.stats?.isPremium || props.stats?.subscription?.isActive}>
-							<span class="px-2 py-0.5 rounded-[8px] bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[10px] font-black tracking-wide uppercase">
-								{'PRO'}
+							<span class="px-2 py-0.5 rounded-md bg-[#2990ff]/15 border border-[#2990ff]/35 text-[#5aaeff] text-[10px] font-bold tracking-wide">
+								{t('common.proBadge')}
 							</span>
 						</Show>
 					</div>
 
 					<Show when={usernameTag()}>
-						<p class="text-[#0098EA] text-xs font-bold dir-ltr opacity-90 font-mono">
+						<p class="text-[#5aaeff] text-xs font-semibold dir-ltr font-mono" dir="ltr">
 							{usernameTag()}
 						</p>
 					</Show>
 
 					<div class="flex items-center justify-center flex-wrap gap-2 pt-1">
 						{/* Level Badge */}
-						<div class="flex items-center gap-1.5 bg-[#0098EA]/15 border border-[#0098EA]/30 px-3 py-1 rounded-[12px] backdrop-blur-md">
+						<div class="flex items-center gap-1.5 bg-[#2990ff]/12 border border-[#2990ff]/28 px-3 py-1 rounded-xl">
 							<span
-								class="material-symbols-outlined text-[15px] text-[#0098EA]"
+								class="material-symbols-outlined text-[15px] text-[#5aaeff]"
 								style={{ 'font-variation-settings': '"FILL" 1' }}
 							>
 								star
 							</span>
-							<span class="text-white text-xs font-black">
+							<span class="text-white text-xs font-semibold">
 								{t('profile.levelBadge', {
 									level: formatNumber(info().current.level),
 									title: info().current.title,
@@ -204,9 +201,9 @@ export const IdentityHero = (props: Props) => {
 
 						{/* Rank Badge */}
 						<Show when={props.stats?.globalRank}>
-							<div class="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1 rounded-[12px] backdrop-blur-md">
-								<span class="material-symbols-outlined text-[15px] text-white/50">public</span>
-								<span class="text-white/60 text-xs font-bold">
+							<div class="flex items-center gap-1.5 bg-[#141a22] border border-white/[0.08] px-3 py-1 rounded-xl">
+								<span class="material-symbols-outlined text-[15px] text-[#8ca0b5]">public</span>
+								<span class="text-[#c2cfde] text-xs font-semibold tabular-nums">
 									{t('profile.rankBadge', { rank: formatNumber(props.stats?.globalRank || 0) })}
 								</span>
 							</div>
@@ -216,9 +213,21 @@ export const IdentityHero = (props: Props) => {
 						<button
 							type="button"
 							onClick={handleOpenEmojiModal}
-							class="flex items-center gap-1 bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 px-2.5 py-1 rounded-[12px] text-amber-300 text-[11px] font-black active:scale-95 transition-all"
+							class="flex items-center gap-1 bg-[#ffb340]/12 hover:bg-[#ffb340]/20 border border-[#ffb340]/28 px-2.5 py-1 rounded-xl text-[#ffb340] text-[11px] font-semibold active:scale-95 transition-all"
 						>
-							<span>{props.stats?.emojiStatus || '⭐️'}</span>
+							<Show
+								when={props.stats?.emojiStatus}
+								fallback={
+									<span
+										class="material-symbols-outlined text-[13px] text-[#ffb340]"
+										style={{ 'font-variation-settings': '"FILL" 1' }}
+									>
+										star
+									</span>
+								}
+							>
+								<span>{props.stats?.emojiStatus}</span>
+							</Show>
 							<span>{t('emoji.status' as any) || 'Status'}</span>
 						</button>
 					</div>

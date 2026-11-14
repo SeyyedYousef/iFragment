@@ -1,4 +1,5 @@
 import { type Component, createSignal, For, Show } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -59,7 +60,7 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 	};
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden mb-4">
+		<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden mb-4">
 			{/* Header */}
 			<div class="flex items-center justify-between border-b border-white/5 pb-3">
 				<div class="flex items-center gap-2.5">
@@ -76,7 +77,7 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 					</div>
 				</div>
 				<span class="text-[9px] font-mono font-black text-cyan-400 bg-cyan-400/10 border border-cyan-400/30 px-2 py-0.5 rounded-md">
-					ERGONOMICS v2
+					{t('numDialpad.badge')}
 				</span>
 			</div>
 
@@ -115,7 +116,7 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 			{/* Dialpad Visualization Grid & Score Panel */}
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-center">
 				{/* The 12-key Dialpad UI */}
-				<div class="bg-[#08090D] border border-white/5 rounded-[22px] p-3 grid grid-cols-3 gap-1.5 shadow-inner">
+				<div class="frag-inset rounded-[22px] p-3 grid grid-cols-3 gap-1.5 shadow-inner">
 					<For each={DIALPAD_KEYS}>
 						{(key) => {
 							const hits = () => digitFreq()[key.digit] || 0;
@@ -149,7 +150,7 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 
 				{/* Ergonomics Metrics Summary */}
 				<div class="flex flex-col gap-2.5">
-					<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-1">
+					<div class="frag-inset rounded-[18px] p-3.5 flex flex-col gap-1">
 						<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
 							{layaT(NUMBERS_I18N.cadenceTitle)}
 						</span>
@@ -168,7 +169,7 @@ export const NumberDialpadErgonomics: Component<Props> = (props) => {
 						<span class="text-[10px] font-mono text-white/60 mt-1">{travelMetric()}</span>
 					</div>
 
-					<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 flex flex-col gap-1 text-[10px] font-mono text-white/70">
+					<div class="frag-inset rounded-[18px] p-3 flex flex-col gap-1 text-[10px] font-mono text-white/70">
 						<div class="flex justify-between items-center">
 							<span class="text-white/40">{layaT(NUMBERS_I18N.activeKeys)}</span>
 							<span class="text-white font-bold">{Object.keys(digitFreq()).length} / 10</span>

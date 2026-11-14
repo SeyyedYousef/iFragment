@@ -138,12 +138,12 @@ export const SearchTeaser: Component<{ vertical: PaywallVertical; value: string 
 				<For each={chips()}>
 					{(chip, idx) => (
 						<span
-							class="teaser-chip inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-bold text-white/70"
+							class="teaser-chip inline-flex items-center gap-1 rounded-[6px] border border-white/[0.08] bg-[#1b232d]/85 px-2 py-0.5 text-[11px] font-medium text-[#c7d0d9]"
 							style={{
 								animation: `teaser-in 240ms cubic-bezier(0.16, 1, 0.3, 1) ${idx() * 60}ms both`,
 							}}
 						>
-							<span class="material-symbols-outlined text-[11px] text-white/50">lock</span>
+							<span class="material-symbols-outlined text-[11px] text-[#8c9ba5]">lock</span>
 							{t(chip.key as Parameters<typeof t>[0])}
 						</span>
 					)}

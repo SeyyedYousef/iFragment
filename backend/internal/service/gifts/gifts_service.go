@@ -540,12 +540,16 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 			}
 
 			venueFloors, hasVenues := modelMap[modelID]
-			bestVenue := venues.VenueTelegramStars
+			bestVenue := venues.VenueFragment
 			bestFloor := 0.0
 
 			if hasVenues && len(venueFloors) > 0 {
 				minF := math.MaxFloat64
 				for vID, fl := range venueFloors {
+					// Sacred Rule: Exclude Telegram Stars mint price and 16,111 anomaly
+					if vID == venues.VenueTelegramStars || fl == 16111.0 {
+						continue
+					}
 					if fl > 0 && fl < minF {
 						minF = fl
 						bestVenue = vID
@@ -575,9 +579,9 @@ func (s *GiftsService) GetGiftsIntel(ctx context.Context) (*GiftsIntelResponse, 
 					baseTon = 4.5
 				}
 				bestFloor = baseTon
-				bestVenue = venues.VenueTelegramStars
+				bestVenue = venues.VenueFragment
 				venueFloors = map[venues.VenueID]float64{
-					venues.VenueTelegramStars: baseTon,
+					venues.VenueFragment: baseTon,
 				}
 			}
 
@@ -2135,12 +2139,15 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, callerKey, username st
 				col, _ := traits.ResolveCollection(g.Model)
 				valGRAM := 0.0
 
-				// Check live snapshot floor from repo
+				// Check live snapshot floor from repo (excluding Telegram Stars mint price and 16,111 anomaly)
 				if s.repo != nil {
 					if snaps, err := s.repo.GetVenueSnapshots(ctx, col.ModelID); err == nil && len(snaps) > 0 {
 						for _, snap := range snaps {
+							if snap.Venue == string(venues.VenueTelegramStars) || strings.EqualFold(snap.Currency, "Stars") {
+								continue
+							}
 							f, _ := snap.FloorPriceGRAM.Float64()
-							if f > 0 && (valGRAM == 0 || f < valGRAM) {
+							if f > 0 && f != 16111.0 && (valGRAM == 0 || f < valGRAM) {
 								valGRAM = f
 							}
 						}

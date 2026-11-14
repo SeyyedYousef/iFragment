@@ -158,11 +158,11 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 		<div class="space-y-3">
 			<For each={macroSections()}>
 				{(section) => (
-					<div class="bg-[#0b0e17]/90 border border-white/[0.07] rounded-[22px] p-3.5 backdrop-blur-2xl shadow-xl space-y-2.5">
+					<div class="bg-[#1b232d]/95 border border-white/[0.07] rounded-[22px] p-3.5 backdrop-blur-2xl shadow-xl space-y-2.5">
 						{/* Group Header */}
 						<div class="flex items-center justify-between px-1 pb-1 border-b border-white/[0.05]">
 							<span class="text-[11px] font-bold text-white/70 tracking-wide">{section.title}</span>
-							<span class="text-[9px] font-mono text-[#0098EA] bg-[#0098EA]/10 border border-[#0098EA]/20 px-2 py-0.5 rounded-full font-bold">
+							<span class="text-[9px] font-mono text-[#2990ff] bg-[#2990ff]/10 border border-[#2990ff]/20 px-2 py-0.5 rounded-full font-bold">
 								{section.badge}
 							</span>
 						</div>
@@ -176,7 +176,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 									<div
 										class={`p-2.5 rounded-xl border transition-all flex flex-col justify-between ${
 											item.highlight
-												? 'bg-[#0098EA]/[0.06] border-[#0098EA]/20 hover:border-[#0098EA]/40'
+												? 'bg-[#2990ff]/[0.06] border-[#2990ff]/20 hover:border-[#2990ff]/40'
 												: 'bg-white/[0.02] border-white/[0.04] hover:border-white/10'
 										}`}
 									>

@@ -1,5 +1,6 @@
 import { type Component, createMemo, createSignal, Show } from 'solid-js';
 import type { GiftValuationReport } from '@/entities/gifts/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { GIFT_PILLARS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -66,11 +67,11 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 	};
 
 	return (
-		<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 sm:p-5 shadow-2xl space-y-4 text-start">
+		<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-4 text-start">
 			{/* Header */}
 			<div class="flex items-center justify-between border-b border-white/5 pb-3">
 				<div class="flex items-center gap-2">
-					<div class="w-8 h-8 rounded-xl bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA]">
+					<div class="w-8 h-8 rounded-xl bg-[#2990ff]/15 border border-[#2990ff]/30 flex items-center justify-center text-[#2990ff]">
 						<span class="material-symbols-outlined text-lg">view_quilt</span>
 					</div>
 					<div>
@@ -85,7 +86,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 
 				<span class="text-[9px] font-mono font-black uppercase px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
 					<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-					<span>GV-4P Certified</span>
+					<span>{t('giftsPillars.certifiedBadge')}</span>
 				</span>
 			</div>
 
@@ -93,22 +94,22 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 			<div class="grid grid-cols-2 gap-2.5 sm:gap-3">
 				{/* 1. Fair Value */}
 				<div
-					class="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-br from-[#0098EA]/15 via-[#0098EA]/5 to-transparent border border-[#0098EA]/30 relative overflow-hidden transition-all hover:border-[#0098EA]/50 cursor-pointer"
+					class="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-br from-[#2990ff]/15 via-[#2990ff]/5 to-transparent border border-[#2990ff]/30 relative overflow-hidden transition-all hover:border-[#2990ff]/50 cursor-pointer"
 					onClick={() => toggleTooltip('fair')}
 				>
 					<div class="flex items-center justify-between mb-1.5">
-						<span class="text-[9px] sm:text-[10px] uppercase font-black tracking-wider text-[#0098EA]">
+						<span class="text-[9px] sm:text-[10px] uppercase font-black tracking-wider text-[#2990ff]">
 							{layaT(GIFT_PILLARS_I18N.fairValue)}
 						</span>
-						<span class="material-symbols-outlined text-[#0098EA] text-sm">balance</span>
+						<span class="material-symbols-outlined text-[#2990ff] text-sm">balance</span>
 					</div>
 					<div class="text-base sm:text-lg font-black text-white font-mono leading-tight">
-						{fmt(pillars().fair_value_gram)} <span class="text-[11px] text-[#0098EA]">TON</span>
+						{fmt(pillars().fair_value_gram)} <span class="text-[11px] text-[#2990ff]">TON</span>
 					</div>
 					<div class="text-[10px] font-mono text-white/50 mt-0.5">
 						{fmtUsd(pillars().fair_value_usd)}
 					</div>
-					<div class="mt-2 text-[8.5px] text-[#0098EA]/80 font-bold bg-[#0098EA]/10 px-1.5 py-0.5 rounded border border-[#0098EA]/20 inline-block">
+					<div class="mt-2 text-[8.5px] text-[#2990ff]/80 font-bold bg-[#2990ff]/10 px-1.5 py-0.5 rounded border border-[#2990ff]/20 inline-block">
 						{layaT(GIFT_PILLARS_I18N.equilibrium)}
 					</div>
 				</div>
@@ -186,7 +187,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 			<Show when={activeTooltip()}>
 				<div class="p-3 rounded-2xl bg-black/60 border border-white/10 text-[11px] leading-relaxed text-white/80 animate-in fade-in slide-in-from-top-1">
 					<Show when={activeTooltip() === 'fair'}>
-						<strong class="text-[#0098EA] block mb-0.5">
+						<strong class="text-[#2990ff] block mb-0.5">
 							{layaT(GIFT_PILLARS_I18N.fairValue)}:
 						</strong>
 						{layaT(GIFT_PILLARS_I18N.fairTooltip)}
@@ -232,7 +233,7 @@ export const GiftValuationPillarsCard: Component<Props> = (props) => {
 						</span>
 						<span class="font-mono font-black text-cyan-400 text-sm">
 							{rarityInfo().surprisal}{' '}
-							<span class="text-[9px] text-white/40 font-normal">bits</span>
+							<span class="text-[9px] text-white/40 font-normal">{t('giftsPillars.bitsUnit')}</span>
 						</span>
 					</div>
 

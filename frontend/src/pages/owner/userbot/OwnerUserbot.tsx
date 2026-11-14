@@ -2,7 +2,7 @@ import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-que
 import { type Component, createSignal, For, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { ManagedUserbot } from '@/entities/owner/model/types.js';
-import { locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 const DC_LOCATIONS: Record<number, string> = {
@@ -15,7 +15,6 @@ const DC_LOCATIONS: Record<number, string> = {
 
 export const OwnerUserbot: Component = () => {
 	const queryClient = useQueryClient();
-	const isFa = () => locale() === 'fa';
 
 	const [isConnecting, setIsConnecting] = createSignal(false);
 	const [accountLabel, setAccountLabel] = createSignal('');
@@ -68,11 +67,7 @@ export const OwnerUserbot: Component = () => {
 		mutationFn: (id: string) => ownerApi.pingUserbot(id),
 		onSuccess: (res) => {
 			queryClient.invalidateQueries({ queryKey: ['owner', 'userbots'] });
-			setPingNotice(
-				isFa()
-					? `پینگ موفق از دیتاسنتر DC${res.dc_id}: زمان پاسخ ${res.ping_ms} میلی‌ثانیه`
-					: `MTProto RPC Pong from DC${res.dc_id}: ${res.ping_ms} ms`,
-			);
+			setPingNotice(t('ownerMtproto.pingPong', { dc: res.dc_id, ms: res.ping_ms }));
 			setTimeout(() => setPingNotice(null), 4000);
 		},
 	}));
@@ -131,17 +126,9 @@ export const OwnerUserbot: Component = () => {
 				<div>
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-outlined text-cyan-400 text-xl">hub</span>
-						<h2 class="text-lg font-black text-white">
-							{isFa()
-								? 'مدیریت نشست‌های MTProto و پل ارتباطی هسته تلگرام (Session Pool)'
-								: 'MTProto Session Pool & Telegram Core RPC Bridge'}
-						</h2>
+						<h2 class="text-lg font-black text-white">{t('ownerMtproto.title')}</h2>
 					</div>
-					<p class="text-xs text-white/50 mt-1">
-						{isFa()
-							? 'نشست‌های اختصاصی MTProto (Layer 198) برای استعلام مستقیم گیفت‌های کلکسیونی، نام‌های کاربری و شماره‌های +888 بدون وابستگی به گروه یا کانال'
-							: 'Dedicated MTProto sessions for direct StarGift inspection, Username resolution, and +888 telemetry'}
-					</p>
+					<p class="text-xs text-white/50 mt-1">{t('ownerMtproto.subtitle')}</p>
 				</div>
 				<button
 					type="button"
@@ -152,7 +139,7 @@ export const OwnerUserbot: Component = () => {
 					class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20 shrink-0"
 				>
 					<span class="material-symbols-outlined text-base">add_link</span>
-					<span>{isFa() ? 'افزودن نشست MTProto جدید' : 'Connect New MTProto Session'}</span>
+					<span>{t('ownerMtproto.connectNewBtn')}</span>
 				</button>
 			</div>
 
@@ -160,15 +147,10 @@ export const OwnerUserbot: Component = () => {
 			<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between">
 					<div>
-						<div class="text-xs text-white/50">
-							{isFa() ? 'نشست‌های فعال در استخر (Active Pool)' : 'Active MTProto Nodes'}
-						</div>
+						<div class="text-xs text-white/50">{t('ownerMtproto.activeNodesLabel')}</div>
 						<div class="text-2xl font-black text-emerald-400 font-mono mt-1">
-							{
-								userbots().filter((b) => b.status === 'active' || b.status === 'connected')
-									.length
-							}{' '}
-							/ {userbots().length}
+							{userbots().filter((b) => b.status === 'active' || b.status === 'connected').length} /{' '}
+							{userbots().length}
 						</div>
 					</div>
 					<span class="material-symbols-outlined text-2xl text-emerald-400 bg-emerald-500/10 p-3 rounded-2xl border border-emerald-500/20">
@@ -178,9 +160,7 @@ export const OwnerUserbot: Component = () => {
 
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between">
 					<div>
-						<div class="text-xs text-white/50">
-							{isFa() ? 'فراخوانی‌های RPC در ۲۴ ساعت گذشته' : '24h Telegram RPC Queries'}
-						</div>
+						<div class="text-xs text-white/50">{t('ownerMtproto.rpc24hLabel')}</div>
 						<div class="text-2xl font-black text-cyan-400 font-mono mt-1">
 							{totalRpc24h().toLocaleString()}
 						</div>
@@ -192,12 +172,8 @@ export const OwnerUserbot: Component = () => {
 
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between">
 					<div>
-						<div class="text-xs text-white/50">
-							{isFa() ? 'میانگین پینگ دیتاسنترهای تلگرام' : 'Avg Telegram DC Latency'}
-						</div>
-						<div class="text-2xl font-black text-amber-400 font-mono mt-1">
-							{avgPingMs()} ms
-						</div>
+						<div class="text-xs text-white/50">{t('ownerMtproto.avgLatencyLabel')}</div>
+						<div class="text-2xl font-black text-amber-400 font-mono mt-1">{avgPingMs()} ms</div>
 					</div>
 					<span class="material-symbols-outlined text-2xl text-amber-400 bg-amber-500/10 p-3 rounded-2xl border border-amber-500/20">
 						speed
@@ -219,13 +195,7 @@ export const OwnerUserbot: Component = () => {
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-outlined text-amber-400">vpn_key</span>
 							<h3 class="text-sm font-bold text-white">
-								{step() === 'phone'
-									? isFa()
-										? 'گام ۱: وارد کردن شماره اکانت یا +888 برای نشست MTProto'
-										: 'Step 1: Enter Phone or +888 Number for MTProto Session'
-									: isFa()
-										? 'گام ۲: تایید کد تلگرام و رمز ابری دو مرحله‌ای (2FA)'
-										: 'Step 2: Verify Telegram OTP & Optional 2FA Cloud Password'}
+								{step() === 'phone' ? t('ownerMtproto.step1Title') : t('ownerMtproto.step2Title')}
 							</h3>
 						</div>
 						<button
@@ -233,7 +203,7 @@ export const OwnerUserbot: Component = () => {
 							onClick={resetConnectModal}
 							class="text-xs text-white/50 hover:text-white"
 						>
-							{isFa() ? 'انصراف' : 'Cancel'}
+							{t('ownerMtproto.cancel')}
 						</button>
 					</div>
 
@@ -247,13 +217,11 @@ export const OwnerUserbot: Component = () => {
 						>
 							<div>
 								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									{isFa()
-										? 'عنوان شناسایی نشست (اختیاری — مثلاً Node #1 Gift Scraper)'
-										: 'Session Label / Alias (Optional)'}
+									{t('ownerMtproto.aliasLabel')}
 								</label>
 								<input
 									type="text"
-									placeholder="e.g. Sovereign Gift & Username Node #1"
+									placeholder={t('ownerMtproto.aliasPlaceholder')}
 									value={accountLabel()}
 									onInput={(e) => setAccountLabel(e.currentTarget.value)}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
@@ -262,13 +230,11 @@ export const OwnerUserbot: Component = () => {
 
 							<div>
 								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									{isFa()
-										? 'شماره تلفن بین‌المللی یا شماره کلکسیونی +888'
-										: 'International Phone or +888 Anonymous Number'}
+									{t('ownerMtproto.phoneLabel')}
 								</label>
 								<input
 									type="tel"
-									placeholder="+888 0888 8888 or +1234567890"
+									placeholder={t('ownerMtproto.phonePlaceholder')}
 									value={phone()}
 									onInput={(e) => setPhone(e.currentTarget.value)}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
@@ -282,12 +248,8 @@ export const OwnerUserbot: Component = () => {
 								class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-xl transition disabled:opacity-50"
 							>
 								{sendCodeMutation.isPending
-									? isFa()
-										? 'در حال ارسال درخواست کد به دیتاسنتر تلگرام...'
-										: 'Requesting Login Code...'
-									: isFa()
-										? 'ارسال کد ورود تلگرام (auth.SendCode)'
-										: 'Send Telegram Login Code'}
+									? t('ownerMtproto.requestingCode')
+									: t('ownerMtproto.sendLoginCode')}
 							</button>
 						</form>
 					</Show>
@@ -302,7 +264,7 @@ export const OwnerUserbot: Component = () => {
 						>
 							<div>
 								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									{isFa() ? 'کد ۵ رقمی ارسال شده در تلگرام' : '5-Digit Telegram Login Code'}
+									{t('ownerMtproto.otpLabel')}
 								</label>
 								<input
 									type="text"
@@ -324,19 +286,13 @@ export const OwnerUserbot: Component = () => {
 										onChange={(e) => setHas2faPassword(e.currentTarget.checked)}
 										class="rounded accent-amber-500 h-4 w-4"
 									/>
-									<span>
-										{isFa()
-											? 'این اکانت دارای رمز تایید دو مرحله‌ای (2FA Cloud Password) است'
-											: 'Account has Two-Step Verification (2FA Cloud Password) enabled'}
-									</span>
+									<span>{t('ownerMtproto.has2faLabel')}</span>
 								</label>
 
 								<Show when={has2faPassword()}>
 									<input
 										type="password"
-										placeholder={
-											isFa() ? 'رمز ابری دو مرحله‌ای (SRP 2FA Password)' : 'Enter 2FA Cloud Password'
-										}
+										placeholder={t('ownerMtproto.password2faPlaceholder')}
 										value={password2fa()}
 										onInput={(e) => setPassword2fa(e.currentTarget.value)}
 										class="w-full h-10 px-3 rounded-xl bg-black/50 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
@@ -346,7 +302,7 @@ export const OwnerUserbot: Component = () => {
 
 							<div class="flex items-center justify-between text-xs text-white/50">
 								<span>
-									{isFa() ? 'ارسال شده به:' : 'Sent to:'} {maskPhoneNumber(phone())}
+									{t('ownerMtproto.sentTo')} {maskPhoneNumber(phone())}
 								</span>
 								<Show
 									when={countdown() > 0}
@@ -356,13 +312,11 @@ export const OwnerUserbot: Component = () => {
 											onClick={() => sendCodeMutation.mutate(phone().trim())}
 											class="text-amber-400 hover:underline"
 										>
-											{isFa() ? 'ارسال مجدد کد' : 'Resend Code'}
+											{t('ownerMtproto.resendCode')}
 										</button>
 									}
 								>
-									<span>
-										{isFa() ? `ارسال مجدد تا ${countdown()} ثانیه` : `Resend in ${countdown()}s`}
-									</span>
+									<span>{t('ownerMtproto.resendIn', { seconds: countdown() })}</span>
 								</Show>
 							</div>
 
@@ -372,12 +326,8 @@ export const OwnerUserbot: Component = () => {
 								class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl transition disabled:opacity-50"
 							>
 								{verifyCodeMutation.isPending
-									? isFa()
-										? 'در حال احراز هویت و ذخیره نشست رمزنگاری‌شده...'
-										: 'Verifying & Encrypting Session...'
-									: isFa()
-										? 'ثبت و فعال‌سازی نشست MTProto در استخر سرور'
-										: 'Authenticate & Save MTProto Session'}
+									? t('ownerMtproto.verifyingSession')
+									: t('ownerMtproto.saveSessionBtn')}
 							</button>
 						</form>
 					</Show>
@@ -389,11 +339,7 @@ export const OwnerUserbot: Component = () => {
 				<div class="flex items-center justify-between border-b border-white/10 pb-3">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-outlined text-amber-400">key</span>
-						<h3 class="text-sm font-bold text-white">
-							{isFa()
-								? 'لیست نشست‌های متصل و ماژول‌های فعال روی هر سشن'
-								: 'Connected MTProto Sessions & Active RPC Capabilities'}
-						</h3>
+						<h3 class="text-sm font-bold text-white">{t('ownerMtproto.sessionsListTitle')}</h3>
 					</div>
 				</div>
 
@@ -401,13 +347,13 @@ export const OwnerUserbot: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3">{isFa() ? 'شناسه و نام نشست' : 'Session & Alias'}</th>
-								<th class="pb-3">{isFa() ? 'شماره متصل' : 'Masked Phone'}</th>
-								<th class="pb-3">{isFa() ? 'دیتاسنتر و پروتکل' : 'Data Center & Layer'}</th>
-								<th class="pb-3">{isFa() ? 'ماژول‌های RPC فعال' : 'Active RPC Capabilities'}</th>
-								<th class="pb-3">{isFa() ? 'پینگ و درخواست (24h)' : 'Ping & 24h Load'}</th>
-								<th class="pb-3">{isFa() ? 'وضعیت' : 'Health'}</th>
-								<th class="pb-3 text-right">{isFa() ? 'عملیات' : 'Actions'}</th>
+								<th class="pb-3">{t('ownerMtproto.thSessionAlias')}</th>
+								<th class="pb-3">{t('ownerMtproto.thMaskedPhone')}</th>
+								<th class="pb-3">{t('ownerMtproto.thDcLayer')}</th>
+								<th class="pb-3">{t('ownerMtproto.thCapabilities')}</th>
+								<th class="pb-3">{t('ownerMtproto.thPingLoad')}</th>
+								<th class="pb-3">{t('ownerMtproto.thHealth')}</th>
+								<th class="pb-3 text-right">{t('ownerMtproto.thActions')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -417,12 +363,8 @@ export const OwnerUserbot: Component = () => {
 									<tr>
 										<td colspan="7" class="py-10 text-center text-white/40">
 											{userbotsQuery.isLoading
-												? isFa()
-													? 'در حال بررسی استخر نشست‌های MTProto...'
-													: 'Loading MTProto session pool...'
-												: isFa()
-													? 'هیچ نشست MTProto فعالی متصل نیست. از دکمه بالا یک نشست جدید متصل کنید.'
-													: 'No MTProto sessions connected yet.'}
+												? t('ownerMtproto.loadingPool')
+												: t('ownerMtproto.noSessions')}
 										</td>
 									</tr>
 								}
@@ -494,16 +436,16 @@ export const OwnerUserbot: Component = () => {
 														onClick={() => pingMutation.mutate(bot.id)}
 														disabled={pingMutation.isPending}
 														class="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/25 text-[11px] font-bold transition flex items-center gap-1"
-														title="Test MTProto Ping"
+														title={t('ownerMtproto.pingTooltip')}
 													>
 														<span class="material-symbols-outlined text-[14px]">speed</span>
-														<span>{isFa() ? 'تست پینگ' : 'Ping'}</span>
+														<span>{t('ownerMtproto.pingBtn')}</span>
 													</button>
 													<button
 														type="button"
 														onClick={() => setUserbotToDelete(bot)}
 														class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 transition"
-														title="Terminate MTProto Session"
+														title={t('ownerMtproto.terminateTooltip')}
 													>
 														<span class="material-symbols-outlined text-base">link_off</span>
 													</button>
@@ -522,13 +464,11 @@ export const OwnerUserbot: Component = () => {
 			<Show when={userbotToDelete()}>
 				<DangerActionDialog
 					isOpen={true}
-					title={isFa() ? 'خاتمه و حذف نشست MTProto' : 'Terminate MTProto Session'}
-					description={
-						isFa()
-							? `آیا از قطع اتصال نشست MTProto برای شماره ${maskPhoneNumber(userbotToDelete()?.phone_number || '')} مطمئن هستید؟ کلید رمزنگاری سشن از سرور پاک خواهد شد.`
-							: `Terminate MTProto session for ${maskPhoneNumber(userbotToDelete()?.phone_number || '')}? This will call auth.LogOut and wipe the session key.`
-					}
-					actionLabel={isFa() ? 'حذف و خروج از نشست' : 'Revoke & Delete'}
+					title={t('ownerMtproto.terminateTitle')}
+					description={t('ownerMtproto.terminateDesc', {
+						phone: maskPhoneNumber(userbotToDelete()?.phone_number || ''),
+					})}
+					actionLabel={t('ownerMtproto.terminateAction')}
 					riskLevel="critical"
 					requireReason={false}
 					loading={deleteMutation.isPending}

@@ -1863,18 +1863,98 @@ export function giftsLiveEnrichmentPlugin(): Plugin {
 		return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
 	}
 
+	function rgbToCieLab(r: number, g: number, b: number): [number, number, number] {
+		const lin = (v: number) => {
+			const s = v / 255;
+			return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+		};
+		const rl = lin(r) * 100;
+		const gl = lin(g) * 100;
+		const bl = lin(b) * 100;
+
+		const x = (rl * 0.4124564 + gl * 0.3575761 + bl * 0.1804375) / 95.047;
+		const y = (rl * 0.2126729 + gl * 0.7151522 + bl * 0.072175) / 100.0;
+		const z = (rl * 0.0193339 + gl * 0.119192 + bl * 0.9503041) / 108.883;
+
+		const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+		const fx = f(x);
+		const fy = f(y);
+		const fz = f(z);
+		return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+	}
+
+	// ISO/CIE 11664-6:2014 Perceptual CIEDE2000 Color Difference (Delta-E 2000)
 	function computeColorDeltaE(hexA: string, hexB: string): number {
 		const [r1, g1, b1] = hexToRgbTuple(hexA);
 		const [r2, g2, b2] = hexToRgbTuple(hexB);
-		const rmean = (r1 + r2) / 2;
-		const dr = r1 - r2;
-		const dg = g1 - g2;
-		const db = b1 - b2;
-		const weightR = 2 + rmean / 256;
-		const weightG = 4.0;
-		const weightB = 2 + (255 - rmean) / 256;
-		const dist = Math.sqrt(weightR * dr * dr + weightG * dg * dg + weightB * db * db);
-		return Math.round((dist / 7.65) * 10) / 10;
+		const [L1, a1, bLab1] = rgbToCieLab(r1, g1, b1);
+		const [L2, a2, bLab2] = rgbToCieLab(r2, g2, b2);
+
+		const deg2Rad = (d: number) => (d * Math.PI) / 180;
+		const rad2Deg = (r: number) => (r * 180) / Math.PI;
+
+		const C1 = Math.hypot(a1, bLab1);
+		const C2 = Math.hypot(a2, bLab2);
+		const Cbar = (C1 + C2) / 2;
+		const Cbar7 = Math.pow(Cbar, 7);
+		const G = 0.5 * (1 - Math.sqrt(Cbar7 / (Cbar7 + Math.pow(25, 7))));
+
+		const a1p = (1 + G) * a1;
+		const a2p = (1 + G) * a2;
+		const C1p = Math.hypot(a1p, bLab1);
+		const C2p = Math.hypot(a2p, bLab2);
+
+		const hueDeg = (ap: number, bVal: number) => {
+			if (ap === 0 && bVal === 0) return 0;
+			const h = rad2Deg(Math.atan2(bVal, ap));
+			return h < 0 ? h + 360 : h;
+		};
+		const h1p = hueDeg(a1p, bLab1);
+		const h2p = hueDeg(a2p, bLab2);
+
+		const dLp = L2 - L1;
+		const dCp = C2p - C1p;
+
+		let dhp = 0;
+		if (C1p * C2p !== 0) {
+			const diff = h2p - h1p;
+			if (Math.abs(diff) <= 180) dhp = diff;
+			else if (diff > 180) dhp = diff - 360;
+			else dhp = diff + 360;
+		}
+		const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(deg2Rad(dhp / 2));
+
+		const Lbarp = (L1 + L2) / 2;
+		const Cbarp = (C1p + C2p) / 2;
+		let hbarp = h1p + h2p;
+		if (C1p * C2p !== 0) {
+			if (Math.abs(h1p - h2p) <= 180) hbarp = (h1p + h2p) / 2;
+			else if (h1p + h2p < 360) hbarp = (h1p + h2p + 360) / 2;
+			else hbarp = (h1p + h2p - 360) / 2;
+		}
+
+		const T =
+			1 -
+			0.17 * Math.cos(deg2Rad(hbarp - 30)) +
+			0.24 * Math.cos(deg2Rad(2 * hbarp)) +
+			0.32 * Math.cos(deg2Rad(3 * hbarp + 6)) -
+			0.2 * Math.cos(deg2Rad(4 * hbarp - 63));
+		const dTheta = 30 * Math.exp(-Math.pow((hbarp - 275) / 25, 2));
+		const Cbarp7 = Math.pow(Cbarp, 7);
+		const RC = 2 * Math.sqrt(Cbarp7 / (Cbarp7 + Math.pow(25, 7)));
+		const Lm50Sq = Math.pow(Lbarp - 50, 2);
+		const SL = 1 + (0.015 * Lm50Sq) / Math.sqrt(20 + Lm50Sq);
+		const SC = 1 + 0.045 * Cbarp;
+		const SH = 1 + 0.015 * Cbarp * T;
+		const RT = -Math.sin(deg2Rad(2 * dTheta)) * RC;
+
+		const termL = dLp / SL;
+		const termC = dCp / SC;
+		const termH = dHp / SH;
+		const dE00 = Math.sqrt(
+			termL * termL + termC * termC + termH * termH + RT * termC * termH,
+		);
+		return Math.round(dE00 * 10) / 10;
 	}
 
 	function inferModelDominantHex(modelName: string, centerHex: string): string {
@@ -1957,6 +2037,31 @@ export function giftsLiveEnrichmentPlugin(): Plugin {
 				labelFa: `متقارن آینه‌ای (#${serialNumber})`,
 				multiplier: 1.07,
 				description: `سریال آینه‌ای #${serialNumber} از دو طرف یکسان خوانده می‌شود.`,
+			};
+		}
+		if (totalSupply >= 100 && serialNumber === totalSupply) {
+			return {
+				category: 'omega_final_mint',
+				tier: 'OMEGA_FINAL_MINT',
+				labelFa: `آخرین مینت کلکسیون — امگا (#${serialNumber}/${totalSupply})`,
+				multiplier: 1.28,
+				description: `شماره سریال #${serialNumber} آخرین آیتم مینت‌شده از کل عرضه (${totalSupply}) است و به عنوان زوج مکمل رتبه #1 ارزش کلکسیونی ویژه دارد.`,
+			};
+		}
+		if (
+			sStr.length === 4 &&
+			((sStr[0] === sStr[2] && sStr[1] === sStr[3] && sStr[0] !== sStr[1]) ||
+				(sStr[0] === sStr[1] &&
+					sStr[2] === sStr[3] &&
+					sStr[0] !== sStr[2] &&
+					sStr[2] !== '0'))
+		) {
+			return {
+				category: 'doublet',
+				tier: 'QUAD_DOUBLET_PATTERN',
+				labelFa: `الگوی جفتی رند (#${serialNumber})`,
+				multiplier: 1.15,
+				description: `سریال #${serialNumber} دارای تقارن جفتی چهاررقمی (ABAB / AABB) است که در بازار کلکسیونی پریمیوم الگویی دارد.`,
 			};
 		}
 		if (serialNumber <= Math.max(250, Math.round(totalSupply * 0.03))) {
@@ -3490,7 +3595,7 @@ export function giftsLiveEnrichmentPlugin(): Plugin {
 			owner_name: ownerIntel.owner_display,
 			image_url: officialWebpUrl,
 			display_title: `${resolved.displayName} #${resolved.serialNumber}`,
-			model_version: 'v4.2-floor-anchored-live',
+			model_version: 'GV-Engine-v8.0-FloorLockedQuantum',
 			base_price_gram: String(effectiveLiquidFloorGram),
 			low_gram: String(lowGram),
 			expected_gram: String(fairValueGram),

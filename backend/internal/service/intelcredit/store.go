@@ -132,15 +132,23 @@ func (s *StoreService) CreateStarsInvoice(ctx context.Context, userID int64, pac
 	return stars.CreateInvoiceLink(title, desc, payload, pack.StarsPrice)
 }
 
+// FulfillCreditsPurchase grants an explicit number of credits once per Telegram charge ID.
+func (s *StoreService) FulfillCreditsPurchase(ctx context.Context, userID int64, credits int, referenceTag, chargeID string) (bool, error) {
+	if credits <= 0 {
+		return false, fmt.Errorf("invalid credit amount: %d", credits)
+	}
+	if chargeID == "" {
+		chargeID = fmt.Sprintf("payload:%d:%s", userID, referenceTag)
+	}
+	return s.repo.GrantPackOnce(ctx, userID, credits, "stars_pack", chargeID, purchasedCreditsExpiry())
+}
+
 // FulfillStarsPurchase grants pack credits exactly once per Telegram charge ID.
-// Returns false when the charge was already fulfilled (duplicate webhook delivery).
+// Returns false when the charge was already fulfilled (idempotent duplicate delivery).
 func (s *StoreService) FulfillStarsPurchase(ctx context.Context, userID int64, packID, chargeID string) (bool, error) {
 	credits := PackCredits(packID)
 	if credits <= 0 {
 		return false, fmt.Errorf("unknown credit pack: %s", packID)
 	}
-	if chargeID == "" {
-		chargeID = fmt.Sprintf("payload:%d:%s", userID, packID)
-	}
-	return s.repo.GrantPackOnce(ctx, userID, credits, "stars_pack", chargeID, purchasedCreditsExpiry())
+	return s.FulfillCreditsPurchase(ctx, userID, credits, packID, chargeID)
 }

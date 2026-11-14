@@ -3,6 +3,7 @@ import { numbersApi, splitNumberPrefix } from '@/entities/numbers/index.js';
 import type { WalletPortfolioResult } from '@/entities/numbers/model/types.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { FragSectionHeader, TonAmount } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 interface Props {
 	initialAddress?: string;
@@ -31,22 +32,19 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 		}
 	});
 
-	// RB-P0-008, DEL-P0-003: No hardcoded numeric fallbacks (e.g. 2450). Return 0 or null if unavailable.
 	const floorTon = (): number => Number(props.floorPriceTon) || 0;
 	const tonRate = (): number => Number(props.rate) || 0;
 
 	const handleScan = async (targetAddr?: string) => {
 		const query = (targetAddr !== undefined ? targetAddr : address()).trim();
 		if (!query) {
-			setError(t('numbers.enterWalletAddress') || 'Please enter a valid TON wallet address');
+			setError(t('numbers.enterWalletAddress'));
 			return;
 		}
 
 		try {
 			haptic.impact('medium');
-		} catch (_e) {
-			// Ignore haptic errors on unsupported web platforms
-		}
+		} catch {}
 
 		setIsScanning(true);
 		setError(null);
@@ -62,7 +60,6 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 		}
 	};
 
-	// Calculate adjusted net worth considering 5% Fragment fee
 	const portfolioMetrics = () => {
 		const data = result();
 		if (!data || data.total_assets === 0) {
@@ -100,22 +97,23 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 		return val.toLocaleString('en-US', { maximumFractionDigits: 0 });
 	};
 
-	const formatUsd = (val?: number) => {
-		if (val === undefined || val === null || val <= 0) return 'N/A';
-		return `$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+	const formatUsdPlain = (val?: number) => {
+		if (val === undefined || val === null || val <= 0) return null;
+		return val.toLocaleString('en-US', { maximumFractionDigits: 0 });
 	};
 
 	return (
-		<div class="space-y-4">
-			{/* Wallet Search Box Card */}
-			<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-4 backdrop-blur-xl shadow-xl">
-				<label class="block text-xs font-black text-white/70 uppercase tracking-wider mb-2">
-					{t('numbers.portfolioTitle') || 'Telegram Anonymous Numbers Portfolio'}
-				</label>
-				<p class="text-[11px] text-white/40 mb-3">
-					{t('numbers.portfolioDescription') ||
-						"Inspect any TON wallet's +888 collection holdings, estimated market floor worth, and net PnL."}
-				</p>
+		<div class="space-y-3.5">
+			{/* Wallet Search Card */}
+			<div class="frag-card-elevated rounded-[16px] p-4 space-y-3">
+				<FragSectionHeader
+					title={t('numbers.portfolioTitle')}
+					subtitle={
+						t('numbers.portfolioDescription') ||
+						"Inspect any TON wallet's +888 collection holdings, estimated market floor worth, and net PnL."
+					}
+					icon="account_balance_wallet"
+				/>
 
 				<form
 					onSubmit={(e) => {
@@ -132,12 +130,13 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 							}
 							value={address()}
 							onInput={(e) => setAddress(e.currentTarget.value)}
-							class="flex-1 bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#0098EA] font-mono transition-all"
+							dir="ltr"
+							class="flex-1 frag-inset rounded-[10px] px-3.5 py-2.5 text-[12.5px] text-white placeholder:text-[#60707c] focus:outline-none focus:border-[#2990ff] font-mono transition-all"
 						/>
 						<button
 							type="submit"
 							disabled={isScanning()}
-							class="px-4 py-2.5 rounded-xl bg-[#0098EA] hover:bg-[#0086cf] disabled:opacity-50 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-lg shadow-[#0098EA]/20 transition-all active:scale-95 shrink-0"
+							class="px-4 py-2.5 rounded-[10px] frag-btn-primary disabled:opacity-50 font-semibold text-[12.5px] flex items-center gap-1.5 shrink-0"
 						>
 							<Show
 								when={!isScanning()}
@@ -145,14 +144,14 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 									<div class="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
 								}
 							>
-								<span class="material-symbols-outlined text-base">search</span>
-								<span>{t('numbers.scanBtn') || 'Scan'}</span>
+								<span class="material-symbols-outlined text-[16px]">search</span>
+								<span>{t('numbers.scanBtn')}</span>
 							</Show>
 						</button>
 					</div>
 
-					{/* 5% Fragment Fee Toggle */}
-					<div class="flex items-center justify-between pt-1">
+					{/* 5% Fragment Fee Toggle + Sample */}
+					<div class="flex items-center justify-between pt-0.5 flex-wrap gap-2">
 						<label class="flex items-center gap-2 cursor-pointer select-none">
 							<input
 								type="checkbox"
@@ -163,14 +162,13 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 									} catch {}
 									setDeductFee(e.currentTarget.checked);
 								}}
-								class="w-4 h-4 rounded bg-black/40 border-white/20 text-[#0098EA] focus:ring-0 cursor-pointer accent-[#0098EA]"
+								class="w-4 h-4 rounded bg-[#11161d] border-white/20 text-[#2990ff] focus:ring-0 cursor-pointer accent-[#2990ff]"
 							/>
-							<span class="text-[11px] font-semibold text-white/70">
-								{t('numbers.deductFragmentFee') || 'Deduct Fragment 5% Royalty Fee'}
+							<span class="text-[11.5px] font-medium text-[#c7d0d9]">
+								{t('numbers.deductFragmentFee')}
 							</span>
 						</label>
 
-						{/* Quick Demo Holder Search */}
 						<button
 							type="button"
 							onClick={() => {
@@ -178,16 +176,16 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 								setAddress(sample);
 								handleScan(sample);
 							}}
-							class="text-[10px] font-bold text-[#0098EA] hover:underline flex items-center gap-1"
+							class="text-[11.5px] font-semibold text-[#2990ff] hover:text-[#4aa3ff] flex items-center gap-1"
 						>
-							<span>{t('numbers.sampleWhale') || 'Sample Whale Wallet'}</span>
-							<span class="material-symbols-outlined text-[12px]">arrow_forward</span>
+							<span>{t('numbers.sampleWhale')}</span>
+							<span class="material-symbols-outlined text-[14px]">north_east</span>
 						</button>
 					</div>
 				</form>
 
 				<Show when={error()}>
-					<div class="mt-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium">
+					<div class="p-3 rounded-[10px] bg-[#ff5c6c]/12 border border-[#ff5c6c]/30 text-[#ff8591] text-[12px] font-medium">
 						{error()}
 					</div>
 				</Show>
@@ -195,54 +193,53 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 
 			{/* Portfolio Summary Results */}
 			<Show when={result()}>
-				<div class="space-y-4 animate-in fade-in duration-300">
-					{/* Summary KPIs */}
+				<div class="space-y-3.5">
 					<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-3.5 backdrop-blur-xl">
-							<div class="text-[10px] font-bold text-white/40 uppercase">
-								{t('numbers.totalNumbers') || 'Total Numbers'}
-							</div>
-							<div class="text-xl font-black text-white font-mono mt-1">
+						<div class="frag-inset rounded-[12px] p-3.5">
+							<div class="text-[11px] font-medium text-[#8c9ba5]">{t('numbers.totalNumbers')}</div>
+							<div class="text-[19px] font-semibold text-white font-mono mt-1 tabular-nums">
 								{portfolioMetrics().totalAssets}{' '}
-								<span class="text-xs font-medium text-white/40">NFTs</span>
+								<span class="text-[11.5px] font-normal text-[#8c9ba5]">
+									{t('numPortfolio.nftsUnit')}
+								</span>
 							</div>
 						</div>
 
-						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-3.5 backdrop-blur-xl">
-							<div class="text-[10px] font-bold text-white/40 uppercase">
-								{deductFee()
-									? t('numbers.netPortfolioFee') || 'Net Portfolio (5% Fee)'
-									: t('numbers.floorPortfolioValue') || 'Floor Portfolio Value'}
+						<div class="frag-inset rounded-[12px] p-3.5">
+							<div class="text-[11px] font-medium text-[#8c9ba5]">
+								{deductFee() ? t('numbers.netPortfolioFee') : t('numbers.floorPortfolioValue')}
 							</div>
-							<div class="text-xl font-black text-[#0098EA] font-mono mt-1 flex items-center gap-1">
-								<span>{formatTon(portfolioMetrics().netTon)}</span>
-								<span class="text-xs text-white/40">TON</span>
-							</div>
-							<div class="text-[10px] text-white/40 font-mono mt-0.5">
-								≈ {formatUsd(portfolioMetrics().netUsd)}
+							<div class="mt-1">
+								<TonAmount
+									value={formatTon(portfolioMetrics().netTon)}
+									size="lg"
+									unit
+									usd={formatUsdPlain(portfolioMetrics().netUsd)}
+								/>
 							</div>
 						</div>
 
-						<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-3.5 backdrop-blur-xl col-span-2 sm:col-span-1">
-							<div class="text-[10px] font-bold text-white/40 uppercase">
-								{t('numbers.bestGlobalRank') || 'Best Global Rank'}
+						<div class="frag-inset rounded-[12px] p-3.5 col-span-2 sm:col-span-1">
+							<div class="text-[11px] font-medium text-[#8c9ba5]">
+								{t('numbers.bestGlobalRank')}
 							</div>
-							<div class="text-xl font-black text-amber-400 font-mono mt-1">
+							<div class="text-[19px] font-semibold text-[#ffb340] font-mono mt-1 tabular-nums">
 								#{result()?.best_global_rank || '-'}
 							</div>
 						</div>
 					</div>
 
 					{/* Owned Numbers List */}
-					<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-4 backdrop-blur-xl shadow-xl">
-						<h4 class="text-xs font-black text-white/70 uppercase tracking-wider mb-3">
-							{t('numbers.holdings') || 'Holdings'} ({result()?.assets?.length || 0})
-						</h4>
+					<div class="frag-card rounded-[14px] p-4 space-y-3">
+						<FragSectionHeader
+							title={`${t('numbers.holdings') || 'Holdings'} (${result()?.assets?.length || 0})`}
+							icon="dialpad"
+						/>
 
 						<Show
 							when={(result()?.assets || []).length > 0}
 							fallback={
-								<div class="p-8 text-center text-white/40 text-xs font-medium">
+								<div class="p-8 text-center text-[#8c9ba5] text-[12.5px]">
 									{t('numbers.portfolioNoAssets') || 'No Anonymous Numbers found in this wallet.'}
 								</div>
 							}
@@ -258,41 +255,48 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 												} catch {}
 												props.onValuateNumber?.(asset.number);
 											}}
-											class="w-full bg-white/[0.02] hover:bg-white/[0.06] active:scale-[0.99] border border-white/[0.05] hover:border-[#0098EA]/30 rounded-xl p-3 flex items-center justify-between transition-all group text-left"
+											class="w-full frag-inset hover:bg-[#232d3a] hover:border-[#2990ff]/35 active:scale-[0.99] rounded-[11px] p-3 flex items-center justify-between transition-all group text-start"
 										>
-											<div class="flex items-center gap-2.5">
-												<div class="w-8 h-8 rounded-lg bg-[#0098EA]/10 border border-[#0098EA]/20 flex items-center justify-center font-bold text-xs text-[#0098EA] font-mono shrink-0">
+											<div class="flex items-center gap-2.5 min-w-0">
+												<div class="w-9 h-8 rounded-[8px] bg-[#2990ff]/12 border border-[#2990ff]/25 flex items-center justify-center font-semibold text-[11px] text-[#2990ff] font-mono shrink-0">
 													+888
 												</div>
-												<div>
-													<div class="font-black text-white font-mono text-xs group-hover:text-[#0098EA] transition-colors">
+												<div class="min-w-0">
+													<div
+														class="font-semibold text-white font-mono text-[13px] group-hover:text-[#2990ff] transition-colors truncate tabular-nums"
+														dir="ltr"
+													>
 														{(() => {
 															const p = splitNumberPrefix(asset.display_number || asset.number);
 															return p.body || p.rawDigits;
 														})()}
 													</div>
-													<div class="text-[10px] text-white/40 font-medium">
-														Rank #{asset.global_rank} • Score {asset.rarity_score}
+													<div class="text-[11px] text-[#8c9ba5] font-mono tabular-nums">
+														Rank #{asset.global_rank} · Score {asset.rarity_score}
 													</div>
 												</div>
 											</div>
 
-											<div class="text-right">
-												<div class="font-black text-white font-mono text-xs flex items-center justify-end gap-1.5">
-													<span class="w-1.5 h-1.5 rounded-full bg-[#0098EA]" />
-													<span>
-														{asset.expected_ton
-															? `${formatTon(asset.expected_ton)} TON`
+											<div class="text-end shrink-0">
+												<TonAmount
+													value={
+														asset.expected_ton
+															? formatTon(asset.expected_ton)
 															: floorTon() > 0
-																? `${formatTon(floorTon())} TON`
-																: '-'}
-													</span>
-												</div>
-												<div class="text-[10px] text-white/40 font-mono">
-													{asset.expected_usd || (floorTon() > 0 && tonRate() > 0)
-														? `≈ ${formatUsd(asset.expected_usd || Math.round(floorTon() * tonRate()))}`
-														: '-'}
-												</div>
+																? formatTon(floorTon())
+																: '-'
+													}
+													size="sm"
+													unit
+													usd={
+														asset.expected_usd || (floorTon() > 0 && tonRate() > 0)
+															? formatUsdPlain(
+																	asset.expected_usd || Math.round(floorTon() * tonRate()),
+																)
+															: null
+													}
+													class="items-end"
+												/>
 											</div>
 										</button>
 									)}

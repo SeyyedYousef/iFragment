@@ -965,6 +965,55 @@ func (r *OwnerRepo) FlagUser(ctx context.Context, ownerID int64, targetUserID in
 	return tx.Commit(ctx)
 }
 
+func (r *OwnerRepo) ToggleUserVIP(ctx context.Context, ownerID int64, targetUserID int64, isPremium bool, reason string, ip string, ua string) error {
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if isPremium {
+		_, err = tx.Exec(ctx, `
+			UPDATE users
+			SET is_premium = TRUE,
+				premium_until = GREATEST(COALESCE(premium_until, NOW()), NOW()) + INTERVAL '30 days',
+				updated_at = NOW()
+			WHERE telegram_id = $1
+		`, targetUserID)
+	} else {
+		_, err = tx.Exec(ctx, `
+			UPDATE users
+			SET is_premium = FALSE,
+				premium_until = NULL,
+				updated_at = NOW()
+			WHERE telegram_id = $1
+		`, targetUserID)
+	}
+	if err != nil {
+		return err
+	}
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"is_premium": isPremium,
+		"reason":     reason,
+	})
+
+	auditLog := &model.OwnerAuditLog{
+		OwnerID:      ownerID,
+		Action:       "toggle_user_vip",
+		TargetUserID: &targetUserID,
+		Payload:      payload,
+		IPAddress:    ip,
+		UserAgent:    ua,
+	}
+
+	if err := r.LogOwnerAuditTx(ctx, tx, auditLog); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 // ─── Quests ─────────────────────────────────────────────────────────────────
 func (r *OwnerRepo) GetQuests(ctx context.Context) ([]model.Quest, error) {
 	query := `

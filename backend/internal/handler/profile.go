@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -417,7 +418,7 @@ func (h *ProfileHandler) CreatePremiumCheckout(w http.ResponseWriter, r *http.Re
 
 	// Pay 50 Stars for 30 days premium (very cheap test price)
 	amountStars := 50
-	payload := fmt.Sprintf("stars_premium_1m:%d", userID)
+	payload := fmt.Sprintf("stars_premium_1m:%d:%d", userID, time.Now().Unix())
 
 	link, err := h.paymentService.CreateInvoiceLink(
 		"iFragment Premium Profile",

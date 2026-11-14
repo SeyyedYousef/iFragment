@@ -88,59 +88,54 @@ export const SettingsPage: Component = () => {
 		<SettingsGuard isDirty={isSettingsDirty()} onSave={handleSave} onDiscard={handleDiscard}>
 			{({ requestLeave }) => (
 				<div
-					class="min-h-screen bg-[#030303] pb-32 text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#0098EA]/30"
+					class="frag-canvas min-h-screen pb-32 text-[#f3f5f8] font-sans flex flex-col relative overflow-x-clip selection:bg-[#2990ff]/30"
 					dir={isRtl() ? 'rtl' : 'ltr'}
 				>
-					{/* Ambient Top Glow */}
-					<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#0098EA]/15 via-[#06b6d4]/5 to-transparent blur-[90px] pointer-events-none z-0" />
-
-					{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
-					<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm shrink-0">
+					{/* Sticky Header */}
+					<div class="pt-5 pb-4 px-5 sticky top-0 bg-[#11161d]/92 backdrop-blur-2xl z-40 border-b border-white/[0.06] flex items-center gap-3.5 shrink-0">
 						<button
 							type="button"
 							onClick={() => requestLeave(() => window.history.back())}
-							class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+							class="w-10 h-10 rounded-xl bg-[#1b232d] flex items-center justify-center border border-white/[0.08] hover:border-white/15 active:scale-95 transition-all shrink-0 text-[#c2cfde]"
 							aria-label={t('common.back')}
 						>
-							<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
+							<span class="material-symbols-outlined text-[21px] rtl:-scale-x-100">arrow_back</span>
 						</button>
 						<div class="flex flex-col gap-0.5 min-w-0">
-							<h1 class="text-[18px] font-black text-white leading-tight tracking-tight">
+							<h1 class="text-[18px] font-bold text-white leading-tight tracking-tight">
 								{t('settings.title')}
 							</h1>
-							<span class="text-[11px] font-bold text-white/50 uppercase tracking-wider truncate">
+							<span class="text-[11px] font-medium text-[#8ca0b5] truncate">
 								{t('settings.subtitle')}
 							</span>
 						</div>
 					</div>
 
-					<div class="flex-1 w-full max-w-md mx-auto relative z-10 flex flex-col px-5 pt-6 gap-6">
-						{/* ═══════ PREFERENCES (Haptics, Sound, Animations) ═══════ */}
+					<div class="flex-1 w-full max-w-md mx-auto relative z-10 flex flex-col px-4 pt-5 gap-6">
+						{/* Preferences */}
 						<Motion.div
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ delay: 0.05 }}
-							class="flex flex-col gap-3"
+							class="flex flex-col gap-2.5"
 						>
-							<h2 class="text-[11px] font-black text-white/40 uppercase tracking-widest px-2 flex items-center gap-2">
-								<span class="material-symbols-outlined text-[16px] text-white/30">tune</span>
+							<h2 class="text-xs font-semibold text-[#8ca0b5] px-1.5 flex items-center gap-2">
+								<span class="material-symbols-outlined text-[16px] text-[#738598]">tune</span>
 								{t('settings.general')}
 							</h2>
 
-							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
-								<div class="absolute -right-6 -top-6 w-24 h-24 bg-[#0098EA]/10 blur-2xl rounded-full pointer-events-none" />
-
+							<div class="frag-card-elevated rounded-2xl p-4 sm:p-5 flex flex-col gap-4">
 								{/* Haptic Feedback */}
-								<div class="flex items-center justify-between gap-4 relative z-10">
+								<div class="flex items-center justify-between gap-4">
 									<div class="flex items-center gap-3.5">
-										<div class="w-10 h-10 rounded-[12px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0 text-white/70">
+										<div class="w-10 h-10 rounded-xl bg-[#141a22] flex items-center justify-center border border-white/[0.08] shrink-0 text-[#c2cfde]">
 											<span class="material-symbols-outlined text-[20px]">vibration</span>
 										</div>
 										<div class="flex flex-col gap-0.5">
-											<span class="text-[14px] font-black text-white tracking-tight">
+											<span class="text-[14px] font-semibold text-white tracking-tight">
 												{t('settings.hapticFeedback')}
 											</span>
-											<span class="text-[11px] font-medium text-white/50 leading-relaxed">
+											<span class="text-[11px] font-medium text-[#8ca0b5] leading-relaxed">
 												{t('settings.hapticDesc')}
 											</span>
 										</div>
@@ -151,19 +146,19 @@ export const SettingsPage: Component = () => {
 									/>
 								</div>
 
-								<div class="h-[1px] bg-white/5 w-full my-1 rounded-full relative z-10" />
+								<div class="h-[1px] bg-white/[0.06] w-full" />
 
 								{/* Sound Effects */}
-								<div class="flex items-center justify-between gap-4 relative z-10">
+								<div class="flex items-center justify-between gap-4">
 									<div class="flex items-center gap-3.5">
-										<div class="w-10 h-10 rounded-[12px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0 text-white/70">
+										<div class="w-10 h-10 rounded-xl bg-[#141a22] flex items-center justify-center border border-white/[0.08] shrink-0 text-[#c2cfde]">
 											<span class="material-symbols-outlined text-[20px]">volume_up</span>
 										</div>
 										<div class="flex flex-col gap-0.5">
-											<span class="text-[14px] font-black text-white tracking-tight">
+											<span class="text-[14px] font-semibold text-white tracking-tight">
 												{t('settings.soundEffects')}
 											</span>
-											<span class="text-[11px] font-medium text-white/50 leading-relaxed">
+											<span class="text-[11px] font-medium text-[#8ca0b5] leading-relaxed">
 												{t('settings.soundDesc')}
 											</span>
 										</div>
@@ -174,19 +169,19 @@ export const SettingsPage: Component = () => {
 									/>
 								</div>
 
-								<div class="h-[1px] bg-white/5 w-full my-1 rounded-full relative z-10" />
+								<div class="h-[1px] bg-white/[0.06] w-full" />
 
 								{/* Animations */}
-								<div class="flex items-center justify-between gap-4 relative z-10">
+								<div class="flex items-center justify-between gap-4">
 									<div class="flex items-center gap-3.5">
-										<div class="w-10 h-10 rounded-[12px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0 text-white/70">
+										<div class="w-10 h-10 rounded-xl bg-[#141a22] flex items-center justify-center border border-white/[0.08] shrink-0 text-[#c2cfde]">
 											<span class="material-symbols-outlined text-[20px]">animation</span>
 										</div>
 										<div class="flex flex-col gap-0.5">
-											<span class="text-[14px] font-black text-white tracking-tight">
+											<span class="text-[14px] font-semibold text-white tracking-tight">
 												{t('settings.animations')}
 											</span>
-											<span class="text-[11px] font-medium text-white/50 leading-relaxed">
+											<span class="text-[11px] font-medium text-[#8ca0b5] leading-relaxed">
 												{t('settings.animationsDesc')}
 											</span>
 										</div>
@@ -199,20 +194,20 @@ export const SettingsPage: Component = () => {
 							</div>
 						</Motion.div>
 
-						{/* ═══════ LANGUAGE SELECTION ═══════ */}
+						{/* Language Selection */}
 						<Motion.div
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ delay: 0.15 }}
-							class="flex flex-col gap-3"
+							class="flex flex-col gap-2.5"
 						>
-							<h2 class="text-[11px] font-black text-white/40 uppercase tracking-widest px-2 flex items-center gap-2">
-								<span class="material-symbols-outlined text-[16px] text-white/30">language</span>
+							<h2 class="text-xs font-semibold text-[#8ca0b5] px-1.5 flex items-center gap-2">
+								<span class="material-symbols-outlined text-[16px] text-[#738598]">language</span>
 								{t('profile.languageSettings')}
 							</h2>
 
-							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-4 shadow-sm">
-								<div class="grid grid-cols-2 gap-3">
+							<div class="frag-card-elevated rounded-2xl p-4">
+								<div class="grid grid-cols-2 gap-2.5">
 									{/* English */}
 									<button
 										type="button"
@@ -222,26 +217,26 @@ export const SettingsPage: Component = () => {
 												haptic.selection();
 											} catch {}
 										}}
-										class={`p-4 rounded-[20px] flex flex-col items-center justify-center gap-2 border transition-all active:scale-95 shadow-sm group ${
+										class={`p-4 rounded-xl flex flex-col items-center justify-center gap-2 border transition-all active:scale-95 group ${
 											locale() === 'en'
-												? 'bg-[#0098EA]/15 border-[#0098EA]/40 shadow-[0_0_15px_rgba(0,152,234,0.15)]'
-												: 'bg-[#08090D] border-white/5 hover:border-white/20'
+												? 'bg-[#2990ff]/12 border-[#2990ff]/40'
+												: 'frag-inset hover:border-white/[0.15]'
 										}`}
 									>
 										<div class="relative">
-											<span class="text-[28px] drop-shadow-md transition-transform group-hover:scale-110">
+											<span class="text-[26px] transition-transform group-hover:scale-110 inline-block">
 												🇬🇧
 											</span>
 											<Show when={locale() === 'en'}>
-												<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#0098EA] flex items-center justify-center shadow-md">
-													<span class="material-symbols-outlined text-[10px] text-white font-black">
+												<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#2990ff] flex items-center justify-center shadow-sm">
+													<span class="material-symbols-outlined text-[10px] text-white font-bold">
 														done
 													</span>
 												</div>
 											</Show>
 										</div>
 										<span
-											class={`font-black tracking-wide ${locale() === 'en' ? 'text-[#0098EA] text-[13px]' : 'text-white/80 text-[12px]'}`}
+											class={`font-semibold ${locale() === 'en' ? 'text-[#5aaeff] text-[13px]' : 'text-[#c2cfde] text-[12px]'}`}
 										>
 											{t('settingsPg.langEn' as any)}
 										</span>
@@ -256,26 +251,26 @@ export const SettingsPage: Component = () => {
 												haptic.selection();
 											} catch {}
 										}}
-										class={`p-4 rounded-[20px] flex flex-col items-center justify-center gap-2 border transition-all active:scale-95 shadow-sm group ${
+										class={`p-4 rounded-xl flex flex-col items-center justify-center gap-2 border transition-all active:scale-95 group ${
 											locale() === 'fa'
-												? 'bg-[#0098EA]/15 border-[#0098EA]/40 shadow-[0_0_15px_rgba(0,152,234,0.15)]'
-												: 'bg-[#08090D] border-white/5 hover:border-white/20'
+												? 'bg-[#2990ff]/12 border-[#2990ff]/40'
+												: 'frag-inset hover:border-white/[0.15]'
 										}`}
 									>
 										<div class="relative">
-											<span class="text-[28px] drop-shadow-md transition-transform group-hover:scale-110">
+											<span class="text-[26px] transition-transform group-hover:scale-110 inline-block">
 												🇮🇷
 											</span>
 											<Show when={locale() === 'fa'}>
-												<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#0098EA] flex items-center justify-center shadow-md">
-													<span class="material-symbols-outlined text-[10px] font-black text-black">
+												<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#2990ff] flex items-center justify-center shadow-sm">
+													<span class="material-symbols-outlined text-[10px] font-bold text-white">
 														done
 													</span>
 												</div>
 											</Show>
 										</div>
 										<span
-											class={`font-black tracking-wide ${locale() === 'fa' ? 'text-[#0098EA] text-[13px]' : 'text-white/80 text-[12px]'}`}
+											class={`font-semibold ${locale() === 'fa' ? 'text-[#5aaeff] text-[13px]' : 'text-[#c2cfde] text-[12px]'}`}
 										>
 											{t('settingsPg.langFa' as any)}
 										</span>
@@ -290,26 +285,26 @@ export const SettingsPage: Component = () => {
 												haptic.selection();
 											} catch {}
 										}}
-										class={`p-4 rounded-[20px] flex flex-col items-center justify-center gap-2 border transition-all active:scale-95 shadow-sm group ${
+										class={`p-4 rounded-xl flex flex-col items-center justify-center gap-2 border transition-all active:scale-95 group ${
 											locale() === 'ru'
-												? 'bg-[#0098EA]/15 border-[#0098EA]/40 shadow-[0_0_15px_rgba(0,152,234,0.15)]'
-												: 'bg-[#08090D] border-white/5 hover:border-white/20'
+												? 'bg-[#2990ff]/12 border-[#2990ff]/40'
+												: 'frag-inset hover:border-white/[0.15]'
 										}`}
 									>
 										<div class="relative">
-											<span class="text-[28px] drop-shadow-md transition-transform group-hover:scale-110">
+											<span class="text-[26px] transition-transform group-hover:scale-110 inline-block">
 												🇷🇺
 											</span>
 											<Show when={locale() === 'ru'}>
-												<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#0098EA] flex items-center justify-center shadow-md">
-													<span class="material-symbols-outlined text-[10px] text-white font-black">
+												<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#2990ff] flex items-center justify-center shadow-sm">
+													<span class="material-symbols-outlined text-[10px] text-white font-bold">
 														done
 													</span>
 												</div>
 											</Show>
 										</div>
 										<span
-											class={`font-black tracking-wide ${locale() === 'ru' ? 'text-[#0098EA] text-[13px]' : 'text-white/80 text-[12px]'}`}
+											class={`font-semibold ${locale() === 'ru' ? 'text-[#5aaeff] text-[13px]' : 'text-[#c2cfde] text-[12px]'}`}
 										>
 											{t('settingsPg.langRu' as any)}
 										</span>
@@ -324,26 +319,26 @@ export const SettingsPage: Component = () => {
 												haptic.selection();
 											} catch {}
 										}}
-										class={`p-4 rounded-[20px] flex flex-col items-center justify-center gap-2 border transition-all active:scale-95 shadow-sm group ${
+										class={`p-4 rounded-xl flex flex-col items-center justify-center gap-2 border transition-all active:scale-95 group ${
 											locale() === 'zh'
-												? 'bg-[#0098EA]/15 border-[#0098EA]/40 shadow-[0_0_15px_rgba(0,152,234,0.15)]'
-												: 'bg-[#08090D] border-white/5 hover:border-white/20'
+												? 'bg-[#2990ff]/12 border-[#2990ff]/40'
+												: 'frag-inset hover:border-white/[0.15]'
 										}`}
 									>
 										<div class="relative">
-											<span class="text-[28px] drop-shadow-md transition-transform group-hover:scale-110">
+											<span class="text-[26px] transition-transform group-hover:scale-110 inline-block">
 												🇨🇳
 											</span>
 											<Show when={locale() === 'zh'}>
-												<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#0098EA] flex items-center justify-center shadow-md">
-													<span class="material-symbols-outlined text-[10px] text-white font-black">
+												<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#2990ff] flex items-center justify-center shadow-sm">
+													<span class="material-symbols-outlined text-[10px] text-white font-bold">
 														done
 													</span>
 												</div>
 											</Show>
 										</div>
 										<span
-											class={`font-black tracking-wide ${locale() === 'zh' ? 'text-[#0098EA] text-[13px]' : 'text-white/80 text-[12px]'}`}
+											class={`font-semibold ${locale() === 'zh' ? 'text-[#5aaeff] text-[13px]' : 'text-[#c2cfde] text-[12px]'}`}
 										>
 											{t('settingsPg.langZh' as any)}
 										</span>
@@ -353,12 +348,12 @@ export const SettingsPage: Component = () => {
 						</Motion.div>
 					</div>
 
-					{/* ═══════ FLOATING SAVE / DISCARD BAR ═══════ */}
+					{/* Floating Save / Discard Bar */}
 					<Show when={isSettingsDirty()}>
 						<Motion.div
 							initial={{ opacity: 0, y: 30 }}
 							animate={{ opacity: 1, y: 0 }}
-							class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#030303] via-[#030303]/95 to-transparent z-50 pointer-events-none"
+							class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#11161d] via-[#11161d]/95 to-transparent z-50 pointer-events-none"
 						>
 							<div
 								class="max-w-md mx-auto flex gap-3 pointer-events-auto items-center"
@@ -367,17 +362,17 @@ export const SettingsPage: Component = () => {
 								<button
 									type="button"
 									onClick={handleDiscard}
-									class="px-5 h-12 bg-[#12141C]/90 text-rose-400 border border-rose-500/20 rounded-[16px] font-black text-[13px] flex items-center justify-center gap-1.5 hover:bg-rose-500/10 active:scale-95 transition-all shadow-lg"
+									class="frag-btn-secondary px-5 h-12 text-[#ff5c6c] border-[#ff5c6c]/25 rounded-xl font-semibold text-[13px] flex items-center justify-center gap-1.5 hover:bg-[#ff5c6c]/10 active:scale-95 transition-all"
 								>
-									<span class="material-symbols-outlined text-[20px]">close</span>
+									<span class="material-symbols-outlined text-[19px]">close</span>
 									<span>{t('common.cancel')}</span>
 								</button>
 								<button
 									type="button"
 									onClick={handleSave}
-									class="flex-1 h-12 bg-gradient-to-r from-[#0098EA] to-[#0077B5] hover:from-[#0077B5] hover:to-[#0098EA] text-white rounded-[16px] font-black text-[13px] uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_4px_20px_rgba(0,152,234,0.35)]"
+									class="frag-btn-primary flex-1 h-12 rounded-xl font-semibold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition-all"
 								>
-									<span class="material-symbols-outlined text-[20px]">check</span>
+									<span class="material-symbols-outlined text-[19px]">check</span>
 									<span>{t('common.save')}</span>
 								</button>
 							</div>

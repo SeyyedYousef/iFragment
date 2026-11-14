@@ -65,6 +65,8 @@ type NumberValuation struct {
 	ModelCard             ModelCardInfo             `json:"model_card"`
 	LiveListing           *NumberLiveListingDto     `json:"live_listing,omitempty"`
 	CombinatorialScarcity *CombinatorialScarcityDto `json:"combinatorial_scarcity,omitempty"`
+	BinaryForensics       *NumberBinaryForensicsDto `json:"binary_forensics,omitempty"`
+	LayaSystemOne         *LayaNumberResult         `json:"laya_system_one,omitempty"`
 	CertificateID         string                    `json:"certificate_id"`
 	EvaluatedAt           time.Time                 `json:"evaluated_at"`
 	ReasoningLog          map[string]interface{}    `json:"reasoning_log"`

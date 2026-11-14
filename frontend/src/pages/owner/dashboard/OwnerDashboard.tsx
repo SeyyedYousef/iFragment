@@ -4,12 +4,11 @@ import { ColorType, createChart, type IChartApi, LineSeries } from 'lightweight-
 import { type Component, createEffect, createSignal, For, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { DashboardMetrics } from '@/entities/owner/model/types.js';
-import { locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { TotpSetupModal } from '@/widgets/owner/TotpSetupModal.jsx';
 
 export const OwnerDashboard: Component = () => {
 	const navigate = useNavigate();
-	const isFa = () => locale() === 'fa';
 	let chartContainerRef: HTMLDivElement | undefined;
 	let chartInstance: IChartApi | undefined;
 
@@ -86,13 +85,13 @@ export const OwnerDashboard: Component = () => {
 		const activeSeries = chart.addSeries(LineSeries, {
 			color: '#38bdf8',
 			lineWidth: 2,
-			title: isFa() ? 'کاربران فعال روزانه' : 'Active Users',
+			title: t('ownerDash.chartActiveUsers'),
 		});
 
 		const valuationsSeries = chart.addSeries(LineSeries, {
 			color: '#f59e0b',
 			lineWidth: 2,
-			title: isFa() ? 'استعلام‌های ارزش‌گذاری' : 'Valuations Run',
+			title: t('ownerDash.chartValuationsRun'),
 		});
 
 		const sorted = [...data].sort((a, b) => a.date.localeCompare(b.date));
@@ -142,17 +141,9 @@ export const OwnerDashboard: Component = () => {
 				<div class="space-y-1">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-outlined text-amber-400 text-xl">bolt</span>
-						<h2 class="text-base font-black text-white tracking-tight">
-							{isFa()
-								? 'مرکز فرماندهی و تلمتری زنده ارزش‌گذاری دارایی‌های تلگرام'
-								: 'Live Asset Valuation & Credit Intelligence Command'}
-						</h2>
+						<h2 class="text-base font-black text-white tracking-tight">{t('ownerDash.title')}</h2>
 					</div>
-					<p class="text-xs text-white/50">
-						{isFa()
-							? 'داده‌های واقعی از ۳ موتور نام کاربری (@)، شماره‌های ناشناس (+888) و گیفت‌های کلکسیونی — بدون هیچ‌گونه دیتای بازی کلیکی'
-							: 'Real-time telemetry across @Usernames, +888 Anonymous Numbers & Collectible Gifts'}
-					</p>
+					<p class="text-xs text-white/50">{t('ownerDash.subtitle')}</p>
 				</div>
 
 				{/* Quick Asset Valuation Launcher */}
@@ -170,7 +161,7 @@ export const OwnerDashboard: Component = () => {
 									: 'text-white/60 hover:text-white'
 							}`}
 						>
-							@Username
+							{t('ownerDash.tabUsername')}
 						</button>
 						<button
 							type="button"
@@ -192,7 +183,7 @@ export const OwnerDashboard: Component = () => {
 									: 'text-white/60 hover:text-white'
 							}`}
 						>
-							🎁 Gift
+							{t('ownerDash.tabGift')}
 						</button>
 					</div>
 
@@ -215,14 +206,14 @@ export const OwnerDashboard: Component = () => {
 						class="h-9 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs transition flex items-center gap-1.5 shrink-0"
 					>
 						<span class="material-symbols-outlined text-[16px]">radar</span>
-						<span>{isFa() ? 'کالبدشکافی فوری' : 'Inspect'}</span>
+						<span>{t('ownerDash.inspect')}</span>
 					</button>
 
 					<button
 						type="button"
 						onClick={() => setIsTotpModalOpen(true)}
 						class="h-9 px-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold text-xs transition flex items-center gap-1.5 shrink-0"
-						title="Configure 2FA TOTP"
+						title={t('ownerDash.configure2fa')}
 					>
 						<span class="material-symbols-outlined text-[16px]">security</span>
 						<span>2FA</span>
@@ -235,7 +226,7 @@ export const OwnerDashboard: Component = () => {
 				{/* Card 1: Total Users & Active Retention */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-xl">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>{isFa() ? 'کل کاربران و اشتراک VIP' : 'Total Users & VIP Pro'}</span>
+						<span>{t('ownerDash.kpiUsersTitle')}</span>
 						<span class="material-symbols-outlined text-base text-sky-400">groups</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono">
@@ -243,11 +234,13 @@ export const OwnerDashboard: Component = () => {
 					</div>
 					<div class="flex items-center justify-between text-[11px] text-white/50 pt-1 border-t border-white/5">
 						<span>
-							DAU: <strong class="text-emerald-400 font-mono">{metrics()?.dau ?? 0}</strong> / MAU:{' '}
+							{t('ownerDash.dauPrefix')}{' '}
+							<strong class="text-emerald-400 font-mono">{metrics()?.dau ?? 0}</strong> /{' '}
+							{t('ownerDash.mauPrefix')}{' '}
 							<strong class="text-white font-mono">{metrics()?.mau ?? 0}</strong>
 						</span>
 						<span class="text-amber-400 font-mono font-bold">
-							★ {metrics()?.premium_users ?? 0} VIP
+							{t('ownerDash.vipCount', { count: metrics()?.premium_users ?? 0 })}
 						</span>
 					</div>
 				</div>
@@ -255,7 +248,7 @@ export const OwnerDashboard: Component = () => {
 				{/* Card 2: 24h Valuation Engine Throughput */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-xl">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>{isFa() ? 'استعلام‌های ارزش‌گذاری (۲۴ ساعت)' : '24h Valuations Executed'}</span>
+						<span>{t('ownerDash.kpiValuationsTitle')}</span>
 						<span class="material-symbols-outlined text-base text-purple-400">query_stats</span>
 					</div>
 					<div class="text-2xl font-black text-purple-300 font-mono">
@@ -271,9 +264,7 @@ export const OwnerDashboard: Component = () => {
 				{/* Card 3: Intel Credits (⚡) & Stars Revenue (⭐) */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-xl">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>
-							{isFa() ? 'گردش کریدیت ⚡ و درآمد Stars ⭐' : 'Intel Credits ⚡ & Stars Revenue'}
-						</span>
+						<span>{t('ownerDash.kpiCreditsTitle')}</span>
 						<span class="material-symbols-outlined text-base text-cyan-400">bolt</span>
 					</div>
 					<div class="flex items-baseline gap-3">
@@ -289,13 +280,13 @@ export const OwnerDashboard: Component = () => {
 					</div>
 					<div class="flex items-center justify-between text-[11px] text-white/50 pt-1 border-t border-white/5">
 						<span>
-							{isFa() ? 'مصرف امروز:' : 'Burned 24h:'}{' '}
+							{t('ownerDash.burned24h')}{' '}
 							<strong class="text-rose-400 font-mono">
 								-{metrics()?.credits_economy_today?.consumed_today ?? 0} ⚡
 							</strong>
 						</span>
 						<span>
-							{isFa() ? 'فروش امروز:' : 'Sold 24h:'}{' '}
+							{t('ownerDash.sold24h')}{' '}
 							<strong class="text-emerald-400 font-mono">
 								+{metrics()?.credits_economy_today?.purchased_today ?? 0} ⚡
 							</strong>
@@ -306,8 +297,10 @@ export const OwnerDashboard: Component = () => {
 				{/* Card 4: Live TON/USD Oracle & Ecosystem Floors */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-xl">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>{isFa() ? 'نرخ زنده اوراکل TON و کف بازار' : 'Live TON Oracle & Market Floor'}</span>
-						<span class="material-symbols-outlined text-base text-emerald-400">currency_exchange</span>
+						<span>{t('ownerDash.kpiOracleTitle')}</span>
+						<span class="material-symbols-outlined text-base text-emerald-400">
+							currency_exchange
+						</span>
 					</div>
 					<div class="flex items-baseline gap-2.5">
 						<div class="text-2xl font-black text-emerald-400 font-mono">
@@ -317,13 +310,13 @@ export const OwnerDashboard: Component = () => {
 					</div>
 					<div class="flex items-center justify-between text-[11px] font-mono text-white/50 pt-1 border-t border-white/5">
 						<span>
-							+888 Floor:{' '}
+							{t('ownerDash.floor888Prefix')}{' '}
 							<strong class="text-amber-300">{metrics()?.nums888_floor_ton ?? 0} TON</strong>
 						</span>
 						<span>
-							Gifts:{' '}
+							{t('ownerDash.giftsPrefix')}{' '}
 							<strong class="text-purple-300">
-								{metrics()?.tracked_gift_collections ?? 105} Cols
+								{t('ownerDash.colsCount', { count: metrics()?.tracked_gift_collections ?? 105 })}
 							</strong>
 						</span>
 					</div>
@@ -337,14 +330,10 @@ export const OwnerDashboard: Component = () => {
 					<div class="flex items-center justify-between border-b border-white/10 pb-3">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-outlined text-cyan-400">donut_large</span>
-							<h3 class="text-sm font-bold text-white">
-								{isFa()
-									? 'سهم موتورهای ارزش‌گذاری و ترازنامه کریدیت ⚡'
-									: 'Engine Telemetry & Intel Credit Flow'}
-							</h3>
+							<h3 class="text-sm font-bold text-white">{t('ownerDash.engineTelemetryTitle')}</h3>
 						</div>
 						<span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-							REAL-TIME
+							{t('ownerDash.realTimeBadge')}
 						</span>
 					</div>
 
@@ -352,9 +341,7 @@ export const OwnerDashboard: Component = () => {
 					<div class="space-y-3">
 						<div>
 							<div class="flex justify-between text-xs mb-1">
-								<span class="text-sky-300 font-bold">
-									@ {isFa() ? 'موتور نام کاربری (Usernames)' : 'Telegram Usernames Engine'}
-								</span>
+								<span class="text-sky-300 font-bold">@ {t('ownerDash.engineUsernames')}</span>
 								<span class="font-mono text-white/80">
 									{metrics()?.valuations_today?.usernames ?? 0} (
 									{pctOfTotal(metrics()?.valuations_today?.usernames)}%)
@@ -370,9 +357,7 @@ export const OwnerDashboard: Component = () => {
 
 						<div>
 							<div class="flex justify-between text-xs mb-1">
-								<span class="text-amber-300 font-bold">
-									+888 {isFa() ? 'موتور شماره‌های کلکسیونی (Numbers)' : 'Anonymous Numbers Engine'}
-								</span>
+								<span class="text-amber-300 font-bold">+888 {t('ownerDash.engineNumbers')}</span>
 								<span class="font-mono text-white/80">
 									{metrics()?.valuations_today?.numbers ?? 0} (
 									{pctOfTotal(metrics()?.valuations_today?.numbers)}%)
@@ -388,9 +373,7 @@ export const OwnerDashboard: Component = () => {
 
 						<div>
 							<div class="flex justify-between text-xs mb-1">
-								<span class="text-purple-300 font-bold">
-									🎁 {isFa() ? 'موتور گیفت‌های کلکسیونی (Gifts 4-Floor)' : 'Collectible Gifts Engine'}
-								</span>
+								<span class="text-purple-300 font-bold">🎁 {t('ownerDash.engineGifts')}</span>
 								<span class="font-mono text-white/80">
 									{metrics()?.valuations_today?.gifts ?? 0} (
 									{pctOfTotal(metrics()?.valuations_today?.gifts)}%)
@@ -408,36 +391,28 @@ export const OwnerDashboard: Component = () => {
 					{/* Credit Flow Ledger (24h) */}
 					<div class="pt-3 border-t border-white/10 space-y-2.5 text-xs">
 						<div class="text-[11px] font-bold text-white/50 uppercase tracking-wider">
-							{isFa() ? 'گردش واقعی کریدیت در ۲۴ ساعت گذشته' : '24h Intel Credit Flow'}
+							{t('ownerDash.creditFlow24h')}
 						</div>
 						<div class="flex items-center justify-between py-1.5 px-3 rounded-xl bg-white/[0.02] border border-white/5">
-							<span class="text-white/70">
-								{isFa() ? 'کریدیت مصرف‌شده برای گزارش‌ها' : 'Credits Spent on Reports'}
-							</span>
+							<span class="text-white/70">{t('ownerDash.creditsSpentReports')}</span>
 							<span class="font-mono font-bold text-rose-400">
 								-{metrics()?.credits_economy_today?.consumed_today ?? 0} ⚡
 							</span>
 						</div>
 						<div class="flex items-center justify-between py-1.5 px-3 rounded-xl bg-white/[0.02] border border-white/5">
-							<span class="text-white/70">
-								{isFa() ? 'کریدیت خریداری‌شده با Stars' : 'Credits Purchased via Stars'}
-							</span>
+							<span class="text-white/70">{t('ownerDash.creditsPurchasedStars')}</span>
 							<span class="font-mono font-bold text-emerald-400">
 								+{metrics()?.credits_economy_today?.purchased_today ?? 0} ⚡
 							</span>
 						</div>
 						<div class="flex items-center justify-between py-1.5 px-3 rounded-xl bg-white/[0.02] border border-white/5">
-							<span class="text-white/70">
-								{isFa() ? 'کریدیت دریافتی از کدهای هدیه' : 'Claimed via Promo Codes'}
-							</span>
+							<span class="text-white/70">{t('ownerDash.creditsClaimedPromo')}</span>
 							<span class="font-mono font-bold text-amber-400">
 								+{metrics()?.credits_economy_today?.promo_claimed_today ?? 0} ⚡
 							</span>
 						</div>
 						<div class="flex items-center justify-between py-1.5 px-3 rounded-xl bg-white/[0.02] border border-white/5">
-							<span class="text-white/70">
-								{isFa() ? 'پاداش معرفی دوستان (Referral)' : 'Referral Credit Bonuses'}
-							</span>
+							<span class="text-white/70">{t('ownerDash.creditsReferralBonuses')}</span>
 							<span class="font-mono font-bold text-cyan-400">
 								+{metrics()?.credits_economy_today?.referral_granted_today ?? 0} ⚡
 							</span>
@@ -450,27 +425,21 @@ export const OwnerDashboard: Component = () => {
 					<div class="flex items-center justify-between border-b border-white/10 pb-3">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-outlined text-amber-400">local_fire_department</span>
-							<h3 class="text-sm font-bold text-white">
-								{isFa()
-									? 'داغ‌ترین دارایی‌های جستجو شده توسط کاربران (۲۴ ساعت)'
-									: 'Most Searched Telegram Assets (24h Hot Radar)'}
-							</h3>
+							<h3 class="text-sm font-bold text-white">{t('ownerDash.hotRadarTitle')}</h3>
 						</div>
-						<span class="text-xs text-white/40 font-mono">
-							{isFa() ? 'کلیک برای باز کردن گزارش' : 'Click to inspect'}
-						</span>
+						<span class="text-xs text-white/40 font-mono">{t('ownerDash.clickToInspect')}</span>
 					</div>
 
 					<div class="overflow-x-auto">
 						<table class="w-full text-left text-xs">
 							<thead>
 								<tr class="border-b border-white/10 text-white/40">
-									<th class="pb-2.5">{isFa() ? 'دارایی' : 'Asset'}</th>
-									<th class="pb-2.5">{isFa() ? 'بخش' : 'Engine'}</th>
-									<th class="pb-2.5">{isFa() ? 'تعداد استعلام' : 'Queries'}</th>
-									<th class="pb-2.5">{isFa() ? 'ارزش منصفانه' : 'Fair Value'}</th>
-									<th class="pb-2.5">{isFa() ? 'وضعیت' : 'Status'}</th>
-									<th class="pb-2.5 text-right">{isFa() ? 'بررسی' : 'Inspect'}</th>
+									<th class="pb-2.5">{t('ownerDash.thAsset')}</th>
+									<th class="pb-2.5">{t('ownerDash.thEngine')}</th>
+									<th class="pb-2.5">{t('ownerDash.thQueries')}</th>
+									<th class="pb-2.5">{t('ownerDash.thFairValue')}</th>
+									<th class="pb-2.5">{t('ownerDash.thStatus')}</th>
+									<th class="pb-2.5 text-right">{t('ownerDash.thInspect')}</th>
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-white/5">
@@ -479,7 +448,7 @@ export const OwnerDashboard: Component = () => {
 									fallback={
 										<tr>
 											<td colspan="6" class="py-8 text-center text-white/40">
-												{isFa() ? 'در حال بارگذاری رادار جستجو...' : 'Loading search radar...'}
+												{t('ownerDash.loadingRadar')}
 											</td>
 										</tr>
 									}
@@ -523,7 +492,7 @@ export const OwnerDashboard: Component = () => {
 														onClick={() => inspectAsset(item.asset_type, item.query)}
 														class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 text-cyan-300 border border-white/10 text-[11px] font-bold transition"
 													>
-														{isFa() ? 'گزارش ↗' : 'Report ↗'}
+														{t('ownerDash.reportArrow')}
 													</button>
 												</td>
 											</tr>
@@ -541,11 +510,7 @@ export const OwnerDashboard: Component = () => {
 				<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-outlined text-emerald-400">sensors</span>
-						<h3 class="text-sm font-bold text-white">
-							{isFa()
-								? 'جریان زنده استعلام‌های ارزش‌گذاری ثبت‌شده در سرور (Live Valuation Feed)'
-								: 'Live Server Valuation Feed (@Usernames, +888 Numbers, Gifts)'}
-						</h3>
+						<h3 class="text-sm font-bold text-white">{t('ownerDash.liveFeedTitle')}</h3>
 					</div>
 					<button
 						type="button"
@@ -553,7 +518,7 @@ export const OwnerDashboard: Component = () => {
 						class="px-3 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white/70 flex items-center gap-1 self-start sm:self-auto"
 					>
 						<span class="material-symbols-outlined text-sm">refresh</span>
-						<span>{isFa() ? 'بروزرسانی زنده' : 'Refresh Feed'}</span>
+						<span>{t('ownerDash.refreshFeed')}</span>
 					</button>
 				</div>
 
@@ -561,13 +526,13 @@ export const OwnerDashboard: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3">{isFa() ? 'دارایی استعلام‌شده' : 'Queried Asset'}</th>
-								<th class="pb-3">{isFa() ? 'موتور' : 'Engine'}</th>
-								<th class="pb-3">{isFa() ? 'ارزش منصفانه (TON / USD)' : 'Fair Valuation'}</th>
-								<th class="pb-3">{isFa() ? 'ضریب اطمینان' : 'Confidence'}</th>
-								<th class="pb-3">{isFa() ? 'کریدیت' : 'Cost'}</th>
-								<th class="pb-3">{isFa() ? 'پاسخ سرور' : 'Latency'}</th>
-								<th class="pb-3 text-right">{isFa() ? 'زمان / مشاهده' : 'Time / Action'}</th>
+								<th class="pb-3">{t('ownerDash.thQueriedAsset')}</th>
+								<th class="pb-3">{t('ownerDash.thEngine')}</th>
+								<th class="pb-3">{t('ownerDash.thFairValuation')}</th>
+								<th class="pb-3">{t('ownerDash.thConfidence')}</th>
+								<th class="pb-3">{t('ownerDash.thCost')}</th>
+								<th class="pb-3">{t('ownerDash.thLatency')}</th>
+								<th class="pb-3 text-right">{t('ownerDash.thTimeAction')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -576,9 +541,7 @@ export const OwnerDashboard: Component = () => {
 								fallback={
 									<tr>
 										<td colspan="7" class="py-8 text-center text-white/40">
-											{isFa()
-												? 'هنوز استعلامی در این نشست ثبت نشده است'
-												: 'No recent valuations recorded yet'}
+											{t('ownerDash.noRecentValuations')}
 										</td>
 									</tr>
 								}
@@ -621,7 +584,7 @@ export const OwnerDashboard: Component = () => {
 														onClick={() => inspectAsset(v.asset_type, v.query)}
 														class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-cyan-300 text-[10px] font-bold"
 													>
-														{isFa() ? 'باز کردن' : 'Open'}
+														{t('ownerDash.open')}
 													</button>
 												</div>
 											</td>
@@ -638,22 +601,21 @@ export const OwnerDashboard: Component = () => {
 			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 				<div class="flex items-center justify-between">
 					<div>
-						<h3 class="text-sm font-bold text-white">
-							{isFa()
-								? 'روند ۳۰ روزه کاربران فعال و تعداد استعلام‌های ارزش‌گذاری'
-								: '30-Day Active Users & Valuation Velocity'}
-						</h3>
-						<p class="text-xs text-white/50">
-							{isFa()
-								? 'مقایسه روزانه تعداد کاربران فعال (آبی) و گزارش‌های صادرشده (طلایی)'
-								: 'Daily Active Users (Blue) vs Executed Asset Valuations (Amber)'}
-						</p>
+						<h3 class="text-sm font-bold text-white">{t('ownerDash.trend30dTitle')}</h3>
+						<p class="text-xs text-white/50">{t('ownerDash.trend30dSubtitle')}</p>
 					</div>
 				</div>
 				<div ref={chartContainerRef} class="w-full h-60" />
 			</div>
 
-			<TotpSetupModal isOpen={isTotpModalOpen()} onClose={() => setIsTotpModalOpen(false)} />
+			<TotpSetupModal
+				isOpen={isTotpModalOpen()}
+				onClose={() => setIsTotpModalOpen(false)}
+				onSuccess={() => {
+					setIsTotpModalOpen(false);
+					dashboardQuery.refetch();
+				}}
+			/>
 		</div>
 	);
 };

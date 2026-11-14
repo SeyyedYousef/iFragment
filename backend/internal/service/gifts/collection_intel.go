@@ -711,13 +711,16 @@ func (s *GiftsService) GetCollectionIntel(ctx context.Context, slug string) (*Co
 				usdVal := round2(*vf * *gramRate)
 				floorUSD = &usdVal
 			}
-			if *vf < bestFloor {
-				bestFloor = *vf
-				bestVenue = vInfo.Name
-			}
-			if *vf > highestFloor {
-				highestFloor = *vf
-				highestVenue = vInfo.Name
+			// Exclude primary Telegram Stars mint price and 16,111 anomaly from best/highest secondary floor
+			if vID != venues.VenueTelegramStars && *vf != 16111.0 {
+				if *vf < bestFloor {
+					bestFloor = *vf
+					bestVenue = vInfo.Name
+				}
+				if *vf > highestFloor {
+					highestFloor = *vf
+					highestVenue = vInfo.Name
+				}
 			}
 		}
 

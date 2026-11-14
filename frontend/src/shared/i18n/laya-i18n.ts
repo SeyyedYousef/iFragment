@@ -2199,7 +2199,7 @@ export const GIFT_PILLARS_I18N = {
 	marketMomentum: {
 		en: 'Market Momentum',
 		fa: 'مومنتوم بازار (Market Momentum)',
-		ru: 'Рыночный импульس',
+		ru: 'Рыночный импульс',
 		zh: '市场动量 (Market Momentum)',
 	},
 	marketDesc: {
@@ -2334,7 +2334,7 @@ export const GIFT_REPORT_DETAILS_I18N = {
 	custodySeparationTitle: {
 		en: 'Separation of Profile Showcaser vs On-Chain Wallet Owner',
 		fa: 'تفکیک نمایش‌دهنده پروفایل از مالک والت',
-		ru: 'Разделение виتریны профиля и ончейн-владельца',
+		ru: 'Разделение витрины профиля и ончейн-владельца',
 		zh: '个人主页展示方与链上真实持有钱包分离',
 	},
 	profileShowcaser: {
@@ -2685,7 +2685,7 @@ export const NUMBERS_COLLECTION_I18N = {
 	itemsForSale: {
 		en: 'Active Listings',
 		fa: 'آیتم‌های برای فروش',
-		ru: 'Активные листинگی',
+		ru: 'Активные листинги',
 		zh: '在售挂单藏品',
 	},
 	ofTotalSupply: {

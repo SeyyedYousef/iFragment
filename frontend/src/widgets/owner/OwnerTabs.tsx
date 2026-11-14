@@ -1,6 +1,6 @@
 import { useNavigate } from '@solidjs/router';
 import { type Component, For, onMount } from 'solid-js';
-import { locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export type OwnerTabId =
@@ -18,8 +18,7 @@ export type OwnerTabId =
 
 interface TabConfig {
 	id: OwnerTabId;
-	labelFa: string;
-	labelEn: string;
+	labelKey: string;
 	badge?: string;
 	icon: string;
 	path: string;
@@ -28,73 +27,63 @@ interface TabConfig {
 const TABS: TabConfig[] = [
 	{
 		id: 'dashboard',
-		labelFa: 'اتاق فرمان و تلمتری',
-		labelEn: 'Command Center',
+		labelKey: 'ownerTabsNav.dashboard',
 		badge: 'LIVE',
 		icon: 'space_dashboard',
 		path: '/owner/dashboard',
 	},
 	{
 		id: 'users',
-		labelFa: 'کاربران و کریدیت ⚡',
-		labelEn: 'Users & Credits ⚡',
+		labelKey: 'ownerTabsNav.users',
 		icon: 'group',
 		path: '/owner/users',
 	},
 	{
 		id: 'userbot',
-		labelFa: 'نشست‌های MTProto',
-		labelEn: 'MTProto Sessions',
+		labelKey: 'ownerTabsNav.userbot',
 		badge: 'CORE',
 		icon: 'hub',
 		path: '/owner/userbot',
 	},
 	{
 		id: 'settings',
-		labelFa: 'تعرفه و موتور ارزش‌گذاری',
-		labelEn: 'Pricing & Engine',
+		labelKey: 'ownerTabsNav.settings',
 		icon: 'tune',
 		path: '/owner/settings',
 	},
 	{
 		id: 'promos',
-		labelFa: 'کدهای هدیه کریدیت',
-		labelEn: 'Credit Promos',
+		labelKey: 'ownerTabsNav.promos',
 		icon: 'confirmation_number',
 		path: '/owner/promos',
 	},
 	{
 		id: 'finance',
-		labelFa: 'درآمد و Stars ⭐',
-		labelEn: 'Stars & Revenue',
+		labelKey: 'ownerTabsNav.finance',
 		icon: 'payments',
 		path: '/owner/finance',
 	},
 	{
 		id: 'broadcast',
-		labelFa: 'پیام همگانی',
-		labelEn: 'Broadcast',
+		labelKey: 'ownerTabsNav.broadcast',
 		icon: 'campaign',
 		path: '/owner/broadcast',
 	},
 	{
 		id: 'ads',
-		labelFa: 'بنرها و سرمایه‌گذاران',
-		labelEn: 'Banners & Media',
+		labelKey: 'ownerTabsNav.ads',
 		icon: 'ads_click',
 		path: '/owner/ads',
 	},
 	{
 		id: 'health',
-		labelFa: 'سلامت اوراکل‌ها و کش',
-		labelEn: 'Oracle Health',
+		labelKey: 'ownerTabsNav.health',
 		icon: 'monitor_heart',
 		path: '/owner/health',
 	},
 	{
 		id: 'audit-logs',
-		labelFa: 'لاگ امنیتی',
-		labelEn: 'Audit Ledger',
+		labelKey: 'ownerTabsNav.auditLogs',
 		icon: 'shield_lock',
 		path: '/owner/audit-logs',
 	},
@@ -107,7 +96,6 @@ interface OwnerTabsProps {
 export const OwnerTabs: Component<OwnerTabsProps> = (props) => {
 	const navigate = useNavigate();
 	let activeBtnRef: HTMLButtonElement | undefined;
-	const isFa = () => locale() === 'fa';
 
 	onMount(() => {
 		if (activeBtnRef?.scrollIntoView) {
@@ -124,8 +112,8 @@ export const OwnerTabs: Component<OwnerTabsProps> = (props) => {
 
 	return (
 		<nav
-			aria-label="Owner Command Navigation"
-			class="px-4 md:px-8 py-2.5 flex gap-2 overflow-x-auto relative z-10 border-b border-white/10 bg-[#0b0d14]/90 backdrop-blur-xl select-none scrollbar-none"
+			aria-label={t('ownerTabsNav.ariaLabel')}
+			class="px-4 md:px-8 py-2.5 flex gap-2 overflow-x-auto relative z-10 border-b border-white/[0.08] bg-[#11161d]/92 backdrop-blur-xl select-none scrollbar-none"
 		>
 			<For each={TABS}>
 				{(tab) => {
@@ -139,20 +127,20 @@ export const OwnerTabs: Component<OwnerTabsProps> = (props) => {
 							}}
 							onClick={() => handleNav(tab.path)}
 							aria-current={isActive() ? 'page' : undefined}
-							class={`h-9 px-3.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+							class={`h-9 px-3.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
 								isActive()
-									? 'bg-gradient-to-r from-[#3390ec] to-cyan-500 text-white shadow-lg shadow-[#3390ec]/25 border border-white/20'
-									: 'bg-white/[0.04] text-white/65 hover:bg-white/10 hover:text-white border border-white/5'
+									? 'bg-[#2990ff] text-white shadow-[0_6px_16px_rgba(41,144,255,0.28)] border border-white/15'
+									: 'bg-[#1b232d] text-[#c2cfde] hover:bg-[#232d3a] hover:text-white border border-white/[0.07]'
 							}`}
 						>
 							<span class="material-symbols-outlined text-[16px]">{tab.icon}</span>
-							<span>{isFa() ? tab.labelFa : tab.labelEn}</span>
+							<span>{t(tab.labelKey)}</span>
 							{tab.badge && (
 								<span
-									class={`px-1.5 py-0.2 rounded text-[9px] font-black tracking-wider ${
+									class={`px-1.5 py-0.2 rounded text-[9px] font-bold tracking-wider ${
 										isActive()
-											? 'bg-black/30 text-white'
-											: 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
+											? 'bg-black/25 text-white'
+											: 'bg-[#ffb340]/15 text-[#ffb340] border border-[#ffb340]/25'
 									}`}
 								>
 									{tab.badge}

@@ -1,6 +1,8 @@
 import { type Component, For } from 'solid-js';
 import type { CulturalScore } from '@/entities/numbers/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
+import { FragSectionHeader } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 interface Props {
 	radar?: CulturalScore[];
@@ -9,7 +11,6 @@ interface Props {
 }
 
 export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
-	// Deterministic fallback scores based on digits if radar empty
 	const clean = () => (props.number || '').replace(/\D/g, '').replace(/^888/, '');
 
 	const defaultScores = () => {
@@ -33,14 +34,14 @@ export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 		if (west > 95) west = 95;
 
 		return [
-			{ region: 'China / East Asia', score: cn, badge: 'Wealth & 8-Affinity', color: '#ef4444' },
-			{ region: 'Middle East / Arab', score: mena, badge: 'Symmetric VIP Code', color: '#0098EA' },
-			{ region: 'Russia / Eastern Europe', score: ru, badge: 'Telecom Mirror', color: '#10b981' },
+			{ region: 'China / East Asia', score: cn, badge: 'Wealth & 8-Affinity', color: '#ff5c6c' },
+			{ region: 'Middle East / Arab', score: mena, badge: 'Symmetric VIP Code', color: '#2990ff' },
+			{ region: 'Russia / Eastern Europe', score: ru, badge: 'Telecom Mirror', color: '#4cd964' },
 			{
 				region: 'Western & Web3 Natives',
 				score: west,
 				badge: 'Binary / Minimalist',
-				color: '#f59e0b',
+				color: '#ffb340',
 			},
 		];
 	};
@@ -51,68 +52,58 @@ export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 				region: item.market_name || item.region_key,
 				score: item.score,
 				badge: item.verdict_en || item.verdict_fa || 'Active',
-				color: item.score >= 80 ? '#10b981' : item.score >= 60 ? '#0098EA' : '#f59e0b',
+				color: item.score >= 80 ? '#4cd964' : item.score >= 60 ? '#2990ff' : '#ffb340',
 			}));
 		}
 		return defaultScores();
 	};
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
-			{/* Header */}
-			<div class="flex items-center justify-between border-b border-white/5 pb-3">
-				<div class="flex items-center gap-2.5">
-					<div class="w-9 h-9 rounded-[14px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA]">
-						<span class="material-symbols-outlined text-[20px]">radar</span>
-					</div>
-					<div class="flex flex-col">
-						<h4 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{layaT(NUMBERS_I18N.singleCulturalTitle)}
-						</h4>
-						<span class="text-[9px] font-mono text-white/40">
-							{layaT(NUMBERS_I18N.singleCulturalSubtitle)}
-						</span>
-					</div>
-				</div>
-				<span class="text-[9px] font-mono font-black text-cyan-400 bg-cyan-400/10 border border-cyan-400/30 px-2 py-0.5 rounded-md">
-					SYSTEM 1 RADAR
-				</span>
-			</div>
+		<div class="frag-card-elevated rounded-[16px] p-4 sm:p-5 text-start flex flex-col gap-3.5 relative overflow-hidden">
+			<FragSectionHeader
+				title={layaT(NUMBERS_I18N.singleCulturalTitle)}
+				subtitle={layaT(NUMBERS_I18N.singleCulturalSubtitle)}
+				icon="radar"
+				right={
+					<span class="text-[10.5px] font-mono font-semibold text-[#2990ff] bg-[#2990ff]/12 border border-[#2990ff]/25 px-2 py-0.5 rounded-[6px]">
+						{t('numReportCards.layaRadarBadge')}
+					</span>
+				}
+			/>
 
-			{/* 4 Regions Grid */}
 			<div class="grid grid-cols-2 gap-2.5">
 				<For each={radarList()}>
 					{(r) => (
-						<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 flex flex-col justify-between gap-1.5 shadow-inner">
-							<div class="flex items-center justify-between">
-								<span class="text-[10px] font-mono font-bold text-white/80 truncate">
-									{r.region}
-								</span>
-								<span class="text-[12px] font-mono font-black" style={{ color: r.color }}>
+						<div class="frag-inset rounded-[12px] p-3 flex flex-col justify-between gap-2">
+							<div class="flex items-center justify-between gap-1">
+								<span class="text-[11px] font-semibold text-[#d7e0e8] truncate">{r.region}</span>
+								<span
+									class="text-[12.5px] font-mono font-semibold tabular-nums shrink-0"
+									style={{ color: r.color }}
+								>
 									{r.score}%
 								</span>
 							</div>
 
-							<div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+							<div class="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
 								<div
 									class="h-full rounded-full transition-all duration-700"
 									style={{ width: `${r.score}%`, 'background-color': r.color }}
 								/>
 							</div>
 
-							<span class="text-[8px] font-mono text-white/40 truncate">{r.badge}</span>
+							<span class="text-[10.5px] font-mono text-[#60707c] truncate">{r.badge}</span>
 						</div>
 					)}
 				</For>
 			</div>
 
-			{/* Cultural Intelligence Summary */}
-			<div class="bg-gradient-to-r from-[#0098EA]/10 via-[#08090D] to-[#08090D] border border-[#0098EA]/20 rounded-[18px] p-3 flex flex-col gap-1">
-				<div class="flex items-center gap-1.5 text-[#0098EA] text-[10px] font-mono font-bold">
-					<span class="material-symbols-outlined text-[14px]">psychology</span>
+			<div class="frag-inset rounded-[12px] border-[#2990ff]/25 p-3 flex flex-col gap-1">
+				<div class="flex items-center gap-1.5 text-[#2990ff] text-[11.5px] font-semibold">
+					<span class="material-symbols-outlined text-[15px]">psychology</span>
 					<span>{layaT(NUMBERS_I18N.layaCulturalVerdict)}</span>
 				</div>
-				<p class="text-[10px] text-white/70 leading-relaxed font-mono">
+				<p class="text-[11.5px] text-[#c7d0d9] leading-relaxed">
 					{props.layaReasoning?.cultural_resonance ||
 						layaT(NUMBERS_I18N.layaCulturalDefaultSummary)}
 				</p>

@@ -402,6 +402,9 @@ func (c *Client) GetGiftFloor(ctx context.Context, model string) (decimal.Decima
 		colAddr = col.Address
 		if col.ExtraData.Floor != nil && strings.TrimSpace(*col.ExtraData.Floor) != "" {
 			if fl, decErr := decimal.NewFromString(strings.TrimSpace(*col.ExtraData.Floor)); decErr == nil && fl.GreaterThan(decimal.Zero) {
+				if fl.GreaterThan(decimal.NewFromInt(10_000_000)) {
+					fl = fl.Div(decimal.NewFromInt(1_000_000_000))
+				}
 				listings := 0
 				if col.ExtraData.OnSaleOnchain != nil && *col.ExtraData.OnSaleOnchain > 0 {
 					listings = *col.ExtraData.OnSaleOnchain
@@ -443,6 +446,10 @@ func (c *Client) GetGiftFloor(ctx context.Context, model string) (decimal.Decima
 			return decimal.Zero, len(resp.Items), fmt.Errorf("unable to parse min_bid %q: %w", first.MinBid, err)
 		}
 		floorPrice = decimal.NewFromFloat(f)
+	}
+
+	if floorPrice.GreaterThan(decimal.NewFromInt(10_000_000)) {
+		floorPrice = floorPrice.Div(decimal.NewFromInt(1_000_000_000))
 	}
 
 	return floorPrice, len(resp.Items), nil

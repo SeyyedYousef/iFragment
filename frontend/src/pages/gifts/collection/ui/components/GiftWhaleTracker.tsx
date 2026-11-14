@@ -104,9 +104,8 @@ export const GiftWhaleTracker: Component<Props> = (props) => {
 	const fmt = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 0 });
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
+		<div class="bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
 			{/* Decorative ambient aura */}
-			<div class="absolute -top-10 -left-10 w-44 h-44 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
 			{/* Header */}
 			<div class="flex items-center justify-between border-b border-white/5 pb-3 relative z-10">
@@ -131,7 +130,7 @@ export const GiftWhaleTracker: Component<Props> = (props) => {
 			{/* 3 Metric Summary Banner */}
 			<div class="grid grid-cols-3 gap-2.5">
 				{/* 1. Concentration */}
-				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 text-center flex flex-col gap-0.5">
+				<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3 text-center flex flex-col gap-0.5">
 					<span class="text-[8px] font-mono text-white/40 uppercase font-bold">
 						{layaT(GIFTS_I18N.top5Concentration)}
 					</span>
@@ -142,7 +141,7 @@ export const GiftWhaleTracker: Component<Props> = (props) => {
 				</div>
 
 				{/* 2. 24h Net Absorption */}
-				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 text-center flex flex-col gap-0.5">
+				<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3 text-center flex flex-col gap-0.5">
 					<span class="text-[8px] font-mono text-white/40 uppercase font-bold">
 						{layaT(GIFTS_I18N.netInflow24h)}
 					</span>
@@ -155,7 +154,7 @@ export const GiftWhaleTracker: Component<Props> = (props) => {
 				</div>
 
 				{/* 3. Smart Money Signal */}
-				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3 text-center flex flex-col gap-0.5">
+				<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3 text-center flex flex-col gap-0.5">
 					<span class="text-[8px] font-mono text-white/40 uppercase font-bold">
 						{layaT(GIFTS_I18N.smartMoneyBias)}
 					</span>
@@ -199,7 +198,7 @@ export const GiftWhaleTracker: Component<Props> = (props) => {
 									<span class="text-[9px] text-white/40">{layaT(GIFTS_I18N.itemsUnit)}</span>
 								</div>
 								<div class="flex items-center gap-1.5 text-[9px]">
-									<span class="text-[#0098EA] font-bold">{fmt(w.total_value_gram)} TON</span>
+									<span class="text-[#2990ff] font-bold">{fmt(w.total_value_gram)} TON</span>
 									<span class="text-emerald-400 font-bold">
 										{w.change_24h_count > 0 ? `+${w.change_24h_count}` : '0'} (24h)
 									</span>

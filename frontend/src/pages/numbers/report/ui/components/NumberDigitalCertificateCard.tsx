@@ -1,7 +1,9 @@
 import { type Component, createSignal } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard } from '@/shared/lib/telegram-native.js';
+import { FragSectionHeader, FragStat } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 interface Props {
 	certificateId?: string;
@@ -27,34 +29,27 @@ export const NumberDigitalCertificateCard: Component<Props> = (props) => {
 	};
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-3.5 relative overflow-hidden">
-			{/* Header */}
-			<div class="flex items-center justify-between border-b border-white/5 pb-3">
-				<div class="flex items-center gap-2.5">
-					<div class="w-9 h-9 rounded-[14px] bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-						<span class="material-symbols-outlined text-[20px]">verified_user</span>
-					</div>
-					<div class="flex flex-col">
-						<h4 class="text-[13px] font-black text-white font-mono uppercase tracking-wider">
-							{layaT(NUMBERS_I18N.digitalCertTitle)}
-						</h4>
-						<span class="text-[9px] font-mono text-white/40">
-							{layaT(NUMBERS_I18N.digitalCertSubtitle)}
-						</span>
-					</div>
-				</div>
-				<span class="text-[9px] font-mono font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-					HMAC-VERIFIED
-				</span>
-			</div>
+		<div class="frag-card-elevated rounded-[16px] p-4 sm:p-5 text-start flex flex-col gap-3.5 relative overflow-hidden">
+			<FragSectionHeader
+				title={layaT(NUMBERS_I18N.digitalCertTitle)}
+				subtitle={layaT(NUMBERS_I18N.digitalCertSubtitle)}
+				icon="verified_user"
+				right={
+					<span class="text-[10.5px] font-mono font-semibold text-[#4cd964] bg-[#4cd964]/12 border border-[#4cd964]/25 px-2 py-0.5 rounded-[6px]">
+						HMAC-VERIFIED
+					</span>
+				}
+			/>
 
-			{/* Certificate Serial & Copy */}
-			<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex items-center justify-between gap-2">
+			<div class="frag-inset rounded-[12px] p-3.5 flex items-center justify-between gap-2.5">
 				<div class="flex flex-col min-w-0">
-					<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
+					<span class="text-[11px] font-medium text-[#8c9ba5]">
 						{layaT(NUMBERS_I18N.uniqueCertificateId)}
 					</span>
-					<span class="text-[12px] font-mono font-black text-cyan-300 truncate" dir="ltr">
+					<span
+						class="text-[12.5px] font-mono font-semibold text-[#2990ff] truncate mt-0.5 tabular-nums"
+						dir="ltr"
+					>
 						{certId()}
 					</span>
 				</div>
@@ -62,29 +57,25 @@ export const NumberDigitalCertificateCard: Component<Props> = (props) => {
 				<button
 					type="button"
 					onClick={handleCopy}
-					class="p-2 rounded-[12px] bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all shrink-0 flex items-center gap-1 text-[10px] font-mono border border-white/10 active:scale-95"
+					class="px-2.5 py-1.5 rounded-[8px] frag-btn-secondary shrink-0 flex items-center gap-1 text-[11px] font-mono font-medium active:scale-95"
 				>
-					<span class="material-symbols-outlined text-[15px]">
+					<span class="material-symbols-outlined text-[15px] text-[#2990ff]">
 						{copied() ? 'check' : 'content_copy'}
 					</span>
 					<span>{copied() ? layaT(NUMBERS_I18N.copied) : layaT(NUMBERS_I18N.copyCertId)}</span>
 				</button>
 			</div>
 
-			{/* Certificate Metadata */}
-			<div class="grid grid-cols-3 gap-2 text-[10px] font-mono text-center">
-				<div class="bg-white/[0.02] border border-white/5 rounded-[14px] p-2 flex flex-col gap-0.5">
-					<span class="text-white/40 uppercase">{layaT(NUMBERS_I18N.engineLabel)}</span>
-					<span class="text-white font-bold">NV v7.0 LAYA</span>
-				</div>
-				<div class="bg-white/[0.02] border border-white/5 rounded-[14px] p-2 flex flex-col gap-0.5">
-					<span class="text-white/40 uppercase">{layaT(NUMBERS_I18N.confidenceLabel)}</span>
-					<span class="text-emerald-400 font-bold">{props.confidence || 88}%</span>
-				</div>
-				<div class="bg-white/[0.02] border border-white/5 rounded-[14px] p-2 flex flex-col gap-0.5">
-					<span class="text-white/40 uppercase">{layaT(NUMBERS_I18N.timestampLabel)}</span>
-					<span class="text-white/70 font-bold">{new Date().toLocaleDateString('en-GB')}</span>
-				</div>
+			<div class="grid grid-cols-3 gap-2">
+				<FragStat label={layaT(NUMBERS_I18N.engineLabel)}>
+					{t('numReportCards.engineValue')}
+				</FragStat>
+				<FragStat label={layaT(NUMBERS_I18N.confidenceLabel)}>
+					<span class="text-[#4cd964]">{props.confidence || 88}%</span>
+				</FragStat>
+				<FragStat label={layaT(NUMBERS_I18N.timestampLabel)}>
+					<span class="text-[#d7e0e8]">{new Date().toLocaleDateString('en-GB')}</span>
+				</FragStat>
 			</div>
 		</div>
 	);

@@ -1,12 +1,11 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi, type PromoCode } from '@/entities/owner/index.js';
-import { locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 
 export const OwnerPromos: Component = () => {
 	const queryClient = useQueryClient();
-	const isFa = () => locale() === 'fa';
 
 	const [code, setCode] = createSignal('');
 	const [creditAmount, setCreditAmount] = createSignal(10);
@@ -80,16 +79,8 @@ export const OwnerPromos: Component = () => {
 		<div class="space-y-6">
 			{/* Header */}
 			<div>
-				<h2 class="text-lg font-black text-white">
-					{isFa()
-						? 'مدیریت کدهای هدیه کریدیت ⚡ و اشتراک VIP (Credit Promo Codes)'
-						: 'Intel Credit ⚡ & VIP Promo Code Generator'}
-				</h2>
-				<p class="text-xs text-white/50">
-					{isFa()
-						? 'ساخت کدهای هدیه برای شارژ رایگان کریدیت ارزش‌گذاری (نام کاربری، +888 و گیفت) جهت کمپین‌های تبلیغاتی'
-						: 'Create redeemable promo codes that grant Intel Credits ⚡ and optional VIP Pro days'}
-				</p>
+				<h2 class="text-lg font-black text-white">{t('ownerPromoGen.title')}</h2>
+				<p class="text-xs text-white/50">{t('ownerPromoGen.subtitle')}</p>
 			</div>
 
 			<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -99,9 +90,7 @@ export const OwnerPromos: Component = () => {
 						<div class="flex items-center justify-between border-b border-white/10 pb-3">
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-outlined text-cyan-400">confirmation_number</span>
-								<h3 class="text-sm font-bold text-white">
-									{isFa() ? 'ساخت کد هدیه کریدیت جدید' : 'Create Credit Promo Code'}
-								</h3>
+								<h3 class="text-sm font-bold text-white">{t('ownerPromoGen.createCardTitle')}</h3>
 							</div>
 							<button
 								type="button"
@@ -109,18 +98,18 @@ export const OwnerPromos: Component = () => {
 								class="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 font-bold"
 							>
 								<span class="material-symbols-outlined text-xs">autorenew</span>
-								<span>{isFa() ? 'تولید تصادفی' : 'Random'}</span>
+								<span>{t('ownerPromoGen.randomBtn')}</span>
 							</button>
 						</div>
 
 						<form onSubmit={handleSubmit} class="space-y-3.5">
 							<div>
 								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									{isFa() ? 'کد هدیه (حروف بزرگ انگلیسی)' : 'Promo Code String'}
+									{t('ownerPromoGen.codeLabel')}
 								</label>
 								<input
 									type="text"
-									placeholder="e.g. GIFTWHALE25"
+									placeholder={t('ownerPromoGen.codePlaceholder')}
 									value={code()}
 									onInput={(e) => setCode(e.currentTarget.value.toUpperCase())}
 									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-xs font-mono uppercase text-white outline-none focus:border-cyan-400"
@@ -130,7 +119,7 @@ export const OwnerPromos: Component = () => {
 
 							<div>
 								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									{isFa() ? 'تعداد کریدیت هدیه (⚡ Intel Credits)' : 'Intel Credits Granted (⚡)'}
+									{t('ownerPromoGen.creditsGrantedLabel')}
 								</label>
 								<div class="grid grid-cols-4 gap-1.5 mb-2">
 									{[3, 10, 25, 100].map((val) => (
@@ -161,7 +150,7 @@ export const OwnerPromos: Component = () => {
 							<div class="grid grid-cols-2 gap-3">
 								<div>
 									<label class="block text-[11px] font-semibold text-white/60 mb-1">
-										{isFa() ? 'ظرفیت کل استفاده' : 'Max Redemptions'}
+										{t('ownerPromoGen.maxRedemptionsLabel')}
 									</label>
 									<input
 										type="number"
@@ -175,7 +164,7 @@ export const OwnerPromos: Component = () => {
 
 								<div>
 									<label class="block text-[11px] font-semibold text-white/60 mb-1">
-										{isFa() ? 'روزهای اشتراک VIP (اختیاری)' : 'Bonus VIP Days'}
+										{t('ownerPromoGen.bonusVipDaysLabel')}
 									</label>
 									<input
 										type="number"
@@ -190,13 +179,11 @@ export const OwnerPromos: Component = () => {
 
 							<div>
 								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									{isFa() ? 'یادداشت کمپین (اختیاری)' : 'Campaign Note (Optional)'}
+									{t('ownerPromoGen.noteLabel')}
 								</label>
 								<input
 									type="text"
-									placeholder={
-										isFa() ? 'مثلاً: هدیه اعضای کانال تلگرام' : 'e.g. Telegram Channel Giveaway'
-									}
+									placeholder={t('ownerPromoGen.notePlaceholder')}
 									value={note()}
 									onInput={(e) => setNote(e.currentTarget.value)}
 									class="w-full h-10 bg-white/5 border border-white/15 rounded-xl px-3.5 text-xs text-white outline-none focus:border-cyan-400"
@@ -205,7 +192,7 @@ export const OwnerPromos: Component = () => {
 
 							<div>
 								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									{isFa() ? 'تاریخ انقضا (اختیاری)' : 'Expiry Date (Optional)'}
+									{t('ownerPromoGen.expiryLabel')}
 								</label>
 								<input
 									type="datetime-local"
@@ -221,12 +208,8 @@ export const OwnerPromos: Component = () => {
 								class="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-xs font-black uppercase text-black rounded-xl transition-all disabled:opacity-40 shadow-lg shadow-cyan-500/20"
 							>
 								{createPromoMutation.isPending
-									? isFa()
-										? 'در حال ثبت کد...'
-										: 'Generating...'
-									: isFa()
-										? 'ثبت و فعال‌سازی کد هدیه ⚡'
-										: 'Create Credit Promo Code'}
+									? t('ownerPromoGen.generatingBtn')
+									: t('ownerPromoGen.createBtn')}
 							</button>
 						</form>
 					</div>
@@ -238,9 +221,7 @@ export const OwnerPromos: Component = () => {
 						<div class="flex items-center justify-between border-b border-white/10 pb-3">
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-outlined text-amber-400">redeem</span>
-								<h3 class="text-sm font-bold text-white">
-									{isFa() ? 'کدهای هدیه کریدیت فعال' : 'Active Intel Credit Promo Codes'}
-								</h3>
+								<h3 class="text-sm font-bold text-white">{t('ownerPromoGen.activeListTitle')}</h3>
 							</div>
 						</div>
 
@@ -248,11 +229,11 @@ export const OwnerPromos: Component = () => {
 							<table class="w-full text-left text-xs">
 								<thead>
 									<tr class="border-b border-white/10 text-white/40">
-										<th class="pb-3">{isFa() ? 'کد هدیه' : 'Promo Code'}</th>
-										<th class="pb-3">{isFa() ? 'پاداش کریدیت ⚡' : 'Credit Reward'}</th>
-										<th class="pb-3">{isFa() ? 'میزان استفاده' : 'Redemptions'}</th>
-										<th class="pb-3">{isFa() ? 'انقضا' : 'Expires'}</th>
-										<th class="pb-3 text-right">{isFa() ? 'عملیات' : 'Actions'}</th>
+										<th class="pb-3">{t('ownerPromoGen.thCode')}</th>
+										<th class="pb-3">{t('ownerPromoGen.thReward')}</th>
+										<th class="pb-3">{t('ownerPromoGen.thRedemptions')}</th>
+										<th class="pb-3">{t('ownerPromoGen.thExpires')}</th>
+										<th class="pb-3 text-right">{t('ownerPromoGen.thActions')}</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-white/5">
@@ -262,12 +243,8 @@ export const OwnerPromos: Component = () => {
 											<tr>
 												<td colspan="5" class="py-10 text-center text-white/40">
 													{promosQuery.isLoading
-														? isFa()
-															? 'در حال بارگذاری کدهای هدیه...'
-															: 'Loading promo codes...'
-														: isFa()
-															? 'هیچ کد هدیه‌ای ثبت نشده است'
-															: 'No promo codes found'}
+														? t('ownerPromoGen.loadingPromos')
+														: t('ownerPromoGen.noPromos')}
 												</td>
 											</tr>
 										}
@@ -322,16 +299,14 @@ export const OwnerPromos: Component = () => {
 														<td class="py-3 text-white/50 font-mono text-[11px]">
 															{promo.expires_at
 																? new Date(promo.expires_at).toLocaleDateString()
-																: isFa()
-																	? 'بدون انقضا'
-																	: 'Never'}
+																: t('ownerPromoGen.neverExpires')}
 														</td>
 														<td class="py-3 text-right">
 															<button
 																type="button"
 																onClick={() => setPromoToDelete(promo)}
 																class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
-																title="Delete Promo Code"
+																title={t('ownerPromoGen.deleteTooltip')}
 															>
 																<span class="material-symbols-outlined text-base">delete</span>
 															</button>
@@ -352,9 +327,9 @@ export const OwnerPromos: Component = () => {
 			<Show when={promoToDelete()}>
 				<DangerActionDialog
 					isOpen={true}
-					title={isFa() ? 'حذف کد هدیه کریدیت' : 'Delete Credit Promo Code'}
-					description={`Permanently invalidate promo code "${promoToDelete()?.code}"? Users will no longer be able to claim it.`}
-					actionLabel="Delete Promo Code"
+					title={t('ownerPromoGen.deleteTitle')}
+					description={t('ownerPromoGen.deleteDesc', { code: promoToDelete()?.code ?? '' })}
+					actionLabel={t('ownerPromoGen.deleteAction')}
 					riskLevel="medium"
 					requireReason={false}
 					loading={deleteMutation.isPending}

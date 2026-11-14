@@ -5,6 +5,7 @@ import { type CraftingEVData, giftsApi } from '@/entities/gifts/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import { TonIcon } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 interface CraftSlot {
 	id: string;
@@ -114,59 +115,57 @@ export const CraftingCalculatorPage: Component = () => {
 	};
 
 	return (
-		<div class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
-			{/* Ambient Light */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#FF9500]/20 via-[#0098EA]/10 to-transparent blur-[90px] pointer-events-none z-0" />
-
-			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
-				{/* Top Bar */}
-				<div class="flex items-center justify-between mb-4">
+		<div
+			class="frag-canvas pb-36 text-[#f3f5f8] min-h-screen font-sans relative overflow-x-clip"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
+			<div class="max-w-lg mx-auto px-4 pt-3.5 relative z-10">
+				{/* Navigation Header */}
+				<div class="flex items-center justify-between gap-2 mb-4">
 					<button
 						type="button"
-						onClick={() => navigate('/gifts/intel')}
-						class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs font-bold text-white/80 transition-all active:scale-95"
+						onClick={() => navigate('/gifts')}
+						class="w-10 h-10 rounded-xl bg-[#1b232d] border border-white/[0.08] flex items-center justify-center text-[#c2cfde] hover:text-white active:scale-95 transition-all"
 					>
-						<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_back</span>
-						<span>{t('gifts.backToIntel')}</span>
+						<span class="material-symbols-outlined text-[20px]">
+							{isRtl() ? 'arrow_forward' : 'arrow_back'}
+						</span>
 					</button>
+					<span class="px-3 py-1 rounded-full bg-[#1b232d] border border-[#ffb340]/25 text-[#ffb340] text-[11px] font-semibold inline-flex items-center gap-1.5">
+						<span class="material-symbols-outlined text-[14px]">whatshot</span>
+						{t('gifts.craftingBadge')}
+					</span>
+				</div>
 
-					<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold text-amber-300">
-						<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-						<span>{t('gifts.tenKMonteCarlo')}</span>
+				{/* Header Title Card */}
+				<div class="frag-card-elevated rounded-2xl p-4 mb-4 flex items-center gap-3.5">
+					<div class="w-12 h-12 rounded-2xl bg-[#141a22] border border-[#ffb340]/25 flex items-center justify-center shrink-0">
+						<span class="material-symbols-outlined text-[24px] text-[#ffb340]">
+							local_fire_department
+						</span>
+					</div>
+					<div class="min-w-0">
+						<h1 class="text-lg font-bold tracking-tight text-white">{t('gifts.craftingTitle')}</h1>
+						<p class="text-[12px] text-[#8ca0b5] mt-0.5 leading-snug">
+							{t('gifts.craftingSubtitle')}
+						</p>
 					</div>
 				</div>
 
-				<div class="text-center mb-5">
-					<div class="w-14 h-14 rounded-3xl bg-gradient-to-tr from-[#FF9500] to-[#FF3B30] p-[1px] mx-auto mb-2.5 shadow-lg shadow-[#FF9500]/20 flex items-center justify-center">
-						<div class="w-full h-full bg-[#0d111a] rounded-3xl flex items-center justify-center">
-							<span class="material-symbols-outlined text-3xl text-[#FF9500]">
-								local_fire_department
-							</span>
-						</div>
-					</div>
-					<h1 class="text-xl font-black text-white">{t('gifts.crafting')}</h1>
-					<p class="text-xs text-white/50 font-medium mt-1">{t('gifts.combineGiftsDesc')}</p>
-				</div>
-
-				<Show when={errorMsg()}>
-					<div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-3.5 mb-4 flex items-center gap-2.5 text-xs text-red-400">
-						<span class="material-symbols-outlined text-base shrink-0">error</span>
-						<span>{errorMsg()}</span>
-					</div>
-				</Show>
-
-				{/* Input Slots Workbench */}
-				<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl mb-4">
+				{/* Workbench Input Slots Card */}
+				<div class="frag-card-elevated rounded-2xl p-4 mb-4">
 					<div class="flex items-center justify-between mb-3">
-						<h3 class="text-sm font-black text-white">Input Gifts ({slots().length}/4)</h3>
+						<h2 class="text-xs font-semibold text-[#c2cfde]">
+							{t('gifts.burnInputTitle')} ({slots().length}/4)
+						</h2>
 						<Show when={slots().length < 4}>
 							<button
 								type="button"
 								onClick={addSlot}
-								class="px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-bold text-[#0098EA] flex items-center gap-1 transition-all active:scale-95"
+								class="frag-btn-secondary px-2.5 py-1.5 rounded-lg text-[#5aaeff] text-[11px] font-semibold flex items-center gap-1"
 							>
-								<span class="material-symbols-outlined text-sm">add</span>
-								<span>{t('gifts.addInput')}</span>
+								<span class="material-symbols-outlined text-[14px]">add</span>
+								{t('gifts.addSlot')}
 							</button>
 						</Show>
 					</div>
@@ -174,17 +173,30 @@ export const CraftingCalculatorPage: Component = () => {
 					<div class="space-y-2.5">
 						<For each={slots()}>
 							{(slot, idx) => (
-								<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3 flex items-center justify-between">
-									<div class="flex items-center gap-2.5">
-										<span class="w-6 h-6 rounded-lg bg-white/10 text-[11px] font-black flex items-center justify-center text-white/60">
-											{idx() + 1}
-										</span>
-										<div>
-											<h4 class="text-xs font-black text-white">{slot.name}</h4>
-											<span class="text-[10px] text-white/40 font-mono">
-												Value: {slot.valueGram} TON · {(slot.craftChancePermille / 10).toFixed(1)}%
-												weight
-											</span>
+								<div class="frag-inset rounded-xl p-3 flex items-center justify-between gap-2.5">
+									<div class="flex items-center gap-2.5 min-w-0">
+										<div class="w-9 h-9 rounded-lg bg-[#1b232d] border border-white/[0.08] flex items-center justify-center font-mono text-xs font-semibold text-[#5aaeff] shrink-0">
+											#{idx() + 1}
+										</div>
+										<div class="min-w-0">
+											<input
+												type="text"
+												value={slot.name}
+												onInput={(e) => {
+													const updated = [...slots()];
+													updated[idx()].name = e.currentTarget.value;
+													setSlots(updated);
+												}}
+												class="bg-transparent text-xs font-semibold text-white outline-none border-b border-transparent focus:border-[#2990ff] w-36 truncate"
+											/>
+											<div class="flex items-center gap-2 text-[11px] text-[#8ca0b5] font-mono tabular-nums mt-0.5">
+												<span dir="ltr" class="inline-flex items-center gap-1">
+													<TonIcon class="w-3 h-3" />
+													{slot.valueGram} {t('common.ton')}
+												</span>
+												<span>·</span>
+												<span class="text-[#ffb340]">{slot.craftChancePermille / 10}%</span>
+											</div>
 										</div>
 									</div>
 
@@ -192,10 +204,9 @@ export const CraftingCalculatorPage: Component = () => {
 										<button
 											type="button"
 											onClick={() => removeSlot(idx())}
-											class="w-7 h-7 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-colors"
-											title="Remove"
+											class="w-7 h-7 rounded-lg bg-[#ff5c6c]/10 border border-[#ff5c6c]/20 text-[#ff5c6c] hover:bg-[#ff5c6c]/20 flex items-center justify-center transition-colors shrink-0"
 										>
-											<span class="material-symbols-outlined text-sm">delete</span>
+											<span class="material-symbols-outlined text-[15px]">close</span>
 										</button>
 									</Show>
 								</div>
@@ -203,16 +214,33 @@ export const CraftingCalculatorPage: Component = () => {
 						</For>
 					</div>
 
+					{/* Error Toast */}
+					<Show when={errorMsg()}>
+						<div class="mt-3 p-3 rounded-xl bg-[#ff5c6c]/10 border border-[#ff5c6c]/25 text-xs text-[#ff8793] flex items-center gap-2">
+							<span class="material-symbols-outlined text-[16px] text-[#ff5c6c]">error</span>
+							<span>{errorMsg()}</span>
+						</div>
+					</Show>
+
+					{/* Run Monte Carlo Simulation Button */}
 					<button
 						type="button"
 						onClick={calculateEV}
 						disabled={evMutation.isPending}
-						class="w-full mt-4 h-13 rounded-2xl bg-gradient-to-r from-[#FF9500] via-[#FF5E3A] to-[#FF2A6D] text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#FF9500]/25 active:scale-[0.98] transition-all hover:brightness-110"
+						class="frag-btn-primary w-full mt-4 h-11 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
 					>
-						<span class="material-symbols-outlined text-lg">science</span>
-						<span>
-							{evMutation.isPending ? 'Simulating 10,000 runs...' : 'Simulate Crafting EV'}
-						</span>
+						<Show
+							when={evMutation.isPending}
+							fallback={
+								<>
+									<span class="material-symbols-outlined text-[19px]">calculate</span>
+									{t('gifts.simulateEvButton')}
+								</>
+							}
+						>
+							<span class="material-symbols-outlined text-[19px] animate-spin">sync</span>
+							{t('gifts.simulatingMonteCarlo')}
+						</Show>
 					</button>
 				</div>
 
@@ -220,62 +248,70 @@ export const CraftingCalculatorPage: Component = () => {
 				<Show when={calculationResult()}>
 					{(res) => (
 						<div class="space-y-4">
-							<div class="bg-[#12141C]/80 border border-amber-500/30 rounded-[28px] p-5 shadow-2xl">
+							<div class="frag-card-elevated rounded-2xl p-4 border-[#ffb340]/25">
 								<div class="flex items-center justify-between mb-3">
 									<span
-										class={`px-3 py-1 rounded-full text-xs font-black uppercase ${
+										class={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
 											res().recommendation === 'YES'
-												? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+												? 'bg-[#4cd964]/12 text-[#4cd964] border-[#4cd964]/30'
 												: res().recommendation === 'RISKY'
-													? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-													: 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+													? 'bg-[#ffb340]/12 text-[#ffb340] border-[#ffb340]/30'
+													: 'bg-[#ff5c6c]/12 text-[#ff5c6c] border-[#ff5c6c]/30'
 										}`}
 									>
-										{res().recommendation} {t('gifts.recommendation')}
+										{res().recommendation} · {t('gifts.recommendation')}
 									</span>
-									<span class="text-xs font-black text-white/50">
-										{res().simulated_iterations.toLocaleString()} Runs
+									<span class="text-[11px] font-mono text-[#8ca0b5] tabular-nums">
+										{res().simulated_iterations.toLocaleString()} runs
 									</span>
 								</div>
 
-								<h3 class="text-base font-black text-white mb-1">
+								<h3 class="text-base font-bold text-white mb-1">
 									{isRtl()
 										? res().verdict_summary_fa || res().verdict_summary_en
 										: res().verdict_summary_en}
 								</h3>
 
-								<div class="grid grid-cols-2 gap-2 text-xs my-4">
-									<div class="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.05]">
-										<span class="text-[10px] uppercase font-bold text-white/40 block">
+								<div class="grid grid-cols-2 gap-2.5 text-xs my-3.5">
+									<div class="frag-inset p-3 rounded-xl">
+										<span class="text-[10px] font-medium text-[#8ca0b5] block mb-1">
 											{t('gifts.expectedOutput')}
 										</span>
-										<span class="text-base font-black text-white font-mono">
+										<span
+											dir="ltr"
+											class="text-base font-bold text-white font-mono tabular-nums inline-flex items-center gap-1"
+										>
+											<TonIcon class="w-3.5 h-3.5" />
 											{res().expected_output_gram} {t('common.ton')}
 										</span>
-										<span class="text-[10px] text-white/40 block">
+										<span class="text-[11px] text-[#738598] font-mono block mt-0.5 tabular-nums">
 											(${res().expected_output_usd})
 										</span>
 									</div>
-									<div class="bg-white/[0.03] p-3 rounded-2xl border border-white/[0.05]">
-										<span class="text-[10px] uppercase font-bold text-white/40 block">
+									<div class="frag-inset p-3 rounded-xl">
+										<span class="text-[10px] font-medium text-[#8ca0b5] block mb-1">
 											{t('gifts.netExpectedRoi')}
 										</span>
 										<span
-											class={`text-base font-black font-mono ${
-												res().roi_percent > 0 ? 'text-emerald-400' : 'text-rose-400'
+											dir="ltr"
+											class={`text-base font-bold font-mono tabular-nums block ${
+												res().roi_percent > 0 ? 'text-[#4cd964]' : 'text-[#ff5c6c]'
 											}`}
 										>
 											{res().roi_percent > 0 ? `+${res().roi_percent}%` : `${res().roi_percent}%`}
 										</span>
-										<span class="text-[10px] text-white/40 block font-mono">
-											{res().net_ev_gram} {t('common.ton')} Net
+										<span class="text-[11px] text-[#738598] font-mono block mt-0.5 tabular-nums">
+											{res().net_ev_gram} {t('common.ton')} net
 										</span>
 									</div>
 								</div>
 
-								{/* Warning */}
-								<div class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 font-medium">
-									⚠️ {res().burn_warning_notice}
+								{/* Burn Warning */}
+								<div class="p-3 rounded-xl bg-[#ff5c6c]/10 border border-[#ff5c6c]/25 text-xs text-[#ff9aa4] flex items-start gap-2">
+									<span class="material-symbols-outlined text-[16px] text-[#ff5c6c] shrink-0 mt-0.5">
+										warning
+									</span>
+									<span>{res().burn_warning_notice}</span>
 								</div>
 							</div>
 						</div>

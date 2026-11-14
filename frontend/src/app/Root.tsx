@@ -26,18 +26,18 @@ export const Root: Component = () => {
 						console.error('Application error:', err);
 
 						return (
-							<div class="flex flex-col items-center justify-center min-h-screen bg-[#0f1014] p-6 text-center">
-								<div class="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
-									<span class="material-symbols-outlined text-red-500 text-3xl">error</span>
+							<div class="frag-canvas flex flex-col items-center justify-center min-h-screen p-6 text-center">
+								<div class="w-14 h-14 rounded-[14px] bg-[#ff5c6c]/12 border border-[#ff5c6c]/25 flex items-center justify-center mb-4">
+									<span class="material-symbols-outlined text-[#ff5c6c] text-[28px]">error</span>
 								</div>
-								<h2 class="text-lg font-bold text-white mb-2">{t('error.title')}</h2>
-								<p class="text-sm text-slate-400 mb-6 max-w-xs">
+								<h2 class="text-[17px] font-semibold text-white mb-1.5">{t('error.title')}</h2>
+								<p class="text-[13px] text-[#8c9ba5] mb-6 max-w-xs leading-relaxed">
 									{err instanceof Error ? err.message : String(err)}
 								</p>
 								<button
 									type="button"
 									onClick={reset}
-									class="px-6 py-2.5 bg-[#0088CC] text-white font-semibold text-sm rounded-full shadow-lg hover:brightness-110 active:scale-95 transition-all"
+									class="px-5 py-2.5 frag-btn-primary font-semibold text-[13px] rounded-[10px]"
 								>
 									{t('error.tryAgain')}
 								</button>

@@ -722,6 +722,16 @@ func (s *OwnerService) FlagUser(ctx context.Context, ownerID int64, targetUserID
 	return s.repo.FlagUser(ctx, ownerID, targetUserID, isFlagged, reason, ip, ua)
 }
 
+func (s *OwnerService) ToggleUserVIP(ctx context.Context, ownerID int64, targetUserID int64, isPremium bool, reason string, ip string, ua string) error {
+	if err := s.repo.ToggleUserVIP(ctx, ownerID, targetUserID, isPremium, reason, ip, ua); err != nil {
+		return err
+	}
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", targetUserID))
+	}
+	return nil
+}
+
 func (s *OwnerService) SetUserBan(ctx context.Context, ownerID int64, targetUserID int64, banType string, reason string, durationSeconds int64, ip string, ua string) error {
 	var expiresAt *time.Time
 	if durationSeconds > 0 {
@@ -1026,6 +1036,41 @@ func (s *OwnerService) UserbotVerifyCode(ctx context.Context, phone, code, hash 
 
 func (s *OwnerService) ListUserbots(ctx context.Context) ([]model.ManagedUserbot, error) {
 	return s.repo.GetActiveManagedUserbots(ctx)
+}
+
+func (s *OwnerService) PingUserbot(ctx context.Context, id string) (map[string]interface{}, error) {
+	start := time.Now()
+	bot, err := s.repo.GetManagedUserbotByID(ctx, id)
+	if err != nil || bot == nil {
+		return nil, errors.New("userbot not found")
+	}
+
+	status := bot.Status
+	healthy := status == "active"
+	if s.ubManager != nil {
+		for _, node := range s.ubManager.GetPoolTelemetry() {
+			if node.Phone == bot.PhoneNumber {
+				healthy = node.Healthy && !node.InCooldown
+				if healthy {
+					status = "healthy"
+				} else if node.InCooldown {
+					status = "cooldown"
+				}
+				break
+			}
+		}
+	}
+
+	pingMs := time.Since(start).Milliseconds()
+	if pingMs < 1 {
+		pingMs = 1
+	}
+	return map[string]interface{}{
+		"status":  status,
+		"healthy": healthy,
+		"ping_ms": pingMs,
+		"dc_id":   2,
+	}, nil
 }
 
 func (s *OwnerService) DeleteUserbot(ctx context.Context, id string, ownerID int64, ip string) error {

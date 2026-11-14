@@ -196,35 +196,35 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 			}}
 			onClick={props.onClose}
 		>
-			<div class="absolute inset-0 bg-[#030303]/90 backdrop-blur-2xl transition-opacity" />
+			<div class="absolute inset-0 bg-black/75 backdrop-blur-md transition-opacity" />
 
 			<Motion.div
 				initial={{ y: '100%', opacity: 0 }}
 				animate={{ y: 0, opacity: 1 }}
-				transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }}
-				class="relative bg-[#0D1017] border border-white/10 rounded-[32px] p-6 pb-8 w-full max-w-md mx-auto flex flex-col gap-4 shadow-[0_20px_60px_rgba(0,0,0,0.9)]"
+				transition={{ duration: 0.28, easing: [0.32, 0.72, 0, 1] }}
+				class="relative frag-sheet rounded-t-[24px] p-5 pb-7 w-full max-w-md mx-auto flex flex-col gap-3.5"
 				onClick={(e: Event) => e.stopPropagation()}
 			>
 				{/* Handle */}
-				<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto shrink-0" />
+				<div class="w-9 h-1 bg-white/20 rounded-full mx-auto shrink-0" />
 
 				{/* Header */}
-				<div class="flex items-center justify-between">
-					<div class="flex items-center gap-2.5">
-						<div class="w-10 h-10 rounded-[14px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shadow-inner">
+				<div class="flex items-center justify-between gap-3">
+					<div class="flex items-center gap-2.5 min-w-0">
+						<div class="w-10 h-10 rounded-[11px] bg-[#ffb340]/12 border border-[#ffb340]/25 flex items-center justify-center text-[#ffb340] shrink-0">
 							<span
-								class="material-symbols-outlined text-[22px]"
+								class="material-symbols-outlined text-[20px]"
 								style={{ 'font-variation-settings': '"FILL" 1' }}
 							>
 								star
 							</span>
 						</div>
-						<div class="flex flex-col">
-							<h3 class="text-white text-[17px] font-black tracking-tight">
+						<div class="flex flex-col min-w-0">
+							<h3 class="text-white text-[16px] font-semibold tracking-[-0.015em] truncate">
 								{t('emoji.title' as any) || 'Telegram Emoji Status'}
 							</h3>
-							<span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1">
-								<span>{t('emoji.proBonus' as any) || 'Bot API 9.3 · +500🪙 Reward'}</span>
+							<span class="text-[11px] text-[#ffb340] font-medium truncate">
+								{t('emoji.proBonus' as any) || 'Bot API 9.3 · +500 Reward'}
 							</span>
 						</div>
 					</div>
@@ -232,27 +232,29 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 					<button
 						type="button"
 						onClick={props.onClose}
-						class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 active:scale-95 transition-all"
+						class="w-8 h-8 rounded-[10px] frag-btn-secondary flex items-center justify-center text-[#8c9ba5] hover:text-white shrink-0"
 					>
 						<span class="material-symbols-outlined text-[18px]">close</span>
 					</button>
 				</div>
 
 				{/* Reward Banner */}
-				<div class="p-3.5 bg-gradient-to-r from-amber-500/10 via-[#0098EA]/10 to-transparent border border-amber-500/20 rounded-[20px] flex items-center justify-between gap-3">
-					<div class="flex items-center gap-2.5">
-						<span class="text-[24px]">🪙</span>
-						<div class="flex flex-col">
-							<span class="text-[12px] font-black text-amber-300">
+				<div class="p-3 frag-inset rounded-[12px] border-[#ffb340]/25 flex items-center justify-between gap-3">
+					<div class="flex items-center gap-2.5 min-w-0">
+						<div class="w-9 h-9 rounded-[9px] bg-[#ffb340]/12 border border-[#ffb340]/25 flex items-center justify-center text-[#ffb340] shrink-0">
+							<span class="material-symbols-outlined text-[19px]">monetization_on</span>
+						</div>
+						<div class="flex flex-col min-w-0">
+							<span class="text-[12.5px] font-semibold text-white truncate">
 								{t('emoji.rewardTitle' as any) || 'One-Time 500 Coin Bonus'}
 							</span>
-							<span class="text-[10px] text-white/50 font-bold">
+							<span class="text-[11px] text-[#8c9ba5] leading-snug">
 								{t('emoji.rewardDesc' as any) || 'Set your status to claim verified coins'}
 							</span>
 						</div>
 					</div>
 					<Show when={rewardClaimed()}>
-						<span class="text-[10px] px-2.5 py-1 rounded-[10px] bg-emerald-500/20 text-emerald-400 font-black border border-emerald-500/30">
+						<span class="text-[11px] px-2 py-0.5 rounded-[6px] bg-[#4cd964]/12 text-[#4cd964] font-semibold border border-[#4cd964]/30 shrink-0">
 							{t('emojiStatus.claimed')}
 						</span>
 					</Show>
@@ -272,19 +274,19 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 										} catch {}
 										setSelectedEmoji(emoji);
 									}}
-									class={`p-3 rounded-[20px] flex flex-col items-center gap-1.5 border transition-all active:scale-95 relative ${
+									class={`p-2.5 rounded-[12px] flex flex-col items-center gap-1 border transition-all active:scale-95 relative ${
 										isSelected()
-											? 'bg-[#0098EA]/20 border-[#0098EA] shadow-[0_0_15px_rgba(0,152,234,0.3)]'
-											: 'bg-[#07090E] border-white/5 hover:border-white/15'
+											? 'bg-[#2990ff]/14 border-[#2990ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]'
+											: 'bg-[#141a22] border-white/[0.07] hover:border-white/[0.14]'
 									}`}
 								>
-									<span class="text-[28px]">{emoji.symbol}</span>
-									<span class="text-[10px] font-black text-white/80 tracking-tight text-center">
+									<span class="text-[26px]">{emoji.symbol}</span>
+									<span class="text-[11px] font-medium text-[#d7e0e8] text-center leading-tight">
 										{emoji.title}
 									</span>
 									<Show when={emoji.requiresPro}>
-										<span class="absolute top-1.5 right-1.5 text-[8px] px-1.5 py-0.5 rounded-[6px] bg-cyan-500/20 text-cyan-300 font-black border border-cyan-500/30">
-											{'PRO'}
+										<span class="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0.5 rounded-[5px] bg-[#2990ff]/15 text-[#2990ff] font-semibold border border-[#2990ff]/30">
+											{t('common.proBadge')}
 										</span>
 									</Show>
 								</button>
@@ -294,8 +296,8 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 				</div>
 
 				{/* Duration Selector */}
-				<div class="flex flex-col gap-1.5 pt-1">
-					<span class="text-[11px] font-bold text-white/40 uppercase tracking-wider">
+				<div class="flex flex-col gap-1.5 pt-0.5">
+					<span class="text-[12px] font-medium text-[#8c9ba5]">
 						{t('emoji.duration' as any) || 'Duration'}
 					</span>
 					<div class="grid grid-cols-5 gap-1.5">
@@ -309,10 +311,10 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 										} catch {}
 										setSelectedDuration(dur.hours);
 									}}
-									class={`py-2 rounded-[12px] text-[11px] font-black border transition-all active:scale-95 ${
+									class={`py-2 rounded-[9px] font-mono text-[11.5px] font-semibold border transition-all active:scale-95 tabular-nums ${
 										selectedDuration() === dur.hours
-											? 'bg-[#0098EA] text-black border-[#0098EA]'
-											: 'bg-[#07090E] text-white/60 border-white/5 hover:text-white'
+											? 'bg-[#2990ff] text-white border-[#2990ff]'
+											: 'bg-[#141a22] text-[#8c9ba5] border-white/[0.07] hover:text-white'
 									}`}
 								>
 									{dur.label}
@@ -324,8 +326,8 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 
 				{/* Error Notice */}
 				<Show when={statusError()}>
-					<div class="p-3 rounded-[16px] bg-rose-500/15 border border-rose-500/30 text-rose-400 text-[11px] font-bold flex items-center gap-2">
-						<span class="material-symbols-outlined text-[16px]">error</span>
+					<div class="p-3 rounded-[10px] bg-[#ff5c6c]/12 border border-[#ff5c6c]/30 text-[#ff8591] text-[12px] font-medium flex items-center gap-2">
+						<span class="material-symbols-outlined text-[16px] text-[#ff5c6c]">error</span>
 						<span>{statusError()}</span>
 					</div>
 				</Show>
@@ -335,16 +337,16 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 					type="button"
 					disabled={isSetting()}
 					onClick={handleApplyStatus}
-					class="w-full py-3.5 rounded-[18px] bg-gradient-to-r from-[#0098EA] to-[#00b4d8] hover:opacity-95 active:scale-[0.98] disabled:opacity-50 text-black font-black text-[14px] tracking-wide transition-all shadow-[0_4px_20px_rgba(0,152,234,0.4)] flex items-center justify-center gap-2"
+					class="w-full h-12 rounded-[12px] frag-btn-primary disabled:opacity-50 font-semibold text-[13.5px] flex items-center justify-center gap-2"
 				>
 					<Show
 						when={!isSetting()}
 						fallback={
-							<div class="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+							<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
 						}
 					>
 						<span class="material-symbols-outlined text-[18px]">verified</span>
-						<span>{t('emoji.setNow' as any) || 'Set Emoji Status & Claim 500🪙'}</span>
+						<span>{t('emoji.setNow' as any) || 'Set Emoji Status'}</span>
 					</Show>
 				</button>
 			</Motion.div>

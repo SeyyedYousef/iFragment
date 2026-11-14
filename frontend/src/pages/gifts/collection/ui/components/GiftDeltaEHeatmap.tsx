@@ -3,7 +3,8 @@ import type {
 	CollectionBackdropSummary,
 	CollectionModelFloor,
 } from '@/entities/gifts/model/types.js';
-import { GIFTS_I18N, type LocalizedText, layaT } from '@/shared/i18n/laya-i18n.js';
+import { t } from '@/shared/i18n/index.js';
+import { GIFTS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
 	collectionName: string;
@@ -18,7 +19,7 @@ interface HarmonicPair {
 	centerHex: string;
 	edgeHex: string;
 	deltaEScore: number; // 0 to 100
-	harmonyLabel: LocalizedText;
+	harmonyKey: string;
 	aestheticMultiplier: number; // e.g. 1.25x
 	estValueTon: number;
 }
@@ -137,12 +138,7 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				centerHex: sampleBackdrops[0]?.center_hex || '#0d1117',
 				edgeHex: sampleBackdrops[0]?.edge_hex || '#161b22',
 				deltaEScore: 96,
-				harmonyLabel: {
-					en: 'Legendary Royal Contrast Harmony',
-					fa: 'هارمونی افسانه‌ای کنتراست شاهانه',
-					ru: 'Легендарная королевская гармония контраста',
-					zh: '传奇皇家极致对比色和谐',
-				},
+				harmonyKey: 'giftsDeltaE.harmony_0',
 				aestheticMultiplier: 1.32,
 				estValueTon: Math.round(bf * 2.8 * 10) / 10,
 			},
@@ -152,12 +148,7 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				centerHex: sampleBackdrops[2]?.center_hex || '#002b36',
 				edgeHex: sampleBackdrops[2]?.edge_hex || '#00f7ff',
 				deltaEScore: 91,
-				harmonyLabel: {
-					en: 'Luminous Neon Maximal Pop',
-					fa: 'کنتراست درخشان نئونی با بازتاب حداکثری',
-					ru: 'Яркий неоновый максимальный контраст',
-					zh: '璀璨霓虹极致视效张力',
-				},
+				harmonyKey: 'giftsDeltaE.harmony_1',
 				aestheticMultiplier: 1.22,
 				estValueTon: Math.round(bf * 2.1 * 10) / 10,
 			},
@@ -167,12 +158,7 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				centerHex: sampleBackdrops[1]?.center_hex || '#2b2100',
 				edgeHex: sampleBackdrops[1]?.edge_hex || '#ffd700',
 				deltaEScore: 85,
-				harmonyLabel: {
-					en: 'Analogous Luxury Golden Radiance',
-					fa: 'ترکیب هم‌خانواده لوکس با درخشش متقارن',
-					ru: 'Роскошное золотистое сияние схожих тонов',
-					zh: '同色系奢华璀璨流金',
-				},
+				harmonyKey: 'giftsDeltaE.harmony_2',
 				aestheticMultiplier: 1.15,
 				estValueTon: Math.round(bf * 1.7 * 10) / 10,
 			},
@@ -182,12 +168,7 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				centerHex: sampleBackdrops[4]?.center_hex || '#0a192f',
 				edgeHex: sampleBackdrops[4]?.edge_hex || '#10b981',
 				deltaEScore: 79,
-				harmonyLabel: {
-					en: 'Midnight Aurora Cool Temperature',
-					fa: 'هارمونی شفق قطبی با تمپریچر سرد',
-					ru: 'Северное сияние в холодной гамме',
-					zh: '午夜极光清冷雅致协同',
-				},
+				harmonyKey: 'giftsDeltaE.harmony_3',
 				aestheticMultiplier: 1.1,
 				estValueTon: Math.round(bf * 1.4 * 10) / 10,
 			},
@@ -197,12 +178,7 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				centerHex: sampleBackdrops[3]?.center_hex || '#1e102d',
 				edgeHex: sampleBackdrops[3]?.edge_hex || '#8a2be2',
 				deltaEScore: 68,
-				harmonyLabel: {
-					en: 'Velvet Amethyst Balanced Fluidity',
-					fa: 'ترکیب مخملی با ضریب نقدشوندگی استاندارد',
-					ru: 'Бархатно-аметистовая сбалансированная гармония',
-					zh: '丝绒紫晶稳健平衡流动',
-				},
+				harmonyKey: 'giftsDeltaE.harmony_4',
 				aestheticMultiplier: 1.05,
 				estValueTon: Math.round(bf * 1.15 * 10) / 10,
 			},
@@ -214,14 +190,13 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 	const fmt = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 });
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
+		<div class="bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
 			{/* Decorative background aura */}
-			<div class="absolute -bottom-10 -left-10 w-44 h-44 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
 			{/* Header */}
 			<div class="flex items-center justify-between border-b border-white/5 pb-3 relative z-10">
 				<div class="flex items-center gap-2.5">
-					<div class="w-9 h-9 rounded-[14px] bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
+					<div class="w-9 h-9 rounded-[14px] bg-[#2990ff]/12 border border-[#2990ff]/28 flex items-center justify-center text-[#5aaeff]">
 						<span class="material-symbols-outlined text-[20px]">palette</span>
 					</div>
 					<div class="flex flex-col">
@@ -233,24 +208,24 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 						</span>
 					</div>
 				</div>
-				<span class="text-[9px] font-mono font-black text-purple-400 bg-purple-500/10 border border-purple-500/30 px-2 py-0.5 rounded-md">
-					COLOR SCIENCE
+				<span class="text-[9px] font-mono font-black text-[#5aaeff] bg-[#2990ff]/10 border border-[#2990ff]/28 px-2 py-0.5 rounded-md">
+					{t('giftsDeltaE.colorScience')}
 				</span>
 			</div>
 
 			{/* Chromatic Theory Info Card */}
-			<div class="bg-gradient-to-r from-purple-950/30 via-[#0A0D14] to-[#08090D] border border-purple-500/25 rounded-[20px] p-3.5 flex items-center justify-between gap-3">
+			<div class="bg-gradient-to-r bg-[#141a22] border border-[#2990ff]/25 rounded-[20px] p-3.5 flex items-center justify-between gap-3">
 				<div class="flex flex-col gap-0.5">
-					<span class="text-[10px] font-mono font-black text-purple-300 uppercase tracking-wider">
+					<span class="text-[10px] font-mono font-black text-[#7ec0ff] uppercase tracking-wider">
 						{layaT(GIFTS_I18N.aestheticMultiplierTitle)}
 					</span>
 					<p class="text-[10px] text-white/70 leading-relaxed font-sans">
 						{layaT(GIFTS_I18N.aestheticMultiplierText)}
 					</p>
 				</div>
-				<div class="bg-[#050B11] border border-purple-500/30 px-3 py-2 rounded-[14px] shrink-0 text-center font-mono">
-					<span class="text-[8px] text-white/40 block uppercase">MAX BOOST</span>
-					<span class="text-[16px] font-black text-purple-400">+32%</span>
+				<div class="bg-[#141a22] border border-[#2990ff]/28 px-3 py-2 rounded-[14px] shrink-0 text-center font-mono">
+					<span class="text-[8px] text-white/40 block uppercase">{t('giftsDeltaE.maxBoost')}</span>
+					<span class="text-[16px] font-black text-[#5aaeff]">+32%</span>
 				</div>
 			</div>
 
@@ -263,7 +238,7 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 				<div class="flex flex-col gap-2">
 					<For each={harmonicPairs()}>
 						{(pair, idx) => (
-							<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+							<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 								<div class="flex items-center gap-3">
 									{/* Palette preview badge */}
 									<div
@@ -283,27 +258,31 @@ export const GiftDeltaEHeatmap: Component<Props> = (props) => {
 											<span class="text-[9px] font-mono text-white/40">×</span>
 											<span class="text-xs font-bold text-white/80">{pair.backdropName}</span>
 										</div>
-										<span class="text-[9px] font-mono text-purple-300">
-											{layaT(pair.harmonyLabel)}
-										</span>
+										<span class="text-[9px] font-mono text-[#7ec0ff]">{t(pair.harmonyKey)}</span>
 									</div>
 								</div>
 
 								{/* Metric & Multiplier pills */}
 								<div class="flex items-center justify-between sm:justify-end gap-3 font-mono shrink-0">
 									<div class="flex flex-col items-end">
-										<span class="text-[8px] text-white/40 uppercase">ΔE HARMONY</span>
-										<span class="text-xs font-black text-purple-400">{pair.deltaEScore}/100</span>
+										<span class="text-[8px] text-white/40 uppercase">
+											{t('giftsDeltaE.deltaEHarmony')}
+										</span>
+										<span class="text-xs font-black text-[#5aaeff]">{pair.deltaEScore}/100</span>
 									</div>
 
-									<div class="flex flex-col items-end bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-[10px]">
-										<span class="text-[8px] text-white/40 uppercase">VALUATION</span>
+									<div class="flex flex-col items-end bg-[#2990ff]/10 border border-[#2990ff]/20 px-2.5 py-1 rounded-[10px]">
+										<span class="text-[8px] text-white/40 uppercase">
+											{t('giftsDeltaE.valuation')}
+										</span>
 										<div class="flex items-baseline gap-1">
 											<span class="text-xs font-black text-white">{fmt(pair.estValueTon)}</span>
-											<span class="text-[9px] text-[#0098EA] font-bold">TON</span>
+											<span class="text-[9px] text-[#2990ff] font-bold">{t('common.ton')}</span>
 										</div>
 										<span class="text-[8px] text-emerald-400 font-bold">
-											+{Math.round((pair.aestheticMultiplier - 1) * 100)}% Boost
+											{t('giftsDeltaE.boostPct', {
+												pct: Math.round((pair.aestheticMultiplier - 1) * 100),
+											})}
 										</span>
 									</div>
 								</div>

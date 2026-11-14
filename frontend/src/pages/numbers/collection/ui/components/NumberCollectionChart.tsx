@@ -1,6 +1,6 @@
 import { type Component, createSignal, For, Show } from 'solid-js';
 import type { NumberCollectionHistoryPoint } from '@/entities/numbers/model/types.js';
-import { useI18n } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface ChartProps {
 	points: NumberCollectionHistoryPoint[];
@@ -10,70 +10,7 @@ interface ChartProps {
 	isLoading?: boolean;
 }
 
-const CHART_COPY: Record<
-	string,
-	{
-		priceMode: string;
-		volumeMode: string;
-		loadingData: string;
-		noSalesFound: string;
-		zeroSyntheticHint: string;
-		floorLabel: string;
-		medianLabel: string;
-		volumeDealsLabel: string;
-		dealsWord: string;
-	}
-> = {
-	fa: {
-		priceMode: 'قیمت و کف (Price)',
-		volumeMode: 'حجم و معاملات (Volume)',
-		loadingData: 'در حال دریافت داده‌های تاییدشده...',
-		noSalesFound: 'در این بازه فروش تأییدشده‌ای پیدا نشد',
-		zeroSyntheticHint: 'هیچ داده فرضی یا سینوسی برای این بازه رسم نمی‌شود',
-		floorLabel: 'کف قیمت (Floor):',
-		medianLabel: 'میانه فروش (Median):',
-		volumeDealsLabel: 'تعداد معاملات / حجم:',
-		dealsWord: 'معامله',
-	},
-	en: {
-		priceMode: 'Floor & Price',
-		volumeMode: 'Volume & Sales',
-		loadingData: 'Loading verified on-chain series...',
-		noSalesFound: 'No verified sales in this window',
-		zeroSyntheticHint: 'Zero synthetic curves — only verified on-chain settlements are plotted',
-		floorLabel: 'Floor Price:',
-		medianLabel: 'Median Sale:',
-		volumeDealsLabel: 'Sales / Volume:',
-		dealsWord: 'sales',
-	},
-	ru: {
-		priceMode: 'Пол и цена',
-		volumeMode: 'Объём и сделки',
-		loadingData: 'Загрузка подтверждённых данных...',
-		noSalesFound: 'Нет подтверждённых сделок за период',
-		zeroSyntheticHint: 'Без синтетики — отображаются только реальные ончейн-сделки',
-		floorLabel: 'Пол (Floor):',
-		medianLabel: 'Медиана продаж:',
-		volumeDealsLabel: 'Сделки / Объём:',
-		dealsWord: 'сделок',
-	},
-	zh: {
-		priceMode: '地板价走势',
-		volumeMode: '成交量与笔数',
-		loadingData: '正在加载链上真实历史序列...',
-		noSalesFound: '该时间段暂无已验证成交',
-		zeroSyntheticHint: '零虚拟拟合曲线 — 仅绘制真实链上结算数据',
-		floorLabel: '地板价 (Floor):',
-		medianLabel: '成交中位数:',
-		volumeDealsLabel: '成交笔数 / 交易量:',
-		dealsWord: '笔',
-	},
-};
-
 export const NumberCollectionChart: Component<ChartProps> = (props) => {
-	const { locale } = useI18n();
-	const copy = () => CHART_COPY[locale()] || CHART_COPY.fa;
-
 	const [chartMode, setChartMode] = createSignal<'price' | 'volume'>('price');
 	const [currency, setCurrency] = createSignal<'TON' | 'USD'>('TON');
 	const [hoveredPoint, setHoveredPoint] = createSignal<NumberCollectionHistoryPoint | null>(null);
@@ -131,7 +68,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 	};
 
 	return (
-		<div class="bg-gradient-to-br from-[#0c101a] to-[#07090e] border border-white/[0.08] rounded-3xl p-4 mb-4 shadow-xl relative">
+		<div class="bg-gradient-to-br from-[#0c101a] to-[#07090e] border border-white/[0.08] rounded-[16px] p-4 mb-4 shadow-xl relative">
 			{/* Chart Controls Bar */}
 			<div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
 				{/* Mode Switch: Price vs Volume */}
@@ -141,22 +78,22 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 						onClick={() => setChartMode('price')}
 						class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
 							chartMode() === 'price'
-								? 'bg-[#0098EA] text-white shadow-sm'
+								? 'bg-[#2990ff] text-white shadow-sm'
 								: 'text-white/50 hover:text-white'
 						}`}
 					>
-						{copy().priceMode}
+						{t('numCollectionChart.priceMode')}
 					</button>
 					<button
 						type="button"
 						onClick={() => setChartMode('volume')}
 						class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
 							chartMode() === 'volume'
-								? 'bg-[#0098EA] text-white shadow-sm'
+								? 'bg-[#2990ff] text-white shadow-sm'
 								: 'text-white/50 hover:text-white'
 						}`}
 					>
-						{copy().volumeMode}
+						{t('numCollectionChart.volumeMode')}
 					</button>
 				</div>
 
@@ -169,7 +106,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 							currency() === 'TON' ? 'bg-cyan-500/20 text-cyan-300' : 'text-white/40'
 						}`}
 					>
-						TON
+						{t('common.ton')}
 					</button>
 					<button
 						type="button"
@@ -178,7 +115,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 							currency() === 'USD' ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/40'
 						}`}
 					>
-						USD
+						{t('numCollectionChart.usdUnit')}
 					</button>
 				</div>
 
@@ -209,16 +146,20 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 					fallback={
 						<div class="text-center py-8">
 							<Show when={props.isLoading}>
-								<div class="w-6 h-6 border-2 border-[#0098EA]/30 border-t-[#0098EA] rounded-full animate-spin mx-auto mb-2" />
-								<span class="text-xs text-white/40 font-mono">{copy().loadingData}</span>
+								<div class="w-6 h-6 border-2 border-[#2990ff]/30 border-t-[#2990ff] rounded-full animate-spin mx-auto mb-2" />
+								<span class="text-xs text-white/40 font-mono">
+									{t('numCollectionChart.loadingData')}
+								</span>
 							</Show>
 							<Show when={!props.isLoading && (!props.points || props.points.length === 0)}>
 								<span class="material-symbols-outlined text-3xl text-white/20 mb-1 block">
 									query_stats
 								</span>
-								<span class="text-xs font-medium text-white/50 block">{copy().noSalesFound}</span>
+								<span class="text-xs font-medium text-white/50 block">
+									{t('numCollectionChart.noSalesFound')}
+								</span>
 								<span class="text-[10px] text-white/30 block mt-0.5 font-mono">
-									{copy().zeroSyntheticHint}
+									{t('numCollectionChart.zeroSyntheticHint')}
 								</span>
 							</Show>
 						</div>
@@ -234,12 +175,12 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 							<linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
 								<stop
 									offset="0%"
-									stop-color={chartMode() === 'price' ? '#0098EA' : '#10b981'}
+									stop-color={chartMode() === 'price' ? '#2990ff' : '#10b981'}
 									stop-opacity="0.35"
 								/>
 								<stop
 									offset="100%"
-									stop-color={chartMode() === 'price' ? '#0098EA' : '#10b981'}
+									stop-color={chartMode() === 'price' ? '#2990ff' : '#10b981'}
 									stop-opacity="0.0"
 								/>
 							</linearGradient>
@@ -252,7 +193,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 						<path
 							d={chartData()!.pathD}
 							fill="none"
-							stroke={chartMode() === 'price' ? '#0098EA' : '#10b981'}
+							stroke={chartMode() === 'price' ? '#2990ff' : '#10b981'}
 							stroke-width="2.5"
 							stroke-linecap="round"
 							stroke-linejoin="round"
@@ -265,8 +206,8 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 									cx={pt.x}
 									cy={pt.y}
 									r={hoveredPoint() === pt.point ? '5' : '2.5'}
-									class="transition-all cursor-pointer fill-[#030303]"
-									stroke={chartMode() === 'price' ? '#0098EA' : '#10b981'}
+									class="transition-all cursor-pointer fill-[#141a22]"
+									stroke={chartMode() === 'price' ? '#2990ff' : '#10b981'}
 									stroke-width="2"
 									onMouseEnter={() => setHoveredPoint(pt.point)}
 									onTouchStart={() => setHoveredPoint(pt.point)}
@@ -277,7 +218,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 
 					{/* Tooltip Overlay */}
 					<Show when={hoveredPoint()}>
-						<div class="absolute bottom-2 left-3 bg-[#121622]/95 border border-white/10 backdrop-blur-md rounded-xl p-2.5 shadow-2xl text-[10px] pointer-events-none z-20 space-y-1">
+						<div class="absolute bottom-2 left-3 frag-sheet rounded-xl p-2.5 shadow-[0_12px_32px_rgba(0,0,0,0.38)] text-[10px] pointer-events-none z-20 space-y-1">
 							<div class="flex items-center justify-between gap-4 font-mono text-white/50 border-b border-white/10 pb-1">
 								<span>{new Date(hoveredPoint()!.timestamp).toUTCString().slice(0, 22)}</span>
 								<span class="text-emerald-400 font-bold uppercase">
@@ -286,7 +227,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 							</div>
 
 							<div class="flex items-center justify-between gap-4">
-								<span class="text-white/60">{copy().floorLabel}</span>
+								<span class="text-white/60">{t('numCollectionChart.floorLabel')}</span>
 								<span class="font-mono font-bold text-white">
 									{currency() === 'TON'
 										? `${fmtNum(hoveredPoint()!.floor_ton)} TON`
@@ -296,7 +237,7 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 
 							<Show when={hoveredPoint()!.median_sale_ton}>
 								<div class="flex items-center justify-between gap-4">
-									<span class="text-white/60">{copy().medianLabel}</span>
+									<span class="text-white/60">{t('numCollectionChart.medianLabel')}</span>
 									<span class="font-mono font-bold text-emerald-400">
 										{currency() === 'TON'
 											? `${fmtNum(hoveredPoint()!.median_sale_ton)} TON`
@@ -306,9 +247,9 @@ export const NumberCollectionChart: Component<ChartProps> = (props) => {
 							</Show>
 
 							<div class="flex items-center justify-between gap-4">
-								<span class="text-white/60">{copy().volumeDealsLabel}</span>
+								<span class="text-white/60">{t('numCollectionChart.volumeDealsLabel')}</span>
 								<span class="font-mono font-bold text-cyan-300">
-									{hoveredPoint()!.sales_count} {copy().dealsWord} ·{' '}
+									{hoveredPoint()!.sales_count} {t('numCollectionChart.dealsWord')} ·{' '}
 									{currency() === 'TON'
 										? `${fmtNum(hoveredPoint()!.volume_ton)} TON`
 										: `$${fmtNum(hoveredPoint()!.volume_usd)}`}

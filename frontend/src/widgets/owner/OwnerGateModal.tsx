@@ -2,7 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { type Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '../../entities/owner/api/ownerApi.js';
-import { locale, t } from '../../shared/i18n/index.js';
+import { t } from '../../shared/i18n/index.js';
 import { haptic } from '../../shared/lib/haptic.js';
 
 interface OwnerGateModalProps {
@@ -12,7 +12,6 @@ interface OwnerGateModalProps {
 
 export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 	const navigate = useNavigate();
-	const isFa = () => locale() === 'fa';
 	const [step, setStep] = createSignal<'password' | 'mfa'>('password');
 	const [password, setPassword] = createSignal('');
 	const [showPassword, setShowPassword] = createSignal(false);
@@ -201,7 +200,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 				<div
 					role="dialog"
 					aria-modal="true"
-					class="w-full max-w-sm max-h-[90vh] overflow-y-auto no-scrollbar bg-gradient-to-b from-[#181920] via-[#121318] to-[#0b0c10] border border-amber-500/25 rounded-[32px] p-6 shadow-[0_0_50px_rgba(245,158,11,0.12)] relative text-white"
+					class="w-full max-w-sm max-h-[90vh] overflow-y-auto no-scrollbar frag-sheet border border-[#ffb340]/25 rounded-[26px] p-6 shadow-[0_0_50px_rgba(245,158,11,0.12)] relative text-white"
 					onClick={(e) => e.stopPropagation()}
 				>
 					{/* Close button */}
@@ -220,7 +219,6 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 							<span class="material-symbols-outlined text-[32px] text-amber-400 select-none">
 								{step() === 'mfa' ? 'lock_clock' : 'admin_panel_settings'}
 							</span>
-							<div class="absolute -top-1 -end-1 w-3 h-3 rounded-full bg-amber-400 animate-ping opacity-75" />
 							<div class="absolute -top-1 -end-1 w-3 h-3 rounded-full bg-amber-400" />
 						</div>
 						<h2 class="text-base sm:text-lg font-black uppercase tracking-wider text-white">
@@ -256,7 +254,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 										placeholder={t('ownerGate.telegramUserIdPlaceholder')}
 										value={manualTgId()}
 										onInput={(e) => setManualTgId(e.currentTarget.value)}
-										class="w-full h-12 px-4 bg-[#0a0b0f] border border-white/15 focus:border-amber-400 text-white text-sm rounded-2xl shadow-inner focus:outline-none transition-all placeholder:text-white/25 font-mono"
+										class="w-full h-12 px-4 bg-[#141a22] border border-white/15 focus:border-amber-400 text-white text-sm rounded-2xl shadow-inner focus:outline-none transition-all placeholder:text-white/25 font-mono"
 										disabled={loading()}
 									/>
 								</div>
@@ -269,7 +267,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 									value={password()}
 									ref={passwordInputRef}
 									onInput={(e) => setPassword(e.currentTarget.value)}
-									class="w-full h-14 ps-4 pe-12 bg-[#0a0b0f] border border-white/15 focus:border-amber-400 text-white text-base rounded-2xl shadow-inner focus:outline-none transition-all placeholder:text-white/30"
+									class="w-full h-14 ps-4 pe-12 bg-[#141a22] border border-white/15 focus:border-amber-400 text-white text-base rounded-2xl shadow-inner focus:outline-none transition-all placeholder:text-white/30"
 									disabled={loading()}
 									autocomplete="current-password"
 								/>
@@ -304,20 +302,18 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 								</Show>
 							</button>
 
-							{/* Direct Sovereign Owner Quick Enter */}
-							<button
-								type="button"
-								disabled={loading()}
-								onClick={() => executeLogin('sovereign_owner_master')}
-								class="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-cyan-300 text-[11px] font-bold transition flex items-center justify-center gap-1.5"
-							>
-								<span class="material-symbols-outlined text-sm">key</span>
-								<span>
-									{isFa()
-										? 'ورود مستقیم مالک در محیط مدیریت (Sovereign Access)'
-										: 'Direct Sovereign Owner Access'}
-								</span>
-							</button>
+							<Show when={import.meta.env.DEV}>
+								{/* Direct Sovereign Owner Quick Enter (dev-only) */}
+								<button
+									type="button"
+									disabled={loading()}
+									onClick={() => executeLogin('sovereign_owner_master')}
+									class="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-cyan-300 text-[11px] font-bold transition flex items-center justify-center gap-1.5"
+								>
+									<span class="material-symbols-outlined text-sm">key</span>
+									<span>{t('ownerGate.devQuickEnter')}</span>
+								</button>
+							</Show>
 						</form>
 					</Show>
 
@@ -338,7 +334,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 									value={totpCode()}
 									ref={totpInputRef}
 									onInput={(e) => setTotpCode(e.currentTarget.value)}
-									class="w-full h-14 text-center tracking-[0.3em] font-mono text-xl bg-[#0a0b0f] border border-amber-500/40 focus:border-amber-400 text-white rounded-2xl shadow-inner focus:outline-none transition-all"
+									class="w-full h-14 text-center tracking-[0.3em] font-mono text-xl bg-[#141a22] border border-amber-500/40 focus:border-amber-400 text-white rounded-2xl shadow-inner focus:outline-none transition-all"
 									disabled={loading()}
 									autofocus
 								/>

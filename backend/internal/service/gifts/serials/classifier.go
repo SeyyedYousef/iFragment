@@ -8,16 +8,17 @@ import (
 type Category string
 
 const (
-	CategorySingleDigit   Category = "single_digit"   // #1 - #9
-	CategoryTwoDigit      Category = "two_digit"      // #10 - #99
-	CategoryRepDigit      Category = "repeating"      // #11, #777, #888, #999, #7777
-	CategoryLadder        Category = "ladder"         // #123, #1234, #4321, #789, #987
-	CategoryDoublet       Category = "doublet"        // #2020, #1212, #6969, #2424
-	CategoryMilestoneYear Category = "milestone_year" // #1999, #2000, #2024, #2025, #2026
-	CategoryPalindrome    Category = "palindrome"     // #101, #1221, #4004, #5005
-	CategoryRoundNumber   Category = "round_number"   // #100, #500, #1000, #5000
-	CategoryEarlyMint     Category = "early_mint"     // #100 - #250
-	CategoryStandard      Category = "standard"       // Generic serials
+	CategorySingleDigit   Category = "single_digit"     // #1 - #9
+	CategoryTwoDigit      Category = "two_digit"        // #10 - #99
+	CategoryRepDigit      Category = "repeating"        // #11, #777, #888, #999, #7777
+	CategoryLadder        Category = "ladder"           // #123, #1234, #4321, #789, #987
+	CategoryDoublet       Category = "doublet"          // #2020, #1212, #6969, #2424, #1122
+	CategoryMilestoneYear Category = "milestone_year"   // #1999, #2000, #2024, #2025, #2026
+	CategoryPalindrome    Category = "palindrome"       // #101, #1221, #4004, #5005
+	CategoryRoundNumber   Category = "round_number"     // #100, #500, #1000, #5000
+	CategoryOmegaMint     Category = "omega_final_mint" // Exact final mint #N of N supply
+	CategoryEarlyMint     Category = "early_mint"       // #100 - #250
+	CategoryStandard      Category = "standard"         // Generic serials
 )
 
 // ClassificationResult contains genetic attributes and market valuation multiplier
@@ -33,6 +34,11 @@ type ClassificationResult struct {
 
 // ClassifySerial analyzes the serial number and returns genetic characteristics and valuation boost
 func ClassifySerial(serial int, baseFloor float64) ClassificationResult {
+	return ClassifySerialWithSupply(serial, 0, baseFloor)
+}
+
+// ClassifySerialWithSupply analyzes the serial number with full awareness of the collection's total supply
+func ClassifySerialWithSupply(serial int, totalSupply int, baseFloor float64) ClassificationResult {
 	if serial <= 0 {
 		return ClassificationResult{
 			SerialNumber:     serial,
@@ -69,13 +75,23 @@ func ClassifySerial(serial int, baseFloor float64) ClassificationResult {
 		}
 	}
 
-	// 2. Repeating Digits / RepDigit (#777, #888, #111, etc.)
+	// 2. Repeating Digits / RepDigit (#77, #88, #777, #888, #1111, etc.)
 	if isRepDigit(s) {
 		mult := 6.0
-		if stringsContainsAll(s, '7') {
-			mult = 12.0 // Lucky 7s
+		if length == 2 {
+			// Sub-100 Two-Digit Twin RepDigit (#11 .. #99)
+			mult = 8.5
+			if stringsContainsAll(s, '7') {
+				mult = 14.0 // #77 Sub-100 Twin Lucky 7s
+			} else if stringsContainsAll(s, '8') {
+				mult = 12.5 // #88 Sub-100 Twin Prosperity 8s
+			} else if stringsContainsAll(s, '9') || stringsContainsAll(s, '1') {
+				mult = 9.5
+			}
+		} else if stringsContainsAll(s, '7') {
+			mult = 12.0 // Lucky 7s (#777, #7777)
 		} else if stringsContainsAll(s, '8') {
-			mult = 10.0 // Prosperity 8s
+			mult = 10.0 // Prosperity 8s (#888, #8888)
 		} else if length >= 4 {
 			mult = 8.0
 		}
@@ -130,16 +146,20 @@ func ClassifySerial(serial int, baseFloor float64) ClassificationResult {
 		}
 	}
 
-	// 5. Doublets & Alternating Patterns (ABAB: #2020, #1212, #6969, #2424)
+	// 5. Doublets & Quad-Block Patterns (ABAB: #2020, #1212, #6969, #2424 and AABB: #1122, #7788)
 	if isDoublet(s) {
 		mult := 3.8
+		label := "Doublet Pattern (ABAB)"
 		if serial == 6969 {
 			mult = 6.0 // Apex cultural doublet
+		} else if isAABBQuadBlock(s) {
+			mult = 3.5
+			label = "Quad-Block Doublet (AABB)"
 		}
 		return ClassificationResult{
 			SerialNumber:     serial,
 			Category:         CategoryDoublet,
-			Label:            "Doublet Pattern (ABAB)",
+			Label:            label,
 			Multiplier:       mult,
 			RarityPercentage: 0.12,
 			EstimatedFloor:   round(baseFloor * mult),
@@ -206,7 +226,20 @@ func ClassifySerial(serial int, baseFloor float64) ClassificationResult {
 		}
 	}
 
-	// 9. Round Number Milestone (#100, #500, #1000, #5000, #10000)
+	// 9. Exact Final Supply Omega Mint (#N of N)
+	if totalSupply >= 100 && serial == totalSupply {
+		return ClassificationResult{
+			SerialNumber:     serial,
+			Category:         CategoryOmegaMint,
+			Label:            "Omega Final Mint (#N/N)",
+			Multiplier:       2.6,
+			RarityPercentage: 0.04,
+			EstimatedFloor:   round(baseFloor * 2.6),
+			Description:      "The exact final minted serial boundary of the collection",
+		}
+	}
+
+	// 10. Round Number Milestone (#100, #500, #1000, #5000, #10000)
 	if isRoundNumber(serial) {
 		mult := 2.0
 		if serial == 1000 || serial == 5000 || serial == 10000 {
@@ -223,7 +256,7 @@ func ClassifySerial(serial int, baseFloor float64) ClassificationResult {
 		}
 	}
 
-	// 10. Early Mint (#100 - #250)
+	// 11. Early Mint (#100 - #250)
 	if serial >= 100 && serial <= 250 {
 		mult := 1.5
 		return ClassificationResult{
@@ -237,7 +270,7 @@ func ClassifySerial(serial int, baseFloor float64) ClassificationResult {
 		}
 	}
 
-	// 11. Standard
+	// 12. Standard
 	return ClassificationResult{
 		SerialNumber:     serial,
 		Category:         CategoryStandard,
@@ -282,6 +315,19 @@ func isDoublet(s string) bool {
 	if len(s) == 4 {
 		// ABAB format (e.g. 2020, 1212, 6969, 2424)
 		if s[0] == s[2] && s[1] == s[3] && s[0] != s[1] {
+			return true
+		}
+		if isAABBQuadBlock(s) {
+			return true
+		}
+	}
+	return false
+}
+
+func isAABBQuadBlock(s string) bool {
+	if len(s) == 4 {
+		// AABB format with non-zero second pair (e.g. 1122, 3344, 7788, 8899)
+		if s[0] == s[1] && s[2] == s[3] && s[0] != s[2] && s[2] != '0' {
 			return true
 		}
 	}

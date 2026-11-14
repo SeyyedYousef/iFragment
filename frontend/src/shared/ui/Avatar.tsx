@@ -9,14 +9,14 @@ interface AvatarProps {
 }
 
 const COLORS = [
-	'#E17055',
-	'#00B894',
-	'#0984E3',
-	'#6C5CE7',
-	'#FDCB6E',
-	'#E84393',
+	'#2990FF',
+	'#32D74B',
+	'#2481CC',
+	'#FFB340',
 	'#00CEC9',
-	'#55A3F5',
+	'#30B0C7',
+	'#5AC8FA',
+	'#4CD964',
 ];
 
 const getSizeClass = (size?: string) => {
@@ -50,7 +50,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
 
 	return (
 		<div
-			class={`relative flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white overflow-hidden ${getSizeClass(props.size)} ${props.class || ''}`}
+			class={`relative flex-shrink-0 rounded-full border border-white/[0.12] flex items-center justify-center font-semibold text-white overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] ${getSizeClass(props.size)} ${props.class || ''}`}
 			style={{ 'background-color': bgColor() }}
 		>
 			<Show when={props.src && !imageError()} fallback={<span>{initial()}</span>}>

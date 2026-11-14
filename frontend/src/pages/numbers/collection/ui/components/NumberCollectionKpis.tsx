@@ -1,6 +1,8 @@
 import { type Component, Show } from 'solid-js';
 import type { NumbersInstitutionalCollectionOverview } from '@/entities/numbers/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 import { layaT, NUMBERS_COLLECTION_I18N } from '@/shared/i18n/laya-i18n.js';
+import { TonAmount } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 interface KpisProps {
 	overview?: NumbersInstitutionalCollectionOverview;
@@ -12,11 +14,11 @@ export const NumberCollectionKpis: Component<KpisProps> = (props) => {
 		return val.toLocaleString('en-US', { maximumFractionDigits: decimals });
 	};
 
-	const fmtUsd = (val?: number | null) => {
-		if (val === undefined || val === null || Number.isNaN(val) || val <= 0) return '—';
-		if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`;
-		if (val >= 1_000) return `$${(val / 1_000).toFixed(1)}K`;
-		return `$${val.toFixed(0)}`;
+	const fmtUsdPlain = (val?: number | null) => {
+		if (val === undefined || val === null || Number.isNaN(val) || val <= 0) return null;
+		if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+		if (val >= 1_000) return `${(val / 1_000).toFixed(1)}K`;
+		return val.toFixed(0);
 	};
 
 	const fmtPct = (val?: number | null) => {
@@ -39,27 +41,26 @@ export const NumberCollectionKpis: Component<KpisProps> = (props) => {
 	return (
 		<div class="space-y-2.5 mb-4">
 			{/* Top Hero Cards: Floor Ask + Realized Median */}
-			<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
 				{/* Floor Ask Card */}
-				<div class="bg-gradient-to-br from-[#101726] to-[#0a0d14] border border-[#0098EA]/30 rounded-2xl p-3.5 shadow-lg relative overflow-hidden group">
-					<div class="flex items-start justify-between">
-						<div>
+				<div class="frag-card-elevated rounded-[14px] p-3.5 border-[#2990ff]/25 relative overflow-hidden">
+					<div class="flex items-start justify-between gap-2">
+						<div class="min-w-0">
 							<div class="flex items-center gap-1.5">
-								<span class="text-[11px] font-bold text-white/50 block">
+								<span class="text-[11.5px] font-medium text-[#8c9ba5] block">
 									{layaT(NUMBERS_COLLECTION_I18N.floorAskTitle)}
 								</span>
-								<span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-[#0098EA]/20 text-[#0098EA] uppercase">
+								<span class="px-1.5 py-0.5 rounded-[5px] text-[10px] font-semibold bg-[#2990ff]/12 text-[#2990ff] border border-[#2990ff]/25">
 									{floorVenue()}
 								</span>
 							</div>
-							<div class="flex items-baseline gap-2 mt-1">
-								<span class="text-xl font-black text-white font-mono">
-									{fmt(props.overview?.floor_ask_ton)}
-								</span>
-								<span class="text-xs font-bold text-[#0098EA]">TON</span>
-								<span class="text-[11px] font-mono text-white/40">
-									({fmtUsd(props.overview?.floor_ask_usd)})
-								</span>
+							<div class="mt-1.5">
+								<TonAmount
+									value={fmt(props.overview?.floor_ask_ton)}
+									size="lg"
+									unit
+									usd={fmtUsdPlain(props.overview?.floor_ask_usd)}
+								/>
 							</div>
 						</div>
 
@@ -68,33 +69,36 @@ export const NumberCollectionKpis: Component<KpisProps> = (props) => {
 								href={floorLink()}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="px-2.5 py-1.5 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 border border-[#0098EA]/30 text-[#0098EA] text-[10px] font-mono font-bold flex items-center gap-1 transition-all active:scale-95"
+								class="frag-link-chip px-2.5 py-1 text-[11px] font-mono font-semibold text-[#2990ff] shrink-0"
+								dir="ltr"
 							>
 								<span>{floorNumber()}</span>
-								<span class="material-symbols-outlined text-xs">open_in_new</span>
+								<span class="material-symbols-outlined text-[13px]">north_east</span>
 							</a>
 						</Show>
 					</div>
 
-					<p class="text-[9px] text-white/40 mt-2 font-mono">
+					<p class="text-[10.5px] text-[#60707c] mt-2.5 font-mono">
 						{layaT(NUMBERS_COLLECTION_I18N.floorAskSubtitle)}
 					</p>
 				</div>
 
 				{/* Realized Median Sale Card */}
-				<div class="bg-gradient-to-br from-[#111a1a] to-[#090e0e] border border-emerald-500/30 rounded-2xl p-3.5 shadow-lg relative overflow-hidden">
-					<div class="flex items-start justify-between">
-						<div>
-							<span class="text-[11px] font-bold text-white/50 block">
+				<div class="frag-card-elevated rounded-[14px] p-3.5 border-[#4cd964]/25 relative overflow-hidden">
+					<div class="flex items-start justify-between gap-2">
+						<div class="min-w-0">
+							<span class="text-[11.5px] font-medium text-[#8c9ba5] block">
 								{layaT(NUMBERS_COLLECTION_I18N.realizedMedianTitle)}
 							</span>
-							<div class="flex items-baseline gap-2 mt-1">
-								<span class="text-xl font-black text-emerald-400 font-mono">
-									{fmt(props.overview?.median_sale_7d_ton)}
-								</span>
-								<span class="text-xs font-bold text-emerald-400/70">TON</span>
+							<div class="mt-1.5">
+								<TonAmount
+									value={fmt(props.overview?.median_sale_7d_ton)}
+									size="lg"
+									unit
+									tone="positive"
+								/>
 								<Show when={props.overview?.sales_count_7d}>
-									<span class="text-[10px] font-mono text-white/40">
+									<span class="mt-1 block text-[11px] font-mono text-[#8c9ba5] tabular-nums">
 										(
 										{layaT(NUMBERS_COLLECTION_I18N.basedOnSales).replace(
 											'{count}',
@@ -106,61 +110,63 @@ export const NumberCollectionKpis: Component<KpisProps> = (props) => {
 							</div>
 						</div>
 
-						<span class="px-2 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
-							7D Realized
+						<span class="px-2 py-0.5 rounded-[6px] bg-[#4cd964]/12 border border-[#4cd964]/25 text-[#4cd964] text-[10.5px] font-mono font-semibold shrink-0">
+							{t('numCollectionKpis.sevenDayRealized')}
 						</span>
 					</div>
 
-					<p class="text-[9px] text-white/40 mt-2 font-mono">
+					<p class="text-[10.5px] text-[#60707c] mt-2.5 font-mono">
 						{layaT(NUMBERS_COLLECTION_I18N.realizedMedianSubtitle)}
 					</p>
 				</div>
 			</div>
 
-			{/* Floor Depth Micro-Bar: Vital Market Indicator */}
-			<div class="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-3">
+			{/* Floor Depth Micro-Bar */}
+			<div class="frag-card rounded-[14px] p-3">
 				<div class="flex items-center justify-between mb-2">
-					<span class="text-[10px] font-bold text-white/60 flex items-center gap-1">
-						<span class="material-symbols-outlined text-xs text-[#0098EA]">stacked_bar_chart</span>
+					<span class="text-[11.5px] font-semibold text-[#d7e0e8] flex items-center gap-1.5">
+						<span class="material-symbols-outlined text-[16px] text-[#2990ff]">
+							stacked_bar_chart
+						</span>
 						{layaT(NUMBERS_COLLECTION_I18N.floorDepthTitle)}
 					</span>
-					<span class="text-[9px] text-white/40 font-mono">
+					<span class="text-[10.5px] text-[#60707c] font-mono">
 						{layaT(NUMBERS_COLLECTION_I18N.distanceFromFloor)}
 					</span>
 				</div>
 
 				<div class="grid grid-cols-3 gap-2">
-					<div class="bg-white/[0.02] border border-white/[0.04] rounded-xl p-2 text-center">
-						<span class="text-[9px] font-mono text-cyan-400/80 block">
+					<div class="frag-inset rounded-[10px] p-2 text-center">
+						<span class="text-[10.5px] font-mono text-[#5ac8fa] block">
 							{layaT(NUMBERS_COLLECTION_I18N.upTo5pct)}
 						</span>
-						<span class="text-xs font-mono font-black text-white block mt-0.5">
+						<span class="text-[13px] font-mono font-semibold text-white block mt-0.5 tabular-nums">
 							{props.overview?.floor_depth?.plus_5pct_count ?? '—'}{' '}
-							<span class="text-[9px] text-white/40">
+							<span class="text-[10px] font-normal text-[#8c9ba5]">
 								{layaT(NUMBERS_COLLECTION_I18N.itemsUnit)}
 							</span>
 						</span>
 					</div>
 
-					<div class="bg-white/[0.02] border border-white/[0.04] rounded-xl p-2 text-center">
-						<span class="text-[9px] font-mono text-[#0098EA]/80 block">
+					<div class="frag-inset rounded-[10px] p-2 text-center">
+						<span class="text-[10.5px] font-mono text-[#2990ff] block">
 							{layaT(NUMBERS_COLLECTION_I18N.upTo10pct)}
 						</span>
-						<span class="text-xs font-mono font-black text-white block mt-0.5">
+						<span class="text-[13px] font-mono font-semibold text-white block mt-0.5 tabular-nums">
 							{props.overview?.floor_depth?.plus_10pct_count ?? '—'}{' '}
-							<span class="text-[9px] text-white/40">
+							<span class="text-[10px] font-normal text-[#8c9ba5]">
 								{layaT(NUMBERS_COLLECTION_I18N.itemsUnit)}
 							</span>
 						</span>
 					</div>
 
-					<div class="bg-white/[0.02] border border-white/[0.04] rounded-xl p-2 text-center">
-						<span class="text-[9px] font-mono text-indigo-400/80 block">
+					<div class="frag-inset rounded-[10px] p-2 text-center">
+						<span class="text-[10.5px] font-mono text-[#8c9ba5] block">
 							{layaT(NUMBERS_COLLECTION_I18N.upTo25pct)}
 						</span>
-						<span class="text-xs font-mono font-black text-white block mt-0.5">
+						<span class="text-[13px] font-mono font-semibold text-white block mt-0.5 tabular-nums">
 							{props.overview?.floor_depth?.plus_25pct_count ?? '—'}{' '}
-							<span class="text-[9px] text-white/40">
+							<span class="text-[10px] font-normal text-[#8c9ba5]">
 								{layaT(NUMBERS_COLLECTION_I18N.itemsUnit)}
 							</span>
 						</span>
@@ -170,64 +176,58 @@ export const NumberCollectionKpis: Component<KpisProps> = (props) => {
 
 			{/* Core Market KPIs 4-Column Grid */}
 			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-				{/* 24h Realized Volume */}
-				<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3">
-					<span class="text-[10px] font-bold text-white/40 block">
+				<div class="frag-inset rounded-[12px] p-3">
+					<span class="text-[11px] font-medium text-[#8c9ba5] block truncate">
 						{layaT(NUMBERS_COLLECTION_I18N.vol24hTitle)}
 					</span>
-					<span class="text-sm font-black text-white font-mono block mt-0.5">
-						{fmt(props.overview?.volume_24h_ton)}{' '}
-						<span class="text-[10px] text-[#0098EA]">TON</span>
-					</span>
-					<span class="text-[9px] text-white/40 font-mono block mt-1">
+					<div class="mt-1">
+						<TonAmount value={fmt(props.overview?.volume_24h_ton)} size="md" unit />
+					</div>
+					<span class="text-[10.5px] text-[#60707c] font-mono block mt-1 tabular-nums">
 						{props.overview?.sales_count_24h ?? 0}{' '}
 						{layaT(NUMBERS_COLLECTION_I18N.finalSettledDeals)}
 					</span>
 				</div>
 
-				{/* 7d Volume */}
-				<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3">
-					<span class="text-[10px] font-bold text-white/40 block">
+				<div class="frag-inset rounded-[12px] p-3">
+					<span class="text-[11px] font-medium text-[#8c9ba5] block truncate">
 						{layaT(NUMBERS_COLLECTION_I18N.vol7dTitle)}
 					</span>
-					<span class="text-sm font-black text-emerald-400 font-mono block mt-0.5">
-						{fmt(props.overview?.volume_7d_ton)}{' '}
-						<span class="text-[10px] text-emerald-400/70">TON</span>
-					</span>
-					<span class="text-[9px] text-white/40 font-mono block mt-1">
+					<div class="mt-1">
+						<TonAmount value={fmt(props.overview?.volume_7d_ton)} size="md" unit tone="positive" />
+					</div>
+					<span class="text-[10.5px] text-[#60707c] font-mono block mt-1 tabular-nums">
 						{props.overview?.sales_count_7d ?? 0} {layaT(NUMBERS_COLLECTION_I18N.finalSettledDeals)}
 					</span>
 				</div>
 
-				{/* Active Listings & Listed % */}
-				<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3">
-					<span class="text-[10px] font-bold text-white/40 block">
+				<div class="frag-inset rounded-[12px] p-3">
+					<span class="text-[11px] font-medium text-[#8c9ba5] block truncate">
 						{layaT(NUMBERS_COLLECTION_I18N.itemsForSale)}
 					</span>
-					<span class="text-sm font-black text-amber-400 font-mono block mt-0.5">
+					<span class="text-[14px] font-semibold text-[#ffb340] font-mono block mt-1 tabular-nums">
 						{fmt(props.overview?.active_listings_count)}{' '}
-						<span class="text-[10px] text-white/40">
+						<span class="text-[10.5px] font-normal text-[#8c9ba5]">
 							{layaT(NUMBERS_COLLECTION_I18N.itemsUnit)}
 						</span>
 					</span>
-					<span class="text-[9px] text-amber-400/70 font-mono block mt-1">
+					<span class="text-[10.5px] text-[#ffb340]/80 font-mono block mt-1 tabular-nums">
 						{fmtPct(props.overview?.listed_share_pct)}{' '}
 						{layaT(NUMBERS_COLLECTION_I18N.ofTotalSupply)}
 					</span>
 				</div>
 
-				{/* Unique Holders & Whale Concentration */}
-				<div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3">
-					<span class="text-[10px] font-bold text-white/40 block">
+				<div class="frag-inset rounded-[12px] p-3">
+					<span class="text-[11px] font-medium text-[#8c9ba5] block truncate">
 						{layaT(NUMBERS_COLLECTION_I18N.uniqueHoldersTitle)}
 					</span>
-					<span class="text-sm font-black text-cyan-300 font-mono block mt-0.5">
+					<span class="text-[14px] font-semibold text-white font-mono block mt-1 tabular-nums">
 						{fmt(props.overview?.unique_holders)}{' '}
-						<span class="text-[10px] text-white/40">
+						<span class="text-[10.5px] font-normal text-[#8c9ba5]">
 							{layaT(NUMBERS_COLLECTION_I18N.walletsUnit)}
 						</span>
 					</span>
-					<span class="text-[9px] text-cyan-400/70 font-mono block mt-1">
+					<span class="text-[10.5px] text-[#2990ff] font-mono block mt-1 tabular-nums">
 						{layaT(NUMBERS_COLLECTION_I18N.top10Whales)}{' '}
 						{fmtPct(props.overview?.top10_holder_share_pct)}
 					</span>

@@ -12,14 +12,15 @@ import (
 	"ifragment-backend/internal/repository"
 )
 
-// SemanticEngine combines 4 intelligence signals to produce a holistic
+// SemanticEngine combines 5 intelligence signals to produce a holistic
 // "Semantic Score" (0-100) for any Telegram username.
 //
 // Signals:
-//  1. Datamuse Word Frequency (20% weight)
-//  2. Wikipedia Cultural Significance (20% weight)
-//  3. Gemini AI Desirability (40% weight)
-//  4. Clearbit Brand Power (20% weight)
+//  1. Datamuse & Viterbi Zipf Word Frequency
+//  2. Wikipedia Cultural Significance
+//  3. Gemini AI Desirability
+//  4. Clearbit Brand Power
+//  5. Laya System 1 Quantitative Multi-Head Classifier
 type SemanticEngine struct {
 	gemini        *GeminiScorer
 	layaEvaluator *LayaUsernameEvaluator
@@ -31,16 +32,18 @@ type SemanticEngine struct {
 
 // SemanticResult holds the combined semantic analysis.
 type SemanticResult struct {
-	TotalScore      float64             `json:"total_score"`      // 0-100 combined score
-	Multiplier      float64             `json:"multiplier"`       // Price multiplier (1x - 200x)
-	WordFreqScore   float64             `json:"word_freq_score"`  // 0-100 from Datamuse
-	WikiScore       float64             `json:"wiki_score"`       // 0-100 from Wikipedia
-	AIScore         float64             `json:"ai_score"`         // 0-100 from Gemini / Laya
-	BrandScore      int                 `json:"brand_score"`      // 0 or 100 from Clearbit
-	Tags            []string            `json:"tags"`             // AI-generated tags
-	AIReason        string              `json:"ai_reason"`        // One-line AI explanation
-	WikiDescription string              `json:"wiki_description"` // Wikipedia article description
-	Laya            *LayaUsernameResult `json:"laya,omitempty"`   // Laya System 1 decision vector
+	TotalScore      float64             `json:"total_score"`              // 0-100 combined score
+	Multiplier      float64             `json:"multiplier"`               // Price multiplier (1x - 500x)
+	WordFreqScore   float64             `json:"word_freq_score"`          // 0-100 from Zipf Lexicon / Datamuse
+	WikiScore       float64             `json:"wiki_score"`               // 0-100 from Wikipedia
+	AIScore         float64             `json:"ai_score"`                 // 0-100 from Gemini / Laya
+	BrandScore      int                 `json:"brand_score"`              // 0, 50, or 100 from Clearbit
+	Tags            []string            `json:"tags"`                     // AI-generated & lexical tags
+	AIReason        string              `json:"ai_reason"`                // One-line AI explanation
+	WikiDescription string              `json:"wiki_description"`         // Wikipedia article description
+	Laya            *LayaUsernameResult `json:"laya,omitempty"`           // Laya System 1 decision vector
+	ViterbiTokens   []string            `json:"viterbi_tokens,omitempty"` // Optimal Viterbi segmentation
+	ViterbiCoverage float64             `json:"viterbi_coverage"`         // Ratio of characters explained by known tokens
 }
 
 // NewSemanticEngine creates a new semantic analysis engine.
@@ -54,7 +57,7 @@ func NewSemanticEngine(db *repository.Database) *SemanticEngine {
 	}
 }
 
-// Score runs all 4 intelligence signals in parallel and combines them.
+// Score runs all 5 intelligence signals in parallel and combines them.
 func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticResult {
 	// 1. Check cache
 	e.mu.RLock()
@@ -65,6 +68,8 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	if exists && time.Since(cachedAt) < e.ttl {
 		return cached
 	}
+
+	viterbiSeg := ViterbiSegmentUsername(username)
 
 	// 2. Run all 5 signals in parallel (Signal 5: Laya System 1 Decision Pass)
 	var (
@@ -78,7 +83,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 
 	wg.Add(5)
 
-	// Signal 1: Word Frequency (LOCAL data first, then Datamuse fallback)
+	// Signal 1: Word Frequency (LOCAL data + Viterbi DP segmentation first, then Datamuse fallback)
 	go func() {
 		defer wg.Done()
 
@@ -86,9 +91,10 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		rank := RankWord(username)
 
 		if rank == 0 {
-			// Priority 1.5: Try splitting compound words (e.g. cryptoking -> crypto + king)
-			w1, w2, isCompound := splitCompoundWordTwo(username)
-			if isCompound {
+			// Priority 1.5: Viterbi Dynamic Programming optimal segmentation (handles 2-word and 3+-word compounds)
+			if viterbiSeg.IsCleanCompound && viterbiSeg.CompositeRank > 0 {
+				rank = viterbiSeg.CompositeRank
+			} else if w1, w2, isCompound := splitCompoundWordTwo(username); isCompound {
 				r1 := RankWord(w1)
 				r2 := RankWord(w2)
 				if r1 > 0 && r2 > 0 {
@@ -312,10 +318,10 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		}
 	}
 
-	// Compound Word Check (e.g., cryptoking, fastpay)
+	// Compound Word Check (Viterbi DP + 2-word split fallback)
 	if !isDictionaryWord(cleanName) && RankWord(cleanName) == 0 {
 		_, _, isCompound := splitCompoundWordTwo(cleanName)
-		if isCompound {
+		if isCompound || viterbiSeg.IsCleanCompound {
 			tags = append(tags, "compound_word")
 		}
 	}
@@ -366,7 +372,6 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	}
 
 	// Pronounceability Penalty (N-Gram / Vowel check)
-	// ----------------------------------------------------
 	hasVowel := false
 	lower := strings.ToLower(username)
 	for _, ch := range lower {
@@ -398,6 +403,8 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		AIReason:        aiReason,
 		WikiDescription: wikiDesc,
 		Laya:            layaResult,
+		ViterbiTokens:   viterbiSeg.Tokens,
+		ViterbiCoverage: viterbiSeg.CoverageRatio,
 	}
 
 	slog.Info("SemanticEngine scored username",
@@ -408,6 +415,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		"wiki", result.WikiScore,
 		"ai", result.AIScore,
 		"brand", result.BrandScore,
+		"viterbi_tokens", fmt.Sprintf("%v", result.ViterbiTokens),
 		"tags", fmt.Sprintf("%v", tags),
 	)
 

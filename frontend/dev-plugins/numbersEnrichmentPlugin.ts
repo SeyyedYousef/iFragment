@@ -1597,16 +1597,41 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 						});
 
 						let manhattanDist = 0;
+						let totalFittsBits = 0;
+						let totalDtmfHarmony = 0;
 						for (let i = 1; i < digitsMatrix.length; i++) {
-							manhattanDist +=
-								Math.abs(digitsMatrix[i].keypad_row - digitsMatrix[i - 1].keypad_row) +
-								Math.abs(digitsMatrix[i].keypad_col - digitsMatrix[i - 1].keypad_col);
+							const dr = Math.abs(digitsMatrix[i].keypad_row - digitsMatrix[i - 1].keypad_row);
+							const dc = Math.abs(digitsMatrix[i].keypad_col - digitsMatrix[i - 1].keypad_col);
+							manhattanDist += dr + dc;
+							const euclid = Math.hypot(dr, dc);
+							totalFittsBits += Math.log2(1 + euclid);
+							if (
+								digitsMatrix[i].dtmf_row_hz === digitsMatrix[i - 1].dtmf_row_hz &&
+								digitsMatrix[i].dtmf_col_hz === digitsMatrix[i - 1].dtmf_col_hz
+							) {
+								totalDtmfHarmony += 1.0;
+							} else if (digitsMatrix[i].dtmf_col_hz === digitsMatrix[i - 1].dtmf_col_hz) {
+								totalDtmfHarmony += digitsMatrix[i].dtmf_col_hz === 1336 ? 0.88 : 0.82;
+							} else if (digitsMatrix[i].dtmf_row_hz === digitsMatrix[i - 1].dtmf_row_hz) {
+								totalDtmfHarmony += 0.82;
+							} else if (dr + dc <= 2) {
+								totalDtmfHarmony += 0.55;
+							} else {
+								totalDtmfHarmony += 0.25;
+							}
 						}
+						const stepCount = Math.max(1, digitsMatrix.length - 1);
+						const fittsIndexBits = Math.round((totalFittsBits / stepCount) * 1000) / 1000;
+						const dtmfConsonanceScore = Math.min(
+							100,
+							Math.round((totalDtmfHarmony / stepCount) * 1000) / 10,
+						);
 						const maxPossibleManhattan = Math.max(1, (digitsMatrix.length - 1) * 4);
 						const keypadErgonomicScore = Math.max(
 							15,
 							Math.min(100, Math.round((1 - manhattanDist / maxPossibleManhattan) * 100)),
 						);
+						const isPureMsb80Wave = suffix.split('').every((ch) => ch === '8' || ch === '0');
 
 						// Compute Shannon Entropy H(X) over suffix digits
 						const freqMap: Record<string, number> = {};
@@ -1633,9 +1658,9 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 						} else if (manhattanDist <= 2) {
 							keypadGeoEn = 'Ultra-Tight Adjacent Cluster (1-Thumb Glide)';
 							keypadGeoFa = 'خوشه فوق‌فشرده همسایه (لغزش تک‌انگشتی)';
-						} else if ( digitsMatrix.every((c) => c.keypad_col === 1) ) {
-							keypadGeoEn = 'Vertical Central Spine (2-5-8-0 Axis)';
-							keypadGeoFa = 'ستون فقرات عمودی مرکز کی‌پد (محور ۲-۵-۸-۰)';
+						} else if (digitsMatrix.every((c) => c.keypad_col === 1)) {
+							keypadGeoEn = 'Vertical Central Spine (2-5-8-0 Axis — 1336 Hz Carrier)';
+							keypadGeoFa = 'ستون فقرات عمودی مرکز کی‌پد (محور ۲-۵-۸-۰ با فرکانس ۱۳۳۶ هرتز)';
 						} else if (manhattanDist <= 5) {
 							keypadGeoEn = 'Symmetric Geometric Cadence';
 							keypadGeoFa = 'ضرب‌آهنگ هندسی متقارن روی شماره‌گیر';
@@ -1646,6 +1671,7 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 							suffix_digits: suffix,
 							utf8_hex: Buffer.from(cleanDigits, 'utf8').toString('hex').toUpperCase(),
 							bcd_stream: digitsMatrix.map((c) => c.bcd_nibble).join(' '),
+							is_pure_msb_80_wave: isPureMsb80Wave,
 							tep62_index_sha256_hex: `0x${sha256Hex}`,
 							tep62_index_uint256_dec: uint256Dec,
 							collection_address: 'EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N',
@@ -1655,7 +1681,9 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 							kolmogorov_compression_pct: kolmogorovCompressionPct,
 							total_hamming_weight: digitsMatrix.reduce((acc, c) => acc + c.hamming_weight, 0),
 							keypad_manhattan_distance: manhattanDist,
+							fitts_index_bits: fittsIndexBits,
 							keypad_ergonomic_score: keypadErgonomicScore,
+							dtmf_consonance_score: dtmfConsonanceScore,
 							keypad_geometry_class_en: keypadGeoEn,
 							keypad_geometry_class_fa: keypadGeoFa,
 							dtmf_acoustic_signature: digitsMatrix
@@ -1671,7 +1699,7 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 						};
 
 						// =========================================================================
-						// NV-ENGINE v7.5-BINARYLIVE INSTITUTIONAL VALUATION ALGORITHM
+						// NV-ENGINE v8.0-QUANTUMFORENSICS INSTITUTIONAL VALUATION ALGORITHM
 						// =========================================================================
 						let maxRun = 1;
 						let curRun = 1;
@@ -1679,7 +1707,7 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 						for (let i = 1; i < suffix.length; i++) {
 							if (suffix[i] === suffix[i - 1]) {
 								curRun++;
-								if (curRun > maxRun) {
+								if (curRun > maxRun || (curRun === maxRun && suffix[i] === '8')) {
 									maxRun = curRun;
 									runDigit = suffix[i];
 								}
@@ -1687,14 +1715,39 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 								curRun = 1;
 							}
 						}
+						let leadingEights = 0;
+						for (let i = 0; i < suffix.length && suffix[i] === '8'; i++) {
+							leadingEights++;
+						}
+						const effectiveMaxRun = leadingEights > 0 ? Math.max(maxRun, 3 + leadingEights) : maxRun;
 
 						const isGenesis4 = suffix.length === 4;
 						const isPalindrome = suffix === suffix.split('').reverse().join('');
+						const isFullDialPalindrome = cleanDigits === cleanDigits.split('').reverse().join('');
+						const isHalfBlockQuad =
+							suffix.length === 8 &&
+							suffix[0] === suffix[1] &&
+							suffix[1] === suffix[2] &&
+							suffix[2] === suffix[3] &&
+							suffix[4] === suffix[5] &&
+							suffix[5] === suffix[6] &&
+							suffix[6] === suffix[7] &&
+							suffix[0] !== suffix[4];
 						const isRepeatingBlock =
 							suffix.length === 8 && suffix.slice(0, 4) === suffix.slice(4, 8);
 						const isAlternating = /^(\d)(\d)\1\2\1\2/.test(suffix);
 						const isSequential =
 							'0123456789'.includes(suffix.slice(1)) || '9876543210'.includes(suffix.slice(1));
+						const isPairProgression =
+							suffix.length === 8 &&
+							(() => {
+								const p0 = Number.parseInt(suffix.slice(0, 2), 10);
+								const p1 = Number.parseInt(suffix.slice(2, 4), 10);
+								const p2 = Number.parseInt(suffix.slice(4, 6), 10);
+								const p3 = Number.parseInt(suffix.slice(6, 8), 10);
+								const d = p1 - p0;
+								return d !== 0 && p2 - p1 === d && p3 - p2 === d;
+							})();
 
 						let structuralMult = 1.0;
 						let clubNameEn = 'Standard 8-Digit Club';
@@ -1757,7 +1810,7 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 								exactPoolSize = 2;
 								mathFormula = '2 / 136,566 (Minted 8-Digit Monodigits)';
 								globalRank = 12;
-							} else if (maxRun >= 7) {
+							} else if (maxRun >= 7 || effectiveMaxRun >= 9) {
 								// e.g. +888 0888 8888, +888 0000 0000, +888 0777 7777
 								structuralMult = runDigit === '8' || runDigit === '0' || runDigit === '7' ? 17.5 : 13.5;
 								clubNameEn = '0-Prefixed 7-Run Sovereign Grail (0AAAAAAA)';
@@ -1767,7 +1820,17 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 								exactPoolSize = 10;
 								mathFormula = '10 / 136,566 (00000000..09999999)';
 								globalRank = runDigit === '8' ? 18 : runDigit === '0' ? 15 : 24;
-							} else if (maxRun === 6) {
+							} else if (isHalfBlockQuad) {
+								// e.g. +888 8888 0000, +888 0000 8888, +888 7777 8888
+								structuralMult = suffix.includes('8888') ? 16.5 : 11.5;
+								clubNameEn = 'Half-Block Dual Quad Grail (AAAA BBBB)';
+								clubNameFa = 'باشگاه دو بلوک چهارتایی (AAAA BBBB)';
+								patternTypeEn = 'Symmetric Dual Quad Block (AAAABBBB)';
+								patternTypeFa = 'دو بلوک چهارتایی یکسان';
+								exactPoolSize = 90;
+								mathFormula = '10 × 9 = 90 / 136,566';
+								globalRank = suffix.includes('8888') ? 45 : 85;
+							} else if (maxRun === 6 || effectiveMaxRun >= 7) {
 								structuralMult = runDigit === '8' || runDigit === '7' || runDigit === '0' ? 9.5 : 6.8;
 								clubNameEn = 'Sextuple Run Club (6x Identical)';
 								clubNameFa = 'باشگاه ۶ رقم یکسان پیاپی';
@@ -1776,7 +1839,7 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 								exactPoolSize = 90;
 								mathFormula = '90 / 136,566';
 								globalRank = 140;
-							} else if (maxRun === 5) {
+							} else if (maxRun === 5 || effectiveMaxRun === 6) {
 								structuralMult = runDigit === '8' || runDigit === '7' || runDigit === '0' ? 4.8 : 3.6;
 								clubNameEn = 'Quintuple Run Club (5x Identical)';
 								clubNameFa = 'باشگاه ۵ رقم یکسان پیاپی';
@@ -1803,15 +1866,40 @@ export function numbersLiveEnrichmentPlugin(): Plugin {
 								exactPoolSize = 1240;
 								mathFormula = '1,240 / 136,566';
 								globalRank = 1680;
-							} else if (isPalindrome || isRepeatingBlock || isAlternating) {
-								structuralMult = 2.1;
-								clubNameEn = isPalindrome ? 'Symmetric Mirror Palindrome Club' : 'Repeating Cadence Club';
-								clubNameFa = isPalindrome ? 'باشگاه قرینه آینه‌ای (پالیندروم)' : 'باشگاه تکرار ریتمیک بلوکی';
-								patternTypeEn = isPalindrome ? 'Full 8-Digit Mirror Palindrome' : 'Repeating Twin Half (ABCDABCD)';
-								patternTypeFa = isPalindrome ? 'آینه‌ای کامل ۸ رقمی' : 'تکرار دو نیمه همسان';
+							} else if (isPalindrome || isFullDialPalindrome || isRepeatingBlock || isAlternating) {
+								structuralMult = isFullDialPalindrome && !isPalindrome ? 2.25 : 2.1;
+								clubNameEn = isFullDialPalindrome && !isPalindrome
+									? 'Full-11-Digit E.164 Palindrome Club'
+									: isPalindrome
+										? 'Symmetric Mirror Palindrome Club'
+										: 'Repeating Cadence Club';
+								clubNameFa = isFullDialPalindrome && !isPalindrome
+									? 'باشگاه پالیندروم کامل ۱۱ رقمی (با پیش‌شماره +888)'
+									: isPalindrome
+										? 'باشگاه قرینه آینه‌ای (پالیندروم)'
+										: 'باشگاه تکرار ریتمیک بلوکی';
+								patternTypeEn = isFullDialPalindrome && !isPalindrome
+									? 'Full E.164 Mirror (888 + Suffix)'
+									: isPalindrome
+										? 'Full 8-Digit Mirror Palindrome'
+										: 'Repeating Twin Half (ABCDABCD)';
+								patternTypeFa = isFullDialPalindrome && !isPalindrome
+									? 'قرینه کامل ۱۱ رقمی با پیش‌شماره ۸۸۸'
+									: isPalindrome
+										? 'آینه‌ای کامل ۸ رقمی'
+										: 'تکرار دو نیمه همسان';
 								exactPoolSize = 1350;
 								mathFormula = '1,350 / 136,566';
 								globalRank = 2100;
+							} else if (isPairProgression) {
+								structuralMult = 1.85;
+								clubNameEn = 'Arithmetic Pair Progression Club';
+								clubNameFa = 'باشگاه تصاعد حسابی جفت‌ارقام (پلکانی دهگان)';
+								patternTypeEn = '2-Digit Arithmetic Step Progression';
+								patternTypeFa = 'تصاعد حسابی دو رقمی منظم';
+								exactPoolSize = 360;
+								mathFormula = '360 / 136,566';
+								globalRank = 2850;
 							} else if (maxRun === 3) {
 								structuralMult = 1.65;
 								clubNameEn = 'Triple Lucky Tail Club';

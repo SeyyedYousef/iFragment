@@ -385,6 +385,36 @@ func (h *OwnerHandler) FlagUser(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
+func (h *OwnerHandler) ToggleUserVIP(w http.ResponseWriter, r *http.Request) {
+	adminID, ok := r.Context().Value(middleware.UserIDKey).(int64)
+	if !ok {
+		h.writeError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req struct {
+		TargetUserID int64  `json:"target_user_id"`
+		IsPremium    bool   `json:"is_premium"`
+		Reason       string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TargetUserID == 0 {
+		h.writeError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	ip := r.RemoteAddr
+	ua := r.UserAgent()
+	if err := h.ownerService.ToggleUserVIP(r.Context(), adminID, req.TargetUserID, req.IsPremium, req.Reason, ip, ua); err != nil {
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":     "ok",
+		"is_premium": req.IsPremium,
+	})
+}
+
 func (h *OwnerHandler) AdjustBalance(w http.ResponseWriter, r *http.Request) {
 	adminID, ok := r.Context().Value(middleware.UserIDKey).(int64)
 	if !ok {
@@ -624,6 +654,22 @@ func (h *OwnerHandler) DeleteUserbot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.writeJSON(w, http.StatusOK, map[string]bool{"success": true})
+}
+
+func (h *OwnerHandler) PingUserbot(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		h.writeError(w, http.StatusBadRequest, "userbot id is required")
+		return
+	}
+
+	res, err := h.ownerService.PingUserbot(r.Context(), id)
+	if err != nil {
+		h.writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, res)
 }
 
 // ─── Ads Management ─────────────────────────────────────────────────────────

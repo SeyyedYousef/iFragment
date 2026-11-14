@@ -82,7 +82,51 @@ func normalizeFragmentSlug(slug string) string {
 	slug = strings.ReplaceAll(slug, "-", "")
 	slug = strings.ReplaceAll(slug, "_", "")
 	slug = strings.ReplaceAll(slug, " ", "")
+
+	// Fragment official collection slug overrides
+	switch slug {
+	case "durovcap", "durovscap":
+		return "durovscap"
+	case "khabibpapakha", "khabibspapakha":
+		return "khabibspapakha"
+	}
 	return slug
+}
+
+// extractFragmentCardsFloor safely extracts lowest price and count strictly from collection gift cards
+func extractFragmentCardsFloor(html string, normSlug string) (decimal.Decimal, int) {
+	cardMatches := reFragmentCard.FindAllStringSubmatch(html, -1)
+	if len(cardMatches) == 0 {
+		return decimal.Zero, 0
+	}
+
+	slugPrefix := "/gift/" + normSlug + "-"
+	var lowestPrice decimal.Decimal
+	validCount := 0
+
+	for _, m := range cardMatches {
+		href := strings.ToLower(m[1])
+		if !strings.HasPrefix(href, slugPrefix) {
+			continue
+		}
+		cardContent := m[2]
+		priceMatch := reFragmentFloor.FindStringSubmatch(cardContent)
+		if len(priceMatch) < 2 {
+			continue
+		}
+		cleanPrice := strings.ReplaceAll(priceMatch[1], ",", "")
+		priceDec, err := decimal.NewFromString(cleanPrice)
+		if err != nil || priceDec.LessThanOrEqual(decimal.Zero) {
+			continue
+		}
+
+		if lowestPrice.IsZero() || priceDec.LessThan(lowestPrice) {
+			lowestPrice = priceDec
+		}
+		validCount++
+	}
+
+	return lowestPrice, validCount
 }
 
 // FragmentAdapter connects to Fragment.com marketplace
@@ -153,8 +197,8 @@ func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ven
 	}
 	html := string(bodyBytes)
 
-	matches := reFragmentFloor.FindStringSubmatch(html)
-	if len(matches) < 2 {
+	decFloor, activeListings := extractFragmentCardsFloor(html, normSlug)
+	if activeListings == 0 || decFloor.IsZero() {
 		// If no fixed-price sales, check auction filter
 		urlAuction := fmt.Sprintf("https://fragment.com/gifts/%s?filter=auction&sort=price_asc", normSlug)
 		reqA, errA := http.NewRequestWithContext(ctx, http.MethodGet, urlAuction, nil)
@@ -164,25 +208,13 @@ func (a *FragmentAdapter) FetchFloor(ctx context.Context, giftSlug string) (*Ven
 			if errA == nil && respA.StatusCode == http.StatusOK {
 				defer respA.Body.Close()
 				bodyA, _ := io.ReadAll(respA.Body)
-				matches = reFragmentFloor.FindStringSubmatch(string(bodyA))
-				html = string(bodyA)
+				decFloor, activeListings = extractFragmentCardsFloor(string(bodyA), normSlug)
 			}
 		}
 	}
 
-	if len(matches) < 2 {
+	if activeListings == 0 || decFloor.IsZero() {
 		return nil, ErrNoFloorData
-	}
-
-	cleanPrice := strings.ReplaceAll(matches[1], ",", "")
-	decFloor, err := decimal.NewFromString(cleanPrice)
-	if err != nil || decFloor.IsZero() {
-		return nil, ErrNoFloorData
-	}
-
-	activeListings := strings.Count(html, `class="tm-grid-item"`)
-	if activeListings == 0 {
-		activeListings = 1
 	}
 
 	return &VenueFloorResult{

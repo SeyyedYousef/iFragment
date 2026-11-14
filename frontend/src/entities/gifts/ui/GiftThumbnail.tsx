@@ -1,6 +1,4 @@
-import { type Component, createEffect, createMemo, createSignal, Show } from 'solid-js';
-import { getGiftCdnImageUrl, getGiftProxyImageUrl } from '../lib/cdn.js';
-import { OFFICIAL_GIFTS_120 } from '../model/catalog120.js';
+import { type Component, createMemo, createSignal, Show } from 'solid-js';
 
 interface Props {
 	slug: string;
@@ -11,140 +9,134 @@ interface Props {
 	class?: string;
 	imgClass?: string;
 	size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+	// Optional backdrop gradient colors extracted from API/metadata
 	centerHex?: string;
 	edgeHex?: string;
 	patternHex?: string;
 	backdropName?: string;
 }
 
+/**
+ * Fragment Gift Thumbnail Renderer
+ * Uses Telegram CDN Fragment imagery with fallback chain:
+ * 1) Direct model + serial render: nft.fragment.com/gift/<slug>-<serial>.medium.jpg
+ * 2) Collection model base render: nft.fragment.com/gift/<slug>.medium.jpg
+ * 3) Changes.tg CDN PNG fallback
+ * 4) Styled cryptographic initial badge (never a broken image!)
+ *
+ * Preserves authentic Telegram Gift radial backdrop stages while aligning fallback
+ * slate & frame chrome with the Fragment Dark Slate design system.
+ */
 export const GiftThumbnail: Component<Props> = (props) => {
-	const [attemptIndex, setAttemptIndex] = createSignal(0);
-	const [imageLoaded, setImageLoaded] = createSignal(false);
-	const [imageError, setImageError] = createSignal(false);
+	const [imgErrorTier, setImgErrorTier] = createSignal(0);
 
-	const cleanSlug = () =>
-		(props.slug || '')
+	const cleanSlug = createMemo(() => {
+		return (props.slug || '')
 			.toLowerCase()
-			.replace(/_/g, '-')
-			.replace(/[^a-z0-9-]/g, '');
-
-	const giftItem = () =>
-		OFFICIAL_GIFTS_120.find(
-			(g) => g.slug === cleanSlug() || g.name.toLowerCase() === (props.name || '').toLowerCase(),
-		);
-
-	const emoji = () => giftItem()?.emoji || '🎁';
-
-	// Authentic Telegram 4-Color Radial Backdrop Gradient
-	const backdropStyle = createMemo(() => {
-		const rawCenter = props.centerHex;
-		const rawEdge = props.edgeHex;
-		if (rawCenter && rawEdge) {
-			const c = rawCenter.startsWith('#') ? rawCenter : `#${rawCenter}`;
-			const e = rawEdge.startsWith('#') ? rawEdge : `#${rawEdge}`;
-			return {
-				background: `radial-gradient(circle at 50% 38%, ${c} 0%, ${e} 100%)`,
-			};
-		}
-		return undefined;
+			.trim()
+			.replace(/[^a-z0-9]/g, '');
 	});
-
-	// Multi-stage cascading candidates:
-	// Prioritizes backend VPS proxy when customImageUrl is from a filtered Telegram CDN (telesco.pe)
-	const candidates = createMemo(() => {
-		const list: string[] = [];
-		const proxyUrl = getGiftProxyImageUrl(cleanSlug(), props.model, props.serialNumber);
-		const cdnUrl = getGiftCdnImageUrl(cleanSlug(), props.model || giftItem()?.primaryModel);
-		const custom = props.customImageUrl;
-
-		const isTelegramDomain =
-			!!custom &&
-			(custom.includes('telesco.pe') || custom.includes('t.me') || custom.includes('telegram.org'));
-
-		if (custom && !isTelegramDomain) {
-			list.push(custom);
-		}
-		if (proxyUrl && !list.includes(proxyUrl)) {
-			list.push(proxyUrl);
-		}
-		if (custom && isTelegramDomain && !list.includes(custom)) {
-			list.push(custom);
-		}
-		if (cdnUrl && !list.includes(cdnUrl)) {
-			list.push(cdnUrl);
-		}
-		return list;
-	});
-
-	createEffect(() => {
-		void cleanSlug();
-		void props.model;
-		void props.serialNumber;
-		void props.customImageUrl;
-		void props.centerHex;
-		void props.edgeHex;
-		setAttemptIndex(0);
-		setImageLoaded(false);
-		setImageError(false);
-	});
-
-	const currentSrc = () => {
-		const c = candidates();
-		const idx = attemptIndex();
-		return idx < c.length ? c[idx] : '';
-	};
-
-	const handleImgError = () => {
-		const next = attemptIndex() + 1;
-		if (next < candidates().length) {
-			setAttemptIndex(next);
-		} else {
-			setImageError(true);
-		}
-	};
 
 	const sizeClasses = () => {
 		switch (props.size) {
 			case 'sm':
-				return 'w-6 h-6 rounded-lg text-xs';
+				return 'w-8 h-8 rounded-[9px] text-[10px]';
 			case 'lg':
-				return 'w-16 h-16 rounded-2xl text-2xl';
+				return 'w-14 h-14 rounded-[16px] text-sm';
 			case 'xl':
-				return 'w-24 h-24 rounded-3xl text-4xl';
+				return 'w-20 h-20 rounded-[22px] text-lg';
 			case '2xl':
-				return 'w-32 h-32 rounded-[2rem] text-5xl';
+				return 'w-28 h-28 rounded-[26px] text-xl';
 			default:
-				return 'w-12 h-12 rounded-xl text-lg';
+				return 'w-11 h-11 rounded-[12px] text-xs';
 		}
+	};
+
+	const imageUrl = createMemo(() => {
+		const tier = imgErrorTier();
+		const s = cleanSlug();
+		if (!s) return null;
+
+		if (tier === 0) {
+			if (props.customImageUrl?.startsWith('http')) {
+				return props.customImageUrl;
+			}
+			const modelSlug = (props.model || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+			if (props.serialNumber) {
+				return `https://nft.fragment.com/gift/${s}-${props.serialNumber}.medium.jpg`;
+			}
+			if (modelSlug) {
+				return `https://nft.fragment.com/gift/${s}-${modelSlug}.medium.jpg`;
+			}
+			return `https://nft.fragment.com/gift/${s}.medium.jpg`;
+		}
+
+		if (tier === 1) {
+			return `https://nft.fragment.com/gift/${s}.medium.jpg`;
+		}
+
+		if (tier === 2) {
+			const originalSlug = (props.slug || '')
+				.trim()
+				.replace(/[^a-zA-Z0-9\s-]/g, '')
+				.replace(/\s+/g, '');
+			if (originalSlug) {
+				return `https://cdn.changes.tg/gifts/originals/${originalSlug}/Original.png`;
+			}
+			return null;
+		}
+
+		return null;
+	});
+
+	const backdropStyle = () => {
+		if (props.centerHex && props.edgeHex) {
+			return {
+				background: `radial-gradient(circle at 50% 45%, ${props.centerHex} 0%, ${props.edgeHex} 100%)`,
+			};
+		}
+		return undefined;
+	};
+
+	const handleImgError = () => {
+		setImgErrorTier((prev) => prev + 1);
+	};
+
+	const initialLetters = () => {
+		const title = props.name || props.slug || 'TG';
+		return title.slice(0, 2).toUpperCase();
 	};
 
 	return (
 		<div
 			style={backdropStyle()}
-			class={`relative flex items-center justify-center overflow-hidden flex-shrink-0 border border-white/[0.12] shadow-lg select-none group ${
-				!backdropStyle() ? 'bg-gradient-to-br from-[#151c2c] to-[#0a0e17]' : ''
+			class={`relative flex items-center justify-center overflow-hidden flex-shrink-0 border border-white/[0.11] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] select-none group ${
+				!backdropStyle() ? 'bg-gradient-to-br from-[#1d2733] to-[#11161d]' : ''
 			} ${sizeClasses()} ${props.class || ''}`}
 		>
-			{/* Glossy Spherical Highlight Reflection */}
-			<div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.16] via-transparent to-black/[0.25] mix-blend-overlay" />
+			{/* Inner specular shimmer on backdrop */}
+			<div class="absolute inset-0 bg-gradient-to-tr from-black/25 via-transparent to-white/[0.10] pointer-events-none" />
 
-			{/* Fallback 3D Emoji Badge */}
-			<Show when={!imageLoaded() || imageError()}>
-				<div class="absolute inset-0 flex items-center justify-center pointer-events-none drop-shadow-md">
-					<span>{emoji()}</span>
-				</div>
-			</Show>
-
-			{/* Official High-Res Animated/Vector Model Image */}
-			<Show when={!imageError() && currentSrc()}>
+			<Show
+				when={imageUrl() && imgErrorTier() < 3}
+				fallback={
+					<div class="flex flex-col items-center justify-center w-full h-full bg-[#17202b]">
+						<span class="material-symbols-outlined text-[#5aaeff] text-opacity-85 text-[18px]">
+							redeem
+						</span>
+						<span class="font-mono font-bold text-[#8ca0b5] text-[8px] mt-0.5 leading-none">
+							{initialLetters()}
+						</span>
+					</div>
+				}
+			>
 				<img
-					src={currentSrc()}
-					alt={props.name || cleanSlug()}
-					onLoad={() => setImageLoaded(true)}
+					src={imageUrl()!}
+					alt={props.name || props.slug}
+					loading="lazy"
+					decoding="async"
 					onError={handleImgError}
-					class={`absolute inset-0 w-full h-full object-contain p-1 drop-shadow-xl transition-all duration-300 group-hover:scale-105 ${
-						imageLoaded() ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-					} ${props.imgClass || ''}`}
+					class={`w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover:scale-105 ${props.imgClass || ''}`}
 				/>
 			</Show>
 		</div>

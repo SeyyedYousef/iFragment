@@ -428,6 +428,6 @@ export const openInvoice = (url: string): Promise<string> => {
 			wa.openInvoice(url, (status: string) => resolve(status || 'failed'));
 		},
 		'failed',
-		20000,
+		120000,
 	);
 };

@@ -1,4 +1,5 @@
 import { type Component, createSignal, For, Show } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 import { layaT, NUMBERS_I18N, REGIONAL_CULTURAL_DATA } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -9,11 +10,11 @@ export const NumberCulturalRadarHeatmap: Component = () => {
 		REGIONAL_CULTURAL_DATA.find((r) => r.id === activeRegion()) || REGIONAL_CULTURAL_DATA[0];
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden mb-4">
+		<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden mb-4">
 			{/* Header */}
 			<div class="flex items-center justify-between border-b border-white/5 pb-3">
 				<div class="flex items-center gap-2.5">
-					<div class="w-9 h-9 rounded-[14px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA]">
+					<div class="w-9 h-9 rounded-[14px] bg-[#2990ff]/15 border border-[#2990ff]/30 flex items-center justify-center text-[#2990ff]">
 						<span class="material-symbols-outlined text-[20px]">public</span>
 					</div>
 					<div class="flex flex-col">
@@ -25,8 +26,8 @@ export const NumberCulturalRadarHeatmap: Component = () => {
 						</span>
 					</div>
 				</div>
-				<span class="text-[9px] font-mono font-black text-[#0098EA] bg-[#0098EA]/10 border border-[#0098EA]/30 px-2 py-0.5 rounded-md">
-					GLOBAL NUMEROLOGY
+				<span class="text-[9px] font-mono font-black text-[#2990ff] bg-[#2990ff]/10 border border-[#2990ff]/30 px-2 py-0.5 rounded-md">
+					{t('numCulturalRadar.badge')}
 				</span>
 			</div>
 
@@ -46,7 +47,7 @@ export const NumberCulturalRadarHeatmap: Component = () => {
 								}}
 								class={`p-3 rounded-[18px] border text-start flex flex-col gap-1.5 transition-all active:scale-[0.98] ${
 									isSelected()
-										? 'bg-[#0098EA]/20 border-[#0098EA]/60 shadow-[0_0_20px_rgba(0,152,234,0.25)]'
+										? 'bg-[#2990ff]/20 border-[#2990ff]/60 shadow-[0_0_20px_rgba(41,144,255,0.25)]'
 										: 'bg-[#08090D] border-white/5 hover:bg-white/5'
 								}`}
 							>
@@ -80,11 +81,11 @@ export const NumberCulturalRadarHeatmap: Component = () => {
 			</div>
 
 			{/* Selected Region Deep-Dive Box */}
-			<div class="w-full bg-[#08090D] border border-white/5 rounded-[20px] p-4 flex flex-col gap-3 relative shadow-inner">
+			<div class="w-full frag-inset rounded-[20px] p-4 flex flex-col gap-3 relative shadow-inner">
 				<div class="flex items-center justify-between border-b border-white/5 pb-2">
 					<div class="flex items-center gap-2">
 						<span
-							class="w-2.5 h-2.5 rounded-full animate-ping"
+							class="w-2.5 h-2.5 rounded-full"
 							style={{ 'background-color': current().color }}
 						/>
 						<span class="text-[12px] font-mono font-black text-white">

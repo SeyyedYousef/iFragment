@@ -527,7 +527,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 
 	if strings.HasPrefix(pay.InvoicePayload, "stars_premium_1m:") {
 		parts := strings.Split(pay.InvoicePayload, ":")
-		if len(parts) == 2 {
+		if len(parts) >= 2 {
 			userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
 			if parseErr == nil {
 				err := h.db.CompleteStarsPremiumPayment(ctx, pay.InvoicePayload, pay.TelegramPaymentChargeID, userID, 30*24*time.Hour)
@@ -635,71 +635,75 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				}
 			}
 		}
+	} else if strings.HasPrefix(pay.InvoicePayload, "val_credits:") {
+		parts := strings.Split(pay.InvoicePayload, ":")
+		if len(parts) >= 3 {
+			creditsCount, cErr := strconv.Atoi(parts[1])
+			userID, parseErr := strconv.ParseInt(parts[2], 10, 64)
+			if cErr == nil && parseErr == nil && userID > 0 && creditsCount > 0 {
+				h.fulfillStarsCreditsPayment(ctx, bot, pay, userID, creditsCount, fmt.Sprintf("val:%d", creditsCount))
+			}
+		}
 	} else if strings.HasPrefix(pay.InvoicePayload, "intel_credits:") {
 		parts := strings.Split(pay.InvoicePayload, ":")
 		if len(parts) >= 3 {
 			packID := parts[1]
 			userID, parseErr := strconv.ParseInt(parts[2], 10, 64)
 			if parseErr == nil && userID > 0 {
-				storeSvc := h.intelStoreService
-				if storeSvc == nil {
-					storeSvc = intelcredit.NewStoreService(h.db)
-				}
-				fulfilled, err := storeSvc.FulfillStarsPurchase(ctx, userID, packID, pay.TelegramPaymentChargeID)
-				if err != nil {
-					slog.Error("CRITICAL: Failed to fulfill Intel Credits Stars purchase", "error", err, "user_id", userID, "operation", "payment.fulfill_intel_credits", "pack_id", packID, "charge_id", pay.TelegramPaymentChargeID)
-					h.pushPaymentDLQ(ctx, "fulfill_intel_credits_failed", pay.InvoicePayload, err)
-					notification.GetAdminNotifier().NotifyPayment(ctx, fmt.Sprintf("🚨 <b>Intel Credits Fulfillment Failed</b>\nUser %d pack %s charge %s: %v", userID, packID, pay.TelegramPaymentChargeID, err))
-
-					tg := h.getBotClient(bot)
-					if tg != nil {
-						// Attempt immediate refund via Telegram Stars API
-						refundErr := tg.RefundStarPayment(ctx, userID, pay.TelegramPaymentChargeID)
-						userLang, _ := h.db.GetUserLanguage(ctx, userID)
-						lang := i18n.DetectLanguage(userLang)
-
-						var failNotice string
-						if refundErr == nil {
-							slog.Info("Successfully refunded Stars payment after fulfillment error", "user_id", userID, "charge_id", pay.TelegramPaymentChargeID)
-							if lang == "fa" {
-								failNotice = "⚠️ در اعطای بسته اعتباری خطایی رخ داد. مبلغ ستاره‌های پرداختی به حساب تلگرام شما استرداد (Refund) گردید."
-							} else {
-								failNotice = "⚠️ A technical issue occurred while granting your credit pack. Your Telegram Stars have been automatically refunded."
-							}
-						} else {
-							slog.Error("CRITICAL: Failed to refund Stars payment after fulfillment error", "error", refundErr, "user_id", userID, "charge_id", pay.TelegramPaymentChargeID)
-							if lang == "fa" {
-								failNotice = "⚠️ پرداخت شما دریافت شد، اما در شارژ خودکار اعتبار مشکلی پیش آمد. تیم پشتیبانی در حال پیگیری و واریز اعتبار شماست."
-							} else {
-								failNotice = "⚠️ Your payment was received, but credit activation encountered a delay. Our team has been alerted and will fulfill it promptly."
-							}
-						}
-						_ = tg.SendMessage(ctx, userID, failNotice, nil, nil)
-					}
-					return
-				} else if fulfilled {
-					creditsGranted := intelcredit.PackCredits(packID)
-					slog.Info("Successfully granted Intel Credits via Stars", "user_id", userID, "credits", creditsGranted, "pack_id", packID)
-
-					// Update order status if order exists
-					if err := h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID); err != nil {
-						slog.Error("Failed to update order status to paid", "user_id", userID, "operation", "order.update_status_paid", "payload", pay.InvoicePayload, "error", err)
-					}
-
-					tg := h.getBotClient(bot)
-					if tg != nil {
-						userLang, _ := h.db.GetUserLanguage(ctx, userID)
-						lang := i18n.DetectLanguage(userLang)
-						var successText string
-						if lang == "fa" {
-							successText = fmt.Sprintf("✅ <b>خرید بسته کریدت با موفقیت انجام شد!</b>\n\nتعداد <b>%d کریدت تحلیل</b> به حساب شما افزوده شد.\nاکنون می‌توانید گزارش‌های موشکافانه دارایی‌ها را آزاد کنید.", creditsGranted)
-						} else {
-							successText = fmt.Sprintf("✅ <b>Credit Pack Purchase Successful!</b>\n\n<b>%d Intel Credits</b> have been added to your account.\nYou can now unlock deep asset intelligence reports.", creditsGranted)
-						}
-						_ = tg.SendMessage(ctx, userID, successText, nil, nil)
-					}
+				if creditsCount := intelcredit.PackCredits(packID); creditsCount > 0 {
+					h.fulfillStarsCreditsPayment(ctx, bot, pay, userID, creditsCount, packID)
+				} else {
+					slog.Error("CRITICAL: Unknown Intel Credits pack ID in webhook", "pack_id", packID, "user_id", userID, "payload", pay.InvoicePayload)
 				}
 			}
+		}
+	}
+}
+
+func (h *WebhookHandler) fulfillStarsCreditsPayment(ctx context.Context, bot *repository.ManagedBot, pay *SuccessfulPayment, userID int64, creditsGranted int, referenceTag string) {
+	storeSvc := h.intelStoreService
+	if storeSvc == nil {
+		storeSvc = intelcredit.NewStoreService(h.db)
+	}
+	fulfilled, err := storeSvc.FulfillCreditsPurchase(ctx, userID, creditsGranted, referenceTag, pay.TelegramPaymentChargeID)
+	if err != nil {
+		slog.Error("CRITICAL: Failed to fulfill Intel Credits Stars purchase", "error", err, "user_id", userID, "operation", "payment.fulfill_intel_credits", "reference_tag", referenceTag, "charge_id", pay.TelegramPaymentChargeID)
+		h.pushPaymentDLQ(ctx, "fulfill_intel_credits_failed", pay.InvoicePayload, err)
+		notification.GetAdminNotifier().NotifyPayment(ctx, fmt.Sprintf("🚨 <b>Intel Credits Fulfillment Failed</b>\nUser %d tag %s charge %s: %v", userID, referenceTag, pay.TelegramPaymentChargeID, err))
+
+		tg := h.getBotClient(bot)
+		if tg != nil {
+			refundErr := tg.RefundStarPayment(ctx, userID, pay.TelegramPaymentChargeID)
+			userLang, _ := h.db.GetUserLanguage(ctx, userID)
+			lang := i18n.DetectLanguage(userLang)
+
+			var failNotice string
+			if refundErr == nil {
+				slog.Info("Successfully refunded Stars payment after fulfillment error", "user_id", userID, "charge_id", pay.TelegramPaymentChargeID)
+				failNotice = i18n.T(lang, "payments.credits_pack_refunded", nil)
+			} else {
+				slog.Error("CRITICAL: Failed to refund Stars payment after fulfillment error", "error", refundErr, "user_id", userID, "charge_id", pay.TelegramPaymentChargeID)
+				failNotice = i18n.T(lang, "payments.credits_pack_pending_support", nil)
+			}
+			_ = tg.SendMessage(ctx, userID, failNotice, nil, nil)
+		}
+		return
+	}
+
+	if fulfilled {
+		slog.Info("Successfully granted Intel Credits via Stars", "user_id", userID, "credits", creditsGranted, "reference_tag", referenceTag)
+		if err := h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID); err != nil {
+			slog.Error("Failed to update order status to paid", "user_id", userID, "operation", "order.update_status_paid", "payload", pay.InvoicePayload, "error", err)
+		}
+
+		tg := h.getBotClient(bot)
+		if tg != nil {
+			userLang, _ := h.db.GetUserLanguage(ctx, userID)
+			lang := i18n.DetectLanguage(userLang)
+			successText := i18n.T(lang, "payments.credits_pack_success", map[string]interface{}{
+				"credits": creditsGranted,
+			})
+			_ = tg.SendMessage(ctx, userID, successText, nil, nil)
 		}
 	}
 }

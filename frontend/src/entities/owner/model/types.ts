@@ -12,8 +12,9 @@ export interface OwnerAuthResponse {
 
 export interface TotpSetupResponse {
 	secret: string;
-	qr_uri: string;
-	recovery_codes: string[];
+	provisioning_uri: string;
+	qr_uri?: string;
+	recovery_codes?: string[];
 }
 
 export interface RecentValuationLog {

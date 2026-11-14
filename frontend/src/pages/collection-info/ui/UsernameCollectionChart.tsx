@@ -1,6 +1,6 @@
 import { type Component, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import { apiClient as api } from '@/shared/api/axios.js';
-import { locale, t } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
@@ -36,68 +36,24 @@ interface HistoryResponse {
 	}>;
 }
 
-const CHART_COPY: Record<
-	string,
-	{
-		floorTab: string;
-		medianTab: string;
-		volumeTab: string;
-		salesLabel: string;
-		volumeLabel: string;
-		medianLabel: string;
-		floorLabel: string;
-		verifiedSub: string;
-	}
-> = {
-	fa: {
-		floorTab: 'کف قیمت',
-		medianTab: 'میانه فروش',
-		volumeTab: 'حجم معاملات',
-		salesLabel: 'تعداد فروش',
-		volumeLabel: 'حجم',
-		medianLabel: 'میانه',
-		floorLabel: 'کف',
-		verifiedSub: 'داده‌های واقعی بلاکچین TON و فرگمنت',
-	},
-	en: {
-		floorTab: 'Floor',
-		medianTab: 'Median',
-		volumeTab: 'Volume',
-		salesLabel: 'Sales',
-		volumeLabel: 'Vol',
-		medianLabel: 'Median',
-		floorLabel: 'Floor',
-		verifiedSub: 'Live TON TeleMint & Fragment Index',
-	},
-	ru: {
-		floorTab: 'Флор',
-		medianTab: 'Медиана',
-		volumeTab: 'Объём',
-		salesLabel: 'Сделки',
-		volumeLabel: 'Объём',
-		medianLabel: 'Медиана',
-		floorLabel: 'Флор',
-		verifiedSub: 'Ончейн-данные TON TeleMint и Fragment',
-	},
-	zh: {
-		floorTab: '地板价',
-		medianTab: '中位成交',
-		volumeTab: '交易量',
-		salesLabel: '成交笔数',
-		volumeLabel: '交易量',
-		medianLabel: '中位数',
-		floorLabel: '地板价',
-		verifiedSub: 'TON TeleMint 与 Fragment 链上实盘数据',
-	},
-};
+const TonCrystalSvg: Component<{ class?: string }> = (props) => (
+	<svg viewBox="0 0 24 24" fill="none" class={props.class || 'w-4 h-4 shrink-0'} aria-hidden="true">
+		<circle cx="12" cy="12" r="11" fill="#2990FF" />
+		<path
+			d="M7.6 8.2H16.4C17.05 8.2 17.46 8.9 17.13 9.47L12.73 17.1C12.41 17.66 11.59 17.66 11.27 17.1L6.87 9.47C6.54 8.9 6.95 8.2 7.6 8.2Z"
+			stroke="white"
+			stroke-width="1.65"
+			stroke-linejoin="round"
+		/>
+		<path d="M12 8.3V17.2" stroke="white" stroke-width="1.5" stroke-linecap="round" />
+	</svg>
+);
 
 export const UsernameCollectionChart: Component<Props> = (props) => {
 	const [timeframe, setTimeframe] = createSignal<Timeframe>('30d');
 	const [metricMode, setMetricMode] = createSignal<MetricMode>('floor');
 	const [currency, setCurrency] = createSignal<'ton' | 'usd'>('ton');
 	const [hoverIdx, setHoverIdx] = createSignal<number | null>(null);
-
-	const copy = () => CHART_COPY[locale()] || CHART_COPY.fa;
 
 	const [historyData] = createResource(timeframe, async (tf) => {
 		try {
@@ -111,7 +67,7 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 	const chartPoints = createMemo<ChartPoint[]>(() => {
 		const raw = historyData() || [];
 		if (raw.length === 0) return [];
-		const usdRate = props.tonUsdRate || 0;
+		const usdRate = props.tonUsdRate || 5.25;
 		return raw.map((p) => {
 			const med = p.median_ton && p.median_ton > 0 ? p.median_ton : p.floor_ton;
 			return {
@@ -128,9 +84,9 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 		});
 	});
 
-	const width = 500;
-	const height = 190;
-	const padding = { top: 22, bottom: 34, left: 10, right: 10 };
+	const width = 520;
+	const height = 186;
+	const padding = { top: 20, bottom: 30, left: 8, right: 8 };
 
 	const activePoints = createMemo(() => {
 		const pts = chartPoints();
@@ -145,7 +101,7 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 		});
 
 		const min = Math.min(...vals) * 0.94;
-		const max = Math.max(...vals) * 1.06;
+		const max = Math.max(...vals) * 1.05;
 		const range = max - min || 1;
 		const plotW = width - padding.left - padding.right;
 		const plotH = height - padding.top - padding.bottom;
@@ -177,7 +133,7 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 			line += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
 		}
 
-		const bottomY = height - padding.bottom + 5;
+		const bottomY = height - padding.bottom + 4;
 		const last = pts[pts.length - 1];
 		const first = pts[0];
 		const area = `${line} L ${last.x.toFixed(1)} ${bottomY} L ${first.x.toFixed(1)} ${bottomY} Z`;
@@ -204,25 +160,25 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 		return ((e - s) / s) * 100;
 	});
 
-	const fmtVal = (val?: number) => {
+	const fmtNumberOnly = (val?: number) => {
 		if (val === undefined || val === null) return '0';
 		const isUsd = currency() === 'usd';
 		if (val >= 1_000_000) {
-			return isUsd ? `$${(val / 1_000_000).toFixed(2)}M` : `${(val / 1_000_000).toFixed(2)}M TON`;
+			return isUsd ? `$${(val / 1_000_000).toFixed(2)}M` : `${(val / 1_000_000).toFixed(2)}M`;
 		}
-		if (val >= 1_000) {
-			return isUsd ? `$${(val / 1_000).toFixed(1)}K` : `${(val / 1_000).toFixed(1)}K TON`;
+		if (val >= 10_000) {
+			return isUsd ? `$${(val / 1_000).toFixed(1)}K` : `${(val / 1_000).toFixed(1)}K`;
 		}
 		if (isUsd) {
-			return `$${val.toFixed(2)}`;
+			return `$${val.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 		}
-		return `${val.toFixed(2)} TON`;
+		return val.toLocaleString('en-US', { maximumFractionDigits: 1 });
 	};
 
 	const accentColor = () => {
-		if (metricMode() === 'median') return '#10B981';
-		if (metricMode() === 'volume') return '#F59E0B';
-		return '#0098EA';
+		if (metricMode() === 'median') return '#32D74B';
+		if (metricMode() === 'volume') return '#FF9F0A';
+		return '#2990FF';
 	};
 
 	const handlePointerMove = (e: MouseEvent | TouchEvent) => {
@@ -247,15 +203,15 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 	};
 
 	return (
-		<div class="bg-[#0B0E17]/95 backdrop-blur-2xl border border-white/10 rounded-[24px] p-4 sm:p-5 shadow-2xl space-y-3.5 relative overflow-hidden">
-			{/* Top Metric Mode Switcher */}
-			<div class="flex items-center justify-between gap-2 flex-wrap">
-				<div class="flex items-center gap-1 p-1 bg-white/[0.04] border border-white/[0.08] rounded-xl">
+		<div class="frag-card p-4 sm:p-5 space-y-3.5 relative overflow-hidden font-frag-sans">
+			{/* Top Bar: Fragment-style Segmented Mode + Currency/Timeframe */}
+			<div class="flex items-center justify-between gap-2 flex-wrap border-b border-white/[0.06] pb-3">
+				<div class="flex items-center gap-1 p-1 bg-[#141a22] border border-white/[0.06] rounded-[10px]">
 					{(
 						[
-							{ id: 'floor', label: copy().floorTab, icon: 'trending_down' },
-							{ id: 'median', label: copy().medianTab, icon: 'equalizer' },
-							{ id: 'volume', label: copy().volumeTab, icon: 'bar_chart' },
+							{ id: 'floor', label: t('usernameCollectionChart.floorTab') },
+							{ id: 'median', label: t('usernameCollectionChart.medianTab') },
+							{ id: 'volume', label: t('usernameCollectionChart.volumeTab') },
 						] as const
 					).map((m) => (
 						<button
@@ -266,21 +222,20 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 									haptic.selection();
 								} catch {}
 							}}
-							class={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 ${
+							class={`px-2.5 py-1 rounded-[7px] text-[11px] font-semibold transition-all ${
 								metricMode() === m.id
-									? 'bg-[#0098EA] text-white shadow-md shadow-[#0098EA]/30'
-									: 'text-white/45 hover:text-white/80'
+									? 'bg-[#2990FF] text-white shadow-sm'
+									: 'text-[#8c9ba5] hover:text-white'
 							}`}
 						>
-							<span class="material-symbols-outlined text-[13px]">{m.icon}</span>
-							<span>{m.label}</span>
+							{m.label}
 						</button>
 					))}
 				</div>
 
 				{/* Currency & Timeframe Controls */}
 				<div class="flex items-center gap-1.5">
-					<div class="flex items-center gap-0.5 p-0.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-[10px] font-bold font-mono">
+					<div class="flex items-center gap-0.5 p-0.5 bg-[#141a22] border border-white/[0.06] rounded-[9px] text-[10px] font-frag-mono font-semibold">
 						<button
 							type="button"
 							onClick={() => {
@@ -289,13 +244,13 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 									haptic.selection();
 								} catch {}
 							}}
-							class={`px-2 py-0.5 rounded-lg transition-all ${
+							class={`px-2 py-1 rounded-[6px] transition-all ${
 								currency() === 'ton'
-									? 'bg-[#0098EA] text-white shadow'
-									: 'text-white/40 hover:text-white'
+									? 'bg-[#212b37] text-white border border-white/10'
+									: 'text-[#8c9ba5] hover:text-white'
 							}`}
 						>
-							TON
+							{'TON'}
 						</button>
 						<button
 							type="button"
@@ -305,17 +260,17 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 									haptic.selection();
 								} catch {}
 							}}
-							class={`px-2 py-0.5 rounded-lg transition-all ${
+							class={`px-2 py-1 rounded-[6px] transition-all ${
 								currency() === 'usd'
-									? 'bg-[#0098EA] text-white shadow'
-									: 'text-white/40 hover:text-white'
+									? 'bg-[#212b37] text-white border border-white/10'
+									: 'text-[#8c9ba5] hover:text-white'
 							}`}
 						>
-							USD
+							{'USD'}
 						</button>
 					</div>
 
-					<div class="flex items-center gap-0.5 p-0.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-[10px] font-mono">
+					<div class="flex items-center gap-0.5 p-0.5 bg-[#141a22] border border-white/[0.06] rounded-[9px] text-[10px] font-frag-mono">
 						{(['24h', '7d', '30d', 'all'] as Timeframe[]).map((tf) => (
 							<button
 								type="button"
@@ -326,10 +281,10 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 										haptic.selection();
 									} catch {}
 								}}
-								class={`px-2 py-0.5 rounded-lg font-bold transition-all ${
+								class={`px-2 py-1 rounded-[6px] font-semibold transition-all ${
 									timeframe() === tf
-										? 'bg-white/15 text-white shadow'
-										: 'text-white/40 hover:text-white/80'
+										? 'bg-[#2990FF]/20 text-[#2990FF] border border-[#2990FF]/35'
+										: 'text-[#8c9ba5] hover:text-white'
 								}`}
 							>
 								{tf.toUpperCase()}
@@ -339,18 +294,24 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 				</div>
 			</div>
 
-			{/* Active Value Readout */}
-			<div class="flex items-end justify-between gap-2 pt-0.5">
-				<div>
-					<div class="flex items-baseline gap-2" dir="ltr">
-						<span class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight tabular-nums">
-							{fmtVal(currentPoint()?.val)}
+			{/* Active Value Readout with Authentic TON Crystal Icon */}
+			<div class="flex items-end justify-between gap-2">
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center gap-2" dir="ltr">
+						<Show when={currency() === 'ton'}>
+							<TonCrystalSvg class="w-5 h-5" />
+						</Show>
+						<span class="text-2xl sm:text-[28px] font-bold text-white font-frag-mono tracking-tight tabular-nums leading-none">
+							{fmtNumberOnly(currentPoint()?.val)}
 						</span>
+						<Show when={currency() === 'ton'}>
+							<span class="text-xs font-frag-mono font-semibold text-[#8c9ba5]">{'TON'}</span>
+						</Show>
 						<span
-							class={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg border ${
+							class={`text-[11px] font-frag-mono font-semibold px-2 py-0.5 rounded-[6px] border ${
 								deltaPct() >= 0
-									? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-									: 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+									? 'bg-[#32d74b]/12 text-[#32d74b] border-[#32d74b]/25'
+									: 'bg-rose-500/12 text-rose-400 border-rose-500/25'
 							}`}
 						>
 							{deltaPct() >= 0 ? '+' : ''}
@@ -358,21 +319,24 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 						</span>
 					</div>
 
-					<div class="text-[10px] text-white/45 font-mono mt-1 flex items-center flex-wrap gap-2">
-						<Show when={currentPoint()} fallback={<span>{copy().verifiedSub}</span>}>
-							<span class="text-[#0098EA] font-bold">{currentPoint()?.label}</span>
-							<span class="text-white/20">•</span>
+					<div class="text-[11px] text-[#8c9ba5] font-frag-mono flex items-center flex-wrap gap-2">
+						<Show
+							when={currentPoint()}
+							fallback={<span>{t('usernameCollectionChart.verifiedSub')}</span>}
+						>
+							<span class="text-white/90 font-semibold">{currentPoint()?.label}</span>
+							<span class="text-white/20">·</span>
 							<span>
-								{copy().volumeLabel}:{' '}
-								<strong class="text-white/80">
+								{t('usernameCollectionChart.volumeLabel')}:{' '}
+								<strong class="text-white font-semibold">
 									{Math.round(currentPoint()?.volumeTon || 0).toLocaleString()} TON
 								</strong>
 							</span>
 							<Show when={(currentPoint()?.salesCount || 0) > 0}>
-								<span class="text-white/20">•</span>
+								<span class="text-white/20">·</span>
 								<span>
-									{copy().salesLabel}:{' '}
-									<strong class="text-emerald-400">{currentPoint()?.salesCount}</strong>
+									<strong class="text-[#32d74b]">{currentPoint()?.salesCount}</strong>{' '}
+									{t('usernameCollectionChart.salesLabel')}
 								</span>
 							</Show>
 						</Show>
@@ -380,9 +344,9 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 				</div>
 			</div>
 
-			{/* SVG Interactive Canvas */}
+			{/* SVG Interactive Orderbook Chart Canvas */}
 			<div
-				class="relative w-full h-[180px] rounded-2xl border border-white/[0.07] bg-[#06080E]/90 p-2 overflow-hidden select-none flex items-center justify-center"
+				class="relative w-full h-[176px] rounded-[10px] border border-white/[0.06] bg-[#141a22] p-2 overflow-hidden select-none flex items-center justify-center cursor-crosshair"
 				onMouseMove={handlePointerMove}
 				onTouchMove={handlePointerMove}
 				onMouseLeave={handlePointerLeave}
@@ -392,8 +356,8 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 					when={activePoints().length > 0}
 					fallback={
 						<div class="text-center">
-							<div class="text-white/40 text-xs font-mono mb-1">
-								{t('collectionInfo.noHistoryAvailable') || 'در حال همگام‌سازی تاریخچه معاملات...'}
+							<div class="text-[#8c9ba5] text-xs font-frag-mono">
+								{t('collectionInfo.noHistoryAvailable')}
 							</div>
 						</div>
 					}
@@ -404,27 +368,20 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 						preserveAspectRatio="none"
 					>
 						<defs>
-							<linearGradient id="usernameAreaGrad" x1="0" y1="0" x2="0" y2="1">
-								<stop offset="0%" stop-color={accentColor()} stop-opacity="0.32" />
-								<stop offset="65%" stop-color={accentColor()} stop-opacity="0.06" />
+							<linearGradient id="fragAreaGrad" x1="0" y1="0" x2="0" y2="1">
+								<stop offset="0%" stop-color={accentColor()} stop-opacity="0.26" />
+								<stop offset="70%" stop-color={accentColor()} stop-opacity="0.04" />
 								<stop offset="100%" stop-color={accentColor()} stop-opacity="0.0" />
 							</linearGradient>
-							<filter id="usernameNeonGlow" x="-20%" y="-20%" width="140%" height="140%">
-								<feGaussianBlur stdDeviation="3" result="blur" />
-								<feMerge>
-									<feMergeNode in="blur" />
-									<feMergeNode in="SourceGraphic" />
-								</feMerge>
-							</filter>
 						</defs>
 
-						{/* Grid Lines */}
+						{/* Subtle Horizontal Reference Grid Lines */}
 						<line
 							x1={padding.left}
 							y1={padding.top}
 							x2={width - padding.right}
 							y2={padding.top}
-							stroke="rgba(255,255,255,0.05)"
+							stroke="rgba(255,255,255,0.045)"
 							stroke-dasharray="3 3"
 						/>
 						<line
@@ -432,31 +389,31 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 							y1={height / 2}
 							x2={width - padding.right}
 							y2={height / 2}
-							stroke="rgba(255,255,255,0.05)"
+							stroke="rgba(255,255,255,0.045)"
 							stroke-dasharray="3 3"
 						/>
 						<line
 							x1={padding.left}
-							y1={height - padding.bottom + 5}
+							y1={height - padding.bottom + 4}
 							x2={width - padding.right}
-							y2={height - padding.bottom + 5}
-							stroke="rgba(255,255,255,0.05)"
+							y2={height - padding.bottom + 4}
+							stroke="rgba(255,255,255,0.06)"
 						/>
 
-						{/* Volume Bars */}
+						{/* Subtle Volume Histogram Bars */}
 						<For each={activePoints()}>
 							{(pt) => {
 								const maxVol = Math.max(...activePoints().map((p) => p.volumeTon), 1);
-								const barH = Math.min(28, Math.max(3, (pt.volumeTon / maxVol) * 28));
-								const barY = height - padding.bottom + 5 - barH;
+								const barH = Math.min(26, Math.max(2, (pt.volumeTon / maxVol) * 26));
+								const barY = height - padding.bottom + 4 - barH;
 								return (
 									<rect
-										x={pt.x - 3}
+										x={pt.x - 2.5}
 										y={barY}
-										width="6"
+										width="5"
 										height={barH}
-										rx="2"
-										fill="rgba(0, 152, 234, 0.22)"
+										rx="1.5"
+										fill="rgba(41, 144, 255, 0.18)"
 									/>
 								);
 							}}
@@ -464,19 +421,18 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 
 						{/* Area Fill */}
 						<Show when={svgPaths().area}>
-							<path d={svgPaths().area} fill="url(#usernameAreaGrad)" />
+							<path d={svgPaths().area} fill="url(#fragAreaGrad)" />
 						</Show>
 
-						{/* Main Curve */}
+						{/* Main Price/Volume Curve */}
 						<Show when={svgPaths().line}>
 							<path
 								d={svgPaths().line}
 								fill="none"
 								stroke={accentColor()}
-								stroke-width="2.5"
+								stroke-width="2.2"
 								stroke-linecap="round"
 								stroke-linejoin="round"
-								filter="url(#usernameNeonGlow)"
 							/>
 						</Show>
 
@@ -488,38 +444,29 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 									<g>
 										<line
 											x1={cp.x}
-											y1={padding.top - 5}
+											y1={padding.top - 4}
 											x2={cp.x}
-											y2={height - padding.bottom + 5}
+											y2={height - padding.bottom + 4}
 											stroke={accentColor()}
-											stroke-width="1.5"
+											stroke-width="1.2"
 											stroke-dasharray="3 3"
-											opacity="0.85"
+											opacity="0.75"
 										/>
 										<circle
 											cx={cp.x}
 											cy={cp.y}
-											r="7"
-											fill={accentColor()}
-											opacity="0.3"
-											class="animate-ping"
-										/>
-										<circle
-											cx={cp.x}
-											cy={cp.y}
-											r="5"
-											fill="#0A0E17"
+											r="4.5"
+											fill="#141a22"
 											stroke={accentColor()}
-											stroke-width="2.5"
+											stroke-width="2.2"
 										/>
-										<circle cx={cp.x} cy={cp.y} r="2.5" fill="#FFFFFF" />
 									</g>
 								);
 							})()}
 						</Show>
 					</svg>
 
-					{/* Floating Tooltip */}
+					{/* Floating Fragment Tooltip */}
 					<Show when={hoverIdx() !== null && currentPoint()}>
 						{(() => {
 							const cp = currentPoint()!;
@@ -529,14 +476,16 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 									class="absolute pointer-events-none transition-transform duration-75 z-30"
 									style={{
 										left: `${(cp.x / width) * 100}%`,
-										top: `${Math.max(16, Math.min(130, (cp.y / height) * 100))}%`,
-										transform: `translate(${isRightHalf ? '-110%' : '10%'}, -50%)`,
+										top: `${Math.max(16, Math.min(125, (cp.y / height) * 100))}%`,
+										transform: `translate(${isRightHalf ? '-108%' : '8%'}, -50%)`,
 									}}
 								>
-									<div class="bg-[#0b101c]/95 border border-[#0098EA]/40 rounded-xl px-2.5 py-1.5 shadow-2xl backdrop-blur-md text-[10px] font-mono whitespace-nowrap">
-										<div class="text-white font-black text-xs">{fmtVal(cp.val)}</div>
-										<div class="text-white/60 text-[9px] mt-0.5">
-											{cp.label} • {cp.salesCount} {copy().salesLabel}
+									<div class="bg-[#1b232d]/95 border border-white/15 rounded-[8px] px-2.5 py-1.5 shadow-xl backdrop-blur-md text-[10px] font-frag-mono whitespace-nowrap">
+										<div class="text-white font-bold text-[11px]">
+											{fmtNumberOnly(cp.val)} {currency() === 'ton' ? 'TON' : ''}
+										</div>
+										<div class="text-[#8c9ba5] text-[9px] mt-0.5">
+											{cp.label} · {cp.salesCount} {t('usernameCollectionChart.salesLabel')}
 										</div>
 									</div>
 								</div>
@@ -544,13 +493,13 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 						})()}
 					</Show>
 
-					{/* Time Bounds */}
+					{/* Time Bounds Footer */}
 					<div
-						class="absolute bottom-1 left-3 right-3 flex justify-between text-[9px] font-mono text-white/35 pointer-events-none"
+						class="absolute bottom-1.5 left-3 right-3 flex justify-between text-[10px] font-frag-mono text-[#60707c] pointer-events-none"
 						dir="ltr"
 					>
 						<span>{activePoints()[0]?.label || ''}</span>
-						<span class="text-[#0098EA] font-semibold">
+						<span class="text-[#2990FF] font-semibold">
 							{activePoints()[activePoints().length - 1]?.label || 'LIVE'}
 						</span>
 					</div>

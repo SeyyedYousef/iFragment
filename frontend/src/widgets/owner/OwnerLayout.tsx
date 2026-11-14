@@ -1,6 +1,6 @@
 import { A } from '@solidjs/router';
 import type { Component, JSX } from 'solid-js';
-import { locale, t } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { ImpersonationBanner } from './ImpersonationBanner.js';
 import { type OwnerTabId, OwnerTabs } from './OwnerTabs.js';
 
@@ -11,8 +11,6 @@ interface OwnerLayoutProps {
 }
 
 export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
-	const isFa = () => locale() === 'fa';
-
 	return (
 		<div class="min-h-screen bg-[#08090e] text-white relative font-sans selection:bg-[#3390ec]/30">
 			<ImpersonationBanner />
@@ -31,20 +29,14 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 					<div>
 						<div class="flex items-center gap-2 flex-wrap">
 							<h1 class="text-sm md:text-base font-black uppercase tracking-wider text-white">
-								{isFa()
-									? 'فرماندهی کل پلتفرم (Sovereign Owner Terminal)'
-									: 'Sovereign Owner Terminal'}
+								{t('ownerShell.title')}
 							</h1>
 							<span class="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black uppercase text-emerald-400 flex items-center gap-1">
 								<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
 								{t('common.live')}
 							</span>
 						</div>
-						<p class="text-[11px] text-white/45 font-medium mt-0.5">
-							{isFa()
-								? 'مدیریت یکپارچه موتورهای نام کاربری (@)، شماره‌های کلکسیونی (+888)، گیفت‌های تلگرام، کریدیت ⚡ و نشست‌های MTProto'
-								: 'Unified Command for @Usernames, +888 Numbers, Telegram Gifts, Intel Credits ⚡ & MTProto Sessions'}
-						</p>
+						<p class="text-[11px] text-white/45 font-medium mt-0.5">{t('ownerShell.subtitle')}</p>
 					</div>
 				</div>
 
@@ -56,21 +48,21 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 							class="px-2.5 py-1 rounded-lg text-[10px] font-bold text-sky-300 hover:bg-sky-500/15 transition flex items-center gap-1"
 						>
 							<span>@</span>
-							<span>{isFa() ? 'نام کاربری' : 'Usernames'}</span>
+							<span>{t('ownerShell.usernames')}</span>
 						</A>
 						<A
 							href="/numbers"
 							class="px-2.5 py-1 rounded-lg text-[10px] font-bold text-amber-300 hover:bg-amber-500/15 transition flex items-center gap-1"
 						>
 							<span>+888</span>
-							<span>{isFa() ? 'شماره‌ها' : 'Numbers'}</span>
+							<span>{t('ownerShell.numbers')}</span>
 						</A>
 						<A
 							href="/gifts"
 							class="px-2.5 py-1 rounded-lg text-[10px] font-bold text-purple-300 hover:bg-purple-500/15 transition flex items-center gap-1"
 						>
 							<span>🎁</span>
-							<span>{isFa() ? 'گیفت‌ها' : 'Gifts'}</span>
+							<span>{t('ownerShell.gifts')}</span>
 						</A>
 					</div>
 
@@ -79,7 +71,7 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 						class="h-8 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 text-[10px] font-bold transition flex items-center gap-1"
 					>
 						<span class="material-symbols-outlined text-[14px]">home</span>
-						<span>{isFa() ? 'صفحه اصلی' : 'App Home'}</span>
+						<span>{t('ownerShell.appHome')}</span>
 					</A>
 
 					<button
@@ -94,7 +86,7 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 						title={t('ownerChrome.logoutTooltip' as any)}
 					>
 						<span class="material-symbols-outlined text-[14px]">logout</span>
-						<span>{isFa() ? 'خروج ادمین' : 'Exit Admin'}</span>
+						<span>{t('ownerShell.exitAdmin')}</span>
 					</button>
 				</div>
 			</header>

@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	ModelVersion = "GV-Engine-v6.0-RealizedAnchored"
+	ModelVersion = "GV-Engine-v8.0-FloorLockedQuantum"
 	ShrinkageK   = 10.0
 	DecayLambda  = 0.005
 )
@@ -263,39 +263,61 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 	}, nil
 }
 
-// resolveDynamicFloor determines the realistic baseline floor price using live DB snapshots, market liquidity, or canonical supply economics.
+// resolveDynamicFloor determines the realistic secondary market floor price using live DB snapshots, recent verified sales, or canonical supply economics.
 func (e *ValuationEngine) resolveDynamicFloor(ctx context.Context, modelID string, col traits.CollectionMeta, tonUsdRate float64) float64 {
-	// 1. Query database venue snapshots if available
+	// 1. Query database venue snapshots if available (strictly excluding Telegram Stars mint price and 16,111 anomaly)
 	if e.giftsRepo != nil {
-		if snaps, err := e.giftsRepo.GetVenueSnapshots(ctx, modelID); err == nil && len(snaps) > 0 {
+		checkSnaps := func(mID string) float64 {
+			snaps, err := e.giftsRepo.GetVenueSnapshots(ctx, mID)
+			if err != nil || len(snaps) == 0 {
+				return 0.0
+			}
 			bestFloor := 0.0
 			for _, snap := range snaps {
+				// Sacred Rule: Telegram Stars is the primary mint price, NEVER a secondary marketplace floor
+				if snap.Venue == string(venues.VenueTelegramStars) || strings.EqualFold(snap.Currency, "Stars") {
+					continue
+				}
 				f, _ := snap.FloorPriceGRAM.Float64()
-				if f > 0 && (bestFloor == 0.0 || f < bestFloor) {
+				// Exclude poisoned 16111 anomaly snapshots
+				if f > 0 && f != 16111.0 && (bestFloor == 0.0 || f < bestFloor) {
 					bestFloor = f
 				}
 			}
-			if bestFloor > 0 {
-				return bestFloor
-			}
+			return bestFloor
+		}
+
+		if f := checkSnaps(modelID); f > 0 {
+			return f
 		}
 		if col.ModelID != "" && col.ModelID != modelID {
-			if snaps, err := e.giftsRepo.GetVenueSnapshots(ctx, col.ModelID); err == nil && len(snaps) > 0 {
-				bestFloor := 0.0
-				for _, snap := range snaps {
-					f, _ := snap.FloorPriceGRAM.Float64()
-					if f > 0 && (bestFloor == 0.0 || f < bestFloor) {
-						bestFloor = f
-					}
+			if f := checkSnaps(col.ModelID); f > 0 {
+				return f
+			}
+		}
+
+		// 2. Query empirical clearing floor from real verified sales in gift_sales
+		checkSales := func(mID string) float64 {
+			stats, err := e.giftsRepo.GetSalesStatsByPeriod(ctx, mID, time.Now().Add(-90*24*time.Hour))
+			if err == nil && stats != nil && stats.DealsCount >= 3 {
+				minF, _ := stats.MinGRAM.Float64()
+				if minF > 0 && minF != 16111.0 {
+					return minF
 				}
-				if bestFloor > 0 {
-					return bestFloor
-				}
+			}
+			return 0.0
+		}
+		if sf := checkSales(modelID); sf > 0 {
+			return sf
+		}
+		if col.ModelID != "" && col.ModelID != modelID {
+			if sf := checkSales(col.ModelID); sf > 0 {
+				return sf
 			}
 		}
 	}
 
-	// 2. Inverted supply scarcity baseline economics (from Canonical Telegram Gifts Registry)
+	// 3. Calibrated supply scarcity baseline economics
 	supply := col.TotalSupply
 	if supply <= 0 {
 		supply = 10000
@@ -381,8 +403,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		fngMult = 1.0
 	}
 
-	// 3. 4-Axis Hedonic Pricing Model
-	// Resolve base floor dynamically from live venue snapshots or scarcity baseline
+	// 3. Dominant Floor Architecture Hedonic Pricing Model
 	baseFloor := e.resolveDynamicFloor(ctx, ref.ModelID, col, gramUsdRate)
 	if liveNFT != nil && liveNFT.ValueInfo != nil && liveNFT.ValueInfo.FloorPrice > 0 {
 		mtpFloor := liveNFT.ValueInfo.FloorPrice
@@ -393,9 +414,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			baseFloor = mtpFloor
 		}
 	}
-	beta0 := math.Log(baseFloor)
 
-	// Axis 1: Model scarcity & crafted multiplier
+	// Axis 1: Model scarcity & floor
 	modelKey := col.Name
 	modelPct := 2.0
 	if liveNFT != nil && liveNFT.Model != "" {
@@ -405,20 +425,32 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		}
 	}
 
+	modelFloor := baseFloor
 	betaModel := 0.0
-	if col.CraftedFlag {
-		betaModel = 0.85 // High prestige for crafted-only outputs
-	} else {
-		// Continuous logarithmic rarity curve f(modelPct) across all models
-		clampedModelPct := math.Max(modelPct, 0.05)
-		betaModel = 0.22 * math.Log(100.0/clampedModelPct)
-		if betaModel < 0 {
-			betaModel = 0
+	if e.giftsRepo != nil && modelKey != "" && !strings.EqualFold(modelKey, col.Name) {
+		if mf, ok := e.giftsRepo.GetModelFloor(ctx, ref.ModelID, modelKey); ok && mf.GreaterThan(decimal.Zero) {
+			f, _ := mf.Float64()
+			if f > modelFloor && f <= baseFloor*4.50 {
+				modelFloor = f
+			}
 		}
+	}
+	if col.CraftedFlag {
+		if baseFloor*1.30 > modelFloor {
+			modelFloor = baseFloor * 1.30
+		}
+		betaModel = math.Log(modelFloor / baseFloor)
+	} else if modelPct < 1.5 && modelPct > 0 {
+		rareModelPremium := 0.18 * math.Log(1.5/math.Max(modelPct, 0.05))
+		theoreticalModelFloor := baseFloor * (1.0 + rareModelPremium)
+		if theoreticalModelFloor > modelFloor {
+			modelFloor = theoreticalModelFloor
+		}
+		betaModel = math.Log(modelFloor / baseFloor)
 	}
 
 	// Axis 2: Backdrop exact permille & resolution from DB or official catalog
-	backdropKey := "Obsidian Matrix"
+	backdropKey := "Midnight Blue"
 	backdropCertainty := "measured"
 	var backdropColors traits.BackdropColorSet
 	var backdropPermille int
@@ -497,33 +529,121 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		}
 	}
 
-	// Continuous smooth backdrop rarity curve: elasticity * ln(1000 / permille)
-	permilleClamped := math.Max(float64(backdropPermille), 5.0)
-	betaBackdrop := 0.35 * math.Log(1000.0/permilleClamped)
-	if betaBackdrop < 0 {
-		betaBackdrop = 0
+	// Axis 6: Perceptual CIEDE2000 Chromatic Harmony, 3D Model Color-Match & Prestige Color Matrix
+	aestheticHarmony := traits.EvaluateAestheticHarmonyWithModel(col.ModelID, modelKey, backdropKey, &backdropColors)
+	betaColorPrestige := aestheticHarmony.BetaColorPrestige
+
+	// Backdrop Floor evaluation:
+	// In the real market, Black / Obsidian / Astral Gold backdrops command their own distinct backdrop floor.
+	// Unverified fallback ("estimated" Midnight Blue) must NEVER inflate backdropFloor above baseFloor!
+	backdropFloor := baseFloor
+	if e.giftsRepo != nil && (backdropCertainty == "exact" || defaultBackdropName != "") {
+		if bf, ok := e.giftsRepo.GetBackdropFloor(ctx, ref.ModelID, backdropKey); ok && bf.GreaterThan(decimal.Zero) {
+			f, _ := bf.Float64()
+			if f > backdropFloor && f <= baseFloor*4.50 {
+				backdropFloor = f
+			}
+		}
+	}
+	if backdropCertainty == "exact" || defaultBackdropName != "" {
+		if aestheticHarmony.PrestigeTier == traits.PrestigeTierS {
+			tierSMult := 1.50
+			if strings.Contains(strings.ToLower(backdropKey), "black") || strings.Contains(strings.ToLower(backdropKey), "obsidian") {
+				tierSMult = 1.65
+				if col.ModelID == "swiss_watch" || col.ModelID == "plush_pepe" {
+					tierSMult = 2.50
+				}
+			}
+			if baseFloor*tierSMult > backdropFloor {
+				backdropFloor = baseFloor * tierSMult
+			}
+		} else if aestheticHarmony.PrestigeTier == traits.PrestigeTierA {
+			if baseFloor*1.15 > backdropFloor {
+				backdropFloor = baseFloor * 1.15
+			}
+		}
 	}
 
-	// Axis 3: Symbol smooth continuous rarity
-	symPermClamped := math.Max(float64(symbolPermille), 5.0)
-	betaSymbol := 0.12 * math.Log(1000.0/symPermClamped)
-	if betaSymbol < 0.05 {
-		betaSymbol = 0.05
+	// Dominant Floor Architecture: F_dominant = max(F_collection, F_model, F_backdrop)
+	dominantFloor := math.Max(baseFloor, math.Max(modelFloor, backdropFloor))
+	dominantFloorDriver := "collection_floor"
+	if backdropFloor > baseFloor*1.01 && backdropFloor >= modelFloor {
+		dominantFloorDriver = "backdrop_floor"
+	} else if modelFloor > baseFloor*1.01 {
+		dominantFloorDriver = "model_floor"
+	}
+	beta0 := math.Log(dominantFloor)
+
+	betaBackdrop := 0.0
+	if backdropFloor > baseFloor {
+		betaBackdrop = math.Log(backdropFloor / baseFloor)
 	}
 
-	// Axis 4: Serial smooth non-linear curve f(rank / supply) with vanity serials genetic classification
-	classifiedSerial := serials.ClassifySerial(ref.SerialNumber, baseFloor)
+	// Axis 3: Symbol smooth continuous rarity (only verified ultra-rare symbols add premium)
+	betaSymbol := 0.0
+	if symbolCertainty == "exact" && symbolPermille < 10 && symbolPermille > 0 {
+		betaSymbol = 0.05 * math.Log(10.0/math.Max(float64(symbolPermille), 1.0))
+	}
+
+	// Axis 4: Serial smooth non-linear curve + Omega Final Mint (#N/N) grounded in historical sales
+	classifiedSerial := serials.ClassifySerialWithSupply(ref.SerialNumber, col.TotalSupply, baseFloor)
 	betaSerial := computeSerialExponent(ref.SerialNumber, col.TotalSupply, classifiedSerial)
 
 	// Axis 5: Keep Original Details
-	betaOriginal := 0.08
+	betaOriginal := 0.0
 
-	// Axis 6: Delta-E Chromatic Harmony, Theme Matching & Prestige Color Matrix
-	aestheticHarmony := traits.EvaluateAestheticHarmony(col.ModelID, backdropKey, &backdropColors)
-	betaColorPrestige := aestheticHarmony.BetaColorPrestige
+	// 4-Regime Floor-Lock Law Detection:
+	// Most Telegram Collectible Gifts sell strictly at their Dominant Floor (Collection Floor,
+	// Model Floor, or Backdrop Floor) unless they possess a genuine secondary special feature!
+	specialFeatures := make([]string, 0, 4)
+	if betaSerial > 0 {
+		specialFeatures = append(specialFeatures, fmt.Sprintf("SERIAL_%s (#%d)", classifiedSerial.Category, ref.SerialNumber))
+	}
+	if aestheticHarmony.IsMonochromeColorMatch && (backdropCertainty == "exact" || defaultBackdropName != "") {
+		specialFeatures = append(specialFeatures, fmt.Sprintf("CIEDE2000_COLOR_MATCH (dE00=%.2f)", aestheticHarmony.DeltaE2000ModelBackdrop))
+	}
+	if modelFloor > baseFloor*1.05 && backdropFloor > baseFloor*1.05 {
+		specialFeatures = append(specialFeatures, "DUAL_RARE_MODEL_AND_BACKDROP")
+	}
+	if betaSymbol > 0 {
+		specialFeatures = append(specialFeatures, fmt.Sprintf("ULTRA_RARE_SYMBOL (%d permille)", symbolPermille))
+	}
+	hasSpecialFeature := len(specialFeatures) > 0
+
+	floorLockRegime := "COLLECTION_FLOOR_LOCKED"
+	if hasSpecialFeature {
+		floorLockRegime = "SPECIAL_COLLECTOR_GRAIL"
+	} else if dominantFloorDriver == "backdrop_floor" {
+		floorLockRegime = "BACKDROP_FLOOR_LOCKED"
+	} else if dominantFloorDriver == "model_floor" {
+		floorLockRegime = "MODEL_FLOOR_LOCKED"
+	}
 
 	// Axis 7: Multi-Dimensional Joint Statistical Rarity & Surprisal
 	jointRarity := traits.ComputeJointRarity(col.TotalSupply, ref.SerialNumber, backdropPermille, symbolPermille, col.CraftedFlag)
+
+	// Trait Synergy & Harmony Over Dominant Floor (ONLY active when hasSpecialFeature is true!)
+	synergyBonus := 0.0
+	if hasSpecialFeature {
+		if modelFloor > baseFloor*1.05 && backdropFloor > baseFloor*1.05 {
+			secondaryLift := (math.Min(modelFloor, backdropFloor) - baseFloor) / baseFloor
+			synergyBonus += math.Min(0.20, secondaryLift*0.25)
+		}
+		if (backdropCertainty == "exact" || defaultBackdropName != "") && aestheticHarmony.IsMonochromeColorMatch {
+			if aestheticHarmony.DeltaE2000ModelBackdrop <= 10.0 {
+				synergyBonus += 0.14 // Full Monochrome Grail
+			} else {
+				synergyBonus += 0.08 // Chromatic Twin Match
+			}
+		} else if backdropCertainty == "exact" && aestheticHarmony.ThemeMatchRating == "PERFECT_MATCH" {
+			synergyBonus += 0.08
+		} else if backdropCertainty == "exact" && aestheticHarmony.ThemeMatchRating == "HIGH_SYNERGY" {
+			synergyBonus += 0.04
+		}
+		if jointRarity.BetaSynergy > 0 {
+			synergyBonus += jointRarity.BetaSynergy * 0.35
+		}
+	}
 
 	// Axis 8: In-App Telegram Stars Floor Parity with dynamic base stars price
 	baseStarsPrice := 1000
@@ -536,21 +656,36 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 	starsParity := starsrate.CalculateStarsParity(baseStarsPrice, gramUsdRate, baseFloor)
 
-	// Trait premium sum across all attribute axes
-	traitPremiums := betaModel + betaBackdrop + betaColorPrestige + betaSymbol + betaSerial + betaOriginal + aestheticHarmony.BetaAesthetic + jointRarity.BetaSynergy
+	// Trait premium sum across all attribute axes over Dominant Floor
+	traitPremiums := 0.0
+	hedonicLogP := beta0
+	if hasSpecialFeature {
+		traitPremiums = betaSerial + synergyBonus + betaSymbol
+		hedonicLogP = beta0 + traitPremiums + math.Log(fngMult)
+	}
 
-	// Sub-additive econometric covariance calibration (shrinkage):
-	// Prevents compounding over-dispersion when multiple rare traits co-occur,
-	// anchoring valuation tightly to realistic clearing prices (eliminates the slight ~10% upward bias).
-	calibratedTraitLog := traitPremiums * 0.90
-
-	// Sum Log prior (Hedonic Quantum-Hedonic v6.0)
-	hedonicLogP := beta0 + calibratedTraitLog + math.Log(fngMult)
-
-	// Laya AI System One Pre-Evaluation (Trait synergy, aesthetic appeal, action advice)
+	// Laya AI System One Pre-Evaluation with full CIEDE2000 & Floor-Lock telemetry
 	var layaRes *LayaGiftResult
 	if defaultLayaGiftEvaluator != nil {
-		layaRes = defaultLayaGiftEvaluator.EvaluateGift(ctx, col.Name, backdropKey, symbolKey, ref.SerialNumber)
+		layaRes = defaultLayaGiftEvaluator.EvaluateGiftWithTelemetry(ctx, GiftTelemetryInput{
+			CollectionID:        col.ModelID,
+			ModelVariant:        modelKey,
+			ModelRarityPct:      modelPct,
+			Backdrop:            backdropKey,
+			BackdropPermille:    backdropPermille,
+			Symbol:              symbolKey,
+			SymbolPermille:      symbolPermille,
+			Serial:              ref.SerialNumber,
+			TotalSupply:         col.TotalSupply,
+			SerialCategory:      string(classifiedSerial.Category),
+			DeltaE2000:          aestheticHarmony.DeltaE2000ModelBackdrop,
+			IsColorMatched:      aestheticHarmony.IsMonochromeColorMatch && (backdropCertainty == "exact" || defaultBackdropName != ""),
+			DominantFloorDriver: dominantFloorDriver,
+			FloorLockRegime:     floorLockRegime,
+			HasSpecialFeature:   hasSpecialFeature,
+			HasTelemetry:        true,
+			IsCrafted:           col.CraftedFlag,
+		})
 	}
 
 	// 4. Fetch Real Comparable Sales from Database and blend with Bayesian Shrinkage
@@ -558,15 +693,14 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 	rawEstimateGRAM := math.Exp(finalLogP)
 
-	// Apply Laya AI Visual Synergy Multiplier (System One Collector Alpha)
+	// Apply Laya AI Visual Synergy Multiplier ONLY when item is in SPECIAL_COLLECTOR_GRAIL regime
 	layaMult := 1.0
 	layaScore := 7
-	layaAppeal := "aesthetic_elite"
+	layaAppeal := "floor_sweeper"
 	if layaRes != nil {
 		layaScore = layaRes.TraitSynergyScore
 		layaAppeal = layaRes.CollectorAppeal
-		if layaRes.SynergyMultiplier > 0 {
-			// Gentle collector alpha boost scaled to harmoniously blend with aesthetic harmony
+		if hasSpecialFeature && layaRes.SynergyMultiplier > 0 {
 			layaMult = 1.0 + (layaRes.SynergyMultiplier-1.0)*0.70
 			rawEstimateGRAM = rawEstimateGRAM * layaMult
 		}
@@ -581,7 +715,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	// Strict Floor & Realized Last-Sale Invariant with Down-Market Responsiveness (AC-P1-002)
-	effectiveFloor := baseFloor
+	effectiveFloor := dominantFloor
 	isLastSaleAnchored := false
 	lastSalePriceGRAM := 0.0
 	var lastSaleDate time.Time
@@ -651,7 +785,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		}
 	}
 
-	if rawEstimateGRAM < effectiveFloor {
+	if rawEstimateGRAM < effectiveFloor-1e-6 {
 		rawEstimateGRAM = effectiveFloor
 		if isLastSaleAnchored {
 			priceBasis = "direct_last_sale_anchored"
@@ -777,6 +911,41 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	certHash := sha256.Sum256([]byte(certPayload))
 	certificateID := "IFRG-GFT-" + hex.EncodeToString(certHash[:])[:12]
 
+	// 15. Compute Binary & MTProto TL-Schema + TON TEP-62/TEP-64 + CIEDE2000 Forensics
+	binaryForensics := ComputeGiftBinaryForensics(
+		col.ModelID,
+		ref.SerialNumber,
+		modelKey,
+		modelPct,
+		backdropKey,
+		backdropColors.CenterHex,
+		backdropColors.EdgeHex,
+		backdropPermille,
+		symbolKey,
+		symbolPermille,
+		aestheticHarmony,
+	)
+
+	compoundMult := 1.00
+	if dominantFloor > 0 {
+		compoundMult = roundPrice(expectedGRAM / dominantFloor)
+		if compoundMult < 1.00 {
+			compoundMult = 1.00
+		}
+	}
+	floorMatrix := &GiftFloorMatrixDto{
+		CollectionFloorGRAM:     roundPrice(baseFloor),
+		ModelFloorGRAM:          roundPrice(modelFloor),
+		BackdropFloorGRAM:       roundPrice(backdropFloor),
+		DominantFloorGRAM:       roundPrice(dominantFloor),
+		DominantFloorDriver:     dominantFloorDriver,
+		FloorLockRegime:         floorLockRegime,
+		IsFloorLocked:           !hasSpecialFeature,
+		HasSpecialFeature:       hasSpecialFeature,
+		SpecialFeaturesDetected: specialFeatures,
+		CompoundMultiplier:      compoundMult,
+	}
+
 	compSummaries := make([]map[string]interface{}, 0, len(comps))
 	for _, c := range comps {
 		compSummaries = append(compSummaries, map[string]interface{}{
@@ -790,6 +959,12 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 	configSnapshot := map[string]interface{}{
 		"base_floor_gram":         baseFloor,
+		"model_floor_gram":        modelFloor,
+		"backdrop_floor_gram":     backdropFloor,
+		"dominant_floor_gram":     dominantFloor,
+		"dominant_floor_driver":   dominantFloorDriver,
+		"floor_lock_regime":       floorLockRegime,
+		"has_special_feature":     hasSpecialFeature,
 		"effective_floor_gram":    effectiveFloor,
 		"last_sale_price_gram":    lastSalePriceGRAM,
 		"is_last_sale_anchored":   isLastSaleAnchored,
@@ -798,6 +973,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		"beta_backdrop":           betaBackdrop,
 		"beta_color_prestige":     betaColorPrestige,
 		"color_prestige_tier":     aestheticHarmony.PrestigeTier,
+		"ciede2000_model_backdrop": aestheticHarmony.DeltaE2000ModelBackdrop,
+		"is_monochrome_match":     aestheticHarmony.IsMonochromeColorMatch,
 		"serial_category":         string(classifiedSerial.Category),
 		"serial_label":            classifiedSerial.Label,
 		"serial_multiplier":       classifiedSerial.Multiplier,
@@ -812,36 +989,48 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	}
 
 	reasoningLog := map[string]interface{}{
-		"model_version":           ModelVersion,
-		"beta0_floor":             beta0,
-		"beta_model":              betaModel,
-		"beta_backdrop":           betaBackdrop,
-		"beta_color_prestige":     betaColorPrestige,
-		"color_prestige_tier":     aestheticHarmony.PrestigeTier,
-		"serial_category":         string(classifiedSerial.Category),
-		"serial_label":            classifiedSerial.Label,
-		"serial_multiplier":       classifiedSerial.Multiplier,
-		"beta_symbol":             betaSymbol,
-		"beta_serial":             betaSerial,
-		"beta_original":           betaOriginal,
-		"beta_aesthetic":          aestheticHarmony.BetaAesthetic,
-		"beta_synergy":            jointRarity.BetaSynergy,
-		"fng_multiplier":          fngMult,
-		"bayesian_k":              ShrinkageK,
-		"price_basis":             priceBasis,
-		"effective_floor_gram":    effectiveFloor,
-		"last_sale_price_gram":    lastSalePriceGRAM,
-		"is_last_sale_anchored":   isLastSaleAnchored,
-		"last_sale_date":          lastSaleDate,
-		"last_sale_venue":         lastSaleVenue,
-		"laya_synergy_multiplier": layaMult,
-		"laya_synergy_score":      layaScore,
-		"laya_collector_appeal":   layaAppeal,
-		"narrative_only":          true, // Sacred Rule 11
-		"signals_count":           42,
-		"comparables":             compSummaries,
-		"recommendation_verdict":  recommendation.Verdict,
-		"recommendation_summary":  recommendation.SummaryEn,
+		"model_version":            ModelVersion,
+		"beta0_floor":              beta0,
+		"base_floor_gram":          baseFloor,
+		"model_floor_gram":         modelFloor,
+		"backdrop_floor_gram":      backdropFloor,
+		"dominant_floor_gram":      dominantFloor,
+		"dominant_floor_driver":    dominantFloorDriver,
+		"floor_lock_regime":        floorLockRegime,
+		"has_special_feature":      hasSpecialFeature,
+		"special_features":         specialFeatures,
+		"beta_model":               betaModel,
+		"beta_backdrop":            betaBackdrop,
+		"beta_color_prestige":      betaColorPrestige,
+		"color_prestige_tier":      aestheticHarmony.PrestigeTier,
+		"ciede2000_model_backdrop": aestheticHarmony.DeltaE2000ModelBackdrop,
+		"is_monochrome_match":      aestheticHarmony.IsMonochromeColorMatch,
+		"mtproto_constructor":      binaryForensics.MTProtoConstructor,
+		"tep62_item_index_sha256":  binaryForensics.TEP62ItemIndexSHA256,
+		"serial_category":          string(classifiedSerial.Category),
+		"serial_label":             classifiedSerial.Label,
+		"serial_multiplier":        classifiedSerial.Multiplier,
+		"beta_symbol":              betaSymbol,
+		"beta_serial":              betaSerial,
+		"beta_original":            betaOriginal,
+		"beta_aesthetic":           aestheticHarmony.BetaAesthetic,
+		"beta_synergy":             jointRarity.BetaSynergy,
+		"fng_multiplier":           fngMult,
+		"bayesian_k":               ShrinkageK,
+		"price_basis":              priceBasis,
+		"effective_floor_gram":     effectiveFloor,
+		"last_sale_price_gram":     lastSalePriceGRAM,
+		"is_last_sale_anchored":    isLastSaleAnchored,
+		"last_sale_date":           lastSaleDate,
+		"last_sale_venue":          lastSaleVenue,
+		"laya_synergy_multiplier":  layaMult,
+		"laya_synergy_score":       layaScore,
+		"laya_collector_appeal":    layaAppeal,
+		"narrative_only":           true, // Sacred Rule 11
+		"signals_count":            42,
+		"comparables":              compSummaries,
+		"recommendation_verdict":   recommendation.Verdict,
+		"recommendation_summary":   recommendation.SummaryEn,
 	}
 
 	selectedModel := modelKey
@@ -860,7 +1049,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		imageURL = fmt.Sprintf("https://api.changes.tg/model/%s/%s.png?size=256", slugParam, modelParam)
 	}
 
-	// 15. Valuation Pillars (Fair Value, Liquidation Value, Suggested Ask, Observed Floor)
+	// 16. Valuation Pillars (Fair Value, Liquidation Value, Suggested Ask, Observed Floor)
 	observedFloorGRAM := roundPrice(baseFloor)
 	observedFloorUSD := roundPrice(baseFloor * gramUsdRate)
 
@@ -932,8 +1121,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		UpgradeAdvisor:     upgradeAdvisor,
 		Comps:              comps,
 		RiskAudit:          riskAudit,
-		Projection:     projection,
-		Recommendation: recommendation,
+		Projection:         projection,
+		Recommendation:     recommendation,
 		PreMintState: func() *PreMintExpectationDto {
 			revealed := liveNFT != nil && (liveNFT.Backdrop != "" || liveNFT.Symbol != "")
 			stateStr := "pre_upgrade_expected_value"
@@ -955,9 +1144,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			}
 		}(),
 		ColorMatchIntel: func() *ColorMatchAnalysisDto {
-			isMatch := aestheticHarmony.ThemeMatchRating == "PERFECT_MATCH" || aestheticHarmony.ThemeMatchRating == "STRONG_HARMONY" || aestheticHarmony.BetaAesthetic >= 0.15
+			isMatch := aestheticHarmony.IsMonochromeColorMatch || aestheticHarmony.ThemeMatchRating == "PERFECT_MATCH" || aestheticHarmony.ThemeMatchRating == "STRONG_HARMONY" || aestheticHarmony.BetaAesthetic >= 0.15
 			matchTier := "Standard Palette"
-			if aestheticHarmony.ThemeMatchRating == "PERFECT_MATCH" || aestheticHarmony.BetaAesthetic >= 0.22 {
+			if (aestheticHarmony.IsMonochromeColorMatch && aestheticHarmony.DeltaE2000ModelBackdrop <= 10.0) || aestheticHarmony.ThemeMatchRating == "PERFECT_MATCH" || aestheticHarmony.BetaAesthetic >= 0.22 {
 				matchTier = "Full Monochrome Grail"
 			} else if isMatch {
 				matchTier = "Chromatic Twin"
@@ -965,18 +1154,25 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 				matchTier = "Complementary Contrast"
 			}
 			premPct := math.Round((math.Exp(aestheticHarmony.BetaAesthetic+aestheticHarmony.BetaColorPrestige)-1.0)*1000) / 10
+			deltaE := aestheticHarmony.DeltaE2000ModelBackdrop
+			if deltaE <= 0 {
+				deltaE = aestheticHarmony.DeltaEScore
+			}
 			return &ColorMatchAnalysisDto{
 				IsColorMatched:      isMatch,
 				MatchTier:           matchTier,
 				HarmonyClass:        aestheticHarmony.HarmonyClass,
-				DeltaEScore:         aestheticHarmony.DeltaEScore,
+				DeltaEScore:         deltaE,
 				CollectorPremiumPct: premPct,
 				DominantPaletteHex:  backdropColors.CenterHex,
 			}
 		}(),
-		CertificateID:      certificateID,
-		EvaluatedAt:        time.Now().UTC(),
-		ReasoningLog:       reasoningLog,
+		FloorMatrix:     floorMatrix,
+		BinaryForensics: binaryForensics,
+		LayaSystemOne:   layaRes,
+		CertificateID:   certificateID,
+		EvaluatedAt:     time.Now().UTC(),
+		ReasoningLog:    reasoningLog,
 	}
 
 	// Mandatory Audit Write (Sacred Rule 5)
@@ -1000,32 +1196,37 @@ func computeSerialExponent(serial, supply int, classified serials.Classification
 		supply = 10000
 	}
 
-	// 1. Smooth continuous logarithmic low-serial prestige curve
+	// 1. Empirical serial curve:
+	// In the real market, serials > 250 without a vanity pattern trade at 1.00x floor!
 	var betaAbs float64
 	if serial == 1 {
-		betaAbs = 1.45 // Sacred #1 jump (exp(1.45) ≈ 4.26x)
+		betaAbs = 1.70 // Sacred #1 Sovereign Genesis (exp(1.70) ≈ 5.47x)
 	} else if serial == 2 || serial == 3 {
-		betaAbs = 1.20 - float64(serial-2)*0.08 // Top 3 prestige (~3.3x)
+		betaAbs = 1.15 - float64(serial-2)*0.10 // ~3.15x down to 2.85x
 	} else if serial <= 9 {
-		// Smooth decay from 1.05 down to 0.78
-		betaAbs = 1.05 - (float64(serial-4)/5.0)*0.27
+		// Single digit #4 to #9: 2.2x down to 1.7x
+		betaAbs = 0.78 - (float64(serial-4)/5.0)*0.25
+	} else if serial <= 25 {
+		// Low double digit #10 to #25: 1.55x down to 1.30x
+		t := float64(serial-10) / 15.0
+		betaAbs = 0.44 - t*0.18
 	} else if serial <= 99 {
-		// Smooth decay from 0.75 down to 0.40
-		t := float64(serial-10) / 89.0
-		betaAbs = 0.75 - t*0.35
-	} else if serial <= 1000 {
-		// Smooth decay from 0.38 down to 0.10
-		t := float64(serial-100) / 900.0
-		betaAbs = 0.38 - t*0.28
-	} else if serial <= 5000 {
-		t := float64(serial-1000) / 4000.0
-		betaAbs = 0.10 - t*0.08
+		// Double digit #26 to #99: 1.15x down to 1.02x
+		t := float64(serial-26) / 73.0
+		betaAbs = 0.14 - t*0.12
+	} else if serial <= 250 {
+		// Early Mint #100 to #250: 1.03x down to 1.00x
+		t := float64(serial-100) / 150.0
+		betaAbs = 0.03 - t*0.03
 	} else {
-		betaAbs = 0.02
+		// Standard serials: strictly zero baseline inflation!
+		betaAbs = 0.0
 	}
 
-	// 2. Numerical Genetics & Vanity Patterns (Ladders, Doublets, Milestones, Repdigits)
+	// 2. Numerical Genetics & Vanity Patterns (Omega Mint, Ladders, Doublets, Milestones, Repdigits)
 	switch classified.Category {
+	case serials.CategoryOmegaMint:
+		betaAbs += 0.24 // Final Supply Bookend (#N of N, ~1.27x collector premium)
 	case serials.CategoryRepDigit:
 		s := strconv.Itoa(serial)
 		if stringsContainsAllChars(s, '7') {
@@ -1033,62 +1234,55 @@ func computeSerialExponent(serial, supply int, classified serials.Classification
 		} else if stringsContainsAllChars(s, '8') {
 			betaAbs += 0.30 // Prosperity 8s (e.g. 888, 8888)
 		} else {
-			betaAbs += 0.25
+			betaAbs += 0.22
 		}
 	case serials.CategoryLadder:
 		s := strconv.Itoa(serial)
 		if len(s) >= 4 {
-			betaAbs += 0.28 // 4-digit ladder (e.g. 1234, 4321, 6789)
+			betaAbs += 0.20 // 4-digit ladder (e.g. 1234, 4321, 6789)
 		} else {
-			betaAbs += 0.20 // 3-digit ladder (e.g. 123, 321, 789)
+			betaAbs += 0.12 // 3-digit ladder (e.g. 123, 321, 789)
 		}
 	case serials.CategoryDoublet:
 		if serial == 6969 {
-			betaAbs += 0.32 // Apex meme doublet
+			betaAbs += 0.28 // Apex meme doublet
 		} else {
-			betaAbs += 0.22 // ABAB (e.g. 2020, 1212, 2424)
+			betaAbs += 0.15 // ABAB or AABB (e.g. 2020, 1212, 1122, 7788)
 		}
 	case serials.CategoryMilestoneYear:
 		if serial == 2024 {
-			betaAbs += 0.26 // Telegram Gifts Genesis Launch Year
+			betaAbs += 0.22 // Telegram Gifts Genesis Launch Year
 		} else if serial == 2025 || serial == 2026 {
-			betaAbs += 0.20 // Active ecosystem expansion era
+			betaAbs += 0.14 // Active ecosystem expansion era
 		} else if serial == 2000 || serial == 1999 {
-			betaAbs += 0.18 // Millennium milestone
+			betaAbs += 0.15 // Millennium milestone
 		} else {
-			betaAbs += 0.12
+			betaAbs += 0.08
 		}
 	case serials.CategoryPalindrome:
 		s := strconv.Itoa(serial)
 		if len(s) >= 4 {
-			betaAbs += 0.20 // e.g. 1221, 5005, 7007
+			betaAbs += 0.14 // e.g. 1221, 5005, 7007
 		} else {
-			betaAbs += 0.14 // e.g. 101, 707
+			betaAbs += 0.08 // e.g. 101, 707
 		}
 	case serials.CategoryRoundNumber:
-		if serial%1000 == 0 {
-			betaAbs += 0.18
+		if serial == 100 {
+			betaAbs += 0.18 // Clean century milestone
+		} else if serial%100 == 0 && serial < 1000 {
+			betaAbs += 0.14 // e.g. 200, 500
+		} else if serial%1000 == 0 {
+			betaAbs += 0.08 // e.g. 1000, 5000
 		} else if serial%100 == 0 {
-			betaAbs += 0.10
+			betaAbs += 0.04
 		}
 	default:
 		if serial == 420 || serial == 1337 {
-			betaAbs += 0.22
+			betaAbs += 0.18
 		}
 	}
 
-	// 3. Relative Percentile Rarity relative to total model supply
-	rankPct := float64(serial) / float64(supply)
-	var betaRel float64
-	if rankPct > 0.80 {
-		// Discount for long tail
-		betaRel = -0.08 * ((rankPct - 0.80) / 0.20)
-	} else if rankPct < 0.01 {
-		// Additional scarcity bonus for top 1% percentile of collection
-		betaRel = 0.12 * (1.0 - rankPct/0.01)
-	}
-
-	return betaAbs + betaRel
+	return math.Max(0.0, betaAbs)
 }
 
 func stringsContainsAllChars(s string, ch rune) bool {
@@ -1121,6 +1315,14 @@ func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, 
 	if e.giftsRepo != nil {
 		// Tier 1: Seek Trait-Aware Comparable Sales (same model + exact backdrop)
 		sales, err := e.giftsRepo.GetTraitAwareCompsForGift(ctx, ref.ModelID, ref.SerialNumber, backdrop, 5)
+		priceBasis := "gift_market_trait_comps_bayesian_shrunk"
+
+		// Tier 2: If no exact backdrop-matched sales exist, use collection cohort comps from gift_sales
+		if err != nil || len(sales) == 0 {
+			sales, err = e.giftsRepo.GetCompsForGift(ctx, ref.ModelID, ref.SerialNumber, 5)
+			priceBasis = "gift_market_cohort_comps_bayesian_shrunk"
+		}
+
 		if err == nil && len(sales) > 0 {
 			now := time.Now()
 			compsForMath := make([]core.ComparableSale, 0, len(sales))
@@ -1178,7 +1380,7 @@ func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, 
 					TonviewerURL:  tonviewer,
 				})
 			}
-			return comps, finalLogP, mad, "gift_market_trait_comps_bayesian_shrunk"
+			return comps, finalLogP, mad, priceBasis
 		}
 	}
 

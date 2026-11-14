@@ -144,41 +144,49 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 						type="button"
 						aria-label="close"
 						onClick={close}
-						class="absolute inset-0 bg-black/70 backdrop-blur-sm"
+						class="absolute inset-0 bg-black/75 backdrop-blur-sm"
 						style={{ animation: 'fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both' }}
 					/>
 					<div
-						class="paywall-sheet absolute inset-x-0 bottom-0 mx-auto max-w-[480px] rounded-t-[24px] border-t border-white/10 bg-[#12141C] px-4 pb-8 pt-3 shadow-[0_-20px_60px_rgba(0,0,0,0.6)]"
+						class="paywall-sheet frag-sheet absolute inset-x-0 bottom-0 mx-auto max-w-[480px] rounded-t-[24px] px-4 pb-8 pt-3"
 						style={{ animation: 'sheet-up 280ms cubic-bezier(0.16, 1, 0.3, 1) both' }}
 					>
-						<div class="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
+						<div class="mx-auto mb-3 h-1 w-9 rounded-full bg-white/20" />
 
-						<div class="mb-4 flex items-center justify-between">
-							<h2 class="text-[16px] font-black tracking-tight text-white">
+						<div class="mb-4 flex items-center justify-between gap-3">
+							<h2 class="text-[16px] font-semibold tracking-[-0.015em] text-white">
 								{t('paywall.store_title')}
 							</h2>
 							<button
 								type="button"
 								onClick={close}
-								class="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.06] text-white/70 transition-colors duration-150 hover:bg-white/[0.12]"
+								class="flex h-8 w-8 items-center justify-center rounded-[10px] frag-btn-secondary text-[#8c9ba5] hover:text-white"
 							>
 								<span class="material-symbols-outlined text-[18px]">close</span>
 							</button>
 						</div>
 
-						{/* Tabs */}
-						<div class="mb-4 flex gap-1 rounded-2xl border border-white/[0.06] bg-white/[0.04] p-1">
+						{/* Segmented Tabs */}
+						<div class="mb-4 grid grid-cols-2 gap-1 rounded-[12px] frag-inset p-1">
 							<button
 								type="button"
 								onClick={() => {
 									haptic.selection();
 									setTab('stars');
 								}}
-								class={`flex-1 rounded-xl py-2 text-xs font-black transition-all duration-150 ${
-									tab() === 'stars' ? 'bg-white/[0.12] text-white' : 'text-white/55'
+								class={`flex items-center justify-center gap-1.5 rounded-[9px] py-2 text-[12px] font-semibold transition-all duration-150 ${
+									tab() === 'stars'
+										? 'bg-[#232d3a] text-white border border-white/[0.08] shadow-sm'
+										: 'text-[#8c9ba5] hover:text-white'
 								}`}
 							>
-								⭐ {t('paywall.store_stars_tab')}
+								<span
+									class="material-symbols-outlined text-[15px] text-[#ffb340]"
+									style={{ 'font-variation-settings': '"FILL" 1' }}
+								>
+									star
+								</span>
+								<span>{t('paywall.store_stars_tab')}</span>
 							</button>
 							<button
 								type="button"
@@ -186,27 +194,30 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 									haptic.selection();
 									setTab('free');
 								}}
-								class={`flex-1 rounded-xl py-2 text-xs font-black transition-all duration-150 ${
-									tab() === 'free' ? 'bg-white/[0.12] text-white' : 'text-white/55'
+								class={`flex items-center justify-center gap-1.5 rounded-[9px] py-2 text-[12px] font-semibold transition-all duration-150 ${
+									tab() === 'free'
+										? 'bg-[#232d3a] text-white border border-white/[0.08] shadow-sm'
+										: 'text-[#8c9ba5] hover:text-white'
 								}`}
 							>
-								⚡ {t('paywall.store_free_tab')}
+								<span class="material-symbols-outlined text-[15px] text-[#4cd964]">bolt</span>
+								<span>{t('paywall.store_free_tab')}</span>
 							</button>
 						</div>
 
 						<Show when={purchaseSuccess()}>
-							<div class="mb-3 flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/15 px-3.5 py-2.5 text-xs font-bold text-emerald-300">
-								<span class="material-symbols-outlined text-[18px] text-emerald-400">
+							<div class="mb-3 flex items-center gap-2 rounded-[12px] border border-[#4cd964]/30 bg-[#4cd964]/12 px-3.5 py-2.5 text-[12px] font-medium text-[#7ce88f]">
+								<span class="material-symbols-outlined text-[17px] text-[#4cd964] shrink-0">
 									check_circle
 								</span>
-								<span>
-									⚡ {t('paywall.credit_unit')} — {wallet.balance() ?? 0}
+								<span class="font-mono tabular-nums">
+									{t('paywall.credit_unit')} — {wallet.balance() ?? 0}
 								</span>
 							</div>
 						</Show>
 
 						<Show when={purchaseError()}>
-							<div class="mb-3 rounded-2xl border border-rose-500/25 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">
+							<div class="mb-3 rounded-[12px] border border-[#ff5c6c]/30 bg-[#ff5c6c]/10 p-3 text-[12px] font-medium text-[#ff9ca6]">
 								{purchaseError()}
 							</div>
 						</Show>
@@ -214,12 +225,14 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 						<Show
 							when={!wallet.configFailed()}
 							fallback={
-								<div class="rounded-2xl border border-rose-500/25 bg-rose-500/10 p-4 text-center">
-									<p class="text-xs font-bold text-rose-300">{t('paywall.store_config_error')}</p>
+								<div class="rounded-[12px] border border-[#ff5c6c]/30 bg-[#ff5c6c]/10 p-4 text-center">
+									<p class="text-[12px] font-medium text-[#ff9ca6]">
+										{t('paywall.store_config_error')}
+									</p>
 									<button
 										type="button"
 										onClick={() => wallet.refetch()}
-										class="mt-2 rounded-xl bg-white/[0.08] px-4 py-1.5 text-xs font-black text-white active:scale-95"
+										class="mt-2.5 rounded-[8px] frag-btn-secondary px-4 py-1.5 text-[12px] font-semibold text-white active:scale-95"
 									>
 										{t('paywall.retry')}
 									</button>
@@ -230,52 +243,57 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 								when={wallet.config()}
 								fallback={
 									<div class="space-y-2.5" aria-hidden="true">
-										<div class="h-16 animate-pulse rounded-2xl bg-white/[0.05]" />
-										<div class="h-16 animate-pulse rounded-2xl bg-white/[0.05]" />
-										<div class="h-16 animate-pulse rounded-2xl bg-white/[0.05]" />
+										<div class="h-16 animate-pulse rounded-[12px] bg-[#1b232d]" />
+										<div class="h-16 animate-pulse rounded-[12px] bg-[#1b232d]" />
+										<div class="h-16 animate-pulse rounded-[12px] bg-[#1b232d]" />
 									</div>
 								}
 							>
-								{/* ── STARS TAB ── */}
+								{/* Stars Packs */}
 								<Show when={tab() === 'stars'}>
-									<div class="space-y-2.5">
+									<div class="space-y-2">
 										<For each={wallet.config()?.packs ?? []}>
 											{(pack) => (
 												<button
 													type="button"
 													disabled={pendingPack() !== null}
 													onClick={() => buyPack(pack.id)}
-													class={`relative flex w-full items-center justify-between overflow-hidden rounded-2xl border p-4 text-start transition-all duration-150 active:scale-[0.98] disabled:opacity-60 ${
+													class={`relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[12px] border p-3.5 text-start transition-all duration-150 active:scale-[0.985] disabled:opacity-55 ${
 														pack.popular
-															? 'border-amber-400/40 bg-gradient-to-r from-amber-400/[0.12] to-transparent'
-															: 'border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07]'
+															? 'border-[#ffb340]/35 bg-[#1b232d] shadow-[inset_0_1px_0_rgba(255,179,64,0.16)]'
+															: 'border-white/[0.07] bg-[#141a22] hover:bg-[#1b232d] hover:border-white/[0.12]'
 													}`}
 												>
-													<div class="flex items-center gap-3">
-														<div class="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-400/30 bg-amber-400/15 text-lg">
-															⭐
+													<div class="flex items-center gap-3 min-w-0">
+														<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#ffb340]/25 bg-[#ffb340]/12">
+															<span
+																class="material-symbols-outlined text-[20px] text-[#ffb340]"
+																style={{ 'font-variation-settings': '"FILL" 1' }}
+															>
+																star
+															</span>
 														</div>
-														<div>
-															<div class="flex items-center gap-1.5">
-																<span class="font-mono text-[15px] font-black text-white">
+														<div class="min-w-0">
+															<div class="flex items-center gap-1.5 flex-wrap">
+																<span class="font-mono text-[15px] font-semibold text-white tabular-nums">
 																	{pack.credits + pack.bonus_credits}
 																</span>
-																<span class="text-xs font-bold text-white/60">
+																<span class="text-[12px] font-medium text-[#8c9ba5]">
 																	{t('paywall.credit_unit')}
 																</span>
 																<Show when={pack.bonus_credits > 0}>
-																	<span class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 text-[9px] font-black text-emerald-300">
+																	<span class="rounded-[5px] border border-[#4cd964]/30 bg-[#4cd964]/12 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#4cd964] tabular-nums">
 																		+{pack.bonus_credits}
 																	</span>
 																</Show>
 															</div>
 															<Show when={pack.popular}>
-																<div class="mt-0.5 text-[9px] font-black uppercase tracking-widest text-amber-300">
+																<div class="mt-0.5 text-[10.5px] font-medium text-[#ffb340]">
 																	{t('paywall.pack_popular')}
 																</div>
 															</Show>
 															<Show when={pack.best_value}>
-																<div class="mt-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-300">
+																<div class="mt-0.5 text-[10.5px] font-medium text-[#4cd964]">
 																	{t('paywall.pack_best_value')}
 																</div>
 															</Show>
@@ -285,13 +303,22 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 														<Show
 															when={pendingPack() !== pack.id}
 															fallback={
-																<span class="material-symbols-outlined animate-spin text-[18px] text-white/70">
+																<span class="material-symbols-outlined animate-spin text-[18px] text-[#8c9ba5]">
 																	progress_activity
 																</span>
 															}
 														>
-															<span class="rounded-xl bg-black/30 px-3 py-1.5 font-mono text-xs font-black text-amber-300">
-																{pack.stars_price}★
+															<span
+																dir="ltr"
+																class="inline-flex items-center gap-1 rounded-[8px] border border-[#ffb340]/25 bg-[#ffb340]/10 px-2.5 py-1 font-mono text-[12px] font-semibold text-[#ffb340] tabular-nums"
+															>
+																<span>{pack.stars_price}</span>
+																<span
+																	class="material-symbols-outlined text-[13px]"
+																	style={{ 'font-variation-settings': '"FILL" 1' }}
+																>
+																	star
+																</span>
 															</span>
 														</Show>
 													</div>
@@ -301,53 +328,50 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 									</div>
 								</Show>
 
-								{/* ── FREE CREDITS TAB ── */}
+								{/* Free Credits Tab */}
 								<Show when={tab() === 'free'}>
 									<div class="space-y-3">
-										{/* Highlight Banner */}
-										<div class="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/[0.12] to-transparent p-4">
+										<div class="frag-card rounded-[14px] border-[#4cd964]/25 p-4">
 											<div class="flex items-center gap-3 mb-3">
-												<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/40 bg-emerald-400/20 text-emerald-300">
-													<span class="material-symbols-outlined text-[22px]">bolt</span>
+												<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#4cd964]/30 bg-[#4cd964]/12 text-[#4cd964]">
+													<span class="material-symbols-outlined text-[20px]">bolt</span>
 												</div>
-												<div>
-													<h3 class="text-xs font-black text-white">
+												<div class="min-w-0">
+													<h3 class="text-[13px] font-semibold text-white">
 														{t('paywall.free_credits_title')}
 													</h3>
-													<p class="mt-0.5 text-[10px] font-medium leading-relaxed text-white/60">
+													<p class="mt-0.5 text-[11px] leading-snug text-[#8c9ba5]">
 														{t('paywall.free_credits_subtitle')}
 													</p>
 												</div>
 											</div>
 
-											{/* Rewards Breakdown */}
-											<div class="space-y-2 rounded-xl bg-black/30 p-3 border border-white/5">
-												<div class="flex items-center gap-2.5 text-[11px] font-bold text-white/90">
-													<span class="material-symbols-outlined text-[16px] text-emerald-400 shrink-0">
+											<div class="space-y-2 frag-inset rounded-[10px] p-3">
+												<div class="flex items-center gap-2.5 text-[12px] font-medium text-[#d7e0e8]">
+													<span class="material-symbols-outlined text-[16px] text-[#4cd964] shrink-0">
 														chat
 													</span>
 													<span>{t('paywall.free_credits_rule_msg')}</span>
 												</div>
-												<div class="flex items-center gap-2.5 text-[11px] font-bold text-white/90">
-													<span class="material-symbols-outlined text-[16px] text-amber-400 shrink-0">
+												<div class="flex items-center gap-2.5 text-[12px] font-medium text-[#d7e0e8]">
+													<span class="material-symbols-outlined text-[16px] text-[#ffb340] shrink-0">
 														rocket_launch
 													</span>
 													<span>{t('paywall.free_credits_rule_boost')}</span>
 												</div>
-												<div class="flex items-center gap-2.5 text-[11px] font-bold text-white/90">
-													<span class="material-symbols-outlined text-[16px] text-[#0098EA] shrink-0">
+												<div class="flex items-center gap-2.5 text-[12px] font-medium text-[#d7e0e8]">
+													<span class="material-symbols-outlined text-[16px] text-[#2990ff] shrink-0">
 														leaderboard
 													</span>
 													<span>{t('paywall.free_credits_leaderboard_info')}</span>
 												</div>
 											</div>
 
-											{/* CTAs */}
 											<div class="mt-3.5 flex flex-col sm:flex-row gap-2">
 												<button
 													type="button"
 													onClick={openGroup}
-													class="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-2.5 px-3 text-xs font-black text-white shadow-lg shadow-emerald-500/20 transition-all active:scale-95 hover:brightness-110"
+													class="flex-1 flex items-center justify-center gap-1.5 rounded-[10px] frag-btn-primary py-2.5 px-3 text-[12px] font-semibold"
 												>
 													<span class="material-symbols-outlined text-[16px]">groups</span>
 													<span>{t('paywall.free_credits_join_group')}</span>
@@ -355,7 +379,7 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 												<button
 													type="button"
 													onClick={goToLeaderboard}
-													class="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.08] py-2.5 px-3 text-xs font-black text-white/90 transition-all active:scale-95 hover:bg-white/[0.14]"
+													class="flex items-center justify-center gap-1.5 rounded-[10px] frag-btn-secondary py-2.5 px-3 text-[12px] font-semibold"
 												>
 													<span class="material-symbols-outlined text-[16px]">leaderboard</span>
 													<span>{t('paywall.free_credits_view_leaderboard')}</span>
@@ -363,18 +387,17 @@ export const CreditStoreSheet: Component<CreditStoreSheetProps> = (props) => {
 											</div>
 										</div>
 
-										{/* Utility education card */}
-										<div class="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">
-											<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-												<span class="material-symbols-outlined text-[18px] text-white/70">
+										<div class="flex items-center gap-3 frag-inset rounded-[12px] p-3.5">
+											<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border border-white/[0.08] bg-white/[0.04]">
+												<span class="material-symbols-outlined text-[18px] text-[#8c9ba5]">
 													shield_person
 												</span>
 											</div>
-											<div>
-												<div class="text-xs font-black text-white">
+											<div class="min-w-0">
+												<div class="text-[12px] font-semibold text-white">
 													{t('paywall.plan_utility_title')}
 												</div>
-												<div class="mt-0.5 text-[10px] font-medium leading-relaxed text-white/60">
+												<div class="mt-0.5 text-[11px] leading-snug text-[#8c9ba5]">
 													{t('paywall.plan_utility_desc')}
 												</div>
 											</div>

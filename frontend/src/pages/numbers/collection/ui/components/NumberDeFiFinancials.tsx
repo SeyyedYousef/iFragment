@@ -1,4 +1,5 @@
 import type { Component } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
@@ -19,7 +20,7 @@ export const NumberDeFiFinancials: Component<Props> = (props) => {
 	const maxLoanUsd = () => Math.round(maxLoanTon() * rate());
 
 	return (
-		<div class="bg-gradient-to-br from-[#0e1726] via-[#12141C] to-[#08090D] border border-emerald-500/30 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden mb-4">
+		<div class="frag-card-elevated border border-emerald-500/30 rounded-[16px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden mb-4">
 			{/* Header */}
 			<div class="flex items-center justify-between border-b border-white/5 pb-3">
 				<div class="flex items-center gap-2.5">
@@ -36,20 +37,20 @@ export const NumberDeFiFinancials: Component<Props> = (props) => {
 					</div>
 				</div>
 				<span class="text-[9px] font-mono font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-					DEFI METRICS
+					{t('numDefi.badge')}
 				</span>
 			</div>
 
 			{/* 2 Core Columns: Rental Yield + Collateral Borrowing */}
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 				{/* 1. Rental Yield */}
-				<div class="bg-[#08090D] border border-white/5 rounded-[20px] p-4 flex flex-col justify-between gap-2 shadow-inner">
+				<div class="frag-inset rounded-[20px] p-4 flex flex-col justify-between gap-2 shadow-inner">
 					<div class="flex items-center justify-between">
 						<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
 							{layaT(NUMBERS_I18N.monthlyRental)}
 						</span>
 						<span class="text-[9px] font-mono font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">
-							~54.0% APY
+							{t('numDefi.apyBadge')}
 						</span>
 					</div>
 
@@ -71,20 +72,20 @@ export const NumberDeFiFinancials: Component<Props> = (props) => {
 				</div>
 
 				{/* 2. Collateralized Borrowing LTV */}
-				<div class="bg-[#08090D] border border-white/5 rounded-[20px] p-4 flex flex-col justify-between gap-2 shadow-inner">
+				<div class="frag-inset rounded-[20px] p-4 flex flex-col justify-between gap-2 shadow-inner">
 					<div class="flex items-center justify-between">
 						<span class="text-[9px] font-mono font-black text-white/40 uppercase tracking-wider">
 							{layaT(NUMBERS_I18N.collateralLtv)}
 						</span>
 						<span class="text-[9px] font-mono font-black text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded">
-							60% LTV
+							{t('numDefi.ltvBadge')}
 						</span>
 					</div>
 
 					<div class="flex flex-col gap-0.5">
 						<div class="flex items-baseline gap-1.5 font-mono">
 							<span class="text-[22px] font-black text-cyan-300">~{maxLoanTon()}</span>
-							<span class="text-[12px] font-bold text-cyan-400">TON Max Loan</span>
+							<span class="text-[12px] font-bold text-cyan-400">{t('numDefi.tonMaxLoan')}</span>
 						</div>
 						<span class="text-[10px] font-mono text-white/40">
 							≈ ${maxLoanUsd()} USD {layaT(NUMBERS_I18N.instantBorrowing)}

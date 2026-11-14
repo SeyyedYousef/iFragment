@@ -55,9 +55,7 @@ describe('HeroTabs (Universal Smart Search & 4-Language Support)', () => {
 	it('renders localized "جستجوی هوشمند" placeholder in Persian without any @skulls text', () => {
 		setTestLocale('fa');
 		const onTabChange = vi.fn();
-		const { container } = render(() => (
-			<HeroTabs activeTab={null} onTabChange={onTabChange} />
-		));
+		const { container } = render(() => <HeroTabs activeTab={null} onTabChange={onTabChange} />);
 
 		const searchInput = screen.getByPlaceholderText('جستجوی هوشمند') as HTMLInputElement;
 		expect(searchInput).toBeInTheDocument();

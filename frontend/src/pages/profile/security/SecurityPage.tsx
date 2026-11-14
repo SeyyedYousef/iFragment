@@ -204,16 +204,13 @@ export const SecurityPage: Component = () => {
 
 	return (
 		<div
-			class="min-h-screen bg-[#030303] pb-28 text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#10b981]/30"
+			class="frag-canvas min-h-screen pb-28 text-[#f3f5f8] font-sans flex flex-col relative overflow-x-hidden selection:bg-[#4cd964]/30"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			{/* Ambient Glow: Security (Green) & Danger (Red) Mix */}
-			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#10b981]/10 via-[#ff4a4a]/5 to-transparent blur-[80px] pointer-events-none z-0" />
-
 			{/* ═══════ PERMANENT DELETION TOMBSTONE ═══════ */}
 			<Show when={isAccountDeleted()}>
-				<div class="fixed inset-0 bg-[#030303] z-50 flex flex-col items-center justify-center p-6 text-center">
-					<div class="w-20 h-20 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 flex items-center justify-center text-[#10b981] mb-5 shadow-2xl">
+				<div class="fixed inset-0 bg-[#11161d] z-50 flex flex-col items-center justify-center p-6 text-center">
+					<div class="w-20 h-20 rounded-full bg-[#4cd964]/15 border border-[#4cd964]/30 flex items-center justify-center text-[#4cd964] mb-5 shadow-2xl">
 						<span class="material-symbols-outlined text-[40px]">check_circle</span>
 					</div>
 					<h2 class="text-[22px] font-black text-white mb-2 tracking-tight">
@@ -235,7 +232,7 @@ export const SecurityPage: Component = () => {
 			</Show>
 
 			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
-			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
+			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#11161d]/92 backdrop-blur-2xl z-40 border-b border-white/[0.06] flex items-center gap-3.5 shadow-sm">
 				<button
 					type="button"
 					onClick={() => {
@@ -244,7 +241,7 @@ export const SecurityPage: Component = () => {
 						} catch {}
 						window.history.back();
 					}}
-					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+					class="w-11 h-11 rounded-[14px] bg-[#1b232d] flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 					aria-label={t('common.back')}
 				>
 					<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
@@ -272,11 +269,11 @@ export const SecurityPage: Component = () => {
 						{t('securityPg.sessionsHeading' as any)}
 					</h2>
 
-					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+					<div class="bg-[#1b232d]/95 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
 						<div class="flex items-center justify-between relative z-10">
 							<div class="flex flex-col gap-1">
 								<div class="flex items-center gap-2">
-									<span class="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
+									<span class="w-2 h-2 rounded-full bg-[#4cd964] animate-pulse" />
 									<span class="text-[14px] font-black text-white">
 										{t('securityPg.currentDevice' as any)}
 									</span>
@@ -285,7 +282,7 @@ export const SecurityPage: Component = () => {
 									{t('securityPg.tokenDesc' as any)}
 								</span>
 							</div>
-							<span class="px-2.5 py-1 rounded-full bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/25 text-[10px] font-black">
+							<span class="px-2.5 py-1 rounded-full bg-[#4cd964]/15 text-[#4cd964] border border-[#4cd964]/25 text-[10px] font-black">
 								{t('securityPg.activeBadge' as any)}
 							</span>
 						</div>
@@ -298,7 +295,7 @@ export const SecurityPage: Component = () => {
 								</span>
 								<For each={sessionsList()}>
 									{(session) => (
-										<div class="p-2.5 rounded-[14px] bg-[#08090D] border border-white/5 flex items-center justify-between text-[11px]">
+										<div class="p-2.5 rounded-[14px] bg-[#141a22] border border-white/5 flex items-center justify-between text-[11px]">
 											<div class="flex flex-col gap-0.5">
 												<span class="font-bold text-white truncate max-w-[200px]">
 													{session.ua || 'Telegram Client'}
@@ -350,9 +347,7 @@ export const SecurityPage: Component = () => {
 						{t('security.biometricTitle')}
 					</h2>
 
-					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
-						<div class="absolute -right-6 -top-6 w-24 h-24 bg-[#10b981]/10 blur-2xl rounded-full pointer-events-none" />
-
+					<div class="bg-[#1b232d]/95 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
 						<div class="flex items-center justify-between relative z-10">
 							<div class="flex flex-col gap-1 flex-1 pr-4">
 								<span class="text-[15px] font-black text-white tracking-tight">
@@ -371,7 +366,7 @@ export const SecurityPage: Component = () => {
 								disabled={!biometricsAvailable()}
 								onClick={handleToggleBiometrics}
 								class={`w-12 h-7 rounded-full relative transition-colors duration-300 shadow-inner shrink-0 ${
-									profileSettings().biometricEnabled ? 'bg-[#10b981]' : 'bg-white/10'
+									profileSettings().biometricEnabled ? 'bg-[#4cd964]' : 'bg-white/10'
 								} ${!biometricsAvailable() ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
 							>
 								<div
@@ -398,22 +393,20 @@ export const SecurityPage: Component = () => {
 					transition={{ delay: 0.1 }}
 					class="flex flex-col gap-3 mt-2"
 				>
-					<h2 class="text-[11px] font-black text-[#ff4a4a]/60 uppercase tracking-widest px-2 flex items-center gap-2">
-						<span class="material-symbols-outlined text-[16px] text-[#ff4a4a]/40">warning</span>
+					<h2 class="text-[11px] font-black text-[#ff5c6c]/60 uppercase tracking-widest px-2 flex items-center gap-2">
+						<span class="material-symbols-outlined text-[16px] text-[#ff5c6c]/40">warning</span>
 						{t('security.dangerZone')}
 					</h2>
 
-					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-[#ff4a4a]/20 rounded-[24px] p-5 flex flex-col gap-5 shadow-sm relative overflow-hidden">
-						<div class="absolute -left-6 -bottom-6 w-32 h-32 bg-[#ff4a4a]/10 blur-3xl rounded-full pointer-events-none" />
-
+					<div class="bg-[#1b232d]/95 border border-[#ff5c6c]/20 rounded-2xl p-5 flex flex-col gap-5 shadow-sm relative overflow-hidden">
 						<div class="flex items-start gap-3.5 relative z-10">
-							<div class="w-10 h-10 rounded-[12px] bg-[#ff4a4a]/15 flex items-center justify-center border border-[#ff4a4a]/30 shadow-inner shrink-0 mt-0.5">
-								<span class="material-symbols-outlined text-[#ff4a4a] text-[20px] drop-shadow-md">
+							<div class="w-10 h-10 rounded-[12px] bg-[#ff5c6c]/15 flex items-center justify-center border border-[#ff5c6c]/30 shadow-inner shrink-0 mt-0.5">
+								<span class="material-symbols-outlined text-[#ff5c6c] text-[20px] drop-shadow-md">
 									delete_forever
 								</span>
 							</div>
 							<div class="flex flex-col gap-1">
-								<span class="text-[15px] font-black text-[#ff4a4a] tracking-tight">
+								<span class="text-[15px] font-black text-[#ff5c6c] tracking-tight">
 									{t('security.deleteAccount')}
 								</span>
 								<span class="text-[11px] font-medium text-white/50 leading-relaxed">
@@ -425,7 +418,7 @@ export const SecurityPage: Component = () => {
 						<button
 							type="button"
 							onClick={handleDeleteAccount}
-							class="w-full h-14 bg-[#ff4a4a]/10 hover:bg-[#ff4a4a] border border-[#ff4a4a]/30 text-[#ff4a4a] hover:text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm relative z-10 cursor-pointer"
+							class="w-full h-14 bg-[#ff5c6c]/10 hover:bg-[#ff5c6c] border border-[#ff5c6c]/30 text-[#ff5c6c] hover:text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm relative z-10 cursor-pointer"
 						>
 							<span class="material-symbols-outlined text-[20px]">warning</span>
 							{t('security.deleteAccount')}

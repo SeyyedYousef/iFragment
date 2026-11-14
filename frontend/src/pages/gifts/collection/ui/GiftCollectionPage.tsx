@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { GiftThumbnail, giftsApi } from '@/entities/gifts/index.js';
-import { locale, t } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { CollectionRarityHeatmap } from './CollectionRarityHeatmap.js';
@@ -129,7 +129,7 @@ export const GiftCollectionPage: Component = () => {
 		if (permille <= 1)
 			return { label: 'Mythic', bg: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
 		if (permille <= 5)
-			return { label: 'Legendary', bg: 'bg-[#0098EA]/20 text-[#0098EA] border-[#0098EA]/35' };
+			return { label: 'Legendary', bg: 'bg-[#2990ff]/20 text-[#2990ff] border-[#2990ff]/35' };
 		if (permille <= 20)
 			return { label: 'Epic', bg: 'bg-sky-500/15 text-sky-300 border-sky-500/30' };
 		if (permille <= 50)
@@ -260,9 +260,7 @@ export const GiftCollectionPage: Component = () => {
 	};
 
 	return (
-		<div class="pb-36 bg-[#030303] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[380px] bg-gradient-to-b from-[#0098EA]/15 via-transparent to-transparent blur-[100px] pointer-events-none z-0" />
-
+		<div class="pb-36 frag-canvas text-white min-h-screen relative font-sans selection:bg-[#2990ff]/30 overflow-x-hidden">
 			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
 				{/* ═══ Header ═══ */}
 				<div class="flex items-center justify-between mb-4">
@@ -277,8 +275,8 @@ export const GiftCollectionPage: Component = () => {
 						<div>
 							<h1 class="text-base font-black tracking-tight text-white flex items-center gap-2">
 								<span>{data()?.collection_name || t('gifts.giftCollection')}</span>
-								<span class="text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-[#0098EA]/15 text-[#0098EA] border border-[#0098EA]/30">
-									TEP-62
+								<span class="text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded-full bg-[#2990ff]/15 text-[#2990ff] border border-[#2990ff]/30">
+									{t('giftsCollectionPage.tep62Badge')}
 								</span>
 							</h1>
 							<p class="text-[11px] font-medium text-white/40">{t('gifts.collectionSubtitle')}</p>
@@ -304,7 +302,7 @@ export const GiftCollectionPage: Component = () => {
 
 				{/* ═══ Quick Switch Collection Dropdown ═══ */}
 				<Show when={showSearch()}>
-					<div class="mb-5 bg-[#12141C] border border-white/10 rounded-3xl p-4 shadow-2xl space-y-3">
+					<div class="mb-5 bg-[#1b232d] border border-white/10 rounded-3xl p-4 shadow-2xl space-y-3">
 						<div class="relative">
 							<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-lg">
 								search
@@ -314,7 +312,7 @@ export const GiftCollectionPage: Component = () => {
 								value={searchQuery()}
 								onInput={(e) => setSearchQuery(e.currentTarget.value)}
 								placeholder={t('gifts.searchPlaceholder')}
-								class="w-full pl-11 pr-4 py-3 bg-white/[0.04] border border-white/10 rounded-2xl text-white text-xs font-medium placeholder:text-white/30 focus:outline-none focus:border-[#0098EA]/50 transition-all"
+								class="w-full pl-11 pr-4 py-3 bg-white/[0.04] border border-white/10 rounded-2xl text-white text-xs font-medium placeholder:text-white/30 focus:outline-none focus:border-[#2990ff]/50 transition-all"
 								autofocus
 							/>
 						</div>
@@ -327,7 +325,7 @@ export const GiftCollectionPage: Component = () => {
 										onClick={() => selectCollection(coll.slug)}
 										class={`w-full flex items-center gap-3 p-2.5 rounded-2xl border transition-all active:scale-[0.98] ${
 											slug() === coll.slug
-												? 'bg-[#0098EA]/15 border-[#0098EA]/40 text-white'
+												? 'bg-[#2990ff]/15 border-[#2990ff]/40 text-white'
 												: 'bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.04] text-white/80'
 										}`}
 									>
@@ -357,13 +355,13 @@ export const GiftCollectionPage: Component = () => {
 				{/* ═══ Loading Skeleton ═══ */}
 				<Show when={intelQuery.isLoading}>
 					<div class="space-y-4">
-						<div class="h-44 bg-[#12141C]/60 rounded-3xl animate-pulse" />
+						<div class="h-44 bg-[#1b232d]/70 rounded-3xl animate-pulse" />
 						<div class="grid grid-cols-3 gap-2.5">
-							<div class="h-20 bg-[#12141C]/60 rounded-2xl animate-pulse" />
-							<div class="h-20 bg-[#12141C]/60 rounded-2xl animate-pulse" />
-							<div class="h-20 bg-[#12141C]/60 rounded-2xl animate-pulse" />
+							<div class="h-20 bg-[#1b232d]/70 rounded-2xl animate-pulse" />
+							<div class="h-20 bg-[#1b232d]/70 rounded-2xl animate-pulse" />
+							<div class="h-20 bg-[#1b232d]/70 rounded-2xl animate-pulse" />
 						</div>
-						<div class="h-64 bg-[#12141C]/60 rounded-3xl animate-pulse" />
+						<div class="h-64 bg-[#1b232d]/70 rounded-3xl animate-pulse" />
 					</div>
 				</Show>
 
@@ -371,25 +369,21 @@ export const GiftCollectionPage: Component = () => {
 				<Show when={intelQuery.isError && !intelQuery.isLoading}>
 					<div class="bg-rose-500/10 border border-rose-500/20 rounded-3xl p-6 text-center space-y-3 mb-4">
 						<span class="material-symbols-outlined text-rose-400 text-3xl">error</span>
-						<h3 class="text-sm font-bold text-white">
-							{t('common.error') || 'خطا در دریافت اطلاعات کالکشن'}
-						</h3>
-						<p class="text-xs text-white/50">
-							{t('common.errors.generic') || 'لطفاً دوباره تلاش کنید'}
-						</p>
+						<h3 class="text-sm font-bold text-white">{t('common.error')}</h3>
+						<p class="text-xs text-white/50">{t('common.errors.generic')}</p>
 						<button
 							type="button"
 							onClick={() => intelQuery.refetch()}
-							class="px-4 py-2 rounded-xl bg-[#0098EA] text-white font-bold text-xs hover:bg-[#0086d1] transition-all"
+							class="px-4 py-2 rounded-xl bg-[#2990ff] text-white font-bold text-xs hover:bg-[#0086d1] transition-all"
 						>
-							{t('common.retry') || 'تلاش مجدد'}
+							{t('common.retry')}
 						</button>
 					</div>
 				</Show>
 
 				<Show when={data() && !intelQuery.isLoading}>
 					{/* ═══ Collection Profile Card ═══ */}
-					<div class="bg-gradient-to-br from-[#12141C] to-[#0A0D14] border border-white/[0.08] rounded-3xl p-5 mb-3.5 shadow-xl relative overflow-hidden space-y-4">
+					<div class="bg-[#1b232d]/95 border border-white/[0.08] rounded-2xl p-5 mb-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_40px_rgba(0,0,0,0.4)] relative overflow-hidden space-y-4">
 						<div class="flex items-center gap-4">
 							<div class="relative w-20 h-20 rounded-2xl bg-white/[0.03] border border-white/[0.08] p-2 flex items-center justify-center shrink-0 shadow-lg">
 								<GiftThumbnail
@@ -490,9 +484,9 @@ export const GiftCollectionPage: Component = () => {
 										href={`https://tonviewer.com/${data()!.contract_address}`}
 										target="_blank"
 										rel="noopener noreferrer"
-										class="px-2.5 py-1.5 rounded-xl bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 text-[10px] font-bold flex items-center gap-1 transition-all"
+										class="px-2.5 py-1.5 rounded-xl bg-[#2990ff]/15 hover:bg-[#2990ff]/25 text-[#2990ff] border border-[#2990ff]/30 text-[10px] font-bold flex items-center gap-1 transition-all"
 									>
-										<span>TonViewer</span>
+										<span>{t('giftsCollectionPage.tonviewerLink')}</span>
 										<span class="material-symbols-outlined text-xs">open_in_new</span>
 									</a>
 								</div>
@@ -502,21 +496,14 @@ export const GiftCollectionPage: Component = () => {
 
 					{/* ═══ Stats Overview ═══ */}
 					<div class="grid grid-cols-3 gap-2.5 mb-3.5">
-						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-2xl p-3 text-center">
+						<div class="bg-[#1b232d]/95 border border-white/[0.06] rounded-2xl p-3 text-center">
 							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">
 								{t('gifts.floorPrice')}
 							</span>
 							<div class="text-base font-black text-white font-mono">
 								{data()?.best_floor_gram
 									? `${fmt(data()!.best_floor_gram)} TON`
-									: (
-											{
-												fa: 'بدون لیستینگ',
-												en: 'No Listing',
-												ru: 'Нет листинга',
-												zh: '暂无挂单',
-											} as Record<string, string>
-										)[locale()] || 'No Listing'}
+									: t('giftsCollectionPage.noListing')}
 							</div>
 							<Show when={data()?.best_floor_usd}>
 								<span class="text-[10px] text-white/40 font-mono block mt-0.5">
@@ -525,7 +512,7 @@ export const GiftCollectionPage: Component = () => {
 							</Show>
 						</div>
 
-						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-2xl p-3 text-center">
+						<div class="bg-[#1b232d]/95 border border-white/[0.06] rounded-2xl p-3 text-center">
 							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">
 								{t('gifts.volume24h')}
 							</span>
@@ -534,23 +521,16 @@ export const GiftCollectionPage: Component = () => {
 									? fmtUsd(data()!.volume_24h_usd)
 									: data()?.volume_24h_gram && data()!.volume_24h_gram > 0
 										? `${fmt(data()!.volume_24h_gram, 0)} TON`
-										: (
-												{
-													fa: 'پایش ۲۴س',
-													en: '24h Tracked',
-													ru: '24ч монитор',
-													zh: '24h 监控',
-												} as Record<string, string>
-											)[locale()] || '24h Tracked'}
+										: t('giftsCollectionPage.tracked24h')}
 							</div>
 							<span class="text-[10px] text-white/40 font-mono block mt-0.5">
 								{data()?.volume_24h_gram && data()!.volume_24h_gram > 0
 									? `${fmt(data()!.volume_24h_gram, 0)} TON`
-									: 'Fragment Verified'}
+									: t('giftsCollectionPage.fragmentVerified')}
 							</span>
 						</div>
 
-						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-2xl p-3 text-center">
+						<div class="bg-[#1b232d]/95 border border-white/[0.06] rounded-2xl p-3 text-center">
 							<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">
 								{t('gifts.marketCap')}
 							</span>
@@ -559,19 +539,12 @@ export const GiftCollectionPage: Component = () => {
 									? fmtUsd(data()!.market_cap_usd)
 									: data()?.best_floor_usd && data()?.total_supply
 										? fmtUsd(data()!.best_floor_usd! * data()!.total_supply!)
-										: (
-												{
-													fa: 'پایش زنده',
-													en: 'Live Tracked',
-													ru: 'Live монитор',
-													zh: '实时监控',
-												} as Record<string, string>
-											)[locale()] || 'Live Tracked'}
+										: t('giftsCollectionPage.liveTracked')}
 							</div>
 							<span class="text-[10px] text-emerald-400 font-bold block mt-0.5">
 								{data()?.listed_count
 									? t('gifts.activeItemsCount', { count: data()!.listed_count })
-									: 'Live Market'}
+									: t('giftsCollectionPage.liveMarket')}
 							</span>
 						</div>
 					</div>
@@ -581,12 +554,10 @@ export const GiftCollectionPage: Component = () => {
 						{(() => {
 							const fi = data()!.floor_item!;
 							return (
-								<div class="bg-gradient-to-br from-[#131824] via-[#0E131E] to-[#0A0D14] border border-[#0098EA]/30 rounded-3xl p-4 mb-4 shadow-xl relative overflow-hidden">
-									<div class="absolute -right-8 -top-8 w-28 h-28 bg-[#0098EA]/20 rounded-full blur-2xl pointer-events-none" />
-
+								<div class="bg-[#1b232d] border border-[#2990ff]/30 rounded-3xl p-4 mb-4 shadow-xl relative overflow-hidden">
 									<div class="flex items-center justify-between pb-2.5 mb-3 border-b border-white/[0.08]">
 										<div class="flex items-center gap-2">
-											<span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
+											<span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#2990ff]/20 text-[#2990ff] border border-[#2990ff]/30">
 												{t('gifts.floorItemCard')}
 											</span>
 											<span class="text-xs font-black text-white">#{fi.serial_number}</span>
@@ -664,7 +635,7 @@ export const GiftCollectionPage: Component = () => {
 														haptic.impact('medium');
 													} catch {}
 												}}
-												class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#0081C8] hover:brightness-110 text-white font-black text-xs text-center shadow-lg shadow-[#0098EA]/25 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+												class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#2990ff] to-[#0081C8] hover:brightness-110 text-white font-black text-xs text-center shadow-lg shadow-[#2990ff]/25 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
 											>
 												<span>{t('gifts.buyNow')}</span>
 												<span class="material-symbols-outlined text-sm">open_in_new</span>
@@ -692,7 +663,7 @@ export const GiftCollectionPage: Component = () => {
 					</Show>
 
 					{/* ═══ Main Tab Bar Navigation ═══ */}
-					<div class="flex items-center gap-1.5 p-1 bg-[#12141C]/80 border border-white/[0.06] rounded-2xl mb-4 overflow-x-auto scrollbar-none">
+					<div class="flex items-center gap-1.5 p-1 bg-[#1b232d]/95 border border-white/[0.06] rounded-2xl mb-4 overflow-x-auto scrollbar-none">
 						<button
 							type="button"
 							onClick={() => {
@@ -703,7 +674,7 @@ export const GiftCollectionPage: Component = () => {
 							}}
 							class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap text-center ${
 								selectedTab() === 'market'
-									? 'bg-[#0098EA] text-white shadow-lg shadow-[#0098EA]/30'
+									? 'bg-[#2990ff] text-white shadow-lg shadow-[#2990ff]/30'
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
@@ -720,7 +691,7 @@ export const GiftCollectionPage: Component = () => {
 							}}
 							class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap text-center ${
 								selectedTab() === 'sales'
-									? 'bg-[#0098EA] text-white shadow-lg shadow-[#0098EA]/30'
+									? 'bg-[#2990ff] text-white shadow-lg shadow-[#2990ff]/30'
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
@@ -737,7 +708,7 @@ export const GiftCollectionPage: Component = () => {
 							}}
 							class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap text-center ${
 								selectedTab() === 'items'
-									? 'bg-[#0098EA] text-white shadow-lg shadow-[#0098EA]/30'
+									? 'bg-[#2990ff] text-white shadow-lg shadow-[#2990ff]/30'
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
@@ -754,7 +725,7 @@ export const GiftCollectionPage: Component = () => {
 							}}
 							class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap text-center ${
 								selectedTab() === 'attributes'
-									? 'bg-[#0098EA] text-white shadow-lg shadow-[#0098EA]/30'
+									? 'bg-[#2990ff] text-white shadow-lg shadow-[#2990ff]/30'
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
@@ -771,7 +742,7 @@ export const GiftCollectionPage: Component = () => {
 							}}
 							class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap text-center ${
 								selectedTab() === 'venues'
-									? 'bg-[#0098EA] text-white shadow-lg shadow-[#0098EA]/30'
+									? 'bg-[#2990ff] text-white shadow-lg shadow-[#2990ff]/30'
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
@@ -788,7 +759,7 @@ export const GiftCollectionPage: Component = () => {
 							}}
 							class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap text-center ${
 								selectedTab() === 'heatmap'
-									? 'bg-[#0098EA] text-white shadow-lg shadow-[#0098EA]/30'
+									? 'bg-[#2990ff] text-white shadow-lg shadow-[#2990ff]/30'
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
@@ -805,18 +776,11 @@ export const GiftCollectionPage: Component = () => {
 							}}
 							class={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap text-center ${
 								selectedTab() === 'laya'
-									? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30'
+									? 'bg-[#2990ff] text-white shadow-[0_6px_16px_rgba(41,144,255,0.28)]'
 									: 'text-white/50 hover:text-white hover:bg-white/[0.03]'
 							}`}
 						>
-							{(
-								{
-									fa: '⚡ هوش LAYA',
-									en: '⚡ LAYA AI',
-									ru: '⚡ ИИ LAYA',
-									zh: '⚡ LAYA 智能',
-								} as Record<string, string>
-							)[locale()] || '⚡ LAYA AI'}
+							{t('giftsCollectionPage.layaAiTab')}
 						</button>
 					</div>
 
@@ -835,7 +799,7 @@ export const GiftCollectionPage: Component = () => {
 							/>
 
 							{/* ═══ LAYA System 1 Quick Banner ═══ */}
-							<div class="bg-gradient-to-r from-cyan-950/40 via-[#0E1520] to-[#0A0D14] border border-cyan-500/30 rounded-3xl p-4 shadow-xl flex items-center justify-between gap-3">
+							<div class="bg-[#141a22] border border-cyan-500/30 rounded-3xl p-4 shadow-xl flex items-center justify-between gap-3">
 								<div class="flex items-center gap-3">
 									<div class="w-10 h-10 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
 										<span class="material-symbols-outlined text-xl">psychology</span>
@@ -843,29 +807,14 @@ export const GiftCollectionPage: Component = () => {
 									<div class="flex flex-col">
 										<div class="flex items-center gap-2">
 											<span class="text-xs font-black text-white">
-												{(
-													{
-														fa: 'رادار تصمیم‌گیری هوشمند لایا فعال است',
-														en: 'LAYA System 1 Intelligence Active',
-														ru: 'Интеллект LAYA System 1 активен',
-														zh: 'LAYA System 1 智能雷达已激活',
-													} as Record<string, string>
-												)[locale()] || 'LAYA System 1 Intelligence Active'}
+												{t('giftsCollectionPage.layaActiveTitle')}
 											</span>
 											<span class="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
-												REAL-TIME
+												{t('giftsCollectionPage.realtimeBadge')}
 											</span>
 										</div>
 										<span class="text-[10px] text-white/50">
-											{(
-												{
-													fa: 'آربیتراژ میان‌مارکتی، فیلتر معاملات صوری، هارمونی رنگی ΔE و ردیابی نهنگ‌ها',
-													en: 'Cross-venue arbitrage, wash-trade filter, ΔE harmony & whale tracking',
-													ru: 'Межбиржевой арбитраж, фильтр вош-трейдинга, ΔE гармония и киты',
-													zh: '跨市场套利、对倒过滤、ΔE 色彩和谐度与巨鲸追踪',
-												} as Record<string, string>
-											)[locale()] ||
-												'Cross-venue arbitrage, wash-trade filter, ΔE harmony & whale tracking'}
+											{t('giftsCollectionPage.layaActiveSubtitle')}
 										</span>
 									</div>
 								</div>
@@ -880,14 +829,7 @@ export const GiftCollectionPage: Component = () => {
 									}}
 									class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-mono text-[11px] font-black shrink-0 shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-1.5"
 								>
-									<span>
-										{(
-											{ fa: 'مشاهده', en: 'Explore', ru: 'Открыть', zh: '查看' } as Record<
-												string,
-												string
-											>
-										)[locale()] || 'Explore'}
-									</span>
+									<span>{t('giftsCollectionPage.exploreBtn')}</span>
 									<span class="material-symbols-outlined text-sm rtl:rotate-180">
 										arrow_forward
 									</span>
@@ -895,10 +837,10 @@ export const GiftCollectionPage: Component = () => {
 							</div>
 
 							{/* Section 1: Top 10 by Floor */}
-							<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
+							<div class="bg-[#1b232d]/95 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
 								<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 									<h3 class="text-xs font-black text-white flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-[#0098EA] text-base">
+										<span class="material-symbols-outlined text-[#2990ff] text-base">
 											format_list_numbered
 										</span>
 										<span>{t('gifts.top10ByFloor')}</span>
@@ -953,7 +895,7 @@ export const GiftCollectionPage: Component = () => {
 														href={item.buy_url}
 														target="_blank"
 														rel="noopener noreferrer"
-														class="px-2.5 py-1 rounded-lg bg-[#0098EA]/15 hover:bg-[#0098EA]/25 text-[#0098EA] border border-[#0098EA]/30 text-[10px] font-black shrink-0 transition-all active:scale-95"
+														class="px-2.5 py-1 rounded-lg bg-[#2990ff]/15 hover:bg-[#2990ff]/25 text-[#2990ff] border border-[#2990ff]/30 text-[10px] font-black shrink-0 transition-all active:scale-95"
 													>
 														{t('gifts.buyNow')}
 													</a>
@@ -965,7 +907,7 @@ export const GiftCollectionPage: Component = () => {
 							</div>
 
 							{/* Section 2: Sales Analytics (Timeframe 24h / 7d / 30d) */}
-							<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
+							<div class="bg-[#1b232d]/95 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
 								<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 									<h3 class="text-xs font-black text-white flex items-center gap-1.5">
 										<span class="material-symbols-outlined text-emerald-400 text-base">
@@ -987,7 +929,7 @@ export const GiftCollectionPage: Component = () => {
 													}}
 													class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
 														marketTimeframe() === tf
-															? 'bg-[#0098EA] text-white shadow'
+															? 'bg-[#2990ff] text-white shadow'
 															: 'text-white/50 hover:text-white'
 													}`}
 												>
@@ -1045,7 +987,7 @@ export const GiftCollectionPage: Component = () => {
 														<span class="text-[9px] text-white/40 block mb-0.5 font-bold">
 															{t('gifts.avgPrice')}
 														</span>
-														<span class="font-mono font-bold text-[#0098EA]">
+														<span class="font-mono font-bold text-[#2990ff]">
 															{fmt(p.avg_gram)} TON
 														</span>
 													</div>
@@ -1091,7 +1033,7 @@ export const GiftCollectionPage: Component = () => {
 
 							{/* Section 3: On Sale Now */}
 							<Show when={data()?.on_sale_stats}>
-								<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
+								<div class="bg-[#1b232d]/95 border border-white/[0.06] rounded-3xl p-4 shadow-xl space-y-3">
 									<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 										<h3 class="text-xs font-black text-white flex items-center gap-1.5">
 											<span class="material-symbols-outlined text-amber-400 text-base">
@@ -1168,14 +1110,16 @@ export const GiftCollectionPage: Component = () => {
 					{/* TAB 2: SALES (Screenshot 3)                                 */}
 					{/* ═══════════════════════════════════════════════════════════ */}
 					<Show when={selectedTab() === 'sales'}>
-						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
+						<div class="bg-[#1b232d]/95 border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
 							<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 								<div>
 									<h3 class="text-xs font-black text-white flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-[#0098EA] text-base">history</span>
+										<span class="material-symbols-outlined text-[#2990ff] text-base">history</span>
 										<span>{t('gifts.salesHistory')}</span>
 									</h3>
-									<span class="text-[9px] text-white/40">UTC time zone</span>
+									<span class="text-[9px] text-white/40">
+										{t('giftsCollectionPage.utcTimeZone')}
+									</span>
 								</div>
 
 								<div class="px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.06] text-right rtl:text-left font-mono text-[10px]">
@@ -1191,7 +1135,7 @@ export const GiftCollectionPage: Component = () => {
 									onClick={() => toggleSalesSort('date')}
 									class={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 transition-all ${
 										salesSort() === 'date'
-											? 'bg-[#0098EA] text-white shadow'
+											? 'bg-[#2990ff] text-white shadow'
 											: 'bg-white/[0.03] text-white/60 hover:text-white border border-white/5'
 									}`}
 								>
@@ -1208,7 +1152,7 @@ export const GiftCollectionPage: Component = () => {
 									onClick={() => toggleSalesSort('price')}
 									class={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 transition-all ${
 										salesSort() === 'price'
-											? 'bg-[#0098EA] text-white shadow'
+											? 'bg-[#2990ff] text-white shadow'
 											: 'bg-white/[0.03] text-white/60 hover:text-white border border-white/5'
 									}`}
 								>
@@ -1225,7 +1169,7 @@ export const GiftCollectionPage: Component = () => {
 									onClick={() => toggleSalesSort('number')}
 									class={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 transition-all ${
 										salesSort() === 'number'
-											? 'bg-[#0098EA] text-white shadow'
+											? 'bg-[#2990ff] text-white shadow'
 											: 'bg-white/[0.03] text-white/60 hover:text-white border border-white/5'
 									}`}
 								>
@@ -1333,10 +1277,10 @@ export const GiftCollectionPage: Component = () => {
 					{/* TAB 3: ITEMS EXPLORER (Screenshot 4)                        */}
 					{/* ═══════════════════════════════════════════════════════════ */}
 					<Show when={selectedTab() === 'items'}>
-						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
+						<div class="bg-[#1b232d]/95 border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
 							<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[#0098EA] text-base">explore</span>
+									<span class="material-symbols-outlined text-[#2990ff] text-base">explore</span>
 									<span>{t('gifts.itemsExplorer')}</span>
 								</h3>
 								<span class="text-[10px] text-white/40 font-mono">
@@ -1357,7 +1301,7 @@ export const GiftCollectionPage: Component = () => {
 										setItemsPage(1);
 									}}
 									placeholder={t('gifts.searchPlaceholder')}
-									class="w-full pl-9 pr-8 py-2 bg-white/[0.04] border border-white/10 rounded-xl text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-[#0098EA]/50"
+									class="w-full pl-9 pr-8 py-2 bg-white/[0.04] border border-white/10 rounded-xl text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-[#2990ff]/50"
 								/>
 								<Show when={itemsSearch()}>
 									<button
@@ -1387,7 +1331,7 @@ export const GiftCollectionPage: Component = () => {
 										}}
 										class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
 											itemsFilter() === 'all'
-												? 'bg-[#0098EA] text-white'
+												? 'bg-[#2990ff] text-white'
 												: 'text-white/50 hover:text-white'
 										}`}
 									>
@@ -1404,7 +1348,7 @@ export const GiftCollectionPage: Component = () => {
 										}}
 										class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
 											itemsFilter() === 'sale'
-												? 'bg-[#0098EA] text-white'
+												? 'bg-[#2990ff] text-white'
 												: 'text-white/50 hover:text-white'
 										}`}
 									>
@@ -1533,7 +1477,7 @@ export const GiftCollectionPage: Component = () => {
 																haptic.impact('light');
 															} catch {}
 														}}
-														class="mt-1 px-2.5 py-0.5 rounded bg-[#0098EA] text-white font-bold text-[9px] transition-all active:scale-95"
+														class="mt-1 px-2.5 py-0.5 rounded bg-[#2990ff] text-white font-bold text-[9px] transition-all active:scale-95"
 													>
 														{t('gifts.buyNow')}
 													</button>
@@ -1603,10 +1547,10 @@ export const GiftCollectionPage: Component = () => {
 					{/* TAB 4: ATTRIBUTES (Screenshot 5: Models/Symbols/Backdrops)  */}
 					{/* ═══════════════════════════════════════════════════════════ */}
 					<Show when={selectedTab() === 'attributes'}>
-						<div class="bg-[#12141C]/90 border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
+						<div class="bg-[#1b232d]/95 border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
 							<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[#0098EA] text-base">dna</span>
+									<span class="material-symbols-outlined text-[#2990ff] text-base">genetics</span>
 									<span>{t('gifts.tabAttributes')}</span>
 								</h3>
 
@@ -1622,7 +1566,7 @@ export const GiftCollectionPage: Component = () => {
 										}}
 										class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
 											attributeTab() === 'models'
-												? 'bg-[#0098EA] text-white shadow'
+												? 'bg-[#2990ff] text-white shadow'
 												: 'text-white/50 hover:text-white'
 										}`}
 									>
@@ -1639,7 +1583,7 @@ export const GiftCollectionPage: Component = () => {
 										}}
 										class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
 											attributeTab() === 'symbols'
-												? 'bg-[#0098EA] text-white shadow'
+												? 'bg-[#2990ff] text-white shadow'
 												: 'text-white/50 hover:text-white'
 										}`}
 									>
@@ -1656,7 +1600,7 @@ export const GiftCollectionPage: Component = () => {
 										}}
 										class={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
 											attributeTab() === 'backdrops'
-												? 'bg-[#0098EA] text-white shadow'
+												? 'bg-[#2990ff] text-white shadow'
 												: 'text-white/50 hover:text-white'
 										}`}
 									>
@@ -1703,20 +1647,22 @@ export const GiftCollectionPage: Component = () => {
 															</span>
 															<Show when={model.custom_emoji_id}>
 																<span
-																	class="text-[9px] px-1.5 py-0.5 rounded-md bg-[#0098EA]/15 text-[#0098EA] border border-[#0098EA]/30 font-mono shrink-0"
+																	class="text-[9px] px-1.5 py-0.5 rounded-md bg-[#2990ff]/15 text-[#2990ff] border border-[#2990ff]/30 font-mono shrink-0"
 																	title={`TG Custom Emoji ID: ${model.custom_emoji_id}`}
 																>
-																	TG Emoji
+																	{t('giftsCollectionPage.tgEmojiBadge')}
 																</span>
 															</Show>
 														</div>
 														<div class="text-[10px] text-white/40 flex items-center gap-2 mt-0.5">
 															<span>
-																{t('gifts.supplyPrefix')} {(model.total_supply ?? 0).toLocaleString()}
+																{t('gifts.supplyPrefix')}{' '}
+																{(model.total_supply ?? 0).toLocaleString()}
 															</span>
 															<span class="w-[1px] h-2.5 bg-white/10" />
 															<span>
-																{t('gifts.rarityPrefix')} {((model.rarity_permille ?? 0) / 10).toFixed(1)}%
+																{t('gifts.rarityPrefix')}{' '}
+																{((model.rarity_permille ?? 0) / 10).toFixed(1)}%
 															</span>
 														</div>
 													</div>
@@ -1815,10 +1761,10 @@ export const GiftCollectionPage: Component = () => {
 					{/* TAB 5: VENUES (Existing)                                    */}
 					{/* ═══════════════════════════════════════════════════════════ */}
 					<Show when={selectedTab() === 'venues'}>
-						<div class="bg-[#12141C]/80 border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
+						<div class="bg-[#1b232d]/95 border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
 							<div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
 								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[#0098EA] text-base">storefront</span>
+									<span class="material-symbols-outlined text-[#2990ff] text-base">storefront</span>
 									<span>{t('gifts.venueFloorTitle')}</span>
 								</h3>
 							</div>
@@ -1836,7 +1782,7 @@ export const GiftCollectionPage: Component = () => {
 														<span class="font-bold text-white">{venue.venue_name}</span>
 														<Show when={venue.is_on_chain}>
 															<span class="text-[8px] font-bold px-1 rounded bg-sky-500/15 text-sky-300">
-																On-Chain
+																{t('giftsCollectionPage.onChainBadge')}
 															</span>
 														</Show>
 													</div>
@@ -1915,7 +1861,7 @@ export const GiftCollectionPage: Component = () => {
 
 					{/* ═══ Dutch Upgrade Auction Clock ═══ */}
 					<Show when={data()?.upgrade_ladder && (data()?.upgrade_ladder?.length || 0) > 0}>
-						<div class="bg-gradient-to-br from-[#12141C] to-[#0D111A] border border-white/[0.06] rounded-3xl p-4 shadow-xl mb-4 space-y-3">
+						<div class="bg-[#1b232d]/95 border border-white/[0.08] rounded-2xl p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_40px_rgba(0,0,0,0.4)] mb-4 space-y-3">
 							<div class="flex items-center justify-between">
 								<h3 class="text-xs font-black text-white flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-amber-400 text-base">timer</span>
@@ -1932,7 +1878,7 @@ export const GiftCollectionPage: Component = () => {
 										<div
 											class={`p-2.5 rounded-2xl border text-center transition-all ${
 												step.is_current
-													? 'bg-[#0098EA]/15 border-[#0098EA]/40 text-white'
+													? 'bg-[#2990ff]/15 border-[#2990ff]/40 text-white'
 													: 'bg-white/[0.02] border-white/[0.05] text-white/70'
 											}`}
 										>

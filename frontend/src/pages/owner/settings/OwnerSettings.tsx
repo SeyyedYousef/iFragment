@@ -3,12 +3,11 @@ import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-que
 import { type Component, createEffect, createSignal, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { SystemSettings } from '@/entities/owner/model/types.js';
-import { locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerSettings: Component = () => {
 	const queryClient = useQueryClient();
-	const isFa = () => locale() === 'fa';
 
 	const [settings, setSettings] = createSignal<SystemSettings | null>(null);
 	const [statusMsg, setStatusMsg] = createSignal<{
@@ -37,9 +36,7 @@ export const OwnerSettings: Component = () => {
 			queryClient.invalidateQueries({ queryKey: ['owner', 'dashboard'] });
 			setStatusMsg({
 				type: 'success',
-				text: isFa()
-					? 'تنظیمات تعرفه کریدیت و کالیبراسیون موتورهای ارزش‌گذاری با موفقیت ذخیره شد.'
-					: 'Credit pricing & Valuation Engine calibration saved successfully.',
+				text: t('ownerEngineSettings.savedSuccess'),
 			});
 			setTimeout(() => setStatusMsg(null), 3500);
 		},
@@ -85,15 +82,9 @@ export const OwnerSettings: Component = () => {
 			{/* Header */}
 			<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 				<div>
-					<h2 class="text-lg font-black text-white">
-						{isFa()
-							? 'تنظیمات تعرفه کریدیت ⚡ و کالیبراسیون موتورهای ارزش‌گذاری'
-							: 'Intel Credit Pricing & Valuation Engine Calibration'}
-					</h2>
+					<h2 class="text-lg font-black text-white">{t('ownerEngineSettings.title')}</h2>
 					<p class="text-xs text-white/50">
-						{isFa()
-							? `کنترل زنده هزینه استعلام‌ها، سهمیه رایگان و ضرایب الگوریتم‌های نام کاربری، +888 و گیفت (نسخه پیکربندی: v${currentSettings()?.version ?? 1})`
-							: `Live control of report credit costs, referral rewards, and valuation calibration (Config v${currentSettings()?.version ?? 1})`}
+						{t('ownerEngineSettings.subtitle', { version: currentSettings()?.version ?? 1 })}
 					</p>
 				</div>
 			</div>
@@ -117,7 +108,7 @@ export const OwnerSettings: Component = () => {
 				when={!settingsQuery.isLoading && currentSettings()}
 				fallback={
 					<div class="p-8 text-center text-xs text-white/40">
-						{isFa() ? 'در حال بارگذاری پیکربندی سرور...' : 'Loading engine configuration...'}
+						{t('ownerEngineSettings.loadingConfig')}
 					</div>
 				}
 			>
@@ -127,16 +118,10 @@ export const OwnerSettings: Component = () => {
 						<div>
 							<div class="text-sm font-bold text-white flex items-center gap-2">
 								<span class="material-symbols-outlined text-amber-400">construction</span>
-								<span>
-									{isFa()
-										? 'حالت تعمیرات و بروزرسانی سراسری (Maintenance Mode)'
-										: 'Platform Maintenance Mode'}
-								</span>
+								<span>{t('ownerEngineSettings.maintenanceTitle')}</span>
 							</div>
 							<div class="text-xs text-white/50 mt-0.5">
-								{isFa()
-									? 'نمایش صفحه بروزرسانی برای کاربران عادی؛ دسترسی پنل مالک و تست ادمین فعال باقی می‌ماند'
-									: 'Block regular users with a maintenance screen while keeping Owner access active'}
+								{t('ownerEngineSettings.maintenanceDesc')}
 							</div>
 						</div>
 						<label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -156,22 +141,18 @@ export const OwnerSettings: Component = () => {
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-outlined text-cyan-400">bolt</span>
 								<h3 class="text-sm font-bold text-white">
-									{isFa()
-										? 'تعرفه کریدیت گزارش‌ها و پاداش‌های معرفی (Intel Credit Economy ⚡)'
-										: 'Intel Credit Report Costs & Referral Rewards (⚡)'}
+									{t('ownerEngineSettings.creditsEconomyTitle')}
 								</h3>
 							</div>
 							<p class="text-xs text-white/50 mt-1">
-								{isFa()
-									? 'تعیین دقیق تعداد کریدیت لازم برای باز کردن هر گزارش تخصصی و پاداش ثبت‌نام/معرفی کاربران'
-									: 'Set exact Intel Credit (⚡) costs per valuation report and user acquisition bonuses'}
+								{t('ownerEngineSettings.creditsEconomyDesc')}
 							</p>
 						</header>
 
 						<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 							<div class="space-y-1.5">
 								<label class="text-xs text-sky-300 font-bold block">
-									{isFa() ? 'هزینه گزارش نام کاربری (@)' : '@Username Report Cost (⚡)'}
+									{t('ownerEngineSettings.usernameCostLabel')}
 								</label>
 								<input
 									type="number"
@@ -187,7 +168,7 @@ export const OwnerSettings: Component = () => {
 
 							<div class="space-y-1.5">
 								<label class="text-xs text-amber-300 font-bold block">
-									{isFa() ? 'هزینه گزارش شماره کلکسیونی (+888)' : '+888 Number Report Cost (⚡)'}
+									{t('ownerEngineSettings.numberCostLabel')}
 								</label>
 								<input
 									type="number"
@@ -203,7 +184,7 @@ export const OwnerSettings: Component = () => {
 
 							<div class="space-y-1.5">
 								<label class="text-xs text-purple-300 font-bold block">
-									{isFa() ? 'هزینه گزارش گیفت تلگرام (🎁)' : 'Telegram Gift Report Cost (⚡)'}
+									{t('ownerEngineSettings.giftCostLabel')}
 								</label>
 								<input
 									type="number"
@@ -219,7 +200,7 @@ export const OwnerSettings: Component = () => {
 
 							<div class="space-y-1.5">
 								<label class="text-xs text-emerald-300 font-bold block">
-									{isFa() ? 'هزینه اسکن پرتفوی نهنگ (X-Ray)' : 'Portfolio X-Ray Scan Cost (⚡)'}
+									{t('ownerEngineSettings.portfolioCostLabel')}
 								</label>
 								<input
 									type="number"
@@ -235,7 +216,7 @@ export const OwnerSettings: Component = () => {
 
 							<div class="space-y-1.5">
 								<label class="text-xs text-white/70 font-medium block">
-									{isFa() ? 'سهمیه رایگان روزانه هر کاربر' : 'Free Daily Quota per User'}
+									{t('ownerEngineSettings.dailyQuotaLabel')}
 								</label>
 								<input
 									type="number"
@@ -251,7 +232,7 @@ export const OwnerSettings: Component = () => {
 
 							<div class="space-y-1.5">
 								<label class="text-xs text-white/70 font-medium block">
-									{isFa() ? 'کریدیت هدیه ورود اولیه (Signup ⚡)' : 'Initial Signup Bonus (⚡)'}
+									{t('ownerEngineSettings.signupBonusLabel')}
 								</label>
 								<input
 									type="number"
@@ -267,7 +248,7 @@ export const OwnerSettings: Component = () => {
 
 							<div class="space-y-1.5">
 								<label class="text-xs text-white/70 font-medium block">
-									{isFa() ? 'پاداش معرفی هر دوست (Referral ⚡)' : 'Referral Bonus (⚡ Credits)'}
+									{t('ownerEngineSettings.referralBonusLabel')}
 								</label>
 								<input
 									type="number"
@@ -283,7 +264,7 @@ export const OwnerSettings: Component = () => {
 
 							<div class="space-y-1.5">
 								<label class="text-xs text-white/70 font-medium block">
-									{isFa() ? 'پورسانت معرف از خرید Stars (%)' : 'Referral Stars Rev-Share (%)'}
+									{t('ownerEngineSettings.referralRevShareLabel')}
 								</label>
 								<input
 									type="number"
@@ -306,24 +287,16 @@ export const OwnerSettings: Component = () => {
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-outlined text-amber-400">tune</span>
 								<h3 class="text-sm font-bold text-white">
-									{isFa()
-										? 'کالیبراسیون الگوریتم‌های ارزش‌گذاری و اوراکل‌های بازار'
-										: 'Valuation Engine Calibration & Live Oracle Rules'}
+									{t('ownerEngineSettings.calibrationTitle')}
 								</h3>
 							</div>
-							<p class="text-xs text-white/50 mt-1">
-								{isFa()
-									? 'تنظیم ضریب پایبندی به قیمت کف (Floor Anchor) در گیفت‌ها، فیلتر قیمت‌های کاذب نهنگ‌ها (Vanity Ask Guard) و نرخ TON/USD'
-									: 'Configure 4-Floor strictness for Telegram Gifts, Whale Vanity Ask threshold, and TON/USD oracle override'}
-							</p>
+							<p class="text-xs text-white/50 mt-1">{t('ownerEngineSettings.calibrationDesc')}</p>
 						</header>
 
 						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div class="space-y-1.5">
 								<label class="text-xs text-white/70 font-medium block">
-									{isFa()
-										? 'نرخ دستی TON/USD (عدد 0 = دریافت خودکار از اوراکل زنده)'
-										: 'Manual TON/USD Override (0 = Auto Live Oracle)'}
+									{t('ownerEngineSettings.tonOverrideLabel')}
 								</label>
 								<input
 									type="number"
@@ -339,9 +312,7 @@ export const OwnerSettings: Component = () => {
 
 							<div class="space-y-1.5">
 								<label class="text-xs text-white/70 font-medium block">
-									{isFa()
-										? 'ضریب لنگر قیمت کف در گیفت‌ها (1.0 = استاندارد بازار فعلی)'
-										: 'Gift 4-Floor Anchor Strictness (1.0 = Market Standard)'}
+									{t('ownerEngineSettings.floorStrictnessLabel')}
 								</label>
 								<input
 									type="number"
@@ -358,9 +329,7 @@ export const OwnerSettings: Component = () => {
 
 							<div class="space-y-1.5">
 								<label class="text-xs text-white/70 font-medium block">
-									{isFa()
-										? 'آستانه هشدار قیمت نمایشی نهنگ (چند برابر ارزش منصفانه؟)'
-										: 'Whale Vanity Ask Guard Multiplier (× Fair Value)'}
+									{t('ownerEngineSettings.vanityGuardLabel')}
 								</label>
 								<input
 									type="number"
@@ -383,14 +352,10 @@ export const OwnerSettings: Component = () => {
 							<label class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between cursor-pointer">
 								<div>
 									<div class="text-xs font-bold text-white">
-										{isFa()
-											? 'تایید زنده وضعیت حراجی و محدودیت اسپم از Fragment.com'
-											: 'Live Fragment.com Auction & Restriction Verification'}
+										{t('ownerEngineSettings.fragmentScrapingTitle')}
 									</div>
 									<div class="text-[11px] text-white/45 mt-0.5">
-										{isFa()
-											? 'بررسی لحظه‌ای پرچم tm-restricted-nft برای شماره‌های +888 و نام‌های کاربری'
-											: 'Real-time scraping of tm-restricted-nft and live auction bids'}
+										{t('ownerEngineSettings.fragmentScrapingDesc')}
 									</div>
 								</div>
 								<input
@@ -406,14 +371,10 @@ export const OwnerSettings: Component = () => {
 							<label class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between cursor-pointer">
 								<div>
 									<div class="text-xs font-bold text-white">
-										{isFa()
-											? 'کالبدشکافی باینری TVM BOC و تاریخچه آن‌چین از TonAPI.io'
-											: 'Live TonAPI.io TVM BOC Binary Forensics'}
+										{t('ownerEngineSettings.tonapiForensicsTitle')}
 									</div>
 									<div class="text-[11px] text-white/45 mt-0.5">
-										{isFa()
-											? 'استخراج مستقیم هش کد، تاریخچه انتقال و موجودی نهنگ مالک از بلاک‌چین TON'
-											: 'Real-time on-chain NFT provenance and owner whale portfolio inspection'}
+										{t('ownerEngineSettings.tonapiForensicsDesc')}
 									</div>
 								</div>
 								<input
@@ -431,23 +392,15 @@ export const OwnerSettings: Component = () => {
 						<div class="flex items-center gap-3">
 							<span class="material-symbols-outlined text-amber-400">ads_click</span>
 							<div class="text-xs">
-								<div class="font-bold text-white">
-									{isFa()
-										? 'مدیریت بنرهای تبلیغاتی و پوستر تمام‌صفحه سرمایه‌گذاران'
-										: 'Manage Promotional Banners & Full-Screen Investors Poster'}
-								</div>
-								<div class="text-white/50">
-									{isFa()
-										? 'تمامی تنظیمات بنرها و تصویر ۹:۱۶ سرمایه‌گذاران در تب «بنرها و سرمایه‌گذاران» یکپارچه شده است.'
-										: 'All ad slots and the 9:16 Investors poster are unified in the Banners & Media tab.'}
-								</div>
+								<div class="font-bold text-white">{t('ownerEngineSettings.bannersCardTitle')}</div>
+								<div class="text-white/50">{t('ownerEngineSettings.bannersCardDesc')}</div>
 							</div>
 						</div>
 						<A
 							href="/owner/ads"
 							class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-bold text-amber-300 shrink-0 transition"
 						>
-							{isFa() ? 'مدیریت بنرها ↗' : 'Open Banners ↗'}
+							{t('ownerEngineSettings.openBannersBtn')}
 						</A>
 					</div>
 
@@ -459,12 +412,8 @@ export const OwnerSettings: Component = () => {
 							class="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black font-black text-xs uppercase tracking-wider rounded-2xl transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
 						>
 							{updateMutation.isPending
-								? isFa()
-									? 'در حال ذخیره پیکربندی...'
-									: 'Saving Configuration...'
-								: isFa()
-									? 'ذخیره تنظیمات تعرفه و موتور ارزش‌گذاری'
-									: 'Save Pricing & Engine Calibration'}
+								? t('ownerEngineSettings.savingConfig')
+								: t('ownerEngineSettings.saveConfigBtn')}
 						</button>
 					</div>
 				</form>
@@ -474,13 +423,21 @@ export const OwnerSettings: Component = () => {
 			<Show when={isMaintenanceDialogOpen()}>
 				<DangerActionDialog
 					isOpen={true}
-					title={pendingMaintenanceState() ? 'Enable Maintenance Mode' : 'Disable Maintenance Mode'}
+					title={
+						pendingMaintenanceState()
+							? t('ownerEngineSettings.enableMaintenanceTitle')
+							: t('ownerEngineSettings.disableMaintenanceTitle')
+					}
 					description={
 						pendingMaintenanceState()
-							? 'Are you sure you want to put the entire platform into Maintenance Mode? Regular users will see a maintenance notice.'
-							: 'Re-enable public platform access for all Telegram users?'
+							? t('ownerEngineSettings.enableMaintenanceDesc')
+							: t('ownerEngineSettings.disableMaintenanceDesc')
 					}
-					actionLabel={pendingMaintenanceState() ? 'Enable Maintenance' : 'Disable Maintenance'}
+					actionLabel={
+						pendingMaintenanceState()
+							? t('ownerEngineSettings.enableMaintenanceAction')
+							: t('ownerEngineSettings.disableMaintenanceAction')
+					}
 					confirmWord={pendingMaintenanceState() ? 'MAINTENANCE' : undefined}
 					riskLevel={pendingMaintenanceState() ? 'critical' : 'medium'}
 					requireReason={false}

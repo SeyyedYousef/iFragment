@@ -1,7 +1,9 @@
 import { type Component, createSignal, Show } from 'solid-js';
 import type { NumbersInstitutionalCollectionOverview } from '@/entities/numbers/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 import { layaT, NUMBERS_COLLECTION_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { FragStatusPill } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 interface HeaderProps {
 	overview?: NumbersInstitutionalCollectionOverview;
@@ -45,93 +47,93 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 				<button
 					type="button"
 					onClick={props.onBack}
-					class="w-10 h-10 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-95 shrink-0"
+					class="w-9 h-9 rounded-[10px] frag-btn-secondary flex items-center justify-center text-[#8c9ba5] hover:text-white active:scale-95 shrink-0"
 					aria-label={layaT(NUMBERS_COLLECTION_I18N.backLabel)}
 				>
-					<span class="material-symbols-outlined text-xl rtl:rotate-180">arrow_back</span>
+					<span class="material-symbols-outlined text-[19px] rtl:rotate-180">arrow_back</span>
 				</button>
 
-				<div class="flex-1 min-w-0 px-2 text-start">
+				<div class="flex-1 min-w-0 px-1.5 text-start">
 					<div class="flex items-center gap-1.5 flex-wrap">
-						<h1 class="text-sm font-black text-white truncate font-sans">
+						<h1 class="text-[15px] font-semibold tracking-[-0.015em] text-white truncate">
 							{layaT(NUMBERS_COLLECTION_I18N.headerTitle)}
 						</h1>
-						<span class="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
+						<span class="text-[10.5px] font-mono font-semibold px-1.5 py-0.5 rounded-[5px] bg-[#2990ff]/12 text-[#2990ff] border border-[#2990ff]/25 tabular-nums">
 							+888
 						</span>
 					</div>
-					<p class="text-[10px] text-white/50 truncate font-mono mt-0.5">
-						Telemint NFT · Secondary Market
+					<p class="text-[11px] text-[#8c9ba5] truncate font-mono mt-0.5">
+						{t('numCollectionHeader.subtitle')}
 					</p>
 				</div>
 
 				<div class="flex items-center gap-1.5 shrink-0">
-					{/* Alerts Modal Trigger */}
 					<button
 						type="button"
 						onClick={props.onOpenAlerts}
-						class="w-9 h-9 rounded-2xl bg-white/[0.04] hover:bg-amber-500/10 border border-white/[0.08] hover:border-amber-500/30 flex items-center justify-center text-white/70 hover:text-amber-400 transition-all active:scale-95"
+						class="w-9 h-9 rounded-[10px] frag-btn-secondary hover:text-[#ffb340] flex items-center justify-center text-[#8c9ba5] active:scale-95"
 						title={layaT(NUMBERS_COLLECTION_I18N.alertsTooltip)}
 					>
-						<span class="material-symbols-outlined text-lg">notifications_active</span>
+						<span class="material-symbols-outlined text-[18px]">notifications_active</span>
 					</button>
 
-					{/* Export Snapshot */}
 					<button
 						type="button"
 						onClick={props.onOpenExport}
-						class="w-9 h-9 rounded-2xl bg-white/[0.04] hover:bg-emerald-500/10 border border-white/[0.08] hover:border-emerald-500/30 flex items-center justify-center text-white/70 hover:text-emerald-400 transition-all active:scale-95"
+						class="w-9 h-9 rounded-[10px] frag-btn-secondary hover:text-[#4cd964] flex items-center justify-center text-[#8c9ba5] active:scale-95"
 						title={layaT(NUMBERS_COLLECTION_I18N.exportTooltip)}
 					>
-						<span class="material-symbols-outlined text-lg">ios_share</span>
+						<span class="material-symbols-outlined text-[18px]">ios_share</span>
 					</button>
 
-					{/* Methodology Drawer Trigger */}
 					<button
 						type="button"
 						onClick={props.onOpenMethodology}
-						class="w-9 h-9 rounded-2xl bg-white/[0.04] hover:bg-[#0098EA]/10 border border-white/[0.08] hover:border-[#0098EA]/30 flex items-center justify-center text-white/70 hover:text-[#0098EA] transition-all active:scale-95"
+						class="w-9 h-9 rounded-[10px] frag-btn-secondary hover:text-[#2990ff] flex items-center justify-center text-[#8c9ba5] active:scale-95"
 						title={layaT(NUMBERS_COLLECTION_I18N.methodologyTooltip)}
 					>
-						<span class="material-symbols-outlined text-lg">verified_user</span>
+						<span class="material-symbols-outlined text-[18px]">verified_user</span>
 					</button>
 				</div>
 			</div>
 
-			{/* Official Collection Card with Smart Contract Copy */}
-			<div class="bg-gradient-to-br from-[#0c121e] via-[#090b11] to-[#050608] border border-white/[0.08] rounded-3xl p-4 shadow-xl relative overflow-hidden">
+			{/* Official Collection Identity Card */}
+			<div class="frag-card-elevated rounded-[16px] p-4 relative overflow-hidden">
 				<div class="flex items-start justify-between gap-3">
-					<div class="space-y-1 min-w-0">
+					<div class="space-y-1.5 min-w-0">
 						<div class="flex items-center gap-2 flex-wrap">
-							<span class="text-base font-black text-white font-mono tracking-tight">
-								Telegram Anonymous Numbers
+							<span
+								class="text-[15px] font-semibold text-white font-mono tracking-[-0.015em]"
+								dir="ltr"
+							>
+								{t('numCollectionHeader.collectionName')}
 							</span>
-							<span class="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-extrabold flex items-center gap-1">
-								<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-								{layaT(NUMBERS_COLLECTION_I18N.telemintVerified)}
-							</span>
+							<FragStatusPill
+								status="sold"
+								label={layaT(NUMBERS_COLLECTION_I18N.telemintVerified)}
+							/>
 						</div>
 
-						{/* Contract Address with Copy */}
-						<div class="flex items-center gap-2 pt-0.5">
-							<span class="text-[10px] text-white/40 font-mono">
+						<div class="flex items-center gap-2 pt-0.5 flex-wrap">
+							<span class="text-[11px] text-[#8c9ba5] font-mono">
 								{layaT(NUMBERS_COLLECTION_I18N.contractLabel)}
 							</span>
 							<button
 								type="button"
 								onClick={copyContract}
-								class="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[10px] font-mono text-[#0098EA] hover:text-white transition-all active:scale-95"
+								class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[7px] frag-inset text-[11px] font-mono text-[#2990ff] hover:text-white transition-all active:scale-95 tabular-nums"
+								dir="ltr"
 							>
 								<span class="truncate max-w-[130px] sm:max-w-[180px]">
 									{props.overview?.collection_address
 										? `${props.overview.collection_address.slice(0, 4)}...${props.overview.collection_address.slice(-4)}`
 										: 'EQAO...si5N'}
 								</span>
-								<span class="material-symbols-outlined text-xs">
+								<span class="material-symbols-outlined text-[13px]">
 									{copied() ? 'done' : 'content_copy'}
 								</span>
 								<Show when={copied()}>
-									<span class="text-emerald-400 text-[9px] font-bold">
+									<span class="text-[#4cd964] text-[10px] font-semibold">
 										{layaT(NUMBERS_COLLECTION_I18N.copiedSuccess)}
 									</span>
 								</Show>
@@ -139,45 +141,40 @@ export const NumberCollectionHeader: Component<HeaderProps> = (props) => {
 						</div>
 					</div>
 
-					{/* Supply Badge */}
 					<div class="text-end shrink-0">
-						<span class="text-[10px] text-white/40 block">
+						<span class="text-[11px] text-[#8c9ba5] block">
 							{layaT(NUMBERS_COLLECTION_I18N.totalSupplyFrozen)}
 						</span>
-						<span class="text-xs font-black text-white font-mono block mt-0.5">
+						<span class="text-[13px] font-semibold text-white font-mono block mt-0.5 tabular-nums">
 							136,566{' '}
-							<span class="text-[10px] text-white/50">{layaT(NUMBERS_COLLECTION_I18N.items)}</span>
+							<span class="text-[11px] font-normal text-[#8c9ba5]">
+								{layaT(NUMBERS_COLLECTION_I18N.items)}
+							</span>
 						</span>
-						<span class="text-[9px] text-cyan-400/80 font-mono block mt-0.5">
+						<span class="text-[10.5px] text-[#2990ff] font-mono block mt-0.5">
 							{layaT(NUMBERS_COLLECTION_I18N.genesis4d)}
 						</span>
 					</div>
 				</div>
 
-				{/* Provenance & Freshness Status Bar */}
-				<div class="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-white/50 flex-wrap gap-2">
+				{/* Provenance & Freshness Strip */}
+				<div class="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-[#8c9ba5] flex-wrap gap-2">
 					<div class="flex items-center gap-2">
-						<span
-							class={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-[9px] ${
+						<FragStatusPill
+							status={props.overview?.is_live ? 'available' : 'on_auction'}
+							pulse={Boolean(props.overview?.is_live)}
+							label={
 								props.overview?.is_live
-									? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-									: 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-							}`}
-						>
-							<span
-								class={`w-1.5 h-1.5 rounded-full ${
-									props.overview?.is_live ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
-								}`}
-							/>
-							{props.overview?.is_live
-								? layaT(NUMBERS_COLLECTION_I18N.liveOnChainData)
-								: layaT(NUMBERS_COLLECTION_I18N.latestSnapshot)}
+									? layaT(NUMBERS_COLLECTION_I18N.liveOnChainData)
+									: layaT(NUMBERS_COLLECTION_I18N.latestSnapshot)
+							}
+						/>
+						<span class="font-mono text-[10.5px]">
+							{formatTimeAgo(props.overview?.observed_at)}
 						</span>
-
-						<span class="font-mono text-[9px]">{formatTimeAgo(props.overview?.observed_at)}</span>
 					</div>
 
-					<div class="flex items-center gap-1.5 font-mono text-[9px] text-white/40">
+					<div class="flex items-center gap-1.5 font-mono text-[10.5px] text-[#60707c]">
 						<span>{layaT(NUMBERS_COLLECTION_I18N.sourcesFragmentTon)}</span>
 						<Show when={props.overview?.snapshot_id}>
 							<span>· ID: {props.overview!.snapshot_id.slice(-6)}</span>

@@ -1,5 +1,6 @@
 import { type Component, createMemo, For, Show } from 'solid-js';
 import type { CrossMarketArbitrage, MarketVenueFloor } from '@/entities/gifts/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 import { GIFTS_I18N, layaT } from '@/shared/i18n/laya-i18n.js';
 
 interface Props {
@@ -129,8 +130,9 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 	});
 
 	// LAYA Wash-Trade Organic Floor
+	const isCleanVenue = (score: number): boolean => 25 > score;
 	const organicFloorTon = createMemo(() => {
-		const cleanVenues = venues().filter((v) => v.washTradeScore < 25);
+		const cleanVenues = venues().filter((v) => isCleanVenue(v.washTradeScore));
 		if (cleanVenues.length === 0) return baseFloor();
 		return Math.min(...cleanVenues.map((v) => v.floorTon));
 	});
@@ -138,9 +140,8 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 	const fmt = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 	return (
-		<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
+		<div class="bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-5 shadow-xl text-start flex flex-col gap-4 relative overflow-hidden">
 			{/* Decorative ambient glow */}
-			<div class="absolute -top-10 -right-10 w-44 h-44 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
 			{/* Header */}
 			<div class="flex items-center justify-between border-b border-white/5 pb-3 relative z-10">
@@ -158,35 +159,34 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 					</div>
 				</div>
 				<span class="text-[9px] font-mono font-black text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded-md">
-					SYSTEM 1 REAL-TIME
+					{t('giftsArbitrage.system1Realtime')}
 				</span>
 			</div>
 
 			{/* Highlight Banner: Arbitrage Opportunity */}
 			<Show when={netArbitrage().netTon > 0}>
-				<div class="bg-gradient-to-r from-cyan-950/40 via-[#0A121A] to-[#08090D] border border-cyan-500/30 rounded-[20px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+				<div class="bg-[#141a22] border border-cyan-500/30 rounded-[20px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 					<div class="flex flex-col gap-1">
 						<div class="flex items-center gap-2">
-							<span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+							<span class="w-2 h-2 rounded-full bg-cyan-400" />
 							<span class="text-[10px] font-mono font-black text-cyan-300 uppercase tracking-wider">
 								{layaT(GIFTS_I18N.spreadDetected)}
 							</span>
 							<span class="text-[9px] font-mono font-bold text-white/70 bg-white/10 px-2 py-0.5 rounded">
-								+{rawSpreadPct()}% Gross Spread
+								{t('giftsArbitrage.grossSpread', { pct: rawSpreadPct() })}
 							</span>
 						</div>
 						<div class="text-[11px] text-white/80 font-mono">
 							{layaT(GIFTS_I18N.buyOn)}{' '}
 							<span class="text-cyan-400 font-bold">{cheapestVenue()?.name}</span> (
-							{fmt(cheapestVenue()!.floorTon)} TON)
-							{' ➔ '}
+							{fmt(cheapestVenue()!.floorTon)} {t('common.ton')}){' ➔ '}
 							{layaT(GIFTS_I18N.sellOn)}{' '}
 							<span class="text-emerald-400 font-bold">{expensiveVenue()?.name}</span> (
-							{fmt(expensiveVenue()!.floorTon)} TON)
+							{fmt(expensiveVenue()!.floorTon)} {t('common.ton')})
 						</div>
 					</div>
 
-					<div class="flex items-center gap-3 bg-[#050B11] border border-cyan-500/20 px-3.5 py-2 rounded-[16px] shrink-0">
+					<div class="flex items-center gap-3 bg-[#141a22] border border-cyan-500/20 px-3.5 py-2 rounded-[16px] shrink-0">
 						<div class="flex flex-col text-end">
 							<span class="text-[8px] font-mono text-white/40 uppercase">
 								{layaT(GIFTS_I18N.netRoi)}
@@ -195,7 +195,7 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 								<span class="text-[16px] font-black text-cyan-400">
 									+{fmt(netArbitrage().netTon)}
 								</span>
-								<span class="text-[10px] font-bold text-cyan-400">TON</span>
+								<span class="text-[10px] font-bold text-cyan-400">{t('common.ton')}</span>
 							</div>
 							<span class="text-[9px] font-mono text-white/40">
 								≈ +${fmt(netArbitrage().netUsd)} ({netArbitrage().netRoiPct}%)
@@ -207,26 +207,28 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 
 			{/* LAYA Wash-Trading Filter & Organic Floor Metric */}
 			<div class="grid grid-cols-2 gap-2.5">
-				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-1">
+				<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3.5 flex flex-col gap-1">
 					<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
 						{layaT(GIFTS_I18N.organicFloor)}
 					</span>
 					<div class="flex items-baseline gap-1.5 font-mono">
 						<span class="text-[18px] font-black text-emerald-400">{fmt(organicFloorTon())}</span>
-						<span class="text-[11px] font-bold text-emerald-400">TON</span>
+						<span class="text-[11px] font-bold text-emerald-400">{t('common.ton')}</span>
 					</div>
 					<span class="text-[9px] font-mono text-white/40">
 						{layaT(GIFTS_I18N.organicFloorSubtitle)}
 					</span>
 				</div>
 
-				<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-1">
+				<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3.5 flex flex-col gap-1">
 					<span class="text-[9px] font-mono font-bold text-white/40 uppercase">
 						{layaT(GIFTS_I18N.healthIndexTitle)}
 					</span>
 					<div class="flex items-baseline gap-1.5 font-mono">
 						<span class="text-[18px] font-black text-white">88/100</span>
-						<span class="text-[10px] font-bold text-emerald-400">LOW MANIPULATION</span>
+						<span class="text-[10px] font-bold text-emerald-400">
+							{t('giftsArbitrage.lowManipulation')}
+						</span>
 					</div>
 					<span class="text-[9px] font-mono text-white/40">
 						{layaT(GIFTS_I18N.healthIndexSubtitle)}
@@ -265,17 +267,21 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 												<span class="text-xs font-bold text-white">{v.name}</span>
 												<Show when={isCheapest()}>
 													<span class="text-[8px] font-mono font-bold bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30">
-														BEST BUY
+														{t('giftsArbitrage.bestBuy')}
 													</span>
 												</Show>
 												<Show when={isTopSell()}>
 													<span class="text-[8px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
-														MAX LIQUIDATE
+														{t('giftsArbitrage.maxLiquidate')}
 													</span>
 												</Show>
 											</div>
 											<span class="text-[9px] font-mono text-white/40">
-												Fee: {v.feePct}% · Gas: ~{v.gasTon} TON · {v.listedCount} listed
+												{t('giftsArbitrage.venueMeta', {
+													fee: v.feePct,
+													gas: v.gasTon,
+													count: v.listedCount,
+												})}
 											</span>
 										</div>
 									</div>
@@ -283,7 +289,7 @@ export const GiftArbitrageRadar: Component<Props> = (props) => {
 									<div class="flex flex-col items-end font-mono">
 										<div class="flex items-baseline gap-1">
 											<span class="text-sm font-black text-white">{fmt(v.floorTon)}</span>
-											<span class="text-[10px] font-bold text-[#0098EA]">TON</span>
+											<span class="text-[10px] font-bold text-[#2990ff]">{t('common.ton')}</span>
 										</div>
 										<span class="text-[9px] text-white/40">≈ ${fmt(v.floorUsd)}</span>
 									</div>

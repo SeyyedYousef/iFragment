@@ -1,18 +1,16 @@
 import { type Component, lazy } from 'solid-js';
+import { IndexPage } from '@/pages/home/home/index.js';
 import { useI18n } from '@/shared/i18n/index.js';
 import { OwnerLayout } from '@/widgets/owner/index.js';
 import { OwnerRouteGuard } from './OwnerRouteGuard.js';
 
-// Route-level Code Splitting (Lazy Loading)
+// Route-level Code Splitting (Lazy Loading) — `/` IndexPage stays eager for zero post-splash flicker
 
 const CollectionInfoPage = lazy(() =>
 	import('@/pages/collection-info/index.js').then((m) => ({ default: m.CollectionInfoPage })),
 );
 const InvestorsPromoPage = lazy(() =>
 	import('@/pages/dashboard/dashboard/index.js').then((m) => ({ default: m.InvestorsPromoPage })),
-);
-const IndexPage = lazy(() =>
-	import('@/pages/home/home/index.js').then((m) => ({ default: m.IndexPage })),
 );
 const OwnerAds = lazy(() =>
 	import('@/pages/owner/ads/index.js').then((m) => ({ default: m.OwnerAds })),

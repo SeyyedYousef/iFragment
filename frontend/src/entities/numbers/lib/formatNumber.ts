@@ -1,7 +1,7 @@
 /**
  * Utility functions for formatting Telegram Anonymous Numbers (+888)
  */
-import { locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 export interface FormattedNumberParts {
 	prefix: string; // e.g. "+888"
@@ -87,32 +87,6 @@ export function formatLiveNumberInput(val: string): { formatted: string; digits:
 	return { formatted, digits };
 }
 
-const VALIDATION_ERRORS: Record<
-	string,
-	{ empty: string; genesisRange: string; invalidLength: string }
-> = {
-	fa: {
-		empty: 'شماره نمی‌تواند خالی باشد',
-		genesisRange: 'شماره جنسیس ۴ رقمی خارج از بازه رسمی تلگرام (۸۰۰۰ تا ۸۹۹۹) است',
-		invalidLength: 'طول شماره نامعتبر است (باید ۴ رقمی جنسیس یا ۸ رقمی استاندارد باشد)',
-	},
-	en: {
-		empty: 'Number cannot be empty',
-		genesisRange: '4-digit Genesis number is outside the official Telegram range (8000–8999)',
-		invalidLength: 'Invalid number length (must be 4-digit Genesis or 8-digit Standard)',
-	},
-	ru: {
-		empty: 'Номер не может быть пустым',
-		genesisRange: '4-значный Genesis-номер вне официального диапазона Telegram (8000–8999)',
-		invalidLength: 'Неверная длина номера (должно быть 4 или 8 цифр после +888)',
-	},
-	zh: {
-		empty: '号码不能为空',
-		genesisRange: '4位创世号码超出 Telegram 官方范围 (8000–8999)',
-		invalidLength: '号码长度无效（+888 后必须为 4 位创世号或 8 位标准号）',
-	},
-};
-
 /**
  * Validate that an anonymous number strictly belongs to the official 136,566 Telegram collection (N-23)
  * - 4-digit Genesis numbers MUST be in range 8000..8999 (+888 8000 to +888 8999)
@@ -124,11 +98,13 @@ export function validateAnonymousNumber(raw?: string | null): {
 	isGenesis: boolean;
 	error?: string;
 } {
-	const lang = locale() || 'fa';
-	const msgs = VALIDATION_ERRORS[lang] || VALIDATION_ERRORS.fa;
-
 	if (!raw) {
-		return { isValid: false, normalized: '', isGenesis: false, error: msgs.empty };
+		return {
+			isValid: false,
+			normalized: '',
+			isGenesis: false,
+			error: t('numbers.validationEmpty'),
+		};
 	}
 
 	const parts = splitNumberPrefix(raw);
@@ -141,7 +117,7 @@ export function validateAnonymousNumber(raw?: string | null): {
 				isValid: false,
 				normalized: `+888${suffix}`,
 				isGenesis: true,
-				error: msgs.genesisRange,
+				error: t('numbers.validationGenesisRange'),
 			};
 		}
 		return {
@@ -163,6 +139,6 @@ export function validateAnonymousNumber(raw?: string | null): {
 		isValid: false,
 		normalized: raw,
 		isGenesis: false,
-		error: msgs.invalidLength,
+		error: t('numbers.validationInvalidLength'),
 	};
 }

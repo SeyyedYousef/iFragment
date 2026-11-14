@@ -9,36 +9,38 @@ interface ToastProps {
 }
 
 export const Toast: Component<ToastProps> = (props) => {
-	let timer: any;
+	let timer: ReturnType<typeof setTimeout> | undefined;
 
 	onMount(() => {
 		timer = setTimeout(props.onClose, props.duration);
-		onCleanup(() => clearTimeout(timer));
+		onCleanup(() => {
+			if (timer) clearTimeout(timer);
+		});
 	});
 
-	const bgClass = () => {
+	const accent = () => {
 		switch (props.type) {
 			case 'success':
-				return 'bg-[#34c759]';
+				return {
+					ring: 'border-[#4cd964]/35',
+					iconBg: 'bg-[#4cd964]/15',
+					text: 'text-[#4cd964]',
+					icon: 'check_circle',
+				};
 			case 'error':
-				return 'bg-[#ff3b30]';
-			case 'info':
-				return 'bg-[#3390ec]';
+				return {
+					ring: 'border-[#ff5c6c]/35',
+					iconBg: 'bg-[#ff5c6c]/15',
+					text: 'text-[#ff5c6c]',
+					icon: 'error',
+				};
 			default:
-				return 'bg-[#3390ec]';
-		}
-	};
-
-	const icon = () => {
-		switch (props.type) {
-			case 'success':
-				return 'check_circle';
-			case 'error':
-				return 'error';
-			case 'info':
-				return 'info';
-			default:
-				return 'info';
+				return {
+					ring: 'border-[#2990FF]/35',
+					iconBg: 'bg-[#2990FF]/15',
+					text: 'text-[#2990FF]',
+					icon: 'info',
+				};
 		}
 	};
 
@@ -49,9 +51,7 @@ export const Toast: Component<ToastProps> = (props) => {
 		startX = e.touches[0].clientX;
 	};
 	const handleTouchMove = (e: TouchEvent) => {
-		const currentX = e.touches[0].clientX;
-		const diff = currentX - startX;
-		setOffset(diff);
+		setOffset(e.touches[0].clientX - startX);
 	};
 	const handleTouchEnd = () => {
 		if (Math.abs(offset()) > 100) {
@@ -63,17 +63,23 @@ export const Toast: Component<ToastProps> = (props) => {
 
 	return (
 		<Motion.div
-			initial={{ opacity: 0, y: 50, scale: 0.9 }}
+			initial={{ opacity: 0, y: 36, scale: 0.96 }}
 			animate={{ opacity: 1, y: 0, scale: 1, x: offset() }}
-			exit={{ opacity: 0, scale: 0.9 }}
-			transition={{ duration: 0.2 }}
+			exit={{ opacity: 0, scale: 0.96 }}
+			transition={{ duration: 0.18, easing: [0.16, 1, 0.3, 1] }}
 			onTouchStart={handleTouchStart}
 			onTouchMove={handleTouchMove}
 			onTouchEnd={handleTouchEnd}
-			class={`pointer-events-auto px-6 py-3.5 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.4)] flex items-center gap-3 border border-white/10 ${bgClass()}`}
+			class={`frag-toast pointer-events-auto px-3.5 py-2.5 rounded-[14px] flex items-center gap-2.5 max-w-[360px] font-frag-sans ${accent().ring}`}
 		>
-			<span class="material-symbols-outlined text-white text-[20px]">{icon()}</span>
-			<span class="text-white text-[14px] font-bold">{props.message}</span>
+			<div
+				class={`w-7 h-7 rounded-[8px] flex items-center justify-center shrink-0 ${accent().iconBg}`}
+			>
+				<span class={`material-symbols-outlined text-[17px] ${accent().text}`}>
+					{accent().icon}
+				</span>
+			</div>
+			<span class="text-white text-[13px] font-medium leading-snug">{props.message}</span>
 		</Motion.div>
 	);
 };
@@ -109,7 +115,7 @@ export const showToast = (
 
 export const ToastContainer: Component = () => {
 	return (
-		<div class="fixed inset-0 pointer-events-none z-[200] flex flex-col items-center justify-end pb-28 gap-3">
+		<div class="fixed inset-0 pointer-events-none z-[200] flex flex-col items-center justify-end pb-24 px-4 gap-2">
 			<For each={toasts()}>
 				{(toast: ToastItem) => (
 					<Toast

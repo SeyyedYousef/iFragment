@@ -74,8 +74,6 @@ export const LeaderboardPage: Component = () => {
 		return (val || 0).toLocaleString();
 	};
 
-	const unitIcon = () => (activeTab() === 'messages' ? '💬' : '🚀');
-
 	const handleOpenGroup = () => {
 		try {
 			haptic.impact('medium');
@@ -169,25 +167,21 @@ export const LeaderboardPage: Component = () => {
 
 	return (
 		<div
-			class="min-h-screen bg-[#070911] text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#2AABEE]/30 pb-48"
+			class="frag-canvas min-h-screen text-[#f3f5f8] font-sans flex flex-col relative overflow-x-clip selection:bg-[#2990ff]/30 pb-48"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			{/* Ambient Cosmic Lighting (No Purple) */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[360px] bg-gradient-to-b from-[#2AABEE]/18 via-[#0066FF]/6 to-transparent blur-[100px] pointer-events-none z-0" />
-			<div class="fixed top-36 right-[-10%] w-[220px] h-[220px] bg-amber-500/8 blur-[90px] pointer-events-none z-0" />
-
 			<div class="w-full max-w-md mx-auto px-4 pt-3 relative z-10 flex flex-col gap-4">
 				{/* Top App Bar with Title & Supergroup Link */}
 				<header class="flex items-center justify-between py-1">
 					<div class="flex items-center gap-2.5">
-						<div class="w-9 h-9 rounded-2xl bg-[#2AABEE]/15 border border-[#2AABEE]/30 flex items-center justify-center text-[#2AABEE] shadow-[0_0_20px_rgba(42,171,238,0.25)]">
+						<div class="w-9 h-9 rounded-2xl bg-[#2990ff]/15 border border-[#2990ff]/30 flex items-center justify-center text-[#2990ff] shadow-[0_0_20px_rgba(41,144,255,0.25)]">
 							<span class="material-symbols-outlined text-[20px]">trophy</span>
 						</div>
 						<div class="flex flex-col">
 							<h1 class="text-[19px] font-black tracking-tight text-white flex items-center gap-1.5 leading-none">
 								<span>{t('leaderboard.title')}</span>
 								<span class="text-amber-400 text-xs font-black px-1.5 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/20">
-									TOP 100
+									{t('leaderboard.top100')}
 								</span>
 							</h1>
 							<span class="text-[11px] text-white/45 font-medium mt-1">
@@ -201,7 +195,7 @@ export const LeaderboardPage: Component = () => {
 					<button
 						type="button"
 						onClick={activeTab() === 'boosts' ? handleBoostGroup : handleOpenGroup}
-						class="text-[11px] font-black px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-[#2AABEE] border border-[#2AABEE]/30 backdrop-blur-md transition-all duration-200 flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm hover:border-[#2AABEE]/60"
+						class="text-[11px] font-black px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-[#2990ff] border border-[#2990ff]/30 backdrop-blur-md transition-all duration-200 flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm hover:border-[#2990ff]/60"
 					>
 						<span>{activeTab() === 'boosts' ? 'Boost Group' : '@FragmentInvestors'}</span>
 						<span class="material-symbols-outlined text-[13px]">
@@ -211,7 +205,7 @@ export const LeaderboardPage: Component = () => {
 				</header>
 
 				{/* High-End Segmented Tab Switcher with Tactile Feedback */}
-				<div class="w-full bg-[#0D111E]/90 backdrop-blur-xl p-1.5 rounded-2xl flex items-center border border-white/10 shadow-[inset_0_2px_8px_rgba(0,0,0,0.6)]">
+				<div class="w-full bg-[#141a22]/95 backdrop-blur-2xl p-1.5 rounded-2xl flex items-center border border-white/10 shadow-[inset_0_2px_8px_rgba(0,0,0,0.6)]">
 					<button
 						type="button"
 						onClick={() => {
@@ -220,11 +214,11 @@ export const LeaderboardPage: Component = () => {
 						}}
 						class={`flex-1 py-2.5 text-xs font-black rounded-xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
 							activeTab() === 'messages'
-								? 'bg-gradient-to-r from-white to-slate-100 text-[#07090E] shadow-[0_4px_16px_rgba(255,255,255,0.25)] scale-[1.01]'
+								? 'bg-[#2990ff] text-white shadow-[0_6px_16px_rgba(41,144,255,0.28)]'
 								: 'text-white/55 hover:text-white hover:bg-white/[0.04]'
 						}`}
 					>
-						<span class="text-base">💬</span>
+						<span class="material-symbols-outlined text-[16px]">chat_bubble</span>
 						<span>{t('leaderboard.tabMessages')}</span>
 					</button>
 
@@ -236,11 +230,11 @@ export const LeaderboardPage: Component = () => {
 						}}
 						class={`flex-1 py-2.5 text-xs font-black rounded-xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
 							activeTab() === 'boosts'
-								? 'bg-gradient-to-r from-white to-slate-100 text-[#07090E] shadow-[0_4px_16px_rgba(255,255,255,0.25)] scale-[1.01]'
+								? 'bg-[#2990ff] text-white shadow-[0_6px_16px_rgba(41,144,255,0.28)]'
 								: 'text-white/55 hover:text-white hover:bg-white/[0.04]'
 						}`}
 					>
-						<span class="text-base">🚀</span>
+						<span class="material-symbols-outlined text-[16px]">rocket_launch</span>
 						<span>{t('leaderboard.tabBoosts')}</span>
 					</button>
 				</div>
@@ -252,7 +246,7 @@ export const LeaderboardPage: Component = () => {
 						<Show
 							when={!leaderboardQuery.isError}
 							fallback={
-								<div class="h-44 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#0D111E]/70 border border-rose-500/25 p-4 text-center">
+								<div class="h-44 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#1b232d]/90 border border-rose-500/25 p-4 text-center">
 									<span class="material-symbols-outlined text-rose-400 text-3xl">
 										error_outline
 									</span>
@@ -298,9 +292,11 @@ export const LeaderboardPage: Component = () => {
 					<Show
 						when={top3().length > 0}
 						fallback={
-							<div class="h-48 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#0D111E]/60 border border-white/10 p-6 text-center">
+							<div class="h-48 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#1b232d]/90 border border-white/10 p-6 text-center">
 								<div class="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl">
-									{unitIcon()}
+									<span class="material-symbols-outlined text-[24px] text-[#5aaeff]">
+										{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
+									</span>
 								</div>
 								<div class="flex flex-col gap-1">
 									<span class="text-white text-sm font-black">
@@ -350,7 +346,7 @@ export const LeaderboardPage: Component = () => {
 									>
 										{/* Avatar */}
 										<div class="relative w-18 h-18 rounded-full p-[2.5px] bg-gradient-to-b from-slate-200 via-slate-400 to-slate-600 shadow-[0_8px_24px_rgba(148,163,184,0.35)] transition-transform duration-300 group-hover:scale-105">
-											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] relative flex items-center justify-center border border-white/20">
+											<div class="w-full h-full rounded-full overflow-hidden bg-[#141a22] relative flex items-center justify-center border border-white/20">
 												<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-400 via-slate-500 to-slate-700 text-white font-black text-xl select-none">
 													{(second().first_name || second().username || 'U')[0].toUpperCase()}
 												</div>
@@ -367,7 +363,7 @@ export const LeaderboardPage: Component = () => {
 												</Show>
 											</div>
 											{/* Silver Medal Badge - PROMINENTLY IN FRONT (z-30) */}
-											<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-30 w-7 h-7 rounded-full bg-gradient-to-b from-slate-100 via-slate-300 to-slate-400 text-slate-950 text-xs font-black flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.85)] border-2 border-[#070911] select-none">
+											<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-30 w-7 h-7 rounded-full bg-gradient-to-b from-slate-100 via-slate-300 to-slate-400 text-slate-950 text-xs font-black flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.85)] border-2 border-[#11161d] select-none">
 												2
 											</div>
 										</div>
@@ -379,7 +375,9 @@ export const LeaderboardPage: Component = () => {
 										{/* Physical Stepped 3D Pedestal Block */}
 										<div class="w-full h-22 rounded-t-2xl bg-gradient-to-b from-[#1C2333] via-[#121724] to-[#0A0D15] border-t-2 border-slate-300/50 border-x border-slate-400/20 mt-2 flex flex-col items-center justify-between py-2 shadow-[0_12px_28px_rgba(0,0,0,0.6)] group-hover:border-slate-300 transition-colors">
 											<span class="text-xs font-black text-slate-300 flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-												<span>{unitIcon()}</span>
+												<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
+													{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
+												</span>
 												<span>{formatScore(second().score)}</span>
 											</span>
 											<div class="w-7 h-7 rounded-lg bg-slate-400/10 border border-slate-400/30 flex items-center justify-center text-sm font-black font-mono text-slate-300 shadow-inner">
@@ -400,14 +398,16 @@ export const LeaderboardPage: Component = () => {
 										}}
 										class="flex-1 flex flex-col items-center max-w-[126px] z-20 group cursor-pointer active:scale-[0.98] transition-transform"
 									>
-										{/* Crown Icon */}
-										<div class="text-amber-400 text-lg mb-1 filter drop-shadow-[0_2px_12px_rgba(251,191,36,0.9)] animate-bounce">
-											👑
-										</div>
+										<span
+											class="material-symbols-outlined text-[20px] text-[#ffb340] mb-1"
+											style={{ 'font-variation-settings': '"FILL" 1' }}
+										>
+											workspace_premium
+										</span>
 
 										{/* Radiant Gold Avatar */}
 										<div class="relative w-22 h-22 rounded-full p-[3px] bg-gradient-to-b from-amber-200 via-amber-400 to-amber-600 shadow-[0_0_35px_rgba(251,191,36,0.5)] transition-transform duration-300 group-hover:scale-105">
-											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] relative flex items-center justify-center border border-white/20">
+											<div class="w-full h-full rounded-full overflow-hidden bg-[#141a22] relative flex items-center justify-center border border-white/20">
 												<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 text-slate-950 font-black text-2xl select-none">
 													{(first().first_name || first().username || 'U')[0].toUpperCase()}
 												</div>
@@ -424,7 +424,7 @@ export const LeaderboardPage: Component = () => {
 												</Show>
 											</div>
 											{/* Gold Badge - PROMINENTLY IN FRONT (z-30) */}
-											<div class="absolute -bottom-3 left-1/2 -translate-x-1/2 z-30 w-8 h-8 rounded-full bg-gradient-to-b from-amber-100 via-amber-300 to-amber-500 text-slate-950 text-sm font-black flex items-center justify-center shadow-[0_4px_16px_rgba(251,191,36,0.85)] border-2 border-[#070911] select-none">
+											<div class="absolute -bottom-3 left-1/2 -translate-x-1/2 z-30 w-8 h-8 rounded-full bg-gradient-to-b from-amber-100 via-amber-300 to-amber-500 text-slate-950 text-sm font-black flex items-center justify-center shadow-[0_4px_16px_rgba(251,191,36,0.85)] border-2 border-[#11161d] select-none">
 												1
 											</div>
 										</div>
@@ -436,7 +436,9 @@ export const LeaderboardPage: Component = () => {
 										{/* Physical Stepped 3D Pedestal Block (Tallest Gold Column) */}
 										<div class="w-full h-30 rounded-t-2xl bg-gradient-to-b from-[#2B210D] via-[#1A1408] to-[#0A0D15] border-t-2 border-amber-400/60 border-x border-amber-500/30 mt-2 flex flex-col items-center justify-between py-2.5 shadow-[0_16px_36px_rgba(251,191,36,0.2)] group-hover:border-amber-300 transition-colors">
 											<span class="text-xs font-black text-amber-300 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 shadow-[0_0_12px_rgba(251,191,36,0.25)]">
-												<span>{unitIcon()}</span>
+												<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
+													{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
+												</span>
 												<span>{formatScore(first().score)}</span>
 											</span>
 											<div class="w-8 h-8 rounded-lg bg-amber-400/15 border border-amber-400/40 flex items-center justify-center text-base font-black font-mono text-amber-300 shadow-inner">
@@ -478,7 +480,7 @@ export const LeaderboardPage: Component = () => {
 									>
 										{/* Avatar */}
 										<div class="relative w-18 h-18 rounded-full p-[2.5px] bg-gradient-to-b from-amber-600 via-amber-700 to-amber-900 shadow-[0_8px_24px_rgba(180,83,9,0.35)] transition-transform duration-300 group-hover:scale-105">
-											<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] relative flex items-center justify-center border border-white/20">
+											<div class="w-full h-full rounded-full overflow-hidden bg-[#141a22] relative flex items-center justify-center border border-white/20">
 												<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-600 to-amber-800 text-white font-black text-xl select-none">
 													{(third().first_name || third().username || 'U')[0].toUpperCase()}
 												</div>
@@ -495,7 +497,7 @@ export const LeaderboardPage: Component = () => {
 												</Show>
 											</div>
 											{/* Bronze Badge - PROMINENTLY IN FRONT (z-30) */}
-											<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-30 w-7 h-7 rounded-full bg-gradient-to-b from-amber-500 via-amber-700 to-amber-900 text-white text-xs font-black flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.85)] border-2 border-[#070911] select-none">
+											<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-30 w-7 h-7 rounded-full bg-gradient-to-b from-amber-500 via-amber-700 to-amber-900 text-white text-xs font-black flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.85)] border-2 border-[#11161d] select-none">
 												3
 											</div>
 										</div>
@@ -507,7 +509,9 @@ export const LeaderboardPage: Component = () => {
 										{/* Physical Stepped 3D Pedestal Block */}
 										<div class="w-full h-15 rounded-t-2xl bg-gradient-to-b from-[#24170E] via-[#160E08] to-[#0A0D15] border-t-2 border-amber-600/50 border-x border-amber-700/20 mt-2 flex flex-col items-center justify-between py-2 shadow-[0_10px_24px_rgba(0,0,0,0.6)] group-hover:border-amber-500 transition-colors">
 											<span class="text-xs font-black text-amber-400 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25">
-												<span>{unitIcon()}</span>
+												<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
+													{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
+												</span>
 												<span>{formatScore(third().score)}</span>
 											</span>
 											<div class="w-6 h-6 rounded-lg bg-amber-600/15 border border-amber-600/35 flex items-center justify-center text-xs font-black font-mono text-amber-400 shadow-inner">
@@ -524,7 +528,7 @@ export const LeaderboardPage: Component = () => {
 				{/* Section Header: Ranks 4 to 100 */}
 				<div class="flex items-center justify-between pt-1 px-1">
 					<div class="flex items-center gap-2">
-						<span class="w-2 h-2 rounded-full bg-[#2AABEE]" />
+						<span class="w-2 h-2 rounded-full bg-[#2990ff]" />
 						<h2 class="text-xs font-black text-white tracking-tight">
 							{t('leaderboard.topContributors')}
 						</h2>
@@ -542,7 +546,7 @@ export const LeaderboardPage: Component = () => {
 						each={restOfList()}
 						fallback={
 							<Show when={!leaderboardQuery.isLoading}>
-								<div class="py-10 text-center text-white/40 text-xs rounded-2xl bg-[#0D111E]/40 border border-white/5">
+								<div class="py-10 text-center text-white/40 text-xs rounded-2xl bg-[#1b232d]/90 border border-white/5">
 									{restOfList().length === 0 && top3().length <= 3
 										? t('leaderboard.moreRanksPlaceholder')
 										: t('leaderboard.empty')}
@@ -568,19 +572,19 @@ export const LeaderboardPage: Component = () => {
 										isHighlighted()
 											? 'ring-2 ring-amber-400 bg-amber-500/20 shadow-[0_0_25px_rgba(251,191,36,0.4)] scale-[1.02]'
 											: isMe()
-												? 'bg-gradient-to-r from-[#2AABEE]/25 to-[#0055ff]/15 border border-[#2AABEE]/60 shadow-[0_4px_20px_rgba(42,171,238,0.25)]'
-												: 'bg-[#0D111E]/75 hover:bg-[#0D111E] border border-white/[0.06] hover:border-white/15'
+												? 'bg-[#2990ff]/15 border border-[#2990ff]/45 shadow-[0_4px_20px_rgba(41,144,255,0.25)]'
+												: 'bg-[#1b232d]/95 hover:bg-[#232d3a] border border-white/[0.06] hover:border-white/15'
 									}`}
 								>
 									<div class="flex items-center gap-3 min-w-0">
 										<div class="w-6 text-center text-xs font-black font-mono shrink-0">
-											<span class={entry.rank <= 10 ? 'text-[#2AABEE]' : 'text-white/40'}>
+											<span class={entry.rank <= 10 ? 'text-[#2990ff]' : 'text-white/40'}>
 												#{entry.rank}
 											</span>
 										</div>
 
-										<div class="w-10 h-10 rounded-full overflow-hidden bg-[#151926] shrink-0 border border-white/10 shadow-sm relative flex items-center justify-center">
-											<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2AABEE]/30 to-[#0066FF]/30 text-white font-bold text-xs select-none">
+										<div class="w-10 h-10 rounded-full overflow-hidden bg-[#141a22] shrink-0 border border-white/10 shadow-sm relative flex items-center justify-center">
+											<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2990ff]/30 to-[#2481cc]/30 text-white font-bold text-xs select-none">
 												{(entry.first_name || entry.username || 'U')[0].toUpperCase()}
 											</div>
 											<Show when={resolveAvatarUrl(entry)}>
@@ -603,7 +607,7 @@ export const LeaderboardPage: Component = () => {
 													{entry.first_name || entry.username || t('leaderboard.anonymous')}
 												</span>
 												{isMe() && (
-													<span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-[#2AABEE]/25 text-[#2AABEE] border border-[#2AABEE]/40">
+													<span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-[#2990ff]/25 text-[#2990ff] border border-[#2990ff]/40">
 														{t('leaderboard.you')}
 													</span>
 												)}
@@ -620,7 +624,9 @@ export const LeaderboardPage: Component = () => {
 										<span class="text-xs font-black text-white font-mono bg-white/[0.06] px-2.5 py-1 rounded-xl border border-white/[0.08]">
 											{formatScore(entry.score)}
 										</span>
-										<span class="text-xs">{unitIcon()}</span>
+										<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
+											{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
+										</span>
 									</div>
 								</div>
 							);
@@ -634,7 +640,7 @@ export const LeaderboardPage: Component = () => {
 				<button
 					type="button"
 					onClick={handleJumpToMyRank}
-					class="fixed left-1/2 -translate-x-1/2 bottom-24 z-[90] px-4 py-2 rounded-full bg-gradient-to-r from-[#2AABEE] to-[#0066FF] text-white text-xs font-black shadow-[0_6px_24px_rgba(42,171,238,0.45)] border border-white/20 flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer backdrop-blur-md"
+					class="fixed left-1/2 -translate-x-1/2 bottom-24 z-[90] px-4 py-2 rounded-full bg-gradient-to-r from-[#359bff] to-[#2481cc] text-white text-xs font-black shadow-[0_6px_24px_rgba(41,144,255,0.45)] border border-white/20 flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer backdrop-blur-md"
 				>
 					<span class="material-symbols-outlined text-sm">my_location</span>
 					<span>{t('leaderboard.jumpToMyRank', { rank: myResolvedRank() })}</span>
@@ -656,7 +662,7 @@ export const LeaderboardPage: Component = () => {
 						if (user().rank === 2)
 							return 'border-slate-300 shadow-[0_0_20px_rgba(148,163,184,0.3)]';
 						if (user().rank === 3) return 'border-amber-600 shadow-[0_0_20px_rgba(180,83,9,0.3)]';
-						return 'border-[#2AABEE] shadow-[0_0_20px_rgba(42,171,238,0.3)]';
+						return 'border-[#2990ff] shadow-[0_0_20px_rgba(41,144,255,0.3)]';
 					};
 
 					return (
@@ -666,7 +672,7 @@ export const LeaderboardPage: Component = () => {
 
 							{/* Drawer Content */}
 							<div
-								class="relative w-full max-w-md bg-[#0D111E] border-t border-white/15 rounded-t-[32px] p-6 flex flex-col gap-5 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] z-10 animate-slideUp"
+								class="relative w-full max-w-md bg-[#1b232d] border-t border-white/15 rounded-t-[32px] p-6 flex flex-col gap-5 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] z-10 animate-slideUp"
 								dir={isRtl() ? 'rtl' : 'ltr'}
 							>
 								{/* Handle & Close */}
@@ -686,9 +692,9 @@ export const LeaderboardPage: Component = () => {
 								{/* User Hero Banner */}
 								<div class="flex items-center gap-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5">
 									<div
-										class={`w-16 h-16 rounded-full border-2 ${rankBorderColor()} overflow-hidden bg-[#151926] relative shrink-0`}
+										class={`w-16 h-16 rounded-full border-2 ${rankBorderColor()} overflow-hidden bg-[#141a22] relative shrink-0`}
 									>
-										<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2AABEE] to-[#0066FF] text-white font-black text-xl select-none">
+										<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#359bff] to-[#2481cc] text-white font-black text-xl select-none">
 											{(user().first_name || user().username || 'U')[0].toUpperCase()}
 										</div>
 										<Show when={resolveAvatarUrl(user())}>
@@ -709,7 +715,7 @@ export const LeaderboardPage: Component = () => {
 											{user().first_name || user().username || t('leaderboard.anonymous')}
 										</span>
 										<Show when={user().username}>
-											<span class="text-xs text-[#2AABEE] font-mono dir-ltr text-left">
+											<span class="text-xs text-[#2990ff] font-mono dir-ltr text-left">
 												@{user().username}
 											</span>
 										</Show>
@@ -724,7 +730,9 @@ export const LeaderboardPage: Component = () => {
 									<div class="p-3 rounded-xl bg-white/[0.04] border border-white/5 flex flex-col items-center">
 										<span class="text-[10px] text-white/50">{t('leaderboard.statsScore')}</span>
 										<span class="text-base font-black text-white font-mono mt-0.5 flex items-center gap-1">
-											<span>{unitIcon()}</span>
+											<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
+												{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
+											</span>
 											<span>{formatScore(user().score)}</span>
 										</span>
 									</div>
@@ -763,7 +771,7 @@ export const LeaderboardPage: Component = () => {
 												window.open(`https://t.me/${user().username}`, '_blank');
 											}
 										}}
-										class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#2AABEE] to-[#0088FF] text-white text-xs font-black flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(42,171,238,0.4)] active:scale-95 transition cursor-pointer hover:brightness-110"
+										class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#359bff] to-[#2481cc] text-white text-xs font-black flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(41,144,255,0.4)] active:scale-95 transition cursor-pointer hover:brightness-110"
 									>
 										<span class="material-symbols-outlined text-base">send</span>
 										<span>{t('leaderboard.sendMessage')}</span>
@@ -781,11 +789,11 @@ export const LeaderboardPage: Component = () => {
 					class="fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-[90] transition-all duration-300"
 					style={{ bottom: 'calc(5.75rem + env(safe-area-inset-bottom, 0px))' }}
 				>
-					<div class="w-full rounded-2xl bg-[#0D111E]/95 backdrop-blur-2xl border border-white/15 p-3 flex items-center justify-between shadow-[0_12px_40px_rgba(0,0,0,0.85)]">
+					<div class="w-full rounded-2xl frag-sheet border border-white/[0.1] p-3 flex items-center justify-between shadow-[0_12px_40px_rgba(0,0,0,0.85)]">
 						<div class="flex items-center gap-2.5 min-w-0">
-							<div class="w-10 h-10 rounded-full p-[2px] bg-gradient-to-b from-[#2AABEE] to-[#0055ff] shrink-0 shadow-md">
-								<div class="w-full h-full rounded-full overflow-hidden bg-[#151926] relative flex items-center justify-center">
-									<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2AABEE] to-[#0066FF] text-white font-black text-xs select-none">
+							<div class="w-10 h-10 rounded-full p-[2px] bg-gradient-to-b from-[#359bff] to-[#2481cc] shrink-0 shadow-md">
+								<div class="w-full h-full rounded-full overflow-hidden bg-[#141a22] relative flex items-center justify-center">
+									<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#359bff] to-[#2481cc] text-white font-black text-xs select-none">
 										{(currentUser()?.first_name || 'U')[0].toUpperCase()}
 									</div>
 									<Show when={myAvatarUrl()}>
@@ -808,7 +816,7 @@ export const LeaderboardPage: Component = () => {
 									<span class="text-xs font-black text-white truncate max-w-[120px]">
 										{currentUser()?.first_name || t('leaderboard.you')}
 									</span>
-									<span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-[#2AABEE]/25 text-[#2AABEE] border border-[#2AABEE]/40">
+									<span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-[#2990ff]/25 text-[#2990ff] border border-[#2990ff]/40">
 										{t('leaderboard.you')}
 									</span>
 								</div>
@@ -823,11 +831,13 @@ export const LeaderboardPage: Component = () => {
 						<div class="flex items-center gap-2 shrink-0">
 							<div class="flex flex-col items-end">
 								<span class="text-xs font-black text-white font-mono flex items-center gap-1">
-									<span>{unitIcon()}</span>
+									<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
+										{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
+									</span>
 									<span>{formatScore(myStats()?.score || 0)}</span>
 								</span>
 								<Show when={myStats()?.credits !== undefined}>
-									<span class="text-[9px] text-[#2AABEE] font-bold">
+									<span class="text-[9px] text-[#2990ff] font-bold">
 										{myStats()?.credits || 0} {t('leaderboard.credits')}
 									</span>
 								</Show>

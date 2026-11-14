@@ -34,8 +34,6 @@ type Config struct {
 func RegisterAPIRoutes(r chi.Router, cfg Config) {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(middleware.MaintenanceMiddleware(cfg.SettingsRepo))
-		r.Use(middleware.BlockImpersonatedWrites)
-		r.Use(middleware.UserBanCheckMiddleware(cfg.OwnerRepo))
 
 		// Health & Readiness Endpoints
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +76,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		r.Get("/economy/config", cfg.ProfileHandler.GetEconomyConfig)
 
 		r.Post("/webhook/telegram/{botID}", cfg.WebhookHandler.HandleTelegramWebhook)
-		r.With(middleware.ValidateTelegramInitData(cfg.DB, cfg.Cache)).Post("/auth/token", cfg.AuthHandler.IssueToken)
+		r.With(middleware.ValidateTelegramInitData(cfg.DB, cfg.Cache), middleware.UserBanCheckMiddleware(cfg.OwnerRepo)).Post("/auth/token", cfg.AuthHandler.IssueToken)
 		r.Post("/auth/refresh", cfg.AuthHandler.RefreshToken)
 
 		r.Route("/usernames", func(r chi.Router) {
@@ -90,7 +88,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/similar", cfg.UsernameHandler.GetSimilar)
 			r.Get("/history", cfg.UsernameHandler.GetHistory)
 			r.Get("/contact", cfg.UsernameHandler.GetContact)
-			r.Get("/portfolio", cfg.UsernameHandler.GetPortfolio)
+			r.With(middleware.NewStrictRateLimiter(cfg.Cache, 15, time.Minute)).Get("/portfolio", cfg.UsernameHandler.GetPortfolio)
 			r.Get("/calibration", cfg.UsernameHandler.GetAVMCalibration)
 			r.With(middleware.AuthMiddleware).Get("/valuate", cfg.UsernameHandler.Valuate)
 			r.Get("/collection/stats", cfg.CollectionHandler.GetStats)
@@ -144,7 +142,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/collection-intel", cfg.GiftsHandler.GetCollectionIntel)
 			r.Get("/gate", cfg.GiftsHandler.GetCuriosityGate)
 			r.Get("/upgrade-advice", cfg.GiftsHandler.GetUpgradeAdvice)
-			r.Get("/portfolio", cfg.GiftsHandler.ScanPortfolio)
+			r.With(middleware.NewStrictRateLimiter(cfg.Cache, 15, time.Minute)).Get("/portfolio", cfg.GiftsHandler.ScanPortfolio)
 			r.Post("/crafting-ev", cfg.GiftsHandler.CalculateCraftingEV)
 			r.Get("/image/{slug}", cfg.GiftsHandler.GetGiftImage)
 			r.With(middleware.OptionalAuthMiddleware).Get("/valuate", cfg.GiftsHandler.Valuate)
@@ -263,6 +261,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/ban", cfg.OwnerHandler.BanUser)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/unban", cfg.OwnerHandler.UnbanUser)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/flag", cfg.OwnerHandler.FlagUser)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/toggle-vip", cfg.OwnerHandler.ToggleUserVIP)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/adjust-balance", cfg.OwnerHandler.AdjustBalance)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/adjust-frg", cfg.OwnerHandler.AdjustBalance)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/adjust-credits", cfg.OwnerHandler.AdjustIntelCredits)
@@ -300,6 +299,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 
 				// Userbots
 				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Get("/userbots", cfg.OwnerHandler.ListUserbots)
+				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbots/{id}/ping", cfg.OwnerHandler.PingUserbot)
 				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Delete("/userbots/{id}", cfg.OwnerHandler.DeleteUserbot)
 				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbot/send-code", cfg.OwnerHandler.UserbotSendCode)
 				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbot/verify-code", cfg.OwnerHandler.UserbotVerifyCode)

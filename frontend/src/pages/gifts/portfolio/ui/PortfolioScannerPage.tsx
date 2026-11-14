@@ -2,9 +2,10 @@ import { useLocation, useNavigate } from '@solidjs/router';
 import { createMutation } from '@tanstack/solid-query';
 import { type Component, createSignal, For, onMount, Show } from 'solid-js';
 import { giftsApi, type PortfolioScanResponse } from '@/entities/gifts/index.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import { TonIcon } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 export const PortfolioScannerPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -100,122 +101,155 @@ export const PortfolioScannerPage: Component = () => {
 	};
 
 	return (
-		<div class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
-			{/* Ambient Light */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#34C759]/20 via-[#0098EA]/10 to-transparent blur-[90px] pointer-events-none z-0" />
-
-			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
-				{/* Top Bar */}
-				<div class="flex items-center justify-between mb-4">
+		<div
+			class="frag-canvas pb-36 text-[#f3f5f8] min-h-screen font-sans relative overflow-x-clip"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
+			<div class="max-w-lg mx-auto px-4 pt-3.5 relative z-10">
+				{/* Navigation Header */}
+				<div class="flex items-center justify-between gap-2 mb-4">
 					<button
 						type="button"
-						onClick={() => navigate('/gifts/intel')}
-						class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs font-bold text-white/80 transition-all active:scale-95"
+						onClick={() => navigate('/gifts')}
+						class="w-10 h-10 rounded-xl bg-[#1b232d] border border-white/[0.08] flex items-center justify-center text-[#c2cfde] hover:text-white active:scale-95 transition-all"
 					>
-						<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_back</span>
-						<span>{t('gifts.backToIntel')}</span>
+						<span class="material-symbols-outlined text-[20px]">
+							{isRtl() ? 'arrow_forward' : 'arrow_back'}
+						</span>
 					</button>
+					<Show when={scanResult()}>
+						<button
+							type="button"
+							onClick={exportCSV}
+							class="frag-btn-secondary px-3 py-1.5 rounded-xl text-[11px] font-semibold flex items-center gap-1.5 text-[#c2cfde]"
+						>
+							<span class="material-symbols-outlined text-[15px]">download</span>
+							{t('gifts.exportCsv')}
+						</button>
+					</Show>
+				</div>
 
-					<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-bold text-emerald-300">
-						<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-						<span>{t('gifts.portfolio')}</span>
+				{/* Header Title */}
+				<div class="frag-card-elevated rounded-2xl p-4 mb-4 flex items-center gap-3.5">
+					<div class="w-12 h-12 rounded-2xl bg-[#141a22] border border-[#4cd964]/25 flex items-center justify-center shrink-0">
+						<span class="material-symbols-outlined text-[24px] text-[#4cd964]">
+							account_balance_wallet
+						</span>
+					</div>
+					<div class="min-w-0">
+						<h1 class="text-lg font-bold tracking-tight text-white">{t('gifts.portfolioTitle')}</h1>
+						<p class="text-[12px] text-[#8ca0b5] mt-0.5 leading-snug">
+							{t('gifts.portfolioSubtitle')}
+						</p>
 					</div>
 				</div>
 
-				<div class="text-center mb-5">
-					<div class="w-14 h-14 rounded-3xl bg-gradient-to-tr from-[#34C759] to-[#0098EA] p-[1px] mx-auto mb-2.5 shadow-lg shadow-emerald-500/20 flex items-center justify-center">
-						<div class="w-full h-full bg-[#0d111a] rounded-3xl flex items-center justify-center">
-							<span class="material-symbols-outlined text-2xl text-emerald-400">inventory_2</span>
-						</div>
-					</div>
-					<h1 class="text-xl font-black text-white">{t('gifts.scanPortfolio')}</h1>
-					<p class="text-xs text-white/50 font-medium mt-1">{t('gifts.scanPortfolioDesc')}</p>
-				</div>
-
-				{/* Search Input */}
-				<div
-					class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-2.5 mb-4 backdrop-blur-xl shadow-xl flex items-center gap-2"
-					dir="ltr"
-				>
-					<span class="text-[#0098EA] font-bold text-lg pl-3">@</span>
+				{/* Search Bar */}
+				<div class="frag-card rounded-2xl p-1.5 mb-5 flex items-center gap-2">
+					<span class="text-[#5aaeff] font-mono text-sm font-semibold ps-2.5">@</span>
 					<input
 						type="text"
-						placeholder={t('gifts.enterUsername')}
+						dir="ltr"
+						placeholder={t('gifts.usernamePlaceholder') || 'e.g. durov or UQBx...'}
 						value={username()}
-						onInput={(e) => setUsername(e.currentTarget.value.replace(/^@/, ''))}
+						onInput={(e) => setUsername(e.currentTarget.value)}
 						onKeyDown={(e) => e.key === 'Enter' && handleScan()}
-						class="flex-1 bg-transparent border-none outline-none text-white text-base font-semibold placeholder:text-white/30"
+						class="flex-1 bg-transparent border-0 text-sm text-white placeholder-[#738598] outline-none font-mono py-2"
 					/>
 					<button
 						type="button"
 						onClick={handleScan}
-						disabled={scanMutation.isPending || !username()}
-						class="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 transition-all hover:brightness-110"
+						disabled={scanMutation.isPending}
+						class="frag-btn-primary h-10 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all disabled:opacity-50 shrink-0"
 					>
-						<span>{scanMutation.isPending ? t('gifts.unlocking') : t('gifts.scanPortfolio')}</span>
-						<span class="material-symbols-outlined text-sm">search</span>
+						<Show
+							when={scanMutation.isPending}
+							fallback={
+								<>
+									<span class="material-symbols-outlined text-[16px]">radar</span>
+									{t('gifts.scanButton')}
+								</>
+							}
+						>
+							<span class="material-symbols-outlined text-[16px] animate-spin">sync</span>
+							{t('gifts.scanning')}
+						</Show>
 					</button>
 				</div>
 
+				{/* Error Alert */}
 				<Show when={errorMsg()}>
-					<div class="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300 font-medium mb-4 text-center">
-						{errorMsg()}
+					<div class="mb-4 p-3.5 rounded-xl bg-[#ff5c6c]/10 border border-[#ff5c6c]/25 text-xs text-[#ff9aa4] flex items-center gap-2">
+						<span class="material-symbols-outlined text-[18px] text-[#ff5c6c]">error</span>
+						<span>{errorMsg()}</span>
 					</div>
 				</Show>
 
-				{/* Scan Results */}
+				{/* Portfolio Dashboard Result */}
 				<Show when={scanResult()}>
 					{(res) => (
 						<div class="space-y-4">
-							{/* Portfolio Net Worth Banner */}
-							<div class="bg-gradient-to-b from-[#161925] to-[#0d1017] border border-white/15 rounded-[32px] p-6 shadow-2xl relative overflow-hidden">
-								<div class="flex items-center justify-between mb-2">
-									<span class="text-xs uppercase font-black text-emerald-400 tracking-wider">
-										@{res().username}'s {t('gifts.portfolio')}
-									</span>
-									<button
-										type="button"
-										onClick={exportCSV}
-										class="px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-[10px] font-bold text-white/80 flex items-center gap-1 transition-all active:scale-95"
-									>
-										<span class="material-symbols-outlined text-xs">download</span>
-										<span>{t('gifts.exportCsv')}</span>
-									</button>
-								</div>
-
-								<div class="my-3">
-									<span class="text-3xl font-black text-white font-mono">
-										{formatGram(res().total_portfolio_value_gram)}{' '}
-										<span class="text-sm font-bold text-[#0098EA]">GRAM</span>
-									</span>
-									<span class="text-sm font-bold text-white/40 block mt-0.5 font-mono">
-										({formatUsd(res().total_portfolio_value_usd)})
-									</span>
-								</div>
-
-								<div class="grid grid-cols-3 gap-2 pt-3 border-t border-white/[0.08] text-xs">
-									<div>
-										<span class="text-[9px] uppercase font-bold text-white/40 block">
-											{t('gifts.items')}
+							{/* Net Worth Hero Banner */}
+							<div class="frag-card-elevated rounded-2xl p-5 border-[#4cd964]/20">
+								<div class="flex items-center justify-between mb-3">
+									<div class="flex items-center gap-2">
+										<span class="w-2 h-2 rounded-full bg-[#4cd964]" />
+										<span class="text-[11px] font-semibold text-[#4cd964]">
+											{res().total_portfolio_value_gram >= 10000
+												? 'Whale Tier'
+												: res().total_portfolio_value_gram >= 2500
+													? 'Shark Tier'
+													: res().total_portfolio_value_gram >= 500
+														? 'Alpha Collector'
+														: 'Collector Tier'}
 										</span>
-										<span class="font-black text-white">
+									</div>
+									<span dir="ltr" class="text-[11px] font-mono text-[#738598]">
+										@{res().username}
+									</span>
+								</div>
+
+								<div class="mb-4">
+									<span class="text-[11px] text-[#8ca0b5] block mb-1">
+										{t('gifts.netWorthLabel')}
+									</span>
+									<div class="flex items-baseline gap-2.5 flex-wrap">
+										<span
+											dir="ltr"
+											class="text-2xl sm:text-3xl font-bold tracking-tight text-white font-mono tabular-nums inline-flex items-center gap-1.5"
+										>
+											<TonIcon class="w-5 h-5" />
+											{formatGram(res().total_portfolio_value_gram)} GRAM
+										</span>
+										<span
+											dir="ltr"
+											class="text-sm font-semibold text-[#4cd964] font-mono tabular-nums"
+										>
+											({formatUsd(res().total_portfolio_value_usd)})
+										</span>
+									</div>
+								</div>
+
+								<div class="grid grid-cols-3 gap-2 pt-3 border-t border-white/[0.06] text-xs">
+									<div>
+										<span class="text-[10px] text-[#738598] block">{t('gifts.assets')}</span>
+										<span class="font-semibold text-white tabular-nums">
 											{res().total_gifts_count} Collectibles
 										</span>
 									</div>
 									<div>
-										<span class="text-[9px] uppercase font-bold text-white/40 block">
-											{t('gifts.invested')}
-										</span>
-										<span class="font-black text-white font-mono">
+										<span class="text-[10px] text-[#738598] block">{t('gifts.invested')}</span>
+										<span dir="ltr" class="font-semibold text-white font-mono tabular-nums">
 											{formatGram(res().historical_invested_gram)} GRAM
 										</span>
 									</div>
 									<div>
-										<span class="text-[9px] uppercase font-bold text-white/40 block">
-											{t('gifts.pnl')}
-										</span>
+										<span class="text-[10px] text-[#738598] block">{t('gifts.pnl')}</span>
 										<span
-											class={`font-black font-mono ${res().total_pnl_percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+											dir="ltr"
+											class={`font-semibold font-mono tabular-nums ${
+												res().total_pnl_percent >= 0 ? 'text-[#4cd964]' : 'text-[#ff5c6c]'
+											}`}
 										>
 											{res().total_pnl_percent >= 0
 												? `+${res().total_pnl_percent}`
@@ -227,30 +261,31 @@ export const PortfolioScannerPage: Component = () => {
 							</div>
 
 							{/* Top Most Valuable Gifts */}
-							<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
-								<h3 class="text-xs font-black uppercase text-white/60 mb-3 tracking-wider">
-									{t('gifts.topGifts')}
-								</h3>
+							<div class="frag-card-elevated rounded-2xl p-4">
+								<h3 class="text-xs font-semibold text-[#8ca0b5] mb-3">{t('gifts.topGifts')}</h3>
 								<div class="space-y-2">
 									<For each={res().top_valued_gifts}>
 										{(gift) => (
-											<div class="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-3 flex items-center justify-between">
-												<div>
-													<h4 class="font-black text-white text-xs">
+											<div class="frag-inset rounded-xl p-3 flex items-center justify-between gap-2">
+												<div class="min-w-0">
+													<h4 class="font-semibold text-white text-xs truncate">
 														{gift.model_name} #{gift.serial_number}
 													</h4>
-													<span class="text-[10px] text-emerald-400 font-bold">
-														{gift.rarity_tier} Tier
+													<span class="text-[11px] text-[#4cd964] font-medium">
+														{gift.rarity_tier} tier
 													</span>
 												</div>
-												<div class="text-right">
-													<span class="font-black text-white text-xs block font-mono">
+												<div class="text-end shrink-0">
+													<span
+														dir="ltr"
+														class="font-semibold text-white text-xs block font-mono tabular-nums"
+													>
 														{formatGram(gift.estimated_val_gram)} GRAM
 													</span>
 													<button
 														type="button"
 														onClick={() => navigate(gift.report_deep_link)}
-														class="text-[10px] text-[#0098EA] font-bold hover:underline"
+														class="text-[11px] text-[#5aaeff] font-semibold hover:underline"
 													>
 														{t('gifts.viewReport')}
 													</button>
@@ -262,8 +297,8 @@ export const PortfolioScannerPage: Component = () => {
 							</div>
 
 							{/* Financial Disclaimer Banner */}
-							<div class="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.08] text-[11px] text-white/40 leading-relaxed text-center space-y-1">
-								<div class="flex items-center justify-center gap-1.5 text-amber-400/80 font-bold text-[11px]">
+							<div class="p-3.5 rounded-xl bg-[#141a22] border border-white/[0.06] text-[11px] text-[#738598] leading-relaxed text-center space-y-1">
+								<div class="flex items-center justify-center gap-1.5 text-[#ffb340] font-semibold text-[11px]">
 									<span class="material-symbols-outlined text-sm">info</span>
 									<span>
 										{t('gifts.financialDisclaimerTitle') || 'Financial & Investment Disclaimer'}

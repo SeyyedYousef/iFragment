@@ -31,18 +31,18 @@ export const ConnectionStatusBanner: Component = () => {
 				initial={{ opacity: 0, y: -50 }}
 				animate={{ opacity: 1, y: 0 }}
 				exit={{ opacity: 0, y: -50 }}
-				transition={{ duration: 0.3 }}
-				class="fixed top-4 left-4 right-4 z-[9999] flex items-center justify-between p-4 rounded-3xl bg-[#ff3b30]/10 border border-[#ff3b30]/30 backdrop-blur-xl shadow-[0_10px_30px_rgba(255,59,48,0.15)] max-w-md mx-auto"
+				transition={{ duration: 0.25 }}
+				class="fixed top-4 left-4 right-4 z-[9999] frag-toast rounded-[16px] border border-[#ff5c6c]/30 p-3.5 max-w-md mx-auto flex items-center justify-between gap-3"
 			>
-				<div class="flex items-center gap-3">
-					<div class="w-8 h-8 rounded-full bg-[#ff3b30]/20 flex items-center justify-center animate-pulse">
-						<span class="material-symbols-outlined text-[#ff3b30] text-[18px]">wifi_off</span>
+				<div class="flex items-center gap-3 min-w-0">
+					<div class="w-8 h-8 rounded-[9px] bg-[#ff5c6c]/12 border border-[#ff5c6c]/25 flex items-center justify-center shrink-0">
+						<span class="material-symbols-outlined text-[#ff5c6c] text-[18px]">wifi_off</span>
 					</div>
-					<div class="flex flex-col gap-0.5">
-						<span class="text-[13px] font-black text-white">
+					<div class="flex flex-col gap-0.5 min-w-0">
+						<span class="text-[13px] font-semibold text-white truncate">
 							{t('connection.interrupted' as any) || 'Connection Interrupted'}
 						</span>
-						<span class="text-[11px] font-semibold text-[#8e8e93] leading-snug">
+						<span class="text-[11px] font-medium text-[#8c9ba5] leading-snug truncate">
 							{t('connection.checking' as any) || 'Checking internet connection...'}
 						</span>
 					</div>
@@ -55,7 +55,7 @@ export const ConnectionStatusBanner: Component = () => {
 							queryClient.refetchQueries();
 						}
 					}}
-					class="bg-[#ff3b30]/20 hover:bg-[#ff3b30]/30 text-white font-bold text-[11px] px-3.5 py-2 rounded-xl transition-all border border-[#ff3b30]/20 active:scale-95 duration-100"
+					class="bg-[#ff5c6c]/15 hover:bg-[#ff5c6c]/25 text-[#ff8591] font-semibold text-[11.5px] px-3 py-1.5 rounded-[8px] transition-all border border-[#ff5c6c]/25 active:scale-95 shrink-0"
 				>
 					{t('connection.retry' as any) || 'Retry'}
 				</button>

@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImageCropUploader } from './ImageCropUploader.js';
 
 vi.mock('@/shared/i18n/index.js', () => ({
-	t: (key: string) => key,
+	t: (key: string, params?: Record<string, unknown>) =>
+		params?.width && params?.height ? `${key} (${params.width}×${params.height})` : key,
 	isRtl: () => false,
 }));
 
@@ -33,7 +34,7 @@ describe('ImageCropUploader', () => {
 		));
 
 		expect(screen.getByText('imageCrop.dragDrop')).toBeInTheDocument();
-		expect(screen.getByText(/1080×1920/)).toBeInTheDocument();
+		expect(screen.getByText(/imageCrop\.formatsSpecs.*1080×1920/)).toBeInTheDocument();
 	});
 
 	it('renders active image preview and action buttons when currentImageUrl exists', () => {
@@ -56,8 +57,8 @@ describe('ImageCropUploader', () => {
 		expect(previewImg).toBeInTheDocument();
 		expect(previewImg.src).toContain('/uploads/ads/test-investors.webp');
 
-		expect(screen.getByText('Replace')).toBeInTheDocument();
-		expect(screen.getByText('Remove')).toBeInTheDocument();
+		expect(screen.getByText('imageCrop.replace')).toBeInTheDocument();
+		expect(screen.getByText('imageCrop.remove')).toBeInTheDocument();
 	});
 
 	it('requires confirmation before triggering onRemove', () => {
@@ -73,13 +74,13 @@ describe('ImageCropUploader', () => {
 			/>
 		));
 
-		const removeBtn = screen.getByText('Remove');
+		const removeBtn = screen.getByText('imageCrop.remove');
 		fireEvent.click(removeBtn);
 
-		expect(screen.getByText('Remove this image?')).toBeInTheDocument();
+		expect(screen.getByText('imageCrop.removeConfirm')).toBeInTheDocument();
 		expect(onRemove).not.toHaveBeenCalled();
 
-		const confirmBtn = screen.getByText('Confirm');
+		const confirmBtn = screen.getByText('imageCrop.confirm');
 		fireEvent.click(confirmBtn);
 
 		expect(onRemove).toHaveBeenCalledTimes(1);
