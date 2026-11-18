@@ -1,9 +1,12 @@
-const CACHE_NAME = 'ifragment-cache-v5';
+const CACHE_NAME = 'ifragment-cache-v6';
+const SCOPE_URL = new URL('./', self.registration ? self.registration.scope : self.location.href);
+const OFFLINE_URL = new URL('offline.html', SCOPE_URL).href;
+const INDEX_URL = new URL('index.html', SCOPE_URL).href;
 const ASSETS_TO_CACHE = [
-	'/',
-	'/manifest.webmanifest',
-	'/offline.html',
-	'/material-symbols-outlined.woff2',
+	SCOPE_URL.href,
+	new URL('manifest.webmanifest', SCOPE_URL).href,
+	OFFLINE_URL,
+	new URL('material-symbols-outlined.woff2', SCOPE_URL).href,
 ];
 
 self.addEventListener('install', (event) => {
@@ -52,8 +55,8 @@ self.addEventListener('fetch', (event) => {
 	// Fall back to cached files only if network is offline or unreachable.
 	if (
 		event.request.mode === 'navigate' ||
-		requestUrl.pathname === '/' ||
-		requestUrl.pathname === '/index.html'
+		requestUrl.href === SCOPE_URL.href ||
+		requestUrl.href === INDEX_URL
 	) {
 		event.respondWith(
 			fetch(event.request)
@@ -67,7 +70,7 @@ self.addEventListener('fetch', (event) => {
 					return networkResponse;
 				})
 				.catch(() => {
-					return caches.match('/offline.html') || caches.match('/index.html');
+					return caches.match(OFFLINE_URL).then((res) => res || caches.match(INDEX_URL));
 				}),
 		);
 		return;
