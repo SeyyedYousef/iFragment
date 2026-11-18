@@ -12,11 +12,20 @@
     <meta property="og:image" content="https://ifragment.app/og-image.png"/>
     <meta property="og:type" content="website"/>
     <title>iFragment — Premium Fragment Analytics</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
-    <link rel="manifest" href="/manifest.webmanifest"/>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg"/>
+    <link rel="manifest" href="./manifest.webmanifest"/>
     
     <!-- Preload self-hosted Material Symbols Outlined so all UI icons/symbols render from byte 1 without Google CDN delays -->
-    <link rel="preload" href="/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin />
+    <style>
+      @font-face {
+        font-family: "Material Symbols Outlined";
+        font-style: normal;
+        font-weight: 100 700;
+        font-display: block;
+        src: url("./material-symbols-outlined.woff2") format("woff2");
+      }
+    </style>
 
     <!-- Non-blocking supplemental display/monospace web fonts (primary Vazirmatn, Manrope, Noto Sans SC & Material Icons are self-hosted) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

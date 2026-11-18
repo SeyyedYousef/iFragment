@@ -14,6 +14,7 @@ import {
 } from './dev-plugins';
 
 export default defineConfig({
+	base: './',
 	plugins: [
 		tailwindcss(),
 		solidPlugin({ hot: false }),

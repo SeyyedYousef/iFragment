@@ -18,6 +18,9 @@ const ALLOWED_MINI_APP_HOSTS = new Set<string>([
 	'ifragment.pages.dev',
 	'ifragment.app',
 	'www.ifragment.app',
+	'ifragment.mryousef1234567.workers.dev',
+	'seyyedyousef.github.io',
+	'109-172-94-139.sslip.io',
 ]);
 
 export const isTelegramWebApp = (): boolean =>

@@ -92,7 +92,8 @@ export const AchievementsPage: Component = () => {
 		if (!ach) return;
 		haptic.impact('medium');
 		const storyText = `I unlocked the "${ach.title}" achievement on iFragment! 🏆`;
-		shareToStory(`${window.location.origin}/promo_banner.png`, {
+		const promoBannerUrl = new URL('promo_banner.png', document.baseURI).href;
+		shareToStory(promoBannerUrl, {
 			text: storyText,
 			widget_link: {
 				url: `https://t.me/iFragmentBot/iFragment?startapp=ach_${ach.id}`,

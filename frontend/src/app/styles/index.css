@@ -1,14 +1,7 @@
 @import "tailwindcss";
 @source "../../**/*.{js,ts,jsx,tsx}";
 
-/* Material Symbols Outlined is self-hosted locally in /material-symbols-outlined.woff2 to guarantee zero CDN delays or blocks */
-@font-face {
-	font-family: "Material Symbols Outlined";
-	font-style: normal;
-	font-weight: 100 700;
-	font-display: block;
-	src: url("/material-symbols-outlined.woff2") format("woff2");
-}
+/* Material Symbols Outlined @font-face is declared inline in index.html using ./material-symbols-outlined.woff2 for root + subpath compatibility */
 
 @theme {
 	--animate-progress-sweep: progress-sweep 1.5s ease-out infinite;

@@ -248,7 +248,7 @@ startApp();
 if ('serviceWorker' in navigator && !import.meta.env.DEV) {
 	window.addEventListener('load', () => {
 		navigator.serviceWorker
-			.register('/sw.js')
+			.register('./sw.js')
 			.then((registration) => {
 				console.info('[SW] ServiceWorker registered with scope:', registration.scope);
 
