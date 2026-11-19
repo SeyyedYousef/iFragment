@@ -1,4 +1,3 @@
-import { Motion } from '@motionone/solid';
 import { useQueryClient } from '@tanstack/solid-query';
 import { backButton, viewport } from '@tma.js/sdk-solid';
 import { type Component, createEffect, createSignal, Show } from 'solid-js';
@@ -64,7 +63,7 @@ export const IndexPage: Component = () => {
 		<>
 			<PullToRefresh onRefresh={handleRefresh}>
 				<div
-					class="pb-32 frag-canvas text-white min-h-full relative flex flex-col font-frag-sans"
+					class="pb-28 frag-canvas text-white min-h-full relative flex flex-col font-frag-sans"
 					style={{ 'min-height': 'var(--tg-viewport-stable-height, 100vh)' }}
 					dir={isRtl() ? 'rtl' : 'ltr'}
 					role="application"
@@ -74,23 +73,15 @@ export const IndexPage: Component = () => {
 						<HeroTabs
 							activeTab={activeTab()}
 							onTabChange={handleTabChange}
+							onResetTab={() => setActiveTab(null)}
 							onOpenCreditStore={() => setStoreOpen(true)}
 						/>
 
 						<Show when={activeTab()} keyed>
 							{(tab) => (
-								<Motion.div
-									initial={{ opacity: 0, y: 28 }}
-									animate={{ opacity: 1, y: 0 }}
-									transition={{ duration: 0.32, easing: [0.16, 1, 0.3, 1] }}
-									class="w-full frag-sheet rounded-t-[26px] border-x-0 border-b-0 relative z-20 pt-3.5 pb-28 min-h-[70vh] -mt-4 flex flex-col flex-1"
-									role="tabpanel"
-								>
-									<div class="w-10 h-1 bg-white/15 rounded-full mx-auto mb-3 shrink-0" />
-									<div class="flex-1 w-full relative z-10">
-										<ActionArea activeTab={tab} onTabChange={handleTabChange} />
-									</div>
-								</Motion.div>
+								<div class="w-full relative z-20 flex-1" role="tabpanel">
+									<ActionArea activeTab={tab} onTabChange={handleTabChange} />
+								</div>
 							)}
 						</Show>
 					</div>

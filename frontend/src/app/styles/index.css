@@ -86,27 +86,74 @@
 	--color-outline-variant: var(--tg-theme-hint-color, #8e8e93);
 }
 
-/* Fragment OS Design System Tokens */
+/* Fragment.com Authentic Tokens — Fibonacci & Golden Ratio (φ = 1.6180339887) Harmony */
 :root {
-	--fos-canvas: #11161d;
-	--fos-surface-1: #141a22;
-	--fos-surface-2: #1b232d;
-	--fos-surface-3: #232d3a;
-	--fos-surface-elevated: rgba(24, 28, 38, 0.88);
+	--phi: 1.6180339887;
+	--phi-inv: 0.6180339887;
+	--fib-3: 3px;
+	--fib-5: 5px;
+	--fib-8: 8px;
+	--fib-13: 13px;
+	--fib-21: 21px;
+	--fib-34: 34px;
+	--fib-55: 55px;
 
-	--fos-primary: #2990ff;
-	--fos-ton: #2990ff;
-	--fos-success: #10b981;
-	--fos-warning: #f59e0b;
-	--fos-danger: #ef4444;
-	--fos-gold: #f59e0b;
-	--fos-cyan: #06b6d4;
+	/* Exact Fragment.com auction.css palette */
+	--bg-color: #1a2026;
+	--header-bg-color: rgba(33, 42, 51, 0.92);
+	--table-bg-color: #212a33;
+	--table-header-bg-color: #293440;
+	--table-bg-hover-color: #293440;
+	--field-bg-color: #242e38;
+	--btn-default-bg-color: #242e38;
+	--btn-header-bg-color: #293440;
+	--dropdown-bg-color: #2e3a47;
+	--footer-bg-color: #111417;
 
-	--fos-radius-control: 12px;
-	--fos-radius-card: 16px;
-	--fos-radius-card-lg: 24px;
-	--fos-radius-sheet: 28px;
-	--fos-radius-hero: 32px;
+	--accent-color: #4db2ff;
+	--accent-bg-color: rgba(77, 178, 255, 0.1);
+	--btn-primary-bg-color: #248bda;
+	--btn-primary-hover-color: #207cc2;
+
+	--header-color: #ffffff;
+	--value-color: #ffffff;
+	--text-color: #8794a1;
+	--table-text-color: #8c9aa9;
+	--field-placeholder-color: #8a98a6;
+	--footer-color: #6d8394;
+
+	--status-avail-color: #5aec8c;
+	--status-avail-bg: rgba(90, 236, 140, 0.1);
+	--status-taken-color: #ff9953;
+	--status-taken-bg: rgba(255, 153, 83, 0.1);
+	--status-unavail-color: #ff5863;
+	--status-unavail-bg: rgba(255, 88, 99, 0.1);
+	--status-neutral-color: #a5b8cc;
+	--status-neutral-bg: rgba(165, 184, 204, 0.1);
+
+	--def-border-radius: 8px;
+	--min-border-radius: 4px;
+	--popup-border-radius: 12px;
+
+	--fos-canvas: #1a2026;
+	--fos-surface-1: #212a33;
+	--fos-surface-2: #242e38;
+	--fos-surface-3: #293440;
+	--fos-surface-elevated: rgba(33, 42, 51, 0.94);
+
+	--fos-primary: #4db2ff;
+	--fos-ton: #248bda;
+	--fos-success: #5aec8c;
+	--fos-warning: #ff9953;
+	--fos-danger: #ff5863;
+	--fos-gold: #ff9953;
+	--fos-cyan: #4db2ff;
+
+	--fos-radius-control: 8px;
+	--fos-radius-card: 8px;
+	--fos-radius-card-lg: 12px;
+	--fos-radius-sheet: 16px;
+	--fos-radius-hero: 12px;
 	--fos-radius-pill: 9999px;
 }
 
@@ -251,37 +298,31 @@
 }
 
 .glass-card {
-	background: linear-gradient(180deg, rgba(30, 39, 50, 0.86) 0%, rgba(21, 28, 36, 0.92) 100%);
-	backdrop-filter: blur(18px) saturate(160%);
-	-webkit-backdrop-filter: blur(18px) saturate(160%);
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 8px 24px rgba(0, 0, 0, 0.28);
-	border-radius: 14px;
+	background-color: #212a33;
+	border: none;
+	box-shadow: none;
+	border-radius: 8px;
 }
 
 .glass-card-interactive {
-	background: linear-gradient(180deg, rgba(30, 39, 50, 0.86) 0%, rgba(21, 28, 36, 0.92) 100%);
-	backdrop-filter: blur(18px) saturate(160%);
-	-webkit-backdrop-filter: blur(18px) saturate(160%);
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 8px 24px rgba(0, 0, 0, 0.28);
-	border-radius: 14px;
-	transition: background 0.18s ease, border-color 0.18s ease, transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease;
+	background-color: #212a33;
+	border: none;
+	box-shadow: none;
+	border-radius: 8px;
+	transition: background-color 0.14s ease, transform 0.12s ease;
 	cursor: pointer;
 }
 
 .glass-card-interactive:hover {
-	background: linear-gradient(180deg, rgba(36, 46, 59, 0.92) 0%, rgba(25, 33, 43, 0.96) 100%);
-	border-color: rgba(41, 144, 255, 0.32);
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 30px rgba(0, 0, 0, 0.36);
+	background-color: #293440;
 }
 
 .glass-card-interactive:active {
-	transform: scale(0.98);
+	transform: scale(0.99);
 }
 
 .matte-surface {
-	background: linear-gradient(180deg, #1b232d 0%, #141a22 100%);
+	background-color: #212a33;
 }
 
 .material-symbols-outlined,
@@ -529,89 +570,115 @@
 
 
 /* ==========================================================================
-   FRAGMENT.COM & TELEGRAM SOVEREIGN COLLECTIBLE DESIGN SYSTEM (v8.0)
-   Authentic Dark Slate Surface Hierarchy, 1px Specular Hairlines & Tabular Precision
+   FRAGMENT.COM AUTHENTIC DESIGN SYSTEM (v9.0 — Minimalist & Human-Centric)
+   Exact #1a2026 Canvas, #212a33 Flat Surfaces, #293440 Headers & #248bda CTA
    ========================================================================== */
 :root {
-	--tm-bg-canvas: #12171e;
-	--tm-bg-elevated: #1b232d;
-	--tm-bg-panel: #212a36;
-	--tm-bg-inset: #151c24;
-	--tm-border-subtle: rgba(255, 255, 255, 0.07);
-	--tm-border-hover: rgba(41, 144, 255, 0.38);
-	--tm-accent-blue: #2990ff;
-	--tm-accent-telegram: #2481cc;
-	--tm-text-primary: #f5f7fa;
-	--tm-text-secondary: #8c9ba5;
-	--tm-text-muted: #60707c;
-	--tm-status-auction: #ff9f0a;
-	--tm-status-sale: #2990ff;
-	--tm-status-sold: #32d74b;
+	--tm-bg-canvas: #1a2026;
+	--tm-bg-elevated: #212a33;
+	--tm-bg-panel: #293440;
+	--tm-bg-inset: #242e38;
+	--tm-border-subtle: #1a2026;
+	--tm-border-hover: rgba(77, 178, 255, 0.35);
+	--tm-accent-blue: #4db2ff;
+	--tm-accent-telegram: #248bda;
+	--tm-text-primary: #ffffff;
+	--tm-text-secondary: #8794a1;
+	--tm-text-muted: #8c9aa9;
+	--tm-status-auction: #5aec8c;
+	--tm-status-sale: #4db2ff;
+	--tm-status-sold: #a5b8cc;
 }
 
 .font-frag-sans {
-	font-family: "Inter", "Roboto", "Vazirmatn", -apple-system, BlinkMacSystemFont, sans-serif;
-	letter-spacing: -0.012em;
+	font-family: "Inter", "Manrope", "Vazirmatn", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	letter-spacing: -0.011em;
 }
 
 .font-frag-mono {
-	font-family: "JetBrains Mono", "Roboto Mono", monospace;
+	font-family: "JetBrains Mono", "Roboto Mono", ui-monospace, monospace;
 	font-variant-numeric: tabular-nums;
-	letter-spacing: -0.02em;
+	letter-spacing: -0.015em;
 }
 
 .frag-canvas {
-	background-color: #11161d;
-	background-image:
-		radial-gradient(ellipse 90% 45% at 50% 0%, rgba(36, 129, 204, 0.14) 0%, transparent 70%),
-		linear-gradient(180deg, #151c25 0%, #10151c 45%, #0d1117 100%);
+	background-color: #1a2026;
+	background-image: none;
+}
+
+.frag-header {
+	background-color: rgba(33, 42, 51, 0.92);
+	backdrop-filter: blur(25px);
+	-webkit-backdrop-filter: blur(25px);
+	border-bottom: 1px solid #1a2026;
 }
 
 .frag-card {
-	background: linear-gradient(180deg, #1e2732 0%, #19212b 100%);
-	border: 1px solid rgba(255, 255, 255, 0.075);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.05),
-		0 8px 24px rgba(0, 0, 0, 0.28);
-	border-radius: 14px;
+	background-color: #212a33;
+	border: none;
+	box-shadow: none;
+	border-radius: 8px;
+}
+
+.frag-card-interactive {
+	background-color: #212a33;
+	border: none;
+	border-radius: 8px;
+	transition: background-color 0.14s ease;
+	cursor: pointer;
+}
+
+.frag-card-interactive:hover {
+	background-color: #293440;
 }
 
 .frag-card-elevated {
-	background: linear-gradient(165deg, #232e3c 0%, #1a222d 60%, #151c25 100%);
-	border: 1px solid rgba(255, 255, 255, 0.09);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.08),
-		0 14px 34px rgba(0, 0, 0, 0.38);
-	border-radius: 16px;
+	background-color: #212a33;
+	border: none;
+	box-shadow: none;
+	border-radius: 8px;
 }
 
 .frag-inset {
-	background-color: #141a22;
-	border: 1px solid rgba(255, 255, 255, 0.055);
-	border-radius: 10px;
+	background-color: #242e38;
+	border: none;
+	border-radius: 8px;
+}
+
+.frag-field {
+	background-color: #242e38;
+	color: #ffffff;
+	border: none;
+	border-radius: 8px;
+	transition: background-color 0.14s ease;
+}
+
+.frag-field:hover,
+.frag-field:focus-within {
+	background-color: #293440;
 }
 
 .frag-table-container {
-	background-color: #1b232d;
-	border: 1px solid rgba(255, 255, 255, 0.075);
-	border-radius: 12px;
+	background-color: #212a33;
+	border: none;
+	border-radius: 8px;
 	overflow: hidden;
-	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
+	box-shadow: none;
 }
 
 .frag-table-header {
-	background-color: #212b37;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-	color: #8c9ba5;
-	font-size: 11px;
+	background-color: #293440;
+	border-bottom: 1px solid #1a2026;
+	color: #8c9aa9;
+	font-size: 12px;
 	font-weight: 600;
-	letter-spacing: 0.03em;
+	letter-spacing: 0;
 }
 
 .frag-table-row {
-	background-color: #1b232d;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.055);
-	transition: background-color 0.14s ease;
+	background-color: #212a33;
+	border-bottom: 1px solid #1a2026;
+	transition: background-color 0.12s ease;
 }
 
 .frag-table-row:last-child {
@@ -619,23 +686,18 @@
 }
 
 .frag-table-row:hover {
-	background-color: #232d3a;
+	background-color: #293440;
 }
 
 .frag-collectible-pass {
-	background:
-		radial-gradient(circle at 50% 0%, rgba(41, 144, 255, 0.22) 0%, transparent 65%),
-		radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.09) 0%, transparent 50%),
-		linear-gradient(180deg, #1d2633 0%, #141b24 100%);
-	border: 1px solid rgba(255, 255, 255, 0.11);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.1),
-		0 16px 40px rgba(0, 0, 0, 0.45);
-	border-radius: 16px;
+	background-color: #212a33;
+	border: none;
+	box-shadow: none;
+	border-radius: 8px;
 }
 
 .frag-guilloche-pattern {
-	background-image: radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+	background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
 	background-size: 16px 16px;
 }
 
@@ -644,13 +706,13 @@
 	align-items: center;
 	height: 22px;
 	padding: 0 8px;
-	border-radius: 6px;
+	border-radius: 4px;
 	font-family: var(--font-mono);
-	font-size: 11px;
-	color: #a9b6bf;
-	background-color: rgba(255, 255, 255, 0.04);
-	border: 1px solid rgba(255, 255, 255, 0.07);
-	transition: color 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
+	font-size: 11.5px;
+	color: #4db2ff;
+	background-color: rgba(77, 178, 255, 0.1);
+	border: none;
+	transition: background-color 0.14s ease, color 0.14s ease;
 	max-width: 100%;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -659,8 +721,7 @@
 
 .frag-link-chip:hover {
 	color: #ffffff;
-	border-color: rgba(41, 144, 255, 0.4);
-	background-color: rgba(41, 144, 255, 0.08);
+	background-color: rgba(77, 178, 255, 0.18);
 }
 
 .font-frag-sans .font-mono,
@@ -675,134 +736,99 @@
 }
 
 
-/* Liquid Glass Floating Dock & Fragment Controls */
+/* Fragment Navigation Dock & Controls */
 .frag-dock {
-	background: linear-gradient(
-		180deg,
-		rgba(32, 42, 56, 0.84) 0%,
-		rgba(20, 27, 36, 0.91) 52%,
-		rgba(14, 19, 26, 0.96) 100%
-	);
-	backdrop-filter: blur(32px) saturate(195%);
-	-webkit-backdrop-filter: blur(32px) saturate(195%);
-	border: 1px solid rgba(255, 255, 255, 0.12);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.18),
-		inset 0 -1px 0 rgba(255, 255, 255, 0.04),
-		0 16px 40px -6px rgba(0, 0, 0, 0.65),
-		0 4px 12px rgba(0, 0, 0, 0.35);
+	background: rgba(33, 42, 51, 0.94);
+	backdrop-filter: blur(25px);
+	-webkit-backdrop-filter: blur(25px);
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .frag-dock-pill-active {
-	background: linear-gradient(180deg, rgba(41, 144, 255, 0.17) 0%, rgba(41, 144, 255, 0.07) 100%);
-	border: 1px solid rgba(41, 144, 255, 0.28);
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+	background-color: #293440;
+	border: none;
 }
 
 .frag-dock-lens {
 	position: relative;
-	background: linear-gradient(
-		180deg,
-		rgba(41, 144, 255, 0.23) 0%,
-		rgba(41, 144, 255, 0.11) 58%,
-		rgba(41, 144, 255, 0.06) 100%
-	);
-	border: 1px solid rgba(90, 174, 255, 0.34);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.24),
-		inset 0 -1px 0 rgba(41, 144, 255, 0.14),
-		0 4px 14px rgba(41, 144, 255, 0.18);
+	background-color: #293440;
+	border: 1px solid rgba(77, 178, 255, 0.22);
+	box-shadow: none;
 }
 
 .frag-dock-lens::before {
 	content: "";
 	position: absolute;
-	top: 0;
-	left: 20%;
-	right: 20%;
-	height: 1px;
-	background: linear-gradient(90deg, transparent, rgba(168, 213, 255, 0.78), transparent);
+	bottom: 0;
+	left: 24%;
+	right: 24%;
+	height: 3px;
+	border-radius: 3px 3px 0 0;
+	background: #248bda;
 	pointer-events: none;
 }
 
 .frag-dock-orb {
-	background: linear-gradient(
-		180deg,
-		rgba(32, 42, 56, 0.86) 0%,
-		rgba(20, 27, 36, 0.92) 52%,
-		rgba(14, 19, 26, 0.96) 100%
-	);
-	backdrop-filter: blur(32px) saturate(195%);
-	-webkit-backdrop-filter: blur(32px) saturate(195%);
-	border: 1px solid rgba(255, 255, 255, 0.14);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.2),
-		inset 0 -1px 0 rgba(255, 255, 255, 0.04),
-		0 16px 38px -6px rgba(0, 0, 0, 0.65),
-		0 4px 12px rgba(0, 0, 0, 0.35);
+	background: rgba(33, 42, 51, 0.94);
+	backdrop-filter: blur(25px);
+	-webkit-backdrop-filter: blur(25px);
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .frag-dock-orb:hover {
-	border-color: rgba(255, 255, 255, 0.22);
+	background-color: #293440;
 }
 
 .frag-dock-orb-active {
-	background: linear-gradient(180deg, rgba(41, 144, 255, 0.26) 0%, rgba(20, 29, 43, 0.95) 100%);
-	backdrop-filter: blur(32px) saturate(195%);
-	-webkit-backdrop-filter: blur(32px) saturate(195%);
-	border: 1px solid rgba(90, 174, 255, 0.68);
-	box-shadow:
-		inset 0 1px 0 rgba(190, 224, 255, 0.38),
-		0 0 0 1px rgba(41, 144, 255, 0.24),
-		0 10px 26px rgba(41, 144, 255, 0.26),
-		0 16px 36px -6px rgba(0, 0, 0, 0.6);
+	background: #293440;
+	backdrop-filter: blur(25px);
+	-webkit-backdrop-filter: blur(25px);
+	border: 2px solid #4db2ff;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .frag-sheet {
-	background: linear-gradient(180deg, #1d2633 0%, #141a22 100%);
-	border: 1px solid rgba(255, 255, 255, 0.09);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.1),
-		0 -22px 60px rgba(0, 0, 0, 0.68);
+	background-color: #212a33;
+	border-top: 1px solid #293440;
+	box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.55);
 }
 
 .frag-btn-primary {
-	background: linear-gradient(180deg, #359bff 0%, #2481cc 100%);
+	background-color: #248bda;
 	color: #ffffff;
-	border: 1px solid rgba(255, 255, 255, 0.16);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.24),
-		0 6px 20px rgba(41, 144, 255, 0.26);
-	transition: filter 0.15s ease, transform 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+	border: none;
+	border-radius: 8px;
+	box-shadow: none;
+	transition: background-color 0.14s ease, transform 0.12s ease;
 }
 
 .frag-btn-primary:hover:not(:disabled) {
-	filter: brightness(1.06);
+	background-color: #207cc2;
 }
 
 .frag-btn-primary:active:not(:disabled) {
-	transform: scale(0.985);
+	transform: scale(0.99);
 }
 
 .frag-btn-secondary {
-	background: rgba(255, 255, 255, 0.045);
-	color: #d7e0e8;
-	border: 1px solid rgba(255, 255, 255, 0.085);
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-	transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+	background-color: #242e38;
+	color: #ffffff;
+	border: none;
+	border-radius: 8px;
+	box-shadow: none;
+	transition: background-color 0.14s ease, transform 0.12s ease;
 }
 
 .frag-btn-secondary:hover:not(:disabled) {
-	background: rgba(255, 255, 255, 0.08);
-	border-color: rgba(255, 255, 255, 0.14);
+	background-color: #293440;
 }
 
 .frag-toast {
-	background: rgba(22, 29, 39, 0.94);
-	backdrop-filter: blur(22px) saturate(180%);
-	-webkit-backdrop-filter: blur(22px) saturate(180%);
-	border: 1px solid rgba(255, 255, 255, 0.11);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.1),
-		0 14px 36px rgba(0, 0, 0, 0.5);
+	background: rgba(33, 42, 51, 0.96);
+	backdrop-filter: blur(25px);
+	-webkit-backdrop-filter: blur(25px);
+	border: 1px solid #293440;
+	box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
 }

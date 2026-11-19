@@ -239,6 +239,11 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 		tier := "STANDARD"
 		expectedTONStr := "0.0"
 		expectedUSDStr := "0"
+		lowTONStr := ""
+		highTONStr := ""
+		brandability := 0
+		charLen := len(cleanUser)
+		confidence := 90
 
 		if h.avmService != nil {
 			var tonRate float64
@@ -254,6 +259,15 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 			if err == nil && res != nil {
 				tier = res.InvestmentGrade
 				expectedTONStr = res.ExpectedTON.StringFixed(1)
+				lowTONStr = res.LowTON.StringFixed(1)
+				highTONStr = res.HighTON.StringFixed(1)
+				brandability = res.Brandability
+				if res.Length > 0 {
+					charLen = res.Length
+				}
+				if res.ConfidenceScore > 0 {
+					confidence = int(res.ConfidenceScore)
+				}
 				if tonRate <= 0 && res.TONUSDRate > 0 {
 					tonRate = res.TONUSDRate
 					rateOk = true
@@ -434,7 +448,19 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 		}
 
 		if h.cardGen != nil {
-			if pngBytes, err := h.cardGen.GenerateUsernameCard(cleanUser, tier, expectedTONStr, expectedUSDStr); err == nil {
+			cardP := cardgen.UsernameCardParams{
+				Username:     cleanUser,
+				Grade:        tier,
+				LowTON:       lowTONStr,
+				FairTON:      expectedTONStr,
+				HighTON:      highTONStr,
+				USDT:         expectedUSDStr,
+				Brandability: brandability,
+				Length:       charLen,
+				Confidence:   confidence,
+				Lang:         lang,
+			}
+			if pngBytes, err := h.cardGen.GenerateRichUsernameCard(cardP); err == nil {
 				if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
 					var publicURL string
 					if host != "" {

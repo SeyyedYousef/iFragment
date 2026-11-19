@@ -1,19 +1,21 @@
 import { useNavigate, useSearchParams } from '@solidjs/router';
-import { type Component, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createMemo, createSignal, For, onMount, Show } from 'solid-js';
 import {
 	type CuriosityGateData,
 	type NumberValuationResult,
 	numbersApi,
 } from '@/entities/numbers/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { layaT, NUMBER_REPORT_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { copyToClipboard } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import {
+	FragKV,
+	FragStatusPill,
+	normalizeFragStatus,
+	TonAmount,
+	TonIcon,
+} from '@/shared/ui/fragment/FragmentPrimitives.js';
 import { CreditStoreSheet, UnifiedPaywallGate, useWallet } from '@/widgets/paywall/index.js';
-import { NumberDigitalCertificateCard } from './components/NumberDigitalCertificateCard.js';
-import { NumberFinancialEngineeringCard } from './components/NumberFinancialEngineeringCard.js';
-import { NumberSingleCulturalRadarCard } from './components/NumberSingleCulturalRadarCard.js';
 
 interface NumberValidation {
 	isValid: boolean;
@@ -25,34 +27,14 @@ interface NumberValidation {
 	patternLabel: string;
 }
 
-type ReportTabKey = 'valuation' | 'forensics' | 'onchain' | 'siblings';
+type ReportTabKey = 'valuation' | 'siblings' | 'onchain';
 
 const QUICK_BENCHMARK_NUMBERS = [
-	{
-		raw: '+888 0888 8888',
-		labelKey: 'numReportPage.bench1',
-		badge: 'GRAIL',
-	},
-	{
-		raw: '+888 8 888',
-		labelKey: 'numReportPage.bench2',
-		badge: 'GENESIS #1',
-	},
-	{
-		raw: '+888 0000 0000',
-		labelKey: 'numReportPage.bench3',
-		badge: 'GRAIL',
-	},
-	{
-		raw: '+888 8 115',
-		labelKey: 'numReportPage.bench4',
-		badge: 'RESTRICTED',
-	},
-	{
-		raw: '+888 0777 7777',
-		labelKey: 'numReportPage.bench5',
-		badge: 'APEX',
-	},
+	{ raw: '+888 0888 8888', labelKey: 'numReportPage.bench1', badge: 'GRAIL' },
+	{ raw: '+888 8 888', labelKey: 'numReportPage.bench2', badge: 'GENESIS #1' },
+	{ raw: '+888 0000 0000', labelKey: 'numReportPage.bench3', badge: 'GRAIL' },
+	{ raw: '+888 8 115', labelKey: 'numReportPage.bench4', badge: 'RESTRICTED' },
+	{ raw: '+888 0777 7777', labelKey: 'numReportPage.bench5', badge: 'APEX' },
 ];
 
 function toAsciiDigits(str: string): string {
@@ -64,77 +46,50 @@ function toAsciiDigits(str: string): string {
 function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 	const asciiRaw = toAsciiDigits(raw || '');
 	const trimmed = asciiRaw.trim();
-	if (!trimmed) {
-		return {
-			isValid: false,
-			error: null,
-			formatted: '',
-			cleanDigits: '',
-			suffix: '',
-			tier: 'STANDARD',
-			patternLabel: '',
-		};
-	}
+	const empty: NumberValidation = {
+		isValid: false,
+		error: null,
+		formatted: '',
+		cleanDigits: '',
+		suffix: '',
+		tier: 'STANDARD',
+		patternLabel: '',
+	};
+	if (!trimmed) return empty;
 
 	if (/[^0-9+\s\-()]/.test(trimmed)) {
-		return {
-			isValid: false,
-			error: t('numbers.errorInvalidChars'),
-			formatted: trimmed,
-			cleanDigits: '',
-			suffix: '',
-			tier: 'STANDARD',
-			patternLabel: '',
-		};
+		return { ...empty, error: t('numbers.errorInvalidChars'), formatted: trimmed };
 	}
 
 	if (trimmed.startsWith('+') && !trimmed.startsWith('+888')) {
-		return {
-			isValid: false,
-			error: t('numbers.errorInvalidPrefix'),
-			formatted: trimmed,
-			cleanDigits: '',
-			suffix: '',
-			tier: 'STANDARD',
-			patternLabel: '',
-		};
+		return { ...empty, error: t('numbers.errorInvalidPrefix'), formatted: trimmed };
 	}
 
 	const clean = trimmed.replace(/\D/g, '');
-	let suffix = '';
-	if (clean.startsWith('888')) {
-		suffix = clean.slice(3);
-	} else {
-		suffix = clean;
-	}
+	const suffix = clean.startsWith('888') ? clean.slice(3) : clean;
 
 	if (suffix.length === 0) {
 		return {
-			isValid: false,
+			...empty,
 			error: trimmed.startsWith('+888') ? t('numbers.errorTooShort') : null,
 			formatted: '+888',
 			cleanDigits: clean,
-			suffix: '',
-			tier: 'STANDARD',
-			patternLabel: '',
 		};
 	}
 
 	if (suffix.length !== 4 && suffix.length !== 8) {
 		return {
-			isValid: false,
+			...empty,
 			error:
 				suffix.length < 4
 					? t('numbers.errorTooShort')
 					: suffix.length > 8
 						? t('numbers.errorTooLong')
-						: t('numbers.errorInvalidLength') || 'Anonymous numbers must be either 4 or 8 digits',
+						: t('numbers.errorInvalidLength') || 'Anonymous numbers must be 4 or 8 digits',
 			formatted:
 				suffix.length > 4 ? `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}` : `+888 ${suffix}`,
 			cleanDigits: clean,
 			suffix,
-			tier: 'STANDARD',
-			patternLabel: '',
 		};
 	}
 
@@ -142,28 +97,24 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		const val = parseInt(suffix, 10);
 		if (Number.isNaN(val) || val < 8000 || val > 8999) {
 			return {
-				isValid: false,
+				...empty,
 				error:
 					t('numbers.errorGenesisRange') ||
 					'4-digit genesis numbers must be between +888 8 000 and +888 8 999',
 				formatted: `+888 ${suffix[0]} ${suffix.slice(1)}`,
 				cleanDigits: clean,
 				suffix,
-				tier: 'STANDARD',
-				patternLabel: '',
 			};
 		}
 	}
 
-	let formatted = '';
-	if (suffix.length === 4) {
-		formatted = `+888 ${suffix[0]} ${suffix.slice(1)}`;
-	} else {
-		formatted = `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}`;
-	}
+	const formatted =
+		suffix.length === 4
+			? `+888 ${suffix[0]} ${suffix.slice(1)}`
+			: `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}`;
 
 	let tier: 'GRAIL' | 'APEX' | 'GRAND' | 'STANDARD' = 'STANDARD';
-	let patternLabel = '';
+	let patternLabel = 'Standard Collection';
 
 	if (
 		suffix.length === 4 ||
@@ -172,21 +123,13 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		suffix.includes('0000') ||
 		suffix.includes('9999') ||
 		suffix.includes('1111') ||
-		(suffix.length === 8 && new Set(suffix).size === 1) ||
-		suffix === '8888'
+		(suffix.length === 8 && new Set(suffix).size === 1)
 	) {
 		tier = 'GRAIL';
-		patternLabel =
-			suffix.length === 4 ? 'GRAIL TIER (4-Digit Genesis)' : 'GRAIL TIER (Quad/Septa Repeat)';
-	} else if (
-		suffix.includes('1234') ||
-		suffix.includes('5678') ||
-		suffix.includes('8989') ||
-		suffix.includes('0101') ||
-		/012|123|234|345|456|567|678|789/.test(suffix)
-	) {
+		patternLabel = suffix.length === 4 ? '4-Digit Genesis' : 'Quad / Monodigit Grail';
+	} else if (/012|123|234|345|456|567|678|789/.test(suffix)) {
 		tier = 'APEX';
-		patternLabel = 'APEX TIER (Sequence/Pair)';
+		patternLabel = 'Sequential Ladder';
 	} else if (
 		suffix.endsWith('888') ||
 		suffix.endsWith('777') ||
@@ -194,10 +137,7 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		(suffix.length >= 4 && suffix === [...suffix].reverse().join(''))
 	) {
 		tier = 'GRAND';
-		patternLabel = 'GRAND TIER (Triple/Mirror)';
-	} else {
-		tier = 'STANDARD';
-		patternLabel = 'STANDARD TIER';
+		patternLabel = 'Triple / Mirror Palindrome';
 	}
 
 	return {
@@ -217,202 +157,43 @@ export const NumberReportPage: Component = () => {
 	const [searchParams] = useSearchParams();
 	const wallet = useWallet();
 
-	// Search & Input state — Default to real minted Grail +888 0888 8888
 	const [inputNumber, setInputNumber] = createSignal(
 		searchParams.n || searchParams.number || searchParams.num || '+888 0888 8888',
 	);
 	const [activeTab, setActiveTab] = createSignal<ReportTabKey>('valuation');
 	const [isAnalyzing, setIsAnalyzing] = createSignal(false);
-	const [analysisStep, setAnalysisStep] = createSignal(0);
-	const [copiedHeroNumber, setCopiedHeroNumber] = createSignal(false);
-	const [copiedField, setCopiedField] = createSignal<string | null>(null);
-
-	// Gate vs Unlocked State
 	const [isUnlocked, setIsUnlocked] = createSignal(false);
 	const [gateData, setGateData] = createSignal<CuriosityGateData | null>(null);
 	const [reportData, setReportData] = createSignal<NumberValuationResult | null>(null);
 	const [loading, setLoading] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
 	const [storeOpen, setStoreOpen] = createSignal(false);
-
-	// Watchlist & Monitoring state
 	const [isWatching, setIsWatching] = createSignal(false);
 	const [watchLoading, setWatchLoading] = createSignal(false);
-	const [isMonitored, setIsMonitored] = createSignal(false);
-
-	// Interactive Make-an-Offer slider state
 	const [customOfferPct, setCustomOfferPct] = createSignal(93);
 
-	// Interactive Custom Pattern Mask Lab & Bargain Sniper state (Tab 4)
-	const [customMaskInput, setCustomMaskInput] = createSignal('8880AAAAAAA');
-	const [maskSearchLoading, setMaskSearchLoading] = createSignal(false);
-	const [customMaskResults, setCustomMaskResults] = createSignal<
-		import('@/entities/numbers/index.js').NumberTableItem[] | null
-	>(null);
-
-	// Web Audio API DTMF Synthesizer state
-	const [isPlayingDtmf, setIsPlayingDtmf] = createSignal(false);
-	const [activeDtmfIndex, setActiveDtmfIndex] = createSignal<number | null>(null);
-	let audioCtx: AudioContext | null = null;
-	let dtmfTimerIds: number[] = [];
-
-	const stopDtmfPlayback = () => {
-		for (const id of dtmfTimerIds) {
-			window.clearTimeout(id);
-		}
-		dtmfTimerIds = [];
-		setIsPlayingDtmf(false);
-		setActiveDtmfIndex(null);
-	};
-
-	onCleanup(() => {
-		stopDtmfPlayback();
-		if (audioCtx && audioCtx.state !== 'closed') {
-			void audioCtx.close().catch(() => {});
-		}
-	});
-
-	const playSingleDtmfTone = (rowHz: number, colHz: number, durationMs = 175) => {
-		try {
-			const AudioContextClass =
-				window.AudioContext ||
-				(window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-			if (!AudioContextClass) return;
-			if (!audioCtx || audioCtx.state === 'closed') {
-				audioCtx = new AudioContextClass();
-			}
-			if (audioCtx.state === 'suspended') {
-				void audioCtx.resume();
-			}
-			const now = audioCtx.currentTime;
-			const oscRow = audioCtx.createOscillator();
-			const oscCol = audioCtx.createOscillator();
-			const gain = audioCtx.createGain();
-
-			oscRow.type = 'sine';
-			oscCol.type = 'sine';
-			oscRow.frequency.setValueAtTime(rowHz, now);
-			oscCol.frequency.setValueAtTime(colHz, now);
-
-			gain.gain.setValueAtTime(0.001, now);
-			gain.gain.exponentialRampToValueAtTime(0.14, now + 0.015);
-			gain.gain.exponentialRampToValueAtTime(0.001, now + durationMs / 1000);
-
-			oscRow.connect(gain);
-			oscCol.connect(gain);
-			gain.connect(audioCtx.destination);
-
-			oscRow.start(now);
-			oscCol.start(now);
-			oscRow.stop(now + durationMs / 1000 + 0.02);
-			oscCol.stop(now + durationMs / 1000 + 0.02);
-		} catch {
-			// Ignore audio context restrictions if blocked
-		}
-	};
-
-	const handlePlayFullDtmfSequence = () => {
-		if (isPlayingDtmf()) {
-			stopDtmfPlayback();
-			return;
-		}
-		const cells = reportData()?.binary_forensics?.digits_matrix || [];
-		if (cells.length === 0) return;
-
-		try {
-			haptic.selection();
-		} catch {}
-		setIsPlayingDtmf(true);
-		const stepMs = 230;
-		cells.forEach((cell, idx) => {
-			const tId = window.setTimeout(() => {
-				setActiveDtmfIndex(idx);
-				playSingleDtmfTone(cell.dtmf_row_hz, cell.dtmf_col_hz, 175);
-			}, idx * stepMs);
-			dtmfTimerIds.push(tId);
-		});
-
-		const endId = window.setTimeout(
-			() => {
-				setIsPlayingDtmf(false);
-				setActiveDtmfIndex(null);
-			},
-			cells.length * stepMs + 80,
-		);
-		dtmfTimerIds.push(endId);
-	};
-
-	// Reactive validation
 	const validation = createMemo(() => validateAndFormatAnonymousNumber(inputNumber()));
 
-	// 3D Holographic Gyro Tilt State
-	const [tilt, setTilt] = createSignal({ x: 0, y: 0, glossX: 50, glossY: 50 });
-	let cardRef: HTMLDivElement | undefined;
-	let rAfId: number | null = null;
-
-	const handlePointerMove = (e: PointerEvent) => {
-		if (!cardRef) return;
-		if (window.matchMedia && !window.matchMedia('(pointer: fine)').matches) return;
-		if (rAfId !== null) cancelAnimationFrame(rAfId);
-		rAfId = requestAnimationFrame(() => {
-			if (!cardRef) return;
-			const rect = cardRef.getBoundingClientRect();
-			const x = e.clientX - rect.left;
-			const y = e.clientY - rect.top;
-			const centerX = rect.width / 2;
-			const centerY = rect.height / 2;
-
-			const tiltX = Math.max(-14, Math.min(14, ((y - centerY) / centerY) * -12));
-			const tiltY = Math.max(-14, Math.min(14, ((x - centerX) / centerX) * 12));
-			const glossX = Math.max(0, Math.min(100, (x / rect.width) * 100));
-			const glossY = Math.max(0, Math.min(100, (y / rect.height) * 100));
-
-			setTilt({ x: tiltX, y: tiltY, glossX, glossY });
-		});
-	};
-
-	const handlePointerLeave = () => {
-		if (rAfId !== null) cancelAnimationFrame(rAfId);
-		setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
-	};
-
-	const analysisSteps = () => [
-		t('numbers.stepConnectingContracts') || 'Querying Live Fragment, Nums888 & TonAPI TVM BOC',
-		t('numbers.stepQueryingMatrix') || 'Auditing On-Chain Sales Ledger & Restriction Flags',
-		t('numbers.stepExtractingFeatures') || 'Computing 256-Bit TEP-62 Hash, BCD & DTMF Acoustics',
-		t('numbers.stepRunningHedonic') || 'Calibrating NV-Engine v7.5-BinaryLive Fair Value',
-	];
-
-	onMount(() => {
-		if (searchParams.n) {
-			void handleRunAnalysis(searchParams.n);
-		} else {
-			void handleRunAnalysis(inputNumber());
-		}
-	});
-
-	const handleRunAnalysis = async (num: string) => {
-		stopDtmfPlayback();
-		const val = validateAndFormatAnonymousNumber(num);
+	const handleRunAnalysis = async (rawTarget?: string) => {
+		const target = rawTarget !== undefined ? rawTarget : inputNumber();
+		const val = validateAndFormatAnonymousNumber(target);
 		if (!val.isValid) {
-			setError(val.error || t('numbers.errorTooShort'));
+			setError(val.error || t('numbers.errorInvalidChars'));
+			try {
+				haptic.notify('error');
+			} catch {}
 			return;
 		}
 
 		setInputNumber(val.formatted);
 		setIsAnalyzing(true);
 		setIsUnlocked(false);
-		setAnalysisStep(0);
 		setError(null);
 
 		try {
-			setAnalysisStep(1);
 			const gate = await numbersApi.getCuriosityGate(val.cleanDigits);
-			setAnalysisStep(2);
 			setGateData(gate);
-			setAnalysisStep(3);
 
-			// Load full live valuation
 			try {
 				const unlocked = await numbersApi.getValuation(val.cleanDigits);
 				if (
@@ -422,46 +203,21 @@ export const NumberReportPage: Component = () => {
 						unlocked.run_id > 0)
 				) {
 					setReportData(unlocked);
-					if (unlocked.smart_mask) {
-						setCustomMaskInput(unlocked.smart_mask);
-					}
-					setCustomMaskResults(null);
 					setIsUnlocked(true);
 				}
 			} catch {
-				// Expected when locked
+				// Locked until credit consumed
 			}
 		} catch (err: any) {
-			setError(err?.message || 'Failed to connect to Telegram Telemint registry');
+			setError(err?.message || 'Failed to connect to Telegram TeleMint registry');
 		} finally {
-			setTimeout(() => {
-				setIsAnalyzing(false);
-			}, 260);
+			setIsAnalyzing(false);
 		}
 	};
 
-	const handleRunCustomMaskSearch = async (overrideMask?: string) => {
-		const rawMask = (overrideMask ?? customMaskInput())
-			.trim()
-			.replace(/\+/g, '')
-			.replace(/\s+/g, '')
-			.toUpperCase();
-		if (!rawMask) return;
-		const normalizedMask = rawMask.startsWith('888') ? rawMask : `888${rawMask}`;
-		setCustomMaskInput(normalizedMask);
-		setMaskSearchLoading(true);
-		try {
-			try {
-				haptic.selection();
-			} catch {}
-			const res = await numbersApi.getNumbersList({ mask: normalizedMask, page: 1 });
-			setCustomMaskResults(res.items || []);
-		} catch {
-			setCustomMaskResults([]);
-		} finally {
-			setMaskSearchLoading(false);
-		}
-	};
+	onMount(() => {
+		void handleRunAnalysis(inputNumber());
+	});
 
 	const canAfford = () => {
 		const b = wallet.balance();
@@ -480,16 +236,20 @@ export const NumberReportPage: Component = () => {
 			const res = await numbersApi.unlockWithCredit(targetNum);
 			setReportData(res);
 			setIsUnlocked(true);
-			haptic.notify('success');
+			try {
+				haptic.notify('success');
+			} catch {}
 		} catch (err: any) {
-			haptic.notify('error');
-			const errorMsg =
+			try {
+				haptic.notify('error');
+			} catch {}
+			setError(
 				err?.response?.data?.error ||
-				err?.response?.data?.message ||
-				err?.message ||
-				t('valuation.unlock_error') ||
-				'Error unlocking report with credit.';
-			setError(errorMsg);
+					err?.response?.data?.message ||
+					err?.message ||
+					t('valuation.unlock_error') ||
+					'Error unlocking report with credit.',
+			);
 		} finally {
 			setLoading(false);
 		}
@@ -503,7 +263,6 @@ export const NumberReportPage: Component = () => {
 			const nextState = !isWatching();
 			await numbersApi.toggleWatchlist(inputNumber(), nextState);
 			setIsWatching(nextState);
-			setIsMonitored(nextState);
 			haptic.notify('success');
 		} catch {
 			haptic.notify('error');
@@ -512,262 +271,106 @@ export const NumberReportPage: Component = () => {
 		}
 	};
 
-	const handleCopyText = (val: string, key: string) => {
-		if (!val) return;
-		copyToClipboard(val);
-		try {
-			haptic.notify('success');
-		} catch {}
-		setCopiedField(key);
-		setTimeout(() => {
-			if (copiedField() === key) setCopiedField(null);
-		}, 1800);
-	};
-
-	const handleCopyHeroNumber = () => {
-		const target = reportData()?.display_number || validation().formatted || inputNumber();
-		copyToClipboard(target);
-		try {
-			haptic.notify('success');
-		} catch {}
-		setCopiedHeroNumber(true);
-		setTimeout(() => setCopiedHeroNumber(false), 2000);
-	};
-
 	const formatTon = (val?: number | string) => {
 		if (val === undefined || val === null || val === '') return '0';
 		const num = typeof val === 'string' ? parseFloat(val) : val;
 		if (Number.isNaN(num)) return '0';
-		return num.toLocaleString('en-US', { maximumFractionDigits: 1 });
+		return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
 	};
 
-	const formatUsd = (val?: number) => {
-		if (!val) return '$0';
-		return `$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+	const formatUsd = (val?: number | string) => {
+		if (val === undefined || val === null || val === '') return '0';
+		const num = typeof val === 'string' ? parseFloat(val) : val;
+		if (Number.isNaN(num)) return '0';
+		return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
 	};
 
 	const shortAddr = (addr?: string) => {
 		if (!addr) return '—';
 		if (addr.length <= 16) return addr;
-		return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
+		return `${addr.slice(0, 8)} … ${addr.slice(-8)}`;
 	};
 
-	// Dynamic Rarity Tier Theme for Numbers
-	const getNumberTheme = () => {
-		const num = (
-			reportData()?.display_number ||
-			gateData()?.display_number ||
-			validation().formatted ||
-			inputNumber()
-		).replace(/\s+/g, '');
-
-		const officialHex = reportData()?.market_provenance?.color_hex || reportData()?.color?.hex;
-
-		if (
-			num.includes('88888888') ||
-			num.includes('08888888') ||
-			num.includes('77777777') ||
-			num.includes('00000000') ||
-			num.length <= 8
-		) {
-			return {
-				name: 'GRAIL',
-				wrapper:
-					'from-[#ffaa00] via-[#ff7700] to-[#e65100] shadow-[0_20px_50px_rgba(255,119,0,0.35),inset_0_2px_10px_rgba(255,255,255,0.3)]',
-				badge:
-					'bg-[#ffaa00]/15 border-[#ffaa00]/40 text-[#ffaa00] shadow-[0_0_15px_rgba(255,170,0,0.3)]',
-				glow: officialHex ? `${officialHex}66` : 'rgba(255,119,0,0.35)',
-			};
-		}
-		if (num.includes('1234') || num.includes('8989') || num.includes('0101')) {
-			return {
-				name: 'APEX',
-				wrapper:
-					'from-[#2990ff] via-[#0070BA] to-[#004B87] shadow-[0_20px_50px_rgba(41,144,255,0.35),inset_0_2px_10px_rgba(255,255,255,0.3)]',
-				badge:
-					'bg-[#2990ff]/15 border-[#2990ff]/40 text-[#2990ff] shadow-[0_0_15px_rgba(41,144,255,0.3)]',
-				glow: officialHex ? `${officialHex}66` : 'rgba(41,144,255,0.35)',
-			};
-		}
-		return {
-			name: 'COLLECTOR',
-			wrapper:
-				'from-[#10b981] via-[#059669] to-[#047857] shadow-[0_20px_50px_rgba(16,185,129,0.3),inset_0_2px_10px_rgba(255,255,255,0.25)]',
-			badge:
-				'bg-[#10b981]/15 border-[#10b981]/40 text-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.25)]',
-			glow: officialHex ? `${officialHex}66` : 'rgba(16,185,129,0.35)',
-		};
-	};
-
-	const getNumberFontSize = (numStr: string) => {
-		const len = (numStr || '').replace(/\s+/g, '').length;
-		if (len <= 8) return '32px';
-		if (len <= 10) return '27px';
-		if (len <= 12) return '23px';
-		return '20px';
-	};
-
-	const getTonPriceFontSize = (tonVal?: number | string) => {
-		const formatted = formatTon(tonVal);
-		const len = formatted.length;
-		if (len <= 6) return 'text-2xl sm:text-3xl';
-		if (len <= 9) return 'text-xl sm:text-2xl';
-		if (len <= 12) return 'text-lg sm:text-xl';
-		return 'text-base sm:text-lg';
-	};
-
-	// Dynamic Offer Calculation based on slider
 	const simulatedOfferStats = createMemo(() => {
 		const r = reportData();
 		const fairTon = Number(r?.expected_ton || 2717);
 		const rate = r?.ton_usd_rate || 1.29;
 		const offerTon = Math.round((fairTon * customOfferPct()) / 100);
 		const offerUsd = Math.round(offerTon * rate);
-		const feeTon = Math.max(0.5, Math.round(offerTon * 0.0005 * 100) / 100);
 		const protocolFeeTon = Math.round(offerTon * 0.05 * 10) / 10;
 		const sellerNetTon = Math.round((offerTon - protocolFeeTon) * 10) / 10;
 		const sellerNetUsd = Math.round(sellerNetTon * rate);
-		const isVanity = Boolean(r?.live_listing?.is_vanity_ask);
-		const baseAccept = isVanity ? 45 : 78;
-		const acceptProb = Math.max(
-			12,
-			Math.min(98, Math.round(baseAccept + (customOfferPct() - 93) * 1.4)),
-		);
-		return {
-			offerTon,
-			offerUsd,
-			feeTon,
-			protocolFeeTon,
-			sellerNetTon,
-			sellerNetUsd,
-			acceptProb,
-		};
+		return { offerTon, offerUsd, protocolFeeTon, sellerNetTon, sellerNetUsd };
 	});
 
-	// Active DTMF Cell for Dual-Sine Acoustic Interference Oscilloscope
-	const activeAcousticCell = createMemo(() => {
-		const cells = reportData()?.binary_forensics?.digits_matrix || [];
-		if (cells.length === 0) return null;
-		const idx = activeDtmfIndex();
-		if (idx !== null && cells[idx]) return cells[idx];
-		return cells[0];
-	});
+	const displayNum = () =>
+		reportData()?.display_number ||
+		gateData()?.display_number ||
+		validation().formatted ||
+		inputNumber();
 
-	// Compute SVG path for Dual-Sine Acoustic Superposition sin(2π*f_row*t) + sin(2π*f_col*t)
-	const acousticWaveformPath = createMemo(() => {
-		const cell = activeAcousticCell();
-		if (!cell) return 'M 0 32 L 320 32';
-		const fRow = cell.dtmf_row_hz || 852;
-		const fCol = cell.dtmf_col_hz || 1336;
-		const width = 320;
-		const height = 64;
-		const midY = height / 2;
-		const pts: string[] = [];
-		// 6ms window sampled across 80 points
-		const durationSec = 0.006;
-		const steps = 80;
-		for (let i = 0; i <= steps; i++) {
-			const tSec = (i / steps) * durationSec;
-			const yVal =
-				0.5 * (Math.sin(2 * Math.PI * fRow * tSec) + Math.sin(2 * Math.PI * fCol * tSec));
-			const x = Math.round((i / steps) * width * 10) / 10;
-			const y = Math.round((midY - yVal * 24) * 10) / 10;
-			pts.push(`${i === 0 ? 'M' : 'L'} ${x} ${y}`);
-		}
-		return pts.join(' ');
-	});
-
-	// Compute SVG Keypad Laser Vector Trajectory Coordinates over 3x4 Grid (210x184 viewBox)
-	const keypadVectorData = createMemo(() => {
-		const cells = reportData()?.binary_forensics?.digits_matrix || [];
-		const coords = cells.map((c, idx) => ({
-			idx,
-			digit: c.digit,
-			x: c.keypad_col * 70 + 35,
-			y: c.keypad_row * 46 + 23,
-		}));
-		const pathStr = coords.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`).join(' ');
-		return { coords, pathStr };
-	});
+	const cleanDigitsForUrl = () =>
+		(validation().cleanDigits || inputNumber().replace(/\D/g, '')).replace(/^\+/, '');
 
 	return (
 		<div
-			class="frag-canvas pb-36 text-white min-h-screen relative selection:bg-[#2990ff]/30 overflow-x-hidden"
+			class="frag-canvas pb-32 text-white min-h-screen relative font-frag-sans overflow-x-hidden"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			<div class="relative z-10 max-w-[520px] mx-auto px-4 pt-4">
-				{/* ═══════ 1. CLEAN HEADER ═══════ */}
-				<div class="flex items-center justify-between mb-3">
-					<button
-						type="button"
-						onClick={() => {
-							try {
-								haptic.selection();
-							} catch {}
-							navigate('/?tab=collectibles');
-						}}
-						class="w-10 h-10 rounded-2xl bg-white/[0.06] hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/80 active:scale-95 transition-all shadow-sm"
-					>
-						<span class="material-symbols-outlined text-xl rtl:rotate-180">arrow_back</span>
-					</button>
+			{/* Authentic Fragment.com Sticky Detail Header (.tm-header) */}
+			<header class="frag-header sticky top-0 z-40 w-full h-[52px] px-4 flex items-center justify-between gap-3">
+				<button
+					type="button"
+					onClick={() => navigate('/?tab=collectibles')}
+					class="flex items-center gap-2 text-white hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
+				>
+					<TonIcon size={20} color="#4db2ff" />
+					<span class="text-[15px] font-bold tracking-[0.04em] hidden xs:inline" dir="ltr">
+						FRAGMENT
+					</span>
+				</button>
 
-					<div class="text-center flex-1 px-3">
-						<h1 class="text-base font-black text-white flex items-center justify-center gap-1.5">
-							<span>{t('numReportPage.telegramAnonymousNumber')}</span>
-							<span class="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-[#2990ff]/20 text-[#2990ff] border border-[#2990ff]/30">
-								+888
-							</span>
-						</h1>
-						<p class="text-[11px] font-medium text-white/50">
-							{t('numReportPage.nvEngineV75Live')}
-						</p>
-					</div>
-
-					<div class="w-10 h-10 flex items-center justify-center">
-						<span class="text-[10px] font-mono font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded-xl">
-							{t('numReportPage.liveBadge')}
-						</span>
-					</div>
-				</div>
-
-				{/* 🔍 TOP INTERACTIVE NUMBER SEARCH BAR */}
-				<div class="frag-card-elevated rounded-2xl p-1.5 mb-2.5 flex items-center gap-2 shadow-lg">
-					<span class="material-symbols-outlined text-[#2990ff] ml-2 text-xl">dialpad</span>
+				{/* Inline Header Number Search Box */}
+				<form
+					onSubmit={(e) => {
+						e.preventDefault();
+						void handleRunAnalysis(inputNumber());
+					}}
+					class="flex-1 max-w-[300px] h-8 bg-[#242e38] hover:bg-[#293440] focus-within:bg-[#293440] rounded-[6px] px-2.5 flex items-center gap-1.5 transition-colors"
+					dir="ltr"
+				>
+					<span class="material-symbols-outlined text-[16px] text-[#8a98a6]">search</span>
 					<input
 						type="text"
 						value={inputNumber()}
 						onInput={(e) => setInputNumber(e.currentTarget.value)}
-						onKeyDown={(e) => {
-							if (e.key === 'Enter') {
-								void handleRunAnalysis(inputNumber());
-							}
-						}}
 						placeholder="+888 0888 8888"
-						class="bg-transparent text-white placeholder-white/30 text-xs font-mono font-bold flex-1 focus:outline-none px-2 py-1"
-						dir="ltr"
+						class="flex-1 min-w-0 bg-transparent text-[12.5px] font-mono font-semibold text-white placeholder:text-[#8a98a6] focus:outline-none"
 					/>
 					<Show when={inputNumber()}>
 						<button
 							type="button"
 							onClick={() => setInputNumber('')}
-							class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white flex items-center justify-center transition-all"
+							class="text-[#8c9aa9] hover:text-white"
 						>
-							<span class="material-symbols-outlined text-xs">close</span>
+							<span class="material-symbols-outlined text-[14px]">close</span>
 						</button>
 					</Show>
-					<button
-						type="button"
-						onClick={() => void handleRunAnalysis(inputNumber())}
-						disabled={isAnalyzing()}
-						class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#2990ff] to-[#007ebb] text-white font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-[#2990ff]/20 flex items-center gap-1"
-					>
-						<span>{t('numReportPage.appraise')}</span>
-						<span class="material-symbols-outlined text-xs">arrow_forward</span>
-					</button>
-				</div>
+				</form>
 
-				{/* ⚡ QUICK BENCHMARK CHIPS (REAL MINTED GRAILS & RESTRICTED SAMPLE) */}
-				<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 mb-3">
+				<button
+					type="button"
+					onClick={() => navigate('/numbers/intel')}
+					class="h-8 px-2.5 rounded-[6px] bg-[#293440] hover:bg-[#384553] text-white text-[12px] font-semibold flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+				>
+					<span class="material-symbols-outlined text-[15px] text-[#4db2ff]">table_chart</span>
+					<span class="hidden sm:inline">{t('home.numbersIntel')}</span>
+				</button>
+			</header>
+
+			<div class="max-w-[520px] mx-auto px-4 pt-4 flex flex-col gap-3.5 relative z-10">
+				{/* Quick Benchmark Pills */}
+				<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" dir="ltr">
 					<For each={QUICK_BENCHMARK_NUMBERS}>
 						{(item) => {
 							const isSelected = () =>
@@ -779,138 +382,113 @@ export const NumberReportPage: Component = () => {
 										setInputNumber(item.raw);
 										void handleRunAnalysis(item.raw);
 									}}
-									class={`shrink-0 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold transition-all flex items-center gap-1.5 ${
+									class={`shrink-0 px-2.5 py-1 rounded-[6px] text-[11.5px] font-mono font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
 										isSelected()
-											? 'bg-[#2990ff]/20 border-[#2990ff]/50 text-white shadow-sm shadow-[#2990ff]/20'
-											: 'bg-[#141a22]/90 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+											? 'bg-[#248bda] text-white'
+											: 'bg-[#212a33] hover:bg-[#293440] text-[#8c9aa9] hover:text-white'
 									}`}
 								>
-									<span class="font-mono font-black text-cyan-300" dir="ltr">
-										{item.raw}
-									</span>
-									<span class="text-white/40">|</span>
-									<span>{t(item.labelKey)}</span>
+									<span>{item.raw}</span>
 								</button>
 							);
 						}}
 					</For>
 				</div>
 
+				{/* Top Title Row: +888 XXXX XXXX + Status Badge on left, Fragment link on right */}
+				<div class="flex items-center justify-between gap-2 flex-wrap pt-1">
+					<div class="flex items-center gap-2.5 min-w-0" dir="ltr">
+						<h1 class="text-[22px] sm:text-[24px] font-bold font-mono text-white tracking-[-0.015em] truncate">
+							{displayNum()}
+						</h1>
+						<Show
+							when={
+								reportData()?.market_provenance?.is_restricted ||
+								reportData()?.on_chain_audit?.is_restricted
+							}
+							fallback={
+								<FragStatusPill
+									status={normalizeFragStatus(
+										reportData()?.live_listing?.status ||
+											(reportData()?.market_provenance?.is_minted === false
+												? 'unminted'
+												: 'available'),
+									)}
+								/>
+							}
+						>
+							<span class="px-2 py-0.5 rounded-[4px] bg-[#ff5863]/10 text-[#ff5863] text-[11.5px] font-semibold">
+								{t('numReportPage.restrictedTag') || 'Restricted'}
+							</span>
+						</Show>
+					</div>
+
+					<div class="flex items-center gap-3 shrink-0">
+						<Show when={isUnlocked() && reportData()}>
+							<button
+								type="button"
+								onClick={handleToggleWatchlist}
+								disabled={watchLoading()}
+								class="text-[13px] font-semibold text-[#4db2ff] hover:underline flex items-center gap-1 cursor-pointer"
+							>
+								<span class="material-symbols-outlined text-[15px]">
+									{isWatching() ? 'notifications_active' : 'notifications'}
+								</span>
+							</button>
+						</Show>
+						<a
+							href={`https://fragment.com/number/${cleanDigitsForUrl()}`}
+							target="_blank"
+							rel="noreferrer"
+							class="text-[13px] font-semibold text-[#4db2ff] hover:underline flex items-center gap-0.5"
+						>
+							<span>Fragment</span>
+							<span class="material-symbols-outlined text-[14px]">north_east</span>
+						</a>
+					</div>
+				</div>
+
 				<Show when={error()}>
-					<div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-3.5 mb-4 text-xs text-red-400 flex items-center gap-2">
-						<span class="material-symbols-outlined text-base">error</span>
+					<div class="bg-[#ff5863]/10 rounded-[8px] p-3 text-[12.5px] text-[#ff5863] flex items-center gap-2">
+						<span class="material-symbols-outlined text-[16px]">error</span>
 						<span>{error()}</span>
 					</div>
 				</Show>
 
-				{/* ═══════ 2. STATE 1: SCANNING ANIMATION ═══════ */}
+				{/* Loading State */}
 				<Show when={isAnalyzing()}>
-					<div class="frag-card-elevated rounded-[18px] p-8 mb-6 text-center relative overflow-hidden shadow-[0_12px_32px_rgba(0,0,0,0.38)]">
-						<div class="w-16 h-16 rounded-[16px] bg-gradient-to-tr from-[#2990ff] to-[#00c6ff] mx-auto mb-4 flex items-center justify-center shadow-lg shadow-[#2990ff]/40 animate-pulse">
-							<span class="material-symbols-outlined text-white text-3xl">psychology</span>
-						</div>
-
-						<h2 class="text-lg font-black text-white mb-1">{t('numbers.engineScanning')}</h2>
-						<p class="text-xs text-white/50 mb-6 font-mono font-bold">
-							{analysisSteps()[analysisStep()]}
-						</p>
-
-						<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
-							<div
-								class="h-full bg-gradient-to-r from-[#2990ff] to-emerald-400 rounded-full transition-all duration-500"
-								style={{ width: `${((analysisStep() + 1) / analysisSteps().length) * 100}%` }}
-							/>
-						</div>
-						<div class="text-[10px] text-white/40 font-mono">{t('numbers.telemintContracts')}</div>
+					<div class="frag-card p-8 text-center flex flex-col items-center gap-3">
+						<div class="w-8 h-8 rounded-full border-2 border-[#4db2ff]/25 border-t-[#4db2ff] animate-spin" />
+						<span class="text-[14px] font-semibold text-white">{t('numbers.engineScanning')}</span>
+						<span class="text-[12px] text-[#8794a1]">{t('numbers.telemintContracts')}</span>
 					</div>
 				</Show>
 
-				{/* ═══════ 3. STATE 2: PRE-UNLOCK CURIOSITY GATE & PAYWALL ═══════ */}
-				<Show when={!isAnalyzing() && !isUnlocked() && gateData()}>
-					<div class="mb-6 w-full max-w-[460px] mx-auto space-y-4">
-						<div class="frag-card-elevated border border-cyan-500/30 rounded-[16px] p-5 shadow-[0_12px_32px_rgba(0,0,0,0.38)] relative overflow-hidden text-start">
-							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-								<div class="flex items-center gap-2">
-									<div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
-										<span class="material-symbols-outlined text-lg">fact_check</span>
-									</div>
-									<div>
-										<h4 class="text-xs font-black text-white">
-											{t('numReportPage.preAppraisalIntelligenceReady')}
-										</h4>
-										<span class="text-[9px] font-bold text-cyan-400 font-mono" dir="ltr">
-											{gateData()?.display_number || validation().formatted}
-										</span>
-									</div>
-								</div>
-								<span class="text-[9px] font-mono font-black uppercase px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-									{t('numReportPage.readyBadge')}
+				{/* Pre-Unlock State */}
+				<Show when={!isAnalyzing() && !isUnlocked()}>
+					<div class="space-y-3.5">
+						<div class="frag-table-container">
+							<FragKV label="Anonymous Number" copyValue={displayNum()} accent>
+								<span class="font-mono" dir="ltr">
+									{displayNum()}
 								</span>
-							</div>
-
-							<div class="grid grid-cols-3 gap-2 text-center mb-3.5">
-								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
-									<span class="text-[9px] text-white/40 block mb-0.5">
-										{layaT(NUMBER_REPORT_I18N.signals)}
-									</span>
-									<span class="text-xs font-black text-cyan-300 font-mono">
-										{gateData()?.signals_analyzed || 48} {layaT(NUMBER_REPORT_I18N.pts)}
-									</span>
-								</div>
-								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
-									<span class="text-[9px] text-white/40 block mb-0.5">
-										{layaT(NUMBER_REPORT_I18N.onChainRisk)}
-									</span>
-									<span class="text-xs font-black text-emerald-400 font-mono">
-										{gateData()?.risks_identified === 0
-											? layaT(NUMBER_REPORT_I18N.cleanRisk)
-											: `${gateData()?.risks_identified} Warning`}
-									</span>
-								</div>
-								<div class="p-2 rounded-xl bg-black/40 border border-white/5">
-									<span class="text-[9px] text-white/40 block mb-0.5">
-										{layaT(NUMBER_REPORT_I18N.sources)}
-									</span>
-									<span class="text-xs font-black text-amber-300 font-mono">
-										{gateData()?.data_sources_count || 6} {layaT(NUMBER_REPORT_I18N.apis)}
-									</span>
-								</div>
-							</div>
-
-							<div class="p-3 rounded-2xl bg-white/[0.02] border border-white/5 relative overflow-hidden">
-								<div class="space-y-1.5 opacity-40 blur-[2px] select-none pointer-events-none">
-									<div class="flex justify-between items-center text-[10px]">
-										<span class="text-white/60">{t('numReportPage.previewFairValue')}</span>
-										<span class="font-mono text-cyan-400">█████ TON (≈ $████)</span>
-									</div>
-									<div class="flex justify-between items-center text-[10px]">
-										<span class="text-white/60">{t('numReportPage.previewBand')}</span>
-										<span class="font-mono text-amber-400">
-											{'████ — ████'} {t('common.ton')}
-										</span>
-									</div>
-									<div class="flex justify-between items-center text-[10px]">
-										<span class="text-white/60">{t('numReportPage.previewForensics')}</span>
-										<span class="font-mono text-emerald-400">0x████████████</span>
-									</div>
-								</div>
-								<div class="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
-									<span class="text-[10px] font-black text-white/90 bg-white/10 px-3 py-1 rounded-full border border-white/20 flex items-center gap-1">
-										<span class="material-symbols-outlined text-xs text-amber-400">lock</span>
-										<span>{layaT(NUMBER_REPORT_I18N.unlock1Credit)}</span>
-									</span>
-								</div>
-							</div>
+							</FragKV>
+							<FragKV label="Pattern Classification">
+								{validation().patternLabel || validation().tier}
+							</FragKV>
+							<FragKV label="Collection">Telegram Anonymous Numbers (+888)</FragKV>
+							<FragKV label="On-Chain Signals">
+								{gateData()?.signals_analyzed || 48} verified signals
+							</FragKV>
 						</div>
 
 						<UnifiedPaywallGate
 							vertical="number"
-							targetTitle={gateData()?.display_number || validation().formatted || inputNumber()}
+							targetTitle={displayNum()}
+							targetSubtitle={validation().patternLabel}
 							targetIcon="tag"
 							targetBadge={t('paywall.ready_for_appraisal')}
-							unlockCtaText={t('paywall.cta_unlock_specific', {
-								target: gateData()?.display_number || validation().formatted || inputNumber(),
-							})}
+							unlockCtaText={t('paywall.cta_unlock_specific', { target: displayNum() })}
 							onUnlock={handleUnlockWithCredit}
 							unlocking={loading()}
 							error={error()}
@@ -918,37 +496,31 @@ export const NumberReportPage: Component = () => {
 					</div>
 				</Show>
 
-				{/* ═══════ 4. STATE 3: UNLOCKED INSTITUTIONAL +888 REPORT ═══════ */}
-				<Show when={isUnlocked() && reportData()}>
-					<div class="space-y-4">
-						{/* 🚨 UNMINTED SUPPLY FREEZE ALERT BANNER (e.g. if user enters unminted +888 8888 8888) */}
-						<Show when={reportData()?.market_provenance?.is_minted === false}>
-							<div class="bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-[#12141C] border border-amber-400/50 rounded-[16px] p-4 shadow-xl text-start">
-								<div class="flex items-start gap-2.5">
-									<div class="w-9 h-9 rounded-2xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-300 shrink-0 mt-0.5">
-										<span class="material-symbols-outlined text-xl">ac_unit</span>
+				{/* Unlocked Report State */}
+				<Show when={!isAnalyzing() && isUnlocked() && reportData()}>
+					{(r) => (
+						<div class="space-y-3.5">
+							{/* Unminted Supply Alert (if number was never minted in Dec 2022) */}
+							<Show when={r().market_provenance?.is_minted === false}>
+								<div class="bg-[#212a33] border-l-4 border-[#ff9953] rounded-[8px] p-3.5 text-start space-y-2">
+									<div class="flex items-center justify-between gap-2">
+										<span class="text-[13px] font-semibold text-[#ff9953]">
+											{t('numReportPage.unmintedCombinationDec2022Supply')}
+										</span>
+										<span class="text-[11px] font-semibold px-2 py-0.5 rounded-[4px] bg-[#ff9953]/10 text-[#ff9953]">
+											Unminted
+										</span>
 									</div>
-									<div class="flex-1 min-w-0">
-										<div class="flex items-center justify-between gap-2 mb-1">
-											<span class="text-xs font-black text-amber-300">
-												{t('numReportPage.unmintedCombinationDec2022Supply')}
-											</span>
-											<span class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-200 border border-amber-400/40">
-												{t('numReportPage.supplyCapBadge')}
-											</span>
-										</div>
-										<p class="text-[11px] text-white/80 leading-relaxed mb-3">
-											{isRtl()
-												? reportData()?.market_provenance?.minted_status_reason_fa
-												: reportData()?.market_provenance?.minted_status_reason_en}
-										</p>
-										<div class="text-[10px] font-bold text-amber-200/90 mb-2">
-											{t('numReportPage.switchToVerifiedMintedEquivalents')}
-										</div>
-										<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-											<For
-												each={reportData()?.market_provenance?.suggested_minted_alternatives || []}
-											>
+									<p class="text-[12px] text-[#8794a1] leading-relaxed">
+										{isRtl()
+											? r().market_provenance?.minted_status_reason_fa
+											: r().market_provenance?.minted_status_reason_en}
+									</p>
+									<Show
+										when={(r().market_provenance?.suggested_minted_alternatives?.length || 0) > 0}
+									>
+										<div class="flex flex-wrap gap-1.5 pt-1" dir="ltr">
+											<For each={r().market_provenance?.suggested_minted_alternatives || []}>
 												{(alt) => (
 													<button
 														type="button"
@@ -956,1385 +528,423 @@ export const NumberReportPage: Component = () => {
 															setInputNumber(alt.display_number);
 															void handleRunAnalysis(alt.display_number);
 														}}
-														class="p-2.5 rounded-xl bg-black/50 hover:bg-amber-400/20 border border-amber-400/30 text-start transition-all active:scale-95"
+														class="px-2.5 py-1 rounded-[6px] bg-[#242e38] hover:bg-[#293440] text-[#4db2ff] font-mono text-[12px] font-semibold cursor-pointer"
 													>
-														<div class="font-mono font-black text-xs text-amber-300" dir="ltr">
-															{alt.display_number}
-														</div>
-														<div class="text-[9px] text-white/60 truncate mt-0.5">
-															{alt.label_fa}
-														</div>
+														{alt.display_number}
 													</button>
 												)}
 											</For>
 										</div>
-									</div>
+									</Show>
 								</div>
-							</div>
-						</Show>
+							</Show>
 
-						{/* 🚨 LIVE TELEGRAM RESTRICTION BANNER (tm-restricted-nft / number-warning) */}
-						<Show
-							when={
-								reportData()?.market_provenance?.is_restricted ||
-								reportData()?.on_chain_audit?.is_restricted
-							}
-						>
-							<div class="bg-gradient-to-br from-rose-500/20 via-rose-500/10 to-[#12141C] border border-rose-500/50 rounded-[16px] p-4 shadow-xl text-start">
-								<div class="flex items-start gap-2.5">
-									<div class="w-9 h-9 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0 mt-0.5">
-										<span class="material-symbols-outlined text-xl">gpp_bad</span>
-									</div>
-									<div class="flex-1 min-w-0">
-										<div class="flex items-center justify-between gap-2 mb-1">
-											<span class="text-xs font-black text-rose-300">
-												{t('numReportPage.officialWarningThisNumberIs')}
-											</span>
-											<span class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/40">
-												{t('numReportPage.restrictedTag')}
-											</span>
-										</div>
-										<p class="text-[11px] text-white/80 leading-relaxed">
-											{isRtl()
-												? reportData()?.market_provenance?.restriction_reason_fa ||
-													reportData()?.risk_audit?.restricted_guide
-												: reportData()?.market_provenance?.restriction_reason_en}
-										</p>
-									</div>
-								</div>
-							</div>
-						</Show>
-
-						{/* 💎 3D HOLOGRAPHIC HERO CARD WITH OFFICIAL NFT COLOR PLATE */}
-						<div
-							class={`w-full p-[2.5px] bg-gradient-to-br ${
-								getNumberTheme().wrapper
-							} rounded-[36px] my-1 relative z-20 transition-all duration-300 shadow-[0_12px_32px_rgba(0,0,0,0.38)]`}
-						>
-							<div
-								ref={cardRef}
-								onPointerMove={handlePointerMove}
-								onPointerLeave={handlePointerLeave}
-								onClick={handleCopyHeroNumber}
-								class="w-full bg-[#08090D] rounded-[34px] p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between gap-5 shadow-inner select-none cursor-pointer touch-pan-y will-change-transform group"
-								style={{
-									transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
-									'background-image':
-										'radial-gradient(rgba(255, 255, 255, 0.07) 1.5px, transparent 1.5px)',
-									'background-size': '22px 22px',
-									transition: 'transform 0.1s ease-out',
-								}}
+							{/* Restriction Warning Banner */}
+							<Show
+								when={r().market_provenance?.is_restricted || r().on_chain_audit?.is_restricted}
 							>
-								{/* Gloss Reflex Overlay */}
-								<div
-									class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-75"
-									style={{
-										background: `radial-gradient(circle at ${tilt().glossX}% ${
-											tilt().glossY
-										}%, rgba(255,255,255,0.32) 0%, transparent 60%)`,
-									}}
-								/>
-
-								{/* Top Header Stamp */}
-								<div class="flex justify-between items-center z-10 w-full gap-2" dir="ltr">
-									<div class="flex items-center gap-1.5 flex-wrap">
-										<span
-											class={`px-2.5 py-1 border rounded-xl text-[10px] font-black tracking-wider uppercase shadow-sm ${
-												getNumberTheme().badge
-											}`}
-										>
-											{reportData()?.pattern_anatomy?.club_name_en ||
-												reportData()?.category_club ||
-												`${getNumberTheme().name} TIER`}
-										</span>
-										<Show when={reportData()?.market_provenance?.color_hex}>
-											<span
-												class="px-2.5 py-1 rounded-xl border border-white/20 text-[10px] font-mono font-black text-white flex items-center gap-1.5 shadow-sm"
-												style={{
-													'background-color': `${reportData()?.market_provenance?.color_hex}33`,
-												}}
-											>
-												<span
-													class="w-2.5 h-2.5 rounded-full border border-white/40"
-													style={{
-														'background-color': reportData()?.market_provenance?.color_hex,
-													}}
-												/>
-												<span>
-													{reportData()?.market_provenance?.color_name_en} (
-													{reportData()?.market_provenance?.color_multiplier}x)
-												</span>
-											</span>
-										</Show>
+								<div class="bg-[#212a33] border-l-4 border-[#ff5863] rounded-[8px] p-3.5 text-start">
+									<div class="text-[13px] font-semibold text-[#ff5863] mb-1">
+										{t('numReportPage.officialWarningThisNumberIs')}
 									</div>
+									<p class="text-[12px] text-[#8794a1] leading-relaxed">
+										{isRtl()
+											? r().market_provenance?.restriction_reason_fa ||
+												r().risk_audit?.restricted_guide
+											: r().market_provenance?.restriction_reason_en}
+									</p>
+								</div>
+							</Show>
 
-									<span
-										class="text-[11px] font-mono font-black text-white/70 tracking-wider uppercase bg-white/5 border border-white/10 px-2.5 py-1 rounded-xl shadow-inner flex items-center gap-1 shrink-0"
-										dir="ltr"
-									>
-										<span class="material-symbols-outlined text-[13px] text-[#ffb340]">
-											emoji_events
-										</span>
-										<span>#{reportData()?.global_rank || 1}</span>
-										<span class="text-white/30">/</span>
-										<span class="text-white/40">136.5K</span>
+							{/* 1. Primary 3-Column Fragment Valuation Card (#212a33, 8px radius) */}
+							<div class="frag-table-container">
+								<div class="frag-table-header grid grid-cols-3 px-3.5 py-2">
+									<span>Liquidation</span>
+									<span>Fair Value</span>
+									<span class="text-end">Suggested Ask</span>
+								</div>
+								<div class="grid grid-cols-3 px-3.5 py-3.5 items-start gap-2">
+									<TonAmount
+										value={formatTon(r().low_ton)}
+										usd={formatUsd(r().low_usd)}
+										size="md"
+									/>
+									<TonAmount
+										value={formatTon(r().expected_ton)}
+										usd={formatUsd(r().expected_usd)}
+										size="lg"
+										tone="positive"
+									/>
+									<div class="flex justify-end">
+										<TonAmount
+											value={formatTon(r().high_ton)}
+											usd={formatUsd(r().high_usd)}
+											size="md"
+											class="items-end"
+										/>
+									</div>
+								</div>
+								<div class="px-3.5 py-2.5 border-t border-[#1a2026] flex items-center justify-between text-[12px] text-[#8c9aa9]">
+									<span>
+										Confidence: <strong class="text-white">{r().confidence_score || 92}%</strong>
+									</span>
+									<span>
+										Rank:{' '}
+										<strong class="text-[#4db2ff]">
+											#{r().global_rank?.toLocaleString() || '—'}
+										</strong>{' '}
+										/ 136.5K
+									</span>
+									<span>
+										Grade:{' '}
+										<strong class="text-[#5aec8c]">
+											{r().recommendation?.confidence_tier || 'A+'}
+										</strong>
 									</span>
 								</div>
-
-								{/* Center Hero: Official NFT Color Plate + Phone Number */}
-								<div class="flex flex-col justify-center items-center z-10 text-center relative py-3 w-full">
-									<div
-										class="absolute w-full h-[130px] opacity-75 -z-10 pointer-events-none blur-2xl"
-										style={{
-											background: `radial-gradient(ellipse 65% 65% at 50% 50%, ${
-												getNumberTheme().glow
-											}, transparent 70%)`,
-										}}
-									/>
-
-									<div
-										class="px-5 py-3 rounded-2xl border border-white/20 shadow-xl flex items-center justify-center gap-2 transition-transform group-hover:scale-[1.02]"
-										style={{
-											background: reportData()?.market_provenance?.color_hex
-												? `linear-gradient(135deg, ${reportData()!.market_provenance!.color_hex}dd, ${reportData()!.market_provenance!.color_hex}88)`
-												: 'rgba(255,255,255,0.06)',
-										}}
-										dir="ltr"
-									>
-										<span
-											class="font-black font-mono tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
-											style={{
-												'font-size': getNumberFontSize(
-													reportData()?.display_number || inputNumber(),
-												),
-											}}
-										>
-											{reportData()?.display_number || inputNumber()}
-										</span>
-									</div>
-
-									<div class="mt-2.5 flex items-center justify-center gap-2 flex-wrap">
-										<span class="text-[11px] font-bold text-white/70">
-											{isRtl()
-												? reportData()?.pattern_anatomy?.club_name_fa ||
-													reportData()?.category_club_fa
-												: reportData()?.pattern_anatomy?.club_name_en ||
-													reportData()?.category_club}
-										</span>
-										<Show when={copiedHeroNumber()}>
-											<span class="text-[10px] font-black text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
-												{t('numReportPage.copiedBadge')}
-											</span>
-										</Show>
-									</div>
-								</div>
-
-								{/* Bottom Valuation & Status Bar */}
-								<div class="flex justify-between items-end border-t border-white/10 pt-3.5 z-10 w-full gap-2">
-									<div class="flex flex-col gap-0.5 text-start min-w-0 flex-1">
-										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest truncate block">
-											{t('numReportPage.fairInstitutionalValue')}
-										</span>
-										<div class="flex items-center gap-1.5 flex-wrap" dir="ltr">
-											<span
-												class={`font-black text-white leading-none tracking-tight font-mono ${getTonPriceFontSize(reportData()?.expected_ton)}`}
-											>
-												{formatTon(reportData()?.expected_ton)}
-											</span>
-											<span class="text-xs font-black text-[#2990ff] leading-none">
-												{t('common.ton')}
-											</span>
-											<span class="text-xs text-white/60 font-bold font-mono">
-												(≈ {formatUsd(reportData()?.expected_usd)})
-											</span>
-										</div>
-									</div>
-
-									<div class="flex flex-col items-end gap-1 shrink-0">
-										<Show
-											when={
-												reportData()?.market_provenance?.is_minted !== false &&
-												!reportData()?.market_provenance?.is_restricted
-											}
-											fallback={
-												<div class="flex items-center gap-1.5 bg-rose-500/15 px-2.5 py-1 rounded-lg border border-rose-500/40 text-rose-300 font-black uppercase tracking-wider text-[9px]">
-													<div class="w-1.5 h-1.5 bg-rose-400 rounded-full animate-pulse" />
-													<span>
-														{reportData()?.market_provenance?.is_minted === false
-															? t('numReportPage.unminted')
-															: t('numReportPage.restricted')}
-													</span>
-												</div>
-											}
-										>
-											<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-2.5 py-1 rounded-lg border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-wider text-[9px]">
-												<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />
-												<span>{t('numReportPage.verifiedClean')}</span>
-											</div>
-										</Show>
-										<Show when={(reportData()?.market_provenance?.last_sale_ton || 0) > 0}>
-											<span class="text-[10px] text-amber-300 font-mono font-bold" dir="ltr">
-												Last Sale: {formatTon(reportData()?.market_provenance?.last_sale_ton)} TON (
-												{reportData()?.market_provenance?.last_sale_date})
-											</span>
-										</Show>
-									</div>
-								</div>
 							</div>
-						</div>
 
-						{/* 🧭 4-TAB INSTITUTIONAL NAVIGATION BAR */}
-						<div class="grid grid-cols-2 sm:grid-cols-4 gap-1 frag-dock p-1.5 rounded-[14px] sticky top-2 z-30">
-							<button
-								type="button"
-								onClick={() => setActiveTab('valuation')}
-								class={`py-2.5 px-2 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${
-									activeTab() === 'valuation'
-										? 'bg-[#2990ff] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
-										: 'text-white/60 hover:text-white hover:bg-white/5'
-								}`}
-							>
-								<span class="material-symbols-outlined text-sm">monitoring</span>
-								<span>{t('numReportPage.valuation')}</span>
-							</button>
+							{/* Primary Action Buttons */}
+							<div class="grid grid-cols-2 gap-2">
+								<a
+									href={
+										r().live_listing?.direct_url ||
+										r().fragment_direct_url ||
+										`https://fragment.com/number/${cleanDigitsForUrl()}`
+									}
+									target="_blank"
+									rel="noreferrer"
+									class="frag-btn-primary h-10 px-4 rounded-[8px] text-[13.5px] font-semibold flex items-center justify-center gap-1.5"
+								>
+									<span>View on Fragment</span>
+									<span class="material-symbols-outlined text-[15px]">north_east</span>
+								</a>
+								<button
+									type="button"
+									onClick={() => navigate('/numbers/mask')}
+									class="frag-btn-secondary h-10 px-4 rounded-[8px] text-[13.5px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+								>
+									<span class="material-symbols-outlined text-[16px] text-[#4db2ff]">dialpad</span>
+									<span>{t('numbers.maskBuilderTitle')}</span>
+								</button>
+							</div>
 
-							<button
-								type="button"
-								onClick={() => setActiveTab('forensics')}
-								class={`py-2.5 px-2 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${
-									activeTab() === 'forensics'
-										? 'bg-[#2990ff] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
-										: 'text-white/60 hover:text-white hover:bg-white/5'
-								}`}
-							>
-								<span class="material-symbols-outlined text-sm">memory</span>
-								<span>{t('numReportPage.binaryDtmf')}</span>
-							</button>
-
-							<button
-								type="button"
-								onClick={() => setActiveTab('onchain')}
-								class={`py-2.5 px-2 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${
-									activeTab() === 'onchain'
-										? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25'
-										: 'text-white/60 hover:text-white hover:bg-white/5'
-								}`}
-							>
-								<span class="material-symbols-outlined text-sm">verified_user</span>
-								<span>
-									{t('numReportPage.onChain')} ({(reportData()?.onchain_history || []).length})
-								</span>
-							</button>
-
-							<button
-								type="button"
-								onClick={() => setActiveTab('siblings')}
-								class={`py-2.5 px-2 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${
-									activeTab() === 'siblings'
-										? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/25'
-										: 'text-white/60 hover:text-white hover:bg-white/5'
-								}`}
-							>
-								<span class="material-symbols-outlined text-sm">hub</span>
-								<span>
-									{t('numReportPage.patternPeers')} ({(reportData()?.pattern_siblings || []).length}
-									)
-								</span>
-							</button>
-						</div>
-
-						{/* ═══════════════════════════════════════════════════════════════════════════
-						    TAB 1: VALUATION & ECONOMICS
-						   ═══════════════════════════════════════════════════════════════════════════ */}
-						<Show when={activeTab() === 'valuation'}>
-							<div class="space-y-4">
-								{/* 🐋 WHALE VANITY ASK ALERT */}
-								<Show when={reportData()?.live_listing?.is_vanity_ask}>
-									<div class="bg-amber-500/10 border border-amber-400/40 rounded-2xl p-4 text-start">
-										<div class="flex items-center justify-between mb-1">
-											<span class="text-xs font-black text-amber-300 flex items-center gap-1.5">
-												<span class="material-symbols-outlined text-base">warning</span>
-												<span>{t('numReportPage.whaleVanityAskFiltered')}</span>
-											</span>
-											<span class="text-[10px] font-mono font-black text-amber-300" dir="ltr">
-												Listed: {formatTon(reportData()?.live_listing?.ask_or_bid_ton)} TON
-											</span>
-										</div>
-										<p class="text-[11px] text-white/75 leading-relaxed">
-											{t('numReportPage.whaleVanitySummary', {
-												ask: formatTon(reportData()?.live_listing?.ask_or_bid_ton),
-												lastSale: formatTon(reportData()?.market_provenance?.last_sale_ton),
-												fair: formatTon(reportData()?.expected_ton),
-											})}
-										</p>
-									</div>
-								</Show>
-
-								{/* 📊 4 VALUATION FIGURES GRID */}
-								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
-									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-										<h3 class="text-xs font-black text-white flex items-center gap-2">
-											<span class="material-symbols-outlined text-[#2990ff] text-base">
-												monitoring
-											</span>
-											<span>{layaT(NUMBER_REPORT_I18N.fourFigureMatrix)}</span>
-										</h3>
-										<span
-											class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20"
-											dir="ltr"
-										>
-											{reportData()?.confidence_score}% Confidence
-										</span>
-									</div>
-
-									<div class="grid grid-cols-2 gap-2.5 my-3">
-										<div class="p-3.5 rounded-2xl bg-gradient-to-br from-[#2990ff]/15 via-black/40 to-black/60 border border-[#2990ff]/40 shadow-lg shadow-[#2990ff]/10 flex flex-col justify-between">
-											<div class="flex items-center justify-between mb-1">
-												<span class="text-[9px] uppercase font-black text-[#2990ff]">
-													{layaT(NUMBER_REPORT_I18N.fairValue)}
-												</span>
-												<span class="w-2 h-2 rounded-full bg-[#2990ff] animate-pulse" />
-											</div>
-											<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
-												{formatTon(reportData()?.expected_ton)}{' '}
-												<span class="text-xs text-[#2990ff]">{t('common.ton')}</span>
-											</div>
-											<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
-												≈ {formatUsd(reportData()?.expected_usd)}
-											</span>
-										</div>
-
-										<div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-between">
-											<div class="flex items-center justify-between mb-1">
-												<span class="text-[9px] uppercase font-black text-amber-300">
-													{layaT(NUMBER_REPORT_I18N.suggestedAsk)}
-												</span>
-												<span class="material-symbols-outlined text-xs text-amber-400">sell</span>
-											</div>
-											<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
-												{formatTon(reportData()?.suggested_ask_ton)}{' '}
-												<span class="text-xs text-amber-400">{t('common.ton')}</span>
-											</div>
-											<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
-												≈ {formatUsd(reportData()?.suggested_ask_usd)}
-											</span>
-										</div>
-
-										<div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-between">
-											<div class="flex items-center justify-between mb-1">
-												<span class="text-[9px] uppercase font-black text-rose-400">
-													{layaT(NUMBER_REPORT_I18N.liquidation)}
-												</span>
-												<span class="material-symbols-outlined text-xs text-rose-400">
-													flash_on
-												</span>
-											</div>
-											<div class="font-mono font-black text-white text-base sm:text-lg" dir="ltr">
-												{formatTon(reportData()?.liquidation_ton)}{' '}
-												<span class="text-xs text-rose-400">{t('common.ton')}</span>
-											</div>
-											<span class="text-[10px] text-white/50 font-mono mt-0.5" dir="ltr">
-												≈ {formatUsd(reportData()?.liquidation_usd)}
-											</span>
-										</div>
-
-										<div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-between">
-											<div class="flex items-center justify-between mb-1">
-												<span class="text-[9px] uppercase font-black text-emerald-400">
-													{layaT(NUMBER_REPORT_I18N.uncertaintyBand)}
-												</span>
-												<span class="material-symbols-outlined text-xs text-emerald-400">
-													sync_alt
-												</span>
-											</div>
-											<div
-												class="font-mono font-black text-white text-xs sm:text-sm truncate"
-												dir="ltr"
-											>
-												{formatTon(reportData()?.low_ton)} - {formatTon(reportData()?.high_ton)}{' '}
-												<span class="text-[10px] text-emerald-400">{t('common.ton')}</span>
-											</div>
-											<span class="text-[9px] text-white/40 mt-0.5">
-												{layaT(NUMBER_REPORT_I18N.madSigmaBounds)}
-											</span>
-										</div>
-									</div>
-
-									<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-[11px] text-white/75 leading-relaxed">
-										<div class="font-bold text-cyan-300 mb-0.5">
-											{t('numReportPage.executiveValuationVerdict')}
-										</div>
-										<div>
-											{isRtl()
-												? reportData()?.recommendation?.summary_fa
-												: reportData()?.recommendation?.summary_en}
-										</div>
-										<div
-											class="mt-2 pt-2 border-t border-white/5 text-[10px] font-mono text-white/45"
-											dir="ltr"
-										>
-											Basis: {reportData()?.price_basis}
-										</div>
-									</div>
-								</div>
-
-								{/* 📈 HISTORICAL PRICE & FLOOR-MULTIPLE TRAJECTORY SVG CHART */}
-								<Show when={(reportData()?.price_trajectory || []).length > 0}>
-									<div class="frag-card-elevated border border-cyan-500/30 rounded-[16px] p-5 shadow-xl text-start">
-										<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-2">
-											<div>
-												<h3 class="text-xs font-black text-white flex items-center gap-2">
-													<span class="material-symbols-outlined text-cyan-400 text-base">
-														show_chart
-													</span>
-													<span>{t('numReportPage.onChainPriceFloorMultiple')}</span>
-												</h3>
-												<p class="text-[10px] text-white/50 mt-0.5">
-													{t('numReportPage.completeLifecycleTrajectoryFromDec')}
-												</p>
-											</div>
-											<span
-												class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-												dir="ltr"
-											>
-												{
-													reportData()?.price_trajectory?.[
-														(reportData()?.price_trajectory?.length || 2) - 2
-													]?.floor_multiple
-												}
-												× FLOOR
-											</span>
-										</div>
-
-										{/* SVG Trajectory Curve */}
-										{(() => {
-											const pts = reportData()?.price_trajectory || [];
-											const maxTon = Math.max(...pts.map((p) => p.price_ton), 100);
-											const minTon = Math.min(...pts.map((p) => p.price_ton), 0);
-											const span = Math.max(1, maxTon - minTon);
-											const coords = pts.map((p, i) => {
-												const x =
-													pts.length === 1 ? 180 : Math.round(28 + (i / (pts.length - 1)) * 304);
-												const y = Math.round(102 - ((p.price_ton - minTon) / span) * 74);
-												return { ...p, x, y };
-											});
-											const linePath = coords
-												.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`)
-												.join(' ');
-											const areaPath =
-												coords.length > 1
-													? `${linePath} L ${coords[coords.length - 1].x} 116 L ${coords[0].x} 116 Z`
-													: '';
-
-											return (
-												<div>
-													<div class="frag-inset rounded-[12px] p-3 mb-3" dir="ltr">
-														<svg viewBox="0 0 360 128" class="w-full h-32 overflow-visible">
-															<defs>
-																<linearGradient id="trajGrad888" x1="0" y1="0" x2="0" y2="1">
-																	<stop offset="0%" stop-color="#2990ff" stop-opacity="0.42" />
-																	<stop offset="100%" stop-color="#2990ff" stop-opacity="0.0" />
-																</linearGradient>
-															</defs>
-															<line
-																x1="20"
-																y1="28"
-																x2="340"
-																y2="28"
-																stroke="rgba(255,255,255,0.06)"
-																stroke-dasharray="3 3"
-															/>
-															<line
-																x1="20"
-																y1="65"
-																x2="340"
-																y2="65"
-																stroke="rgba(255,255,255,0.06)"
-																stroke-dasharray="3 3"
-															/>
-															<line
-																x1="20"
-																y1="102"
-																x2="340"
-																y2="102"
-																stroke="rgba(255,255,255,0.06)"
-																stroke-dasharray="3 3"
-															/>
-															{areaPath && <path d={areaPath} fill="url(#trajGrad888)" />}
-															<path
-																d={linePath}
-																fill="none"
-																stroke="#2990ff"
-																stroke-width="2.5"
-																stroke-linecap="round"
-																stroke-linejoin="round"
-															/>
-															<For each={coords}>
-																{(pt) => (
-																	<g>
-																		<circle
-																			cx={pt.x}
-																			cy={pt.y}
-																			r={pt.point_type === 'FairValue' ? '5.5' : '4'}
-																			fill={
-																				pt.point_type === 'Mint'
-																					? '#f59e0b'
-																					: pt.point_type === 'Sale'
-																						? '#10b981'
-																						: pt.point_type === 'FairValue'
-																							? '#2990ff'
-																							: '#a855f7'
-																			}
-																			stroke="#08090D"
-																			stroke-width="1.5"
-																		/>
-																		<text
-																			x={pt.x}
-																			y={Math.max(14, pt.y - 9)}
-																			text-anchor="middle"
-																			fill="#ffffff"
-																			font-size="8.5"
-																			font-family="monospace"
-																			font-weight="bold"
-																		>
-																			{formatTon(pt.price_ton)}T
-																		</text>
-																		<text
-																			x={pt.x}
-																			y="123"
-																			text-anchor="middle"
-																			fill="rgba(255,255,255,0.5)"
-																			font-size="7.5"
-																			font-family="monospace"
-																		>
-																			{pt.date}
-																		</text>
-																	</g>
-																)}
-															</For>
-														</svg>
-													</div>
-
-													<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-														<For each={pts.slice(-4)}>
-															{(pt) => (
-																<div class="p-2.5 rounded-xl bg-black/40 border border-white/5 text-center">
-																	<span class="text-[9px] text-white/45 block truncate">
-																		{isRtl() ? pt.label_fa : pt.label}
-																	</span>
-																	<span
-																		class="text-xs font-mono font-black text-white block mt-0.5"
-																		dir="ltr"
-																	>
-																		{formatTon(pt.price_ton)} TON
-																	</span>
-																	<span class="text-[9px] font-mono text-cyan-300 block" dir="ltr">
-																		{pt.floor_multiple}× Floor ({formatUsd(pt.price_usd)})
-																	</span>
-																</div>
-															)}
-														</For>
-													</div>
-												</div>
-											);
-										})()}
-									</div>
-								</Show>
-
-								{/* 🐋 OWNER COST-BASIS, UNREALIZED PNL & SELLER NEGOTIATION LEVERAGE */}
-								<Show when={reportData()?.owner_intelligence}>
-									<div class="frag-card-elevated border border-amber-500/30 rounded-[16px] p-5 shadow-xl text-start">
-										<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-2">
-											<div>
-												<h3 class="text-xs font-black text-white flex items-center gap-2">
-													<span class="material-symbols-outlined text-amber-400 text-base">
-														account_balance_wallet
-													</span>
-													<span>{t('numReportPage.ownerCostBasisUnrealizedPnl')}</span>
-												</h3>
-												<p class="text-[10px] text-white/50 mt-0.5">
-													{isRtl()
-														? reportData()?.owner_intelligence?.holder_tier_fa
-														: reportData()?.owner_intelligence?.holder_tier_en}
-												</p>
-											</div>
-											<span
-												class="text-[9px] font-mono font-black px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30"
-												dir="ltr"
-											>
-												{reportData()?.owner_intelligence?.total_numbers_held || 1}× +888 HELD
-											</span>
-										</div>
-
-										<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-center">
-											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block mb-0.5">
-													{t('numReportPage.ownerEntryCost')}
-												</span>
-												<span class="text-xs font-mono font-black text-white block" dir="ltr">
-													{formatTon(reportData()?.owner_intelligence?.entry_cost_ton)} TON
-												</span>
-												<span class="text-[9px] text-white/40 font-mono" dir="ltr">
-													{reportData()?.owner_intelligence?.entry_type} •{' '}
-													{formatUsd(reportData()?.owner_intelligence?.entry_cost_usd)}
-												</span>
-											</div>
-
-											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block mb-0.5">
-													{t('numReportPage.ownerUnrealizedPnl')}
-												</span>
+							{/* 2. Fragment Key-Value Metadata Card (.tm-list) */}
+							<div class="frag-table-container">
+								<FragKV label="Anonymous Number" copyValue={displayNum()} accent>
+									<span class="font-mono" dir="ltr">
+										{displayNum()}
+									</span>
+								</FragKV>
+								<FragKV label="Pattern Club">
+									{r().pattern_anatomy?.club_name_en ||
+										r().category_club ||
+										validation().patternLabel}
+								</FragKV>
+								<Show when={r().market_provenance?.color_name_en}>
+									<FragKV label="NFT Artwork Plate">
+										<span class="inline-flex items-center gap-1.5">
+											<Show when={r().market_provenance?.color_hex}>
 												<span
-													class={`text-xs font-mono font-black block ${
-														(reportData()?.owner_intelligence?.unrealized_pnl_ton || 0) >= 0
-															? 'text-emerald-400'
-															: 'text-rose-400'
-													}`}
-													dir="ltr"
-												>
-													{(reportData()?.owner_intelligence?.unrealized_pnl_ton || 0) >= 0
-														? '+'
-														: ''}
-													{formatTon(reportData()?.owner_intelligence?.unrealized_pnl_ton)} TON
-												</span>
-												<span class="text-[9px] text-emerald-300/80 font-mono" dir="ltr">
-													{(reportData()?.owner_intelligence?.unrealized_pnl_pct || 0) >= 0
-														? '+'
-														: ''}
-													{reportData()?.owner_intelligence?.unrealized_pnl_pct}% ROI
-												</span>
-											</div>
-
-											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block mb-0.5">
-													{t('numReportPage.ownerLiquidTon')}
-												</span>
-												<span class="text-xs font-mono font-black text-cyan-300 block" dir="ltr">
-													{formatTon(reportData()?.owner_intelligence?.liquid_balance_ton)} TON
-												</span>
-												<span class="text-[9px] text-white/40 font-mono" dir="ltr">
-													≈ {formatUsd(reportData()?.owner_intelligence?.liquid_balance_usd)}
-												</span>
-											</div>
-
-											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block mb-0.5">
-													{t('numReportPage.sellerFlexibility')}
-												</span>
-												<span class="text-xs font-mono font-black text-amber-300 block" dir="ltr">
-													{reportData()?.owner_intelligence?.seller_negotiation_score}/100
-												</span>
-												<span class="text-[9px] text-white/40">
-													{(reportData()?.owner_intelligence?.seller_negotiation_score || 50) >= 60
-														? t('numReportPage.flexible')
-														: t('numReportPage.diamondHands')}
-												</span>
-											</div>
-										</div>
-
-										<div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-white/85 leading-relaxed">
-											<div class="font-black text-amber-300 mb-0.5">
-												{t('numReportPage.negotiationStrategyHeading')}
-												{isRtl() && reportData()?.owner_intelligence?.negotiation_stance_fa
-													? ` (${reportData()?.owner_intelligence?.negotiation_stance_fa})`
-													: ''}
-												:
-											</div>
-											<div>{reportData()?.owner_intelligence?.negotiation_strategy_fa}</div>
-										</div>
-									</div>
-								</Show>
-
-								{/* 🤝 FRAGMENT MAKE-AN-OFFER (0.05% FEE) & 5% PROTOCOL NET PROCEEDS SIMULATOR */}
-								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
-									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-										<h3 class="text-xs font-black text-white flex items-center gap-2">
-											<span class="material-symbols-outlined text-emerald-400 text-base">
-												handshake
+													class="w-2.5 h-2.5 rounded-full inline-block"
+													style={{
+														'background-color': r().market_provenance?.color_hex,
+													}}
+												/>
+											</Show>
+											<span>
+												{r().market_provenance?.color_name_en} (
+												{r().market_provenance?.color_multiplier || 1}x)
 											</span>
-											<span>{t('numReportPage.fragmentMakeAnOffer0')}</span>
-										</h3>
-										<span class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-											{t('numReportPage.offerFeeBadge')}
 										</span>
+									</FragKV>
+								</Show>
+								<Show when={r().live_listing?.ask_or_bid_ton}>
+									<FragKV label="Live Market Ask / Bid">
+										<TonAmount
+											value={formatTon(r().live_listing?.ask_or_bid_ton)}
+											usd={formatUsd(r().live_listing?.ask_or_bid_usd)}
+											size="sm"
+										/>
+									</FragKV>
+								</Show>
+								<Show
+									when={
+										r().on_chain_audit?.real_owner_address ||
+										r().telemint_provenance?.real_owner_address ||
+										r().market_provenance?.owner_address
+									}
+								>
+									{(ownerAddr) => (
+										<FragKV
+											label="Owner Wallet"
+											copyValue={ownerAddr()}
+											href={`https://tonviewer.com/${ownerAddr()}`}
+											accent
+										>
+											<span class="font-mono">{shortAddr(ownerAddr())}</span>
+										</FragKV>
+									)}
+								</Show>
+							</div>
+
+							{/* 3. Clean 3-Tab Fragment Section Bar */}
+							<div class="flex items-center border-b border-[#293440] gap-5 px-1 pt-1">
+								<For
+									each={
+										[
+											{ id: 'valuation', label: 'Valuation & Offer' },
+											{
+												id: 'siblings',
+												label: `Comparables (${(r().comps?.length || 0) + (r().pattern_siblings?.length || 0)})`,
+											},
+											{ id: 'onchain', label: 'History & On-Chain' },
+										] as const
+									}
+								>
+									{(tab) => {
+										const active = () => activeTab() === tab.id;
+										return (
+											<button
+												type="button"
+												onClick={() => {
+													try {
+														haptic.selection();
+													} catch {}
+													setActiveTab(tab.id);
+												}}
+												class={`relative pb-2.5 text-[13.5px] font-semibold transition-colors cursor-pointer ${
+													active() ? 'text-white' : 'text-[#8c9aa9] hover:text-white'
+												}`}
+											>
+												<span>{tab.label}</span>
+												<Show when={active()}>
+													<span class="absolute inset-x-0 bottom-0 h-[3px] bg-[#248bda] rounded-t-[3px]" />
+												</Show>
+											</button>
+										);
+									}}
+								</For>
+							</div>
+
+							{/* TAB 1: VALUATION & INTERACTIVE OFFER CALCULATOR */}
+							<Show when={activeTab() === 'valuation'}>
+								<div class="space-y-3.5">
+									<div class="frag-table-container">
+										<div class="frag-table-header px-3.5 py-2">
+											<span>Empirical Valuation Band</span>
+										</div>
+										<FragKV label="Collection Floor (+888)">
+											<TonAmount value={formatTon(r().base_price_ton)} size="sm" />
+										</FragKV>
+										<FragKV label="P10 Liquidation Value">
+											<TonAmount
+												value={formatTon(r().liquidation_ton || r().low_ton)}
+												usd={formatUsd(r().liquidation_usd || r().low_usd)}
+												size="sm"
+											/>
+										</FragKV>
+										<FragKV label="P50 Fair Market Value">
+											<TonAmount
+												value={formatTon(r().expected_ton)}
+												usd={formatUsd(r().expected_usd)}
+												size="sm"
+												tone="positive"
+											/>
+										</FragKV>
+										<FragKV label="P90 Strategic Ask">
+											<TonAmount
+												value={formatTon(r().suggested_ask_ton || r().high_ton)}
+												usd={formatUsd(r().suggested_ask_usd || r().high_usd)}
+												size="sm"
+											/>
+										</FragKV>
+										<FragKV label="Liquidity & Exit Horizon">
+											{r().liquidity?.liquidity_rating || 'High'} ·{' '}
+											{r().liquidity?.estimated_sell_days || '2–5 days'}
+										</FragKV>
 									</div>
 
-									<div class="mb-3">
-										<div class="flex items-center justify-between text-[11px] mb-1.5">
-											<span class="text-white/60">
-												{t('numReportPage.offerPercentageOfFairValue')}
+									{/* Minimalist Fragment Offer Calculator */}
+									<div class="frag-card p-3.5 space-y-3">
+										<div class="flex items-center justify-between">
+											<span class="text-[13.5px] font-semibold text-white">
+												Make an Offer Calculator ({customOfferPct()}%)
 											</span>
-											<span class="font-mono font-black text-cyan-300" dir="ltr">
-												{customOfferPct()}% ({formatTon(simulatedOfferStats().offerTon)} TON)
-											</span>
+											<TonAmount
+												value={formatTon(simulatedOfferStats().offerTon)}
+												usd={formatUsd(simulatedOfferStats().offerUsd)}
+												size="sm"
+												tone="positive"
+											/>
 										</div>
 										<input
 											type="range"
 											min="75"
-											max="125"
+											max="115"
 											step="1"
 											value={customOfferPct()}
-											onInput={(e) => setCustomOfferPct(Number(e.currentTarget.value))}
-											class="w-full accent-[#2990ff] cursor-pointer"
+											onInput={(e) => setCustomOfferPct(parseInt(e.currentTarget.value, 10))}
+											class="w-full accent-[#248bda] cursor-pointer"
 										/>
-									</div>
-
-									<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.yourOffer')}
-											</span>
-											<span class="text-xs font-mono font-black text-white block" dir="ltr">
-												{formatTon(simulatedOfferStats().offerTon)} TON
-											</span>
-											<span class="text-[9px] text-white/40 font-mono" dir="ltr">
-												{formatUsd(simulatedOfferStats().offerUsd)}
-											</span>
-										</div>
-
-										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.offerFee005')}
-											</span>
-											<span class="text-xs font-mono font-black text-amber-300 block" dir="ltr">
-												{simulatedOfferStats().feeTon} TON
-											</span>
-											<span class="text-[9px] text-white/40">
-												{t('numReportPage.fragmentContractLabel')}
-											</span>
-										</div>
-
-										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.sellerNet5')}
-											</span>
-											<span class="text-xs font-mono font-black text-emerald-400 block" dir="ltr">
-												{formatTon(simulatedOfferStats().sellerNetTon)} TON
-											</span>
-											<span class="text-[9px] text-white/40 font-mono" dir="ltr">
-												{formatUsd(simulatedOfferStats().sellerNetUsd)}
-											</span>
-										</div>
-
-										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.acceptanceOdds')}
-											</span>
-											<span class="text-xs font-mono font-black text-cyan-300 block" dir="ltr">
-												{simulatedOfferStats().acceptProb}%
-											</span>
-											<span class="text-[9px] text-white/40">
-												{simulatedOfferStats().acceptProb >= 75 ? 'High' : 'Moderate'}
-											</span>
-										</div>
-									</div>
-								</div>
-
-								{/* 💸 TRANSACTION FINANCIAL ENGINEERING & 5% PROTOCOL FEE */}
-								<NumberFinancialEngineeringCard
-									expectedTon={reportData()?.expected_ton ? Number(reportData()!.expected_ton) : 0}
-									expectedUsd={reportData()?.expected_usd}
-									tonUsdRate={reportData()?.ton_usd_rate}
-								/>
-
-								{/* 📈 MARKET DEPTH, RENTAL YIELD & SELLING PROBABILITIES */}
-								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
-									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-										<h3 class="text-xs font-black text-white flex items-center gap-2">
-											<span class="material-symbols-outlined text-[#2990ff] text-base">
-												waterfall_chart
-											</span>
-											<span>{t('numReportPage.liquidityDepthRentalYieldSelling')}</span>
-										</h3>
-										<span class="text-[9px] uppercase font-mono font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-md">
-											~{reportData()?.rental_yield?.est_apy || 9.8}% APY
-										</span>
-									</div>
-
-									<div class="grid grid-cols-3 gap-2 mb-3 text-center">
-										<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.clubFloor')}
-											</span>
-											<span class="text-xs font-mono font-black text-white" dir="ltr">
-												{formatTon(reportData()?.market_depth?.club_floor_ton)} TON
-											</span>
-										</div>
-										<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.estMonthlyRent')}
-											</span>
-											<span class="text-xs font-mono font-black text-emerald-400" dir="ltr">
-												~{formatTon(reportData()?.rental_yield?.monthly_yield_ton)} TON
-											</span>
-										</div>
-										<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.defiCollateral')}
-											</span>
-											<span class="text-xs font-mono font-black text-cyan-300" dir="ltr">
-												{formatTon(reportData()?.collateral_value_ton)} TON
-											</span>
-										</div>
-									</div>
-
-									<div class="grid grid-cols-3 gap-2 text-center">
-										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.k_7DaySaleProb')}
-											</span>
-											<span class="text-xs font-black font-mono text-amber-400">
-												{reportData()?.selling_probabilities?.p_7d ?? 85}%
-											</span>
-										</div>
-										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.k_30DaySaleProb')}
-											</span>
-											<span class="text-xs font-black font-mono text-cyan-400">
-												{reportData()?.selling_probabilities?.p_30d ?? 96}%
-											</span>
-										</div>
-										<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.k_90DaySaleProb')}
-											</span>
-											<span class="text-xs font-black font-mono text-emerald-400">
-												{reportData()?.selling_probabilities?.p_90d ?? 99}%
-											</span>
-										</div>
-									</div>
-								</div>
-							</div>
-						</Show>
-
-						{/* ═══════════════════════════════════════════════════════════════════════════
-						    TAB 2: BINARY, 4-BIT BCD, ITU-T Q.23 DTMF ACOUSTICS & PATTERN DNA
-						   ═══════════════════════════════════════════════════════════════════════════ */}
-						<Show when={activeTab() === 'forensics'}>
-							<div class="space-y-4">
-								{/* 🎹 INTERACTIVE 3x4 KEYPAD TRAJECTORY & WEB AUDIO DTMF SYNTHESIZER */}
-								<div class="frag-card-elevated border border-purple-500/30 rounded-[16px] p-5 shadow-xl text-start">
-									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-2">
-										<div>
-											<h3 class="text-xs font-black text-white flex items-center gap-2">
-												<span class="material-symbols-outlined text-purple-400 text-base">
-													graphic_eq
-												</span>
-												<span>{t('numReportPage.ituTQ23Dtmf')}</span>
-											</h3>
-											<p class="text-[10px] text-white/50 mt-0.5">
-												{isRtl()
-													? reportData()?.binary_forensics?.keypad_geometry_class_fa
-													: reportData()?.binary_forensics?.keypad_geometry_class_en}
-											</p>
-										</div>
-
-										<button
-											type="button"
-											onClick={handlePlayFullDtmfSequence}
-											class={`px-3 py-1.5 rounded-xl text-[11px] font-black flex items-center gap-1.5 transition-all active:scale-95 ${
-												isPlayingDtmf()
-													? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
-													: 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 hover:brightness-110'
-											}`}
-										>
-											<span class="material-symbols-outlined text-sm">
-												{isPlayingDtmf() ? 'stop_circle' : 'volume_up'}
-											</span>
+										<div class="flex items-center justify-between text-[12px] text-[#8c9aa9] pt-1 border-t border-[#1a2026]">
+											<span>Protocol Fee (5%): {simulatedOfferStats().protocolFeeTon} TON</span>
 											<span>
-												{isPlayingDtmf()
-													? t('numReportPage.stopAudio')
-													: t('numReportPage.playDtmfDialTones')}
+												Seller Net:{' '}
+												<strong class="text-white">
+													{formatTon(simulatedOfferStats().sellerNetTon)} TON
+												</strong>
 											</span>
-										</button>
-									</div>
-
-									{/* Interactive Digit Sequence Strip (Click any digit to hear its dual-frequency tone) */}
-									<div class="mb-4">
-										<div class="text-[10px] text-white/50 mb-1.5">
-											{t('numReportPage.clickAnyDigitCellTo')}
 										</div>
-										<div class="grid grid-cols-4 sm:grid-cols-8 gap-1.5" dir="ltr">
-											<For each={reportData()?.binary_forensics?.digits_matrix || []}>
-												{(cell, idx) => (
+									</div>
+								</div>
+							</Show>
+
+							{/* TAB 2: COMPARABLE SALES & PATTERN SIBLINGS */}
+							<Show when={activeTab() === 'siblings'}>
+								<div class="space-y-3.5">
+									<div class="frag-table-container">
+										<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
+											<span class="col-span-6">Number</span>
+											<span class="col-span-3">Price</span>
+											<span class="col-span-3 text-end">Date / Status</span>
+										</div>
+										<Show
+											when={(r().comps?.length || 0) > 0 || (r().pattern_siblings?.length || 0) > 0}
+											fallback={
+												<div class="p-6 text-center text-[13px] text-[#8c9aa9]">
+													No comparable sales recorded for this pattern.
+												</div>
+											}
+										>
+											<For each={r().comps || []}>
+												{(comp) => (
 													<button
 														type="button"
 														onClick={() => {
-															setActiveDtmfIndex(idx());
-															playSingleDtmfTone(cell.dtmf_row_hz, cell.dtmf_col_hz, 210);
+															setInputNumber(comp.number);
+															void handleRunAnalysis(comp.number);
 														}}
-														class={`p-2 rounded-xl border text-center transition-all ${
-															activeDtmfIndex() === idx()
-																? 'bg-purple-500/30 border-purple-400 scale-105 shadow-md shadow-purple-500/30'
-																: 'bg-black/40 border-white/10 hover:border-purple-400/50'
-														}`}
+														class="frag-table-row w-full grid grid-cols-12 items-center px-3.5 py-2.5 text-start cursor-pointer"
 													>
-														<div class="text-base font-mono font-black text-white">
-															{cell.digit}
+														<div
+															class="col-span-6 font-mono font-semibold text-[13px] text-white truncate"
+															dir="ltr"
+														>
+															{comp.number}
 														</div>
-														<div class="text-[8px] font-mono text-purple-300">
-															{cell.dtmf_row_hz}+{cell.dtmf_col_hz}Hz
+														<div class="col-span-3">
+															<TonAmount value={formatTon(comp.price_ton)} size="sm" />
 														</div>
-														<div class="text-[8px] font-mono text-emerald-400 mt-0.5">
-															BCD {cell.bcd_nibble}
+														<div class="col-span-3 text-end text-[11.5px] text-[#8c9aa9] truncate">
+															{comp.sale_date}
 														</div>
 													</button>
 												)}
 											</For>
-										</div>
-									</div>
-
-									{/* 3x4 Standard Telephone Keypad Grid with SVG Laser Vector Trajectory Overlay */}
-									<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center bg-black/40 p-3.5 rounded-2xl border border-white/5">
-										<div class="relative max-w-[210px] mx-auto w-full" dir="ltr">
-											<div class="grid grid-cols-3 gap-1.5 w-full relative z-10">
-												<For each={['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']}>
-													{(keyChar) => {
-														const hitCount = () =>
-															(reportData()?.binary_forensics?.digits_matrix || []).filter(
-																(c) => c.digit === keyChar,
-															).length;
-														const isActiveNow = () => {
-															const idx = activeDtmfIndex();
-															if (idx === null) return false;
-															const cell = reportData()?.binary_forensics?.digits_matrix?.[idx];
-															return cell?.digit === keyChar;
-														};
-														return (
-															<div
-																class={`h-10 rounded-xl border flex items-center justify-between px-2.5 font-mono text-xs font-black transition-all ${
-																	isActiveNow()
-																		? 'bg-purple-500 text-white border-white scale-105 shadow-lg shadow-purple-500/50'
-																		: hitCount() > 0
-																			? 'bg-purple-500/20 border-purple-400/50 text-white'
-																			: 'bg-white/[0.02] border-white/5 text-white/25'
-																}`}
-															>
-																<span>{keyChar}</span>
-																<Show when={hitCount() > 0}>
-																	<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-400/30 text-purple-200">
-																		×{hitCount()}
-																	</span>
-																</Show>
-															</div>
-														);
-													}}
-												</For>
-											</div>
-
-											{/* SVG Laser Vector Stroke Overlay */}
-											<svg
-												viewBox="0 0 210 184"
-												class="absolute inset-0 w-full h-full pointer-events-none z-20 overflow-visible"
-											>
-												<defs>
-													<linearGradient id="laserVec888" x1="0" y1="0" x2="1" y2="1">
-														<stop offset="0%" stop-color="#00f2fe" />
-														<stop offset="50%" stop-color="#a855f7" />
-														<stop offset="100%" stop-color="#10b981" />
-													</linearGradient>
-												</defs>
-												<Show when={keypadVectorData().coords.length > 1}>
-													<path
-														d={keypadVectorData().pathStr}
-														fill="none"
-														stroke="url(#laserVec888)"
-														stroke-width="2.75"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-dasharray="4 2"
-														opacity="0.9"
-													/>
-												</Show>
-												<For each={keypadVectorData().coords}>
-													{(pt, i) => (
-														<circle
-															cx={pt.x}
-															cy={pt.y}
-															r={
-																i() === 0 || i() === keypadVectorData().coords.length - 1
-																	? '4.5'
-																	: '3'
-															}
-															fill={
-																i() === 0
-																	? '#00f2fe'
-																	: i() === keypadVectorData().coords.length - 1
-																		? '#10b981'
-																		: '#a855f7'
-															}
-															stroke="#08090D"
-															stroke-width="1.2"
-														/>
-													)}
-												</For>
-											</svg>
-										</div>
-
-										<div class="space-y-2 text-xs">
-											<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex justify-between items-center">
-												<span class="text-white/60 text-[10px]">
-													{t('numReportPage.keypadManhattanDistance')}
-												</span>
-												<span class="font-mono font-black text-purple-300" dir="ltr">
-													{reportData()?.binary_forensics?.keypad_manhattan_distance ?? 0} steps
-												</span>
-											</div>
-											<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex justify-between items-center">
-												<span class="text-white/60 text-[10px]">
-													{t('numReportPage.ergonomicDialScore')}
-												</span>
-												<span class="font-mono font-black text-emerald-400" dir="ltr">
-													{reportData()?.binary_forensics?.keypad_ergonomic_score ?? 90} / 100
-												</span>
-											</div>
-											<div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex justify-between items-center">
-												<span class="text-white/60 text-[10px]">
-													{t('numReportPage.shannonEntropy')}
-												</span>
-												<span class="font-mono font-black text-cyan-300" dir="ltr">
-													{reportData()?.binary_forensics?.shannon_entropy_bits} bits (
-													{reportData()?.binary_forensics?.kolmogorov_compression_pct}% comp)
-												</span>
-											</div>
-										</div>
-									</div>
-
-									{/* 〰️ LIVE DUAL-SINE ACOUSTIC INTERFERENCE OSCILLOSCOPE */}
-									<Show when={activeAcousticCell()}>
-										<div class="mt-3 p-3.5 rounded-2xl bg-black/50 border border-purple-500/25">
-											<div class="flex items-center justify-between mb-2 flex-wrap gap-1" dir="ltr">
-												<span class="text-[10px] font-mono font-black text-purple-300">
-													OSCILLOSCOPE • Digit '{activeAcousticCell()?.digit}' = sin(2π·
-													{activeAcousticCell()?.dtmf_row_hz}Hz·t) + sin(2π·
-													{activeAcousticCell()?.dtmf_col_hz}Hz·t)
-												</span>
-												<span class="text-[9px] font-mono text-emerald-400">
-													Δf Beat:{' '}
-													{(activeAcousticCell()?.dtmf_col_hz || 1336) -
-														(activeAcousticCell()?.dtmf_row_hz || 852)}{' '}
-													Hz
-												</span>
-											</div>
-											<svg
-												viewBox="0 0 320 64"
-												class="w-full h-16 bg-[#07080C] rounded-xl border border-white/5 p-1"
-											>
-												<line
-													x1="0"
-													y1="32"
-													x2="320"
-													y2="32"
-													stroke="rgba(255,255,255,0.08)"
-													stroke-dasharray="2 2"
-												/>
-												<path
-													d={acousticWaveformPath()}
-													fill="none"
-													stroke="#c084fc"
-													stroke-width="2"
-													stroke-linecap="round"
-												/>
-											</svg>
-										</div>
-									</Show>
-								</div>
-
-								{/* 🧮 PER-DIGIT 8-BIT ASCII, 4-BIT BCD NIBBLE & HAMMING WEIGHT TABLE */}
-								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
-									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-										<h3 class="text-xs font-black text-white flex items-center gap-2">
-											<span class="material-symbols-outlined text-cyan-400 text-base">
-												terminal
-											</span>
-											<span>{t('numReportPage.byteLevel8BitAscii')}</span>
-										</h3>
-										<span
-											class="text-[9px] font-mono font-black text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded-md"
-											dir="ltr"
-										>
-											HW={reportData()?.binary_forensics?.total_hamming_weight} bits
-										</span>
-									</div>
-
-									<div class="overflow-x-auto">
-										<table class="w-full text-[10px] font-mono text-left" dir="ltr">
-											<thead>
-												<tr class="text-white/40 border-b border-white/10">
-													<th class="py-1.5 px-2">#</th>
-													<th class="py-1.5 px-2">{t('numReportPage.colDigit')}</th>
-													<th class="py-1.5 px-2">{t('numReportPage.colAsciiHex')}</th>
-													<th class="py-1.5 px-2">{t('numReportPage.colBinary8')}</th>
-													<th class="py-1.5 px-2">{t('numReportPage.colBcd4')}</th>
-													<th class="py-1.5 px-2">DTMF (Row/Col)</th>
-												</tr>
-											</thead>
-											<tbody class="divide-y divide-white/5">
-												<For each={reportData()?.binary_forensics?.digits_matrix || []}>
-													{(row) => (
-														<tr class="hover:bg-white/[0.03]">
-															<td class="py-1.5 px-2 text-white/40">{row.position}</td>
-															<td class="py-1.5 px-2 font-black text-white">{row.digit}</td>
-															<td class="py-1.5 px-2 text-amber-300">{row.ascii_hex}</td>
-															<td class="py-1.5 px-2 text-cyan-300">{row.ascii_binary}</td>
-															<td class="py-1.5 px-2 text-emerald-400 font-bold">
-																{row.bcd_nibble}
-															</td>
-															<td class="py-1.5 px-2 text-purple-300">
-																{row.dtmf_row_hz}Hz / {row.dtmf_col_hz}Hz
-															</td>
-														</tr>
-													)}
-												</For>
-											</tbody>
-										</table>
-									</div>
-								</div>
-
-								{/* 🔐 TEP-62 SHA-256 256-BIT INDEX & TVM BAG-OF-CELLS (BOC) FORENSICS */}
-								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start space-y-2.5">
-									<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-										<h3 class="text-xs font-black text-white flex items-center gap-2">
-											<span class="material-symbols-outlined text-emerald-400 text-base">
-												token
-											</span>
-											<span>{t('numReportPage.tep62256BitSha')}</span>
-										</h3>
-										<span class="text-[9px] font-mono text-emerald-400 font-bold">
-											{t('numReportPage.tonTvmBadge')}
-										</span>
-									</div>
-
-									<div class="p-3 rounded-2xl bg-black/50 border border-white/5">
-										<div class="flex items-center justify-between mb-1">
-											<span class="text-[10px] text-white/50">
-												TEP-62 Item Index — SHA-256("{reportData()?.binary_forensics?.clean_digits}
-												"):
-											</span>
-											<button
-												type="button"
-												onClick={() =>
-													handleCopyText(
-														reportData()?.binary_forensics?.tep62_index_sha256_hex || '',
-														'sha256',
-													)
-												}
-												class="text-[9px] font-mono text-cyan-400 hover:underline"
-											>
-												{copiedField() === 'sha256' ? 'Copied ✓' : 'Copy Hex'}
-											</button>
-										</div>
-										<div class="font-mono text-[10px] text-cyan-300 break-all" dir="ltr">
-											{reportData()?.binary_forensics?.tep62_index_sha256_hex}
-										</div>
-									</div>
-
-									<div class="p-3 rounded-2xl bg-black/50 border border-white/5">
-										<span class="text-[10px] text-white/50 block mb-1">
-											uint256 Decimal Representation (Telemint Smart Contract Key):
-										</span>
-										<div class="font-mono text-[10px] text-amber-300 break-all" dir="ltr">
-											{reportData()?.binary_forensics?.tep62_index_uint256_dec}
-										</div>
-									</div>
-
-									<Show when={reportData()?.binary_forensics?.token_name_boc_hex}>
-										<div class="p-3 rounded-2xl bg-black/50 border border-white/5">
-											<span class="text-[10px] text-white/50 block mb-1">
-												Live TVM get_telemint_token_name Raw BOC Cell (Hex):
-											</span>
-											<div class="font-mono text-[10px] text-emerald-400 break-all" dir="ltr">
-												{reportData()?.binary_forensics?.token_name_boc_hex}
-											</div>
-										</div>
-									</Show>
-
-									<Show when={reportData()?.binary_forensics?.tvm_code_hash}>
-										<div class="grid grid-cols-1 sm:grid-cols-2 gap-2" dir="ltr">
-											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block">
-													{t('numReportPage.tvmCodeHash')}
-												</span>
-												<span class="text-[9px] font-mono text-white/80 break-all">
-													{reportData()?.binary_forensics?.tvm_code_hash}
-												</span>
-											</div>
-											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block">
-													{t('numReportPage.tvmDataHash')}
-												</span>
-												<span class="text-[9px] font-mono text-white/80 break-all">
-													{reportData()?.binary_forensics?.tvm_data_hash}
-												</span>
-											</div>
-										</div>
-									</Show>
-								</div>
-
-								{/* 🌍 LAYA 4-REGION CULTURAL RADAR */}
-								<NumberSingleCulturalRadarCard
-									radar={reportData()?.cultural_radar}
-									number={reportData()?.number || inputNumber()}
-									layaReasoning={reportData()?.reasoning_log?.laya_system_one}
-								/>
-							</div>
-						</Show>
-
-						{/* ═══════════════════════════════════════════════════════════════════════════
-						    TAB 3: ON-CHAIN HISTORY, OFFICIAL COLOR PLATE & SECURITY PLAYBOOK
-						   ═══════════════════════════════════════════════════════════════════════════ */}
-						<Show when={activeTab() === 'onchain'}>
-							<div class="space-y-4">
-								{/* 🎨 OFFICIAL NFT COLOR PLATE & MULTI-MARKETPLACE LAUNCHPAD */}
-								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
-									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-										<h3 class="text-xs font-black text-white flex items-center gap-2">
-											<span class="material-symbols-outlined text-amber-400 text-base">
-												palette
-											</span>
-											<span>{t('numReportPage.officialNftColorPlateMarketplace')}</span>
-										</h3>
-										<span
-											class="text-[10px] font-mono font-black px-2 py-0.5 rounded-md border border-white/20 text-white"
-											style={{
-												'background-color': reportData()?.market_provenance?.color_hex || '#8D66E3',
-											}}
-											dir="ltr"
-										>
-											{reportData()?.market_provenance?.color_hex}
-										</span>
-									</div>
-
-									<div class="grid grid-cols-2 gap-2.5 mb-3">
-										<div class="p-3 rounded-2xl bg-black/40 border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.officialPlateColor')}
-											</span>
-											<span class="text-xs font-black text-white block">
-												{isRtl()
-													? reportData()?.market_provenance?.color_name_fa
-													: reportData()?.market_provenance?.color_name_en}
-											</span>
-											<span class="text-[9px] font-mono text-amber-300">
-												{reportData()?.market_provenance?.color_tier_fa}
-											</span>
-										</div>
-
-										<div class="p-3 rounded-2xl bg-black/40 border border-white/5">
-											<span class="text-[9px] text-white/40 block mb-0.5">
-												{t('numReportPage.nftContractAddress')}
-											</span>
-											<div class="flex items-center justify-between gap-1" dir="ltr">
-												<span class="text-xs font-mono font-black text-cyan-300 truncate">
-													{shortAddr(reportData()?.market_provenance?.nft_address)}
-												</span>
-												<Show when={reportData()?.market_provenance?.nft_address}>
+											<For each={r().pattern_siblings || []}>
+												{(sib) => (
 													<button
 														type="button"
-														onClick={() =>
-															handleCopyText(
-																reportData()?.market_provenance?.nft_address || '',
-																'nft_addr',
-															)
-														}
-														class="text-[9px] text-white/50 hover:text-white"
+														onClick={() => {
+															setInputNumber(sib.display_number || sib.number);
+															void handleRunAnalysis(sib.display_number || sib.number);
+														}}
+														class="frag-table-row w-full grid grid-cols-12 items-center px-3.5 py-2.5 text-start cursor-pointer"
 													>
-														{copiedField() === 'nft_addr' ? '✓' : 'Copy'}
-													</button>
-												</Show>
-											</div>
-											<span class="text-[9px] font-mono text-white/40 block mt-0.5" dir="ltr">
-												Owner: {shortAddr(reportData()?.market_provenance?.owner_address)}
-											</span>
-										</div>
-									</div>
-
-									{/* Direct Multi-Marketplace Links */}
-									<div class="grid grid-cols-2 sm:grid-cols-5 gap-2" dir="ltr">
-										<a
-											href={reportData()?.market_provenance?.fragment_url}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="py-2 px-2.5 rounded-xl bg-[#2990ff]/15 hover:bg-[#2990ff]/25 border border-[#2990ff]/40 text-center text-[10px] font-black text-cyan-300 flex items-center justify-center gap-1"
-										>
-											<span>{t('numReportPage.venueFragment')}</span>
-											<span class="material-symbols-outlined text-xs">open_in_new</span>
-										</a>
-										<a
-											href={reportData()?.market_provenance?.nums888_url}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="py-2 px-2.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-center text-[10px] font-black text-purple-300 flex items-center justify-center gap-1"
-										>
-											<span>{t('numReportPage.venueNums888')}</span>
-											<span class="material-symbols-outlined text-xs">open_in_new</span>
-										</a>
-										<a
-											href={reportData()?.market_provenance?.getgems_url}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="py-2 px-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-center text-[10px] font-black text-emerald-300 flex items-center justify-center gap-1"
-										>
-											<span>{t('numReportPage.venueGetgems')}</span>
-											<span class="material-symbols-outlined text-xs">open_in_new</span>
-										</a>
-										<a
-											href={reportData()?.market_provenance?.marketapp_url}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="py-2 px-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-center text-[10px] font-black text-amber-300 flex items-center justify-center gap-1"
-										>
-											<span>{t('numReportPage.venueMarketapp')}</span>
-											<span class="material-symbols-outlined text-xs">open_in_new</span>
-										</a>
-										<a
-											href={reportData()?.market_provenance?.tonviewer_url}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-center text-[10px] font-black text-white/80 flex items-center justify-center gap-1"
-										>
-											<span>{t('numReportPage.venueTonviewer')}</span>
-											<span class="material-symbols-outlined text-xs">open_in_new</span>
-										</a>
-									</div>
-
-									{/* Official Fragment .webp Artwork + 20-Color Rarity Matrix */}
-									<Show when={(reportData()?.color_palette_matrix || []).length > 0}>
-										<div class="mt-4 pt-3.5 border-t border-white/10">
-											<div class="flex items-center justify-between mb-2">
-												<span class="text-[10px] font-black text-white/70">
-													{t('numReportPage.k_20ColorOfficialTelemintPlate')}
-												</span>
-												<a
-													href={reportData()?.market_provenance?.nft_image_url}
-													target="_blank"
-													rel="noopener noreferrer"
-													class="text-[9px] font-mono text-cyan-400 hover:underline"
-													dir="ltr"
-												>
-													{t('numReportPage.officialPlateLink')}
-												</a>
-											</div>
-											<div class="grid grid-cols-4 sm:grid-cols-5 gap-1.5" dir="ltr">
-												<For each={reportData()?.color_palette_matrix || []}>
-													{(cItem) => (
 														<div
-															class={`p-1.5 rounded-xl border text-center transition-all ${
-																cItem.is_active
-																	? 'border-white bg-white/15 scale-105 shadow-md'
-																	: 'border-white/5 bg-black/40 opacity-65'
-															}`}
+															class="col-span-6 font-mono font-semibold text-[13px] text-[#4db2ff] truncate"
+															dir="ltr"
 														>
-															<div
-																class="w-full h-3 rounded-md mb-1 border border-white/20"
-																style={{ 'background-color': cItem.hex }}
+															{sib.display_number || sib.number}
+														</div>
+														<div class="col-span-3">
+															<Show
+																when={sib.current_bid_or_ask_ton || sib.last_sale_ton}
+																fallback={<span class="text-[12px] text-[#8c9aa9]">—</span>}
+															>
+																<TonAmount
+																	value={formatTon(sib.current_bid_or_ask_ton || sib.last_sale_ton)}
+																	size="sm"
+																/>
+															</Show>
+														</div>
+														<div class="col-span-3 flex justify-end">
+															<FragStatusPill
+																status={normalizeFragStatus(
+																	sib.current_bid_or_ask_ton ? 'on_sale' : 'taken',
+																)}
 															/>
-															<div class="text-[8px] font-mono font-black text-white truncate">
-																{cItem.hex}
+														</div>
+													</button>
+												)}
+											</For>
+										</Show>
+									</div>
+								</div>
+							</Show>
+
+							{/* TAB 3: HISTORY & TELEMINT ON-CHAIN PROVENANCE */}
+							<Show when={activeTab() === 'onchain'}>
+								<div class="space-y-3.5">
+									<div class="frag-table-container">
+										<div class="frag-table-header px-3.5 py-2">
+											<span>TeleMint On-Chain Audit</span>
+										</div>
+										<Show
+											when={
+												r().market_provenance?.nft_address || r().telemint_provenance?.item_address
+											}
+										>
+											{(addr) => (
+												<FragKV
+													label="NFT Item Address"
+													copyValue={addr()}
+													href={`https://tonviewer.com/${addr()}`}
+													accent
+												>
+													<span class="font-mono">{shortAddr(addr())}</span>
+												</FragKV>
+											)}
+										</Show>
+										<FragKV
+											label="Collection Contract"
+											href="https://tonviewer.com/EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N"
+											accent
+										>
+											<span class="font-mono">EQAOQdwd … vr9si5N</span>
+										</FragKV>
+										<FragKV label="Mint Provenance">
+											{r().market_provenance?.is_minted === false
+												? 'Unminted (Dec 2022 Cap)'
+												: 'Verified TeleMint NFT'}
+										</FragKV>
+									</div>
+
+									{/* Sale / Bid History Table */}
+									<Show when={(r().history?.transactions?.length || 0) > 0}>
+										<div>
+											<h3 class="text-[15px] font-bold text-white mb-2 px-0.5">
+												Sale & Transfer History
+											</h3>
+											<div class="frag-table-container">
+												<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
+													<span class="col-span-4">Price</span>
+													<span class="col-span-4">Date</span>
+													<span class="col-span-4 text-end">Buyer</span>
+												</div>
+												<For each={r().history?.transactions || []}>
+													{(tx) => (
+														<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[12.5px]">
+															<div class="col-span-4">
+																<TonAmount value={formatTon(tx.price_ton)} size="sm" />
 															</div>
-															<div class="text-[8px] font-mono text-amber-300">
-																{cItem.multiplier}x
+															<div class="col-span-4 text-[#8c9aa9] truncate">{tx.sale_date}</div>
+															<div
+																class="col-span-4 text-end font-mono text-[#4db2ff] truncate"
+																dir="ltr"
+															>
+																{shortAddr(tx.buyer_address)}
 															</div>
 														</div>
 													)}
@@ -2343,545 +953,12 @@ export const NumberReportPage: Component = () => {
 										</div>
 									</Show>
 								</div>
-
-								{/* 🐋 LIVE OWNER WHALE PORTFOLIO X-RAY (ALL +888 NUMBERS HELD BY CURRENT OWNER) */}
-								<Show when={reportData()?.owner_intelligence}>
-									<div class="frag-card-elevated border border-emerald-500/30 rounded-[16px] p-5 shadow-xl text-start">
-										<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-2">
-											<div>
-												<h3 class="text-xs font-black text-white flex items-center gap-2">
-													<span class="material-symbols-outlined text-emerald-400 text-base">
-														radar
-													</span>
-													<span>{t('numReportPage.liveOwnerWhalePortfolioX')}</span>
-												</h3>
-												<p class="text-[10px] text-white/50 mt-0.5 font-mono" dir="ltr">
-													{shortAddr(reportData()?.owner_intelligence?.owner_address)} •{' '}
-													{reportData()?.owner_intelligence?.wallet_workchain}
-												</p>
-											</div>
-											<span
-												class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-												dir="ltr"
-											>
-												{reportData()?.owner_intelligence?.total_numbers_held || 1} NUMBERS IN VAULT
-											</span>
-										</div>
-
-										<div class="grid grid-cols-3 gap-2 mb-3 text-center">
-											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block mb-0.5">
-													{t('numReportPage.totalNumbersHeld')}
-												</span>
-												<span class="text-xs font-mono font-black text-white" dir="ltr">
-													{reportData()?.owner_intelligence?.total_numbers_held} Lines
-												</span>
-											</div>
-											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block mb-0.5">
-													{t('numReportPage.totalInvested')}
-												</span>
-												<span class="text-xs font-mono font-black text-amber-300" dir="ltr">
-													{formatTon(reportData()?.owner_intelligence?.total_invested_ton)} TON
-												</span>
-											</div>
-											<div class="p-2.5 rounded-xl bg-black/40 border border-white/5">
-												<span class="text-[9px] text-white/40 block mb-0.5">
-													{t('numReportPage.estVaultWorth')}
-												</span>
-												<span class="text-xs font-mono font-black text-emerald-400" dir="ltr">
-													{formatTon(reportData()?.owner_intelligence?.portfolio_floor_worth_ton)}{' '}
-													TON
-												</span>
-											</div>
-										</div>
-
-										<div class="space-y-2">
-											<For each={reportData()?.owner_intelligence?.other_holdings || []}>
-												{(held) => (
-													<div
-														class={`p-3 rounded-2xl border flex items-center justify-between gap-2 ${
-															held.is_current_number
-																? 'bg-emerald-500/15 border-emerald-400/40'
-																: 'bg-black/40 border-white/5 hover:border-white/20'
-														}`}
-													>
-														<div class="min-w-0">
-															<div class="flex items-center gap-1.5">
-																<span class="font-mono font-black text-xs text-white" dir="ltr">
-																	{held.display_number}
-																</span>
-																<Show when={held.is_current_number}>
-																	<span class="text-[8px] font-mono font-black px-1.5 py-0.5 rounded bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">
-																		{t('numReportPage.currentBadge')}
-																	</span>
-																</Show>
-															</div>
-															<div class="text-[9px] font-mono text-white/45 mt-0.5" dir="ltr">
-																Acquired: {held.acquired_date}
-															</div>
-														</div>
-
-														<div class="flex items-center gap-2 shrink-0">
-															<div class="text-end" dir="ltr">
-																<div class="text-xs font-mono font-black text-amber-300">
-																	{held.acquired_price_ton > 0
-																		? `${formatTon(held.acquired_price_ton)} TON`
-																		: 'Transferred'}
-																</div>
-																<Show when={held.acquired_price_usd > 0}>
-																	<div class="text-[9px] font-mono text-white/40">
-																		≈ {formatUsd(held.acquired_price_usd)}
-																	</div>
-																</Show>
-															</div>
-															<Show when={!held.is_current_number}>
-																<button
-																	type="button"
-																	onClick={() => {
-																		setInputNumber(held.display_number);
-																		setActiveTab('valuation');
-																		void handleRunAnalysis(held.display_number);
-																	}}
-																	class="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/40 text-[10px] font-black text-emerald-300 transition-all active:scale-95"
-																>
-																	{t('numReportPage.appraise_2')}
-																</button>
-															</Show>
-														</div>
-													</div>
-												)}
-											</For>
-										</div>
-									</div>
-								</Show>
-
-								{/* 📜 COMPLETE ON-CHAIN LIFECYCLE LEDGER (MINT, SALE, TRANSFER) */}
-								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
-									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-										<h3 class="text-xs font-black text-white flex items-center gap-2">
-											<span class="material-symbols-outlined text-emerald-400 text-base">
-												history_edu
-											</span>
-											<span>{t('numReportPage.completeOnChainLifecycleLedger')}</span>
-										</h3>
-										<span class="text-[9px] font-mono font-bold text-emerald-400">
-											{(reportData()?.onchain_history || []).length} TXs
-										</span>
-									</div>
-
-									<Show
-										when={(reportData()?.onchain_history || []).length > 0}
-										fallback={
-											<div class="p-5 rounded-2xl bg-black/40 border border-white/5 text-center text-xs text-white/50">
-												{t('numReportPage.noOnChainTransactionsRecorded')}
-											</div>
-										}
-									>
-										<div class="space-y-2">
-											<For each={reportData()?.onchain_history || []}>
-												{(ev) => (
-													<div class="p-3 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between gap-2 text-xs">
-														<div class="min-w-0">
-															<div class="flex items-center gap-2">
-																<span
-																	class={`px-2 py-0.5 rounded-md text-[9px] font-mono font-black uppercase ${
-																		ev.event_type === 'Sale'
-																			? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-																			: ev.event_type === 'Mint'
-																				? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-																				: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-																	}`}
-																>
-																	{isRtl() ? ev.event_type_fa : ev.event_type}
-																</span>
-																<span class="text-[10px] font-mono text-white/50" dir="ltr">
-																	{ev.date}
-																</span>
-															</div>
-															<div
-																class="text-[10px] font-mono text-white/60 mt-1 truncate"
-																dir="ltr"
-															>
-																{shortAddr(ev.from_wallet)} → {shortAddr(ev.to_wallet)}
-															</div>
-														</div>
-
-														<div class="text-end shrink-0">
-															<Show
-																when={ev.price_ton > 0}
-																fallback={
-																	<span class="text-[10px] font-mono text-white/40">
-																		Wallet Transfer
-																	</span>
-																}
-															>
-																<div class="font-mono font-black text-white text-xs" dir="ltr">
-																	{formatTon(ev.price_ton)} TON
-																</div>
-																<div class="text-[9px] font-mono text-white/45" dir="ltr">
-																	≈ {formatUsd(ev.price_usd)}
-																</div>
-															</Show>
-															<Show when={ev.tx_hash}>
-																<a
-																	href={ev.tonscan_url}
-																	target="_blank"
-																	rel="noopener noreferrer"
-																	class="text-[9px] font-mono text-[#2990ff] hover:underline inline-flex items-center gap-0.5 mt-0.5"
-																	dir="ltr"
-																>
-																	<span>{t('numReportPage.txProofLink')}</span>
-																	<span class="material-symbols-outlined text-[10px]">
-																		open_in_new
-																	</span>
-																</a>
-															</Show>
-														</div>
-													</div>
-												)}
-											</For>
-										</div>
-									</Show>
-								</div>
-
-								{/* 🛡️ SIM-FREE LOGIN & 2FA ANTI-TAKEOVER SECURITY PLAYBOOK */}
-								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
-									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-										<h3 class="text-xs font-black text-white flex items-center gap-2">
-											<span class="material-symbols-outlined text-cyan-400 text-base">
-												shield_lock
-											</span>
-											<span>{t('numReportPage.simFreeLogin2faAnti')}</span>
-										</h3>
-										<span class="text-[9px] font-mono font-black text-emerald-400">
-											{t('numReportPage.zeroSimSwapBadge')}
-										</span>
-									</div>
-
-									<p class="text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-500/25 rounded-2xl p-3 mb-3 leading-relaxed">
-										{reportData()?.security_advisory?.two_factor_warning}
-									</p>
-
-									<div class="space-y-2">
-										<For each={reportData()?.security_advisory?.takeover_mitigation_steps || []}>
-											{(step, idx) => (
-												<div class="p-2.5 rounded-xl bg-black/40 border border-white/5 flex items-center gap-2.5 text-[11px] text-white/80">
-													<span class="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-mono text-[10px] font-black flex items-center justify-center shrink-0">
-														{idx() + 1}
-													</span>
-													<span>{step}</span>
-												</div>
-											)}
-										</For>
-									</div>
-								</div>
-							</div>
-						</Show>
-
-						{/* ═══════════════════════════════════════════════════════════════════════════
-						    TAB 4: PATTERN SIBLINGS & COMPARABLE SALES
-						   ═══════════════════════════════════════════════════════════════════════════ */}
-						<Show when={activeTab() === 'siblings'}>
-							<div class="space-y-4">
-								{/* 🔬 INTERACTIVE CUSTOM PATTERN MASK LAB & BARGAIN SNIPER */}
-								<div class="frag-card-elevated border border-amber-500/35 rounded-[16px] p-5 shadow-xl text-start">
-									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-2">
-										<div>
-											<h3 class="text-xs font-black text-white flex items-center gap-2">
-												<span class="material-symbols-outlined text-amber-400 text-base">
-													science
-												</span>
-												<span>{t('numReportPage.interactivePatternMaskLabLive')}</span>
-											</h3>
-											<p class="text-[10px] text-white/50 mt-0.5">
-												{t('numReportPage.useWildcardLettersAB')}
-											</p>
-										</div>
-										<span
-											class="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30"
-											dir="ltr"
-										>
-											{t('numReportPage.maskEngineBadge')}
-										</span>
-									</div>
-
-									<div class="flex items-center gap-2 mb-2.5" dir="ltr">
-										<input
-											type="text"
-											value={customMaskInput()}
-											onInput={(e) => setCustomMaskInput(e.currentTarget.value.toUpperCase())}
-											onKeyDown={(e) => {
-												if (e.key === 'Enter') {
-													void handleRunCustomMaskSearch();
-												}
-											}}
-											placeholder="8880AAAAAAA"
-											class="flex-1 bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-xs font-mono font-black text-amber-300 focus:outline-none focus:border-amber-400"
-										/>
-										<button
-											type="button"
-											onClick={() => void handleRunCustomMaskSearch()}
-											disabled={maskSearchLoading()}
-											class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs font-black hover:brightness-110 active:scale-95 transition-all"
-										>
-											{maskSearchLoading()
-												? t('numReportPage.scanning')
-												: t('numReportPage.scanMask')}
-										</button>
-									</div>
-
-									<div
-										class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-2"
-										dir="ltr"
-									>
-										<For
-											each={[
-												{ mask: '8888AAA', label: '4D Triple (8AAA)' },
-												{ mask: '8880AAAAAAA', label: '7-Run (0AAAAAAA)' },
-												{ mask: '8880AAAABBBB', label: 'Twin Block (AAAABBBB)' },
-												{ mask: '8880ABABABAB', label: 'Alternating (ABAB)' },
-												{ mask: '8880XXXX8888', label: 'Quad-8 Tail' },
-											]}
-										>
-											{(preset) => (
-												<button
-													type="button"
-													onClick={() => void handleRunCustomMaskSearch(preset.mask)}
-													class="shrink-0 px-2.5 py-1 rounded-lg bg-black/40 hover:bg-amber-500/20 border border-white/10 hover:border-amber-400/40 text-[10px] font-mono text-white/75 hover:text-amber-200 transition-all"
-												>
-													{preset.label}: <strong class="text-amber-300">{preset.mask}</strong>
-												</button>
-											)}
-										</For>
-									</div>
-
-									<Show when={customMaskResults() !== null}>
-										<div class="mt-3 pt-3 border-t border-white/10 space-y-2">
-											<div class="flex items-center justify-between text-[10px] text-white/60">
-												<span>
-													{t('numReportPage.liveMaskMatches', {
-														mask: customMaskInput(),
-														count: (customMaskResults() || []).length,
-													})}
-												</span>
-												<button
-													type="button"
-													onClick={() => setCustomMaskResults(null)}
-													class="text-rose-400 hover:underline text-[10px]"
-												>
-													{t('numReportPage.clear')}
-												</button>
-											</div>
-											<Show
-												when={(customMaskResults() || []).length > 0}
-												fallback={
-													<div class="p-3 rounded-xl bg-black/40 text-center text-[11px] text-white/45">
-														{t('numReportPage.noMintedNumbersMatchedThis')}
-													</div>
-												}
-											>
-												<div class="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-													<For each={(customMaskResults() || []).slice(0, 8)}>
-														{(mItem) => (
-															<div class="p-2.5 rounded-xl bg-black/50 border border-white/10 flex items-center justify-between gap-2">
-																<div class="flex items-center gap-2 min-w-0">
-																	<span
-																		class="w-2.5 h-6 rounded border border-white/30 shrink-0"
-																		style={{ 'background-color': mItem.color_hex }}
-																	/>
-																	<div class="min-w-0">
-																		<span
-																			class="font-mono font-black text-xs text-white block"
-																			dir="ltr"
-																		>
-																			{mItem.display_number}
-																		</span>
-																		<span class="text-[9px] text-white/40 font-mono" dir="ltr">
-																			{mItem.last_sale_date}
-																		</span>
-																	</div>
-																</div>
-																<div class="flex items-center gap-2 shrink-0">
-																	<span
-																		class="font-mono font-black text-xs text-emerald-400"
-																		dir="ltr"
-																	>
-																		{mItem.last_sale_ton > 0
-																			? `${formatTon(mItem.last_sale_ton)} TON`
-																			: 'Unlisted'}
-																	</span>
-																	<button
-																		type="button"
-																		onClick={() => {
-																			setInputNumber(mItem.display_number);
-																			setActiveTab('valuation');
-																			void handleRunAnalysis(mItem.display_number);
-																		}}
-																		class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/40 text-[10px] font-black text-amber-300"
-																	>
-																		{t('numReportPage.appraise_3')}
-																	</button>
-																</div>
-															</div>
-														)}
-													</For>
-												</div>
-											</Show>
-										</div>
-									</Show>
-								</div>
-
-								<div class="frag-card-elevated rounded-[16px] p-5 shadow-xl text-start">
-									<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-										<div>
-											<h3 class="text-xs font-black text-white flex items-center gap-2">
-												<span class="material-symbols-outlined text-amber-400 text-base">hub</span>
-												<span>{t('numReportPage.liveStructuralPatternSiblingsOn')}</span>
-											</h3>
-											<p class="text-[10px] text-white/50 mt-0.5">
-												{t('numReportPage.scrapedLiveFromNums888Pattern')}
-											</p>
-										</div>
-										<span class="text-[9px] font-mono font-black text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-md">
-											{t('numReportPage.livePeersBadge')}
-										</span>
-									</div>
-
-									<Show
-										when={(reportData()?.pattern_siblings || []).length > 0}
-										fallback={
-											<div class="p-6 text-center text-xs text-white/40 bg-black/40 rounded-2xl border border-white/5">
-												{t('numReportPage.noAdditionalPatternSiblingsFound')}
-											</div>
-										}
-									>
-										<div class="space-y-2.5">
-											<For each={reportData()?.pattern_siblings || []}>
-												{(sib) => (
-													<div class="p-3 rounded-2xl bg-black/40 border border-white/10 hover:border-amber-400/40 transition-all flex items-center justify-between gap-2">
-														<div class="flex items-center gap-2.5 min-w-0">
-															<span
-																class="w-3.5 h-8 rounded-lg border border-white/30 shrink-0"
-																style={{ 'background-color': sib.color_hex }}
-															/>
-															<div class="min-w-0">
-																<div class="flex items-center gap-1.5 flex-wrap">
-																	<span class="font-mono font-black text-xs text-white" dir="ltr">
-																		{sib.display_number}
-																	</span>
-																	<Show when={sib.is_restricted}>
-																		<span class="text-[8px] font-mono font-black px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-																			{t('numReportPage.restrictedBadge')}
-																		</span>
-																	</Show>
-																</div>
-																<div class="text-[10px] text-white/50 truncate">
-																	{isRtl() ? sib.similarity_reason_fa : sib.similarity_reason_en} •{' '}
-																	{sib.owners_count} {t('numReportPage.owners')}
-																</div>
-															</div>
-														</div>
-
-														<div class="flex items-center gap-2 shrink-0">
-															<div class="text-end" dir="ltr">
-																<div class="font-mono font-black text-xs text-amber-300">
-																	{sib.last_sale_ton > 0
-																		? `${formatTon(sib.last_sale_ton)} TON`
-																		: 'Vaulted'}
-																</div>
-																<div class="text-[9px] font-mono text-white/40">
-																	{sib.last_sale_date}
-																</div>
-															</div>
-
-															<button
-																type="button"
-																onClick={() => {
-																	setInputNumber(sib.display_number);
-																	setActiveTab('valuation');
-																	void handleRunAnalysis(sib.display_number);
-																}}
-																class="px-2.5 py-1.5 rounded-xl bg-[#2990ff]/20 hover:bg-[#2990ff]/35 border border-[#2990ff]/40 text-[10px] font-black text-cyan-300 transition-all active:scale-95"
-															>
-																{t('numReportPage.appraise_4')}
-															</button>
-														</div>
-													</div>
-												)}
-											</For>
-										</div>
-									</Show>
-								</div>
-
-								{/* 📜 DIGITAL VALUATION CERTIFICATE (HMAC-SHA256) */}
-								<NumberDigitalCertificateCard
-									certificateId={reportData()?.certificate_id}
-									number={reportData()?.number || inputNumber()}
-									expectedTon={reportData()?.expected_ton ? Number(reportData()!.expected_ton) : 0}
-									confidence={reportData()?.confidence_score}
-								/>
-							</div>
-						</Show>
-
-						{/* ⚡ BOTTOM QUICK ACTION HUB (MONITOR, FRAGMENT, WATCHLIST) */}
-						<div class="grid grid-cols-3 gap-2 pt-1">
-							<button
-								type="button"
-								onClick={() => void handleToggleWatchlist()}
-								class={`py-3 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
-									isMonitored()
-										? 'bg-amber-400/15 border-amber-400/40 text-amber-300'
-										: 'bg-[#141a22]/90 border-white/10 text-white/70 hover:bg-white/5'
-								}`}
-							>
-								<span class="material-symbols-outlined text-lg">
-									{isMonitored() ? 'notifications_active' : 'notifications'}
-								</span>
-								<span class="text-[10px] font-black tracking-tight">
-									{isMonitored() ? t('numbers.monitorActive') : t('numbers.monitorToggle')}
-								</span>
-							</button>
-
-							<a
-								href={
-									reportData()?.market_provenance?.fragment_url ||
-									reportData()?.fragment_direct_url ||
-									`https://fragment.com/number/${(reportData()?.number || inputNumber() || '').replace(/^\+/, '').replace(/\s+/g, '')}`
-								}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="py-3 px-2 rounded-2xl bg-gradient-to-r from-[#2990ff] via-[#00c6ff] to-[#2990ff] text-white border border-[#2990ff]/30 flex flex-col items-center justify-center gap-1 shadow-md shadow-[#2990ff]/20 active:scale-95 transition-all hover:brightness-110"
-							>
-								<span class="material-symbols-outlined text-lg">open_in_new</span>
-								<span class="text-[10px] font-black tracking-tight">
-									{t('numbers.viewOnFragment')}
-								</span>
-							</a>
-
-							<button
-								type="button"
-								onClick={() => void handleToggleWatchlist()}
-								disabled={watchLoading()}
-								class={`py-3 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
-									isWatching()
-										? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-										: 'bg-[#141a22]/90 border-white/10 text-white/70 hover:bg-white/5'
-								}`}
-							>
-								<span class="material-symbols-outlined text-lg">
-									{isWatching() ? 'bookmark_added' : 'bookmark_add'}
-								</span>
-								<span class="text-[10px] font-black tracking-tight">
-									{isWatching() ? t('numbers.watching') : t('numbers.watchNumber')}
-								</span>
-							</button>
+							</Show>
 						</div>
-					</div>
+					)}
 				</Show>
 			</div>
 
-			{/* Credit Store Sheet */}
 			<CreditStoreSheet open={storeOpen()} onClose={() => setStoreOpen(false)} vertical="number" />
 		</div>
 	);

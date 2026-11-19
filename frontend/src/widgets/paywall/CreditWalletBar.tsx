@@ -7,7 +7,6 @@ interface CreditWalletBarProps {
 	onOpenStore?: () => void;
 }
 
-/** Animated integer count-up that respects reduced-motion. */
 function useCountUp(target: () => number | null) {
 	const [display, setDisplay] = createSignal<number | null>(null);
 	let raf = 0;
@@ -32,7 +31,7 @@ function useCountUp(target: () => number | null) {
 		cancelAnimationFrame(raf);
 		const from = currentVal;
 		const start = performance.now();
-		const dur = 280;
+		const dur = 240;
 		const step = (now: number) => {
 			const p = Math.min(1, (now - start) / dur);
 			const eased = 1 - 2 ** (-10 * p);
@@ -61,29 +60,34 @@ export const CreditWalletBar = (props: CreditWalletBarProps) => {
 	};
 
 	return (
-		<div class="flex items-center justify-between gap-2 frag-inset rounded-[12px] px-3.5 py-2.5">
+		<div class="flex items-center justify-between gap-2 bg-[#242e38] rounded-[8px] px-3.5 py-2.5">
 			<div class="flex min-w-0 items-center gap-2.5">
-				<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-[#ffb340]/25 bg-[#ffb340]/12">
-					<span class="material-symbols-outlined text-[16px] text-[#ffb340]">key</span>
+				<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] bg-[#ff9953]/10">
+					<span
+						class="material-symbols-outlined text-[16px] text-[#ff9953]"
+						style={{ 'font-variation-settings': '"FILL" 1' }}
+					>
+						star
+					</span>
 				</div>
 				<div class="min-w-0">
 					<Show
 						when={displayBalance() !== null}
 						fallback={
-							<div class="h-4 w-10 animate-pulse rounded bg-[#1b232d]" aria-hidden="true" />
+							<div class="h-4 w-10 animate-pulse rounded bg-[#293440]" aria-hidden="true" />
 						}
 					>
 						<span class="block font-mono text-[15px] font-semibold leading-none text-white tabular-nums">
 							{displayBalance()}
 						</span>
 					</Show>
-					<span class="mt-0.5 block truncate text-[11px] font-medium text-[#8c9ba5]">
+					<span class="mt-0.5 block truncate text-[11.5px] font-medium text-[#8c9aa9]">
 						{t('paywall.wallet_balance')}
 					</span>
 				</div>
 
 				<Show when={expiryDays() !== null && expiryDays()! <= 14}>
-					<span class="hidden rounded-[6px] border border-[#ffb340]/25 bg-[#ffb340]/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-[#ffb340] tabular-nums xs:inline-block">
+					<span class="hidden rounded-[4px] bg-[#ff9953]/10 px-2 py-0.5 font-mono text-[10.5px] font-semibold text-[#ff9953] tabular-nums xs:inline-block">
 						{t('paywall.wallet_expiring', { count: expiryDays()!, days: expiryDays()! })}
 					</span>
 				</Show>
@@ -97,9 +101,9 @@ export const CreditWalletBar = (props: CreditWalletBarProps) => {
 					} catch {}
 					props.onOpenStore?.();
 				}}
-				class="flex shrink-0 items-center gap-1 rounded-[9px] frag-btn-secondary px-3 py-1.5 text-[11.5px] font-semibold text-white active:scale-95"
+				class="flex shrink-0 items-center gap-1 rounded-[6px] bg-[#293440] hover:bg-[#384553] px-3 py-1.5 text-[12px] font-semibold text-[#4db2ff] transition-colors cursor-pointer"
 			>
-				<span class="material-symbols-outlined text-[14px] text-[#2990ff]">add_circle</span>
+				<span class="material-symbols-outlined text-[15px]">add</span>
 				<span>{t('paywall.get_credits')}</span>
 			</button>
 		</div>

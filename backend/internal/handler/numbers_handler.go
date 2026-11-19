@@ -781,7 +781,18 @@ func (h *NumbersHandler) deliverNumberReportToUser(r *http.Request, userID int64
 		if h.cardGen != nil {
 			tonStr := val.ExpectedTON.StringFixed(1)
 			usdStr := fmt.Sprintf("%.0f", val.ExpectedUSD)
-			if pngBytes, err := h.cardGen.GenerateNumberCard(val.DisplayNumber, club, val.GlobalRank, tonStr, usdStr); err == nil {
+			cardP := cardgen.NumberCardParams{
+				Number:       val.DisplayNumber,
+				Club:         val.CategoryClub,
+				Rank:         val.GlobalRank,
+				LowTON:       val.LowTON.StringFixed(1),
+				FairTON:      tonStr,
+				HighTON:      val.HighTON.StringFixed(1),
+				USDT:         usdStr,
+				ColorPattern: val.Color.Name,
+				Lang:         lang,
+			}
+			if pngBytes, err := h.cardGen.GenerateRichNumberCard(cardP); err == nil {
 				if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
 					var publicURL string
 					if host != "" {

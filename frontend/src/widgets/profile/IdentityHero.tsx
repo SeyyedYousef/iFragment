@@ -36,9 +36,7 @@ export const IdentityHero = (props: Props) => {
 		const u = user() as any;
 		const fName = u?.firstName || u?.first_name;
 		const lName = u?.lastName || u?.last_name;
-		if (fName) {
-			return `${fName} ${lName || ''}`.trim();
-		}
+		if (fName) return `${fName} ${lName || ''}`.trim();
 		return t('common.user' as any) || t('profile.user' as any) || 'User';
 	});
 
@@ -79,9 +77,7 @@ export const IdentityHero = (props: Props) => {
 			const fallback = directTgPhoto();
 			if (fallback) return fallback;
 		}
-		if (imgError() && fallbackAttempted()) {
-			return '';
-		}
+		if (imgError() && fallbackAttempted()) return '';
 		return primaryAvatarUrl();
 	});
 
@@ -108,130 +104,85 @@ export const IdentityHero = (props: Props) => {
 
 	return (
 		<>
-			<div class="relative w-full flex flex-col items-center px-4 z-20 select-none">
-				{/* Fragment Elevated Glass Card Cover */}
-				<div class="frag-card-elevated absolute inset-0 rounded-2xl overflow-hidden -z-10" />
+			<div class="frag-card p-4 flex items-center justify-between gap-3 select-none">
+				<div class="flex items-center gap-3.5 min-w-0">
+					{/* Clean Avatar */}
+					<div class="relative w-14 h-14 rounded-full bg-[#242e38] overflow-hidden flex items-center justify-center shrink-0">
+						<Show
+							when={avatarUrl()}
+							fallback={<span class="text-[20px] font-bold text-[#4db2ff]">{initialLetter()}</span>}
+						>
+							<img
+								src={avatarUrl()}
+								alt={displayName()}
+								class="w-full h-full object-cover"
+								loading="eager"
+								referrerPolicy="no-referrer"
+								onError={() => {
+									if (!imgError()) setImgError(true);
+									else setFallbackAttempted(true);
+								}}
+							/>
+						</Show>
+					</div>
 
-				{/* Avatar Container */}
-				<div class="relative mt-5 mb-3">
-					<div class="relative w-[92px] h-[92px] rounded-full p-[2px] bg-gradient-to-br from-[#2990ff]/50 via-white/15 to-transparent shadow-[0_12px_32px_rgba(0,0,0,0.45)]">
-						<div class="w-full h-full rounded-full bg-[#141a22] overflow-hidden flex items-center justify-center relative">
-							<Show
-								when={avatarUrl()}
-								fallback={
-									<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1b232d] to-[#11161d]">
-										<span class="text-3xl font-bold text-[#5aaeff]">{initialLetter()}</span>
-									</div>
-								}
-							>
-								<img
-									src={avatarUrl()}
-									alt={displayName()}
-									class="w-full h-full object-cover transition-opacity duration-300"
-									loading="eager"
-									referrerPolicy="no-referrer"
-									onError={() => {
-										if (!imgError()) {
-											setImgError(true);
-										} else {
-											setFallbackAttempted(true);
-										}
-									}}
-								/>
+					<div class="flex flex-col min-w-0">
+						<div class="flex items-center gap-1.5 flex-wrap">
+							<h1 class="text-[17px] font-bold leading-tight text-white truncate">
+								<bdi>{displayName()}</bdi>
+							</h1>
+							<Show when={props.stats?.isPremium || props.stats?.subscription?.isActive}>
+								<span class="px-1.5 py-0.5 rounded-[4px] bg-[#4db2ff]/10 text-[#4db2ff] text-[10px] font-semibold">
+									{t('common.proBadge')}
+								</span>
 							</Show>
 						</div>
-					</div>
 
-					{/* Emoji Status Indicator (Clickable Action) */}
-					<button
-						type="button"
-						onClick={handleOpenEmojiModal}
-						class="absolute -bottom-1 -right-1 w-7 h-7 bg-[#1b232d] hover:bg-[#232d3a] active:scale-90 border border-white/15 rounded-full flex items-center justify-center text-[14px] shadow-lg transition-all"
-						title={t('emoji.setStatus' as any) || 'Set Telegram Emoji Status'}
-						aria-label={t('emoji.setStatus' as any) || 'Set Telegram Emoji Status'}
-					>
-						<Show
-							when={props.stats?.emojiStatus}
-							fallback={
-								<span class="material-symbols-outlined text-[14px] text-[#8ca0b5]">
-									add_reaction
-								</span>
-							}
-						>
-							<span>{props.stats?.emojiStatus}</span>
+						<Show when={usernameTag()}>
+							<p class="text-[#4db2ff] text-[12.5px] font-mono truncate mt-0.5" dir="ltr">
+								{usernameTag()}
+							</p>
 						</Show>
-					</button>
-				</div>
 
-				{/* User Info & Badges */}
-				<div class="flex flex-col items-center w-full text-center z-10 px-4 pb-5 space-y-2">
-					<div class="flex items-center justify-center gap-1.5 flex-wrap">
-						<h1 class="text-[20px] font-bold leading-tight text-white tracking-tight">
-							<bdi>{displayName()}</bdi>
-						</h1>
-						<Show when={props.stats?.isPremium || props.stats?.subscription?.isActive}>
-							<span class="px-2 py-0.5 rounded-md bg-[#2990ff]/15 border border-[#2990ff]/35 text-[#5aaeff] text-[10px] font-bold tracking-wide">
-								{t('common.proBadge')}
-							</span>
-						</Show>
-					</div>
-
-					<Show when={usernameTag()}>
-						<p class="text-[#5aaeff] text-xs font-semibold dir-ltr font-mono" dir="ltr">
-							{usernameTag()}
-						</p>
-					</Show>
-
-					<div class="flex items-center justify-center flex-wrap gap-2 pt-1">
-						{/* Level Badge */}
-						<div class="flex items-center gap-1.5 bg-[#2990ff]/12 border border-[#2990ff]/28 px-3 py-1 rounded-xl">
-							<span
-								class="material-symbols-outlined text-[15px] text-[#5aaeff]"
-								style={{ 'font-variation-settings': '"FILL" 1' }}
-							>
-								star
-							</span>
-							<span class="text-white text-xs font-semibold">
+						<div class="flex items-center gap-2 flex-wrap mt-1.5">
+							<span class="px-2 py-0.5 rounded-[4px] bg-[#242e38] text-[11px] font-semibold text-white">
 								{t('profile.levelBadge', {
 									level: formatNumber(info().current.level),
 									title: info().current.title,
 								})}
 							</span>
-						</div>
-
-						{/* Rank Badge */}
-						<Show when={props.stats?.globalRank}>
-							<div class="flex items-center gap-1.5 bg-[#141a22] border border-white/[0.08] px-3 py-1 rounded-xl">
-								<span class="material-symbols-outlined text-[15px] text-[#8ca0b5]">public</span>
-								<span class="text-[#c2cfde] text-xs font-semibold tabular-nums">
+							<Show when={props.stats?.globalRank}>
+								<span class="px-2 py-0.5 rounded-[4px] bg-[#242e38] text-[11px] font-semibold text-[#8c9aa9] tabular-nums">
 									{t('profile.rankBadge', { rank: formatNumber(props.stats?.globalRank || 0) })}
 								</span>
-							</div>
-						</Show>
-
-						{/* Set Emoji Status Action Pill */}
-						<button
-							type="button"
-							onClick={handleOpenEmojiModal}
-							class="flex items-center gap-1 bg-[#ffb340]/12 hover:bg-[#ffb340]/20 border border-[#ffb340]/28 px-2.5 py-1 rounded-xl text-[#ffb340] text-[11px] font-semibold active:scale-95 transition-all"
-						>
-							<Show
-								when={props.stats?.emojiStatus}
-								fallback={
-									<span
-										class="material-symbols-outlined text-[13px] text-[#ffb340]"
-										style={{ 'font-variation-settings': '"FILL" 1' }}
-									>
-										star
-									</span>
-								}
-							>
-								<span>{props.stats?.emojiStatus}</span>
 							</Show>
-							<span>{t('emoji.status' as any) || 'Status'}</span>
-						</button>
+						</div>
 					</div>
 				</div>
+
+				{/* Emoji Status Action Button */}
+				<button
+					type="button"
+					onClick={handleOpenEmojiModal}
+					class="h-8 px-2.5 rounded-[6px] bg-[#242e38] hover:bg-[#293440] text-[#ff9953] text-[12px] font-semibold flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+					title={t('emoji.setStatus' as any) || 'Set Telegram Emoji Status'}
+					aria-label={t('emoji.setStatus' as any) || 'Set Telegram Emoji Status'}
+				>
+					<Show
+						when={props.stats?.emojiStatus}
+						fallback={
+							<span
+								class="material-symbols-outlined text-[14px]"
+								style={{ 'font-variation-settings': '"FILL" 1' }}
+							>
+								star
+							</span>
+						}
+					>
+						<span>{props.stats?.emojiStatus}</span>
+					</Show>
+					<span>{t('emoji.status' as any) || 'Status'}</span>
+				</button>
 			</div>
 
 			<Show when={showEmojiModal()}>

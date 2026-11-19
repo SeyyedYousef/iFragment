@@ -1728,3 +1728,16 @@ func (c *BotAPIClient) GetCustomEmojiStickers(ctx context.Context, customEmojiID
 	}
 	return stickers, nil
 }
+
+// SendChatAction sends a chat action indicator (e.g. "typing", "upload_photo").
+func (c *BotAPIClient) SendChatAction(ctx context.Context, chatID int64, action string, threadID *int) error {
+	payload := map[string]interface{}{
+		"chat_id": chatID,
+		"action":  action,
+	}
+	if threadID != nil && *threadID != 0 {
+		payload["message_thread_id"] = *threadID
+	}
+	_, err := c.Request(ctx, "sendChatAction", payload)
+	return err
+}

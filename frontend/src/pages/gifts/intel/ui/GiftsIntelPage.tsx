@@ -1,15 +1,18 @@
+import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
-import { type Component, createSignal, Show } from 'solid-js';
+import { type Component, createSignal, For, Show } from 'solid-js';
 import { giftsApi } from '@/entities/gifts/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import { TonIcon } from '@/shared/ui/fragment/FragmentPrimitives.js';
 import { GiftsChartView, type GiftsMainTab } from './components/GiftsChartView.js';
 
 export const GiftsIntelPage: Component = () => {
 	useTelegramBackButton(-1);
+	const navigate = useNavigate();
 
-	const [activeTab, setActiveTab] = createSignal<GiftsMainTab>('overview');
+	const [activeTab, setActiveTab] = createSignal<GiftsMainTab>('collections');
 	const intelQuery = createQuery(() => ({
 		queryKey: ['giftsIntel'],
 		queryFn: () => giftsApi.getIntel(),
@@ -20,118 +23,114 @@ export const GiftsIntelPage: Component = () => {
 
 	return (
 		<div
-			class="frag-canvas text-[#f3f5f8] min-h-screen font-sans pb-36 relative overflow-x-clip"
+			class="frag-canvas text-white min-h-screen font-frag-sans pb-32 relative overflow-x-clip"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			<div class="max-w-3xl mx-auto px-4 pt-3.5 relative z-10">
-				{/* Institutional Header */}
-				<div class="frag-card-elevated rounded-2xl p-4 mb-3">
-					<div class="flex items-center justify-between gap-2 flex-wrap mb-2">
-						<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#2990ff]/10 border border-[#2990ff]/25">
-							<span class="w-1.5 h-1.5 rounded-full bg-[#4cd964]" />
-							<span class="text-[11px] font-semibold text-[#5aaeff]">
-								{t('giftsIntelPage.terminalBadge')}
+			{/* Authentic Fragment.com Sticky Top Header (.tm-header) */}
+			<header class="frag-header sticky top-0 z-40 w-full h-[52px] px-4 flex items-center justify-between gap-3">
+				<button
+					type="button"
+					onClick={() => navigate('/')}
+					class="flex items-center gap-2 text-white hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
+				>
+					<TonIcon size={20} color="#4db2ff" />
+					<span class="text-[15px] font-bold tracking-[0.04em]" dir="ltr">
+						FRAGMENT
+					</span>
+				</button>
+
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => navigate('/gifts/crafting')}
+						class="h-8 px-2.5 rounded-[6px] bg-[#242e38] hover:bg-[#293440] text-white text-[12px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+					>
+						<span class="material-symbols-outlined text-[15px] text-[#ff9953]">
+							local_fire_department
+						</span>
+						<span class="hidden xs:inline">{t('gifts.craftingBadge')}</span>
+					</button>
+					<button
+						type="button"
+						onClick={() => navigate('/gifts/portfolio')}
+						class="h-8 px-2.5 rounded-[6px] bg-[#242e38] hover:bg-[#293440] text-white text-[12px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+					>
+						<span class="material-symbols-outlined text-[15px] text-[#5aec8c]">
+							account_balance_wallet
+						</span>
+						<span class="hidden xs:inline">Portfolio</span>
+					</button>
+				</div>
+			</header>
+
+			<div class="max-w-[540px] mx-auto px-4 pt-5 relative z-10 space-y-4">
+				{/* Title Row */}
+				<div class="flex items-center justify-between gap-3">
+					<div>
+						<div class="flex items-center gap-2">
+							<h1 class="text-[20px] sm:text-[22px] font-bold tracking-[-0.015em] text-white">
+								{t('giftsIntelPage.title')}
+							</h1>
+							<span class="px-2 py-0.5 rounded-[4px] bg-[#5aec8c]/10 text-[#5aec8c] text-[11px] font-semibold">
+								{t('giftsIntelPage.liveOnChainBadge')}
 							</span>
 						</div>
-
-						<span class="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#141a22] border border-white/[0.08] text-[#4cd964] inline-flex items-center gap-1.5">
-							<span class="w-1.5 h-1.5 rounded-full bg-[#4cd964]" />
-							{t('giftsIntelPage.liveOnChainBadge')}
-						</span>
+						<p class="text-[12.5px] text-[#8794a1] mt-0.5 leading-snug">
+							{t('giftsIntelPage.subtitle')}
+						</p>
 					</div>
-
-					<h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white">
-						{t('giftsIntelPage.title')}
-					</h1>
-					<p class="text-[12px] text-[#8ca0b5] mt-1 leading-relaxed">
-						{t('giftsIntelPage.subtitle')}
-					</p>
 				</div>
 
-				{/* Primary 4-Tab Segmented Navigation */}
-				<div class="bg-[#141a22]/95 border border-white/[0.08] p-1 rounded-2xl grid grid-cols-4 gap-1 sticky top-2 z-30 backdrop-blur-2xl shadow-[0_12px_32px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] mb-3">
-					<button
-						type="button"
-						onClick={() => {
-							try {
-								haptic.impact('light');
-							} catch {}
-							setActiveTab('overview');
-						}}
-						class={`py-2 px-1 rounded-xl text-[11px] font-semibold transition-all truncate text-center ${
-							activeTab() === 'overview'
-								? 'bg-[#2990ff] text-white shadow-[0_6px_16px_rgba(41,144,255,0.28)]'
-								: 'text-[#8ca0b5] hover:text-white hover:bg-white/[0.04]'
-						}`}
+				{/* 4-Tab Fragment Horizontal Bar */}
+				<div class="flex items-center border-b border-[#293440] gap-5 px-1">
+					<For
+						each={
+							[
+								{ id: 'collections', label: t('giftsIntelPage.tabCollections') },
+								{ id: 'overview', label: t('giftsIntelPage.tabOverview') },
+								{ id: 'inspector', label: t('giftsIntelPage.tabInspector') },
+								{ id: 'tape', label: t('giftsIntelPage.tabTape') },
+							] as const
+						}
 					>
-						{t('giftsIntelPage.tabOverview')}
-					</button>
-
-					<button
-						type="button"
-						onClick={() => {
-							try {
-								haptic.impact('light');
-							} catch {}
-							setActiveTab('collections');
+						{(tab) => {
+							const active = () => activeTab() === tab.id;
+							return (
+								<button
+									type="button"
+									onClick={() => {
+										try {
+											haptic.impact('light');
+										} catch {}
+										setActiveTab(tab.id);
+									}}
+									class={`relative pb-2.5 text-[13.5px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+										active() ? 'text-white' : 'text-[#8c9aa9] hover:text-white'
+									}`}
+								>
+									<span>{tab.label}</span>
+									<Show when={active()}>
+										<span class="absolute inset-x-0 bottom-0 h-[3px] bg-[#248bda] rounded-t-[3px]" />
+									</Show>
+								</button>
+							);
 						}}
-						class={`py-2 px-1 rounded-xl text-[11px] font-semibold transition-all truncate text-center ${
-							activeTab() === 'collections'
-								? 'bg-[#2990ff] text-white shadow-[0_6px_16px_rgba(41,144,255,0.28)]'
-								: 'text-[#8ca0b5] hover:text-white hover:bg-white/[0.04]'
-						}`}
-					>
-						{t('giftsIntelPage.tabCollections')}
-					</button>
-
-					<button
-						type="button"
-						onClick={() => {
-							try {
-								haptic.impact('light');
-							} catch {}
-							setActiveTab('inspector');
-						}}
-						class={`py-2 px-1 rounded-xl text-[11px] font-semibold transition-all truncate text-center ${
-							activeTab() === 'inspector'
-								? 'bg-[#2990ff] text-white shadow-[0_6px_16px_rgba(41,144,255,0.28)]'
-								: 'text-[#8ca0b5] hover:text-white hover:bg-white/[0.04]'
-						}`}
-					>
-						{t('giftsIntelPage.tabInspector')}
-					</button>
-
-					<button
-						type="button"
-						onClick={() => {
-							try {
-								haptic.impact('light');
-							} catch {}
-							setActiveTab('tape');
-						}}
-						class={`py-2 px-1 rounded-xl text-[11px] font-semibold transition-all truncate text-center ${
-							activeTab() === 'tape'
-								? 'bg-[#2990ff] text-white shadow-[0_6px_16px_rgba(41,144,255,0.28)]'
-								: 'text-[#8ca0b5] hover:text-white hover:bg-white/[0.04]'
-						}`}
-					>
-						{t('giftsIntelPage.tabTape')}
-					</button>
+					</For>
 				</div>
 
-				{/* Loading / Ready State */}
+				{/* Loading / Content State */}
 				<Show
 					when={!intelQuery.isLoading && intel()}
 					fallback={
-						<div class="flex flex-col items-center justify-center py-20 gap-3 frag-card-elevated rounded-2xl">
-							<div class="w-9 h-9 rounded-full border-2 border-[#2990ff]/25 border-t-[#2990ff] animate-spin" />
-							<span class="text-xs font-medium text-[#8ca0b5]">
+						<div class="flex flex-col items-center justify-center py-16 gap-3 frag-card">
+							<div class="w-8 h-8 rounded-full border-2 border-[#4db2ff]/25 border-t-[#4db2ff] animate-spin" />
+							<span class="text-[12.5px] font-medium text-[#8c9aa9]">
 								{t('giftsIntelPage.syncingLabel')}
 							</span>
 						</div>
 					}
 				>
-					<div class="mt-2">
+					<div>
 						<GiftsChartView
 							intel={intel()}
 							activeTab={activeTab()}

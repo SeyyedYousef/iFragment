@@ -1,4 +1,3 @@
-import { Motion } from '@motionone/solid';
 import { createQuery } from '@tanstack/solid-query';
 import { backButton } from '@tma.js/sdk-solid';
 import { type Component, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
@@ -9,6 +8,7 @@ import {
 } from '@/entities/user/index.js';
 import { formatNumber, locale, t } from '@/shared/i18n/index.js';
 import { haptic, shareToStory, switchInlineQuery } from '@/shared/lib/telegram-native.js';
+import { TonIcon } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 export const AchievementsPage: Component = () => {
 	const [activeCategory, setActiveCategory] = createSignal<string>('all');
@@ -38,14 +38,16 @@ export const AchievementsPage: Component = () => {
 	];
 
 	onMount(() => {
-		backButton.show();
-		const off = backButton.onClick(() => window.history.back());
-		onCleanup(() => {
-			off();
-			try {
-				backButton.hide();
-			} catch {}
-		});
+		try {
+			backButton.show();
+			const off = backButton.onClick(() => window.history.back());
+			onCleanup(() => {
+				off();
+				try {
+					backButton.hide();
+				} catch {}
+			});
+		} catch {}
 	});
 
 	const mergedAchievements = createMemo(() => {
@@ -78,20 +80,22 @@ export const AchievementsPage: Component = () => {
 		return mergedAchievements().filter((a) => a.category === cat);
 	});
 
-	const unlockedCount = createMemo(() => {
-		return mergedAchievements().filter((a) => a.unlocked).length;
-	});
+	const unlockedCount = createMemo(() => mergedAchievements().filter((a) => a.unlocked).length);
 
 	const handleCardClick = (ach: any) => {
-		haptic.impact('light');
+		try {
+			haptic.impact('light');
+		} catch {}
 		setSelectedAch(ach);
 	};
 
 	const handleShareToStory = () => {
 		const ach = selectedAch();
 		if (!ach) return;
-		haptic.impact('medium');
-		const storyText = `I unlocked the "${ach.title}" achievement on iFragment! 🏆`;
+		try {
+			haptic.impact('medium');
+		} catch {}
+		const storyText = `Unlocked "${ach.title}" on iFragment`;
 		const promoBannerUrl = new URL('promo_banner.png', document.baseURI).href;
 		shareToStory(promoBannerUrl, {
 			text: storyText,
@@ -105,105 +109,60 @@ export const AchievementsPage: Component = () => {
 	const handleShareToChat = () => {
 		const ach = selectedAch();
 		if (!ach) return;
-		haptic.impact('medium');
-		const query = `Check out my unlocked achievement: ${ach.icon} ${ach.title} - ${ach.desc}`;
+		try {
+			haptic.impact('medium');
+		} catch {}
+		const query = `${ach.icon} ${ach.title} - ${ach.desc}`;
 		switchInlineQuery(query, ['users', 'groups']);
 	};
 
 	return (
 		<div
-			class="frag-canvas min-h-screen pb-24 text-[#f3f5f8] font-sans selection:bg-amber-400/30 relative overflow-x-hidden"
+			class="frag-canvas min-h-screen pb-28 text-white font-frag-sans relative overflow-x-hidden"
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
-			<div class="max-w-md mx-auto w-full relative z-10 flex flex-col">
-				{/* ═══════ HERO HEADER ═══════ */}
-				<div class="px-5 pt-8 pb-4 flex flex-col gap-5">
-					<div class="flex flex-col gap-0.5">
-						<h1 class="text-[26px] font-black text-white tracking-tight drop-shadow-sm">
-							{t('achievements.title')}
-						</h1>
-						<p class="text-[13px] text-white/50 font-bold uppercase tracking-widest">
-							{t('achievements.subtitle')}
-						</p>
-					</div>
+			{/* Authentic Fragment.com Sticky Top Header (.tm-header) */}
+			<header class="frag-header sticky top-0 z-40 w-full h-[52px] px-4 flex items-center justify-between gap-3">
+				<button
+					type="button"
+					onClick={() => window.history.back()}
+					class="flex items-center gap-2 text-white hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
+				>
+					<TonIcon size={20} color="#4db2ff" />
+					<span class="text-[15px] font-bold tracking-[0.04em]" dir="ltr">
+						FRAGMENT
+					</span>
+				</button>
 
-					{/* Progress Summary Card */}
-					<Motion.div
-						initial={{ opacity: 0, y: 15 }}
-						animate={{ opacity: 1, y: 0 }}
-						class="bg-[#1b232d]/95 border border-white/[0.08] rounded-2xl p-5 flex items-center justify-between shadow-sm relative overflow-hidden"
-					>
-						<div class="flex items-center gap-4 relative z-10">
-							<div class="w-14 h-14 rounded-[16px] bg-gradient-to-br from-amber-400/20 to-orange-500/5 flex items-center justify-center text-[28px] border border-amber-400/20 shadow-inner shrink-0">
-								<span
-									class="material-symbols-outlined text-[28px] text-[#ffb340]"
-									style={{ 'font-variation-settings': '"FILL" 1' }}
-								>
-									emoji_events
-								</span>
-							</div>
-							<div class="flex flex-col gap-0.5">
-								<span class="text-[10px] text-white/40 font-black uppercase tracking-widest">
-									{t('achievements.title')}
-								</span>
-								<span class="text-[18px] font-black text-white tracking-tight">
-									<span class="text-amber-400">{unlockedCount()}</span> /{' '}
-									<span class="text-white/70">{mergedAchievements().length}</span>
-								</span>
-								<span class="text-[11px] font-bold text-white/50">
-									{t('achievements.completed')}
-								</span>
-							</div>
-						</div>
+				<span class="px-2.5 py-1 rounded-[4px] bg-[#5aec8c]/10 text-[#5aec8c] text-[12px] font-mono font-semibold tabular-nums">
+					{unlockedCount()} / {mergedAchievements().length}
+				</span>
+			</header>
 
-						<div class="relative w-16 h-16 flex items-center justify-center shrink-0 z-10">
-							<svg
-								class="w-full h-full transform -rotate-90"
-								viewBox="0 0 36 36"
-								aria-hidden="true"
-							>
-								<path
-									class="text-white/5"
-									stroke-dasharray="100"
-									stroke-width="3"
-									stroke="currentColor"
-									fill="none"
-									d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-								/>
-								<path
-									class="text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.5)] transition-all duration-1000 ease-out"
-									stroke-dasharray={`${mergedAchievements().length ? (unlockedCount() / mergedAchievements().length) * 100 : 0}, 100`}
-									stroke-width="3"
-									stroke-linecap="round"
-									stroke="currentColor"
-									fill="none"
-									d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-								/>
-							</svg>
-							<span class="absolute text-[12px] font-black text-amber-400 font-mono">
-								{mergedAchievements().length
-									? Math.round((unlockedCount() / mergedAchievements().length) * 100)
-									: 0}
-								%
-							</span>
-						</div>
-					</Motion.div>
+			<div class="max-w-[480px] mx-auto px-4 pt-5 w-full relative z-10 flex flex-col gap-4">
+				<div>
+					<h1 class="text-[20px] sm:text-[22px] font-bold text-white tracking-[-0.015em]">
+						{t('achievements.title')}
+					</h1>
+					<p class="text-[12.5px] text-[#8794a1] mt-0.5">{t('achievements.subtitle')}</p>
 				</div>
 
-				{/* ═══════ CATEGORY PILLS ═══════ */}
-				<div class="flex gap-2.5 overflow-x-auto px-5 py-2 no-scrollbar scroll-smooth">
+				{/* Category Filter Pills */}
+				<div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
 					<For each={categories}>
 						{(cat) => (
 							<button
 								type="button"
 								onClick={() => {
-									haptic.selection();
+									try {
+										haptic.selection();
+									} catch {}
 									setActiveCategory(cat.id);
 								}}
-								class={`px-4 py-2.5 rounded-[14px] font-black text-[11px] uppercase tracking-widest shrink-0 transition-all active:scale-95 ${
+								class={`px-3 py-1.5 rounded-[6px] font-semibold text-[12px] shrink-0 transition-colors cursor-pointer ${
 									activeCategory() === cat.id
-										? 'bg-[#2990ff] text-white shadow-[0_4px_15px_rgba(51,144,236,0.3)] border border-transparent'
-										: 'bg-[#1b232d]/95 border border-white/[0.08] text-white/50 hover:bg-white/5 hover:text-white/80'
+										? 'bg-[#248bda] text-white'
+										: 'bg-[#212a33] hover:bg-[#293440] text-[#8c9aa9] hover:text-white'
 								}`}
 							>
 								{cat.label()}
@@ -212,223 +171,131 @@ export const AchievementsPage: Component = () => {
 					</For>
 				</div>
 
-				{/* ═══════ ACHIEVEMENTS GRID ═══════ */}
-				<div class="px-5 pt-3 pb-6 grid grid-cols-2 gap-3.5">
+				{/* Clean Fragment Table List of Achievements (.frag-table-container) */}
+				<div class="frag-table-container">
+					<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
+						<span>{t('achievements.title')}</span>
+						<span>{t('achievements.progress')}</span>
+					</div>
+
 					<For each={filteredAchievements()}>
-						{(ach, i) => (
-							<Motion.button
+						{(ach) => (
+							<button
+								type="button"
 								onClick={() => handleCardClick(ach)}
-								initial={{ opacity: 0, y: 15 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ delay: i() * 0.05 }}
-								class={`rounded-2xl p-4 flex flex-col items-center text-center gap-2.5 relative transition-all active:scale-[0.98] group overflow-hidden ${
-									ach.unlocked
-										? 'bg-[#232d3a] backdrop-blur-xl border border-amber-400/30 shadow-[0_4px_20px_rgba(251,191,36,0.08)] hover:border-amber-400/50'
-										: 'bg-[#141a22] border border-white/5 opacity-80 hover:opacity-100 hover:border-white/10 shadow-inner'
-								}`}
+								class="frag-table-row w-full px-3.5 py-3 flex items-center justify-between gap-3 text-start cursor-pointer"
 							>
-								{/* Badge Icon */}
-								<div
-									class={`w-14 h-14 rounded-[16px] flex items-center justify-center text-[28px] relative shadow-inner mt-1 transition-transform duration-300 group-hover:scale-105 ${
-										ach.unlocked
-											? 'bg-gradient-to-br from-amber-400/20 to-orange-500/10 border border-amber-400/20'
-											: 'bg-white/5 border border-white/5'
-									}`}
-								>
-									<span
-										class={
-											ach.unlocked
-												? 'drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]'
-												: 'grayscale opacity-50'
-										}
+								<div class="flex items-center gap-3 min-w-0">
+									<div
+										class={`w-10 h-10 rounded-[8px] bg-[#242e38] flex items-center justify-center text-[20px] shrink-0 ${
+											ach.unlocked ? '' : 'grayscale opacity-50'
+										}`}
 									>
-										{ach.icon}
-									</span>
-									<Show when={!ach.unlocked}>
-										<div class="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-[8px] bg-[#1b232d] flex items-center justify-center border border-white/10 shadow-sm">
-											<span class="material-symbols-outlined text-[12px] text-white/40">lock</span>
-										</div>
-									</Show>
+										<span>{ach.icon}</span>
+									</div>
+									<div class="flex flex-col min-w-0">
+										<span
+											class={`text-[13.5px] font-semibold truncate ${
+												ach.unlocked ? 'text-white' : 'text-[#8c9aa9]'
+											}`}
+										>
+											{ach.title}
+										</span>
+										<span class="text-[11.5px] text-[#8794a1] truncate mt-0.5">{ach.desc}</span>
+									</div>
 								</div>
 
-								<div class="flex flex-col gap-1 w-full flex-1">
-									<span
-										class={`text-[13px] font-black leading-tight line-clamp-1 mt-1 ${ach.unlocked ? 'text-amber-400' : 'text-white'}`}
-									>
-										{ach.title}
-									</span>
-									<span class="text-[10px] font-medium text-white/40 leading-relaxed line-clamp-2">
-										{ach.desc}
-									</span>
-								</div>
-
-								{/* Progress or Status */}
-								<div class="w-full mt-2 pt-2 border-t border-white/5 flex flex-col justify-center min-h-[24px]">
+								<div class="shrink-0">
 									<Show
 										when={ach.unlocked}
 										fallback={
-											<Show
-												when={ach.target > 1}
-												fallback={
-													<span class="text-[9px] font-black text-white/30 uppercase tracking-widest">
-														{t('achievements.locked')}
-													</span>
-												}
-											>
-												<div class="w-full flex items-center gap-2">
-													<div class="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden shadow-inner">
-														<div
-															class="h-full bg-[#2990ff] rounded-full shadow-[0_0_5px_#2990ff]"
-															style={{
-																width: `${Math.max(5, Math.min(100, (ach.progress / ach.target) * 100))}%`,
-															}}
-														/>
-													</div>
-													<span class="text-[9px] text-[#2990ff] font-black font-mono tracking-tighter shrink-0">
-														{formatNumber(ach.progress)}/{formatNumber(ach.target)}
-													</span>
-												</div>
-											</Show>
+											<span class="px-2 py-0.5 rounded-[4px] bg-[#242e38] text-[#8c9aa9] text-[11px] font-mono font-semibold tabular-nums">
+												{formatNumber(ach.progress)}/{formatNumber(ach.target)}
+											</span>
 										}
 									>
-										<span class="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center justify-center gap-1">
-											<span class="material-symbols-outlined text-[14px]">verified</span>
+										<span class="px-2 py-0.5 rounded-[4px] bg-[#5aec8c]/10 text-[#5aec8c] text-[11px] font-semibold">
 											{t('achievements.unlocked')}
 										</span>
 									</Show>
 								</div>
-							</Motion.button>
+							</button>
 						)}
 					</For>
 				</div>
 			</div>
 
-			{/* ═══════ 3D DETAIL BOTTOM SHEET ═══════ */}
+			{/* Clean Detail Sheet */}
 			<Show when={selectedAch()}>
 				{(ach) => (
 					<div
-						class="fixed inset-0 z-[100] flex items-end justify-center bg-[#0b0e14]/85 backdrop-blur-xl px-2 pb-2"
+						class="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm"
 						onClick={(e) => {
 							if (e.target === e.currentTarget) setSelectedAch(null);
 						}}
 					>
-						<Motion.div
-							initial={{ y: '100%' }}
-							animate={{ y: 0 }}
-							transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }}
-							class="w-full max-w-md max-h-[85vh] overflow-y-auto no-scrollbar bg-[#1b232d] border border-white/10 rounded-[26px] p-6 pb-8 flex flex-col items-center text-center relative shadow-[0_20px_60px_rgba(0,0,0,0.8)]"
-						>
-							{/* Handle & Close */}
-							<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-4 relative z-10" />
+						<div class="w-full max-w-[480px] frag-sheet rounded-t-[16px] p-5 pb-8 flex flex-col items-center text-center relative">
+							<div class="w-9 h-1 bg-white/15 rounded-full mx-auto mb-4" />
 							<button
 								type="button"
 								onClick={() => setSelectedAch(null)}
-								class="absolute top-5 right-5 w-9 h-9 rounded-[12px] bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 text-white/60 hover:text-white transition-all active:scale-95 z-20"
+								class="absolute top-4 right-4 w-8 h-8 rounded-[6px] bg-[#242e38] flex items-center justify-center text-[#8c9aa9] hover:text-white cursor-pointer"
 							>
-								<span class="material-symbols-outlined text-[20px]">close</span>
+								<span class="material-symbols-outlined text-[18px]">close</span>
 							</button>
 
-							{/* Large Icon */}
-							<div
-								class={`w-28 h-28 rounded-[26px] flex items-center justify-center text-[64px] mb-5 mt-2 relative z-10 shadow-inner ${
-									ach().unlocked
-										? 'bg-gradient-to-br from-amber-400/20 to-orange-500/10 border-2 border-amber-400/40 shadow-[0_10px_30px_rgba(251,191,36,0.2)]'
-										: 'bg-[#141a22] border border-white/5 grayscale opacity-60'
-								}`}
-							>
-								<span
-									class={ach().unlocked ? 'drop-shadow-[0_10px_20px_rgba(251,191,36,0.6)]' : ''}
-								>
-									{ach().icon}
-								</span>
+							<div class="w-16 h-16 rounded-[12px] bg-[#242e38] flex items-center justify-center text-[36px] mb-3">
+								<span>{ach().icon}</span>
 							</div>
 
-							<span class="px-3 py-1.5 rounded-[8px] bg-white/5 border border-white/10 text-[10px] font-black text-[#2990ff] uppercase tracking-widest mb-3 relative z-10 shadow-sm">
-								{ach().category
-									? t(`achievements.categories.${ach().category}` as any) || ach().category
-									: ''}
-							</span>
+							<h2 class="text-[18px] font-bold text-white mb-1">{ach().title}</h2>
+							<p class="text-[#8794a1] text-[13px] max-w-xs mb-4">{ach().desc}</p>
 
-							<h2
-								class={`text-[24px] font-black tracking-tight mb-2 relative z-10 ${ach().unlocked ? 'text-amber-400' : 'text-white'}`}
-							>
-								{ach().title}
-							</h2>
-							<p class="text-white/60 text-[13px] font-medium leading-relaxed max-w-[280px] relative z-10 mb-6">
-								{ach().desc}
-							</p>
-
-							{/* Progress / Status Block */}
-							<div class="w-full p-4 bg-[#141a22] border border-white/5 rounded-xl mb-6 relative z-10 shadow-inner">
+							<div class="w-full p-3 bg-[#242e38] rounded-[8px] mb-4">
 								<Show
 									when={ach().unlocked}
 									fallback={
-										<div class="flex flex-col items-center gap-2">
-											<div class="flex justify-between w-full px-1">
-												<span class="text-[11px] text-white/40 font-black uppercase tracking-widest">
-													{t('achievements.progress')}
-												</span>
-												<span class="text-[13px] font-black text-[#2990ff] font-mono tracking-tight">
-													{formatNumber(ach().progress)} / {formatNumber(ach().target)}
-												</span>
-											</div>
-											<div class="w-full h-2.5 bg-white/5 rounded-full overflow-hidden shadow-inner">
-												<div
-													class="h-full bg-gradient-to-r from-[#2990ff] to-[#2b7ec9] rounded-full shadow-[0_0_10px_#2990ff]"
-													style={{
-														width: `${Math.max(5, Math.min(100, (ach().progress / ach().target) * 100))}%`,
-													}}
-												/>
-											</div>
+										<div class="flex items-center justify-between text-[12.5px]">
+											<span class="text-[#8c9aa9]">{t('achievements.progress')}</span>
+											<span class="font-mono font-semibold text-[#4db2ff]">
+												{formatNumber(ach().progress)} / {formatNumber(ach().target)}
+											</span>
 										</div>
 									}
 								>
-									<div class="flex flex-col items-center gap-1.5">
-										<span class="text-[10px] text-white/40 font-black uppercase tracking-widest flex items-center gap-1">
-											<span class="material-symbols-outlined text-[14px] text-amber-400">
-												workspace_premium
-											</span>
-											{t('achievements.unlockedAtLabel')}
-										</span>
-										<span class="text-[16px] font-black text-white font-mono tracking-tight mt-0.5">
+									<div class="flex items-center justify-between text-[12.5px]">
+										<span class="text-[#8c9aa9]">{t('achievements.unlockedAtLabel')}</span>
+										<span class="font-mono font-semibold text-[#5aec8c]">
 											{ach().unlockedAt
 												? new Date(ach().unlockedAt!).toLocaleDateString(
 														locale() === 'fa' ? 'fa-IR' : 'en-US',
 														{ dateStyle: 'medium' },
 													)
-												: '---'}
+												: t('achievements.unlocked')}
 										</span>
 									</div>
 								</Show>
 							</div>
 
-							{/* Actions */}
 							<Show when={ach().unlocked}>
-								<div class="flex flex-col gap-3 w-full relative z-10">
+								<div class="grid grid-cols-2 gap-2 w-full">
 									<button
 										type="button"
 										onClick={handleShareToStory}
-										class="w-full h-14 rounded-[16px] bg-gradient-to-r from-amber-400 to-orange-500 text-black font-black uppercase tracking-widest text-[13px] flex items-center justify-center gap-2 shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all"
+										class="frag-btn-primary h-10 rounded-[8px] font-semibold text-[13px] flex items-center justify-center gap-1.5 cursor-pointer"
 									>
-										<span
-											class="material-symbols-outlined text-[22px]"
-											style={{ 'font-variation-settings': '"FILL" 1' }}
-										>
-											auto_stories
-										</span>
-										{t('achievements.shareStory')}
+										<span>{t('achievements.shareStory')}</span>
 									</button>
 									<button
 										type="button"
 										onClick={handleShareToChat}
-										class="w-full h-14 bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white font-black uppercase tracking-widest text-[13px] flex items-center justify-center gap-2 rounded-[16px] active:scale-95 transition-all shadow-sm"
+										class="frag-btn-secondary h-10 rounded-[8px] font-semibold text-[13px] flex items-center justify-center gap-1.5 cursor-pointer"
 									>
-										<span class="material-symbols-outlined text-[20px]">share</span>
-										{t('achievements.shareChat')}
+										<span>{t('achievements.shareChat')}</span>
 									</button>
 								</div>
 							</Show>
-						</Motion.div>
+						</div>
 					</div>
 				)}
 			</Show>

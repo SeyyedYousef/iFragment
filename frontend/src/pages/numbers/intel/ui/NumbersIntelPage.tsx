@@ -1,18 +1,15 @@
 import { useNavigate, useSearchParams } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
-import { type Component, createEffect, createMemo, createSignal, Show } from 'solid-js';
+import { type Component, createEffect, createMemo, createSignal, For, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/index.js';
 import { NumberActivityTape } from '@/pages/numbers/collection/ui/components/NumberActivityTape.js';
 import { NumberClubFloorsTracker } from '@/pages/numbers/collection/ui/components/NumberClubFloorsTracker.js';
 import { NumberCollectionKpis } from '@/pages/numbers/collection/ui/components/NumberCollectionKpis.js';
-import { NumberCulturalRadarHeatmap } from '@/pages/numbers/collection/ui/components/NumberCulturalRadarHeatmap.js';
-import { NumberDeFiFinancials } from '@/pages/numbers/collection/ui/components/NumberDeFiFinancials.js';
-import { NumberDialpadErgonomics } from '@/pages/numbers/collection/ui/components/NumberDialpadErgonomics.js';
 import { NumberHoldersView } from '@/pages/numbers/collection/ui/components/NumberHoldersView.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import { FragSectionHeader, TonAmount } from '@/shared/ui/fragment/FragmentPrimitives.js';
+import { FragSectionHeader, TonAmount, TonIcon } from '@/shared/ui/fragment/FragmentPrimitives.js';
 import { NumbersChartView } from './components/NumbersChartView.js';
 import { NumbersPortfolioView } from './components/NumbersPortfolioView.js';
 import { NumbersTableView } from './components/NumbersTableView.js';
@@ -22,8 +19,8 @@ export const NumbersIntelPage: Component = () => {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 
-	const [activeTab, setActiveTab] = createSignal<'chart' | 'numbers' | 'analytics' | 'portfolio'>(
-		'chart',
+	const [activeTab, setActiveTab] = createSignal<'numbers' | 'chart' | 'analytics' | 'portfolio'>(
+		'numbers',
 	);
 	const [listFilterState, setListFilterState] = createSignal<{
 		saleType?: '' | 'auction' | 'for_sale' | 'not_for_sale';
@@ -45,6 +42,8 @@ export const NumbersIntelPage: Component = () => {
 			setActiveTab('numbers');
 		} else if (tab === 'analytics') {
 			setActiveTab('analytics');
+		} else if (tab === 'chart') {
+			setActiveTab('chart');
 		}
 	});
 
@@ -96,9 +95,7 @@ export const NumbersIntelPage: Component = () => {
 				}
 			}
 		}
-		if (!ton || ton <= 0) {
-			ton = 2717;
-		}
+		if (!ton || ton <= 0) ton = 2717;
 		const usd = intel()?.floor_price_usd || chartQuery.data?.floor?.usd || Math.round(ton * rate);
 		return { ton, usd, rate };
 	});
@@ -153,134 +150,114 @@ export const NumbersIntelPage: Component = () => {
 	};
 
 	return (
-		<div class="frag-canvas pb-32 text-white min-h-screen relative selection:bg-[#2990ff]/30 overflow-x-hidden">
-			<div class="relative z-10 max-w-[540px] mx-auto px-4 pt-3.5 space-y-3.5">
-				{/* Top Fragment Header */}
-				<div class="frag-card-elevated rounded-[14px] p-3 flex items-center justify-between gap-2.5">
-					<div class="flex items-center gap-2.5 min-w-0">
-						<div class="w-9 h-9 rounded-[10px] bg-[#2990ff]/12 border border-[#2990ff]/30 flex items-center justify-center text-[#2990ff] shrink-0">
-							<span class="material-symbols-outlined text-[19px]">tag</span>
+		<div class="frag-canvas pb-32 text-white min-h-screen relative font-frag-sans overflow-x-hidden">
+			{/* Authentic Fragment.com Sticky Top Header (.tm-header) */}
+			<header class="frag-header sticky top-0 z-40 w-full h-[52px] px-4 flex items-center justify-between gap-3">
+				<button
+					type="button"
+					onClick={() => navigate('/')}
+					class="flex items-center gap-2 text-white hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
+				>
+					<TonIcon size={20} color="#4db2ff" />
+					<span class="text-[15px] font-bold tracking-[0.04em]" dir="ltr">
+						FRAGMENT
+					</span>
+				</button>
+
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => navigate('/numbers/mask')}
+						class="h-8 px-2.5 rounded-[6px] bg-[#242e38] hover:bg-[#293440] text-white text-[12px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+					>
+						<span class="material-symbols-outlined text-[15px] text-[#4db2ff]">dialpad</span>
+						<span>{t('numIntel.maskBtn')}</span>
+					</button>
+					<button
+						type="button"
+						onClick={() => navigate('/numbers/report')}
+						class="h-8 px-2.5 rounded-[6px] frag-btn-primary text-[12px] font-semibold cursor-pointer"
+					>
+						Appraise
+					</button>
+				</div>
+			</header>
+
+			<div class="relative z-10 max-w-[540px] mx-auto px-4 pt-5 space-y-4">
+				{/* Title & Live Floor Summary Row */}
+				<div class="flex items-center justify-between gap-3">
+					<div class="min-w-0">
+						<div class="flex items-center gap-2 flex-wrap">
+							<h1 class="text-[20px] sm:text-[22px] font-bold tracking-[-0.015em] text-white">
+								{t('numIntel.pageHeading')}
+							</h1>
+							<span class="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-[4px] bg-[#4db2ff]/10 text-[#4db2ff] tabular-nums">
+								136,566
+							</span>
 						</div>
-						<div class="min-w-0">
-							<div class="flex items-center gap-1.5 flex-wrap">
-								<h1 class="text-[15px] font-semibold tracking-[-0.015em] text-white">
-									{t('numIntel.pageHeading')}
-								</h1>
-								<span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-[5px] bg-[#2990ff]/12 text-[#2990ff] border border-[#2990ff]/25 tabular-nums">
-									136,566
-								</span>
-							</div>
-							<p class="text-[11px] font-medium text-[#8c9ba5] truncate">
-								{t('numbers.headerSubtitle')}
-							</p>
-						</div>
+						<p class="text-[12.5px] text-[#8794a1] truncate mt-0.5">
+							{t('numbers.headerSubtitle')}
+						</p>
 					</div>
 
-					{/* Right Actions: Mask Builder + Live Floor */}
-					<div class="flex items-center gap-2.5 shrink-0">
-						<button
-							type="button"
-							onClick={() => {
-								try {
-									haptic.selection();
-								} catch {}
-								navigate('/numbers/mask');
-							}}
-							class="px-2.5 py-1.5 rounded-[9px] frag-btn-secondary text-[11px] font-semibold text-[#d7e0e8] flex items-center gap-1"
-							title={t('numIntel.maskBtn')}
-						>
-							<span class="material-symbols-outlined text-[15px] text-[#2990ff]">dialpad</span>
-							<span class="hidden sm:inline">{t('numIntel.maskBtn')}</span>
-						</button>
-
-						<div class="flex flex-col items-end">
-							<TonAmount
-								value={formatTon(liveFloor().ton)}
-								size="sm"
-								unit
-								usd={formatUsdPlain(liveFloor().usd)}
-								class="items-end"
-							/>
-						</div>
+					<div class="shrink-0 text-end">
+						<span class="text-[11px] font-semibold text-[#8c9aa9] block mb-0.5">Floor Price</span>
+						<TonAmount
+							value={formatTon(liveFloor().ton)}
+							size="sm"
+							usd={formatUsdPlain(liveFloor().usd)}
+							class="items-end"
+						/>
 					</div>
 				</div>
 
-				{/* 4-Way Fragment Segmented Bar */}
-				<div class="grid grid-cols-4 frag-inset p-1 rounded-[12px] gap-1">
-					<button
-						type="button"
-						onClick={() => {
-							try {
-								haptic.selection();
-							} catch {}
-							setActiveTab('chart');
-						}}
-						class={`py-2 px-1.5 text-[11.5px] font-semibold rounded-[9px] transition-all flex items-center justify-center gap-1 min-w-0 ${
-							activeTab() === 'chart'
-								? 'bg-[#2990ff] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
-								: 'text-[#8c9ba5] hover:text-white'
-						}`}
+				{/* 4-Tab Fragment Horizontal Bar */}
+				<div class="flex items-center border-b border-[#293440] gap-5 px-1">
+					<For
+						each={
+							[
+								{ id: 'numbers', label: t('numbers.tabNumbers') || 'Numbers' },
+								{ id: 'chart', label: t('numbers.tabChart') || 'Chart' },
+								{ id: 'analytics', label: t('numIntel.tabAnalytics') || 'Analytics' },
+								{ id: 'portfolio', label: t('numbers.tabPortfolio') || 'Portfolio' },
+							] as const
+						}
 					>
-						<span class="material-symbols-outlined text-[15px]">show_chart</span>
-						<span class="truncate">{t('numbers.tabChart') || 'Chart'}</span>
-					</button>
-
-					<button
-						type="button"
-						onClick={() => {
-							try {
-								haptic.selection();
-							} catch {}
-							setActiveTab('numbers');
+						{(tab) => {
+							const active = () => activeTab() === tab.id;
+							return (
+								<button
+									type="button"
+									onClick={() => {
+										try {
+											haptic.selection();
+										} catch {}
+										setActiveTab(tab.id);
+									}}
+									class={`relative pb-2.5 text-[13.5px] font-semibold transition-colors cursor-pointer ${
+										active() ? 'text-white' : 'text-[#8c9aa9] hover:text-white'
+									}`}
+								>
+									<span>{tab.label}</span>
+									<Show when={active()}>
+										<span class="absolute inset-x-0 bottom-0 h-[3px] bg-[#248bda] rounded-t-[3px]" />
+									</Show>
+								</button>
+							);
 						}}
-						class={`py-2 px-1.5 text-[11.5px] font-semibold rounded-[9px] transition-all flex items-center justify-center gap-1 min-w-0 ${
-							activeTab() === 'numbers'
-								? 'bg-[#2990ff] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
-								: 'text-[#8c9ba5] hover:text-white'
-						}`}
-					>
-						<span class="material-symbols-outlined text-[15px]">format_list_numbered</span>
-						<span class="truncate">{t('numbers.tabNumbers') || 'Numbers'}</span>
-					</button>
-
-					<button
-						type="button"
-						onClick={() => {
-							try {
-								haptic.selection();
-							} catch {}
-							setActiveTab('analytics');
-						}}
-						class={`py-2 px-1.5 text-[11.5px] font-semibold rounded-[9px] transition-all flex items-center justify-center gap-1 min-w-0 ${
-							activeTab() === 'analytics'
-								? 'bg-[#2990ff] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
-								: 'text-[#8c9ba5] hover:text-white'
-						}`}
-					>
-						<span class="material-symbols-outlined text-[15px]">analytics</span>
-						<span class="truncate">{t('numIntel.tabAnalytics')}</span>
-					</button>
-
-					<button
-						type="button"
-						onClick={() => {
-							try {
-								haptic.selection();
-							} catch {}
-							setActiveTab('portfolio');
-						}}
-						class={`py-2 px-1.5 text-[11.5px] font-semibold rounded-[9px] transition-all flex items-center justify-center gap-1 min-w-0 ${
-							activeTab() === 'portfolio'
-								? 'bg-[#2990ff] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
-								: 'text-[#8c9ba5] hover:text-white'
-						}`}
-					>
-						<span class="material-symbols-outlined text-[15px]">account_balance_wallet</span>
-						<span class="truncate">{t('numbers.tabPortfolio') || 'Portfolio'}</span>
-					</button>
+					</For>
 				</div>
 
-				{/* Active View */}
+				{/* Active Tab View */}
+				<Show when={activeTab() === 'numbers'}>
+					<NumbersTableView
+						initialFilter={listFilterState()}
+						intel={intel()}
+						onSelectNumber={handleSelectNumber}
+						onViewOwnerPortfolio={handleViewOwnerPortfolio}
+					/>
+				</Show>
+
 				<Show when={activeTab() === 'chart'}>
 					<NumbersChartView
 						intel={intel()}
@@ -296,17 +273,8 @@ export const NumbersIntelPage: Component = () => {
 					/>
 				</Show>
 
-				<Show when={activeTab() === 'numbers'}>
-					<NumbersTableView
-						initialFilter={listFilterState()}
-						intel={intel()}
-						onSelectNumber={handleSelectNumber}
-						onViewOwnerPortfolio={handleViewOwnerPortfolio}
-					/>
-				</Show>
-
 				<Show when={activeTab() === 'analytics'}>
-					<div class="space-y-3.5">
+					<div class="space-y-4">
 						<NumberCollectionKpis overview={overview()} />
 						<NumberClubFloorsTracker
 							patterns={patternsQuery.data}
@@ -315,15 +283,14 @@ export const NumbersIntelPage: Component = () => {
 							onSelectNumber={handleSelectNumber}
 						/>
 						<NumberHoldersView overview={overview()} />
-						<div class="frag-card rounded-[14px] p-4 space-y-3">
+						<div class="frag-card p-3.5 space-y-3">
 							<FragSectionHeader
 								title={t('numIntel.liveTapeHeading')}
-								icon="sensors"
 								right={
 									<button
 										type="button"
 										onClick={() => navigate('/numbers/collection')}
-										class="text-[11px] font-semibold text-[#2990ff] hover:text-[#4aa3ff] flex items-center gap-1"
+										class="text-[12px] font-semibold text-[#4db2ff] hover:underline flex items-center gap-0.5 cursor-pointer"
 									>
 										<span>{t('numIntel.fullCollectionBtn')}</span>
 										<span class="material-symbols-outlined text-[14px]">north_east</span>
@@ -332,12 +299,6 @@ export const NumbersIntelPage: Component = () => {
 							/>
 							<NumberActivityTape rate={liveFloor().rate} />
 						</div>
-						<NumberCulturalRadarHeatmap />
-						<NumberDialpadErgonomics initialNumber={overview()?.floor_number || '+888 8888 8888'} />
-						<NumberDeFiFinancials
-							medianFloorTon={liveFloor().ton || 2717}
-							tonUsdRate={liveFloor().rate}
-						/>
 					</div>
 				</Show>
 

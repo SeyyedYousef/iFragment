@@ -1,6 +1,6 @@
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import { toPng } from 'html-to-image';
-import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
 import { giftsApi } from '@/entities/gifts/api/giftsApi.js';
 import type {
 	ComparableGiftSale,
@@ -12,34 +12,35 @@ import { isRtl, locale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import {
+	FragKV,
+	FragStatusPill,
+	normalizeFragStatus,
+	TonAmount,
+	TonIcon,
+} from '@/shared/ui/fragment/FragmentPrimitives.js';
 import { CreditStoreSheet, UnifiedPaywallGate, useWallet } from '@/widgets/paywall/index.js';
 
-function formatUsd(val: number | string | undefined | null): string {
+function formatUsdPlain(val: number | string | undefined | null): string {
 	const num = typeof val === 'string' ? Number.parseFloat(val) : (val ?? 0);
-	if (!Number.isFinite(num) || num <= 0) return '$0';
-	if (num >= 1000) {
-		return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+	if (!Number.isFinite(num) || num <= 0) return '0';
+	if (num >= 100) {
+		return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
 	}
-	return `$${num.toLocaleString('en-US', {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	})}`;
+	return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
 function formatTon(val: number | string | undefined | null): string {
 	const num = typeof val === 'string' ? Number.parseFloat(val) : (val ?? 0);
 	if (!Number.isFinite(num) || num <= 0) return '0';
-	if (num >= 1000) {
+	if (num >= 100) {
 		return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
 	}
-	if (num >= 10) {
-		return num.toLocaleString('en-US', { maximumFractionDigits: 1 });
-	}
-	return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
+	return num.toLocaleString('en-US', { maximumFractionDigits: 1 });
 }
 
 function formatDateLocale(iso?: string): string {
-	if (!iso) return t('giftReport.unknownDate');
+	if (!iso) return '—';
 	try {
 		const d = new Date(iso);
 		if (Number.isNaN(d.getTime())) return iso;
@@ -93,16 +94,15 @@ function splitGiftSlugAndSerial(giftId: string): {
 }
 
 const BENCHMARK_GIFTS = [
-	{ id: 'plush_pepe-1', label: 'Plush Pepe #1', tag: 'Genesis #1' },
-	{ id: 'plush_pepe-42', label: 'Plush Pepe #42', tag: '2-Digit Grail' },
-	{ id: 'durovs_cap-1', label: "Durov's Cap #1", tag: 'Founder #1' },
-	{ id: 'heart_locket-7', label: 'Heart Locket #7', tag: 'Single Digit' },
-	{ id: 'loot_bag-88', label: 'Loot Bag #88', tag: 'Repeating #88' },
-	{ id: 'swiss_watch-100', label: 'Swiss Watch #100', tag: 'Clean #100' },
+	{ id: 'plush_pepe-1', label: 'Plush Pepe #1' },
+	{ id: 'plush_pepe-42', label: 'Plush Pepe #42' },
+	{ id: 'durovs_cap-1', label: "Durov's Cap #1" },
+	{ id: 'heart_locket-7', label: 'Heart Locket #7' },
+	{ id: 'loot_bag-88', label: 'Loot Bag #88' },
+	{ id: 'swiss_watch-100', label: 'Swiss Watch #100' },
 ];
 
-type ActiveTab = 'valuation' | 'traits' | 'onchain' | 'comps';
-type HeroViewMode = 'card' | 'wear' | 'cert';
+type ActiveTab = 'valuation' | 'traits' | 'comps';
 
 export const GiftReportPage = () => {
 	const navigate = useNavigate();
@@ -127,86 +127,26 @@ export const GiftReportPage = () => {
 	const [error, setError] = createSignal<string | null>(null);
 	const [unlockError, setUnlockError] = createSignal<string | null>(null);
 	const [storeOpen, setStoreOpen] = createSignal(false);
-	const [scanStep, setScanStep] = createSignal(0);
 
-	// Interactive UI states
 	const [activeTab, setActiveTab] = createSignal<ActiveTab>('valuation');
-	const [heroMode, setHeroMode] = createSignal<HeroViewMode>('card');
-	const [darkCardBg, setDarkCardBg] = createSignal(false);
 	const [watched, setWatched] = createSignal(false);
 	const [watchBusy, setWatchBusy] = createSignal(false);
-	const [copiedKey, setCopiedKey] = createSignal<string | null>(null);
 	const [compFilter, setCompFilter] = createSignal<
 		'all' | 'exact_model' | 'exact_backdrop' | 'collection_floor'
 	>('all');
-	const [customOfferTon, setCustomOfferTon] = createSignal<number | null>(null);
 	const [sharingStory, setSharingStory] = createSignal(false);
-	const [downloadingCert, setDownloadingCert] = createSignal(false);
 
-	// Trait simulator states
 	const [simModel, setSimModel] = createSignal<string>('');
 	const [simBackdrop, setSimBackdrop] = createSignal<string>('');
 	const [simSymbol, setSimSymbol] = createSignal<string>('');
-	const [catalogSubTab, setCatalogSubTab] = createSignal<'models' | 'backdrops' | 'symbols'>(
-		'models',
-	);
 
-	// 3D Holographic Card Tilt State
 	let heroCardRef: HTMLDivElement | undefined;
-	const [tilt, setTilt] = createSignal({
-		x: 0,
-		y: 0,
-		glossX: 50,
-		glossY: 50,
-	});
-
-	const scanMessages = createMemo(() => [
-		t('giftReport.scanStep1'),
-		t('giftReport.scanStep2'),
-		t('giftReport.scanStep3'),
-		t('giftReport.scanStep4'),
-	]);
-
-	let scanTimer: ReturnType<typeof setInterval> | undefined;
-	const startScanAnimation = () => {
-		setScanStep(0);
-		if (scanTimer) clearInterval(scanTimer);
-		scanTimer = setInterval(() => {
-			setScanStep((prev) => (prev < 3 ? prev + 1 : prev));
-		}, 420);
-	};
-
-	onCleanup(() => {
-		if (scanTimer) clearInterval(scanTimer);
-	});
-
-	const handleCardPointerMove = (clientX: number, clientY: number) => {
-		if (!heroCardRef) return;
-		const rect = heroCardRef.getBoundingClientRect();
-		if (rect.width <= 0 || rect.height <= 0) return;
-		const relX = (clientX - rect.left) / rect.width;
-		const relY = (clientY - rect.top) / rect.height;
-		const rotateY = (relX - 0.5) * 18;
-		const rotateX = (0.5 - relY) * 18;
-		setTilt({
-			x: Math.round(rotateX * 10) / 10,
-			y: Math.round(rotateY * 10) / 10,
-			glossX: Math.round(relX * 100),
-			glossY: Math.round(relY * 100),
-		});
-	};
-
-	const resetCardTilt = () => {
-		setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
-	};
 
 	const loadGiftIntelligence = async (targetRaw: string) => {
 		const normalized = parseRawGiftInput(targetRaw);
 		setLoading(true);
 		setError(null);
 		setUnlockError(null);
-		setCustomOfferTon(null);
-		startScanAnimation();
 
 		try {
 			const [gateRes, enrichedRes] = await Promise.allSettled([
@@ -248,156 +188,105 @@ export const GiftReportPage = () => {
 					setSimBackdrop(bTrait?.value || '');
 					setSimSymbol(sTrait?.value || '');
 				} else {
-					setReport(null);
+					setReport(r);
 					setIsUnlocked(false);
 				}
-			} else {
-				setReport(null);
+			} else if (gateRes.status === 'fulfilled' && gateRes.value) {
 				setIsUnlocked(false);
+			} else {
+				const reason =
+					enrichedRes.status === 'rejected'
+						? (enrichedRes.reason as Error)?.message
+						: 'Failed to load gift intelligence';
+				setError(reason || 'Failed to load gift intelligence');
 			}
-		} catch (e: unknown) {
-			setError(e instanceof Error ? e.message : t('giftReport.connectEngineError'));
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
 		} finally {
 			setLoading(false);
-			if (scanTimer) clearInterval(scanTimer);
 		}
 	};
 
 	createEffect(() => {
 		const g = searchParams.g;
 		const str = Array.isArray(g) ? g[0] : g;
-		if (str) {
-			const norm = parseRawGiftInput(str);
-			if (norm !== giftQuery()) {
-				setGiftQuery(norm);
-				setSearchInput(norm);
-			}
+		const normalized = str ? parseRawGiftInput(str) : 'plush_pepe-42';
+		if (normalized !== giftQuery()) {
+			setGiftQuery(normalized);
+			setSearchInput(normalized);
 		}
-	});
-
-	createEffect(() => {
-		const q = giftQuery();
-		if (q) {
-			void loadGiftIntelligence(q);
-		}
+		void loadGiftIntelligence(normalized);
 	});
 
 	const handleSearchSubmit = (e?: Event) => {
 		e?.preventDefault();
-		const cleaned = parseRawGiftInput(searchInput());
-		if (!cleaned) return;
+		const normalized = parseRawGiftInput(searchInput());
+		if (!normalized) return;
 		try {
 			haptic.impact('light');
 		} catch {}
-		setSearchInput(cleaned);
-		setGiftQuery(cleaned);
-		setSearchParams({ g: cleaned });
+		setGiftQuery(normalized);
+		setSearchInput(normalized);
+		setSearchParams({ g: normalized });
 	};
 
 	const selectQuickGift = (id: string) => {
 		try {
-			haptic.impact('light');
+			haptic.selection();
 		} catch {}
-		setSearchInput(id);
 		setGiftQuery(id);
+		setSearchInput(id);
 		setSearchParams({ g: id });
 	};
 
 	const handleUnlockWithCredit = async () => {
 		const target = giftQuery();
-		if (!target) return;
-		try {
-			haptic.impact('medium');
-		} catch {}
-		setUnlockError(null);
-
-		const bal = wallet.balance();
-		if (bal !== null && bal < 1) {
-			setStoreOpen(true);
-			return;
-		}
-
 		setUnlocking(true);
+		setUnlockError(null);
 		try {
-			const unlockedRes = (await giftsApi.unlockWithCredit(target)) as EnrichedGiftReport & {
-				is_unlocked?: boolean;
-			};
-
-			// Fetch full enriched report after unlocking to guarantee all deep-dive fields
-			try {
-				const enriched = await giftsApi.getEnrichedReport(target);
-				if (enriched && (enriched.pillars || enriched.expected_gram)) {
-					setReport(enriched);
-					setIsUnlocked(true);
-					const mTrait = enriched.trait_dna?.find((x) => x.axis_key === 'model');
-					const bTrait = enriched.trait_dna?.find((x) => x.axis_key === 'backdrop');
-					const sTrait = enriched.trait_dna?.find((x) => x.axis_key === 'symbol');
-					setSimModel(mTrait?.value || enriched.selected_model || '');
-					setSimBackdrop(bTrait?.value || '');
-					setSimSymbol(sTrait?.value || '');
-				} else {
-					setReport(unlockedRes);
-					setIsUnlocked(true);
-				}
-			} catch {
-				setReport(unlockedRes);
-				setIsUnlocked(true);
+			const balance = wallet.balance();
+			if (balance !== null && balance < 1) {
+				setStoreOpen(true);
+				setUnlocking(false);
+				return;
 			}
-
+			const unlocked = await giftsApi.unlockWithCredit(target);
+			setReport(unlocked as EnrichedGiftReport);
+			setIsUnlocked(true);
+			const mTrait = unlocked.trait_dna?.find((x) => x.axis_key === 'model');
+			const bTrait = unlocked.trait_dna?.find((x) => x.axis_key === 'backdrop');
+			const sTrait = unlocked.trait_dna?.find((x) => x.axis_key === 'symbol');
+			setSimModel(mTrait?.value || unlocked.selected_model || '');
+			setSimBackdrop(bTrait?.value || '');
+			setSimSymbol(sTrait?.value || '');
+			wallet.refetch();
 			try {
 				haptic.notify('success');
 			} catch {}
-			wallet.refetch();
-		} catch (err: unknown) {
-			try {
-				haptic.notify('error');
-			} catch {}
-			const status = (err as { response?: { status?: number } })?.response?.status;
-			const msg =
-				(err as { response?: { data?: { error?: string; message?: string } } })?.response?.data
-					?.error ||
-				(err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-				(err instanceof Error ? err.message : '');
-
-			if (
-				status === 400 ||
-				status === 402 ||
-				msg.toLowerCase().includes('credit') ||
-				msg.toLowerCase().includes('insufficient')
-			) {
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			if (/insufficient|credit|402/i.test(msg)) {
 				setStoreOpen(true);
 			} else {
-				setUnlockError(msg || t('giftReport.unlockCreditError'));
+				setUnlockError(msg);
 			}
 		} finally {
 			setUnlocking(false);
 		}
 	};
 
-	const handleSimulateTraits = async (
-		nextModel?: string,
-		nextBackdrop?: string,
-		nextSymbol?: string,
-	) => {
-		const current = report();
-		if (!current) return;
-		try {
-			haptic.impact('medium');
-		} catch {}
+	const runTraitSimulation = async (nextM?: string, nextB?: string, nextS?: string) => {
+		const m = nextM !== undefined ? nextM : simModel();
+		const b = nextB !== undefined ? nextB : simBackdrop();
+		const s = nextS !== undefined ? nextS : simSymbol();
 		setSimulating(true);
 		try {
+			const q = new URLSearchParams();
+			if (m) q.set('model', m);
+			if (b) q.set('backdrop', b);
+			if (s) q.set('symbol', s);
 			const res = await fetch(
-				`/api/v1/gifts/enriched-report?g=${encodeURIComponent(giftQuery())}`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						gift_id: giftQuery(),
-						model: nextModel ?? simModel(),
-						backdrop: nextBackdrop ?? simBackdrop(),
-						symbol: nextSymbol ?? simSymbol(),
-					}),
-				},
+				`/api/v1/gifts/valuate/${encodeURIComponent(giftQuery())}?${q.toString()}`,
 			);
 			if (res.ok) {
 				const updated = (await res.json()) as EnrichedGiftReport;
@@ -406,7 +295,6 @@ export const GiftReportPage = () => {
 				}
 			}
 		} catch {
-			// keep current report
 		} finally {
 			setSimulating(false);
 		}
@@ -430,17 +318,6 @@ export const GiftReportPage = () => {
 		}
 	};
 
-	const copyText = (text: string, key: string) => {
-		try {
-			haptic.impact('light');
-		} catch {}
-		void copyToClipboard(text);
-		setCopiedKey(key);
-		setTimeout(() => {
-			if (copiedKey() === key) setCopiedKey(null);
-		}, 1800);
-	};
-
 	const handleShareCertificateStory = async () => {
 		if (!heroCardRef || sharingStory()) return;
 		try {
@@ -456,36 +333,12 @@ export const GiftReportPage = () => {
 			const title = report()?.display_title || parsedTarget().prettyTitle;
 			const fv = formatTon(fairValueTon());
 			await shareToStory(dataUrl, {
-				text: `🎁 ${title} — Fair Value: ${fv} TON on @iFragmentBot`,
+				text: `${title} — Fair Value: ${fv} TON on @iFragmentBot`,
 			});
 		} catch {
-			// fallback copy link
-			copyText(window.location.href, 'share_link');
+			void copyToClipboard(window.location.href);
 		} finally {
 			setSharingStory(false);
-		}
-	};
-
-	const handleDownloadCertificate = async () => {
-		if (!heroCardRef || downloadingCert()) return;
-		try {
-			haptic.impact('light');
-		} catch {}
-		setDownloadingCert(true);
-		try {
-			const dataUrl = await toPng(heroCardRef, {
-				quality: 0.96,
-				pixelRatio: 2,
-				cacheBust: true,
-			});
-			const link = document.createElement('a');
-			link.download = `${giftQuery()}-appraisal.png`;
-			link.href = dataUrl;
-			link.click();
-		} catch {
-			copyText(window.location.href, 'share_link');
-		} finally {
-			setDownloadingCert(false);
 		}
 	};
 
@@ -497,10 +350,10 @@ export const GiftReportPage = () => {
 		const bdTrait = r?.trait_dna?.find((x) => x.axis_key === 'backdrop');
 		if (bdTrait?.colors) return bdTrait.colors;
 		return {
-			center_hex: '#1e293b',
-			edge_hex: '#0f172a',
-			pattern_hex: '#5aaeff',
-			text_hex: '#f8fafc',
+			center_hex: '#293440',
+			edge_hex: '#212a33',
+			pattern_hex: '#4db2ff',
+			text_hex: '#ffffff',
 		};
 	});
 
@@ -553,12 +406,6 @@ export const GiftReportPage = () => {
 		);
 	});
 
-	const activeOfferTon = createMemo(() => {
-		const custom = customOfferTon();
-		if (custom !== null && custom > 0) return custom;
-		return fairValueTon() || 10;
-	});
-
 	const filteredComps = createMemo((): ComparableGiftSale[] => {
 		const all = report()?.comps || [];
 		const f = compFilter();
@@ -566,176 +413,102 @@ export const GiftReportPage = () => {
 		return all.filter((c) => c.trait_match_type === f);
 	});
 
-	const compChartPoints = createMemo(() => {
-		const sales = [...filteredComps()].reverse();
-		if (sales.length === 0) return [];
-		const prices = sales.map((s) => s.sale_price_gram);
-		const fv = fairValueTon();
-		const minP = Math.min(...prices, fv) * 0.88;
-		const maxP = Math.max(...prices, fv) * 1.12;
-		const range = Math.max(1, maxP - minP);
+	const shortAddr = (addr?: string) => {
+		if (!addr) return '—';
+		if (addr.length <= 16) return addr;
+		return `${addr.slice(0, 8)} … ${addr.slice(-8)}`;
+	};
 
-		return sales.map((s, idx) => {
-			const x = sales.length === 1 ? 50 : Math.round((idx / (sales.length - 1)) * 88 + 6);
-			const y = Math.round(86 - ((s.sale_price_gram - minP) / range) * 70);
-			return {
-				x,
-				y,
-				price: s.sale_price_gram,
-				serial: s.serial_number,
-				date: formatDateLocale(s.sale_date),
-			};
-		});
-	});
-
-	const rarityBadgeTheme = createMemo(() => {
-		const score = report()?.rarity_score || 75;
-		const sn = report()?.serial_number || parsedTarget().serial;
-		if (sn <= 9 || score >= 92) {
-			return {
-				label: 'GRAIL TIER',
-				badge: 'bg-amber-500/20 text-amber-300 border-amber-400/40',
-				wrapper: 'from-amber-400/50 via-[#2990ff]/40 to-[#5aaeff]/40',
-			};
-		}
-		if (sn <= 99 || score >= 82) {
-			return {
-				label: 'APEX COLLECTIBLE',
-				badge: 'bg-[#2990ff]/15 text-[#7ec0ff] border-[#5aaeff]/35',
-				wrapper: 'from-[#2990ff]/40 via-white/15 to-[#4cd964]/35',
-			};
-		}
-		return {
-			label: 'VERIFIED TEP-62',
-			badge: 'bg-[#2990ff]/20 text-[#5aaeff] border-[#2990ff]/40',
-			wrapper: 'from-[#2990ff]/40 via-white/15 to-emerald-500/30',
-		};
-	});
+	const fragmentGiftSlug = () => {
+		const pascal = parsedTarget()
+			.slug.split(/[_-]+/)
+			.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+			.join('');
+		return `${pascal}-${parsedTarget().serial}`;
+	};
 
 	return (
 		<div
-			class="frag-canvas pb-36 text-[#f3f5f8] min-h-screen relative font-sans selection:bg-[#2990ff]/30 overflow-x-clip"
+			class="frag-canvas pb-32 text-white min-h-screen relative font-frag-sans overflow-x-clip"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			<div class="max-w-[520px] mx-auto px-4 pt-4 relative z-10 flex flex-col gap-3.5">
-				{/* ═══════ 1. TOP INSTITUTIONAL HEADER ═══════ */}
-				<div class="flex items-center justify-between gap-2">
-					<div class="flex items-center gap-2.5 min-w-0">
+			{/* Authentic Fragment.com Sticky Detail Header (.tm-header) */}
+			<header class="frag-header sticky top-0 z-40 w-full h-[52px] px-4 flex items-center justify-between gap-3">
+				<button
+					type="button"
+					onClick={() => navigate('/gifts')}
+					class="flex items-center gap-2 text-white hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
+				>
+					<TonIcon size={20} color="#4db2ff" />
+					<span class="text-[15px] font-bold tracking-[0.04em] hidden xs:inline" dir="ltr">
+						FRAGMENT
+					</span>
+				</button>
+
+				{/* Inline Header Gift Search Box */}
+				<form
+					onSubmit={handleSearchSubmit}
+					class="flex-1 max-w-[300px] h-8 bg-[#242e38] hover:bg-[#293440] focus-within:bg-[#293440] rounded-[6px] px-2.5 flex items-center gap-1.5 transition-colors"
+					dir="ltr"
+				>
+					<span class="material-symbols-outlined text-[16px] text-[#8a98a6]">search</span>
+					<input
+						type="text"
+						value={searchInput()}
+						onInput={(e) => setSearchInput(e.currentTarget.value)}
+						placeholder="PlushPepe-42"
+						class="flex-1 min-w-0 bg-transparent text-[12.5px] font-mono font-semibold text-white placeholder:text-[#8a98a6] focus:outline-none"
+					/>
+					<Show when={searchInput().length > 0}>
 						<button
 							type="button"
-							onClick={() => {
-								try {
-									haptic.impact('light');
-								} catch {}
-								navigate('/gifts');
-							}}
-							class="w-10 h-10 rounded-[14px] bg-[#1b232d] border border-white/10 flex items-center justify-center text-white/75 hover:text-white active:scale-95 transition-all shrink-0"
-							aria-label="Back"
+							onClick={() => setSearchInput('')}
+							class="text-[#8c9aa9] hover:text-white"
 						>
-							<span class="material-symbols-outlined text-[20px]">
-								{isRtl() ? 'arrow_forward' : 'arrow_back'}
-							</span>
+							<span class="material-symbols-outlined text-[14px]">close</span>
 						</button>
-						<div class="min-w-0">
-							<div class="flex items-center gap-1.5">
-								<h1 class="text-[15px] font-black tracking-tight text-white truncate">
-									{t('giftReport.pageTitle')}
-								</h1>
-								<span class="px-1.5 py-0.5 rounded-md bg-[#2990ff]/15 border border-[#2990ff]/30 text-[#5aaeff] text-[9px] font-mono font-black uppercase shrink-0">
-									{t('giftReport.badgeTep62')}
-								</span>
-							</div>
-							<p class="text-[10px] text-white/45 font-medium truncate">
-								{t('giftReport.pageSubtitle')}
-							</p>
-						</div>
-					</div>
+					</Show>
+				</form>
 
-					<div class="flex items-center gap-1.5 shrink-0">
-						<A
-							href={`/gifts/collection?c=${encodeURIComponent(
-								report()?.collection_id || parsedTarget().slug.replace(/_/g, '-'),
-							)}`}
-							class="h-9 px-2.5 rounded-[12px] bg-[#1b232d] border border-white/10 hover:border-[#2990ff]/40 text-[10px] font-bold text-white/75 hover:text-white flex items-center gap-1 transition-all"
-						>
-							<span class="material-symbols-outlined text-[15px] text-[#2990ff]">grid_view</span>
-							<span>{t('giftReport.collectionBtn')}</span>
-						</A>
-						<div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25">
-							<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-							<span class="text-[9px] font-mono font-black text-emerald-400 uppercase tracking-wider">
-								{t('common.live')}
-							</span>
-						</div>
-					</div>
-				</div>
+				<A
+					href={`/gifts/collection?c=${encodeURIComponent(
+						report()?.collection_id || parsedTarget().slug.replace(/_/g, '-'),
+					)}`}
+					class="h-8 px-2.5 rounded-[6px] bg-[#293440] hover:bg-[#384553] text-white text-[12px] font-semibold flex items-center gap-1 shrink-0 transition-colors"
+				>
+					<span class="material-symbols-outlined text-[15px] text-[#4db2ff]">grid_view</span>
+					<span class="hidden sm:inline">{t('giftReport.collectionBtn')}</span>
+				</A>
+			</header>
 
-				{/* ═══════ 2. SEARCH BAR & QUICK BENCHMARK CHIPS ═══════ */}
-				<div class="bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-3 flex flex-col gap-2.5 shadow-xl">
-					<form onSubmit={handleSearchSubmit} class="flex items-center gap-2">
-						<div class="relative flex-1">
-							<span class="material-symbols-outlined text-[18px] text-[#2990ff] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-								redeem
-							</span>
-							<input
-								type="text"
-								value={searchInput()}
-								onInput={(e) => setSearchInput(e.currentTarget.value)}
-								placeholder="plush_pepe-42 or t.me/nft/PlushPepe-42"
-								dir="ltr"
-								class="w-full h-10 bg-[#141a22] border border-white/10 focus:border-[#2990ff] rounded-[13px] pl-9 pr-8 text-[12px] font-mono font-bold text-white placeholder:text-white/30 focus:outline-none transition-colors"
-							/>
-							<Show when={searchInput().length > 0}>
+			<div class="max-w-[520px] mx-auto px-4 pt-4 relative z-10 flex flex-col gap-3.5">
+				{/* Quick Benchmark Gift Pills */}
+				<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" dir="ltr">
+					<For each={BENCHMARK_GIFTS}>
+						{(item) => {
+							const isActive = () => giftQuery() === item.id;
+							return (
 								<button
 									type="button"
-									onClick={() => setSearchInput('')}
-									class="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/35 hover:text-white"
+									onClick={() => selectQuickGift(item.id)}
+									class={`px-2.5 py-1 rounded-[6px] text-[11.5px] font-mono font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
+										isActive()
+											? 'bg-[#248bda] text-white'
+											: 'bg-[#212a33] hover:bg-[#293440] text-[#8c9aa9] hover:text-white'
+									}`}
 								>
-									<span class="material-symbols-outlined text-[16px]">close</span>
+									{item.label}
 								</button>
-							</Show>
-						</div>
-						<button
-							type="submit"
-							disabled={loading()}
-							class="h-10 px-4 rounded-[13px] bg-[#2990ff] hover:bg-[#2481cc] disabled:opacity-50 text-white font-black text-[11px] flex items-center gap-1.5 shadow-[0_4px_14px_rgba(41,144,255,0.3)] active:scale-95 transition-all shrink-0"
-						>
-							<span class="material-symbols-outlined text-[16px]">travel_explore</span>
-							<span>{t('giftReport.appraiseBtn')}</span>
-						</button>
-					</form>
-
-					{/* Quick Benchmark Gift Chips */}
-					<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" dir="ltr">
-						<For each={BENCHMARK_GIFTS}>
-							{(item) => {
-								const isActive = () => giftQuery() === item.id;
-								return (
-									<button
-										type="button"
-										onClick={() => selectQuickGift(item.id)}
-										class={`px-2.5 py-1 rounded-[10px] text-[10px] font-mono font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
-											isActive()
-												? 'bg-[#2990ff]/20 text-white border-[#2990ff]/50 shadow-[0_2px_10px_rgba(41,144,255,0.2)]'
-												: 'bg-[#141a22] text-white/55 border-white/5 hover:text-white hover:border-white/15'
-										}`}
-									>
-										<span>{item.label}</span>
-										<span class="text-[8px] px-1 py-0.2 rounded bg-white/5 text-[#5aaeff]">
-											{item.tag}
-										</span>
-									</button>
-								);
-							}}
-						</For>
-					</div>
+							);
+						}}
+					</For>
 				</div>
 
-				{/* ═══════ 3. COMPACT ASSET IDENTITY BAR ═══════ */}
-				<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-3 flex items-center justify-between gap-2 shadow-lg">
-					<div class="flex items-center gap-2.5 min-w-0">
+				{/* Compact Asset Title Row */}
+				<div ref={heroCardRef} class="flex items-center justify-between gap-2 flex-wrap pt-1">
+					<div class="flex items-center gap-3 min-w-0">
 						<div
-							class="w-11 h-11 rounded-[14px] p-1 flex items-center justify-center border border-white/15 shrink-0 overflow-hidden relative"
+							class="w-11 h-11 rounded-[8px] p-1 flex items-center justify-center shrink-0 overflow-hidden"
 							style={{
 								background: `radial-gradient(circle, ${backdropColors().center_hex}, ${backdropColors().edge_hex})`,
 							}}
@@ -749,47 +522,35 @@ export const GiftReportPage = () => {
 								size="sm"
 							/>
 						</div>
-						<div class="flex flex-col min-w-0 text-start">
-							<div class="flex items-center gap-1.5">
-								<span class="text-[15px] font-mono font-black text-white truncate" dir="ltr">
+						<div class="flex flex-col min-w-0">
+							<div class="flex items-center gap-2 flex-wrap" dir="ltr">
+								<h1 class="text-[20px] sm:text-[22px] font-bold text-white tracking-[-0.015em] truncate">
 									{report()?.display_title || parsedTarget().prettyTitle}
-								</span>
-								<span
-									class="material-symbols-outlined text-[16px] text-[#2990ff] shrink-0"
-									title={t('giftReport.verifiedCollectibleTitle')}
-								>
-									verified
-								</span>
-							</div>
-							<div class="flex items-center gap-1.5">
-								<span
-									class={`w-1.5 h-1.5 rounded-full ${
-										report()?.custody_type === 'on_chain_nft' ? 'bg-emerald-400' : 'bg-[#2990ff]'
-									}`}
+								</h1>
+								<FragStatusPill
+									status={normalizeFragStatus(
+										report()?.custody_type === 'on_chain_nft' ? 'available' : 'taken',
+									)}
+									label="TEP-62"
 								/>
-								<span class="text-[10px] font-mono font-bold text-white/60 truncate">
-									{isUnlocked() && report()
-										? `${modelTrait()?.value || report()?.selected_model || 'Original'} · ${backdropTrait()?.value || 'Verified'}`
-										: t('giftReport.readyToDecrypt')}
-								</span>
 							</div>
+							<span class="text-[12px] text-[#8c9aa9] truncate">
+								{isUnlocked() && report()
+									? `${modelTrait()?.value || report()?.selected_model || 'Original'} · ${backdropTrait()?.value || 'Verified'}`
+									: t('giftReport.readyToDecrypt')}
+							</span>
 						</div>
 					</div>
 
-					<div class="flex items-center gap-1.5 shrink-0">
+					<div class="flex items-center gap-3 shrink-0">
 						<Show when={isUnlocked() && report()}>
 							<button
 								type="button"
 								onClick={handleToggleWatchlist}
 								disabled={watchBusy()}
-								class={`w-9 h-9 rounded-[12px] border flex items-center justify-center transition-all active:scale-95 ${
-									watched()
-										? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-										: 'bg-white/5 border-white/10 text-white/65 hover:text-white'
-								}`}
-								title={t('giftReport.watchlistAlertTitle')}
+								class="text-[13px] font-semibold text-[#4db2ff] hover:underline flex items-center gap-1 cursor-pointer"
 							>
-								<span class="material-symbols-outlined text-[18px]">
+								<span class="material-symbols-outlined text-[16px]">
 									{watched() ? 'notifications_active' : 'notifications'}
 								</span>
 							</button>
@@ -798,158 +559,79 @@ export const GiftReportPage = () => {
 							type="button"
 							disabled={loading()}
 							onClick={() => void loadGiftIntelligence(giftQuery())}
-							class="w-9 h-9 rounded-[12px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white flex items-center justify-center transition-all active:scale-95"
-							title={t('giftReport.refreshLiveTitle')}
+							class="text-[13px] font-semibold text-[#4db2ff] hover:underline flex items-center gap-1 cursor-pointer"
 						>
 							<span
-								class={`material-symbols-outlined text-[18px] ${
-									loading() ? 'animate-spin text-[#2990ff]' : ''
-								}`}
+								class={`material-symbols-outlined text-[16px] ${loading() ? 'animate-spin' : ''}`}
 							>
 								refresh
 							</span>
 						</button>
+						<a
+							href={`https://t.me/nft/${fragmentGiftSlug()}`}
+							target="_blank"
+							rel="noreferrer"
+							class="text-[13px] font-semibold text-[#4db2ff] hover:underline flex items-center gap-0.5"
+						>
+							<span>t.me/nft</span>
+							<span class="material-symbols-outlined text-[14px]">north_east</span>
+						</a>
 					</div>
 				</div>
 
-				{/* ═══════ 4. STATE 1: SCANNING ANIMATION ═══════ */}
+				{/* Loading State */}
 				<Show when={loading()}>
-					<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-7 flex flex-col items-center justify-center text-center gap-4 shadow-2xl my-2">
-						<div class="relative w-16 h-16 flex items-center justify-center">
-							<div class="absolute inset-0 rounded-full border-2 border-[#2990ff]/20 border-t-[#2990ff] animate-spin" />
-							<span class="material-symbols-outlined text-[28px] text-[#2990ff] animate-pulse">
-								redeem
-							</span>
-						</div>
-						<div class="flex flex-col gap-1">
-							<span class="text-[15px] font-mono font-black text-white" dir="ltr">
-								{parsedTarget().prettyTitle}
-							</span>
-							<span class="text-[12px] font-bold text-[#5aaeff] min-h-[20px]">
-								{scanMessages()[scanStep()]}
-							</span>
-						</div>
-						<div class="w-full max-w-[260px] flex items-center gap-1.5">
-							<For each={[0, 1, 2, 3]}>
-								{(idx) => (
-									<div
-										class={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-											scanStep() >= idx ? 'bg-[#2990ff]' : 'bg-white/10'
-										}`}
-									/>
-								)}
-							</For>
-						</div>
+					<div class="frag-card p-8 flex flex-col items-center justify-center text-center gap-3">
+						<div class="w-8 h-8 rounded-full border-2 border-[#4db2ff]/25 border-t-[#4db2ff] animate-spin" />
+						<span class="text-[14px] font-semibold text-white" dir="ltr">
+							{parsedTarget().prettyTitle}
+						</span>
+						<span class="text-[12px] text-[#8794a1]">{t('giftReport.scanStep1')}</span>
 					</div>
 				</Show>
 
-				{/* ═══════ 5. ERROR BANNER ═══════ */}
+				{/* Error State */}
 				<Show when={!loading() && error()}>
-					<div class="w-full bg-rose-500/10 border border-rose-500/30 rounded-[24px] p-5 text-center flex flex-col items-center gap-3">
-						<span class="material-symbols-outlined text-[32px] text-rose-400">error</span>
-						<p class="text-[12px] font-bold text-rose-200">{error()}</p>
+					<div class="bg-[#ff5863]/10 rounded-[8px] p-4 text-center flex flex-col items-center gap-2.5">
+						<span class="material-symbols-outlined text-[24px] text-[#ff5863]">error</span>
+						<p class="text-[12.5px] font-medium text-[#ff5863]">{error()}</p>
 						<button
 							type="button"
 							onClick={() => void loadGiftIntelligence(giftQuery())}
-							class="h-10 px-5 rounded-[12px] bg-rose-500 hover:bg-rose-600 text-white font-black text-[11px]"
+							class="frag-btn-secondary h-9 px-4 text-[12.5px] font-semibold"
 						>
 							{t('giftReport.tryAgainBtn')}
 						</button>
 					</div>
 				</Show>
 
-				{/* ═══════ 6. STATE 2 (PRE-UNLOCK PAYWALL GATE) vs STATE 3 (UNLOCKED REPORT) ═══════ */}
+				{/* Main Content: Pre-Unlock vs Unlocked */}
 				<Show when={!loading() && !error()}>
 					<Show
 						when={isUnlocked() && report()}
 						fallback={
-							<div class="w-full flex flex-col gap-3.5 relative z-20">
-								{/* Pre-Appraisal Curiosity Teaser Card (Matches Username & Number Reports) */}
-								<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-5 flex flex-col items-center text-center relative overflow-hidden shadow-2xl">
-									<div class="absolute inset-0 bg-gradient-to-br from-[#2990ff]/10 via-transparent to-emerald-500/10 pointer-events-none" />
-
-									<div class="flex items-center gap-2 mb-2 z-10">
-										<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
-										<span class="text-[11px] font-mono font-black uppercase tracking-widest text-emerald-400">
-											{t('valuation.report_ready') || t('giftReport.giftAppraisalReady')}
-										</span>
-									</div>
-
-									<h3
-										class="text-[24px] font-black text-white font-mono tracking-tight drop-shadow-md z-10"
-										dir="ltr"
+							<div class="space-y-3.5">
+								<div class="frag-table-container">
+									<FragKV label="Collectible Gift" accent>
+										<span dir="ltr">{parsedTarget().prettyTitle}</span>
+									</FragKV>
+									<FragKV
+										label="Web Address"
+										href={`https://t.me/nft/${fragmentGiftSlug()}`}
+										accent
 									>
-										{gate()?.model_name
-											? `${gate()?.model_name} #${gate()?.serial_number || parsedTarget().serial}`
-											: parsedTarget().prettyTitle}
-									</h3>
-
-									<div class="flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 z-10 my-1.5">
-										<span class="w-2 h-2 rounded-full bg-emerald-400" />
-										<span class="font-bold">{t('giftReport.tep62CollectibleBadge')}</span>
-										<Show when={gate()?.selected_model}>
-											<span class="text-white/30">|</span>
-											<span class="text-[#5aaeff] font-bold">Model: {gate()?.selected_model}</span>
-										</Show>
-										<Show when={gate()?.floor_price_gram}>
-											<span class="text-white/30">|</span>
-											<span class="text-emerald-400 font-bold">
-												Floor: {formatTon(gate()?.floor_price_gram)} TON
-											</span>
-										</Show>
-									</div>
-
-									{/* 3-Metric Pre-Unlock Telemetry Strip */}
-									<div class="w-full grid grid-cols-3 gap-2 my-2.5 z-10">
-										<div class="bg-[#141a22]/90 border border-white/8 rounded-[14px] p-2.5 flex flex-col items-center">
-											<span class="text-[15px] font-mono font-black text-[#5aaeff]">
-												{gate()?.signals_analyzed || 28}
-											</span>
-											<span class="text-[9px] text-white/50 font-bold">
-												{t('giftReport.onChainSignals')}
-											</span>
-										</div>
-										<div class="bg-[#141a22]/90 border border-white/8 rounded-[14px] p-2.5 flex flex-col items-center">
-											<span class="text-[15px] font-mono font-black text-emerald-400">
-												{gate()?.data_sources_count || 6}
-											</span>
-											<span class="text-[9px] text-white/50 font-bold">
-												{t('giftReport.liveVenues')}
-											</span>
-										</div>
-										<div class="bg-[#141a22]/90 border border-white/8 rounded-[14px] p-2.5 flex flex-col items-center">
-											<span class="text-[15px] font-mono font-black text-amber-400">
-												{t('giftReport.fourAxisValue')}
-											</span>
-											<span class="text-[9px] text-white/50 font-bold">
-												{t('giftReport.traitFloors')}
-											</span>
-										</div>
-									</div>
-
-									{/* Blurred Price Preview Box */}
-									<div class="w-full bg-white/5 border border-white/[0.08] rounded-2xl p-4 flex flex-col items-center justify-center my-1.5 relative overflow-hidden backdrop-blur-md z-10 shadow-inner">
-										<span class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
-											{t('valuation.estimated_price') || t('giftReport.estimatedFairValue')}
-										</span>
-										<div class="flex items-center gap-2 filter blur-[6px] select-none opacity-80">
-											<span class="text-[26px] font-black text-white font-mono">✦,✦✦✦</span>
-											<span class="text-[16px] font-bold text-[#2990ff]">{t('common.ton')}</span>
-										</div>
-										<span class="text-[10px] text-white/40 font-mono filter blur-[3px] mt-0.5">
-											≈ $✦✦,✦✦✦ USD · P10 / P50 / P90
-										</span>
-
-										<div class="absolute inset-0 flex items-center justify-center bg-black/35 backdrop-blur-[1px]">
-											<span class="px-3.5 py-1.5 rounded-[12px] bg-[#2990ff]/20 border border-[#2990ff]/50 text-[#5aaeff] text-[11px] font-mono font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
-												<span class="material-symbols-outlined text-[15px]">lock</span>
-												{t('valuation.locked_tap_to_decrypt') || t('giftReport.unlockWith1Credit')}
-											</span>
-										</div>
-									</div>
+										t.me/nft/{fragmentGiftSlug()}
+									</FragKV>
+									<Show when={gate()?.selected_model}>
+										<FragKV label="Model">{gate()?.selected_model}</FragKV>
+									</Show>
+									<Show when={gate()?.floor_price_gram}>
+										<FragKV label="Collection Floor">
+											<TonAmount value={formatTon(gate()?.floor_price_gram)} size="sm" />
+										</FragKV>
+									</Show>
 								</div>
 
-								{/* Unified Institutional Paywall Gate (Requires 1 Credit) */}
 								<UnifiedPaywallGate
 									vertical="gift"
 									targetTitle={parsedTarget().prettyTitle}
@@ -970,1810 +652,431 @@ export const GiftReportPage = () => {
 						}
 					>
 						{(rep) => (
-							<div class="w-full flex flex-col gap-3.5">
-								{/* ═══════ 4-TAB STICKY SEGMENTED NAVIGATION BAR ═══════ */}
-								<div class="w-full grid grid-cols-4 gap-1.5 p-1.5 rounded-[20px] bg-[#1b232d]/95 border border-white/10 shadow-lg sticky top-2 z-30 backdrop-blur-2xl">
-									<button
-										type="button"
-										onClick={() => {
-											try {
-												haptic.impact('light');
-											} catch {}
-											setActiveTab('valuation');
-										}}
-										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
-											activeTab() === 'valuation'
-												? 'bg-[#2990ff] text-white shadow-[0_4px_15px_rgba(41,144,255,0.35)]'
-												: 'text-white/50 hover:text-white hover:bg-white/5'
-										}`}
-									>
-										<span class="material-symbols-outlined text-[18px]">diamond</span>
-										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{t('giftReport.tabValuation')}
+							<div class="space-y-3.5">
+								{/* 1. Primary 3-Column Fragment Valuation Summary Card (#212a33, 8px radius) */}
+								<div class="frag-table-container">
+									<div class="frag-table-header grid grid-cols-3 px-3.5 py-2">
+										<span>Liquidation</span>
+										<span>Fair Value</span>
+										<span class="text-end">Suggested Ask</span>
+									</div>
+									<div class="grid grid-cols-3 px-3.5 py-3.5 items-start gap-2">
+										<TonAmount
+											value={formatTon(liquidationTon())}
+											usd={formatUsdPlain(
+												rep().pillars?.liquidation_value_usd || fairValueUsd() * 0.9,
+											)}
+											size="md"
+										/>
+										<TonAmount
+											value={formatTon(fairValueTon())}
+											usd={formatUsdPlain(fairValueUsd())}
+											size="lg"
+											tone="positive"
+										/>
+										<div class="flex justify-end">
+											<TonAmount
+												value={formatTon(suggestedAskTon())}
+												usd={formatUsdPlain(
+													rep().pillars?.suggested_ask_usd || fairValueUsd() * 1.08,
+												)}
+												size="md"
+												class="items-end"
+											/>
+										</div>
+									</div>
+									<div class="px-3.5 py-2.5 border-t border-[#1a2026] flex items-center justify-between text-[12px] text-[#8c9aa9]">
+										<span>
+											Rarity Score:{' '}
+											<strong class="text-white">{rep().rarity_score || 85}/100</strong>
 										</span>
-									</button>
+										<span>
+											Confidence:{' '}
+											<strong class="text-[#5aec8c]">{rep().confidence_score || 92}%</strong>
+										</span>
+										<span>
+											Floor:{' '}
+											<strong class="text-white">{formatTon(collectionFloorTon())} TON</strong>
+										</span>
+									</div>
+								</div>
 
+								{/* Primary Action Buttons */}
+								<div class="grid grid-cols-2 gap-2">
+									<a
+										href={`https://t.me/nft/${fragmentGiftSlug()}`}
+										target="_blank"
+										rel="noreferrer"
+										class="frag-btn-primary h-10 px-4 rounded-[8px] text-[13.5px] font-semibold flex items-center justify-center gap-1.5"
+									>
+										<span>Open Collectible</span>
+										<span class="material-symbols-outlined text-[15px]">north_east</span>
+									</a>
 									<button
 										type="button"
-										onClick={() => {
-											try {
-												haptic.impact('light');
-											} catch {}
-											setActiveTab('traits');
-										}}
-										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
-											activeTab() === 'traits'
-												? 'bg-[#2990ff] text-white shadow-[0_4px_15px_rgba(41,144,255,0.35)]'
-												: 'text-white/50 hover:text-white hover:bg-white/5'
-										}`}
+										disabled={sharingStory()}
+										onClick={handleShareCertificateStory}
+										class="frag-btn-secondary h-10 px-4 rounded-[8px] text-[13.5px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
 									>
-										<span class="material-symbols-outlined text-[18px]">palette</span>
-										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{t('giftReport.tabTraitDna')}
+										<span class="material-symbols-outlined text-[16px] text-[#4db2ff]">
+											ios_share
 										</span>
-									</button>
-
-									<button
-										type="button"
-										onClick={() => {
-											try {
-												haptic.impact('light');
-											} catch {}
-											setActiveTab('onchain');
-										}}
-										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
-											activeTab() === 'onchain'
-												? 'bg-[#2990ff] text-white shadow-[0_4px_15px_rgba(41,144,255,0.35)]'
-												: 'text-white/50 hover:text-white hover:bg-white/5'
-										}`}
-									>
-										<span class="material-symbols-outlined text-[18px]">
-											account_balance_wallet
-										</span>
-										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{t('giftReport.tabOnChain')}
-										</span>
-									</button>
-
-									<button
-										type="button"
-										onClick={() => {
-											try {
-												haptic.impact('light');
-											} catch {}
-											setActiveTab('comps');
-										}}
-										class={`py-2.5 px-1.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all ${
-											activeTab() === 'comps'
-												? 'bg-[#2990ff] text-white shadow-[0_4px_15px_rgba(41,144,255,0.35)]'
-												: 'text-white/50 hover:text-white hover:bg-white/5'
-										}`}
-									>
-										<span class="material-symbols-outlined text-[18px]">monitoring</span>
-										<span class="text-[10px] font-black leading-none truncate max-w-full">
-											{t('giftReport.tabCompsRisk')}
-										</span>
+										<span>{t('valuation.share_story') || 'Share Story'}</span>
 									</button>
 								</div>
 
-								{/* ════════════════════════════════════════════════════════════════
-								    TAB 1: VALUATION, 3D HERO CARD, 4-FLOOR MATRIX & EXIT PLANNER
-								    ════════════════════════════════════════════════════════════════ */}
+								{/* 2. Key-Value Metadata Card (.tm-list) */}
+								<div class="frag-table-container">
+									<FragKV label="Collectible Gift" accent>
+										<span dir="ltr">{rep().display_title || parsedTarget().prettyTitle}</span>
+									</FragKV>
+									<FragKV
+										label="Web Address"
+										href={`https://t.me/nft/${fragmentGiftSlug()}`}
+										accent
+									>
+										t.me/nft/{fragmentGiftSlug()}
+									</FragKV>
+									<Show when={modelTrait()}>
+										{(mt) => (
+											<FragKV
+												label="Model"
+												hint={mt().percentile ? `${mt().percentile}% rarity` : undefined}
+											>
+												{mt().value}
+											</FragKV>
+										)}
+									</Show>
+									<Show when={backdropTrait()}>
+										{(bt) => (
+											<FragKV
+												label="Backdrop"
+												hint={bt().percentile ? `${bt().percentile}% rarity` : undefined}
+											>
+												<span class="inline-flex items-center gap-1.5">
+													<span
+														class="w-2.5 h-2.5 rounded-full inline-block"
+														style={{ 'background-color': backdropColors().center_hex }}
+													/>
+													<span>{bt().value}</span>
+												</span>
+											</FragKV>
+										)}
+									</Show>
+									<Show when={symbolTrait()}>
+										{(st) => (
+											<FragKV
+												label="Symbol"
+												hint={st().percentile ? `${st().percentile}% rarity` : undefined}
+											>
+												{st().value}
+											</FragKV>
+										)}
+									</Show>
+									<Show when={rep().owner_wallet?.wallet_address || rep().on_chain?.owner_address}>
+										{(addr) => (
+											<FragKV
+												label="Owner Wallet"
+												copyValue={addr()}
+												href={`https://tonviewer.com/${addr()}`}
+												accent
+											>
+												<span class="font-mono">{shortAddr(addr())}</span>
+											</FragKV>
+										)}
+									</Show>
+								</div>
+
+								{/* 3. Clean 3-Tab Fragment Section Bar */}
+								<div class="flex items-center border-b border-[#293440] gap-5 px-1 pt-1">
+									<For
+										each={
+											[
+												{ id: 'valuation', label: '4-Floor Matrix' },
+												{ id: 'traits', label: 'Trait Simulator' },
+												{ id: 'comps', label: `Recent Sales (${rep().comps?.length || 0})` },
+											] as const
+										}
+									>
+										{(tab) => {
+											const active = () => activeTab() === tab.id;
+											return (
+												<button
+													type="button"
+													onClick={() => {
+														try {
+															haptic.selection();
+														} catch {}
+														setActiveTab(tab.id);
+													}}
+													class={`relative pb-2.5 text-[13.5px] font-semibold transition-colors cursor-pointer ${
+														active() ? 'text-white' : 'text-[#8c9aa9] hover:text-white'
+													}`}
+												>
+													<span>{tab.label}</span>
+													<Show when={active()}>
+														<span class="absolute inset-x-0 bottom-0 h-[3px] bg-[#248bda] rounded-t-[3px]" />
+													</Show>
+												</button>
+											);
+										}}
+									</For>
+								</div>
+
+								{/* TAB 1: 4-FLOOR MATRIX & ECONOMICS */}
 								<Show when={activeTab() === 'valuation'}>
-									<div class="w-full flex flex-col gap-3.5">
-										{/* 3-Mode Hero View Switcher */}
-										<div class="w-full flex items-center justify-between gap-1.5 bg-[#1b232d]/95 border border-white/10 rounded-[16px] p-1">
-											<button
-												type="button"
-												onClick={() => setHeroMode('card')}
-												class={`flex-1 py-2 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
-													heroMode() === 'card'
-														? 'bg-[#2990ff]/20 text-[#5aaeff] border border-[#2990ff]/40'
-														: 'text-white/50 hover:text-white'
-												}`}
-											>
-												<span class="material-symbols-outlined text-[15px]">view_in_ar</span>
-												<span>{t('giftReport.heroHoloCard')}</span>
-											</button>
-											<button
-												type="button"
-												onClick={() => setHeroMode('wear')}
-												class={`flex-1 py-2 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
-													heroMode() === 'wear'
-														? 'bg-[#2990ff]/20 text-[#5aaeff] border border-[#2990ff]/40'
-														: 'text-white/50 hover:text-white'
-												}`}
-											>
-												<span class="material-symbols-outlined text-[15px]">person_celebrate</span>
-												<span>{t('giftReport.heroProfileWear')}</span>
-											</button>
-											<button
-												type="button"
-												onClick={() => setHeroMode('cert')}
-												class={`flex-1 py-2 rounded-[12px] text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
-													heroMode() === 'cert'
-														? 'bg-[#2990ff]/20 text-[#5aaeff] border border-[#2990ff]/40'
-														: 'text-white/50 hover:text-white'
-												}`}
-											>
-												<span class="material-symbols-outlined text-[15px]">verified_user</span>
-												<span>{t('giftReport.heroCertificate')}</span>
-											</button>
-										</div>
-
-										{/* HERO MODE 1: 3D Interactive Holographic Gift Card */}
-										<Show when={heroMode() === 'card'}>
-											<div
-												class={`w-full aspect-square p-[3px] bg-gradient-to-br ${rarityBadgeTheme().wrapper} rounded-[42px] relative z-20 transition-all duration-300 shadow-2xl`}
-											>
-												<div
-													ref={heroCardRef}
-													onMouseMove={(e) => handleCardPointerMove(e.clientX, e.clientY)}
-													onMouseLeave={resetCardTilt}
-													onTouchMove={(e) => {
-														const t0 = e.touches[0];
-														if (t0) handleCardPointerMove(t0.clientX, t0.clientY);
-													}}
-													onTouchEnd={resetCardTilt}
-													class="w-full h-full rounded-[39px] p-6 relative overflow-hidden flex flex-col justify-between shadow-inner select-none"
-													style={{
-														transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
-														background: darkCardBg()
-															? '#08090D'
-															: `radial-gradient(circle at 50% 42%, ${backdropColors().center_hex} 0%, ${backdropColors().edge_hex} 88%, #11161d 100%)`,
-														transition: 'transform 0.12s ease-out',
-													}}
-												>
-													{/* Subtle Dotted Pattern + Gloss Reflex */}
-													<div
-														class="absolute inset-0 pointer-events-none opacity-20"
-														style={{
-															'background-image':
-																'radial-gradient(rgba(255,255,255,0.28) 1.25px, transparent 1.25px)',
-															'background-size': '22px 22px',
-														}}
-													/>
-													<div
-														class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-75"
-														style={{
-															background: `radial-gradient(circle at ${tilt().glossX}% ${tilt().glossY}%, rgba(255,255,255,0.42) 0%, transparent 58%)`,
-														}}
-													/>
-
-													{/* Card Top Row: Rarity Tier & Serial/Backdrop Switch */}
-													<div class="flex items-center justify-between gap-2 z-10">
-														<span
-															class={`px-3 py-1 border rounded-[12px] text-[10px] font-mono font-black tracking-widest uppercase backdrop-blur-md ${rarityBadgeTheme().badge}`}
-														>
-															{rarityBadgeTheme().label}
-														</span>
-														<div class="flex items-center gap-1.5">
-															<button
-																type="button"
-																onClick={() => setDarkCardBg((p) => !p)}
-																class="px-2.5 py-1 rounded-[10px] bg-black/35 hover:bg-black/55 border border-white/15 text-[9px] font-mono font-bold text-white/80 backdrop-blur-md"
-															>
-																{darkCardBg()
-																	? t('giftReport.bgChromatic')
-																	: t('giftReport.bgDark')}
-															</button>
-															<span
-																class="text-[11px] font-mono font-black text-white bg-black/40 border border-white/15 px-3 py-1 rounded-[12px] backdrop-blur-md"
-																dir="ltr"
-															>
-																#{rep().serial_number} · Rank #{rep().rarity_rank || 1}
-															</span>
-														</div>
-													</div>
-
-													{/* Card Center: High-Res Gift Visual & Trait Pills */}
-													<div class="flex flex-col items-center justify-center z-10 my-auto py-2 gap-2.5">
-														<div class="relative w-36 h-36 sm:w-40 sm:h-40 flex items-center justify-center">
-															<div
-																class="absolute inset-0 rounded-full blur-2xl opacity-60 pointer-events-none"
-																style={{
-																	background: backdropColors().center_hex,
-																}}
-															/>
-															<img
-																src={
-																	modelTrait()?.image_url ||
-																	rep().image_url ||
-																	`https://nft.fragment.com/gift/${parsedTarget().slug.replace(/_/g, '')}-${rep().serial_number}.webp`
-																}
-																alt={rep().display_title}
-																onError={(e) => {
-																	const fallback =
-																		rep().image_url ||
-																		`https://nft.fragment.com/gift/${parsedTarget().slug.replace(/_/g, '')}-${rep().serial_number}.webp`;
-																	if (e.currentTarget.src !== fallback) {
-																		e.currentTarget.src = fallback;
-																	}
-																}}
-																class="w-full h-full object-contain drop-shadow-[0_16px_28px_rgba(0,0,0,0.65)] transition-transform duration-300 hover:scale-105"
-															/>
-														</div>
-
-														<h2
-															class="text-[22px] font-black text-white font-mono tracking-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
-															dir="ltr"
-														>
-															{rep().display_title || parsedTarget().prettyTitle}
-														</h2>
-
-														<div class="flex flex-wrap items-center justify-center gap-1.5 max-w-[95%]">
-															<Show when={modelTrait()}>
-																{(mt) => (
-																	<span class="px-2.5 py-0.5 rounded-lg bg-black/45 border border-white/15 text-[10px] font-mono font-bold text-white/90 backdrop-blur-md">
-																		🎨 {mt().value} ({mt().percentile}%)
-																	</span>
-																)}
-															</Show>
-															<Show when={backdropTrait()}>
-																{(bt) => (
-																	<span class="px-2.5 py-0.5 rounded-lg bg-black/45 border border-white/15 text-[10px] font-mono font-bold text-white/90 backdrop-blur-md flex items-center gap-1">
-																		<span
-																			class="w-2 h-2 rounded-full border border-white/40"
-																			style={{
-																				background: backdropColors().center_hex,
-																			}}
-																		/>
-																		{bt().value} ({bt().percentile}%)
-																	</span>
-																)}
-															</Show>
-															<Show when={symbolTrait()}>
-																{(st) => (
-																	<span class="px-2.5 py-0.5 rounded-lg bg-black/45 border border-white/15 text-[10px] font-mono font-bold text-white/80 backdrop-blur-md">
-																		✦ {st().value} ({st().percentile}%)
-																	</span>
-																)}
-															</Show>
-														</div>
-													</div>
-
-													{/* Card Bottom Row: Fair Value TON, USD & Confidence */}
-													<div class="flex justify-between items-end border-t border-white/15 pt-3.5 z-10 bg-black/25 -mx-6 -mb-6 px-6 py-4 backdrop-blur-md">
-														<div class="flex flex-col gap-0.5 text-start">
-															<span class="text-[9px] font-black text-white/55 uppercase tracking-widest">
-																{t('giftReport.cardEstimatedFairValue')}
-															</span>
-															<div class="flex items-baseline gap-1.5" dir="ltr">
-																<span class="text-[28px] font-black text-white font-mono leading-none tracking-tight">
-																	{formatTon(fairValueTon())}
-																</span>
-																<span class="text-[13px] font-black text-[#5aaeff]">
-																	{t('common.ton')}
-																</span>
-															</div>
-														</div>
-
-														<div class="flex flex-col items-end gap-1">
-															<div class="flex items-center gap-1.5 bg-emerald-500/20 px-2.5 py-0.5 rounded-[8px] border border-emerald-400/40 text-emerald-300 font-mono font-black text-[9px]">
-																<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-																<span>CONFIDENCE {rep().confidence_score || 94}%</span>
-															</div>
-															<span
-																class="text-[13px] text-white/85 font-black font-mono leading-none"
-																dir="ltr"
-															>
-																≈ {formatUsd(fairValueUsd())} USD
-															</span>
-														</div>
-													</div>
-												</div>
+									<div class="space-y-3.5">
+										<div class="frag-table-container">
+											<div class="frag-table-header px-3.5 py-2">
+												<span>4-Axis Floor Price Matrix</span>
 											</div>
-										</Show>
-
-										{/* HERO MODE 2: Telegram Profile Wear Showcase Simulator */}
-										<Show when={heroMode() === 'wear'}>
-											<div class="w-full rounded-[32px] overflow-hidden border border-white/15 bg-[#1b232d] shadow-2xl">
-												<div
-													class="p-6 relative flex flex-col items-center text-center overflow-hidden"
-													style={{
-														background: `radial-gradient(circle at 50% 30%, ${backdropColors().center_hex} 0%, ${backdropColors().edge_hex} 90%)`,
-													}}
-												>
-													<span class="px-3 py-1 rounded-full bg-black/35 border border-white/15 text-[9px] font-mono font-bold text-white/80 mb-3 backdrop-blur-md">
-														{t('giftReport.profileWearHeader')}
-													</span>
-													<div class="relative w-24 h-24 rounded-full bg-black/35 border-2 border-white/30 flex items-center justify-center p-2 shadow-2xl">
-														<img
-															src={
-																modelTrait()?.image_url ||
-																rep().image_url ||
-																`https://nft.fragment.com/gift/${parsedTarget().slug.replace(/_/g, '')}-${rep().serial_number}.webp`
-															}
-															alt={rep().display_title}
-															class="w-full h-full object-contain drop-shadow-lg"
-														/>
-														<span
-															class="absolute -bottom-1.5 px-2 py-0.5 rounded-full bg-[#2990ff] text-[9px] font-mono font-black text-white shadow"
-															dir="ltr"
-														>
-															#{rep().serial_number}
-														</span>
-													</div>
-													<div class="mt-3 flex items-center gap-1.5">
-														<span class="text-[16px] font-black text-white">
-															{rep().owner_intelligence?.owner_display ||
-																rep().owner_name ||
-																'Telegram Collector'}
-														</span>
-														<span class="material-symbols-outlined text-[17px] text-[#5aaeff]">
-															verified
-														</span>
-													</div>
-													<span class="text-[11px] text-white/75 font-mono mt-0.5">
-														Wearing {rep().display_title} · {backdropTrait()?.value}
-													</span>
-												</div>
-												<div class="p-4 bg-[#141a22] flex items-center justify-between text-[11px]">
-													<span class="text-white/55">{t('giftReport.profileShowcaseStatus')}</span>
-													<span class="font-mono font-bold text-emerald-400">
-														{t('giftReport.readyForEmojiStatus')}
-													</span>
-												</div>
-											</div>
-										</Show>
-
-										{/* HERO MODE 3: Institutional Digital Certificate */}
-										<Show when={heroMode() === 'cert'}>
-											<div class="w-full bg-[#1b232d]/95 border border-[#2990ff]/35 rounded-2xl p-5 flex flex-col gap-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_40px_rgba(0,0,0,0.45)] relative overflow-hidden">
-												<div class="flex items-center justify-between border-b border-white/10 pb-3">
-													<div class="flex items-center gap-2">
-														<span class="material-symbols-outlined text-[22px] text-[#2990ff]">
-															workspace_premium
-														</span>
-														<div class="flex flex-col">
-															<span class="text-[11px] font-black uppercase tracking-wider text-white">
-																{t('giftReport.institutionalCert')}
-															</span>
-															<span class="text-[9px] font-mono text-white/45" dir="ltr">
-																{rep().certificate_id ||
-																	`IFRAG-GIFT-${rep().gift_id.toUpperCase()}`}
-															</span>
-														</div>
-													</div>
-													<span class="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 text-[9px] font-mono font-black">
-														{t('giftReport.verifiedTep62Badge')}
-													</span>
-												</div>
-
-												<div class="grid grid-cols-2 gap-2.5 text-[11px]">
-													<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
-														<span class="text-[9px] text-white/40 uppercase font-mono">
-															{t('giftReport.certAssetTitle')}
-														</span>
-														<span class="font-mono font-black text-white text-[13px]" dir="ltr">
-															{rep().display_title}
-														</span>
-													</div>
-													<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
-														<span class="text-[9px] text-white/40 uppercase font-mono">
-															{t('giftReport.certFairValueP50')}
-														</span>
-														<span class="font-mono font-black text-[#5aaeff] text-[13px]" dir="ltr">
-															{formatTon(fairValueTon())} TON ({formatUsd(fairValueUsd())})
-														</span>
-													</div>
-													<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
-														<span class="text-[9px] text-white/40 uppercase font-mono">
-															{t('giftReport.certHarmonicRarity')}
-														</span>
-														<span class="font-mono font-black text-amber-400 text-[13px]" dir="ltr">
-															{rep().rarity_score}/100 (Rank #{rep().rarity_rank})
-														</span>
-													</div>
-													<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5">
-														<span class="text-[9px] text-white/40 uppercase font-mono">
-															{t('giftReport.certValuationEngine')}
-														</span>
-														<span class="font-mono font-bold text-white/85 text-[11px]" dir="ltr">
-															{rep().model_version || 'GV Engine v4.2'}
-														</span>
-													</div>
-												</div>
-											</div>
-										</Show>
-
-										{/* Share Story & Export Certificate Buttons */}
-										<div class="w-full grid grid-cols-2 gap-2.5">
-											<button
-												type="button"
-												onClick={handleShareCertificateStory}
-												disabled={sharingStory()}
-												class="h-11 bg-[#2990ff] hover:bg-[#2481cc] text-white font-black text-[11px] uppercase tracking-wider rounded-[16px] flex items-center justify-center gap-1.5 shadow-[0_6px_20px_rgba(41,144,255,0.3)] active:scale-95 transition-all"
-											>
-												<span class="material-symbols-outlined text-[17px]">auto_awesome</span>
-												<span>
-													{sharingStory()
-														? t('giftReport.preparingStory')
-														: t('giftReport.shareStory')}
-												</span>
-											</button>
-											<button
-												type="button"
-												onClick={handleDownloadCertificate}
-												disabled={downloadingCert()}
-												class="h-11 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black text-[11px] uppercase tracking-wider rounded-[16px] flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-											>
-												<span class="material-symbols-outlined text-[17px]">download</span>
-												<span>
-													{downloadingCert()
-														? t('giftReport.savingCert')
-														: t('giftReport.saveCert')}
-												</span>
-											</button>
-										</div>
-
-										{/* ═══════ 4-FLOOR MATRIX CARD (Collection / Model / Backdrop / Symbol) ═══════ */}
-										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
-											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
-														grid_on
-													</span>
-													<div class="flex flex-col">
-														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{t('giftReport.fourAxisTitle')}
-														</span>
-														<span class="text-[10px] text-white/45">
-															{t('giftReport.fourAxisSubtitle')}
-														</span>
-													</div>
-												</div>
-												<span class="px-2 py-1 rounded-[8px] bg-[#2990ff]/15 border border-[#2990ff]/35 text-[9px] font-mono font-black text-[#5aaeff] uppercase">
-													{rep().floor_matrix?.dominant_floor_driver === 'model'
-														? 'MODEL DRIVEN'
-														: rep().floor_matrix?.dominant_floor_driver === 'backdrop'
-															? 'BACKDROP DRIVEN'
-															: rep().floor_matrix?.dominant_floor_driver === 'serial_grail'
-																? 'SERIAL GRAIL'
-																: 'FLOOR ANCHORED'}
-												</span>
-											</div>
-
-											<div class="grid grid-cols-2 gap-2.5">
-												{/* 1. Collection Floor */}
-												<a
-													href={
-														rep().floor_matrix?.collection_floor_url ||
-														`https://fragment.com/gifts/${parsedTarget().slug.replace(/_/g, '')}`
-													}
-													target="_blank"
-													rel="noreferrer"
-													class="bg-[#141a22] hover:bg-white/[0.03] border border-white/8 rounded-[16px] p-3 flex flex-col gap-1 transition-all"
-												>
-													<div class="flex items-center justify-between">
-														<span class="text-[9px] font-mono font-bold text-white/45 uppercase">
-															{t('giftReport.floor1Collection')}
-														</span>
-														<span class="material-symbols-outlined text-[13px] text-white/30">
-															open_in_new
-														</span>
-													</div>
-													<span class="text-[15px] font-mono font-black text-white" dir="ltr">
-														{formatTon(collectionFloorTon())} TON
-													</span>
-													<span class="text-[10px] font-mono text-white/45" dir="ltr">
-														≈{' '}
-														{formatUsd(
-															rep().floor_matrix?.collection_floor_usd ||
-																collectionFloorTon() * (rep().gram_usd_rate || 1.5),
-														)}
-													</span>
-												</a>
-
-												{/* 2. Exact Model Floor */}
-												<a
-													href={
-														rep().floor_matrix?.model_floor_url ||
-														`https://fragment.com/gifts/${parsedTarget().slug.replace(/_/g, '')}`
-													}
-													target="_blank"
-													rel="noreferrer"
-													class={`bg-[#141a22] hover:bg-white/[0.03] border rounded-[16px] p-3 flex flex-col gap-1 transition-all ${
-														rep().floor_matrix?.dominant_floor_driver === 'model'
-															? 'border-[#2990ff]/50 bg-[#2990ff]/5'
-															: 'border-white/8'
-													}`}
-												>
-													<div class="flex items-center justify-between">
-														<span class="text-[9px] font-mono font-bold text-[#5aaeff] uppercase truncate">
-															{t('giftReport.floor2Model')}{' '}
-															{rep().floor_matrix?.model_name || modelTrait()?.value}
-														</span>
-														<span class="text-[9px] font-mono text-white/40">
-															{rep().floor_matrix?.model_rarity_pct ||
-																modelTrait()?.percentile ||
-																1.5}
-															%
-														</span>
-													</div>
-													<span class="text-[15px] font-mono font-black text-emerald-400" dir="ltr">
-														{formatTon(
-															rep().floor_matrix?.model_floor_gram ||
-																modelTrait()?.floor_gram ||
-																collectionFloorTon(),
-														)}{' '}
-														TON
-													</span>
-													<span class="text-[10px] font-mono text-white/45" dir="ltr">
-														≈{' '}
-														{formatUsd(
-															rep().floor_matrix?.model_floor_usd || modelTrait()?.floor_usd,
-														)}
-													</span>
-												</a>
-
-												{/* 3. Exact Backdrop Floor */}
-												<a
-													href={
-														rep().floor_matrix?.backdrop_floor_url ||
-														`https://fragment.com/gifts/${parsedTarget().slug.replace(/_/g, '')}`
-													}
-													target="_blank"
-													rel="noreferrer"
-													class={`bg-[#141a22] hover:bg-white/[0.03] border rounded-[16px] p-3 flex flex-col gap-1 transition-all ${
-														rep().floor_matrix?.dominant_floor_driver === 'backdrop'
-															? 'border-[#2990ff]/50 bg-[#2990ff]/5'
-															: 'border-white/8'
-													}`}
-												>
-													<div class="flex items-center justify-between">
-														<span class="text-[9px] font-mono font-bold text-[#7ec0ff] uppercase truncate">
-															{t('giftReport.floor3Backdrop')}{' '}
-															{rep().floor_matrix?.backdrop_name || backdropTrait()?.value}
-														</span>
-														<span class="text-[9px] font-mono text-white/40">
-															{rep().floor_matrix?.backdrop_rarity_pct ||
-																backdropTrait()?.percentile ||
-																2.0}
-															%
-														</span>
-													</div>
-													<span class="text-[15px] font-mono font-black text-white" dir="ltr">
-														{formatTon(
-															rep().floor_matrix?.backdrop_floor_gram ||
-																backdropTrait()?.floor_gram ||
-																collectionFloorTon(),
-														)}{' '}
-														TON
-													</span>
-													<span class="text-[10px] font-mono text-white/45" dir="ltr">
-														≈{' '}
-														{formatUsd(
-															rep().floor_matrix?.backdrop_floor_usd || backdropTrait()?.floor_usd,
-														)}
-													</span>
-												</a>
-
-												{/* 4. Exact Symbol Floor */}
-												<a
-													href={
-														rep().floor_matrix?.symbol_floor_url ||
-														`https://fragment.com/gifts/${parsedTarget().slug.replace(/_/g, '')}`
-													}
-													target="_blank"
-													rel="noreferrer"
-													class="bg-[#141a22] hover:bg-white/[0.03] border border-white/8 rounded-[16px] p-3 flex flex-col gap-1 transition-all"
-												>
-													<div class="flex items-center justify-between">
-														<span class="text-[9px] font-mono font-bold text-amber-300 uppercase truncate">
-															{t('giftReport.floor4Symbol')}{' '}
-															{rep().floor_matrix?.symbol_name || symbolTrait()?.value}
-														</span>
-														<span class="text-[9px] font-mono text-white/40">
-															{rep().floor_matrix?.symbol_rarity_pct ||
-																symbolTrait()?.percentile ||
-																1.2}
-															%
-														</span>
-													</div>
-													<span class="text-[15px] font-mono font-black text-white" dir="ltr">
-														{formatTon(
-															rep().floor_matrix?.symbol_floor_gram ||
-																symbolTrait()?.floor_gram ||
-																collectionFloorTon(),
-														)}{' '}
-														TON
-													</span>
-													<span class="text-[10px] font-mono text-white/45" dir="ltr">
-														≈{' '}
-														{formatUsd(
-															rep().floor_matrix?.symbol_floor_usd || symbolTrait()?.floor_usd,
-														)}
-													</span>
-												</a>
-											</div>
-
-											<Show
-												when={
-													rep().floor_matrix?.driver_explanation_fa ||
-													rep().recommendation?.summary_fa
-												}
-											>
-												<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-3 text-[11px] text-white/80 leading-relaxed">
-													<span class="text-[#5aaeff] font-black">
-														{t('giftReport.priceDriverAnalysis')}
-													</span>
-													{isRtl()
-														? rep().floor_matrix?.driver_explanation_fa ||
-															rep().recommendation?.summary_fa
-														: rep().floor_matrix?.driver_explanation_en ||
-															rep().recommendation?.summary_en}
-												</div>
-											</Show>
-										</div>
-
-										{/* ═══════ 4-PILLAR VALUATION & P10 / P50 / P90 QUANTITATIVE BAND ═══════ */}
-										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3.5 shadow-xl text-start">
-											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
-														analytics
-													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{t('giftReport.fourPillarBandTitle')}
-													</span>
-												</div>
-												<span class="text-[10px] font-mono font-bold text-emerald-400">
-													{rep().confidence_score || 94}% Confidence
-												</span>
-											</div>
-
-											<div class="grid grid-cols-3 gap-2 text-center">
-												<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-bold text-white/45 uppercase">
-														{t('giftReport.liquidationP10')}
-													</span>
-													<span class="text-[13px] font-mono font-black text-emerald-400" dir="ltr">
-														{formatTon(liquidationTon())} TON
-													</span>
-													<span class="text-[9px] font-mono text-white/40" dir="ltr">
-														≈ {formatUsd(rep().pillars?.liquidation_value_usd || rep().low_usd)}
-													</span>
-												</div>
-
-												<div class="bg-[#2990ff]/12 border border-[#2990ff]/40 rounded-[14px] p-2.5 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-black text-[#5aaeff] uppercase">
-														{t('giftReport.fairValueP50')}
-													</span>
-													<span class="text-[15px] font-mono font-black text-white" dir="ltr">
-														{formatTon(fairValueTon())} TON
-													</span>
-													<span class="text-[9px] font-mono text-[#5aaeff]" dir="ltr">
-														≈ {formatUsd(fairValueUsd())}
-													</span>
-												</div>
-
-												<div class="bg-[#141a22] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
-													<span class="text-[9px] font-mono font-bold text-white/45 uppercase">
-														{t('giftReport.optimalAskP90')}
-													</span>
-													<span class="text-[13px] font-mono font-black text-amber-400" dir="ltr">
-														{formatTon(suggestedAskTon())} TON
-													</span>
-													<span class="text-[9px] font-mono text-white/40" dir="ltr">
-														≈ {formatUsd(rep().pillars?.suggested_ask_usd || rep().high_usd)}
-													</span>
-												</div>
-											</div>
-
-											{/* Interactive Offer & Seller Net Proceeds Calculator */}
-											<div class="bg-[#141a22] border border-white/8 rounded-[18px] p-3.5 flex flex-col gap-2.5">
-												<div class="flex items-center justify-between">
-													<span class="text-[11px] font-black text-white">
-														{t('giftReport.offerSimulatorTitle')}
-													</span>
-													<span class="text-[11px] font-mono font-black text-[#5aaeff]" dir="ltr">
-														{formatTon(activeOfferTon())} TON
-													</span>
-												</div>
-
-												<input
-													type="range"
-													min={Math.max(1, Math.round(liquidationTon() * 0.7))}
-													max={Math.max(10, Math.round(suggestedAskTon() * 1.4))}
-													step={1}
-													value={activeOfferTon()}
-													onInput={(e) =>
-														setCustomOfferTon(Number.parseFloat(e.currentTarget.value))
-													}
-													class="w-full accent-[#2990ff] cursor-pointer"
+											<FragKV label="Collection Base Floor">
+												<TonAmount value={formatTon(collectionFloorTon())} size="sm" />
+											</FragKV>
+											<FragKV label={`Model Floor (${modelTrait()?.value || 'Selected'})`}>
+												<TonAmount
+													value={formatTon(
+														rep().floor_matrix?.model_floor_gram ||
+															modelTrait()?.floor_gram ||
+															collectionFloorTon(),
+													)}
+													size="sm"
 												/>
-
-												<div class="grid grid-cols-3 gap-2 pt-1 text-center text-[10px] font-mono">
-													<div class="bg-[#1b232d] rounded-[10px] p-2 border border-white/5">
-														<div class="text-white/40">Portals (2.5%)</div>
-														<div class="text-emerald-400 font-black mt-0.5">
-															{formatTon(activeOfferTon() * 0.975 - 0.05)} TON
-														</div>
-													</div>
-													<div class="bg-[#1b232d] rounded-[10px] p-2 border border-white/5">
-														<div class="text-white/40">Tonnel (3.5%)</div>
-														<div class="text-white font-black mt-0.5">
-															{formatTon(activeOfferTon() * 0.965 - 0.03)} TON
-														</div>
-													</div>
-													<div class="bg-[#1b232d] rounded-[10px] p-2 border border-white/5">
-														<div class="text-white/40">Fragment (5%)</div>
-														<div class="text-amber-300 font-black mt-0.5">
-															{formatTon(activeOfferTon() * 0.95 - 0.08)} TON
-														</div>
-													</div>
-												</div>
-											</div>
+											</FragKV>
+											<FragKV label={`Backdrop Floor (${backdropTrait()?.value || 'Selected'})`}>
+												<TonAmount
+													value={formatTon(
+														rep().floor_matrix?.backdrop_floor_gram ||
+															backdropTrait()?.floor_gram ||
+															collectionFloorTon(),
+													)}
+													size="sm"
+												/>
+											</FragKV>
+											<FragKV label="Exact Combo / Fair Value">
+												<TonAmount
+													value={formatTon(fairValueTon())}
+													usd={formatUsdPlain(fairValueUsd())}
+													size="sm"
+													tone="positive"
+												/>
+											</FragKV>
+											<FragKV label="Supply & Serial Edition">
+												#{rep().serial_number || parsedTarget().serial} of{' '}
+												{(
+													rep().binary_forensics?.issued_count ||
+													rep().binary_forensics?.total_supply_count ||
+													10000
+												).toLocaleString()}
+											</FragKV>
 										</div>
 
-										{/* ═══════ MULTI-VENUE EXIT PLANNER (6 Marketplaces) ═══════ */}
-										<Show when={rep().exit_planner?.options?.length}>
-											<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
-												<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-													<div class="flex items-center gap-2">
-														<span class="material-symbols-outlined text-[19px] text-emerald-400">
-															alt_route
-														</span>
-														<div class="flex flex-col">
-															<span class="text-[12px] font-black uppercase tracking-wider text-white">
-																{t('giftReport.exitPlannerTitle')}
-															</span>
-															<span class="text-[10px] text-white/45">
-																{t('giftReport.exitPlannerSubtitle')}
-															</span>
-														</div>
-													</div>
-													<span class="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-mono font-black text-emerald-400">
-														BEST: {rep().exit_planner?.best_venue_name}
-													</span>
-												</div>
-
-												<div class="flex flex-col gap-2">
-													<For each={rep().exit_planner?.options || []}>
-														{(opt, idx) => (
-															<div
-																class={`rounded-[16px] p-3 border flex items-center justify-between gap-2 ${
-																	idx() === 0
-																		? 'bg-emerald-500/[0.07] border-emerald-500/35'
-																		: 'bg-[#141a22] border-white/6'
-																}`}
-															>
-																<div class="flex items-center gap-2.5 min-w-0">
-																	<span
-																		class={`w-6 h-6 rounded-lg font-mono font-black text-[11px] flex items-center justify-center shrink-0 ${
-																			idx() === 0
-																				? 'bg-emerald-500 text-black'
-																				: 'bg-white/8 text-white/60'
-																		}`}
-																	>
-																		#{opt.rank || idx() + 1}
-																	</span>
-																	<div class="flex flex-col min-w-0">
-																		<div class="flex items-center gap-1.5">
-																			<span class="text-[12px] font-black text-white truncate">
-																				{opt.venue_name}
-																			</span>
-																			<span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white/8 text-white/65">
-																				Fee {opt.fee_percent}%
-																			</span>
-																		</div>
-																		<span class="text-[10px] text-white/45 truncate">
-																			{opt.requires_kyc
-																				? t('giftReport.kycRequired')
-																				: t('giftReport.noKycInstant')}{' '}
-																			· ~{opt.estimated_days_to_sell}d
-																		</span>
-																	</div>
-																</div>
-
-																<div class="flex items-center gap-2.5 shrink-0">
-																	<div class="flex flex-col items-end" dir="ltr">
-																		<span class="text-[13px] font-mono font-black text-emerald-400">
-																			{formatTon(opt.net_payout_gram)} TON
-																		</span>
-																		<span class="text-[9px] font-mono text-white/45">
-																			≈ {formatUsd(opt.net_payout_usd)}
-																		</span>
-																	</div>
-																	<Show when={opt.deep_link}>
-																		<a
-																			href={opt.deep_link}
-																			target="_blank"
-																			rel="noreferrer"
-																			class="w-8 h-8 rounded-[10px] bg-white/8 hover:bg-[#2990ff] text-white flex items-center justify-center transition-colors"
-																		>
-																			<span class="material-symbols-outlined text-[15px]">
-																				open_in_new
-																			</span>
-																		</a>
-																	</Show>
-																</div>
-															</div>
-														)}
-													</For>
-												</div>
-											</div>
-										</Show>
-
-										{/* ═══════ 12-MONTH GROWTH PROJECTION (Bull / Base / Bear) ═══════ */}
-										<Show when={rep().projection}>
-											<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
-												<div class="flex items-center gap-2 border-b border-white/5 pb-2">
-													<span class="material-symbols-outlined text-[18px] text-[#2990ff]">
-														trending_up
-													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{t('giftReport.forwardScenariosTitle')}
-													</span>
-												</div>
-												<div class="grid grid-cols-3 gap-2 text-center">
-													<div class="bg-[#141a22] border border-rose-500/20 rounded-[14px] p-2.5">
-														<div class="text-[9px] font-mono text-rose-400 font-bold">
-															{t('giftReport.bearCase')}
-														</div>
-														<div class="text-[13px] font-mono font-black text-white mt-1" dir="ltr">
-															{formatTon(rep().projection?.bear_gram)} TON
-														</div>
-														<div class="text-[9px] font-mono text-white/40" dir="ltr">
-															{formatUsd(rep().projection?.bear_usd)}
-														</div>
-													</div>
-													<div class="bg-[#141a22] border border-[#2990ff]/30 rounded-[14px] p-2.5">
-														<div class="text-[9px] font-mono text-[#5aaeff] font-bold">
-															{t('giftReport.baseCase')}
-														</div>
-														<div class="text-[13px] font-mono font-black text-white mt-1" dir="ltr">
-															{formatTon(rep().projection?.base_gram)} TON
-														</div>
-														<div class="text-[9px] font-mono text-white/40" dir="ltr">
-															{formatUsd(rep().projection?.base_usd)}
-														</div>
-													</div>
-													<div class="bg-[#141a22] border border-emerald-500/25 rounded-[14px] p-2.5">
-														<div class="text-[9px] font-mono text-emerald-400 font-bold">
-															{t('giftReport.bullCase')}
-														</div>
-														<div
-															class="text-[13px] font-mono font-black text-emerald-400 mt-1"
-															dir="ltr"
-														>
-															{formatTon(rep().projection?.bull_gram)} TON
-														</div>
-														<div class="text-[9px] font-mono text-white/40" dir="ltr">
-															{formatUsd(rep().projection?.bull_usd)}
-														</div>
-													</div>
-												</div>
-											</div>
-										</Show>
+										<div class="grid grid-cols-2 gap-2">
+											<button
+												type="button"
+												onClick={() => navigate('/gifts/crafting')}
+												class="frag-btn-secondary h-10 px-3 rounded-[8px] text-[12.5px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+											>
+												<span class="material-symbols-outlined text-[16px] text-[#ff9953]">
+													local_fire_department
+												</span>
+												<span>{t('gifts.craftingTitle')}</span>
+											</button>
+											<button
+												type="button"
+												onClick={() => navigate('/gifts/portfolio')}
+												class="frag-btn-secondary h-10 px-3 rounded-[8px] text-[12.5px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+											>
+												<span class="material-symbols-outlined text-[16px] text-[#5aec8c]">
+													account_balance_wallet
+												</span>
+												<span>{t('gifts.portfolioTitle')}</span>
+											</button>
+										</div>
 									</div>
 								</Show>
 
-								{/* ════════════════════════════════════════════════════════════════
-								    TAB 2: 3-AXIS TRAIT DNA, COLOR HARMONY & WHAT-IF SIMULATOR
-								    ════════════════════════════════════════════════════════════════ */}
+								{/* TAB 2: TRAIT DNA & LIVE SIMULATOR */}
 								<Show when={activeTab() === 'traits'}>
-									<div class="w-full flex flex-col gap-3.5">
-										{/* 3-Axis Trait DNA Breakdown */}
-										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3.5 shadow-xl text-start">
-											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
-														biotech
-													</span>
-													<div class="flex flex-col">
-														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{t('giftReport.traitDnaTitle')}
+									<div class="space-y-3.5">
+										<div class="frag-table-container">
+											<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
+												<span class="col-span-4">Trait</span>
+												<span class="col-span-5">Value</span>
+												<span class="col-span-3 text-end">Rarity</span>
+											</div>
+											<For each={rep().trait_dna || []}>
+												{(tr) => (
+													<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[13px]">
+														<span class="col-span-4 font-semibold text-white capitalize">
+															{tr.label_en || tr.axis_key}
 														</span>
-														<span class="text-[10px] text-white/45">
-															{t('giftReport.traitDnaSubtitle')}
+														<span class="col-span-5 text-[#4db2ff] font-medium truncate">
+															{tr.value}
+														</span>
+														<span class="col-span-3 text-end font-mono text-[12px] text-[#5aec8c]">
+															{tr.percentile}%
 														</span>
 													</div>
-												</div>
-												<span class="px-2.5 py-1 rounded-[8px] bg-[#2990ff]/12 border border-[#2990ff]/30 text-[9px] font-mono font-black text-[#7ec0ff]">
-													SCORE {rep().rarity_score}/100
-												</span>
-											</div>
-
-											<div class="flex flex-col gap-2.5">
-												<For each={rep().trait_dna || []}>
-													{(bar) => (
-														<div class="bg-[#141a22] border border-white/8 rounded-[18px] p-3.5 flex flex-col gap-2.5">
-															<div class="flex items-center justify-between gap-2">
-																<div class="flex items-center gap-2.5 min-w-0">
-																	<Show
-																		when={bar.image_url}
-																		fallback={
-																			<div
-																				class="w-10 h-10 rounded-[12px] border border-white/20 shrink-0"
-																				style={{
-																					background: bar.colors
-																						? `radial-gradient(circle, ${bar.colors.center_hex}, ${bar.colors.edge_hex})`
-																						: '#1e293b',
-																				}}
-																			/>
-																		}
-																	>
-																		<img
-																			src={bar.image_url}
-																			alt={bar.value}
-																			class="w-10 h-10 rounded-[12px] object-contain bg-white/5 p-1 border border-white/10 shrink-0"
-																			onError={(e) => {
-																				e.currentTarget.style.display = 'none';
-																			}}
-																		/>
-																	</Show>
-																	<div class="flex flex-col min-w-0">
-																		<span class="text-[10px] font-bold text-white/45">
-																			{isRtl()
-																				? bar.label_fa || bar.label_en
-																				: bar.label_en || bar.label_fa}
-																		</span>
-																		<span
-																			class="text-[14px] font-mono font-black text-white truncate"
-																			dir="ltr"
-																		>
-																			{bar.value}
-																		</span>
-																	</div>
-																</div>
-
-																<div class="flex flex-col items-end shrink-0">
-																	<div class="flex items-center gap-1.5">
-																		<span class="px-2 py-0.5 rounded bg-[#2990ff]/15 border border-[#2990ff]/30 text-[9px] font-mono font-black text-[#5aaeff]">
-																			{bar.percentile}%
-																		</span>
-																		<span class="px-2 py-0.5 rounded bg-white/8 text-[9px] font-mono font-bold text-white/75">
-																			{bar.rarity_tier}
-																		</span>
-																	</div>
-																	<Show when={bar.floor_gram}>
-																		<span
-																			class="text-[11px] font-mono font-black text-emerald-400 mt-1"
-																			dir="ltr"
-																		>
-																			Floor: {formatTon(bar.floor_gram)} TON
-																		</span>
-																	</Show>
-																</div>
-															</div>
-
-															{/* Rarity Progress Bar */}
-															<div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-																<div
-																	class="h-full bg-gradient-to-r from-[#2990ff] to-emerald-400 rounded-full"
-																	style={{
-																		width: `${Math.max(6, Math.min(100, 100 - (bar.percentile || 1) * 8))}%`,
-																	}}
-																/>
-															</div>
-
-															{/* Backdrop 4-Hex Swatches */}
-															<Show when={bar.colors}>
-																{(cols) => (
-																	<div class="grid grid-cols-4 gap-1.5 pt-1" dir="ltr">
-																		<For
-																			each={[
-																				{
-																					label: 'Center',
-																					hex: cols().center_hex,
-																				},
-																				{ label: 'Edge', hex: cols().edge_hex },
-																				{
-																					label: 'Pattern',
-																					hex: cols().pattern_hex,
-																				},
-																				{ label: 'Text', hex: cols().text_hex },
-																			]}
-																		>
-																			{(sw) => (
-																				<button
-																					type="button"
-																					onClick={() => copyText(sw.hex, `hex_${sw.label}`)}
-																					class="bg-[#1b232d] hover:bg-white/10 border border-white/8 rounded-[10px] p-1.5 flex items-center gap-1.5 transition-all"
-																				>
-																					<span
-																						class="w-3.5 h-3.5 rounded-md border border-white/25 shrink-0"
-																						style={{ background: sw.hex }}
-																					/>
-																					<div class="flex flex-col text-left min-w-0">
-																						<span class="text-[8px] text-white/40 leading-none">
-																							{sw.label}
-																						</span>
-																						<span class="text-[9px] font-mono font-bold text-white truncate">
-																							{copiedKey() === `hex_${sw.label}`
-																								? 'Copied!'
-																								: sw.hex}
-																						</span>
-																					</div>
-																				</button>
-																			)}
-																		</For>
-																	</div>
-																)}
-															</Show>
-
-															<Show when={bar.description}>
-																<p class="text-[10px] text-white/55 leading-relaxed">
-																	{bar.description}
-																</p>
-															</Show>
-														</div>
-													)}
-												</For>
-											</div>
+												)}
+											</For>
 										</div>
 
-										{/* Joint Rarity, Serial Gravity & Color-Match Harmony */}
-										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
-											<div class="flex items-center gap-2 border-b border-white/5 pb-2">
-												<span class="material-symbols-outlined text-[18px] text-amber-400">
-													auto_awesome
-												</span>
-												<span class="text-[12px] font-black uppercase tracking-wider text-white">
-													{t('giftReport.serialGravitySection')}
-												</span>
-											</div>
-
-											<div class="grid grid-cols-2 gap-2.5">
-												<div class="bg-[#141a22] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
-													<span class="text-[9px] font-mono text-white/40 uppercase">
-														{t('giftReport.serialGravityMultiplier')}
-													</span>
-													<span class="text-[16px] font-mono font-black text-amber-400" dir="ltr">
-														#{rep().serial_number} · {rep().serial_intel?.multiplier || 1}x
-													</span>
-													<span class="text-[10px] text-white/65">
-														{rep().serial_intel?.description || rep().serial_intel?.tier}
-													</span>
-												</div>
-
-												<div class="bg-[#141a22] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
-													<span class="text-[9px] font-mono text-white/40 uppercase">
-														{t('giftReport.surprisalEntropy')}
-													</span>
-													<span class="text-[16px] font-mono font-black text-[#5aaeff]" dir="ltr">
-														{rep().joint_rarity?.surprisal_bits || 14.2} bits
-													</span>
-													<span class="text-[10px] text-white/65">
-														{rep().color_match_intel?.harmony_class || 'Standard Contrast'}
-													</span>
-												</div>
-											</div>
-										</div>
-
-										{/* Interactive "What-If" Trait Simulator & Collection Catalog */}
+										{/* Minimalist Trait Combo Simulator */}
 										<Show when={rep().collection_catalog}>
 											{(cat) => (
-												<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-[#2990ff]/30 rounded-[26px] p-4 flex flex-col gap-3.5 shadow-xl text-start">
-													<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-														<div class="flex items-center gap-2">
-															<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
-																tune
-															</span>
-															<div class="flex flex-col">
-																<span class="text-[12px] font-black uppercase tracking-wider text-white">
-																	{t('giftReport.whatIfSimulatorTitle')}
-																</span>
-																<span class="text-[10px] text-white/45">
-																	{t('giftReport.whatIfSimulatorSubtitle')}
-																</span>
-															</div>
-														</div>
+												<div class="frag-card p-3.5 space-y-3">
+													<div class="flex items-center justify-between">
+														<span class="text-[13.5px] font-semibold text-white">
+															Simulate Trait Combination
+														</span>
 														<Show when={simulating()}>
-															<span class="text-[10px] font-mono text-[#5aaeff] animate-pulse">
-																{t('giftReport.recalculating')}
-															</span>
+															<span class="text-[11.5px] text-[#4db2ff]">Updating…</span>
 														</Show>
 													</div>
 
 													<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-														<div class="flex flex-col gap-1">
-															<span class="text-[9px] font-mono text-white/45">
-																{t('giftReport.selectModelLabel')}
-															</span>
+														<Show when={(cat().models?.length || 0) > 0}>
 															<select
 																value={simModel()}
 																onChange={(e) => {
-																	const v = e.currentTarget.value;
-																	setSimModel(v);
-																	void handleSimulateTraits(v, simBackdrop(), simSymbol());
+																	setSimModel(e.currentTarget.value);
+																	void runTraitSimulation(
+																		e.currentTarget.value,
+																		simBackdrop(),
+																		simSymbol(),
+																	);
 																}}
-																class="h-9 bg-[#141a22] border border-white/15 rounded-[10px] px-2.5 text-[11px] font-mono text-white focus:border-[#2990ff] focus:outline-none"
-																dir="ltr"
+																class="h-9 rounded-[6px] bg-[#242e38] px-2.5 text-[12.5px] font-medium text-white outline-none"
 															>
 																<For each={cat().models}>
-																	{(m) => (
-																		<option value={m.name}>
-																			{m.name} ({m.rarity_pct}%)
-																		</option>
-																	)}
+																	{(m) => <option value={m.name}>{m.name}</option>}
 																</For>
 															</select>
-														</div>
+														</Show>
 
-														<div class="flex flex-col gap-1">
-															<span class="text-[9px] font-mono text-white/45">
-																{t('giftReport.selectBackdropLabel')}
-															</span>
+														<Show when={(cat().backdrops?.length || 0) > 0}>
 															<select
 																value={simBackdrop()}
 																onChange={(e) => {
-																	const v = e.currentTarget.value;
-																	setSimBackdrop(v);
-																	void handleSimulateTraits(simModel(), v, simSymbol());
+																	setSimBackdrop(e.currentTarget.value);
+																	void runTraitSimulation(
+																		simModel(),
+																		e.currentTarget.value,
+																		simSymbol(),
+																	);
 																}}
-																class="h-9 bg-[#141a22] border border-white/15 rounded-[10px] px-2.5 text-[11px] font-mono text-white focus:border-[#2990ff] focus:outline-none"
-																dir="ltr"
+																class="h-9 rounded-[6px] bg-[#242e38] px-2.5 text-[12.5px] font-medium text-white outline-none"
 															>
 																<For each={cat().backdrops}>
-																	{(b) => (
-																		<option value={b.name}>
-																			{b.name} ({b.rarity_pct}%)
-																		</option>
-																	)}
+																	{(b) => <option value={b.name}>{b.name}</option>}
 																</For>
 															</select>
-														</div>
+														</Show>
 
-														<div class="flex flex-col gap-1">
-															<span class="text-[9px] font-mono text-white/45">
-																{t('giftReport.selectSymbolLabel')}
-															</span>
+														<Show when={(cat().symbols?.length || 0) > 0}>
 															<select
 																value={simSymbol()}
 																onChange={(e) => {
-																	const v = e.currentTarget.value;
-																	setSimSymbol(v);
-																	void handleSimulateTraits(simModel(), simBackdrop(), v);
+																	setSimSymbol(e.currentTarget.value);
+																	void runTraitSimulation(
+																		simModel(),
+																		simBackdrop(),
+																		e.currentTarget.value,
+																	);
 																}}
-																class="h-9 bg-[#141a22] border border-white/15 rounded-[10px] px-2.5 text-[11px] font-mono text-white focus:border-[#2990ff] focus:outline-none"
-																dir="ltr"
+																class="h-9 rounded-[6px] bg-[#242e38] px-2.5 text-[12.5px] font-medium text-white outline-none"
 															>
 																<For each={cat().symbols}>
-																	{(s) => (
-																		<option value={s.name}>
-																			{s.name} ({s.rarity_pct}%)
-																		</option>
-																	)}
+																	{(s) => <option value={s.name}>{s.name}</option>}
 																</For>
 															</select>
-														</div>
-													</div>
-
-													{/* Mini Collection Trait Catalog Browser */}
-													<div class="flex items-center gap-1.5 pt-1">
-														<button
-															type="button"
-															onClick={() => setCatalogSubTab('models')}
-															class={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
-																catalogSubTab() === 'models'
-																	? 'bg-[#2990ff] text-white'
-																	: 'bg-[#141a22] text-white/55'
-															}`}
-														>
-															{t('giftReport.modelsTab')} ({cat().models.length})
-														</button>
-														<button
-															type="button"
-															onClick={() => setCatalogSubTab('backdrops')}
-															class={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
-																catalogSubTab() === 'backdrops'
-																	? 'bg-[#2990ff] text-white'
-																	: 'bg-[#141a22] text-white/55'
-															}`}
-														>
-															{t('giftReport.backdropsTab')} ({cat().backdrops.length})
-														</button>
-														<button
-															type="button"
-															onClick={() => setCatalogSubTab('symbols')}
-															class={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
-																catalogSubTab() === 'symbols'
-																	? 'bg-[#2990ff] text-white'
-																	: 'bg-[#141a22] text-white/55'
-															}`}
-														>
-															{t('giftReport.symbolsTab')} ({cat().symbols.length})
-														</button>
-													</div>
-
-													<div class="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
-														<For
-															each={
-																catalogSubTab() === 'models'
-																	? cat().models.slice(0, 24)
-																	: catalogSubTab() === 'backdrops'
-																		? cat().backdrops.slice(0, 24)
-																		: cat().symbols.slice(0, 24)
-															}
-														>
-															{(item) => (
-																<button
-																	type="button"
-																	onClick={() => {
-																		if (catalogSubTab() === 'models') {
-																			setSimModel(item.name);
-																			void handleSimulateTraits(
-																				item.name,
-																				simBackdrop(),
-																				simSymbol(),
-																			);
-																		} else if (catalogSubTab() === 'backdrops') {
-																			setSimBackdrop(item.name);
-																			void handleSimulateTraits(simModel(), item.name, simSymbol());
-																		} else {
-																			setSimSymbol(item.name);
-																			void handleSimulateTraits(
-																				simModel(),
-																				simBackdrop(),
-																				item.name,
-																			);
-																		}
-																	}}
-																	class="bg-[#141a22] hover:bg-white/5 border border-white/6 rounded-[12px] p-2 flex items-center justify-between gap-2 text-left transition-all"
-																	dir="ltr"
-																>
-																	<div class="flex items-center gap-2 min-w-0">
-																		<Show when={item.center_hex}>
-																			<span
-																				class="w-4 h-4 rounded-full border border-white/20 shrink-0"
-																				style={{
-																					background: `radial-gradient(circle, ${item.center_hex}, ${item.edge_hex || item.center_hex})`,
-																				}}
-																			/>
-																		</Show>
-																		<span class="text-[10px] font-mono font-bold text-white truncate">
-																			{item.name}
-																		</span>
-																	</div>
-																	<span class="text-[9px] font-mono text-[#5aaeff] shrink-0">
-																		{item.rarity_pct}%
-																	</span>
-																</button>
-															)}
-														</For>
-													</div>
-												</div>
-											)}
-										</Show>
-
-										{/* Same-Serial Cross-Collection Siblings */}
-										<Show when={rep().same_serial_siblings?.length}>
-											<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
-												<div class="flex items-center justify-between border-b border-white/5 pb-2">
-													<div class="flex items-center gap-2">
-														<span class="material-symbols-outlined text-[18px] text-[#2990ff]">
-															tag
-														</span>
-														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{t('giftReport.sameSerialSiblings', { serial: rep().serial_number })}
-														</span>
-													</div>
-												</div>
-
-												<div class="grid grid-cols-2 gap-2">
-													<For each={rep().same_serial_siblings || []}>
-														{(sib) => (
-															<button
-																type="button"
-																onClick={() => selectQuickGift(sib.gift_id)}
-																class="bg-[#141a22] hover:bg-white/5 border border-white/8 rounded-[14px] p-2.5 flex items-center justify-between gap-2 transition-all text-start"
-															>
-																<div class="flex flex-col min-w-0">
-																	<span
-																		class="text-[11px] font-mono font-black text-white truncate"
-																		dir="ltr"
-																	>
-																		{sib.collection_name} #{sib.serial_number}
-																	</span>
-																	<span
-																		class="text-[10px] font-mono text-emerald-400 font-bold"
-																		dir="ltr"
-																	>
-																		~{formatTon(sib.estimated_serial_value_gram)} TON
-																	</span>
-																</div>
-																<span class="material-symbols-outlined text-[15px] text-white/35">
-																	arrow_outward
-																</span>
-															</button>
-														)}
-													</For>
-												</div>
-											</div>
-										</Show>
-									</div>
-								</Show>
-
-								{/* ════════════════════════════════════════════════════════════════
-								    TAB 3: ON-CHAIN CUSTODY, WHALE OWNER INTEL & PROVENANCE
-								    ════════════════════════════════════════════════════════════════ */}
-								<Show when={activeTab() === 'onchain'}>
-									<div class="w-full flex flex-col gap-3.5">
-										{/* Custody, Host Profile & Whale Owner Intelligence */}
-										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3.5 shadow-xl text-start">
-											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
-														shield_person
-													</span>
-													<div class="flex flex-col">
-														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{t('giftReport.ownerCustodyTitle')}
-														</span>
-														<span class="text-[10px] text-white/45">
-															{rep().upgrade_info?.custody_notice}
-														</span>
-													</div>
-												</div>
-												<span class="px-2.5 py-1 rounded-[8px] bg-emerald-500/15 border border-emerald-500/35 text-[9px] font-mono font-black text-emerald-400">
-													{rep().custody_type === 'on_chain_nft'
-														? 'TEP-62 ON-CHAIN'
-														: 'TELEGRAM CUSTODY'}
-												</span>
-											</div>
-
-											<div class="grid grid-cols-2 gap-2.5">
-												<div class="bg-[#141a22] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
-													<span class="text-[9px] font-mono text-white/40 uppercase">
-														{t('giftReport.currentOwnerHost')}
-													</span>
-													<span
-														class="text-[13px] font-mono font-black text-white truncate"
-														dir="ltr"
-													>
-														{rep().owner_intelligence?.owner_display ||
-															rep().host_profile?.host_name ||
-															rep().owner_name ||
-															'Verified Collector'}
-													</span>
-													<span class="text-[10px] text-[#5aaeff] font-bold truncate">
-														{rep().owner_intelligence?.whale_tier_fa ||
-															rep().owner_intelligence?.whale_tier ||
-															'Active Holder'}
-													</span>
-												</div>
-
-												<div class="bg-[#141a22] border border-white/6 rounded-[16px] p-3 flex flex-col gap-1">
-													<span class="text-[9px] font-mono text-white/40 uppercase">
-														{t('giftReport.tonWalletAddress')}
-													</span>
-													<div class="flex items-center justify-between gap-1">
-														<span
-															class="text-[11px] font-mono font-bold text-white/85 truncate"
-															dir="ltr"
-														>
-															{rep().owner_wallet?.wallet_address ||
-																rep().on_chain?.owner_address ||
-																'Telegram Off-Chain Vault'}
-														</span>
-														<Show
-															when={
-																rep().owner_wallet?.wallet_address || rep().on_chain?.owner_address
-															}
-														>
-															<button
-																type="button"
-																onClick={() =>
-																	copyText(
-																		rep().owner_wallet?.wallet_address ||
-																			rep().on_chain?.owner_address ||
-																			'',
-																		'owner_addr',
-																	)
-																}
-																class="text-[#5aaeff] text-[10px] font-mono shrink-0"
-															>
-																{copiedKey() === 'owner_addr' ? '✓' : 'Copy'}
-															</button>
 														</Show>
 													</div>
-													<span class="text-[10px] text-white/45 truncate">
-														{rep().owner_wallet?.is_escrow
-															? rep().owner_wallet?.escrow_name
-															: t('giftReport.selfCustody')}
-													</span>
-												</div>
-											</div>
-
-											{/* Direct Protocol & Explorer Links */}
-											<div class="grid grid-cols-3 gap-2 pt-1">
-												<a
-													href={
-														rep().on_chain?.marketplace_links?.fragment ||
-														`https://fragment.com/gift/${parsedTarget().slug.replace(/_/g, '')}-${rep().serial_number}`
-													}
-													target="_blank"
-													rel="noreferrer"
-													class="h-9 rounded-[11px] bg-[#2990ff]/15 hover:bg-[#2990ff]/25 border border-[#2990ff]/35 text-[#5aaeff] font-mono font-black text-[10px] flex items-center justify-center gap-1"
-												>
-													<span>{t('giftReport.linkFragment')}</span>
-													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
-												</a>
-												<a
-													href={
-														rep().binary_forensics?.tme_nft_url ||
-														rep().on_chain?.marketplace_links?.tme_nft ||
-														`https://t.me/nft`
-													}
-													target="_blank"
-													rel="noreferrer"
-													class="h-9 rounded-[11px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 font-mono font-bold text-[10px] flex items-center justify-center gap-1"
-												>
-													<span>t.me/nft</span>
-													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
-												</a>
-												<a
-													href={rep().on_chain?.tonviewer_url || 'https://tonviewer.com'}
-													target="_blank"
-													rel="noreferrer"
-													class="h-9 rounded-[11px] bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 font-mono font-bold text-[10px] flex items-center justify-center gap-1"
-												>
-													<span>{t('giftReport.linkTonviewer')}</span>
-													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
-												</a>
-											</div>
-										</div>
-
-										{/* Provenance & Ownership History Timeline */}
-										<Show when={rep().provenance?.length}>
-											<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
-												<div class="flex items-center gap-2 border-b border-white/5 pb-2">
-													<span class="material-symbols-outlined text-[18px] text-[#2990ff]">
-														history
-													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{t('giftReport.provenanceTitle')}
-													</span>
-												</div>
-
-												<div class="flex flex-col gap-2">
-													<For each={rep().provenance || []}>
-														{(ev) => (
-															<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3 flex items-center justify-between gap-2">
-																<div class="flex items-center gap-2.5 min-w-0">
-																	<span class="w-8 h-8 rounded-xl bg-[#2990ff]/15 border border-[#2990ff]/30 text-[#5aaeff] flex items-center justify-center shrink-0">
-																		<span class="material-symbols-outlined text-[16px]">
-																			{ev.event_type === 'upgraded' ? 'auto_awesome' : 'swap_horiz'}
-																		</span>
-																	</span>
-																	<div class="flex flex-col min-w-0">
-																		<span class="text-[11px] font-bold text-white truncate">
-																			{ev.note ||
-																				`${ev.event_type.toUpperCase()} on ${ev.venue || 'TON'}`}
-																		</span>
-																		<span class="text-[9px] font-mono text-white/45">
-																			{formatDateLocale(ev.timestamp)} ·{' '}
-																			{ev.venue || 'TON Blockchain'}
-																		</span>
-																	</div>
-																</div>
-
-																<div class="flex items-center gap-2 shrink-0">
-																	<Show when={ev.price_gram}>
-																		<span
-																			class="text-[12px] font-mono font-black text-emerald-400"
-																			dir="ltr"
-																		>
-																			{formatTon(ev.price_gram)} TON
-																		</span>
-																	</Show>
-																	<Show when={ev.tonviewer_url}>
-																		<a
-																			href={ev.tonviewer_url}
-																			target="_blank"
-																			rel="noreferrer"
-																			class="text-white/40 hover:text-white"
-																		>
-																			<span class="material-symbols-outlined text-[15px]">
-																				open_in_new
-																			</span>
-																		</a>
-																	</Show>
-																</div>
-															</div>
-														)}
-													</For>
-												</div>
-											</div>
-										</Show>
-
-										{/* Binary & MTProto Forensics */}
-										<Show when={rep().binary_forensics}>
-											{(bf) => (
-												<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
-													<div class="flex items-center justify-between border-b border-white/5 pb-2">
-														<div class="flex items-center gap-2">
-															<span class="material-symbols-outlined text-[18px] text-[#5aaeff]">
-																terminal
-															</span>
-															<span class="text-[12px] font-black uppercase tracking-wider text-white">
-																{t('giftReport.binaryForensicsTitle')}
-															</span>
-														</div>
-													</div>
-
-													<div class="grid grid-cols-2 gap-2 text-[10px] font-mono">
-														<div class="bg-[#141a22] border border-white/5 rounded-[12px] p-2.5">
-															<div class="text-white/40">{t('giftReport.tlConstructorLabel')}</div>
-															<div class="text-[#5aaeff] font-bold truncate mt-0.5" dir="ltr">
-																{bf().mtproto_constructor}
-															</div>
-														</div>
-														<div class="bg-[#141a22] border border-white/5 rounded-[12px] p-2.5">
-															<div class="text-white/40">{t('giftReport.upgradedSupplyLabel')}</div>
-															<div class="text-emerald-400 font-bold mt-0.5" dir="ltr">
-																{bf().issued_count.toLocaleString()} /{' '}
-																{bf().total_supply_count.toLocaleString()} (
-																{bf().upgraded_percentage}%)
-															</div>
-														</div>
-													</div>
-
-													<div class="grid grid-cols-3 gap-2 pt-1">
-														<a
-															href={bf().lottie_url}
-															target="_blank"
-															rel="noreferrer"
-															class="h-8 rounded-[10px] bg-[#141a22] hover:bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 flex items-center justify-center gap-1"
-														>
-															<span>{t('giftReport.lottieJsonBtn')}</span>
-															<span class="material-symbols-outlined text-[12px]">open_in_new</span>
-														</a>
-														<a
-															href={bf().webp_url}
-															target="_blank"
-															rel="noreferrer"
-															class="h-8 rounded-[10px] bg-[#141a22] hover:bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 flex items-center justify-center gap-1"
-														>
-															<span>{t('giftReport.officialWebpBtn')}</span>
-															<span class="material-symbols-outlined text-[12px]">open_in_new</span>
-														</a>
-														<a
-															href={bf().metadata_json_url}
-															target="_blank"
-															rel="noreferrer"
-															class="h-8 rounded-[10px] bg-[#141a22] hover:bg-white/5 border border-white/10 text-[10px] font-mono text-white/75 flex items-center justify-center gap-1"
-														>
-															<span>{t('giftReport.tep64JsonBtn')}</span>
-															<span class="material-symbols-outlined text-[12px]">open_in_new</span>
-														</a>
-													</div>
 												</div>
 											)}
 										</Show>
 									</div>
 								</Show>
 
-								{/* ════════════════════════════════════════════════════════════════
-								    TAB 4: COMPARABLE SALES, ACTIVE ORDERBOOK, CRAFTING & RISK AUDIT
-								    ════════════════════════════════════════════════════════════════ */}
+								{/* TAB 3: COMPARABLE GIFT SALES TABLE (.tm-table) */}
 								<Show when={activeTab() === 'comps'}>
-									<div class="w-full flex flex-col gap-3.5">
-										{/* Settled Comparable Sales & SVG Price Trajectory */}
-										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3.5 shadow-xl text-start">
-											<div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[19px] text-[#2990ff]">
-														ssid_chart
-													</span>
-													<div class="flex flex-col">
-														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{t('giftReport.compsTitle')}
-														</span>
-														<span class="text-[10px] text-white/45">
-															{t('giftReport.compsSubtitle')}
-														</span>
-													</div>
-												</div>
-												<span class="text-[10px] font-mono font-bold text-[#5aaeff]">
-													{filteredComps().length} {t('giftReport.dealsSuffix')}
-												</span>
-											</div>
+									<div class="space-y-2.5">
+										<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+											<For
+												each={
+													[
+														{ id: 'all', label: 'All Sales' },
+														{ id: 'exact_model', label: 'Same Model' },
+														{ id: 'exact_backdrop', label: 'Same Backdrop' },
+													] as const
+												}
+											>
+												{(f) => (
+													<button
+														type="button"
+														onClick={() => setCompFilter(f.id)}
+														class={`px-2.5 py-1 rounded-[6px] text-[12px] font-semibold shrink-0 transition-colors cursor-pointer ${
+															compFilter() === f.id
+																? 'bg-[#248bda] text-white'
+																: 'bg-[#212a33] text-[#8c9aa9] hover:text-white'
+														}`}
+													>
+														{f.label}
+													</button>
+												)}
+											</For>
+										</div>
 
-											{/* Comp Filter Pills */}
-											<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-												<For
-													each={[
-														{
-															id: 'all' as const,
-															label: t('giftReport.compAllSales'),
-														},
-														{
-															id: 'exact_model' as const,
-															label: t('giftReport.compExactModel'),
-														},
-														{
-															id: 'exact_backdrop' as const,
-															label: t('giftReport.compExactBackdrop'),
-														},
-														{
-															id: 'collection_floor' as const,
-															label: t('giftReport.compCollection'),
-														},
-													]}
-												>
-													{(f) => (
+										<div class="frag-table-container">
+											<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
+												<span class="col-span-5">Gift Serial</span>
+												<span class="col-span-4">Price</span>
+												<span class="col-span-3 text-end">Date</span>
+											</div>
+											<Show
+												when={filteredComps().length > 0}
+												fallback={
+													<div class="p-6 text-center text-[13px] text-[#8c9aa9]">
+														No comparable gift sales found in this filter.
+													</div>
+												}
+											>
+												<For each={filteredComps()}>
+													{(comp) => (
 														<button
 															type="button"
-															onClick={() => setCompFilter(f.id)}
-															class={`px-2.5 py-1 rounded-[10px] text-[10px] font-bold whitespace-nowrap transition-all ${
-																compFilter() === f.id
-																	? 'bg-[#2990ff] text-white'
-																	: 'bg-[#141a22] text-white/55 hover:text-white'
-															}`}
+															onClick={() =>
+																selectQuickGift(`${parsedTarget().slug}-${comp.serial_number}`)
+															}
+															class="frag-table-row w-full grid grid-cols-12 items-center px-3.5 py-2.5 text-start cursor-pointer"
 														>
-															{f.label}
+															<div class="col-span-5 min-w-0 pr-2">
+																<span class="text-[13px] font-semibold text-white font-mono">
+																	#{comp.serial_number}
+																</span>
+																<span class="block text-[11px] text-[#8c9aa9] truncate">
+																	{comp.backdrop_name || comp.venue || 'Verified Sale'}
+																</span>
+															</div>
+															<div class="col-span-4">
+																<TonAmount
+																	value={formatTon(comp.sale_price_gram)}
+																	usd={
+																		comp.sale_price_usd
+																			? formatUsdPlain(comp.sale_price_usd)
+																			: undefined
+																	}
+																	size="sm"
+																/>
+															</div>
+															<div class="col-span-3 text-end text-[11.5px] text-[#8c9aa9] truncate">
+																{formatDateLocale(comp.sale_date)}
+															</div>
 														</button>
 													)}
 												</For>
-											</div>
-
-											{/* SVG Price Trajectory Chart */}
-											<Show when={compChartPoints().length > 1}>
-												<div class="w-full h-32 bg-[#141a22] border border-white/5 rounded-[16px] p-2 relative">
-													<svg
-														viewBox="0 0 100 100"
-														preserveAspectRatio="none"
-														class="w-full h-full overflow-visible"
-													>
-														<polyline
-															fill="none"
-															stroke="#2990ff"
-															stroke-width="2"
-															points={compChartPoints()
-																.map((p) => `${p.x},${p.y}`)
-																.join(' ')}
-														/>
-														<For each={compChartPoints()}>
-															{(pt) => <circle cx={pt.x} cy={pt.y} r="2.5" fill="#5aaeff" />}
-														</For>
-													</svg>
-												</div>
 											</Show>
-
-											<div class="flex flex-col gap-2">
-												<For each={filteredComps()}>
-													{(comp) => (
-														<a
-															href={comp.tonviewer_url || `https://fragment.com/gifts`}
-															target="_blank"
-															rel="noreferrer"
-															class="bg-[#141a22] hover:bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 flex items-center justify-between gap-2 transition-all"
-														>
-															<div class="flex items-center gap-2.5 min-w-0">
-																<span
-																	class="px-2 py-1 rounded-lg bg-white/8 text-[10px] font-mono font-black text-white shrink-0"
-																	dir="ltr"
-																>
-																	#{comp.serial_number}
-																</span>
-																<div class="flex flex-col min-w-0">
-																	<span class="text-[11px] font-bold text-white truncate">
-																		{comp.model_id} · {comp.backdrop_name}
-																	</span>
-																	<span class="text-[9px] font-mono text-white/45">
-																		{comp.venue} · {formatDateLocale(comp.sale_date)}
-																	</span>
-																</div>
-															</div>
-
-															<div class="flex flex-col items-end shrink-0" dir="ltr">
-																<span class="text-[13px] font-mono font-black text-emerald-400">
-																	{formatTon(comp.sale_price_gram)} TON
-																</span>
-																<span class="text-[9px] font-mono text-white/45">
-																	≈ {formatUsd(comp.sale_price_usd)}
-																</span>
-															</div>
-														</a>
-													)}
-												</For>
-											</div>
-										</div>
-
-										{/* Live Trait Active Listings Orderbook */}
-										<Show when={rep().trait_active_listings?.length}>
-											<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
-												<div class="flex items-center justify-between border-b border-white/5 pb-2">
-													<div class="flex items-center gap-2">
-														<span class="material-symbols-outlined text-[18px] text-emerald-400">
-															storefront
-														</span>
-														<span class="text-[12px] font-black uppercase tracking-wider text-white">
-															{t('giftReport.liveTraitOrderbookTitle')}
-														</span>
-													</div>
-												</div>
-
-												<div class="flex flex-col gap-2">
-													<For each={rep().trait_active_listings || []}>
-														{(lst) => (
-															<a
-																href={lst.fragment_url}
-																target="_blank"
-																rel="noreferrer"
-																class="bg-[#141a22] hover:bg-white/[0.04] border border-white/[0.06] rounded-xl p-3 flex items-center justify-between gap-2 transition-all"
-															>
-																<div class="flex flex-col min-w-0">
-																	<span class="text-[11px] font-bold text-white truncate">
-																		{lst.trait_value} (#{lst.serial_number})
-																	</span>
-																	<span class="text-[9px] font-mono text-[#5aaeff]">
-																		{t('giftReport.fragmentActiveListing')}
-																	</span>
-																</div>
-																<div class="flex flex-col items-end shrink-0" dir="ltr">
-																	<span class="text-[13px] font-mono font-black text-white">
-																		{formatTon(lst.price_gram)} TON
-																	</span>
-																	<span class="text-[9px] font-mono text-white/45">
-																		≈ {formatUsd(lst.price_usd)}
-																	</span>
-																</div>
-															</a>
-														)}
-													</For>
-												</div>
-											</div>
-										</Show>
-
-										{/* Crafting Forge Verdict & Institutional Risk Audit */}
-										<div class="w-full bg-[#1b232d]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-xl text-start">
-											<div class="flex items-center justify-between border-b border-white/5 pb-2">
-												<div class="flex items-center gap-2">
-													<span class="material-symbols-outlined text-[18px] text-emerald-400">
-														verified_user
-													</span>
-													<span class="text-[12px] font-black uppercase tracking-wider text-white">
-														{t('giftReport.riskAuditTitle')}
-													</span>
-												</div>
-												<span class="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-mono font-black text-emerald-400">
-													{rep().risk_audit?.overall_risk_level || 'LOW RISK'}
-												</span>
-											</div>
-
-											<Show when={rep().crafting_forge}>
-												{(cf) => (
-													<div class="bg-[#141a22] border border-amber-500/25 rounded-[14px] p-3 flex flex-col gap-1">
-														<span class="text-[10px] font-mono font-black text-amber-300 uppercase">
-															{cf().burn_candidate_verdict === 'DO_NOT_BURN_PREMIUM'
-																? t('giftReport.forgeDoNotBurn')
-																: t('giftReport.forgeStatus')}
-														</span>
-														<p class="text-[11px] text-white/75 leading-relaxed">
-															{cf().burn_candidate_reason_fa}
-														</p>
-													</div>
-												)}
-											</Show>
-
-											<div class="flex flex-col gap-2">
-												<For each={rep().risk_audit?.risk_checklist || []}>
-													{(chk) => (
-														<div class="bg-[#141a22] border border-white/[0.06] rounded-xl p-3 flex items-start gap-2.5">
-															<span
-																class={`material-symbols-outlined text-[18px] shrink-0 mt-0.5 ${
-																	chk.passed ? 'text-emerald-400' : 'text-amber-400'
-																}`}
-															>
-																{chk.passed ? 'check_circle' : 'warning'}
-															</span>
-															<div class="flex flex-col gap-0.5">
-																<span class="text-[11px] font-black text-white">
-																	{isRtl() ? chk.title_fa : chk.title_en}
-																</span>
-																<span class="text-[10px] text-white/60 leading-relaxed">
-																	{chk.detail}
-																</span>
-															</div>
-														</div>
-													)}
-												</For>
-											</div>
 										</div>
 									</div>
 								</Show>
@@ -2783,10 +1086,7 @@ export const GiftReportPage = () => {
 				</Show>
 			</div>
 
-			{/* Credit Store Bottom Sheet for Top-Up */}
 			<CreditStoreSheet open={storeOpen()} onClose={() => setStoreOpen(false)} vertical="gift" />
 		</div>
 	);
 };
-
-export default GiftReportPage;

@@ -6,6 +6,7 @@ import { type GroupLeaderboardEntry, getGroupLeaderboard } from '@/entities/user
 import { buildAvatarUrl } from '@/shared/api/config.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { TonIcon } from '@/shared/ui/fragment/FragmentPrimitives.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 
 export const LeaderboardPage: Component = () => {
@@ -27,23 +28,16 @@ export const LeaderboardPage: Component = () => {
 	const top3 = () => data()?.top3 || [];
 	const featured = () => data()?.featured || [];
 	const items = () => data()?.items || [];
-	const restOfList = () => [...featured(), ...items()];
+	const allRanked = () => [...top3(), ...featured(), ...items()];
 	const myStats = () => data()?.my_stats;
 
 	const myResolvedRank = () => {
 		const uid = currentUser()?.id;
 		if (uid) {
-			const inTop3Idx = top3().findIndex((e) => Number(e.user_id) === Number(uid));
-			if (inTop3Idx !== -1) return inTop3Idx + 1;
-			const inRestIdx = restOfList().findIndex((e) => Number(e.user_id) === Number(uid));
-			if (inRestIdx !== -1) return restOfList()[inRestIdx].rank || inRestIdx + 4;
+			const idx = allRanked().findIndex((e) => Number(e.user_id) === Number(uid));
+			if (idx !== -1) return allRanked()[idx].rank || idx + 1;
 		}
 		return myStats()?.rank || 0;
-	};
-
-	const isUserInTop100 = () => {
-		const r = myResolvedRank();
-		return r > 0 && r <= 100;
 	};
 
 	onMount(() => {
@@ -65,12 +59,8 @@ export const LeaderboardPage: Component = () => {
 	});
 
 	const formatScore = (val: number): string => {
-		if (val >= 1_000_000) {
-			return `${(val / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-		}
-		if (val >= 1_000) {
-			return `${(val / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
-		}
+		if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+		if (val >= 1_000) return `${(val / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
 		return (val || 0).toLocaleString();
 	};
 
@@ -99,16 +89,10 @@ export const LeaderboardPage: Component = () => {
 	}) => {
 		if (!entry) return '';
 		const p = entry.photo_url?.trim();
-		if (p) {
-			return buildAvatarUrl(p);
-		}
-		if (entry.user_id) {
-			return buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`);
-		}
+		if (p) return buildAvatarUrl(p);
+		if (entry.user_id) return buildAvatarUrl(`/api/v1/profile/avatar/${entry.user_id}`);
 		const u = entry.username?.replace('@', '').trim();
-		if (u) {
-			return `https://t.me/i/userpic/320/${u}.jpg`;
-		}
+		if (u) return `https://t.me/i/userpic/320/${u}.jpg`;
 		return '';
 	};
 
@@ -136,21 +120,6 @@ export const LeaderboardPage: Component = () => {
 		}
 	};
 
-	const myAvatarUrl = () => {
-		const u = currentUser();
-		if (u?.photoUrl || u?.photo_url) {
-			return buildAvatarUrl(u.photoUrl || u.photo_url);
-		}
-		if (u?.username) {
-			return `https://t.me/i/userpic/320/${u.username.replace('@', '')}.jpg`;
-		}
-		if (u?.id) {
-			return buildAvatarUrl(`/api/v1/profile/avatar/${u.id}`);
-		}
-		return '';
-	};
-
-	// Jump to user row in the list
 	const handleJumpToMyRank = () => {
 		const uid = currentUser()?.id || myStats()?.user_id;
 		if (!uid) return;
@@ -167,690 +136,303 @@ export const LeaderboardPage: Component = () => {
 
 	return (
 		<div
-			class="frag-canvas min-h-screen text-[#f3f5f8] font-sans flex flex-col relative overflow-x-clip selection:bg-[#2990ff]/30 pb-48"
+			class="frag-canvas min-h-screen text-white font-frag-sans flex flex-col relative overflow-x-clip pb-36"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			<div class="w-full max-w-md mx-auto px-4 pt-3 relative z-10 flex flex-col gap-4">
-				{/* Top App Bar with Title & Supergroup Link */}
-				<header class="flex items-center justify-between py-1">
-					<div class="flex items-center gap-2.5">
-						<div class="w-9 h-9 rounded-2xl bg-[#2990ff]/15 border border-[#2990ff]/30 flex items-center justify-center text-[#2990ff] shadow-[0_0_20px_rgba(41,144,255,0.25)]">
-							<span class="material-symbols-outlined text-[20px]">trophy</span>
-						</div>
-						<div class="flex flex-col">
-							<h1 class="text-[19px] font-black tracking-tight text-white flex items-center gap-1.5 leading-none">
-								<span>{t('leaderboard.title')}</span>
-								<span class="text-amber-400 text-xs font-black px-1.5 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/20">
-									{t('leaderboard.top100')}
-								</span>
+			{/* Authentic Fragment.com Sticky Top Header (.tm-header) */}
+			<header class="frag-header sticky top-0 z-40 w-full h-[52px] px-4 flex items-center justify-between gap-3">
+				<button
+					type="button"
+					onClick={() => navigate('/')}
+					class="flex items-center gap-2 text-white hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
+				>
+					<TonIcon size={20} color="#4db2ff" />
+					<span class="text-[15px] font-bold tracking-[0.04em]" dir="ltr">
+						FRAGMENT
+					</span>
+				</button>
+
+				<button
+					type="button"
+					onClick={activeTab() === 'boosts' ? handleBoostGroup : handleOpenGroup}
+					class="h-8 px-3 rounded-[6px] frag-btn-primary text-[12px] font-semibold flex items-center gap-1.5 cursor-pointer"
+				>
+					<span>{activeTab() === 'boosts' ? 'Boost Group' : '@FragmentInvestors'}</span>
+					<span class="material-symbols-outlined text-[14px]">north_east</span>
+				</button>
+			</header>
+
+			<div class="w-full max-w-[520px] mx-auto px-4 pt-5 relative z-10 flex flex-col gap-4">
+				{/* Title & My Rank Strip */}
+				<div class="flex items-center justify-between gap-3 flex-wrap">
+					<div>
+						<div class="flex items-center gap-2">
+							<h1 class="text-[20px] sm:text-[22px] font-bold tracking-[-0.015em] text-white">
+								{t('leaderboard.title')}
 							</h1>
-							<span class="text-[11px] text-white/45 font-medium mt-1">
-								{activeTab() === 'messages'
-									? t('leaderboard.subtitleMessages')
-									: t('leaderboard.subtitleBoosts')}
+							<span class="px-2 py-0.5 rounded-[4px] bg-[#ff9953]/10 text-[#ff9953] text-[11px] font-semibold">
+								{t('leaderboard.top100')}
 							</span>
 						</div>
+						<p class="text-[12.5px] text-[#8794a1] mt-0.5">
+							{activeTab() === 'messages'
+								? t('leaderboard.subtitleMessages')
+								: t('leaderboard.subtitleBoosts')}
+						</p>
 					</div>
 
-					<button
-						type="button"
-						onClick={activeTab() === 'boosts' ? handleBoostGroup : handleOpenGroup}
-						class="text-[11px] font-black px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-[#2990ff] border border-[#2990ff]/30 backdrop-blur-md transition-all duration-200 flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm hover:border-[#2990ff]/60"
-					>
-						<span>{activeTab() === 'boosts' ? 'Boost Group' : '@FragmentInvestors'}</span>
-						<span class="material-symbols-outlined text-[13px]">
-							{activeTab() === 'boosts' ? 'rocket_launch' : 'open_in_new'}
-						</span>
-					</button>
-				</header>
+					<Show when={myResolvedRank() > 0}>
+						<button
+							type="button"
+							onClick={handleJumpToMyRank}
+							class="px-3 py-1.5 rounded-[8px] bg-[#212a33] hover:bg-[#293440] text-[12px] font-semibold text-[#4db2ff] flex items-center gap-1.5 cursor-pointer"
+						>
+							<span>Your Rank: #{myResolvedRank()}</span>
+						</button>
+					</Show>
+				</div>
 
-				{/* High-End Segmented Tab Switcher with Tactile Feedback */}
-				<div class="w-full bg-[#141a22]/95 backdrop-blur-2xl p-1.5 rounded-2xl flex items-center border border-white/10 shadow-[inset_0_2px_8px_rgba(0,0,0,0.6)]">
+				{/* 2-Tab Fragment Horizontal Bar (Messages | Boosts) */}
+				<div class="flex items-center border-b border-[#293440] gap-6 px-1">
 					<button
 						type="button"
 						onClick={() => {
-							haptic.selection();
+							try {
+								haptic.selection();
+							} catch {}
 							setActiveTab('messages');
 						}}
-						class={`flex-1 py-2.5 text-xs font-black rounded-xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
-							activeTab() === 'messages'
-								? 'bg-[#2990ff] text-white shadow-[0_6px_16px_rgba(41,144,255,0.28)]'
-								: 'text-white/55 hover:text-white hover:bg-white/[0.04]'
+						class={`relative pb-2.5 text-[13.5px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+							activeTab() === 'messages' ? 'text-white' : 'text-[#8c9aa9] hover:text-white'
 						}`}
 					>
 						<span class="material-symbols-outlined text-[16px]">chat_bubble</span>
 						<span>{t('leaderboard.tabMessages')}</span>
+						<Show when={activeTab() === 'messages'}>
+							<span class="absolute inset-x-0 bottom-0 h-[3px] bg-[#248bda] rounded-t-[3px]" />
+						</Show>
 					</button>
 
 					<button
 						type="button"
 						onClick={() => {
-							haptic.selection();
+							try {
+								haptic.selection();
+							} catch {}
 							setActiveTab('boosts');
 						}}
-						class={`flex-1 py-2.5 text-xs font-black rounded-xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
-							activeTab() === 'boosts'
-								? 'bg-[#2990ff] text-white shadow-[0_6px_16px_rgba(41,144,255,0.28)]'
-								: 'text-white/55 hover:text-white hover:bg-white/[0.04]'
+						class={`relative pb-2.5 text-[13.5px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+							activeTab() === 'boosts' ? 'text-white' : 'text-[#8c9aa9] hover:text-white'
 						}`}
 					>
 						<span class="material-symbols-outlined text-[16px]">rocket_launch</span>
 						<span>{t('leaderboard.tabBoosts')}</span>
+						<Show when={activeTab() === 'boosts'}>
+							<span class="absolute inset-x-0 bottom-0 h-[3px] bg-[#248bda] rounded-t-[3px]" />
+						</Show>
 					</button>
 				</div>
 
-				{/* Feature 1: Physical 3D Tiered Pedestals Podium Stage */}
+				{/* Loading / Error / Table */}
 				<Show
 					when={!leaderboardQuery.isLoading && !leaderboardQuery.isError}
 					fallback={
 						<Show
 							when={!leaderboardQuery.isError}
 							fallback={
-								<div class="h-44 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#1b232d]/90 border border-rose-500/25 p-4 text-center">
-									<span class="material-symbols-outlined text-rose-400 text-3xl">
+								<div class="frag-card p-6 text-center flex flex-col items-center gap-3">
+									<span class="material-symbols-outlined text-[#ff5863] text-[28px]">
 										error_outline
 									</span>
-									<span class="text-white/70 text-xs font-bold">{t('leaderboard.loadError')}</span>
+									<span class="text-[#8794a1] text-[13px]">{t('leaderboard.loadError')}</span>
 									<button
 										type="button"
-										onClick={() => {
-											haptic.impact('light');
-											leaderboardQuery.refetch();
-										}}
-										class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition active:scale-95 cursor-pointer border border-white/10"
+										onClick={() => leaderboardQuery.refetch()}
+										class="frag-btn-secondary h-9 px-4 text-[12.5px] font-semibold"
 									>
 										{t('leaderboard.retry')}
 									</button>
 								</div>
 							}
 						>
-							{/* Shimmering Skeleton Loader */}
-							<div class="flex flex-col gap-4 animate-pulse pt-2">
-								<div class="relative pt-6 pb-2 px-1 flex items-end justify-center gap-3">
-									<div class="flex-1 flex flex-col items-center max-w-[105px]">
-										<div class="w-18 h-18 rounded-full bg-white/5 border border-white/10" />
-										<div class="w-full h-20 bg-white/5 rounded-t-xl mt-3" />
-									</div>
-									<div class="flex-1 flex flex-col items-center max-w-[125px]">
-										<div class="w-22 h-22 rounded-full bg-amber-400/10 border border-amber-400/20" />
-										<div class="w-full h-28 bg-white/5 rounded-t-xl mt-3" />
-									</div>
-									<div class="flex-1 flex flex-col items-center max-w-[105px]">
-										<div class="w-18 h-18 rounded-full bg-white/5 border border-white/10" />
-										<div class="w-full h-14 bg-white/5 rounded-t-xl mt-3" />
-									</div>
-								</div>
-								<div class="w-full h-16 rounded-2xl bg-white/5 border border-white/10" />
-								<div class="flex flex-col gap-2">
-									<div class="w-full h-14 rounded-2xl bg-white/[0.04] border border-white/5" />
-									<div class="w-full h-14 rounded-2xl bg-white/[0.04] border border-white/5" />
-								</div>
+							<div class="space-y-2">
+								<div class="h-14 rounded-[8px] bg-[#212a33] animate-pulse" />
+								<div class="h-14 rounded-[8px] bg-[#212a33] animate-pulse" />
+								<div class="h-14 rounded-[8px] bg-[#212a33] animate-pulse" />
 							</div>
 						</Show>
 					}
 				>
 					<Show
-						when={top3().length > 0}
+						when={allRanked().length > 0}
 						fallback={
-							<div class="h-48 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#1b232d]/90 border border-white/10 p-6 text-center">
-								<div class="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl">
-									<span class="material-symbols-outlined text-[24px] text-[#5aaeff]">
-										{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
-									</span>
-								</div>
-								<div class="flex flex-col gap-1">
-									<span class="text-white text-sm font-black">
-										{activeTab() === 'messages'
-											? t('leaderboard.noMessagesYet')
-											: t('leaderboard.noBoostsYet')}
-									</span>
-									<span class="text-white/50 text-xs max-w-xs leading-relaxed">
-										{activeTab() === 'messages'
-											? t('leaderboard.firstMessagePrompt')
-											: t('leaderboard.firstBoostPrompt')}
-									</span>
-								</div>
+							<div class="frag-card p-8 text-center flex flex-col items-center gap-2.5">
+								<span class="material-symbols-outlined text-[28px] text-[#4db2ff]">
+									{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
+								</span>
+								<p class="text-[13px] text-[#8794a1]">{t('leaderboard.emptyState')}</p>
 							</div>
 						}
 					>
-						{/* Real 3D Olympic Stepped Podium Stage */}
-						<div class="relative pt-6 px-1 flex items-end justify-center gap-2.5">
-							{/* Rank 2 (Left / Silver 3D Pedestal) */}
-							<Show
-								when={top3()[1]}
-								fallback={
-									<div class="flex-1 flex flex-col items-center max-w-[105px] z-10 opacity-40 select-none">
-										<div class="relative w-18 h-18 rounded-full border-2 border-dashed border-slate-400/50 flex flex-col items-center justify-center bg-white/[0.02]">
-											<span class="text-slate-400 text-base font-black">2</span>
-											<span class="text-[8px] font-bold text-slate-400/80 mt-0.5">
-												{t('leaderboard.openSpot')}
-											</span>
-										</div>
-										{/* Stepped Silver Block */}
-										<div class="w-full h-20 rounded-t-2xl bg-gradient-to-b from-[#1E2433] to-[#0D1117] border-t-2 border-slate-400/40 border-x border-slate-400/20 mt-3 flex flex-col items-center justify-center shadow-lg">
-											<span class="text-slate-400/60 font-black text-2xl font-mono">2</span>
-											<span class="text-[10px] text-white/30 font-bold">
-												{t('leaderboard.emptySlot')}
-											</span>
-										</div>
-									</div>
-								}
-							>
-								{(second) => (
-									<div
-										onClick={() => {
-											haptic.impact('light');
-											setSelectedUser(second());
-										}}
-										class="flex-1 flex flex-col items-center max-w-[110px] z-10 group cursor-pointer active:scale-[0.98] transition-transform"
-									>
-										{/* Avatar */}
-										<div class="relative w-18 h-18 rounded-full p-[2.5px] bg-gradient-to-b from-slate-200 via-slate-400 to-slate-600 shadow-[0_8px_24px_rgba(148,163,184,0.35)] transition-transform duration-300 group-hover:scale-105">
-											<div class="w-full h-full rounded-full overflow-hidden bg-[#141a22] relative flex items-center justify-center border border-white/20">
-												<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-400 via-slate-500 to-slate-700 text-white font-black text-xl select-none">
-													{(second().first_name || second().username || 'U')[0].toUpperCase()}
-												</div>
-												<Show when={resolveAvatarUrl(second())}>
-													{(src) => (
-														<img
-															src={src()}
-															alt={second().first_name || 'Silver'}
-															class="absolute inset-0 w-full h-full object-cover z-10"
-															referrerPolicy="no-referrer"
-															onError={(e) => handleAvatarError(e, second())}
-														/>
-													)}
-												</Show>
-											</div>
-											{/* Silver Medal Badge - PROMINENTLY IN FRONT (z-30) */}
-											<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-30 w-7 h-7 rounded-full bg-gradient-to-b from-slate-100 via-slate-300 to-slate-400 text-slate-950 text-xs font-black flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.85)] border-2 border-[#11161d] select-none">
-												2
-											</div>
-										</div>
+						{/* Authentic Fragment.com Data Table (.tm-table) */}
+						<div class="frag-table-container">
+							<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
+								<span class="col-span-2">Rank</span>
+								<span class="col-span-7">Member</span>
+								<span class="col-span-3 text-end">
+									{activeTab() === 'messages' ? 'Messages' : 'Boosts'}
+								</span>
+							</div>
 
-										<span class="mt-4 text-xs font-black text-white truncate max-w-full text-center tracking-tight">
-											{second().first_name || second().username || t('leaderboard.anonymous')}
-										</span>
+							<For each={allRanked()}>
+								{(entry, idx) => {
+									const rank = () => entry.rank || idx() + 1;
+									const isMe = () =>
+										Boolean(
+											currentUser()?.id && Number(entry.user_id) === Number(currentUser()?.id),
+										);
+									const isHighlighted = () => Number(entry.user_id) === highlightedUserId();
+									const score = () => entry.score || 0;
 
-										{/* Physical Stepped 3D Pedestal Block */}
-										<div class="w-full h-22 rounded-t-2xl bg-gradient-to-b from-[#1C2333] via-[#121724] to-[#0A0D15] border-t-2 border-slate-300/50 border-x border-slate-400/20 mt-2 flex flex-col items-center justify-between py-2 shadow-[0_12px_28px_rgba(0,0,0,0.6)] group-hover:border-slate-300 transition-colors">
-											<span class="text-xs font-black text-slate-300 flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-												<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
-													{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
-												</span>
-												<span>{formatScore(second().score)}</span>
-											</span>
-											<div class="w-7 h-7 rounded-lg bg-slate-400/10 border border-slate-400/30 flex items-center justify-center text-sm font-black font-mono text-slate-300 shadow-inner">
-												2
-											</div>
-										</div>
-									</div>
-								)}
-							</Show>
-
-							{/* Rank 1 (Center / Gold 3D Champion Pedestal - Elevated) */}
-							<Show when={top3()[0]}>
-								{(first) => (
-									<div
-										onClick={() => {
-											haptic.impact('light');
-											setSelectedUser(first());
-										}}
-										class="flex-1 flex flex-col items-center max-w-[126px] z-20 group cursor-pointer active:scale-[0.98] transition-transform"
-									>
-										<span
-											class="material-symbols-outlined text-[20px] text-[#ffb340] mb-1"
-											style={{ 'font-variation-settings': '"FILL" 1' }}
+									return (
+										<button
+											type="button"
+											id={`leaderboard-row-${entry.user_id}`}
+											onClick={() => setSelectedUser(entry)}
+											class={`frag-table-row w-full grid grid-cols-12 items-center px-3.5 py-2.5 text-start cursor-pointer ${
+												isMe() || isHighlighted() ? 'bg-[#293440]' : ''
+											}`}
 										>
-											workspace_premium
-										</span>
-
-										{/* Radiant Gold Avatar */}
-										<div class="relative w-22 h-22 rounded-full p-[3px] bg-gradient-to-b from-amber-200 via-amber-400 to-amber-600 shadow-[0_0_35px_rgba(251,191,36,0.5)] transition-transform duration-300 group-hover:scale-105">
-											<div class="w-full h-full rounded-full overflow-hidden bg-[#141a22] relative flex items-center justify-center border border-white/20">
-												<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 text-slate-950 font-black text-2xl select-none">
-													{(first().first_name || first().username || 'U')[0].toUpperCase()}
-												</div>
-												<Show when={resolveAvatarUrl(first())}>
-													{(src) => (
-														<img
-															src={src()}
-															alt={first().first_name || 'Champion'}
-															class="absolute inset-0 w-full h-full object-cover z-10"
-															referrerPolicy="no-referrer"
-															onError={(e) => handleAvatarError(e, first())}
-														/>
-													)}
-												</Show>
-											</div>
-											{/* Gold Badge - PROMINENTLY IN FRONT (z-30) */}
-											<div class="absolute -bottom-3 left-1/2 -translate-x-1/2 z-30 w-8 h-8 rounded-full bg-gradient-to-b from-amber-100 via-amber-300 to-amber-500 text-slate-950 text-sm font-black flex items-center justify-center shadow-[0_4px_16px_rgba(251,191,36,0.85)] border-2 border-[#11161d] select-none">
-												1
-											</div>
-										</div>
-
-										<span class="mt-4 text-[13px] font-black text-white truncate max-w-full text-center tracking-tight">
-											{first().first_name || first().username || t('leaderboard.topLeader')}
-										</span>
-
-										{/* Physical Stepped 3D Pedestal Block (Tallest Gold Column) */}
-										<div class="w-full h-30 rounded-t-2xl bg-gradient-to-b from-[#2B210D] via-[#1A1408] to-[#0A0D15] border-t-2 border-amber-400/60 border-x border-amber-500/30 mt-2 flex flex-col items-center justify-between py-2.5 shadow-[0_16px_36px_rgba(251,191,36,0.2)] group-hover:border-amber-300 transition-colors">
-											<span class="text-xs font-black text-amber-300 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 shadow-[0_0_12px_rgba(251,191,36,0.25)]">
-												<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
-													{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
+											<div class="col-span-2 flex items-center">
+												<span
+													class={`font-mono text-[13px] font-semibold px-1.5 py-0.5 rounded-[4px] ${
+														rank() === 1
+															? 'bg-[#ff9953]/15 text-[#ff9953]'
+															: rank() === 2
+																? 'bg-[#a5b8cc]/15 text-[#a5b8cc]'
+																: rank() === 3
+																	? 'bg-[#ff9953]/10 text-[#ff9953]'
+																	: 'text-[#8c9aa9]'
+													}`}
+												>
+													#{rank()}
 												</span>
-												<span>{formatScore(first().score)}</span>
-											</span>
-											<div class="w-8 h-8 rounded-lg bg-amber-400/15 border border-amber-400/40 flex items-center justify-center text-base font-black font-mono text-amber-300 shadow-inner">
-												1
 											</div>
-										</div>
-									</div>
-								)}
-							</Show>
 
-							{/* Rank 3 (Right / Bronze 3D Pedestal) */}
-							<Show
-								when={top3()[2]}
-								fallback={
-									<div class="flex-1 flex flex-col items-center max-w-[105px] z-10 opacity-40 select-none">
-										<div class="relative w-18 h-18 rounded-full border-2 border-dashed border-amber-700/50 flex flex-col items-center justify-center bg-white/[0.02]">
-											<span class="text-amber-500 text-base font-black">3</span>
-											<span class="text-[8px] font-bold text-amber-500/80 mt-0.5">
-												{t('leaderboard.openSpot')}
-											</span>
-										</div>
-										{/* Stepped Bronze Block */}
-										<div class="w-full h-15 rounded-t-2xl bg-gradient-to-b from-[#251A10] to-[#0D1117] border-t-2 border-amber-700/50 border-x border-amber-800/20 mt-3 flex flex-col items-center justify-center shadow-lg">
-											<span class="text-amber-600/60 font-black text-2xl font-mono">3</span>
-											<span class="text-[10px] text-white/30 font-bold">
-												{t('leaderboard.emptySlot')}
-											</span>
-										</div>
-									</div>
-								}
-							>
-								{(third) => (
-									<div
-										onClick={() => {
-											haptic.impact('light');
-											setSelectedUser(third());
-										}}
-										class="flex-1 flex flex-col items-center max-w-[110px] z-10 group cursor-pointer active:scale-[0.98] transition-transform"
-									>
-										{/* Avatar */}
-										<div class="relative w-18 h-18 rounded-full p-[2.5px] bg-gradient-to-b from-amber-600 via-amber-700 to-amber-900 shadow-[0_8px_24px_rgba(180,83,9,0.35)] transition-transform duration-300 group-hover:scale-105">
-											<div class="w-full h-full rounded-full overflow-hidden bg-[#141a22] relative flex items-center justify-center border border-white/20">
-												<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-600 to-amber-800 text-white font-black text-xl select-none">
-													{(third().first_name || third().username || 'U')[0].toUpperCase()}
-												</div>
-												<Show when={resolveAvatarUrl(third())}>
-													{(src) => (
+											<div class="col-span-7 flex items-center gap-2.5 min-w-0 pr-2">
+												<div class="w-8 h-8 rounded-full bg-[#242e38] overflow-hidden flex items-center justify-center shrink-0 text-[12px] font-semibold text-[#4db2ff]">
+													<Show
+														when={resolveAvatarUrl(entry)}
+														fallback={
+															<span>
+																{(entry.first_name || entry.username || 'U')[0]?.toUpperCase()}
+															</span>
+														}
+													>
 														<img
-															src={src()}
-															alt={third().first_name || 'Bronze'}
-															class="absolute inset-0 w-full h-full object-cover z-10"
+															src={resolveAvatarUrl(entry)}
+															alt={entry.first_name || 'User'}
+															class="w-full h-full object-cover"
+															loading="lazy"
 															referrerPolicy="no-referrer"
-															onError={(e) => handleAvatarError(e, third())}
+															onError={(e) => handleAvatarError(e, entry)}
 														/>
-													)}
-												</Show>
+													</Show>
+												</div>
+												<div class="flex flex-col min-w-0">
+													<div class="flex items-center gap-1.5">
+														<span class="text-[13.5px] font-semibold text-white truncate">
+															{entry.first_name || entry.username || 'Member'}
+														</span>
+														<Show when={isMe()}>
+															<span class="px-1.5 py-0.2 rounded-[4px] bg-[#4db2ff]/10 text-[#4db2ff] text-[10px] font-semibold">
+																You
+															</span>
+														</Show>
+													</div>
+													<Show when={entry.username}>
+														<span class="text-[11.5px] text-[#4db2ff] font-mono truncate" dir="ltr">
+															@{entry.username?.replace(/^@/, '')}
+														</span>
+													</Show>
+												</div>
 											</div>
-											{/* Bronze Badge - PROMINENTLY IN FRONT (z-30) */}
-											<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-30 w-7 h-7 rounded-full bg-gradient-to-b from-amber-500 via-amber-700 to-amber-900 text-white text-xs font-black flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.85)] border-2 border-[#11161d] select-none">
-												3
-											</div>
-										</div>
 
-										<span class="mt-4 text-xs font-black text-white truncate max-w-full text-center tracking-tight">
-											{third().first_name || third().username || t('leaderboard.anonymous')}
-										</span>
-
-										{/* Physical Stepped 3D Pedestal Block */}
-										<div class="w-full h-15 rounded-t-2xl bg-gradient-to-b from-[#24170E] via-[#160E08] to-[#0A0D15] border-t-2 border-amber-600/50 border-x border-amber-700/20 mt-2 flex flex-col items-center justify-between py-2 shadow-[0_10px_24px_rgba(0,0,0,0.6)] group-hover:border-amber-500 transition-colors">
-											<span class="text-xs font-black text-amber-400 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25">
-												<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
-													{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
-												</span>
-												<span>{formatScore(third().score)}</span>
-											</span>
-											<div class="w-6 h-6 rounded-lg bg-amber-600/15 border border-amber-600/35 flex items-center justify-center text-xs font-black font-mono text-amber-400 shadow-inner">
-												3
+											<div class="col-span-3 text-end font-mono text-[13.5px] font-semibold text-white tabular-nums">
+												{formatScore(score())}
 											</div>
-										</div>
-									</div>
-								)}
-							</Show>
+										</button>
+									);
+								}}
+							</For>
 						</div>
 					</Show>
 				</Show>
-
-				{/* Section Header: Ranks 4 to 100 */}
-				<div class="flex items-center justify-between pt-1 px-1">
-					<div class="flex items-center gap-2">
-						<span class="w-2 h-2 rounded-full bg-[#2990ff]" />
-						<h2 class="text-xs font-black text-white tracking-tight">
-							{t('leaderboard.topContributors')}
-						</h2>
-					</div>
-					<span class="text-[10px] font-bold text-white/45 px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10">
-						{activeTab() === 'messages'
-							? t('leaderboard.messagesUnit')
-							: t('leaderboard.boostsUnit')}
-					</span>
-				</div>
-
-				{/* Continuous Leaders Feed (Ranks 4 to 100) */}
-				<div class="flex flex-col gap-2">
-					<For
-						each={restOfList()}
-						fallback={
-							<Show when={!leaderboardQuery.isLoading}>
-								<div class="py-10 text-center text-white/40 text-xs rounded-2xl bg-[#1b232d]/90 border border-white/5">
-									{restOfList().length === 0 && top3().length <= 3
-										? t('leaderboard.moreRanksPlaceholder')
-										: t('leaderboard.empty')}
-								</div>
-							</Show>
-						}
-					>
-						{(entry: GroupLeaderboardEntry) => {
-							const isMe = () =>
-								(currentUser()?.id && Number(entry.user_id) === Number(currentUser()?.id)) ||
-								(myStats()?.user_id && Number(entry.user_id) === Number(myStats()?.user_id));
-							const isHighlighted = () =>
-								highlightedUserId() !== null &&
-								Number(highlightedUserId()) === Number(entry.user_id);
-							return (
-								<div
-									id={`leaderboard-row-${entry.user_id}`}
-									onClick={() => {
-										haptic.impact('light');
-										setSelectedUser(entry);
-									}}
-									class={`w-full py-2.5 px-3.5 rounded-2xl flex items-center justify-between transition-all duration-300 cursor-pointer active:scale-[0.99] ${
-										isHighlighted()
-											? 'ring-2 ring-amber-400 bg-amber-500/20 shadow-[0_0_25px_rgba(251,191,36,0.4)] scale-[1.02]'
-											: isMe()
-												? 'bg-[#2990ff]/15 border border-[#2990ff]/45 shadow-[0_4px_20px_rgba(41,144,255,0.25)]'
-												: 'bg-[#1b232d]/95 hover:bg-[#232d3a] border border-white/[0.06] hover:border-white/15'
-									}`}
-								>
-									<div class="flex items-center gap-3 min-w-0">
-										<div class="w-6 text-center text-xs font-black font-mono shrink-0">
-											<span class={entry.rank <= 10 ? 'text-[#2990ff]' : 'text-white/40'}>
-												#{entry.rank}
-											</span>
-										</div>
-
-										<div class="w-10 h-10 rounded-full overflow-hidden bg-[#141a22] shrink-0 border border-white/10 shadow-sm relative flex items-center justify-center">
-											<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2990ff]/30 to-[#2481cc]/30 text-white font-bold text-xs select-none">
-												{(entry.first_name || entry.username || 'U')[0].toUpperCase()}
-											</div>
-											<Show when={resolveAvatarUrl(entry)}>
-												{(src) => (
-													<img
-														src={src()}
-														alt={entry.first_name || 'Leader'}
-														class="absolute inset-0 w-full h-full object-cover z-10"
-														referrerPolicy="no-referrer"
-														loading="lazy"
-														onError={(e) => handleAvatarError(e, entry)}
-													/>
-												)}
-											</Show>
-										</div>
-
-										<div class="flex flex-col min-w-0">
-											<div class="flex items-center gap-1.5">
-												<span class="text-xs font-black text-white truncate max-w-[150px]">
-													{entry.first_name || entry.username || t('leaderboard.anonymous')}
-												</span>
-												{isMe() && (
-													<span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-[#2990ff]/25 text-[#2990ff] border border-[#2990ff]/40">
-														{t('leaderboard.you')}
-													</span>
-												)}
-											</div>
-											<Show when={entry.username}>
-												<span class="text-[10px] text-white/40 truncate dir-ltr text-left font-mono">
-													@{entry.username}
-												</span>
-											</Show>
-										</div>
-									</div>
-
-									<div class="flex items-center gap-1.5 shrink-0 pl-1 rtl:pl-0 rtl:pr-1">
-										<span class="text-xs font-black text-white font-mono bg-white/[0.06] px-2.5 py-1 rounded-xl border border-white/[0.08]">
-											{formatScore(entry.score)}
-										</span>
-										<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
-											{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
-										</span>
-									</div>
-								</div>
-							);
-						}}
-					</For>
-				</div>
 			</div>
 
-			{/* Feature 4: Floating "Jump to My Rank" Quick Action */}
-			<Show when={myResolvedRank() > 3 && myResolvedRank() <= 100}>
-				<button
-					type="button"
-					onClick={handleJumpToMyRank}
-					class="fixed left-1/2 -translate-x-1/2 bottom-24 z-[90] px-4 py-2 rounded-full bg-gradient-to-r from-[#359bff] to-[#2481cc] text-white text-xs font-black shadow-[0_6px_24px_rgba(41,144,255,0.45)] border border-white/20 flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer backdrop-blur-md"
-				>
-					<span class="material-symbols-outlined text-sm">my_location</span>
-					<span>{t('leaderboard.jumpToMyRank', { rank: myResolvedRank() })}</span>
-				</button>
-			</Show>
-
-			{/* Feature 2: Interactive Telegram Bottom Sheet Profile Modal */}
+			{/* Member Profile Quick Modal */}
 			<Show when={selectedUser()}>
-				{(user) => {
-					const rankBadgeText = () => {
-						if (user().rank === 1) return t('leaderboard.rankChampion');
-						if (user().rank === 2) return t('leaderboard.rankRunnerUp');
-						if (user().rank === 3) return t('leaderboard.rankThird');
-						return t('leaderboard.rankTitle', { rank: user().rank });
-					};
-
-					const rankBorderColor = () => {
-						if (user().rank === 1) return 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.4)]';
-						if (user().rank === 2)
-							return 'border-slate-300 shadow-[0_0_20px_rgba(148,163,184,0.3)]';
-						if (user().rank === 3) return 'border-amber-600 shadow-[0_0_20px_rgba(180,83,9,0.3)]';
-						return 'border-[#2990ff] shadow-[0_0_20px_rgba(41,144,255,0.3)]';
-					};
-
-					return (
-						<div class="fixed inset-0 z-[120] flex items-end justify-center bg-black/75 backdrop-blur-md animate-fadeIn">
-							{/* Backdrop Click Dismiss */}
-							<div class="absolute inset-0" onClick={() => setSelectedUser(null)} />
-
-							{/* Drawer Content */}
-							<div
-								class="relative w-full max-w-md bg-[#1b232d] border-t border-white/15 rounded-t-[32px] p-6 flex flex-col gap-5 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] z-10 animate-slideUp"
-								dir={isRtl() ? 'rtl' : 'ltr'}
-							>
-								{/* Handle & Close */}
-								<div class="flex items-center justify-between pb-1">
-									<span class="text-xs font-bold text-white/40 uppercase tracking-wider">
-										{t('leaderboard.userSheetTitle')}
-									</span>
-									<button
-										type="button"
-										onClick={() => setSelectedUser(null)}
-										class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 active:scale-95 transition cursor-pointer"
-									>
-										<span class="material-symbols-outlined text-lg">close</span>
-									</button>
-								</div>
-
-								{/* User Hero Banner */}
-								<div class="flex items-center gap-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5">
-									<div
-										class={`w-16 h-16 rounded-full border-2 ${rankBorderColor()} overflow-hidden bg-[#141a22] relative shrink-0`}
-									>
-										<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#359bff] to-[#2481cc] text-white font-black text-xl select-none">
-											{(user().first_name || user().username || 'U')[0].toUpperCase()}
-										</div>
-										<Show when={resolveAvatarUrl(user())}>
-											{(src) => (
-												<img
-													src={src()}
-													alt={user().first_name || 'User'}
-													class="absolute inset-0 w-full h-full object-cover z-10"
-													referrerPolicy="no-referrer"
-													onError={(e) => handleAvatarError(e, user())}
-												/>
-											)}
-										</Show>
-									</div>
-
-									<div class="flex flex-col min-w-0">
-										<span class="text-base font-black text-white truncate">
-											{user().first_name || user().username || t('leaderboard.anonymous')}
-										</span>
-										<Show when={user().username}>
-											<span class="text-xs text-[#2990ff] font-mono dir-ltr text-left">
-												@{user().username}
-											</span>
-										</Show>
-										<span class="inline-flex mt-1 text-[11px] font-bold text-amber-300">
-											{rankBadgeText()}
-										</span>
-									</div>
-								</div>
-
-								{/* Stats Cards */}
-								<div class="grid grid-cols-2 gap-3">
-									<div class="p-3 rounded-xl bg-white/[0.04] border border-white/5 flex flex-col items-center">
-										<span class="text-[10px] text-white/50">{t('leaderboard.statsScore')}</span>
-										<span class="text-base font-black text-white font-mono mt-0.5 flex items-center gap-1">
-											<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
-												{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
-											</span>
-											<span>{formatScore(user().score)}</span>
-										</span>
-									</div>
-									<div class="p-3 rounded-xl bg-white/[0.04] border border-white/5 flex flex-col items-center">
-										<span class="text-[10px] text-white/50">{t('leaderboard.statsRank')}</span>
-										<span class="text-base font-black text-white font-mono mt-0.5">
-											#{user().rank}
-										</span>
-									</div>
-								</div>
-
-								{/* Direct Telegram Action */}
+				{(u) => (
+					<div
+						class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+						onClick={() => setSelectedUser(null)}
+					>
+						<div
+							class="bg-[#212a33] w-full max-w-sm rounded-[12px] p-5 flex flex-col items-center text-center gap-3"
+							onClick={(e) => e.stopPropagation()}
+						>
+							<div class="w-16 h-16 rounded-full bg-[#242e38] overflow-hidden flex items-center justify-center text-[20px] font-bold text-[#4db2ff]">
 								<Show
-									when={user().username}
+									when={resolveAvatarUrl(u())}
 									fallback={
-										<button
-											type="button"
-											onClick={() => {
-												setSelectedUser(null);
-												handleOpenGroup();
-											}}
-											class="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
-										>
-											<span class="material-symbols-outlined text-base">forum</span>
-											<span>{t('leaderboard.openInGroup')}</span>
-										</button>
+										<span>{(u().first_name || u().username || 'U')[0]?.toUpperCase()}</span>
 									}
 								>
-									<button
-										type="button"
-										onClick={() => {
-											try {
-												haptic.impact('medium');
-												openTelegramLink(`https://t.me/${user().username}`);
-											} catch {
-												window.open(`https://t.me/${user().username}`, '_blank');
-											}
-										}}
-										class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#359bff] to-[#2481cc] text-white text-xs font-black flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(41,144,255,0.4)] active:scale-95 transition cursor-pointer hover:brightness-110"
-									>
-										<span class="material-symbols-outlined text-base">send</span>
-										<span>{t('leaderboard.sendMessage')}</span>
-									</button>
+									<img
+										src={resolveAvatarUrl(u())}
+										alt={u().first_name || 'User'}
+										class="w-full h-full object-cover"
+										onError={(e) => handleAvatarError(e, u())}
+									/>
 								</Show>
 							</div>
-						</div>
-					);
-				}}
-			</Show>
-
-			{/* Sticky Personal Rank Bar (Shown ALWAYS at the bottom when user is outside Top 100) */}
-			<Show when={!isUserInTop100() && currentUser()?.id}>
-				<div
-					class="fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-[90] transition-all duration-300"
-					style={{ bottom: 'calc(5.75rem + env(safe-area-inset-bottom, 0px))' }}
-				>
-					<div class="w-full rounded-2xl frag-sheet border border-white/[0.1] p-3 flex items-center justify-between shadow-[0_12px_40px_rgba(0,0,0,0.85)]">
-						<div class="flex items-center gap-2.5 min-w-0">
-							<div class="w-10 h-10 rounded-full p-[2px] bg-gradient-to-b from-[#359bff] to-[#2481cc] shrink-0 shadow-md">
-								<div class="w-full h-full rounded-full overflow-hidden bg-[#141a22] relative flex items-center justify-center">
-									<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#359bff] to-[#2481cc] text-white font-black text-xs select-none">
-										{(currentUser()?.first_name || 'U')[0].toUpperCase()}
-									</div>
-									<Show when={myAvatarUrl()}>
-										{(src) => (
-											<img
-												src={src()}
-												alt="Me"
-												class="absolute inset-0 w-full h-full object-cover z-10"
-												referrerPolicy="no-referrer"
-												onError={(e) => {
-													e.currentTarget.style.display = 'none';
-												}}
-											/>
-										)}
-									</Show>
-								</div>
-							</div>
-							<div class="flex flex-col min-w-0">
-								<div class="flex items-center gap-1.5">
-									<span class="text-xs font-black text-white truncate max-w-[120px]">
-										{currentUser()?.first_name || t('leaderboard.you')}
-									</span>
-									<span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-[#2990ff]/25 text-[#2990ff] border border-[#2990ff]/40">
-										{t('leaderboard.you')}
-									</span>
-								</div>
-								<span class="text-[11px] font-bold text-white/60 mt-0.5">
-									{(myResolvedRank() ?? 0) > 0
-										? t('leaderboard.rankTitle', { rank: myResolvedRank() })
-										: t('leaderboard.outOfRank')}
-								</span>
-							</div>
-						</div>
-
-						<div class="flex items-center gap-2 shrink-0">
-							<div class="flex flex-col items-end">
-								<span class="text-xs font-black text-white font-mono flex items-center gap-1">
-									<span class="material-symbols-outlined text-[13px] text-[#5aaeff] align-middle">
-										{activeTab() === 'messages' ? 'chat_bubble' : 'rocket_launch'}
-									</span>
-									<span>{formatScore(myStats()?.score || 0)}</span>
-								</span>
-								<Show when={myStats()?.credits !== undefined}>
-									<span class="text-[9px] text-[#2990ff] font-bold">
-										{myStats()?.credits || 0} {t('leaderboard.credits')}
-									</span>
+							<div>
+								<h3 class="text-[17px] font-bold text-white">
+									{u().first_name || u().username || 'Member'}
+								</h3>
+								<Show when={u().username}>
+									<p class="text-[13px] text-[#4db2ff] font-mono mt-0.5" dir="ltr">
+										@{u().username?.replace(/^@/, '')}
+									</p>
 								</Show>
 							</div>
+							<div class="w-full bg-[#242e38] rounded-[8px] p-3 grid grid-cols-2 gap-2 text-center">
+								<div>
+									<span class="text-[11px] text-[#8c9aa9] block">Rank</span>
+									<span class="text-[15px] font-bold text-white font-mono">#{u().rank || '—'}</span>
+								</div>
+								<div>
+									<span class="text-[11px] text-[#8c9aa9] block">
+										{activeTab() === 'messages' ? 'Messages' : 'Boosts'}
+									</span>
+									<span class="text-[15px] font-bold text-[#5aec8c] font-mono">
+										{formatScore(u().score || 0)}
+									</span>
+								</div>
+							</div>
+							<button
+								type="button"
+								onClick={() => setSelectedUser(null)}
+								class="frag-btn-primary w-full h-10 rounded-[8px] text-[13px] font-semibold cursor-pointer"
+							>
+								{t('common.close')}
+							</button>
 						</div>
 					</div>
-				</div>
+				)}
 			</Show>
 
-			{/* Floating Bottom Navigation Bar */}
 			<BottomNav />
 		</div>
 	);
 };
-
-export default LeaderboardPage;

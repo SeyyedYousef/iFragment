@@ -1,4 +1,3 @@
-import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { type DictPaths, locale, t } from '@/shared/i18n/index.js';
@@ -12,6 +11,7 @@ type TabType = 'username' | 'collectibles' | 'gifts';
 interface HeroTabsProps {
 	activeTab: TabType | null;
 	onTabChange: (tab: TabType) => void;
+	onResetTab?: () => void;
 	onOpenCreditStore?: () => void;
 }
 
@@ -78,41 +78,29 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 		id: TabType;
 		icon: string;
 		labelKey: DictPaths;
-		badge: string;
-		activeBorder: string;
-		activeBg: string;
-		iconColor: string;
-		dotColor: string;
+		sublabel: string;
+		marketPath: string;
 	}[] = [
 		{
 			id: 'username',
 			icon: 'alternate_email',
 			labelKey: 'action.username.label',
-			badge: 'AVM v8.0',
-			activeBorder: 'border-[#2990FF]/55',
-			activeBg: 'bg-[#2990FF]/[0.11]',
-			iconColor: 'text-[#2990FF]',
-			dotColor: 'bg-[#2990FF]',
+			sublabel: '@handle.t.me',
+			marketPath: '/collection-info',
 		},
 		{
 			id: 'collectibles',
 			icon: 'tag',
 			labelKey: 'action.collectibles.label',
-			badge: '+888 No-SIM',
-			activeBorder: 'border-[#4cd964]/50',
-			activeBg: 'bg-[#4cd964]/[0.09]',
-			iconColor: 'text-[#4cd964]',
-			dotColor: 'bg-[#4cd964]',
+			sublabel: '+888 numbers',
+			marketPath: '/numbers/intel',
 		},
 		{
 			id: 'gifts',
 			icon: 'featured_seasonal_and_gifts',
 			labelKey: 'action.gifts.label',
-			badge: '4-Floor Live',
-			activeBorder: 'border-[#ffb340]/50',
-			activeBg: 'bg-[#ffb340]/[0.09]',
-			iconColor: 'text-[#ffb340]',
-			dotColor: 'bg-[#ffb340]',
+			sublabel: 't.me/nft',
+			marketPath: '/gifts/intel',
 		},
 	];
 
@@ -124,38 +112,94 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 	};
 
 	return (
-		<div
-			class={`relative overflow-hidden transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col items-center px-4 z-10 font-frag-sans ${
-				props.activeTab ? 'pt-4 pb-8' : 'pt-8 pb-16 min-h-[82vh] justify-center'
-			}`}
-		>
-			{/* Hero Heading, Universal Search & Description on Landing Overview */}
-			<Show when={!props.activeTab}>
-				<Motion.div
-					initial={{ opacity: 0, y: 14 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.38, easing: [0.16, 1, 0.3, 1] }}
-					class="w-full max-w-[460px] mx-auto text-center mb-6 relative z-20 flex flex-col items-center"
+		<div class="w-full flex flex-col font-frag-sans relative z-10">
+			{/* Authentic Fragment.com Top Sticky Bar (.tm-header) */}
+			<header class="frag-header sticky top-0 z-40 w-full h-[52px] px-4 flex items-center justify-between gap-3">
+				<button
+					type="button"
+					onClick={() => {
+						try {
+							haptic.selection();
+						} catch {}
+						if (props.onResetTab) props.onResetTab();
+					}}
+					class="flex items-center gap-2 text-white hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
 				>
-					<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1b232d]/90 border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] mb-4">
-						<TonIcon size={13} />
-						<span class="w-1.5 h-1.5 rounded-full bg-[#4cd964]" aria-hidden="true" />
-						<span class="text-[11px] font-medium text-[#c7d0d9]">{t('hero.promoBadge')}</span>
+					<TonIcon size={20} color="#4db2ff" />
+					<span class="text-[15px] font-bold tracking-[0.04em] text-white" dir="ltr">
+						FRAGMENT
+					</span>
+				</button>
+
+				{/* Horizontal Navigation Tabs (Fragment .tm-header-tabs style) */}
+				<div
+					class="flex items-center h-full gap-4 overflow-x-auto no-scrollbar"
+					role="tablist"
+					aria-label={t('heroTabs.analysisCategories')}
+				>
+					<For each={TABS}>
+						{(tab) => {
+							const isSelected = () => props.activeTab === tab.id;
+							return (
+								<button
+									type="button"
+									role="tab"
+									aria-selected={isSelected()}
+									aria-label={t(tab.labelKey)}
+									onClick={() => handleTabClick(tab)}
+									class={`relative h-full px-1 flex items-center text-[13px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+										isSelected() ? 'text-white' : 'text-[#cbd7e5]/70 hover:text-white'
+									}`}
+								>
+									<span>{t(tab.labelKey)}</span>
+									<Show when={isSelected()}>
+										<span
+											class="absolute inset-x-0 bottom-0 h-[3px] bg-[#248bda] rounded-t-[3px]"
+											aria-hidden="true"
+										/>
+									</Show>
+								</button>
+							);
+						}}
+					</For>
+				</div>
+
+				<Show when={props.onOpenCreditStore}>
+					<button
+						type="button"
+						onClick={props.onOpenCreditStore}
+						class="h-8 px-2.5 rounded-[8px] bg-[#293440] hover:bg-[#384553] text-white text-[12px] font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+					>
+						<span
+							class="material-symbols-outlined text-[15px] text-[#ff9953]"
+							style={{ 'font-variation-settings': '"FILL" 1' }}
+						>
+							star
+						</span>
+						<span class="hidden xs:inline">{t('paywall.credit_unit')}</span>
+					</button>
+				</Show>
+			</header>
+
+			{/* Landing Overview (when no sub-tab is locked open) */}
+			<Show when={!props.activeTab}>
+				<div class="w-full max-w-[480px] mx-auto px-4 pt-7 pb-10 flex flex-col items-center">
+					{/* Centered Fragment Intro (.tm-main-intro) */}
+					<div class="w-full text-center mb-5 flex flex-col items-center">
+						<h1 class="text-[22px] sm:text-[24px] font-semibold tracking-[-0.015em] leading-[1.25] text-white mb-2">
+							{t('hero.title')}
+						</h1>
+						<p class="text-[13px] text-[#8794a1] font-normal leading-[1.55] max-w-[380px]">
+							{t('hero.description')}
+						</p>
 					</div>
 
-					<h1 class="text-[28px] sm:text-[34px] font-semibold tracking-[-0.025em] leading-[1.2] text-white mb-2.5">
-						{t('hero.title')}
-					</h1>
-					<p class="text-[13.5px] sm:text-[14px] text-[#8c9ba5] font-normal leading-[1.65] max-w-[360px] mb-5">
-						{t('hero.description')}
-					</p>
-
-					{/* Universal Smart Search Bar — Fragment style */}
+					{/* Universal Smart Search Field — Fragment .tm-search-field (#242e38, 8px radius) */}
 					<form
 						onSubmit={handleUniversalSubmit}
-						class="w-full frag-card rounded-[14px] p-1.5 flex items-center gap-1.5 border border-white/[0.09] focus-within:border-[#2990FF]/65 focus-within:ring-2 focus-within:ring-[#2990FF]/15 transition-all"
+						class="w-full bg-[#242e38] hover:bg-[#293440] focus-within:bg-[#293440] rounded-[8px] p-1.5 flex items-center gap-1.5 mb-5 transition-colors"
 					>
-						<div class="pl-2.5 pr-1 flex items-center text-[#60707c] shrink-0">
+						<div class="pl-2.5 pr-1 flex items-center text-[#8a98a6] shrink-0">
 							<span class="material-symbols-outlined text-[19px]" aria-hidden="true">
 								search
 							</span>
@@ -167,19 +211,19 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 							placeholder={t('hero.smartSearch')}
 							aria-label={t('hero.smartSearch')}
 							dir={quickQuery() ? 'ltr' : isRtl() ? 'rtl' : 'ltr'}
-							class="flex-1 min-w-0 bg-transparent text-white text-[13.5px] font-medium placeholder:text-[#60707c] focus:outline-none py-2 px-1"
+							class="flex-1 min-w-0 bg-transparent text-white text-[13.5px] font-semibold placeholder:text-[#8a98a6] placeholder:font-normal focus:outline-none py-1.5 px-1"
 							autocomplete="off"
 							autocapitalize="off"
 							spellcheck={false}
 						/>
 						<Show when={detectedType()}>
 							<span
-								class={`text-[10px] font-mono font-semibold px-2 py-1 rounded-[7px] border shrink-0 ${
+								class={`text-[11px] font-mono font-semibold px-2 py-0.5 rounded-[4px] shrink-0 ${
 									detectedType() === 'number'
-										? 'bg-[#4cd964]/12 text-[#4cd964] border-[#4cd964]/30'
+										? 'bg-[#5aec8c]/10 text-[#5aec8c]'
 										: detectedType() === 'gift'
-											? 'bg-[#ffb340]/12 text-[#ffb340] border-[#ffb340]/30'
-											: 'bg-[#2990FF]/12 text-[#64b5ff] border-[#2990FF]/30'
+											? 'bg-[#ff9953]/10 text-[#ff9953]'
+											: 'bg-[#4db2ff]/10 text-[#4db2ff]'
 								}`}
 								dir="ltr"
 							>
@@ -192,68 +236,135 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 						</Show>
 						<button
 							type="submit"
-							class="frag-btn-primary px-4 h-9 rounded-[10px] text-[12.5px] font-semibold shrink-0"
+							class="frag-btn-primary px-4 h-9 rounded-[6px] text-[13px] font-semibold shrink-0 cursor-pointer"
 						>
 							{t('hero.smartSearchBtn')}
 						</button>
 					</form>
-				</Motion.div>
-			</Show>
 
-			{/* 3-Pillar Selector Cards */}
-			<Motion.nav
-				animate={{ y: 0, opacity: 1 }}
-				transition={{ duration: 0.35 }}
-				class="w-full max-w-[460px] grid grid-cols-3 gap-2.5 relative z-20"
-				role="tablist"
-				aria-label={t('heroTabs.analysisCategories')}
-			>
-				<For each={TABS}>
-					{(tab) => {
-						const isSelected = () => props.activeTab === tab.id;
-						return (
+					{/* 3 Minimalist Fragment Vertical Cards (#212a33, 8px radius) */}
+					<div class="w-full grid grid-cols-3 gap-2 mb-5">
+						<For each={TABS}>
+							{(tab) => (
+								<button
+									type="button"
+									onClick={() => handleTabClick(tab)}
+									class="frag-card-interactive p-3 flex flex-col items-start justify-between gap-3 min-h-[78px] text-start"
+								>
+									<div class="w-full flex items-center justify-between">
+										<span class="material-symbols-outlined text-[20px] text-[#4db2ff]">
+											{tab.icon}
+										</span>
+										<span class="material-symbols-outlined text-[15px] text-[#8c9aa9] rtl:rotate-180">
+											chevron_right
+										</span>
+									</div>
+									<div class="flex flex-col min-w-0 w-full">
+										<span class="text-[13px] font-semibold text-white truncate">
+											{t(tab.labelKey)}
+										</span>
+										<span class="text-[11px] text-[#8c9aa9] font-mono truncate" dir="ltr">
+											{tab.sublabel}
+										</span>
+									</div>
+								</button>
+							)}
+						</For>
+					</div>
+
+					{/* Fragment Market Directory Table (.tm-table-wrap) */}
+					<div class="w-full">
+						<div class="flex items-center justify-between px-1 mb-2">
+							<h2 class="text-[15px] font-semibold text-white">{t('home.collectionInfo')}</h2>
+						</div>
+						<div class="frag-table-container divide-y divide-[#1a2026]">
 							<button
 								type="button"
-								onClick={() => handleTabClick(tab)}
-								role="tab"
-								aria-selected={isSelected()}
-								aria-label={t(tab.labelKey)}
-								class={`flex flex-col justify-between gap-2.5 rounded-[14px] border p-3 min-h-[82px] transition-all duration-200 relative overflow-hidden active:scale-[0.97] text-start ${
-									isSelected()
-										? `${tab.activeBg} ${tab.activeBorder} text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_26px_rgba(0,0,0,0.32)]`
-										: 'frag-card text-[#c7d0d9] hover:border-white/[0.16] hover:text-white'
-								}`}
+								onClick={() => navigate('/collection-info')}
+								class="frag-table-row w-full px-3.5 py-3 flex items-center justify-between gap-3 text-start cursor-pointer"
 							>
-								<Show when={isSelected()}>
-									<span
-										class={`absolute inset-x-3 top-0 h-[2px] rounded-b-full ${tab.dotColor}`}
-										aria-hidden="true"
-									/>
-								</Show>
-								<div class="flex items-center justify-between w-full gap-1">
-									<span class="text-[9.5px] font-mono font-medium px-1.5 py-0.5 rounded-[6px] bg-[#141a22]/90 border border-white/[0.06] text-[#8c9ba5] truncate">
-										{tab.badge}
+								<div class="flex items-center gap-3 min-w-0">
+									<div class="w-8 h-8 rounded-[6px] bg-[#242e38] flex items-center justify-center text-[#4db2ff] font-semibold text-[15px] shrink-0">
+										@
+									</div>
+									<div class="flex flex-col min-w-0">
+										<span class="text-[13.5px] font-semibold text-white truncate">
+											{t('action.username.label')}
+										</span>
+										<span class="text-[12px] text-[#8c9aa9] truncate">
+											{t('home.collectionInfo')}
+										</span>
+									</div>
+								</div>
+								<div class="flex items-center gap-2 shrink-0">
+									<span class="px-2 py-0.5 rounded-[4px] bg-[#5aec8c]/10 text-[#5aec8c] text-[11px] font-semibold">
+										Live
 									</span>
-									<span
-										class={`material-symbols-outlined shrink-0 text-[19px] transition-colors ${
-											isSelected() ? tab.iconColor : 'text-[#8c9ba5]'
-										}`}
-										style={{
-											'font-variation-settings': isSelected() ? '"FILL" 1' : '"FILL" 0',
-										}}
-										aria-hidden="true"
-									>
-										{tab.icon}
+									<span class="material-symbols-outlined text-[17px] text-[#8c9aa9] rtl:rotate-180">
+										chevron_right
 									</span>
 								</div>
-								<span class="text-[12.5px] font-semibold leading-snug text-start w-full">
-									{t(tab.labelKey)}
-								</span>
 							</button>
-						);
-					}}
-				</For>
-			</Motion.nav>
+
+							<button
+								type="button"
+								onClick={() => navigate('/numbers/intel')}
+								class="frag-table-row w-full px-3.5 py-3 flex items-center justify-between gap-3 text-start cursor-pointer"
+							>
+								<div class="flex items-center gap-3 min-w-0">
+									<div class="w-8 h-8 rounded-[6px] bg-[#242e38] flex items-center justify-center text-[#4db2ff] shrink-0">
+										<span class="material-symbols-outlined text-[17px]">tag</span>
+									</div>
+									<div class="flex flex-col min-w-0">
+										<span class="text-[13.5px] font-semibold text-white truncate">
+											{t('action.collectibles.label')}
+										</span>
+										<span class="text-[12px] text-[#8c9aa9] truncate">
+											{t('home.numbersIntel')}
+										</span>
+									</div>
+								</div>
+								<div class="flex items-center gap-2 shrink-0">
+									<span class="px-2 py-0.5 rounded-[4px] bg-[#4db2ff]/10 text-[#4db2ff] text-[11px] font-mono font-semibold">
+										136,566
+									</span>
+									<span class="material-symbols-outlined text-[17px] text-[#8c9aa9] rtl:rotate-180">
+										chevron_right
+									</span>
+								</div>
+							</button>
+
+							<button
+								type="button"
+								onClick={() => navigate('/gifts/intel')}
+								class="frag-table-row w-full px-3.5 py-3 flex items-center justify-between gap-3 text-start cursor-pointer"
+							>
+								<div class="flex items-center gap-3 min-w-0">
+									<div class="w-8 h-8 rounded-[6px] bg-[#242e38] flex items-center justify-center text-[#4db2ff] shrink-0">
+										<span class="material-symbols-outlined text-[17px]">
+											featured_seasonal_and_gifts
+										</span>
+									</div>
+									<div class="flex flex-col min-w-0">
+										<span class="text-[13.5px] font-semibold text-white truncate">
+											{t('action.gifts.label')}
+										</span>
+										<span class="text-[12px] text-[#8c9aa9] truncate">{t('home.giftsIntel')}</span>
+									</div>
+								</div>
+								<div class="flex items-center gap-2 shrink-0">
+									<span class="px-2 py-0.5 rounded-[4px] bg-[#ff9953]/10 text-[#ff9953] text-[11px] font-semibold">
+										TEP-62
+									</span>
+									<span class="material-symbols-outlined text-[17px] text-[#8c9aa9] rtl:rotate-180">
+										chevron_right
+									</span>
+								</div>
+							</button>
+						</div>
+					</div>
+				</div>
+			</Show>
 		</div>
 	);
 };

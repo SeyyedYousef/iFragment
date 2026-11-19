@@ -751,7 +751,7 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 	}
 
 	// 2. If message contains a Gift link, sniff & analyze automatically (only in private chat or when bot is explicitly mentioned in groups)
-	if giftLinkRegex.MatchString(raw) {
+	if isPrem, _ := parsePremiumCommand(raw); !isPrem && giftLinkRegex.MatchString(raw) {
 		isGroup := msg.Chat.Type == "group" || msg.Chat.Type == "supergroup"
 		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
 		isMentioned := bot.BotUsername != "" && strings.Contains(raw, botMention)
@@ -977,6 +977,8 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		h.handleGiftsCommand(ctx, bot, m)
 	} else if strings.HasPrefix(m.Text, "/panel") || strings.HasPrefix(m.Text, "/admin") {
 		h.handleAdminPanelCommand(ctx, bot, m)
+	} else if isPrem, premArg := parsePremiumCommand(cmdText); isPrem {
+		h.handlePremiumCommand(ctx, bot, m, premArg)
 	} else if strings.HasPrefix(m.Text, "/cancel") {
 		tg := h.getBotClient(bot)
 		if tg != nil {

@@ -580,72 +580,62 @@ func (h *WebhookHandler) renderProfileText(ctx context.Context, lang string, fir
 	var defaultProfileText string
 	switch lang {
 	case "fa":
-		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>پروفایل سرمایه‌گذار | iFragment</b>
+		defaultProfileText = fmt.Sprintf(`✦ <tg-emoji emoji-id="%s">👤</tg-emoji> <b>پاسپورت کلکسیونر و تراز تحلیلی  ·  iFragment</b> ✦
 
-کاربر: <b>{name}</b> (شناسه: <code>{id}</code>)
-سطح کاربری: <b>سطح {level}</b>
-رتبه جهانی در شبکه: <b>#{rank}</b>
+<blockquote>👤 دارنده حساب: <b>{name}</b> (<code>{id}</code>)
+🏅 جایگاه و سطح: <b>سطح {level}</b>  ·  🏆 رتبه جهانی: <b>#{rank}</b></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code> کریدت
-━━━━━━━━━━━━━━━━━━━
+<blockquote><tg-emoji emoji-id="%s">⚡</tg-emoji> <b>موجودی اعتبار تحلیلی (Intel Credits):</b> <code>{credits} کریدت</code>
+<i>با هر گفتگو یا بوست در تالار سرمایه‌گذاران @FragmentInvestors اعتبار رایگان هدیه می‌گیرید.</i></blockquote>
 
 🔗 <b>لینک دعوت اختصاصی شما:</b>
 <code>{reflink}</code>
-<i>با دعوت از هر دوست، اعتبار تحلیل هدیه بگیرید!</i>`, CustomEmojiUser, CustomEmojiBolt)
+<i>با پیوستن هر یک از دوستانتان، اعتبار تحلیلی هدیه به حساب شما افزوده می‌شود.</i>`, CustomEmojiUser, CustomEmojiBolt)
 	case "ar":
-		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>الملف الشخصي للمستثمر | iFragment</b>
+		defaultProfileText = fmt.Sprintf(`✦ <tg-emoji emoji-id="%s">👤</tg-emoji> <b>جواز المستثمر والرصيد التحليلي  ·  iFragment</b> ✦
 
-المستخدم: <b>{name}</b> (المعرف: <code>{id}</code>)
-المستوى: <b>المستوى {level}</b>
-الترتيب العالمي: <b>#{rank}</b>
+<blockquote>👤 الحساب: <b>{name}</b> (<code>{id}</code>)
+🏅 المستوى: <b>المستوى {level}</b>  ·  🏆 الترتيب العالمي: <b>#{rank}</b></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>رصيد التحليل (Intel Credits):</b> <code>{credits}</code> رصيد
-━━━━━━━━━━━━━━━━━━━
+<blockquote><tg-emoji emoji-id="%s">⚡</tg-emoji> <b>رصيد التحليل (Intel Credits):</b> <code>{credits} رصيد</code>
+<i>احصل على أرصدة مجانية عبر المشاركة في مجتمع @FragmentInvestors.</i></blockquote>
 
 🔗 <b>رابط الدعوة الخاص بك:</b>
 <code>{reflink}</code>
 <i>اربح أرصدة تحليلية مجانية عند دعوة أصدقائك!</i>`, CustomEmojiUser, CustomEmojiBolt)
 	case "ru":
-		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>Профиль пользователя | iFragment</b>
+		defaultProfileText = fmt.Sprintf(`✦ <tg-emoji emoji-id="%s">👤</tg-emoji> <b>Паспорт коллекционера и баланс  ·  iFragment</b> ✦
 
-Пользователь: <b>{name}</b> (ID: <code>{id}</code>)
-Уровень: <b>Level {level}</b>
-Глобальный ранг: <b>#{rank}</b>
+<blockquote>👤 Владелец: <b>{name}</b> (<code>{id}</code>)
+🏅 Уровень: <b>Level {level}</b>  ·  🏆 Мировой рейтинг: <b>#{rank}</b></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Intel Credits (кредиты отчетов):</b> <code>{credits}</code>
-━━━━━━━━━━━━━━━━━━━
+<blockquote><tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Доступный баланс (Intel Credits):</b> <code>{credits}</code>
+<i>Общайтесь в сообществе @FragmentInvestors и получайте бесплатные кредиты за активность.</i></blockquote>
 
-🔗 <b>Ваша реферальная ссылка:</b>
+🔗 <b>Ваша персональная ссылка для приглашений:</b>
 <code>{reflink}</code>`, CustomEmojiUser, CustomEmojiBolt)
 	case "zh":
-		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>个人中心与资产 | iFragment</b>
+		defaultProfileText = fmt.Sprintf(`✦ <tg-emoji emoji-id="%s">👤</tg-emoji> <b>藏家通行证与信用账户  ·  iFragment</b> ✦
 
-用户: <b>{name}</b> (ID: <code>{id}</code>)
-等级: <b>Level {level}</b>
-全网排名: <b>#{rank}</b>
+<blockquote>👤 认证账户: <b>{name}</b> (<code>{id}</code>)
+🏅 藏家等级: <b>Level {level}</b>  ·  🏆 全网综合排名: <b>#{rank}</b></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
-━━━━━━━━━━━━━━━━━━━
+<blockquote><tg-emoji emoji-id="%s">⚡</tg-emoji> <b>可用分析信用点 (Intel Credits):</b> <code>{credits} 点</code>
+<i>在 @FragmentInvestors 官方社群发言互动，即可源源不断获取免费信用点。</i></blockquote>
 
 🔗 <b>您的专属邀请链接:</b>
 <code>{reflink}</code>
-<i>邀请好友加入，双方均可获得分析信用点奖励！</i>`, CustomEmojiUser, CustomEmojiBolt)
+<i>邀请好友同行，双方均可获赠分析信用点奖励！</i>`, CustomEmojiUser, CustomEmojiBolt)
 	default:
-		defaultProfileText = fmt.Sprintf(`<tg-emoji emoji-id="%s">👤</tg-emoji> <b>Investor Profile | iFragment</b>
+		defaultProfileText = fmt.Sprintf(`✦ <tg-emoji emoji-id="%s">👤</tg-emoji> <b>Collector Passport & Credit Vault  ·  iFragment</b> ✦
 
-Account: <b>{name}</b> (ID: <code>{id}</code>)
-Tier Level: <b>Level {level}</b>
-Global Rank: <b>#{rank}</b>
+<blockquote>👤 Account Holder: <b>{name}</b> (<code>{id}</code>)
+🏅 Collector Tier: <b>Level {level}</b>  ·  🏆 Global Standing: <b>#{rank}</b></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Intel Credits Available:</b> <code>{credits}</code>
-━━━━━━━━━━━━━━━━━━━
+<blockquote><tg-emoji emoji-id="%s">⚡</tg-emoji> <b>Available Intel Credits:</b> <code>{credits}</code>
+<i>Earn free credits organically by participating in the @FragmentInvestors community.</i></blockquote>
 
-🔗 <b>Your Exclusive Referral Link:</b>
+🔗 <b>Your Personal Invitation Link:</b>
 <code>{reflink}</code>`, CustomEmojiUser, CustomEmojiBolt)
 	}
 
@@ -2076,13 +2066,13 @@ func (h *WebhookHandler) renderUsernameReportWithResult(ctx context.Context, tg 
 			var photoCaption string
 			switch normalizeLang(lang) {
 			case "fa":
-				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی ارزش‌گذاری: @%s</b>\n💰 ارزش منصفانه بازار: <b>%s TON</b> (<code>≈ $%s</code>)\n💎 رده کمیابی: <b>%s</b> • درجه سرمایه‌گذاری: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade)
+				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی اصالت و ارزش‌گذاری  ·  @%s</b> ✦\n\n<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>رده کمیابی:</b> <b>%s</b>  ·  <b>درجه سرمایه‌گذاری:</b> <b>%s</b>\n📈 <b>شاخص برندپذیری:</b> <code>%d/100</code></blockquote>\n<i>گزارش تحلیلی ۱۰ فصلی در پیام زیر برایتان باز شد 👇</i>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade, brandability)
 			case "ru":
-				photoCaption = fmt.Sprintf("✦ <b>Сертификат оценки: @%s</b>\n💰 Справедливая рыночная цена: <b>%s TON</b> (<code>≈ $%s</code>)\n💎 Редкость: <b>%s</b> • Инвест-грейд: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade)
+				photoCaption = fmt.Sprintf("✦ <b>Официальный сертификат оценки  ·  @%s</b> ✦\n\n<blockquote>💰 <b>Справедливая цена:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>Редкость:</b> <b>%s</b>  ·  <b>Инвест-грейд:</b> <b>%s</b>\n📈 <b>Индекс бренда:</b> <code>%d/100</code></blockquote>\n<i>Полное аналитическое досье открыто ниже 👇</i>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade, brandability)
 			case "zh":
-				photoCaption = fmt.Sprintf("✦ <b>官方估值证书: @%s</b>\n💰 预估市场公允价值: <b>%s TON</b> (<code>≈ $%s</code>)\n💎 稀有度: <b>%s</b> • 投资评级: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade)
+				photoCaption = fmt.Sprintf("✦ <b>官方链上估值证书  ·  @%s</b> ✦\n\n<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>稀有度等级:</b> <b>%s</b>  ·  <b>投资评级:</b> <b>%s</b>\n📈 <b>品牌潜力指数:</b> <code>%d/100</code></blockquote>\n<i>下方已为您展开 10 维深度分析档案 👇</i>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade, brandability)
 			default:
-				photoCaption = fmt.Sprintf("✦ <b>Official Valuation Certificate: @%s</b>\n💰 Estimated Market Price: <b>%s TON</b> (<code>≈ $%s</code>)\n💎 Rarity Tier: <b>%s</b> • Grade: <b>%s</b>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade)
+				photoCaption = fmt.Sprintf("✦ <b>Official Valuation Certificate  ·  @%s</b> ✦\n\n<blockquote>💰 <b>Estimated Market Price:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>Rarity Tier:</b> <b>%s</b>  ·  <b>Grade:</b> <b>%s</b>\n📈 <b>Brand Equity:</b> <code>%d/100</code></blockquote>\n<i>Your 10-chapter analytical dossier is unlocked below 👇</i>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade, brandability)
 			}
 			if messageID != nil {
 				_ = tg.DeleteMessage(ctx, chatID, *messageID)
@@ -2208,13 +2198,13 @@ func (h *WebhookHandler) renderNumberReportWithResult(ctx context.Context, tg *t
 			var photoCaption string
 			switch normalizeLang(lang) {
 			case "fa":
-				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی شماره کلکسیونی: %s</b>\n💰 ارزش منصفانه بازار: <b>%s TON</b> (<code>≈ $%s</code>)\n👑 کلوپ: <b>%s</b> • رتبه کمیابی جهانی: <b>#%d</b>", displayNum, tonStr, usdStr, club, globalRank)
+				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی شماره کلکسیونی  ·  %s</b> ✦\n\n<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>کلوپ کلکسیونی:</b> <b>%s</b>\n🏆 <b>رتبه کمیابی جهانی:</b> <b>#%d از ۱۳۶,۵۶۶</b></blockquote>\n<i>گزارش کامل تقارن الگو، دیفای و نقدشوندگی در پیام زیر 👇</i>", displayNum, tonStr, usdStr, club, globalRank)
 			case "ru":
-				photoCaption = fmt.Sprintf("✦ <b>Сертификат анонимного номера: %s</b>\n💰 Справедливая рыночная цена: <b>%s TON</b> (<code>≈ $%s</code>)\n👑 Клуб: <b>%s</b> • Мировой ранг: <b>#%d</b>", displayNum, tonStr, usdStr, club, globalRank)
+				photoCaption = fmt.Sprintf("✦ <b>Сертификат анонимного номера  ·  %s</b> ✦\n\n<blockquote>💰 <b>Справедливая цена:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>Клуб коллекции:</b> <b>%s</b>\n🏆 <b>Мировой ранг:</b> <b>#%d из 136,566</b></blockquote>\n<i>Полный разбор паттерна, DeFi и ликвидности открыт ниже 👇</i>", displayNum, tonStr, usdStr, club, globalRank)
 			case "zh":
-				photoCaption = fmt.Sprintf("✦ <b>匿名号码估值证书: %s</b>\n💰 预估市场公允价值: <b>%s TON</b> (<code>≈ $%s</code>)\n👑 俱乐部: <b>%s</b> • 全球排名: <b>#%d</b>", displayNum, tonStr, usdStr, club, globalRank)
+				photoCaption = fmt.Sprintf("✦ <b>匿名典藏靓号估值证书  ·  %s</b> ✦\n\n<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>归属俱乐部:</b> <b>%s</b>\n🏆 <b>全网稀缺排名:</b> <b>#%d / 136,566</b></blockquote>\n<i>下方已为您展开号码基因、DeFi 授信与深度估值档案 👇</i>", displayNum, tonStr, usdStr, club, globalRank)
 			default:
-				photoCaption = fmt.Sprintf("✦ <b>Official Number Certificate: %s</b>\n💰 Estimated Market Price: <b>%s TON</b> (<code>≈ $%s</code>)\n👑 Club: <b>%s</b> • Global Rank: <b>#%d</b>", displayNum, tonStr, usdStr, club, globalRank)
+				photoCaption = fmt.Sprintf("✦ <b>Official Anonymous Number Certificate  ·  %s</b> ✦\n\n<blockquote>💰 <b>Estimated Market Price:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>Category Club:</b> <b>%s</b>\n🏆 <b>Global Rarity Rank:</b> <b>#%d of 136,566</b></blockquote>\n<i>Full pattern anatomy, DeFi collateral & liquidity dossier below 👇</i>", displayNum, tonStr, usdStr, club, globalRank)
 			}
 			if messageID != nil {
 				_ = tg.DeleteMessage(ctx, chatID, *messageID)
@@ -2323,13 +2313,13 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 				var photoCaption string
 				switch normalizeLang(lang) {
 				case "fa":
-					photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی گیفت کلکسیونی: %s</b>\n💰 ارزش منصفانه بازار: <b>%s TON</b> (<code>≈ %s</code>)\n💎 رده کمیابی: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی گیفت کلکسیونی  ·  %s</b> ✦\n\n<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>رده کمیابی ژنتیکی:</b> <b>%s</b>  ·  <b>سریال:</b> <code>#%d</code></blockquote>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, appraisal.SerialNumber, rateRefLine)
 				case "ru":
-					photoCaption = fmt.Sprintf("✦ <b>Сертификат подарка: %s</b>\n💰 Справедливая рыночная цена: <b>%s TON</b> (<code>≈ %s</code>)\n💎 Редкость: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>Официальный сертификат подарка  ·  %s</b> ✦\n\n<blockquote>💰 <b>Справедливая цена:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>Редкость:</b> <b>%s</b>  ·  <b>Серия:</b> <code>#%d</code></blockquote>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, appraisal.SerialNumber, rateRefLine)
 				case "zh":
-					photoCaption = fmt.Sprintf("✦ <b>礼物官方估值证书: %s</b>\n💰 预估市场公允价值: <b>%s TON</b> (<code>≈ %s</code>)\n💎 稀有度: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>典藏礼物官方估值证书  ·  %s</b> ✦\n\n<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>基因稀有度:</b> <b>%s</b>  ·  <b>编号:</b> <code>#%d</code></blockquote>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, appraisal.SerialNumber, rateRefLine)
 				default:
-					photoCaption = fmt.Sprintf("✦ <b>Official Gift Certificate: %s</b>\n💰 Estimated Market Price: <b>%s TON</b> (<code>≈ %s</code>)\n💎 Rarity Tier: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>Official Collectible Gift Certificate  ·  %s</b> ✦\n\n<blockquote>💰 <b>Estimated Market Price:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>Rarity Tier:</b> <b>%s</b>  ·  <b>Serial:</b> <code>#%d</code></blockquote>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, appraisal.SerialNumber, rateRefLine)
 				}
 				if messageID != nil {
 					_ = tg.DeleteMessage(ctx, chatID, *messageID)

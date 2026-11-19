@@ -1,377 +1,367 @@
 package handler
 
-// defaultTexts stores the centralized fallback texts for bot messages across all 4 supported languages.
+// defaultTexts stores the centralized fallback texts for bot messages across all 4 supported languages,
+// crafted with Fibonacci visual rhythm (1-line crown -> 2-line personal status -> 3-pillar golden showcase -> warm invitation)
+// and human-centric collector psychology rather than robotic templates.
 var defaultTexts = map[string]map[string]string{
 	"start_menu": {
-		"fa": `╔═══ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment Terminal v2.0</b> ═══╗
+		"fa": `✦ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment  ·  تالار خصوصی ارزیابی دارایی‌های تلگرام</b> ✦
 
-سلام <b>{name}</b> عزیز؛ به ترمینال هوش بازار و کارشناسی آن‌چین دارایی‌های تلگرام خوش آمدید.
-👤 وضعیت: <b>سطح کارشناسی</b> | 🏆 رتبه جهانی: <b>#{rank}</b> | ⚡ اعتبار: <b>{credits} کریدت</b>
+سلام <b>{name}</b> عزیز؛ خوشحالم که اینجایی ✨
+<blockquote>👤 جایگاه کلکسیونی: <b>کارشناس ارشد</b>  ·  🏆 رتبه جهانی: <b>#{rank}</b>  ·  ⚡ تراز تحلیلی: <b>{credits} کریدت</b></blockquote>
 
-📊 <b>موتورهای ارزش‌گذاری زنده (۱۰۰٪ متصل به بلاکچین TON):</b>
-├ 🏷️ <b>یوزرنیم‌ها (@username):</b> مدل هدانیک AVM، کمیابی و ریسک برند
-├ 📱 <b>شماره‌های ناشناس (+888):</b> تشخیص الگو، کلوپ کلکسیونی و اردربوک
-└ 🎁 <b>گیفت‌های تلگرام (Web3 NFT):</b> ژنتیک ۴ رنگ، سریال و آربیتراژ ۶ مارکت
+<b>هر دارایی روی شبکه TON داستان و ارزش ذاتی خودش را دارد:</b>
+🏷️ <b>یوزرنیم‌های کلکسیونی (@username)</b>
+<i>سنجش ارزش منصفانه، قدرت برند، تقاضای بازار و ریسک حقوقی</i>
 
-<blockquote>💡 <b>اسکن فوری در چت:</b> یکی از دکمه‌های شیشه‌ای زیر را لمس کنید یا مستقیماً هر <b>@username</b>، <b>شماره +888</b> یا <b>لینک گیفت (t.me/nft/...)</b> را در همین چت ارسال نمایید.</blockquote>`,
-		"ru": `╔═══ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment Terminal v2.0</b> ═══╗
+📱 <b>شماره‌های ناشناس (+888)</b>
+<i>کشف هندسه و تقارن ارقام، کلوپ کمیابی و ظرفیت وثیقه دیفای</i>
 
-Здравствуйте, <b>{name}</b>! Добро пожаловать в терминал рыночной аналитики и он-чейн оценки активов Telegram.
-👤 Статус: <b>Инвестор</b> | 🏆 Мировой ранг: <b>#{rank}</b> | ⚡ Баланс: <b>{credits} кредитов</b>
+🎁 <b>گیفت‌های کلکسیونی (Web3 NFT)</b>
+<i>کالبدشکافی ژنتیک ۴ رنگ، ضریب شماره سریال و آربیتراژ ۶ مارکت</i>
 
-📊 <b>Активные модули оценки (TON Blockchain Live):</b>
-├ 🏷️ <b>Юзернеймы (@username):</b> AVM-модель, редкость и риск бренда
-├ 📱 <b>Номера (+888):</b> Паттерны, клуб редкости и глубина стакана
-└ 🎁 <b>Подарки Telegram (Web3 NFT):</b> Генетика 4-Hex, серии и 6 маркетов
+<blockquote>✨ <b>نیاز به هیچ دستور پیچیده‌ای نیست؛</b> کافیست همین الان هر <b>@username</b>، <b>شماره +888</b> یا <b>لینک گیفت (t.me/nft/...)</b> را در چت بفرستی تا گواهی تصویری و کارشناسی جامع آن برایت صادر شود.</blockquote>`,
+		"ru": `✦ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment  ·  Приватный терминал оценки активов Telegram</b> ✦
 
-<blockquote>💡 <b>Мгновенный скан:</b> нажмите кнопку ниже или отправьте любой <b>@username</b>, <b>номер +888</b> или <b>ссылку на подарок (t.me/nft/...)</b> прямо в этот чат.</blockquote>`,
-		"zh": `╔═══ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment Terminal v2.0</b> ═══╗
+Рады видеть вас, <b>{name}</b> ✨
+<blockquote>👤 Статус: <b>Старший аналитик</b>  ·  🏆 Мировой ранг: <b>#{rank}</b>  ·  ⚡ Баланс: <b>{credits} кредитов</b></blockquote>
 
-您好 <b>{name}</b>！欢迎进入 Telegram 机构级链上资产估值与稀缺度分析终端。
-👤 身份: <b>认证藏家</b> | 🏆 全网排名: <b>#{rank}</b> | ⚡ 信用点: <b>{credits} 点</b>
+<b>Каждый цифровой актив на блокчейне TON обладает уникальной ценностью:</b>
+🏷️ <b>Коллекционные юзернеймы (@username)</b>
+<i>Справедливая оценка AVM, сила бренда, ликвидность и защита от рисков</i>
 
-📊 <b>三大实时链上估值引擎 (TON Live)：</b>
-├ 🏷️ <b>用户名 (@username)：</b> AVM 公允估值、稀缺度与商标风险
-├ 📱 <b>匿名靓号 (+888)：</b> 号码排列模式、俱乐部层级与盘口深度
-└ 🎁 <b>电报礼物 (Web3 NFT)：</b> 四色背景基因、编号溢价与 6 大市场比价
+📱 <b>Анонимные номера (+888)</b>
+<i>Геометрия паттернов, элитный клуб редкости и залоговый потенциал DeFi</i>
 
-<blockquote>💡 <b>秒级鉴定：</b> 点击下方玻璃按钮，或直接在聊天中发送任意 <b>@用户名</b>、<b>+888 号码</b>或 <b>礼物链接 (t.me/nft/...)</b>。</blockquote>`,
-		"en": `╔═══ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment Terminal v2.0</b> ═══╗
+🎁 <b>Подарки Telegram (Web3 NFT)</b>
+<i>Генетика 4-Hex фона, гравитация серийного номера и арбитраж 6 маркетов</i>
 
-Welcome <b>{name}</b>! You are connected to the institutional valuation and on-chain rarity terminal for Telegram Digital Assets.
-👤 Tier: <b>Analyst</b> | 🏆 Global Rank: <b>#{rank}</b> | ⚡ Balance: <b>{credits} Credits</b>
+<blockquote>✨ <b>Без лишних команд:</b> просто отправьте любой <b>@username</b>, <b>номер +888</b> или <b>ссылку на подарок (t.me/nft/...)</b> прямо в этот чат — и получите визуальный сертификат и полный разбор.</blockquote>`,
+		"zh": `✦ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment  ·  Telegram 链上资产私人鉴赏终端</b> ✦
 
-📊 <b>Live On-Chain Valuation Engines (TON Mainnet):</b>
-├ 🏷️ <b>Usernames (@username):</b> AVM fair value, trait rarity & brand risk
-├ 📱 <b>Anonymous Numbers (+888):</b> Pattern detection, club tier & orderbook
-└ 🎁 <b>Telegram Gifts (Web3 NFT):</b> 4-Hex backdrop DNA, serial tier & 6 venues
+很高兴见到您，<b>{name}</b> ✨
+<blockquote>👤 藏家身份: <b>首席分析师</b>  ·  🏆 全网排名: <b>#{rank}</b>  ·  ⚡ 信用额度: <b>{credits} 点</b></blockquote>
 
-<blockquote>💡 <b>Instant Scan:</b> Tap a glass button below or drop any <b>@username</b>, <b>+888 number</b>, or <b>gift link (t.me/nft/...)</b> directly into this chat.</blockquote>`,
+<b>每一件 TON 链上藏品，都蕴含独特的数学与市场价值：</b>
+🏷️ <b>典藏用户名 (@username)</b>
+<i>AVM 公允估值、品牌溢价潜力、流动性周期与商标安全审计</i>
+
+📱 <b>匿名靓号 (+888)</b>
+<i>数字对称美学、稀缺俱乐部评级与 DeFi 抵押授信深度</i>
+
+🎁 <b>电报典藏礼物 (Web3 NFT)</b>
+<i>四色背景基因解码、序列号引力乘数与 6 大市场实时比价</i>
+
+<blockquote>✨ <b>无需繁琐指令：</b> 直接在对话中发送任意 <b>@用户名</b>、<b>+888 号码</b>或 <b>礼物链接 (t.me/nft/...)</b>，即可生成专属视觉估值证书与十维深度报告。</blockquote>`,
+		"en": `✦ <tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>iFragment  ·  Private On-Chain Valuation Salon</b> ✦
+
+Good to see you, <b>{name}</b> ✨
+<blockquote>👤 Collector Tier: <b>Senior Analyst</b>  ·  🏆 Global Rank: <b>#{rank}</b>  ·  ⚡ Balance: <b>{credits} Credits</b></blockquote>
+
+<b>Every digital asset on TON carries a distinct mathematical & collector signature:</b>
+🏷️ <b>Collectible Usernames (@username)</b>
+<i>AVM fair market anchor, brand equity score, liquidity velocity & trademark risk</i>
+
+📱 <b>Anonymous Numbers (+888)</b>
+<i>Pattern symmetry, rarity club classification, orderbook depth & DeFi collateral</i>
+
+🎁 <b>Telegram Collectible Gifts (Web3 NFT)</b>
+<i>4-Hex backdrop genetics, serial gravity multiplier & 6-venue arbitrage radar</i>
+
+<blockquote>✨ <b>Zero commands required:</b> simply drop any <b>@username</b>, <b>+888 number</b>, or <b>gift link (t.me/nft/...)</b> right into this chat to mint its visual certificate and full dossier.</blockquote>`,
 	},
 	"profile_view": {
-		"fa": `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>پروفایل سرمایه‌گذار | iFragment</b>
+		"fa": `✦ <tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>پاسپورت کلکسیونر و تراز تحلیلی  ·  iFragment</b> ✦
 
-حساب کاربری: <b>{name}</b> (شناسه: <code>{id}</code>)
-سطح کاربری: <b>سطح {level}</b>
-رتبه در شبکه جهانی: <b>#{rank}</b>
+<blockquote>👤 دارنده حساب: <b>{name}</b> (<code>{id}</code>)
+🏅 جایگاه و سطح: <b>سطح {level}</b>  ·  🏆 رتبه جهانی: <b>#{rank}</b></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code> کریدت
-━━━━━━━━━━━━━━━━━━━
+<blockquote><tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>موجودی اعتبار تحلیلی (Intel Credits):</b> <code>{credits} کریدت</code>
+<i>با هر گفتگو یا بوست در تالار سرمایه‌گذاران @FragmentInvestors اعتبار رایگان هدیه می‌گیرید.</i></blockquote>
 
-🔗 <b>لینک اختصاصی دعوت شما:</b>
+🔗 <b>لینک دعوت اختصاصی شما:</b>
 <code>{reflink}</code>
-<i>با دعوت از دوستان یا فعالیت در گروه @FragmentInvestors اعتبار تحلیلی رایگان دریافت کنید!</i>`,
-		"ru": `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>Профиль инвестора | iFragment</b>
+<i>با پیوستن هر یک از دوستانتان، اعتبار تحلیلی هدیه به حساب شما افزوده می‌شود.</i>`,
+		"ru": `✦ <tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>Паспорт коллекционера и баланс  ·  iFragment</b> ✦
 
-Аккаунт: <b>{name}</b> (ID: <code>{id}</code>)
-Уровень: <b>Уровень {level}</b>
-Рейтинг в системе: <b>#{rank}</b>
+<blockquote>👤 Владелец: <b>{name}</b> (<code>{id}</code>)
+🏅 Уровень: <b>Level {level}</b>  ·  🏆 Мировой рейтинг: <b>#{rank}</b></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Доступно кредитов (Intel Credits):</b> <code>{credits}</code>
-━━━━━━━━━━━━━━━━━━━
+<blockquote><tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Доступный баланс (Intel Credits):</b> <code>{credits}</code>
+<i>Общайтесь в сообществе @FragmentInvestors и получайте бесплатные кредиты за активность.</i></blockquote>
 
-🔗 <b>Ваша реферальная ссылка:</b>
+🔗 <b>Ваша персональная ссылка для приглашений:</b>
 <code>{reflink}</code>`,
-		"zh": `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>投资者档案 | iFragment</b>
+		"zh": `✦ <tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>藏家通行证与信用账户  ·  iFragment</b> ✦
 
-账户: <b>{name}</b> (ID: <code>{id}</code>)
-等级: <b>等级 {level}</b>
-全网综合排名: <b>#{rank}</b>
+<blockquote>👤 认证账户: <b>{name}</b> (<code>{id}</code>)
+🏅 藏家等级: <b>Level {level}</b>  ·  🏆 全网综合排名: <b>#{rank}</b></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
-━━━━━━━━━━━━━━━━━━━
+<blockquote><tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>可用分析信用点 (Intel Credits):</b> <code>{credits} 点</code>
+<i>在 @FragmentInvestors 官方社群发言互动，即可源源不断获取免费信用点。</i></blockquote>
 
 🔗 <b>您的专属邀请链接:</b>
 <code>{reflink}</code>
-<i>邀请好友加入或在 @FragmentInvestors 互动，即可免费获取分析信用点！</i>`,
-		"en": `<tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>Investor Profile | iFragment</b>
+<i>邀请好友同行，双方均可获赠分析信用点奖励。</i>`,
+		"en": `✦ <tg-emoji emoji-id="5373141891321699086">👤</tg-emoji> <b>Collector Passport & Credit Vault  ·  iFragment</b> ✦
 
-Account: <b>{name}</b> (ID: <code>{id}</code>)
-Tier Level: <b>Level {level}</b>
-Global Rank: <b>#{rank}</b>
+<blockquote>👤 Account Holder: <b>{name}</b> (<code>{id}</code>)
+🏅 Collector Tier: <b>Level {level}</b>  ·  🏆 Global Standing: <b>#{rank}</b></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-<tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Intel Credits Available:</b> <code>{credits}</code>
-━━━━━━━━━━━━━━━━━━━
+<blockquote><tg-emoji emoji-id="5445284980978654454">⚡</tg-emoji> <b>Available Intel Credits:</b> <code>{credits}</code>
+<i>Earn free credits organically by participating in the @FragmentInvestors community.</i></blockquote>
 
-🔗 <b>Your Exclusive Referral Link:</b>
+🔗 <b>Your Personal Invitation Link:</b>
 <code>{reflink}</code>`,
 	},
 	"prompt_username": {
-		"fa": "🏷️ <b>تحلیل و کارشناسی نام کاربری (Username)</b>\n\nلطفاً نام کاربری مد نظر خود را به صورت متن، با @ یا لینک فرگمنت ارسال کنید:\n\n📌 نمونه: <code>@crypto</code> ، <code>wallet</code> ، <code>ton_holder</code>",
-		"ru": "🏷️ <b>Оценка и анализ юзернейма Telegram</b>\n\nПожалуйста, отправьте тег, имя пользователя или ссылку Fragment:\n\n📌 Пример: <code>@crypto</code>, <code>wallet</code>",
-		"zh": "🏷️ <b>Telegram 用户名专业估值分析</b>\n\n请输入您想要评估的 Telegram 用户名或 Fragment 链接：\n\n📌 示例: <code>@crypto</code>, <code>wallet</code>",
-		"en": "🏷️ <b>Telegram Username Valuation</b>\n\nPlease enter the username handle or Fragment URL you wish to valuate:\n\n📌 Example: <code>@crypto</code>, <code>wallet</code>",
+		"fa": "✦ 🏷️ <b>تالار ارزیابی نام کاربری (Username)</b>\n\nنام کاربری که می‌خواهی ارزش واقعی و قدرت برندش را بسنجیم برایم بنویس (با @، بدون @ یا لینک فرگمنت):\n\n<blockquote>📌 نمونه: <code>@crypto</code>  ·  <code>wallet</code>  ·  <code>ton_holder</code></blockquote>",
+		"ru": "✦ 🏷️ <b>Оценка коллекционного юзернейма</b>\n\nОтправьте имя пользователя или ссылку Fragment, чтобы рассчитать его рыночную стоимость и силу бренда:\n\n<blockquote>📌 Пример: <code>@crypto</code>  ·  <code>wallet</code></blockquote>",
+		"zh": "✦ 🏷️ <b>Telegram 用户名深度估值</b>\n\n请发送您想鉴定的 Telegram 用户名或 Fragment 链接，我们将为您解析其公允价值与品牌潜力：\n\n<blockquote>📌 示例: <code>@crypto</code>  ·  <code>wallet</code></blockquote>",
+		"en": "✦ 🏷️ <b>Username Valuation Salon</b>\n\nSend the username handle or Fragment link you'd like to appraise for fair market value and brand equity:\n\n<blockquote>📌 Example: <code>@crypto</code>  ·  <code>wallet</code></blockquote>",
 	},
 	"prompt_number": {
-		"fa": "📱 <b>تحلیل شماره کلکسیونی ناشناس (+888)</b>\n\nلطفاً شماره کلکسیونی ۸ رقمی یا رند ۴ رقمی مد نظر را وارد نمایید:\n\n📌 نمونه: <code>+888 8888 8888</code> یا <code>+88801234567</code> یا <code>8888</code>",
-		"ru": "📱 <b>Анализ анонимного номера (+888)</b>\n\nВведите анонимный 8-значный или генезис 4-значный номер:\n\n📌 Пример: <code>+888 8888 8888</code> или <code>8888</code>",
-		"zh": "📱 <b>Telegram +888 匿名靓号价值分析</b>\n\n请输入您想要分析的 8 位或 4 位 +888 靓号：\n\n📌 示例: <code>+888 8888 8888</code> 或 <code>8888</code>",
-		"en": "📱 <b>Telegram Anonymous Numbers (+888)</b>\n\nPlease enter the anonymous +888 number to analyze:\n\n📌 Example: <code>+888 8888 8888</code> or <code>8888</code>",
+		"fa": "✦ 📱 <b>تالار کارشناسی شماره‌های کلکسیونی (+888)</b>\n\nشماره ناشناس ۸ رقمی یا جنسیس ۴ رقمی مد نظرت را بنویس تا الگوی تقارن، رتبه کمیابی و ارزش آن را بررسی کنیم:\n\n<blockquote>📌 نمونه: <code>+888 8888 8888</code>  ·  <code>+88801234567</code>  ·  <code>8888</code></blockquote>",
+		"ru": "✦ 📱 <b>Анализ анонимных номеров (+888)</b>\n\nОтправьте 8-значный или редкий 4-значный номер +888 для анализа паттерна, ранга и рыночной цены:\n\n<blockquote>📌 Пример: <code>+888 8888 8888</code>  ·  <code>8888</code></blockquote>",
+		"zh": "✦ 📱 <b>Telegram +888 匿名靓号价值鉴定</b>\n\n请输入 8 位或 4 位创世 +888 匿名号码，即刻解析其号码排列美学与全网稀缺排名：\n\n<blockquote>📌 示例: <code>+888 8888 8888</code>  ·  <code>8888</code></blockquote>",
+		"en": "✦ 📱 <b>Anonymous Number (+888) Appraisal</b>\n\nSend any 8-digit or 4-digit Genesis +888 number to decode its pattern rarity, global rank, and fair value:\n\n<blockquote>📌 Example: <code>+888 8888 8888</code>  ·  <code>8888</code></blockquote>",
 	},
 	"prompt_gift": {
-		"fa": "🎁 <b>کارشناسی گیفت و کالکشن‌های تلگرام</b>\n\nلطفاً لینک گیفت در تلگرام یا فرگمنت، یا نام و شماره سریال آن را ارسال کنید:\n\n📌 نمونه: <code>https://t.me/nft/PlushPepe-42</code> یا <code>PlushPepe-42</code>",
-		"ru": "🎁 <b>Оценка и анализ подарков Telegram</b>\n\nОтправьте ссылку на NFT-подарок или название и серийный номер:\n\n📌 Пример: <code>https://t.me/nft/PlushPepe-42</code> или <code>PlushPepe-42</code>",
-		"zh": "🎁 <b>Telegram 礼物 NFT 稀缺度与估值鉴定</b>\n\n请发送礼物 NFT 链接或模型名称及编号：\n\n📌 示例: <code>https://t.me/nft/PlushPepe-42</code> 或 <code>PlushPepe-42</code>",
-		"en": "🎁 <b>Telegram Gifts Appraisal</b>\n\nPlease send the Telegram Gift link or model-serial:\n\n📌 Example: <code>https://t.me/nft/PlushPepe-42</code> or <code>PlushPepe-42</code>",
+		"fa": "✦ 🎁 <b>تالار کارشناسی گیفت‌های کلکسیونی (Web3 NFT)</b>\n\nلینک رسمی گیفت یا نام و شماره سریال آن را بفرست تا ژنتیک پس‌زمینه، نماد و ارزش ۴ ستونی آن صادر شود:\n\n<blockquote>📌 نمونه: <code>https://t.me/nft/PlushPepe-42</code>  ·  <code>PlushPepe-42</code></blockquote>",
+		"ru": "✦ 🎁 <b>Экспертиза коллекционных подарков Telegram</b>\n\nОтправьте ссылку на NFT-подарок или его название с номером для расчёта генетики атрибутов и цены:\n\n<blockquote>📌 Пример: <code>https://t.me/nft/PlushPepe-42</code>  ·  <code>PlushPepe-42</code></blockquote>",
+		"zh": "✦ 🎁 <b>Telegram 典藏礼物 NFT 稀缺度与估值鉴定</b>\n\n请发送礼物 NFT 链接或名称编号，我们将为您解码四色背景基因与多市场公允价值：\n\n<blockquote>📌 示例: <code>https://t.me/nft/PlushPepe-42</code>  ·  <code>PlushPepe-42</code></blockquote>",
+		"en": "✦ 🎁 <b>Telegram Collectible Gift Appraisal</b>\n\nSend any Telegram NFT gift link or model-serial to inspect its trait genetics, serial multiplier, and fair value:\n\n<blockquote>📌 Example: <code>https://t.me/nft/PlushPepe-42</code>  ·  <code>PlushPepe-42</code></blockquote>",
 	},
 	"precheck_gate": {
-		"fa": `🔍 <b>تحلیل اولیه دارایی شناسایی شد</b>
+		"fa": `✦ 🔍 <b>تحلیل اولیه دارایی با موفقیت انجام شد</b> ✦
 
-دارایی: <b>{type}</b>
-شناسه / مقدار: <code>{entity}</code>
+<blockquote>🏷️ طبقه دارایی: <b>{type}</b>
+💎 شناسه کلکسیونی: <code>{entity}</code>
+⚡ تراز اعتبار شما: <code>{credits} کریدت</code></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-⚡ <b>اعتبار تحلیلی (Intel Credits):</b> <code>{credits}</code>
-💬 <i>کریدت رایگان با ارسال پیام در گروه @FragmentInvestors</i>
-━━━━━━━━━━━━━━━━━━━
+<b>پرونده کارشناسی و گواهی تصویری آماده صدور است:</b>
+• کارت گواهی تصویری اختصاصی با طیف کف، ارزش منصفانه و سقف قیمت
+• کالبدشکافی دقیق کمیابی، قدرت برند و ویژگی‌های ساختاری
+• جدول معاملات واقعی همتراز ثبت‌شده روی بلاکچین TON
+• استراتژی قیمت‌گذاری، زمان تخمینی نقدشوندگی و گواهی اصالت
 
-🔐 <b>در گزارش تحلیلی عمیق این دارایی چه مواردی می‌بینید؟</b>
-• برآورد ارزش منصفانه دلاری و TON (Fair Value)
-• سنجش کمیابی صفات و ویژگی‌های ساختاری
-• تاریخچه آخرین معاملات ثبت‌شده مشابه در شبکه
-• شاخص نقدشوندگی، زمان فروش و سرتیفیکیت اصالت
+<blockquote>💬 <i>نکته دوستانه: با هر پیام در گروه @FragmentInvestors می‌توانید کریدت رایگان دریافت کنید.</i>
+🔓 <b>صدور گواهی تصویری و گزارش کامل: ۱ کریدت تحلیلی</b></blockquote>`,
+		"ru": `✦ 🔍 <b>Предварительная идентификация актива завершена</b> ✦
 
-هزینه باز کردن گزارش کامل: <b>۱ کریدت تحلیلی</b>`,
-		"ru": `🔍 <b>Актив успешно распознан для анализа</b>
+<blockquote>🏷️ Категория: <b>{type}</b>
+💎 Идентификатор: <code>{entity}</code>
+⚡ Ваш баланс: <code>{credits} кредитов</code></blockquote>
 
-Категория: <b>{type}</b>
-Идентификатор: <code>{entity}</code>
+<b>Что подготовлено в полном досье и сертификате:</b>
+• Визуальный сертификат с диапазоном Floor, Fair Value и Ceiling
+• Глубокий разбор редкости атрибутов и структурной ценности
+• Подтверждённые он-чейн сделки с аналогичными активами
+• Оценка ликвидности, стратегия торгов и крипто-сертификат
 
-━━━━━━━━━━━━━━━━━━━
-⚡ <b>Доступно кредитов (Intel Credits):</b> <code>{credits}</code>
-💬 <i>Бесплатные кредиты за сообщения в группе @FragmentInvestors</i>
-━━━━━━━━━━━━━━━━━━━
+<blockquote>💬 <i>Подсказка: бесплатные кредиты начисляются за общение в @FragmentInvestors.</i>
+🔓 <b>Выпуск сертификата и полного отчёта: 1 Intel Credit</b></blockquote>`,
+		"zh": `✦ 🔍 <b>藏品初探识别已完成，深度档案就绪</b> ✦
 
-🔐 <b>Что входит в детальный отчет?</b>
-• Справедливая оценка в TON и USD
-• Анализ редкости характеристик и атрибутов
-• История реальных сопоставимых сделок на рынке
-• Метрики ликвидности и сертификат подлинности
+<blockquote>🏷️ 资产类别: <b>{type}</b>
+💎 目标标识: <code>{entity}</code>
+⚡ 可用额度: <code>{credits} 信用点</code></blockquote>
 
-Стоимость открытия полного отчета: <b>1 Intel Credit</b>`,
-		"zh": `🔍 <b>已成功识别资产并准备评估</b>
+<b>即将为您生成的视觉证书与深度报告包含：</b>
+• 黄金比例高清估值证书（含底价、公允价值与溢价上限光谱）
+• 基因稀缺度、结构特征与品牌价值的量化拆解
+• TON 链上近期真实撮合的对标历史成交记录
+• 流动性周期评级、拍卖挂单策略与防伪认证编号
 
-资产类别: <b>{type}</b>
-目标标识: <code>{entity}</code>
+<blockquote>💬 <i>温馨提示：在 @FragmentInvestors 群组发言即可免费获赠信用点。</i>
+🔓 <b>生成专属证书与完整深度报告：1 个分析信用点</b></blockquote>`,
+		"en": `✦ 🔍 <b>Preliminary Asset Scan Complete</b> ✦
 
-━━━━━━━━━━━━━━━━━━━
-⚡ <b>分析信用点 (Intel Credits):</b> <code>{credits}</code> 点
-💬 <i>在 @FragmentInvestors 群组发消息即可获取免费信用点</i>
-━━━━━━━━━━━━━━━━━━━
+<blockquote>🏷️ Asset Class: <b>{type}</b>
+💎 Identifier: <code>{entity}</code>
+⚡ Available Balance: <code>{credits} Credits</code></blockquote>
 
-🔐 <b>深度专业分析报告包含内容:</b>
-• 基于 TON 与美元的公允价值科学估算
-• 基因特征稀缺度与等级百分比
-• 全网最新真实撮合交易参照对比
-• 市场流动性评级与防伪认证证书
+<b>Your Visual Certificate & Full Appraisal Dossier includes:</b>
+• Custom Golden-Ratio valuation card with Floor, Fair Value & Ceiling spectrum
+• Granular rarity genetics, structural traits & brand equity scoring
+• Verified on-chain comparable sales executed on TON
+• Liquidity velocity, optimal pricing strategy & cryptographic certificate
 
-解锁完整深度报告仅需: <b>1 个分析信用点</b>`,
-		"en": `🔍 <b>Asset Identified for Deep Intelligence</b>
-
-Asset Class: <b>{type}</b>
-Identifier: <code>{entity}</code>
-
-━━━━━━━━━━━━━━━━━━━
-⚡ <b>Intel Credits Available:</b> <code>{credits}</code>
-💬 <i>Earn free credits by sending messages in @FragmentInvestors</i>
-━━━━━━━━━━━━━━━━━━━
-
-🔐 <b>What's inside the deep intelligence report?</b>
-• Fair value valuation in TON & USD
-• Trait rarity metrics & structural attributes
-• On-chain comps of recent executed trades
-• Liquidity score & cryptographic certificate
-
-Cost to unlock full institutional report: <b>1 Intel Credit</b>`,
+<blockquote>💬 <i>Tip: Earn free credits anytime by chatting in @FragmentInvestors.</i>
+🔓 <b>Mint visual certificate & unlock full report: 1 Intel Credit</b></blockquote>`,
 	},
 	"exchange_confirm": {
-		"fa": "⚡ <b>دریافت کریدت تحلیلی (Intel Credits)</b>\n\nموجودی فعلی شما: <b>{credits} کریدت</b>\n\n💬 با فعالیت در گروه رسمی <b>@FragmentInvestors</b> به ازای هر پیام ۱ کریدت رایگان دریافت کنید یا بسته‌های اعتباری را با Telegram Stars تهیه نمایید.",
-		"ru": "⚡ <b>Получение Intel Credits</b>\n\nВаш баланс: <b>{credits} кредитов</b>\n\n💬 Общайтесь в <b>@FragmentInvestors</b> (1 сообщение = 1 бесплатный кредит) или приобретите пакет за Telegram Stars.",
-		"zh": "⚡ <b>获取分析信用点 (Intel Credits)</b>\n\n当前余额: <b>{credits} 信用点</b>\n\n💬 在官方社群 <b>@FragmentInvestors</b> 中每发送 1 条消息即可获得 1 个免费信用点，或使用 Telegram Stars 购买。",
-		"en": "⚡ <b>Get Intel Credits</b>\n\nCurrent Balance: <b>{credits} Credits</b>\n\n💬 Chat in <b>@FragmentInvestors</b> (1 message = 1 Free Intel Credit) or purchase credit packs via Telegram Stars.",
+		"fa": "✦ ⚡ <b>شارژ تراز تحلیلی (Intel Credits)</b>\n\n<blockquote>موجودی فعلی شما: <b>{credits} کریدت</b></blockquote>\n\n💬 با گفتگو در تالار رسمی <b>@FragmentInvestors</b> به ازای هر پیام ۱ کریدت رایگان هدیه بگیرید، یا بسته اعتباری دلخواهتان را با Telegram Stars فعال کنید.",
+		"ru": "✦ ⚡ <b>Пополнение баланса Intel Credits</b>\n\n<blockquote>Текущий баланс: <b>{credits} кредитов</b></blockquote>\n\n💬 Общайтесь в официальном чате <b>@FragmentInvestors</b> (1 сообщение = 1 бесплатный кредит) или выберите пакет за Telegram Stars.",
+		"zh": "✦ ⚡ <b>补充分析信用点 (Intel Credits)</b>\n\n<blockquote>当前可用余额: <b>{credits} 信用点</b></blockquote>\n\n💬 在官方社群 <b>@FragmentInvestors</b> 每发送 1 条消息即可获赠 1 个免费信用点，或使用 Telegram Stars 即刻充值。",
+		"en": "✦ ⚡ <b>Top Up Intel Credits</b>\n\n<blockquote>Current Balance: <b>{credits} Credits</b></blockquote>\n\n💬 Chat in <b>@FragmentInvestors</b> (1 message = 1 Free Intel Credit) or activate an instant credit pack via Telegram Stars.",
 	},
 	"exchange_success": {
-		"fa": "✅ <b>اعتبار تحلیلی شما با موفقیت شارژ شد!</b>\n\nموجودی جدید: <b>{credits} کریدت</b>",
-		"ru": "✅ <b>Баланс кредитов успешно пополнен!</b>\n\nНовый баланс: <b>{credits} кредитов</b>",
-		"zh": "✅ <b>分析信用点充值成功！</b>\n\n当前余额: <b>{credits} 信用点</b>",
-		"en": "✅ <b>Intel Credits credited successfully!</b>\n\nNew Balance: <b>{credits} Credits</b>",
+		"fa": "✦ ✅ <b>تراز تحلیلی شما با موفقیت شارژ شد!</b>\n\n<blockquote>⚡ موجودی جدید: <b>{credits} کریدت</b></blockquote>",
+		"ru": "✦ ✅ <b>Баланс кредитов успешно пополнен!</b>\n\n<blockquote>⚡ Новый баланс: <b>{credits} кредитов</b></blockquote>",
+		"zh": "✦ ✅ <b>分析信用点已成功到账！</b>\n\n<blockquote>⚡ 当前最新余额: <b>{credits} 信用点</b></blockquote>",
+		"en": "✦ ✅ <b>Intel Credits Added Successfully!</b>\n\n<blockquote>⚡ Updated Balance: <b>{credits} Credits</b></blockquote>",
 	},
 	"exchange_fail": {
-		"fa": "⚠️ <b>اعتبار تحلیلی کافی نیست!</b>\n\nبرای دریافت کریدت رایگان در گروه @FragmentInvestors پیام ارسال کنید یا با Stars خرید نمایید.",
-		"ru": "⚠️ <b>Недостаточно кредитов!</b>\n\nОтправьте сообщение в @FragmentInvestors для бесплатного кредита или купите за Stars.",
-		"zh": "⚠️ <b>分析信用点不足！</b>\n\n请在 @FragmentInvestors 群组发言免费领取，或使用 Stars 购买。",
-		"en": "⚠️ <b>Insufficient Intel Credits!</b>\n\nSend a message in @FragmentInvestors for a free credit or purchase via Stars.",
+		"fa": "⚠️ <b>موجودی اعتبار تحلیلی برای صدور گزارش کافی نیست</b>\n\n<blockquote>💬 با ارسال پیام در گروه @FragmentInvestors کریدت رایگان دریافت کنید یا از طریق Stars حساب خود را شارژ نمایید.</blockquote>",
+		"ru": "⚠️ <b>Недостаточно кредитов для выпуска отчёта</b>\n\n<blockquote>💬 Отправьте сообщение в @FragmentInvestors для получения бесплатного кредита или пополните баланс за Stars.</blockquote>",
+		"zh": "⚠️ <b>分析信用点余额不足</b>\n\n<blockquote>💬 请在 @FragmentInvestors 群组发言免费领取信用点，或使用 Stars 充值。</blockquote>",
+		"en": "⚠️ <b>Insufficient Intel Credits to Mint Report</b>\n\n<blockquote>💬 Send a message in @FragmentInvestors for a free credit or top up via Telegram Stars.</blockquote>",
 	},
 	"help_view": {
-		"fa": `📖 <b>راهنمای ترمینال هوشمند iFragment</b>
+		"fa": `✦ 📖 <b>راهنمای جامع و متدولوژی ارزیابی iFragment</b> ✦
 
-شما می‌توانید بدون نیاز به هیچ دستوری، عبارات مورد نظرتان را مستقیماً برای ربات بفرستید:
+طراحی iFragment بر پایه سادگی و هوشمندی است؛ بدون نیاز به هیچ دستوری، دارایی مورد نظرتان را مستقیماً در چت بنویسید:
 
-🏷️ <b>۱. ارزیابی نام کاربری (Username):</b>
-کافیست آیدی تلگرام را بفرستید:
-• <code>@crypto</code> یا <code>wallet</code>
-• <code>https://fragment.com/username/telecom</code>
+<blockquote>🏷️ <b>۱. نام‌های کاربری (Usernames)</b>
+کافیست آیدی یا لینک فرگمنت را ارسال کنید:
+• <code>@crypto</code>  ·  <code>wallet</code>  ·  <code>https://fragment.com/username/telecom</code></blockquote>
 
-📱 <b>۲. تحلیل شماره کلکسیونی (+888):</b>
-شماره ناشناس مورد نظر را با فرمت کامل یا خلاصه بنویسید:
-• <code>+888 8888 8888</code>
-• <code>+88801234567</code> یا <code>8888</code>
+<blockquote>📱 <b>۲. شماره‌های کلکسیونی ناشناس (+888)</b>
+شماره کامل ۸ رقمی یا جنسیس ۴ رقمی را بفرستید:
+• <code>+888 8888 8888</code>  ·  <code>+88801234567</code>  ·  <code>8888</code></blockquote>
 
-🎁 <b>۳. کارشناسی گیفت تلگرام (Telegram Gifts):</b>
-لینک یا نام گیفت را بفرستید:
-• <code>https://t.me/nft/PlushPepe-42</code>
-• <code>/gift CelestialStar-1</code>
+<blockquote>🎁 <b>۳. گیفت‌های کلکسیونی تلگرام (Web3 NFT)</b>
+لینک رسمی گیفت یا نام و شماره سریال آن را وارد کنید:
+• <code>https://t.me/nft/PlushPepe-42</code>  ·  <code>/gift CelestialStar-1</code></blockquote>
 
-💡 <i>هر گزارش عمیق به ۱ کریدت تحلیلی نیاز دارد که می‌توانید با ارسال پیام یا بوست در سوپرگروه @FragmentInvestors به صورت کاملاً رایگان کریدت نامحدود دریافت کنید، یا آن را با Stars تهیه فرمایید.</i>`,
-		"ru": `📖 <b>Инструкция терминала iFragment</b>
+💡 <i>برای دریافت کریدت رایگان نامحدود، کافیست در گفتگوهای گروه @FragmentInvestors مشارکت کنید یا گروه را بوست نمایید.</i>`,
+		"ru": `✦ 📖 <b>Руководство и методология оценки iFragment</b> ✦
 
-Вы можете отправлять активы прямо в чат без дополнительных команд:
+Терминал распознаёт любой актив автоматически — просто отправьте его в чат без команд:
 
-🏷️ <b>1. Оценка юзернеймов (Username):</b>
-Отправьте тег или ссылку:
-• <code>@crypto</code> или <code>wallet</code>
-• <code>https://fragment.com/username/telecom</code>
+<blockquote>🏷️ <b>1. Юзернеймы (Usernames)</b>
+Отправьте тег или ссылку Fragment:
+• <code>@crypto</code>  ·  <code>wallet</code>  ·  <code>https://fragment.com/username/telecom</code></blockquote>
 
-📱 <b>2. Анализ номеров (+888):</b>
-Отправьте анонимный номер:
-• <code>+888 8888 8888</code>
-• <code>+88801234567</code> или <code>8888</code>
+<blockquote>📱 <b>2. Анонимные номера (+888)</b>
+Отправьте полный номер или 4-значный генезис:
+• <code>+888 8888 8888</code>  ·  <code>+88801234567</code>  ·  <code>8888</code></blockquote>
 
-🎁 <b>3. Оценка подарков (Telegram Gifts):</b>
-Отправьте ссылку на NFT-подарок или идентификатор:
-• <code>https://t.me/nft/PlushPepe-42</code>
-• <code>/gift CelestialStar-1</code>
+<blockquote>🎁 <b>3. Коллекционные подарки (Telegram Gifts)</b>
+Отправьте ссылку на NFT-подарок или его название и номер:
+• <code>https://t.me/nft/PlushPepe-42</code>  ·  <code>/gift CelestialStar-1</code></blockquote>
 
-💡 <i>Каждый детальный отчет требует 1 Intel Credit. Вы можете бесплатно получать кредиты за сообщения и бусты в @FragmentInvestors или приобрести их за Stars.</i>`,
-		"zh": `📖 <b>iFragment 智能终端使用指南</b>
+💡 <i>Получайте безлимитные бесплатные кредиты за общение и бусты в сообществе @FragmentInvestors или приобретайте их за Stars.</i>`,
+		"zh": `✦ 📖 <b>iFragment 鉴赏指南与估值方法论</b> ✦
 
-您可以直接向机器人发送资产信息，无需输入复杂指令：
+无需记忆复杂指令，直接将您想评估的藏品发送至对话中即可自动识别：
 
-🏷️ <b>1. 用户名估值 (Username):</b>
-直接发送用户名或链接：
-• <code>@crypto</code> 或 <code>wallet</code>
-• <code>https://fragment.com/username/telecom</code>
+<blockquote>🏷️ <b>1. 用户名估值 (Usernames)</b>
+直接发送用户名或 Fragment 链接：
+• <code>@crypto</code>  ·  <code>wallet</code>  ·  <code>https://fragment.com/username/telecom</code></blockquote>
 
-📱 <b>2. 匿名靓号分析 (+888):</b>
-发送任意 888 匿名号码：
-• <code>+888 8888 8888</code>
-• <code>+88801234567</code> 或 <code>8888</code>
+<blockquote>📱 <b>2. 匿名靓号分析 (+888)</b>
+发送 8 位完整号码或 4 位创世靓号：
+• <code>+888 8888 8888</code>  ·  <code>+88801234567</code>  ·  <code>8888</code></blockquote>
 
-🎁 <b>3. 电报礼物鉴定 (Telegram Gifts):</b>
-发送礼物 NFT 链接或编号：
-• <code>https://t.me/nft/PlushPepe-42</code>
-• <code>/gift CelestialStar-1</code>
+<blockquote>🎁 <b>3. 电报礼物鉴定 (Telegram Gifts)</b>
+发送礼物 NFT 链接或模型编号：
+• <code>https://t.me/nft/PlushPepe-42</code>  ·  <code>/gift CelestialStar-1</code></blockquote>
 
-💡 <i>每份深度报告消耗 1 个分析信用点。您可以在 @FragmentInvestors 群组中发言或助力群组免费获取无限信用点，也可使用 Telegram Stars 购买。</i>`,
-		"en": `📖 <b>iFragment Terminal Guide</b>
+💡 <i>在 @FragmentInvestors 社群发言或助力群组即可免费获赠无限分析信用点，也可通过 Telegram Stars 便捷充值。</i>`,
+		"en": `✦ 📖 <b>iFragment Appraisal Guide & Methodology</b> ✦
 
-You can send assets directly into the chat:
+Designed for effortless clarity — simply send any asset directly into the chat without commands:
 
-🏷️ <b>1. Username Valuation:</b>
-Send any username handle or Fragment URL:
-• <code>@crypto</code> or <code>wallet</code>
-• <code>https://fragment.com/username/telecom</code>
+<blockquote>🏷️ <b>1. Collectible Usernames</b>
+Send any handle or Fragment link:
+• <code>@crypto</code>  ·  <code>wallet</code>  ·  <code>https://fragment.com/username/telecom</code></blockquote>
 
-📱 <b>2. Anonymous Numbers (+888):</b>
-Send any +888 number:
-• <code>+888 8888 8888</code>
-• <code>+88801234567</code> or <code>8888</code>
+<blockquote>📱 <b>2. Anonymous Numbers (+888)</b>
+Send any full +888 number or 4-digit Genesis number:
+• <code>+888 8888 8888</code>  ·  <code>+88801234567</code>  ·  <code>8888</code></blockquote>
 
-🎁 <b>3. Telegram Gifts Appraisal:</b>
-Send any NFT gift link or slug:
-• <code>https://t.me/nft/PlushPepe-42</code>
-• <code>/gift CelestialStar-1</code>
+<blockquote>🎁 <b>3. Telegram Collectible Gifts (NFT)</b>
+Send any NFT gift link or model-serial:
+• <code>https://t.me/nft/PlushPepe-42</code>  ·  <code>/gift CelestialStar-1</code></blockquote>
 
-💡 <i>Each detailed report costs 1 Intel Credit. You can earn unlimited free credits by chatting or boosting @FragmentInvestors, or buy with Stars.</i>`,
+💡 <i>Earn unlimited free Intel Credits by chatting or boosting @FragmentInvestors, or top up anytime with Telegram Stars.</i>`,
 	},
 }
 
 // defaultButtons stores the centralized fallback button labels across all 4 supported languages.
 var defaultButtons = map[string]map[string]string{
 	"btn_mini_app": {
-		"fa": "🚀 ورود به ترمینال مینی‌اپ iFragment 💎",
-		"ru": "🚀 Открыть терминал iFragment 💎",
-		"zh": "🚀 启动 iFragment 智能终端 💎",
-		"en": "🚀 Launch iFragment Terminal 💎",
+		"fa": "💎 ورود به تالار مینی‌اپ iFragment ✦",
+		"ru": "💎 Открыть терминал iFragment ✦",
+		"zh": "💎 启动 iFragment 鉴赏终端 ✦",
+		"en": "💎 Launch iFragment Terminal ✦",
 	},
 	"btn_usernames": {
-		"fa": "🏷️ کارشناسی یوزرنیم",
-		"ru": "🏷️ Оценка юзернеймов",
+		"fa": "🏷️ ارزیابی یوزرنیم",
+		"ru": "🏷️ Юзернеймы",
 		"zh": "🏷️ 用户名估值",
-		"en": "🏷️ Username Appraisal",
+		"en": "🏷️ Usernames",
 	},
 	"btn_numbers": {
-		"fa": "📱 شماره‌های رند (+888)",
-		"ru": "📱 Номера (+888)",
-		"zh": "📱 匿名靓号 (+888)",
+		"fa": "📱 شماره‌های +888",
+		"ru": "📱 Номера +888",
+		"zh": "📱 +888 匿名靓号",
 		"en": "📱 +888 Numbers",
 	},
 	"btn_gifts": {
-		"fa": "🎁 کارشناسی گیفت (NFT)",
-		"ru": "🎁 Подарки (Web3 NFT)",
-		"zh": "🎁 电报礼物 (NFT)",
-		"en": "🎁 Web3 Gifts (NFT)",
+		"fa": "🎁 گیفت‌های کلکسیونی",
+		"ru": "🎁 Подарки NFT",
+		"zh": "🎁 典藏礼物 NFT",
+		"en": "🎁 Collectible Gifts",
 	},
 	"btn_profile": {
-		"fa": "👤 پروفایل و اعتبار من",
-		"ru": "👤 Профиль и баланс",
-		"zh": "👤 个人中心与额度",
-		"en": "👤 Profile & Credits",
+		"fa": "👤 پاسپورت و اعتبار من",
+		"ru": "👤 Паспорт и баланс",
+		"zh": "👤 藏家通行证",
+		"en": "👤 Collector Passport",
 	},
 	"btn_language": {
-		"fa": "🌐 تغییر زبان (۴ زبان)",
+		"fa": "🌐 زبان (۴ زبان)",
 		"ru": "🌐 Язык (4 языка)",
-		"zh": "🌐 切换语言 (4语)",
+		"zh": "🌐 语言切换 (4语)",
 		"en": "🌐 Language (4 Langs)",
 	},
 	"btn_help": {
 		"fa": "📖 راهنما و متدولوژی",
 		"ru": "📖 Гид и методология",
 		"zh": "📖 指南与方法论",
-		"en": "📖 Guide & Methodology",
+		"en": "📖 Guide & Method",
 	},
 	"btn_free_credits": {
-		"fa": "💬 دریافت کریدت رایگان (گروه)",
+		"fa": "💬 کریدت رایگان (تالار)",
 		"ru": "💬 Бесплатные кредиты",
-		"zh": "💬 免费获取信用点",
+		"zh": "💬 免费领信用点",
 		"en": "💬 Earn Free Credits",
 	},
 	"btn_exchange": {
-		"fa": "💬 دریافت کریدت رایگان (گروه)",
+		"fa": "💬 کریدت رایگان (تالار)",
 		"ru": "💬 Бесплатные кредиты",
-		"zh": "💬 免费获取信用点",
+		"zh": "💬 免费领信用点",
 		"en": "💬 Earn Free Credits",
 	},
 	"btn_leaderboard": {
-		"fa": "🏆 جدول برترین‌ها (مینی‌اپ)",
-		"ru": "🏆 Таблица лидеров (Mini App)",
-		"zh": "🏆 综合排行榜 (小程序)",
-		"en": "🏆 Top Leaderboard (Mini App)",
+		"fa": "🏆 برترین کلکسیونرها",
+		"ru": "🏆 Лидеры рейтинга",
+		"zh": "🏆 藏家排行榜",
+		"en": "🏆 Top Collectors",
 	},
 	"btn_stars": {
-		"fa": "⭐ فروشگاه کریدت (Stars)",
-		"ru": "⭐ Магазин кредитов (Stars)",
-		"zh": "⭐ 信用点商店 (Stars)",
-		"en": "⭐ Credit Store (Stars)",
+		"fa": "⭐ شارژ فوری با Stars",
+		"ru": "⭐ Пополнить за Stars",
+		"zh": "⭐ Stars 快捷充值",
+		"en": "⭐ Top Up via Stars",
 	},
 	"btn_unlock": {
-		"fa": "🔓 مشاهده گزارش تحلیلی (۱ کریدت)",
-		"ru": "🔓 Открыть отчет (1 кредит)",
-		"zh": "🔓 解锁专业分析报告 (1 信用点)",
-		"en": "🔓 Unlock Full Report (1 Credit)",
+		"fa": "🔓 صدور گواهی و گزارش کامل (۱ کریدت)",
+		"ru": "🔓 Выпустить сертификат и отчёт (1 кредит)",
+		"zh": "🔓 生成证书与完整报告 (1 信用点)",
+		"en": "🔓 Mint Certificate & Full Report (1 Credit)",
 	},
 	"btn_back": {
-		"fa": "🔙 بازگشت به منو",
-		"ru": "🔙 В меню",
+		"fa": "🔙 بازگشت به تالار",
+		"ru": "🔙 В главное меню",
 		"zh": "🔙 返回主菜单",
 		"en": "🔙 Back to Menu",
 	},
 	"btn_back_menu": {
-		"fa": "🔙 بازگشت به منوی اصلی",
+		"fa": "🔙 بازگشت به تالار اصلی",
 		"ru": "🔙 В главное меню",
 		"zh": "🔙 返回主菜单",
 		"en": "🔙 Back to Main Menu",
