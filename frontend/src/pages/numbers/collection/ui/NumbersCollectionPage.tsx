@@ -11,6 +11,9 @@ import { NumberAlertsModal } from './components/NumberAlertsModal.js';
 import { NumberClubFloorsTracker } from './components/NumberClubFloorsTracker.js';
 import { NumberCollectionChart } from './components/NumberCollectionChart.js';
 import { NumberCollectionKpis } from './components/NumberCollectionKpis.js';
+import { NumberCulturalRadarHeatmap } from './components/NumberCulturalRadarHeatmap.js';
+import { NumberDeFiFinancials } from './components/NumberDeFiFinancials.js';
+import { NumberDialpadErgonomics } from './components/NumberDialpadErgonomics.js';
 import { NumberExportModal } from './components/NumberExportModal.js';
 import { NumberHoldersView } from './components/NumberHoldersView.js';
 import { NumberMarketView } from './components/NumberMarketView.js';
@@ -170,6 +173,8 @@ export const NumbersCollectionPage: Component = () => {
 							rate={rate()}
 							onSelectNumber={(num) => navigate(`/numbers/report?n=${encodeURIComponent(num)}`)}
 						/>
+
+						<NumberDeFiFinancials overview={overview()} />
 					</div>
 				</Show>
 
@@ -198,7 +203,11 @@ export const NumbersCollectionPage: Component = () => {
 
 				{/* Tab 3: Patterns */}
 				<Show when={selectedTab() === 'patterns'}>
-					<NumberPatternsView patterns={patterns()} rate={rate()} />
+					<div class="space-y-4">
+						<NumberPatternsView patterns={patterns()} rate={rate()} />
+						<NumberDialpadErgonomics defaultDigits="08888888" />
+						<NumberCulturalRadarHeatmap />
+					</div>
 				</Show>
 
 				{/* Tab 4: Holders */}

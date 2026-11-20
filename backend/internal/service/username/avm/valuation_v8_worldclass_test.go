@@ -94,11 +94,20 @@ func TestBinaryAndTVMBOCForensics(t *testing.T) {
 	if !strings.HasPrefix(bf.TvmBocCellHex, "b5ee9c72") {
 		t.Errorf("Expected standard TVM BOC magic prefix b5ee9c72, got %s", bf.TvmBocCellHex)
 	}
+	if !strings.HasPrefix(bf.TelemintTokenCellBoc, "0xb5ee9c72") {
+		t.Errorf("Expected TelemintTokenCellBoc to start with 0xb5ee9c72, got %s", bf.TelemintTokenCellBoc)
+	}
+	if bf.Crc32cChecksumHex == "" || !strings.HasPrefix(bf.Crc32cChecksumHex, "0x") || len(bf.Crc32cChecksumHex) != 10 {
+		t.Errorf("Expected 4-byte 0x-prefixed Castagnoli CRC32-C checksum hex, got %s", bf.Crc32cChecksumHex)
+	}
+	if bf.Tep81DnsInternalHex != "0x6d65007400746f6e00" {
+		t.Errorf("Expected TEP-81 internal DNS slice 0x6d65007400746f6e00 ('me\\0t\\0ton\\0'), got %s", bf.Tep81DnsInternalHex)
+	}
 	if len(bf.Tep62IndexSha256) != 66 || !strings.HasPrefix(bf.Tep62IndexSha256, "0x") {
 		t.Errorf("Expected 66-char 0x-prefixed SHA-256 index, got %s", bf.Tep62IndexSha256)
 	}
-	if caps.TonDnsDomain != "ton.t.me" {
-		t.Errorf("Expected TonDnsDomain ton.t.me, got %s", caps.TonDnsDomain)
+	if caps.TonDnsDomain != "ton.t.me" || caps.FragmentUrl != "https://fragment.com/username/ton" {
+		t.Errorf("Expected TonDnsDomain ton.t.me and FragmentUrl, got %s / %s", caps.TonDnsDomain, caps.FragmentUrl)
 	}
 }
 

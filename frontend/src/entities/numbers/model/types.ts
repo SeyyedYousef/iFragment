@@ -286,7 +286,10 @@ export interface NumberBinaryForensics {
 	clean_digits: string;
 	suffix_digits: string;
 	utf8_hex: string;
+	bit_length?: number;
 	bcd_stream: string;
+	bcd_hamming_weight?: number;
+	is_pure_msb_80_wave?: boolean;
 	tep62_index_sha256_hex: string;
 	tep62_index_uint256_dec: string;
 	collection_address: string;
@@ -295,8 +298,11 @@ export interface NumberBinaryForensics {
 	max_entropy_bits: number;
 	kolmogorov_compression_pct: number;
 	total_hamming_weight: number;
+	hamming_density?: number;
 	keypad_manhattan_distance: number;
+	fitts_index_bits?: number;
 	keypad_ergonomic_score: number;
+	dtmf_consonance_score?: number;
 	keypad_geometry_class_en: string;
 	keypad_geometry_class_fa: string;
 	dtmf_acoustic_signature: string;
@@ -305,6 +311,11 @@ export interface NumberBinaryForensics {
 	tvm_last_tx_lt?: string;
 	tvm_balance_nanoton?: string;
 	token_name_boc_hex?: string;
+	telemint_token_cell_boc_hex?: string;
+	boc_magic_prefix?: string;
+	cell_descriptor_d1_hex?: string;
+	cell_descriptor_d2_hex?: string;
+	crc32c_checksum_hex?: string;
 	individual_content_boc_hex?: string;
 	digits_matrix: NumberDigitForensicCell[];
 }

@@ -44,6 +44,14 @@ type NumberBinaryForensicsDto struct {
 	CollectionAddress        string                    `json:"collection_address"`
 	NFTItemAddress           string                    `json:"nft_item_address"`
 	TokenNameBOCHex          string                    `json:"token_name_boc_hex"`
+	TelemintTokenCellBOCHex  string                    `json:"telemint_token_cell_boc_hex"`
+	BOCMagicPrefix           string                    `json:"boc_magic_prefix"`
+	CellDescriptorD1Hex      string                    `json:"cell_descriptor_d1_hex"`
+	CellDescriptorD2Hex      string                    `json:"cell_descriptor_d2_hex"`
+	CRC32CChecksumHex        string                    `json:"crc32c_checksum_hex"`
+	FragmentNumberWebURI     string                    `json:"fragment_number_web_uri"`
+	FragmentNFTMetadataURI   string                    `json:"fragment_nft_metadata_uri"`
+	FragmentNFTImageURI      string                    `json:"fragment_nft_image_uri"`
 	ShannonEntropyBits       float64                   `json:"shannon_entropy_bits"`
 	MaxEntropyBits           float64                   `json:"max_entropy_bits"`
 	KolmogorovCompressionPct int                       `json:"kolmogorov_compression_pct"`
@@ -119,7 +127,11 @@ func ComputeNumberBinaryForensics(normNumber string, fv features.FeatureVector, 
 	uint256Int := new(big.Int).SetBytes(hash[:])
 
 	// Deterministic TVM Bag-of-Cells (BOC) representation of the TeleMint token name slice
-	bocHex := buildTeleMintNumberBOCHex(cleanDigits)
+	bocHex, d1Hex, d2Hex, crc32cHex := buildTeleMintNumberBOCDetails([]byte(cleanDigits))
+
+	// TeleMint Token Info TL-B cell: telemint_text$_ len:(## 8) text:(bits (len * 8))
+	telemintPayload := append([]byte{byte(len(cleanDigits))}, []byte(cleanDigits)...)
+	telemintTokenBoc, _, _, _ := buildTeleMintNumberBOCDetails(telemintPayload)
 
 	maxEnt := 0.0
 	if len(suffix) > 0 {
@@ -147,6 +159,14 @@ func ComputeNumberBinaryForensics(normNumber string, fv features.FeatureVector, 
 		CollectionAddress:        registry.AnonymousNumbersCollectionAddr,
 		NFTItemAddress:           itemAddr,
 		TokenNameBOCHex:          bocHex,
+		TelemintTokenCellBOCHex:  telemintTokenBoc,
+		BOCMagicPrefix:           "0xb5ee9c72",
+		CellDescriptorD1Hex:      d1Hex,
+		CellDescriptorD2Hex:      d2Hex,
+		CRC32CChecksumHex:        crc32cHex,
+		FragmentNumberWebURI:     "https://fragment.com/number/" + cleanDigits,
+		FragmentNFTMetadataURI:   "https://nft.fragment.com/number/" + cleanDigits + ".json",
+		FragmentNFTImageURI:      "https://nft.fragment.com/number/" + cleanDigits + ".webp",
 		ShannonEntropyBits:       fv.HarmonicEntropy,
 		MaxEntropyBits:           maxEnt,
 		KolmogorovCompressionPct: kolmogorovPct,
@@ -190,12 +210,16 @@ func describeKeypadGeometry(dp features.DialPadFeatures) (string, string) {
 // buildTeleMintNumberBOCHex constructs a canonical TVM Bag-of-Cells (BOC, magic 0xb5ee9c72)
 // single-root cell with CRC32-C containing the ASCII bytes of the TeleMint number token.
 func buildTeleMintNumberBOCHex(cleanDigits string) string {
-	payload := []byte(cleanDigits)
+	bocHex, _, _, _ := buildTeleMintNumberBOCDetails([]byte(cleanDigits))
+	return bocHex
+}
+
+func buildTeleMintNumberBOCDetails(payload []byte) (bocHex string, d1Hex string, d2Hex string, crc32cHex string) {
 	d1 := byte(0x00) // 0 refs, ordinary data cell
 	d2 := byte(len(payload) * 2)
 	cellSize := 2 + len(payload)
 
-	raw := make([]byte, 0, 32)
+	raw := make([]byte, 0, 16+len(payload))
 	// Standard BOC magic: b5ee9c72
 	raw = append(raw, 0xb5, 0xee, 0x9c, 0x72)
 	// Flags byte: has_idx=0, has_crc32c=1 (0x40), size_bytes=1 (0x01) -> 0x41
@@ -219,6 +243,6 @@ func buildTeleMintNumberBOCHex(cleanDigits string) string {
 	binary.LittleEndian.PutUint32(crcBytes[:], checksum)
 	raw = append(raw, crcBytes[:]...)
 
-	return "0x" + hex.EncodeToString(raw)
+	return "0x" + hex.EncodeToString(raw), fmt.Sprintf("0x%02x", d1), fmt.Sprintf("0x%02x", d2), "0x" + hex.EncodeToString(crcBytes[:])
 }
 

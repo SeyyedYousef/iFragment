@@ -16,6 +16,10 @@ import {
 	TonIcon,
 } from '@/shared/ui/fragment/FragmentPrimitives.js';
 import { CreditStoreSheet, UnifiedPaywallGate, useWallet } from '@/widgets/paywall/index.js';
+import { NumberDialpadErgonomics } from '../../collection/ui/components/NumberDialpadErgonomics.js';
+import { NumberDigitalCertificateCard } from './components/NumberDigitalCertificateCard.js';
+import { NumberFinancialEngineeringCard } from './components/NumberFinancialEngineeringCard.js';
+import { NumberSingleCulturalRadarCard } from './components/NumberSingleCulturalRadarCard.js';
 
 interface NumberValidation {
 	isValid: boolean;
@@ -797,6 +801,64 @@ export const NumberReportPage: Component = () => {
 											</span>
 										</div>
 									</div>
+
+									{/* Combinatorial Scarcity & Pattern Anatomy */}
+									<Show when={r().combinatorial_scarcity}>
+										{(cs) => (
+											<div class="frag-table-container">
+												<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
+													<span>Combinatorial Scarcity & Information Theory</span>
+													<span class="font-mono text-[#4db2ff]">
+														{cs().exact_pattern_count} in 136,566
+													</span>
+												</div>
+												<FragKV label="Pattern Class">
+													{isRtl() ? cs().pattern_class_fa : cs().pattern_class_en}
+												</FragKV>
+												<FragKV label="Minted Supply Share">
+													<span class="font-mono text-[#5aec8c]">
+														{cs().supply_percentage}% ({cs().exact_pattern_count} minted)
+													</span>
+												</FragKV>
+												<FragKV label="Symmetry & Memorability">
+													<span class="font-mono">
+														Sym {cs().symmetry_score}/100 · Mem {cs().memorability_score}/100 · Max Run{' '}
+														{cs().max_run}
+													</span>
+												</FragKV>
+											</div>
+										)}
+									</Show>
+
+									{/* Multi-Regional Cultural Numerology Radar */}
+									<NumberSingleCulturalRadarCard
+										digits={validation().suffix || cleanDigitsForUrl().replace(/^888/, '')}
+										expectedTon={Number(r().expected_ton || 2717)}
+									/>
+
+									{/* DeFi Collateral & Rental Yield Financial Engineering */}
+									<NumberFinancialEngineeringCard
+										expectedTon={Number(r().expected_ton || 2717)}
+										tonUsdRate={r().ton_usd_rate || 1.29}
+										tier={validation().tier}
+									/>
+
+									{/* Interactive ITU-T E.161 / Q.23 Keypad Biomechanics */}
+									<NumberDialpadErgonomics
+										defaultDigits={validation().suffix || cleanDigitsForUrl().replace(/^888/, '')}
+									/>
+
+									{/* Digital Certificate & Telegram Story / Chat Export */}
+									<NumberDigitalCertificateCard
+										report={r()}
+										displayNumber={displayNum()}
+										tier={validation().tier}
+										patternLabel={
+											r().pattern_anatomy?.club_name_en ||
+											r().category_club ||
+											validation().patternLabel
+										}
+									/>
 								</div>
 							</Show>
 
@@ -920,6 +982,89 @@ export const NumberReportPage: Component = () => {
 												: 'Verified TeleMint NFT'}
 										</FragKV>
 									</div>
+
+									{/* TON Binary, 8421 BCD & ITU-T Q.23 DTMF Acoustic Forensics Matrix */}
+									<Show when={r().binary_forensics}>
+										{(bf) => (
+											<div class="frag-table-container" dir="ltr">
+												<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
+													<span>TON TVM BOC, 8421 BCD & ITU-T Q.23 DTMF Forensics</span>
+													<span class="font-mono text-[#4db2ff]">
+														{bf().boc_magic_prefix || '0xb5ee9c72'}
+													</span>
+												</div>
+												<FragKV label="UTF-8 ASCII Hex" copyValue={bf().utf8_hex}>
+													<span class="font-mono text-[#4db2ff]">0x{bf().utf8_hex}</span>
+												</FragKV>
+												<FragKV label="8421 BCD Nibble Stream" copyValue={bf().bcd_stream}>
+													<span class="font-mono text-[11px] text-[#5aec8c]">{bf().bcd_stream}</span>
+												</FragKV>
+												<FragKV label="BCD & ASCII Hamming Weight">
+													<span class="font-mono">
+														BCD: {bf().bcd_hamming_weight ?? '—'} bits · ASCII:{' '}
+														{bf().total_hamming_weight} bits
+														{bf().is_pure_msb_80_wave ? ' · Pure MSB 8/0 Wave' : ''}
+													</span>
+												</FragKV>
+												<FragKV label="Shannon Entropy & Kolmogorov">
+													<span class="font-mono">
+														H = {bf().shannon_entropy_bits} / {bf().max_entropy_bits} bits · Comp{' '}
+														{bf().kolmogorov_compression_pct}%
+													</span>
+												</FragKV>
+												<FragKV label="Fitts's Law & Keypad Geometry">
+													<span class="font-mono text-[#5aec8c]">
+														ID {bf().fitts_index_bits ?? 0} bits · Ergo {bf().keypad_ergonomic_score}
+														/100 · Manhattan {bf().keypad_manhattan_distance}
+													</span>
+												</FragKV>
+												<FragKV label="ITU-T Q.23 DTMF Signature">
+													<span class="font-mono text-[11px] text-[#4db2ff]">
+														{bf().dtmf_acoustic_signature} (
+														{Math.round(bf().dtmf_consonance_score || 85)}% consonance)
+													</span>
+												</FragKV>
+												<FragKV label="TEP-62 SHA-256 Index" copyValue={bf().tep62_index_sha256_hex}>
+													<span class="font-mono text-[11px]">
+														{bf().tep62_index_sha256_hex.slice(0, 20)}…
+													</span>
+												</FragKV>
+												<Show when={bf().token_name_boc_hex}>
+													<FragKV
+														label="TVM BOC Cell (Castagnoli CRC32-C)"
+														copyValue={bf().token_name_boc_hex}
+													>
+														<span class="font-mono text-[11px] text-[#5aec8c]">
+															{(bf().token_name_boc_hex || '').slice(0, 22)}… (
+															{bf().crc32c_checksum_hex || 'CRC32-C'})
+														</span>
+													</FragKV>
+												</Show>
+
+												{/* Per-Digit 8421 BCD & DTMF Dual-Tone Frequency Table */}
+												<Show when={(bf().digits_matrix?.length || 0) > 0}>
+													<div class="p-3 border-t border-[#1a2026]">
+														<span class="text-[10.5px] font-semibold text-[#8c9aa9] block mb-1.5">
+															Per-Digit 8421 BCD Nibble & ITU-T Q.23 Dual-Tone Matrix
+														</span>
+														<div class="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+															<For each={bf().digits_matrix || []}>
+																{(cell) => (
+																	<div class="p-1.5 rounded-[6px] bg-[#1a2026] border border-[#293440] text-center font-mono">
+																		<div class="text-[14px] font-bold text-white">{cell.digit}</div>
+																		<div class="text-[9.5px] text-[#5aec8c]">{cell.bcd_nibble}</div>
+																		<div class="text-[8.5px] text-[#8c9aa9]">
+																			{cell.dtmf_row_hz}+{cell.dtmf_col_hz}Hz
+																		</div>
+																	</div>
+																)}
+															</For>
+														</div>
+													</div>
+												</Show>
+											</div>
+										)}
+									</Show>
 
 									{/* Sale / Bid History Table */}
 									<Show when={(r().history?.transactions?.length || 0) > 0}>

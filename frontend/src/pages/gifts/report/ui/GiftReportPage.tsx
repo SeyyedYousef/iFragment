@@ -20,6 +20,10 @@ import {
 	TonIcon,
 } from '@/shared/ui/fragment/FragmentPrimitives.js';
 import { CreditStoreSheet, UnifiedPaywallGate, useWallet } from '@/widgets/paywall/index.js';
+import { GiftExitPlannerCard } from './components/GiftExitPlannerCard.js';
+import { GiftLayaActionCard } from './components/GiftLayaActionCard.js';
+import { GiftStarsParityCard } from './components/GiftStarsParityCard.js';
+import { GiftTraitSynergyCard } from './components/GiftTraitSynergyCard.js';
 
 function formatUsdPlain(val: number | string | undefined | null): string {
 	const num = typeof val === 'string' ? Number.parseFloat(val) : (val ?? 0);
@@ -737,6 +741,18 @@ export const GiftReportPage = () => {
 									>
 										t.me/nft/{fragmentGiftSlug()}
 									</FragKV>
+									<FragKV
+										label="Fragment Collectible"
+										href={
+											rep().binary_forensics?.fragment_gift_web_uri ||
+											rep().binary_forensics?.fragment_url ||
+											`https://fragment.com/gift/${parsedTarget().slug.replace(/[_-]+/g, '')}-${parsedTarget().serial}`
+										}
+										accent
+									>
+										fragment.com/gift/{parsedTarget().slug.replace(/[_-]+/g, '')}-
+										{parsedTarget().serial}
+									</FragKV>
 									<Show when={modelTrait()}>
 										{(mt) => (
 											<FragKV
@@ -793,7 +809,7 @@ export const GiftReportPage = () => {
 										each={
 											[
 												{ id: 'valuation', label: '4-Floor Matrix' },
-												{ id: 'traits', label: 'Trait Simulator' },
+												{ id: 'traits', label: 'Traits & Binary' },
 												{ id: 'comps', label: `Recent Sales (${rep().comps?.length || 0})` },
 											] as const
 										}
@@ -871,6 +887,16 @@ export const GiftReportPage = () => {
 											</FragKV>
 										</div>
 
+										<GiftLayaActionCard report={rep()} fairValueTon={fairValueTon()} />
+
+										<GiftExitPlannerCard
+											report={rep()}
+											fairValueTon={fairValueTon()}
+											fairValueUsd={fairValueUsd()}
+										/>
+
+										<GiftStarsParityCard report={rep()} fairValueTon={fairValueTon()} />
+
 										<div class="grid grid-cols-2 gap-2">
 											<button
 												type="button"
@@ -896,7 +922,7 @@ export const GiftReportPage = () => {
 									</div>
 								</Show>
 
-								{/* TAB 2: TRAIT DNA & LIVE SIMULATOR */}
+								{/* TAB 2: TRAIT DNA, SIMULATOR & MTPROTO / TON TEP-62 BINARY FORENSICS */}
 								<Show when={activeTab() === 'traits'}>
 									<div class="space-y-3.5">
 										<div class="frag-table-container">
@@ -921,6 +947,8 @@ export const GiftReportPage = () => {
 												)}
 											</For>
 										</div>
+
+										<GiftTraitSynergyCard report={rep()} />
 
 										{/* Minimalist Trait Combo Simulator */}
 										<Show when={rep().collection_catalog}>
@@ -993,6 +1021,108 @@ export const GiftReportPage = () => {
 															</select>
 														</Show>
 													</div>
+												</div>
+											)}
+										</Show>
+
+										{/* MTProto Layer 198+, CIEDE2000 Color Science & TON TEP-62/TEP-64 Binary Forensics Card */}
+										<Show when={rep().binary_forensics}>
+											{(bf) => (
+												<div class="frag-table-container" dir="ltr">
+													<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
+														<span>MTProto Layer 198+ & TON TVM BOC Forensics</span>
+														<span class="font-mono text-[#4db2ff]">
+															{bf().boc_magic_prefix || '0xb5ee9c72'}
+														</span>
+													</div>
+													<FragKV label="MTProto TL Constructor">
+														<span class="font-mono text-[#4db2ff]">
+															{bf().mtproto_constructor || 'starGiftUnique#5c62d151'}
+														</span>
+													</FragKV>
+													<Show when={bf().mtproto_header_hex}>
+														<FragKV
+															label="24-Byte Little-Endian Header"
+															copyValue={bf().mtproto_header_hex}
+														>
+															<span class="font-mono text-[11px] text-[#5aec8c]">
+																{(bf().mtproto_header_hex || '').slice(0, 22)}…
+															</span>
+														</FragKV>
+													</Show>
+													<Show when={bf().center_color_bit_stream_24}>
+														<FragKV label="Center RGB24 Bitstream">
+															<span class="font-mono text-[11px]">
+																{bf().center_color_hex} · {bf().center_color_bit_stream_24}
+															</span>
+														</FragKV>
+													</Show>
+													<Show when={bf().edge_color_bit_stream_24}>
+														<FragKV label="Edge RGB24 Bitstream">
+															<span class="font-mono text-[11px]">
+																{bf().edge_color_hex} · {bf().edge_color_bit_stream_24}
+															</span>
+														</FragKV>
+													</Show>
+													<Show when={bf().ciede2000_model_backdrop !== undefined}>
+														<FragKV label="CIEDE2000 Perceptual ΔE00">
+															<span class="font-mono text-[#5aec8c]">
+																ΔE00 = {bf().ciede2000_model_backdrop} · Contrast{' '}
+																{bf().wcag_contrast_ratio}:1
+																{bf().is_monochrome_color_match ? ' · Monochrome Match' : ''}
+															</span>
+														</FragKV>
+													</Show>
+													<Show when={bf().shannon_surprisal_bits !== undefined}>
+														<FragKV label="Shannon Trait Surprisal">
+															<span class="font-mono">
+																{bf().shannon_surprisal_bits} bits (P = {bf().joint_probability})
+															</span>
+														</FragKV>
+													</Show>
+													<Show when={bf().tep62_item_index_sha256}>
+														<FragKV
+															label="TEP-62 SHA-256 Index"
+															copyValue={bf().tep62_item_index_sha256}
+														>
+															<span class="font-mono text-[11px]">
+																{(bf().tep62_item_index_sha256 || '').slice(0, 20)}…
+															</span>
+														</FragKV>
+													</Show>
+													<Show when={bf().tvm_cell_boc_hex}>
+														<FragKV
+															label="TVM BOC Cell (Castagnoli CRC32-C)"
+															copyValue={bf().tvm_cell_boc_hex}
+														>
+															<span class="font-mono text-[11px] text-[#5aec8c]">
+																{(bf().tvm_cell_boc_hex || '').slice(0, 22)}… (
+																{bf().crc32c_checksum_hex || 'CRC32-C'})
+															</span>
+														</FragKV>
+													</Show>
+													<FragKV
+														label="TGS / Lottie Vector Asset"
+														href={
+															bf().tgs_sticker_uri ||
+															bf().lottie_vector_uri ||
+															bf().lottie_url
+														}
+														accent
+													>
+														<span class="font-mono text-[11.5px]">
+															nft.fragment.com/gift/…tgs
+														</span>
+													</FragKV>
+													<FragKV
+														label="TEP-64 Off-Chain JSON"
+														href={bf().tep64_metadata_uri || bf().metadata_json_url}
+														accent
+													>
+														<span class="font-mono text-[11.5px]">
+															nft.fragment.com/gift/…json
+														</span>
+													</FragKV>
 												</div>
 											)}
 										</Show>

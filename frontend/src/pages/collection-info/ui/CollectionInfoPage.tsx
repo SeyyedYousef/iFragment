@@ -63,11 +63,85 @@ interface UndervaluedAuctionItem {
 	status: string;
 }
 
+interface MarketPulseMetrics {
+	volume_7d_ton: number;
+	sales_7d_count: number;
+	median_sale_7d_ton: number;
+	mean_sale_7d_ton: number;
+	p25_sale_7d_ton: number;
+	p75_sale_7d_ton: number;
+	p90_sale_7d_ton: number;
+	short_4_5_share_pct: number;
+	dictionary_word_share_pct: number;
+	market_regime: string;
+	whale_share_7d_pct: number;
+}
+
+interface SemanticCategoryMetric {
+	category_id: string;
+	category_name_en: string;
+	category_name_fa: string;
+	floor_ton: number;
+	median_ton: number;
+	top_sale_ton: number;
+	sample_handles: string[];
+	momentum_score: number;
+}
+
+interface WhalePortfolioSummary {
+	rank: number;
+	owner_address: string;
+	alias: string;
+	handles_owned: number;
+	portfolio_value_ton: number;
+	top_handles: string[];
+	dominant_tier: string;
+	recent_action: string;
+}
+
+interface OnChainEvent {
+	tx_hash: string;
+	lt: string;
+	utime: number;
+	opcode_hex: string;
+	opcode_name: string;
+	username: string;
+	nft_address: string;
+	from_address: string;
+	to_address: string;
+	amount_ton: number;
+	cell_boc_preview: string;
+	verified: boolean;
+}
+
+interface LiveTVMSnapshot {
+	contract_address: string;
+	workchain_id: number;
+	account_hash_hex: string;
+	state_status: string;
+	balance_nanoton: string;
+	balance_ton: number;
+	last_tx_lt: string;
+	last_tx_hash_hex: string;
+	code_hash_hex: string;
+	data_hash_hex: string;
+	subwallet_id: number;
+	full_domain: string;
+	raw_state_boc_hex: string;
+	raw_config_boc_hex: string;
+	fetched_at: string;
+}
+
 interface CollectionData {
 	collection_address?: string;
 	stats: CollectionStats | null;
+	market_pulse?: MarketPulseMetrics;
 	length_tier_matrix?: LengthTierMetric[];
+	semantic_categories?: SemanticCategoryMetric[];
 	undervalued_auctions?: UndervaluedAuctionItem[];
+	whale_tracker?: WhalePortfolioSummary[];
+	on_chain_feed?: OnChainEvent[];
+	live_tvm_snapshot?: LiveTVMSnapshot;
 	auctions: CollectionAuction[];
 	ending_soon_auctions?: CollectionAuction[];
 	floor_listings?: CollectionAuction[];
@@ -77,8 +151,9 @@ interface CollectionData {
 	ton_usd_rate?: number;
 }
 
-type MainTab = 'market' | 'overview' | 'leaderboard';
-type MarketStreamMode = 'top_bids' | 'ending_soon' | 'buy_now_floor';
+type MainTab = 'market' | 'overview' | 'leaderboard' | 'onchain';
+type MarketStreamMode = 'top_bids' | 'ending_soon' | 'buy_now_floor' | 'recent_sold';
+type MarketSortOrder = 'price_desc' | 'price_asc' | 'ending_soon';
 
 export const CollectionInfoPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -87,6 +162,7 @@ export const CollectionInfoPage: Component = () => {
 	const [quickHandle, setQuickHandle] = createSignal('');
 	const [activeTab, setActiveTab] = createSignal<MainTab>('market');
 	const [marketStream, setMarketStream] = createSignal<MarketStreamMode>('top_bids');
+	const [marketSort, setMarketSort] = createSignal<MarketSortOrder>('price_desc');
 	const [marketSearch, setMarketSearch] = createSignal('');
 	const [marketLenFilter, setMarketLenFilter] = createSignal<'all' | '4' | '5' | '6+'>('all');
 
@@ -113,6 +189,9 @@ export const CollectionInfoPage: Component = () => {
 			.replace(/seconds?/gi, t('usernameCollectionPage.timeSeconds'));
 	};
 
+	const parsePriceNum = (item: CollectionAuction) =>
+		item.price_ton || parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
+
 	const activeMarketItems = createMemo<CollectionAuction[]>(() => {
 		const d = usernameQuery.data;
 		if (!d) return [];
@@ -121,6 +200,8 @@ export const CollectionInfoPage: Component = () => {
 			base = d.ending_soon_auctions || d.auctions || [];
 		} else if (marketStream() === 'buy_now_floor') {
 			base = d.floor_listings || [];
+		} else if (marketStream() === 'recent_sold') {
+			base = d.recent_activity || d.top_sales || [];
 		} else {
 			base = d.auctions || [];
 		}
@@ -128,7 +209,7 @@ export const CollectionInfoPage: Component = () => {
 		const q = marketSearch().trim().toLowerCase().replace(/^@/, '');
 		const lf = marketLenFilter();
 
-		return base.filter((item) => {
+		const filtered = base.filter((item) => {
 			const clean = item.item_name.replace(/^@/, '').toLowerCase();
 			if (q && !clean.includes(q)) return false;
 			const cLen = item.char_length || clean.length;
@@ -136,6 +217,15 @@ export const CollectionInfoPage: Component = () => {
 			if (lf === '5' && cLen !== 5) return false;
 			if (lf === '6+' && cLen < 6) return false;
 			return true;
+		});
+
+		const sortMode = marketSort();
+		return [...filtered].sort((a, b) => {
+			const pa = parsePriceNum(a);
+			const pb = parsePriceNum(b);
+			if (sortMode === 'price_asc') return pa - pb;
+			if (sortMode === 'price_desc') return pb - pa;
+			return 0;
 		});
 	});
 
@@ -147,9 +237,6 @@ export const CollectionInfoPage: Component = () => {
 		if (!clean) return;
 		navigate(`/username/report?u=${encodeURIComponent(clean)}`);
 	};
-
-	const parsePriceNum = (item: CollectionAuction) =>
-		item.price_ton || parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
 
 	const fmtUsd = (tonVal: number) => {
 		const r = tonUsdRate();
@@ -276,14 +363,15 @@ export const CollectionInfoPage: Component = () => {
 					)}
 				</Show>
 
-				{/* 3-Tab Fragment Section Bar */}
-				<div class="flex items-center border-b border-[#293440] gap-5 px-1">
+				{/* 4-Tab Fragment Section Bar */}
+				<div class="flex items-center border-b border-[#293440] gap-4 px-1 overflow-x-auto no-scrollbar">
 					<For
 						each={
 							[
 								{ id: 'market', label: 'Top Auctions' },
 								{ id: 'overview', label: 'Analytics & Tiers' },
-								{ id: 'leaderboard', label: 'Top Sales' },
+								{ id: 'leaderboard', label: 'Top Sales & Whales' },
+								{ id: 'onchain', label: 'TVM On-Chain' },
 							] as const
 						}
 					>
@@ -298,7 +386,7 @@ export const CollectionInfoPage: Component = () => {
 										} catch {}
 										setActiveTab(tab.id);
 									}}
-									class={`relative pb-2.5 text-[13.5px] font-semibold transition-colors cursor-pointer ${
+									class={`relative pb-2.5 text-[13px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
 										active() ? 'text-white' : 'text-[#8c9aa9] hover:text-white'
 									}`}
 								>
@@ -324,22 +412,26 @@ export const CollectionInfoPage: Component = () => {
 				{/* TAB 1: TOP AUCTIONS & LIVE LISTINGS (Exact Fragment.com .tm-table) */}
 				<Show when={!usernameQuery.isLoading && activeTab() === 'market'}>
 					<div class="space-y-3">
-						{/* Filter & Sort Controls Row */}
+						{/* Status Filter Pills (On auction | Ending soon | For sale | Sold) */}
 						<div class="flex items-center justify-between gap-2 flex-wrap">
-							<div class="flex items-center gap-1.5">
+							<div class="flex items-center gap-1.5 flex-wrap">
 								<For
 									each={
 										[
 											{ id: 'top_bids', label: 'On auction' },
 											{ id: 'ending_soon', label: 'Ending soon' },
 											{ id: 'buy_now_floor', label: 'For sale' },
+											{ id: 'recent_sold', label: 'Sold' },
 										] as const
 									}
 								>
 									{(mode) => (
 										<button
 											type="button"
-											onClick={() => setMarketStream(mode.id)}
+											onClick={() => {
+												setMarketStream(mode.id);
+												if (mode.id === 'ending_soon') setMarketSort('ending_soon');
+											}}
 											class={`px-2.5 py-1.5 rounded-[6px] text-[12px] font-semibold transition-colors cursor-pointer ${
 												marketStream() === mode.id
 													? 'bg-[#248bda] text-white'
@@ -371,33 +463,57 @@ export const CollectionInfoPage: Component = () => {
 							</div>
 						</div>
 
-						{/* Inline Filter Input */}
-						<div class="bg-[#242e38] rounded-[8px] px-3 py-2 flex items-center gap-2" dir="ltr">
-							<span class="material-symbols-outlined text-[17px] text-[#8a98a6]">filter_list</span>
-							<input
-								type="text"
-								value={marketSearch()}
-								onInput={(e) => setMarketSearch(e.currentTarget.value)}
-								placeholder="Filter visible listings..."
-								class="flex-1 bg-transparent text-[13px] text-white placeholder:text-[#8a98a6] focus:outline-none"
-							/>
-							<Show when={marketSearch()}>
-								<button
-									type="button"
-									onClick={() => setMarketSearch('')}
-									class="text-[#8c9aa9] hover:text-white"
-								>
-									<span class="material-symbols-outlined text-[15px]">close</span>
-								</button>
-							</Show>
+						{/* Inline Filter Input + Fragment Sort Dropdown */}
+						<div class="flex items-center gap-2">
+							<div class="flex-1 bg-[#242e38] rounded-[8px] px-3 py-2 flex items-center gap-2" dir="ltr">
+								<span class="material-symbols-outlined text-[17px] text-[#8a98a6]">filter_list</span>
+								<input
+									type="text"
+									value={marketSearch()}
+									onInput={(e) => setMarketSearch(e.currentTarget.value)}
+									placeholder="Filter visible listings..."
+									class="flex-1 bg-transparent text-[13px] text-white placeholder:text-[#8a98a6] focus:outline-none"
+								/>
+								<Show when={marketSearch()}>
+									<button
+										type="button"
+										onClick={() => setMarketSearch('')}
+										class="text-[#8c9aa9] hover:text-white"
+									>
+										<span class="material-symbols-outlined text-[15px]">close</span>
+									</button>
+								</Show>
+							</div>
+
+							<select
+								value={marketSort()}
+								onChange={(e) => setMarketSort(e.currentTarget.value as MarketSortOrder)}
+								class="h-[36px] rounded-[8px] bg-[#242e38] border border-[#2f3b47] px-2.5 text-[12px] font-semibold text-white focus:outline-none cursor-pointer"
+							>
+								<option value="price_desc">Price high to low</option>
+								<option value="price_asc">Price low to high</option>
+								<option value="ending_soon">Ending soon</option>
+							</select>
 						</div>
 
-						{/* Authentic Fragment.com 3-Column Table: Username | Minimum bid | Auction ends in */}
+						{/* Authentic Fragment.com 3-Column Table with Dynamic Column Headers per Status Filter */}
 						<div class="frag-table-container">
 							<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
 								<span class="col-span-5">Username</span>
-								<span class="col-span-4">Minimum bid</span>
-								<span class="col-span-3 text-end">Auction ends in</span>
+								<span class="col-span-4">
+									{marketStream() === 'buy_now_floor'
+										? 'Sale price'
+										: marketStream() === 'recent_sold'
+											? 'Sold price'
+											: 'Minimum bid'}
+								</span>
+								<span class="col-span-3 text-end">
+									{marketStream() === 'buy_now_floor'
+										? 'Status'
+										: marketStream() === 'recent_sold'
+											? 'Status / Date'
+											: 'Auction ends in'}
+								</span>
 							</div>
 
 							<Show
@@ -431,13 +547,32 @@ export const CollectionInfoPage: Component = () => {
 													/>
 												</div>
 												<div class="col-span-3 flex flex-col items-end justify-center text-end min-w-0">
-													<span class="text-[12px] font-medium text-white truncate max-w-full">
-														{localizedTimeLeft(item.time_left) || item.status || 'Active'}
-													</span>
-													<Show when={item.ends_at}>
-														<span class="text-[11px] text-[#8c9aa9] truncate max-w-full mt-0.5">
-															{item.ends_at}
-														</span>
+													<Show
+														when={marketStream() === 'buy_now_floor' || marketStream() === 'recent_sold'}
+														fallback={
+															<>
+																<span class="text-[12px] font-medium text-white truncate max-w-full">
+																	{localizedTimeLeft(item.time_left) || item.status || 'Active'}
+																</span>
+																<Show when={item.ends_at}>
+																	<span class="text-[11px] text-[#8c9aa9] truncate max-w-full mt-0.5">
+																		{item.ends_at}
+																	</span>
+																</Show>
+															</>
+														}
+													>
+														<FragStatusPill
+															status={normalizeFragStatus(
+																marketStream() === 'buy_now_floor' ? 'for_sale' : 'sold',
+															)}
+															label={marketStream() === 'buy_now_floor' ? 'For sale' : 'Sold'}
+														/>
+														<Show when={item.time_left || item.ends_at}>
+															<span class="text-[10.5px] text-[#8c9aa9] truncate max-w-full mt-0.5">
+																{item.time_left || item.ends_at}
+															</span>
+														</Show>
 													</Show>
 												</div>
 											</button>
@@ -449,9 +584,43 @@ export const CollectionInfoPage: Component = () => {
 					</div>
 				</Show>
 
-				{/* TAB 2: ANALYTICS, CHART & LENGTH TIER MATRIX */}
+				{/* TAB 2: ANALYTICS, 7D PULSE, CHART, LENGTH TIERS & SEMANTIC CATEGORIES */}
 				<Show when={!usernameQuery.isLoading && activeTab() === 'overview'}>
 					<div class="space-y-4">
+						{/* 7-Day Market Pulse Strip */}
+						<Show when={usernameQuery.data?.market_pulse}>
+							{(mp) => (
+								<div class="frag-section-card p-3.5 space-y-2.5">
+									<div class="flex items-center justify-between">
+										<span class="text-[13px] font-bold text-white">7-Day Quantitative Market Pulse</span>
+										<span class="px-2 py-0.5 rounded-[4px] bg-[#248bda]/15 text-[#4db2ff] text-[10.5px] font-mono font-bold">
+											{mp().market_regime}
+										</span>
+									</div>
+									<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-start" dir="ltr">
+										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
+											<span class="text-[10.5px] text-[#8c9aa9] block">7D Volume</span>
+											<TonAmount value={Math.round(mp().volume_7d_ton).toLocaleString()} size="sm" />
+										</div>
+										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
+											<span class="text-[10.5px] text-[#8c9aa9] block">7D Median Sale</span>
+											<TonAmount value={Math.round(mp().median_sale_7d_ton).toLocaleString()} size="sm" />
+										</div>
+										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
+											<span class="text-[10.5px] text-[#8c9aa9] block">P90 Whale Sale</span>
+											<TonAmount value={Math.round(mp().p90_sale_7d_ton).toLocaleString()} size="sm" />
+										</div>
+										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
+											<span class="text-[10.5px] text-[#8c9aa9] block">4–5ch Share</span>
+											<span class="text-[13.5px] font-bold text-white font-mono">
+												{mp().short_4_5_share_pct.toFixed(1)}%
+											</span>
+										</div>
+									</div>
+								</div>
+							)}
+						</Show>
+
 						<UsernameCollectionChart tonUsdRate={tonUsdRate()} />
 
 						{/* Length Tier Matrix Table */}
@@ -486,6 +655,55 @@ export const CollectionInfoPage: Component = () => {
 												</div>
 												<div class="col-span-3 text-end font-mono text-[12.5px] text-white">
 													{tier.sales_count_30d.toLocaleString()}
+												</div>
+											</div>
+										)}
+									</For>
+								</div>
+							</div>
+						</Show>
+
+						{/* Semantic Category Valuation Matrix */}
+						<Show when={(usernameQuery.data?.semantic_categories?.length || 0) > 0}>
+							<div>
+								<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">
+									Semantic Category Valuation Matrix
+								</h3>
+								<div class="frag-table-container">
+									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
+										<span class="col-span-5">Category</span>
+										<span class="col-span-4">Floor / Median</span>
+										<span class="col-span-3 text-end">Top Sale</span>
+									</div>
+									<For each={usernameQuery.data?.semantic_categories || []}>
+										{(cat) => (
+											<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[12.5px]">
+												<div class="col-span-5 min-w-0 pr-2">
+													<span class="font-semibold text-white block truncate">
+														{isRtl() ? cat.category_name_fa : cat.category_name_en}
+													</span>
+													<div class="flex items-center gap-1 flex-wrap mt-1" dir="ltr">
+														<For each={(cat.sample_handles || []).slice(0, 3)}>
+															{(h) => (
+																<button
+																	type="button"
+																	onClick={() => openValuation(h)}
+																	class="text-[10.5px] font-mono text-[#4db2ff] hover:underline cursor-pointer"
+																>
+																	@{h.replace(/^@/, '')}
+																</button>
+															)}
+														</For>
+													</div>
+												</div>
+												<div class="col-span-4">
+													<TonAmount value={cat.floor_ton.toLocaleString()} size="sm" />
+													<span class="text-[10.5px] text-[#8c9aa9] block mt-0.5" dir="ltr">
+														Med: {cat.median_ton.toLocaleString()} TON
+													</span>
+												</div>
+												<div class="col-span-3 flex justify-end">
+													<TonAmount value={cat.top_sale_ton.toLocaleString()} size="sm" tone="positive" />
 												</div>
 											</div>
 										)}
@@ -538,54 +756,218 @@ export const CollectionInfoPage: Component = () => {
 					</div>
 				</Show>
 
-				{/* TAB 3: TOP SALES LEADERBOARD */}
+				{/* TAB 3: TOP SALES LEADERBOARD & WHALE TRACKER */}
 				<Show when={!usernameQuery.isLoading && activeTab() === 'leaderboard'}>
-					<div class="frag-table-container">
-						<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-							<span class="col-span-6">Username</span>
-							<span class="col-span-3">Sold Price</span>
-							<span class="col-span-3 text-end">Status</span>
+					<div class="space-y-4">
+						<div class="frag-table-container">
+							<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
+								<span class="col-span-6">Username</span>
+								<span class="col-span-3">Sold Price</span>
+								<span class="col-span-3 text-end">Status</span>
+							</div>
+							<Show
+								when={(usernameQuery.data?.top_sales?.length || 0) > 0}
+								fallback={
+									<div class="p-8 text-center text-[13px] text-[#8c9aa9]">
+										No top sales available.
+									</div>
+								}
+							>
+								<For each={usernameQuery.data?.top_sales || []}>
+									{(sale, idx) => {
+										const handle = () => sale.item_name.replace(/^@/, '');
+										const priceTon = () => parsePriceNum(sale);
+										return (
+											<button
+												type="button"
+												onClick={() => openValuation(handle())}
+												class="frag-table-row w-full grid grid-cols-12 items-center px-3.5 py-2.5 text-start cursor-pointer"
+											>
+												<div class="col-span-6 flex items-center gap-2.5 min-w-0 pr-2">
+													<span class="w-5 text-[12px] font-mono text-[#8c9aa9] shrink-0">
+														#{idx() + 1}
+													</span>
+													<FragHandle handle={handle()} size="sm" subline />
+												</div>
+												<div class="col-span-3">
+													<TonAmount
+														value={priceTon().toLocaleString('en-US', {
+															maximumFractionDigits: 0,
+														})}
+														usd={fmtUsd(priceTon())}
+														size="sm"
+													/>
+												</div>
+												<div class="col-span-3 flex justify-end">
+													<FragStatusPill status={normalizeFragStatus('sold')} label="Sold" />
+												</div>
+											</button>
+										);
+									}}
+								</For>
+							</Show>
 						</div>
-						<Show
-							when={(usernameQuery.data?.top_sales?.length || 0) > 0}
-							fallback={
-								<div class="p-8 text-center text-[13px] text-[#8c9aa9]">
-									No top sales available.
+
+						{/* Whale Portfolio Tracker */}
+						<Show when={(usernameQuery.data?.whale_tracker?.length || 0) > 0}>
+							<div>
+								<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">
+									Sovereign Whale Portfolios
+								</h3>
+								<div class="frag-table-container">
+									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
+										<span class="col-span-6">Whale / Top Handles</span>
+										<span class="col-span-3">Holdings</span>
+										<span class="col-span-3 text-end">Est. Value</span>
+									</div>
+									<For each={usernameQuery.data?.whale_tracker || []}>
+										{(w) => (
+											<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[12.5px]">
+												<div class="col-span-6 min-w-0 pr-2">
+													<div class="flex items-center gap-1.5">
+														<span class="text-[11px] font-mono text-[#4db2ff]">#{w.rank}</span>
+														<span class="font-semibold text-white truncate">{w.alias}</span>
+													</div>
+													<div class="flex items-center gap-1 flex-wrap mt-1" dir="ltr">
+														<For each={(w.top_handles || []).slice(0, 3)}>
+															{(h) => (
+																<button
+																	type="button"
+																	onClick={() => openValuation(h)}
+																	class="text-[10.5px] font-mono text-[#4db2ff] hover:underline cursor-pointer"
+																>
+																	@{h.replace(/^@/, '')}
+																</button>
+															)}
+														</For>
+													</div>
+												</div>
+												<div class="col-span-3 font-mono text-white" dir="ltr">
+													{w.handles_owned} names
+												</div>
+												<div class="col-span-3 flex justify-end">
+													<TonAmount
+														value={Math.round(w.portfolio_value_ton).toLocaleString()}
+														size="sm"
+													/>
+												</div>
+											</div>
+										)}
+									</For>
 								</div>
-							}
-						>
-							<For each={usernameQuery.data?.top_sales || []}>
-								{(sale, idx) => {
-									const handle = () => sale.item_name.replace(/^@/, '');
-									const priceTon = () => parsePriceNum(sale);
-									return (
-										<button
-											type="button"
-											onClick={() => openValuation(handle())}
-											class="frag-table-row w-full grid grid-cols-12 items-center px-3.5 py-2.5 text-start cursor-pointer"
-										>
-											<div class="col-span-6 flex items-center gap-2.5 min-w-0 pr-2">
-												<span class="w-5 text-[12px] font-mono text-[#8c9aa9] shrink-0">
-													#{idx() + 1}
-												</span>
-												<FragHandle handle={handle()} size="sm" subline />
-											</div>
-											<div class="col-span-3">
-												<TonAmount
-													value={priceTon().toLocaleString('en-US', {
-														maximumFractionDigits: 0,
-													})}
-													usd={fmtUsd(priceTon())}
-													size="sm"
-												/>
-											</div>
-											<div class="col-span-3 flex justify-end">
-												<FragStatusPill status={normalizeFragStatus('sold')} label="Sold" />
-											</div>
-										</button>
-									);
-								}}
-							</For>
+							</div>
+						</Show>
+					</div>
+				</Show>
+
+				{/* TAB 4: TON TVM ON-CHAIN & TELEMINT OPCODE FORENSICS */}
+				<Show when={!usernameQuery.isLoading && activeTab() === 'onchain'}>
+					<div class="space-y-4">
+						{/* Live TVM Collection Contract State Snapshot */}
+						<Show when={usernameQuery.data?.live_tvm_snapshot}>
+							{(snap) => (
+								<div class="frag-section-card p-3.5 space-y-2.5" dir="ltr">
+									<div class="flex items-center justify-between gap-2">
+										<div>
+											<span class="text-[13px] font-bold text-white block">
+												TON TVM Collection Contract State
+											</span>
+											<span class="text-[11px] text-[#8c9aa9] font-mono">
+												{snap().full_domain} • Workchain {snap().workchain_id}
+											</span>
+										</div>
+										<span class="px-2 py-0.5 rounded-[4px] bg-[#5aec8c]/15 text-[#5aec8c] text-[10.5px] font-mono font-bold uppercase">
+											{snap().state_status}
+										</span>
+									</div>
+
+									<div class="grid grid-cols-2 gap-2 text-[11.5px]">
+										<div class="bg-[#1a2026] rounded-[6px] p-2">
+											<span class="text-[#8c9aa9] block text-[10px]">Contract Balance</span>
+											<span class="font-mono text-white font-semibold">
+												{snap().balance_ton.toFixed(4)} TON
+											</span>
+										</div>
+										<div class="bg-[#1a2026] rounded-[6px] p-2">
+											<span class="text-[#8c9aa9] block text-[10px]">Last Logical Time (LT)</span>
+											<span class="font-mono text-white font-semibold">{snap().last_tx_lt}</span>
+										</div>
+										<div class="bg-[#1a2026] rounded-[6px] p-2">
+											<span class="text-[#8c9aa9] block text-[10px]">TVM Code Hash (SHA-256)</span>
+											<span class="font-mono text-[#4db2ff] truncate block">
+												{snap().code_hash_hex}
+											</span>
+										</div>
+										<div class="bg-[#1a2026] rounded-[6px] p-2">
+											<span class="text-[#8c9aa9] block text-[10px]">TVM Data Hash (SHA-256)</span>
+											<span class="font-mono text-[#4db2ff] truncate block">
+												{snap().data_hash_hex}
+											</span>
+										</div>
+									</div>
+
+									<Show when={snap().raw_state_boc_hex}>
+										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
+											<span class="text-[10px] text-[#8c9aa9] block mb-1">
+												AccountState TVM Bag-of-Cells (0xb5ee9c72) Hex
+											</span>
+											<code class="text-[10.5px] font-mono text-[#5aec8c] break-all block max-h-20 overflow-y-auto">
+												{snap().raw_state_boc_hex}
+											</code>
+										</div>
+									</Show>
+								</div>
+							)}
+						</Show>
+
+						{/* On-Chain TeleMint & TEP-62 Event Stream */}
+						<Show when={(usernameQuery.data?.on_chain_feed?.length || 0) > 0}>
+							<div>
+								<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">
+									Live TeleMint & TEP-62 Opcode Stream
+								</h3>
+								<div class="frag-table-container" dir="ltr">
+									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
+										<span class="col-span-4">Handle / Opcode</span>
+										<span class="col-span-5">TVM BOC Slice</span>
+										<span class="col-span-3 text-end">Amount</span>
+									</div>
+									<For each={usernameQuery.data?.on_chain_feed || []}>
+										{(ev) => (
+											<button
+												type="button"
+												onClick={() => openValuation(ev.username)}
+												class="frag-table-row w-full grid grid-cols-12 items-center px-3.5 py-2.5 text-start cursor-pointer"
+											>
+												<div class="col-span-4 min-w-0 pr-2">
+													<span class="text-[12.5px] font-semibold text-white block truncate">
+														@{ev.username.replace(/^@/, '')}
+													</span>
+													<span class="text-[10.5px] font-mono text-[#4db2ff] block truncate">
+														{ev.opcode_hex} • {ev.opcode_name}
+													</span>
+												</div>
+												<div class="col-span-5 min-w-0 pr-2">
+													<code class="text-[10px] font-mono text-[#8c9aa9] block truncate">
+														{ev.cell_boc_preview}
+													</code>
+													<span class="text-[10px] font-mono text-[#5aec8c] block truncate">
+														LT {ev.lt}
+													</span>
+												</div>
+												<div class="col-span-3 flex justify-end">
+													<TonAmount
+														value={ev.amount_ton.toLocaleString('en-US', {
+															maximumFractionDigits: 0,
+														})}
+														size="sm"
+													/>
+												</div>
+											</button>
+										)}
+									</For>
+								</div>
+							</div>
 						</Show>
 					</div>
 				</Show>

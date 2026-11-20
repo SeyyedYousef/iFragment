@@ -93,3 +93,59 @@ func TestFragmentScraperFixtures(t *testing.T) {
 		})
 	}
 }
+
+func TestGetHistoricalSales_DisambiguatesOwnershipFromBidHistory(t *testing.T) {
+	htmlFixture := `<html><body>
+		<section class="tm-section">
+			<div class="tm-section-header"><h3 class="tm-section-header-text">Bid History</h3></div>
+			<table class="tm-table">
+				<thead><tr><th>Price</th><th>Date</th><th>From</th></tr></thead>
+				<tbody>
+					<tr>
+						<td><div class="tm-value">500</div></td>
+						<td><time datetime="2026-03-10T12:00:00Z">10 Mar 2026</time></td>
+						<td>EQBidWallet1</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+		<section class="tm-section">
+			<div class="tm-section-header"><h3 class="tm-section-header-text">Ownership History</h3></div>
+			<table class="tm-table">
+				<thead><tr><th>Sale price</th><th>Date</th><th>Buyer</th></tr></thead>
+				<tbody>
+					<tr>
+						<td>Transferred</td>
+						<td><time datetime="2026-02-15T10:00:00Z">15 Feb 2026</time></td>
+						<td>EQBuyerWallet2</td>
+					</tr>
+					<tr>
+						<td><div class="tm-value">12,500</div></td>
+						<td><time datetime="2026-01-20T08:30:00Z">20 Jan 2026</time></td>
+						<td>EQBuyerWallet1</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+	</body></html>`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(htmlFixture))
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	client.BaseURL = server.URL
+
+	sales, err := client.GetHistoricalSales(context.Background(), "tony")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sales) != 1 {
+		t.Fatalf("expected exactly 1 completed sale from Ownership History (excluding Bid History and 'Transferred'), got %d", len(sales))
+	}
+	if sales[0].PriceTON != 12500 {
+		t.Errorf("expected sale price 12500 TON, got %.2f", sales[0].PriceTON)
+	}
+}

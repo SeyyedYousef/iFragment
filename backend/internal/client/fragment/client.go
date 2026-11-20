@@ -159,13 +159,19 @@ func (c *Client) checkInternal(ctx context.Context, username string) (CheckResul
 		return CheckResult{Status: StatusSold, Confidence: ConfidenceExactSelector, Source: "fragment_dom_owner", CheckedAt: now}, nil
 	}
 
-	// 4. Check status labels (Exact Selector)
-	statusLabel := strings.ToLower(doc.Find(".tm-status-avail, .tm-section-header-status").Text())
-	if strings.Contains(statusLabel, "available") {
-		return CheckResult{Status: StatusAvailable, Confidence: ConfidenceExactSelector, Source: "fragment_dom_label", CheckedAt: now}, nil
+	// 4. Check status labels (Exact Selector — matches live Fragment .tm-section-header-status)
+	statusLabel := strings.ToLower(strings.TrimSpace(doc.Find(".tm-status-avail, .tm-status-unavail, .tm-section-header-status").Text()))
+	if strings.Contains(statusLabel, "on auction") {
+		return CheckResult{Status: StatusAuction, Confidence: ConfidenceExactSelector, Source: "fragment_dom_label", CheckedAt: now}, nil
+	}
+	if strings.Contains(statusLabel, "for sale") {
+		return CheckResult{Status: StatusSale, Confidence: ConfidenceExactSelector, Source: "fragment_dom_label", CheckedAt: now}, nil
 	}
 	if strings.Contains(statusLabel, "sold") || strings.Contains(statusLabel, "taken") {
 		return CheckResult{Status: StatusSold, Confidence: ConfidenceExactSelector, Source: "fragment_dom_label", CheckedAt: now}, nil
+	}
+	if strings.Contains(statusLabel, "available") && !strings.Contains(statusLabel, "unavailable") {
+		return CheckResult{Status: StatusAvailable, Confidence: ConfidenceExactSelector, Source: "fragment_dom_label", CheckedAt: now}, nil
 	}
 
 	// 5. Fallback using OpenGraph meta tags (often more stable than UI layout)
@@ -265,16 +271,16 @@ func (c *Client) getHistoricalSalesInternal(ctx context.Context, username string
 	}
 
 	var sales []HistoricalSale
-	doc.Find("table.tm-table tbody tr").Each(func(i int, s *goquery.Selection) {
+	parseRow := func(_ int, s *goquery.Selection) {
 		priceText := s.Find("td").Eq(0).Find(".tm-value").Text()
 		priceText = strings.ReplaceAll(priceText, ",", "")
 		priceText = strings.TrimSpace(priceText)
-		if priceText == "" {
+		if priceText == "" || strings.EqualFold(priceText, "transferred") {
 			return
 		}
 		var price float64
 		_, err := fmt.Sscanf(priceText, "%f", &price)
-		if err != nil {
+		if err != nil || price <= 0 {
 			return
 		}
 
@@ -294,7 +300,30 @@ func (c *Client) getHistoricalSalesInternal(ctx context.Context, username string
 			PriceTON: price,
 			SaleDate: saleDate,
 		})
+	}
+
+	// Prefer tables explicitly marked as Ownership History ("Sale price" / "Buyer") so Bid History rows are not conflated with completed sales.
+	foundOwnershipTable := false
+	doc.Find("table.tm-table").Each(func(_ int, tbl *goquery.Selection) {
+		headText := strings.ToLower(tbl.Find("thead").Text())
+		secText := strings.ToLower(tbl.Closest("section").Find(".tm-section-header-text").Text())
+		if strings.Contains(headText, "sale price") || strings.Contains(headText, "buyer") || strings.Contains(secText, "ownership history") {
+			foundOwnershipTable = true
+			tbl.Find("tbody tr").Each(parseRow)
+		}
 	})
+
+	if !foundOwnershipTable {
+		doc.Find("table.tm-table").Each(func(_ int, tbl *goquery.Selection) {
+			headText := strings.ToLower(tbl.Find("thead").Text())
+			secText := strings.ToLower(tbl.Closest("section").Find(".tm-section-header-text").Text())
+			// Skip explicit Bid History tables
+			if strings.Contains(secText, "bid history") || (strings.Contains(headText, "from") && !strings.Contains(headText, "buyer")) {
+				return
+			}
+			tbl.Find("tbody tr").Each(parseRow)
+		})
+	}
 
 	return sales, nil
 }

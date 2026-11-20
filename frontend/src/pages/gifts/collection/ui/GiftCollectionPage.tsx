@@ -10,9 +10,14 @@ import {
 	TonAmount,
 	TonIcon,
 } from '@/shared/ui/fragment/FragmentPrimitives.js';
+import { CollectionRarityHeatmap } from './CollectionRarityHeatmap.js';
+import { GiftArbitrageRadar } from './components/GiftArbitrageRadar.js';
+import { GiftDeltaEHeatmap } from './components/GiftDeltaEHeatmap.js';
+import { GiftWhaleTracker } from './components/GiftWhaleTracker.js';
 import { GiftFloorChart } from './GiftFloorChart.js';
 
 export type CollectionTabKey = 'market' | 'items' | 'sales' | 'attributes';
+export type ItemsSortKey = 'price_asc' | 'price_desc' | 'serial_asc' | 'serial_desc';
 
 export const GiftCollectionPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -37,6 +42,7 @@ export const GiftCollectionPage: Component = () => {
 	);
 	const [itemsSearch, setItemsSearch] = createSignal('');
 	const [itemsFilter, setItemsFilter] = createSignal<'all' | 'sale'>('all');
+	const [itemsSort, setItemsSort] = createSignal<ItemsSortKey>('price_asc');
 
 	const collectionsQuery = createQuery(() => ({
 		queryKey: ['giftCollectionsList'],
@@ -97,6 +103,17 @@ export const GiftCollectionPage: Component = () => {
 		if (itemsFilter() === 'sale') {
 			list = list.filter((item) => (item.price_gram ?? 0) > 0);
 		}
+		const sMode = itemsSort();
+		list.sort((a, b) => {
+			if (sMode === 'serial_asc') return a.serial_number - b.serial_number;
+			if (sMode === 'serial_desc') return b.serial_number - a.serial_number;
+			const pa = a.price_gram ?? 0;
+			const pb = b.price_gram ?? 0;
+			if (sMode === 'price_desc') return pb - pa;
+			if (pa === 0 && pb > 0) return 1;
+			if (pb === 0 && pa > 0) return -1;
+			return pa - pb;
+		});
 		return list.slice(0, 40);
 	});
 
@@ -326,14 +343,31 @@ export const GiftCollectionPage: Component = () => {
 								</div>
 							</div>
 						</Show>
+
+						<GiftArbitrageRadar
+							collectionName={data()?.collection_name || slug()}
+							floorTon={data()?.best_floor_gram || 100}
+							rate={
+								data()?.best_floor_usd && data()?.best_floor_gram
+									? data()!.best_floor_usd / data()!.best_floor_gram
+									: 2.85
+							}
+						/>
+
+						<GiftWhaleTracker
+							collectionName={data()?.collection_name || slug()}
+							totalSupply={data()?.total_supply || 5000}
+							listedCount={data()?.listed_count || 180}
+							floorTon={data()?.best_floor_gram || 100}
+						/>
 					</div>
 				</Show>
 
 				{/* TAB 2: COLLECTION ITEMS TABLE */}
 				<Show when={!intelQuery.isLoading && selectedTab() === 'items'}>
 					<div class="space-y-3">
-						<div class="flex items-center gap-2">
-							<div class="flex-1 bg-[#242e38] rounded-[8px] px-3 py-2 flex items-center gap-2">
+						<div class="flex items-center gap-2 flex-wrap">
+							<div class="flex-1 min-w-[160px] bg-[#242e38] rounded-[8px] px-3 py-2 flex items-center gap-2">
 								<span class="material-symbols-outlined text-[16px] text-[#8a98a6]">search</span>
 								<input
 									type="text"
@@ -342,6 +376,15 @@ export const GiftCollectionPage: Component = () => {
 									placeholder="Filter by serial or trait..."
 									class="flex-1 bg-transparent text-[12.5px] text-white placeholder:text-[#8a98a6] focus:outline-none"
 								/>
+								<Show when={itemsSearch()}>
+									<button
+										type="button"
+										onClick={() => setItemsSearch('')}
+										class="text-[#8c9aa9] hover:text-white"
+									>
+										<span class="material-symbols-outlined text-[14px]">close</span>
+									</button>
+								</Show>
 							</div>
 							<button
 								type="button"
@@ -354,6 +397,16 @@ export const GiftCollectionPage: Component = () => {
 							>
 								For Sale
 							</button>
+							<select
+								value={itemsSort()}
+								onChange={(e) => setItemsSort(e.currentTarget.value as ItemsSortKey)}
+								class="h-9 rounded-[8px] bg-[#242e38] border border-[#2f3b47] px-2.5 text-[12px] font-semibold text-white focus:outline-none cursor-pointer"
+							>
+								<option value="price_asc">Price low to high</option>
+								<option value="price_desc">Price high to low</option>
+								<option value="serial_asc">Serial #1 → N</option>
+								<option value="serial_desc">Serial #N → 1</option>
+							</select>
 						</div>
 
 						<div class="frag-table-container">
@@ -385,6 +438,7 @@ export const GiftCollectionPage: Component = () => {
 												</span>
 												<span class="text-[11.5px] text-[#8c9aa9] block truncate">
 													{item.model_name} · {item.backdrop_name}
+													<Show when={item.symbol_name}> · {item.symbol_name}</Show>
 												</span>
 											</div>
 											<div class="col-span-3">
@@ -462,10 +516,10 @@ export const GiftCollectionPage: Component = () => {
 					</div>
 				</Show>
 
-				{/* TAB 4: ATTRIBUTES & TRAIT FLOORS */}
+				{/* TAB 4: ATTRIBUTES, TRAIT FLOORS & CIEDE2000 COLOR SCIENCE */}
 				<Show when={!intelQuery.isLoading && selectedTab() === 'attributes'}>
-					<div class="space-y-3">
-						<div class="flex items-center gap-1.5">
+					<div class="space-y-4">
+						<div class="flex items-center gap-1.5 flex-wrap">
 							<For
 								each={
 									[
@@ -496,16 +550,31 @@ export const GiftCollectionPage: Component = () => {
 
 						<div class="frag-table-container">
 							<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-								<span class="col-span-6">Attribute</span>
+								<span class="col-span-6">Attribute (Click to filter items)</span>
 								<span class="col-span-3">Rarity</span>
 								<span class="col-span-3 text-end">Floor</span>
 							</div>
 							<For each={currentAttributes()}>
 								{(attr: any) => (
-									<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[13px]">
-										<span class="col-span-6 font-semibold text-white truncate pr-2">
-											{attr.name}
-										</span>
+									<button
+										type="button"
+										onClick={() => {
+											setItemsSearch(attr.name || '');
+											setSelectedTab('items');
+										}}
+										class="frag-table-row w-full grid grid-cols-12 items-center px-3.5 py-2.5 text-[13px] text-start cursor-pointer"
+									>
+										<div class="col-span-6 flex items-center gap-2 min-w-0 pr-2">
+											<Show when={attr.center_color || attr.edge_color}>
+												<span
+													class="w-3.5 h-3.5 rounded-full shrink-0 border border-white/15"
+													style={{
+														background: `radial-gradient(circle, ${attr.center_color || '#293440'}, ${attr.edge_color || attr.center_color || '#1a2026'})`,
+													}}
+												/>
+											</Show>
+											<span class="font-semibold text-white truncate">{attr.name}</span>
+										</div>
 										<span class="col-span-3 font-mono text-[12px] text-[#5aec8c]">
 											{attr.rarity_permille ? `${(attr.rarity_permille / 10).toFixed(1)}%` : '—'}
 										</span>
@@ -517,10 +586,26 @@ export const GiftCollectionPage: Component = () => {
 												<TonAmount value={fmt(attr.floor_gram, 1)} size="sm" />
 											</Show>
 										</div>
-									</div>
+									</button>
 								)}
 							</For>
 						</div>
+
+						<GiftDeltaEHeatmap
+							collectionName={data()?.collection_name || slug()}
+							backdrops={data()?.backdrops_list}
+							models={data()?.model_floors}
+							floorTon={data()?.best_floor_gram || 100}
+						/>
+
+						<Show when={(data()?.rarity_heatmap?.length || 0) > 0}>
+							<CollectionRarityHeatmap
+								cells={data()?.rarity_heatmap || []}
+								collectionSlug={slug()}
+								collectionName={data()?.collection_name || slug()}
+								bestFloorGram={data()?.best_floor_gram || 100}
+							/>
+						</Show>
 					</div>
 				</Show>
 			</div>

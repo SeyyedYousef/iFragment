@@ -168,8 +168,17 @@ func TestGVEngineV8_MTProtoAndTEP62BinaryForensics(t *testing.T) {
 	if bf.MTProtoPatternConstructor != "starGiftAttributePattern#13acff19" {
 		t.Errorf("expected starGiftAttributePattern#13acff19, got %s", bf.MTProtoPatternConstructor)
 	}
-	if !strings.HasPrefix(bf.TVMCellBOCHex, "0xb5ee9c72") {
-		t.Errorf("expected TON TVM BOC header 0xb5ee9c72..., got %s", bf.TVMCellBOCHex)
+	if !strings.HasPrefix(bf.TVMCellBOCHex, "0xb5ee9c724101010100") {
+		t.Errorf("expected TON TVM BOC header with CRC32-C flag 0xb5ee9c724101010100..., got %s", bf.TVMCellBOCHex)
+	}
+	if bf.CRC32CChecksumHex == "" || !strings.HasPrefix(bf.CRC32CChecksumHex, "0x") || len(bf.CRC32CChecksumHex) != 10 {
+		t.Errorf("expected 4-byte 0x-prefixed Castagnoli CRC32-C checksum hex, got %s", bf.CRC32CChecksumHex)
+	}
+	if !strings.HasPrefix(bf.TEP64ContentCellBOCHex, "0xb5ee9c724101010100") {
+		t.Errorf("expected valid TEP-64 content cell BOC, got %s", bf.TEP64ContentCellBOCHex)
+	}
+	if bf.FragmentGiftWebURI != "https://fragment.com/gift/plushpepe-42" || bf.TGSStickerURI != "https://nft.fragment.com/gift/plushpepe-42.tgs" {
+		t.Errorf("expected FragmentGiftWebURI and TGSStickerURI, got %s / %s", bf.FragmentGiftWebURI, bf.TGSStickerURI)
 	}
 	if !strings.HasPrefix(bf.TEP62ItemIndexSHA256, "0x") || len(bf.TEP62ItemIndexSHA256) != 66 {
 		t.Errorf("invalid TEP-62 SHA256 index: %s", bf.TEP62ItemIndexSHA256)

@@ -2,41 +2,78 @@ package avm
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"hash/crc32"
 	"math"
 	"math/bits"
 	"strings"
 )
 
+const TelegramUsernamesCollectionAddress = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
+
 // BinaryForensicsDto exposes deep bit-level, TVM BOC cell, Fitts's Law biomechanical,
 // optical glyph kerning, and Viterbi segmentation telemetry for any Telegram username.
 type BinaryForensicsDto struct {
-	AsciiHexPayload        string   `json:"ascii_hex_payload"`
-	ByteLength             int      `json:"byte_length"`
-	TotalBits              int      `json:"total_bits"`
-	SetBitsPopcount        int      `json:"set_bits_popcount"`
-	HammingWeightDensity   float64  `json:"hamming_weight_density"`
-	ShannonEntropyBits     float64  `json:"shannon_entropy_bits"`
-	NormalizedEntropy      float64  `json:"normalized_entropy"`
-	BitstreamMatrix        []string `json:"bitstream_matrix"`
-	Tep62IndexSha256       string   `json:"tep62_index_sha256"`
-	TvmBocCellHex          string   `json:"tvm_boc_cell_hex"`
-	HandAlternationPct     int      `json:"hand_alternation_pct"`
-	FittsIndexBits         float64  `json:"fitts_index_bits"`
-	FittsErgonomicScore    float64  `json:"fitts_ergonomic_score"`
-	OpticalKerningSymmetry float64  `json:"optical_kerning_symmetry"`
-	ViterbiTokens          []string `json:"viterbi_tokens,omitempty"`
-	ViterbiCoverage        float64  `json:"viterbi_coverage"`
+	AsciiHexPayload           string            `json:"ascii_hex_payload"`
+	AsciiHexSpaced            string            `json:"ascii_hex_spaced"`
+	RawHexPayload             string            `json:"raw_hex_payload"`
+	ByteLength                int               `json:"byte_length"`
+	TotalBits                 int               `json:"total_bits"`
+	SetBitsPopcount           int               `json:"set_bits_popcount"`
+	ZeroBitsCount             int               `json:"zero_bits_count"`
+	HammingWeightDensity      float64           `json:"hamming_weight_density"`
+	HammingWeightPct          float64           `json:"hamming_weight_pct"`
+	ShannonEntropyBits        float64           `json:"shannon_entropy_bits"`
+	MaxTheoreticalEntropyBits float64           `json:"max_theoretical_entropy_bits"`
+	NormalizedEntropy         float64           `json:"normalized_entropy"`
+	UniqueCharsCount          int               `json:"unique_chars_count"`
+	BitstreamMatrix           []string          `json:"bitstream_matrix"`
+	Tep62IndexSha256          string            `json:"tep62_index_sha256"`
+	TvmBocCellHex             string            `json:"tvm_boc_cell_hex"`
+	TelemintTokenCellBoc      string            `json:"telemint_token_cell_boc"`
+	BocMagicPrefix            string            `json:"boc_magic_prefix"`
+	CellDescriptorD1Hex       string            `json:"cell_descriptor_d1_hex"`
+	CellDescriptorD2Hex       string            `json:"cell_descriptor_d2_hex"`
+	Crc32cChecksumHex         string            `json:"crc32c_checksum_hex"`
+	Tep81DnsInternalHex       string            `json:"tep81_dns_internal_hex"`
+	TonDnsResolveMethodId     string            `json:"ton_dns_resolve_method_id"`
+	TonDnsCategoryKeys        map[string]string `json:"ton_dns_category_keys"`
+	CollectionAddress         string            `json:"collection_address"`
+	HandAlternationPct        int               `json:"hand_alternation_pct"`
+	LeftHandKeys              int               `json:"left_hand_keys"`
+	RightHandKeys             int               `json:"right_hand_keys"`
+	FittsIndexBits            float64           `json:"fitts_index_bits"`
+	FittsErgonomicScore       float64           `json:"fitts_ergonomic_score"`
+	OpticalKerningSymmetry    float64           `json:"optical_kerning_symmetry"`
+	ViterbiTokens             []string          `json:"viterbi_tokens,omitempty"`
+	ViterbiCoverage           float64           `json:"viterbi_coverage"`
 }
 
 // FragmentCapabilitiesDto describes Telegram protocol & TON DNS capabilities unlocked by the handle.
 type FragmentCapabilitiesDto struct {
-	CollectibleLinksCount int    `json:"collectible_links_count"`
-	ZeroSignupRequired    bool   `json:"zero_signup_required"`
-	BotUpgradeEligible    bool   `json:"bot_upgrade_eligible"`
-	TonDnsDomain          string `json:"ton_dns_domain"`
-	AdRevenueSharePct     int    `json:"ad_revenue_share_pct"`
+	CollectibleLinksCount     int      `json:"collectible_links_count"`
+	ZeroSignupRequired        bool     `json:"zero_signup_required"`
+	BotUpgradeEligible        bool     `json:"bot_upgrade_eligible"`
+	TonDnsDomain              string   `json:"ton_dns_domain"`
+	AdRevenueSharePct         int      `json:"ad_revenue_share_pct"`
+	TmeUrl                    string   `json:"tme_url"`
+	WebSubdomainUrl           string   `json:"web_subdomain_url"`
+	TgResolveUri              string   `json:"tg_resolve_uri"`
+	FragmentUrl               string   `json:"fragment_url"`
+	NftJsonUrl                string   `json:"nft_json_url"`
+	NftWebpUrl                string   `json:"nft_webp_url"`
+	TonDnsHexTarget           string   `json:"ton_dns_hex_target"`
+	AssignableTo              []string `json:"assignable_to"`
+	MaxCollectiblesPerChat    int      `json:"max_collectibles_per_chat"`
+	GlobalSearchPriorityBoost bool     `json:"GlobalSearchPriorityBoost"`
+	ZeroSimCardLoginReady     bool     `json:"zero_sim_card_login_ready"`
+	BotUpgradeFeeTon          int      `json:"bot_upgrade_fee_ton"`
+	GiveawayPrepaidSupported  bool     `json:"giveaway_prepaid_supported"`
+	MinOfferFeeTon            int      `json:"min_offer_fee_ton"`
+	OfferFeeCommissionPct     int      `json:"offer_fee_commission_pct"`
+	ProtocolRoyaltyPct        int      `json:"protocol_royalty_pct"`
 }
 
 // ViterbiSegmentation holds the globally optimal dynamic-programming segmentation of a username.
@@ -398,8 +435,44 @@ func ComputeOpticalKerningSymmetry(username string) float64 {
 	return math.Round(math.Max(0.10, math.Min(0.99, score))*1000) / 1000
 }
 
+// buildCanonicalSingleRootBOC constructs a bit-exact TON TVM Bag-of-Cells (magic 0xb5ee9c72)
+// single-root ordinary data cell with flags=0x41 (has_crc32c=1, size_bytes=1) and
+// little-endian Castagnoli CRC32-C checksum at the end.
+func buildCanonicalSingleRootBOC(payload []byte) (bocHexNoPrefix string, d1Hex string, d2Hex string, crc32cHex string) {
+	d1 := byte(0x00) // 0 refs, ordinary data cell, level mask 0
+	d2 := byte(len(payload) * 2)
+	cellSize := 2 + len(payload)
+
+	raw := make([]byte, 0, 16+len(payload))
+	// Standard BOC magic: 0xb5ee9c72
+	raw = append(raw, 0xb5, 0xee, 0x9c, 0x72)
+	// Flags byte: has_idx=0, has_crc32c=1 (0x40), has_cache_bits=0, flags=0, size_bytes=1 (0x01) -> 0x41
+	raw = append(raw, 0x41)
+	// off_bytes = 1
+	raw = append(raw, 0x01)
+	// cells = 1, roots = 1, absent = 0
+	raw = append(raw, 0x01, 0x01, 0x00)
+	// tot_cells_size = cellSize
+	raw = append(raw, byte(cellSize))
+	// root_idx = 0
+	raw = append(raw, 0x00)
+	// cell descriptors d1, d2 + data payload
+	raw = append(raw, d1, d2)
+	raw = append(raw, payload...)
+
+	// Append Castagnoli CRC32-C (little-endian per TON BOC specification)
+	crcTable := crc32.MakeTable(crc32.Castagnoli)
+	checksum := crc32.Checksum(raw, crcTable)
+	var crcBytes [4]byte
+	binary.LittleEndian.PutUint32(crcBytes[:], checksum)
+	raw = append(raw, crcBytes[:]...)
+
+	return hex.EncodeToString(raw), fmt.Sprintf("0x%02x", d1), fmt.Sprintf("0x%02x", d2), "0x" + hex.EncodeToString(crcBytes[:])
+}
+
 // ComputeBinaryAndBiomechanicalForensics computes bit-level ASCII matrix, Hamming weight density,
-// Shannon entropy, TEP-62 SHA-256 index, TVM BOC cell hex, Fitts's Law kinematics, and Viterbi tokens.
+// Shannon entropy, TEP-62 SHA-256 index, TVM BOC cell hex with Castagnoli CRC32-C, TEP-81 DNS internal representation,
+// Fitts's Law kinematics, and Viterbi tokens.
 func ComputeBinaryAndBiomechanicalForensics(username string) (*BinaryForensicsDto, *FragmentCapabilitiesDto) {
 	clean := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(username)), "@")
 	rawBytes := []byte(clean)
@@ -409,20 +482,35 @@ func ComputeBinaryAndBiomechanicalForensics(username string) (*BinaryForensicsDt
 	setBitsPopcount := 0
 	bitstreamMatrix := make([]string, byteLen)
 	hexBytes := make([]string, byteLen)
+	hexBytesUpper := make([]string, byteLen)
 	charCounts := make(map[byte]int, byteLen)
+	leftHandKeys := 0
+	rightHandKeys := 0
 
 	for i, b := range rawBytes {
 		setBitsPopcount += bits.OnesCount8(b)
 		bitstreamMatrix[i] = fmt.Sprintf("%08b", b)
 		hexBytes[i] = fmt.Sprintf("%02x", b)
+		hexBytesUpper[i] = fmt.Sprintf("%02X", b)
 		charCounts[b]++
+		if coord, ok := mobileQwertyCoords[b]; ok {
+			if coord.hand == 'L' {
+				leftHandKeys++
+			} else {
+				rightHandKeys++
+			}
+		}
 	}
 
-	asciiHexPayload := "0x" + strings.Join(hexBytes, "")
+	zeroBitsCount := totalBits - setBitsPopcount
+	rawHexPayload := strings.Join(hexBytes, "")
+	asciiHexPayload := "0x" + rawHexPayload
+	asciiHexSpaced := strings.Join(hexBytesUpper, " ")
 	hammingDensity := 0.0
 	if totalBits > 0 {
 		hammingDensity = math.Round((float64(setBitsPopcount)/float64(totalBits))*10000) / 10000
 	}
+	hammingWeightPct := math.Round(hammingDensity*10000) / 100
 
 	// Shannon Information Entropy H(X) = -Sum P(x) log2 P(x)
 	shannonEntropy := 0.0
@@ -434,17 +522,33 @@ func ComputeBinaryAndBiomechanicalForensics(username string) (*BinaryForensicsDt
 	}
 	shannonEntropy = math.Round(shannonEntropy*1000) / 1000
 
-	maxPossibleEntropy := math.Log2(math.Max(2.0, float64(byteLen)))
+	maxPossibleEntropy := math.Round(math.Log2(math.Max(2.0, float64(byteLen)))*1000) / 1000
 	normEntropy := math.Round(math.Min(1.0, shannonEntropy/maxPossibleEntropy)*1000) / 1000
 
 	// TEP-62 SHA-256 NFT Index
 	hash := sha256.Sum256(rawBytes)
 	tep62Sha256 := "0x" + hex.EncodeToString(hash[:])
 
-	// Deterministic TeleMint TVM BOC Cell (0xb5ee9c72 standard magic header + payload)
-	payloadHex := hex.EncodeToString(rawBytes)
-	cellLenHex := fmt.Sprintf("%02x", byteLen*2)
-	tvmBocCellHex := fmt.Sprintf("b5ee9c724101010100%02x0000%s%s", byteLen+2, cellLenHex, payloadHex)
+	// 1. Canonical TVM BOC Cell (0xb5ee9c72 standard magic header + payload + Castagnoli CRC32-C)
+	tvmBocCellHex, d1Hex, d2Hex, crc32cHex := buildCanonicalSingleRootBOC(rawBytes)
+
+	// 2. TeleMint Token Info TL-B Cell: telemint_text$_ len:(## 8) text:(bits (len * 8)) = TelemintText
+	telemintPayload := make([]byte, 0, 1+byteLen)
+	telemintPayload = append(telemintPayload, byte(byteLen))
+	telemintPayload = append(telemintPayload, rawBytes...)
+	telemintTokenBoc, _, _, _ := buildCanonicalSingleRootBOC(telemintPayload)
+
+	// 3. TEP-81 TON DNS Internal Domain Slice ("me\x00t\x00<username>\x00") for dnsresolve (0x1e210)
+	dnsInternalBytes := []byte("me\x00t\x00" + clean + "\x00")
+	tep81DnsInternalHex := "0x" + hex.EncodeToString(dnsInternalBytes)
+
+	// 4. TON DNS Category SHA-256 Hashes per TEP-81 specification
+	dnsCategories := []string{"wallet", "telegram_username", "site", "dns_next_resolver"}
+	tonDnsCategoryKeys := make(map[string]string, len(dnsCategories))
+	for _, cat := range dnsCategories {
+		catHash := sha256.Sum256([]byte(cat))
+		tonDnsCategoryKeys[cat] = "0x" + hex.EncodeToString(catHash[:])
+	}
 
 	// Biomechanical Fitts's Law & Optical Kerning
 	fittsBits, fittsErgo, handAltPct := ComputeFittsBiomechanics(clean)
@@ -452,30 +556,63 @@ func ComputeBinaryAndBiomechanicalForensics(username string) (*BinaryForensicsDt
 	viterbi := ViterbiSegmentUsername(clean)
 
 	forensics := &BinaryForensicsDto{
-		AsciiHexPayload:        asciiHexPayload,
-		ByteLength:             byteLen,
-		TotalBits:              totalBits,
-		SetBitsPopcount:        setBitsPopcount,
-		HammingWeightDensity:   hammingDensity,
-		ShannonEntropyBits:     shannonEntropy,
-		NormalizedEntropy:      normEntropy,
-		BitstreamMatrix:        bitstreamMatrix,
-		Tep62IndexSha256:       tep62Sha256,
-		TvmBocCellHex:          tvmBocCellHex,
-		HandAlternationPct:     handAltPct,
-		FittsIndexBits:         fittsBits,
-		FittsErgonomicScore:    fittsErgo,
-		OpticalKerningSymmetry: kerningSym,
-		ViterbiTokens:          viterbi.Tokens,
-		ViterbiCoverage:        viterbi.CoverageRatio,
+		AsciiHexPayload:           asciiHexPayload,
+		AsciiHexSpaced:            asciiHexSpaced,
+		RawHexPayload:             rawHexPayload,
+		ByteLength:                byteLen,
+		TotalBits:                 totalBits,
+		SetBitsPopcount:           setBitsPopcount,
+		ZeroBitsCount:             zeroBitsCount,
+		HammingWeightDensity:      hammingDensity,
+		HammingWeightPct:          hammingWeightPct,
+		ShannonEntropyBits:        shannonEntropy,
+		MaxTheoreticalEntropyBits: maxPossibleEntropy,
+		NormalizedEntropy:         normEntropy,
+		UniqueCharsCount:          len(charCounts),
+		BitstreamMatrix:           bitstreamMatrix,
+		Tep62IndexSha256:          tep62Sha256,
+		TvmBocCellHex:             tvmBocCellHex,
+		TelemintTokenCellBoc:      "0x" + telemintTokenBoc,
+		BocMagicPrefix:            "0xb5ee9c72",
+		CellDescriptorD1Hex:       d1Hex,
+		CellDescriptorD2Hex:       d2Hex,
+		Crc32cChecksumHex:         crc32cHex,
+		Tep81DnsInternalHex:       tep81DnsInternalHex,
+		TonDnsResolveMethodId:     "0x1e210 (123660)",
+		TonDnsCategoryKeys:        tonDnsCategoryKeys,
+		CollectionAddress:         TelegramUsernamesCollectionAddress,
+		HandAlternationPct:        handAltPct,
+		LeftHandKeys:              leftHandKeys,
+		RightHandKeys:             rightHandKeys,
+		FittsIndexBits:            fittsBits,
+		FittsErgonomicScore:       fittsErgo,
+		OpticalKerningSymmetry:    kerningSym,
+		ViterbiTokens:             viterbi.Tokens,
+		ViterbiCoverage:           viterbi.CoverageRatio,
 	}
 
 	capabilities := &FragmentCapabilitiesDto{
-		CollectibleLinksCount: 5,
-		ZeroSignupRequired:    true,
-		BotUpgradeEligible:    strings.HasSuffix(clean, "bot"),
-		TonDnsDomain:          clean + ".t.me",
-		AdRevenueSharePct:     50,
+		CollectibleLinksCount:     5,
+		ZeroSignupRequired:        true,
+		BotUpgradeEligible:        strings.HasSuffix(clean, "bot"),
+		TonDnsDomain:              clean + ".t.me",
+		AdRevenueSharePct:         50,
+		TmeUrl:                    "https://t.me/" + clean,
+		WebSubdomainUrl:           "https://" + clean + ".t.me",
+		TgResolveUri:              "tg://resolve?domain=" + clean,
+		FragmentUrl:               "https://fragment.com/username/" + clean,
+		NftJsonUrl:                "https://nft.fragment.com/username/" + clean + ".json",
+		NftWebpUrl:                "https://nft.fragment.com/username/" + clean + ".webp",
+		TonDnsHexTarget:           tep81DnsInternalHex,
+		AssignableTo:              []string{"Personal Account", "Public Channel", "Supergroup", "Telegram Bot / Mini-App"},
+		MaxCollectiblesPerChat:    15,
+		GlobalSearchPriorityBoost: byteLen <= 6,
+		ZeroSimCardLoginReady:     true,
+		BotUpgradeFeeTon:          5000,
+		GiveawayPrepaidSupported:  true,
+		MinOfferFeeTon:            1,
+		OfferFeeCommissionPct:     5,
+		ProtocolRoyaltyPct:        5,
 	}
 
 	return forensics, capabilities

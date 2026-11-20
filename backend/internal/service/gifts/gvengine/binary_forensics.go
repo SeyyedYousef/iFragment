@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"hash/crc32"
 	"math"
 	"math/big"
 	"strings"
@@ -27,8 +28,11 @@ const (
 type GiftBinaryForensicsDto struct {
 	CanonicalSlug               string  `json:"canonical_slug"`
 	FragmentNFTWebURI           string  `json:"fragment_nft_web_uri"`
+	FragmentGiftWebURI          string  `json:"fragment_gift_web_uri"`
 	TEP64MetadataURI            string  `json:"tep64_metadata_uri"`
 	LottieVectorURI             string  `json:"lottie_vector_uri"`
+	TGSStickerURI               string  `json:"tgs_sticker_uri"`
+	WebpPreviewURI              string  `json:"webp_preview_uri"`
 	MTProtoConstructor          string  `json:"mtproto_constructor"`
 	MTProtoModelAttrConstructor string  `json:"mtproto_model_attr_constructor"`
 	MTProtoBackdropConstructor  string  `json:"mtproto_backdrop_constructor"`
@@ -60,6 +64,11 @@ type GiftBinaryForensicsDto struct {
 	TEP62ItemIndexSHA256        string  `json:"tep62_item_index_sha256"`
 	TEP62ItemIndexUint256Prefix string  `json:"tep62_item_index_uint256_prefix"`
 	TVMCellBOCHex               string  `json:"tvm_cell_boc_hex"`
+	TEP64ContentCellBOCHex      string  `json:"tep64_content_cell_boc_hex"`
+	BOCMagicPrefix              string  `json:"boc_magic_prefix"`
+	CellDescriptorD1Hex         string  `json:"cell_descriptor_d1_hex"`
+	CellDescriptorD2Hex         string  `json:"cell_descriptor_d2_hex"`
+	CRC32CChecksumHex           string  `json:"crc32c_checksum_hex"`
 }
 
 // PackHexToRGB24 converts a "#RRGGBB" hex string into Telegram's 24-bit packed integer
@@ -176,14 +185,21 @@ func ComputeGiftBinaryForensics(
 		uint256Str = uint256Str[:20] + "..."
 	}
 
-	// Standard TON TVM BOC header (0xb5ee9c72) encapsulating the TEP-62 item index prefix
-	bocHex := fmt.Sprintf("0xb5ee9c7201010101002400004380%s", hex.EncodeToString(digest[:16]))
+	// Canonical TON TVM BOC (0xb5ee9c72) single-root cell with Castagnoli CRC32-C encapsulating the 256-bit TEP-62 index
+	bocHex, d1Hex, d2Hex, crc32cHex := buildCanonicalGiftBOCHex(digest[:])
+
+	// TEP-64 off-chain metadata content cell: [0x01 (off-chain snake prefix), "<slugLower>-<serial>.json"...]
+	tep64Payload := append([]byte{0x01}, []byte(fmt.Sprintf("%s-%d.json", slugLower, serial))...)
+	tep64ContentBocHex, _, _, _ := buildCanonicalGiftBOCHex(tep64Payload)
 
 	return &GiftBinaryForensicsDto{
 		CanonicalSlug:               canonicalSlug,
 		FragmentNFTWebURI:           fmt.Sprintf("https://t.me/nft/%s", canonicalSlug),
+		FragmentGiftWebURI:          fmt.Sprintf("https://fragment.com/gift/%s-%d", slugLower, serial),
 		TEP64MetadataURI:            fmt.Sprintf("https://nft.fragment.com/gift/%s-%d.json", slugLower, serial),
 		LottieVectorURI:             fmt.Sprintf("https://nft.fragment.com/gift/%s-%d.lottie.json", slugLower, serial),
+		TGSStickerURI:               fmt.Sprintf("https://nft.fragment.com/gift/%s-%d.tgs", slugLower, serial),
+		WebpPreviewURI:              fmt.Sprintf("https://nft.fragment.com/gift/%s-%d.webp", slugLower, serial),
 		MTProtoConstructor:          "starGiftUnique#5c62d151",
 		MTProtoModelAttrConstructor: "starGiftAttributeModel#39d99013",
 		MTProtoBackdropConstructor:  "starGiftAttributeBackdrop#d93d859c",
@@ -215,7 +231,36 @@ func ComputeGiftBinaryForensics(
 		TEP62ItemIndexSHA256:        digestHex,
 		TEP62ItemIndexUint256Prefix: uint256Str,
 		TVMCellBOCHex:               bocHex,
+		TEP64ContentCellBOCHex:      tep64ContentBocHex,
+		BOCMagicPrefix:              "0xb5ee9c72",
+		CellDescriptorD1Hex:         d1Hex,
+		CellDescriptorD2Hex:         d2Hex,
+		CRC32CChecksumHex:           crc32cHex,
 	}
+}
+
+func buildCanonicalGiftBOCHex(payload []byte) (bocHex string, d1Hex string, d2Hex string, crc32cHex string) {
+	d1 := byte(0x00) // 0 refs, ordinary data cell
+	d2 := byte(len(payload) * 2)
+	cellSize := 2 + len(payload)
+
+	raw := make([]byte, 0, 16+len(payload))
+	raw = append(raw, 0xb5, 0xee, 0x9c, 0x72) // Standard BOC magic 0xb5ee9c72
+	raw = append(raw, 0x41)                   // Flags: has_crc32c=1 (0x40), size_bytes=1 (0x01)
+	raw = append(raw, 0x01)                   // off_bytes = 1
+	raw = append(raw, 0x01, 0x01, 0x00)       // cells=1, roots=1, absent=0
+	raw = append(raw, byte(cellSize))         // tot_cells_size
+	raw = append(raw, 0x00)                   // root_idx=0
+	raw = append(raw, d1, d2)
+	raw = append(raw, payload...)
+
+	crcTable := crc32.MakeTable(crc32.Castagnoli)
+	checksum := crc32.Checksum(raw, crcTable)
+	var crcBytes [4]byte
+	binary.LittleEndian.PutUint32(crcBytes[:], checksum)
+	raw = append(raw, crcBytes[:]...)
+
+	return "0x" + hex.EncodeToString(raw), fmt.Sprintf("0x%02x", d1), fmt.Sprintf("0x%02x", d2), "0x" + hex.EncodeToString(crcBytes[:])
 }
 
 func canonicalPascalSlug(collectionID string) string {
