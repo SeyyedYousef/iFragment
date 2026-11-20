@@ -174,7 +174,12 @@ export const NumbersCollectionPage: Component = () => {
 							onSelectNumber={(num) => navigate(`/numbers/report?n=${encodeURIComponent(num)}`)}
 						/>
 
-						<NumberDeFiFinancials overview={overview()} />
+						<NumberDeFiFinancials
+							medianFloorTon={
+								overview()?.median_sale_7d_ton || overview()?.floor_ask_ton || undefined
+							}
+							tonUsdRate={rate()}
+						/>
 					</div>
 				</Show>
 
@@ -205,7 +210,7 @@ export const NumbersCollectionPage: Component = () => {
 				<Show when={selectedTab() === 'patterns'}>
 					<div class="space-y-4">
 						<NumberPatternsView patterns={patterns()} rate={rate()} />
-						<NumberDialpadErgonomics defaultDigits="08888888" />
+						<NumberDialpadErgonomics initialNumber="+888 0888 8888" />
 						<NumberCulturalRadarHeatmap />
 					</div>
 				</Show>

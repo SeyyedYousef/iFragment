@@ -1050,6 +1050,18 @@ export interface EnrichedGiftReport extends GiftValuationReport {
 	owner_intelligence?: GiftOwnerIntelligence;
 	crafting_forge?: GiftCraftingForgeIntel;
 	binary_forensics?: GiftBinaryForensics;
+	laya_system_one?: {
+		trait_synergy_score?: number;
+		monochrome_match_score?: number;
+		collector_appeal?: string;
+		floor_lock_regime?: string;
+		action_recommendation?: string;
+		liquidity_tier?: string;
+		confidence?: number;
+		synergy_multiplier?: number;
+		verdict_summary_en?: string;
+		verdict_summary_fa?: string;
+	};
 	same_serial_siblings?: SameSerialSiblingItem[];
 	deal_thermometer?: DealThermometerData;
 	collection_catalog?: {

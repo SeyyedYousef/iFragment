@@ -465,8 +465,13 @@ export const CollectionInfoPage: Component = () => {
 
 						{/* Inline Filter Input + Fragment Sort Dropdown */}
 						<div class="flex items-center gap-2">
-							<div class="flex-1 bg-[#242e38] rounded-[8px] px-3 py-2 flex items-center gap-2" dir="ltr">
-								<span class="material-symbols-outlined text-[17px] text-[#8a98a6]">filter_list</span>
+							<div
+								class="flex-1 bg-[#242e38] rounded-[8px] px-3 py-2 flex items-center gap-2"
+								dir="ltr"
+							>
+								<span class="material-symbols-outlined text-[17px] text-[#8a98a6]">
+									filter_list
+								</span>
 								<input
 									type="text"
 									value={marketSearch()}
@@ -548,7 +553,9 @@ export const CollectionInfoPage: Component = () => {
 												</div>
 												<div class="col-span-3 flex flex-col items-end justify-center text-end min-w-0">
 													<Show
-														when={marketStream() === 'buy_now_floor' || marketStream() === 'recent_sold'}
+														when={
+															marketStream() === 'buy_now_floor' || marketStream() === 'recent_sold'
+														}
 														fallback={
 															<>
 																<span class="text-[12px] font-medium text-white truncate max-w-full">
@@ -592,7 +599,9 @@ export const CollectionInfoPage: Component = () => {
 							{(mp) => (
 								<div class="frag-section-card p-3.5 space-y-2.5">
 									<div class="flex items-center justify-between">
-										<span class="text-[13px] font-bold text-white">7-Day Quantitative Market Pulse</span>
+										<span class="text-[13px] font-bold text-white">
+											7-Day Quantitative Market Pulse
+										</span>
 										<span class="px-2 py-0.5 rounded-[4px] bg-[#248bda]/15 text-[#4db2ff] text-[10.5px] font-mono font-bold">
 											{mp().market_regime}
 										</span>
@@ -600,15 +609,24 @@ export const CollectionInfoPage: Component = () => {
 									<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-start" dir="ltr">
 										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
 											<span class="text-[10.5px] text-[#8c9aa9] block">7D Volume</span>
-											<TonAmount value={Math.round(mp().volume_7d_ton).toLocaleString()} size="sm" />
+											<TonAmount
+												value={Math.round(mp().volume_7d_ton).toLocaleString()}
+												size="sm"
+											/>
 										</div>
 										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
 											<span class="text-[10.5px] text-[#8c9aa9] block">7D Median Sale</span>
-											<TonAmount value={Math.round(mp().median_sale_7d_ton).toLocaleString()} size="sm" />
+											<TonAmount
+												value={Math.round(mp().median_sale_7d_ton).toLocaleString()}
+												size="sm"
+											/>
 										</div>
 										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
 											<span class="text-[10.5px] text-[#8c9aa9] block">P90 Whale Sale</span>
-											<TonAmount value={Math.round(mp().p90_sale_7d_ton).toLocaleString()} size="sm" />
+											<TonAmount
+												value={Math.round(mp().p90_sale_7d_ton).toLocaleString()}
+												size="sm"
+											/>
 										</div>
 										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
 											<span class="text-[10.5px] text-[#8c9aa9] block">4–5ch Share</span>
@@ -703,7 +721,11 @@ export const CollectionInfoPage: Component = () => {
 													</span>
 												</div>
 												<div class="col-span-3 flex justify-end">
-													<TonAmount value={cat.top_sale_ton.toLocaleString()} size="sm" tone="positive" />
+													<TonAmount
+														value={cat.top_sale_ton.toLocaleString()}
+														size="sm"
+														tone="positive"
+													/>
 												</div>
 											</div>
 										)}

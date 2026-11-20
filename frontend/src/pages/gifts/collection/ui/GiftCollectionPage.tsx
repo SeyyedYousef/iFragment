@@ -346,8 +346,10 @@ export const GiftCollectionPage: Component = () => {
 
 						<GiftArbitrageRadar
 							collectionName={data()?.collection_name || slug()}
-							floorTon={data()?.best_floor_gram || 100}
-							rate={
+							bestFloorTon={data()?.best_floor_gram || 100}
+							venueFloors={data()?.venue_floors}
+							arbitrage={data()?.arbitrage}
+							tonUsdRate={
 								data()?.best_floor_usd && data()?.best_floor_gram
 									? data()!.best_floor_usd / data()!.best_floor_gram
 									: 2.85
@@ -356,8 +358,8 @@ export const GiftCollectionPage: Component = () => {
 
 						<GiftWhaleTracker
 							collectionName={data()?.collection_name || slug()}
+							whales={data()?.whales}
 							totalSupply={data()?.total_supply || 5000}
-							listedCount={data()?.listed_count || 180}
 							floorTon={data()?.best_floor_gram || 100}
 						/>
 					</div>
@@ -595,7 +597,7 @@ export const GiftCollectionPage: Component = () => {
 							collectionName={data()?.collection_name || slug()}
 							backdrops={data()?.backdrops_list}
 							models={data()?.model_floors}
-							floorTon={data()?.best_floor_gram || 100}
+							baseFloorTon={data()?.best_floor_gram || 100}
 						/>
 
 						<Show when={(data()?.rarity_heatmap?.length || 0) > 0}>

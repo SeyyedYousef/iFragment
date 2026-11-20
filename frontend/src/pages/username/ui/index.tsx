@@ -171,6 +171,7 @@ interface ValuationResult {
 	status?: string;
 	telegram_status?: string;
 	fragment_market_status?: string;
+	target_buyer_profile?: string;
 	empirical_band?: {
 		p10_ton: number;
 		p50_ton: number;
@@ -180,6 +181,47 @@ interface ValuationResult {
 		p90_usd: number;
 	};
 	brandability: number;
+	trademark_risk?: {
+		risk_level?: string;
+		matched_entity?: string;
+		brand?: string;
+		advisory_warning?: string;
+		risk_score?: number;
+	};
+	seller_hold_conviction?: {
+		owner_balance_ton: number;
+		is_whale_holder: boolean;
+		hold_conviction_score: number;
+		reservation_multiplier: number;
+		seller_reservation_ton: number;
+		negotiation_stance: string;
+	};
+	laya_system_one?: {
+		total_score?: number;
+		phonetic_score?: number;
+		ergonomic_score?: number;
+		cultural_resonance?: string;
+		target_entity_fit?: string;
+		commercial_intent?: number;
+		trademark_risk_level?: string;
+		seizure_risk?: number;
+		liquidity_speed?: string;
+		buyer_archetype?: string;
+		bidding_war_potential?: number;
+		auction_tactics?: string;
+		confidence?: number;
+		system_one_verdict?: string;
+		tags?: string[];
+	};
+	homoglyph_spoofing_matrix?: {
+		confusable_count: number;
+		visual_entropy_risk: string;
+		defense_score: number;
+		spoofing_vectors?: string[];
+		active_collision_risk?: string;
+		twins?: HomoglyphTwin[];
+	};
+	homoglyph_twins?: HomoglyphTwin[];
 	telemint_provenance?: TelemintProvenance;
 	binary_forensics?: BinaryForensicsDto;
 	fragment_capabilities?: FragmentCapabilitiesDto;
@@ -1123,14 +1165,18 @@ export const UsernamePage: Component = () => {
 																<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
 																	<span>Seller Hold Conviction</span>
 																	<span class="font-mono text-[#4db2ff]">
-																		{conv().score_100}/100 · {conv().holder_tier}
+																		{conv().hold_conviction_score}/100 ·{' '}
+																		{conv().is_whale_holder ? 'Whale Holder' : 'Standard Holder'}
 																	</span>
 																</div>
 																<FragKV label="Negotiation Leverage">
-																	{conv().negotiation_leverage}
+																	{conv().negotiation_stance}
 																</FragKV>
-																<FragKV label="Suggested Opening Offer">
-																	<TonAmount value={fmtTon(conv().suggested_open_offer_ton)} size="sm" />
+																<FragKV label="Suggested Reservation Price">
+																	<TonAmount
+																		value={fmtTon(conv().seller_reservation_ton)}
+																		size="sm"
+																	/>
 																</FragKV>
 															</div>
 														)}
@@ -1140,28 +1186,13 @@ export const UsernamePage: Component = () => {
 													<Show when={d().laya_system_one}>
 														{(laya) => (
 															<LayaMultiDimensionalCard
-																laya={{
-																	phonetic_harmony: Math.round((laya().total_score || 78) / 10),
-																	visual_symmetry: Math.round(
-																		((d().binary_forensics?.optical_kerning_symmetry || 0.82) * 100) /
-																			10,
-																	),
-																	memorability: Math.round((laya().total_score || 80) / 10),
-																	brand_power: Math.round((d().brandability || 80) / 10),
-																	cultural_resonance: Math.round((laya().total_score || 75) / 10),
-																	typing_ergonomics: Math.round(
-																		((d().binary_forensics?.fitts_ergonomic_score || 0.85) * 100) /
-																			10,
-																	),
-																	archetype_en: laya().cultural_resonance || 'Sovereign Digital Handle',
-																	archetype_fa: laya().cultural_resonance || 'نام کاربری کلکسیونی',
-																	summary_en:
-																		(laya().psychological_triggers || []).join(' · ') ||
-																		'High cognitive recall and strong typographical balance.',
-																	summary_fa:
-																		(laya().psychological_triggers || []).join(' · ') ||
-																		'یادآوری شناختی بالا و تقارن تایپوگرافی استاندارد.',
+																decision={{
+																	...laya(),
+																	phonetic_score:
+																		laya().phonetic_score ||
+																		Math.round((laya().total_score || 78) / 10),
 																}}
+																username={d().username || username()}
 															/>
 														)}
 													</Show>
@@ -1169,23 +1200,24 @@ export const UsernamePage: Component = () => {
 													{/* Target Buyer Persona & Outreach Strategy */}
 													<TargetBuyerPersonaCard
 														username={d().username || username()}
-														expectedTon={expectedTon()}
-														tags={d().tags}
-														isWord={d().dictionary?.is_word}
-														brandCompany={d().known_brand_company}
+														matchedArchetype={
+															d().laya_system_one?.buyer_archetype || d().target_buyer_profile
+														}
+														detectedPersona={d().laya_system_one?.target_entity_fit}
 													/>
 
 													{/* Telegram ToS & Legal Safety Matrix */}
 													<TelegramTOSLegalMatrix
 														username={d().username || username()}
-														isMintedNft={Boolean(
-															d().verification?.is_minted_nft ||
-																d().telemint_provenance?.item_address ||
-																d().history?.is_minted,
-														)}
-														hasTrademarkRisk={Boolean(d().risk_audit?.has_trademark_risk)}
-														hasHomoglyphRisk={Boolean(d().risk_audit?.has_homoglyph_risk)}
-														trademarkBrand={d().known_brand_company}
+														trademarkRisk={
+															d().trademark_risk ||
+															(d().risk_audit?.has_trademark_risk
+																? {
+																		risk_level: 'high',
+																		advisory_warning: d().risk_audit?.trademark_detail,
+																	}
+																: null)
+														}
 													/>
 
 													{/* Send Certificate to Telegram Chat */}
@@ -1413,14 +1445,14 @@ export const UsernamePage: Component = () => {
 																<FragKV label="Fitts's Law Biomechanics">
 																	<span class="font-mono text-[#5aec8c]">
 																		ID {bf().fitts_index_bits ?? 0.8} bits · Ergo{' '}
-																		{Math.round((bf().fitts_ergonomic_score || 0.85) * 100)}/100 · Alt{' '}
-																		{bf().hand_alternation_pct}%
+																		{Math.round((bf().fitts_ergonomic_score || 0.85) * 100)}/100 ·
+																		Alt {bf().hand_alternation_pct}%
 																	</span>
 																</FragKV>
 																<FragKV label="Optical Kerning Symmetry">
 																	<span class="font-mono">
-																		{Math.round((bf().optical_kerning_symmetry || 0.82) * 100)}% SF Pro
-																		harmony
+																		{Math.round((bf().optical_kerning_symmetry || 0.82) * 100)}% SF
+																		Pro harmony
 																	</span>
 																</FragKV>
 																<Show when={(bf().viterbi_tokens?.length || 0) > 0}>
@@ -1436,10 +1468,11 @@ export const UsernamePage: Component = () => {
 																	copyValue={bf().tep62_index_sha256 || bf().tep62_sha256_index}
 																>
 																	<span class="font-mono text-[11px]">
-																		{(bf().tep62_index_sha256 || bf().tep62_sha256_index || '').slice(
-																			0,
-																			20,
-																		)}
+																		{(
+																			bf().tep62_index_sha256 ||
+																			bf().tep62_sha256_index ||
+																			''
+																		).slice(0, 20)}
 																		…
 																	</span>
 																</FragKV>
@@ -1458,10 +1491,11 @@ export const UsernamePage: Component = () => {
 																	copyValue={bf().telemint_token_cell_boc || bf().tvm_boc_cell_hex}
 																>
 																	<span class="font-mono text-[11px] text-[#5aec8c]">
-																		{(bf().telemint_token_cell_boc || bf().tvm_boc_cell_hex || '').slice(
-																			0,
-																			22,
-																		)}
+																		{(
+																			bf().telemint_token_cell_boc ||
+																			bf().tvm_boc_cell_hex ||
+																			''
+																		).slice(0, 22)}
 																		… ({bf().crc32c_checksum_hex || 'CRC32-C'})
 																	</span>
 																</FragKV>
@@ -1487,12 +1521,28 @@ export const UsernamePage: Component = () => {
 													</Show>
 
 													{/* Homoglyph Spoofing Matrix */}
-													<Show when={(d().homoglyph_spoofing_matrix?.length || 0) > 0}>
+													<Show
+														when={
+															(d().homoglyph_spoofing_matrix?.twins || d().homoglyph_twins || [])
+																.length > 0
+														}
+													>
 														<div class="frag-table-container">
-															<div class="frag-table-header px-3.5 py-2">
+															<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
 																<span>Homoglyph & Confusable Twin Matrix</span>
+																<Show
+																	when={d().homoglyph_spoofing_matrix?.defense_score !== undefined}
+																>
+																	<span class="font-mono text-[#4db2ff]">
+																		Defense {d().homoglyph_spoofing_matrix!.defense_score}/100
+																	</span>
+																</Show>
 															</div>
-															<For each={d().homoglyph_spoofing_matrix || []}>
+															<For
+																each={
+																	d().homoglyph_spoofing_matrix?.twins || d().homoglyph_twins || []
+																}
+															>
 																{(hg) => (
 																	<button
 																		type="button"

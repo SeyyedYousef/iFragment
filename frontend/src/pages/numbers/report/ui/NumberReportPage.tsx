@@ -809,55 +809,58 @@ export const NumberReportPage: Component = () => {
 												<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
 													<span>Combinatorial Scarcity & Information Theory</span>
 													<span class="font-mono text-[#4db2ff]">
-														{cs().exact_pattern_count} in 136,566
+														{cs().exact_pattern_pool_size.toLocaleString()} in{' '}
+														{cs().total_supply.toLocaleString()}
 													</span>
 												</div>
 												<FragKV label="Pattern Class">
-													{isRtl() ? cs().pattern_class_fa : cs().pattern_class_en}
+													{isRtl()
+														? r().pattern_anatomy?.pattern_type_fa || cs().scarcity_tier
+														: r().pattern_anatomy?.pattern_type_en || cs().scarcity_tier}
 												</FragKV>
 												<FragKV label="Minted Supply Share">
 													<span class="font-mono text-[#5aec8c]">
-														{cs().supply_percentage}% ({cs().exact_pattern_count} minted)
+														{cs().pool_share_pct}% · {cs().mathematical_formula}
 													</span>
 												</FragKV>
-												<FragKV label="Symmetry & Memorability">
-													<span class="font-mono">
-														Sym {cs().symmetry_score}/100 · Mem {cs().memorability_score}/100 · Max Run{' '}
-														{cs().max_run}
-													</span>
-												</FragKV>
+												<Show when={r().pattern_anatomy}>
+													{(pa) => (
+														<FragKV label="Symmetry & Memorability">
+															<span class="font-mono">
+																Sym {pa().symmetry_score}/100 · Mem {pa().memorability_score}/100 ·
+																Max Run {pa().max_run}
+															</span>
+														</FragKV>
+													)}
+												</Show>
 											</div>
 										)}
 									</Show>
 
 									{/* Multi-Regional Cultural Numerology Radar */}
 									<NumberSingleCulturalRadarCard
-										digits={validation().suffix || cleanDigitsForUrl().replace(/^888/, '')}
-										expectedTon={Number(r().expected_ton || 2717)}
+										radar={r().cultural_radar}
+										number={r().display_number || validation().formatted || inputNumber()}
 									/>
 
 									{/* DeFi Collateral & Rental Yield Financial Engineering */}
 									<NumberFinancialEngineeringCard
 										expectedTon={Number(r().expected_ton || 2717)}
+										expectedUsd={r().expected_usd}
 										tonUsdRate={r().ton_usd_rate || 1.29}
-										tier={validation().tier}
 									/>
 
 									{/* Interactive ITU-T E.161 / Q.23 Keypad Biomechanics */}
 									<NumberDialpadErgonomics
-										defaultDigits={validation().suffix || cleanDigitsForUrl().replace(/^888/, '')}
+										initialNumber={r().display_number || validation().formatted || inputNumber()}
 									/>
 
 									{/* Digital Certificate & Telegram Story / Chat Export */}
 									<NumberDigitalCertificateCard
-										report={r()}
-										displayNumber={displayNum()}
-										tier={validation().tier}
-										patternLabel={
-											r().pattern_anatomy?.club_name_en ||
-											r().category_club ||
-											validation().patternLabel
-										}
+										certificateId={r().certificate_id}
+										number={r().display_number || validation().formatted || inputNumber()}
+										expectedTon={Number(r().expected_ton || 2717)}
+										confidence={r().confidence_score}
 									/>
 								</div>
 							</Show>
@@ -997,7 +1000,9 @@ export const NumberReportPage: Component = () => {
 													<span class="font-mono text-[#4db2ff]">0x{bf().utf8_hex}</span>
 												</FragKV>
 												<FragKV label="8421 BCD Nibble Stream" copyValue={bf().bcd_stream}>
-													<span class="font-mono text-[11px] text-[#5aec8c]">{bf().bcd_stream}</span>
+													<span class="font-mono text-[11px] text-[#5aec8c]">
+														{bf().bcd_stream}
+													</span>
 												</FragKV>
 												<FragKV label="BCD & ASCII Hamming Weight">
 													<span class="font-mono">
@@ -1014,7 +1019,8 @@ export const NumberReportPage: Component = () => {
 												</FragKV>
 												<FragKV label="Fitts's Law & Keypad Geometry">
 													<span class="font-mono text-[#5aec8c]">
-														ID {bf().fitts_index_bits ?? 0} bits · Ergo {bf().keypad_ergonomic_score}
+														ID {bf().fitts_index_bits ?? 0} bits · Ergo{' '}
+														{bf().keypad_ergonomic_score}
 														/100 · Manhattan {bf().keypad_manhattan_distance}
 													</span>
 												</FragKV>
@@ -1024,7 +1030,10 @@ export const NumberReportPage: Component = () => {
 														{Math.round(bf().dtmf_consonance_score || 85)}% consonance)
 													</span>
 												</FragKV>
-												<FragKV label="TEP-62 SHA-256 Index" copyValue={bf().tep62_index_sha256_hex}>
+												<FragKV
+													label="TEP-62 SHA-256 Index"
+													copyValue={bf().tep62_index_sha256_hex}
+												>
 													<span class="font-mono text-[11px]">
 														{bf().tep62_index_sha256_hex.slice(0, 20)}…
 													</span>

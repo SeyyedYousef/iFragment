@@ -887,15 +887,40 @@ export const GiftReportPage = () => {
 											</FragKV>
 										</div>
 
-										<GiftLayaActionCard report={rep()} fairValueTon={fairValueTon()} />
-
-										<GiftExitPlannerCard
-											report={rep()}
-											fairValueTon={fairValueTon()}
-											fairValueUsd={fairValueUsd()}
+										<GiftLayaActionCard
+											expectedTon={fairValueTon()}
+											expectedUsd={fairValueUsd()}
+											serialNumber={rep().serial_number}
+											modelName={modelTrait()?.value || rep().selected_model}
+											isUpgraded={rep().upgrade_info?.is_upgraded}
+											isCraftable={rep().crafting_forge?.is_craftable_collection}
+											confidenceScore={rep().confidence_score}
+											verdict={
+												rep().laya_system_one?.action_recommendation ||
+												rep().recommendation?.verdict
+											}
+											summaryFa={
+												rep().laya_system_one?.verdict_summary_fa ||
+												rep().recommendation?.summary_fa
+											}
+											summaryEn={
+												rep().laya_system_one?.verdict_summary_en ||
+												rep().recommendation?.summary_en
+											}
 										/>
 
-										<GiftStarsParityCard report={rep()} fairValueTon={fairValueTon()} />
+										<GiftExitPlannerCard
+											expectedTon={fairValueTon()}
+											expectedUsd={fairValueUsd()}
+											tonUsdRate={rep().gram_usd_rate}
+										/>
+
+										<GiftStarsParityCard
+											expectedTon={fairValueTon()}
+											tonUsdRate={rep().gram_usd_rate}
+											isUpgraded={rep().upgrade_info?.is_upgraded}
+											parity={rep().stars_parity}
+										/>
 
 										<div class="grid grid-cols-2 gap-2">
 											<button
@@ -948,7 +973,22 @@ export const GiftReportPage = () => {
 											</For>
 										</div>
 
-										<GiftTraitSynergyCard report={rep()} />
+										<GiftTraitSynergyCard
+											baseExpectedTon={fairValueTon()}
+											modelName={modelTrait()?.value || rep().selected_model}
+											backdropName={backdropTrait()?.value}
+											symbolName={symbolTrait()?.value}
+											synergyMultiplier={
+												rep().laya_system_one?.synergy_multiplier ||
+												rep().joint_rarity?.beta_synergy
+											}
+											synergyScore={
+												rep().laya_system_one?.trait_synergy_score
+													? rep().laya_system_one!.trait_synergy_score! * 10
+													: undefined
+											}
+											backdropColors={backdropColors()}
+										/>
 
 										{/* Minimalist Trait Combo Simulator */}
 										<Show when={rep().collection_catalog}>
@@ -1103,25 +1143,17 @@ export const GiftReportPage = () => {
 													</Show>
 													<FragKV
 														label="TGS / Lottie Vector Asset"
-														href={
-															bf().tgs_sticker_uri ||
-															bf().lottie_vector_uri ||
-															bf().lottie_url
-														}
+														href={bf().tgs_sticker_uri || bf().lottie_vector_uri || bf().lottie_url}
 														accent
 													>
-														<span class="font-mono text-[11.5px]">
-															nft.fragment.com/gift/…tgs
-														</span>
+														<span class="font-mono text-[11.5px]">nft.fragment.com/gift/…tgs</span>
 													</FragKV>
 													<FragKV
 														label="TEP-64 Off-Chain JSON"
 														href={bf().tep64_metadata_uri || bf().metadata_json_url}
 														accent
 													>
-														<span class="font-mono text-[11.5px]">
-															nft.fragment.com/gift/…json
-														</span>
+														<span class="font-mono text-[11.5px]">nft.fragment.com/gift/…json</span>
 													</FragKV>
 												</div>
 											)}
