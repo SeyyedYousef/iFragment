@@ -329,7 +329,7 @@ export const UsernameCollectionChart: Component<Props> = (props) => {
 							<span>
 								{t('usernameCollectionChart.volumeLabel')}:{' '}
 								<strong class="text-white font-semibold">
-									{Math.round(currentPoint()?.volumeTon || 0).toLocaleString()} TON
+									{Math.round(currentPoint()?.volumeTon || 0).toLocaleString('en-US')} TON
 								</strong>
 							</span>
 							<Show when={(currentPoint()?.salesCount || 0) > 0}>

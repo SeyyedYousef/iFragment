@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ifragment-cache-v8';
+const CACHE_NAME = 'ifragment-cache-v9';
 const SCOPE_URL = new URL('./', self.registration ? self.registration.scope : self.location.href);
 const OFFLINE_URL = new URL('offline.html', SCOPE_URL).href;
 const INDEX_URL = new URL('index.html', SCOPE_URL).href;

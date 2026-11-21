@@ -153,7 +153,7 @@ export const NumberClubFloorsTracker: Component<Props> = (props) => {
 						</span>
 					</div>
 					<span class="text-[10px] font-mono font-bold text-white/50 bg-white/5 px-2.5 py-0.5 rounded-[8px]">
-						{current().totalSupply.toLocaleString()} {layaT(NUMBERS_I18N.totalInWorld)}
+						{current().totalSupply.toLocaleString('en-US')} {layaT(NUMBERS_I18N.totalInWorld)}
 					</span>
 				</div>
 
@@ -172,7 +172,7 @@ export const NumberClubFloorsTracker: Component<Props> = (props) => {
 					<div class="bg-white/[0.02] border border-white/5 rounded-[14px] p-2.5 flex flex-col gap-0.5">
 						<span class="text-white/40 uppercase">{layaT(NUMBERS_I18N.topSaleAth)}</span>
 						<span class="text-[13px] font-black text-emerald-400">
-							{current().topSaleTon.toLocaleString()} TON
+							{current().topSaleTon.toLocaleString('en-US')} TON
 						</span>
 						<span class="text-[9px] text-white/40">{t('numClubFloors.verifiedOnChain')}</span>
 					</div>

@@ -63,7 +63,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					value:
 						props.data?.macro_stats?.total_collections &&
 						props.data.macro_stats.total_collections > 0
-							? props.data.macro_stats.total_collections.toLocaleString()
+							? props.data.macro_stats.total_collections.toLocaleString('en-US')
 							: '151',
 					sub: 'Official Catalog Registry',
 					icon: 'inventory_2',
@@ -72,7 +72,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					label: t('gifts.upgradableGiftsCount') || 'Upgradable to NFT',
 					value:
 						props.data?.macro_stats?.upgradable_gifts && props.data.macro_stats.upgradable_gifts > 0
-							? props.data.macro_stats.upgradable_gifts.toLocaleString()
+							? props.data.macro_stats.upgradable_gifts.toLocaleString('en-US')
 							: '123',
 					sub: 'TEP-62 Standard',
 					icon: 'auto_awesome',
@@ -80,7 +80,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 				{
 					label: t('gifts.uniqueModelsCount') || 'Unique 3D Models',
 					value: props.data?.macro_stats?.total_unique_models
-						? props.data.macro_stats.total_unique_models.toLocaleString()
+						? props.data.macro_stats.total_unique_models.toLocaleString('en-US')
 						: '7,806',
 					sub: 'High-Poly Renderings',
 					icon: 'view_in_ar',
@@ -89,7 +89,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					label: t('gifts.backdropsCount') || 'Backdrops',
 					value:
 						props.data?.macro_stats?.total_backdrops && props.data.macro_stats.total_backdrops > 0
-							? props.data.macro_stats.total_backdrops.toLocaleString()
+							? props.data.macro_stats.total_backdrops.toLocaleString('en-US')
 							: '80',
 					sub: '4-Hex Color Gradients',
 					icon: 'palette',
@@ -97,7 +97,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 				{
 					label: t('gifts.patternsCount') || 'Symbols & Patterns',
 					value: props.data?.macro_stats?.total_patterns
-						? props.data.macro_stats.total_patterns.toLocaleString()
+						? props.data.macro_stats.total_patterns.toLocaleString('en-US')
 						: '26,065',
 					sub: 'Pattern DNA',
 					icon: 'texture',
@@ -106,7 +106,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					label: t('gifts.circulatingGifts') || 'On-Chain NFTs',
 					value:
 						props.data?.total_circulating_gifts && props.data.total_circulating_gifts > 0
-							? props.data.total_circulating_gifts.toLocaleString()
+							? props.data.total_circulating_gifts.toLocaleString('en-US')
 							: '1,456,753',
 					sub: 'Upgraded on Fragment',
 					icon: 'layers',
@@ -136,7 +136,7 @@ export const GiftsMacroStats: Component<Props> = (props) => {
 					label: t('gifts.activeWallets') || 'Active Wallets',
 					value:
 						props.data?.total_active_wallets && props.data.total_active_wallets > 0
-							? props.data.total_active_wallets.toLocaleString()
+							? props.data.total_active_wallets.toLocaleString('en-US')
 							: layaT(GIFTS_MACRO_I18N.liveMonitoring),
 					sub: 'Monthly Active',
 					icon: 'wallet',

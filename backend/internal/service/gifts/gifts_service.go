@@ -1507,7 +1507,7 @@ func (s *GiftsService) GetEnrichedReportWithOverrides(ctx context.Context, userI
 	} else if sn%100 == 0 {
 		snTier = "Round Number"
 		snMultiplier = 1.25
-		snDesc = "شماره رند مضرب ۱۰۰ (Clean Hundred)"
+		snDesc = "شماره رند مضرب 100 (Clean Hundred)"
 	}
 
 	// Calculate model, backdrop, and symbol floor prices

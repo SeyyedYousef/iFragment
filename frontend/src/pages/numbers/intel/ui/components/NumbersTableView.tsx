@@ -178,35 +178,35 @@ export const NumbersTableView: Component<Props> = (props) => {
 				{[
 					{
 						label: () => t('numbers.filterAll') || 'All Numbers',
-						count: () => totalSupply().toLocaleString(),
+						count: () => totalSupply().toLocaleString('en-US'),
 						saleType: '',
 						numberType: '',
 						icon: 'all_inclusive',
 					},
 					{
 						label: () => t('numbers.filterAuctions') || 'Auctions',
-						count: () => auctionsCount().toLocaleString(),
+						count: () => auctionsCount().toLocaleString('en-US'),
 						saleType: 'auction',
 						numberType: '',
 						icon: 'gavel',
 					},
 					{
 						label: () => t('numbers.filterFixedPrice') || 'Fixed Price',
-						count: () => fixedCount().toLocaleString(),
+						count: () => fixedCount().toLocaleString('en-US'),
 						saleType: 'for_sale',
 						numberType: '',
 						icon: 'sell',
 					},
 					{
 						label: () => t('numbers.filterNotForSale') || 'Not For Sale',
-						count: () => notForSaleCount().toLocaleString(),
+						count: () => notForSaleCount().toLocaleString('en-US'),
 						saleType: 'not_for_sale',
 						numberType: '',
 						icon: 'lock',
 					},
 					{
 						label: () => t('numbers.filterRestricted') || 'Restricted',
-						count: () => restrictedCount().toLocaleString(),
+						count: () => restrictedCount().toLocaleString('en-US'),
 						saleType: '',
 						numberType: 'banned',
 						icon: 'warning',
@@ -494,7 +494,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 						</span>
 						<span class="text-[10px] font-mono text-white/40">
 							({numbersQuery.data?.items.length || 0} /{' '}
-							{numbersQuery.data?.total?.toLocaleString() || '136,566'})
+							{numbersQuery.data?.total?.toLocaleString('en-US') || '136,566'})
 						</span>
 					</div>
 					<div class="text-[11px] font-mono text-white/60">

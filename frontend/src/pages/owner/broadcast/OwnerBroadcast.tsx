@@ -92,7 +92,7 @@ export const OwnerBroadcast: Component = () => {
 									{audienceCountQuery.isLoading
 										? t('ownerBroadcast.counting')
 										: t('ownerBroadcast.usersTargeted', {
-												count: (audienceCountQuery.data?.count ?? 0).toLocaleString(),
+												count: (audienceCountQuery.data?.count ?? 0).toLocaleString('en-US'),
 											})}
 								</span>
 							</div>
@@ -303,8 +303,8 @@ export const OwnerBroadcast: Component = () => {
 												</td>
 												<td class="py-3 w-40">
 													<div class="text-[11px] font-mono text-white/70 mb-1">
-														{b.sent_count.toLocaleString()} / {b.total_count.toLocaleString()} (
-														{pct().toFixed(0)}%)
+														{b.sent_count.toLocaleString('en-US')} /{' '}
+														{b.total_count.toLocaleString('en-US')} ({pct().toFixed(0)}%)
 													</div>
 													<div class="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
 														<div
@@ -315,11 +315,11 @@ export const OwnerBroadcast: Component = () => {
 												</td>
 												<td class="py-3 text-white/50">
 													{b.scheduled_at
-														? new Date(b.scheduled_at).toLocaleString()
+														? new Date(b.scheduled_at).toLocaleString('en-US')
 														: t('ownerBroadcast.immediate')}
 												</td>
 												<td class="py-3 font-mono text-rose-400 font-bold">
-													{(b.failed_count ?? 0).toLocaleString()}
+													{(b.failed_count ?? 0).toLocaleString('en-US')}
 												</td>
 												<td class="py-3 text-right">
 													<div class="flex items-center justify-end gap-1.5">

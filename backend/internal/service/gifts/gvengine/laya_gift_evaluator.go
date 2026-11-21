@@ -314,6 +314,6 @@ func (e *LayaGiftEvaluator) fallbackGiftWithTelemetry(in GiftTelemetryInput) *La
 		Confidence:             0.80,
 		SynergyMultiplier:      mult,
 		VerdictSummaryEn:       "Deterministic gift trait evaluation via Laya System 1.",
-		VerdictSummaryFa:       "ارزیابی قطعی صفات گیفت تلگرام با سیستم ۱ لایا.",
+		VerdictSummaryFa:       "ارزیابی قطعی صفات گیفت تلگرام با سیستم 1 لایا.",
 	}
 }

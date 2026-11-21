@@ -373,8 +373,8 @@ func (h *WebhookHandler) sendMainMenuWithURL(ctx context.Context, bot *repositor
 	h.sendOrEditMessage(ctx, tg, chatID, messageID, menuText, markup, threadID)
 }
 
-// buildMainMenuMarkup creates the symmetrical v2.0 Glass Matrix inline keyboard
-// structured as a balanced 1 + 2 + 2 + 2 + 2 layout.
+// buildMainMenuMarkup creates the Mini-App-first inline keyboard
+// structured as a balanced 1 + 2 + 2 + 2 layout without redundant asset-category buttons.
 func (h *WebhookHandler) buildMainMenuMarkup(ctx context.Context, lang string, miniAppURL string) map[string]interface{} {
 	if ctx == nil {
 		ctx = context.Background()
@@ -382,9 +382,7 @@ func (h *WebhookHandler) buildMainMenuMarkup(ctx context.Context, lang string, m
 	normL := normalizeLang(lang)
 
 	btnMiniApp := h.resolveButton(ctx, "btn_mini_app", normL, GetDefaultButton("btn_mini_app", normL))
-	btnUsername := h.resolveButton(ctx, "btn_usernames", normL, GetDefaultButton("btn_usernames", normL))
-	btnNumber := h.resolveButton(ctx, "btn_numbers", normL, GetDefaultButton("btn_numbers", normL))
-	btnGifts := h.resolveButton(ctx, "btn_gifts", normL, GetDefaultButton("btn_gifts", normL))
+	btnInline := h.resolveButton(ctx, "btn_inline_search", normL, GetDefaultButton("btn_inline_search", normL))
 	btnProfile := h.resolveButton(ctx, "btn_profile", normL, GetDefaultButton("btn_profile", normL))
 	btnFreeCredits := h.resolveButton(ctx, "btn_free_credits", normL, GetDefaultButton("btn_free_credits", normL))
 	btnStars := h.resolveButton(ctx, "btn_stars", normL, GetDefaultButton("btn_stars", normL))
@@ -393,7 +391,7 @@ func (h *WebhookHandler) buildMainMenuMarkup(ctx context.Context, lang string, m
 
 	return map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
-			// Row 1: Hero Primary CTA (Full Width)
+			// Row 1: Hero Primary Mini App CTA (Full Width)
 			{
 				func() map[string]interface{} {
 					btn := map[string]interface{}{
@@ -407,29 +405,18 @@ func (h *WebhookHandler) buildMainMenuMarkup(ctx context.Context, lang string, m
 					return btn
 				}(),
 			},
-			// Row 2: Asset Analytics (2 balanced buttons)
+			// Row 2: Inline Mode & Collector Passport (2 balanced buttons)
 			{
 				{
-					"text":          btnUsername,
-					"callback_data": "nav:asset_username",
-				},
-				{
-					"text":          btnNumber,
-					"callback_data": "nav:asset_number",
-				},
-			},
-			// Row 3: Ecosystem & Investor Profile (2 balanced buttons)
-			{
-				{
-					"text":          btnGifts,
-					"callback_data": "nav:asset_gifts",
+					"text":                btnInline,
+					"switch_inline_query": "",
 				},
 				{
 					"text":          btnProfile,
 					"callback_data": "nav:profile",
 				},
 			},
-			// Row 4: Free Community Credits & Stars Credit Store (2 balanced buttons)
+			// Row 3: Free Community Credits & Stars Credit Store (2 balanced buttons)
 			{
 				{
 					"text": btnFreeCredits,
@@ -440,7 +427,7 @@ func (h *WebhookHandler) buildMainMenuMarkup(ctx context.Context, lang string, m
 					"callback_data": "buy_credits:profile",
 				},
 			},
-			// Row 5: Preferences & Methodology (2 balanced buttons)
+			// Row 4: Preferences & Methodology (2 balanced buttons)
 			{
 				{
 					"text":          btnLang,
@@ -666,22 +653,22 @@ func (h *WebhookHandler) sendHelpView(ctx context.Context, bot *repository.Manag
 
 شما می‌توانید بدون نیاز به هیچ دستوری، عبارات مورد نظرتان را مستقیماً برای ربات بفرستید:
 
-🏷️ <b>۱. ارزیابی نام کاربری (Username):</b>
+🏷️ <b>1. ارزیابی نام کاربری (Username):</b>
 کافیست آیدی تلگرام را بفرستید:
 • <code>@crypto</code> یا <code>wallet</code>
 • <code>https://fragment.com/username/telecom</code>
 
-📱 <b>۲. تحلیل شماره کلکسیونی (+888):</b>
+📱 <b>2. تحلیل شماره کلکسیونی (+888):</b>
 شماره ناشناس مورد نظر را با فرمت کامل یا خلاصه بنویسید:
 • <code>+888 8888 8888</code>
 • <code>+88801234567</code> یا <code>8888</code>
 
-🎁 <b>۳. کارشناسی گیفت تلگرام (Telegram Gifts):</b>
+🎁 <b>3. کارشناسی گیفت تلگرام (Telegram Gifts):</b>
 لینک یا نام گیفت را بفرستید:
 • <code>https://t.me/nft/PlushPepe-42</code>
 • <code>/gift CelestialStar-1</code>
 
-💡 <i>هر گزارش عمیق به ۱ کریدت تحلیلی نیاز دارد که می‌توانید با ارسال پیام یا بوست در سوپرگروه @FragmentInvestors به صورت کاملاً رایگان دریافت کنید، یا آن را با Stars فعال فرمایید.</i>`
+💡 <i>هر گزارش عمیق به 1 کریدت تحلیلی نیاز دارد که می‌توانید با ارسال پیام یا بوست در سوپرگروه @FragmentInvestors به صورت کاملاً رایگان دریافت کنید، یا آن را با Stars فعال فرمایید.</i>`
 	case "ar":
 		text = `📖 <b>دليل استخدام منصة iFragment الذكية</b>
 
@@ -834,7 +821,7 @@ func (h *WebhookHandler) sendAssetPrompt(ctx context.Context, bot *repository.Ma
 		switch lang {
 		case "fa":
 			title = "📱 <b>تحلیل شماره کلکسیونی ناشناس (+888)</b>"
-			desc = "لطفاً شماره کلکسیونی ۸ رقمی یا رند ۴ رقمی مد نظر را وارد نمایید:"
+			desc = "لطفاً شماره کلکسیونی 8 رقمی یا رند 4 رقمی مد نظر را وارد نمایید:"
 			example = "نمونه: <code>+888 8888 8888</code> یا <code>+88801234567</code> یا <code>8888</code>"
 		case "ar":
 			title = "📱 <b>تحليل الرقم المميز المجهول (+888)</b>"
@@ -1135,7 +1122,7 @@ func (h *WebhookHandler) sendPreCheckGate(ctx context.Context, bot *repository.M
 • مقایسه معاملات قطعی اخیر در فرگمنت و تلگرام
 • سرتیفیکیت رمزنگاری‌شده و تحلیل برابری Stars
 
-هزینه باز کردن گزارش کامل: <b>۱ کریدت تحلیلی</b>`,
+هزینه باز کردن گزارش کامل: <b>1 کریدت تحلیلی</b>`,
 				telegram.EscapeHTML(giftGate.ModelName), giftGate.SerialNumber,
 				telegram.EscapeHTML(giftGate.SelectedModel),
 				giftGate.FloorPriceGRAM, giftGate.FloorPriceUSD,
@@ -1234,7 +1221,7 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 			btnStars = "⭐ Buy Credits with Stars"
 			btnBack = "🔙 Back"
 		default: // "fa"
-			btnUnlock = "🔓 مشاهده گزارش تحلیلی (۱ کریدت)"
+			btnUnlock = "🔓 مشاهده گزارش تحلیلی (1 کریدت)"
 			btnFreeCredits = "💬 دریافت کردیت رایگان (@FragmentInvestors)"
 			btnStars = "⭐ خرید کریدت با Stars"
 			btnBack = "🔙 بازگشت"
@@ -1258,8 +1245,8 @@ Unlock full report cost: <b>1 Intel Credit</b>`,
 • تاریخچه آخرین معاملات ثبت‌شده مشابه در شبکه
 • شاخص نقدشوندگی و کشش تقاضا در بازار
 
-هزینه باز کردن گزارش کامل: <b>۱ کریدت تحلیلی</b>`
-			btnUnlock = "🔓 مشاهده گزارش تحلیلی (۱ کریدت)"
+هزینه باز کردن گزارش کامل: <b>1 کریدت تحلیلی</b>`
+			btnUnlock = "🔓 مشاهده گزارش تحلیلی (1 کریدت)"
 			btnFreeCredits = "💬 دریافت کردیت رایگان (@FragmentInvestors)"
 			btnStars = "⭐ خرید کریدت با Stars"
 			btnBack = "🔙 بازگشت"
@@ -1512,7 +1499,7 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 
 		switch lang {
 		case "fa":
-			errMsg = "⚠️ <b>اعتبار تحلیلی کافی ندارید!</b>\n\nشما به حداقل <b>۱ کریدت تحلیلی</b> برای مشاهده این گزارش نیاز دارید. می‌توانید سکه‌های ایردراپ خود را تبدیل کنید یا با تلگرام استارز کریدت تهیه نمایید."
+			errMsg = "⚠️ <b>اعتبار تحلیلی کافی ندارید!</b>\n\nشما به حداقل <b>1 کریدت تحلیلی</b> برای مشاهده این گزارش نیاز دارید. می‌توانید سکه‌های ایردراپ خود را تبدیل کنید یا با تلگرام استارز کریدت تهیه نمایید."
 			btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به کریدت", formattedCost)
 			btnStars = "⭐ خرید با Stars"
 			btnBack = "🔙 بازگشت"
@@ -1661,7 +1648,7 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 			formattedCost := formatNumberWithCommas(costCoins)
 			switch lang {
 			case "fa":
-				errMsg = "⚠️ <b>اعتبار تحلیلی کافی ندارید!</b>\n\nشما به حداقل <b>۱ کریدت تحلیلی</b> برای مشاهده این گزارش نیاز دارید."
+				errMsg = "⚠️ <b>اعتبار تحلیلی کافی ندارید!</b>\n\nشما به حداقل <b>1 کریدت تحلیلی</b> برای مشاهده این گزارش نیاز دارید."
 				btnExchange = fmt.Sprintf("🔄 تبدیل %s سکه به کریدت", formattedCost)
 				btnStars = "⭐ خرید با Stars"
 				btnBack = "🔙 بازگشت"
@@ -1769,7 +1756,7 @@ func (h *WebhookHandler) executeUnlockAndReport(ctx context.Context, bot *reposi
 	} else {
 		switch normL {
 		case "fa":
-			creditFooter = fmt.Sprintf("\n\n<i>⚡ ۱ کریدت کسر شد | موجودی: %d</i>", remainingBalance)
+			creditFooter = fmt.Sprintf("\n\n<i>⚡ 1 کریدت کسر شد | موجودی: %d</i>", remainingBalance)
 		case "ru":
 			creditFooter = fmt.Sprintf("\n\n<i>⚡ 1 кредит списан | Баланс: %d</i>", remainingBalance)
 		case "zh":
@@ -1866,9 +1853,9 @@ func (h *WebhookHandler) notifyAdminBotReportUnlock(
 			}
 		}
 	}
-	payLabel := fmt.Sprintf("⚡️ پی‌وی ربات (۱ کریدت کسر شد | مانده: %d)", remainingBalance)
+	payLabel := fmt.Sprintf("⚡️ پی‌وی ربات (1 کریدت کسر شد | مانده: %d)", remainingBalance)
 	if isDuplicate {
-		payLabel = "♻️ پی‌وی ربات (بازبینی رایگان ۲۴ ساعته)"
+		payLabel = "♻️ پی‌وی ربات (بازبینی رایگان 24 ساعته)"
 	}
 	timeStr := time.Now().UTC().Format("15:04:05 UTC")
 	userIDStr := strconv.FormatInt(userID, 10)
@@ -2023,7 +2010,6 @@ func (h *WebhookHandler) renderUsernameReportWithResult(ctx context.Context, tg 
 		brandability = res.Brandability
 	}
 
-	richHTML := buildUsernameRichHTML(normUser, res, lang) + creditFooter
 	standardHTML := buildUsernameStandardHTML(normUser, res, lang) + creditFooter
 
 	var extraInfo string
@@ -2063,16 +2049,19 @@ func (h *WebhookHandler) renderUsernameReportWithResult(ctx context.Context, tg 
 
 		if pngBytes, err := h.cardGen.GenerateRichUsernameCard(cardP); err == nil {
 			_, _ = h.cardGen.SaveCard(pngBytes)
+			escUser := telegram.EscapeHTML(normUser)
+			escTier := telegram.EscapeHTML(strings.ToUpper(tier))
+			escGrade := telegram.EscapeHTML(grade)
 			var photoCaption string
 			switch normalizeLang(lang) {
 			case "fa":
-				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی اصالت و ارزش‌گذاری  ·  @%s</b> ✦\n\n<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>رده کمیابی:</b> <b>%s</b>  ·  <b>درجه سرمایه‌گذاری:</b> <b>%s</b>\n📈 <b>شاخص برندپذیری:</b> <code>%d/100</code></blockquote>\n<i>گزارش تحلیلی ۱۰ فصلی در پیام زیر برایتان باز شد 👇</i>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade, brandability)
+				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی اصالت و ارزش‌گذاری  ·  @%s</b> ✦\n\n<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>رده کمیابی:</b> <b>%s</b>  ·  <b>درجه سرمایه‌گذاری:</b> <b>%s</b>\n📈 <b>شاخص برندپذیری:</b> <code>%d/100</code></blockquote>\n<i>گزارش تحلیلی 10 فصلی در پیام زیر برایتان باز شد 👇</i>", escUser, expectedTONStr, expectedUSDStr, escTier, escGrade, brandability)
 			case "ru":
-				photoCaption = fmt.Sprintf("✦ <b>Официальный сертификат оценки  ·  @%s</b> ✦\n\n<blockquote>💰 <b>Справедливая цена:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>Редкость:</b> <b>%s</b>  ·  <b>Инвест-грейд:</b> <b>%s</b>\n📈 <b>Индекс бренда:</b> <code>%d/100</code></blockquote>\n<i>Полное аналитическое досье открыто ниже 👇</i>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade, brandability)
+				photoCaption = fmt.Sprintf("✦ <b>Официальный сертификат оценки  ·  @%s</b> ✦\n\n<blockquote>💰 <b>Справедливая цена:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>Редкость:</b> <b>%s</b>  ·  <b>Инвест-грейд:</b> <b>%s</b>\n📈 <b>Индекс бренда:</b> <code>%d/100</code></blockquote>\n<i>Полное аналитическое досье открыто ниже 👇</i>", escUser, expectedTONStr, expectedUSDStr, escTier, escGrade, brandability)
 			case "zh":
-				photoCaption = fmt.Sprintf("✦ <b>官方链上估值证书  ·  @%s</b> ✦\n\n<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>稀有度等级:</b> <b>%s</b>  ·  <b>投资评级:</b> <b>%s</b>\n📈 <b>品牌潜力指数:</b> <code>%d/100</code></blockquote>\n<i>下方已为您展开 10 维深度分析档案 👇</i>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade, brandability)
+				photoCaption = fmt.Sprintf("✦ <b>官方链上估值证书  ·  @%s</b> ✦\n\n<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>稀有度等级:</b> <b>%s</b>  ·  <b>投资评级:</b> <b>%s</b>\n📈 <b>品牌潜力指数:</b> <code>%d/100</code></blockquote>\n<i>下方已为您展开 10 维深度分析档案 👇</i>", escUser, expectedTONStr, expectedUSDStr, escTier, escGrade, brandability)
 			default:
-				photoCaption = fmt.Sprintf("✦ <b>Official Valuation Certificate  ·  @%s</b> ✦\n\n<blockquote>💰 <b>Estimated Market Price:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>Rarity Tier:</b> <b>%s</b>  ·  <b>Grade:</b> <b>%s</b>\n📈 <b>Brand Equity:</b> <code>%d/100</code></blockquote>\n<i>Your 10-chapter analytical dossier is unlocked below 👇</i>", normUser, expectedTONStr, expectedUSDStr, strings.ToUpper(tier), grade, brandability)
+				photoCaption = fmt.Sprintf("✦ <b>Official Valuation Certificate  ·  @%s</b> ✦\n\n<blockquote>💰 <b>Estimated Market Price:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n💎 <b>Rarity Tier:</b> <b>%s</b>  ·  <b>Grade:</b> <b>%s</b>\n📈 <b>Brand Equity:</b> <code>%d/100</code></blockquote>\n<i>Your 10-chapter analytical dossier is unlocked below 👇</i>", escUser, expectedTONStr, expectedUSDStr, escTier, escGrade, brandability)
 			}
 			if messageID != nil {
 				_ = tg.DeleteMessage(ctx, chatID, *messageID)
@@ -2082,10 +2071,7 @@ func (h *WebhookHandler) renderUsernameReportWithResult(ctx context.Context, tg 
 			} else {
 				slog.Error("failed to send username valuation photo bytes", "username", normUser, "error", photoErr)
 			}
-			if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err == nil {
-				return nil
-			}
-			if _, err := tg.SendMessageWithMarkup(ctx, chatID, standardHTML, markup, threadID); err == nil {
+			if err := sendChunkedHTMLReport(ctx, tg, chatID, standardHTML, markup, threadID); err == nil {
 				return nil
 			}
 			if photoSent {
@@ -2096,21 +2082,35 @@ func (h *WebhookHandler) renderUsernameReportWithResult(ctx context.Context, tg 
 	}
 
 	if messageID != nil {
-		if err := tg.EditRichMessageWithMarkup(ctx, chatID, *messageID, map[string]interface{}{"html": richHTML}, markup); err == nil {
-			return nil
-		}
 		if err := tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, standardHTML, markup); err == nil {
 			return nil
 		}
-	} else {
-		if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err == nil {
-			return nil
-		}
-		if _, err := tg.SendMessageWithMarkup(ctx, chatID, standardHTML, markup, threadID); err == nil {
-			return nil
-		}
+	}
+	if err := sendChunkedHTMLReport(ctx, tg, chatID, standardHTML, markup, threadID); err == nil {
+		return nil
 	}
 	return errors.New("failed to deliver username report to telegram")
+}
+
+func sendChunkedHTMLReport(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, htmlBody string, markup interface{}, threadID *int) error {
+	chunks := splitTelegramHTML(htmlBody, 3900)
+	var lastErr error
+	delivered := false
+	for i, chunk := range chunks {
+		var kb interface{}
+		if i == len(chunks)-1 {
+			kb = markup
+		}
+		if _, err := tg.SendMessageWithMarkup(ctx, chatID, chunk, kb, threadID); err != nil {
+			lastErr = err
+		} else {
+			delivered = true
+		}
+	}
+	if delivered {
+		return nil
+	}
+	return lastErr
 }
 
 // renderNumberReport produces rich analytical valuation of a +888 number
@@ -2150,7 +2150,6 @@ func (h *WebhookHandler) renderNumberReportWithResult(ctx context.Context, tg *t
 		usdStr = fmt.Sprintf("%.0f", val.ExpectedUSD)
 	}
 
-	richHTML := buildNumberRichHTML(val, lang) + creditFooter
 	standardHTML := buildNumberStandardHTML(val, displayNum, lang) + creditFooter
 
 	var extraInfo string
@@ -2195,16 +2194,18 @@ func (h *WebhookHandler) renderNumberReportWithResult(ctx context.Context, tg *t
 
 		if pngBytes, err := h.cardGen.GenerateRichNumberCard(cardP); err == nil {
 			_, _ = h.cardGen.SaveCard(pngBytes)
+			escNum := telegram.EscapeHTML(displayNum)
+			escClub := telegram.EscapeHTML(club)
 			var photoCaption string
 			switch normalizeLang(lang) {
 			case "fa":
-				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی شماره کلکسیونی  ·  %s</b> ✦\n\n<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>کلوپ کلکسیونی:</b> <b>%s</b>\n🏆 <b>رتبه کمیابی جهانی:</b> <b>#%d از ۱۳۶,۵۶۶</b></blockquote>\n<i>گزارش کامل تقارن الگو، دیفای و نقدشوندگی در پیام زیر 👇</i>", displayNum, tonStr, usdStr, club, globalRank)
+				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی شماره کلکسیونی  ·  %s</b> ✦\n\n<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>کلوپ کلکسیونی:</b> <b>%s</b>\n🏆 <b>رتبه کمیابی جهانی:</b> <b>#%d از 136,566</b></blockquote>\n<i>گزارش کامل تقارن الگو، دیفای و نقدشوندگی در پیام زیر 👇</i>", escNum, tonStr, usdStr, escClub, globalRank)
 			case "ru":
-				photoCaption = fmt.Sprintf("✦ <b>Сертификат анонимного номера  ·  %s</b> ✦\n\n<blockquote>💰 <b>Справедливая цена:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>Клуб коллекции:</b> <b>%s</b>\n🏆 <b>Мировой ранг:</b> <b>#%d из 136,566</b></blockquote>\n<i>Полный разбор паттерна, DeFi и ликвидности открыт ниже 👇</i>", displayNum, tonStr, usdStr, club, globalRank)
+				photoCaption = fmt.Sprintf("✦ <b>Сертификат анонимного номера  ·  %s</b> ✦\n\n<blockquote>💰 <b>Справедливая цена:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>Клуб коллекции:</b> <b>%s</b>\n🏆 <b>Мировой ранг:</b> <b>#%d из 136,566</b></blockquote>\n<i>Полный разбор паттерна, DeFi и ликвидности открыт ниже 👇</i>", escNum, tonStr, usdStr, escClub, globalRank)
 			case "zh":
-				photoCaption = fmt.Sprintf("✦ <b>匿名典藏靓号估值证书  ·  %s</b> ✦\n\n<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>归属俱乐部:</b> <b>%s</b>\n🏆 <b>全网稀缺排名:</b> <b>#%d / 136,566</b></blockquote>\n<i>下方已为您展开号码基因、DeFi 授信与深度估值档案 👇</i>", displayNum, tonStr, usdStr, club, globalRank)
+				photoCaption = fmt.Sprintf("✦ <b>匿名典藏靓号估值证书  ·  %s</b> ✦\n\n<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>归属俱乐部:</b> <b>%s</b>\n🏆 <b>全网稀缺排名:</b> <b>#%d / 136,566</b></blockquote>\n<i>下方已为您展开号码基因、DeFi 授信与深度估值档案 👇</i>", escNum, tonStr, usdStr, escClub, globalRank)
 			default:
-				photoCaption = fmt.Sprintf("✦ <b>Official Anonymous Number Certificate  ·  %s</b> ✦\n\n<blockquote>💰 <b>Estimated Market Price:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>Category Club:</b> <b>%s</b>\n🏆 <b>Global Rarity Rank:</b> <b>#%d of 136,566</b></blockquote>\n<i>Full pattern anatomy, DeFi collateral & liquidity dossier below 👇</i>", displayNum, tonStr, usdStr, club, globalRank)
+				photoCaption = fmt.Sprintf("✦ <b>Official Anonymous Number Certificate  ·  %s</b> ✦\n\n<blockquote>💰 <b>Estimated Market Price:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n👑 <b>Category Club:</b> <b>%s</b>\n🏆 <b>Global Rarity Rank:</b> <b>#%d of 136,566</b></blockquote>\n<i>Full pattern anatomy, DeFi collateral & liquidity dossier below 👇</i>", escNum, tonStr, usdStr, escClub, globalRank)
 			}
 			if messageID != nil {
 				_ = tg.DeleteMessage(ctx, chatID, *messageID)
@@ -2215,10 +2216,7 @@ func (h *WebhookHandler) renderNumberReportWithResult(ctx context.Context, tg *t
 				slog.Error("failed to send number valuation photo bytes", "number", displayNum, "error", photoErr)
 			}
 
-			if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err == nil {
-				return nil
-			}
-			if _, err := tg.SendMessageWithMarkup(ctx, chatID, standardHTML, markup, threadID); err == nil {
+			if err := sendChunkedHTMLReport(ctx, tg, chatID, standardHTML, markup, threadID); err == nil {
 				return nil
 			}
 			if photoSent {
@@ -2229,19 +2227,12 @@ func (h *WebhookHandler) renderNumberReportWithResult(ctx context.Context, tg *t
 	}
 
 	if messageID != nil {
-		if err := tg.EditRichMessageWithMarkup(ctx, chatID, *messageID, map[string]interface{}{"html": richHTML}, markup); err == nil {
-			return nil
-		}
 		if err := tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, standardHTML, markup); err == nil {
 			return nil
 		}
-	} else {
-		if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err == nil {
-			return nil
-		}
-		if _, err := tg.SendMessageWithMarkup(ctx, chatID, standardHTML, markup, threadID); err == nil {
-			return nil
-		}
+	}
+	if err := sendChunkedHTMLReport(ctx, tg, chatID, standardHTML, markup, threadID); err == nil {
+		return nil
 	}
 	return errors.New("failed to deliver number report to telegram")
 }
@@ -2278,7 +2269,6 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 			appraisal.HighUSD = appraisal.HighGRAM.InexactFloat64() * tonRate
 		}
 
-		richHTML := buildGiftRichHTML(appraisal, lang) + creditFooter
 		standardText, _ := h.formatGiftAppraisalMessage(appraisal, miniAppURL, lang)
 		standardText += creditFooter
 
@@ -2305,7 +2295,11 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 		markup := buildGiftMarkup(appraisal, miniAppURL, copySummary, lang)
 
 		var photoSent bool
-		// Hybrid Visual Card + Rich Message Delivery
+		escGiftTitle := telegram.EscapeHTML(appraisal.DisplayTitle)
+		escRarity := telegram.EscapeHTML(rarityTier)
+		escUSD := telegram.EscapeHTML(usdStr)
+		escRateRef := telegram.EscapeHTML(rateRefLine)
+		// Hybrid Visual Card + Standard Telegram HTML Delivery
 		if h.cardGen != nil && tg != nil {
 			giftParams := buildGiftCardParams(appraisal, lang)
 			if pngBytes, err := h.cardGen.GenerateRichGiftCard(giftParams); err == nil {
@@ -2313,13 +2307,13 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 				var photoCaption string
 				switch normalizeLang(lang) {
 				case "fa":
-					photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی گیفت کلکسیونی  ·  %s</b> ✦\n\n<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>رده کمیابی ژنتیکی:</b> <b>%s</b>  ·  <b>سریال:</b> <code>#%d</code></blockquote>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, appraisal.SerialNumber, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی گیفت کلکسیونی  ·  %s</b> ✦\n\n<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>رده کمیابی ژنتیکی:</b> <b>%s</b>  ·  <b>سریال:</b> <code>#%d</code></blockquote>\n%s", escGiftTitle, tonStr, escUSD, escRarity, appraisal.SerialNumber, escRateRef)
 				case "ru":
-					photoCaption = fmt.Sprintf("✦ <b>Официальный сертификат подарка  ·  %s</b> ✦\n\n<blockquote>💰 <b>Справедливая цена:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>Редкость:</b> <b>%s</b>  ·  <b>Серия:</b> <code>#%d</code></blockquote>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, appraisal.SerialNumber, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>Официальный сертификат подарка  ·  %s</b> ✦\n\n<blockquote>💰 <b>Справедливая цена:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>Редкость:</b> <b>%s</b>  ·  <b>Серия:</b> <code>#%d</code></blockquote>\n%s", escGiftTitle, tonStr, escUSD, escRarity, appraisal.SerialNumber, escRateRef)
 				case "zh":
-					photoCaption = fmt.Sprintf("✦ <b>典藏礼物官方估值证书  ·  %s</b> ✦\n\n<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>基因稀有度:</b> <b>%s</b>  ·  <b>编号:</b> <code>#%d</code></blockquote>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, appraisal.SerialNumber, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>典藏礼物官方估值证书  ·  %s</b> ✦\n\n<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>基因稀有度:</b> <b>%s</b>  ·  <b>编号:</b> <code>#%d</code></blockquote>\n%s", escGiftTitle, tonStr, escUSD, escRarity, appraisal.SerialNumber, escRateRef)
 				default:
-					photoCaption = fmt.Sprintf("✦ <b>Official Collectible Gift Certificate  ·  %s</b> ✦\n\n<blockquote>💰 <b>Estimated Market Price:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>Rarity Tier:</b> <b>%s</b>  ·  <b>Serial:</b> <code>#%d</code></blockquote>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, appraisal.SerialNumber, rateRefLine)
+					photoCaption = fmt.Sprintf("✦ <b>Official Collectible Gift Certificate  ·  %s</b> ✦\n\n<blockquote>💰 <b>Estimated Market Price:</b> <code>%s TON</code> (<b>≈ %s</b>)\n💎 <b>Rarity Tier:</b> <b>%s</b>  ·  <b>Serial:</b> <code>#%d</code></blockquote>\n%s", escGiftTitle, tonStr, escUSD, escRarity, appraisal.SerialNumber, escRateRef)
 				}
 				if messageID != nil {
 					_ = tg.DeleteMessage(ctx, chatID, *messageID)
@@ -2330,10 +2324,7 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 					slog.Error("failed to send gift valuation photo bytes", "gift", appraisal.DisplayTitle, "error", photoErr)
 				}
 
-				if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err == nil {
-					return nil
-				}
-				if _, err := tg.SendMessageWithMarkup(ctx, chatID, standardText, markup, threadID); err == nil {
+				if err := sendChunkedHTMLReport(ctx, tg, chatID, standardText, markup, threadID); err == nil {
 					return nil
 				}
 				if photoSent {
@@ -2347,13 +2338,13 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 			var photoCaption string
 			switch normalizeLang(lang) {
 			case "fa":
-				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی گیفت کلکسیونی: %s</b>\n💰 ارزش منصفانه بازار: <b>%s TON</b> (<code>≈ %s</code>)\n💎 رده کمیابی: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
+				photoCaption = fmt.Sprintf("✦ <b>گواهی رسمی گیفت کلکسیونی: %s</b>\n💰 ارزش منصفانه بازار: <b>%s TON</b> (<code>≈ %s</code>)\n💎 رده کمیابی: <b>%s</b>\n%s", escGiftTitle, tonStr, escUSD, escRarity, escRateRef)
 			case "ru":
-				photoCaption = fmt.Sprintf("✦ <b>Сертификат подарка: %s</b>\n💰 Справедливая рыночная цена: <b>%s TON</b> (<code>≈ %s</code>)\n💎 Редкость: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
+				photoCaption = fmt.Sprintf("✦ <b>Сертификат подарка: %s</b>\n💰 Справедливая рыночная цена: <b>%s TON</b> (<code>≈ %s</code>)\n💎 Редкость: <b>%s</b>\n%s", escGiftTitle, tonStr, escUSD, escRarity, escRateRef)
 			case "zh":
-				photoCaption = fmt.Sprintf("✦ <b>礼物官方估值证书: %s</b>\n💰 预估市场公允价值: <b>%s TON</b> (<code>≈ %s</code>)\n💎 稀有度: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
+				photoCaption = fmt.Sprintf("✦ <b>礼物官方估值证书: %s</b>\n💰 预估市场公允价值: <b>%s TON</b> (<code>≈ %s</code>)\n💎 稀有度: <b>%s</b>\n%s", escGiftTitle, tonStr, escUSD, escRarity, escRateRef)
 			default:
-				photoCaption = fmt.Sprintf("✦ <b>Official Gift Certificate: %s</b>\n💰 Estimated Market Price: <b>%s TON</b> (<code>≈ %s</code>)\n💎 Rarity Tier: <b>%s</b>\n%s", appraisal.DisplayTitle, tonStr, usdStr, rarityTier, rateRefLine)
+				photoCaption = fmt.Sprintf("✦ <b>Official Gift Certificate: %s</b>\n💰 Estimated Market Price: <b>%s TON</b> (<code>≈ %s</code>)\n💎 Rarity Tier: <b>%s</b>\n%s", escGiftTitle, tonStr, escUSD, escRarity, escRateRef)
 			}
 			if messageID != nil {
 				_ = tg.DeleteMessage(ctx, chatID, *messageID)
@@ -2364,19 +2355,12 @@ func (h *WebhookHandler) renderGiftReportWithResult(ctx context.Context, tg *tel
 		}
 
 		if messageID != nil {
-			if err := tg.EditRichMessageWithMarkup(ctx, chatID, *messageID, map[string]interface{}{"html": richHTML}, markup); err == nil {
-				return nil
-			}
 			if err := tg.EditMessageTextWithMarkup(ctx, chatID, *messageID, standardText, markup); err == nil {
 				return nil
 			}
-		} else {
-			if _, err := tg.SendRichMessageWithMarkup(ctx, chatID, map[string]interface{}{"html": richHTML}, markup, threadID); err == nil {
-				return nil
-			}
-			if _, err := tg.SendMessageWithMarkup(ctx, chatID, standardText, markup, threadID); err == nil {
-				return nil
-			}
+		}
+		if err := sendChunkedHTMLReport(ctx, tg, chatID, standardText, markup, threadID); err == nil {
+			return nil
 		}
 		return errors.New("failed to deliver gift report to telegram")
 	}
@@ -2450,8 +2434,8 @@ func (h *WebhookHandler) sendExchangeConfirmView(ctx context.Context, bot *repos
 
 💬 <b>دریافت کریدت کاملاً رایگان:</b>
 با فعالیت در گروه رسمی <b>@FragmentInvestors</b> می‌توانید کریدت نامحدود دریافت کنید:
-• <b>هر ۱ پیام در گروه = ۱ کریدت تحلیلی رایگان!</b>
-• <b>به ازای هر ۲ بوست گروه = روزانه ۱ کریدت رایگان!</b>
+• <b>هر 1 پیام در گروه = 1 کریدت تحلیلی رایگان!</b>
+• <b>به ازای هر 2 بوست گروه = روزانه 1 کریدت رایگان!</b>
 
 ⭐ همچنین می‌توانید بسته‌های اعتباری را مستقیماً با <b>Telegram Stars</b> خریداری نمایید.`,
 			CustomEmojiBolt, intelCredits)

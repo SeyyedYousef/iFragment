@@ -204,42 +204,42 @@ func translateAVM(term string, lang string) string {
 			en: "Instant / Hours",
 		},
 		"1-3 days": {
-			fa: "۱ تا ۳ روز",
+			fa: "1 تا 3 روز",
 			ru: "1-3 дня",
 			zh: "1-3 天",
 			ar: "1-3 أيام",
 			en: "1-3 days",
 		},
 		"1-2 weeks": {
-			fa: "۱ تا ۲ هفته",
+			fa: "1 تا 2 هفته",
 			ru: "1-2 недели",
 			zh: "1-2 周",
 			ar: "1-2 أسبوع",
 			en: "1-2 weeks",
 		},
 		"1-3 months": {
-			fa: "۱ تا ۳ ماه",
+			fa: "1 تا 3 ماه",
 			ru: "1-3 месяца",
 			zh: "1-3 个月",
 			ar: "1-3 أشهر",
 			en: "1-3 months",
 		},
 		"3-6 months": {
-			fa: "۳ تا ۶ ماه",
+			fa: "3 تا 6 ماه",
 			ru: "3-6 месяцев",
 			zh: "3-6 个月",
 			ar: "3-6 أشهر",
 			en: "3-6 months",
 		},
 		"6-12 months": {
-			fa: "۶ تا ۱۲ ماه",
+			fa: "6 تا 12 ماه",
 			ru: "6-12 месяцев",
 			zh: "6-12 个月",
 			ar: "6-12 شهر",
 			en: "6-12 months",
 		},
 		"12+ months": {
-			fa: "بیش از ۱۲ ماه",
+			fa: "بیش از 12 ماه",
 			ru: "Более 12 месяцев",
 			zh: "12 个月以上",
 			ar: "أكثر من 12 شهراً",
@@ -255,7 +255,7 @@ func translateAVM(term string, lang string) string {
 			en: "Corporate / Brand",
 		},
 		"crypto / web3 project": {
-			fa: "پروژه کریپتو / وب۳",
+			fa: "پروژه کریپتو / وب3",
 			ru: "Крипто / Web3 проект",
 			zh: "加密 / Web3 项目方",
 			ar: "مشروع كريبتو / ويب3",
@@ -815,7 +815,7 @@ func formatUsernameRichHTML(username string, res *avm.ValuationResult, lang stri
 		sb.WriteString("<details>\n")
 		sb.WriteString(fmt.Sprintf("<summary>%s</summary>\n<table>\n", secTrend))
 		if res.ProjectedGrowth.BullTON > 0 {
-			lblBull := "سناریوی صعودی ۱۲ ماهه (Bull)"
+			lblBull := "سناریوی صعودی 12 ماهه (Bull)"
 			switch l {
 			case "ru":
 				lblBull = "12M Бычий сценарий (Bull)"
@@ -829,7 +829,7 @@ func formatUsernameRichHTML(username string, res *avm.ValuationResult, lang stri
 			sb.WriteString(fmt.Sprintf("<tr><td>🚀 %s</td><td><code>+%.1f TON</code></td></tr>\n", lblBull, res.ProjectedGrowth.BullTON))
 		}
 		if res.ProjectedGrowth.BaseTON > 0 {
-			lblBase := "سناریوی پایه ۱۲ ماهه (Base)"
+			lblBase := "سناریوی پایه 12 ماهه (Base)"
 			switch l {
 			case "ru":
 				lblBase = "12M Базовый сценарий (Base)"
@@ -1387,15 +1387,15 @@ func formatUsernameStandardHTML(username string, res *avm.ValuationResult, lang 
 		lblPercentile = "جایگاه آماری: <b>Top %.1f%% کل بازار</b>"
 
 		mod2Title = "🎯 <b>محاسبات مالی، استراتژی و اجاره:</b>"
-		lblFeeStr = "کارمزد ۵٪ فرگمنت (حداقل ۵ TON):"
+		lblFeeStr = "کارمزد 5% فرگمنت (حداقل 5 TON):"
 		lblNetStr = "خالص دریافتی:"
 		lblStartBid = "شروع پیشنهادی حراج:"
 		lblBestTime = "بهترین زمان عرضه:"
 		lblRent = "کف درآمد اجاره ماهانه:"
 
 		mod3Title = "📊 <b>معاملات مشابه و پیش‌بینی روند:</b>"
-		lblBull12m = "سناریوی صعودی ۱۲ ماهه:"
-		lblBase12m = "سناریوی پایه ۱۲ ماهه:"
+		lblBull12m = "سناریوی صعودی 12 ماهه:"
+		lblBase12m = "سناریوی پایه 12 ماهه:"
 
 		mod4Title = "🧬 <b>ساختار، مالکیت و اصالت هوشمند:</b>"
 		lblLen = "طول شناسه:"
@@ -1615,8 +1615,8 @@ func formatUsernameStandardHTML(username string, res *avm.ValuationResult, lang 
 	// Module 2: Economics, Playbook & Rent Yield
 	sb.WriteString(fmt.Sprintf("<blockquote expandable>%s\n", mod2Title))
 	if res.TransactionEconomics != nil {
-		sb.WriteString(fmt.Sprintf("• %s (%.0f%%): <code>-%.1f TON</code>\n",
-			lblFeeStr, res.TransactionEconomics.FragmentFeePct, res.TransactionEconomics.FragmentFeeTON))
+		sb.WriteString(fmt.Sprintf("• %s <code>-%.1f TON</code>\n",
+			lblFeeStr, res.TransactionEconomics.FragmentFeeTON))
 		sb.WriteString(fmt.Sprintf("• %s <b>%.1f TON</b>\n", lblNetStr, res.TransactionEconomics.NetPayoutTON))
 	} else if expFloat > 0 {
 		fee := math.Max(5.0, math.Round(expFloat*0.05*10)/10)

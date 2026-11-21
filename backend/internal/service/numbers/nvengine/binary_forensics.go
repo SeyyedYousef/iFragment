@@ -192,11 +192,11 @@ func describeKeypadGeometry(dp features.DialPadFeatures) (string, string) {
 	case "LINEAR_ROW":
 		return "Horizontal Row Sweep (Linear Keypad Cadence)", "پیمایش افقی ردیف شماره‌گیر (ضرب‌آهنگ خطی)"
 	case "DIAGONAL":
-		return "Symmetric Diagonal Axis (1-5-9 / 3-5-7 Vector)", "محور قطری متقارن روی کی‌پد (بردار ۱-۵-۹ / ۳-۵-۷)"
+		return "Symmetric Diagonal Axis (1-5-9 / 3-5-7 Vector)", "محور قطری متقارن روی کی‌پد (بردار 1-5-9 / 3-5-7)"
 	case "CORNER_VIP":
-		return "Perimeter Corner Frame (1-3-7-9-0 Geometry)", "چهارچوب گوشه‌های کی‌پد (هندسه ۱-۳-۷-۹-۰)"
+		return "Perimeter Corner Frame (1-3-7-9-0 Geometry)", "چهارچوب گوشه‌های کی‌پد (هندسه 1-3-7-9-0)"
 	case "CROSS_VIP":
-		return "Central Cross Axis (2-4-5-6-8-0 Harmony)", "محور صلیبی مرکز شماره‌گیر (هارمونی ۲-۴-۵-۶-۸-۰)"
+		return "Central Cross Axis (2-4-5-6-8-0 Harmony)", "محور صلیبی مرکز شماره‌گیر (هارمونی 2-4-5-6-8-0)"
 	case "COMPACT_TOUCH":
 		return "Ultra-Tight Adjacent Cluster (Low Fitts ID)", "خوشه فوق‌فشرده همسایه (شاخص دشواری فیتس پایین)"
 	default:

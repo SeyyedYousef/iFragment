@@ -164,7 +164,7 @@ export const OwnerUsers: Component = () => {
 				<div class="flex items-center justify-between text-xs text-white/50">
 					<div>
 						{t('ownerUsersPage.matchingUsers')}{' '}
-						<span class="font-mono text-white font-bold">{total().toLocaleString()}</span>
+						<span class="font-mono text-white font-bold">{total().toLocaleString('en-US')}</span>
 					</div>
 				</div>
 
@@ -215,12 +215,12 @@ export const OwnerUsers: Component = () => {
 											<td class="py-3 font-mono text-white/70">{user.telegram_id}</td>
 											<td class="py-3">
 												<span class="px-2.5 py-1 rounded-xl bg-cyan-500/10 border border-cyan-500/25 font-mono text-cyan-300 font-black">
-													⚡ {(user.intel_credits ?? 0).toLocaleString()}
+													⚡ {(user.intel_credits ?? 0).toLocaleString('en-US')}
 												</span>
 											</td>
 											<td class="py-3 font-mono">
 												<div class="text-white/85 font-bold">
-													{(user.total_valuations_run ?? 0).toLocaleString()} reports
+													{(user.total_valuations_run ?? 0).toLocaleString('en-US')} reports
 												</div>
 												<Show when={user.last_searched_asset}>
 													<div class="text-[10px] text-white/45 truncate max-w-[140px]">
@@ -468,7 +468,7 @@ export const OwnerUsers: Component = () => {
 							<div class="flex justify-between text-white/50">
 								<span>{t('ownerUsersPage.currentCredits')}</span>
 								<span class="font-mono">
-									⚡ {(selectedUser()?.intel_credits ?? 0).toLocaleString()}
+									⚡ {(selectedUser()?.intel_credits ?? 0).toLocaleString('en-US')}
 								</span>
 							</div>
 							<div class="flex justify-between font-black text-cyan-400 text-sm">
@@ -478,7 +478,7 @@ export const OwnerUsers: Component = () => {
 									{Math.max(
 										0,
 										(selectedUser()?.intel_credits ?? 0) + adjustCreditDelta(),
-									).toLocaleString()}
+									).toLocaleString('en-US')}
 								</span>
 							</div>
 						</div>

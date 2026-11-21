@@ -12,7 +12,7 @@ export const GiftsIntelPage: Component = () => {
 	useTelegramBackButton(-1);
 	const navigate = useNavigate();
 
-	const [activeTab, setActiveTab] = createSignal<GiftsMainTab>('collections');
+	const [activeTab, setActiveTab] = createSignal<GiftsMainTab>('overview');
 	const intelQuery = createQuery(() => ({
 		queryKey: ['giftsIntel'],
 		queryFn: () => giftsApi.getIntel(),
@@ -81,13 +81,13 @@ export const GiftsIntelPage: Component = () => {
 					</div>
 				</div>
 
-				{/* 4-Tab Fragment Horizontal Bar */}
-				<div class="flex items-center border-b border-[#293440] gap-5 px-1">
+				{/* 4-Tab Fragment Horizontal Bar (Overview first by default) */}
+				<div class="flex items-center border-b border-[#293440] gap-5 px-1 overflow-x-auto no-scrollbar">
 					<For
 						each={
 							[
-								{ id: 'collections', label: t('giftsIntelPage.tabCollections') },
 								{ id: 'overview', label: t('giftsIntelPage.tabOverview') },
+								{ id: 'collections', label: t('giftsIntelPage.tabCollections') },
 								{ id: 'inspector', label: t('giftsIntelPage.tabInspector') },
 								{ id: 'tape', label: t('giftsIntelPage.tabTape') },
 							] as const

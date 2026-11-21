@@ -127,7 +127,7 @@ func TestBuildNumberRichHTML_AllLanguages(t *testing.T) {
 	val := &nvengine.NumberValuation{
 		DisplayNumber:      "+888 0000 1234",
 		CategoryClub:       "4-Digit Genesis",
-		CategoryClubFa:     "۴ رقمی رند جنسیس",
+		CategoryClubFa:     "4 رقمی رند جنسیس",
 		GlobalRank:         42,
 		ConfidenceScore:    91,
 		ExpectedTON:        decimal.NewFromFloat(85.2),
@@ -298,7 +298,7 @@ func TestBuildNumberStandardHTML_RichExpandableBlocks(t *testing.T) {
 	val := &nvengine.NumberValuation{
 		DisplayNumber:      "+888 0000 1234",
 		CategoryClub:       "4-Digit Genesis",
-		CategoryClubFa:     "۴ رقمی رند جنسیس",
+		CategoryClubFa:     "4 رقمی رند جنسیس",
 		GlobalRank:         42,
 		ConfidenceScore:    91,
 		ExpectedTON:        decimal.NewFromFloat(85.2),
@@ -320,11 +320,11 @@ func TestBuildNumberStandardHTML_RichExpandableBlocks(t *testing.T) {
 	requiredFa := []string{
 		"📱 <b>کارشناسی تحلیلی شماره: +888 0000 1234</b>",
 		"<blockquote expandable>",
-		"ماتریس ۴ سطحی قیمت و نقدشوندگی:",
+		"ماتریس 4 سطحی قیمت و نقدشوندگی:",
 		"امور مالی دیفای و بازده اجاره:",
 		"آناتومی الگو، تقارن و رادار فرهنگی:",
 		"محاسبات مالی معامله و اصالت هوشمند:",
-		"پیش‌بینی ۱۲ ماهه و توصیه عملیاتی:",
+		"پیش‌بینی 12 ماهه و توصیه عملیاتی:",
 		"NV-CERT-2026-TEST",
 	}
 	for _, req := range requiredFa {
@@ -366,7 +366,7 @@ func TestBuildGiftStandardHTML_RichExpandableBlocks(t *testing.T) {
 	requiredFa := []string{
 		"🎁 <b>کارشناسی تحلیلی گیفت: Plush Pepe #42</b>",
 		"<blockquote expandable>",
-		"۴ ستون ارزش‌گذاری مستقل (4-Pillars):",
+		"4 ستون ارزش‌گذاری مستقل (4-Pillars):",
 		"ویژگی‌های ژنتیکی و دی‌ان‌ای گیفت (Trait DNA):",
 		"گرانش سریال و پرستیژ پروفایل:",
 		"محاسبات مالی معامله و خالص دریافتی:",

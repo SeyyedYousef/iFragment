@@ -28,7 +28,7 @@ export const USERNAME_I18N = {
 	},
 	viewAllPersonas: {
 		en: 'View All 8 Buyer Personas Matrix',
-		fa: 'مشاهده تحلیل جامع ۸ پرسونای خریدار واقعی',
+		fa: 'مشاهده تحلیل جامع 8 پرسونای خریدار واقعی',
 		ru: 'Показать все 8 профилей покупателей',
 		zh: '查看全部 8 类真实买家画像',
 	},
@@ -58,7 +58,7 @@ export const USERNAME_I18N = {
 	},
 	charShort: {
 		en: 'Min 4 for Fragment',
-		fa: 'کوتاه‌تر از ۴',
+		fa: 'کوتاه‌تر از 4',
 		ru: 'Менее 4 символов',
 		zh: '少于 4 个字符',
 	},
@@ -136,7 +136,7 @@ export const USERNAME_I18N = {
 	},
 	recentAudits: {
 		en: 'Recent Valuations (24h)',
-		fa: 'آخرین ارزیابی‌های شما (۲۴ ساعته)',
+		fa: 'آخرین ارزیابی‌های شما (24 ساعته)',
 		ru: 'Недавние оценки (24ч)',
 		zh: '最近 24 小时估值记录',
 	},
@@ -178,7 +178,7 @@ export const USERNAME_I18N = {
 	},
 	txEconomicsSub: {
 		en: 'Fragment 5% protocol fee (min 5 TON) and net proceeds breakdown',
-		fa: 'کسر کارمزد پروتکل ۵٪ (حداقل ۵ TON) و خالص دریافتی',
+		fa: 'کسر کارمزد پروتکل 5% (حداقل 5 TON) و خالص دریافتی',
 		ru: 'Вычет комиссии протокола 5% (мин. 5 TON) и чистый доход',
 		zh: '扣除 5% 协议手续费（最低 5 TON）与净得款项',
 	},
@@ -190,13 +190,13 @@ export const USERNAME_I18N = {
 	},
 	fragmentFee: {
 		en: 'FRAGMENT 5% FEE',
-		fa: 'کارمزد فرگمنت (۵٪)',
+		fa: 'کارمزد فرگمنت (5%)',
 		ru: 'КОМИССИЯ FRAGMENT (5%)',
 		zh: 'FRAGMENT 手续费 (5%)',
 	},
 	minFeePerSale: {
 		en: 'Min 5 TON per sale',
-		fa: 'حداقل ۵ TON بر معامله',
+		fa: 'حداقل 5 TON بر معامله',
 		ru: 'Мин. 5 TON за сделку',
 		zh: '每笔交易最低 5 TON',
 	},
@@ -262,7 +262,7 @@ export const USERNAME_I18N = {
 	},
 	phoneticScoreLabel: {
 		en: 'Score 1 to 10',
-		fa: 'نمره ۱ تا ۱۰',
+		fa: 'نمره 1 تا 10',
 		ru: 'Оценка 1 из 10',
 		zh: '评分 1 至 10',
 	},
@@ -364,7 +364,7 @@ export const USERNAME_I18N = {
 	},
 	universalWeb3: {
 		en: 'Universal Global & Web3 High Alignment',
-		fa: 'انطباق سراسری و جایگاه برتر در وب۳',
+		fa: 'انطباق سراسری و جایگاه برتر در وب3',
 		ru: 'Универсальное глобальное признание в Web3',
 		zh: '全球通用与 Web3 极高契合度',
 	},
@@ -418,7 +418,7 @@ export const USERNAME_I18N = {
 	},
 	advisoryHigh: {
 		en: 'This username directly overlaps with an internationally registered trademark. Under Section 4 of the official Telegram Terms of Service, Telegram reserves the unilateral right to reclaim names infringing upon protected corporate marks.',
-		fa: 'این نام کاربری با یکی از علائم تجاری ثبت‌شده بین‌المللی هم‌پوشانی کامل دارد. طبق بند ۴ قوانین رسمی تلگرام، شرکت تلگرام حق استرداد نام را در صورت ادعای مالک برند برای خود محفوظ می‌دارد.',
+		fa: 'این نام کاربری با یکی از علائم تجاری ثبت‌شده بین‌المللی هم‌پوشانی کامل دارد. طبق بند 4 قوانین رسمی تلگرام، شرکت تلگرام حق استرداد نام را در صورت ادعای مالک برند برای خود محفوظ می‌دارد.',
 		ru: 'Это имя пользователя полностью совпадает с международной зарегистрированной торговой маркой. Согласно разделу 4 официальных правил Telegram, администрация оставляет за собой право отозвать юзернейм в случае жалобы правообладателя.',
 		zh: '该用户名与国际注册商标直接重合。根据 Telegram 官方服务条款第 4 条，Telegram 保留在商标权人主张权利时单方面收回域名的权利。',
 	},
@@ -436,7 +436,7 @@ export const USERNAME_I18N = {
 	},
 	section4BoxTitle: {
 		en: 'TELEGRAM TERMS OF SERVICE — SECTION 4',
-		fa: 'متن رسمی بند ۴ قوانین تلگرام',
+		fa: 'متن رسمی بند 4 قوانین تلگرام',
 		ru: 'ОФИЦИАЛЬНЫЕ ПРАВИЛА TELEGRAM — РАЗДЕЛ 4',
 		zh: 'TELEGRAM 服务条款官方原文 — 第 4 条',
 	},
@@ -448,7 +448,7 @@ export const USERNAME_I18N = {
 	},
 	section4QuoteTitle: {
 		en: 'Section 4 — Telegram Collectibles:',
-		fa: 'بند ۴ — اقلام کلکسیونی تلگرام:',
+		fa: 'بند 4 — اقلام کلکسیونی تلگرام:',
 		ru: 'Раздел 4 — Коллекционные активы Telegram:',
 		zh: '第 4 条 — Telegram 收藏品：',
 	},
@@ -583,7 +583,7 @@ export const SEMANTIC_CATEGORIES: SemanticCategoryItem[] = [
 		id: 'crypto_web3',
 		title: {
 			en: 'Crypto & Web3 Native',
-			fa: 'کریپتو و وب۳',
+			fa: 'کریپتو و وب3',
 			ru: 'Криптовалюты и Web3',
 			zh: '加密与 Web3 原生',
 		},
@@ -598,7 +598,7 @@ export const SEMANTIC_CATEGORIES: SemanticCategoryItem[] = [
 		},
 		targetPersona: {
 			en: 'TON Whales & Protocol Founders',
-			fa: 'نهنگ‌های اکوسیستم تون و بنیان‌گذاران استارتاپ وب۳',
+			fa: 'نهنگ‌های اکوسیستم تون و بنیان‌گذاران استارتاپ وب3',
 			ru: 'Киты TON и основатели Web3-протоколов',
 			zh: 'TON 巨鲸与协议创始人',
 		},
@@ -694,7 +694,7 @@ export const SEMANTIC_CATEGORIES: SemanticCategoryItem[] = [
 		badge: 'DICTIONARY GRAIL',
 		resonance: {
 			en: 'Unmodified dictionary nouns and verbs with 10/10 phonetic clarity.',
-			fa: 'واژه‌های اصیل تک‌سیلابی بدون تغییر با روانی تلفظ ۱۰ از ۱۰ و ماندگاری ابدی.',
+			fa: 'واژه‌های اصیل تک‌سیلابی بدون تغییر با روانی تلفظ 10 از 10 و ماندگاری ابدی.',
 			ru: 'Оригинальные словарные существительные с безупречной фонетикой 10/10.',
 			zh: '未经修改的标准原意词汇，具备 10/10 的纯净发音与永恒留存度。',
 		},
@@ -728,7 +728,7 @@ export const SEMANTIC_CATEGORIES: SemanticCategoryItem[] = [
 		badge: 'EMERGING TECH',
 		resonance: {
 			en: 'High trending momentum for autonomous AI agents, copilot bots, and compute networks.',
-			fa: 'روند صعودی و تقاضای سنگین سال‌های ۲۰۲۵ تا ۲۰۲۶ برای عوامل هوش مصنوعی و ربات‌های خودکار تلگرام.',
+			fa: 'روند صعودی و تقاضای سنگین سال‌های 2025 تا 2026 برای عوامل هوش مصنوعی و ربات‌های خودکار تلگرام.',
 			ru: 'Взрывной тренд на автономных ИИ-агентов, умных ботов и вычислительные сети.',
 			zh: '面向自主 AI 代理、自动化机器人与去中心化算力网络的爆发式增长红利。',
 		},
@@ -787,7 +787,7 @@ export const SEMANTIC_CATEGORIES: SemanticCategoryItem[] = [
 		id: 'liquid_grails',
 		title: {
 			en: '4-Letter Geometric Grails',
-			fa: '۴ حرفی‌های هندسی و نقدشونده',
+			fa: '4 حرفی‌های هندسی و نقدشونده',
 			ru: '4-буквенные геометрические раритеты',
 			zh: '4字母极品几何高流动性域名',
 		},
@@ -869,7 +869,7 @@ export const BUYER_PERSONAS: PersonaData[] = [
 		id: 'web3_founder',
 		title: {
 			en: 'Web3 & DeFi Protocol Founder',
-			fa: 'بنیان‌گذار پروتکل و استارتاپ وب۳',
+			fa: 'بنیان‌گذار پروتکل و استارتاپ وب3',
 			ru: 'Основатель Web3 и DeFi стартапа',
 			zh: 'Web3 与 DeFi 协议创始人',
 		},
@@ -878,7 +878,7 @@ export const BUYER_PERSONAS: PersonaData[] = [
 		color: '#10b981',
 		rationale: {
 			en: 'Creators of decentralized exchanges, bridges, and infrastructure requiring authoritative identity on Telegram for community credibility.',
-			fa: 'سازندگان صرافی‌های غیرمتمرکز، کیف‌پول‌ها و پروتکل‌های زیرساختی وب۳؛ نیازمند نامی معتبر جهت جلب اعتماد کامیونیتی.',
+			fa: 'سازندگان صرافی‌های غیرمتمرکز، کیف‌پول‌ها و پروتکل‌های زیرساختی وب3؛ نیازمند نامی معتبر جهت جلب اعتماد کامیونیتی.',
 			ru: 'Создатели DEX, мостов и инфраструктуры Web3, нуждающиеся в авторитетном имени для доверия аудитории.',
 			zh: '去中心化交易所、跨链桥与钱包开发团队，急需具有官方权威感的顶级名称树立品牌公信力。',
 		},
@@ -944,7 +944,7 @@ export const BUYER_PERSONAS: PersonaData[] = [
 		},
 		typicalHold: {
 			en: 'Medium-term hold (3–12 months)',
-			fa: 'میان‌مدت (۳ تا ۱۲ ماه) تا تحقق هدف سودآوری',
+			fa: 'میان‌مدت (3 تا 12 ماه) تا تحقق هدف سودآوری',
 			ru: 'Среднесрочно (3–12 месяцев) до целевой цены',
 			zh: '中短期持有（3至12个月）直至达成利润目标',
 		},
@@ -1034,7 +1034,7 @@ export const BUYER_PERSONAS: PersonaData[] = [
 		},
 		typicalHold: {
 			en: 'Long-term portfolio reserve (3–5 years)',
-			fa: 'ذخیره بلندمدت در سبد دارایی‌ها (۳ تا ۵ سال)',
+			fa: 'ذخیره بلندمدت در سبد دارایی‌ها (3 تا 5 سال)',
 			ru: 'Долгосрочный резерв (3–5 лет)',
 			zh: '长线资产配置储备（3至5年）',
 		},
@@ -1084,7 +1084,7 @@ export const BUYER_PERSONAS: PersonaData[] = [
 export const NUMBERS_I18N = {
 	culturalHeatmapTitle: {
 		en: 'LAYA 4-Region Cultural Radar Heatmap',
-		fa: 'رادار حرارتی فرهنگی ۴ منطقه‌ای لایا',
+		fa: 'رادار حرارتی فرهنگی 4 منطقه‌ای لایا',
 		ru: 'Тепловая карта 4-х культурных зон LAYA',
 		zh: 'LAYA 四大文化区域雷达热力图',
 	},
@@ -1144,13 +1144,13 @@ export const NUMBERS_I18N = {
 	},
 	protocolFee: {
 		en: 'FRAGMENT FEE (5%)',
-		fa: 'کارمزد فرگمنت (۵٪)',
+		fa: 'کارمزد فرگمنت (5%)',
 		ru: 'КОМИССИЯ FRAGMENT (5%)',
 		zh: 'FRAGMENT 协议费 (5%)',
 	},
 	minFeeNotice: {
 		en: 'Min 5 TON per transaction',
-		fa: 'حداقل کارمزد: ۵ TON',
+		fa: 'حداقل کارمزد: 5 TON',
 		ru: 'Мин. 5 TON за сделку',
 		zh: '每笔交易最低 5 TON',
 	},
@@ -1162,7 +1162,7 @@ export const NUMBERS_I18N = {
 	},
 	maxRationalBid: {
 		en: 'MAX RATIONAL BID (85%)',
-		fa: 'سقف بید عقلایی (۸۵٪)',
+		fa: 'سقف بید عقلایی (85%)',
 		ru: 'МАКС. РАЦИОНАЛЬНАЯ СТАВКА',
 		zh: '理性最高出价上限 (85%)',
 	},
@@ -1402,7 +1402,7 @@ export const NUMBERS_I18N = {
 	},
 	layaCulturalDefaultSummary: {
 		en: 'High regional affinity with strong appeal across secondary market buyers on Fragment.',
-		fa: 'توالی ارقام دارای کشش منطقه‌ای بالا بوده و هماهنگی قابل توجهی با ترجیحات خریداران وب۳ و سرمایه‌گذاران بین‌المللی نشان می‌دهد.',
+		fa: 'توالی ارقام دارای کشش منطقه‌ای بالا بوده و هماهنگی قابل توجهی با ترجیحات خریداران وب3 و سرمایه‌گذاران بین‌المللی نشان می‌دهد.',
 		ru: 'Высокий региональный спрос и отличная привлекательность среди покупателей вторичного рынка Fragment.',
 		zh: '该号码在多个核心市场具备极高的文化亲和力与收藏级买家追捧热度。',
 	},
@@ -1456,7 +1456,7 @@ export const REGIONAL_CULTURAL_DATA: RegionalCulturalIntelItem[] = [
 		},
 		affinity: {
 			en: 'High affinity for 8 (Wealth) & 6 (Smooth Flow); strict avoidance of 4 (Tetraphobia).',
-			fa: 'شیفتگی به عدد ۸ (نماد ثروت) و عدد ۶ (جریان روان)؛ اجتناب شدید از عدد ۴ (تترافوبیا).',
+			fa: 'شیفتگی به عدد 8 (نماد ثروت) و عدد 6 (جریان روان)؛ اجتناب شدید از عدد 4 (تترافوبیا).',
 			ru: 'Культ цифры 8 (богатство) и 6 (гладкий путь); строгое избегание цифры 4 (тетрафобия).',
 			zh: '极其推崇数字 8（发财致富）与 6（六六大顺）；严厉避讳数字 4（谐音不吉）。',
 		},
@@ -1465,7 +1465,7 @@ export const REGIONAL_CULTURAL_DATA: RegionalCulturalIntelItem[] = [
 		avoidDigits: ['4'],
 		marketDemand: {
 			en: 'Extreme bidding on 4-free patterns with repeating 8s.',
-			fa: 'بسیار بالا برای الگوهای بدون ۴ دارای تکرار ۸۸۸۸.',
+			fa: 'بسیار بالا برای الگوهای بدون 4 دارای تکرار 8888.',
 			ru: 'Максимальный интерес к номерам без 4 с повторяющимися восьмерками.',
 			zh: '对纯 8 豹子号及绝无数字 4 的靓号具备极高竞价买盘。',
 		},
@@ -1537,7 +1537,7 @@ export const REGIONAL_CULTURAL_DATA: RegionalCulturalIntelItem[] = [
 		},
 		affinity: {
 			en: 'Binary dual-digits (0 & 1), Fibonacci sequences, and sub-1000 Genesis codes.',
-			fa: 'الگوهای باینری (۰ و ۱)، اعداد پیوسته فیبوناچی و شناسه‌های گنسیس.',
+			fa: 'الگوهای باینری (0 و 1)، اعداد پیوسته فیبوناچی و شناسه‌های گنسیس.',
 			ru: 'Двоичные коды (0 и 1), последовательности Фибоначчи и номера Genesis до 1000.',
 			zh: '偏好二进制（0 与 1）、斐波那契数列及 1000 以内的创世 Genesis 极简号。',
 		},
@@ -1546,7 +1546,7 @@ export const REGIONAL_CULTURAL_DATA: RegionalCulturalIntelItem[] = [
 		avoidDigits: [],
 		marketDemand: {
 			en: 'Appetite for mathematical brevity & 4-digit Genesis clubs.',
-			fa: 'تمرکز روی کمیابی ریاضی محض و شناسه‌های ۴ رقمی گنسیس.',
+			fa: 'تمرکز روی کمیابی ریاضی محض و شناسه‌های 4 رقمی گنسیس.',
 			ru: 'Спрос на математическую краткость и 4-значные номера Genesis.',
 			zh: '专注纯粹的数学稀缺度与 4 位数创世俱乐部资产。',
 		},
@@ -1574,7 +1574,7 @@ export const NUMBER_CLUB_TIERS: NumberClubTierItem[] = [
 		id: 'genesis_4digit',
 		title: {
 			en: 'Genesis 4-Digit Club',
-			fa: 'کلاب ۴ رقمی گنسیس',
+			fa: 'کلاب 4 رقمی گنسیس',
 			ru: 'Клуб 4-значных номеров Genesis',
 			zh: '创世 4 位数俱乐部',
 		},
@@ -1586,7 +1586,7 @@ export const NUMBER_CLUB_TIERS: NumberClubTierItem[] = [
 		color: '#ffaa00',
 		description: {
 			en: 'The original 4-digit Genesis tier minted in Dec 2022 (+888 0000 to +888 9999).',
-			fa: 'اولین شماره‌های ضرب‌شده در دسامبر ۲۰۲۲ با طول ۴ رقم (+888 0000 تا +888 9999).',
+			fa: 'اولین شماره‌های ضرب‌شده در دسامبر 2022 با طول 4 رقم (+888 0000 تا +888 9999).',
 			ru: 'Оригинальные 4-значные номера Genesis, выпущенные в декабре 2022 (+888 0000 — +888 9999).',
 			zh: '2022 年 12 月发行的首批 4 位数创世号码（+888 0000 至 +888 9999）。',
 		},
@@ -1608,7 +1608,7 @@ export const NUMBER_CLUB_TIERS: NumberClubTierItem[] = [
 		color: '#ef4444',
 		description: {
 			en: 'Extremely scarce numbers with 8 identical repeating digits (Holy Grail).',
-			fa: 'شماره‌های دارای ۸ رقم کاملاً یکسان؛ فوق‌نایاب‌ترین و گران‌ترین کلکسیون تلگرام.',
+			fa: 'شماره‌های دارای 8 رقم کاملاً یکسان؛ فوق‌نایاب‌ترین و گران‌ترین کلکسیون تلگرام.',
 			ru: 'Редчайшие номера из 8 одинаковых цифр подряд — главный Грааль экосистемы.',
 			zh: '拥有 8 位连续完全相同数字的极品孤品神作（仅 10 席存在）。',
 		},
@@ -1662,7 +1662,7 @@ export const NUMBER_CLUB_TIERS: NumberClubTierItem[] = [
 		id: 'sub_1000',
 		title: {
 			en: 'Sub-1000 Low Numbers',
-			fa: 'کلاب شماره‌های زیر ۱۰۰۰',
+			fa: 'کلاب شماره‌های زیر 1000',
 			ru: 'Клуб номеров до 1000',
 			zh: '千号以内至臻俱乐部',
 		},
@@ -1674,7 +1674,7 @@ export const NUMBER_CLUB_TIERS: NumberClubTierItem[] = [
 		color: '#a855f7',
 		description: {
 			en: 'Ultra-low prefix numbers (+888 0001 to +888 0999) held by early adopters.',
-			fa: 'شماره‌های ۳ رقمی با پیشوند صفر (+888 0001 تا +888 0999)؛ دارایی تاریخی تلگرام.',
+			fa: 'شماره‌های 3 رقمی با پیشوند صفر (+888 0001 تا +888 0999)؛ دارایی تاریخی تلگرام.',
 			ru: 'Ультра-короткие номера (+888 0001 — +888 0999), сохраненные первыми пользователями.',
 			zh: '超短历史龙头号码（+888 0001 至 +888 0999），具备历史文物级价值。',
 		},
@@ -1739,7 +1739,7 @@ export const GIFTS_I18N = {
 	},
 	healthIndexSubtitle: {
 		en: 'Low circular transfer anomalies',
-		fa: 'کمتر از ۱۲٪ حجم مشکوک به چرخش والت',
+		fa: 'کمتر از 12% حجم مشکوک به چرخش والت',
 		ru: 'Низкая доля цикличных подозрительных транзакций',
 		zh: '循环倒手异常流水低于 12%',
 	},
@@ -1763,7 +1763,7 @@ export const GIFTS_I18N = {
 	},
 	aestheticMultiplierText: {
 		en: 'Gifts with high chromatic harmony (balanced Delta-E) trade at 15–35% premium over uncoordinated random combinations.',
-		fa: 'خریداران گیفت در تلگرام تا ۳۵٪ بیشتر برای جفت‌های رنگی متقارن و چشم‌نواز پرداخت می‌کنند، زیرا در پروفایل جلوه بصری دوچندان دارد.',
+		fa: 'خریداران گیفت در تلگرام تا 35% بیشتر برای جفت‌های رنگی متقارن و چشم‌نواز پرداخت می‌کنند، زیرا در پروفایل جلوه بصری دوچندان دارد.',
 		ru: 'Подарки с высокой цветовой гармонией продаются с премией 15–35% по сравнению со случайными несогласованными сочетаниями.',
 		zh: '在 Telegram 个人主页展示中，色彩高度和谐（Delta-E 平衡）的礼物相比随机杂乱配色拥有 15% 至 35% 的显著成交溢价。',
 	},
@@ -1775,19 +1775,19 @@ export const GIFTS_I18N = {
 	},
 	whaleTrackerSubtitle: {
 		en: 'On-chain tracking of top holders, supply concentration, and 24h net absorption',
-		fa: 'پایش حرکت کیف‌پول‌های سنگین، تمرکز هولدرها و جریان خالص ۲۴ ساعته',
+		fa: 'پایش حرکت کیف‌پول‌های سنگین، تمرکز هولدرها و جریان خالص 24 ساعته',
 		ru: 'Ончейн-мониторинг крупнейших холдеров, концентрации и 24ч чистого притока',
 		zh: '链上主力持仓地址监控、筹码集中度与 24 小时净吸收量跟踪',
 	},
 	top5Concentration: {
 		en: 'TOP 5 CONCENTRATION',
-		fa: 'تمرکز ۵ نهنگ برتر',
+		fa: 'تمرکز 5 نهنگ برتر',
 		ru: 'КОНЦЕНТРАЦИЯ ТОП-5',
 		zh: '前 5 大巨鲸筹码集中度',
 	},
 	netInflow24h: {
 		en: '24H NET INFLOW',
-		fa: 'جریان خالص ورود ۲۴س',
+		fa: 'جریان خالص ورود 24س',
 		ru: 'ЧИСТЫЙ ПРИТОК ЗА 24Ч',
 		zh: '24小时净流入量',
 	},
@@ -1805,7 +1805,7 @@ export const GIFTS_I18N = {
 	},
 	actionCardTitle: {
 		en: 'LAYA System 1 Strategic Action Card',
-		fa: 'کارت تصمیم‌گیری استراتژیک سیستم ۱ لایا',
+		fa: 'کارت تصمیم‌گیری استراتژیک سیستم 1 لایا',
 		ru: 'Стратегическая карта решений LAYA System 1',
 		zh: 'LAYA 系统1 战略决策行动卡',
 	},
@@ -1847,7 +1847,7 @@ export const GIFTS_I18N = {
 	},
 	synergyCardSubtitle: {
 		en: 'Holistic visual trait harmony & aesthetic co-occurrence multiplier',
-		fa: 'ارزیابی یکپارچه هماهنگی مدل، پالت پس‌زمینه و سمبل (۰.۹۰x تا ۱.۳۵x)',
+		fa: 'ارزیابی یکپارچه هماهنگی مدل، پالت پس‌زمینه و سمبل (0.90x تا 1.35x)',
 		ru: 'Оценка гармонии модели, фона и символа (0.90x – 1.35x)',
 		zh: '模型、底色与符号全维视觉共振加权（0.90x 至 1.35x）',
 	},
@@ -1907,7 +1907,7 @@ export const GIFTS_I18N = {
 	},
 	exitPlannerSubtitle: {
 		en: 'Net seller proceeds after protocol commission & TON network gas fees',
-		fa: 'مقایسه دقیق خالص دریافتی فروشنده در ۴ مارکت‌پلیس مختلف',
+		fa: 'مقایسه دقیق خالص دریافتی فروشنده در 4 مارکت‌پلیس مختلف',
 		ru: 'Сравнение чистой выручки продавца на 4 различных площадках',
 		zh: '精算扣除各平台抽成与 TON 网络 Gas 后的卖家最终净得',
 	},
@@ -1931,7 +1931,7 @@ export const GIFTS_I18N = {
 	},
 	topChromaticPairs: {
 		en: 'TOP 5 CHROMATIC HARMONY COMBINATIONS',
-		fa: 'رتبه‌بندی ۵ جفت رنگی برتر کالکشن بر اساس LAYA ΔE',
+		fa: 'رتبه‌بندی 5 جفت رنگی برتر کالکشن بر اساس LAYA ΔE',
 		ru: 'ТОП-5 ЦВЕТОВЫХ ГАРМОНИЙ ПО LAYA ΔE',
 		zh: '基于 LAYA ΔE 的前 5 大最佳色彩搭配排行',
 	},
@@ -1961,7 +1961,7 @@ export const GIFTS_I18N = {
 	},
 	actionCertaintySuffix: {
 		en: '% CERTAINTY',
-		fa: '٪ ضریب اطمینان',
+		fa: '% ضریب اطمینان',
 		ru: '% УВЕРЕННОСТЬ',
 		zh: '% 确定性置信度',
 	},
@@ -2072,7 +2072,7 @@ export const GIFTS_I18N = {
 export const GIFT_PILLARS_I18N = {
 	pillarsTitle: {
 		en: 'LAYA 4-Pillar Gift Valuation Engine',
-		fa: 'موتور ۴ستونه ارزش‌گذاری گیفت LAYA',
+		fa: 'موتور 4ستونه ارزش‌گذاری گیفت LAYA',
 		ru: '4-факторная модель оценки LAYA',
 		zh: 'LAYA 四维礼物智能公允估值引擎',
 	},
@@ -2138,7 +2138,7 @@ export const GIFT_PILLARS_I18N = {
 	},
 	liquidationTooltip: {
 		en: 'Conservative liquidation price for immediate clearing within 24h.',
-		fa: 'قیمت محافظه‌کارانه جهت نقدشوندگی فوری ظرف ۲۴ ساعت.',
+		fa: 'قیمت محافظه‌کارانه جهت نقدشوندگی فوری ظرف 24 ساعت.',
 		ru: 'Консервативная цена для быстрой продажи в течение 24 часов.',
 		zh: '24小时内极速成交离场的保守清算价。',
 	},
@@ -2204,7 +2204,7 @@ export const GIFT_PILLARS_I18N = {
 	},
 	marketDesc: {
 		en: 'Empirical liquidity, velocity of secondary turnover, and 24h floor delta.',
-		fa: 'نقدشوندگی تجربی، سرعت چرخش در بازار ثانویه و تغییرات کف قیمت ۲۴ ساعته.',
+		fa: 'نقدشوندگی تجربی، سرعت چرخش در بازار ثانویه و تغییرات کف قیمت 24 ساعته.',
 		ru: 'Эмпирическая ликвидность, скорость вторичного оборота и суточная дельта пола.',
 		zh: '多交易平台真实流动性、二级市场换手率及 24 小时底价变化率。',
 	},
@@ -2216,7 +2216,7 @@ export const GIFT_PILLARS_I18N = {
 	},
 	floorDelta24h: {
 		en: '24h Floor Delta:',
-		fa: 'تغییرات کف ۲۴ساعته:',
+		fa: 'تغییرات کف 24ساعته:',
 		ru: 'Суточная дельта Floor:',
 		zh: '24小时底价变动：',
 	},
@@ -2504,7 +2504,7 @@ export const NUMBERS_COLLECTION_I18N = {
 	},
 	realizedMedianTitle: {
 		en: '7D Realized Median Sale',
-		fa: 'میانه فروش واقعی ۷ روزه (Median Sale)',
+		fa: 'میانه فروش واقعی 7 روزه (Median Sale)',
 		ru: 'Медианная цена продаж за 7 дней',
 		zh: '近 7 日真实撮合成交中位数',
 	},
@@ -2534,19 +2534,19 @@ export const NUMBERS_COLLECTION_I18N = {
 	},
 	upTo5pct: {
 		en: 'Up to +5%',
-		fa: 'تا ۵٪ بالاتر',
+		fa: 'تا 5% بالاتر',
 		ru: 'До +5%',
 		zh: '高出 5% 以内',
 	},
 	upTo10pct: {
 		en: 'Up to +10%',
-		fa: 'تا ۱۰٪ بالاتر',
+		fa: 'تا 10% بالاتر',
 		ru: 'До +10%',
 		zh: '高出 10% 以内',
 	},
 	upTo25pct: {
 		en: 'Up to +25%',
-		fa: 'تا ۲۵٪ بالاتر',
+		fa: 'تا 25% بالاتر',
 		ru: 'До +25%',
 		zh: '高出 25% 以内',
 	},
@@ -2558,7 +2558,7 @@ export const NUMBERS_COLLECTION_I18N = {
 	},
 	sales24h: {
 		en: '24h Sales:',
-		fa: 'فروش‌های ۲۴ ساعت:',
+		fa: 'فروش‌های 24 ساعت:',
 		ru: 'Продажи за 24ч:',
 		zh: '24小时成交量：',
 	},
@@ -2570,7 +2570,7 @@ export const NUMBERS_COLLECTION_I18N = {
 	},
 	vol24h: {
 		en: '24h Volume:',
-		fa: 'حجم ۲۴ ساعت:',
+		fa: 'حجم 24 ساعت:',
 		ru: 'Объем за 24ч:',
 		zh: '24小时交易额：',
 	},
@@ -2618,7 +2618,7 @@ export const NUMBERS_COLLECTION_I18N = {
 	},
 	genesis4d: {
 		en: '1,000 Genesis 4-Digit',
-		fa: '۱,۰۰۰ جنسیس ۴رقمی',
+		fa: '1,000 جنسیس 4رقمی',
 		ru: '1,000 Генезис 4-значных',
 		zh: '1,000 稀有 4 位创世号码',
 	},
@@ -2666,13 +2666,13 @@ export const NUMBERS_COLLECTION_I18N = {
 	},
 	vol24hTitle: {
 		en: '24h Realized Volume',
-		fa: 'حجم واقعی ۲۴ساعته',
+		fa: 'حجم واقعی 24ساعته',
 		ru: 'Реальный объем за 24ч',
 		zh: '24小时真实成交额',
 	},
 	vol7dTitle: {
 		en: '7d Realized Volume',
-		fa: 'حجم واقعی ۷ روزه',
+		fa: 'حجم واقعی 7 روزه',
 		ru: 'Реальный объем за 7 дней',
 		zh: '7日真实成交额',
 	},
@@ -2708,7 +2708,7 @@ export const NUMBERS_COLLECTION_I18N = {
 	},
 	top10Whales: {
 		en: 'Top 10 Whales:',
-		fa: '۱۰ نهنگ:',
+		fa: '10 نهنگ:',
 		ru: 'Топ-10 китов:',
 		zh: '前 10 大巨鲸：',
 	},
@@ -2795,7 +2795,7 @@ export const GIFTS_MACRO_I18N = {
 	},
 	venuesBadge: {
 		en: '5 Markets Active',
-		fa: '۵ مارکت فعال',
+		fa: '5 مارکت فعال',
 		ru: '5 бирж онлайн',
 		zh: '5 大平台在线',
 	},
@@ -2927,13 +2927,13 @@ export const NUMBER_REPORT_I18N = {
 	},
 	unlock1Credit: {
 		en: 'Unlock with 1 Credit',
-		fa: 'بازگشایی با ۱ کریدیت iFragment',
+		fa: 'بازگشایی با 1 کریدیت iFragment',
 		ru: 'Открыть за 1 кредит',
 		zh: '消耗 1 点额度解锁完整报告',
 	},
 	fourFigureMatrix: {
 		en: '4-Figure Valuation Matrix',
-		fa: 'ماتریس ۴ رقمی ارزش‌گذاری هوشمند',
+		fa: 'ماتریس 4 رقمی ارزش‌گذاری هوشمند',
 		ru: '4-значная матрица оценки',
 		zh: '四维智能估值决策矩阵',
 	},

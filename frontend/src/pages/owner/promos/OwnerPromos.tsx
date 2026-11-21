@@ -277,7 +277,7 @@ export const OwnerPromos: Component = () => {
 														</td>
 														<td class="py-3 font-mono">
 															<span class="text-cyan-300 font-black">
-																⚡ +{credits.toLocaleString()} Credits
+																⚡ +{credits.toLocaleString('en-US')} Credits
 															</span>
 															<Show when={(promo.grant_vip_days ?? 0) > 0}>
 																<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold">

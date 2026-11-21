@@ -19,8 +19,8 @@ export const NumbersIntelPage: Component = () => {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 
-	const [activeTab, setActiveTab] = createSignal<'numbers' | 'chart' | 'analytics' | 'portfolio'>(
-		'numbers',
+	const [activeTab, setActiveTab] = createSignal<'chart' | 'numbers' | 'analytics' | 'portfolio'>(
+		'chart',
 	);
 	const [listFilterState, setListFilterState] = createSignal<{
 		saleType?: '' | 'auction' | 'for_sale' | 'not_for_sale';
@@ -211,13 +211,13 @@ export const NumbersIntelPage: Component = () => {
 					</div>
 				</div>
 
-				{/* 4-Tab Fragment Horizontal Bar */}
-				<div class="flex items-center border-b border-[#293440] gap-5 px-1">
+				{/* 4-Tab Fragment Horizontal Bar (Chart first by default) */}
+				<div class="flex items-center border-b border-[#293440] gap-5 px-1 overflow-x-auto no-scrollbar">
 					<For
 						each={
 							[
-								{ id: 'numbers', label: t('numbers.tabNumbers') || 'Numbers' },
 								{ id: 'chart', label: t('numbers.tabChart') || 'Chart' },
+								{ id: 'numbers', label: t('numbers.tabNumbers') || 'Numbers' },
 								{ id: 'analytics', label: t('numIntel.tabAnalytics') || 'Analytics' },
 								{ id: 'portfolio', label: t('numbers.tabPortfolio') || 'Portfolio' },
 							] as const
@@ -234,7 +234,7 @@ export const NumbersIntelPage: Component = () => {
 										} catch {}
 										setActiveTab(tab.id);
 									}}
-									class={`relative pb-2.5 text-[13.5px] font-semibold transition-colors cursor-pointer ${
+									class={`relative pb-2.5 text-[13.5px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
 										active() ? 'text-white' : 'text-[#8c9aa9] hover:text-white'
 									}`}
 								>

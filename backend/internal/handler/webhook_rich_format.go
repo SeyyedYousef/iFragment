@@ -553,7 +553,7 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		sb.WriteString(fmt.Sprintf("🎯 شاخص اطمینان مدل: <b>%d%%</b> | رنگ رسمی: <b>%s</b>\n\n", val.ConfidenceScore, telegram.EscapeHTML(colorName)))
 
 		// Module 1: 4-Figure Matrix
-		sb.WriteString("<blockquote expandable>📊 <b>ماتریس ۴ سطحی قیمت و نقدشوندگی:</b>\n")
+		sb.WriteString("<blockquote expandable>📊 <b>ماتریس 4 سطحی قیمت و نقدشوندگی:</b>\n")
 		sb.WriteString(fmt.Sprintf("• ارزش منصفانه تحلیلی (Fair): <code>%s TON</code> (~$%.0f)\n", val.ExpectedTON.StringFixed(1), val.ExpectedUSD))
 		sb.WriteString(fmt.Sprintf("• قیمت پیشنهادی فروش (+15%%): <code>%s TON</code> (~$%.0f)\n", suggestedAskTON, suggestedAskUSD))
 		sb.WriteString(fmt.Sprintf("• ارزش تسویه فوری (-25%%): <code>%s TON</code> (~$%.0f)\n", liquidationTON, liquidationUSD))
@@ -569,7 +569,7 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		if val.Liquidity.LiquidityRating != "" {
 			sb.WriteString(fmt.Sprintf("• رتبه نقدشوندگی بازار: <b>%s</b> (مدت تخمینی فروش: %s)\n", telegram.EscapeHTML(val.Liquidity.LiquidityRating), telegram.EscapeHTML(val.Liquidity.EstimatedSellDays)))
 		} else {
-			sb.WriteString("• احتمال نقدشوندگی ۳۰ روزه: <b>بالای ۸۰٪ (تقاضای فعال)</b>\n")
+			sb.WriteString("• احتمال نقدشوندگی 30 روزه: <b>بالای 80% (تقاضای فعال)</b>\n")
 		}
 		if val.Liquidity.TargetBuyerProfile != "" {
 			sb.WriteString(fmt.Sprintf("• پروفایل خریدار هدف: <b>%s</b>\n", telegram.EscapeHTML(val.Liquidity.TargetBuyerProfile)))
@@ -613,12 +613,12 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		// Module 4: Economics & Provenance
 		sb.WriteString("<blockquote expandable>💸 <b>محاسبات مالی معامله و اصالت هوشمند:</b>\n")
 		sb.WriteString(fmt.Sprintf("• ارزش ناخالص ارزیابی: <code>%s TON</code>\n", val.ExpectedTON.StringFixed(1)))
-		sb.WriteString(fmt.Sprintf("• کارمزد ۵٪ پروتکل فرگمنت: <code>-%.1f TON</code>\n", fragFee))
+		sb.WriteString(fmt.Sprintf("• کارمزد 5%% پروتکل فرگمنت: <code>-%.1f TON</code>\n", fragFee))
 		sb.WriteString(fmt.Sprintf("• خالص دریافتی فروشنده: <code>%.1f TON (~$%.0f)</code>\n", netPayout, netPayout*(val.ExpectedUSD/math.Max(1.0, expFloat))))
 		if val.TelemintProvenance.CollectionAddress != "" {
 			sb.WriteString(fmt.Sprintf("• کانترکت تلمینت: <code>%s</code>\n", telegram.EscapeHTML(val.TelemintProvenance.CollectionAddress)))
 		}
-		sb.WriteString("• وضعیت مینت شبکه: <b>مینت‌شده در عرضه رسمی دسامبر ۲۰۲۲ (Supply قفل‌شده)</b>\n")
+		sb.WriteString("• وضعیت مینت شبکه: <b>مینت‌شده در عرضه رسمی دسامبر 2022 (Supply قفل‌شده)</b>\n")
 		sb.WriteString("• مزیت امنیتی ویژه: <b>بدون نیاز به سیم‌کارت فیزیکی (No-SIM) و مصونیت بالا در برابر محدودیت ریپورت</b>\n")
 		sb.WriteString(fmt.Sprintf("• اصالت کالکشن: <b>کالکشن رسمی و بسته %s شماره ناشناس تلمینت (On-Chain)</b>\n", fmt.Sprintf("%d", nvengine.TotalNumbersSupply)))
 		if val.OnChainAudit.MintDate != "" {
@@ -630,7 +630,7 @@ func buildNumberStandardHTML(val *nvengine.NumberValuation, fallbackNum string, 
 		sb.WriteString(fmt.Sprintf("• شناسه گواهی دیجیتال: <code>%s</code></blockquote>\n\n", certID))
 
 		// Module 5: Playbook & Projection
-		sb.WriteString("<blockquote expandable>📈 <b>پیش‌بینی ۱۲ ماهه و توصیه عملیاتی:</b>\n")
+		sb.WriteString("<blockquote expandable>📈 <b>پیش‌بینی 12 ماهه و توصیه عملیاتی:</b>\n")
 		recSummary := val.Recommendation.SummaryFa
 		if recSummary == "" {
 			recSummary = val.Recommendation.SummaryEn
@@ -1419,7 +1419,7 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		}
 
 		// 1. Price Spectrum & Pillars
-		sb.WriteString("<blockquote expandable>🎯 <b>۴ ستون ارزش‌گذاری مستقل (4-Pillars):</b>\n")
+		sb.WriteString("<blockquote expandable>🎯 <b>4 ستون ارزش‌گذاری مستقل (4-Pillars):</b>\n")
 		sb.WriteString(fmt.Sprintf("• ارزش منصفانه تحلیلی (Fair): <code>~%.2f TON ($%.2f)</code>\n", fairTON, fairUSD))
 		if floorTON > 0 {
 			sb.WriteString(fmt.Sprintf("• کف قیمت مشاهده‌شده بازار (Floor): <code>~%.2f TON ($%.2f)</code>\n", floorTON, floorUSD))
@@ -1529,8 +1529,8 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 		}
 		sb.WriteString("<blockquote expandable>💸 <b>محاسبات مالی معامله و خالص دریافتی:</b>\n")
 		sb.WriteString(fmt.Sprintf("• ارزش ناخالص پایه: <code>~%.2f TON ($%.2f)</code>\n", fairTON, fairUSD))
-		sb.WriteString(fmt.Sprintf("• کارمزد ۵٪ فرگمنت: <code>-%.2f TON</code>\n", fragFee))
-		sb.WriteString(fmt.Sprintf("• حق امتیاز ۵٪ تلگرام: <code>-%.2f TON</code>\n", tgRoyalty))
+		sb.WriteString(fmt.Sprintf("• کارمزد 5%% فرگمنت: <code>-%.2f TON</code>\n", fragFee))
+		sb.WriteString(fmt.Sprintf("• حق امتیاز 5%% تلگرام: <code>-%.2f TON</code>\n", tgRoyalty))
 		sb.WriteString(fmt.Sprintf("• هزینه گس شبکه TON: <code>-%.2f TON</code>\n", gasFee))
 		sb.WriteString(fmt.Sprintf("• خالص دریافتی فروشنده: <code>~%.2f TON ($%.2f)</code>\n", maxNetTON, maxNetUSD))
 		sb.WriteString(fmt.Sprintf("• بهترین پلتفرم فروش (Exit Planner): <b>%s</b></blockquote>\n\n", telegram.EscapeHTML(bestVenue)))
@@ -1587,7 +1587,7 @@ func buildGiftStandardHTML(val *gvengine.GiftValuation, lang string) string {
 			bearTON = val.Projection.BearGRAM
 			bearUSD = val.Projection.BearUSD
 		}
-		sb.WriteString("<blockquote expandable>📈 <b>پیش‌بینی رشد ۱۲ ماهه (Projections):</b>\n")
+		sb.WriteString("<blockquote expandable>📈 <b>پیش‌بینی رشد 12 ماهه (Projections):</b>\n")
 		sb.WriteString(fmt.Sprintf("• سناریوی صعودی (Bull +50%%): <code>~%.2f TON ($%.2f)</code>\n", bullTON, bullUSD))
 		sb.WriteString(fmt.Sprintf("• سناریوی پایه (Base +10%%): <code>~%.2f TON ($%.2f)</code>\n", baseTON, baseUSD))
 		sb.WriteString(fmt.Sprintf("• سناریوی نزولی (Bear -15%%): <code>~%.2f TON ($%.2f)</code></blockquote>\n\n", bearTON, bearUSD))

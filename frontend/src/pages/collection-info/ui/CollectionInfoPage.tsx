@@ -63,73 +63,94 @@ interface UndervaluedAuctionItem {
 	status: string;
 }
 
+interface MarketPulseSignal {
+	status?: string;
+	value?: string;
+	delta?: number;
+	desc?: string;
+}
+
 interface MarketPulseMetrics {
-	volume_7d_ton: number;
-	sales_7d_count: number;
-	median_sale_7d_ton: number;
-	mean_sale_7d_ton: number;
-	p25_sale_7d_ton: number;
-	p75_sale_7d_ton: number;
-	p90_sale_7d_ton: number;
-	short_4_5_share_pct: number;
-	dictionary_word_share_pct: number;
-	market_regime: string;
-	whale_share_7d_pct: number;
+	demand?: MarketPulseSignal;
+	supply_pressure?: MarketPulseSignal;
+	liquidity?: MarketPulseSignal;
+	price_momentum?: MarketPulseSignal;
+	volume_7d_ton?: number;
+	median_sale_7d_ton?: number;
+	p90_sale_7d_ton?: number;
+	short_4_5_share_pct?: number;
+	market_regime?: string;
 }
 
 interface SemanticCategoryMetric {
-	category_id: string;
-	category_name_en: string;
-	category_name_fa: string;
-	floor_ton: number;
-	median_ton: number;
-	top_sale_ton: number;
-	sample_handles: string[];
-	momentum_score: number;
+	category_key?: string;
+	category_id?: string;
+	category_name?: string;
+	category_name_en?: string;
+	category_name_fa?: string;
+	volume_ton?: number;
+	sales_count?: number;
+	floor_ton?: number;
+	median_ton?: number;
+	share_pct?: number;
+	top_sale_ton?: number;
+	sample_handles?: string[];
 }
 
 interface WhalePortfolioSummary {
-	rank: number;
-	owner_address: string;
-	alias: string;
-	handles_owned: number;
-	portfolio_value_ton: number;
-	top_handles: string[];
-	dominant_tier: string;
-	recent_action: string;
+	rank?: number;
+	wallet_address?: string;
+	owner_address?: string;
+	alias?: string;
+	role_label?: string;
+	handles_count?: number;
+	handles_owned?: number;
+	total_ton_deployed?: number;
+	portfolio_value_ton?: number;
+	sample_handles?: string[];
+	top_handles?: string[];
+	last_active_iso?: string;
 }
 
 interface OnChainEvent {
-	tx_hash: string;
-	lt: string;
-	utime: number;
-	opcode_hex: string;
-	opcode_name: string;
-	username: string;
-	nft_address: string;
-	from_address: string;
-	to_address: string;
-	amount_ton: number;
-	cell_boc_preview: string;
-	verified: boolean;
+	event_id?: string;
+	tx_hash?: string;
+	lt?: string | number;
+	time_iso?: string;
+	action_type?: string;
+	opcode?: string;
+	opcode_hex?: string;
+	opcode_label?: string;
+	opcode_name?: string;
+	username?: string;
+	nft_address?: string;
+	actor_address?: string;
+	amount_ton?: number;
+	code_hash?: string;
+	data_hash?: string;
+	cell_boc_preview?: string;
 }
 
 interface LiveTVMSnapshot {
-	contract_address: string;
-	workchain_id: number;
-	account_hash_hex: string;
-	state_status: string;
-	balance_nanoton: string;
-	balance_ton: number;
-	last_tx_lt: string;
-	last_tx_hash_hex: string;
-	code_hash_hex: string;
-	data_hash_hex: string;
-	subwallet_id: number;
-	full_domain: string;
-	raw_state_boc_hex: string;
-	raw_config_boc_hex: string;
-	fetched_at: string;
+	username?: string;
+	nft_address?: string;
+	bidder_address?: string;
+	current_bid_ton?: number;
+	min_next_bid_ton?: number;
+	initial_min_bid_ton?: number;
+	min_bid_step_pct?: number;
+	is_primary_mint?: boolean;
+	code_hash?: string;
+	data_hash?: string;
+	code_hash_hex?: string;
+	data_hash_hex?: string;
+	balance_ton?: number;
+	last_tx_lt?: string;
+	state_status?: string;
+	full_domain?: string;
+	workchain_id?: number;
+	raw_state_boc_hex?: string;
+	raw_config_boc_hex?: string;
 }
 
 interface CollectionData {
@@ -238,11 +259,22 @@ export const CollectionInfoPage: Component = () => {
 		navigate(`/username/report?u=${encodeURIComponent(clean)}`);
 	};
 
-	const fmtUsd = (tonVal: number) => {
+	const fmtUsd = (tonVal?: number) => {
 		const r = tonUsdRate();
-		if (!r || r <= 0 || tonVal <= 0) return null;
-		return Math.round(tonVal * r).toLocaleString('en-US');
+		const n = Number(tonVal ?? 0);
+		if (!r || r <= 0 || !Number.isFinite(n) || n <= 0) return null;
+		return Math.round(n * r).toLocaleString('en-US');
 	};
+
+	const safeNum = (v: unknown): number => {
+		const n = Number(v ?? 0);
+		return Number.isFinite(n) ? n : 0;
+	};
+
+	const fmtInt = (v: unknown) => Math.round(safeNum(v)).toLocaleString('en-US');
+	const fmtDec = (v: unknown, maxFrac = 1) =>
+		safeNum(v).toLocaleString('en-US', { maximumFractionDigits: maxFrac });
+	const fmtFixed = (v: unknown, digits = 1) => safeNum(v).toFixed(digits);
 
 	return (
 		<div
@@ -327,7 +359,7 @@ export const CollectionInfoPage: Component = () => {
 											st().auction_floor_ton ||
 											parseFloat((st().floor_price || '10').replace(/[^0-9.]/g, '')) ||
 											10
-										).toLocaleString()}
+										).toLocaleString('en-US')}
 										size="sm"
 									/>
 								</div>
@@ -594,49 +626,79 @@ export const CollectionInfoPage: Component = () => {
 				{/* TAB 2: ANALYTICS, 7D PULSE, CHART, LENGTH TIERS & SEMANTIC CATEGORIES */}
 				<Show when={!usernameQuery.isLoading && activeTab() === 'overview'}>
 					<div class="space-y-4">
-						{/* 7-Day Market Pulse Strip */}
+						{/* Quantitative Market Pulse Strip */}
 						<Show when={usernameQuery.data?.market_pulse}>
-							{(mp) => (
-								<div class="frag-section-card p-3.5 space-y-2.5">
-									<div class="flex items-center justify-between">
-										<span class="text-[13px] font-bold text-white">
-											7-Day Quantitative Market Pulse
-										</span>
-										<span class="px-2 py-0.5 rounded-[4px] bg-[#248bda]/15 text-[#4db2ff] text-[10.5px] font-mono font-bold">
-											{mp().market_regime}
-										</span>
-									</div>
-									<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-start" dir="ltr">
-										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
-											<span class="text-[10.5px] text-[#8c9aa9] block">7D Volume</span>
-											<TonAmount
-												value={Math.round(mp().volume_7d_ton).toLocaleString()}
-												size="sm"
-											/>
-										</div>
-										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
-											<span class="text-[10.5px] text-[#8c9aa9] block">7D Median Sale</span>
-											<TonAmount
-												value={Math.round(mp().median_sale_7d_ton).toLocaleString()}
-												size="sm"
-											/>
-										</div>
-										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
-											<span class="text-[10.5px] text-[#8c9aa9] block">P90 Whale Sale</span>
-											<TonAmount
-												value={Math.round(mp().p90_sale_7d_ton).toLocaleString()}
-												size="sm"
-											/>
-										</div>
-										<div class="bg-[#1a2026] rounded-[6px] p-2.5">
-											<span class="text-[10.5px] text-[#8c9aa9] block">4–5ch Share</span>
-											<span class="text-[13.5px] font-bold text-white font-mono">
-												{mp().short_4_5_share_pct.toFixed(1)}%
+							{(mp) => {
+								const hasSignals = () =>
+									Boolean(
+										mp().demand?.value ||
+											mp().supply_pressure?.value ||
+											mp().liquidity?.value ||
+											mp().price_momentum?.value,
+									);
+								return (
+									<div class="frag-section-card p-3.5 space-y-2.5">
+										<div class="flex items-center justify-between gap-2">
+											<span class="text-[13px] font-bold text-white">
+												Quantitative Market Pulse
+											</span>
+											<span class="px-2 py-0.5 rounded-[4px] bg-[#248bda]/15 text-[#4db2ff] text-[10.5px] font-mono font-bold uppercase">
+												{mp().market_regime || mp().price_momentum?.status || 'LIVE'}
 											</span>
 										</div>
+										<Show
+											when={hasSignals()}
+											fallback={
+												<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-start" dir="ltr">
+													<div class="bg-[#1a2026] rounded-[6px] p-2.5">
+														<span class="text-[10.5px] text-[#8c9aa9] block">7D Volume</span>
+														<TonAmount value={fmtInt(mp().volume_7d_ton)} size="sm" />
+													</div>
+													<div class="bg-[#1a2026] rounded-[6px] p-2.5">
+														<span class="text-[10.5px] text-[#8c9aa9] block">7D Median Sale</span>
+														<TonAmount value={fmtInt(mp().median_sale_7d_ton)} size="sm" />
+													</div>
+													<div class="bg-[#1a2026] rounded-[6px] p-2.5">
+														<span class="text-[10.5px] text-[#8c9aa9] block">P90 Whale Sale</span>
+														<TonAmount value={fmtInt(mp().p90_sale_7d_ton)} size="sm" />
+													</div>
+													<div class="bg-[#1a2026] rounded-[6px] p-2.5">
+														<span class="text-[10.5px] text-[#8c9aa9] block">4–5ch Share</span>
+														<span class="text-[13.5px] font-bold text-white font-mono">
+															{fmtFixed(mp().short_4_5_share_pct, 1)}%
+														</span>
+													</div>
+												</div>
+											}
+										>
+											<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-start" dir="ltr">
+												<For
+													each={[
+														{ label: 'Demand', sig: mp().demand },
+														{ label: 'Supply', sig: mp().supply_pressure },
+														{ label: 'Liquidity', sig: mp().liquidity },
+														{ label: 'Momentum', sig: mp().price_momentum },
+													]}
+												>
+													{(cell) => (
+														<div class="bg-[#1a2026] rounded-[6px] p-2.5">
+															<span class="text-[10.5px] text-[#8c9aa9] block">{cell.label}</span>
+															<span class="text-[13px] font-bold text-white font-mono block mt-0.5 truncate">
+																{cell.sig?.value || '—'}
+															</span>
+															<Show when={cell.sig?.status}>
+																<span class="text-[10px] font-semibold text-[#4db2ff] uppercase block mt-0.5 truncate">
+																	{cell.sig?.status}
+																</span>
+															</Show>
+														</div>
+													)}
+												</For>
+											</div>
+										</Show>
 									</div>
-								</div>
-							)}
+								);
+							}}
 						</Show>
 
 						<UsernameCollectionChart tonUsdRate={tonUsdRate()} />
@@ -658,21 +720,24 @@ export const CollectionInfoPage: Component = () => {
 											<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[13px]">
 												<div class="col-span-5 min-w-0 pr-2">
 													<span class="font-semibold text-white block truncate">
-														{tier.length_bucket} chars
+														{tier.length_bucket || '—'} chars
 													</span>
-													<span class="text-[11px] text-[#8c9aa9] truncate block">
-														Mint min: {tier.primary_min_bid_ton || 10} TON
+													<span class="text-[11px] text-[#8c9aa9] truncate block" dir="ltr">
+														Mint min: {fmtInt(tier.primary_min_bid_ton || 10)} TON
 													</span>
 												</div>
 												<div class="col-span-4">
 													<TonAmount
-														value={tier.floor_price_ton.toLocaleString()}
+														value={fmtDec(tier.floor_price_ton)}
 														usd={fmtUsd(tier.floor_price_ton)}
 														size="sm"
 													/>
 												</div>
-												<div class="col-span-3 text-end font-mono text-[12.5px] text-white">
-													{tier.sales_count_30d.toLocaleString()}
+												<div
+													class="col-span-3 text-end font-mono text-[12.5px] text-white"
+													dir="ltr"
+												>
+													{fmtInt(tier.sales_count_30d)}
 												</div>
 											</div>
 										)}
@@ -691,44 +756,60 @@ export const CollectionInfoPage: Component = () => {
 									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
 										<span class="col-span-5">Category</span>
 										<span class="col-span-4">Floor / Median</span>
-										<span class="col-span-3 text-end">Top Sale</span>
+										<span class="col-span-3 text-end">Volume</span>
 									</div>
 									<For each={usernameQuery.data?.semantic_categories || []}>
-										{(cat) => (
-											<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[12.5px]">
-												<div class="col-span-5 min-w-0 pr-2">
-													<span class="font-semibold text-white block truncate">
-														{isRtl() ? cat.category_name_fa : cat.category_name_en}
-													</span>
-													<div class="flex items-center gap-1 flex-wrap mt-1" dir="ltr">
-														<For each={(cat.sample_handles || []).slice(0, 3)}>
-															{(h) => (
-																<button
-																	type="button"
-																	onClick={() => openValuation(h)}
-																	class="text-[10.5px] font-mono text-[#4db2ff] hover:underline cursor-pointer"
+										{(cat) => {
+											const catTitle = () =>
+												(isRtl() ? cat.category_name_fa : cat.category_name_en) ||
+												cat.category_name ||
+												cat.category_key ||
+												'—';
+											const rightTon = () => cat.volume_ton ?? cat.top_sale_ton ?? 0;
+											return (
+												<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[12.5px]">
+													<div class="col-span-5 min-w-0 pr-2">
+														<span class="font-semibold text-white block truncate">
+															{catTitle()}
+														</span>
+														<Show
+															when={(cat.sample_handles?.length || 0) > 0}
+															fallback={
+																<span
+																	class="text-[10.5px] font-mono text-[#8c9aa9] block mt-0.5"
+																	dir="ltr"
 																>
-																	@{h.replace(/^@/, '')}
-																</button>
-															)}
-														</For>
+																	{fmtInt(cat.sales_count)} sales · {fmtFixed(cat.share_pct, 1)}%
+																</span>
+															}
+														>
+															<div class="flex items-center gap-1 flex-wrap mt-1" dir="ltr">
+																<For each={(cat.sample_handles || []).slice(0, 3)}>
+																	{(h) => (
+																		<button
+																			type="button"
+																			onClick={() => openValuation(h)}
+																			class="text-[10.5px] font-mono text-[#4db2ff] hover:underline cursor-pointer"
+																		>
+																			@{String(h || '').replace(/^@/, '')}
+																		</button>
+																	)}
+																</For>
+															</div>
+														</Show>
+													</div>
+													<div class="col-span-4">
+														<TonAmount value={fmtDec(cat.floor_ton)} size="sm" />
+														<span class="text-[10.5px] text-[#8c9aa9] block mt-0.5" dir="ltr">
+															Med: {fmtDec(cat.median_ton)} TON
+														</span>
+													</div>
+													<div class="col-span-3 flex justify-end">
+														<TonAmount value={fmtInt(rightTon())} size="sm" tone="positive" />
 													</div>
 												</div>
-												<div class="col-span-4">
-													<TonAmount value={cat.floor_ton.toLocaleString()} size="sm" />
-													<span class="text-[10.5px] text-[#8c9aa9] block mt-0.5" dir="ltr">
-														Med: {cat.median_ton.toLocaleString()} TON
-													</span>
-												</div>
-												<div class="col-span-3 flex justify-end">
-													<TonAmount
-														value={cat.top_sale_ton.toLocaleString()}
-														size="sm"
-														tone="positive"
-													/>
-												</div>
-											</div>
-										)}
+											);
+										}}
 									</For>
 								</div>
 							</div>
@@ -750,21 +831,24 @@ export const CollectionInfoPage: Component = () => {
 										{(uv) => (
 											<button
 												type="button"
-												onClick={() => openValuation(uv.username)}
+												onClick={() => openValuation(uv.username || '')}
 												class="frag-table-row w-full grid grid-cols-12 items-center px-3.5 py-2.5 text-start cursor-pointer"
 											>
 												<div class="col-span-5 min-w-0 pr-2">
-													<FragHandle handle={uv.username.replace(/^@/, '')} size="sm" />
-													<span class="text-[11px] text-[#5aec8c] font-semibold block">
-														-{Math.round(uv.discount_pct)}% below fair
+													<FragHandle
+														handle={String(uv.username || '').replace(/^@/, '')}
+														size="sm"
+													/>
+													<span class="text-[11px] text-[#5aec8c] font-semibold block" dir="ltr">
+														-{Math.round(safeNum(uv.discount_pct))}% below fair
 													</span>
 												</div>
 												<div class="col-span-4">
-													<TonAmount value={uv.current_bid_ton.toLocaleString()} size="sm" />
+													<TonAmount value={fmtDec(uv.current_bid_ton)} size="sm" />
 												</div>
 												<div class="col-span-3 flex justify-end">
 													<TonAmount
-														value={uv.estimated_fair_ton.toLocaleString()}
+														value={fmtDec(uv.estimated_fair_ton)}
 														size="sm"
 														tone="positive"
 													/>
@@ -843,38 +927,50 @@ export const CollectionInfoPage: Component = () => {
 										<span class="col-span-3 text-end">Est. Value</span>
 									</div>
 									<For each={usernameQuery.data?.whale_tracker || []}>
-										{(w) => (
-											<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[12.5px]">
-												<div class="col-span-6 min-w-0 pr-2">
-													<div class="flex items-center gap-1.5">
-														<span class="text-[11px] font-mono text-[#4db2ff]">#{w.rank}</span>
-														<span class="font-semibold text-white truncate">{w.alias}</span>
+										{(w, idx) => {
+											const displayAlias = () => {
+												if (w.alias) return w.alias;
+												const addr = w.wallet_address || w.owner_address || '';
+												if (addr.length > 12) return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+												return w.role_label || addr || 'TON Whale';
+											};
+											const handles = () => w.sample_handles || w.top_handles || [];
+											const count = () => w.handles_count ?? w.handles_owned ?? 0;
+											const valTon = () => w.total_ton_deployed ?? w.portfolio_value_ton ?? 0;
+											return (
+												<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[12.5px]">
+													<div class="col-span-6 min-w-0 pr-2">
+														<div class="flex items-center gap-1.5" dir="ltr">
+															<span class="text-[11px] font-mono text-[#4db2ff]">
+																#{w.rank || idx() + 1}
+															</span>
+															<span class="font-semibold text-white truncate">
+																{displayAlias()}
+															</span>
+														</div>
+														<div class="flex items-center gap-1 flex-wrap mt-1" dir="ltr">
+															<For each={handles().slice(0, 3)}>
+																{(h) => (
+																	<button
+																		type="button"
+																		onClick={() => openValuation(h)}
+																		class="text-[10.5px] font-mono text-[#4db2ff] hover:underline cursor-pointer"
+																	>
+																		@{String(h || '').replace(/^@/, '')}
+																	</button>
+																)}
+															</For>
+														</div>
 													</div>
-													<div class="flex items-center gap-1 flex-wrap mt-1" dir="ltr">
-														<For each={(w.top_handles || []).slice(0, 3)}>
-															{(h) => (
-																<button
-																	type="button"
-																	onClick={() => openValuation(h)}
-																	class="text-[10.5px] font-mono text-[#4db2ff] hover:underline cursor-pointer"
-																>
-																	@{h.replace(/^@/, '')}
-																</button>
-															)}
-														</For>
+													<div class="col-span-3 font-mono text-white" dir="ltr">
+														{fmtInt(count())} names
+													</div>
+													<div class="col-span-3 flex justify-end">
+														<TonAmount value={fmtInt(valTon())} size="sm" />
 													</div>
 												</div>
-												<div class="col-span-3 font-mono text-white" dir="ltr">
-													{w.handles_owned} names
-												</div>
-												<div class="col-span-3 flex justify-end">
-													<TonAmount
-														value={Math.round(w.portfolio_value_ton).toLocaleString()}
-														size="sm"
-													/>
-												</div>
-											</div>
-										)}
+											);
+										}}
 									</For>
 								</div>
 							</div>
@@ -890,40 +986,55 @@ export const CollectionInfoPage: Component = () => {
 							{(snap) => (
 								<div class="frag-section-card p-3.5 space-y-2.5" dir="ltr">
 									<div class="flex items-center justify-between gap-2">
-										<div>
+										<div class="min-w-0">
 											<span class="text-[13px] font-bold text-white block">
-												TON TVM Collection Contract State
+												TON TVM Contract Snapshot
 											</span>
-											<span class="text-[11px] text-[#8c9aa9] font-mono">
-												{snap().full_domain} • Workchain {snap().workchain_id}
+											<span class="text-[11px] text-[#8c9aa9] font-mono block truncate">
+												{snap().full_domain ||
+													(snap().username ? `@${snap().username}` : 'TeleMint TEP-62')}{' '}
+												•{' '}
+												{snap().nft_address
+													? `${snap().nft_address!.slice(0, 12)}...`
+													: `WC ${snap().workchain_id ?? 0}`}
 											</span>
 										</div>
-										<span class="px-2 py-0.5 rounded-[4px] bg-[#5aec8c]/15 text-[#5aec8c] text-[10.5px] font-mono font-bold uppercase">
-											{snap().state_status}
+										<span class="px-2 py-0.5 rounded-[4px] bg-[#5aec8c]/15 text-[#5aec8c] text-[10.5px] font-mono font-bold uppercase shrink-0">
+											{snap().state_status || (snap().is_primary_mint ? 'PRIMARY' : 'ACTIVE')}
 										</span>
 									</div>
 
 									<div class="grid grid-cols-2 gap-2 text-[11.5px]">
 										<div class="bg-[#1a2026] rounded-[6px] p-2">
-											<span class="text-[#8c9aa9] block text-[10px]">Contract Balance</span>
+											<span class="text-[#8c9aa9] block text-[10px]">
+												{snap().current_bid_ton ? 'Current Bid' : 'Contract Balance'}
+											</span>
 											<span class="font-mono text-white font-semibold">
-												{snap().balance_ton.toFixed(4)} TON
+												{snap().current_bid_ton
+													? `${fmtDec(snap().current_bid_ton)} TON`
+													: `${fmtFixed(snap().balance_ton, 4)} TON`}
 											</span>
 										</div>
 										<div class="bg-[#1a2026] rounded-[6px] p-2">
-											<span class="text-[#8c9aa9] block text-[10px]">Last Logical Time (LT)</span>
-											<span class="font-mono text-white font-semibold">{snap().last_tx_lt}</span>
+											<span class="text-[#8c9aa9] block text-[10px]">
+												{snap().min_next_bid_ton ? 'Min Next Bid' : 'Last Logical Time (LT)'}
+											</span>
+											<span class="font-mono text-white font-semibold">
+												{snap().min_next_bid_ton
+													? `${fmtDec(snap().min_next_bid_ton)} TON`
+													: snap().last_tx_lt || '—'}
+											</span>
 										</div>
 										<div class="bg-[#1a2026] rounded-[6px] p-2">
 											<span class="text-[#8c9aa9] block text-[10px]">TVM Code Hash (SHA-256)</span>
 											<span class="font-mono text-[#4db2ff] truncate block">
-												{snap().code_hash_hex}
+												{snap().code_hash || snap().code_hash_hex || '—'}
 											</span>
 										</div>
 										<div class="bg-[#1a2026] rounded-[6px] p-2">
 											<span class="text-[#8c9aa9] block text-[10px]">TVM Data Hash (SHA-256)</span>
 											<span class="font-mono text-[#4db2ff] truncate block">
-												{snap().data_hash_hex}
+												{snap().data_hash || snap().data_hash_hex || '—'}
 											</span>
 										</div>
 									</div>
@@ -950,40 +1061,36 @@ export const CollectionInfoPage: Component = () => {
 								</h3>
 								<div class="frag-table-container" dir="ltr">
 									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-										<span class="col-span-4">Handle / Opcode</span>
-										<span class="col-span-5">TVM BOC Slice</span>
+										<span class="col-span-5">Handle / Opcode</span>
+										<span class="col-span-4">Action / LT</span>
 										<span class="col-span-3 text-end">Amount</span>
 									</div>
 									<For each={usernameQuery.data?.on_chain_feed || []}>
 										{(ev) => (
 											<button
 												type="button"
-												onClick={() => openValuation(ev.username)}
+												onClick={() => openValuation(ev.username || '')}
 												class="frag-table-row w-full grid grid-cols-12 items-center px-3.5 py-2.5 text-start cursor-pointer"
 											>
-												<div class="col-span-4 min-w-0 pr-2">
+												<div class="col-span-5 min-w-0 pr-2">
 													<span class="text-[12.5px] font-semibold text-white block truncate">
-														@{ev.username.replace(/^@/, '')}
+														@{String(ev.username || 'unknown').replace(/^@/, '')}
 													</span>
 													<span class="text-[10.5px] font-mono text-[#4db2ff] block truncate">
-														{ev.opcode_hex} • {ev.opcode_name}
+														{ev.opcode || ev.opcode_hex || '0x0'} •{' '}
+														{ev.opcode_label || ev.opcode_name || ev.action_type || 'TX'}
 													</span>
 												</div>
-												<div class="col-span-5 min-w-0 pr-2">
+												<div class="col-span-4 min-w-0 pr-2">
 													<code class="text-[10px] font-mono text-[#8c9aa9] block truncate">
-														{ev.cell_boc_preview}
+														{ev.cell_boc_preview || ev.actor_address || ev.nft_address || '—'}
 													</code>
 													<span class="text-[10px] font-mono text-[#5aec8c] block truncate">
-														LT {ev.lt}
+														LT {ev.lt ?? '—'}
 													</span>
 												</div>
 												<div class="col-span-3 flex justify-end">
-													<TonAmount
-														value={ev.amount_ton.toLocaleString('en-US', {
-															maximumFractionDigits: 0,
-														})}
-														size="sm"
-													/>
+													<TonAmount value={fmtInt(ev.amount_ton)} size="sm" />
 												</div>
 											</button>
 										)}

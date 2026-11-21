@@ -662,108 +662,104 @@ func (h *NumbersHandler) deliverNumberReportToUser(r *http.Request, userID int64
 		btnMiniApp := "📊 مشاهده تحلیل کامل در مینی‌اپ"
 		btnFragment := "🌐 مشاهده در فرگمنت"
 
+		escNum := telegram.EscapeHTML(val.DisplayNumber)
+		escClub := telegram.EscapeHTML(club)
+		escColor := telegram.EscapeHTML(val.Color.Name)
+
 		switch lang {
 		case "en":
 			btnMiniApp = "📊 Open Full Report in Mini App"
 			btnFragment = "🌐 View on Fragment"
-			reportText = fmt.Sprintf(`📱 <b>Collectible Number Valuation: %s</b>
+			reportText = fmt.Sprintf(`📱 <b>Anonymous Number Valuation  ·  %s</b>
 
-👑 Pattern Club: <b>%s</b>
-🏆 Network Rarity Rank: <b>#%d of 136,566</b>
-🎯 Model Confidence: <b>%d%%</b>
+<blockquote>👑 <b>Pattern Club:</b> <code>%s</code>
+🏆 <b>Network Rarity Rank:</b> <b>#%d of 136,566</b>
+🎯 <b>Model Confidence:</b> <code>%d%%</code></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-💰 <b>Market Valuation Band:</b>
-• Base Floor Value: <b>%s TON</b>
-• Liquidity Floor: <b>%s TON (~$%.0f)</b>
-• Fair Value Estimate: <b>%s TON (~$%.0f)</b>
-• Bullish Ceiling: <b>%s TON (~$%.0f)</b>
-━━━━━━━━━━━━━━━━━━━
+<blockquote>💰 <b>Market Valuation Band</b>
+• Base Floor: <code>%s TON</code>
+• Liquidity Floor: <code>%s TON (~$%.0f)</code>
+• Fair Value: <b>%s TON (~$%.0f)</b>
+• Bullish Ceiling: <code>%s TON (~$%.0f)</code></blockquote>
 
-🎨 Official Fragment Color: <b>%s</b>
-⚡ <i>NV Engine institutional valuation powered by TON on-chain sales</i>`,
-				val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore,
+🎨 Fragment Color: <b>%s</b>
+⚡ <i>NV Engine institutional valuation · TON on-chain sales</i>`,
+				escNum, escClub, val.GlobalRank, val.ConfidenceScore,
 				val.BasePriceTON.StringFixed(1),
 				val.LowTON.StringFixed(1), val.LowUSD,
 				val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
 				val.HighTON.StringFixed(1), val.HighUSD,
-				val.Color.Name,
+				escColor,
 			)
 		case "ru":
 			btnMiniApp = "📊 Открыть полный отчёт в Mini App"
 			btnFragment = "🌐 Открыть на Fragment"
-			reportText = fmt.Sprintf(`📱 <b>Аналитическая оценка номера: %s</b>
+			reportText = fmt.Sprintf(`📱 <b>Оценка анонимного номера  ·  %s</b>
 
-👑 Клуб паттерна: <b>%s</b>
-🏆 Ранг редкости в сети: <b>#%d из 136,566</b>
-🎯 Точность модели: <b>%d%%</b>
+<blockquote>👑 <b>Клуб паттерна:</b> <code>%s</code>
+🏆 <b>Ранг редкости:</b> <b>#%d из 136,566</b>
+🎯 <b>Точность модели:</b> <code>%d%%</code></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-💰 <b>Диапазон рыночной стоимости:</b>
-• Базовая оценка: <b>%s TON</b>
-• Ликвидный пол: <b>%s TON (~$%.0f)</b>
-• Справедливая цена (Fair): <b>%s TON (~$%.0f)</b>
-• Верхняя граница: <b>%s TON (~$%.0f)</b>
-━━━━━━━━━━━━━━━━━━━
+<blockquote>💰 <b>Диапазон рыночной стоимости</b>
+• Базовая оценка: <code>%s TON</code>
+• Ликвидный пол: <code>%s TON (~$%.0f)</code>
+• Справедливая цена: <b>%s TON (~$%.0f)</b>
+• Верхняя граница: <code>%s TON (~$%.0f)</code></blockquote>
 
-🎨 Официальный цвет Fragment: <b>%s</b>
-⚡ <i>Точная оценка NV Engine на основе ончейн-сделок TON</i>`,
-				val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore,
+🎨 Цвет Fragment: <b>%s</b>
+⚡ <i>Оценка NV Engine · ончейн-сделки TON</i>`,
+				escNum, escClub, val.GlobalRank, val.ConfidenceScore,
 				val.BasePriceTON.StringFixed(1),
 				val.LowTON.StringFixed(1), val.LowUSD,
 				val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
 				val.HighTON.StringFixed(1), val.HighUSD,
-				val.Color.Name,
+				escColor,
 			)
 		case "zh":
 			btnMiniApp = "📊 在小程序查看完整报告"
 			btnFragment = "🌐 在 Fragment 查看"
-			reportText = fmt.Sprintf(`📱 <b>匿名典藏号码深度估值: %s</b>
+			reportText = fmt.Sprintf(`📱 <b>匿名典藏号码深度估值  ·  %s</b>
 
-👑 靓号俱乐部: <b>%s</b>
-🏆 全网稀有度排名: <b>#%d / 136,566</b>
-🎯 模型置信度: <b>%d%%</b>
+<blockquote>👑 <b>靓号俱乐部:</b> <code>%s</code>
+🏆 <b>全网稀有排名:</b> <b>#%d / 136,566</b>
+🎯 <b>模型置信度:</b> <code>%d%%</code></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-💰 <b>市场估值区间:</b>
-• 基准地板价: <b>%s TON</b>
-• 流动性下限: <b>%s TON (~$%.0f)</b>
-• 公允估值 (Fair): <b>%s TON (~$%.0f)</b>
-• 溢价上限: <b>%s TON (~$%.0f)</b>
-━━━━━━━━━━━━━━━━━━━
+<blockquote>💰 <b>市场估值区间</b>
+• 基准地板价: <code>%s TON</code>
+• 流动性下限: <code>%s TON (~$%.0f)</code>
+• 公允估值: <b>%s TON (~$%.0f)</b>
+• 溢价上限: <code>%s TON (~$%.0f)</code></blockquote>
 
 🎨 Fragment 官方配色: <b>%s</b>
-⚡ <i>由 NV Engine 基于 TON 链上真实交易驱动</i>`,
-				val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore,
+⚡ <i>由 NV Engine 基于 TON 链上成交驱动</i>`,
+				escNum, escClub, val.GlobalRank, val.ConfidenceScore,
 				val.BasePriceTON.StringFixed(1),
 				val.LowTON.StringFixed(1), val.LowUSD,
 				val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
 				val.HighTON.StringFixed(1), val.HighUSD,
-				val.Color.Name,
+				escColor,
 			)
 		default:
-			reportText = fmt.Sprintf(`📱 <b>کارشناسی تحلیلی شماره کلکسیونی: %s</b>
+			reportText = fmt.Sprintf(`📱 <b>کارشناسی تحلیلی شماره کلکسیونی  ·  %s</b>
 
-👑 کلوپ دسته‌بندی: <b>%s</b>
-🏆 رتبه کمیابی در شبکه: <b>#%d از ۱۳۶,۵۶۶</b>
-🎯 شاخص اطمینان مدل: <b>%d%%</b>
+<blockquote>👑 <b>کلوپ دسته‌بندی:</b> <code>%s</code>
+🏆 <b>رتبه کمیابی در شبکه:</b> <b>#%d از 136,566</b>
+🎯 <b>شاخص اطمینان مدل:</b> <code>%d%%</code></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-💰 <b>برآورد ارزش بازار:</b>
-• ارزش پایه: <b>%s TON</b>
-• کف نقدشوندگی: <b>%s TON (~$%.0f)</b>
+<blockquote>💰 <b>برآورد ارزش بازار</b>
+• ارزش پایه: <code>%s TON</code>
+• کف نقدشوندگی: <code>%s TON (~$%.0f)</code>
 • قیمت منصفانه (Fair): <b>%s TON (~$%.0f)</b>
-• سقف ارزش احتمالی: <b>%s TON (~$%.0f)</b>
-━━━━━━━━━━━━━━━━━━━
+• سقف ارزش احتمالی: <code>%s TON (~$%.0f)</code></blockquote>
 
 🎨 رنگ رسمی فرگمنت: <b>%s</b>
-⚡ <i>ارزیابی دقیق موتور NV Engine بر اساس متدولوژی ثبت‌شده در شبکه TON</i>`,
-				val.DisplayNumber, club, val.GlobalRank, val.ConfidenceScore,
+⚡ <i>موتور NV Engine · متدولوژی معاملات واقعی شبکه TON</i>`,
+				escNum, escClub, val.GlobalRank, val.ConfidenceScore,
 				val.BasePriceTON.StringFixed(1),
 				val.LowTON.StringFixed(1), val.LowUSD,
 				val.ExpectedTON.StringFixed(1), val.ExpectedUSD,
 				val.HighTON.StringFixed(1), val.HighUSD,
-				val.Color.Name,
+				escColor,
 			)
 		}
 
@@ -793,6 +789,10 @@ func (h *NumbersHandler) deliverNumberReportToUser(r *http.Request, userID int64
 				Lang:         lang,
 			}
 			if pngBytes, err := h.cardGen.GenerateRichNumberCard(cardP); err == nil {
+				_, _ = h.cardGen.SaveCard(pngBytes)
+				if _, err := tg.SendPhotoBytesWithMarkup(ctx, userID, pngBytes, reportText, markup, nil); err == nil {
+					return
+				}
 				if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
 					var publicURL string
 					if host != "" {

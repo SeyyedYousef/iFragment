@@ -48,7 +48,12 @@ function formatDateLocale(iso?: string): string {
 	try {
 		const d = new Date(iso);
 		if (Number.isNaN(d.getTime())) return iso;
-		const locMap: Record<string, string> = { fa: 'fa-IR', ru: 'ru-RU', zh: 'zh-CN', en: 'en-US' };
+		const locMap: Record<string, string> = {
+			fa: 'fa-IR-u-nu-latn',
+			ru: 'ru-RU',
+			zh: 'zh-CN',
+			en: 'en-US',
+		};
 		return d.toLocaleDateString(locMap[locale()] || 'en-US', {
 			year: 'numeric',
 			month: 'short',
@@ -883,7 +888,7 @@ export const GiftReportPage = () => {
 													rep().binary_forensics?.issued_count ||
 													rep().binary_forensics?.total_supply_count ||
 													10000
-												).toLocaleString()}
+												).toLocaleString('en-US')}
 											</FragKV>
 										</div>
 

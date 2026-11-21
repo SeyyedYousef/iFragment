@@ -286,122 +286,98 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 					gradeEmoji = "📊"
 				}
 
+				escUser := telegram.EscapeHTML(cleanUser)
+				escGrade := telegram.EscapeHTML(res.InvestmentGrade)
+				escUSD := telegram.EscapeHTML(expectedUSDStr)
+				escRate := telegram.EscapeHTML(rateRefLine)
+				escLiq := telegram.EscapeHTML(translateAVM(res.LiquidityRating, lang))
+				escSellTime := telegram.EscapeHTML(translateAVM(res.EstimatedSellTime, lang))
+				escBuyer := telegram.EscapeHTML(translateAVM(res.TargetBuyerProfile, lang))
+
 				switch lang {
 				case "en":
-					reportText = fmt.Sprintf(`🏷️ <b>Analytical Username Valuation: @%s</b>
+					reportText = fmt.Sprintf(`🏷️ <b>Username Valuation Report  ·  @%s</b>
 
-%s Investment Grade: <b>%s</b>
-📈 Brandability Score: <b>%d / 100</b>
-📉 Valuation Band: <b>%s – %s TON</b>
-💰 Fair Value Estimate: <b>~%s TON (%s)</b>
-%s
+<blockquote>%s <b>Investment Grade:</b> <code>%s</code>  ·  <b>Brand:</b> <code>%d/100</code>
+💰 <b>Fair Value:</b> <b>~%s TON</b> (<code>%s</code>)
+📉 <b>Valuation Band:</b> <code>%s – %s TON</code></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-🧬 <b>Structural Metrics:</b>
+<blockquote>🧬 <b>Structural Metrics</b>
 • Length: <b>%d chars</b>
-• Liquidity Rating: <b>%s</b>
-• Est. Time to Sell: <b>%s</b>
-• Target Buyer: <b>%s</b>
-━━━━━━━━━━━━━━━━━━━
-
-⚡ <i>AVM v7 institutional valuation powered by Fragment on-chain comps</i>`,
-						cleanUser,
-						gradeEmoji, res.InvestmentGrade,
-						res.Brandability,
+• Liquidity: <b>%s</b>
+• Est. Sell Time: <b>%s</b>
+• Target Buyer: <b>%s</b></blockquote>
+%s
+⚡ <i>AVM v7 institutional valuation · Fragment on-chain comps</i>`,
+						escUser,
+						gradeEmoji, escGrade, res.Brandability,
+						res.ExpectedTON.StringFixed(1), escUSD,
 						res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
-						res.ExpectedTON.StringFixed(1), expectedUSDStr,
-						rateRefLine,
-						res.Length,
-						res.LiquidityRating,
-						res.EstimatedSellTime,
-						res.TargetBuyerProfile,
+						res.Length, escLiq, escSellTime, escBuyer,
+						escRate,
 					)
 				case "ru":
-					reportText = fmt.Sprintf(`🏷️ <b>Аналитическая оценка юзернейма: @%s</b>
+					reportText = fmt.Sprintf(`🏷️ <b>Аналитическая оценка юзернейма  ·  @%s</b>
 
-%s Инвестиционный грейд: <b>%s</b>
-📈 Индекс брендируемости: <b>%d / 100</b>
-📉 Диапазон оценки: <b>%s – %s TON</b>
-💰 Справедливая оценка: <b>~%s TON (%s)</b>
-%s
+<blockquote>%s <b>Грейд:</b> <code>%s</code>  ·  <b>Бренд:</b> <code>%d/100</code>
+💰 <b>Справедливая цена:</b> <b>~%s TON</b> (<code>%s</code>)
+📉 <b>Диапазон:</b> <code>%s – %s TON</code></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-🧬 <b>Структурные метрики:</b>
+<blockquote>🧬 <b>Структурные метрики</b>
 • Длина: <b>%d симв.</b>
-• Рейтинг ликвидности: <b>%s</b>
-• Ожид. срок продажи: <b>%s</b>
-• Целевой покупатель: <b>%s</b>
-━━━━━━━━━━━━━━━━━━━
-
-⚡ <i>Институциональная оценка AVM v7 на базе сделок Fragment</i>`,
-						cleanUser,
-						gradeEmoji, res.InvestmentGrade,
-						res.Brandability,
+• Ликвидность: <b>%s</b>
+• Срок продажи: <b>%s</b>
+• Покупатель: <b>%s</b></blockquote>
+%s
+⚡ <i>Оценка AVM v7 на базе сделок Fragment</i>`,
+						escUser,
+						gradeEmoji, escGrade, res.Brandability,
+						res.ExpectedTON.StringFixed(1), escUSD,
 						res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
-						res.ExpectedTON.StringFixed(1), expectedUSDStr,
-						rateRefLine,
-						res.Length,
-						res.LiquidityRating,
-						res.EstimatedSellTime,
-						res.TargetBuyerProfile,
+						res.Length, escLiq, escSellTime, escBuyer,
+						escRate,
 					)
 				case "zh":
-					reportText = fmt.Sprintf(`🏷️ <b>用户名深度估值报告: @%s</b>
+					reportText = fmt.Sprintf(`🏷️ <b>用户名深度估值报告  ·  @%s</b>
 
-%s 投资评级: <b>%s</b>
-📈 品牌力指数: <b>%d / 100</b>
-📉 估值区间: <b>%s – %s TON</b>
-💰 公允估值中枢: <b>~%s TON (%s)</b>
-%s
+<blockquote>%s <b>投资评级:</b> <code>%s</code>  ·  <b>品牌分:</b> <code>%d/100</code>
+💰 <b>公允价值:</b> <b>~%s TON</b> (<code>%s</code>)
+📉 <b>估值区间:</b> <code>%s – %s TON</code></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-🧬 <b>结构化指标:</b>
+<blockquote>🧬 <b>结构化指标</b>
 • 字符长度: <b>%d 字符</b>
 • 流动性评级: <b>%s</b>
-• 预计成交周期: <b>%s</b>
-• 目标买家画像: <b>%s</b>
-━━━━━━━━━━━━━━━━━━━
-
-⚡ <i>由 AVM v7 引擎基于 Fragment 链上真实成交数据驱动</i>`,
-						cleanUser,
-						gradeEmoji, res.InvestmentGrade,
-						res.Brandability,
+• 预计周期: <b>%s</b>
+• 目标买家: <b>%s</b></blockquote>
+%s
+⚡ <i>由 AVM v7 基于 Fragment 链上成交数据驱动</i>`,
+						escUser,
+						gradeEmoji, escGrade, res.Brandability,
+						res.ExpectedTON.StringFixed(1), escUSD,
 						res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
-						res.ExpectedTON.StringFixed(1), expectedUSDStr,
-						rateRefLine,
-						res.Length,
-						res.LiquidityRating,
-						res.EstimatedSellTime,
-						res.TargetBuyerProfile,
+						res.Length, escLiq, escSellTime, escBuyer,
+						escRate,
 					)
 				default:
-					reportText = fmt.Sprintf(`🏷️ <b>کارشناسی تحلیلی نام کاربری: @%s</b>
+					reportText = fmt.Sprintf(`🏷️ <b>کارشناسی تحلیلی نام کاربری  ·  @%s</b>
 
-%s درجه سرمایه‌گذاری: <b>%s</b>
-📈 شاخص برندپذیری: <b>%d / 100</b>
-📉 بازه برآورد ارزش: <b>%s الی %s TON</b>
-💰 میانگین برآورد منصفانه: <b>~%s TON (معادل %s)</b>
-%s
+<blockquote>%s <b>درجه سرمایه‌گذاری:</b> <code>%s</code>  ·  <b>برندپذیری:</b> <code>%d/100</code>
+💰 <b>ارزش منصفانه:</b> <b>~%s TON</b> (<code>%s</code>)
+📉 <b>بازه ارزش‌گذاری:</b> <code>%s – %s TON</code></blockquote>
 
-━━━━━━━━━━━━━━━━━━━
-🧬 <b>ویژگی‌های ساختاری:</b>
+<blockquote>🧬 <b>ویژگی‌های ساختاری</b>
 • طول شناسه: <b>%d کاراکتر</b>
 • رتبه نقدشوندگی: <b>%s</b>
 • افق زمانی فروش: <b>%s</b>
-• مخاطب هدف: <b>%s</b>
-━━━━━━━━━━━━━━━━━━━
-
-⚡ <i>برآورد تحلیلی موتور هوشمند AVM بر پایه سیگنال‌های معاملات فرگمنت</i>`,
-						cleanUser,
-						gradeEmoji, res.InvestmentGrade,
-						res.Brandability,
+• مخاطب هدف: <b>%s</b></blockquote>
+%s
+⚡ <i>موتور هوشمند AVM v7 · بر پایه معاملات واقعی فرگمنت</i>`,
+						escUser,
+						gradeEmoji, escGrade, res.Brandability,
+						res.ExpectedTON.StringFixed(1), escUSD,
 						res.LowTON.StringFixed(1), res.HighTON.StringFixed(1),
-						res.ExpectedTON.StringFixed(1), expectedUSDStr,
-						rateRefLine,
-						res.Length,
-						res.LiquidityRating,
-						res.EstimatedSellTime,
-						res.TargetBuyerProfile,
+						res.Length, escLiq, escSellTime, escBuyer,
+						escRate,
 					)
 				}
 			}
@@ -461,6 +437,10 @@ func (h *IntelCreditHandler) deliverUsernameReportToUser(r *http.Request, userID
 				Lang:         lang,
 			}
 			if pngBytes, err := h.cardGen.GenerateRichUsernameCard(cardP); err == nil {
+				_, _ = h.cardGen.SaveCard(pngBytes)
+				if _, err := tg.SendPhotoBytesWithMarkup(ctx, userID, pngBytes, reportText, markup, nil); err == nil {
+					return
+				}
 				if fileID, err := h.cardGen.SaveCard(pngBytes); err == nil {
 					var publicURL string
 					if host != "" {

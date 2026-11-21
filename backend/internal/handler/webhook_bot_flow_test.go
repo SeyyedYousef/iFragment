@@ -32,12 +32,12 @@ func TestBuildMainMenuMarkupLayout(t *testing.T) {
 				t.Fatalf("expected inline_keyboard to be [][]map[string]interface{}")
 			}
 
-			// Must be 5 rows (1 + 2 + 2 + 2 + 2)
-			if len(grid) != 5 {
-				t.Fatalf("expected exactly 5 rows, got %d", len(grid))
+			// Must be 4 rows (1 + 2 + 2 + 2) — NO username/number/gift category buttons
+			if len(grid) != 4 {
+				t.Fatalf("expected exactly 4 rows, got %d", len(grid))
 			}
 
-			// Row 1: Hero Primary CTA (Full width, exactly 1 button)
+			// Row 1: Hero Primary Mini App CTA (Full width, exactly 1 button)
 			if len(grid[0]) != 1 {
 				t.Fatalf("expected row 1 to have exactly 1 button, got %d", len(grid[0]))
 			}
@@ -59,54 +59,48 @@ func TestBuildMainMenuMarkupLayout(t *testing.T) {
 				t.Errorf("expected hero button web_app url to be %s, got %v", httpsURL, heroBtnWebApp["web_app"])
 			}
 
-			// Row 2: Exactly 2 buttons (Username, Number)
+			// Row 2: Exactly 2 buttons (Inline Search, Profile)
 			if len(grid[1]) != 2 {
 				t.Fatalf("expected row 2 to have exactly 2 buttons, got %d", len(grid[1]))
 			}
-			if grid[1][0]["callback_data"] != "nav:asset_username" {
-				t.Errorf("expected row 2 btn 1 callback to be nav:asset_username, got %v", grid[1][0]["callback_data"])
+			if _, hasInline := grid[1][0]["switch_inline_query"]; !hasInline {
+				t.Errorf("expected row 2 btn 1 to have switch_inline_query, got %v", grid[1][0])
 			}
-			if grid[1][1]["callback_data"] != "nav:asset_number" {
-				t.Errorf("expected row 2 btn 2 callback to be nav:asset_number, got %v", grid[1][1]["callback_data"])
+			if grid[1][1]["callback_data"] != "nav:profile" {
+				t.Errorf("expected row 2 btn 2 callback to be nav:profile, got %v", grid[1][1]["callback_data"])
 			}
 
-			// Row 3: Exactly 2 buttons (Gifts, Profile) — CRITICAL: No longer 3 buttons!
+			// Row 3: Exactly 2 buttons (Free Credits, Stars Store)
 			if len(grid[2]) != 2 {
-				t.Fatalf("expected row 3 to have exactly 2 buttons (never 3), got %d", len(grid[2]))
+				t.Fatalf("expected row 3 to have exactly 2 buttons, got %d", len(grid[2]))
 			}
-			if grid[2][0]["callback_data"] != "nav:asset_gifts" {
-				t.Errorf("expected row 3 btn 1 callback to be nav:asset_gifts, got %v", grid[2][0]["callback_data"])
+			if grid[2][0]["url"] != "https://t.me/FragmentInvestors" {
+				t.Errorf("expected row 3 btn 1 url to be https://t.me/FragmentInvestors, got %v", grid[2][0]["url"])
 			}
-			if grid[2][1]["callback_data"] != "nav:profile" {
-				t.Errorf("expected row 3 btn 2 callback to be nav:profile, got %v", grid[2][1]["callback_data"])
+			if grid[2][1]["callback_data"] != "buy_credits:profile" {
+				t.Errorf("expected row 3 btn 2 callback to be buy_credits:profile, got %v", grid[2][1]["callback_data"])
 			}
 
-			// Row 4: Exactly 2 buttons (Free Credits, Stars Store)
+			// Row 4: Exactly 2 buttons (Language, Help)
 			if len(grid[3]) != 2 {
 				t.Fatalf("expected row 4 to have exactly 2 buttons, got %d", len(grid[3]))
 			}
-			if grid[3][0]["url"] != "https://t.me/FragmentInvestors" {
-				t.Errorf("expected row 4 btn 1 url to be https://t.me/FragmentInvestors, got %v", grid[3][0]["url"])
+			if grid[3][0]["callback_data"] != "nav:language" {
+				t.Errorf("expected row 4 btn 1 callback to be nav:language, got %v", grid[3][0]["callback_data"])
 			}
-			if grid[3][1]["callback_data"] != "buy_credits:profile" {
-				t.Errorf("expected row 4 btn 2 callback to be buy_credits:profile, got %v", grid[3][1]["callback_data"])
-			}
-
-			// Row 5: Exactly 2 buttons (Language, Help)
-			if len(grid[4]) != 2 {
-				t.Fatalf("expected row 5 to have exactly 2 buttons, got %d", len(grid[4]))
-			}
-			if grid[4][0]["callback_data"] != "nav:language" {
-				t.Errorf("expected row 5 btn 1 callback to be nav:language, got %v", grid[4][0]["callback_data"])
-			}
-			if grid[4][1]["callback_data"] != "nav:help" {
-				t.Errorf("expected row 5 btn 2 callback to be nav:help, got %v", grid[4][1]["callback_data"])
+			if grid[3][1]["callback_data"] != "nav:help" {
+				t.Errorf("expected row 4 btn 2 callback to be nav:help, got %v", grid[3][1]["callback_data"])
 			}
 
-			// Ensure no row in the entire menu exceeds 2 buttons
+			// Ensure no row exceeds 2 buttons and no asset category buttons remain
 			for rIdx, row := range grid {
 				if len(row) > 2 {
 					t.Errorf("Row %d has %d buttons, exceeding maximum allowed 2 buttons per row", rIdx+1, len(row))
+				}
+				for _, btn := range row {
+					if cb, _ := btn["callback_data"].(string); cb == "nav:asset_username" || cb == "nav:asset_number" || cb == "nav:asset_gifts" {
+						t.Errorf("unexpected removed category button %q found in main menu", cb)
+					}
 				}
 			}
 		})
@@ -222,7 +216,7 @@ func TestReportCreditFooterFormatting(t *testing.T) {
 			var creditFooter string
 			switch normL {
 			case "fa":
-				creditFooter = "\n\n<i>⚡ ۱ کریدت کسر شد | موجودی: 5</i>"
+				creditFooter = "\n\n<i>⚡ 1 کریدت کسر شد | موجودی: 5</i>"
 			case "ru":
 				creditFooter = "\n\n<i>⚡ 1 кредит списан | Баланс: 5</i>"
 			case "zh":

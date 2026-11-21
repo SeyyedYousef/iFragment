@@ -230,7 +230,9 @@ export const OwnerDashboard: Component = () => {
 						<span class="material-symbols-outlined text-base text-sky-400">groups</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono">
-						{dashboardQuery.isLoading ? '...' : (metrics()?.total_users ?? 0).toLocaleString()}
+						{dashboardQuery.isLoading
+							? '...'
+							: (metrics()?.total_users ?? 0).toLocaleString('en-US')}
 					</div>
 					<div class="flex items-center justify-between text-[11px] text-white/50 pt-1 border-t border-white/5">
 						<span>
@@ -252,7 +254,7 @@ export const OwnerDashboard: Component = () => {
 						<span class="material-symbols-outlined text-base text-purple-400">query_stats</span>
 					</div>
 					<div class="text-2xl font-black text-purple-300 font-mono">
-						{dashboardQuery.isLoading ? '...' : totalValsToday().toLocaleString()}
+						{dashboardQuery.isLoading ? '...' : totalValsToday().toLocaleString('en-US')}
 					</div>
 					<div class="flex items-center justify-between text-[11px] font-mono text-white/60 pt-1 border-t border-white/5">
 						<span class="text-sky-300">@{metrics()?.valuations_today?.usernames ?? 0}</span>
@@ -272,10 +274,10 @@ export const OwnerDashboard: Component = () => {
 							⚡{' '}
 							{dashboardQuery.isLoading
 								? '...'
-								: (metrics()?.total_intel_credits_circulation ?? 0).toLocaleString()}
+								: (metrics()?.total_intel_credits_circulation ?? 0).toLocaleString('en-US')}
 						</div>
 						<div class="text-sm font-black text-amber-400 font-mono">
-							⭐ {(metrics()?.total_stars_revenue ?? 0).toLocaleString()}
+							⭐ {(metrics()?.total_stars_revenue ?? 0).toLocaleString('en-US')}
 						</div>
 					</div>
 					<div class="flex items-center justify-between text-[11px] text-white/50 pt-1 border-t border-white/5">
@@ -475,10 +477,10 @@ export const OwnerDashboard: Component = () => {
 												</td>
 												<td class="py-2.5 font-mono">
 													<span class="text-white font-bold">
-														{item.fair_value_ton.toLocaleString()} TON
+														{item.fair_value_ton.toLocaleString('en-US')} TON
 													</span>
 													<span class="text-white/40 text-[10px] ml-1.5">
-														(${item.fair_value_usd.toLocaleString()})
+														(${item.fair_value_usd.toLocaleString('en-US')})
 													</span>
 												</td>
 												<td class="py-2.5">
@@ -565,10 +567,10 @@ export const OwnerDashboard: Component = () => {
 											</td>
 											<td class="py-3 font-mono">
 												<span class="text-emerald-400 font-bold">
-													{v.fair_value_ton.toLocaleString()} TON
+													{v.fair_value_ton.toLocaleString('en-US')} TON
 												</span>
 												<span class="text-white/40 ml-1.5">
-													(${v.fair_value_usd.toLocaleString()})
+													(${v.fair_value_usd.toLocaleString('en-US')})
 												</span>
 											</td>
 											<td class="py-3 font-mono text-white/80">{v.confidence_score}%</td>

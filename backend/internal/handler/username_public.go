@@ -1160,7 +1160,10 @@ func (h *UsernameHandler) SendToChat(w http.ResponseWriter, r *http.Request) {
 
 	tgClient := telegram.NewBotAPIClient(token)
 	caption := "Here is your iFragment valuation card! 💎"
-	_, err = tgClient.SendPhoto(r.Context(), telegramID, publicURL, caption, "HTML")
+	_, err = tgClient.SendPhotoBytesWithMarkup(r.Context(), telegramID, dec, caption, nil, nil)
+	if err != nil {
+		_, err = tgClient.SendPhoto(r.Context(), telegramID, publicURL, caption, "HTML")
+	}
 	if err != nil {
 		slog.Error("Failed to send photo to user", "user_id", telegramID, "error", err)
 		RespondError(w, r, http.StatusInternalServerError, "failed to send photo to chat", err)

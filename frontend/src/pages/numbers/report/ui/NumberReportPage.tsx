@@ -595,7 +595,7 @@ export const NumberReportPage: Component = () => {
 									<span>
 										Rank:{' '}
 										<strong class="text-[#4db2ff]">
-											#{r().global_rank?.toLocaleString() || '—'}
+											#{r().global_rank?.toLocaleString('en-US') || '—'}
 										</strong>{' '}
 										/ 136.5K
 									</span>
@@ -809,8 +809,8 @@ export const NumberReportPage: Component = () => {
 												<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
 													<span>Combinatorial Scarcity & Information Theory</span>
 													<span class="font-mono text-[#4db2ff]">
-														{cs().exact_pattern_pool_size.toLocaleString()} in{' '}
-														{cs().total_supply.toLocaleString()}
+														{cs().exact_pattern_pool_size.toLocaleString('en-US')} in{' '}
+														{cs().total_supply.toLocaleString('en-US')}
 													</span>
 												</div>
 												<FragKV label="Pattern Class">

@@ -113,27 +113,45 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 
 	return (
 		<div class="w-full flex flex-col font-frag-sans relative z-10">
-			{/* Authentic Fragment.com Top Sticky Bar (.tm-header) */}
-			<header class="frag-header sticky top-0 z-40 w-full h-[52px] px-4 flex items-center justify-between gap-3">
-				<button
-					type="button"
-					onClick={() => {
-						try {
-							haptic.selection();
-						} catch {}
-						if (props.onResetTab) props.onResetTab();
-					}}
-					class="flex items-center gap-2 text-white hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
-				>
-					<TonIcon size={20} color="#4db2ff" />
-					<span class="text-[15px] font-bold tracking-[0.04em] text-white" dir="ltr">
-						FRAGMENT
-					</span>
-				</button>
+			{/* Authentic Fragment.com Top Sticky Bar (.tm-header) — Full-width 3-column tabs so Gifts is always 100% visible */}
+			<header class="frag-header sticky top-0 z-40 w-full">
+				<div class="w-full h-[48px] px-4 flex items-center justify-between gap-3">
+					<button
+						type="button"
+						onClick={() => {
+							try {
+								haptic.selection();
+							} catch {}
+							if (props.onResetTab) props.onResetTab();
+						}}
+						class="flex items-center gap-2 text-white hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
+					>
+						<TonIcon size={20} color="#4db2ff" />
+						<span class="text-[15px] font-bold tracking-[0.04em] text-white" dir="ltr">
+							FRAGMENT
+						</span>
+					</button>
 
-				{/* Horizontal Navigation Tabs (Fragment .tm-header-tabs style) */}
+					<Show when={props.onOpenCreditStore}>
+						<button
+							type="button"
+							onClick={props.onOpenCreditStore}
+							class="h-8 px-2.5 rounded-[8px] bg-[#293440] hover:bg-[#384553] text-white text-[12px] font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+						>
+							<span
+								class="material-symbols-outlined text-[15px] text-[#ff9953]"
+								style={{ 'font-variation-settings': '"FILL" 1' }}
+							>
+								star
+							</span>
+							<span>{t('paywall.credit_unit')}</span>
+						</button>
+					</Show>
+				</div>
+
+				{/* Full-Width 3-Column Navigation Tabs (Usernames | Numbers | Gifts — zero overflow clipping on mobile) */}
 				<div
-					class="flex items-center h-full gap-4 overflow-x-auto no-scrollbar"
+					class="grid grid-cols-3 w-full border-t border-white/[0.06] px-2"
 					role="tablist"
 					aria-label={t('heroTabs.analysisCategories')}
 				>
@@ -147,14 +165,14 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 									aria-selected={isSelected()}
 									aria-label={t(tab.labelKey)}
 									onClick={() => handleTabClick(tab)}
-									class={`relative h-full px-1 flex items-center text-[13px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-										isSelected() ? 'text-white' : 'text-[#cbd7e5]/70 hover:text-white'
+									class={`relative h-[40px] px-1.5 flex items-center justify-center text-[12.5px] font-semibold truncate transition-colors cursor-pointer ${
+										isSelected() ? 'text-white' : 'text-[#cbd7e5]/75 hover:text-white'
 									}`}
 								>
-									<span>{t(tab.labelKey)}</span>
+									<span class="truncate">{t(tab.labelKey)}</span>
 									<Show when={isSelected()}>
 										<span
-											class="absolute inset-x-0 bottom-0 h-[3px] bg-[#248bda] rounded-t-[3px]"
+											class="absolute inset-x-3 bottom-0 h-[3px] bg-[#248bda] rounded-t-[3px]"
 											aria-hidden="true"
 										/>
 									</Show>
@@ -163,22 +181,6 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 						}}
 					</For>
 				</div>
-
-				<Show when={props.onOpenCreditStore}>
-					<button
-						type="button"
-						onClick={props.onOpenCreditStore}
-						class="h-8 px-2.5 rounded-[8px] bg-[#293440] hover:bg-[#384553] text-white text-[12px] font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
-					>
-						<span
-							class="material-symbols-outlined text-[15px] text-[#ff9953]"
-							style={{ 'font-variation-settings': '"FILL" 1' }}
-						>
-							star
-						</span>
-						<span class="hidden xs:inline">{t('paywall.credit_unit')}</span>
-					</button>
-				</Show>
 			</header>
 
 			{/* Landing Overview (when no sub-tab is locked open) */}

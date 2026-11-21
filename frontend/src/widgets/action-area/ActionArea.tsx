@@ -223,7 +223,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 			const subtitle =
 				floorTon > 0
-					? `${layaT(GIFTS_I18N.floorPricePrefix)}: ${floorTon.toLocaleString()} TON · ${layaT(GIFTS_I18N.supplyLabel)}: ${supply.toLocaleString()}`
+					? `${layaT(GIFTS_I18N.floorPricePrefix)}: ${floorTon.toLocaleString('en-US')} TON · ${layaT(GIFTS_I18N.supplyLabel)}: ${supply.toLocaleString('en-US')}`
 					: layaT(GIFTS_I18N.readyToValuate);
 
 			return {
@@ -252,7 +252,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			return {
 				isValid: true,
 				title: `${catalogItem.name} #1`,
-				subtitle: `${layaT(GIFTS_I18N.supplyLabel)}: ${catalogItem.supply.toLocaleString()} · ${layaT(GIFTS_I18N.readyToValuate)}`,
+				subtitle: `${layaT(GIFTS_I18N.supplyLabel)}: ${catalogItem.supply.toLocaleString('en-US')} · ${layaT(GIFTS_I18N.readyToValuate)}`,
 				slug: `${catalogItem.slug}-1`,
 				serial: 1,
 				tag: 'Collection #1',

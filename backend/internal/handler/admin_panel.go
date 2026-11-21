@@ -70,13 +70,13 @@ var botTextDefs = []BotTextDef{
 	{
 		Key:         "precheck_gate",
 		Title:       "دروازه پیش‌بررسی (Pre-Check Gate)",
-		Description: "صفحه تأیید قبل از کسر ۱ کردیت و بازگشایی گزارش",
+		Description: "صفحه تأیید قبل از کسر 1 کردیت و بازگشایی گزارش",
 		Variables:   "{type}, {entity}, {coins}, {credits}, {cost_coins}",
 	},
 	{
 		Key:         "exchange_confirm",
 		Title:       "تأییدیه تبدیل سکه به کردیت",
-		Description: "متن سؤال از کاربر قبل از تبدیل ۱۵۰,۰۰۰ سکه به ۱ کردیت",
+		Description: "متن سؤال از کاربر قبل از تبدیل 150,000 سکه به 1 کردیت",
 		Variables:   "{coins}, {credits}, {cost_coins}",
 	},
 	{
@@ -116,7 +116,7 @@ var botButtonDefs = []BotButtonDef{
 	{Key: "btn_help", Title: "دکمه راهنما", Description: "دکمه مشاهده دستورالعمل‌ها"},
 	{Key: "btn_exchange", Title: "دکمه تبدیل سکه به کردیت", Description: "دکمه اکشن تبدیل سکه در پروفایل"},
 	{Key: "btn_stars", Title: "دکمه خرید با Stars", Description: "دکمه بسته‌های تلگرام استارز"},
-	{Key: "btn_unlock", Title: "دکمه بازکردن گزارش (Unlock)", Description: "دکمه مصرف ۱ کردیت برای گزارش"},
+	{Key: "btn_unlock", Title: "دکمه بازکردن گزارش (Unlock)", Description: "دکمه مصرف 1 کردیت برای گزارش"},
 	{Key: "btn_back", Title: "دکمه بازگشت (عمومی)", Description: "دکمه بازگشت پیش‌فرض"},
 	{Key: "btn_back_menu", Title: "دکمه بازگشت به منو", Description: "دکمه بازگشت به منوی اصلی"},
 	{Key: "btn_back_gate", Title: "دکمه بازگشت به گیت", Description: "دکمه بازگشت به تأییدیه ارزیابی"},
@@ -175,7 +175,7 @@ func (h *WebhookHandler) sendAdminPanelMenu(ctx context.Context, bot *repository
 	panelText := `<tg-emoji emoji-id="5368324170671202286">💎</tg-emoji> <b>پنل مدیریت اختصاصی iFragment | Owner Dashboard</b>
 
 درود مالک گرامی! به ترمینال مدیریت و سفارشی‌سازی ربات خوش آمدید.
-شما می‌توانید تمامی متون و نام دکمه‌های شیشه‌ای را به تفکیک ۴ زبان اصلی تغییر دهید و از ایموجی‌های پرمیوم استفاده کنید.
+شما می‌توانید تمامی متون و نام دکمه‌های شیشه‌ای را به تفکیک 4 زبان اصلی تغییر دهید و از ایموجی‌های پرمیوم استفاده کنید.
 
 لطفاً بخش مورد نظر را انتخاب فرمایید:`
 
@@ -623,7 +623,7 @@ func (h *WebhookHandler) handleAdminPanelCallback(ctx context.Context, bot *repo
 		text := fmt.Sprintf(`📊 <b>آمار زنده، عملکرد و مانیتورینگ ربات</b>
 
 👥 <b>کاربران کل:</b> <code>%d</code>
-🔥 <b>فعال ۲۴ ساعت:</b> <code>%d</code> | <b>فعال ۷ روز:</b> <code>%d</code>
+🔥 <b>فعال 24 ساعت:</b> <code>%d</code> | <b>فعال 7 روز:</b> <code>%d</code>
 💵 <b>نرخ زنده TON/USDT:</b> <code>%s</code>
 %s
 
@@ -659,9 +659,9 @@ func (h *WebhookHandler) handleAdminPanelCallback(ctx context.Context, bot *repo
 		text := fmt.Sprintf(`⚡ <b>سیستم اعتبارات تحلیلی (Intel Credits) و اقتصاد داخلی</b>
 
 ⚙️ <b>پارامترهای اقتصادی فعال:</b>
-• هزینه تبدیل هر ۱ کردیت تحلیلی: <b>%s سکه ایردراپ</b>
-• هزینه استعلام عمیق هر دارایی: <b>۱ کردیت</b>
-• بازه Idempotency استعلام: <b>۲۴ ساعت برای هر دارایی</b>
+• هزینه تبدیل هر 1 کردیت تحلیلی: <b>%s سکه ایردراپ</b>
+• هزینه استعلام عمیق هر دارایی: <b>1 کردیت</b>
+• بازه Idempotency استعلام: <b>24 ساعت برای هر دارایی</b>
 
 ⭐ <b>بسته‌های فعال تلگرام استارز (Stars):</b>
 %s
@@ -682,7 +682,7 @@ func (h *WebhookHandler) handleAdminPanelCallback(ctx context.Context, bot *repo
 		return
 
 	case "panel:api_health":
-		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "🌐 در حال بررسی زنده ۱۰ وب‌سرویس اکوسیستم...", false)
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "🌐 در حال بررسی زنده 10 وب‌سرویس اکوسیستم...", false)
 		providers := venues.CheckAllEcosystemProviders(ctx)
 		var sb strings.Builder
 		sb.WriteString("🌐 <b>وضعیت زنده وب‌سرویس‌ها و مارکت‌پلیس‌های اکوسیستم TON</b>\n\n")
@@ -780,7 +780,7 @@ func (h *WebhookHandler) processOwnerInput(ctx context.Context, bot *repository.
 		}
 		runeCount := utf8.RuneCountInString(rawBtn)
 		if runeCount < 1 || runeCount > 64 {
-			errMsg := fmt.Sprintf("⚠️ <b>طول متن دکمه نامعتبر است!</b>\n\nمتن دکمه‌های تلگرام باید بین ۱ تا ۶۴ کاراکتر باشد (طول وارد شده: %d کاراکتر). ویرایش لغو شد.", runeCount)
+			errMsg := fmt.Sprintf("⚠️ <b>طول متن دکمه نامعتبر است!</b>\n\nمتن دکمه‌های تلگرام باید بین 1 تا 64 کاراکتر باشد (طول وارد شده: %d کاراکتر). ویرایش لغو شد.", runeCount)
 			_ = tg.SendMessage(ctx, m.Chat.ID, errMsg, &m.MessageID, m.MessageThreadID)
 			return true
 		}

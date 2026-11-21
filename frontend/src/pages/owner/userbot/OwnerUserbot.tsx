@@ -162,7 +162,7 @@ export const OwnerUserbot: Component = () => {
 					<div>
 						<div class="text-xs text-white/50">{t('ownerMtproto.rpc24hLabel')}</div>
 						<div class="text-2xl font-black text-cyan-400 font-mono mt-1">
-							{totalRpc24h().toLocaleString()}
+							{totalRpc24h().toLocaleString('en-US')}
 						</div>
 					</div>
 					<span class="material-symbols-outlined text-2xl text-cyan-400 bg-cyan-500/10 p-3 rounded-2xl border border-cyan-500/20">
@@ -411,7 +411,7 @@ export const OwnerUserbot: Component = () => {
 											<td class="py-3.5 font-mono">
 												<div class="text-emerald-400 font-bold">{bot.ping_ms || 38} ms</div>
 												<div class="text-[10px] text-white/50">
-													{(bot.requests_24h || 0).toLocaleString()} RPC calls
+													{(bot.requests_24h || 0).toLocaleString('en-US')} RPC calls
 												</div>
 											</td>
 											<td class="py-3.5">

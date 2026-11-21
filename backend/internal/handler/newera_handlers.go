@@ -274,7 +274,7 @@ func (h *WebhookHandler) handleGuestMessage(ctx context.Context, bot *repository
 			case "fa":
 				title = fmt.Sprintf("📱 کارشناسی شماره: %s", sniff.Entity)
 				valText = fmt.Sprintf("📱 <b>کارشناسی شماره کلکسیونی: %s</b>\n\n💎 ارزیابی رتبه شبکه TON، کلوپ اختصاصی و قیمت منصفانه در دسترس است.", sniff.Entity)
-				desc = "برآورد ارزش و رتبه کمیابی در میان ۱۳۶,۵۶۶ شماره"
+				desc = "برآورد ارزش و رتبه کمیابی در میان 136,566 شماره"
 			case "ru":
 				title = fmt.Sprintf("📱 Оценка номера: %s", sniff.Entity)
 				valText = fmt.Sprintf("📱 <b>Оценка анонимного номера: %s</b>\n\n💎 Анализ ранга редкости TON, клуба паттерна и справедливой цены.", sniff.Entity)
@@ -301,7 +301,7 @@ func (h *WebhookHandler) handleGuestMessage(ctx context.Context, bot *repository
 
 					switch lang {
 					case "fa":
-						valText = fmt.Sprintf("📱 <b>کارشناسی شماره کلکسیونی: %s</b>\n\n👑 کلوپ: <b>%s</b>\n🏆 رتبه کمیابی: <b>#%d از ۱۳۶,۵۶۶</b>\n💰 قیمت منصفانه (Fair): <b>%s TON (%s)</b>\n🎯 ضریب اطمینان: <b>%d%%</b>\n%s\n\n⚡ <i>ارزیابی دقیق موتور NV Engine بر اساس متدولوژی ثبت‌شده در TON</i>",
+						valText = fmt.Sprintf("📱 <b>کارشناسی شماره کلکسیونی: %s</b>\n\n👑 کلوپ: <b>%s</b>\n🏆 رتبه کمیابی: <b>#%d از 136,566</b>\n💰 قیمت منصفانه (Fair): <b>%s TON (%s)</b>\n🎯 ضریب اطمینان: <b>%d%%</b>\n%s\n\n⚡ <i>ارزیابی دقیق موتور NV Engine بر اساس متدولوژی ثبت‌شده در TON</i>",
 							val.DisplayNumber, club, val.GlobalRank, val.ExpectedTON.StringFixed(1), usdFormatted, val.ConfidenceScore, rateRefLine)
 						desc = fmt.Sprintf("کلوپ: %s | قیمت منصفانه: %s TON (%s)", club, val.ExpectedTON.StringFixed(1), usdFormatted)
 					case "ru":
@@ -372,7 +372,7 @@ func (h *WebhookHandler) handleGuestMessage(ctx context.Context, bot *repository
 
 					switch lang {
 					case "fa":
-						valText = fmt.Sprintf("🎁 <b>کارشناسی گیفت تلگرام: %s</b>\n\n💎 ارزش منصفانه: <b>%.1f TON (%s)</b>\n🌊 کف قیمت بازار: <b>%.1f TON</b>\n#️⃣ شماره سریال: <b>#%d</b>\n🎯 ضریب اطمینان: <b>%d%%</b>\n%s\n\n⚡ <i>ارزیابی ۴ پایه‌ای موتور GV Engine بر پایه داده‌های آن‌چین</i>",
+						valText = fmt.Sprintf("🎁 <b>کارشناسی گیفت تلگرام: %s</b>\n\n💎 ارزش منصفانه: <b>%.1f TON (%s)</b>\n🌊 کف قیمت بازار: <b>%.1f TON</b>\n#️⃣ شماره سریال: <b>#%d</b>\n🎯 ضریب اطمینان: <b>%d%%</b>\n%s\n\n⚡ <i>ارزیابی 4 پایه‌ای موتور GV Engine بر پایه داده‌های آن‌چین</i>",
 							appraisal.DisplayTitle, fairTON, usdFormatted, floorTON, appraisal.SerialNumber, appraisal.ConfidenceScore, rateRefLine)
 						desc = fmt.Sprintf("ارزش منصفانه: %.1f TON (%s) | کف: %.1f TON | سریال #%d", fairTON, usdFormatted, floorTON, appraisal.SerialNumber)
 					case "ru":

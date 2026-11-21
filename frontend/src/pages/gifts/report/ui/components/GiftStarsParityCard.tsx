@@ -87,7 +87,7 @@ export const GiftStarsParityCard: Component<Props> = (props) => {
 					</span>
 					<div class="flex items-baseline gap-1 font-mono">
 						<span class="text-base font-black text-yellow-300">
-							{starsAmount().toLocaleString()}
+							{starsAmount().toLocaleString('en-US')}
 						</span>
 						<span class="text-[10px] font-bold text-yellow-400">{t('common.stars')}</span>
 					</div>

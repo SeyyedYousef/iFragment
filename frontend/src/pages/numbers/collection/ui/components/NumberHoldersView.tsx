@@ -28,25 +28,25 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 			{
 				label: t('numHolders.tierRetail'),
 				share: `${((retail / total) * 100).toFixed(1)}%`,
-				count: `${retail.toLocaleString()} ${t('numHolders.holderUnit')}`,
+				count: `${retail.toLocaleString('en-US')} ${t('numHolders.holderUnit')}`,
 				color: 'bg-emerald-500',
 			},
 			{
 				label: t('numHolders.tierDolphin'),
 				share: `${((dolphin / total) * 100).toFixed(1)}%`,
-				count: `${dolphin.toLocaleString()} ${t('numHolders.holderUnit')}`,
+				count: `${dolphin.toLocaleString('en-US')} ${t('numHolders.holderUnit')}`,
 				color: 'bg-cyan-500',
 			},
 			{
 				label: t('numHolders.tierShark'),
 				share: `${((shark / total) * 100).toFixed(1)}%`,
-				count: `${shark.toLocaleString()} ${t('numHolders.holderUnit')}`,
+				count: `${shark.toLocaleString('en-US')} ${t('numHolders.holderUnit')}`,
 				color: 'bg-[#2990ff]',
 			},
 			{
 				label: t('numHolders.tierWhale'),
 				share: `${((whale / total) * 100).toFixed(1)}%`,
-				count: `${whale.toLocaleString()} ${t('numHolders.holderUnit')}`,
+				count: `${whale.toLocaleString('en-US')} ${t('numHolders.holderUnit')}`,
 				color: 'bg-amber-500',
 			},
 		];
@@ -68,7 +68,7 @@ export const NumberHoldersView: Component<HoldersViewProps> = (props) => {
 						{t('numHolders.bannerTitle')}
 					</span>
 					<span class="text-[10px] font-mono text-cyan-300 font-bold">
-						{(props.overview?.unique_holders || 48842).toLocaleString()}{' '}
+						{(props.overview?.unique_holders || 48842).toLocaleString('en-US')}{' '}
 						{t('numHolders.activeWallets')}
 					</span>
 				</div>

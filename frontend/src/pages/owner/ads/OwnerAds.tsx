@@ -356,10 +356,10 @@ export const OwnerAds: Component = () => {
 													</span>
 												</td>
 												<td class="py-3 font-mono text-white/80">
-													{ad.impressions_count.toLocaleString()}
+													{ad.impressions_count.toLocaleString('en-US')}
 												</td>
 												<td class="py-3 font-mono text-white/80">
-													{ad.clicks_count.toLocaleString()}
+													{ad.clicks_count.toLocaleString('en-US')}
 												</td>
 												<td class="py-3 font-mono text-emerald-400 font-semibold">{ctr()}%</td>
 												<td class="py-3 text-right">

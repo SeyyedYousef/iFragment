@@ -1303,7 +1303,7 @@ func buildPatternAnatomy(fv features.FeatureVector) PatternAnatomy {
 		patternTypeFa = "شماره 4 رقمی جنسیس فوق‌نایاب"
 		exactSupply = 1000 // Total Genesis collection supply is 1,000 (8000..8999)
 		numerologyEn = "Ultra-rare tier in Telegram history. Genesis cohort of 1,000 numbers (8000-8999)."
-		numerologyFa = "نایاب‌ترین رده در تاریخ تلگرام؛ کالکشن جنسیس متشکل از ۱,۰۰۰ شماره (۸۰۰۰ تا ۸۹۹۹)."
+		numerologyFa = "نایاب‌ترین رده در تاریخ تلگرام؛ کالکشن جنسیس متشکل از 1,000 شماره (8000 تا 8999)."
 	} else if fv.DistinctDigits == 1 {
 		clubEn = "Octa Monodigit Club"
 		clubFa = "کلاب هشت‌تایی (Octa Monodigit)"

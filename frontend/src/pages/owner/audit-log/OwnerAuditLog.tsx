@@ -44,7 +44,7 @@ export const OwnerAuditLog: Component = () => {
 				<div>
 					<h2 class="text-lg font-black text-white">{t('ownerAuditPage.title')}</h2>
 					<p class="text-xs text-white/50">
-						{t('ownerAuditPage.subtitle', { count: total().toLocaleString() })}
+						{t('ownerAuditPage.subtitle', { count: total().toLocaleString('en-US') })}
 					</p>
 				</div>
 			</div>
@@ -147,7 +147,7 @@ export const OwnerAuditLog: Component = () => {
 												<div>{log.ip_address || '127.0.0.1'}</div>
 											</td>
 											<td class="py-3 text-white/50 text-right font-mono text-[11px]">
-												{new Date(log.created_at).toLocaleString()}
+												{new Date(log.created_at).toLocaleString('en-US')}
 											</td>
 										</tr>
 									)}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"log/slog"
 	"math"
@@ -14,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -661,8 +663,9 @@ func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, 
 	}
 	resp, err := c.Request(ctx, "sendMessage", payload)
 	if err != nil && mode != "" && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
-		// Fallback without parse_mode (plain text) to guarantee message delivery when custom markup fails
+		// Fallback without parse_mode: strip HTML tags so raw markup never leaks to users
 		delete(payload, "parse_mode")
+		payload["text"] = StripHTMLTags(text)
 		resp, err = c.Request(ctx, "sendMessage", payload)
 	}
 	if err != nil {
@@ -1198,6 +1201,11 @@ func (c *BotAPIClient) EditMessageText(ctx context.Context, chatID interface{}, 
 		payload["parse_mode"] = mode
 	}
 	_, err := c.Request(ctx, "editMessageText", payload)
+	if err != nil && mode != "" && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
+		delete(payload, "parse_mode")
+		payload["text"] = StripHTMLTags(text)
+		_, err = c.Request(ctx, "editMessageText", payload)
+	}
 	return handleEditError(err)
 }
 
@@ -1219,6 +1227,11 @@ func (c *BotAPIClient) EditMessageTextWithMarkup(ctx context.Context, chatID int
 		payload["reply_markup"] = markup
 	}
 	_, err := c.Request(ctx, "editMessageText", payload)
+	if err != nil && mode != "" && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
+		delete(payload, "parse_mode")
+		payload["text"] = StripHTMLTags(text)
+		_, err = c.Request(ctx, "editMessageText", payload)
+	}
 	return handleEditError(err)
 }
 
@@ -1341,8 +1354,11 @@ func (c *BotAPIClient) SendPhotoWithMarkup(ctx context.Context, chatID int64, ph
 	}
 
 	resp, err := c.Request(ctx, "sendPhoto", payload)
-	if err != nil && mode != "" && (strings.Contains(strings.ToLower(err.Error()), "can't parse entities") || strings.Contains(strings.ToLower(err.Error()), "bad request")) {
+	if err != nil && mode != "" && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
 		delete(payload, "parse_mode")
+		if caption != "" {
+			payload["caption"] = StripHTMLTags(caption)
+		}
 		resp, err = c.Request(ctx, "sendPhoto", payload)
 	}
 	if err != nil {
@@ -1387,8 +1403,11 @@ func (c *BotAPIClient) SendPhotoBytesWithMarkup(ctx context.Context, chatID int6
 	}
 
 	resp, err := c.RequestMultipart(ctx, "sendPhoto", fields, files)
-	if err != nil && mode != "" && (strings.Contains(strings.ToLower(err.Error()), "can't parse entities") || strings.Contains(strings.ToLower(err.Error()), "bad request")) {
+	if err != nil && mode != "" && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
 		delete(fields, "parse_mode")
+		if caption != "" {
+			fields["caption"] = StripHTMLTags(caption)
+		}
 		resp, err = c.RequestMultipart(ctx, "sendPhoto", fields, files)
 	}
 	if err != nil {
@@ -1663,10 +1682,24 @@ type InlineQueryResultArticle struct {
 	ThumbURL            string                 `json:"thumb_url,omitempty"`
 }
 
+// WebAppInfo describes a Telegram Mini App URL.
+type WebAppInfo struct {
+	URL string `json:"url"`
+}
+
 // InlineQueryResultsButton represents a button shown over inline query results (Bot API 6.7+).
 type InlineQueryResultsButton struct {
-	Text           string `json:"text"`
-	StartParameter string `json:"start_parameter,omitempty"`
+	Text           string      `json:"text"`
+	WebApp         *WebAppInfo `json:"web_app,omitempty"`
+	StartParameter string      `json:"start_parameter,omitempty"`
+}
+
+var telegramHTMLTagRe = regexp.MustCompile(`</?(?:b|strong|i|em|u|ins|s|strike|del|code|pre|a|blockquote|tg-emoji|tg-spoiler|span)(?:\s+[^>]*)?>`)
+
+// StripHTMLTags removes Telegram HTML tags and unescapes HTML entities for clean plain-text fallback.
+func StripHTMLTags(s string) string {
+	cleaned := telegramHTMLTagRe.ReplaceAllString(s, "")
+	return html.UnescapeString(cleaned)
 }
 
 // AnswerInlineQuery sends answers to an inline query

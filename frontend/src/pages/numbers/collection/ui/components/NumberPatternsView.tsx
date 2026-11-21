@@ -66,7 +66,7 @@ export const NumberPatternsView: Component<PatternsViewProps> = (props) => {
 											{p.sample_mask}
 										</span>
 										<span class="text-[10px] text-white/40 font-mono">
-											{p.exact_supply.toLocaleString()} {t('numPatterns.numbersUnit')} (
+											{p.exact_supply.toLocaleString('en-US')} {t('numPatterns.numbersUnit')} (
 											{p.supply_share_pct.toFixed(2)}%)
 										</span>
 									</div>

@@ -268,7 +268,7 @@ export const AchievementsPage: Component = () => {
 										<span class="font-mono font-semibold text-[#5aec8c]">
 											{ach().unlockedAt
 												? new Date(ach().unlockedAt!).toLocaleDateString(
-														locale() === 'fa' ? 'fa-IR' : 'en-US',
+														locale() === 'fa' ? 'fa-IR-u-nu-latn' : 'en-US',
 														{ dateStyle: 'medium' },
 													)
 												: t('achievements.unlocked')}

@@ -42,7 +42,7 @@ export const OwnerFinance: Component = () => {
 						<span>
 							{summaryQuery.isLoading
 								? '...'
-								: (summary()?.total_revenue_stars ?? 0).toLocaleString()}
+								: (summary()?.total_revenue_stars ?? 0).toLocaleString('en-US')}
 						</span>
 					</div>
 					<div class="text-[11px] text-white/40">{t('ownerFinance.lifetimeInvoiced')}</div>
@@ -57,7 +57,9 @@ export const OwnerFinance: Component = () => {
 					<div class="text-2xl font-black text-emerald-400 font-mono flex items-center gap-1.5">
 						<span>⭐</span>
 						<span>
-							{summaryQuery.isLoading ? '...' : (summary()?.revenue_7d ?? 0).toLocaleString()}
+							{summaryQuery.isLoading
+								? '...'
+								: (summary()?.revenue_7d ?? 0).toLocaleString('en-US')}
 						</span>
 					</div>
 					<div class="text-[11px] text-emerald-400/80 font-mono">{t('ownerFinance.last7Days')}</div>
@@ -74,7 +76,9 @@ export const OwnerFinance: Component = () => {
 					<div class="text-2xl font-black text-white font-mono flex items-center gap-1.5">
 						<span>⭐</span>
 						<span>
-							{summaryQuery.isLoading ? '...' : (summary()?.revenue_30d ?? 0).toLocaleString()}
+							{summaryQuery.isLoading
+								? '...'
+								: (summary()?.revenue_30d ?? 0).toLocaleString('en-US')}
 						</span>
 					</div>
 					<div class="text-[11px] text-white/40">{t('ownerFinance.monthlyVelocity')}</div>
@@ -89,7 +93,7 @@ export const OwnerFinance: Component = () => {
 					<div class="text-2xl font-black text-white font-mono">
 						{summaryQuery.isLoading
 							? '...'
-							: (summary()?.active_subscriptions ?? 0).toLocaleString()}
+							: (summary()?.active_subscriptions ?? 0).toLocaleString('en-US')}
 					</div>
 					<div class="text-[11px] text-white/50">
 						{t('ownerFinance.churnRate')}{' '}
@@ -145,7 +149,9 @@ export const OwnerFinance: Component = () => {
 											</td>
 											<td class="py-3 font-mono font-bold text-amber-400 flex items-center gap-1">
 												<span>⭐</span>
-												<span>{(order.amount ?? order.amount_stars ?? 0).toLocaleString()}</span>
+												<span>
+													{(order.amount ?? order.amount_stars ?? 0).toLocaleString('en-US')}
+												</span>
 											</td>
 											<td class="py-3">
 												<span
@@ -161,7 +167,7 @@ export const OwnerFinance: Component = () => {
 												</span>
 											</td>
 											<td class="py-3 text-white/50 text-right">
-												{new Date(order.created_at).toLocaleString()}
+												{new Date(order.created_at).toLocaleString('en-US')}
 											</td>
 										</tr>
 									)}

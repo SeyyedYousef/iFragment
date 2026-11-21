@@ -140,18 +140,17 @@ func (cg *CardGenerator) GeneratePremiumPromoCard(p PromoCardParams) ([]byte, er
 	badge := normalizeCardTierBadge(p.Badge)
 	theme := resolvePromoTheme(badge, p.BackdropCenter, p.AssetType == "gift")
 
-	// 1. Luxury obsidian frame, dual-bevel metallic rim, Fibonacci orbital rings, golden-angle stardust & dot matrix
+	// 1. Authentic Fragment.com dark slate canvas (#1a2026), surface card (#212a33), and header strip (#293440)
 	cg.drawPromoCardBase(img, theme)
 
-	// 2. Top Institutional Brand Header (iFRAGMENT + ✦ Tier Pill + ● VERIFIED)
+	// 2. Top Fragment.com Header (Fragment Diamond + FRAGMENT + iFRAGMENT tag + Tier Pill + ● VERIFIED)
 	cg.drawPromoHeader(img, badge, theme)
 
-	// 3. Hero Stage Card (y = 158 .. 478, height = 320px) with top Gaussian light beam
-	cg.drawLuxuryGlassStage(img, 68, 158, 1012, 478, 34.0,
-		color.RGBA{13, 18, 31, 232},
-		color.RGBA{38, 52, 78, 250},
-		theme.Accent,
-		1.7,
+	// 3. Hero Stage Container (y = 172 .. 476) in #242e38 with crisp #2e3b48 border
+	cg.drawPromoGlassPanel(img, 64, 172, 1016, 476, 20.0,
+		color.RGBA{36, 46, 56, 255},
+		color.RGBA{46, 59, 72, 255},
+		1.5,
 	)
 
 	if p.AssetType == "gift" {
@@ -160,10 +159,10 @@ func (cg *CardGenerator) GeneratePremiumPromoCard(p PromoCardParams) ([]byte, er
 		cg.drawPromoTextAssetHero(img, p, theme)
 	}
 
-	// 4. Valuation Bento Sanctuary (y = 500 .. 944, height = 444px — Golden Ratio balance!)
+	// 4. Fragment Valuation Table Panel (y = 500 .. 944)
 	cg.drawPromoValuationBento(img, p, theme)
 
-	// 5. Promotional Attribution Footer (y = 964 .. 1024)
+	// 5. Attribution Footer (y = 964 .. 1024)
 	cg.drawPromoFooter(img, p, theme)
 
 	var buf bytes.Buffer
@@ -176,98 +175,49 @@ func (cg *CardGenerator) GeneratePremiumPromoCard(p PromoCardParams) ([]byte, er
 func (cg *CardGenerator) drawPromoCardBase(img *image.RGBA, theme promoTheme) {
 	const width = 1080
 	const height = 1080
-	const cardX1, cardY1 = 24.0, 24.0
-	const cardX2, cardY2 = 1056.0, 1056.0
-	const cardRadius = 58.0
-	const borderWidth = 3.4
+	const cardX1, cardY1 = 28.0, 28.0
+	const cardX2, cardY2 = 1052.0, 1052.0
+	const cardRadius = 32.0
+	const borderWidth = 1.8
+	const headerBottomY = 142.0
 
-	outerBg := color.RGBA{4, 6, 10, 255}
-	innerTL := color.RGBA{15, 21, 35, 255}
-	innerBR := color.RGBA{7, 9, 15, 255}
+	outerBg := color.RGBA{26, 32, 38, 255}   // #1a2026 Fragment canvas
+	cardBg := color.RGBA{33, 42, 51, 255}    // #212a33 Fragment card
+	headerBg := color.RGBA{41, 52, 64, 255}  // #293440 Fragment sticky header
+	borderCol := color.RGBA{46, 59, 72, 255} // #2e3b48 Fragment hairline
 
 	for y := 0; y < height; y++ {
 		fy := float64(y)
 		for x := 0; x < width; x++ {
 			fx := float64(x)
 			dist := roundedBoxSDF(fx, fy, cardX1, cardY1, cardX2, cardY2, cardRadius)
-
 			if dist > 0.6 {
-				if dist < 21.0 {
-					t := 1.0 - (dist / 21.0)
-					glow := t * t * 0.26
-					img.SetRGBA(x, y, lerpColor(outerBg, theme.TierVisual.BorderStart, glow))
-				} else {
-					img.SetRGBA(x, y, outerBg)
-				}
+				img.SetRGBA(x, y, outerBg)
 				continue
 			}
 
-			diagT := clamp01(((fx - cardX1) + (fy - cardY1)) / ((cardX2 - cardX1) + (cardY2 - cardY1)))
-			borderCol := lerpColor(theme.TierVisual.BorderStart, theme.TierVisual.BorderEnd, diagT)
-			bgCol := lerpColor(innerTL, innerBR, diagT)
-
-			// Top-left glass reflection sheen
-			sdx := fx - 270.0
-			sdy := fy - 175.0
-			sDistSq := sdx*sdx + sdy*sdy
-			if sDistSq < 540.0*540.0 {
-				t := 1.0 - math.Sqrt(sDistSq)/540.0
-				bgCol = lerpColor(bgCol, color.RGBA{255, 255, 255, 255}, t*t*0.06)
-			}
-
-			// Golden Ratio primary spotlight behind hero stage (cx=540, cy=318)
-			cdx := fx - 540.0
-			cdy := (fy - 318.0) * 1.18
-			cDistSq := cdx*cdx + cdy*cdy
-			if cDistSq < 430.0*430.0 {
-				t := 1.0 - math.Sqrt(cDistSq)/430.0
-				bgCol = lerpColor(bgCol, theme.HeroGlow, t*t*0.15)
-			}
-
-			// Secondary counter-glow behind valuation TON anchor (cx=280, cy=640)
-			vdx := fx - 280.0
-			vdy := (fy - 640.0) * 1.35
-			vDistSq := vdx*vdx + vdy*vdy
-			if vDistSq < 340.0*340.0 {
-				t := 1.0 - math.Sqrt(vDistSq)/340.0
-				bgCol = lerpColor(bgCol, color.RGBA{0, 152, 234, 255}, t*t*0.085)
-			}
-
-			// 34px (Fibonacci) precision dot matrix inside interior
-			if dist < -borderWidth-3.0 {
-				gx := math.Mod(fx-cardX1, 34.0)
-				gy := math.Mod(fy-cardY1, 34.0)
-				if gx > 17.0 {
-					gx = 34.0 - gx
-				}
-				if gy > 17.0 {
-					gy = 34.0 - gy
-				}
-				dotDistSq := gx*gx + gy*gy
-				if dotDistSq < 4.0 {
-					dotDist := math.Sqrt(dotDistSq)
-					if dotDist < 1.9 {
-						dotAlpha := clamp01(1.9-dotDist) * 0.085
-						bgCol = lerpColor(bgCol, color.RGBA{255, 255, 255, 255}, dotAlpha)
-					}
+			bgCol := cardBg
+			if fy <= headerBottomY {
+				bgCol = headerBg
+			} else {
+				dx := (fx - 540.0) / 460.0
+				dy := (fy - 310.0) / 260.0
+				rSq := dx*dx + dy*dy
+				if rSq < 1.0 {
+					t := 1.0 - math.Sqrt(rSq)
+					bgCol = lerpColor(bgCol, color.RGBA{36, 139, 218, 255}, t*t*0.055)
 				}
 			}
-
-			// Inner dual-bevel ring at dist ≈ -10.0
-			if dist < -8.8 && dist > -11.2 {
-				bevelT := 1.0 - math.Abs(dist+10.0)/1.2
-				if bevelT > 0 {
-					bgCol = lerpColor(bgCol, theme.TierVisual.BorderStart, bevelT*0.09)
-				}
+			if fy >= headerBottomY-0.8 && fy <= headerBottomY+0.8 && dist < -borderWidth {
+				bgCol = borderCol
 			}
 
 			var finalCol color.RGBA
 			if dist >= -borderWidth {
-				innerEdge := clamp01((dist + borderWidth) / 1.3)
+				innerEdge := clamp01((dist + borderWidth) / 1.2)
 				inToBorder := lerpColor(bgCol, borderCol, innerEdge)
 				if dist > -0.5 {
-					outerEdge := clamp01(dist + 0.5)
-					finalCol = lerpColor(inToBorder, outerBg, outerEdge)
+					finalCol = lerpColor(inToBorder, outerBg, clamp01(dist+0.5))
 				} else {
 					finalCol = inToBorder
 				}
@@ -280,154 +230,132 @@ func (cg *CardGenerator) drawPromoCardBase(img *image.RGBA, theme promoTheme) {
 		}
 	}
 
-	// Fibonacci concentric sacred geometry orbital rings (r = 144, 233, 377) centered at (540, 318)
-	drawCircleOutline(img, 540, 318, 144, 1.2, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 20})
-	drawCircleOutline(img, 540, 318, 233, 1.3, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 25})
-	drawCircleOutline(img, 540, 318, 377, 1.0, color.RGBA{255, 255, 255, 12})
-
-	// Golden-Angle (137.50776°) phyllotaxis constellation stardust around hero sanctuary
-	for i := 6; i < 38; i++ {
-		angle := float64(i) * GoldenAngleRad
-		rad := 44.0 * math.Sqrt(float64(i))
-		px := 540.0 + math.Cos(angle)*rad*1.18
-		py := 318.0 + math.Sin(angle)*rad*0.76
-		if px > 80 && px < 1000 && py > 164 && py < 470 {
-			dotR := 2.2
-			if i%5 == 0 {
-				dotR = 3.2
-			}
-			drawSoftGlowDot(img, px, py, dotR, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 62})
-		}
+	// Crisp signature top accent bar centered along top edge
+	for x := 430; x <= 650; x++ {
+		t := 1.0 - math.Abs(float64(x-540))/110.0
+		blendPixel(img, x, 29, theme.Accent, t*0.85)
+		blendPixel(img, x, 30, theme.Accent, t*0.55)
 	}
 }
 
 func (cg *CardGenerator) drawPromoHeader(img *image.RGBA, badge string, theme promoTheme) {
-	// 1. Left: 3D Glowing TON Jewel Badge + iFRAGMENT + ON-CHAIN VALUATION TERMINAL
-	cg.drawTONBadge(img, 96, 102, 26)
+	// 1. Left: Fragment Geometric Shard Mark + FRAGMENT + iFRAGMENT Pill
+	cg.drawFragmentBrandMark(img, 86, 86, 22)
 
-	brandFace, err := cg.displayFont(true, 24.0)
+	brandFace, err := cg.displayFont(true, 28.0)
 	if err == nil {
 		defer brandFace.Close()
-		cg.drawTextAt(img, brandFace, "iFRAGMENT", 136, 100, color.RGBA{255, 255, 255, 255})
-	}
-	subFace, err := cg.displayFont(false, 10.5)
-	if err == nil {
-		defer subFace.Close()
-		drawSoftGlowDot(img, 141, 117, 2.5, theme.Accent)
-		cg.drawTextAt(img, subFace, "ON-CHAIN VALUATION TERMINAL", 150, 121, color.RGBA{138, 152, 176, 255})
+		cg.drawTextAt(img, brandFace, "FRAGMENT", 124, 96, color.RGBA{255, 255, 255, 255})
+		bw := font.MeasureString(brandFace, "FRAGMENT").Ceil()
+
+		tagFace, tErr := cg.displayFont(true, 13.0)
+		if tErr == nil {
+			defer tagFace.Close()
+			tagTxt := "iFRAGMENT"
+			tw := font.MeasureString(tagFace, tagTxt).Ceil()
+			tx1 := 124 + bw + 18
+			tx2 := tx1 + tw + 26
+			drawRoundedPill(img, tx1, 68, tx2, 104, 10.0,
+				color.RGBA{30, 50, 70, 255},
+				color.RGBA{46, 86, 126, 255},
+				1.3,
+			)
+			cg.drawTextAt(img, tagFace, tagTxt, tx1+13, 91, color.RGBA{77, 178, 255, 255})
+		}
 	}
 
-	// 2. Right: Emerald [ ● VERIFIED ] pill at x2=1012, and [ ✦ TIER ] Pill left of it
-	verRightX := 1012
-	pillY1 := 78
-	pillY2 := 124
+	// 2. Right: Emerald [ ● VERIFIED ] pill + Tier Pill
+	verRightX := 1016
+	pillY1 := 64
+	pillY2 := 108
 
 	verFace, err := cg.displayFont(false, 13.0)
 	if err == nil {
 		defer verFace.Close()
 		verLabel := "VERIFIED"
 		vw := font.MeasureString(verFace, verLabel).Ceil()
-		vPillW := vw + 56
+		vPillW := vw + 52
 		vPillX1 := verRightX - vPillW
 
-		drawRoundedPill(img, vPillX1, pillY1, verRightX, pillY2, 23.0,
-			color.RGBA{10, 40, 30, 255},
-			color.RGBA{24, 112, 76, 255},
-			1.6,
+		drawRoundedPill(img, vPillX1, pillY1, verRightX, pillY2, 12.0,
+			color.RGBA{24, 52, 42, 255},
+			color.RGBA{44, 118, 82, 255},
+			1.4,
 		)
 
-		dotCX := float64(vPillX1 + 24)
+		dotCX := float64(vPillX1 + 22)
 		dotCY := float64(pillY1+pillY2) / 2.0
-		drawSoftGlowDot(img, dotCX, dotCY, 5.2, color.RGBA{34, 211, 154, 255})
-		cg.drawTextAt(img, verFace, verLabel, vPillX1+40, pillY1+28, color.RGBA{52, 232, 168, 255})
+		drawSoftGlowDot(img, dotCX, dotCY, 4.8, color.RGBA{90, 236, 140, 255})
+		cg.drawTextAt(img, verFace, verLabel, vPillX1+36, pillY1+27, color.RGBA{90, 236, 140, 255})
 
-		verRightX = vPillX1 - 13 // Fibonacci 13 gap
+		verRightX = vPillX1 - 14
 	}
 
-	// Tier Pill with inner ✦ star
+	// Tier Pill
 	tierFace, err := cg.displayFont(true, 13.5)
 	if err == nil {
 		defer tierFace.Close()
 		tw := font.MeasureString(tierFace, badge).Ceil()
-		tPillW := tw + 58
-		if tPillW < 130 {
-			tPillW = 130
+		tPillW := tw + 52
+		if tPillW < 126 {
+			tPillW = 126
 		}
 		tPillX2 := verRightX
 		tPillX1 := tPillX2 - tPillW
-		drawRoundedPill(img, tPillX1, pillY1, tPillX2, pillY2, 23.0,
+		drawRoundedPill(img, tPillX1, pillY1, tPillX2, pillY2, 12.0,
 			theme.TierVisual.BadgeBg,
 			theme.TierVisual.BadgeBorder,
-			1.6,
+			1.4,
 		)
-		starCX := float64(tPillX1 + 24)
-		starCY := float64(pillY1+pillY2) / 2.0
-		drawFourPointStar(img, starCX, starCY, 6.8, theme.TierVisual.BadgeText)
+		drawSoftGlowDot(img, float64(tPillX1+22), float64(pillY1+pillY2)/2.0, 4.6, theme.TierVisual.BadgeText)
 
-		tx := tPillX1 + 36 + (tPillW-36-tw)/2
-		cg.drawTextAt(img, tierFace, badge, tx, pillY1+28, theme.TierVisual.BadgeText)
+		tx := tPillX1 + 34 + (tPillW-34-tw)/2
+		cg.drawTextAt(img, tierFace, badge, tx, pillY1+27, theme.TierVisual.BadgeText)
 	}
 }
 
 func (cg *CardGenerator) drawPromoTextAssetHero(img *image.RGBA, p PromoCardParams, theme promoTheme) {
-	const stageX1, stageX2 = 68, 1012
+	const stageX1, stageX2 = 64, 1016
 	const stageW = stageX2 - stageX1
 
-	// Eyebrow with flanking Golden Ratio gradient whiskers
 	eyebrow := sanitizePromoASCII(p.Eyebrow, "TELEGRAM DIGITAL ASSET")
 	eyeFace, err := cg.displayFont(false, 13.5)
 	if err == nil {
 		defer eyeFace.Close()
 		ew := font.MeasureString(eyeFace, eyebrow).Ceil()
 		ex := stageX1 + (stageW-ew)/2
-		ey := 214
-		cg.drawTextAt(img, eyeFace, eyebrow, ex, ey, color.RGBA{142, 156, 182, 255})
-
-		whiskerY := ey - 5
-		for dx := 20; dx <= 88; dx++ {
-			alpha := (1.0 - float64(dx-20)/68.0) * 0.50
-			if ex-dx > 110 {
-				blendPixel(img, ex-dx, whiskerY, theme.Accent, alpha)
-				blendPixel(img, ex-dx, whiskerY+1, theme.Accent, alpha*0.5)
-			}
-			if ex+ew+dx < 970 {
-				blendPixel(img, ex+ew+dx, whiskerY, theme.Accent, alpha)
-				blendPixel(img, ex+ew+dx, whiskerY+1, theme.Accent, alpha*0.5)
-			}
-		}
+		cg.drawTextAt(img, eyeFace, eyebrow, ex, 224, color.RGBA{140, 154, 169, 255})
 	}
 
-	// Main Hero Title (@username or +888 number)
 	mainTitle := sanitizePromoASCII(p.Title, "TELEGRAM ASSET")
-	maxTextW := 760
-	mainFace, fontSize, err := cg.fitDisplayFont(true, mainTitle, 76.0, 28.0, maxTextW)
+	maxTextW := 840
+	mainFace, _, err := cg.fitDisplayFont(true, mainTitle, 74.0, 28.0, maxTextW)
 	if err == nil {
 		defer mainFace.Close()
 		mw := font.MeasureString(mainFace, mainTitle).Ceil()
 		mx := stageX1 + (stageW-mw)/2
-		my := 316
-
-		// Deep multi-layer drop shadow + crisp pure white hero text
-		cg.drawTextAt(img, mainFace, mainTitle, mx, my+8, color.RGBA{0, 0, 0, 140})
-		cg.drawTextAt(img, mainFace, mainTitle, mx, my+4, color.RGBA{0, 0, 0, 210})
+		my := 318
+		cg.drawTextAt(img, mainFace, mainTitle, mx, my+4, color.RGBA{14, 18, 24, 180})
 		cg.drawTextAt(img, mainFace, mainTitle, mx, my, color.RGBA{255, 255, 255, 255})
-
-		// Flanking dual Fibonacci 4-point sparkles (r = 14.0 & 5.5)
-		sparkleY := float64(my) - fontSize*0.34
-		leftSparkleX := math.Max(114.0, float64(mx)-40.0)
-		rightSparkleX := math.Min(966.0, float64(mx+mw)+40.0)
-		drawFourPointStar(img, leftSparkleX, sparkleY, 14.0, theme.Accent)
-		drawFourPointStar(img, rightSparkleX, sparkleY, 14.0, theme.Accent)
-		if leftSparkleX-22.0 > 92.0 {
-			drawFourPointStar(img, leftSparkleX-22.0, sparkleY-13.0, 5.5, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 195})
-		}
-		if rightSparkleX+22.0 < 988.0 {
-			drawFourPointStar(img, rightSparkleX+22.0, sparkleY-13.0, 5.5, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 195})
-		}
 	}
 
-	// Bottom row of tactile spec chips (up to 3)
-	cg.drawPromoChipRow(img, p.SpecChips, 540, 392, 868, theme)
+	// Authentic fragment.com deep-link subline
+	var fragSub string
+	if p.AssetType == "number" {
+		digits := strings.NewReplacer("+", "", " ", "", "-", "").Replace(mainTitle)
+		fragSub = "fragment.com/number/" + digits
+	} else {
+		cleanUser := strings.TrimPrefix(strings.ToLower(mainTitle), "@")
+		fragSub = "fragment.com/username/" + cleanUser
+	}
+	subFace, sErr := cg.displayFont(true, 16.0)
+	if sErr == nil {
+		defer subFace.Close()
+		sw := font.MeasureString(subFace, fragSub).Ceil()
+		cg.drawTextAt(img, subFace, fragSub, stageX1+(stageW-sw)/2, 360, color.RGBA{77, 178, 255, 255})
+	}
+
+	cg.drawPromoChipRow(img, p.SpecChips, 540, 396, 872, theme)
 }
 
 func (cg *CardGenerator) drawPromoGiftHero(img *image.RGBA, p PromoCardParams, theme promoTheme, giftImg image.Image) {
@@ -586,12 +514,11 @@ func (cg *CardGenerator) drawPromoGiftHero(img *image.RGBA, p PromoCardParams, t
 }
 
 func (cg *CardGenerator) drawPromoValuationBento(img *image.RGBA, p PromoCardParams, theme promoTheme) {
-	// Main Valuation Container (x=68..1012, y=500..944, height=444px — Golden Ratio harmony with Hero Stage!)
-	cg.drawLuxuryGlassStage(img, 68, 500, 1012, 944, 34.0,
-		color.RGBA{11, 15, 25, 242},
-		color.RGBA{34, 46, 70, 255},
-		color.RGBA{0, 152, 234, 255},
-		1.7,
+	// Main Fragment Valuation Container (x=64..1016, y=500..944)
+	cg.drawPromoGlassPanel(img, 64, 500, 1016, 944, 20.0,
+		color.RGBA{36, 46, 56, 255},
+		color.RGBA{46, 59, 72, 255},
+		1.5,
 	)
 
 	// Format TON & USD
@@ -783,22 +710,20 @@ func (cg *CardGenerator) drawPromoSpectrumBar(img *image.RGBA, x1, x2, barY int,
 }
 
 func (cg *CardGenerator) drawMetricTile(img *image.RGBA, x1, y1, x2, y2 int, label, primaryVal, subVal string, dotCol, valCol color.RGBA) {
-	cg.drawLuxuryGlassStage(img, x1, y1, x2, y2, 22.0,
-		color.RGBA{17, 23, 38, 238},
-		color.RGBA{38, 52, 78, 240},
-		dotCol,
-		1.3,
+	cg.drawPromoGlassPanel(img, x1, y1, x2, y2, 14.0,
+		color.RGBA{30, 39, 48, 255},
+		color.RGBA{46, 59, 72, 255},
+		1.2,
 	)
 
 	padX := x1 + 22
 	maxW := (x2 - x1) - 44
 
-	// Glowing indicator dot + label
 	drawSoftGlowDot(img, float64(padX+4), float64(y1+32), 3.4, dotCol)
 	lblFace, err := cg.displayFont(false, 11.5)
 	if err == nil {
 		defer lblFace.Close()
-		cg.drawTextAt(img, lblFace, label, padX+15, y1+36, color.RGBA{134, 148, 174, 255})
+		cg.drawTextAt(img, lblFace, label, padX+15, y1+36, color.RGBA{140, 154, 169, 255})
 	}
 
 	valFace, _, err := cg.fitDisplayFont(true, primaryVal, 27.0, 16.0, maxW)
@@ -810,24 +735,23 @@ func (cg *CardGenerator) drawMetricTile(img *image.RGBA, x1, y1, x2, y2 int, lab
 	subFace, err := cg.displayFont(false, 14.5)
 	if err == nil {
 		defer subFace.Close()
-		cg.drawTextAt(img, subFace, subVal, padX, y1+120, color.RGBA{154, 170, 194, 255})
+		cg.drawTextAt(img, subFace, subVal, padX, y1+120, color.RGBA{140, 154, 169, 255})
 	}
 }
 
 func (cg *CardGenerator) drawConfidenceTile(img *image.RGBA, x1, y1, x2, y2 int, label string, pct int, theme promoTheme) {
-	cg.drawLuxuryGlassStage(img, x1, y1, x2, y2, 22.0,
-		color.RGBA{17, 23, 38, 238},
-		color.RGBA{38, 52, 78, 240},
-		theme.Accent,
-		1.3,
+	cg.drawPromoGlassPanel(img, x1, y1, x2, y2, 14.0,
+		color.RGBA{30, 39, 48, 255},
+		color.RGBA{46, 59, 72, 255},
+		1.2,
 	)
 
 	padX := x1 + 22
-	drawSoftGlowDot(img, float64(padX+4), float64(y1+32), 3.4, theme.Accent)
+	drawSoftGlowDot(img, float64(padX+4), float64(y1+32), 3.4, color.RGBA{90, 236, 140, 255})
 	lblFace, err := cg.displayFont(false, 11.5)
 	if err == nil {
 		defer lblFace.Close()
-		cg.drawTextAt(img, lblFace, label, padX+15, y1+36, color.RGBA{134, 148, 174, 255})
+		cg.drawTextAt(img, lblFace, label, padX+15, y1+36, color.RGBA{140, 154, 169, 255})
 	}
 
 	valStr := fmt.Sprintf("%d%%", pct)
@@ -835,30 +759,29 @@ func (cg *CardGenerator) drawConfidenceTile(img *image.RGBA, x1, y1, x2, y2 int,
 	if err == nil {
 		defer valFace.Close()
 		vw := font.MeasureString(valFace, valStr).Ceil()
-		cg.drawTextAt(img, valFace, valStr, padX, y1+84, theme.Accent)
+		cg.drawTextAt(img, valFace, valStr, padX, y1+84, color.RGBA{90, 236, 140, 255})
 
-		// Confidence quality tag next to percentage
 		qFace, qErr := cg.displayFont(true, 10.0)
 		if qErr == nil {
 			defer qFace.Close()
-			qLabel := "HIGH PRECISION"
+			qLabel := "VERIFIED"
 			if pct < 80 {
-				qLabel = "VERIFIED MODEL"
+				qLabel = "ESTIMATED"
 			}
 			qw := font.MeasureString(qFace, qLabel).Ceil()
 			qx1 := x2 - 22 - (qw + 20)
 			if qx1 > padX+vw+10 {
 				drawRoundedPill(img, qx1, y1+60, x2-22, y1+84, 8.0,
-					color.RGBA{22, 32, 52, 255},
-					color.RGBA{46, 64, 96, 255},
+					color.RGBA{24, 52, 42, 255},
+					color.RGBA{44, 118, 82, 255},
 					1.0,
 				)
-				cg.drawTextAt(img, qFace, qLabel, qx1+10, y1+76, color.RGBA{196, 212, 236, 255})
+				cg.drawTextAt(img, qFace, qLabel, qx1+10, y1+76, color.RGBA{90, 236, 140, 255})
 			}
 		}
 	}
 
-	// 12-Segment Glowing LED Progress Bar at bottom of tile
+	// 12-Segment Fragment Emerald Progress Bar
 	barX1 := padX
 	barX2 := x2 - 22
 	barY1 := y1 + 106
@@ -880,16 +803,17 @@ func (cg *CardGenerator) drawConfidenceTile(img *image.RGBA, x1, y1, x2, y2 int,
 		}
 		if s < activeSegs {
 			segT := float64(s) / float64(segments-1)
-			segCol := lerpColor(color.RGBA{14, 165, 233, 255}, theme.Accent, segT)
+			segCol := lerpColor(color.RGBA{36, 139, 218, 255}, color.RGBA{90, 236, 140, 255}, segT)
 			drawRoundedPill(img, sx1, barY1, sx2, barY2, 4.0, segCol, segCol, 0)
 		} else {
 			drawRoundedPill(img, sx1, barY1, sx2, barY2, 4.0,
-				color.RGBA{25, 34, 52, 255},
-				color.RGBA{38, 50, 74, 255},
+				color.RGBA{41, 52, 64, 255},
+				color.RGBA{46, 59, 72, 255},
 				1.0,
 			)
 		}
 	}
+	_ = theme
 }
 
 func (cg *CardGenerator) drawPromoChipRow(img *image.RGBA, chips []string, centerX, y1, maxTotalW int, theme promoTheme) {
@@ -933,20 +857,20 @@ func (cg *CardGenerator) drawPromoChipRow(img *image.RGBA, chips []string, cente
 	}
 
 	curX := centerX - totalW/2
-	const chipH = 44
+	const chipH = 42
 	for _, item := range items {
-		drawRoundedPill(img, curX, y1, curX+item.w, y1+chipH, 16.0,
-			color.RGBA{18, 26, 43, 242},
-			color.RGBA{46, 62, 92, 245},
-			1.4,
+		drawRoundedPill(img, curX, y1, curX+item.w, y1+chipH, 12.0,
+			color.RGBA{30, 39, 48, 255},
+			color.RGBA{46, 59, 72, 255},
+			1.2,
 		)
 		dotCX := float64(curX + 19)
 		dotCY := float64(y1+y1+chipH) * 0.5
-		drawSoftGlowDot(img, dotCX, dotCY, 3.6, theme.Accent)
+		drawSoftGlowDot(img, dotCX, dotCY, 3.4, theme.Accent)
 
 		tw := font.MeasureString(chipFace, item.text).Ceil()
 		tx := curX + 28 + (item.w-28-tw)/2
-		cg.drawTextAt(img, chipFace, item.text, tx, y1+27, color.RGBA{232, 240, 252, 255})
+		cg.drawTextAt(img, chipFace, item.text, tx, y1+26, color.RGBA{212, 223, 233, 255})
 		curX += item.w + gap
 	}
 }
@@ -957,46 +881,45 @@ func (cg *CardGenerator) drawPromoFooter(img *image.RGBA, p PromoCardParams, the
 		botHandle = "@" + botHandle
 	}
 
-	drawFourPointStar(img, 82.0, 992.0, 9.5, theme.Accent)
-	drawFourPointStar(img, 96.0, 982.0, 4.2, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 190})
+	cg.drawFragmentBrandMark(img, 80, 992, 11)
 
 	hFace, hErr := cg.displayFont(true, 17.0)
 	if hErr == nil {
 		defer hFace.Close()
 		hw := font.MeasureString(hFace, botHandle).Ceil()
-		cg.drawTextAt(img, hFace, botHandle, 110, 998, color.RGBA{255, 255, 255, 255})
+		cg.drawTextAt(img, hFace, botHandle, 102, 998, color.RGBA{255, 255, 255, 255})
 
 		subFace, sErr := cg.displayFont(false, 13.0)
 		if sErr == nil {
 			defer subFace.Close()
-			cg.drawTextAt(img, subFace, "  ·  ON-CHAIN AI VALUATION ENGINE", 110+hw, 997, color.RGBA{134, 148, 174, 255})
+			cg.drawTextAt(img, subFace, "  ·  ON-CHAIN AVM VALUATION TERMINAL", 102+hw, 997, color.RGBA{140, 154, 169, 255})
 		}
 	}
 
 	ref := sanitizePromoASCII(p.CertRef, "")
 	if ref == "" {
-		ref = "TON MAINNET  ·  " + time.Now().UTC().Format("2006-01-02")
+		ref = "FRAGMENT.COM  ·  " + time.Now().UTC().Format("2006-01-02")
 	} else {
 		ref = strings.ReplaceAll(ref, "|", "·")
 	}
 
-	// Sleek institutional footer badge in Outfit-Bold (no monospace tofu)
 	rFace, rErr := cg.displayFont(true, 12.0)
 	if rErr == nil {
 		defer rFace.Close()
 		rw := font.MeasureString(rFace, ref).Ceil()
 		pillW := rw + 36
-		px2 := 1012
+		px2 := 1016
 		px1 := px2 - pillW
 		py1 := 974
 		py2 := 1010
-		drawRoundedPill(img, px1, py1, px2, py2, 13.0,
-			color.RGBA{15, 21, 34, 240},
-			color.RGBA{36, 48, 72, 240},
-			1.2,
+		drawRoundedPill(img, px1, py1, px2, py2, 10.0,
+			color.RGBA{36, 46, 56, 255},
+			color.RGBA{46, 59, 72, 255},
+			1.1,
 		)
-		cg.drawTextAt(img, rFace, ref, px1+(pillW-rw)/2, py1+22, color.RGBA{148, 163, 188, 255})
+		cg.drawTextAt(img, rFace, ref, px1+(pillW-rw)/2, py1+22, color.RGBA{77, 178, 255, 255})
 	}
+	_ = theme
 }
 
 func (cg *CardGenerator) drawPromoGlassPanel(img *image.RGBA, x1, y1, x2, y2 int, r float64, fillCol, borderCol color.RGBA, borderW float64) {

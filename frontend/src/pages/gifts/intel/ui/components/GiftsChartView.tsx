@@ -68,11 +68,12 @@ export const GiftsChartView: Component<Props> = (props) => {
 		props.intel?.macro_stats?.volume_24h_usd || props.intel?.total_cumulative_volume_usd || 0;
 
 	const formatPrice = (gram: number, usd?: number) => {
+		const safeG = Number(gram || 0);
 		if (chartCurrency() === 'gram') {
-			return `${gram.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${t('common.ton')}`;
+			return `${safeG.toLocaleString('en-US', { maximumFractionDigits: 1 })} ${t('common.ton')}`;
 		}
-		const u = usd !== undefined ? usd : gram * tonRate();
-		return `$${u.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+		const u = Number(usd !== undefined ? usd : safeG * tonRate());
+		return `$${u.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 	};
 
 	const formatMacroVal = (valUsd: number) => {
@@ -383,7 +384,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 										props.intel?.total_circulating_gifts ||
 										props.intel?.total_gifts_minted ||
 										1456833
-									).toLocaleString()}
+									).toLocaleString('en-US')}
 								</span>
 							</div>
 							<div class="text-[10px] text-white/45 mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
@@ -408,7 +409,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 								</div>
 								<div class="flex items-baseline gap-1.5" dir="ltr">
 									<span class="text-[19px] font-black font-mono text-amber-400 tracking-tight">
-										{blueChipLeader().floorTon.toLocaleString()}
+										{blueChipLeader().floorTon.toLocaleString('en-US')}
 									</span>
 									<span class="text-[11px] font-black text-amber-400">{t('common.ton')}</span>
 								</div>
@@ -416,7 +417,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 							<div class="text-[10px] text-white/60 font-bold mt-2 pt-2 border-t border-white/5 flex items-center justify-between w-full">
 								<span class="truncate">{blueChipLeader().name}</span>
 								<span class="text-[#2990ff] font-mono text-[9px] shrink-0">
-									${Math.round(blueChipLeader().floorUsd).toLocaleString()} →
+									${Math.round(blueChipLeader().floorUsd).toLocaleString('en-US')} →
 								</span>
 							</div>
 						</button>
@@ -733,7 +734,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 															<div class="text-xs font-black text-white truncate">{itemName()}</div>
 															<div class="text-[10px] font-mono text-white/45" dir="ltr">
 																#{item.cheapest_serial || 1} ·{' '}
-																{(item.upgraded_count || item.total_supply || 0).toLocaleString()}{' '}
+																{(item.upgraded_count || item.total_supply || 0).toLocaleString(
+																	'en-US',
+																)}{' '}
 																NFTs
 															</div>
 														</div>
@@ -744,7 +747,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 															+{(item.spread_pct || 0).toFixed(1)}%
 														</span>
 														<div class="text-[9px] font-mono text-white/45">
-															+{jumpTon().toLocaleString()} TON
+															+{jumpTon().toLocaleString('en-US')} TON
 														</div>
 													</div>
 												</div>
@@ -755,7 +758,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 															{t('giftsChart.floor1Label')}
 														</span>
 														<strong class="text-white text-xs" dir="ltr">
-															{item.best_floor_gram.toLocaleString()} TON
+															{item.best_floor_gram.toLocaleString('en-US')} TON
 														</strong>
 													</div>
 													<div class="text-end">
@@ -763,7 +766,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 															{t('giftsChart.floor2Label')}
 														</span>
 														<strong class="text-sky-400 text-xs" dir="ltr">
-															{secondTon().toLocaleString()} TON
+															{secondTon().toLocaleString('en-US')} TON
 														</strong>
 													</div>
 												</div>
@@ -800,198 +803,238 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 			{/* ═════════════════════════════════════════════════════════════════════════
 			    TAB 2: COLLECTIONS & LIVE FLOOR BOARD (ALL 122 OFFICIAL COLLECTIONS)
+			    Authentic Fragment.com Table Design — crisp, spacious, zero crowding
 			    ═════════════════════════════════════════════════════════════════════════ */}
 			<Show when={props.activeTab === 'collections'}>
-				<div class="bg-[#1b232d]/95 border border-white/[0.08] rounded-2xl p-4 shadow-xl space-y-3.5">
-					<div>
-						<div class="flex items-center gap-2">
-							<span class="material-symbols-outlined text-[#2990ff] text-lg">leaderboard</span>
-							<h2 class="text-sm font-black text-white">{t('giftsChart.floorBoardTitle')}</h2>
-						</div>
-						<p class="text-[11px] text-white/50 mt-0.5">{t('giftsChart.floorBoardSub')}</p>
-					</div>
-
-					{/* Search Input */}
-					<div class="relative">
-						<span class="material-symbols-outlined text-white/35 text-base absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none">
-							search
-						</span>
-						<input
-							type="search"
-							value={collectionSearch()}
-							onInput={(e) => setCollectionSearch(e.currentTarget.value)}
-							placeholder={t('giftsChart.searchCollectionPlaceholder')}
-							class="w-full bg-black/50 border border-white/[0.1] focus:border-[#2990ff] rounded-xl ps-9 pe-3 py-2.5 text-xs text-white placeholder:text-white/35 outline-none transition-all"
-						/>
-					</div>
-
-					{/* Interactive Category Filter Buttons */}
-					<div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-						<For
-							each={
-								[
-									{ id: 'verified', label: t('giftsChart.filterAll') },
-									{ id: 'bluechip', label: t('giftsChart.filterBluechip') },
-									{ id: 'mid', label: t('giftsChart.filterMid') },
-									{ id: 'entry', label: t('giftsChart.filterEntry') },
-									{
-										id: 'directory',
-										label: `${t('giftsChart.filterDirectory')} (${collectionsQuery.data?.length || 122})`,
-									},
-								] as const
-							}
-						>
-							{(f) => (
-								<button
-									type="button"
-									onClick={() => setBoardFilter(f.id)}
-									class={`shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
-										boardFilter() === f.id
-											? 'bg-[#2990ff] text-white shadow'
-											: 'bg-white/[0.04] hover:bg-white/[0.08] text-white/60'
-									}`}
-								>
-									{f.label}
-								</button>
-							)}
-						</For>
-					</div>
-
-					{/* Mode A: Full 122 Official Collections Directory */}
-					<Show
-						when={boardFilter() === 'directory' || collectionSearch().trim().length > 0}
-						fallback={
-							/* Mode B: Live Verified Floor Leaderboard Cards */
-							<div class="space-y-2">
-								<For each={filteredFloorBoard()}>
-									{(row, idx) => {
-										const rowSlug = () =>
-											(row.collection_slug || row.model_id || 'plush-pepe').replace(/_/g, '-');
-										const rowName = () => row.collection_name || row.name || rowSlug();
-										const secondFloor = () =>
-											row.second_floor_gram || Math.round(row.best_floor_gram * 1.045 * 10) / 10;
-										const spreadPct = () => row.spread_pct || 4.5;
-										const imgUrl = () =>
-											row.image_url ||
-											`https://fragment.com/file/gifts/${rowSlug().replace(/-/g, '')}/thumb.webp`;
-
-										return (
-											<div class="bg-white/[0.025] hover:bg-white/[0.05] border border-white/[0.07] rounded-[18px] p-3 flex items-center justify-between gap-3 transition-all">
-												<div class="flex items-center gap-2.5 min-w-0">
-													<span class="text-[10px] font-mono font-bold text-white/35 w-4 text-center shrink-0">
-														{idx() + 1}
-													</span>
-													<img
-														src={imgUrl()}
-														alt={rowName()}
-														class="w-10 h-10 rounded-xl object-cover bg-black/50 border border-white/10 shrink-0"
-														loading="lazy"
-													/>
-													<div class="min-w-0">
-														<div class="text-xs font-black text-white truncate">{rowName()}</div>
-														<div
-															class="text-[10px] font-mono text-white/45 flex items-center gap-1.5 mt-0.5"
-															dir="ltr"
-														>
-															<span>#{row.cheapest_serial || 1}</span>
-															<span>·</span>
-															<span>
-																{(row.upgraded_count || row.total_supply || 0).toLocaleString()}{' '}
-																NFTs
-															</span>
-															<Show when={spreadPct() > 0}>
-																<span>·</span>
-																<span class="text-emerald-400">+{spreadPct().toFixed(1)}% #2</span>
-															</Show>
-														</div>
-													</div>
-												</div>
-
-												<div class="flex items-center gap-2.5 shrink-0">
-													<div class="text-end" dir="ltr">
-														<div class="text-sm font-black font-mono text-white">
-															{row.best_floor_gram.toLocaleString()}{' '}
-															<span class="text-[10px] text-[#2990ff]">{t('common.ton')}</span>
-														</div>
-														<div class="text-[10px] font-mono text-white/40">
-															${Math.round(row.best_floor_usd || 0).toLocaleString()} · #2:{' '}
-															{secondFloor().toLocaleString()}T
-														</div>
-													</div>
-
-													<div class="flex flex-col gap-1">
-														<button
-															type="button"
-															onClick={() => selectAndInspectCollection(rowSlug())}
-															class="px-2.5 py-1 rounded-lg bg-[#2990ff] hover:bg-[#2481cc] text-white text-[10px] font-black transition-all"
-														>
-															{t('giftsChart.inspectLiveBtn')}
-														</button>
-														<a
-															href={
-																row.buy_url ||
-																`https://fragment.com/gifts/${rowSlug().replace(/-/g, '')}`
-															}
-															target="_blank"
-															rel="noreferrer"
-															class="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-white/75 text-[9px] font-mono font-bold text-center transition-all"
-														>
-															{t('giftsChart.buyOnFragmentBtn')}
-														</a>
-													</div>
-												</div>
-											</div>
-										);
-									}}
-								</For>
+				<div class="space-y-3">
+					{/* Search & Filter Controls */}
+					<div class="frag-section-card p-3.5 space-y-3">
+						<div class="flex items-center justify-between gap-2">
+							<div class="min-w-0">
+								<h2 class="text-[14.5px] font-bold text-white truncate">
+									{t('giftsChart.floorBoardTitle')}
+								</h2>
+								<p class="text-[11.5px] text-[#8c9aa9] mt-0.5 truncate">
+									{t('giftsChart.floorBoardSub')}
+								</p>
 							</div>
-						}
-					>
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[540px] overflow-y-auto pr-1">
-							<For each={filteredCollections()}>
-								{(coll) => (
+							<span
+								class="shrink-0 px-2 py-0.5 rounded-[5px] bg-[#248bda]/15 text-[#4db2ff] text-[11px] font-mono font-bold"
+								dir="ltr"
+							>
+								{collectionsQuery.data?.length || 122}
+							</span>
+						</div>
+
+						{/* Fragment Search Input */}
+						<div class="relative">
+							<span class="material-symbols-outlined text-[#8c9aa9] text-[17px] absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none">
+								search
+							</span>
+							<input
+								type="search"
+								value={collectionSearch()}
+								onInput={(e) => setCollectionSearch(e.currentTarget.value)}
+								placeholder={t('giftsChart.searchCollectionPlaceholder')}
+								class="w-full h-10 bg-[#1a2026] border border-[#2e3b48] focus:border-[#248bda] rounded-[8px] ps-9 pe-3 text-[13px] text-white placeholder:text-[#8c9aa9]/75 outline-none transition-colors"
+							/>
+						</div>
+
+						{/* Category Filter Chips */}
+						<div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+							<For
+								each={
+									[
+										{ id: 'verified', label: t('giftsChart.filterAll') },
+										{ id: 'bluechip', label: t('giftsChart.filterBluechip') },
+										{ id: 'mid', label: t('giftsChart.filterMid') },
+										{ id: 'entry', label: t('giftsChart.filterEntry') },
+										{
+											id: 'directory',
+											label: `${t('giftsChart.filterDirectory')} (${collectionsQuery.data?.length || 122})`,
+										},
+									] as const
+								}
+							>
+								{(f) => (
 									<button
 										type="button"
-										onClick={() => selectAndInspectCollection(coll.slug)}
-										class="flex items-center justify-between gap-2.5 p-2.5 rounded-2xl bg-white/[0.025] hover:bg-white/[0.06] border border-white/[0.07] hover:border-[#2990ff]/40 text-start transition-all"
+										onClick={() => setBoardFilter(f.id)}
+										class={`shrink-0 h-8 px-3 rounded-[7px] text-[12px] font-semibold transition-colors cursor-pointer ${
+											boardFilter() === f.id
+												? 'bg-[#248bda] text-white'
+												: 'bg-[#242e38] hover:bg-[#293440] text-[#cbd7e5]/80'
+										}`}
 									>
-										<div class="flex items-center gap-2.5 min-w-0">
-											<Show when={coll.image_url}>
-												<img
-													src={coll.image_url}
-													alt={coll.name}
-													class="w-9 h-9 rounded-xl object-cover bg-black/50 border border-white/10 shrink-0"
-													loading="lazy"
-												/>
-											</Show>
-											<div class="min-w-0">
-												<div class="text-xs font-black text-white truncate">{coll.name}</div>
-												<div class="text-[10px] font-mono text-white/45" dir="ltr">
-													{(coll.total_supply || 0).toLocaleString()} On-Chain NFTs
-												</div>
-											</div>
-										</div>
-
-										<div class="text-end shrink-0" dir="ltr">
-											<Show
-												when={coll.floor_gram > 0}
-												fallback={
-													<span class="text-[10px] font-bold text-[#2990ff]">
-														{t('giftsChart.tapToInspectLive')}
-													</span>
-												}
-											>
-												<div class="text-xs font-black font-mono text-emerald-400">
-													{(coll.floor_gram || 0).toLocaleString()} TON
-												</div>
-												<div class="text-[9px] font-mono text-white/40">
-													${Math.round(coll.floor_usd || 0).toLocaleString()}
-												</div>
-											</Show>
-										</div>
+										{f.label}
 									</button>
 								)}
 							</For>
+						</div>
+					</div>
+
+					{/* Mode A: Full 122 Official Collections Directory / Search Results */}
+					<Show
+						when={boardFilter() === 'directory' || collectionSearch().trim().length > 0}
+						fallback={
+							/* Mode B: Authentic Fragment.com Live Floor Table */
+							<div class="frag-table-container overflow-hidden">
+								<div class="frag-table-header grid grid-cols-12 items-center px-3.5 py-2.5 text-[11px] font-semibold text-[#8c9aa9] uppercase tracking-wider">
+									<span class="col-span-7">{t('giftsChart.floorBoardTitle')}</span>
+									<span class="col-span-5 text-end">{t('giftsChart.liveFloor')}</span>
+								</div>
+
+								<div class="divide-y divide-[#1a2026]">
+									<For each={filteredFloorBoard()}>
+										{(row, idx) => {
+											const rowSlug = () =>
+												(row.collection_slug || row.model_id || 'plush-pepe').replace(/_/g, '-');
+											const rowName = () => row.collection_name || row.name || rowSlug();
+											const spreadPct = () => Number(row.spread_pct || 0);
+											const floorTon = () => Number(row.best_floor_gram || 0);
+											const floorUsd = () =>
+												Math.round(Number(row.best_floor_usd || floorTon() * tonRate()));
+											const supply = () => Number(row.upgraded_count || row.total_supply || 0);
+											const imgUrl = () =>
+												row.image_url ||
+												`https://fragment.com/file/gifts/${rowSlug().replace(/-/g, '')}/thumb.webp`;
+
+											return (
+												<button
+													type="button"
+													onClick={() => selectAndInspectCollection(rowSlug())}
+													class="frag-table-row w-full px-3.5 py-3 flex items-center justify-between gap-3 text-start cursor-pointer"
+												>
+													{/* Left: Rank + Artwork + Clean 2-Line Identity */}
+													<div class="flex items-center gap-3 min-w-0 flex-1">
+														<span
+															class="w-5 text-[11.5px] font-mono font-semibold text-[#8c9aa9] text-center shrink-0"
+															dir="ltr"
+														>
+															{idx() + 1}
+														</span>
+														<img
+															src={imgUrl()}
+															alt={rowName()}
+															class="w-11 h-11 rounded-[10px] object-cover bg-[#1a2026] border border-[#2e3b48] shrink-0"
+															loading="lazy"
+														/>
+														<div class="min-w-0 flex-1">
+															<div class="text-[13.5px] font-semibold text-white truncate leading-snug">
+																{rowName()}
+															</div>
+															<div
+																class="text-[11.5px] font-mono text-[#8c9aa9] mt-0.5 truncate"
+																dir="ltr"
+															>
+																{supply().toLocaleString('en-US')} NFTs
+																<Show when={row.cheapest_serial}>
+																	<span> · #{row.cheapest_serial}</span>
+																</Show>
+															</div>
+														</div>
+													</div>
+
+													{/* Right: Crisp TON Floor + USD & Spread + Chevron */}
+													<div class="flex items-center gap-2 shrink-0">
+														<div class="text-end" dir="ltr">
+															<div class="text-[14px] font-bold font-mono text-white leading-snug tabular-nums">
+																{floorTon().toLocaleString('en-US', {
+																	maximumFractionDigits: 1,
+																})}{' '}
+																<span class="text-[11px] font-semibold text-[#4db2ff]">TON</span>
+															</div>
+															<div class="text-[11px] font-mono text-[#8c9aa9] mt-0.5 flex items-center justify-end gap-1.5 tabular-nums">
+																<span>${floorUsd().toLocaleString('en-US')}</span>
+																<Show when={spreadPct() > 0}>
+																	<span class="text-[#5aec8c] font-semibold">
+																		+{spreadPct().toFixed(1)}%
+																	</span>
+																</Show>
+															</div>
+														</div>
+														<span class="material-symbols-outlined text-[18px] text-[#8c9aa9]/60 rtl:rotate-180">
+															chevron_right
+														</span>
+													</div>
+												</button>
+											);
+										}}
+									</For>
+								</div>
+							</div>
+						}
+					>
+						<div class="frag-table-container overflow-hidden">
+							<div class="frag-table-header grid grid-cols-12 items-center px-3.5 py-2.5 text-[11px] font-semibold text-[#8c9aa9] uppercase tracking-wider">
+								<span class="col-span-7">
+									{t('giftsChart.filterDirectory')} ({filteredCollections().length})
+								</span>
+								<span class="col-span-5 text-end">{t('giftsChart.liveFloor')}</span>
+							</div>
+
+							<div class="divide-y divide-[#1a2026] max-h-[560px] overflow-y-auto">
+								<For each={filteredCollections()}>
+									{(coll, idx) => (
+										<button
+											type="button"
+											onClick={() => selectAndInspectCollection(coll.slug)}
+											class="frag-table-row w-full px-3.5 py-3 flex items-center justify-between gap-3 text-start cursor-pointer"
+										>
+											<div class="flex items-center gap-3 min-w-0 flex-1">
+												<span
+													class="w-6 text-[11px] font-mono text-[#8c9aa9] text-center shrink-0"
+													dir="ltr"
+												>
+													{idx() + 1}
+												</span>
+												<Show when={coll.image_url}>
+													<img
+														src={coll.image_url}
+														alt={coll.name}
+														class="w-10 h-10 rounded-[10px] object-cover bg-[#1a2026] border border-[#2e3b48] shrink-0"
+														loading="lazy"
+													/>
+												</Show>
+												<div class="min-w-0 flex-1">
+													<div class="text-[13.5px] font-semibold text-white truncate leading-snug">
+														{coll.name}
+													</div>
+													<div class="text-[11.5px] font-mono text-[#8c9aa9] mt-0.5" dir="ltr">
+														{Number(coll.total_supply || 0).toLocaleString('en-US')} NFTs
+													</div>
+												</div>
+											</div>
+
+											<div class="flex items-center gap-2 shrink-0">
+												<div class="text-end" dir="ltr">
+													<Show
+														when={Number(coll.floor_gram || 0) > 0}
+														fallback={
+															<span class="text-[12px] font-semibold text-[#4db2ff]">
+																{t('giftsChart.inspectLiveBtn')}
+															</span>
+														}
+													>
+														<div class="text-[13.5px] font-bold font-mono text-white tabular-nums">
+															{Number(coll.floor_gram || 0).toLocaleString('en-US', {
+																maximumFractionDigits: 1,
+															})}{' '}
+															<span class="text-[11px] font-semibold text-[#4db2ff]">TON</span>
+														</div>
+														<div class="text-[11px] font-mono text-[#8c9aa9] mt-0.5 tabular-nums">
+															${Math.round(Number(coll.floor_usd || 0)).toLocaleString('en-US')}
+														</div>
+													</Show>
+												</div>
+												<span class="material-symbols-outlined text-[18px] text-[#8c9aa9]/60 rtl:rotate-180">
+													chevron_right
+												</span>
+											</div>
+										</button>
+									)}
+								</For>
+							</div>
 						</div>
 					</Show>
 				</div>
@@ -1109,7 +1152,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 													<div class="min-w-0">
 														<div class="text-[11px] font-bold truncate">{coll.name}</div>
 														<div class="text-[9px] font-mono text-white/40" dir="ltr">
-															{(coll.total_supply || 0).toLocaleString()} NFTs
+															{(coll.total_supply || 0).toLocaleString('en-US')} NFTs
 														</div>
 													</div>
 												</div>
@@ -1167,7 +1210,9 @@ export const GiftsChartView: Component<Props> = (props) => {
 													dir="ltr"
 												>
 													<span>
-														{(col().upgraded_count || col().total_supply || 0).toLocaleString()}{' '}
+														{(col().upgraded_count || col().total_supply || 0).toLocaleString(
+															'en-US',
+														)}{' '}
 														NFTs
 													</span>
 													<span>·</span>
@@ -1225,7 +1270,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 												{formatPrice(secondFloor())}
 											</div>
 											<div class="text-[9px] font-mono text-emerald-400 mt-0.5" dir="ltr">
-												+{spreadGram().toLocaleString()} TON (+{spreadPct()}%)
+												+{spreadGram().toLocaleString('en-US')} TON (+{spreadPct()}%)
 											</div>
 										</div>
 
@@ -1234,7 +1279,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 												{t('giftsChart.onChainSupply')}
 											</div>
 											<div class="text-base font-black font-mono text-white mt-0.5" dir="ltr">
-												{(col().upgraded_count || col().total_supply || 0).toLocaleString()}
+												{(col().upgraded_count || col().total_supply || 0).toLocaleString('en-US')}
 											</div>
 											<div class="text-[9px] font-mono text-white/45 mt-0.5">
 												{col().listed_count || 0} {t('giftsChart.activeListings')} (
@@ -1328,10 +1373,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 														<div class="text-end shrink-0" dir="ltr">
 															<div class="text-xs font-black font-mono text-emerald-400">
-																{item.price_gram.toLocaleString()} TON
+																{item.price_gram.toLocaleString('en-US')} TON
 															</div>
 															<div class="text-[9px] font-mono text-white/40">
-																${item.price_usd.toLocaleString()}
+																${item.price_usd.toLocaleString('en-US')}
 															</div>
 															<Show when={item.buy_url}>
 																<a
@@ -1422,7 +1467,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 																		class="text-[10px] font-mono font-bold text-emerald-400"
 																		dir="ltr"
 																	>
-																		~{(m.floor_gram || 0).toLocaleString()} TON
+																		~{(m.floor_gram || 0).toLocaleString('en-US')} TON
 																	</div>
 																</div>
 															</a>
@@ -1508,7 +1553,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 																				{t('giftsChart.minSale')}
 																			</div>
 																			<div class="font-bold text-white">
-																				{(p.d?.min_gram || 0).toLocaleString()}T
+																				{(p.d?.min_gram || 0).toLocaleString('en-US')}T
 																			</div>
 																		</div>
 																		<div>
@@ -1516,7 +1561,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 																				{t('giftsChart.avgSale')}
 																			</div>
 																			<div class="font-bold text-emerald-400">
-																				{(p.d?.avg_gram || 0).toLocaleString()}T
+																				{(p.d?.avg_gram || 0).toLocaleString('en-US')}T
 																			</div>
 																		</div>
 																		<div>
@@ -1524,7 +1569,7 @@ export const GiftsChartView: Component<Props> = (props) => {
 																				{t('giftsChart.maxSale')}
 																			</div>
 																			<div class="font-bold text-amber-400">
-																				{(p.d?.max_gram || 0).toLocaleString()}T
+																				{(p.d?.max_gram || 0).toLocaleString('en-US')}T
 																			</div>
 																		</div>
 																	</div>
@@ -1564,10 +1609,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 															</div>
 															<div class="text-end shrink-0" dir="ltr">
 																<div class="text-xs font-black font-mono text-amber-400">
-																	{sale.price_gram.toLocaleString()} TON
+																	{sale.price_gram.toLocaleString('en-US')} TON
 																</div>
 																<div class="text-[9px] font-mono text-white/40">
-																	${sale.price_usd.toLocaleString()}
+																	${sale.price_usd.toLocaleString('en-US')}
 																</div>
 															</div>
 														</div>
@@ -1673,13 +1718,13 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 											<div class="text-end shrink-0" dir="ltr">
 												<div class="text-xs font-black font-mono text-amber-400">
-													{(auc.current_bid_gram || 0).toLocaleString()} TON
+													{(auc.current_bid_gram || 0).toLocaleString('en-US')} TON
 												</div>
 												<div class="text-[9px] font-mono text-white/40">
 													$
 													{Math.round(
 														auc.current_bid_usd || (auc.current_bid_gram || 0) * tonRate(),
-													).toLocaleString()}
+													).toLocaleString('en-US')}
 												</div>
 												<a
 													href={
@@ -1730,10 +1775,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 										<div class="text-end shrink-0" dir="ltr">
 											<div class="text-xs font-black font-mono text-amber-400">
-												{(sale.priceGram || 0).toLocaleString()} TON
+												{(sale.priceGram || 0).toLocaleString('en-US')} TON
 											</div>
 											<div class="text-[9px] font-mono text-white/40">
-												${Math.round(sale.priceUsd || 0).toLocaleString()}
+												${Math.round(sale.priceUsd || 0).toLocaleString('en-US')}
 											</div>
 											<a
 												href={sale.fragmentUrl}
@@ -1780,10 +1825,10 @@ export const GiftsChartView: Component<Props> = (props) => {
 
 										<div class="text-end shrink-0" dir="ltr">
 											<div class="text-xs font-black font-mono text-emerald-400">
-												{(lst.priceGram || 0).toLocaleString()} TON
+												{(lst.priceGram || 0).toLocaleString('en-US')} TON
 											</div>
 											<div class="text-[9px] font-mono text-white/40">
-												${Math.round(lst.priceUsd || 0).toLocaleString()}
+												${Math.round(lst.priceUsd || 0).toLocaleString('en-US')}
 											</div>
 											<a
 												href={lst.fragmentUrl}

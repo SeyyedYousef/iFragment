@@ -2761,7 +2761,7 @@ func (s *NumbersService) GetCollectionOverview(ctx context.Context) (*NumbersCol
 			Code:        "THIN_DEPTH",
 			Severity:    "warning",
 			Title:       "عمق کم در نزدیکی فلور (Thin Depth)",
-			Description: fmt.Sprintf("تنها %d لیستینگ در فاصله ۵٪ بالاتر از فلور ثبت شده است که نشان‌دهنده نوسان‌پذیری بالاست.", plus5Count),
+			Description: fmt.Sprintf("تنها %d لیستینگ در فاصله 5%% بالاتر از فلور ثبت شده است که نشان‌دهنده نوسان‌پذیری بالاست.", plus5Count),
 		})
 	}
 

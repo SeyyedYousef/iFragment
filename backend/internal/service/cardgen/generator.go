@@ -166,52 +166,52 @@ func resolveTierTheme(tierBadge string) tierVisualTheme {
 	upper := strings.ToUpper(strings.TrimSpace(tierBadge))
 	switch {
 	case strings.Contains(upper, "LEGENDARY") || strings.Contains(upper, "EXCLUSIVE") || strings.Contains(upper, "GRAIL") || strings.Contains(upper, "MYTHIC") || strings.Contains(upper, "GOD") || strings.Contains(upper, "RANK #"):
-		// Imperial 24K Gold & Warm Amber-Rose Aura (Sovereignty, Triumph, Prestige)
+		// Fragment Warm Amber-Gold Accent (for Grail / Legendary / Top Rank assets)
 		return tierVisualTheme{
-			BorderStart:   color.RGBA{255, 200, 55, 255},
-			BorderEnd:     color.RGBA{180, 83, 9, 255},
-			CenterGlow:    color.RGBA{255, 168, 24, 255},
-			SecondaryGlow: color.RGBA{245, 130, 32, 255},
-			BadgeBg:       color.RGBA{42, 29, 11, 255},
-			BadgeBorder:   color.RGBA{217, 146, 28, 255},
-			BadgeText:     color.RGBA{255, 209, 82, 255},
-			Accent:        color.RGBA{255, 198, 58, 255},
+			BorderStart:   color.RGBA{245, 190, 66, 255},
+			BorderEnd:     color.RGBA{46, 59, 72, 255},
+			CenterGlow:    color.RGBA{245, 178, 46, 255},
+			SecondaryGlow: color.RGBA{36, 139, 218, 255},
+			BadgeBg:       color.RGBA{49, 41, 24, 255},
+			BadgeBorder:   color.RGBA{138, 108, 42, 255},
+			BadgeText:     color.RGBA{255, 207, 84, 255},
+			Accent:        color.RGBA{245, 190, 66, 255},
 		}
 	case strings.Contains(upper, "EPIC") || strings.Contains(upper, "APEX") || strings.Contains(upper, "ELITE"):
-		// Celestial Cyan-Sapphire & Electric Azure (Precision, High-Tech Authority)
+		// Authentic Fragment TON Blue Accent (#248bda / #4db2ff)
 		return tierVisualTheme{
-			BorderStart:   color.RGBA{56, 189, 248, 255},
-			BorderEnd:     color.RGBA{3, 105, 161, 255},
-			CenterGlow:    color.RGBA{14, 165, 233, 255},
-			SecondaryGlow: color.RGBA{56, 189, 248, 255},
-			BadgeBg:       color.RGBA{11, 31, 52, 255},
-			BadgeBorder:   color.RGBA{28, 134, 209, 255},
-			BadgeText:     color.RGBA{103, 214, 255, 255},
-			Accent:        color.RGBA{56, 189, 248, 255},
+			BorderStart:   color.RGBA{77, 178, 255, 255},
+			BorderEnd:     color.RGBA{46, 59, 72, 255},
+			CenterGlow:    color.RGBA{36, 139, 218, 255},
+			SecondaryGlow: color.RGBA{77, 178, 255, 255},
+			BadgeBg:       color.RGBA{26, 46, 66, 255},
+			BadgeBorder:   color.RGBA{46, 108, 162, 255},
+			BadgeText:     color.RGBA{77, 178, 255, 255},
+			Accent:        color.RGBA{77, 178, 255, 255},
 		}
 	case strings.Contains(upper, "RARE") || strings.Contains(upper, "PREMIUM") || strings.Contains(upper, "UNIQUE"):
-		// Bioluminescent Emerald-Jade & Mint Specular (Vitality, Wealth Growth)
+		// Authentic Fragment Emerald Green (#5aec8c)
 		return tierVisualTheme{
-			BorderStart:   color.RGBA{52, 211, 153, 255},
-			BorderEnd:     color.RGBA{4, 120, 87, 255},
-			CenterGlow:    color.RGBA{16, 185, 129, 255},
-			SecondaryGlow: color.RGBA{20, 184, 166, 255},
-			BadgeBg:       color.RGBA{10, 39, 30, 255},
-			BadgeBorder:   color.RGBA{24, 148, 106, 255},
-			BadgeText:     color.RGBA{74, 229, 172, 255},
-			Accent:        color.RGBA{52, 211, 153, 255},
+			BorderStart:   color.RGBA{90, 236, 140, 255},
+			BorderEnd:     color.RGBA{46, 59, 72, 255},
+			CenterGlow:    color.RGBA{90, 236, 140, 255},
+			SecondaryGlow: color.RGBA{36, 139, 218, 255},
+			BadgeBg:       color.RGBA{24, 52, 42, 255},
+			BadgeBorder:   color.RGBA{44, 118, 82, 255},
+			BadgeText:     color.RGBA{90, 236, 140, 255},
+			Accent:        color.RGBA{90, 236, 140, 255},
 		}
 	default:
-		// Brushed Surgical Titanium & Deep TON Sapphire (Prestigious even for Standard/Common)
+		// Crisp Fragment Slate + TON Blue (#4db2ff)
 		return tierVisualTheme{
-			BorderStart:   color.RGBA{148, 163, 184, 255},
-			BorderEnd:     color.RGBA{14, 116, 184, 255},
-			CenterGlow:    color.RGBA{56, 189, 248, 255},
-			SecondaryGlow: color.RGBA{148, 163, 184, 255},
-			BadgeBg:       color.RGBA{19, 27, 42, 255},
-			BadgeBorder:   color.RGBA{64, 98, 145, 255},
-			BadgeText:     color.RGBA{186, 224, 255, 255},
-			Accent:        color.RGBA{96, 195, 252, 255},
+			BorderStart:   color.RGBA{77, 178, 255, 255},
+			BorderEnd:     color.RGBA{46, 59, 72, 255},
+			CenterGlow:    color.RGBA{36, 139, 218, 255},
+			SecondaryGlow: color.RGBA{140, 154, 169, 255},
+			BadgeBg:       color.RGBA{32, 43, 56, 255},
+			BadgeBorder:   color.RGBA{58, 76, 96, 255},
+			BadgeText:     color.RGBA{186, 214, 240, 255},
+			Accent:        color.RGBA{77, 178, 255, 255},
 		}
 	}
 }
@@ -260,11 +260,12 @@ func normalizeCardTierBadge(raw string) string {
 	return upper
 }
 
-// flexCardSpec holds the rich Fibonacci layout data for the 600x600 PV certificate card.
+// flexCardSpec holds the Fragment.com-styled layout data for the 600x600 PV valuation card.
 type flexCardSpec struct {
 	TopBadge    string
 	Eyebrow     string
 	MainTitle   string
+	FragmentURL string
 	Chips       []string
 	LowTON      string
 	FairTON     string
@@ -342,8 +343,9 @@ func (cg *CardGenerator) GenerateRichUsernameCard(p UsernameCardParams) ([]byte,
 
 	return cg.renderFlexCardRich(flexCardSpec{
 		TopBadge:    badge,
-		Eyebrow:     "TELEGRAM DIGITAL USERNAME",
+		Eyebrow:     "COLLECTIBLE USERNAME",
 		MainTitle:   mainTitle,
+		FragmentURL: "fragment.com/username/" + strings.ToLower(cleanUser),
 		Chips:       chips,
 		LowTON:      p.LowTON,
 		FairTON:     p.FairTON,
@@ -416,10 +418,12 @@ func (cg *CardGenerator) GenerateRichNumberCard(p NumberCardParams) ([]byte, err
 		conf = 97
 	}
 
+	digitsOnly := strings.NewReplacer("+", "", " ", "", "-", "").Replace(cleanNum)
 	return cg.renderFlexCardRich(flexCardSpec{
 		TopBadge:    topBadge,
-		Eyebrow:     "TELEMINT ANONYMOUS NUMBER",
+		Eyebrow:     "ANONYMOUS NUMBER",
 		MainTitle:   cleanNum,
+		FragmentURL: "fragment.com/number/" + digitsOnly,
 		Chips:       chips,
 		LowTON:      p.LowTON,
 		FairTON:     p.FairTON,
@@ -446,7 +450,7 @@ func (cg *CardGenerator) GenerateGiftCard(modelName, slug string, serial int, ra
 	})
 }
 
-// GenerateRichGiftCard generates the 600x600 Fibonacci Golden-Ratio certificate card for a Telegram Gift.
+// GenerateRichGiftCard generates the 600x600 Fragment.com-styled valuation card for a Telegram Gift.
 func (cg *CardGenerator) GenerateRichGiftCard(p GiftCardParams) ([]byte, error) {
 	giftImg := fetchOrLoadGiftImage(p.ImageURL)
 
@@ -461,95 +465,85 @@ func (cg *CardGenerator) GenerateRichGiftCard(p GiftCardParams) ([]byte, error) 
 	theme := resolveTierTheme(topBadge)
 	if strings.TrimSpace(p.BackdropCenter) != "" {
 		bc := parseHexColor(p.BackdropCenter, theme.CenterGlow)
-		theme.CenterGlow = lerpColor(theme.CenterGlow, bc, 0.50)
+		theme.CenterGlow = lerpColor(theme.CenterGlow, bc, 0.45)
 	}
 
-	// 1. Render Fibonacci cosmic obsidian canvas, sacred orbital rings, golden-angle stardust, and dual-bevel rim
+	// 1. Render Fragment.com dark slate canvas & crisp card shell
 	cg.drawSkullsCardBase(img, theme)
 
-	// 2. Render Top-Left Tier Pill & Top-Right IFRAGMENT Pill
+	// 2. Render Fragment.com top header bar (#293440) with brand mark + tier badge
 	cg.drawTopHeaderPills(img, topBadge, theme)
 
-	// 3. Render Hero Sanctuary Glass Panel (y = 96..368, Golden Ratio split at y ≈ 371)
-	cg.drawLuxuryGlassStage(img, 42, 96, 558, 368, 28.0,
-		color.RGBA{13, 18, 30, 225},
-		color.RGBA{36, 48, 72, 240},
-		theme.Accent,
-		1.5,
-	)
+	// 3. Left Gift Artwork Showcase (x=40..186, y=94..240, 146x146)
+	centerCol := parseHexColor(p.BackdropCenter, color.RGBA{36, 139, 218, 255})
+	edgeCol := parseHexColor(p.BackdropEdge, color.RGBA{20, 32, 46, 255})
 
-	// 4. Render Center Gift Artwork Showcase (148x148 rounded squircle at cx=300, y=108..256)
-	centerCol := parseHexColor(p.BackdropCenter, color.RGBA{14, 165, 233, 255})
-	edgeCol := parseHexColor(p.BackdropEdge, color.RGBA{10, 18, 34, 255})
+	const boxSize = 146
+	const boxX1 = 40
+	const boxY1 = 94
+	const boxX2 = boxX1 + boxSize
+	const boxY2 = boxY1 + boxSize
+	const boxRadius = 20.0
 
-	boxSize := 148
-	boxX1 := (width - boxSize) / 2
-	boxY1 := 108
-	boxX2 := boxX1 + boxSize
-	boxY2 := boxY1 + boxSize
-	boxRadius := 32.0
-
-	for y := boxY1 - 6; y <= boxY2+6; y++ {
-		for x := boxX1 - 6; x <= boxX2+6; x++ {
+	for y := boxY1 - 4; y <= boxY2+4; y++ {
+		for x := boxX1 - 4; x <= boxX2+4; x++ {
 			dist := roundedBoxSDF(float64(x), float64(y), float64(boxX1), float64(boxY1), float64(boxX2), float64(boxY2), boxRadius)
 			if dist <= 0 {
-				dx := float64(x - 300)
+				dx := float64(x - (boxX1 + boxSize/2))
 				dy := float64(y - (boxY1 + boxSize/2))
-				rNorm := math.Min(1.0, math.Sqrt(dx*dx+dy*dy)/(float64(boxSize)*0.68))
+				rNorm := math.Min(1.0, math.Sqrt(dx*dx+dy*dy)/(float64(boxSize)*0.72))
 				fill := lerpColor(centerCol, edgeCol, rNorm)
 
-				// Diagonal glass reflection sheen across showcase
-				sheen := ((float64(x-boxX1) + float64(y-boxY1)) / float64(boxSize*2))
-				if sheen < 0.45 {
-					fill = lerpColor(fill, color.RGBA{255, 255, 255, 255}, (0.45-sheen)*0.16)
+				if dist >= -1.6 {
+					t := clamp01((dist + 1.6) / 1.6)
+					fill = lerpColor(fill, color.RGBA{56, 74, 94, 255}, t*0.9)
 				}
-
-				if dist >= -2.2 {
-					borderCol := lerpColor(theme.Accent, color.RGBA{140, 160, 195, 255}, 0.5)
-					t := clamp01((dist + 2.2) / 2.2)
-					fill = lerpColor(fill, borderCol, t*0.85)
-				}
-				if dist > -1.0 {
-					alpha := clamp01(0.5 - dist)
-					blendPixel(img, x, y, fill, alpha)
+				if dist > -0.8 {
+					blendPixel(img, x, y, fill, clamp01(0.5-dist))
 				} else {
 					img.SetRGBA(x, y, fill)
 				}
-			} else if dist < 6.0 {
-				glowT := 1.0 - dist/6.0
-				blendPixel(img, x, y, centerCol, glowT*glowT*0.24)
 			}
 		}
 	}
 
 	if giftImg != nil {
-		pad := 12
+		pad := 10
 		targetSize := boxSize - pad*2
 		compositeScaledImageRounded(img, giftImg, boxX1+pad, boxY1+pad, targetSize, targetSize, float64(boxX1), float64(boxY1), float64(boxX2), float64(boxY2), boxRadius-2.0)
 	} else {
-		cg.drawGiftVectorEmblem(img, 300, boxY1+boxSize/2, 42, color.RGBA{255, 255, 255, 245})
+		cg.drawGiftVectorEmblem(img, boxX1+boxSize/2, boxY1+boxSize/2, 38, color.RGBA{255, 255, 255, 240})
 	}
 
 	// Serial Badge in top-right of gift showcase
 	if p.SerialNumber > 0 {
 		serialText := fmt.Sprintf("#%d", p.SerialNumber)
-		sFace, err := cg.getFace(cg.fontOutfitBold, 11.5)
+		sFace, err := cg.getFace(cg.fontOutfitBold, 10.5)
 		if err == nil {
 			defer sFace.Close()
 			sw := font.MeasureString(sFace, serialText).Ceil()
-			sPillW := sw + 20
-			sPillH := 24
+			sPillW := sw + 16
+			sPillH := 22
 			sPillX2 := boxX2 - 8
 			sPillX1 := sPillX2 - sPillW
 			sPillY1 := boxY1 + 8
 			sPillY2 := sPillY1 + sPillH
-			drawRoundedPill(img, sPillX1, sPillY1, sPillX2, sPillY2, 9.0, color.RGBA{9, 12, 20, 235}, theme.BadgeBorder, 1.3)
-			sX := sPillX1 + (sPillW-sw)/2
-			cg.drawTextAt(img, sFace, serialText, sX, sPillY1+17, theme.BadgeText)
+			drawRoundedPill(img, sPillX1, sPillY1, sPillX2, sPillY2, 7.0, color.RGBA{26, 32, 38, 235}, color.RGBA{56, 74, 94, 255}, 1.0)
+			cg.drawTextAt(img, sFace, serialText, sPillX1+(sPillW-sw)/2, sPillY1+15, color.RGBA{255, 255, 255, 255})
 		}
 	}
 
-	// 5. Gift Title & Tactile Trait Chips inside Hero Stage
+	// 4. Right Column: Eyebrow + Gift Title + Fragment Key-Value Trait Table
+	const colX = 204
+	const colX2 = 560
+	const colW = colX2 - colX
+
+	eyeFace, err := cg.getFace(cg.fontOutfitBold, 9.5)
+	if err == nil {
+		defer eyeFace.Close()
+		cg.drawTextAt(img, eyeFace, "COLLECTIBLE GIFT  ·  TELEGRAM NFT", colX, 108, color.RGBA{77, 178, 255, 255})
+	}
+
 	displayTitle := strings.TrimSpace(p.Title)
 	if displayTitle == "" || isUnsupportedFontScript(displayTitle) {
 		cleanModel := strings.TrimSpace(p.ModelName)
@@ -563,45 +557,75 @@ func (cg *CardGenerator) GenerateRichGiftCard(p GiftCardParams) ([]byte, error) 
 		}
 	}
 
-	titleFontSize := 28.0
-	if len(displayTitle) > 22 {
-		titleFontSize = 21.0
-	} else if len(displayTitle) > 16 {
-		titleFontSize = 24.0
-	}
-
+	titleFontSize := 24.0
 	tFace, err := cg.getFace(cg.fontOutfitBlack, titleFontSize)
 	if err == nil {
-		defer tFace.Close()
-		tw := font.MeasureString(tFace, displayTitle).Ceil()
-		tx := (width - tw) / 2
-		ty := 294
-		cg.drawTextAt(img, tFace, displayTitle, tx, ty+4, color.RGBA{0, 0, 0, 175})
-		cg.drawTextAt(img, tFace, displayTitle, tx, ty, color.RGBA{255, 255, 255, 255})
-
-		sparkleY := float64(ty) - titleFontSize*0.34
-		drawFourPointStar(img, float64(tx)-22.0, sparkleY, 8.5, theme.Accent)
-		drawFourPointStar(img, float64(tx+tw)+22.0, sparkleY, 8.5, theme.Accent)
+		for font.MeasureString(tFace, displayTitle).Ceil() > colW && titleFontSize > 16.0 {
+			titleFontSize -= 1.5
+			tFace.Close()
+			tFace, err = cg.getFace(cg.fontOutfitBlack, titleFontSize)
+			if err != nil {
+				break
+			}
+		}
+		if err == nil {
+			defer tFace.Close()
+			cg.drawTextAt(img, tFace, displayTitle, colX, 138, color.RGBA{255, 255, 255, 255})
+		}
 	}
 
-	var traitChips []string
+	type kvRow struct {
+		K string
+		V string
+	}
+	var rows []kvRow
+	if p.ModelName != "" && !isUnsupportedFontScript(p.ModelName) {
+		rows = append(rows, kvRow{K: "MODEL", V: strings.TrimSpace(p.ModelName)})
+	}
 	if p.BackdropName != "" && !isUnsupportedFontScript(p.BackdropName) {
-		traitChips = append(traitChips, strings.ToUpper(strings.TrimSpace(p.BackdropName)))
+		rows = append(rows, kvRow{K: "BACKDROP", V: strings.TrimSpace(p.BackdropName)})
 	}
 	if p.SymbolName != "" && !isUnsupportedFontScript(p.SymbolName) {
-		traitChips = append(traitChips, strings.ToUpper(strings.TrimSpace(p.SymbolName)))
+		rows = append(rows, kvRow{K: "SYMBOL", V: strings.TrimSpace(p.SymbolName)})
 	}
-	if len(traitChips) == 0 {
-		if p.SerialNumber > 0 {
-			traitChips = append(traitChips, fmt.Sprintf("SERIAL #%d", p.SerialNumber))
-		}
-		traitChips = append(traitChips, topBadge+" EDITION", "TEP-62 NFT")
-	} else if p.SerialNumber > 0 && len(traitChips) < 3 {
-		traitChips = append(traitChips, fmt.Sprintf("MINT #%d", p.SerialNumber))
+	if len(rows) < 2 && p.SerialNumber > 0 {
+		rows = append(rows, kvRow{K: "SERIAL", V: fmt.Sprintf("#%d", p.SerialNumber)})
 	}
-	cg.drawFlexChipRow(img, traitChips, 300, 316, 480, theme)
+	if len(rows) < 3 {
+		rows = append(rows, kvRow{K: "STANDARD", V: "TEP-62 NFT"})
+	}
+	if len(rows) > 3 {
+		rows = rows[:3]
+	}
 
-	// 6. Render Bottom Valuation Sanctuary (Golden Ratio Price Spectrum + TON/USD + Confidence)
+	// Draw Fragment-style key-value rows container (x=204..560, y=152..240)
+	drawRoundedPill(img, colX, 152, colX2, 240, 10.0, color.RGBA{36, 46, 56, 255}, color.RGBA{46, 59, 72, 255}, 1.0)
+	kFace, kErr := cg.getFace(cg.fontOutfitBold, 9.5)
+	vFace, vErr := cg.getFace(cg.fontOutfitBold, 11.0)
+	if kErr == nil && vErr == nil {
+		defer kFace.Close()
+		defer vFace.Close()
+		for i, r := range rows {
+			rowTop := 152 + i*29
+			if i > 0 {
+				for hx := colX + 1; hx < colX2-1; hx++ {
+					img.SetRGBA(hx, rowTop, color.RGBA{46, 59, 72, 255})
+				}
+			}
+			cg.drawTextAt(img, kFace, r.K, colX+12, rowTop+19, color.RGBA{140, 154, 169, 255})
+			valTxt := r.V
+			if len(valTxt) > 22 {
+				valTxt = valTxt[:19] + "..."
+			}
+			vw := font.MeasureString(vFace, valTxt).Ceil()
+			cg.drawTextAt(img, vFace, valTxt, colX2-12-vw, rowTop+19, color.RGBA{241, 245, 249, 255})
+		}
+	}
+
+	// 5. Fragment Price Range Spectrum Bar below Gift showcase (y=260..302)
+	cg.drawGoldenSpectrumGauge600(img, "", p.ExpectedTON, "", theme)
+
+	// 6. Render Bottom Fragment Table Valuation Panel (y=318..534) + Footer
 	cg.drawSkullsBottomFooterRich(img, "", p.ExpectedTON, "", p.ExpectedUSD, 91, theme)
 
 	var buf bytes.Buffer
@@ -634,7 +658,7 @@ func (cg *CardGenerator) renderFlexCard(topBadge, mainTitle, subtitle, expectedT
 	})
 }
 
-// renderFlexCardRich renders the 600x600 Fibonacci Golden-Ratio luxury certificate card for Usernames and +888 Numbers.
+// renderFlexCardRich renders the 600x600 authentic Fragment.com-styled valuation card for Usernames and +888 Numbers.
 func (cg *CardGenerator) renderFlexCardRich(spec flexCardSpec) ([]byte, error) {
 	cg.mu.Lock()
 	defer cg.mu.Unlock()
@@ -646,21 +670,13 @@ func (cg *CardGenerator) renderFlexCardRich(spec flexCardSpec) ([]byte, error) {
 	badge := normalizeCardTierBadge(spec.TopBadge)
 	theme := resolveTierTheme(badge)
 
-	// 1. Draw solid dark outer canvas + Fibonacci orbital geometry + golden-angle stardust + dual-bevel metallic border
+	// 1. Draw authentic Fragment.com dark slate canvas (#1a2026) & crisp surface card (#212a33)
 	cg.drawSkullsCardBase(img, theme)
 
-	// 2. Draw Top-Left Tier Pill & Top-Right IFRAGMENT Pill
+	// 2. Draw Fragment.com Top Header Strip (#293440) with Fragment Shard + FRAGMENT + Tier Pill
 	cg.drawTopHeaderPills(img, badge, theme)
 
-	// 3. Draw Hero Sanctuary Glass Stage (x=42..558, y=96..368 — Golden Ratio split at y ≈ 371)
-	cg.drawLuxuryGlassStage(img, 42, 96, 558, 368, 28.0,
-		color.RGBA{13, 18, 30, 225},
-		color.RGBA{36, 48, 72, 240},
-		theme.Accent,
-		1.5,
-	)
-
-	// 4. Draw Eyebrow with flanking Golden Ratio hairline whiskers
+	// 3. Eyebrow label
 	eyebrow := strings.TrimSpace(spec.Eyebrow)
 	if eyebrow == "" {
 		eyebrow = "TELEGRAM DIGITAL ASSET"
@@ -670,36 +686,21 @@ func (cg *CardGenerator) renderFlexCardRich(spec flexCardSpec) ([]byte, error) {
 		defer eyeFace.Close()
 		ew := font.MeasureString(eyeFace, eyebrow).Ceil()
 		ex := (width - ew) / 2
-		ey := 132
-		cg.drawTextAt(img, eyeFace, eyebrow, ex, ey, color.RGBA{138, 152, 176, 255})
-
-		// Flanking gradient whiskers
-		whiskerY := ey - 4
-		for dx := 14; dx <= 48; dx++ {
-			alpha := (1.0 - float64(dx-14)/34.0) * 0.45
-			if ex-dx > 64 {
-				blendPixel(img, ex-dx, whiskerY, theme.Accent, alpha)
-			}
-			if ex+ew+dx < 536 {
-				blendPixel(img, ex+ew+dx, whiskerY, theme.Accent, alpha)
-			}
-		}
+		cg.drawTextAt(img, eyeFace, eyebrow, ex, 108, color.RGBA{140, 154, 169, 255})
 	}
 
-	// 5. Draw Center Hero Title flanked by dual Fibonacci ✦ sparkles
+	// 4. Crisp Pure-White Hero Asset Title (@username or +888 number)
 	titleLen := len(spec.MainTitle)
 	var mainFontSize float64
 	switch {
-	case titleLen <= 7:
-		mainFontSize = 54.0
-	case titleLen <= 10:
-		mainFontSize = 46.0
-	case titleLen <= 14:
-		mainFontSize = 38.0
-	case titleLen <= 18:
-		mainFontSize = 31.0
+	case titleLen <= 8:
+		mainFontSize = 50.0
+	case titleLen <= 12:
+		mainFontSize = 42.0
+	case titleLen <= 16:
+		mainFontSize = 35.0
 	default:
-		mainFontSize = 24.0
+		mainFontSize = 27.0
 	}
 
 	heroFont := cg.fontOutfitBlack
@@ -713,7 +714,7 @@ func (cg *CardGenerator) renderFlexCardRich(spec flexCardSpec) ([]byte, error) {
 	defer mainFace.Close()
 
 	mainW := font.MeasureString(mainFace, spec.MainTitle).Ceil()
-	for mainW > 410 && mainFontSize > 20.0 {
+	for mainW > 500 && mainFontSize > 20.0 {
 		mainFontSize -= 2.0
 		mainFace.Close()
 		mainFace, err = cg.getFace(heroFont, mainFontSize)
@@ -724,32 +725,32 @@ func (cg *CardGenerator) renderFlexCardRich(spec flexCardSpec) ([]byte, error) {
 	}
 
 	mainX := (width - mainW) / 2
-	mainY := 214
-
-	// Crisp dark drop shadow + pure white hero typography
-	cg.drawTextAt(img, mainFace, spec.MainTitle, mainX, mainY+5, color.RGBA{0, 0, 0, 195})
+	mainY := 166
+	cg.drawTextAt(img, mainFace, spec.MainTitle, mainX, mainY+2, color.RGBA{14, 18, 24, 180})
 	cg.drawTextAt(img, mainFace, spec.MainTitle, mainX, mainY, color.RGBA{255, 255, 255, 255})
 
-	// Dual Fibonacci 4-point sparkles ✦ (Radius 11.0 & 4.5 — Fibonacci ratio)
-	sparkleY := float64(mainY) - mainFontSize*0.33
-	leftSparkleX := math.Max(66.0, float64(mainX)-28.0)
-	rightSparkleX := math.Min(float64(width-66), float64(mainX+mainW)+28.0)
-	drawFourPointStar(img, leftSparkleX, sparkleY, 11.0, theme.Accent)
-	drawFourPointStar(img, rightSparkleX, sparkleY, 11.0, theme.Accent)
-	if leftSparkleX-15.0 > 54.0 {
-		drawFourPointStar(img, leftSparkleX-15.0, sparkleY-9.0, 4.5, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 180})
+	// 5. Authentic Fragment URL sub-line (#4db2ff)
+	fragSub := strings.TrimSpace(spec.FragmentURL)
+	if fragSub == "" {
+		fragSub = "fragment.com"
 	}
-	if rightSparkleX+15.0 < float64(width-54) {
-		drawFourPointStar(img, rightSparkleX+15.0, sparkleY-9.0, 4.5, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 180})
+	if len(fragSub) > 42 {
+		fragSub = fragSub[:39] + "..."
+	}
+	subFace, sErr := cg.getFace(cg.fontOutfitBold, 11.5)
+	if sErr == nil {
+		defer subFace.Close()
+		sw := font.MeasureString(subFace, fragSub).Ceil()
+		cg.drawTextAt(img, subFace, fragSub, (width-sw)/2, 196, color.RGBA{77, 178, 255, 255})
 	}
 
-	// 6. Draw Tactile Spec Chips Row (y = 250..280)
-	cg.drawFlexChipRow(img, spec.Chips, 300, 252, 480, theme)
+	// 6. Clean Fragment Spec Chips Row (y = 216..244)
+	cg.drawFlexChipRow(img, spec.Chips, 300, 216, 520, theme)
 
-	// 7. Draw Golden Ratio Price Range Spectrum Gauge inside lower Hero Stage (y = 306..348)
+	// 7. Fragment Price Range Spectrum Gauge (y = 262..302)
 	cg.drawGoldenSpectrumGauge600(img, spec.LowTON, spec.FairTON, spec.HighTON, theme)
 
-	// 8. Draw Bottom Valuation Sanctuary (y = 382..552)
+	// 8. Bottom Fragment Table Valuation Panel (y = 318..534) + Footer
 	cg.drawSkullsBottomFooterRich(img, spec.LowTON, spec.FairTON, spec.HighTON, spec.ExpectedUSD, spec.Confidence, theme)
 
 	var buf bytes.Buffer
@@ -759,99 +760,58 @@ func (cg *CardGenerator) renderFlexCardRich(spec flexCardSpec) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// drawSkullsCardBase renders the 600x600 solid obsidian outer canvas (A=255 everywhere),
-// dual-bevel metallic squircle border, Fibonacci orbital rings, golden-angle stardust, and precision grid.
+// drawSkullsCardBase renders the authentic Fragment.com dark slate canvas (#1a2026)
+// and crisp surface card (#212a33) with a clean #293440 header strip and subtle #2e3b48 1px border.
 func (cg *CardGenerator) drawSkullsCardBase(img *image.RGBA, theme tierVisualTheme) {
 	const width = 600
 	const height = 600
 
 	cardX1, cardY1 := 18.0, 18.0
 	cardX2, cardY2 := 582.0, 582.0
-	cardRadius := 55.0 // Fibonacci 55
-	borderWidth := 2.6
+	cardRadius := 20.0
+	borderWidth := 1.4
+	const headerBottomY = 74.0
 
-	outerBg := color.RGBA{4, 6, 10, 255}
-	innerTopLeft := color.RGBA{14, 19, 31, 255}
-	innerBotRight := color.RGBA{7, 9, 15, 255}
+	outerBg := color.RGBA{26, 32, 38, 255}     // #1a2026 Fragment canvas
+	cardBg := color.RGBA{33, 42, 51, 255}      // #212a33 Fragment table/card surface
+	headerBg := color.RGBA{41, 52, 64, 255}    // #293440 Fragment sticky header
+	borderCol := color.RGBA{46, 59, 72, 255}   // #2e3b48 Fragment hairline border
 
 	for y := 0; y < height; y++ {
+		fy := float64(y)
 		for x := 0; x < width; x++ {
-			fx, fy := float64(x), float64(y)
+			fx := float64(x)
 			dist := roundedBoxSDF(fx, fy, cardX1, cardY1, cardX2, cardY2, cardRadius)
-
 			if dist > 0.5 {
-				if dist < 16.0 {
-					glowFactor := math.Pow(1.0-(dist/16.0), 2.1) * 0.25
-					img.SetRGBA(x, y, lerpColor(outerBg, theme.BorderStart, glowFactor))
-				} else {
-					img.SetRGBA(x, y, outerBg)
-				}
+				img.SetRGBA(x, y, outerBg)
 				continue
 			}
 
-			diagT := clamp01(((fx - cardX1) + (fy - cardY1)) / ((cardX2 - cardX1) + (cardY2 - cardY1)))
-			borderCol := lerpColor(theme.BorderStart, theme.BorderEnd, diagT)
-			bgCol := lerpColor(innerTopLeft, innerBotRight, diagT)
-
-			// Top-left glass reflection sheen
-			sheenDx := fx - 165.0
-			sheenDy := fy - 120.0
-			sheenDist := math.Sqrt(sheenDx*sheenDx + sheenDy*sheenDy)
-			if sheenDist < 330.0 {
-				sheenFactor := math.Pow(1.0-(sheenDist/330.0), 2.0) * 0.065
-				bgCol = lerpColor(bgCol, color.RGBA{255, 255, 255, 255}, sheenFactor)
-			}
-
-			// Golden Ratio focal spotlight behind hero stage (cy = 600 * 0.382 ≈ 229)
-			cdx := fx - 300.0
-			cdy := (fy - 229.0) * 1.22
-			cDist := math.Sqrt(cdx*cdx + cdy*cdy)
-			if cDist < 233.0 {
-				spotFactor := math.Pow(1.0-(cDist/233.0), 2.0) * 0.14
-				bgCol = lerpColor(bgCol, theme.CenterGlow, spotFactor)
-			}
-
-			// Secondary counter-glow behind TON valuation anchor (cy = 485)
-			vdx := fx - 170.0
-			vdy := (fy - 485.0) * 1.35
-			vDist := math.Sqrt(vdx*vdx + vdy*vdy)
-			if vDist < 190.0 {
-				vFactor := math.Pow(1.0-(vDist/190.0), 2.0) * 0.08
-				bgCol = lerpColor(bgCol, theme.SecondaryGlow, vFactor)
-			}
-
-			// 21px (Fibonacci) dot-matrix grid inside card interior
-			if dist < -borderWidth-2.0 {
-				gx := math.Mod(fx-cardX1, 21.0)
-				gy := math.Mod(fy-cardY1, 21.0)
-				if gx > 10.5 {
-					gx = 21.0 - gx
-				}
-				if gy > 10.5 {
-					gy = 21.0 - gy
-				}
-				dotDist := math.Sqrt(gx*gx + gy*gy)
-				if dotDist < 1.55 {
-					dotAlpha := clamp01(1.55-dotDist) * 0.085
-					bgCol = lerpColor(bgCol, color.RGBA{255, 255, 255, 255}, dotAlpha)
+			bgCol := cardBg
+			if fy <= headerBottomY {
+				bgCol = headerBg
+			} else {
+				// Very subtle Fragment TON-blue ambient mist near upper center of hero stage
+				dx := (fx - 300.0) / 260.0
+				dy := (fy - 165.0) / 145.0
+				rSq := dx*dx + dy*dy
+				if rSq < 1.0 {
+					t := 1.0 - math.Sqrt(rSq)
+					bgCol = lerpColor(bgCol, color.RGBA{36, 139, 218, 255}, t*t*0.06)
 				}
 			}
 
-			// Inner subtle bevel ring at dist ≈ -6.5
-			if dist < -5.5 && dist > -7.5 {
-				bevelT := 1.0 - math.Abs(dist+6.5)
-				if bevelT > 0 {
-					bgCol = lerpColor(bgCol, theme.BorderStart, bevelT*0.09)
-				}
+			// Hairline separator beneath top header bar
+			if fy >= headerBottomY-0.6 && fy <= headerBottomY+0.6 && dist < -borderWidth {
+				bgCol = borderCol
 			}
 
 			var finalCol color.RGBA
 			if dist >= -borderWidth {
-				innerEdge := clamp01((dist + borderWidth) / 1.2)
+				innerEdge := clamp01((dist + borderWidth) / 1.0)
 				inToBorder := lerpColor(bgCol, borderCol, innerEdge)
 				if dist > -0.5 {
-					outerEdge := clamp01(dist + 0.5)
-					finalCol = lerpColor(inToBorder, outerBg, outerEdge)
+					finalCol = lerpColor(inToBorder, outerBg, clamp01(dist+0.5))
 				} else {
 					finalCol = inToBorder
 				}
@@ -864,75 +824,77 @@ func (cg *CardGenerator) drawSkullsCardBase(img *image.RGBA, theme tierVisualThe
 		}
 	}
 
-	// Fibonacci concentric sacred geometry rings (r = 89, 144, 233) centered at Golden focal point (300, 229)
-	drawCircleOutline(img, 300, 229, 89, 1.0, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 18})
-	drawCircleOutline(img, 300, 229, 144, 1.1, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 22})
-	drawCircleOutline(img, 300, 229, 233, 1.0, color.RGBA{255, 255, 255, 11})
-
-	// Golden-Angle (137.5°) phyllotaxis constellation stardust nodes around the hero sanctuary
-	for i := 5; i < 26; i++ {
-		angle := float64(i) * GoldenAngleRad
-		rad := 24.0 * math.Sqrt(float64(i))
-		px := 300.0 + math.Cos(angle)*rad*1.15
-		py := 229.0 + math.Sin(angle)*rad*0.78
-		if px > 48 && px < 552 && py > 92 && py < 368 {
-			dotR := 1.4
-			if i%5 == 0 {
-				dotR = 2.1
-			}
-			drawSoftGlowDot(img, px, py, dotR, color.RGBA{theme.Accent.R, theme.Accent.G, theme.Accent.B, 55})
-		}
+	// Crisp 2px TON-blue accent line across the very top center edge of the card (signature Fragment accent)
+	for x := 240; x <= 360; x++ {
+		t := 1.0 - math.Abs(float64(x-300))/60.0
+		blendPixel(img, x, 19, theme.Accent, t*0.85)
+		blendPixel(img, x, 20, theme.Accent, t*0.45)
 	}
 }
 
-// drawTopHeaderPills draws the Top-Left Rarity Tier Pill (with inner ✦ star)
-// and Top-Right IFRAGMENT Pill (with glowing TON accent dot).
+// drawFragmentBrandMark draws a sharp geometric Fragment diamond shard icon.
+func (cg *CardGenerator) drawFragmentBrandMark(img *image.RGBA, cx, cy, r int) {
+	fcx, fcy, fr := float64(cx), float64(cy), float64(r)
+	topY := fcy - fr
+	midY := fcy - fr*0.12
+	botY := fcy + fr
+	leftX := fcx - fr*0.92
+	rightX := fcx + fr*0.92
+
+	// Upper-left crisp white facet, upper-right sky blue facet, lower facets in TON blue
+	fillTriangle(img, fcx, topY, leftX, midY, fcx, midY, color.RGBA{255, 255, 255, 255})
+	fillTriangle(img, fcx, topY, fcx, midY, rightX, midY, color.RGBA{77, 178, 255, 255})
+	fillTriangle(img, leftX, midY, fcx, midY, fcx, botY, color.RGBA{77, 178, 255, 255})
+	fillTriangle(img, fcx, midY, rightX, midY, fcx, botY, color.RGBA{36, 139, 218, 255})
+}
+
+// drawTopHeaderPills draws the Fragment.com header bar content:
+// Left: Fragment Diamond Mark + FRAGMENT wordmark + iFRAGMENT tag.
+// Right: Crisp Fragment-style Rarity / Rank status badge.
 func (cg *CardGenerator) drawTopHeaderPills(img *image.RGBA, tierBadge string, theme tierVisualTheme) {
-	pillY1 := 46
-	pillY2 := 82
-	pillRadius := 13.0
+	// Left: Fragment Geometric Diamond + FRAGMENT bold title
+	cg.drawFragmentBrandMark(img, 48, 46, 11)
 
-	// 1. Top-Left Pill: Rarity Tier Badge with inner star icon
-	leftFace, err := cg.getFace(cg.fontOutfitBold, 11.5)
-	if err == nil {
-		defer leftFace.Close()
-		textW := font.MeasureString(leftFace, tierBadge).Ceil()
-		pillW := textW + 46
-		if pillW < 104 {
-			pillW = 104
-		}
-		pillX1 := 42
-		pillX2 := pillX1 + pillW
-		drawRoundedPill(img, pillX1, pillY1, pillX2, pillY2, pillRadius, theme.BadgeBg, theme.BadgeBorder, 1.5)
-
-		starCX := float64(pillX1 + 18)
-		starCY := float64(pillY1+pillY2) / 2.0
-		drawFourPointStar(img, starCX, starCY, 5.5, theme.BadgeText)
-
-		tx := pillX1 + 28 + (pillW-28-textW)/2
-		cg.drawTextAt(img, leftFace, tierBadge, tx, pillY1+23, theme.BadgeText)
-	}
-
-	// 2. Top-Right Pill: "I F R A G M E N T" with glowing jewel dot
-	brandFace, err := cg.getFace(cg.fontOutfitBold, 11.0)
+	brandFace, err := cg.getFace(cg.fontOutfitBlack, 15.0)
 	if err == nil {
 		defer brandFace.Close()
-		brandLabel := "I F R A G M E N T"
-		bw := font.MeasureString(brandFace, brandLabel).Ceil()
-		bPillW := bw + 44
-		bPillX2 := 558
-		bPillX1 := bPillX2 - bPillW
-		drawRoundedPill(img, bPillX1, pillY1, bPillX2, pillY2, pillRadius,
-			color.RGBA{17, 22, 34, 255},
-			color.RGBA{42, 54, 78, 255},
-			1.5,
-		)
-		dotCX := float64(bPillX1 + 18)
-		dotCY := float64(pillY1+pillY2) / 2.0
-		drawSoftGlowDot(img, dotCX, dotCY, 3.8, color.RGBA{0, 152, 234, 255})
+		cg.drawTextAt(img, brandFace, "FRAGMENT", 68, 52, color.RGBA{255, 255, 255, 255})
 
-		btx := bPillX1 + 26 + (bPillW-26-bw)/2
-		cg.drawTextAt(img, brandFace, brandLabel, btx, pillY1+23, color.RGBA{186, 198, 218, 255})
+		bw := font.MeasureString(brandFace, "FRAGMENT").Ceil()
+		tagFace, tErr := cg.getFace(cg.fontOutfitBold, 9.0)
+		if tErr == nil {
+			defer tagFace.Close()
+			tagTxt := "iFRAGMENT"
+			tw := font.MeasureString(tagFace, tagTxt).Ceil()
+			tx1 := 68 + bw + 10
+			tx2 := tx1 + tw + 14
+			drawRoundedPill(img, tx1, 36, tx2, 56, 6.0,
+				color.RGBA{30, 50, 70, 255},
+				color.RGBA{46, 86, 126, 255},
+				1.0,
+			)
+			cg.drawTextAt(img, tagFace, tagTxt, tx1+7, 49, color.RGBA{77, 178, 255, 255})
+		}
+	}
+
+	// Right: Crisp Tier Status Pill
+	rightFace, err := cg.getFace(cg.fontOutfitBold, 10.5)
+	if err == nil {
+		defer rightFace.Close()
+		textW := font.MeasureString(rightFace, tierBadge).Ceil()
+		pillW := textW + 34
+		if pillW < 88 {
+			pillW = 88
+		}
+		pillX2 := 562
+		pillX1 := pillX2 - pillW
+		pillY1 := 32
+		pillY2 := 60
+		drawRoundedPill(img, pillX1, pillY1, pillX2, pillY2, 8.0, theme.BadgeBg, theme.BadgeBorder, 1.1)
+
+		drawSoftGlowDot(img, float64(pillX1+14), float64(pillY1+pillY2)*0.5, 3.2, theme.BadgeText)
+		tx := pillX1 + 22 + (pillW-22-textW)/2
+		cg.drawTextAt(img, rightFace, tierBadge, tx, pillY1+18, theme.BadgeText)
 	}
 }
 
@@ -1031,25 +993,25 @@ func (cg *CardGenerator) drawFlexChipRow(img *image.RGBA, chips []string, center
 	}
 
 	curX := centerX - totalW/2
-	const chipH = 28
+	const chipH = 26
 	for _, item := range items {
-		drawRoundedPill(img, curX, y1, curX+item.w, y1+chipH, 10.0,
-			color.RGBA{18, 25, 40, 240},
-			color.RGBA{46, 62, 92, 240},
-			1.2,
+		drawRoundedPill(img, curX, y1, curX+item.w, y1+chipH, 8.0,
+			color.RGBA{36, 46, 56, 255},
+			color.RGBA{46, 59, 72, 255},
+			1.0,
 		)
 		dotCX := float64(curX + 12)
 		dotCY := float64(y1+y1+chipH) / 2.0
-		drawSoftGlowDot(img, dotCX, dotCY, 2.8, theme.Accent)
+		drawSoftGlowDot(img, dotCX, dotCY, 2.5, theme.Accent)
 
 		tw := font.MeasureString(chipFace, item.text).Ceil()
 		tx := curX + 18 + (item.w-18-tw)/2
-		cg.drawTextAt(img, chipFace, item.text, tx, y1+19, color.RGBA{226, 234, 248, 255})
+		cg.drawTextAt(img, chipFace, item.text, tx, y1+17, color.RGBA{212, 223, 233, 255})
 		curX += item.w + gap
 	}
 }
 
-// drawGoldenSpectrumGauge600 renders a visual Floor -> Fair -> Ceiling spectrum track inside the 600x600 card.
+// drawGoldenSpectrumGauge600 renders a crisp Fragment-style Floor -> Fair -> Ceiling spectrum track.
 func (cg *CardGenerator) drawGoldenSpectrumGauge600(img *image.RGBA, lowRaw, fairRaw, highRaw string, theme tierVisualTheme) {
 	fairDisp, fairNum := formatTONDisplay(fairRaw)
 	lowDisp, lowNum := formatTONDisplay(lowRaw)
@@ -1063,10 +1025,10 @@ func (cg *CardGenerator) drawGoldenSpectrumGauge600(img *image.RGBA, lowRaw, fai
 	}
 	_ = fairDisp
 
-	const barX1 = 68
-	const barX2 = 532
-	const barY1 = 336
-	const barY2 = 344
+	const barX1 = 42
+	const barX2 = 558
+	const barY1 = 288
+	const barY2 = 296
 
 	// Labels above spectrum track
 	lblFace, err := cg.getFace(cg.fontOutfitBold, 9.5)
@@ -1074,28 +1036,27 @@ func (cg *CardGenerator) drawGoldenSpectrumGauge600(img *image.RGBA, lowRaw, fai
 		defer lblFace.Close()
 		leftTxt := "FLOOR  " + lowDisp + " TON"
 		rightTxt := "CEILING  " + highDisp + " TON"
-		midTxt := "FAIR VALUE ZONE"
+		midTxt := "FAIR VALUE"
 
-		cg.drawTextAt(img, lblFace, leftTxt, barX1, 326, color.RGBA{128, 142, 166, 255})
+		cg.drawTextAt(img, lblFace, leftTxt, barX1, 278, color.RGBA{140, 154, 169, 255})
 		rw := font.MeasureString(lblFace, rightTxt).Ceil()
-		cg.drawTextAt(img, lblFace, rightTxt, barX2-rw, 326, color.RGBA{128, 142, 166, 255})
+		cg.drawTextAt(img, lblFace, rightTxt, barX2-rw, 278, color.RGBA{140, 154, 169, 255})
 		mw := font.MeasureString(lblFace, midTxt).Ceil()
-		cg.drawTextAt(img, lblFace, midTxt, 300-mw/2, 326, theme.Accent)
+		cg.drawTextAt(img, lblFace, midTxt, 300-mw/2, 278, color.RGBA{77, 178, 255, 255})
 	}
 
-	// Track background pill
+	// Recessed #1a2026 track capsule
 	drawRoundedPill(img, barX1, barY1, barX2, barY2, 4.0,
-		color.RGBA{20, 27, 42, 255},
-		color.RGBA{38, 50, 74, 255},
+		color.RGBA{26, 32, 38, 255},
+		color.RGBA{46, 59, 72, 255},
 		1.0,
 	)
 
-	// Calculate Golden Ratio normalized position (defaults to 1/φ ≈ 0.618)
-	posRatio := 1.0 / GoldenRatioPhi
+	posRatio := 0.56
 	if highNum > lowNum && fairNum >= lowNum && fairNum <= highNum {
 		posRatio = (fairNum - lowNum) / (highNum - lowNum)
-		if posRatio < 0.25 {
-			posRatio = 0.25
+		if posRatio < 0.22 {
+			posRatio = 0.22
 		} else if posRatio > 0.78 {
 			posRatio = 0.78
 		}
@@ -1103,19 +1064,20 @@ func (cg *CardGenerator) drawGoldenSpectrumGauge600(img *image.RGBA, lowRaw, fai
 
 	markerX := barX1 + int(math.Round(float64(barX2-barX1)*posRatio))
 
-	// Gradient active fill from barX1 to markerX
-	startCol := color.RGBA{0, 136, 204, 255}
+	// Fragment TON Blue fill (#248bda -> #4db2ff)
+	startCol := color.RGBA{36, 139, 218, 255}
+	endCol := color.RGBA{77, 178, 255, 255}
 	for x := barX1 + 1; x <= markerX; x++ {
 		t := clamp01(float64(x-barX1) / math.Max(1.0, float64(markerX-barX1)))
-		c := lerpColor(startCol, theme.Accent, t)
+		c := lerpColor(startCol, endCol, t)
 		for y := barY1 + 1; y < barY2; y++ {
 			img.SetRGBA(x, y, c)
 		}
 	}
 
-	// Glowing Fair Value Marker Node
+	// Crisp Fair Value Marker Node
 	markerCY := float64(barY1+barY2) * 0.5
-	drawSoftGlowDot(img, float64(markerX), markerCY, 7.5, theme.Accent)
+	drawSoftGlowDot(img, float64(markerX), markerCY, 6.5, color.RGBA{36, 139, 218, 255})
 	drawSoftGlowDot(img, float64(markerX), markerCY, 3.5, color.RGBA{255, 255, 255, 255})
 }
 
@@ -1124,29 +1086,92 @@ func (cg *CardGenerator) drawSkullsBottomFooter(img *image.RGBA, expectedTON, ex
 	cg.drawSkullsBottomFooterRich(img, "", expectedTON, "", expectedUSD, 90, resolveTierTheme("EPIC"))
 }
 
-// drawSkullsBottomFooterRich renders the lower Golden-Ratio Valuation Sanctuary (y = 382..552)
-// and the subtle bottom watermark.
+// drawSkullsBottomFooterRich renders the authentic Fragment.com table-style Valuation Panel (y = 318..534)
+// with header strip, TON/USD anchor row, 3-column Floor / Ceiling / Confidence footer, and subtle watermark.
 func (cg *CardGenerator) drawSkullsBottomFooterRich(img *image.RGBA, lowTON, expectedTON, highTON, expectedUSD string, confidence int, theme tierVisualTheme) {
-	_ = lowTON
-	_ = highTON
+	const bx1, by1, bx2, by2 = 38, 318, 562, 534
+	const headerEndY = 356
+	const statsDivY = 456
+	borderCol := color.RGBA{46, 59, 72, 255}
+	panelBg := color.RGBA{36, 46, 56, 255}  // #242e38
+	headerBg := color.RGBA{41, 52, 64, 255} // #293440
+	cellBg := color.RGBA{30, 39, 48, 255}   // #1e2730
 
-	// 1. Glass Valuation Sanctuary Box (x=42..558, y=382..546)
-	cg.drawLuxuryGlassStage(img, 42, 382, 558, 546, 26.0,
-		color.RGBA{11, 15, 25, 238},
-		color.RGBA{34, 46, 70, 245},
-		color.RGBA{0, 152, 234, 255},
-		1.5,
-	)
+	// 1. Draw Table Card Container with top header row & bottom 3-column stat row
+	for y := by1 - 2; y <= by2+2; y++ {
+		fy := float64(y)
+		for x := bx1 - 2; x <= bx2+2; x++ {
+			fx := float64(x)
+			dist := roundedBoxSDF(fx, fy, float64(bx1), float64(by1), float64(bx2), float64(by2), 14.0)
+			if dist > 0.5 {
+				continue
+			}
+			fill := panelBg
+			if y <= headerEndY {
+				fill = headerBg
+			} else if y >= statsDivY {
+				fill = cellBg
+			}
+			// Internal horizontal & vertical table grid dividers
+			if (y == headerEndY || y == statsDivY) && dist < -1.2 {
+				fill = borderCol
+			}
+			if y > statsDivY && (x == 212 || x == 388) && dist < -1.2 {
+				fill = borderCol
+			}
 
-	// 2. Top-Left Label: "ESTIMATED MARKET PRICE"
-	labelFace, err := cg.getFace(cg.fontOutfitBold, 10.5)
-	if err == nil {
-		defer labelFace.Close()
-		cg.drawTextAt(img, labelFace, "ESTIMATED MARKET PRICE", 66, 416, color.RGBA{134, 148, 172, 255})
+			var col color.RGBA
+			var alpha float64
+			if dist >= -1.2 {
+				t := clamp01((dist + 1.2) / 1.2)
+				col = lerpColor(fill, borderCol, t)
+				alpha = clamp01(0.5 - dist)
+			} else {
+				col = fill
+				alpha = 1.0
+			}
+			blendPixel(img, x, y, col, alpha)
+		}
 	}
 
-	// 3. Format TON & USD amounts cleanly (ensure USD is never missing)
+	// 2. Table Header Row: "ESTIMATED MARKET VALUE" + Emerald [ ● VERIFIED ] Pill
+	labelFace, err := cg.getFace(cg.fontOutfitBold, 10.0)
+	if err == nil {
+		defer labelFace.Close()
+		cg.drawTextAt(img, labelFace, "ESTIMATED MARKET VALUE", bx1+18, by1+23, color.RGBA{140, 154, 169, 255})
+	}
+
+	verFace, err := cg.getFace(cg.fontOutfitBold, 9.5)
+	if err == nil {
+		defer verFace.Close()
+		verLabel := "VERIFIED"
+		vw := font.MeasureString(verFace, verLabel).Ceil()
+		vPillW := vw + 32
+		vPillX2 := bx2 - 14
+		vPillX1 := vPillX2 - vPillW
+		vPillY1 := by1 + 8
+		vPillY2 := by1 + 30
+
+		drawRoundedPill(img, vPillX1, vPillY1, vPillX2, vPillY2, 7.0,
+			color.RGBA{24, 52, 42, 255},
+			color.RGBA{44, 118, 82, 255},
+			1.0,
+		)
+		drawSoftGlowDot(img, float64(vPillX1+13), float64(vPillY1+vPillY2)*0.5, 3.0, color.RGBA{90, 236, 140, 255})
+		cg.drawTextAt(img, verFace, verLabel, vPillX1+22, vPillY1+15, color.RGBA{90, 236, 140, 255})
+	}
+
+	// 3. Format TON, Floor, Ceiling & USD amounts cleanly
 	tonDisplay, tonNumeric := formatTONDisplay(expectedTON)
+	lowDisp, lowNum := formatTONDisplay(lowTON)
+	highDisp, highNum := formatTONDisplay(highTON)
+	if lowNum <= 0 && tonNumeric > 0 {
+		lowDisp, _ = formatTONDisplay(fmt.Sprintf("%.1f", tonNumeric*0.78))
+	}
+	if highNum <= 0 && tonNumeric > 0 {
+		highDisp, _ = formatTONDisplay(fmt.Sprintf("%.1f", tonNumeric*1.28))
+	}
+
 	usdClean := formatUSDTAmount(expectedUSD)
 	if usdClean == "" {
 		fallbackUSD := math.Round(tonNumeric * 3.48)
@@ -1160,15 +1185,43 @@ func (cg *CardGenerator) drawSkullsBottomFooterRich(img *image.RGBA, lowTON, exp
 		}
 	}
 
-	// 4. Upgraded 3D Blue TON Circle Jewel at Bottom-Left (cx=88, cy=476, r=23)
-	cg.drawTONBadge(img, 88, 476, 23)
+	// 4. Flat Crisp Fragment TON Diamond Emblem (cx=78, cy=406, r=21)
+	cg.drawTONBadge(img, 78, 406, 21)
 
-	// 5. Giant White TON Number + Blue "TON" unit
-	tonFontSize := 44.0
+	// 5. Right-side USD value + Live Spot Sub-label
+	subLblFace, sErr := cg.getFace(cg.fontOutfitBold, 9.0)
+	if sErr == nil {
+		defer subLblFace.Close()
+		uLbl := "USD EQUIVALENT"
+		uw := font.MeasureString(subLblFace, uLbl).Ceil()
+		cg.drawTextAt(img, subLblFace, uLbl, bx2-18-uw, 386, color.RGBA{140, 154, 169, 255})
+	}
+
+	usdStartX := bx2 - 18
+	usdFace, err := cg.getFace(cg.fontOutfitBlack, 22.0)
+	if err == nil {
+		defer usdFace.Close()
+		approxStr := "~ "
+		dollarValStr := "$" + usdClean
+		approxW := font.MeasureString(usdFace, approxStr).Ceil()
+		dollarW := font.MeasureString(usdFace, dollarValStr).Ceil()
+		totalW := approxW + dollarW
+		usdStartX = bx2 - 18 - totalW
+		cg.drawTextAt(img, usdFace, approxStr, usdStartX, 417, color.RGBA{140, 154, 169, 255})
+		cg.drawTextAt(img, usdFace, dollarValStr, usdStartX+approxW, 417, color.RGBA{241, 245, 249, 255})
+	}
+	if sErr == nil {
+		spotTxt := "LIVE TON MAINNET"
+		sw := font.MeasureString(subLblFace, spotTxt).Ceil()
+		cg.drawTextAt(img, subLblFace, spotTxt, bx2-18-sw, 437, color.RGBA{77, 178, 255, 255})
+	}
+
+	// 6. Giant Crisp White TON Amount + #4db2ff "TON" unit
+	tonFontSize := 40.0
 	if len(tonDisplay) > 9 {
-		tonFontSize = 31.0
+		tonFontSize = 27.0
 	} else if len(tonDisplay) > 7 {
-		tonFontSize = 36.0
+		tonFontSize = 33.0
 	}
 
 	tonFont := cg.fontOutfitBlack
@@ -1178,111 +1231,82 @@ func (cg *CardGenerator) drawSkullsBottomFooterRich(img *image.RGBA, lowTON, exp
 	tonFace, err := cg.getFace(tonFont, tonFontSize)
 	if err == nil {
 		defer tonFace.Close()
-		tonX := 124
-		tonY := 492
-		tonW := font.MeasureString(tonFace, tonDisplay).Ceil()
-		cg.drawTextAt(img, tonFace, tonDisplay, tonX, tonY+4, color.RGBA{0, 0, 0, 180})
-		cg.drawTextAt(img, tonFace, tonDisplay, tonX, tonY, color.RGBA{255, 255, 255, 255})
+		maxTonW := usdStartX - 112 - 64
+		if maxTonW < 120 {
+			maxTonW = 120
+		}
+		for font.MeasureString(tonFace, tonDisplay).Ceil() > maxTonW && tonFontSize > 22.0 {
+			tonFontSize -= 2.0
+			tonFace.Close()
+			tonFace, err = cg.getFace(tonFont, tonFontSize)
+			if err != nil {
+				break
+			}
+		}
+		if err == nil {
+			tonX := 112
+			tonY := 421
+			tonW := font.MeasureString(tonFace, tonDisplay).Ceil()
+			cg.drawTextAt(img, tonFace, tonDisplay, tonX, tonY, color.RGBA{255, 255, 255, 255})
 
-		unitFace, uErr := cg.getFace(cg.fontOutfitBold, 18.0)
-		if uErr == nil {
-			defer unitFace.Close()
-			unitX := tonX + tonW + 10
-			unitY := 482
-			cg.drawTextAt(img, unitFace, "TON", unitX, unitY, color.RGBA{38, 172, 255, 255})
+			unitFace, uErr := cg.getFace(cg.fontOutfitBold, 16.0)
+			if uErr == nil {
+				defer unitFace.Close()
+				cg.drawTextAt(img, unitFace, "TON", tonX+tonW+8, 414, color.RGBA{77, 178, 255, 255})
+			}
 		}
 	}
 
-	// Subtle confidence bar below TON price (x=124..285, y=512..518)
+	// 7. 3-Column Fragment Footer Stat Cells (y=456..534)
 	if confidence <= 0 {
 		confidence = 90
 	}
 	if confidence > 100 {
 		confidence = 100
 	}
-	confFace, cErr := cg.getFace(cg.fontOutfitBold, 9.5)
-	if cErr == nil {
-		defer confFace.Close()
-		confTxt := fmt.Sprintf("AI CONFIDENCE %d%%", confidence)
-		cg.drawTextAt(img, confFace, confTxt, 124, 522, color.RGBA{128, 142, 166, 255})
 
-		// 6 mini LED segments next to confidence label
-		segStartX := 232
+	cellValFace, cvErr := cg.getFace(cg.fontOutfitBlack, 15.0)
+	if sErr == nil && cvErr == nil {
+		defer cellValFace.Close()
+		// Col 1: Liquidity Floor (x=38..212)
+		cg.drawTextAt(img, subLblFace, "LIQUIDITY FLOOR", bx1+18, statsDivY+26, color.RGBA{140, 154, 169, 255})
+		cg.drawTextAt(img, cellValFace, lowDisp+" TON", bx1+18, statsDivY+54, color.RGBA{241, 245, 249, 255})
+
+		// Col 2: Ceiling Target (x=212..388)
+		cg.drawTextAt(img, subLblFace, "CEILING TARGET", 212+18, statsDivY+26, color.RGBA{140, 154, 169, 255})
+		cg.drawTextAt(img, cellValFace, highDisp+" TON", 212+18, statsDivY+54, color.RGBA{77, 178, 255, 255})
+
+		// Col 3: Confidence (x=388..562)
+		cg.drawTextAt(img, subLblFace, "AVM CONFIDENCE", 388+18, statsDivY+26, color.RGBA{140, 154, 169, 255})
+		confStr := fmt.Sprintf("%d%%", confidence)
+		cg.drawTextAt(img, cellValFace, confStr, 388+18, statsDivY+54, color.RGBA{90, 236, 140, 255})
+
+		// Crisp 6-segment emerald confidence bar
+		segStartX := 388 + 72
 		for s := 0; s < 6; s++ {
 			sx1 := segStartX + s*11
 			sx2 := sx1 + 8
 			active := (s+1)*16 <= confidence
-			segCol := color.RGBA{30, 40, 60, 255}
+			segCol := color.RGBA{41, 52, 64, 255}
 			if active {
-				segCol = theme.Accent
+				segCol = color.RGBA{90, 236, 140, 255}
 			}
-			drawRoundedPill(img, sx1, 513, sx2, 521, 2.5, segCol, segCol, 0)
+			drawRoundedPill(img, sx1, statsDivY+43, sx2, statsDivY+53, 2.5, segCol, segCol, 0)
 		}
 	}
 
-	// 6. Top-Right of Valuation Box: Green [ ● VERIFIED ] Pill (right-aligned to x=534, y=398..430)
-	verFace, err := cg.getFace(cg.fontOutfitBold, 10.5)
-	if err == nil {
-		defer verFace.Close()
-		verLabel := "VERIFIED"
-		vw := font.MeasureString(verFace, verLabel).Ceil()
-		vPillW := vw + 44
-		vPillX2 := 534
-		vPillX1 := vPillX2 - vPillW
-		vPillY1 := 400
-		vPillY2 := 432
-
-		drawRoundedPill(img, vPillX1, vPillY1, vPillX2, vPillY2, 16.0,
-			color.RGBA{10, 40, 30, 255},
-			color.RGBA{24, 104, 72, 255},
-			1.5,
-		)
-
-		dotCX := float64(vPillX1 + 19)
-		dotCY := float64(vPillY1+vPillY2) / 2.0
-		drawSoftGlowDot(img, dotCX, dotCY, 4.5, color.RGBA{34, 211, 154, 255})
-
-		cg.drawTextAt(img, verFace, verLabel, vPillX1+31, vPillY1+21, color.RGBA{46, 224, 160, 255})
-	}
-
-	// 7. Bottom-Right: "USD EQUIVALENT" + "~ $7,500" (right-aligned to x=534)
-	subLblFace, sErr := cg.getFace(cg.fontOutfitBold, 9.5)
-	if sErr == nil {
-		defer subLblFace.Close()
-		uLbl := "USD EQUIVALENT"
-		uw := font.MeasureString(subLblFace, uLbl).Ceil()
-		cg.drawTextAt(img, subLblFace, uLbl, 534-uw, 456, color.RGBA{128, 142, 166, 255})
-	}
-
-	usdFace, err := cg.getFace(cg.fontOutfitBlack, 24.0)
-	if err == nil {
-		defer usdFace.Close()
-		approxStr := "~ "
-		dollarValStr := "$" + usdClean
-		approxW := font.MeasureString(usdFace, approxStr).Ceil()
-		dollarW := font.MeasureString(usdFace, dollarValStr).Ceil()
-		totalW := approxW + dollarW
-		startX := 534 - totalW
-		cg.drawTextAt(img, usdFace, approxStr, startX, 490, color.RGBA{142, 156, 178, 255})
-		cg.drawTextAt(img, usdFace, dollarValStr, startX+approxW, 490, color.RGBA{240, 246, 255, 255})
-	}
-
-	if sErr == nil {
-		spotTxt := "LIVE TON MAINNET"
-		sw := font.MeasureString(subLblFace, spotTxt).Ceil()
-		cg.drawTextAt(img, subLblFace, spotTxt, 534-sw, 522, theme.Accent)
-	}
-
-	// 8. Bottom Bezel Micro-Watermark (y = 568)
-	wmFace, wErr := cg.getFace(cg.fontOutfitBold, 9.5)
+	// 8. Clean Fragment Bottom Attribution Row (y = 562)
+	wmFace, wErr := cg.getFace(cg.fontOutfitBold, 10.0)
 	if wErr == nil {
 		defer wmFace.Close()
-		wmText := "@iFragmentBot   ·   ON-CHAIN AI VALUATION"
-		ww := font.MeasureString(wmFace, wmText).Ceil()
-		wx := (600 - ww) / 2
-		cg.drawTextAt(img, wmFace, wmText, wx, 568, color.RGBA{112, 126, 148, 255})
-		drawFourPointStar(img, float64(wx)-14.0, 564.0, 4.5, theme.Accent)
-		drawFourPointStar(img, float64(wx+ww)+14.0, 564.0, 4.5, theme.Accent)
+		leftHandle := "@iFragmentBot"
+		cg.drawTextAt(img, wmFace, leftHandle, 40, 562, color.RGBA{212, 223, 233, 255})
+		hw := font.MeasureString(wmFace, leftHandle).Ceil()
+		cg.drawTextAt(img, wmFace, "  ·  On-Chain AVM Valuation", 40+hw, 562, color.RGBA{140, 154, 169, 255})
+
+		rightTxt := "FRAGMENT.COM"
+		rw := font.MeasureString(wmFace, rightTxt).Ceil()
+		cg.drawTextAt(img, wmFace, rightTxt, 560-rw, 562, color.RGBA{77, 178, 255, 255})
 	}
 }
 
@@ -1414,54 +1438,32 @@ func (cg *CardGenerator) GetPublicCardURL(fileID string, r *http.Request) string
 	return fmt.Sprintf("%s/static/shares/%s.png", baseURL, fileID)
 }
 
-// drawTONBadge renders a 3D jewel-shaded TON circle emblem with radial gradient, top specular lens sheen, and crisp vector diamond.
+// drawTONBadge renders an authentic crisp Fragment.com flat TON circle emblem (#248bda) with clean vector diamond.
 func (cg *CardGenerator) drawTONBadge(img *image.RGBA, cx, cy, r int) {
-	topCyan := color.RGBA{56, 198, 255, 255}
-	midBlue := color.RGBA{0, 152, 234, 255}
-	deepBlue := color.RGBA{2, 88, 168, 255}
-	glowRadius := float64(r) + 12.0
+	topBlue := color.RGBA{46, 156, 232, 255}
+	botBlue := color.RGBA{30, 126, 204, 255}
 	fr := float64(r)
 
-	for dy := -int(glowRadius) - 2; dy <= int(glowRadius)+2; dy++ {
-		for dx := -int(glowRadius) - 2; dx <= int(glowRadius)+2; dx++ {
+	for dy := -r - 2; dy <= r+2; dy++ {
+		for dx := -r - 2; dx <= r+2; dx++ {
 			dist := math.Sqrt(float64(dx*dx + dy*dy))
 			if dist <= fr+0.6 {
-				// 3D spherical shading inside circle
 				vT := clamp01((float64(dy) + fr) / (2.0 * fr))
-				fill := lerpColor(topCyan, deepBlue, vT)
-
-				// Top-left lens highlight
-				ldx := float64(dx) + fr*0.28
-				ldy := float64(dy) + fr*0.32
-				lDist := math.Sqrt(ldx*ldx+ldy*ldy) / (fr * 0.85)
-				if lDist < 1.0 {
-					fill = lerpColor(fill, color.RGBA{255, 255, 255, 255}, (1.0-lDist)*0.28)
-				}
-
-				// Subtle bright outer rim
-				if dist >= fr-1.5 {
-					rimT := clamp01((dist - (fr - 1.5)) / 1.5)
-					fill = lerpColor(fill, color.RGBA{165, 232, 255, 255}, rimT*0.45)
-				}
-
+				fill := lerpColor(topBlue, botBlue, vT)
 				alpha := clamp01(fr + 0.6 - dist)
 				blendPixel(img, cx+dx, cy+dy, fill, alpha)
-			} else if dist <= glowRadius {
-				glowT := 1.0 - (dist-fr)/(glowRadius-fr)
-				glowAlpha := math.Pow(glowT, 2.2) * 0.34
-				blendPixel(img, cx+dx, cy+dy, midBlue, glowAlpha)
 			}
 		}
 	}
 
 	white := color.RGBA{255, 255, 255, 255}
-	topY := float64(cy) - fr*0.38
+	topY := float64(cy) - fr*0.36
 	botY := float64(cy) + fr*0.48
-	leftX := float64(cx) - fr*0.45
-	rightX := float64(cx) + fr*0.45
+	leftX := float64(cx) - fr*0.44
+	rightX := float64(cx) + fr*0.44
 	midX := float64(cx)
 
-	strokeW := math.Max(2.3, fr*0.105)
+	strokeW := math.Max(2.2, fr*0.105)
 	drawThickLine(img, leftX, topY, rightX, topY, strokeW, white)
 	drawThickLine(img, leftX, topY, midX, botY, strokeW, white)
 	drawThickLine(img, rightX, topY, midX, botY, strokeW, white)
