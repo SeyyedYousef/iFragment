@@ -45,6 +45,9 @@ describe('HeroTabs (Universal Smart Search & 4-Language Support)', () => {
 	beforeEach(() => {
 		mockNavigate.mockReset();
 		setTestLocale('fa');
+		try {
+			window.localStorage.removeItem('ifragment_recent_searches_v1');
+		} catch {}
 	});
 
 	afterEach(() => {
@@ -116,5 +119,38 @@ describe('HeroTabs (Universal Smart Search & 4-Language Support)', () => {
 		expect(screen.getByText('GIFT')).toBeInTheDocument();
 		fireEvent.submit(form);
 		expect(mockNavigate).toHaveBeenCalledWith('/gifts/report?g=PlushPepe-1');
+	});
+
+	it('renders Live Market Ticker, Ending Soon, 3-in-1 Portfolio Scanner, removes redundant middle cards, and supports Recent Searches & 122-collection Autocomplete', () => {
+		setTestLocale('en');
+		const onTabChange = vi.fn();
+		const { container } = render(() => <HeroTabs activeTab={null} onTabChange={onTabChange} />);
+
+		// Redundant 3 middle category cards removed (Usernames/Numbers/Gifts appear only in top tab + bottom directory = 2x, not 3x)
+		expect(container.textContent).not.toContain('@handle.t.me');
+		expect(container.textContent).not.toContain('t.me/nft');
+		expect(screen.getAllByText('Usernames')).toHaveLength(2);
+		expect(screen.getAllByText('Collectible Numbers')).toHaveLength(2);
+		expect(screen.getAllByText('Gifts')).toHaveLength(2);
+
+		// Live Market Ticker + Ending Soon + 3-in-1 Wallet Scanner present
+		expect(screen.getByLabelText('Live Market Ticker')).toBeInTheDocument();
+		expect(screen.getByText('Ending Soon Auctions')).toBeInTheDocument();
+		expect(screen.getByText('3-in-1 Portfolio Scanner')).toBeInTheDocument();
+
+		// Autocomplete over official Gift collections
+		const input = screen.getByPlaceholderText('Smart Search') as HTMLInputElement;
+		fireEvent.focus(input);
+		fireEvent.input(input, { target: { value: 'pepe' } });
+		const pepeOption = screen.getByText('Plush Pepe');
+		expect(pepeOption).toBeInTheDocument();
+		fireEvent.click(pepeOption);
+		expect(mockNavigate).toHaveBeenCalledWith('/gifts/collection?c=plush-pepe');
+
+		// Recent Searches saved & rendered
+		expect(screen.getByText('Recent:')).toBeInTheDocument();
+		expect(screen.getByText('Plush Pepe')).toBeInTheDocument();
+		fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+		expect(screen.queryByText('Recent:')).not.toBeInTheDocument();
 	});
 });

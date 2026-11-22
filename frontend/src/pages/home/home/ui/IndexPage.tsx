@@ -5,6 +5,7 @@ import { isRtl, t } from '@/shared/i18n/index.js';
 import { PullToRefresh } from '@/shared/ui/PullToRefresh.js';
 import { ActionArea } from '@/widgets/action-area/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
+import { invalidateHomeMarketCache } from '@/widgets/hero-tabs/homeMarketData.js';
 import { HeroTabs } from '@/widgets/hero-tabs/index.js';
 import { CreditStoreSheet } from '@/widgets/paywall/CreditStoreSheet.js';
 
@@ -30,6 +31,7 @@ export const IndexPage: Component = () => {
 		getInitialTab(),
 	);
 	const [storeOpen, setStoreOpen] = createSignal(false);
+	const [refreshTick, setRefreshTick] = createSignal(0);
 
 	createEffect(() => {
 		if (activeTab() !== null) {
@@ -56,6 +58,8 @@ export const IndexPage: Component = () => {
 
 	const queryClient = useQueryClient();
 	const handleRefresh = async () => {
+		invalidateHomeMarketCache();
+		setRefreshTick((n) => n + 1);
 		await queryClient.invalidateQueries();
 	};
 
@@ -75,6 +79,7 @@ export const IndexPage: Component = () => {
 							onTabChange={handleTabChange}
 							onResetTab={() => setActiveTab(null)}
 							onOpenCreditStore={() => setStoreOpen(true)}
+							refreshTick={refreshTick()}
 						/>
 
 						<Show when={activeTab()} keyed>
