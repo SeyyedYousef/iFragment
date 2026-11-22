@@ -1,20 +1,8 @@
 import { giftsApi } from '@/entities/gifts/api/giftsApi.js';
 import { OFFICIAL_GIFTS_120 } from '@/entities/gifts/model/catalog120.js';
-import type { CollectionSummaryItem, GiftAuctionItem } from '@/entities/gifts/model/types.js';
+import type { CollectionSummaryItem } from '@/entities/gifts/model/types.js';
 import { numbersApi } from '@/entities/numbers/api/numbersApi.js';
 import { apiClient } from '@/shared/api/axios.js';
-
-export interface EndingSoonAuctionItem {
-	id: string;
-	kind: 'username' | 'gift';
-	title: string;
-	subtitle?: string;
-	priceTon: number;
-	timeLeft: string;
-	imageUrl?: string;
-	route: string;
-	endsAtMs?: number;
-}
 
 export interface HomeMarketPulse {
 	tonUsdRate: number | null;
@@ -22,7 +10,6 @@ export interface HomeMarketPulse {
 	usernamesFloorTon: number | null;
 	giftsFngIndex: number | null;
 	giftsFngLabel: string | null;
-	endingSoon: EndingSoonAuctionItem[];
 	updatedAt: number;
 }
 
@@ -52,22 +39,6 @@ interface UsernameCollectionStatsResponse {
 	} | null;
 	fx?: { ton_usd?: number };
 	ton_usd_rate?: number;
-	ending_soon_auctions?: Array<{
-		item_name?: string;
-		price?: string;
-		price_ton?: number;
-		status?: string;
-		ends_at?: string;
-		time_left?: string;
-	}>;
-	auctions?: Array<{
-		item_name?: string;
-		price?: string;
-		price_ton?: number;
-		status?: string;
-		ends_at?: string;
-		time_left?: string;
-	}>;
 }
 
 const CACHE_TTL_MS = 60_000;
@@ -107,38 +78,6 @@ const parseTonString = (raw?: string | number | null): number => {
 	return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const computeShortTimeLeft = (
-	endsAt?: string,
-	fallbackLabel?: string,
-): {
-	label: string;
-	endsAtMs?: number;
-} => {
-	if (endsAt) {
-		const ms = Date.parse(endsAt);
-		if (Number.isFinite(ms)) {
-			const diffSec = Math.max(0, Math.floor((ms - Date.now()) / 1000));
-			if (diffSec === 0) return { label: fallbackLabel || 'Closing', endsAtMs: ms };
-			const days = Math.floor(diffSec / 86400);
-			const hours = Math.floor((diffSec % 86400) / 3600);
-			const mins = Math.floor((diffSec % 3600) / 60);
-			if (days > 0) return { label: `${days}d ${hours}h`, endsAtMs: ms };
-			if (hours > 0) return { label: `${hours}h ${mins}m`, endsAtMs: ms };
-			return { label: `${Math.max(1, mins)}m`, endsAtMs: ms };
-		}
-	}
-	if (fallbackLabel?.trim()) {
-		const compact = fallbackLabel
-			.replace(/\s*days?/gi, 'd')
-			.replace(/\s*hours?/gi, 'h')
-			.replace(/\s*minutes?/gi, 'm')
-			.replace(/\s*seconds?/gi, 's')
-			.trim();
-		return { label: compact };
-	}
-	return { label: 'Live' };
-};
-
 const buildFallbackCatalog = (): GiftAutocompleteCollection[] =>
 	OFFICIAL_GIFTS_120.map((item) => ({
 		slug: item.slug,
@@ -165,7 +104,6 @@ export const fetchHomeMarketPulse = async (force = false): Promise<HomeMarketPul
 			usernamesFloorTon: null,
 			giftsFngIndex: null,
 			giftsFngLabel: null,
-			endingSoon: [],
 			updatedAt: Date.now(),
 		};
 	}
@@ -217,86 +155,12 @@ export const fetchHomeMarketPulse = async (force = false): Promise<HomeMarketPul
 				: null;
 		const giftsFngLabel = giftData?.fng_label || null;
 
-		// Build top 3 Ending Soon Auctions (combining Usernames + Gifts)
-		const usernameSource =
-			userData?.ending_soon_auctions && userData.ending_soon_auctions.length > 0
-				? userData.ending_soon_auctions
-				: (userData?.auctions ?? []).filter((a) =>
-						(a.status || '').toLowerCase().includes('auction'),
-					);
-
-		const usernameAuctions: EndingSoonAuctionItem[] = [];
-		const seenIds = new Set<string>();
-		for (const item of usernameSource) {
-			const cleanHandle = (item.item_name || '').replace(/^@/, '').trim();
-			if (!cleanHandle) continue;
-			const key = `u:${cleanHandle.toLowerCase()}`;
-			if (seenIds.has(key)) continue;
-			seenIds.add(key);
-			const priceTon =
-				typeof item.price_ton === 'number' && item.price_ton > 0
-					? item.price_ton
-					: parseTonString(item.price);
-			const timing = computeShortTimeLeft(item.ends_at, item.time_left);
-			usernameAuctions.push({
-				id: key,
-				kind: 'username',
-				title: `@${cleanHandle}`,
-				priceTon,
-				timeLeft: timing.label,
-				endsAtMs: timing.endsAtMs,
-				route: `/username/report?u=${encodeURIComponent(cleanHandle.toLowerCase())}`,
-			});
-			if (usernameAuctions.length >= 3) break;
-		}
-
-		const giftAuctions: EndingSoonAuctionItem[] = [];
-		const giftSource: GiftAuctionItem[] = giftData?.ending_soon_auctions ?? [];
-		for (const g of giftSource) {
-			const slugOrId = g.slug || g.gift_id;
-			if (!slugOrId) continue;
-			const key = `g:${slugOrId.toLowerCase()}`;
-			if (seenIds.has(key)) continue;
-			seenIds.add(key);
-			const timing = computeShortTimeLeft(g.ends_at, g.time_remaining_label);
-			const displayName = g.gift_name || g.model_name || slugOrId;
-			const title =
-				g.serial_number > 0 && !displayName.includes('#')
-					? `${displayName} #${g.serial_number}`
-					: displayName;
-			giftAuctions.push({
-				id: key,
-				kind: 'gift',
-				title,
-				subtitle: g.venue || 'Fragment',
-				priceTon: g.current_bid_gram || 0,
-				timeLeft: timing.label,
-				endsAtMs: timing.endsAtMs,
-				imageUrl: g.image_url,
-				route: `/gifts/report?g=${encodeURIComponent(slugOrId)}`,
-			});
-			if (giftAuctions.length >= 3) break;
-		}
-
-		// Pick top 3 balanced ending-soon items (interleave usernames & gifts when both exist)
-		const combined: EndingSoonAuctionItem[] = [];
-		const maxLen = Math.max(usernameAuctions.length, giftAuctions.length);
-		for (let i = 0; i < maxLen && combined.length < 3; i++) {
-			if (i < usernameAuctions.length && combined.length < 3) {
-				combined.push(usernameAuctions[i]);
-			}
-			if (i < giftAuctions.length && combined.length < 3) {
-				combined.push(giftAuctions[i]);
-			}
-		}
-
 		const pulse: HomeMarketPulse = {
 			tonUsdRate,
 			numbersFloorTon,
 			usernamesFloorTon,
 			giftsFngIndex,
 			giftsFngLabel,
-			endingSoon: combined,
 			updatedAt: Date.now(),
 		};
 		cachedPulse = pulse;

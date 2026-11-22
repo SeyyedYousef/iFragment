@@ -41,7 +41,6 @@ interface UnifiedScanResult {
 	giftsCount: number;
 	giftsTon: number;
 	giftsRateLimited: boolean;
-	giftsSkippedNoUser: boolean;
 	addressMissingForOnChain: boolean;
 	topHoldings: UnifiedHoldingItem[];
 }
@@ -60,30 +59,10 @@ const isTonAddressLike = (raw: string): boolean => {
 	);
 };
 
-const getTelegramSessionUsername = (): string => {
-	if (typeof window === 'undefined') return '';
-	try {
-		const tgUser = (
-			window as unknown as {
-				Telegram?: { WebApp?: { initDataUnsafe?: { user?: { username?: string } } } };
-			}
-		)?.Telegram?.WebApp?.initDataUnsafe?.user?.username;
-		if (typeof tgUser === 'string' && tgUser.trim()) {
-			return tgUser.trim().replace(/^@/, '');
-		}
-	} catch {}
-	return '';
-};
-
 export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props) => {
 	const navigate = useNavigate();
-	const defaultTgUser = getTelegramSessionUsername();
 
 	const [primaryInput, setPrimaryInput] = createSignal('');
-	const [giftUsernameInput, setGiftUsernameInput] = createSignal(
-		defaultTgUser ? `@${defaultTgUser}` : '',
-	);
-	const [showGiftField, setShowGiftField] = createSignal(false);
 	const [scanning, setScanning] = createSignal(false);
 	const [errorMsg, setErrorMsg] = createSignal<string | null>(null);
 	const [result, setResult] = createSignal<UnifiedScanResult | null>(null);
@@ -100,8 +79,7 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 	const handleScan = async (e?: Event) => {
 		e?.preventDefault();
 		const primary = primaryInput().trim();
-		const optionalGiftHandle = cleanHandle(giftUsernameInput());
-		if (!primary && !optionalGiftHandle) return;
+		if (!primary) return;
 
 		try {
 			haptic.impact('medium');
@@ -112,9 +90,7 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 
 		const hasTonAddress = isTonAddressLike(primary);
 		const walletAddress = hasTonAddress ? primary : '';
-		const giftHandle = hasTonAddress
-			? optionalGiftHandle
-			: cleanHandle(primary) || optionalGiftHandle;
+		const giftHandle = hasTonAddress ? '' : cleanHandle(primary);
 
 		try {
 			const [userRes, numRes, giftRes] = await Promise.allSettled([
@@ -140,7 +116,6 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 				giftRes.status === 'rejected' &&
 				Number((giftRes.reason as { response?: { status?: number } })?.response?.status) === 429;
 
-			// If every attempted call rejected (not just 429 on gifts), show friendly error
 			const allFailed =
 				(!walletAddress || (userRes.status === 'rejected' && numRes.status === 'rejected')) &&
 				(!giftHandle || (giftRes.status === 'rejected' && !giftsRateLimited));
@@ -187,7 +162,6 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 				(giftData?.total_portfolio_value_usd || 0) +
 				(effectiveRate > 0 ? usernamesTon * effectiveRate : 0);
 
-			// Build unified top holdings preview (up to 6 items across all 3 verticals)
 			const holdings: UnifiedHoldingItem[] = [];
 
 			if (userData?.items && userData.items.length > 0) {
@@ -258,7 +232,6 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 				giftsCount,
 				giftsTon,
 				giftsRateLimited,
-				giftsSkippedNoUser: hasTonAddress && !giftHandle,
 				addressMissingForOnChain: !hasTonAddress && Boolean(giftHandle),
 				topHoldings: holdings.slice(0, 6),
 			});
@@ -276,7 +249,7 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 	};
 
 	return (
-		<section class="w-full mb-5" aria-label={t('home.walletScannerTitle')}>
+		<section class="w-full mt-5" aria-label={t('home.walletScannerTitle')}>
 			<div class="flex items-center justify-between px-1 mb-2">
 				<div class="flex items-center gap-2 min-w-0">
 					<span class="material-symbols-outlined text-[18px] text-[#4db2ff] shrink-0">
@@ -305,13 +278,7 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 						<input
 							type="text"
 							value={primaryInput()}
-							onInput={(e) => {
-								const val = e.currentTarget.value;
-								setPrimaryInput(val);
-								if (isTonAddressLike(val)) {
-									setShowGiftField(true);
-								}
-							}}
+							onInput={(e) => setPrimaryInput(e.currentTarget.value)}
 							placeholder={t('home.walletInputPlaceholder')}
 							aria-label={t('home.walletInputPlaceholder')}
 							dir={primaryInput() ? 'ltr' : isRtl() ? 'rtl' : 'ltr'}
@@ -322,7 +289,7 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 						/>
 						<button
 							type="submit"
-							disabled={scanning() || (!primaryInput().trim() && !giftUsernameInput().trim())}
+							disabled={scanning() || !primaryInput().trim()}
 							class="frag-btn-primary px-3.5 h-8 rounded-[6px] text-[12.5px] font-semibold shrink-0 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
 						>
 							<Show when={scanning()}>
@@ -331,27 +298,6 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 							<span>{scanning() ? t('home.walletScanning') : t('home.walletScanBtn')}</span>
 						</button>
 					</div>
-
-					{/* Optional @username field when scanning a TON wallet address to also include Gifts */}
-					<Show when={showGiftField() || isTonAddressLike(primaryInput())}>
-						<div class="w-full bg-[#1d252e] rounded-[6px] px-2.5 py-1.5 flex items-center gap-2 border border-white/[0.05]">
-							<span class="material-symbols-outlined text-[15px] text-[#ff9953] shrink-0">
-								featured_seasonal_and_gifts
-							</span>
-							<input
-								type="text"
-								value={giftUsernameInput()}
-								onInput={(e) => setGiftUsernameInput(e.currentTarget.value)}
-								placeholder={t('home.walletGiftUserPlaceholder')}
-								aria-label={t('home.walletGiftUserPlaceholder')}
-								dir={giftUsernameInput() ? 'ltr' : isRtl() ? 'rtl' : 'ltr'}
-								class="flex-1 min-w-0 bg-transparent text-white text-[12px] font-mono placeholder:font-frag-sans placeholder:text-[#8a98a6] focus:outline-none"
-								autocomplete="off"
-								autocapitalize="off"
-								spellcheck={false}
-							/>
-						</div>
-					</Show>
 				</form>
 
 				<Show when={errorMsg()}>
@@ -431,18 +377,13 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 									</div>
 								</div>
 
-								{/* Subtle contextual hints (rate limit or missing secondary identifier) */}
 								<Show when={res().giftsRateLimited}>
 									<p class="text-[11.5px] text-[#ff9953]">{t('home.walletGiftsRateLimited')}</p>
-								</Show>
-								<Show when={res().giftsSkippedNoUser}>
-									<p class="text-[11.5px] text-[#8c9aa9]">{t('home.walletGiftsNeedUser')}</p>
 								</Show>
 								<Show when={res().addressMissingForOnChain}>
 									<p class="text-[11.5px] text-[#8c9aa9]">{t('home.walletAddAddressHint')}</p>
 								</Show>
 
-								{/* Empty state vs Top Holdings */}
 								<Show
 									when={res().topHoldings.length > 0}
 									fallback={

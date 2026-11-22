@@ -121,7 +121,7 @@ describe('HeroTabs (Universal Smart Search & 4-Language Support)', () => {
 		expect(mockNavigate).toHaveBeenCalledWith('/gifts/report?g=PlushPepe-1');
 	});
 
-	it('renders Live Market Ticker, Ending Soon, 3-in-1 Portfolio Scanner, removes redundant middle cards, and supports Recent Searches & 122-collection Autocomplete', () => {
+	it('renders Live Market Ticker, places 3-in-1 Portfolio Scanner at bottom after Collection Overview without Ending Soon or optional gift field, removes redundant middle cards, and supports Recent Searches & 122-collection Autocomplete', () => {
 		setTestLocale('en');
 		const onTabChange = vi.fn();
 		const { container } = render(() => <HeroTabs activeTab={null} onTabChange={onTabChange} />);
@@ -133,10 +133,23 @@ describe('HeroTabs (Universal Smart Search & 4-Language Support)', () => {
 		expect(screen.getAllByText('Collectible Numbers')).toHaveLength(2);
 		expect(screen.getAllByText('Gifts')).toHaveLength(2);
 
-		// Live Market Ticker + Ending Soon + 3-in-1 Wallet Scanner present
-		expect(screen.getByLabelText('Live Market Ticker')).toBeInTheDocument();
-		expect(screen.getByText('Ending Soon Auctions')).toBeInTheDocument();
-		expect(screen.getByText('3-in-1 Portfolio Scanner')).toBeInTheDocument();
+		// Ending Soon and optional @username gift input completely removed
+		expect(screen.queryByText('Ending Soon Auctions')).not.toBeInTheDocument();
+		expect(screen.queryByPlaceholderText('Optional @username for Gifts')).not.toBeInTheDocument();
+
+		// Live Market Ticker + Collection Overview + 3-in-1 Wallet Scanner present in exact order
+		const ticker = screen.getByLabelText('Live Market Ticker');
+		const overview = screen.getByRole('heading', { name: 'Collection Overview' });
+		const scanner = screen.getByLabelText('3-in-1 Portfolio Scanner');
+		expect(ticker).toBeInTheDocument();
+		expect(overview).toBeInTheDocument();
+		expect(scanner).toBeInTheDocument();
+		expect(
+			Boolean(ticker.compareDocumentPosition(overview) & Node.DOCUMENT_POSITION_FOLLOWING),
+		).toBe(true);
+		expect(
+			Boolean(overview.compareDocumentPosition(scanner) & Node.DOCUMENT_POSITION_FOLLOWING),
+		).toBe(true);
 
 		// Autocomplete over official Gift collections
 		const input = screen.getByPlaceholderText('Smart Search') as HTMLInputElement;

@@ -12,7 +12,6 @@ import {
 import { type DictPaths, locale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { TonIcon } from '@/shared/ui/fragment/FragmentPrimitives.js';
-import { EndingSoonWidget } from './EndingSoonWidget.js';
 import {
 	clearRecentSearches,
 	fetchGiftCollectionsCatalog,
@@ -331,10 +330,7 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 
 			{/* Landing Overview (when no sub-tab is locked open) */}
 			<Show when={!props.activeTab}>
-				{/* Live Market Ticker directly under header */}
-				<LiveMarketTicker pulse={marketPulse()} loading={pulseLoading()} />
-
-				<div class="w-full max-w-[480px] mx-auto px-4 pt-6 pb-10 flex flex-col items-center">
+				<div class="w-full max-w-[480px] mx-auto px-4 pt-7 pb-10 flex flex-col items-center">
 					{/* Centered Fragment Intro (.tm-main-intro) */}
 					<div class="w-full text-center mb-5 flex flex-col items-center">
 						<h1 class="text-[22px] sm:text-[24px] font-semibold tracking-[-0.015em] leading-[1.25] text-white mb-2">
@@ -533,11 +529,8 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 						<div class="mb-2" />
 					</Show>
 
-					{/* Ending Soon Auctions Widget (replaces redundant 3 middle category cards) */}
-					<EndingSoonWidget items={marketPulse()?.endingSoon ?? []} loading={pulseLoading()} />
-
-					{/* Unified 3-in-1 Wallet Portfolio Scanner */}
-					<UnifiedWalletScanner tonUsdRate={marketPulse()?.tonUsdRate ?? null} />
+					{/* Live Market Pulse Grid (placed cleanly below Smart Search) */}
+					<LiveMarketTicker pulse={marketPulse()} loading={pulseLoading()} />
 
 					{/* Fragment Market Directory Table (.tm-table-wrap) */}
 					<div class="w-full">
@@ -630,6 +623,9 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 							</button>
 						</div>
 					</div>
+
+					{/* Unified 3-in-1 Wallet Portfolio Scanner (bottom of Home, after Collection Overview) */}
+					<UnifiedWalletScanner tonUsdRate={marketPulse()?.tonUsdRate ?? null} />
 				</div>
 			</Show>
 		</div>
