@@ -182,7 +182,20 @@ func (c *BotAPIClient) maskTokenInError(err error) error {
 
 func (c *BotAPIClient) Request(ctx context.Context, method string, payload interface{}) (json.RawMessage, error) {
 	result, err := c.cb.Execute(func() (interface{}, error) {
-		return c.doRequestWithRetry(ctx, method, payload)
+		return c.doRequestWithRetry(ctx, method, payload, 3)
+	})
+	if err != nil {
+		return nil, c.maskTokenInError(err)
+	}
+	return result.(json.RawMessage), nil
+}
+
+// RequestNoRetry executes a single Telegram Bot API call without automatic retries.
+// Use for non-idempotent channel broadcasts (e.g. sendMessage) where retrying after a
+// read timeout or dropped response would post duplicate messages.
+func (c *BotAPIClient) RequestNoRetry(ctx context.Context, method string, payload interface{}) (json.RawMessage, error) {
+	result, err := c.cb.Execute(func() (interface{}, error) {
+		return c.doRequestWithRetry(ctx, method, payload, 1)
 	})
 	if err != nil {
 		return nil, c.maskTokenInError(err)
@@ -192,7 +205,7 @@ func (c *BotAPIClient) Request(ctx context.Context, method string, payload inter
 
 func (c *BotAPIClient) RequestMultipart(ctx context.Context, method string, fields map[string]string, files map[string][]byte) (json.RawMessage, error) {
 	result, err := c.cb.Execute(func() (interface{}, error) {
-		return c.doMultipartRequestWithRetry(ctx, method, fields, files)
+		return c.doMultipartRequestWithRetry(ctx, method, fields, files, 3)
 	})
 	if err != nil {
 		return nil, c.maskTokenInError(err)
@@ -200,10 +213,23 @@ func (c *BotAPIClient) RequestMultipart(ctx context.Context, method string, fiel
 	return result.(json.RawMessage), nil
 }
 
-func (c *BotAPIClient) doMultipartRequestWithRetry(ctx context.Context, method string, fields map[string]string, files map[string][]byte) (json.RawMessage, error) {
+// RequestMultipartNoRetry executes a single multipart Telegram Bot API call without automatic retries.
+func (c *BotAPIClient) RequestMultipartNoRetry(ctx context.Context, method string, fields map[string]string, files map[string][]byte) (json.RawMessage, error) {
+	result, err := c.cb.Execute(func() (interface{}, error) {
+		return c.doMultipartRequestWithRetry(ctx, method, fields, files, 1)
+	})
+	if err != nil {
+		return nil, c.maskTokenInError(err)
+	}
+	return result.(json.RawMessage), nil
+}
+
+func (c *BotAPIClient) doMultipartRequestWithRetry(ctx context.Context, method string, fields map[string]string, files map[string][]byte, maxRetries int) (json.RawMessage, error) {
+	if maxRetries < 1 {
+		maxRetries = 1
+	}
 	apiURL := fmt.Sprintf("%s/bot%s/%s", c.baseURL, c.token, method)
 
-	const maxRetries = 3
 	skipNextBackoff := false
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -318,7 +344,10 @@ func (c *BotAPIClient) doMultipartRequestWithRetry(ctx context.Context, method s
 }
 
 
-func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, payload interface{}) (json.RawMessage, error) {
+func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, payload interface{}, maxRetries int) (json.RawMessage, error) {
+	if maxRetries < 1 {
+		maxRetries = 1
+	}
 	url := fmt.Sprintf("%s/bot%s/%s", c.baseURL, c.token, method)
 
 	var body []byte
@@ -330,7 +359,6 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 		}
 	}
 
-	const maxRetries = 3
 	skipNextBackoff := false
 
 	for attempt := 0; attempt < maxRetries; attempt++ {

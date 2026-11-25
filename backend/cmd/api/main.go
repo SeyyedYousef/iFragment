@@ -177,15 +177,24 @@ func main() {
 	cryptoPriceService := cryptoprice.NewCryptoPriceService(cache)
 	go cryptoPriceService.Start(ctx)
 
-	// Initialize Gram Broadcaster
+	// Initialize Gram Broadcaster (strictly opt-in production singleton to prevent duplicate channel posts
+	// from local dev machines, staging environments, or legacy cloud containers)
 	botToken := os.Getenv("BOT_TOKEN")
 	if botToken == "" {
 		botToken = os.Getenv("TELEGRAM_BOT_TOKEN")
 	}
-	if botToken != "" {
+	gramBroadcasterEnabled := isProd && strings.EqualFold(strings.TrimSpace(os.Getenv("ENABLE_GRAM_BROADCASTER")), "true")
+	if botToken != "" && gramBroadcasterEnabled {
 		gramBroadcaster := broadcaster.NewGramBroadcaster(botToken, cryptoPriceService)
 		gramBroadcaster.SetCache(cache)
+		gramBroadcaster.SetDB(db)
+		gramBroadcaster.SetCardGenerator(cardgen.GetGenerator())
 		go gramBroadcaster.Start(ctx)
+	} else if botToken != "" {
+		slog.Info("Gram Broadcaster disabled (requires APP_ENV=production and ENABLE_GRAM_BROADCASTER=true)",
+			"is_prod", isProd,
+			"enable_gram_broadcaster", os.Getenv("ENABLE_GRAM_BROADCASTER"),
+		)
 	}
 
 	// Initialize Server with middleware stack
