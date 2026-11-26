@@ -11,14 +11,19 @@ interface Props {
 
 export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 	const expected = () => props.expectedTon || 0;
-	const rate = () => props.tonUsdRate || 5.5;
+	const rate = () =>
+		props.tonUsdRate && props.tonUsdRate > 0
+			? props.tonUsdRate
+			: props.expectedUsd && expected() > 0
+				? props.expectedUsd / expected()
+				: 0;
 
 	const feeTon = () => Math.max(5, Math.round(expected() * 0.05 * 100) / 100);
 	const netProceedsTon = () => Math.max(0, Math.round((expected() - feeTon()) * 100) / 100);
-	const netProceedsUsd = () => Math.round(netProceedsTon() * rate());
+	const netProceedsUsd = () => (rate() > 0 ? Math.round(netProceedsTon() * rate()) : 0);
 
 	const maxRationalBidTon = () => Math.round(expected() * 0.85 * 100) / 100;
-	const maxRationalBidUsd = () => Math.round(maxRationalBidTon() * rate());
+	const maxRationalBidUsd = () => (rate() > 0 ? Math.round(maxRationalBidTon() * rate()) : 0);
 
 	const recStartBidTon = () => Math.round(expected() * 0.7);
 
@@ -46,7 +51,13 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 						value={fmt(expected())}
 						size="md"
 						unit
-						usd={props.expectedUsd ? fmt(props.expectedUsd) : fmt(expected() * rate())}
+						usd={
+							props.expectedUsd
+								? fmt(props.expectedUsd)
+								: rate() > 0
+									? fmt(expected() * rate())
+									: null
+						}
 					/>
 				</div>
 
@@ -70,7 +81,7 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 							size="lg"
 							unit
 							tone="positive"
-							usd={`${fmt(netProceedsUsd())} USD`}
+							usd={netProceedsUsd() > 0 ? fmt(netProceedsUsd()) : null}
 						/>
 					</div>
 
@@ -84,9 +95,11 @@ export const NumberFinancialEngineeringCard: Component<Props> = (props) => {
 						>
 							{fmt(maxRationalBidTon())} TON
 						</span>
-						<span class="text-[10.5px] font-mono text-[#60707c] tabular-nums" dir="ltr">
-							≈ ${fmt(maxRationalBidUsd())}
-						</span>
+						{maxRationalBidUsd() > 0 ? (
+							<span class="text-[10.5px] font-mono text-[#60707c] tabular-nums" dir="ltr">
+								≈ ${fmt(maxRationalBidUsd())}
+							</span>
+						) : null}
 					</div>
 				</div>
 			</div>

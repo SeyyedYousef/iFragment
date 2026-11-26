@@ -277,10 +277,12 @@ export const LeaderboardPage: Component = () => {
 						{/* Authentic Fragment.com Data Table (.tm-table) */}
 						<div class="frag-table-container">
 							<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-								<span class="col-span-2">Rank</span>
-								<span class="col-span-7">Member</span>
+								<span class="col-span-2">{t('fragUi.rank')}</span>
+								<span class="col-span-7">{t('fragUi.member')}</span>
 								<span class="col-span-3 text-end">
-									{activeTab() === 'messages' ? 'Messages' : 'Boosts'}
+									{activeTab() === 'messages'
+										? t('leaderboard.tabMessages')
+										: t('leaderboard.tabBoosts')}
 								</span>
 							</div>
 
@@ -346,7 +348,7 @@ export const LeaderboardPage: Component = () => {
 														</span>
 														<Show when={isMe()}>
 															<span class="px-1.5 py-0.2 rounded-[4px] bg-[#4db2ff]/10 text-[#4db2ff] text-[10px] font-semibold">
-																You
+																{t('fragUi.you')}
 															</span>
 														</Show>
 													</div>
@@ -408,12 +410,14 @@ export const LeaderboardPage: Component = () => {
 							</div>
 							<div class="w-full bg-[#242e38] rounded-[8px] p-3 grid grid-cols-2 gap-2 text-center">
 								<div>
-									<span class="text-[11px] text-[#8c9aa9] block">Rank</span>
+									<span class="text-[11px] text-[#8c9aa9] block">{t('fragUi.rank')}</span>
 									<span class="text-[15px] font-bold text-white font-mono">#{u().rank || '—'}</span>
 								</div>
 								<div>
 									<span class="text-[11px] text-[#8c9aa9] block">
-										{activeTab() === 'messages' ? 'Messages' : 'Boosts'}
+										{activeTab() === 'messages'
+											? t('leaderboard.tabMessages')
+											: t('leaderboard.tabBoosts')}
 									</span>
 									<span class="text-[15px] font-bold text-[#5aec8c] font-mono">
 										{formatScore(u().score || 0)}

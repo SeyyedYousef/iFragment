@@ -89,6 +89,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/history", cfg.UsernameHandler.GetHistory)
 			r.Get("/contact", cfg.UsernameHandler.GetContact)
 			r.With(middleware.NewStrictRateLimiter(cfg.Cache, 15, time.Minute)).Get("/portfolio", cfg.UsernameHandler.GetPortfolio)
+			r.With(middleware.NewStrictRateLimiter(cfg.Cache, 20, time.Minute)).Get("/wallet-security", cfg.UsernameHandler.GetWalletSecurity)
 			r.Get("/calibration", cfg.UsernameHandler.GetAVMCalibration)
 			r.With(middleware.AuthMiddleware).Get("/valuate", cfg.UsernameHandler.Valuate)
 			r.Get("/collection/stats", cfg.CollectionHandler.GetStats)

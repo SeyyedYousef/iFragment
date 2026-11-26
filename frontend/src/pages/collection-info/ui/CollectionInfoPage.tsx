@@ -3,6 +3,7 @@ import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { apiClient as api } from '@/shared/api/axios.js';
 import { isRtl, locale, t } from '@/shared/i18n/index.js';
+import { COLLECTION_CATEGORY_NAMES, layaT } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import {
@@ -307,7 +308,7 @@ export const CollectionInfoPage: Component = () => {
 						type="text"
 						value={quickHandle()}
 						onInput={(e) => setQuickHandle(e.currentTarget.value.replace(/^@/, '').toLowerCase())}
-						placeholder="Enter a Telegram username..."
+						placeholder={t('fragUi.enterUsernamePh')}
 						class="flex-1 min-w-0 bg-transparent text-[12.5px] font-medium text-white placeholder:text-[#8a98a6] focus:outline-none"
 					/>
 				</form>
@@ -351,7 +352,9 @@ export const CollectionInfoPage: Component = () => {
 					{(st) => (
 						<div class="frag-table-container grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#1a2026]">
 							<div class="p-3">
-								<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">Floor Price</span>
+								<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">
+									{t('fragUi.floorPrice')}
+								</span>
 								<div class="mt-1">
 									<TonAmount
 										value={(
@@ -365,7 +368,9 @@ export const CollectionInfoPage: Component = () => {
 								</div>
 							</div>
 							<div class="p-3">
-								<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">Total Volume</span>
+								<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">
+									{t('fragUi.totalVolume')}
+								</span>
 								<span
 									class="text-[14px] font-semibold text-white tabular-nums mt-1 block"
 									dir="ltr"
@@ -374,7 +379,9 @@ export const CollectionInfoPage: Component = () => {
 								</span>
 							</div>
 							<div class="p-3">
-								<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">Minted Names</span>
+								<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">
+									{t('fragUi.mintedNames')}
+								</span>
 								<span
 									class="text-[14px] font-semibold text-white tabular-nums mt-1 block"
 									dir="ltr"
@@ -383,7 +390,9 @@ export const CollectionInfoPage: Component = () => {
 								</span>
 							</div>
 							<div class="p-3">
-								<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">Holders</span>
+								<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">
+									{t('fragUi.holders')}
+								</span>
 								<span
 									class="text-[14px] font-semibold text-white tabular-nums mt-1 block"
 									dir="ltr"
@@ -508,7 +517,7 @@ export const CollectionInfoPage: Component = () => {
 									type="text"
 									value={marketSearch()}
 									onInput={(e) => setMarketSearch(e.currentTarget.value)}
-									placeholder="Filter visible listings..."
+									placeholder={t('fragUi.filterListingsPh')}
 									class="flex-1 bg-transparent text-[13px] text-white placeholder:text-[#8a98a6] focus:outline-none"
 								/>
 								<Show when={marketSearch()}>
@@ -527,29 +536,29 @@ export const CollectionInfoPage: Component = () => {
 								onChange={(e) => setMarketSort(e.currentTarget.value as MarketSortOrder)}
 								class="h-[36px] rounded-[8px] bg-[#242e38] border border-[#2f3b47] px-2.5 text-[12px] font-semibold text-white focus:outline-none cursor-pointer"
 							>
-								<option value="price_desc">Price high to low</option>
-								<option value="price_asc">Price low to high</option>
-								<option value="ending_soon">Ending soon</option>
+								<option value="price_desc">{t('fragUi.priceHighToLow')}</option>
+								<option value="price_asc">{t('fragUi.priceLowToHigh')}</option>
+								<option value="ending_soon">{t('fragUi.endingSoon')}</option>
 							</select>
 						</div>
 
 						{/* Authentic Fragment.com 3-Column Table with Dynamic Column Headers per Status Filter */}
 						<div class="frag-table-container">
 							<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-								<span class="col-span-5">Username</span>
+								<span class="col-span-5">{t('fragUi.username')}</span>
 								<span class="col-span-4">
 									{marketStream() === 'buy_now_floor'
-										? 'Sale price'
+										? t('fragUi.price')
 										: marketStream() === 'recent_sold'
-											? 'Sold price'
-											: 'Minimum bid'}
+											? t('fragUi.soldPrice')
+											: t('fragUi.currentBid')}
 								</span>
 								<span class="col-span-3 text-end">
 									{marketStream() === 'buy_now_floor'
-										? 'Status'
+										? t('fragUi.status')
 										: marketStream() === 'recent_sold'
-											? 'Status / Date'
-											: 'Auction ends in'}
+											? t('fragUi.date')
+											: t('fragUi.endingSoon')}
 								</span>
 							</div>
 
@@ -557,7 +566,7 @@ export const CollectionInfoPage: Component = () => {
 								when={activeMarketItems().length > 0}
 								fallback={
 									<div class="p-8 text-center text-[13px] text-[#8c9aa9]">
-										No listings match the current filter.
+										{t('fragUi.noListingsFilter')}
 									</div>
 								}
 							>
@@ -640,7 +649,7 @@ export const CollectionInfoPage: Component = () => {
 									<div class="frag-section-card p-3.5 space-y-2.5">
 										<div class="flex items-center justify-between gap-2">
 											<span class="text-[13px] font-bold text-white">
-												Quantitative Market Pulse
+												{t('fragUi.quantMarketPulse')}
 											</span>
 											<span class="px-2 py-0.5 rounded-[4px] bg-[#248bda]/15 text-[#4db2ff] text-[10.5px] font-mono font-bold uppercase">
 												{mp().market_regime || mp().price_momentum?.status || 'LIVE'}
@@ -651,19 +660,27 @@ export const CollectionInfoPage: Component = () => {
 											fallback={
 												<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-start" dir="ltr">
 													<div class="bg-[#1a2026] rounded-[6px] p-2.5">
-														<span class="text-[10.5px] text-[#8c9aa9] block">7D Volume</span>
+														<span class="text-[10.5px] text-[#8c9aa9] block">
+															{t('fragUi.vol7d')}
+														</span>
 														<TonAmount value={fmtInt(mp().volume_7d_ton)} size="sm" />
 													</div>
 													<div class="bg-[#1a2026] rounded-[6px] p-2.5">
-														<span class="text-[10.5px] text-[#8c9aa9] block">7D Median Sale</span>
+														<span class="text-[10.5px] text-[#8c9aa9] block">
+															{t('fragUi.medianSale7d')}
+														</span>
 														<TonAmount value={fmtInt(mp().median_sale_7d_ton)} size="sm" />
 													</div>
 													<div class="bg-[#1a2026] rounded-[6px] p-2.5">
-														<span class="text-[10.5px] text-[#8c9aa9] block">P90 Whale Sale</span>
+														<span class="text-[10.5px] text-[#8c9aa9] block">
+															{t('fragUi.p90WhaleSale')}
+														</span>
 														<TonAmount value={fmtInt(mp().p90_sale_7d_ton)} size="sm" />
 													</div>
 													<div class="bg-[#1a2026] rounded-[6px] p-2.5">
-														<span class="text-[10.5px] text-[#8c9aa9] block">4–5ch Share</span>
+														<span class="text-[10.5px] text-[#8c9aa9] block">
+															{t('fragUi.share45ch')}
+														</span>
 														<span class="text-[13.5px] font-bold text-white font-mono">
 															{fmtFixed(mp().short_4_5_share_pct, 1)}%
 														</span>
@@ -707,13 +724,13 @@ export const CollectionInfoPage: Component = () => {
 						<Show when={(usernameQuery.data?.length_tier_matrix?.length || 0) > 0}>
 							<div>
 								<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">
-									Length Tier Floor Matrix
+									{t('fragUi.lengthTierFloorMatrix')}
 								</h3>
 								<div class="frag-table-container">
 									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-										<span class="col-span-5">Length Tier</span>
-										<span class="col-span-4">Floor Price</span>
-										<span class="col-span-3 text-end">30d Sales</span>
+										<span class="col-span-5">{t('fragUi.lengthTier')}</span>
+										<span class="col-span-4">{t('fragUi.floorPrice')}</span>
+										<span class="col-span-3 text-end">{t('fragUi.sales30d')}</span>
 									</div>
 									<For each={usernameQuery.data?.length_tier_matrix || []}>
 										{(tier) => (
@@ -750,21 +767,28 @@ export const CollectionInfoPage: Component = () => {
 						<Show when={(usernameQuery.data?.semantic_categories?.length || 0) > 0}>
 							<div>
 								<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">
-									Semantic Category Valuation Matrix
+									{t('fragUi.semanticCategoryMatrix')}
 								</h3>
 								<div class="frag-table-container">
 									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-										<span class="col-span-5">Category</span>
-										<span class="col-span-4">Floor / Median</span>
-										<span class="col-span-3 text-end">Volume</span>
+										<span class="col-span-5">{t('fragUi.category')}</span>
+										<span class="col-span-4">{t('fragUi.floorMedian')}</span>
+										<span class="col-span-3 text-end">{t('fragUi.volume')}</span>
 									</div>
 									<For each={usernameQuery.data?.semantic_categories || []}>
 										{(cat) => {
-											const catTitle = () =>
-												(isRtl() ? cat.category_name_fa : cat.category_name_en) ||
-												cat.category_name ||
-												cat.category_key ||
-												'—';
+											const catTitle = () => {
+												const key = (cat.category_key || '').toLowerCase().trim();
+												if (key && COLLECTION_CATEGORY_NAMES[key]) {
+													return layaT(COLLECTION_CATEGORY_NAMES[key]);
+												}
+												return (
+													(isRtl() ? cat.category_name_fa : cat.category_name_en) ||
+													cat.category_name ||
+													cat.category_key ||
+													'—'
+												);
+											};
 											const rightTon = () => cat.volume_ton ?? cat.top_sale_ton ?? 0;
 											return (
 												<div class="frag-table-row grid grid-cols-12 items-center px-3.5 py-2.5 text-[12.5px]">
@@ -819,13 +843,13 @@ export const CollectionInfoPage: Component = () => {
 						<Show when={(usernameQuery.data?.undervalued_auctions?.length || 0) > 0}>
 							<div>
 								<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">
-									Undervalued Active Auctions
+									{t('fragUi.undervaluedAuctions')}
 								</h3>
 								<div class="frag-table-container">
 									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-										<span class="col-span-5">Username</span>
-										<span class="col-span-4">Current Bid</span>
-										<span class="col-span-3 text-end">Fair Value</span>
+										<span class="col-span-5">{t('fragUi.username')}</span>
+										<span class="col-span-4">{t('fragUi.currentBid')}</span>
+										<span class="col-span-3 text-end">{t('fragUi.fairValue')}</span>
 									</div>
 									<For each={usernameQuery.data?.undervalued_auctions || []}>
 										{(uv) => (
@@ -867,15 +891,15 @@ export const CollectionInfoPage: Component = () => {
 					<div class="space-y-4">
 						<div class="frag-table-container">
 							<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-								<span class="col-span-6">Username</span>
-								<span class="col-span-3">Sold Price</span>
-								<span class="col-span-3 text-end">Status</span>
+								<span class="col-span-6">{t('fragUi.username')}</span>
+								<span class="col-span-3">{t('fragUi.soldPrice')}</span>
+								<span class="col-span-3 text-end">{t('fragUi.status')}</span>
 							</div>
 							<Show
 								when={(usernameQuery.data?.top_sales?.length || 0) > 0}
 								fallback={
 									<div class="p-8 text-center text-[13px] text-[#8c9aa9]">
-										No top sales available.
+										{t('fragUi.noTopSales')}
 									</div>
 								}
 							>
@@ -918,13 +942,13 @@ export const CollectionInfoPage: Component = () => {
 						<Show when={(usernameQuery.data?.whale_tracker?.length || 0) > 0}>
 							<div>
 								<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">
-									Sovereign Whale Portfolios
+									{t('fragUi.sovereignWhales')}
 								</h3>
 								<div class="frag-table-container">
 									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-										<span class="col-span-6">Whale / Top Handles</span>
-										<span class="col-span-3">Holdings</span>
-										<span class="col-span-3 text-end">Est. Value</span>
+										<span class="col-span-6">{t('fragUi.owner')}</span>
+										<span class="col-span-3">{t('fragUi.holdings')}</span>
+										<span class="col-span-3 text-end">{t('fragUi.estValue')}</span>
 									</div>
 									<For each={usernameQuery.data?.whale_tracker || []}>
 										{(w, idx) => {
@@ -988,7 +1012,7 @@ export const CollectionInfoPage: Component = () => {
 									<div class="flex items-center justify-between gap-2">
 										<div class="min-w-0">
 											<span class="text-[13px] font-bold text-white block">
-												TON TVM Contract Snapshot
+												{t('fragUi.tvmContractSnapshot')}
 											</span>
 											<span class="text-[11px] text-[#8c9aa9] font-mono block truncate">
 												{snap().full_domain ||
@@ -1057,13 +1081,13 @@ export const CollectionInfoPage: Component = () => {
 						<Show when={(usernameQuery.data?.on_chain_feed?.length || 0) > 0}>
 							<div>
 								<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">
-									Live TeleMint & TEP-62 Opcode Stream
+									{t('fragUi.liveTelemintStream')}
 								</h3>
 								<div class="frag-table-container" dir="ltr">
 									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-										<span class="col-span-5">Handle / Opcode</span>
-										<span class="col-span-4">Action / LT</span>
-										<span class="col-span-3 text-end">Amount</span>
+										<span class="col-span-5">{t('fragUi.username')}</span>
+										<span class="col-span-4">{t('fragUi.status')}</span>
+										<span class="col-span-3 text-end">{t('fragUi.amount')}</span>
 									</div>
 									<For each={usernameQuery.data?.on_chain_feed || []}>
 										{(ev) => (

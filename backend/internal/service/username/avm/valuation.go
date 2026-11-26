@@ -316,11 +316,13 @@ type ModelAccuracyDto struct {
 }
 
 type TrademarkRiskDto struct {
-	RiskLevel       string `json:"risk_level"` // "low" | "medium" | "high"
-	MatchedEntity   string `json:"matched_entity,omitempty"`
-	Brand           string `json:"brand,omitempty"`
-	AdvisoryWarning string `json:"advisory_warning"`
-	RiskScore       int    `json:"risk_score"` // 0-100
+	RiskLevel        string            `json:"risk_level"` // "low" | "medium" | "high"
+	Severity         string            `json:"severity,omitempty"`
+	MatchedEntity    string            `json:"matched_entity,omitempty"`
+	Brand            string            `json:"brand,omitempty"`
+	AdvisoryWarning  string            `json:"advisory_warning"`
+	AdvisoryWarnings map[string]string `json:"advisory_warnings,omitempty"`
+	RiskScore        int               `json:"risk_score"` // 0-100
 }
 
 type EmpiricalBandDto struct {
@@ -2038,24 +2040,53 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	// Generate visual confusable homoglyph twins list (Phase 2.2)
 	homoglyphTwins := GenerateHomoglyphTwins(username, 6)
 
-	// Evaluated trademark risk (Phase 2.3)
+	// Evaluated trademark risk (Phase 2.3 — full 4-language en/fa/ru/zh support)
 	tmMatch := CheckTrademarkSeverity(username)
 
 	tmRiskLevel := "low"
 	tmRiskScore := 10
-	tmAdvisory := "هیچ علامت تجاری شاخصی در این نام کاربری شناسایی نشد."
-	legalDisclaimer := " (سلب مسئولیت: این ارزیابی صرفاً هشدار الگوریتمی است و مشاوره حقوقی رسمی تلقی نمی‌شود. / Disclaimer: Potential trademark risk. This is not legal advice.)"
+	tmAdvisories := map[string]string{
+		"en": "No major registered trademark conflicts were detected for this username.",
+		"fa": "هیچ علامت تجاری شاخصی در این نام کاربری شناسایی نشد.",
+		"ru": "Существенных совпадений с зарегистрированными торговыми марками не обнаружено.",
+		"zh": "未检测到该用户名与知名注册商标存在明显冲突。",
+	}
+	disclaimers := map[string]string{
+		"en": " (Disclaimer: Algorithmic risk screening only; this does not constitute formal legal advice.)",
+		"fa": " (سلب مسئولیت: این ارزیابی صرفاً هشدار الگوریتمی است و مشاوره حقوقی رسمی تلقی نمی‌شود.)",
+		"ru": " (Отказ от ответственности: это алгоритмическая оценка рисков, а не официальная юридическая консультация.)",
+		"zh": "（免责声明：此结果仅为算法风险筛查，不构成正式法律建议。）",
+	}
 	if tmMatch.HasRisk {
-		if tmMatch.Severity == SeverityExactMatch {
+		entityLabel := tmMatch.Entity
+		if entityLabel == "" {
+			entityLabel = tmMatch.Brand
+		}
+		switch tmMatch.Severity {
+		case SeverityExactMatch:
 			tmRiskLevel = "high"
 			tmRiskScore = 95
-			tmAdvisory = fmt.Sprintf("نام کاربری منطبق با علامت تجاری رسمی %s (%s) است. طبق بند 4 قوانین کاربری تلگرام (ToS) و دستورالعمل‌های اپ‌استور، تلگرام حق سلب مالکیت نام‌های ناقض کپی‌رایت را برای خود محفوظ می‌دارد.", tmMatch.Brand, tmMatch.Entity) + legalDisclaimer
-		} else {
+			tmAdvisories["en"] = fmt.Sprintf("This username directly matches the registered trademark %s (%s). Under Section 4 of the Telegram Terms of Service and app store policies, Telegram reserves the right to reclaim handles infringing protected trademarks.", tmMatch.Brand, entityLabel) + disclaimers["en"]
+			tmAdvisories["fa"] = fmt.Sprintf("نام کاربری منطبق با علامت تجاری رسمی %s (%s) است. طبق بند 4 قوانین کاربری تلگرام (ToS) و دستورالعمل‌های اپ‌استور، تلگرام حق سلب مالکیت نام‌های ناقض کپی‌رایت را برای خود محفوظ می‌دارد.", tmMatch.Brand, entityLabel) + disclaimers["fa"]
+			tmAdvisories["ru"] = fmt.Sprintf("Этот юзернейм напрямую совпадает с зарегистрированной торговой маркой %s (%s). Согласно разделу 4 правил Telegram (ToS) и политике магазинов приложений, Telegram оставляет за собой право отозвать имена, нарушающие права на товарные знаки.", tmMatch.Brand, entityLabel) + disclaimers["ru"]
+			tmAdvisories["zh"] = fmt.Sprintf("该用户名与注册商标 %s（%s）直接一致。根据 Telegram 服务条款第 4 条及应用商店政策，Telegram 保留收回侵犯受保护商标用户名的权利。", tmMatch.Brand, entityLabel) + disclaimers["zh"]
+		case SeverityTLDSquat:
+			tmRiskLevel = "medium"
+			tmRiskScore = 78
+			tmAdvisories["en"] = fmt.Sprintf("This username resembles an official variant or spoof of the registered trademark %s (%s) and may face review or takedown if challenged by the brand owner.", tmMatch.Brand, entityLabel) + disclaimers["en"]
+			tmAdvisories["fa"] = fmt.Sprintf("این نام کاربری مشابه نسخه رسمی یا مشتق از علامت تجاری ثبت‌شده %s (%s) است و در صورت ادعای مالک برند ممکن است مشمول بازبینی یا محدودیت شود.", tmMatch.Brand, entityLabel) + disclaimers["fa"]
+			tmAdvisories["ru"] = fmt.Sprintf("Этот юзернейм напоминает официальный вариант или имитацию зарегистрированной торговой марки %s (%s) и может быть оспорен правообладателем.", tmMatch.Brand, entityLabel) + disclaimers["ru"]
+			tmAdvisories["zh"] = fmt.Sprintf("该用户名与注册商标 %s（%s）的官方变体高度相似，若品牌方提出申诉，可能面临审核或回收风险。", tmMatch.Brand, entityLabel) + disclaimers["zh"]
+		default:
 			tmRiskLevel = "medium"
 			tmRiskScore = 65
-			tmAdvisory = fmt.Sprintf("این نام دارای تشابه با علامت تجاری ثبت‌شده %s است و ممکن است در صورت ادعای مالک برند مشمول بازبینی و ریسک حقوقی شود.", tmMatch.Brand) + legalDisclaimer
+			tmAdvisories["en"] = fmt.Sprintf("This username contains or closely resembles the registered trademark %s (%s) and may carry legal review risk if claimed by the brand owner.", tmMatch.Brand, entityLabel) + disclaimers["en"]
+			tmAdvisories["fa"] = fmt.Sprintf("این نام دارای تشابه با علامت تجاری ثبت‌شده %s (%s) است و ممکن است در صورت ادعای مالک برند مشمول بازبینی و ریسک حقوقی شود.", tmMatch.Brand, entityLabel) + disclaimers["fa"]
+			tmAdvisories["ru"] = fmt.Sprintf("Это имя содержит или напоминает зарегистрированную торговую марку %s (%s) и может нести юридический риск при обращении правообладателя.", tmMatch.Brand, entityLabel) + disclaimers["ru"]
+			tmAdvisories["zh"] = fmt.Sprintf("该用户名包含或近似于注册商标 %s（%s），若品牌权利人主张权益，可能面临合规审查风险。", tmMatch.Brand, entityLabel) + disclaimers["zh"]
 		}
 	}
+	tmAdvisory := tmAdvisories["en"]
 
 	p10Val := math.Round(lowTON*100) / 100
 	p50Val := math.Round(expectedTON*100) / 100
@@ -2133,11 +2164,13 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		TelegramStatus:       tgStatus,
 		FragmentMarketStatus: fragMarketStatus,
 		TrademarkRisk: TrademarkRiskDto{
-			RiskLevel:       tmRiskLevel,
-			MatchedEntity:   tmMatch.Entity,
-			Brand:           tmMatch.Brand,
-			AdvisoryWarning: tmAdvisory,
-			RiskScore:       tmRiskScore,
+			RiskLevel:        tmRiskLevel,
+			Severity:         string(tmMatch.Severity),
+			MatchedEntity:    tmMatch.Entity,
+			Brand:            tmMatch.Brand,
+			AdvisoryWarning:  tmAdvisory,
+			AdvisoryWarnings: tmAdvisories,
+			RiskScore:        tmRiskScore,
 		},
 		EmpiricalBand: EmpiricalBandDto{
 			ModelLowTON:  p10Val,

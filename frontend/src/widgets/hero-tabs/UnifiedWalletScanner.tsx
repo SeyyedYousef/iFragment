@@ -6,6 +6,7 @@ import { numbersApi } from '@/entities/numbers/api/numbersApi.js';
 import type { WalletPortfolioResult as NumbersPortfolioResponse } from '@/entities/numbers/model/types.js';
 import { apiClient } from '@/shared/api/axios.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { layaT, WALLET_SHIELD_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { TonAmount, TonIcon } from '@/shared/ui/fragment/FragmentPrimitives.js';
 import { formatEnNumber, formatEnUsd } from './homeMarketData.js';
@@ -31,6 +32,23 @@ interface UnifiedHoldingItem {
 	route: string;
 }
 
+interface WalletSecurityAudit {
+	address: string;
+	resolved_from?: string;
+	status: string;
+	balance_ton: number;
+	wallet_version: string;
+	interfaces?: string[];
+	is_scam: boolean;
+	signature_allowed?: boolean;
+	has_extensions: boolean;
+	extensions_count: number;
+	extensions?: string[];
+	security_level: 'safe' | 'caution' | 'critical' | 'uninit';
+	risk_flags?: string[];
+	checked_at?: string;
+}
+
 interface UnifiedScanResult {
 	totalTon: number;
 	totalUsd: number;
@@ -43,6 +61,7 @@ interface UnifiedScanResult {
 	giftsRateLimited: boolean;
 	addressMissingForOnChain: boolean;
 	topHoldings: UnifiedHoldingItem[];
+	walletSecurity: WalletSecurityAudit | null;
 }
 
 interface UnifiedWalletScannerProps {
@@ -93,7 +112,7 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 		const giftHandle = hasTonAddress ? '' : cleanHandle(primary);
 
 		try {
-			const [userRes, numRes, giftRes] = await Promise.allSettled([
+			const [userRes, numRes, giftRes, secRes] = await Promise.allSettled([
 				walletAddress
 					? apiClient
 							.get<UsernamePortfolioResponse>('/usernames/portfolio', {
@@ -103,6 +122,13 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 					: Promise.resolve(null),
 				walletAddress ? numbersApi.scanPortfolio(walletAddress) : Promise.resolve(null),
 				giftHandle ? giftsApi.scanPortfolio(giftHandle) : Promise.resolve(null),
+				walletAddress
+					? apiClient
+							.get<WalletSecurityAudit>('/usernames/wallet-security', {
+								params: { address: walletAddress },
+							})
+							.then((r) => r.data)
+					: Promise.resolve(null),
 			]);
 
 			const userData: UsernamePortfolioResponse | null =
@@ -111,13 +137,18 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 				numRes.status === 'fulfilled' ? numRes.value : null;
 			const giftData: GiftsPortfolioResponse | null =
 				giftRes.status === 'fulfilled' ? giftRes.value : null;
+			const walletSecurity: WalletSecurityAudit | null =
+				secRes.status === 'fulfilled' ? secRes.value : null;
 
 			const giftsRateLimited =
 				giftRes.status === 'rejected' &&
 				Number((giftRes.reason as { response?: { status?: number } })?.response?.status) === 429;
 
 			const allFailed =
-				(!walletAddress || (userRes.status === 'rejected' && numRes.status === 'rejected')) &&
+				(!walletAddress ||
+					(userRes.status === 'rejected' &&
+						numRes.status === 'rejected' &&
+						secRes.status === 'rejected')) &&
 				(!giftHandle || (giftRes.status === 'rejected' && !giftsRateLimited));
 
 			if (allFailed) {
@@ -234,6 +265,7 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 				giftsRateLimited,
 				addressMissingForOnChain: !hasTonAddress && Boolean(giftHandle),
 				topHoldings: holdings.slice(0, 6),
+				walletSecurity,
 			});
 		} catch {
 			setErrorMsg(t('home.walletError'));
@@ -376,6 +408,174 @@ export const UnifiedWalletScanner: Component<UnifiedWalletScannerProps> = (props
 										</span>
 									</div>
 								</div>
+
+								<Show when={res().walletSecurity}>
+									{(sec) => {
+										const level = () => sec().security_level;
+										const accentColor = () =>
+											level() === 'critical'
+												? '#ff5863'
+												: level() === 'caution'
+													? '#ff9953'
+													: level() === 'safe'
+														? '#5aec8c'
+														: '#8c9aa9';
+										const badgeLabel = () =>
+											level() === 'critical'
+												? layaT(WALLET_SHIELD_I18N.statusCritical)
+												: level() === 'caution'
+													? layaT(WALLET_SHIELD_I18N.statusCaution)
+													: level() === 'safe'
+														? layaT(WALLET_SHIELD_I18N.statusSafe)
+														: layaT(WALLET_SHIELD_I18N.statusUninit);
+										const summaryMsg = () => {
+											if (sec().is_scam) return layaT(WALLET_SHIELD_I18N.summaryCriticalScam);
+											if (sec().signature_allowed === false) {
+												return layaT(WALLET_SHIELD_I18N.summaryCriticalLockout);
+											}
+											if (sec().has_extensions || sec().extensions_count > 0) {
+												return layaT(WALLET_SHIELD_I18N.summaryCautionExt).replace(
+													/\{count\}/g,
+													formatEnNumber(Math.max(1, sec().extensions_count), 0),
+												);
+											}
+											if (level() === 'uninit') return layaT(WALLET_SHIELD_I18N.summaryUninit);
+											return layaT(WALLET_SHIELD_I18N.summarySafe);
+										};
+										const formatVer = (v: string) =>
+											(v || 'unknown').replace(/^wallet_/i, 'Wallet ').toUpperCase();
+										const shortExt = (addr: string) =>
+											addr.length > 14 ? `${addr.slice(0, 6)}…${addr.slice(-6)}` : addr;
+										return (
+											<div
+												class="bg-[#1a2026] rounded-[8px] p-3 border-s-[3px] flex flex-col gap-2.5"
+												style={{ 'border-inline-start-color': accentColor() }}
+											>
+												<div class="flex items-center justify-between gap-2">
+													<div class="flex items-center gap-1.5 min-w-0">
+														<span
+															class="material-symbols-outlined text-[16px] shrink-0"
+															style={{ color: accentColor() }}
+														>
+															{level() === 'critical'
+																? 'gpp_bad'
+																: level() === 'caution'
+																	? 'gpp_maybe'
+																	: 'verified_user'}
+														</span>
+														<span class="text-[12px] font-semibold text-white truncate">
+															{layaT(WALLET_SHIELD_I18N.title)}
+														</span>
+													</div>
+													<span
+														class="px-2 py-0.5 rounded-[4px] text-[10.5px] font-semibold shrink-0"
+														style={{
+															color: accentColor(),
+															'background-color': `${accentColor()}18`,
+														}}
+													>
+														{badgeLabel()}
+													</span>
+												</div>
+
+												<div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+													<div class="bg-[#242e38] rounded-[6px] px-2.5 py-1.5">
+														<span class="text-[10px] text-[#8c9aa9] block truncate">
+															{layaT(WALLET_SHIELD_I18N.contractLabel)}
+														</span>
+														<span
+															class="text-[11.5px] font-mono font-semibold text-white block truncate mt-0.5"
+															dir="ltr"
+														>
+															{formatVer(sec().wallet_version)}
+														</span>
+													</div>
+													<div class="bg-[#242e38] rounded-[6px] px-2.5 py-1.5">
+														<span class="text-[10px] text-[#8c9aa9] block truncate">
+															{layaT(WALLET_SHIELD_I18N.balanceLabel)}
+														</span>
+														<span
+															class="text-[11.5px] font-mono font-semibold text-white block truncate mt-0.5 tabular-nums"
+															dir="ltr"
+														>
+															{formatEnNumber(sec().balance_ton, 2)} TON
+														</span>
+													</div>
+													<div class="bg-[#242e38] rounded-[6px] px-2.5 py-1.5">
+														<span class="text-[10px] text-[#8c9aa9] block truncate">
+															{layaT(WALLET_SHIELD_I18N.extensionsLabel)}
+														</span>
+														<span
+															class="text-[11.5px] font-mono font-semibold block truncate mt-0.5 tabular-nums"
+															style={{
+																color:
+																	sec().has_extensions || sec().extensions_count > 0
+																		? '#ff9953'
+																		: '#5aec8c',
+															}}
+															dir="ltr"
+														>
+															{formatEnNumber(sec().extensions_count || 0, 0)}
+														</span>
+													</div>
+													<div class="bg-[#242e38] rounded-[6px] px-2.5 py-1.5">
+														<span class="text-[10px] text-[#8c9aa9] block truncate">
+															{layaT(WALLET_SHIELD_I18N.signatureLabel)}
+														</span>
+														<span
+															class="text-[11.5px] font-semibold block truncate mt-0.5"
+															style={{
+																color:
+																	sec().signature_allowed === false
+																		? '#ff5863'
+																		: sec().signature_allowed === true
+																			? '#5aec8c'
+																			: '#c7d0d9',
+															}}
+														>
+															{sec().signature_allowed === false
+																? layaT(WALLET_SHIELD_I18N.sigDisabled)
+																: sec().signature_allowed === true
+																	? layaT(WALLET_SHIELD_I18N.sigAllowed)
+																	: layaT(WALLET_SHIELD_I18N.sigNotApplicable)}
+														</span>
+													</div>
+												</div>
+
+												<p class="text-[11.5px] text-[#c7d0d9] leading-[1.45]">{summaryMsg()}</p>
+
+												<Show when={(sec().extensions?.length || 0) > 0}>
+													<div class="flex flex-wrap gap-1.5" dir="ltr">
+														<For each={(sec().extensions || []).slice(0, 4)}>
+															{(ext) => (
+																<a
+																	href={`https://tonviewer.com/${encodeURIComponent(ext)}`}
+																	target="_blank"
+																	rel="noreferrer"
+																	class="px-2 py-0.5 rounded-[4px] bg-[#ff9953]/10 text-[#ff9953] text-[10.5px] font-mono hover:underline"
+																>
+																	{shortExt(ext)} ↗
+																</a>
+															)}
+														</For>
+													</div>
+												</Show>
+
+												<div class="flex justify-end">
+													<a
+														href={`https://tonviewer.com/${encodeURIComponent(sec().address)}`}
+														target="_blank"
+														rel="noreferrer"
+														class="text-[11px] font-semibold text-[#4db2ff] hover:underline inline-flex items-center gap-0.5"
+													>
+														<span>{layaT(WALLET_SHIELD_I18N.inspectTonviewer)}</span>
+														<span class="material-symbols-outlined text-[13px]">north_east</span>
+													</a>
+												</div>
+											</div>
+										);
+									}}
+								</Show>
 
 								<Show when={res().giftsRateLimited}>
 									<p class="text-[11.5px] text-[#ff9953]">{t('home.walletGiftsRateLimited')}</p>

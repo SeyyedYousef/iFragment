@@ -5,7 +5,8 @@ import {
 	type NumberValuationResult,
 	numbersApi,
 } from '@/entities/numbers/index.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { isRtl, locale, t } from '@/shared/i18n/index.js';
+import { layaT, NUMBER_PATTERN_NAMES, NUMBER_PROVENANCE_I18N } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import {
@@ -472,17 +473,19 @@ export const NumberReportPage: Component = () => {
 				<Show when={!isAnalyzing() && !isUnlocked()}>
 					<div class="space-y-3.5">
 						<div class="frag-table-container">
-							<FragKV label="Anonymous Number" copyValue={displayNum()} accent>
+							<FragKV label={t('fragUi.anonymousNumber')} copyValue={displayNum()} accent>
 								<span class="font-mono" dir="ltr">
 									{displayNum()}
 								</span>
 							</FragKV>
-							<FragKV label="Pattern Classification">
+							<FragKV label={t('fragUi.patternClassification')}>
 								{validation().patternLabel || validation().tier}
 							</FragKV>
-							<FragKV label="Collection">Telegram Anonymous Numbers (+888)</FragKV>
-							<FragKV label="On-Chain Signals">
-								{gateData()?.signals_analyzed || 48} verified signals
+							<FragKV label={t('numCollectionHeader.collectionName')}>
+								Telegram Anonymous Numbers (+888)
+							</FragKV>
+							<FragKV label={t('fragUi.onChainSignals')}>
+								{gateData()?.signals_analyzed || 48}
 							</FragKV>
 						</div>
 
@@ -512,13 +515,17 @@ export const NumberReportPage: Component = () => {
 											{t('numReportPage.unmintedCombinationDec2022Supply')}
 										</span>
 										<span class="text-[11px] font-semibold px-2 py-0.5 rounded-[4px] bg-[#ff9953]/10 text-[#ff9953]">
-											Unminted
+											{layaT(NUMBER_PROVENANCE_I18N.unmintedBadge)}
 										</span>
 									</div>
 									<p class="text-[12px] text-[#8794a1] leading-relaxed">
-										{isRtl()
-											? r().market_provenance?.minted_status_reason_fa
-											: r().market_provenance?.minted_status_reason_en}
+										{locale() === 'fa'
+											? r().market_provenance?.minted_status_reason_fa ||
+												layaT(NUMBER_PROVENANCE_I18N.unmintedDefaultReason)
+											: locale() === 'en'
+												? r().market_provenance?.minted_status_reason_en ||
+													layaT(NUMBER_PROVENANCE_I18N.unmintedDefaultReason)
+												: layaT(NUMBER_PROVENANCE_I18N.unmintedDefaultReason)}
 									</p>
 									<Show
 										when={(r().market_provenance?.suggested_minted_alternatives?.length || 0) > 0}
@@ -552,10 +559,14 @@ export const NumberReportPage: Component = () => {
 										{t('numReportPage.officialWarningThisNumberIs')}
 									</div>
 									<p class="text-[12px] text-[#8794a1] leading-relaxed">
-										{isRtl()
+										{locale() === 'fa'
 											? r().market_provenance?.restriction_reason_fa ||
-												r().risk_audit?.restricted_guide
-											: r().market_provenance?.restriction_reason_en}
+												r().risk_audit?.restricted_guide ||
+												layaT(NUMBER_PROVENANCE_I18N.restrictedDefaultReason)
+											: locale() === 'en'
+												? r().market_provenance?.restriction_reason_en ||
+													layaT(NUMBER_PROVENANCE_I18N.restrictedDefaultReason)
+												: layaT(NUMBER_PROVENANCE_I18N.restrictedDefaultReason)}
 									</p>
 								</div>
 							</Show>
@@ -563,9 +574,9 @@ export const NumberReportPage: Component = () => {
 							{/* 1. Primary 3-Column Fragment Valuation Card (#212a33, 8px radius) */}
 							<div class="frag-table-container">
 								<div class="frag-table-header grid grid-cols-3 px-3.5 py-2">
-									<span>Liquidation</span>
-									<span>Fair Value</span>
-									<span class="text-end">Suggested Ask</span>
+									<span>{t('fragUi.liquidation')}</span>
+									<span>{t('fragUi.fairValue')}</span>
+									<span class="text-end">{t('fragUi.suggestedAsk')}</span>
 								</div>
 								<div class="grid grid-cols-3 px-3.5 py-3.5 items-start gap-2">
 									<TonAmount
@@ -590,17 +601,18 @@ export const NumberReportPage: Component = () => {
 								</div>
 								<div class="px-3.5 py-2.5 border-t border-[#1a2026] flex items-center justify-between text-[12px] text-[#8c9aa9]">
 									<span>
-										Confidence: <strong class="text-white">{r().confidence_score || 92}%</strong>
+										{t('fragUi.confidenceLabel')}{' '}
+										<strong class="text-white">{r().confidence_score || 92}%</strong>
 									</span>
 									<span>
-										Rank:{' '}
+										{t('fragUi.rank')}:{' '}
 										<strong class="text-[#4db2ff]">
 											#{r().global_rank?.toLocaleString('en-US') || '—'}
 										</strong>{' '}
 										/ 136.5K
 									</span>
 									<span>
-										Grade:{' '}
+										{t('fragUi.tier')}:{' '}
 										<strong class="text-[#5aec8c]">
 											{r().recommendation?.confidence_tier || 'A+'}
 										</strong>
@@ -620,7 +632,7 @@ export const NumberReportPage: Component = () => {
 									rel="noreferrer"
 									class="frag-btn-primary h-10 px-4 rounded-[8px] text-[13.5px] font-semibold flex items-center justify-center gap-1.5"
 								>
-									<span>View on Fragment</span>
+									<span>{t('fragUi.viewOnFragment')}</span>
 									<span class="material-symbols-outlined text-[15px]">north_east</span>
 								</a>
 								<button
@@ -635,18 +647,18 @@ export const NumberReportPage: Component = () => {
 
 							{/* 2. Fragment Key-Value Metadata Card (.tm-list) */}
 							<div class="frag-table-container">
-								<FragKV label="Anonymous Number" copyValue={displayNum()} accent>
+								<FragKV label={t('fragUi.anonymousNumber')} copyValue={displayNum()} accent>
 									<span class="font-mono" dir="ltr">
 										{displayNum()}
 									</span>
 								</FragKV>
-								<FragKV label="Pattern Club">
+								<FragKV label={t('fragUi.patternClub')}>
 									{r().pattern_anatomy?.club_name_en ||
 										r().category_club ||
 										validation().patternLabel}
 								</FragKV>
 								<Show when={r().market_provenance?.color_name_en}>
-									<FragKV label="NFT Artwork Plate">
+									<FragKV label={t('fragUi.nftArtworkPlate')}>
 										<span class="inline-flex items-center gap-1.5">
 											<Show when={r().market_provenance?.color_hex}>
 												<span
@@ -664,7 +676,7 @@ export const NumberReportPage: Component = () => {
 									</FragKV>
 								</Show>
 								<Show when={r().live_listing?.ask_or_bid_ton}>
-									<FragKV label="Live Market Ask / Bid">
+									<FragKV label={t('fragUi.currentBid')}>
 										<TonAmount
 											value={formatTon(r().live_listing?.ask_or_bid_ton)}
 											usd={formatUsd(r().live_listing?.ask_or_bid_usd)}
@@ -681,7 +693,7 @@ export const NumberReportPage: Component = () => {
 								>
 									{(ownerAddr) => (
 										<FragKV
-											label="Owner Wallet"
+											label={t('fragUi.ownerWallet')}
 											copyValue={ownerAddr()}
 											href={`https://tonviewer.com/${ownerAddr()}`}
 											accent
@@ -697,12 +709,12 @@ export const NumberReportPage: Component = () => {
 								<For
 									each={
 										[
-											{ id: 'valuation', label: 'Valuation & Offer' },
+											{ id: 'valuation', label: t('numReportPage.valuation') },
 											{
 												id: 'siblings',
-												label: `Comparables (${(r().comps?.length || 0) + (r().pattern_siblings?.length || 0)})`,
+												label: `${t('numReportPage.patternPeers')} (${(r().comps?.length || 0) + (r().pattern_siblings?.length || 0)})`,
 											},
-											{ id: 'onchain', label: 'History & On-Chain' },
+											{ id: 'onchain', label: t('numReportPage.onChain') },
 										] as const
 									}
 								>
@@ -736,19 +748,19 @@ export const NumberReportPage: Component = () => {
 								<div class="space-y-3.5">
 									<div class="frag-table-container">
 										<div class="frag-table-header px-3.5 py-2">
-											<span>Empirical Valuation Band</span>
+											<span>{t('fragUi.empiricalValuationBand')}</span>
 										</div>
-										<FragKV label="Collection Floor (+888)">
+										<FragKV label={t('fragUi.collectionFloor')}>
 											<TonAmount value={formatTon(r().base_price_ton)} size="sm" />
 										</FragKV>
-										<FragKV label="P10 Liquidation Value">
+										<FragKV label={t('fragUi.p10Liquidation')}>
 											<TonAmount
 												value={formatTon(r().liquidation_ton || r().low_ton)}
 												usd={formatUsd(r().liquidation_usd || r().low_usd)}
 												size="sm"
 											/>
 										</FragKV>
-										<FragKV label="P50 Fair Market Value">
+										<FragKV label={t('fragUi.p50FairMarket')}>
 											<TonAmount
 												value={formatTon(r().expected_ton)}
 												usd={formatUsd(r().expected_usd)}
@@ -756,14 +768,14 @@ export const NumberReportPage: Component = () => {
 												tone="positive"
 											/>
 										</FragKV>
-										<FragKV label="P90 Strategic Ask">
+										<FragKV label={t('fragUi.p90StrategicAsk')}>
 											<TonAmount
 												value={formatTon(r().suggested_ask_ton || r().high_ton)}
 												usd={formatUsd(r().suggested_ask_usd || r().high_usd)}
 												size="sm"
 											/>
 										</FragKV>
-										<FragKV label="Liquidity & Exit Horizon">
+										<FragKV label={t('fragUi.liquidityExitHorizon')}>
 											{r().liquidity?.liquidity_rating || 'High'} ·{' '}
 											{r().liquidity?.estimated_sell_days || '2–5 days'}
 										</FragKV>
@@ -807,25 +819,48 @@ export const NumberReportPage: Component = () => {
 										{(cs) => (
 											<div class="frag-table-container">
 												<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
-													<span>Combinatorial Scarcity & Information Theory</span>
+													<span>{t('fragUi.combinatorialScarcityTitle')}</span>
 													<span class="font-mono text-[#4db2ff]">
-														{cs().exact_pattern_pool_size.toLocaleString('en-US')} in{' '}
+														{cs().exact_pattern_pool_size.toLocaleString('en-US')} /{' '}
 														{cs().total_supply.toLocaleString('en-US')}
 													</span>
 												</div>
-												<FragKV label="Pattern Class">
-													{isRtl()
-														? r().pattern_anatomy?.pattern_type_fa || cs().scarcity_tier
-														: r().pattern_anatomy?.pattern_type_en || cs().scarcity_tier}
+												<FragKV label={t('fragUi.patternClass')}>
+													{(() => {
+														const rawEn = (
+															r().pattern_anatomy?.pattern_type_en || ''
+														).toLowerCase();
+														if (rawEn.includes('genesis')) {
+															return layaT(NUMBER_PATTERN_NAMES.genesis_4digit);
+														}
+														if (rawEn.includes('octa') || rawEn.includes('mono')) {
+															return layaT(NUMBER_PATTERN_NAMES.grail_mono);
+														}
+														if (rawEn.includes('palindrome') || rawEn.includes('mirror')) {
+															return layaT(NUMBER_PATTERN_NAMES.mirror_palindrome);
+														}
+														if (rawEn.includes('ladder') || rawEn.includes('sequence')) {
+															return layaT(NUMBER_PATTERN_NAMES.ladder_sequence);
+														}
+														if (rawEn.includes('binary') || rawEn.includes('dual')) {
+															return layaT(NUMBER_PATTERN_NAMES.binary_dual);
+														}
+														if (rawEn.includes('standard')) {
+															return layaT(NUMBER_PATTERN_NAMES.standard_floor);
+														}
+														return locale() === 'fa'
+															? r().pattern_anatomy?.pattern_type_fa || cs().scarcity_tier
+															: r().pattern_anatomy?.pattern_type_en || cs().scarcity_tier;
+													})()}
 												</FragKV>
-												<FragKV label="Minted Supply Share">
+												<FragKV label={t('fragUi.mintedSupplyShare')}>
 													<span class="font-mono text-[#5aec8c]">
 														{cs().pool_share_pct}% · {cs().mathematical_formula}
 													</span>
 												</FragKV>
 												<Show when={r().pattern_anatomy}>
 													{(pa) => (
-														<FragKV label="Symmetry & Memorability">
+														<FragKV label={t('fragUi.symmetryMemorability')}>
 															<span class="font-mono">
 																Sym {pa().symmetry_score}/100 · Mem {pa().memorability_score}/100 ·
 																Max Run {pa().max_run}
@@ -870,15 +905,15 @@ export const NumberReportPage: Component = () => {
 								<div class="space-y-3.5">
 									<div class="frag-table-container">
 										<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-											<span class="col-span-6">Number</span>
-											<span class="col-span-3">Price</span>
-											<span class="col-span-3 text-end">Date / Status</span>
+											<span class="col-span-6">{t('fragUi.number')}</span>
+											<span class="col-span-3">{t('fragUi.price')}</span>
+											<span class="col-span-3 text-end">{t('fragUi.status')}</span>
 										</div>
 										<Show
 											when={(r().comps?.length || 0) > 0 || (r().pattern_siblings?.length || 0) > 0}
 											fallback={
 												<div class="p-6 text-center text-[13px] text-[#8c9aa9]">
-													No comparable sales recorded for this pattern.
+													{t('fragUi.noComparableNumbers')}
 												</div>
 											}
 										>
@@ -954,7 +989,7 @@ export const NumberReportPage: Component = () => {
 								<div class="space-y-3.5">
 									<div class="frag-table-container">
 										<div class="frag-table-header px-3.5 py-2">
-											<span>TeleMint On-Chain Audit</span>
+											<span>{t('fragUi.telemintAudit')}</span>
 										</div>
 										<Show
 											when={
@@ -963,7 +998,7 @@ export const NumberReportPage: Component = () => {
 										>
 											{(addr) => (
 												<FragKV
-													label="NFT Item Address"
+													label={t('fragUi.nftItemAddress')}
 													copyValue={addr()}
 													href={`https://tonviewer.com/${addr()}`}
 													accent
@@ -973,16 +1008,16 @@ export const NumberReportPage: Component = () => {
 											)}
 										</Show>
 										<FragKV
-											label="Collection Contract"
+											label={t('fragUi.collectionContract')}
 											href="https://tonviewer.com/EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N"
 											accent
 										>
 											<span class="font-mono">EQAOQdwd … vr9si5N</span>
 										</FragKV>
-										<FragKV label="Mint Provenance">
+										<FragKV label={t('fragUi.mintProvenance')}>
 											{r().market_provenance?.is_minted === false
-												? 'Unminted (Dec 2022 Cap)'
-												: 'Verified TeleMint NFT'}
+												? layaT(NUMBER_PROVENANCE_I18N.unmintedBadge)
+												: t('numReportPage.verifiedClean')}
 										</FragKV>
 									</div>
 
@@ -991,43 +1026,43 @@ export const NumberReportPage: Component = () => {
 										{(bf) => (
 											<div class="frag-table-container" dir="ltr">
 												<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
-													<span>TON TVM BOC, 8421 BCD & ITU-T Q.23 DTMF Forensics</span>
+													<span>{t('fragUi.tvmBcdDtmfForensics')}</span>
 													<span class="font-mono text-[#4db2ff]">
 														{bf().boc_magic_prefix || '0xb5ee9c72'}
 													</span>
 												</div>
-												<FragKV label="UTF-8 ASCII Hex" copyValue={bf().utf8_hex}>
+												<FragKV label={t('fragUi.utf8AsciiHex')} copyValue={bf().utf8_hex}>
 													<span class="font-mono text-[#4db2ff]">0x{bf().utf8_hex}</span>
 												</FragKV>
-												<FragKV label="8421 BCD Nibble Stream" copyValue={bf().bcd_stream}>
+												<FragKV label={t('fragUi.bcdNibbleStream')} copyValue={bf().bcd_stream}>
 													<span class="font-mono text-[11px] text-[#5aec8c]">
 														{bf().bcd_stream}
 													</span>
 												</FragKV>
-												<FragKV label="BCD & ASCII Hamming Weight">
+												<FragKV label={t('fragUi.bcdAsciiHamming')}>
 													<span class="font-mono">
 														BCD: {bf().bcd_hamming_weight ?? '—'} bits · ASCII:{' '}
 														{bf().total_hamming_weight} bits
 														{bf().is_pure_msb_80_wave ? ' · Pure MSB 8/0 Wave' : ''}
 													</span>
 												</FragKV>
-												<FragKV label="Shannon Entropy & Kolmogorov">
+												<FragKV label={t('fragUi.shannonKolmogorov')}>
 													<span class="font-mono">
 														H = {bf().shannon_entropy_bits} / {bf().max_entropy_bits} bits · Comp{' '}
 														{bf().kolmogorov_compression_pct}%
 													</span>
 												</FragKV>
-												<FragKV label="Fitts's Law & Keypad Geometry">
+												<FragKV label={t('fragUi.fittsKeypadGeometry')}>
 													<span class="font-mono text-[#5aec8c]">
 														ID {bf().fitts_index_bits ?? 0} bits · Ergo{' '}
 														{bf().keypad_ergonomic_score}
 														/100 · Manhattan {bf().keypad_manhattan_distance}
 													</span>
 												</FragKV>
-												<FragKV label="ITU-T Q.23 DTMF Signature">
+												<FragKV label={t('fragUi.dtmfSignature')}>
 													<span class="font-mono text-[11px] text-[#4db2ff]">
 														{bf().dtmf_acoustic_signature} (
-														{Math.round(bf().dtmf_consonance_score || 85)}% consonance)
+														{Math.round(bf().dtmf_consonance_score || 85)}%)
 													</span>
 												</FragKV>
 												<FragKV
@@ -1040,7 +1075,7 @@ export const NumberReportPage: Component = () => {
 												</FragKV>
 												<Show when={bf().token_name_boc_hex}>
 													<FragKV
-														label="TVM BOC Cell (Castagnoli CRC32-C)"
+														label="TVM BOC Cell (CRC32-C)"
 														copyValue={bf().token_name_boc_hex}
 													>
 														<span class="font-mono text-[11px] text-[#5aec8c]">
@@ -1054,7 +1089,7 @@ export const NumberReportPage: Component = () => {
 												<Show when={(bf().digits_matrix?.length || 0) > 0}>
 													<div class="p-3 border-t border-[#1a2026]">
 														<span class="text-[10.5px] font-semibold text-[#8c9aa9] block mb-1.5">
-															Per-Digit 8421 BCD Nibble & ITU-T Q.23 Dual-Tone Matrix
+															{t('fragUi.perDigitBcdDtmfMatrix')}
 														</span>
 														<div class="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
 															<For each={bf().digits_matrix || []}>
@@ -1079,13 +1114,13 @@ export const NumberReportPage: Component = () => {
 									<Show when={(r().history?.transactions?.length || 0) > 0}>
 										<div>
 											<h3 class="text-[15px] font-bold text-white mb-2 px-0.5">
-												Sale & Transfer History
+												{t('fragUi.saleTransferHistory')}
 											</h3>
 											<div class="frag-table-container">
 												<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-													<span class="col-span-4">Price</span>
-													<span class="col-span-4">Date</span>
-													<span class="col-span-4 text-end">Buyer</span>
+													<span class="col-span-4">{t('fragUi.price')}</span>
+													<span class="col-span-4">{t('fragUi.date')}</span>
+													<span class="col-span-4 text-end">{t('fragUi.buyer')}</span>
 												</div>
 												<For each={r().history?.transactions || []}>
 													{(tx) => (

@@ -1148,6 +1148,41 @@ func (s *AnalysisService) GetWalletPortfolio(ctx context.Context, ownerAddr stri
 	return portfolio, nil
 }
 
+// GetWalletSecurity runs a read-only on-chain security inspection of a TON wallet contract
+// (checking wallet version, scam flags, W5 signature lockout, and installed extensions/plugins).
+func (s *AnalysisService) GetWalletSecurity(ctx context.Context, ownerAddr string) (*tonapi.WalletSecurityAudit, error) {
+	cleanAddr := strings.TrimSpace(ownerAddr)
+	if cleanAddr == "" {
+		return nil, fmt.Errorf("missing wallet address")
+	}
+	if s.tonClient == nil {
+		return nil, fmt.Errorf("tonapi client unavailable")
+	}
+
+	cacheKey := "wallet_security:v1:" + strings.ToLower(cleanAddr)
+	if s.cache != nil && s.cache.Client != nil {
+		if raw, err := s.cache.Client.Get(ctx, cacheKey).Result(); err == nil && raw != "" {
+			var cached tonapi.WalletSecurityAudit
+			if json.Unmarshal([]byte(raw), &cached) == nil && cached.Address != "" {
+				return &cached, nil
+			}
+		}
+	}
+
+	audit, err := s.tonClient.AuditWalletSecurity(ctx, cleanAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		if encoded, mErr := json.Marshal(audit); mErr == nil {
+			_ = s.cache.Client.Set(ctx, cacheKey, encoded, 60*time.Second).Err()
+		}
+	}
+
+	return audit, nil
+}
+
 // ── Utility Functions ──
 
 func containsNumbers(u string) bool {

@@ -1194,6 +1194,25 @@ func (h *UsernameHandler) GetPortfolio(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(p)
 }
 
+// GetWalletSecurity performs a read-only on-chain TON wallet security check
+// (wallet interface version, scam registry, W5 signature lockout, and active extensions/plugins).
+func (h *UsernameHandler) GetWalletSecurity(w http.ResponseWriter, r *http.Request) {
+	address := strings.TrimSpace(r.URL.Query().Get("address"))
+	if address == "" {
+		RespondError(w, r, http.StatusBadRequest, "missing address parameter", nil)
+		return
+	}
+
+	audit, err := h.reportService.GetWalletSecurity(r.Context(), address)
+	if err != nil {
+		RespondError(w, r, http.StatusBadGateway, "failed to audit wallet security", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(audit)
+}
+
 func (h *UsernameHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 	u := r.URL.Query().Get("u")
 	if u == "" {

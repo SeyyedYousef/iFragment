@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { GiftThumbnail, giftsApi } from '@/entities/gifts/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import {
@@ -154,7 +155,7 @@ export const GiftCollectionPage: Component = () => {
 					onClick={() => navigate(`/gifts/report?g=${encodeURIComponent(`${slug()}-1`)}`)}
 					class="h-8 px-2.5 rounded-[6px] frag-btn-primary text-[12px] font-semibold shrink-0 cursor-pointer"
 				>
-					Appraise #1
+					{t('fragUi.appraiseFirst')}
 				</button>
 			</header>
 
@@ -168,7 +169,7 @@ export const GiftCollectionPage: Component = () => {
 								type="text"
 								value={searchQuery()}
 								onInput={(e) => setSearchQuery(e.currentTarget.value)}
-								placeholder="Search 120 official gift collections..."
+								placeholder={t('fragUi.searchGiftsCollectionsPh')}
 								class="flex-1 bg-transparent text-[13px] text-white placeholder:text-[#8a98a6] focus:outline-none"
 							/>
 							<button
@@ -227,7 +228,9 @@ export const GiftCollectionPage: Component = () => {
 				{/* 4-Metric Fragment Summary Card (#212a33) */}
 				<div class="frag-table-container grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#1a2026]">
 					<div class="p-3">
-						<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">Best Floor</span>
+						<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">
+							{t('fragUi.bestFloor')}
+						</span>
 						<div class="mt-1">
 							<TonAmount
 								value={fmt(data()?.best_floor_gram, 1)}
@@ -238,7 +241,9 @@ export const GiftCollectionPage: Component = () => {
 						</div>
 					</div>
 					<div class="p-3">
-						<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">24h Volume</span>
+						<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">
+							{t('fragUi.vol24h')}
+						</span>
 						<div class="mt-1">
 							<TonAmount
 								value={fmt(data()?.market_sales_stats?.period_24h?.volume_gram)}
@@ -247,13 +252,17 @@ export const GiftCollectionPage: Component = () => {
 						</div>
 					</div>
 					<div class="p-3">
-						<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">24h Sales</span>
+						<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">
+							{t('fragUi.sales24h')}
+						</span>
 						<span class="text-[14px] font-semibold text-white tabular-nums mt-1 block">
 							{fmt(data()?.market_sales_stats?.period_24h?.deals_count)}
 						</span>
 					</div>
 					<div class="p-3">
-						<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">On Sale</span>
+						<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">
+							{t('fragUi.onSale')}
+						</span>
 						<span class="text-[14px] font-semibold text-white tabular-nums mt-1 block">
 							{fmt(data()?.listed_count)}
 						</span>
@@ -318,12 +327,14 @@ export const GiftCollectionPage: Component = () => {
 						{/* Venue Comparison Table */}
 						<Show when={(data()?.venue_floors?.length || 0) > 0}>
 							<div>
-								<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">Marketplace Venues</h3>
+								<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">
+									{t('fragUi.marketplaceVenues')}
+								</h3>
 								<div class="frag-table-container">
 									<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-										<span class="col-span-5">Marketplace</span>
-										<span class="col-span-4">Floor Price</span>
-										<span class="col-span-3 text-end">Listed</span>
+										<span class="col-span-5">{t('fragUi.marketplace')}</span>
+										<span class="col-span-4">{t('fragUi.floorPrice')}</span>
+										<span class="col-span-3 text-end">{t('fragUi.listed')}</span>
 									</div>
 									<For each={data()?.venue_floors || []}>
 										{(v) => (
@@ -375,7 +386,7 @@ export const GiftCollectionPage: Component = () => {
 									type="text"
 									value={itemsSearch()}
 									onInput={(e) => setItemsSearch(e.currentTarget.value)}
-									placeholder="Filter by serial or trait..."
+									placeholder={t('fragUi.filterSerialTraitPh')}
 									class="flex-1 bg-transparent text-[12.5px] text-white placeholder:text-[#8a98a6] focus:outline-none"
 								/>
 								<Show when={itemsSearch()}>
@@ -397,30 +408,32 @@ export const GiftCollectionPage: Component = () => {
 										: 'bg-[#242e38] text-[#8c9aa9] hover:text-white'
 								}`}
 							>
-								For Sale
+								{t('fragUi.forSale')}
 							</button>
 							<select
 								value={itemsSort()}
 								onChange={(e) => setItemsSort(e.currentTarget.value as ItemsSortKey)}
 								class="h-9 rounded-[8px] bg-[#242e38] border border-[#2f3b47] px-2.5 text-[12px] font-semibold text-white focus:outline-none cursor-pointer"
 							>
-								<option value="price_asc">Price low to high</option>
-								<option value="price_desc">Price high to low</option>
-								<option value="serial_asc">Serial #1 → N</option>
-								<option value="serial_desc">Serial #N → 1</option>
+								<option value="price_asc">{t('fragUi.priceLowToHigh')}</option>
+								<option value="price_desc">{t('fragUi.priceHighToLow')}</option>
+								<option value="serial_asc">{t('fragUi.serialAsc')}</option>
+								<option value="serial_desc">{t('fragUi.serialDesc')}</option>
 							</select>
 						</div>
 
 						<div class="frag-table-container">
 							<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-								<span class="col-span-6">Gift & Traits</span>
-								<span class="col-span-3">Price</span>
-								<span class="col-span-3 text-end">Status</span>
+								<span class="col-span-6">{t('fragUi.giftAndTraits')}</span>
+								<span class="col-span-3">{t('fragUi.price')}</span>
+								<span class="col-span-3 text-end">{t('fragUi.status')}</span>
 							</div>
 							<Show
 								when={filteredItems().length > 0}
 								fallback={
-									<div class="p-8 text-center text-[13px] text-[#8c9aa9]">No items found.</div>
+									<div class="p-8 text-center text-[13px] text-[#8c9aa9]">
+										{t('fragUi.noItemsFound')}
+									</div>
 								}
 							>
 								<For each={filteredItems()}>
@@ -470,15 +483,15 @@ export const GiftCollectionPage: Component = () => {
 				<Show when={!intelQuery.isLoading && selectedTab() === 'sales'}>
 					<div class="frag-table-container">
 						<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-							<span class="col-span-5">Serial & Model</span>
-							<span class="col-span-4">Sold Price</span>
-							<span class="col-span-3 text-end">Date</span>
+							<span class="col-span-5">{t('fragUi.serialAndModel')}</span>
+							<span class="col-span-4">{t('fragUi.soldPrice')}</span>
+							<span class="col-span-3 text-end">{t('fragUi.date')}</span>
 						</div>
 						<Show
 							when={(data()?.sales_history?.length || 0) > 0}
 							fallback={
 								<div class="p-8 text-center text-[13px] text-[#8c9aa9]">
-									No recent sales recorded.
+									{t('fragUi.noRecentSales')}
 								</div>
 							}
 						>
@@ -552,9 +565,9 @@ export const GiftCollectionPage: Component = () => {
 
 						<div class="frag-table-container">
 							<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-								<span class="col-span-6">Attribute (Click to filter items)</span>
-								<span class="col-span-3">Rarity</span>
-								<span class="col-span-3 text-end">Floor</span>
+								<span class="col-span-6">{t('fragUi.trait')}</span>
+								<span class="col-span-3">{t('fragUi.rarity')}</span>
+								<span class="col-span-3 text-end">{t('fragUi.floor')}</span>
 							</div>
 							<For each={currentAttributes()}>
 								{(attr: any) => (

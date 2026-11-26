@@ -621,21 +621,21 @@ export const GiftReportPage = () => {
 						fallback={
 							<div class="space-y-3.5">
 								<div class="frag-table-container">
-									<FragKV label="Collectible Gift" accent>
+									<FragKV label={t('fragUi.collectibleGift')} accent>
 										<span dir="ltr">{parsedTarget().prettyTitle}</span>
 									</FragKV>
 									<FragKV
-										label="Web Address"
+										label={t('fragUi.webAddress')}
 										href={`https://t.me/nft/${fragmentGiftSlug()}`}
 										accent
 									>
 										t.me/nft/{fragmentGiftSlug()}
 									</FragKV>
 									<Show when={gate()?.selected_model}>
-										<FragKV label="Model">{gate()?.selected_model}</FragKV>
+										<FragKV label={t('giftReport.modelsTab')}>{gate()?.selected_model}</FragKV>
 									</Show>
 									<Show when={gate()?.floor_price_gram}>
-										<FragKV label="Collection Floor">
+										<FragKV label={t('fragUi.collectionFloor')}>
 											<TonAmount value={formatTon(gate()?.floor_price_gram)} size="sm" />
 										</FragKV>
 									</Show>
@@ -665,9 +665,9 @@ export const GiftReportPage = () => {
 								{/* 1. Primary 3-Column Fragment Valuation Summary Card (#212a33, 8px radius) */}
 								<div class="frag-table-container">
 									<div class="frag-table-header grid grid-cols-3 px-3.5 py-2">
-										<span>Liquidation</span>
-										<span>Fair Value</span>
-										<span class="text-end">Suggested Ask</span>
+										<span>{t('fragUi.liquidation')}</span>
+										<span>{t('fragUi.fairValue')}</span>
+										<span class="text-end">{t('fragUi.suggestedAsk')}</span>
 									</div>
 									<div class="grid grid-cols-3 px-3.5 py-3.5 items-start gap-2">
 										<TonAmount
@@ -696,15 +696,15 @@ export const GiftReportPage = () => {
 									</div>
 									<div class="px-3.5 py-2.5 border-t border-[#1a2026] flex items-center justify-between text-[12px] text-[#8c9aa9]">
 										<span>
-											Rarity Score:{' '}
+											{t('fragUi.rarity')}:{' '}
 											<strong class="text-white">{rep().rarity_score || 85}/100</strong>
 										</span>
 										<span>
-											Confidence:{' '}
+											{t('fragUi.confidenceLabel')}{' '}
 											<strong class="text-[#5aec8c]">{rep().confidence_score || 92}%</strong>
 										</span>
 										<span>
-											Floor:{' '}
+											{t('fragUi.floor')}:{' '}
 											<strong class="text-white">{formatTon(collectionFloorTon())} TON</strong>
 										</span>
 									</div>
@@ -718,7 +718,7 @@ export const GiftReportPage = () => {
 										rel="noreferrer"
 										class="frag-btn-primary h-10 px-4 rounded-[8px] text-[13.5px] font-semibold flex items-center justify-center gap-1.5"
 									>
-										<span>Open Collectible</span>
+										<span>{t('fragUi.openCollectible')}</span>
 										<span class="material-symbols-outlined text-[15px]">north_east</span>
 									</a>
 									<button
@@ -736,18 +736,18 @@ export const GiftReportPage = () => {
 
 								{/* 2. Key-Value Metadata Card (.tm-list) */}
 								<div class="frag-table-container">
-									<FragKV label="Collectible Gift" accent>
+									<FragKV label={t('fragUi.collectibleGift')} accent>
 										<span dir="ltr">{rep().display_title || parsedTarget().prettyTitle}</span>
 									</FragKV>
 									<FragKV
-										label="Web Address"
+										label={t('fragUi.webAddress')}
 										href={`https://t.me/nft/${fragmentGiftSlug()}`}
 										accent
 									>
 										t.me/nft/{fragmentGiftSlug()}
 									</FragKV>
 									<FragKV
-										label="Fragment Collectible"
+										label={t('fragUi.fragmentCollectible')}
 										href={
 											rep().binary_forensics?.fragment_gift_web_uri ||
 											rep().binary_forensics?.fragment_url ||
@@ -761,8 +761,8 @@ export const GiftReportPage = () => {
 									<Show when={modelTrait()}>
 										{(mt) => (
 											<FragKV
-												label="Model"
-												hint={mt().percentile ? `${mt().percentile}% rarity` : undefined}
+												label={t('giftReport.modelsTab')}
+												hint={mt().percentile ? `${mt().percentile}%` : undefined}
 											>
 												{mt().value}
 											</FragKV>
@@ -771,8 +771,8 @@ export const GiftReportPage = () => {
 									<Show when={backdropTrait()}>
 										{(bt) => (
 											<FragKV
-												label="Backdrop"
-												hint={bt().percentile ? `${bt().percentile}% rarity` : undefined}
+												label={t('giftReport.backdropsTab')}
+												hint={bt().percentile ? `${bt().percentile}%` : undefined}
 											>
 												<span class="inline-flex items-center gap-1.5">
 													<span
@@ -787,8 +787,8 @@ export const GiftReportPage = () => {
 									<Show when={symbolTrait()}>
 										{(st) => (
 											<FragKV
-												label="Symbol"
-												hint={st().percentile ? `${st().percentile}% rarity` : undefined}
+												label={t('giftReport.symbolsTab')}
+												hint={st().percentile ? `${st().percentile}%` : undefined}
 											>
 												{st().value}
 											</FragKV>
@@ -797,7 +797,7 @@ export const GiftReportPage = () => {
 									<Show when={rep().owner_wallet?.wallet_address || rep().on_chain?.owner_address}>
 										{(addr) => (
 											<FragKV
-												label="Owner Wallet"
+												label={t('fragUi.ownerWallet')}
 												copyValue={addr()}
 												href={`https://tonviewer.com/${addr()}`}
 												accent
@@ -849,12 +849,14 @@ export const GiftReportPage = () => {
 									<div class="space-y-3.5">
 										<div class="frag-table-container">
 											<div class="frag-table-header px-3.5 py-2">
-												<span>4-Axis Floor Price Matrix</span>
+												<span>{t('fragUi.fourAxisFloorMatrix')}</span>
 											</div>
-											<FragKV label="Collection Base Floor">
+											<FragKV label={t('fragUi.collectionBaseFloor')}>
 												<TonAmount value={formatTon(collectionFloorTon())} size="sm" />
 											</FragKV>
-											<FragKV label={`Model Floor (${modelTrait()?.value || 'Selected'})`}>
+											<FragKV
+												label={`${t('giftReport.modelsTab')} (${modelTrait()?.value || '—'})`}
+											>
 												<TonAmount
 													value={formatTon(
 														rep().floor_matrix?.model_floor_gram ||
@@ -864,7 +866,9 @@ export const GiftReportPage = () => {
 													size="sm"
 												/>
 											</FragKV>
-											<FragKV label={`Backdrop Floor (${backdropTrait()?.value || 'Selected'})`}>
+											<FragKV
+												label={`${t('giftReport.backdropsTab')} (${backdropTrait()?.value || '—'})`}
+											>
 												<TonAmount
 													value={formatTon(
 														rep().floor_matrix?.backdrop_floor_gram ||
@@ -874,7 +878,7 @@ export const GiftReportPage = () => {
 													size="sm"
 												/>
 											</FragKV>
-											<FragKV label="Exact Combo / Fair Value">
+											<FragKV label={t('fragUi.exactComboFairValue')}>
 												<TonAmount
 													value={formatTon(fairValueTon())}
 													usd={formatUsdPlain(fairValueUsd())}
@@ -882,8 +886,8 @@ export const GiftReportPage = () => {
 													tone="positive"
 												/>
 											</FragKV>
-											<FragKV label="Supply & Serial Edition">
-												#{rep().serial_number || parsedTarget().serial} of{' '}
+											<FragKV label={t('fragUi.supplySerialEdition')}>
+												#{rep().serial_number || parsedTarget().serial} /{' '}
 												{(
 													rep().binary_forensics?.issued_count ||
 													rep().binary_forensics?.total_supply_count ||
@@ -957,9 +961,9 @@ export const GiftReportPage = () => {
 									<div class="space-y-3.5">
 										<div class="frag-table-container">
 											<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-												<span class="col-span-4">Trait</span>
-												<span class="col-span-5">Value</span>
-												<span class="col-span-3 text-end">Rarity</span>
+												<span class="col-span-4">{t('fragUi.trait')}</span>
+												<span class="col-span-5">{t('fragUi.value')}</span>
+												<span class="col-span-3 text-end">{t('fragUi.rarity')}</span>
 											</div>
 											<For each={rep().trait_dna || []}>
 												{(tr) => (
@@ -1001,10 +1005,12 @@ export const GiftReportPage = () => {
 												<div class="frag-card p-3.5 space-y-3">
 													<div class="flex items-center justify-between">
 														<span class="text-[13.5px] font-semibold text-white">
-															Simulate Trait Combination
+															{t('fragUi.simulateTraitCombo')}
 														</span>
 														<Show when={simulating()}>
-															<span class="text-[11.5px] text-[#4db2ff]">Updating…</span>
+															<span class="text-[11.5px] text-[#4db2ff]">
+																{t('fragUi.updating')}
+															</span>
 														</Show>
 													</div>
 
@@ -1075,19 +1081,19 @@ export const GiftReportPage = () => {
 											{(bf) => (
 												<div class="frag-table-container" dir="ltr">
 													<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
-														<span>MTProto Layer 198+ & TON TVM BOC Forensics</span>
+														<span>{t('fragUi.mtprotoBocForensics')}</span>
 														<span class="font-mono text-[#4db2ff]">
 															{bf().boc_magic_prefix || '0xb5ee9c72'}
 														</span>
 													</div>
-													<FragKV label="MTProto TL Constructor">
+													<FragKV label={t('fragUi.mtprotoConstructor')}>
 														<span class="font-mono text-[#4db2ff]">
 															{bf().mtproto_constructor || 'starGiftUnique#5c62d151'}
 														</span>
 													</FragKV>
 													<Show when={bf().mtproto_header_hex}>
 														<FragKV
-															label="24-Byte Little-Endian Header"
+															label={t('fragUi.header24ByteLe')}
 															copyValue={bf().mtproto_header_hex}
 														>
 															<span class="font-mono text-[11px] text-[#5aec8c]">
@@ -1096,30 +1102,30 @@ export const GiftReportPage = () => {
 														</FragKV>
 													</Show>
 													<Show when={bf().center_color_bit_stream_24}>
-														<FragKV label="Center RGB24 Bitstream">
+														<FragKV label={t('fragUi.centerRgb24')}>
 															<span class="font-mono text-[11px]">
 																{bf().center_color_hex} · {bf().center_color_bit_stream_24}
 															</span>
 														</FragKV>
 													</Show>
 													<Show when={bf().edge_color_bit_stream_24}>
-														<FragKV label="Edge RGB24 Bitstream">
+														<FragKV label={t('fragUi.edgeRgb24')}>
 															<span class="font-mono text-[11px]">
 																{bf().edge_color_hex} · {bf().edge_color_bit_stream_24}
 															</span>
 														</FragKV>
 													</Show>
 													<Show when={bf().ciede2000_model_backdrop !== undefined}>
-														<FragKV label="CIEDE2000 Perceptual ΔE00">
+														<FragKV label="CIEDE2000 ΔE00">
 															<span class="font-mono text-[#5aec8c]">
 																ΔE00 = {bf().ciede2000_model_backdrop} · Contrast{' '}
 																{bf().wcag_contrast_ratio}:1
-																{bf().is_monochrome_color_match ? ' · Monochrome Match' : ''}
+																{bf().is_monochrome_color_match ? ' · Monochrome' : ''}
 															</span>
 														</FragKV>
 													</Show>
 													<Show when={bf().shannon_surprisal_bits !== undefined}>
-														<FragKV label="Shannon Trait Surprisal">
+														<FragKV label={t('fragUi.shannonTraitSurprisal')}>
 															<span class="font-mono">
 																{bf().shannon_surprisal_bits} bits (P = {bf().joint_probability})
 															</span>
@@ -1137,7 +1143,7 @@ export const GiftReportPage = () => {
 													</Show>
 													<Show when={bf().tvm_cell_boc_hex}>
 														<FragKV
-															label="TVM BOC Cell (Castagnoli CRC32-C)"
+															label="TVM BOC Cell (CRC32-C)"
 															copyValue={bf().tvm_cell_boc_hex}
 														>
 															<span class="font-mono text-[11px] text-[#5aec8c]">
@@ -1147,14 +1153,14 @@ export const GiftReportPage = () => {
 														</FragKV>
 													</Show>
 													<FragKV
-														label="TGS / Lottie Vector Asset"
+														label="TGS / Lottie"
 														href={bf().tgs_sticker_uri || bf().lottie_vector_uri || bf().lottie_url}
 														accent
 													>
 														<span class="font-mono text-[11.5px]">nft.fragment.com/gift/…tgs</span>
 													</FragKV>
 													<FragKV
-														label="TEP-64 Off-Chain JSON"
+														label={t('fragUi.tep64OffChainJson')}
 														href={bf().tep64_metadata_uri || bf().metadata_json_url}
 														accent
 													>
@@ -1173,9 +1179,9 @@ export const GiftReportPage = () => {
 											<For
 												each={
 													[
-														{ id: 'all', label: 'All Sales' },
-														{ id: 'exact_model', label: 'Same Model' },
-														{ id: 'exact_backdrop', label: 'Same Backdrop' },
+														{ id: 'all', label: t('giftReport.compAllSales') },
+														{ id: 'exact_model', label: t('giftReport.compExactModel') },
+														{ id: 'exact_backdrop', label: t('giftReport.compExactBackdrop') },
 													] as const
 												}
 											>
@@ -1197,15 +1203,15 @@ export const GiftReportPage = () => {
 
 										<div class="frag-table-container">
 											<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-												<span class="col-span-5">Gift Serial</span>
-												<span class="col-span-4">Price</span>
-												<span class="col-span-3 text-end">Date</span>
+												<span class="col-span-5">{t('fragUi.giftSerial')}</span>
+												<span class="col-span-4">{t('fragUi.price')}</span>
+												<span class="col-span-3 text-end">{t('fragUi.date')}</span>
 											</div>
 											<Show
 												when={filteredComps().length > 0}
 												fallback={
 													<div class="p-6 text-center text-[13px] text-[#8c9aa9]">
-														No comparable gift sales found in this filter.
+														{t('fragUi.noComparableGifts')}
 													</div>
 												}
 											>

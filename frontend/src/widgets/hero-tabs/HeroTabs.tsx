@@ -558,7 +558,7 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 								</div>
 								<div class="flex items-center gap-2 shrink-0">
 									<span class="px-2 py-0.5 rounded-[4px] bg-[#5aec8c]/10 text-[#5aec8c] text-[11px] font-semibold">
-										Live
+										{t('fragUi.live')}
 									</span>
 									<span class="material-symbols-outlined text-[17px] text-[#8c9aa9] rtl:rotate-180">
 										chevron_right

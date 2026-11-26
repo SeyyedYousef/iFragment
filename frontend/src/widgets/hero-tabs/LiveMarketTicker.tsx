@@ -29,7 +29,7 @@ export const LiveMarketTicker: Component<LiveMarketTickerProps> = (props) => {
 	};
 
 	return (
-		<section class="w-full mb-5" aria-label="Live Market Ticker">
+		<section class="w-full mb-5" aria-label={t('fragUi.liveMarketTickerAria')}>
 			<div class="grid grid-cols-2 gap-2">
 				{/* 1. TON/USD Live Rate */}
 				<button

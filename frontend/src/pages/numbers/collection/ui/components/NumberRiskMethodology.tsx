@@ -3,7 +3,8 @@ import type {
 	CollectionRiskFlag,
 	NumbersInstitutionalCollectionOverview,
 } from '@/entities/numbers/model/types.js';
-import { t, useI18n } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
+import { layaT, NUMBER_PROVENANCE_I18N } from '@/shared/i18n/laya-i18n.js';
 
 interface RiskMethodologyProps {
 	overview?: NumbersInstitutionalCollectionOverview;
@@ -12,7 +13,31 @@ interface RiskMethodologyProps {
 }
 
 export const NumberRiskMethodology: Component<RiskMethodologyProps> = (props) => {
-	const { locale } = useI18n();
+	const localizeRiskFlag = (flag: CollectionRiskFlag): CollectionRiskFlag => {
+		const code = (flag.code || '').toUpperCase();
+		if (code === 'THIN_DEPTH' || code === 'THIN_FLOOR_DEPTH') {
+			return {
+				...flag,
+				title: layaT(NUMBER_PROVENANCE_I18N.thinDepthTitle),
+				description: layaT(NUMBER_PROVENANCE_I18N.thinDepthDesc),
+			};
+		}
+		if (code === 'CONCENTRATION_ALERT') {
+			return {
+				...flag,
+				title: t('numRisk.risk2Title'),
+				description: t('numRisk.risk2Desc'),
+			};
+		}
+		if (code === 'COUNTERFEIT_PREVENTION') {
+			return {
+				...flag,
+				title: t('numRisk.risk3Title'),
+				description: t('numRisk.risk3Desc'),
+			};
+		}
+		return flag;
+	};
 
 	const defaultRisks = (): CollectionRiskFlag[] => [
 		{
@@ -65,8 +90,8 @@ export const NumberRiskMethodology: Component<RiskMethodologyProps> = (props) =>
 	];
 
 	const activeRisks = () => {
-		if (locale() === 'fa' && props.overview?.risk_flags && props.overview.risk_flags.length > 0) {
-			return props.overview.risk_flags;
+		if (props.overview?.risk_flags && props.overview.risk_flags.length > 0) {
+			return props.overview.risk_flags.map(localizeRiskFlag);
 		}
 		return defaultRisks();
 	};

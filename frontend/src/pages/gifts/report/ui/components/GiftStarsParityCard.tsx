@@ -22,7 +22,7 @@ interface Props {
 
 export const GiftStarsParityCard: Component<Props> = (props) => {
 	const secondaryTon = () => props.expectedTon || 25;
-	const rate = () => props.tonUsdRate || 5.5;
+	const rate = () => (props.tonUsdRate && props.tonUsdRate > 0 ? props.tonUsdRate : 2.5);
 
 	// In Telegram ecosystem, 1000 Stars ≈ $20.00 USD ≈ 3.63 TON
 	// Dynamic Stars benchmark calculation anchored directly to engine parity:

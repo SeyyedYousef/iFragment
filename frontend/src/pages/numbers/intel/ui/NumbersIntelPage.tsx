@@ -178,7 +178,7 @@ export const NumbersIntelPage: Component = () => {
 						onClick={() => navigate('/numbers/report')}
 						class="h-8 px-2.5 rounded-[6px] frag-btn-primary text-[12px] font-semibold cursor-pointer"
 					>
-						Appraise
+						{t('fragUi.appraise')}
 					</button>
 				</div>
 			</header>
@@ -201,7 +201,9 @@ export const NumbersIntelPage: Component = () => {
 					</div>
 
 					<div class="shrink-0 text-end">
-						<span class="text-[11px] font-semibold text-[#8c9aa9] block mb-0.5">Floor Price</span>
+						<span class="text-[11px] font-semibold text-[#8c9aa9] block mb-0.5">
+							{t('fragUi.floorPrice')}
+						</span>
 						<TonAmount
 							value={formatTon(liveFloor().ton)}
 							size="sm"

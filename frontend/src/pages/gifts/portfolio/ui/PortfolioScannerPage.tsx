@@ -183,7 +183,9 @@ export const PortfolioScannerPage: Component = () => {
 									</span>
 								</div>
 								<div class="p-3">
-									<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">Owner</span>
+									<span class="text-[11.5px] font-semibold text-[#8c9aa9] block">
+										{t('fragUi.owner')}
+									</span>
 									<span
 										class="text-[13px] font-mono font-semibold text-[#4db2ff] truncate mt-1 block"
 										dir="ltr"
@@ -197,8 +199,8 @@ export const PortfolioScannerPage: Component = () => {
 							<div class="frag-table-container">
 								<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
 									<span class="col-span-6">{t('gifts.topHoldingsHeading')}</span>
-									<span class="col-span-3">Est. Value</span>
-									<span class="col-span-3 text-end">Tier</span>
+									<span class="col-span-3">{t('fragUi.estValue')}</span>
+									<span class="col-span-3 text-end">{t('fragUi.tier')}</span>
 								</div>
 								<For each={res().top_valued_gifts || []}>
 									{(gift) => (

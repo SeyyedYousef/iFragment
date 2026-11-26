@@ -23,7 +23,12 @@ interface VenueOption {
 
 export const GiftExitPlannerCard: Component<Props> = (props) => {
 	const expected = () => props.expectedTon || 25;
-	const rate = () => props.tonUsdRate || 5.5;
+	const rate = () =>
+		props.tonUsdRate && props.tonUsdRate > 0
+			? props.tonUsdRate
+			: props.expectedUsd && expected() > 0
+				? props.expectedUsd / expected()
+				: 0;
 
 	// Calculate net proceeds across venues
 	const options = createMemo<VenueOption[]>(() => {
@@ -155,7 +160,11 @@ export const GiftExitPlannerCard: Component<Props> = (props) => {
 						</span>
 						<span class="text-[10px] font-bold text-emerald-400">{t('common.ton')}</span>
 					</div>
-					<span class="text-[9px] text-white/40">≈ ${bestVenue()?.netUsd}</span>
+					<Show when={(bestVenue()?.netUsd || 0) > 0}>
+						<span class="text-[9px] text-white/40">
+							≈ ${(bestVenue()?.netUsd || 0).toLocaleString('en-US')}
+						</span>
+					</Show>
 				</div>
 			</div>
 

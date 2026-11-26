@@ -1,12 +1,15 @@
 import { type Component, Show } from 'solid-js';
+import { locale } from '@/shared/i18n/index.js';
 import { layaT, USERNAME_I18N } from '@/shared/i18n/laya-i18n.js';
 import { FragSectionHeader } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 export interface TrademarkRiskData {
 	risk_level?: string; // "low" | "medium" | "high"
+	severity?: string; // "none" | "exact_match" | "substring" | "tld_squat"
 	matched_entity?: string;
 	brand?: string;
 	advisory_warning?: string;
+	advisory_warnings?: Record<string, string>;
 	risk_score?: number;
 }
 
@@ -15,8 +18,12 @@ interface Props {
 	username: string;
 }
 
+const interpolate = (template: string, brand: string, entity: string): string =>
+	template.replace(/\{brand\}/g, brand).replace(/\{entity\}/g, entity);
+
 export const TelegramTOSLegalMatrix: Component<Props> = (props) => {
 	const riskLevel = () => (props.trademarkRisk?.risk_level || 'low').toLowerCase();
+	const severity = () => (props.trademarkRisk?.severity || '').toLowerCase();
 
 	const riskScore = () => {
 		if (props.trademarkRisk?.risk_score !== undefined && props.trademarkRisk.risk_score !== null) {
@@ -38,10 +45,38 @@ export const TelegramTOSLegalMatrix: Component<Props> = (props) => {
 		return layaT(USERNAME_I18N.riskClean);
 	};
 
+	const severityTagText = () => {
+		const sev = severity();
+		if (sev === 'exact_match') return layaT(USERNAME_I18N.severityExactBadge);
+		if (sev === 'tld_squat') return layaT(USERNAME_I18N.severitySquatBadge);
+		if (sev === 'substring') return layaT(USERNAME_I18N.severitySubstringBadge);
+		return '';
+	};
+
 	const advisoryText = () => {
-		if (props.trademarkRisk?.advisory_warning) return props.trademarkRisk.advisory_warning;
-		if (isHighRisk()) return layaT(USERNAME_I18N.advisoryHigh);
-		if (isMediumRisk()) return layaT(USERNAME_I18N.advisoryMedium);
+		const loc = locale() || 'en';
+		const localizedMap = props.trademarkRisk?.advisory_warnings;
+		if (localizedMap?.[loc]) {
+			return localizedMap[loc];
+		}
+
+		const brand = props.trademarkRisk?.brand || '';
+		const entity = props.trademarkRisk?.matched_entity || brand;
+		const sev = severity();
+		const disclaimer = layaT(USERNAME_I18N.advisoryDisclaimer);
+
+		if (brand) {
+			if (sev === 'exact_match' || isHighRisk()) {
+				return `${interpolate(layaT(USERNAME_I18N.advisoryExactMatch), brand, entity)} (${disclaimer})`;
+			}
+			if (sev === 'tld_squat') {
+				return `${interpolate(layaT(USERNAME_I18N.advisorySquat), brand, entity)} (${disclaimer})`;
+			}
+			return `${interpolate(layaT(USERNAME_I18N.advisorySubstring), brand, entity)} (${disclaimer})`;
+		}
+
+		if (isHighRisk()) return `${layaT(USERNAME_I18N.advisoryHigh)} (${disclaimer})`;
+		if (isMediumRisk()) return `${layaT(USERNAME_I18N.advisoryMedium)} (${disclaimer})`;
 		return layaT(USERNAME_I18N.advisoryClean);
 	};
 
@@ -81,11 +116,19 @@ export const TelegramTOSLegalMatrix: Component<Props> = (props) => {
 				</div>
 
 				<Show when={props.trademarkRisk?.matched_entity || props.trademarkRisk?.brand}>
-					<div class="flex flex-col items-end gap-0.5">
+					<div class="flex flex-col items-end gap-1">
 						<span class="text-[11px] text-[#8c9ba5]">
-							{layaT(USERNAME_I18N.directTrademarkMatch)}
+							{severityTagText() || layaT(USERNAME_I18N.directTrademarkMatch)}
 						</span>
-						<span class="text-[12px] font-mono font-semibold text-[#ff5c6c] bg-[#ff5c6c]/10 border border-[#ff5c6c]/30 px-2 py-0.5 rounded-[6px]">
+						<span
+							class="text-[12px] font-mono font-semibold px-2 py-0.5 rounded-[6px]"
+							style={{
+								color: toneColor(),
+								'background-color': `${toneColor()}18`,
+								border: `1px solid ${toneColor()}45`,
+							}}
+							dir="ltr"
+						>
 							{props.trademarkRisk?.matched_entity || props.trademarkRisk?.brand}
 						</span>
 					</div>

@@ -264,21 +264,23 @@ export const MaskBuilderPage: Component = () => {
 				{/* Fragment Results Table (.tm-table) */}
 				<div class="frag-table-container">
 					<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-						<span class="col-span-6">Number</span>
-						<span class="col-span-3">Price</span>
-						<span class="col-span-3 text-end">Status</span>
+						<span class="col-span-6">{t('fragUi.number')}</span>
+						<span class="col-span-3">{t('fragUi.price')}</span>
+						<span class="col-span-3 text-end">{t('fragUi.status')}</span>
 					</div>
 					<Show
 						when={!maskQuery.isLoading}
 						fallback={
-							<div class="p-8 text-center text-[13px] text-[#8c9aa9]">Searching pattern…</div>
+							<div class="p-8 text-center text-[13px] text-[#8c9aa9]">
+								{t('fragUi.searchingPattern')}
+							</div>
 						}
 					>
 						<Show
 							when={filteredResults().length > 0}
 							fallback={
 								<div class="p-8 text-center text-[13px] text-[#8c9aa9]">
-									No numbers match this mask.
+									{t('fragUi.noMatchingMask')}
 								</div>
 							}
 						>

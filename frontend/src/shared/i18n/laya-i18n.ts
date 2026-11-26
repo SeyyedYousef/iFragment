@@ -356,6 +356,12 @@ export const USERNAME_I18N = {
 		ru: 'Стандартный аукцион с умеренным резервом',
 		zh: '设定稳妥保留价的标准拍卖模式',
 	},
+	auctionTacticsFirmReserve: {
+		en: 'Firm reserve pricing at fair expected value to avoid hasty liquidation and maximize realized profit.',
+		fa: 'قیمت‌گذاری با کف رزرو محکم در سطح ارزش منصفانه؛ از فروش عجولانه پرهیز کنید تا حداکثر سود محقق شود.',
+		ru: 'Твердый резерв на уровне справедливой цены: избегайте поспешной продажи для максимизации прибыли.',
+		zh: '按公允预期价设定稳固保留价，避免匆忙抛售以最大化实际收益。',
+	},
 	culturalResonanceTitle: {
 		en: 'Cultural & Linguistic Resonance',
 		fa: 'طنین فرهنگی و زبانی LAYA',
@@ -367,6 +373,42 @@ export const USERNAME_I18N = {
 		fa: 'انطباق سراسری و جایگاه برتر در وب3',
 		ru: 'Универсальное глобальное признание в Web3',
 		zh: '全球通用与 Web3 极高契合度',
+	},
+	resWeb3Crypto: {
+		en: 'Web3 & Crypto Native',
+		fa: 'بومی وب3 و کریپتو',
+		ru: 'Web3 и крипто-натив',
+		zh: 'Web3 与加密原生',
+	},
+	resLuxuryStatus: {
+		en: 'Luxury & Prestige Signal',
+		fa: 'لوکس و پرستیژ بالا',
+		ru: 'Люкс и статусность',
+		zh: '奢华与高端身份标识',
+	},
+	resBusinessUtility: {
+		en: 'Commercial & Enterprise Utility',
+		fa: 'کاربرد تجاری و سازمانی',
+		ru: 'Коммерческая и бизнес-ценность',
+		zh: '商业与企业实用属性',
+	},
+	resPopCultureMeme: {
+		en: 'Pop Culture & Viral Meme',
+		fa: 'فرهنگ عامه و میم وایرال',
+		ru: 'Поп-культура и вирусные мемы',
+		zh: '流行文化与病毒式迷因',
+	},
+	resGenericEnglish: {
+		en: 'Global Standard Lexicon',
+		fa: 'واژگان استاندارد جهانی',
+		ru: 'Общемировая лексика',
+		zh: '国际通用词汇',
+	},
+	resObscureFiller: {
+		en: 'Niche / Non-Lexical Pattern',
+		fa: 'الگوی خاص / غیرواژگانی',
+		ru: 'Нишевой / несловарный паттерн',
+		zh: '小众 / 非词典组合',
 	},
 	legalMatrixTitle: {
 		en: 'Telegram TOS & Trademark Liability',
@@ -433,6 +475,84 @@ export const USERNAME_I18N = {
 		fa: 'هیچ علامت تجاری انحصاری بین‌المللی با این نام تلاقی ندارد. انتقال و نگهداری این دارایی در بستر قراردادهای هوشمند بدون مانع حقوقی است.',
 		ru: 'Конфликтов с зарегистрированными торговыми марками не обнаружено. Актив юридически чист и безопасно передается через смарт-контракты.',
 		zh: '未发现任何国际注册商标冲突。资产法律风险极低，可在 Telemint 智能合约上安全持有与流转。',
+	},
+	advisoryExactMatch: {
+		en: 'This username directly matches the registered trademark {brand} ({entity}). Under Section 4 of the Telegram Terms of Service and app store policies, Telegram reserves the right to reclaim handles infringing protected trademarks.',
+		fa: 'نام کاربری منطبق با علامت تجاری رسمی {brand} ({entity}) است. طبق بند 4 قوانین کاربری تلگرام (ToS) و دستورالعمل‌های اپ‌استور، تلگرام حق سلب مالکیت نام‌های ناقض کپی‌رایت را برای خود محفوظ می‌دارد.',
+		ru: 'Этот юзернейм напрямую совпадает с зарегистрированной торговой маркой {brand} ({entity}). Согласно разделу 4 правил Telegram (ToS) и политике магазинов приложений, Telegram оставляет за собой право отозвать имена, нарушающие права на товарные знаки.',
+		zh: '该用户名与注册商标 {brand}（{entity}）直接一致。根据 Telegram 服务条款第 4 条及应用商店政策，Telegram 保留收回侵犯受保护商标用户名的权利。',
+	},
+	advisorySquat: {
+		en: 'This username resembles an official variant or spoof of the registered trademark {brand} ({entity}) and may face review or takedown if challenged by the brand owner.',
+		fa: 'این نام کاربری مشابه نسخه رسمی یا مشتق از علامت تجاری ثبت‌شده {brand} ({entity}) است و در صورت ادعای مالک برند ممکن است مشمول بازبینی یا محدودیت شود.',
+		ru: 'Этот юзернейм напоминает официальный вариант или имитацию зарегистрированной торговой марки {brand} ({entity}) и может быть оспорен правообладателем.',
+		zh: '该用户名与注册商标 {brand}（{entity}）的官方变体高度相似，若品牌方提出申诉，可能面临审核或回收风险。',
+	},
+	advisorySubstring: {
+		en: 'This username contains or closely resembles the registered trademark {brand} ({entity}) and may carry legal review risk if claimed by the brand owner.',
+		fa: 'این نام دارای تشابه با علامت تجاری ثبت‌شده {brand} ({entity}) است و ممکن است در صورت ادعای مالک برند مشمول بازبینی و ریسک حقوقی شود.',
+		ru: 'Это имя содержит или напоминает зарегистрированную торговую марку {brand} ({entity}) и может нести юридический риск при обращении правообладателя.',
+		zh: '该用户名包含或近似于注册商标 {brand}（{entity}），若品牌权利人主张权益，可能面临合规审查风险。',
+	},
+	advisoryDisclaimer: {
+		en: 'Algorithmic risk screening only; this does not constitute formal legal advice.',
+		fa: 'سلب مسئولیت: این ارزیابی صرفاً هشدار الگوریتمی است و مشاوره حقوقی رسمی تلقی نمی‌شود.',
+		ru: 'Отказ от ответственности: это алгоритмическая оценка рисков, а не официальная юридическая консультация.',
+		zh: '免责声明：此结果仅为算法风险筛查，不构成正式法律建议。',
+	},
+	severityExactBadge: {
+		en: 'Exact Brand Match',
+		fa: 'انطباق کامل برند',
+		ru: 'Точное совпадение бренда',
+		zh: '品牌完全一致',
+	},
+	severitySquatBadge: {
+		en: 'Spoof / Official Variant',
+		fa: 'نسخه مشابه / مشتق برند',
+		ru: 'Имитация / вариант бренда',
+		zh: '品牌仿冒 / 变体',
+	},
+	severitySubstringBadge: {
+		en: 'Brand Token Overlap',
+		fa: 'تشابه با نام برند',
+		ru: 'Совпадение части бренда',
+		zh: '包含品牌词元',
+	},
+	inlineTrademarkExact: {
+		en: 'Exact trademark match: {brand} ({entity})',
+		fa: 'انطباق دقیق علامت تجاری: {brand} ({entity})',
+		ru: 'Точное совпадение марки: {brand} ({entity})',
+		zh: '精准商标匹配：{brand}（{entity}）',
+	},
+	inlineTrademarkSquat: {
+		en: 'Brand spoofing risk: {brand} ({entity})',
+		fa: 'ریسک تشابه و جعل برند: {brand} ({entity})',
+		ru: 'Риск имитации бренда: {brand} ({entity})',
+		zh: '品牌仿冒风险：{brand}（{entity}）',
+	},
+	inlineTrademarkSubstring: {
+		en: 'Contains protected brand: {brand} ({entity})',
+		fa: 'دارای نام برند ثبت‌شده: {brand} ({entity})',
+		ru: 'Содержит защищенный бренд: {brand} ({entity})',
+		zh: '包含受保护品牌：{brand}（{entity}）',
+	},
+	inlineTrademarkGeneric: {
+		en: 'Trademark Advisory',
+		fa: 'هشدار علامت تجاری',
+		ru: 'Предупреждение о бренде',
+		zh: '商标风险提示',
+	},
+	inlineHomoglyphRisk: {
+		en: 'Homoglyph / confusable characters detected',
+		fa: 'کاراکترهای هم‌شکل و فیشینگ شناسایی شد',
+		ru: 'Обнаружены схожие символы (омоглифы)',
+		zh: '检测到易混淆同形字符',
+	},
+	inlineCleanAscii: {
+		en: 'Clean · Verified ASCII',
+		fa: 'سالم · ASCII تاییدشده',
+		ru: 'Чисто · Проверенный ASCII',
+		zh: '安全 · 已验证 ASCII',
 	},
 	section4BoxTitle: {
 		en: 'TELEGRAM TERMS OF SERVICE — SECTION 4',
@@ -2966,5 +3086,328 @@ export const NUMBER_REPORT_I18N = {
 		fa: 'دامنه انحراف معیار MAD',
 		ru: 'Границы отклонения MAD Sigma',
 		zh: 'MAD 中位数绝对偏差',
+	},
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// 4-LANGUAGE STRUCTURED TAXONOMY & DYNAMIC REPORT LOCALIZERS
+// ══════════════════════════════════════════════════════════════════════
+
+export const NUMBER_PATTERN_NAMES: Record<string, LocalizedText> = {
+	grail_mono: {
+		en: 'Grail & Monodigit',
+		fa: 'شاهکارهای تک‌رقمی (مونو)',
+		ru: 'Грааль и моноцифры',
+		zh: '神级纯单数字',
+	},
+	genesis_4digit: {
+		en: 'Genesis 4-Digit Club',
+		fa: 'باشگاه جنسیس 4 رقمی (تلمینت)',
+		ru: 'Клуб Genesis (4 цифры)',
+		zh: '创世 4 位数字俱乐部',
+	},
+	quad_tail: {
+		en: 'Quad Repdigit Tail',
+		fa: 'دنباله چهارتایی یکسان',
+		ru: 'Четыре одинаковые в конце',
+		zh: '尾部四连号',
+	},
+	triple_tail: {
+		en: 'Triple Lucky Tail',
+		fa: 'دنباله سه‌تایی خوش‌یمن',
+		ru: 'Счастливая тройка в конце',
+		zh: '尾部吉祥三连号',
+	},
+	binary_dual: {
+		en: 'Binary Dual Digits',
+		fa: 'دو رقمی باینری متمایز',
+		ru: 'Бинарные (из 2 цифр)',
+		zh: '双数字二进制组合',
+	},
+	mirror_palindrome: {
+		en: 'Mirror & Palindrome',
+		fa: 'تقارن آینه‌ای کامل',
+		ru: 'Зеркальные и палиндромы',
+		zh: '镜像与完全回文号',
+	},
+	ladder_sequence: {
+		en: 'Ladder & Sequence',
+		fa: 'توالی پله‌ای صعودی/نزولی',
+		ru: 'Лесенка и последовательности',
+		zh: '阶梯顺子序列号',
+	},
+	calendar_date: {
+		en: 'Calendar & Chrono',
+		fa: 'سال و تقویم معنادار',
+		ru: 'Даты и календарные годы',
+		zh: '纪念日期与年份号',
+	},
+	standard_floor: {
+		en: 'Standard 8-Digit Floor',
+		fa: 'شماره 8 رقمی استاندارد',
+		ru: 'Стандартные 8-значные',
+		zh: '标准 8 位地板号',
+	},
+	standard_8d: {
+		en: 'Standard 8-Digit Floor',
+		fa: 'شماره 8 رقمی استاندارد',
+		ru: 'Стандартные 8-значные',
+		zh: '标准 8 位地板号',
+	},
+};
+
+export const CULTURAL_RADAR_I18N = {
+	regions: {
+		east_asia: {
+			en: 'China / East Asia',
+			fa: 'چین و شرق آسیا',
+			ru: 'Китай / Вост. Азия',
+			zh: '中国 / 东亚市场',
+		},
+		middle_east: {
+			en: 'Middle East / MENA',
+			fa: 'خاورمیانه و ایران',
+			ru: 'Ближний Восток',
+			zh: '中东 / MENA 市场',
+		},
+		cis: {
+			en: 'Russia / CIS',
+			fa: 'روسیه و CIS',
+			ru: 'Россия / СНГ',
+			zh: '俄罗斯 / 独联体',
+		},
+		global: {
+			en: 'Global & Web3 Natives',
+			fa: 'جهانی و بومیان وب3',
+			ru: 'Мир и Web3-аудитория',
+			zh: '全球与 Web3 原生买家',
+		},
+	} as Record<string, LocalizedText>,
+	verdicts: {
+		elite: {
+			en: 'Tier-1 Extreme Demand',
+			fa: 'درجه یک و تقاضای فوق‌العاده',
+			ru: 'Топ-уровень · Пиковый спрос',
+			zh: '顶级稀缺 · 极高需求',
+		},
+		high: {
+			en: 'High Collector Demand',
+			fa: 'تقاضای بالا در بازار',
+			ru: 'Высокий спрос коллекционеров',
+			zh: '藏家需求强劲',
+		},
+		moderate: {
+			en: 'Moderate Regional Appeal',
+			fa: 'علاقه‌مندی منطقه‌ای متوسط',
+			ru: 'Умеренный интерес',
+			zh: '区域市场反响适中',
+		},
+		wealth8: {
+			en: 'Wealth & 8-Affinity',
+			fa: 'جذابیت ثروت و رقم 8',
+			ru: 'Символ богатства (8)',
+			zh: '财富吉祥数字 8 偏好',
+		},
+		vipCode: {
+			en: 'Symmetric VIP Code',
+			fa: 'کد متقارن و رند VIP',
+			ru: 'Симметричный VIP-код',
+			zh: '对称尊享 VIP 号段',
+		},
+		telecomMirror: {
+			en: 'Telecom Mirror Pattern',
+			fa: 'الگوی آینه‌ای مخابراتی',
+			ru: 'Зеркальный телеком-паттерн',
+			zh: '经典电信镜像格局',
+		},
+		web3Minimal: {
+			en: 'Binary / Minimalist Appeal',
+			fa: 'سادگی و جذابیت باینری',
+			ru: 'Бинарный минимализм',
+			zh: '极简 / 二进制偏好',
+		},
+	},
+};
+
+export const NUMBER_PROVENANCE_I18N = {
+	unmintedBadge: {
+		en: 'Unminted',
+		fa: 'مینت نشده',
+		ru: 'Не выпущен',
+		zh: '未铸造',
+	},
+	unmintedDefaultReason: {
+		en: 'This +888 number combination was never minted during Telegram’s December 2022 TeleMint window (supply permanently frozen at 136,566 numbers). Explore valid minted alternatives below.',
+		fa: 'این ترکیب شماره +888 در بازه مینت دسامبر 2022 تلگرام ایجاد نشده است (عرضه برای همیشه در 136,566 شماره قفل شده است). گزینه‌های معتبر مینت‌شده زیر را بررسی کنید.',
+		ru: 'Эта комбинация номера +888 никогда не была выпущена в декабре 2022 года (эмиссия навсегда заморожена на 136,566 номерах). Ниже указаны похожие существующие номера.',
+		zh: '该 +888 号码组合未在 2022 年 12 月 Telegram 官方铸造窗口期生成（总量已永久锁定为 136,566 个）。请查看下方已铸造的相近号码。',
+	},
+	restrictedDefaultReason: {
+		en: 'This anonymous number is flagged with an active Telegram / Fragment restriction. Verify current transferability and login eligibility before bidding.',
+		fa: 'این شماره ناشناس دارای محدودیت رسمی ثبت‌شده در تلگرام یا فرگمنت است. پیش از خرید یا ثبت پیشنهاد، وضعیت انتقال و قابلیت ورود آن را بررسی کنید.',
+		ru: 'Для этого анонимного номера зафиксировано ограничение Telegram / Fragment. Перед покупкой проверьте возможность передачи и входа.',
+		zh: '该匿名号码已被标记存在 Telegram / Fragment 官方限制。在出价或购买前请务必核实其流转与登录资格。',
+	},
+	thinDepthTitle: {
+		en: 'Thin Floor Depth',
+		fa: 'عمق کم در نزدیکی فلور (Thin Depth)',
+		ru: 'Тонкая глубина у пола цены',
+		zh: '地板价附近挂单深度偏薄',
+	},
+	thinDepthDesc: {
+		en: 'Very few active listings sit within +5% of the collection floor, indicating elevated short-term price sensitivity.',
+		fa: 'تعداد کمی لیستینگ فعال در فاصله 5% بالاتر از فلور ثبت شده است که نشان‌دهنده حساسیت و نوسان‌پذیری بالای قیمت است.',
+		ru: 'В пределах +5% от минимальной цены мало активных лотов, что повышает краткосрочную волатильность.',
+		zh: '地板价上方 5% 区间内活跃挂单极少，短期价格波动敏感度较高。',
+	},
+};
+
+export const COLLECTION_CATEGORY_NAMES: Record<string, LocalizedText> = {
+	short_4: {
+		en: 'Ultra-Short 4-Char',
+		fa: 'فوق‌کوتاه 4 کاراکتری',
+		ru: 'Сверхкороткие (4 симв.)',
+		zh: '极短 4 字符精品',
+	},
+	crypto_ai: {
+		en: 'Crypto, TON & AI',
+		fa: 'کریپتو، TON و هوش مصنوعی',
+		ru: 'Крипто, TON и ИИ',
+		zh: '加密、TON 与 AI',
+	},
+	dictionary: {
+		en: 'English Dictionary Words',
+		fa: 'واژگان اصیل دیکشنری',
+		ru: 'Словарные английские слова',
+		zh: '英文核心词典词汇',
+	},
+	alpha_5: {
+		en: 'Pure 5-Letter Alpha',
+		fa: 'حروف خالص 5 کاراکتری',
+		ru: 'Чистые 5-буквенные',
+		zh: '纯 5 字母组合',
+	},
+	brand_words: {
+		en: 'Global Brands & Names',
+		fa: 'برندها و نام‌های جهانی',
+		ru: 'Глобальные бренды и имена',
+		zh: '全球品牌与专有名称',
+	},
+	alphanumeric: {
+		en: 'Numeric & Underscore',
+		fa: 'عددی و دارای آندرلاین',
+		ru: 'Цифры и подчеркивание',
+		zh: '数字与下划线组合',
+	},
+};
+
+export const WALLET_SHIELD_I18N = {
+	title: {
+		en: 'TON Wallet Security Shield',
+		fa: 'سپر امنیت آن‌چین کیف‌پول TON',
+		ru: 'Ончейн-щит безопасности TON',
+		zh: 'TON 钱包链上安全护盾',
+	},
+	statusSafe: {
+		en: 'Clean · Safe',
+		fa: 'سالم · ایمن',
+		ru: 'Чисто · Безопасно',
+		zh: '安全 · 无异常',
+	},
+	statusCaution: {
+		en: 'Extension / Plugin Active',
+		fa: 'افزونه / پلاگین فعال',
+		ru: 'Активно расширение',
+		zh: '检测到活跃扩展/插件',
+	},
+	statusCritical: {
+		en: 'High Risk Alert',
+		fa: 'هشدار ریسک بحرانی',
+		ru: 'Критический риск',
+		zh: '高危安全警报',
+	},
+	statusUninit: {
+		en: 'Uninitialized',
+		fa: 'فعال‌سازی نشده',
+		ru: 'Не инициализирован',
+		zh: '尚未初始化',
+	},
+	contractLabel: {
+		en: 'Contract',
+		fa: 'قرارداد',
+		ru: 'Контракт',
+		zh: '合约类型',
+	},
+	balanceLabel: {
+		en: 'Balance',
+		fa: 'موجودی',
+		ru: 'Баланс',
+		zh: '链上余额',
+	},
+	extensionsLabel: {
+		en: 'Extensions / Plugins',
+		fa: 'افزونه / پلاگین‌ها',
+		ru: 'Расширения / плагины',
+		zh: '扩展 / 插件数',
+	},
+	signatureLabel: {
+		en: 'Owner Signature',
+		fa: 'امضای مالک',
+		ru: 'Подпись владельца',
+		zh: '主私钥签名权',
+	},
+	sigAllowed: {
+		en: 'Allowed',
+		fa: 'فعال (مجاز)',
+		ru: 'Разрешена',
+		zh: '已启用',
+	},
+	sigDisabled: {
+		en: 'LOCKED OUT',
+		fa: 'غیرفعال (قفل شده!)',
+		ru: 'ЗАБЛОКИРОВАНА!',
+		zh: '已禁用（锁定！）',
+	},
+	sigNotApplicable: {
+		en: 'Standard Key',
+		fa: 'کلید استاندارد',
+		ru: 'Стандартный ключ',
+		zh: '标准私钥',
+	},
+	summarySafe: {
+		en: 'No active W5 extensions, V4 plugins, or scam flags detected on-chain.',
+		fa: 'هیچ افزونه فعال W5، پلاگین V4 یا پرچم اسکم روی بلاکچین برای این کیف‌پول یافت نشد.',
+		ru: 'Активные расширения W5, плагины V4 и метки скама в блокчейне не обнаружены.',
+		zh: '链上未检测到活跃的 W5 扩展、V4 插件或官方诈骗标记。',
+	},
+	summaryCautionExt: {
+		en: '{count} active on-chain extension(s)/plugin(s) detected. Verify each contract address carefully — unauthorized extensions can execute transfers without your seed phrase.',
+		fa: '{count} افزونه/پلاگین فعال روی این کیف‌پول شناسایی شد. آدرس هر قرارداد را بررسی کنید — افزونه‌های ناشناس می‌توانند بدون نیاز به کلمات بازیابی تراکنش ارسال کنند.',
+		ru: 'Обнаружено активных расширений/плагинов: {count}. Проверьте их адреса — неизвестные расширения могут управлять активами без вашей сид-фразы.',
+		zh: '检测到 {count} 个活跃链上扩展/插件。请仔细核实各合约地址——未授权扩展可在无需助记词的情况下发起转账。',
+	},
+	summaryCriticalLockout: {
+		en: 'CRITICAL: Owner signature authentication is DISABLED on this W5 wallet (is_signature_allowed = false). Your seed phrase cannot sign transactions while locked out.',
+		fa: 'بحرانی: احراز هویت با امضای مالک در این کیف‌پول W5 غیرفعال شده است (is_signature_allowed = false). تا زمان رفع قفل، با کلمات بازیابی خود قادر به امضای تراکنش نیستید.',
+		ru: 'КРИТИЧНО: подпись владельца ОТКЛЮЧЕНА на этом W5-кошельке (is_signature_allowed = false). Сид-фраза заблокирована.',
+		zh: '严重警报：该 W5 钱包的主私钥签名权限已被关闭（is_signature_allowed = false），助记词当前无法签名。',
+	},
+	summaryCriticalScam: {
+		en: 'CRITICAL: This TON address is flagged as SCAM by TonAPI on-chain security registries. Do not send TON, usernames, or NFTs to this address.',
+		fa: 'بحرانی: این آدرس TON در پایگاه‌های امنیتی TonAPI به عنوان کلاهبرداری (SCAM) پرچم‌گذاری شده است. هیچ TON، یوزرنیم یا NFT ارسال نکنید.',
+		ru: 'КРИТИЧНО: этот адрес TON помечен как SCAM в реестрах безопасности TonAPI. Не отправляйте на него активы.',
+		zh: '严重警报：该 TON 地址已被 TonAPI 安全库标记为诈骗（SCAM），切勿向其转账或发送 NFT。',
+	},
+	summaryUninit: {
+		en: 'Wallet contract has not been deployed on-chain yet (uninitialized account).',
+		fa: 'قرارداد هوشمند این کیف‌پول هنوز روی شبکه TON مستقر (Deploy) نشده است.',
+		ru: 'Смарт-контракт кошелька еще не развернут в сети TON.',
+		zh: '该钱包合约尚未在 TON 链上部署初始化。',
+	},
+	inspectTonviewer: {
+		en: 'Inspect on Tonviewer',
+		fa: 'بررسی در Tonviewer',
+		ru: 'Открыть в Tonviewer',
+		zh: '在 Tonviewer 中核查',
 	},
 };

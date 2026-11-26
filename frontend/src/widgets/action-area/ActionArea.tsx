@@ -637,9 +637,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										} catch {}
 									}}
 									class="px-2 py-1 rounded-[4px] bg-[#212a33] hover:bg-[#1a2026] text-[#8c9aa9] hover:text-white text-[11px] font-semibold transition-colors cursor-pointer"
-									title={t('common.pasteBtn') || 'Paste'}
+									title={t('common.pasteBtn') || t('fragUi.paste')}
 								>
-									Paste
+									{t('fragUi.paste')}
 								</button>
 
 								<Show when={searchQuery()}>

@@ -108,7 +108,7 @@ export const NumbersCollectionPage: Component = () => {
 						onClick={() => setIsExportOpen(true)}
 						class="h-8 px-2.5 rounded-[6px] bg-[#293440] hover:bg-[#384553] text-[12px] font-semibold text-white cursor-pointer"
 					>
-						Export
+						{t('fragUi.exportBtn')}
 					</button>
 				</div>
 			</header>
@@ -116,7 +116,7 @@ export const NumbersCollectionPage: Component = () => {
 			<div class="relative z-10 max-w-[520px] mx-auto px-4 pt-5 space-y-4">
 				<div>
 					<h1 class="text-[20px] sm:text-[22px] font-bold text-white tracking-[-0.015em]">
-						Anonymous Numbers (+888)
+						{t('numCollectionHeader.collectionName')}
 					</h1>
 					<p class="text-[12.5px] text-[#8794a1] mt-0.5">{t('numCollectionPage.aboutBody')}</p>
 				</div>
@@ -243,7 +243,7 @@ export const NumbersCollectionPage: Component = () => {
 				<div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
 					<div class="bg-[#212a33] w-full max-w-md rounded-[12px] p-4 max-h-[80vh] overflow-y-auto">
 						<div class="flex justify-between items-center mb-3">
-							<h3 class="text-[15px] font-semibold text-white">Methodology</h3>
+							<h3 class="text-[15px] font-semibold text-white">{t('fragUi.methodology')}</h3>
 							<button
 								type="button"
 								onClick={() => setIsMethodologyOpen(false)}

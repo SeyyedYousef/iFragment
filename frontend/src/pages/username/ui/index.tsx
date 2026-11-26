@@ -183,9 +183,11 @@ interface ValuationResult {
 	brandability: number;
 	trademark_risk?: {
 		risk_level?: string;
+		severity?: string;
 		matched_entity?: string;
 		brand?: string;
 		advisory_warning?: string;
+		advisory_warnings?: Record<string, string>;
 		risk_score?: number;
 	};
 	seller_hold_conviction?: {
@@ -726,7 +728,7 @@ export const UsernamePage: Component = () => {
 						type="text"
 						value={quickQuery()}
 						onInput={(e) => setQuickQuery(e.currentTarget.value.replace(/^@/, '').toLowerCase())}
-						placeholder="Search usernames"
+						placeholder={t('fragUi.searchUsernamesPh')}
 						class="flex-1 min-w-0 bg-transparent text-[12.5px] font-medium text-white placeholder:text-[#8a98a6] focus:outline-none"
 						autocomplete="off"
 						autocapitalize="off"
@@ -819,8 +821,8 @@ export const UsernamePage: Component = () => {
 									<Show when={recents().length > 0}>
 										<div class="frag-table-container">
 											<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
-												<span>Recent Appraisals</span>
-												<span>Estimated Value</span>
+												<span>{t('fragUi.recentAppraisals')}</span>
+												<span>{t('fragUi.estimatedValue')}</span>
 											</div>
 											<For each={recents().slice(0, 6)}>
 												{(r) => (
@@ -892,21 +894,30 @@ export const UsernamePage: Component = () => {
 										<div class="space-y-3.5">
 											{/* Clean Fragment Key-Value Metadata Card before unlock */}
 											<div class="frag-table-container">
-												<FragKV label="Telegram Username" copyValue={`@${username()}`} accent>
+												<FragKV
+													label={t('fragUi.telegramUsername')}
+													copyValue={`@${username()}`}
+													accent
+												>
 													@{username()}
 												</FragKV>
-												<FragKV label="Web Address" href={`https://t.me/${username()}`} accent>
+												<FragKV
+													label={t('fragUi.webAddress')}
+													href={`https://t.me/${username()}`}
+													accent
+												>
 													t.me/{username()}
 												</FragKV>
 												<FragKV
-													label="TON Web 3.0 Address"
+													label={t('fragUi.tonWeb3Address')}
 													href={`https://${username()}.t.me`}
 													accent
 												>
 													{username()}.t.me
 												</FragKV>
-												<FragKV label="Length / Mint Floor">
-													{username().length} chars · {primaryMintFloorTon(username().length)} TON
+												<FragKV label={t('fragUi.lengthTier')}>
+													{username().length} {layaT(USERNAME_I18N.charsLabel)} ·{' '}
+													{primaryMintFloorTon(username().length)} TON
 												</FragKV>
 											</div>
 
@@ -953,16 +964,18 @@ export const UsernamePage: Component = () => {
 												</div>
 												<div class="px-3.5 py-2.5 border-t border-[#1a2026] flex items-center justify-between text-[12px] text-[#8c9aa9]">
 													<span>
-														Confidence: <strong class="text-white">{d().confidence_score}%</strong>
+														{t('fragUi.confidenceLabel')}{' '}
+														<strong class="text-white">{d().confidence_score}%</strong>
 													</span>
 													<span>
-														Grade:{' '}
+														{t('fragUi.tier')}:{' '}
 														<strong class="text-[#5aec8c]">
 															{d().quality_grade || d().investment_grade || 'A'}
 														</strong>
 													</span>
 													<span>
-														Comps: <strong class="text-white">{d().comparable_sales_count}</strong>
+														{t('fragUi.compsLabel')}{' '}
+														<strong class="text-white">{d().comparable_sales_count}</strong>
 													</span>
 												</div>
 											</div>
@@ -978,7 +991,7 @@ export const UsernamePage: Component = () => {
 													rel="noreferrer"
 													class="frag-btn-primary h-10 px-4 rounded-[8px] text-[13.5px] font-semibold flex items-center justify-center gap-1.5"
 												>
-													<span>View on Fragment</span>
+													<span>{t('fragUi.viewOnFragment')}</span>
 													<span class="material-symbols-outlined text-[15px]">north_east</span>
 												</a>
 
@@ -1002,21 +1015,21 @@ export const UsernamePage: Component = () => {
 											{/* 2. Fragment Key-Value Metadata Card (.tm-list) */}
 											<div class="frag-table-container">
 												<FragKV
-													label="Telegram Username"
+													label={t('fragUi.telegramUsername')}
 													copyValue={`@${d().username || username()}`}
 													accent
 												>
 													@{d().username || username()}
 												</FragKV>
 												<FragKV
-													label="Web Address"
+													label={t('fragUi.webAddress')}
 													href={`https://t.me/${d().username || username()}`}
 													accent
 												>
 													t.me/{d().username || username()}
 												</FragKV>
 												<FragKV
-													label="TON Web 3.0 Address"
+													label={t('fragUi.tonWeb3Address')}
 													href={`https://${d().username || username()}.t.me`}
 													accent
 												>
@@ -1025,7 +1038,7 @@ export const UsernamePage: Component = () => {
 												<Show
 													when={d().live_market?.current_bid_ton || d().live_market?.buy_now_ton}
 												>
-													<FragKV label="Live Market Ask / Bid">
+													<FragKV label={t('fragUi.currentBid')}>
 														<TonAmount
 															value={fmtTon(
 																d().live_market?.buy_now_ton || d().live_market?.current_bid_ton,
@@ -1046,7 +1059,7 @@ export const UsernamePage: Component = () => {
 												>
 													{(ownerAddr) => (
 														<FragKV
-															label="Owner Wallet"
+															label={t('fragUi.ownerWallet')}
 															copyValue={ownerAddr()}
 															href={`https://tonviewer.com/${ownerAddr()}`}
 															accent
@@ -1062,12 +1075,12 @@ export const UsernamePage: Component = () => {
 												<For
 													each={
 														[
-															{ id: 'valuation', label: 'Valuation' },
+															{ id: 'valuation', label: t('numReportPage.valuation') },
 															{
 																id: 'similar',
-																label: `Comparables (${d().similar?.length || 0})`,
+																label: `${t('numReportPage.patternPeers')} (${d().similar?.length || 0})`,
 															},
-															{ id: 'onchain', label: 'Bid History & On-Chain' },
+															{ id: 'onchain', label: t('numReportPage.onChain') },
 														] as const
 													}
 												>
@@ -1102,19 +1115,19 @@ export const UsernamePage: Component = () => {
 													{/* Empirical Band & Transaction Economics */}
 													<div class="frag-table-container">
 														<div class="frag-table-header px-3.5 py-2">
-															<span>Valuation Breakdown</span>
+															<span>{t('fragUi.valuationBreakdown')}</span>
 														</div>
 														<Show when={d().empirical_band}>
 															{(band) => (
 																<>
-																	<FragKV label="P10 Conservative Floor">
+																	<FragKV label={t('fragUi.p10ConservativeFloor')}>
 																		<TonAmount
 																			value={fmtTon(band().p10_ton)}
 																			usd={fmtUsd(band().p10_usd)}
 																			size="sm"
 																		/>
 																	</FragKV>
-																	<FragKV label="P50 Fair Market Median">
+																	<FragKV label={t('fragUi.p50FairMedian')}>
 																		<TonAmount
 																			value={fmtTon(band().p50_ton)}
 																			usd={fmtUsd(band().p50_usd)}
@@ -1122,7 +1135,7 @@ export const UsernamePage: Component = () => {
 																			tone="positive"
 																		/>
 																	</FragKV>
-																	<FragKV label="P90 Strategic Ceiling">
+																	<FragKV label={t('fragUi.p90StrategicCeiling')}>
 																		<TonAmount
 																			value={fmtTon(band().p90_ton)}
 																			usd={fmtUsd(band().p90_usd)}
@@ -1135,25 +1148,25 @@ export const UsernamePage: Component = () => {
 														<Show when={d().transaction_economics}>
 															{(econ) => (
 																<>
-																	<FragKV label="Net Seller Payout (-5% Fee)">
+																	<FragKV label={layaT(USERNAME_I18N.netSellerProceeds)}>
 																		<TonAmount
 																			value={fmtTon(econ().net_payout_ton)}
 																			usd={fmtUsd(econ().net_payout_usd)}
 																			size="sm"
 																		/>
 																	</FragKV>
-																	<FragKV label="Minimum Bid Step (5%)">
+																	<FragKV label={layaT(USERNAME_I18N.fragmentFee)}>
 																		<TonAmount value={fmtTon(econ().bid_step_ton)} size="sm" />
 																	</FragKV>
 																</>
 															)}
 														</Show>
-														<FragKV label="Liquidity & Est. Exit Time">
+														<FragKV label={t('fragUi.liquidityExitTime')}>
 															{d().liquidity_rating || 'High'} ·{' '}
 															{d().estimated_sell_time || '3–7 days'}
 														</FragKV>
-														<FragKV label="Lexical & Brand Score">
-															{d().dictionary?.is_word ? 'Dictionary Word' : 'Brandable Handle'} ·{' '}
+														<FragKV label={t('fragUi.lexicalBrandScore')}>
+															{d().dictionary?.is_word ? 'Dictionary' : 'Brandable'} ·{' '}
 															{d().brandability || d().seo?.score || 85}/100
 														</FragKV>
 													</div>
@@ -1163,16 +1176,15 @@ export const UsernamePage: Component = () => {
 														{(conv) => (
 															<div class="frag-table-container">
 																<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
-																	<span>Seller Hold Conviction</span>
+																	<span>{t('fragUi.sellerHoldConviction')}</span>
 																	<span class="font-mono text-[#4db2ff]">
-																		{conv().hold_conviction_score}/100 ·{' '}
-																		{conv().is_whale_holder ? 'Whale Holder' : 'Standard Holder'}
+																		{conv().hold_conviction_score}/100
 																	</span>
 																</div>
-																<FragKV label="Negotiation Leverage">
+																<FragKV label={t('fragUi.negotiationLeverage')}>
 																	{conv().negotiation_stance}
 																</FragKV>
-																<FragKV label="Suggested Reservation Price">
+																<FragKV label={t('fragUi.suggestedReservation')}>
 																	<TonAmount
 																		value={fmtTon(conv().seller_reservation_ton)}
 																		size="sm"
@@ -1232,10 +1244,10 @@ export const UsernamePage: Component = () => {
 														</span>
 														<span>
 															{sent()
-																? 'Sent to your Telegram chat'
+																? t('fragUi.sentToTgChat')
 																: downloading()
-																	? 'Generating certificate…'
-																	: 'Send Valuation Card to Telegram'}
+																	? t('fragUi.generatingCert')
+																	: t('fragUi.sendValuationCardTg')}
 														</span>
 													</button>
 												</div>
@@ -1248,10 +1260,13 @@ export const UsernamePage: Component = () => {
 														<For
 															each={
 																[
-																	{ id: 'all', label: 'All' },
+																	{ id: 'all', label: layaT(USERNAME_I18N.allFilter) },
 																	{ id: 'live_fragment', label: 'Fragment' },
-																	{ id: 'semantic', label: 'Semantic' },
-																	{ id: 'structural', label: 'Structural' },
+																	{ id: 'semantic', label: layaT(USERNAME_I18N.semanticFilter) },
+																	{
+																		id: 'structural',
+																		label: layaT(USERNAME_I18N.structuralFilter),
+																	},
 																] as const
 															}
 														>
@@ -1273,15 +1288,15 @@ export const UsernamePage: Component = () => {
 
 													<div class="frag-table-container">
 														<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-															<span class="col-span-5">Username</span>
-															<span class="col-span-4">Price</span>
-															<span class="col-span-3 text-end">Status</span>
+															<span class="col-span-5">{t('fragUi.username')}</span>
+															<span class="col-span-4">{t('fragUi.price')}</span>
+															<span class="col-span-3 text-end">{t('fragUi.status')}</span>
 														</div>
 														<Show
 															when={filteredSimilar().length > 0}
 															fallback={
 																<div class="p-6 text-center text-[13px] text-[#8c9aa9]">
-																	No comparable handles in this filter.
+																	{t('fragUi.noComparableHandles')}
 																</div>
 															}
 														>
@@ -1331,13 +1346,13 @@ export const UsernamePage: Component = () => {
 													{/* Bid / Sale History Table */}
 													<div>
 														<h3 class="text-[16px] font-bold text-white mb-2 px-0.5">
-															Bid & Sale History
+															{t('fragUi.bidSaleHistory')}
 														</h3>
 														<div class="frag-table-container">
 															<div class="frag-table-header grid grid-cols-12 px-3.5 py-2">
-																<span class="col-span-4">Price</span>
-																<span class="col-span-4">Date</span>
-																<span class="col-span-4 text-end">From</span>
+																<span class="col-span-4">{t('fragUi.price')}</span>
+																<span class="col-span-4">{t('fragUi.date')}</span>
+																<span class="col-span-4 text-end">{t('fragUi.from')}</span>
 															</div>
 															<Show
 																when={
@@ -1346,7 +1361,7 @@ export const UsernamePage: Component = () => {
 																}
 																fallback={
 																	<div class="p-5 text-center text-[13px] text-[#8c9aa9]">
-																		No on-chain bids or transfers recorded yet.
+																		{t('fragUi.noOnChainHistory')}
 																	</div>
 																}
 															>
@@ -1375,12 +1390,12 @@ export const UsernamePage: Component = () => {
 													{/* TeleMint Provenance & Security Table */}
 													<div class="frag-table-container">
 														<div class="frag-table-header px-3.5 py-2">
-															<span>TeleMint On-Chain Provenance</span>
+															<span>{t('fragUi.telemintProvenance')}</span>
 														</div>
 														<Show when={d().telemint_provenance?.item_address}>
 															{(addr) => (
 																<FragKV
-																	label="NFT Contract"
+																	label={t('fragUi.nftContract')}
 																	copyValue={addr()}
 																	href={`https://tonviewer.com/${addr()}`}
 																	accent
@@ -1391,21 +1406,48 @@ export const UsernamePage: Component = () => {
 														</Show>
 														<FragKV label="TON DNS (.ton)">
 															{d().ton_dns_domain?.exists
-																? `${d().ton_dns_domain?.domain} (Minted)`
+																? `${d().ton_dns_domain?.domain}`
 																: `${username()}.ton`}
 														</FragKV>
-														<FragKV label="Trademark & Homoglyph Check">
+														<FragKV label={t('fragUi.trademarkHomoglyphCheck')}>
 															<span
 																class={
 																	d().risk_audit?.has_trademark_risk ||
-																	d().risk_audit?.has_homoglyph_risk
+																	d().risk_audit?.has_homoglyph_risk ||
+																	d().trademark_risk?.risk_level === 'high' ||
+																	d().trademark_risk?.risk_level === 'medium'
 																		? 'text-[#ff9953]'
 																		: 'text-[#5aec8c]'
 																}
 															>
-																{d().risk_audit?.has_trademark_risk
-																	? d().risk_audit?.trademark_detail || 'Trademark Advisory'
-																	: 'Clean · Verified ASCII'}
+																{(() => {
+																	const tm = d().trademark_risk;
+																	const hasTm =
+																		d().risk_audit?.has_trademark_risk ||
+																		tm?.risk_level === 'high' ||
+																		tm?.risk_level === 'medium';
+																	if (hasTm) {
+																		const brand = tm?.brand || '';
+																		const entity = tm?.matched_entity || brand;
+																		if (brand) {
+																			const sev = (tm?.severity || '').toLowerCase();
+																			const tpl =
+																				sev === 'exact_match' || tm?.risk_level === 'high'
+																					? layaT(USERNAME_I18N.inlineTrademarkExact)
+																					: sev === 'tld_squat'
+																						? layaT(USERNAME_I18N.inlineTrademarkSquat)
+																						: layaT(USERNAME_I18N.inlineTrademarkSubstring);
+																			return tpl
+																				.replace(/\{brand\}/g, brand)
+																				.replace(/\{entity\}/g, entity);
+																		}
+																		return layaT(USERNAME_I18N.inlineTrademarkGeneric);
+																	}
+																	if (d().risk_audit?.has_homoglyph_risk) {
+																		return layaT(USERNAME_I18N.inlineHomoglyphRisk);
+																	}
+																	return layaT(USERNAME_I18N.inlineCleanAscii);
+																})()}
 															</span>
 														</FragKV>
 													</div>
@@ -1415,20 +1457,20 @@ export const UsernamePage: Component = () => {
 														{(bf) => (
 															<div class="frag-table-container" dir="ltr">
 																<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
-																	<span>TON TVM BOC & Bit-Level Forensics</span>
+																	<span>{t('fragUi.tvmBocForensics')}</span>
 																	<span class="font-mono text-[#4db2ff]">
 																		{bf().boc_magic_prefix || '0xb5ee9c72'}
 																	</span>
 																</div>
 																<FragKV
-																	label="ASCII Hex Payload"
+																	label={t('fragUi.asciiHexPayload')}
 																	copyValue={bf().ascii_hex_payload || bf().ascii_hex_spaced}
 																>
 																	<span class="font-mono text-[#4db2ff]">
 																		{bf().ascii_hex_spaced || bf().ascii_hex_payload}
 																	</span>
 																</FragKV>
-																<FragKV label="Bit Density & Hamming Weight">
+																<FragKV label={t('fragUi.bitDensityHamming')}>
 																	<span class="font-mono">
 																		{bf().set_bits_popcount}/{bf().total_bits} bits (
 																		{bf().hamming_weight_pct ??
@@ -1436,27 +1478,27 @@ export const UsernamePage: Component = () => {
 																		%)
 																	</span>
 																</FragKV>
-																<FragKV label="Shannon Information Entropy">
+																<FragKV label={t('fragUi.shannonInfoEntropy')}>
 																	<span class="font-mono">
 																		{bf().shannon_entropy_bits} bits (Norm:{' '}
 																		{((bf().normalized_entropy || 0) * 100).toFixed(1)}%)
 																	</span>
 																</FragKV>
-																<FragKV label="Fitts's Law Biomechanics">
+																<FragKV label={t('fragUi.fittsBiomechanics')}>
 																	<span class="font-mono text-[#5aec8c]">
 																		ID {bf().fitts_index_bits ?? 0.8} bits · Ergo{' '}
 																		{Math.round((bf().fitts_ergonomic_score || 0.85) * 100)}/100 ·
 																		Alt {bf().hand_alternation_pct}%
 																	</span>
 																</FragKV>
-																<FragKV label="Optical Kerning Symmetry">
+																<FragKV label={t('fragUi.opticalKerning')}>
 																	<span class="font-mono">
 																		{Math.round((bf().optical_kerning_symmetry || 0.82) * 100)}% SF
-																		Pro harmony
+																		Pro
 																	</span>
 																</FragKV>
 																<Show when={(bf().viterbi_tokens?.length || 0) > 0}>
-																	<FragKV label="Viterbi DP Segmentation">
+																	<FragKV label={t('fragUi.viterbiSegmentation')}>
 																		<span class="font-mono text-[#4db2ff]">
 																			{(bf().viterbi_tokens || []).join(' + ')} (
 																			{Math.round((bf().viterbi_coverage || 0) * 100)}%)
@@ -1478,7 +1520,7 @@ export const UsernamePage: Component = () => {
 																</FragKV>
 																<Show when={bf().tep81_dns_internal_hex}>
 																	<FragKV
-																		label="TEP-81 DNS Resolve Slice"
+																		label={t('fragUi.tep81DnsSlice')}
 																		copyValue={bf().tep81_dns_internal_hex}
 																	>
 																		<span class="font-mono text-[11px] text-[#4db2ff]">
@@ -1487,7 +1529,7 @@ export const UsernamePage: Component = () => {
 																	</FragKV>
 																</Show>
 																<FragKV
-																	label="TVM BOC Cell (Castagnoli CRC32-C)"
+																	label="TVM BOC Cell (CRC32-C)"
 																	copyValue={bf().telemint_token_cell_boc || bf().tvm_boc_cell_hex}
 																>
 																	<span class="font-mono text-[11px] text-[#5aec8c]">
@@ -1501,7 +1543,7 @@ export const UsernamePage: Component = () => {
 																</FragKV>
 																<div class="p-3 border-t border-[#1a2026]">
 																	<span class="text-[10.5px] font-semibold text-[#8c9aa9] block mb-1.5">
-																		8-Bit ASCII Bitstream Matrix
+																		{t('fragUi.asciiBitstreamMatrix')}
 																	</span>
 																	<div class="flex flex-wrap gap-1.5">
 																		<For each={bf().bitstream_matrix || []}>
@@ -1529,12 +1571,12 @@ export const UsernamePage: Component = () => {
 													>
 														<div class="frag-table-container">
 															<div class="frag-table-header px-3.5 py-2 flex items-center justify-between">
-																<span>Homoglyph & Confusable Twin Matrix</span>
+																<span>{t('fragUi.homoglyphTwinMatrix')}</span>
 																<Show
 																	when={d().homoglyph_spoofing_matrix?.defense_score !== undefined}
 																>
 																	<span class="font-mono text-[#4db2ff]">
-																		Defense {d().homoglyph_spoofing_matrix!.defense_score}/100
+																		{d().homoglyph_spoofing_matrix!.defense_score}/100
 																	</span>
 																</Show>
 															</div>
@@ -1563,7 +1605,7 @@ export const UsernamePage: Component = () => {
 													<Show when={(d().portfolio?.items?.length || 0) > 0}>
 														<div>
 															<h3 class="text-[15px] font-semibold text-white mb-2 px-0.5">
-																Owner Portfolio ({d().portfolio?.total_count || 0})
+																{t('fragUi.ownerPortfolio')} ({d().portfolio?.total_count || 0})
 															</h3>
 															<div class="frag-table-container">
 																<For each={(d().portfolio?.items || []).slice(0, 6)}>
@@ -1613,7 +1655,7 @@ export const UsernamePage: Component = () => {
 							<span class="text-[15px] font-bold tracking-[0.04em]">FRAGMENT</span>
 						</div>
 						<span class="px-2.5 py-1 rounded-[4px] bg-[#5aec8c]/10 text-[#5aec8c] text-[12px] font-semibold">
-							Verified Valuation
+							{t('fragUi.verifiedValuation')}
 						</span>
 					</div>
 
@@ -1627,17 +1669,17 @@ export const UsernamePage: Component = () => {
 
 					<div class="bg-[#212a33] rounded-[8px] p-4 grid grid-cols-3 gap-2">
 						<div>
-							<div class="text-[11px] text-[#8c9aa9]">Floor</div>
+							<div class="text-[11px] text-[#8c9aa9]">{t('fragUi.floor')}</div>
 							<div class="text-[16px] font-bold text-white mt-0.5">{fmtTon(lowTon())} TON</div>
 						</div>
 						<div>
-							<div class="text-[11px] text-[#8c9aa9]">Fair Value</div>
+							<div class="text-[11px] text-[#8c9aa9]">{t('fragUi.fairValue')}</div>
 							<div class="text-[18px] font-bold text-[#5aec8c] mt-0.5">
 								{fmtTon(expectedTon())} TON
 							</div>
 						</div>
 						<div class="text-right">
-							<div class="text-[11px] text-[#8c9aa9]">Ceiling</div>
+							<div class="text-[11px] text-[#8c9aa9]">{t('fragUi.ceiling')}</div>
 							<div class="text-[16px] font-bold text-white mt-0.5">{fmtTon(highTon())} TON</div>
 						</div>
 					</div>

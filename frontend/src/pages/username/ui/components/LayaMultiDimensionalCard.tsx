@@ -63,7 +63,19 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 	};
 
 	const auctionTactics = () => {
-		if (props.decision?.auction_tactics) return props.decision.auction_tactics;
+		const raw = (props.decision?.auction_tactics || '').toLowerCase();
+		if (raw.includes('aggressive') || raw.includes('bidding war')) {
+			return layaT(USERNAME_I18N.auctionTacticsAggressive);
+		}
+		if (raw.includes('firm reserve') || raw.includes('conservative reserve')) {
+			return layaT(USERNAME_I18N.auctionTacticsFirmReserve);
+		}
+		if (raw.includes('buy-now') || raw.includes('fixed')) {
+			return layaT(USERNAME_I18N.auctionTacticsBuyNow);
+		}
+		if (raw.includes('standard')) {
+			return layaT(USERNAME_I18N.auctionTacticsStandard);
+		}
 		const b = biddingWarPotential();
 		if (b >= 80) return layaT(USERNAME_I18N.auctionTacticsAggressive);
 		if (b >= 60) return layaT(USERNAME_I18N.auctionTacticsBuyNow);
@@ -71,7 +83,25 @@ export const LayaMultiDimensionalCard: Component<Props> = (props) => {
 	};
 
 	const culturalResonance = () => {
-		if (props.decision?.cultural_resonance) return props.decision.cultural_resonance;
+		const raw = (props.decision?.cultural_resonance || '').toLowerCase().trim();
+		if (raw === 'web3_crypto' || raw.includes('web3') || raw.includes('crypto')) {
+			return layaT(USERNAME_I18N.resWeb3Crypto);
+		}
+		if (raw === 'luxury_status' || raw.includes('luxury') || raw.includes('prestige')) {
+			return layaT(USERNAME_I18N.resLuxuryStatus);
+		}
+		if (raw === 'business_utility' || raw.includes('business') || raw.includes('commercial')) {
+			return layaT(USERNAME_I18N.resBusinessUtility);
+		}
+		if (raw === 'pop_culture_meme' || raw.includes('meme') || raw.includes('pop_culture')) {
+			return layaT(USERNAME_I18N.resPopCultureMeme);
+		}
+		if (raw === 'generic_english' || raw.includes('generic')) {
+			return layaT(USERNAME_I18N.resGenericEnglish);
+		}
+		if (raw === 'obscure_filler' || raw.includes('obscure') || raw.includes('filler')) {
+			return layaT(USERNAME_I18N.resObscureFiller);
+		}
 		return layaT(USERNAME_I18N.universalWeb3);
 	};
 

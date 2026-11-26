@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { type Component, For } from 'solid-js';
 import type { NumberPatternAnalytics } from '@/entities/numbers/model/types.js';
 import { t, useI18n } from '@/shared/i18n/index.js';
+import { layaT, NUMBER_PATTERN_NAMES } from '@/shared/i18n/laya-i18n.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface PatternsViewProps {
@@ -55,11 +56,22 @@ export const NumberPatternsView: Component<PatternsViewProps> = (props) => {
 								<div class="space-y-0.5 min-w-0">
 									<div class="flex items-center gap-2 flex-wrap">
 										<span class="text-xs font-black text-white font-sans">
-											{locale() === 'fa' ? p.pattern_name_fa : p.pattern_name_en}
+											{(() => {
+												const mapped = NUMBER_PATTERN_NAMES[p.pattern_key];
+												if (mapped) return layaT(mapped);
+												return locale() === 'fa'
+													? (p.pattern_name_fa || p.pattern_name_en).replace(
+															/[\u06f0-\u06f9]/g,
+															(d) => String(d.charCodeAt(0) - 0x06f0),
+														)
+													: p.pattern_name_en;
+											})()}
 										</span>
-										<span class="text-[9px] font-mono text-white/40">
-											({locale() === 'fa' ? p.pattern_name_en : p.pattern_name_fa})
-										</span>
+										{locale() !== 'en' && p.pattern_name_en ? (
+											<span class="text-[9px] font-mono text-white/40" dir="ltr">
+												({p.pattern_name_en})
+											</span>
+										) : null}
 									</div>
 									<div class="flex items-center gap-2">
 										<span class="text-xs font-mono font-black text-[#2990ff] bg-[#2990ff]/10 px-2 py-0.5 rounded-lg border border-[#2990ff]/20">

@@ -1,7 +1,7 @@
 import { type Component, For } from 'solid-js';
 import type { CulturalScore } from '@/entities/numbers/model/types.js';
 import { t } from '@/shared/i18n/index.js';
-import { layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
+import { CULTURAL_RADAR_I18N, layaT, NUMBERS_I18N } from '@/shared/i18n/laya-i18n.js';
 import { FragSectionHeader } from '@/shared/ui/fragment/FragmentPrimitives.js';
 
 interface Props {
@@ -9,6 +9,29 @@ interface Props {
 	number: string;
 	layaReasoning?: any;
 }
+
+const localizeRegion = (key?: string, fallbackName?: string): string => {
+	const k = (key || '').toLowerCase();
+	if (k.includes('east') || k.includes('china') || k.includes('asia')) {
+		return layaT(CULTURAL_RADAR_I18N.regions.east_asia);
+	}
+	if (k.includes('middle') || k.includes('mena') || k.includes('arab') || k.includes('iran')) {
+		return layaT(CULTURAL_RADAR_I18N.regions.middle_east);
+	}
+	if (k.includes('cis') || k.includes('russia') || k.includes('euro')) {
+		return layaT(CULTURAL_RADAR_I18N.regions.cis);
+	}
+	if (k.includes('global') || k.includes('west') || k.includes('web3')) {
+		return layaT(CULTURAL_RADAR_I18N.regions.global);
+	}
+	return fallbackName || key || layaT(CULTURAL_RADAR_I18N.regions.global);
+};
+
+const localizeVerdict = (score: number): string => {
+	if (score >= 85) return layaT(CULTURAL_RADAR_I18N.verdicts.elite);
+	if (score >= 65) return layaT(CULTURAL_RADAR_I18N.verdicts.high);
+	return layaT(CULTURAL_RADAR_I18N.verdicts.moderate);
+};
 
 export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 	const clean = () => (props.number || '').replace(/\D/g, '').replace(/^888/, '');
@@ -34,13 +57,28 @@ export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 		if (west > 95) west = 95;
 
 		return [
-			{ region: 'China / East Asia', score: cn, badge: 'Wealth & 8-Affinity', color: '#ff5c6c' },
-			{ region: 'Middle East / Arab', score: mena, badge: 'Symmetric VIP Code', color: '#2990ff' },
-			{ region: 'Russia / Eastern Europe', score: ru, badge: 'Telecom Mirror', color: '#4cd964' },
 			{
-				region: 'Western & Web3 Natives',
+				region: layaT(CULTURAL_RADAR_I18N.regions.east_asia),
+				score: cn,
+				badge: layaT(CULTURAL_RADAR_I18N.verdicts.wealth8),
+				color: '#ff5c6c',
+			},
+			{
+				region: layaT(CULTURAL_RADAR_I18N.regions.middle_east),
+				score: mena,
+				badge: layaT(CULTURAL_RADAR_I18N.verdicts.vipCode),
+				color: '#2990ff',
+			},
+			{
+				region: layaT(CULTURAL_RADAR_I18N.regions.cis),
+				score: ru,
+				badge: layaT(CULTURAL_RADAR_I18N.verdicts.telecomMirror),
+				color: '#4cd964',
+			},
+			{
+				region: layaT(CULTURAL_RADAR_I18N.regions.global),
 				score: west,
-				badge: 'Binary / Minimalist',
+				badge: layaT(CULTURAL_RADAR_I18N.verdicts.web3Minimal),
 				color: '#ffb340',
 			},
 		];
@@ -49,9 +87,9 @@ export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 	const radarList = () => {
 		if (props.radar && props.radar.length > 0) {
 			return props.radar.map((item) => ({
-				region: item.market_name || item.region_key,
+				region: localizeRegion(item.region_key, item.market_name),
 				score: item.score,
-				badge: item.verdict_en || item.verdict_fa || 'Active',
+				badge: localizeVerdict(item.score),
 				color: item.score >= 80 ? '#4cd964' : item.score >= 60 ? '#2990ff' : '#ffb340',
 			}));
 		}
@@ -104,8 +142,7 @@ export const NumberSingleCulturalRadarCard: Component<Props> = (props) => {
 					<span>{layaT(NUMBERS_I18N.layaCulturalVerdict)}</span>
 				</div>
 				<p class="text-[11.5px] text-[#c7d0d9] leading-relaxed">
-					{props.layaReasoning?.cultural_resonance ||
-						layaT(NUMBERS_I18N.layaCulturalDefaultSummary)}
+					{layaT(NUMBERS_I18N.layaCulturalDefaultSummary)}
 				</p>
 			</div>
 		</div>
