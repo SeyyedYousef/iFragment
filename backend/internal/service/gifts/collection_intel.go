@@ -318,7 +318,14 @@ func (s *GiftsService) ListCollections(ctx context.Context) ([]CollectionListIte
 	if s.repo != nil {
 		if snaps, err := s.repo.GetVenueSnapshots(ctx, ""); err == nil && len(snaps) > 0 {
 			for _, sRec := range snaps {
-				if f, _ := sRec.FloorPriceGRAM.Float64(); f > 0 {
+				// Sacred Rule: Never use primary Telegram Stars mint price or stale >24h snapshots when live snapshots exist
+				if sRec.Venue == string(venues.VenueTelegramStars) || strings.EqualFold(sRec.Currency, "Stars") {
+					continue
+				}
+				if f, _ := sRec.FloorPriceGRAM.Float64(); f > 0 && f != 16111.0 {
+					if !sRec.UpdatedAt.IsZero() && time.Since(sRec.UpdatedAt) > 12*time.Hour {
+						continue
+					}
 					if existing, ok := floorMap[sRec.ModelID]; !ok || f < existing {
 						floorMap[sRec.ModelID] = f
 						floorMap[strings.ReplaceAll(sRec.ModelID, "-", "_")] = f

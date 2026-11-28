@@ -317,3 +317,35 @@ func TestValuationEngine_RealizedSalePriceAnchoring(t *testing.T) {
 	}
 }
 
+func TestOverhaul_NeverBelowFloorAndGenesisSixEightHierarchy(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	ctx := context.Background()
+
+	// 1. User-reported under-floor regression: +888 0969 4205 must never fall to ~1,000 TON
+	valUser, err := engine.Valuate(ctx, "+888 0969 4205")
+	if err != nil {
+		t.Fatalf("Valuate(+888 0969 4205) failed: %v", err)
+	}
+	expUser, _ := valUser.ExpectedTON.Float64()
+	lowUser, _ := valUser.LowTON.Float64()
+	if expUser < 3200.0 || lowUser < 3200.0 {
+		t.Errorf("standard +888 0969 4205 dropped below market floor: low=%.2f exp=%.2f (expected >= 3,200 TON)", lowUser, expUser)
+	}
+
+	// 2. Genesis 6-consecutive-eight hierarchy: +888 8889 and +888 8880 must strictly outrank +888 8222
+	val8889, err := engine.Valuate(ctx, "+888 8889")
+	if err != nil {
+		t.Fatalf("Valuate(+888 8889) failed: %v", err)
+	}
+	val8222, err := engine.Valuate(ctx, "+888 8222")
+	if err != nil {
+		t.Fatalf("Valuate(+888 8222) failed: %v", err)
+	}
+	exp8889, _ := val8889.ExpectedTON.Float64()
+	exp8222, _ := val8222.ExpectedTON.Float64()
+	if exp8889 <= exp8222 {
+		t.Errorf("expected +888 8889 (%.2f TON) > +888 8222 (%.2f TON)", exp8889, exp8222)
+	}
+}
+
+

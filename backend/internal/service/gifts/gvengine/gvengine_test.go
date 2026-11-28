@@ -280,3 +280,44 @@ func TestGVEngine_NeverBelowMarketFloor(t *testing.T) {
 	}
 }
 
+func TestOverhaul_UnresolvedOrdinaryGiftsFloorLocked(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	engine.SetNFTResolver(nil)
+	ctx := context.Background()
+
+	// Unresolved high-serial gifts must NOT inherit Tier-S default backdrops (301k bug) or false monochrome matching
+	cases := []string{
+		"resistance_dog-10536",
+		"scared_cat-15926",
+		"santa_hat-68487",
+		"durov_cap-2200",
+	}
+	for _, slug := range cases {
+		val, err := engine.Valuate(ctx, slug)
+		if err != nil {
+			t.Fatalf("Valuate(%q) failed: %v", slug, err)
+		}
+		ref, _ := NormalizeGiftIdentifier(slug)
+		col, _ := traits.ResolveCollection(ref.ModelID)
+		baseFloor := engine.resolveDynamicFloor(ctx, ref.ModelID, col, 5.50)
+
+		expGRAM, _ := val.ExpectedGRAM.Float64()
+		if expGRAM > baseFloor*1.25 {
+			t.Errorf("[%s] ordinary unresolved high-serial gift overvalued at %.2f GRAM vs floor %.2f GRAM", slug, expGRAM, baseFloor)
+		}
+	}
+
+	// Verify dark backdrop on scared_cat without explicit chromatic 3D model variant does NOT trigger IsMonochromeColorMatch
+	darkBackdrop := &traits.BackdropColorSet{
+		CenterHex:  "#15171E",
+		EdgeHex:    "#0F1117",
+		PatternHex: "#242834",
+		TextHex:    "#E0E4F0",
+	}
+	harm := traits.EvaluateAestheticHarmony("scared_cat", "Original", darkBackdrop)
+	if harm.IsMonochromeColorMatch {
+		t.Errorf("expected IsMonochromeColorMatch=false for generic 'Original' model variant on scared_cat")
+	}
+}
+
+

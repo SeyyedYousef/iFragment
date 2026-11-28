@@ -483,6 +483,13 @@ func (s *NumbersService) persistLiveFragmentNumbersSnapshot(ctx context.Context,
 		floorNum = auctions[0].Number
 	}
 
+	// Deactivate stale Fragment listings before writing fresh snapshot so sold/expired asks never linger
+	_, _ = s.db.Pool.Exec(pCtx, `
+		UPDATE number_market_listings
+		SET is_active = FALSE
+		WHERE LOWER(venue) = 'fragment' AND observed_at < NOW() - INTERVAL '45 minutes'
+	`)
+
 	for _, item := range saleListings {
 		askNano := int64(item.PriceTON * 1e9)
 		if askNano <= 0 {
@@ -494,7 +501,7 @@ func (s *NumbersService) persistLiveFragmentNumbersSnapshot(ctx context.Context,
 			diffPct = ((item.PriceTON - floorTON) / floorTON) * 100.0
 		}
 		_, _ = s.db.Pool.Exec(pCtx, `
-			DELETE FROM number_market_listings WHERE number = $1 AND venue = 'fragment' AND listing_type = 'ask';
+			DELETE FROM number_market_listings WHERE number = $1 AND LOWER(venue) = 'fragment' AND listing_type = 'ask';
 		`, item.Number)
 		_, _ = s.db.Pool.Exec(pCtx, `
 			INSERT INTO number_market_listings (
@@ -511,13 +518,13 @@ func (s *NumbersService) persistLiveFragmentNumbersSnapshot(ctx context.Context,
 		}
 		isGen := len(strings.TrimPrefix(item.Number, "+888")) == 4
 		_, _ = s.db.Pool.Exec(pCtx, `
-			DELETE FROM number_market_listings WHERE number = $1 AND venue = 'fragment' AND listing_type = 'auction';
+			DELETE FROM number_market_listings WHERE number = $1 AND LOWER(venue) = 'fragment' AND listing_type = 'auction';
 		`, item.Number)
 		_, _ = s.db.Pool.Exec(pCtx, `
 			INSERT INTO number_market_listings (
 				number, display_number, venue, listing_type, ask_price_nano_ton, current_bid_nano_ton,
 				is_genesis, ends_at, is_active, observed_at, source_url
-			) VALUES ($1, $2, 'fragment', 'auction', $3, $3, $4, $5, TRUE, NOW(), $6)
+			) VALUES ($1, $2, 'fragment', 'auction', NULL, $3, $4, $5, TRUE, NOW(), $6)
 		`, item.Number, item.DisplayNumber, bidNano, isGen, item.EndsAt, item.MarketURL)
 	}
 
@@ -971,20 +978,27 @@ func (s *NumbersService) syncLiveSaleIfMissing(ctx context.Context, normNumber s
 	}
 	htmlStr := string(body)
 
-	// Also detect active "For sale" or "On auction" listings on Fragment so single-number valuation knows live Ask/Bid
-	reActiveAsk := regexp.MustCompile(`(?s)icon-before icon-ton">([\d,.]+)</div>\s*<div class="table-cell-desc">(?:Buy now|Price|Minimum bid|Highest bid)</div>`)
-	if askMatch := reActiveAsk.FindStringSubmatch(htmlStr); len(askMatch) >= 2 && s.db != nil && s.db.Pool != nil {
+	// Also detect active "For sale" (fixed price) vs "On auction" listings on Fragment without polluting Buy-Now asks with auction bids
+	reActiveAsk := regexp.MustCompile(`(?s)icon-before icon-ton">([\d,.]+)</div>\s*<div class="table-cell-desc">(Buy now|Price|Minimum bid|Highest bid)</div>`)
+	if askMatch := reActiveAsk.FindStringSubmatch(htmlStr); len(askMatch) >= 3 && s.db != nil && s.db.Pool != nil {
 		askClean := strings.ReplaceAll(askMatch[1], ",", "")
+		descType := strings.ToLower(strings.TrimSpace(askMatch[2]))
 		if askTON, aErr := strconv.ParseFloat(askClean, 64); aErr == nil && askTON > 0 {
-			askNano := int64(askTON * 1e9)
-			_, _ = s.db.Pool.Exec(ctx, `
-				INSERT INTO number_market_listings (number, venue, ask_price_nano_ton, is_active, updated_at)
-				VALUES ($1, 'Fragment', $2, TRUE, NOW())
-				ON CONFLICT (number, venue) DO UPDATE SET
-					ask_price_nano_ton = EXCLUDED.ask_price_nano_ton,
-					is_active = TRUE,
-					updated_at = NOW()
-			`, normNumber, askNano)
+			valNano := int64(askTON * 1e9)
+			isGen := len(strings.TrimPrefix(normNumber, "+888")) == 4
+			if descType == "buy now" || descType == "price" {
+				_, _ = s.db.Pool.Exec(ctx, `
+					DELETE FROM number_market_listings WHERE number = $1 AND LOWER(venue) = 'fragment' AND listing_type = 'ask';
+					INSERT INTO number_market_listings (number, display_number, venue, listing_type, ask_price_nano_ton, is_genesis, is_active, observed_at)
+					VALUES ($1, $2, 'fragment', 'ask', $3, $4, TRUE, NOW())
+				`, normNumber, features.FormatDisplayNumber(normNumber), valNano, isGen)
+			} else {
+				_, _ = s.db.Pool.Exec(ctx, `
+					DELETE FROM number_market_listings WHERE number = $1 AND LOWER(venue) = 'fragment' AND listing_type = 'auction';
+					INSERT INTO number_market_listings (number, display_number, venue, listing_type, ask_price_nano_ton, current_bid_nano_ton, is_genesis, is_active, observed_at)
+					VALUES ($1, $2, 'fragment', 'auction', NULL, $3, $4, TRUE, NOW())
+				`, normNumber, features.FormatDisplayNumber(normNumber), valNano, isGen)
+			}
 		}
 	}
 

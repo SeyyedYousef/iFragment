@@ -123,19 +123,10 @@ func (c *EcosystemTrackerClient) FetchVenueQuote(ctx context.Context, giftSlug s
 
 	quotes := make(map[VenueID]*EcosystemVenueQuote)
 
-	// 1. Primary free multi-venue public tracker: see.tg (upgrade leaderboard & live market listings)
-	if seeQuotes, err := c.fetchFromSeeTg(ctx, giftSlug); err == nil && len(seeQuotes) > 0 {
-		for k, v := range seeQuotes {
+	// Direct official public Fragment web anchor (zero API key required, no prohibited third-party SPA scraping)
+	if fragQuotes, err := c.fetchFromFreeFragmentAnchor(ctx, normSlug); err == nil && len(fragQuotes) > 0 {
+		for k, v := range fragQuotes {
 			quotes[k] = v
-		}
-	}
-
-	// 2. Direct free public Fragment web scraper anchor (zero API key required)
-	if len(quotes) == 0 {
-		if fragQuotes, err := c.fetchFromFreeFragmentAnchor(ctx, normSlug); err == nil && len(fragQuotes) > 0 {
-			for k, v := range fragQuotes {
-				quotes[k] = v
-			}
 		}
 	}
 

@@ -193,9 +193,6 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 	if ref.SerialNumber <= 0 {
 		return nil, fmt.Errorf("invalid gift serial number #%d", ref.SerialNumber)
 	}
-	if col.TotalSupply > 0 && ref.SerialNumber > col.TotalSupply {
-		return nil, fmt.Errorf("serial number #%d exceeds total supply of %d for collection '%s'", ref.SerialNumber, col.TotalSupply, col.Name)
-	}
 
 	selectedModel := ""
 	ownerName := ""
@@ -209,7 +206,14 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 			if liveNFT.TotalSupply > 0 {
 				col.TotalSupply = liveNFT.TotalSupply
 			}
+			if liveNFT.IssuedCount > col.TotalSupply {
+				col.TotalSupply = liveNFT.IssuedCount
+			}
 		}
+	}
+
+	if col.TotalSupply > 0 && ref.SerialNumber > col.TotalSupply {
+		return nil, fmt.Errorf("serial number #%d exceeds total supply of %d for collection '%s'", ref.SerialNumber, col.TotalSupply, col.Name)
 	}
 
 	if imageURL == "" {
@@ -263,11 +267,24 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 	}, nil
 }
 
-// resolveDynamicFloor determines the realistic secondary market floor price using live DB snapshots, recent verified sales, or canonical supply economics.
+// resolveDynamicFloor determines the realistic secondary market floor price using live Fragment orderbook quotes, fresh DB snapshots, recent verified sales, or canonical supply economics.
 func (e *ValuationEngine) resolveDynamicFloor(ctx context.Context, modelID string, col traits.CollectionMeta, tonUsdRate float64) float64 {
-	// 1. Query database venue snapshots if available (strictly excluding Telegram Stars mint price and 16,111 anomaly)
+	// 0. Live Fragment public orderbook anchor (cached 2m in EcosystemTrackerClient; skipped in offline unit tests)
+	var liveFragFloor float64
+	if e.db != nil || e.cache != nil || e.cryptoPriceSvc != nil {
+		probeCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
+		if q, err := venues.GetGlobalTrackerClient().FetchVenueQuote(probeCtx, modelID, venues.VenueFragment); err == nil && q != nil && q.FloorPriceGRAM.GreaterThan(decimal.Zero) {
+			if f, _ := q.FloorPriceGRAM.Float64(); f > 0 && f != 16111.0 {
+				liveFragFloor = f
+			}
+		}
+		cancel()
+	}
+
+	// 1. Query database venue snapshots if available (strictly excluding Telegram Stars mint price, 16,111 anomaly, and stale rows)
+	var dbFloor float64
 	if e.giftsRepo != nil {
-		checkSnaps := func(mID string) float64 {
+		checkSnaps := func(mID string, maxAge time.Duration) float64 {
 			snaps, err := e.giftsRepo.GetVenueSnapshots(ctx, mID)
 			if err != nil || len(snaps) == 0 {
 				return 0.0
@@ -276,6 +293,9 @@ func (e *ValuationEngine) resolveDynamicFloor(ctx context.Context, modelID strin
 			for _, snap := range snaps {
 				// Sacred Rule: Telegram Stars is the primary mint price, NEVER a secondary marketplace floor
 				if snap.Venue == string(venues.VenueTelegramStars) || strings.EqualFold(snap.Currency, "Stars") {
+					continue
+				}
+				if maxAge > 0 && !snap.UpdatedAt.IsZero() && time.Since(snap.UpdatedAt) > maxAge {
 					continue
 				}
 				f, _ := snap.FloorPriceGRAM.Float64()
@@ -287,18 +307,36 @@ func (e *ValuationEngine) resolveDynamicFloor(ctx context.Context, modelID strin
 			return bestFloor
 		}
 
-		if f := checkSnaps(modelID); f > 0 {
-			return f
+		// Prefer fresh snapshots (< 6 hours); fall back to < 48h only if no live Fragment quote exists
+		dbFloor = checkSnaps(modelID, 6*time.Hour)
+		if dbFloor <= 0 && col.ModelID != "" && col.ModelID != modelID {
+			dbFloor = checkSnaps(col.ModelID, 6*time.Hour)
 		}
-		if col.ModelID != "" && col.ModelID != modelID {
-			if f := checkSnaps(col.ModelID); f > 0 {
-				return f
+		if dbFloor <= 0 && liveFragFloor <= 0 {
+			dbFloor = checkSnaps(modelID, 48*time.Hour)
+			if dbFloor <= 0 && col.ModelID != "" && col.ModelID != modelID {
+				dbFloor = checkSnaps(col.ModelID, 48*time.Hour)
 			}
 		}
+	}
 
-		// 2. Query empirical clearing floor from real verified sales in gift_sales
+	switch {
+	case liveFragFloor > 0 && dbFloor > 0:
+		// Accept lower secondary venue floor (e.g. Portals/MRKT/Tonnel) only if realistic relative to live Fragment orderbook
+		if dbFloor >= liveFragFloor*0.72 && dbFloor <= liveFragFloor*1.15 {
+			return math.Min(liveFragFloor, dbFloor)
+		}
+		return liveFragFloor
+	case liveFragFloor > 0:
+		return liveFragFloor
+	case dbFloor > 0:
+		return dbFloor
+	}
+
+	if e.giftsRepo != nil {
+		// 2. Query empirical clearing floor from real verified recent sales in gift_sales (last 21 days)
 		checkSales := func(mID string) float64 {
-			stats, err := e.giftsRepo.GetSalesStatsByPeriod(ctx, mID, time.Now().Add(-90*24*time.Hour))
+			stats, err := e.giftsRepo.GetSalesStatsByPeriod(ctx, mID, time.Now().Add(-21*24*time.Hour))
 			if err == nil && stats != nil && stats.DealsCount >= 3 {
 				minF, _ := stats.MinGRAM.Float64()
 				if minF > 0 && minF != 16111.0 {
@@ -380,6 +418,9 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			if liveNFT.TotalSupply > 0 {
 				col.TotalSupply = liveNFT.TotalSupply
 			}
+			if liveNFT.IssuedCount > col.TotalSupply {
+				col.TotalSupply = liveNFT.IssuedCount
+			}
 		}
 	}
 
@@ -415,11 +456,13 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		}
 	}
 
-	// Axis 1: Model scarcity & floor
+	// Axis 1: Model scarcity & floor (strictly verified on-chain model variants only)
 	modelKey := col.Name
 	modelPct := 2.0
+	modelVerified := false
 	if liveNFT != nil && liveNFT.Model != "" {
 		modelKey = liveNFT.Model
+		modelVerified = true
 		if liveNFT.ModelRarityPct > 0 {
 			modelPct = liveNFT.ModelRarityPct
 		}
@@ -427,21 +470,21 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 	modelFloor := baseFloor
 	betaModel := 0.0
-	if e.giftsRepo != nil && modelKey != "" && !strings.EqualFold(modelKey, col.Name) {
+	if e.giftsRepo != nil && modelVerified && modelKey != "" && !strings.EqualFold(modelKey, col.Name) {
 		if mf, ok := e.giftsRepo.GetModelFloor(ctx, ref.ModelID, modelKey); ok && mf.GreaterThan(decimal.Zero) {
 			f, _ := mf.Float64()
-			if f > modelFloor && f <= baseFloor*4.50 {
+			if f > modelFloor && f <= baseFloor*3.50 {
 				modelFloor = f
 			}
 		}
 	}
 	if col.CraftedFlag {
-		if baseFloor*1.30 > modelFloor {
-			modelFloor = baseFloor * 1.30
+		if baseFloor*1.25 > modelFloor {
+			modelFloor = baseFloor * 1.25
 		}
 		betaModel = math.Log(modelFloor / baseFloor)
-	} else if modelPct < 1.5 && modelPct > 0 {
-		rareModelPremium := 0.18 * math.Log(1.5/math.Max(modelPct, 0.05))
+	} else if modelVerified && modelPct <= 1.2 && modelPct > 0 {
+		rareModelPremium := 0.22 * math.Log(1.2/math.Max(modelPct, 0.10))
 		theoreticalModelFloor := baseFloor * (1.0 + rareModelPremium)
 		if theoreticalModelFloor > modelFloor {
 			modelFloor = theoreticalModelFloor
@@ -534,32 +577,35 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	betaColorPrestige := aestheticHarmony.BetaColorPrestige
 
 	// Backdrop Floor evaluation:
-	// In the real market, Black / Obsidian / Astral Gold backdrops command their own distinct backdrop floor.
-	// Unverified fallback ("estimated" Midnight Blue) must NEVER inflate backdropFloor above baseFloor!
+	// In the real market, Black / Obsidian / Onyx backdrops command a genuine backdrop floor premium.
+	// Unverified fallback ("estimated" backdrop when liveNFT is absent) must NEVER inflate backdropFloor above baseFloor!
 	backdropFloor := baseFloor
-	if e.giftsRepo != nil && (backdropCertainty == "exact" || defaultBackdropName != "") {
+	if e.giftsRepo != nil && backdropCertainty == "exact" {
 		if bf, ok := e.giftsRepo.GetBackdropFloor(ctx, ref.ModelID, backdropKey); ok && bf.GreaterThan(decimal.Zero) {
 			f, _ := bf.Float64()
-			if f > backdropFloor && f <= baseFloor*4.50 {
+			if f > backdropFloor && f <= baseFloor*3.50 {
 				backdropFloor = f
 			}
 		}
 	}
-	if backdropCertainty == "exact" || defaultBackdropName != "" {
-		if aestheticHarmony.PrestigeTier == traits.PrestigeTierS {
-			tierSMult := 1.50
-			if strings.Contains(strings.ToLower(backdropKey), "black") || strings.Contains(strings.ToLower(backdropKey), "obsidian") {
-				tierSMult = 1.65
-				if col.ModelID == "swiss_watch" || col.ModelID == "plush_pepe" {
-					tierSMult = 2.50
-				}
+	if backdropCertainty == "exact" {
+		bdLower := strings.ToLower(strings.TrimSpace(backdropKey))
+		isBlackBackdrop := strings.Contains(bdLower, "black") || strings.Contains(bdLower, "obsidian") || strings.Contains(bdLower, "onyx")
+		if isBlackBackdrop {
+			tierSMult := 1.45
+			if col.ModelID == "swiss_watch" || col.ModelID == "plush_pepe" || col.ModelID == "durov_cap" || col.ModelID == "heart_locket" {
+				tierSMult = 1.85
 			}
 			if baseFloor*tierSMult > backdropFloor {
 				backdropFloor = baseFloor * tierSMult
 			}
+		} else if aestheticHarmony.PrestigeTier == traits.PrestigeTierS {
+			if baseFloor*1.12 > backdropFloor {
+				backdropFloor = baseFloor * 1.12
+			}
 		} else if aestheticHarmony.PrestigeTier == traits.PrestigeTierA {
-			if baseFloor*1.15 > backdropFloor {
-				backdropFloor = baseFloor * 1.15
+			if baseFloor*1.04 > backdropFloor {
+				backdropFloor = baseFloor * 1.04
 			}
 		}
 	}
@@ -579,10 +625,10 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		betaBackdrop = math.Log(backdropFloor / baseFloor)
 	}
 
-	// Axis 3: Symbol smooth continuous rarity (only verified ultra-rare symbols add premium)
+	// Axis 3: Symbol rarity (in Telegram Gifts, standard 0.4%-1.0% symbols trade at 1.00x floor; only <=0.2% mythic symbols add a minor nudge)
 	betaSymbol := 0.0
-	if symbolCertainty == "exact" && symbolPermille < 10 && symbolPermille > 0 {
-		betaSymbol = 0.05 * math.Log(10.0/math.Max(float64(symbolPermille), 1.0))
+	if symbolCertainty == "exact" && symbolPermille <= 2 && symbolPermille > 0 {
+		betaSymbol = 0.04
 	}
 
 	// Axis 4: Serial smooth non-linear curve + Omega Final Mint (#N/N) grounded in historical sales
@@ -599,14 +645,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	if betaSerial > 0 {
 		specialFeatures = append(specialFeatures, fmt.Sprintf("SERIAL_%s (#%d)", classifiedSerial.Category, ref.SerialNumber))
 	}
-	if aestheticHarmony.IsMonochromeColorMatch && (backdropCertainty == "exact" || defaultBackdropName != "") {
+	if aestheticHarmony.IsMonochromeColorMatch && backdropCertainty == "exact" && modelVerified {
 		specialFeatures = append(specialFeatures, fmt.Sprintf("CIEDE2000_COLOR_MATCH (dE00=%.2f)", aestheticHarmony.DeltaE2000ModelBackdrop))
 	}
-	if modelFloor > baseFloor*1.05 && backdropFloor > baseFloor*1.05 {
+	if modelFloor > baseFloor*1.08 && backdropFloor > baseFloor*1.08 {
 		specialFeatures = append(specialFeatures, "DUAL_RARE_MODEL_AND_BACKDROP")
-	}
-	if betaSymbol > 0 {
-		specialFeatures = append(specialFeatures, fmt.Sprintf("ULTRA_RARE_SYMBOL (%d permille)", symbolPermille))
 	}
 	hasSpecialFeature := len(specialFeatures) > 0
 
@@ -625,23 +668,21 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// Trait Synergy & Harmony Over Dominant Floor (ONLY active when hasSpecialFeature is true!)
 	synergyBonus := 0.0
 	if hasSpecialFeature {
-		if modelFloor > baseFloor*1.05 && backdropFloor > baseFloor*1.05 {
+		if modelFloor > baseFloor*1.08 && backdropFloor > baseFloor*1.08 {
 			secondaryLift := (math.Min(modelFloor, backdropFloor) - baseFloor) / baseFloor
-			synergyBonus += math.Min(0.20, secondaryLift*0.25)
+			synergyBonus += math.Min(0.16, secondaryLift*0.22)
 		}
-		if (backdropCertainty == "exact" || defaultBackdropName != "") && aestheticHarmony.IsMonochromeColorMatch {
+		if backdropCertainty == "exact" && modelVerified && aestheticHarmony.IsMonochromeColorMatch {
 			if aestheticHarmony.DeltaE2000ModelBackdrop <= 10.0 {
 				synergyBonus += 0.14 // Full Monochrome Grail
 			} else {
 				synergyBonus += 0.08 // Chromatic Twin Match
 			}
 		} else if backdropCertainty == "exact" && aestheticHarmony.ThemeMatchRating == "PERFECT_MATCH" {
-			synergyBonus += 0.08
-		} else if backdropCertainty == "exact" && aestheticHarmony.ThemeMatchRating == "HIGH_SYNERGY" {
-			synergyBonus += 0.04
+			synergyBonus += 0.06
 		}
-		if jointRarity.BetaSynergy > 0 {
-			synergyBonus += jointRarity.BetaSynergy * 0.35
+		if jointRarity.BetaSynergy > 0 && (betaSerial > 0.10 || (backdropCertainty == "exact" && modelVerified)) {
+			synergyBonus += jointRarity.BetaSynergy * 0.25
 		}
 	}
 
@@ -657,11 +698,12 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	starsParity := starsrate.CalculateStarsParity(baseStarsPrice, gramUsdRate, baseFloor)
 
 	// Trait premium sum across all attribute axes over Dominant Floor
+	// Live dominantFloor already incorporates macro market sentiment; fngMult only modulates speculative trait/serial alpha
 	traitPremiums := 0.0
-	hedonicLogP := beta0
+	hedonicLogP := beta0 + betaSymbol
 	if hasSpecialFeature {
-		traitPremiums = betaSerial + synergyBonus + betaSymbol
-		hedonicLogP = beta0 + traitPremiums + math.Log(fngMult)
+		traitPremiums = (betaSerial + synergyBonus + betaSymbol) * (0.92 + 0.08*fngMult)
+		hedonicLogP = beta0 + traitPremiums
 	}
 
 	// Laya AI System One Pre-Evaluation with full CIEDE2000 & Floor-Lock telemetry
@@ -679,7 +721,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			TotalSupply:         col.TotalSupply,
 			SerialCategory:      string(classifiedSerial.Category),
 			DeltaE2000:          aestheticHarmony.DeltaE2000ModelBackdrop,
-			IsColorMatched:      aestheticHarmony.IsMonochromeColorMatch && (backdropCertainty == "exact" || defaultBackdropName != ""),
+			IsColorMatched:      aestheticHarmony.IsMonochromeColorMatch && backdropCertainty == "exact" && modelVerified,
 			DominantFloorDriver: dominantFloorDriver,
 			FloorLockRegime:     floorLockRegime,
 			HasSpecialFeature:   hasSpecialFeature,
@@ -688,8 +730,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		})
 	}
 
-	// 4. Fetch Real Comparable Sales from Database and blend with Bayesian Shrinkage
-	comps, finalLogP, mad, priceBasis := e.resolveComps(ctx, ref, backdropKey, gramUsdRate, hedonicLogP)
+	// 4. Fetch Real Comparable Sales from Database and blend with Bayesian Shrinkage (strictly respecting Floor-Lock & Serial Tier)
+	comps, finalLogP, mad, priceBasis := e.resolveComps(ctx, ref, backdropKey, backdropCertainty, gramUsdRate, hedonicLogP, dominantFloor, hasSpecialFeature)
 
 	rawEstimateGRAM := math.Exp(finalLogP)
 
@@ -730,6 +772,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		cohortCompsMean = totalCompPrice / float64(len(comps))
 	}
 
+	// Also fix appreciation on single-item lastSaleRecord (line 740): do not artificially compound 15%/yr!
 	if lastSaleRecord != nil {
 		p, _ := lastSaleRecord.SalePriceGRAM.Float64()
 		if p > 0 {
@@ -737,27 +780,23 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			lastSaleDate = lastSaleRecord.SaleDate
 			lastSaleVenue = lastSaleRecord.Venue
 
-			// Incorporate historical appreciation since last sale (annual 15% rate baseline)
-			elapsedYears := time.Since(lastSaleDate).Hours() / (24.0 * 365.25)
-			appreciatedLastSale := lastSalePriceGRAM
-			if elapsedYears > 0 {
-				appreciatedLastSale = lastSalePriceGRAM * math.Pow(1.15, elapsedYears)
-			}
-
-			// If cohort comps indicate a down-market, allow valuation to decrease below appreciated last sale (AC-P1-002)
-			if cohortCompsMean > 0 && cohortCompsMean < lastSalePriceGRAM {
-				cohortRatio := cohortCompsMean / lastSalePriceGRAM
-				decayWeight := math.Exp(-0.20 * math.Max(0, elapsedYears))
-				blendedAnchor := (lastSalePriceGRAM * cohortRatio * decayWeight) + (cohortCompsMean * (1.0 - decayWeight))
-				if blendedAnchor > baseFloor {
-					effectiveFloor = blendedAnchor
+			elapsedDays := time.Since(lastSaleDate).Hours() / 24.0
+			// Recent sales (<= 30 days) anchor strongly; older sales blend toward today's live dominantFloor
+			if elapsedDays <= 30.0 {
+				if cohortCompsMean > 0 && cohortCompsMean < lastSalePriceGRAM {
+					effectiveFloor = math.Max(dominantFloor, (lastSalePriceGRAM+cohortCompsMean)*0.5)
+				} else if lastSalePriceGRAM > effectiveFloor && lastSalePriceGRAM <= dominantFloor*3.0 {
+					effectiveFloor = lastSalePriceGRAM
 				}
-			} else {
-				if appreciatedLastSale > effectiveFloor {
-					effectiveFloor = appreciatedLastSale
+				isLastSaleAnchored = true
+			} else if hasSpecialFeature && lastSalePriceGRAM > dominantFloor {
+				decayW := math.Exp(-0.006 * (elapsedDays - 30.0))
+				blended := lastSalePriceGRAM*decayW + dominantFloor*(1.0-decayW)
+				if blended > effectiveFloor {
+					effectiveFloor = blended
+					isLastSaleAnchored = true
 				}
 			}
-			isLastSaleAnchored = true
 		}
 	} else if liveNFT != nil && liveNFT.ValueInfo != nil && liveNFT.ValueInfo.LastSalePrice > 0 {
 		// Native Telegram MTProto Realized Sale fallback
@@ -1307,85 +1346,133 @@ func isRepdigit(n int) bool {
 	return true
 }
 
-func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, backdrop string, gramUsdRate, hedonicLogP float64) ([]ComparableGiftSale, float64, float64, string) {
+func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, backdrop, backdropCertainty string, gramUsdRate, hedonicLogP, dominantFloor float64, hasSpecialFeature bool) ([]ComparableGiftSale, float64, float64, string) {
 	comps := []ComparableGiftSale{}
 	finalLogP := hedonicLogP
-	mad := 0.16 // default MAD baseline
+	mad := 0.14 // calibrated MAD baseline
 
 	if e.giftsRepo != nil {
-		// Tier 1: Seek Trait-Aware Comparable Sales (same model + exact backdrop)
-		sales, err := e.giftsRepo.GetTraitAwareCompsForGift(ctx, ref.ModelID, ref.SerialNumber, backdrop, 5)
+		var sales []repository.GiftSaleRecord
+		var err error
 		priceBasis := "gift_market_trait_comps_bayesian_shrunk"
 
-		// Tier 2: If no exact backdrop-matched sales exist, use collection cohort comps from gift_sales
+		// Tier 1: Seek Trait-Aware Comparable Sales ONLY when backdrop is verified on-chain
+		if backdropCertainty == "exact" {
+			sales, err = e.giftsRepo.GetTraitAwareCompsForGift(ctx, ref.ModelID, ref.SerialNumber, backdrop, 8)
+		}
+
+		// Tier 2: If no exact backdrop-matched sales exist, fetch collection cohort sales
 		if err != nil || len(sales) == 0 {
-			sales, err = e.giftsRepo.GetCompsForGift(ctx, ref.ModelID, ref.SerialNumber, 5)
+			sales, err = e.giftsRepo.GetCompsForGift(ctx, ref.ModelID, ref.SerialNumber, 10)
 			priceBasis = "gift_market_cohort_comps_bayesian_shrunk"
 		}
 
 		if err == nil && len(sales) > 0 {
 			now := time.Now()
+			hedonicEst := math.Exp(hedonicLogP)
+			filteredSales := make([]repository.GiftSaleRecord, 0, len(sales))
 			compsForMath := make([]core.ComparableSale, 0, len(sales))
+
 			for _, s := range sales {
 				pGram, _ := s.SalePriceGRAM.Float64()
+				if pGram <= 0 || pGram == 16111.0 {
+					continue
+				}
+				// Serial-tier isolation: never mix Genesis #1 or Single-Digit Grails with standard 3-digit+ serials
+				if ref.SerialNumber == 1 && s.SerialNumber > 3 {
+					continue
+				}
+				if ref.SerialNumber >= 2 && ref.SerialNumber <= 9 && s.SerialNumber > 15 {
+					continue
+				}
+				if ref.SerialNumber >= 10 && ref.SerialNumber <= 99 && (s.SerialNumber < 5 || s.SerialNumber > 130) {
+					continue
+				}
+				if ref.SerialNumber >= 100 && s.SerialNumber <= 25 {
+					continue
+				}
+				// Exclude ancient cycle-peak sales (> 45 days old) that exceed 1.65x current hedonic/floor value
+				daysAgo := now.Sub(s.SaleDate).Hours() / 24.0
+				if daysAgo > 45 && pGram > hedonicEst*1.65 {
+					continue
+				}
+				// For floor-locked standard items, exclude unlabelled rare-trait outlier sales (> 1.45x dominantFloor)
+				if !hasSpecialFeature && dominantFloor > 0 && pGram > dominantFloor*1.45 {
+					continue
+				}
+
+				filteredSales = append(filteredSales, s)
 				compsForMath = append(compsForMath, core.ComparableSale{
 					ID:          s.ID,
 					PriceTON:    pGram,
 					RawPriceTON: pGram,
 					SaleDate:    s.SaleDate,
 				})
+				if len(filteredSales) >= 5 {
+					break
+				}
 			}
 
-			// Apply market appreciation (15% annual for gifts) & Winsorization
-			core.ApplyMarketAppreciation(compsForMath, 0.15, now)
-			compsForMath = core.WinsorizeComparables(compsForMath, 0.05, 0.95)
-			decayWeights := core.CalcTimeDecayWeights(compsForMath, DecayLambda, now)
-			nEff := core.CalcEffectiveSampleSize(decayWeights)
+			// Only blend comps into finalLogP when regime-consistent comps exist.
+			// Floor-locked standard items NEVER break above 1.05x dominantFloor (Arbitrage / Law of One Price).
+			if len(compsForMath) > 0 {
+				compsForMath = core.WinsorizeComparables(compsForMath, 0.05, 0.95)
+				decayWeights := core.CalcTimeDecayWeights(compsForMath, 0.015, now) // ~46-day half-life for fast-moving gift cycles
+				nEff := core.CalcEffectiveSampleSize(decayWeights)
 
-			if len(compsForMath) > 0 && nEff > 0 {
-				logPrices := make([]float64, len(compsForMath))
-				for i, s := range compsForMath {
-					logPrices[i] = math.Log(math.Max(s.PriceTON, 1.0))
+				if nEff > 0 {
+					logPrices := make([]float64, len(compsForMath))
+					for i, s := range compsForMath {
+						logPrices[i] = math.Log(math.Max(s.PriceTON, 0.5))
+					}
+					exactMedianLog := core.WeightedMedian(logPrices, decayWeights)
+					if hasSpecialFeature {
+						finalLogP = core.BayesianShrinkage(exactMedianLog, hedonicLogP, nEff, ShrinkageK)
+					} else {
+						// Floor-locked regime: bound strictly within [dominantFloor, dominantFloor * 1.04]
+						blended := core.BayesianShrinkage(exactMedianLog, hedonicLogP, nEff, ShrinkageK*1.5)
+						maxFloorLockLog := math.Log(math.Max(dominantFloor*1.04, 0.5))
+						minFloorLockLog := math.Log(math.Max(dominantFloor, 0.5))
+						finalLogP = math.Max(minFloorLockLog, math.Min(maxFloorLockLog, blended))
+						priceBasis = "market_floor_guaranteed"
+					}
+					mad = math.Max(0.08, math.Min(0.25, core.WeightedMAD(logPrices, decayWeights, exactMedianLog)))
 				}
-				exactMedianLog := core.WeightedMedian(logPrices, decayWeights)
-				finalLogP = core.BayesianShrinkage(exactMedianLog, hedonicLogP, nEff, ShrinkageK)
-				mad = core.WeightedMAD(logPrices, decayWeights, exactMedianLog)
+
+				tempEstGRAM := math.Exp(finalLogP)
+				for i, s := range filteredSales {
+					pGram := compsForMath[i].PriceTON
+					pUsd := pGram * gramUsdRate
+
+					diffPct := 0.0
+					if tempEstGRAM > 0 {
+						diffPct = roundPrice(((pGram - tempEstGRAM) / tempEstGRAM) * 100.0)
+					}
+
+					tonviewer := ""
+					if s.TxHash != "" && !strings.HasPrefix(s.TxHash, "frag-") {
+						tonviewer = "https://tonviewer.com/transaction/" + s.TxHash
+					}
+
+					comps = append(comps, ComparableGiftSale{
+						GiftID:        s.GiftID,
+						ModelID:       s.ModelID,
+						SerialNumber:  s.SerialNumber,
+						Venue:         s.Venue,
+						SalePriceGRAM: roundPrice(pGram),
+						SalePriceUSD:  roundPrice(pUsd),
+						SaleDate:      s.SaleDate,
+						BackdropName:  backdrop,
+						DiffPercent:   diffPct,
+						TonviewerURL:  tonviewer,
+					})
+				}
+				return comps, finalLogP, mad, priceBasis
 			}
-
-			tempEstGRAM := math.Exp(finalLogP)
-			for i, s := range sales {
-				pGram := compsForMath[i].PriceTON
-				pUsd := pGram * gramUsdRate
-
-				diffPct := 0.0
-				if tempEstGRAM > 0 {
-					diffPct = roundPrice(((pGram - tempEstGRAM) / tempEstGRAM) * 100.0)
-				}
-
-				tonviewer := ""
-				if s.TxHash != "" {
-					tonviewer = "https://tonviewer.com/transaction/" + s.TxHash
-				}
-
-				comps = append(comps, ComparableGiftSale{
-					GiftID:        s.GiftID,
-					ModelID:       s.ModelID,
-					SerialNumber:  s.SerialNumber,
-					Venue:         s.Venue,
-					SalePriceGRAM: roundPrice(pGram),
-					SalePriceUSD:  roundPrice(pUsd),
-					SaleDate:      s.SaleDate,
-					BackdropName:  backdrop,
-					DiffPercent:   diffPct,
-					TonviewerURL:  tonviewer,
-				})
-			}
-			return comps, finalLogP, mad, priceBasis
 		}
 	}
 
-	// Decision 1: When no trait-matched comps exist (Cold Start for rare traits),
-	// rely 100% on the theoretical Hedonic prior without shrinkage towards unrelated common comps.
+	// Decision 1: When no regime-consistent comps exist, rely 100% on the calibrated Hedonic & Live Floor model.
 	return comps, finalLogP, mad, "hedonic_pure_trait_basis"
 }
 

@@ -43,6 +43,9 @@ type MorphFeatures struct {
 	ViterbiCoverage        float64
 	ViterbiTokens          []string
 	IsCleanCompound        bool
+	IsTypoShadow           bool
+	ShadowCanonical        string
+	ShadowType             string
 }
 
 // IsGibberishString checks if a username is a meaningless random string (e.g. fhhff, xqzkw).
@@ -77,9 +80,11 @@ func IsGibberishString(username string, isDict bool, rank int, flow float64) boo
 func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, cfg EngineConfig) float64 {
 	var morphLog float64
 
-	// Severe penalty for meaningless gibberish (e.g. @fhhff)
+	// Severe penalty for meaningless gibberish (e.g. @fhhff) or phonetic/typo shadow of a canonical word (e.g. @mainer vs @miner)
 	if features.IsGibberish {
 		morphLog += math.Log(0.15)
+	} else if features.IsTypoShadow {
+		morphLog += math.Log(0.28)
 	}
 
 	// has_numbers discount (applies to mixed alpha-numeric names like @abc123, NOT to pure numeric names like @8888,
@@ -116,7 +121,7 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		if m, ok := multipliers["fake_suffix"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
-	} else if features.HasBrandableSuffix {
+	} else if features.HasBrandableSuffix && !features.IsTypoShadow {
 		if m, ok := multipliers["brandable_suffix"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
@@ -173,7 +178,7 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 	if features.HasGoldenYear {
 		morphLog += math.Log(1.3) // 30% bump
 	}
-	if features.AffixBonus > 1.0 {
+	if features.AffixBonus > 1.0 && !features.IsTypoShadow {
 		morphLog += math.Log(features.AffixBonus)
 	}
 
@@ -206,7 +211,7 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		}
 	}
 
-	if features.IsAesthetic && !features.IsDictionary {
+	if features.IsAesthetic && !features.IsDictionary && !features.IsTypoShadow {
 		morphLog += math.Log(1.0 + features.EuphonyScore) // Smooth names get an aesthetic premium
 	}
 
@@ -269,9 +274,10 @@ func CalcRangeLog(baseLog, morphLog, momentumLog, semanticLog, mad float64, char
 		finalLog = 0 // ~1 TON
 	}
 
-	// Width guard
+	// Width guard (cap MAD width at 0.55 in log-space so broad segment variance never explodes HighTON to 20x ExpectedTON)
 	wMin := math.Log(1 + cfg.MinPct)
-	width := math.Max(mad*cfg.UncertaintyMult, wMin)
+	cappedMADWidth := math.Min(mad*cfg.UncertaintyMult, 0.55)
+	width := math.Max(cappedMADWidth, wMin)
 
 	expectedTON = math.Exp(finalLog)
 	lowTON = math.Exp(finalLog - width)

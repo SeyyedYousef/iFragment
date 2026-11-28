@@ -5,9 +5,9 @@ const (
 	AnonymousNumbersCollectionAddr = "EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N"
 	TotalSupply                    = 136566
 	RecordATHSaleTON               = 1500000.0 // Dynamic 2026 ATH ceiling (accommodates top auctions exceeding 650K-864K TON)
-	StandardInitialFloorTON        = 2450.0    // 2026 live secondary market floor for standard 8-digit numbers (~2,400-2,500 TON)
+	StandardInitialFloorTON        = 3360.0    // 2026 live secondary market floor for standard 8-digit numbers (~3,345-3,497 TON)
 	GenesisInitialFloorTON         = 42000.0   // 2026 live secondary market floor for 4-digit Genesis numbers (+888 8000..8999, 1,000 total supply)
-	InitialFloorTON                = 2450.0    // Standard baseline floor (2026 market)
+	InitialFloorTON                = 3360.0    // Standard baseline floor (2026 market)
 	FragmentFeePercent             = 0.05
 )
 

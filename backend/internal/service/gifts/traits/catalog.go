@@ -90,7 +90,7 @@ var CanonicalCollections = map[string]CollectionMeta{
 	"santa_hat": {
 		ModelID:     "santa_hat",
 		Name:        "Santa Hat",
-		TotalSupply: 10000,
+		TotalSupply: 90000,
 		CraftedFlag: false,
 		LimitedFlag: true,
 		Description: "Classic festive Santa hat collectible with high market liquidity",
@@ -202,7 +202,7 @@ var CanonicalCollections = map[string]CollectionMeta{
 	"scared_cat": {
 		ModelID:     "scared_cat",
 		Name:        "Scared Cat",
-		TotalSupply: 8500,
+		TotalSupply: 20000,
 		CraftedFlag: false,
 		LimitedFlag: true,
 		Description: "Startled black Halloween feline with glowing eyes",
@@ -1027,24 +1027,40 @@ func NormalizeSlug(raw string) string {
 	return s
 }
 
+var extendedCanonicalCollections = map[string]CollectionMeta{
+	"resistance_dog": {
+		ModelID:     "resistance_dog",
+		Name:        "Resistance Dog",
+		TotalSupply: 15000,
+		CraftedFlag: false,
+		LimitedFlag: true,
+		Description: "Iconic hooded Resistance Dog (REDO) digital freedom mascot",
+	},
+}
+
 // ResolveCollection finds collection metadata by exact or normalized canonical slug
 func ResolveCollection(key string) (CollectionMeta, bool) {
 	norm := NormalizeSlug(key)
 	if col, ok := CanonicalCollections[norm]; ok {
 		return col, true
 	}
+	if col, ok := extendedCanonicalCollections[norm]; ok {
+		return col, true
+	}
 
 	// Try without underscores for hyphenated inputs
 	cleanNoUnderscore := strings.ReplaceAll(norm, "_", "")
-	for k, col := range CanonicalCollections {
-		kClean := strings.ReplaceAll(k, "_", "")
-		if kClean == cleanNoUnderscore {
-			return col, true
-		}
-		// Match against canonical display name (e.g. "Durov's Cap" -> "durov_cap")
-		colNameNorm := NormalizeSlug(col.Name)
-		if colNameNorm == norm || strings.ReplaceAll(colNameNorm, "_", "") == cleanNoUnderscore {
-			return col, true
+	for _, m := range []map[string]CollectionMeta{CanonicalCollections, extendedCanonicalCollections} {
+		for k, col := range m {
+			kClean := strings.ReplaceAll(k, "_", "")
+			if kClean == cleanNoUnderscore {
+				return col, true
+			}
+			// Match against canonical display name (e.g. "Durov's Cap" -> "durov_cap")
+			colNameNorm := NormalizeSlug(col.Name)
+			if colNameNorm == norm || strings.ReplaceAll(colNameNorm, "_", "") == cleanNoUnderscore {
+				return col, true
+			}
 		}
 	}
 

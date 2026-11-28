@@ -43,6 +43,8 @@ var ValuationAnchors = map[string]float64{
 	"hamster":      100000.0,
 	"paws":         80000.0,
 	"rare":         65000.0,
+	"miner":        55000.0,
+	"tether":       180000.0,
 	"python":       45000.0,
 	"work":         60000.0,
 }

@@ -326,7 +326,8 @@ func (w *CollectionWorker) fetchRealAuctionsFromFragment(ctx context.Context) []
 		return nil
 	}
 
-	reRow := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">@([a-zA-Z0-9_]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([0-9,.]+)</div>`)
+	// Strictly capture auctions that have at least 1 real placed bid ("Highest bid"), NEVER unbid seller vanity asks ("Minimum bid")
+	reRow := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">@([a-zA-Z0-9_]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([0-9,.]+)</div>\s*<div class="table-cell-desc">(Highest bid|Current bid)</div>`)
 	matches := reRow.FindAllStringSubmatch(html, -1)
 
 	var auctions []struct {

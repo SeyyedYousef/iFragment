@@ -30,11 +30,11 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 		}, true
 	}
 
-	// 2. Tier 1A: Supreme Triple/Pristine Kings (+888 8777, 8666, 8999, 8000, 8222, 8588)
+	// 2. Tier 1A: Supreme Triple/Pristine Kings (+888 8777, 8880, 8889, 8999, 8000, 8666)
 	// These command verified ATH auction prices between 550,000 and 680,000+ TON
 	supremeKings := map[string]bool{
 		"8777": true, "8666": true, "8999": true, "8000": true,
-		"8222": true, "8588": true, "8111": true, "8333": true, "8555": true,
+		"8880": true, "8889": true, "8887": true, "8881": true,
 	}
 	if supremeKings[suffix] {
 		return GenesisMeta{
@@ -42,16 +42,16 @@ func ClassifyGenesis(suffix string) (GenesisMeta, bool) {
 			TierKey:           "GENESIS_SUPREME_KING",
 			TitleEn:           "Genesis Supreme Anchor King",
 			TitleFa:           "پادشاه لنگرگاه جنسیس (رده شاهکار)",
-			Description:       "Top-tier Genesis holy artifact with sacred triple repetition or origin milestone",
+			Description:       "Top-tier Genesis holy artifact with 6 consecutive eights, sacred triple repetition, or origin milestone",
 			BetaGenesis:       2.75, // exp(10.6454 + 2.75) ≈ ~656,900 TON
 			EstimatedFloorTON: 600000.0,
 		}, true
 	}
 
-	// 3. Tier 1B: Anchor Kings (+888 8008, 8800, 8880, 8080, 8881, 8889)
+	// 3. Tier 1B: Anchor Kings (+888 8008, 8800, 8080, 8111, 8222, 8333, 8555, 8882)
 	anchorKings := map[string]bool{
-		"8008": true, "8800": true, "8880": true, "8080": true,
-		"8881": true, "8889": true, "8882": true, "8887": true,
+		"8008": true, "8800": true, "8080": true, "8588": true,
+		"8111": true, "8222": true, "8333": true, "8555": true, "8882": true,
 	}
 	if anchorKings[suffix] {
 		return GenesisMeta{

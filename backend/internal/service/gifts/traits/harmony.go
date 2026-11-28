@@ -248,52 +248,59 @@ func DeltaE2000(c1, c2 Lab) float64 {
 	return math.Round(de00*100.0) / 100.0
 }
 
-// InferModelDominantHex infers the primary 3D artwork color hex of a Telegram Gift model variant
-func InferModelDominantHex(collectionID, modelVariantName string) string {
+// InferModelDominantHexWithCertainty infers the primary 3D artwork color hex of a Telegram Gift model variant
+// and reports whether the color came from an explicit chromatic variant name (true) or a generic fallback (false).
+func InferModelDominantHexWithCertainty(collectionID, modelVariantName string) (string, bool) {
 	mLower := strings.ToLower(strings.TrimSpace(modelVariantName))
 	cLower := strings.ToLower(strings.TrimSpace(collectionID))
 
 	// 1. Check explicit 3D Model Variant chromatic keywords first
 	switch {
 	case strings.Contains(mLower, "midas") || strings.Contains(mLower, "gold") || strings.Contains(mLower, "golden") || strings.Contains(mLower, "astral") || strings.Contains(mLower, "solar") || strings.Contains(mLower, "crown") || strings.Contains(mLower, "imperial"):
-		return "#FFD700" // Pure Gold
+		return "#FFD700", true // Pure Gold
 	case strings.Contains(mLower, "onyx") || strings.Contains(mLower, "obsidian") || strings.Contains(mLower, "black") || strings.Contains(mLower, "dark") || strings.Contains(mLower, "ninja") || strings.Contains(mLower, "shadow") || strings.Contains(mLower, "stealth") || strings.Contains(mLower, "batman") || strings.Contains(mLower, "vader") || strings.Contains(mLower, "noir"):
-		return "#121318" // Obsidian Black
+		return "#121318", true // Obsidian Black
 	case strings.Contains(mLower, "emerald") || strings.Contains(mLower, "jade") || strings.Contains(mLower, "pepemint") || strings.Contains(mLower, "matrix") || strings.Contains(mLower, "forest") || strings.Contains(mLower, "green") || strings.Contains(mLower, "goblin") || strings.Contains(mLower, "zombie"):
-		return "#007A3D" // Emerald Green
+		return "#007A3D", true // Emerald Green
 	case strings.Contains(mLower, "ruby") || strings.Contains(mLower, "crimson") || strings.Contains(mLower, "red") || strings.Contains(mLower, "magma") || strings.Contains(mLower, "lava") || strings.Contains(mLower, "devil") || strings.Contains(mLower, "sith") || strings.Contains(mLower, "santa") || strings.Contains(mLower, "hell"):
-		return "#C41E3A" // Crimson Ruby
+		return "#C41E3A", true // Crimson Ruby
 	case strings.Contains(mLower, "pink") || strings.Contains(mLower, "sakura") || strings.Contains(mLower, "rose") || strings.Contains(mLower, "bubblegum") || strings.Contains(mLower, "flamingo") || strings.Contains(mLower, "cupid") || strings.Contains(mLower, "strawberry") || strings.Contains(mLower, "cotton"):
-		return "#FF69B4" // Sakura Pink
+		return "#FF69B4", true // Sakura Pink
 	case strings.Contains(mLower, "sapphire") || strings.Contains(mLower, "cobalt") || strings.Contains(mLower, "ocean") || strings.Contains(mLower, "navy") || strings.Contains(mLower, "blue") || strings.Contains(mLower, "aqua") || strings.Contains(mLower, "poseidon"):
-		return "#0F52BA" // Royal Sapphire
+		return "#0F52BA", true // Royal Sapphire
 	case strings.Contains(mLower, "arctic") || strings.Contains(mLower, "ice") || strings.Contains(mLower, "frost") || strings.Contains(mLower, "diamond") || strings.Contains(mLower, "crystal") || strings.Contains(mLower, "glacier"):
-		return "#A5F2F3" // Diamond Ice
+		return "#A5F2F3", true // Diamond Ice
 	case strings.Contains(mLower, "cyber") || strings.Contains(mLower, "neon") || strings.Contains(mLower, "galaxy") || strings.Contains(mLower, "amethyst") || strings.Contains(mLower, "purple") || strings.Contains(mLower, "violet") || strings.Contains(mLower, "cosmic") || strings.Contains(mLower, "nebula"):
-		return "#7B2CBF" // Cyber Violet
+		return "#7B2CBF", true // Cyber Violet
 	case strings.Contains(mLower, "silver") || strings.Contains(mLower, "platinum") || strings.Contains(mLower, "chrome") || strings.Contains(mLower, "white") || strings.Contains(mLower, "albino") || strings.Contains(mLower, "ghost") || strings.Contains(mLower, "angel") || strings.Contains(mLower, "pearl"):
-		return "#E5E7EB" // Platinum White
+		return "#E5E7EB", true // Platinum White
 	case strings.Contains(mLower, "bronze") || strings.Contains(mLower, "copper") || strings.Contains(mLower, "amber") || strings.Contains(mLower, "orange") || strings.Contains(mLower, "pumpkin") || strings.Contains(mLower, "peach"):
-		return "#D97706" // Warm Amber
+		return "#D97706", true // Warm Amber
 	}
 
-	// 2. Fallback to canonical collection base palette when model variant is default or unspecified
+	// 2. Fallback to canonical collection base palette when model variant is default or unspecified (non-explicit)
 	switch cLower {
 	case "plush_pepe", "kissed_frog":
-		return "#1E7E34" // Pepe Emerald Green
+		return "#1E7E34", false // Pepe Emerald Green
 	case "durov_cap", "scared_cat", "witch_hat":
-		return "#14161D" // Signature Durov Black
+		return "#14161D", false // Signature Durov Black
 	case "snoop_dogg", "golden_star", "signet_ring", "mini_oscar", "genie_lamp", "hanging_star":
-		return "#EAC117" // Sovereign Gold
+		return "#EAC117", false // Sovereign Gold
 	case "eternal_rose", "trapped_heart", "love_candle", "santa_hat", "spiced_wine":
-		return "#B91C1C" // Velvet Crimson
+		return "#B91C1C", false // Velvet Crimson
 	case "cyber_heart", "evil_eye", "astral_shard", "ion_gem":
-		return "#1D4ED8" // Electric Sapphire
+		return "#1D4ED8", false // Electric Sapphire
 	case "precious_peach", "cookie_heart", "vintage_cigar":
-		return "#EA580C" // Warm Peach/Amber
+		return "#EA580C", false // Warm Peach/Amber
 	default:
-		return "#64748B" // Neutral Slate
+		return "#64748B", false // Neutral Slate
 	}
+}
+
+// InferModelDominantHex infers the primary 3D artwork color hex of a Telegram Gift model variant
+func InferModelDominantHex(collectionID, modelVariantName string) string {
+	hex, _ := InferModelDominantHexWithCertainty(collectionID, modelVariantName)
+	return hex
 }
 
 // EvaluateAestheticHarmony evaluates the chromatic palette and model synergy
@@ -325,7 +332,7 @@ func EvaluateAestheticHarmonyWithModel(modelID string, modelVariantName string, 
 	distCenterEdge := DeltaE(labCenter, labEdge)
 	distCenterPattern := DeltaE(labCenter, labPattern)
 
-	modelHex := InferModelDominantHex(modelID, modelVariantName)
+	modelHex, hasExplicitModelColor := InferModelDominantHexWithCertainty(modelID, modelVariantName)
 	labModel := RGBToLab(HexToRGB(modelHex))
 	de00ModelCenter := DeltaE2000(labModel, labCenter)
 	de00ModelEdge := DeltaE2000(labModel, labEdge)
@@ -387,79 +394,64 @@ func EvaluateAestheticHarmonyWithModel(modelID string, modelVariantName string, 
 	prestigeTier, betaColorPrestige := ClassifyColorPrestige(backdropName, harmonyClass)
 
 	// 3. Model-Specific & CIEDE2000 Perceptual Color-Match Synergy Matrix
+	// Guard: True monochrome collector match requires an explicit chromatic 3D model variant (e.g. Midas on Gold, Ninja on Onyx),
+	// NOT a generic collection fallback hex (which previously misclassified every dark Scared Cat / Witch Hat as a Monochrome Grail).
 	themeRating := "HARMONIOUS"
 	modelSynergyBonus := 0.0
 	isMonochromeMatch := false
 
-	// Check universal CIEDE2000 perceptual monochrome match between 3D Model and Backdrop
-	if de00ModelBackdrop <= 11.5 {
-		themeRating = "PERFECT_MATCH"
-		modelSynergyBonus = 0.16
-		isMonochromeMatch = true
-	} else if de00ModelBackdrop <= 18.0 {
-		themeRating = "HIGH_SYNERGY"
-		modelSynergyBonus = 0.09
-		isMonochromeMatch = true
+	if hasExplicitModelColor {
+		if de00ModelBackdrop <= 11.5 {
+			themeRating = "PERFECT_MATCH"
+			modelSynergyBonus = 0.16
+			isMonochromeMatch = true
+		} else if de00ModelBackdrop <= 18.0 {
+			themeRating = "HIGH_SYNERGY"
+			modelSynergyBonus = 0.09
+			isMonochromeMatch = true
+		}
 	}
 
 	switch modelID {
 	case "plush_pepe":
 		if harmonyClass == "EMERALD_VELVET" || harmonyClass == "OBSIDIAN_STEALTH" || strings.Contains(bdLower, "emerald") {
 			themeRating = "PERFECT_MATCH"
-			if modelSynergyBonus < 0.15 {
-				modelSynergyBonus = 0.15
+			if modelSynergyBonus < 0.12 {
+				modelSynergyBonus = 0.12
 			}
-			isMonochromeMatch = true
+			if hasExplicitModelColor && de00ModelBackdrop <= 22.0 {
+				isMonochromeMatch = true
+			}
 		} else if harmonyClass == "CYBER_NEON" && themeRating != "PERFECT_MATCH" {
 			themeRating = "HIGH_SYNERGY"
-			if modelSynergyBonus < 0.10 {
-				modelSynergyBonus = 0.10
+			if modelSynergyBonus < 0.06 {
+				modelSynergyBonus = 0.06
 			}
 		}
 	case "durov_cap":
 		if harmonyClass == "OBSIDIAN_STEALTH" || harmonyClass == "MONOCHROMATIC_GOLD" {
 			themeRating = "PERFECT_MATCH"
-			if modelSynergyBonus < 0.16 {
-				modelSynergyBonus = 0.16
+			if modelSynergyBonus < 0.12 {
+				modelSynergyBonus = 0.12
 			}
-			isMonochromeMatch = true
+			if isExplicitBlackBackdrop || (hasExplicitModelColor && de00ModelBackdrop <= 20.0) {
+				isMonochromeMatch = true
+			}
 		} else if harmonyClass == "ROYAL_SAPPHIRE" && themeRating != "PERFECT_MATCH" {
 			themeRating = "HIGH_SYNERGY"
-			if modelSynergyBonus < 0.09 {
-				modelSynergyBonus = 0.09
+			if modelSynergyBonus < 0.06 {
+				modelSynergyBonus = 0.06
 			}
 		}
 	case "snoop_dogg":
 		if harmonyClass == "MONOCHROMATIC_GOLD" || strings.Contains(bdLower, "gold") {
 			themeRating = "PERFECT_MATCH"
-			if modelSynergyBonus < 0.18 {
-				modelSynergyBonus = 0.18
-			}
-			isMonochromeMatch = true
-		}
-	case "cyber_heart":
-		if harmonyClass == "CYBER_NEON" || harmonyClass == "ROYAL_SAPPHIRE" {
-			themeRating = "PERFECT_MATCH"
 			if modelSynergyBonus < 0.14 {
 				modelSynergyBonus = 0.14
 			}
-			isMonochromeMatch = true
-		}
-	case "phoenix_feather":
-		if harmonyClass == "MONOCHROMATIC_GOLD" || harmonyClass == "CYBER_NEON" {
-			themeRating = "PERFECT_MATCH"
-			if modelSynergyBonus < 0.15 {
-				modelSynergyBonus = 0.15
+			if hasExplicitModelColor && de00ModelBackdrop <= 22.0 {
+				isMonochromeMatch = true
 			}
-			isMonochromeMatch = true
-		}
-	case "golden_star":
-		if harmonyClass == "MONOCHROMATIC_GOLD" || harmonyClass == "OBSIDIAN_STEALTH" {
-			themeRating = "PERFECT_MATCH"
-			if modelSynergyBonus < 0.15 {
-				modelSynergyBonus = 0.15
-			}
-			isMonochromeMatch = true
 		}
 	}
 

@@ -6,8 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
+	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,7 +28,7 @@ import (
 )
 
 const (
-	ModelVersion = "NV-Engine-v5.2-EmpiricalPrior"
+	ModelVersion = "NV-Engine-v6.0-LiveOrderbookAnchored"
 	ShrinkageK   = 10.0
 	DecayLambda  = 0.005 // Half-life ~138 days
 )
@@ -39,6 +43,9 @@ type ValuationEngine struct {
 	histMu         sync.RWMutex
 	histCache      map[string]map[string]int
 	histCachedAt   time.Time
+	floorMu        sync.RWMutex
+	cachedStdFloor float64
+	floorCachedAt  time.Time
 }
 
 func NewValuationEngine(
@@ -397,6 +404,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	if fv.DialPad.DTMFConsonanceScore >= 82.0 && fv.DialPad.FittsErgonomicScore >= 75.0 && betaDialPad < 0.24 {
 		betaDialPad += 0.04
 	}
+	// Guard: Accidental 3-digit keypad substrings buried inside high-entropy random 8-digit numbers
+	// (e.g. +888 0139 7412 or +888 0349 5126) do not command VIP keypad premiums in real market trading.
+	if betaPrimaryPattern == 0 && fv.DistinctDigits >= 5 {
+		betaDialPad = math.Min(0.04, betaDialPad*0.15)
+	}
 
 	betaEntropy := 0.0
 	if fv.HarmonicEntropy < 2.0 {
@@ -456,8 +468,23 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		betaPrefixJoin = 0
 	}
 
-	// Sum log prior (Hedonic Quantum-Bayes v5.0)
-	hedonicLogP := beta0 + betaGenesis + betaPrimaryPattern + betaCultural + betaDialPad + betaEntropy + betaEcho + betaSemantic + betaPrefixJoin + math.Log(fngMult)
+	// Sum log prior (Hedonic Quantum-Bayes v6.0):
+	// Live orderbook floor ALREADY prices in macro Fear & Greed sentiment and baseline digit noise.
+	// Applying fngMult < 1.0 or negative cultural drag onto beta0 double-counts fear and pushes floor numbers below clearing floor.
+	patternBetaSum := betaGenesis + betaPrimaryPattern + betaDialPad + betaEntropy + betaEcho + betaSemantic + betaPrefixJoin
+	if !fv.IsGenesis4Digit && patternBetaSum > 0 && minFloor > 2450.0 {
+		// Floor-to-Grail elasticity damping: floor numbers track 100% of liveStdFloor, while apex Grails scale sub-linearly
+		elasticityDamp := 0.35 * math.Log(minFloor/2450.0) * math.Min(1.0, patternBetaSum/2.5)
+		patternBetaSum = math.Max(0, patternBetaSum-elasticityDamp)
+	}
+	if patternBetaSum > 0 {
+		patternBetaSum *= (0.90 + 0.10*fngMult)
+	}
+	effectiveCultural := betaCultural
+	if patternBetaSum == 0 && effectiveCultural < 0 {
+		effectiveCultural = 0
+	}
+	hedonicLogP := beta0 + patternBetaSum + effectiveCultural
 
 	// 5. Query Real Comps and execute Bayesian Shrinkage blending
 	var comps []ComparableSale
@@ -760,9 +787,19 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	}
 
 	// 4 Valuation figures (Fair Value, Liquidation Price, Suggested Asking Price, Uncertainty Range)
-	liquidationTON := math.Round(expectedTON*0.75*100) / 100
+	// Near-floor numbers have deep instant bid liquidity on Fragment/Nums888/Getgems (~6-8% spread including 5% Fragment fee)
+	liqRatio := 0.78
+	if expectedTON <= minFloor*1.35 {
+		liqRatio = 0.92
+	} else if expectedTON <= 25000.0 {
+		liqRatio = 0.85
+	}
+	liquidationTON := math.Round(expectedTON*liqRatio*100) / 100
+	if liquidationTON < minFloor*0.90 {
+		liquidationTON = math.Round(minFloor*0.90*100) / 100
+	}
 	liquidationUSD := math.Round(liquidationTON*tonUsdRate*100) / 100
-	suggestedAskTON := math.Round(expectedTON*1.15*100) / 100
+	suggestedAskTON := math.Round(expectedTON*1.12*100) / 100
 	suggestedAskUSD := math.Round(suggestedAskTON*tonUsdRate*100) / 100
 
 	// Model contribution breakdown (Audit requirement)
@@ -1551,21 +1588,183 @@ func buildOnChainAudit(normNumber string, history ValuationHistory, isGenesis bo
 
 
 
+var reLiveFragmentNumSale = regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">(\+888[\s\d]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([\d,.]+)</div>`)
+
 func (e *ValuationEngine) resolveLiveStandardFloorTON(ctx context.Context) float64 {
-	if e.db != nil && e.db.Pool != nil {
-		var askNano int64
+	// Deterministic offline baseline when engine runs in pure unit-test mode without external dependencies
+	if e.db == nil && e.cache == nil && e.cryptoPriceSvc == nil {
+		return registry.StandardInitialFloorTON
+	}
+
+	e.floorMu.RLock()
+	if e.cachedStdFloor >= 1500.0 && time.Since(e.floorCachedAt) < 5*time.Minute {
+		f := e.cachedStdFloor
+		e.floorMu.RUnlock()
+		return f
+	}
+	e.floorMu.RUnlock()
+
+	var (
+		fragFloor    float64
+		nums888Floor float64
+		wg           sync.WaitGroup
+	)
+
+	probeCtx, cancel := context.WithTimeout(ctx, 2800*time.Millisecond)
+	defer cancel()
+	httpClient := &http.Client{Timeout: 2500 * time.Millisecond}
+
+	wg.Add(2)
+	// Source A: Official Fragment fixed-price Buy-Now orderbook (?sort=price_asc&filter=sale)
+	go func() {
+		defer wg.Done()
+		req, err := http.NewRequestWithContext(probeCtx, http.MethodGet, "https://fragment.com/numbers?sort=price_asc&filter=sale", nil)
+		if err != nil {
+			return
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return
+		}
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
+		matches := reLiveFragmentNumSale.FindAllStringSubmatch(string(body), 6)
+		var asks []float64
+		for _, m := range matches {
+			if len(m) < 3 {
+				continue
+			}
+			numClean := strings.ReplaceAll(m[1], " ", "")
+			if len(strings.TrimPrefix(numClean, "+888")) == 4 {
+				continue // Exclude 4-digit Genesis
+			}
+			pStr := strings.ReplaceAll(m[2], ",", "")
+			if p, pErr := strconv.ParseFloat(pStr, 64); pErr == nil && p >= 1500.0 && p <= 50000.0 {
+				asks = append(asks, p)
+			}
+		}
+		if len(asks) >= 2 && asks[0] < asks[1]*0.78 {
+			// Guard against a single restricted/corrupt outlier ask sitting far below the true orderbook floor
+			fragFloor = asks[1]
+		} else if len(asks) >= 1 {
+			fragFloor = asks[0]
+		}
+	}()
+
+	// Source B: nums888.io real-time unrestricted floor across Fragment/Getgems/MarketApp
+	go func() {
+		defer wg.Done()
+		req, err := http.NewRequestWithContext(probeCtx, http.MethodGet, "https://nums888.io/api/latest/", nil)
+		if err != nil {
+			return
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+		req.Header.Set("Accept", "application/json")
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return
+		}
+		var latest struct {
+			F  float64 `json:"f"`
+			FN float64 `json:"fn"`
+		}
+		if json.NewDecoder(resp.Body).Decode(&latest) == nil {
+			cand := latest.FN
+			if cand <= 0 {
+				cand = latest.F
+			}
+			if cand >= 1500.0 && cand <= 50000.0 {
+				nums888Floor = cand
+			}
+		}
+	}()
+	wg.Wait()
+
+	resolved := 0.0
+	switch {
+	case fragFloor > 0 && nums888Floor > 0:
+		// Cross-venue unrestricted floor: accept nums888 unrestricted floor if within 15% of Fragment Buy-Now floor
+		if nums888Floor >= fragFloor*0.85 && nums888Floor <= fragFloor*1.05 {
+			resolved = math.Min(fragFloor, nums888Floor)
+		} else {
+			resolved = fragFloor
+		}
+	case fragFloor > 0:
+		resolved = fragFloor
+	case nums888Floor > 0:
+		resolved = nums888Floor
+	}
+
+	// Database fallback strictly from verified recent Buy-Now asks (NEVER auction bids or stale rows!)
+	if resolved <= 0 && e.db != nil && e.db.Pool != nil {
+		var metricFloorNano int64
 		if err := e.db.Pool.QueryRow(ctx, `
-			SELECT ask_price_nano_ton FROM number_market_listings
-			WHERE is_active = TRUE AND ask_price_nano_ton > 0
-			ORDER BY ask_price_nano_ton ASC LIMIT 1
-		`).Scan(&askNano); err == nil && askNano > 0 {
-			f := float64(askNano) / 1e9
-			if f >= 400.0 && f <= 25000.0 {
-				return f
+			SELECT floor_ask_nano_ton FROM number_collection_metrics
+			WHERE is_stale = FALSE AND floor_ask_nano_ton > 0 AND last_indexed_at >= NOW() - INTERVAL '24 hours'
+			ORDER BY stat_date DESC LIMIT 1
+		`).Scan(&metricFloorNano); err == nil && metricFloorNano > 0 {
+			f := float64(metricFloorNano) / 1e9
+			if f >= 1500.0 && f <= 50000.0 {
+				resolved = f
+			}
+		}
+
+		if resolved <= 0 {
+			rows, err := e.db.Pool.Query(ctx, `
+				SELECT ask_price_nano_ton FROM number_market_listings
+				WHERE is_active = TRUE
+				  AND listing_type = 'ask'
+				  AND COALESCE(is_genesis, FALSE) = FALSE
+				  AND observed_at >= NOW() - INTERVAL '6 hours'
+				  AND ask_price_nano_ton >= 1500000000000
+				ORDER BY ask_price_nano_ton ASC LIMIT 3
+			`)
+			if err == nil {
+				var dbAsks []float64
+				for rows.Next() {
+					var nano int64
+					if rows.Scan(&nano) == nil && nano > 0 {
+						f := float64(nano) / 1e9
+						if f >= 1500.0 && f <= 50000.0 {
+							dbAsks = append(dbAsks, f)
+						}
+					}
+				}
+				rows.Close()
+				if len(dbAsks) >= 2 && dbAsks[0] < dbAsks[1]*0.78 {
+					resolved = dbAsks[1]
+				} else if len(dbAsks) >= 1 {
+					resolved = dbAsks[0]
+				}
 			}
 		}
 	}
-	return registry.StandardInitialFloorTON
+
+	if resolved <= 0 {
+		e.floorMu.RLock()
+		stale := e.cachedStdFloor
+		e.floorMu.RUnlock()
+		if stale >= 1500.0 {
+			return stale
+		}
+		return registry.StandardInitialFloorTON
+	}
+
+	e.floorMu.Lock()
+	e.cachedStdFloor = resolved
+	e.floorCachedAt = time.Now()
+	e.floorMu.Unlock()
+
+	return resolved
 }
 
 func (e *ValuationEngine) buildLiveListingStatus(ctx context.Context, normNumber string, expectedTON, tonUsdRate float64, fragmentURL string, isSold bool) *NumberLiveListingDto {
@@ -1577,17 +1776,24 @@ func (e *ValuationEngine) buildLiveListingStatus(ctx context.Context, normNumber
 	var askTON float64
 
 	if e.db != nil && e.db.Pool != nil {
-		var askNano int64
-		var vName string
+		var askNano, bidNano int64
+		var lType, vName string
 		if err := e.db.Pool.QueryRow(ctx, `
-			SELECT ask_price_nano_ton, COALESCE(NULLIF(venue, ''), 'Fragment')
+			SELECT COALESCE(ask_price_nano_ton, 0), COALESCE(current_bid_nano_ton, 0), COALESCE(listing_type, 'ask'), COALESCE(NULLIF(venue, ''), 'Fragment')
 			FROM number_market_listings
-			WHERE number = $1 AND is_active = TRUE AND ask_price_nano_ton > 0
-			ORDER BY ask_price_nano_ton ASC LIMIT 1
-		`, normNumber).Scan(&askNano, &vName); err == nil && askNano > 0 {
-			askTON = float64(askNano) / 1e9
-			status = "for_sale"
-			venue = vName
+			WHERE number = $1 AND is_active = TRUE AND observed_at >= NOW() - INTERVAL '6 hours'
+			ORDER BY (CASE WHEN listing_type = 'ask' THEN 0 ELSE 1 END), ask_price_nano_ton ASC NULLS LAST
+			LIMIT 1
+		`, normNumber).Scan(&askNano, &bidNano, &lType, &vName); err == nil {
+			if lType == "ask" && askNano > 0 {
+				askTON = float64(askNano) / 1e9
+				status = "for_sale"
+				venue = vName
+			} else if bidNano > 0 {
+				askTON = float64(bidNano) / 1e9
+				status = "on_auction"
+				venue = vName
+			}
 		}
 	}
 

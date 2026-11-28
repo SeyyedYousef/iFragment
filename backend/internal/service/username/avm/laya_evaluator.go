@@ -84,10 +84,11 @@ func (e *LayaUsernameEvaluator) Evaluate(ctx context.Context, username string) *
 		freqRank = RankWord(decoded)
 	}
 	viterbi := ViterbiSegmentUsername(clean)
-	if freqRank == 0 && viterbi.CompositeRank > 0 && viterbi.CoverageRatio >= 0.85 {
+	shadowRes := DetectTypoOrPhoneticShadow(clean)
+	if !shadowRes.IsShadow && freqRank == 0 && viterbi.CompositeRank > 0 && viterbi.CoverageRatio >= 0.85 {
 		freqRank = viterbi.CompositeRank
 	}
-	isDict := isDictionaryWord(clean) || isDictionaryWord(decoded) || freqRank > 0 || viterbi.IsCleanCompound
+	isDict := !shadowRes.IsShadow && (isDictionaryWord(clean) || isDictionaryWord(decoded) || freqRank > 0 || viterbi.IsCleanCompound)
 	isGib := IsGibberishString(clean, isDict, freqRank, flowScore) && viterbi.CoverageRatio < 0.50
 
 	fittsBits, fittsErgo, handAltPct := ComputeFittsBiomechanics(clean)
@@ -207,6 +208,13 @@ func (e *LayaUsernameEvaluator) Evaluate(ctx context.Context, username string) *
 	}
 
 	result := e.parseLayaResponse(clean, resp, isDict, isGib, fittsErgo, viterbi.CoverageRatio)
+	if shadowRes.IsShadow {
+		result.CulturalResonance = "obscure_filler"
+		result.TotalScore = math.Min(result.TotalScore, 26.0)
+		result.DecisionMultiplier = 0.72
+		result.LiquidityRating = "C (Low Liquidity — Typo Shadow)"
+		result.SystemOneVerdict = fmt.Sprintf("Phonetic / Typo Shadow of @%s — traffic leaks to canonical handle", shadowRes.CanonicalWord)
+	}
 
 	// 4. Cache result
 	e.mu.Lock()

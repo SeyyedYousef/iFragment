@@ -363,7 +363,7 @@ func ensureNumberUSD(val *nvengine.NumberValuation, tonRate float64) {
 		return
 	}
 	if tonRate <= 0 {
-		tonRate = 3.48
+		tonRate = 1.00
 	}
 	if val.ExpectedUSD <= 0 && val.ExpectedTON.GreaterThan(decimal.Zero) {
 		val.ExpectedUSD = val.ExpectedTON.InexactFloat64() * tonRate
@@ -381,7 +381,7 @@ func ensureGiftUSD(val *gvengine.GiftValuation, tonRate float64) {
 		return
 	}
 	if tonRate <= 0 {
-		tonRate = 3.48
+		tonRate = 1.00
 	}
 	fairGRAM := val.Pillars.FairValueGRAM
 	if fairGRAM <= 0 {
@@ -559,7 +559,7 @@ func buildPremiumGiftPayload(val *gvengine.GiftValuation, tonRate float64, botHa
 	}
 
 	if tonRate <= 0 {
-		tonRate = 3.48
+		tonRate = 1.00
 	}
 	fairUSD := val.ExpectedUSD
 	if fairUSD <= 0 {

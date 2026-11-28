@@ -70,6 +70,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	}
 
 	viterbiSeg := ViterbiSegmentUsername(username)
+	shadowRes := DetectTypoOrPhoneticShadow(username)
 
 	// 2. Run all 5 signals in parallel (Signal 5: Laya System 1 Decision Pass)
 	var (
@@ -135,10 +136,12 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 			}
 			wordFreqScore = math.Max(10, math.Min(100, wordFreqScore))
 		} else {
-			// Priority 2: Datamuse API (catches words not in top 10K)
+			// Priority 2: Datamuse API (catches words not in top 10K; require meaningful corpus frequency)
 			freq := GetWordFrequency(username)
-			if freq > 0 {
+			if freq >= 1.5 {
 				wordFreqScore = math.Min(50, math.Log10(freq+1)*15) // Cap at 50 for non-local words
+			} else if freq > 0 {
+				wordFreqScore = math.Min(12, math.Log10(freq+1)*10) // Obscure/rare tokens (<1.5 per million) get minimal score
 			} else {
 				// Try CamelCase on Datamuse
 				parts := splitCamelCase(username)
@@ -161,9 +164,21 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 			}
 		}
 
-		// Bonus: Hype/Meme culture dictionary
-		if IsHyped(username) {
+		// Bonus: Hype/Meme culture dictionary & Offline Lexicon Resilience for Flagship Headwords
+		if IsHyped(username) && !shadowRes.IsShadow {
 			wordFreqScore = math.Max(wordFreqScore, 70) // Meme coins/culture = at least 70
+		}
+		if !shadowRes.IsShadow {
+			lowerU := strings.ToLower(username)
+			if CheckTier(lowerU).Tier <= 2 || KnownBrandEntity[lowerU] != "" {
+				wordFreqScore = math.Max(wordFreqScore, 88)
+			} else if CheckTier(lowerU).Tier <= 4 {
+				wordFreqScore = math.Max(wordFreqScore, 75)
+			} else if p, ok := ValuationAnchors[lowerU]; ok && p >= 25000 {
+				wordFreqScore = math.Max(wordFreqScore, 82)
+			} else if p, ok := HistoricalSales[lowerU]; ok && p >= 25000 {
+				wordFreqScore = math.Max(wordFreqScore, 82)
+			}
 		}
 	}()
 
@@ -282,7 +297,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	// Crypto / Web3 Ultra Premium
 	cryptoWeb3 := []string{
 		"wallet", "crypto", "bitcoin", "ton", "toncoin", "blockchain", "defi", "nft",
-		"dex", "swap", "coin", "token", "web3", "pay", "bank", "trade", "market",
+		"dex", "swap", "coin", "token", "web3", "pay", "bank", "trade", "market", "miner", "mining",
 		"money", "whale", "binance", "bybit", "okx", "coinbase", "kraken", "kucoin",
 		"bitget", "tether", "usdt", "solana", "cardano", "ripple", "xrp", "doge",
 		"shiba", "tron", "polkadot", "chainlink", "uniswap", "pancakeswap",
@@ -385,12 +400,22 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		totalScore = totalScore * 0.5 // Massive 50% penalty for unpronounceable gibberish
 	}
 
-	// Clamp to 0-100
+	// Clamp to 0-100 and enforce Radio-Test / Typo-Shadow penalty (e.g. @mainer vs @miner, @walet vs @wallet)
+	if shadowRes.IsShadow {
+		tags = append(tags, "typo_phonetic_shadow")
+		wordFreqScore = math.Min(wordFreqScore, 8.0)
+		wikiScore = 0
+		totalScore = math.Min(totalScore, 24.0)
+		aiReason = fmt.Sprintf("Phonetic / Typo Shadow of @%s (%s) — fails Radio Test", shadowRes.CanonicalWord, shadowRes.ShadowType)
+	}
 	totalScore = math.Max(0, math.Min(100, totalScore))
 
 	// 4. Convert score to price multiplier
-	isDict := isDictionaryWord(username) || isDictionaryWord(strings.ToLower(username)) || wordFreqScore > 20
+	isDict := !shadowRes.IsShadow && (isDictionaryWord(username) || isDictionaryWord(strings.ToLower(username)) || wordFreqScore >= 40)
 	multiplier := e.scoreToMultiplier(totalScore, len(username), tags, isDict)
+	if shadowRes.IsShadow && multiplier > 0.45 {
+		multiplier = 0.45
+	}
 
 	result := &SemanticResult{
 		TotalScore:      math.Round(totalScore*100) / 100,

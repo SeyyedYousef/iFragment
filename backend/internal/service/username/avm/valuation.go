@@ -726,8 +726,16 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 	yearRes := DetectGoldenYear(lower)
 	affixRes := DetectAffixes(decoded)
 	euphonyScore, isAesthetic := CalculateEuphony(decoded)
+	shadowRes := DetectTypoOrPhoneticShadow(lower)
 
 	isDict := tierRes.Tier <= 4 || isDictionaryWord(decoded) || isDictionaryWord(lower)
+	if shadowRes.IsShadow {
+		isDict = false
+		affixRes.Bonus = 1.0
+		tierRes.Multiplier = 1.0
+		comboRes.IsCombo = false
+		isAesthetic = false
+	}
 
 	cheapSuffixes := []string{"_official", "_real", "_bot", "_news", "_ir", "_support", "_admin"}
 	hasCheapSuffix := false
@@ -832,10 +840,12 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 
 	hasBrandableSuffix := false
 	brandableSuffixes := []string{"ly", "ify", "io", "er", "ex", "ix", "ax", "oo", "hq", "app"}
-	for _, s := range brandableSuffixes {
-		if strings.HasSuffix(lower, s) && len(lower) > len(s)+2 && !hasUnderscore {
-			hasBrandableSuffix = true
-			break
+	if !shadowRes.IsShadow {
+		for _, s := range brandableSuffixes {
+			if strings.HasSuffix(lower, s) && len(lower) > len(s)+2 && !hasUnderscore {
+				hasBrandableSuffix = true
+				break
+			}
 		}
 	}
 
@@ -862,7 +872,7 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 		AffixBonus:             affixRes.Bonus,
 		TierMultiplier:         tierRes.Multiplier,
 		FrequencyRank:          RankWord(decoded),
-		IsHyped:                IsHyped(decoded),
+		IsHyped:                IsHyped(decoded) && !shadowRes.IsShadow,
 		EuphonyScore:           euphonyScore,
 		IsAesthetic:            isAesthetic,
 		HasBrandableSuffix:     hasBrandableSuffix,
@@ -873,13 +883,16 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 		IsAABB:                 isAABB,
 		IsSymmetricRepetition:  isSymmetricRepetition,
 		IsGibberish:            IsGibberishString(lower, isDict, RankWord(decoded), AnalyzeFlow(decoded)),
+		IsTypoShadow:           shadowRes.IsShadow,
+		ShadowCanonical:        shadowRes.CanonicalWord,
+		ShadowType:             shadowRes.ShadowType,
 		FittsIndexBits:         fittsBits,
 		FittsErgonomicScore:    fittsErgo,
 		HandAlternationPct:     handAltPct,
 		OpticalKerningSymmetry: kerningSym,
 		ViterbiCoverage:        viterbiSeg.CoverageRatio,
 		ViterbiTokens:          viterbiSeg.Tokens,
-		IsCleanCompound:        viterbiSeg.IsCleanCompound,
+		IsCleanCompound:        viterbiSeg.IsCleanCompound && !shadowRes.IsShadow,
 	}
 
 	return segment, charLen, features
@@ -899,8 +912,9 @@ func isDictionaryWord(lower string) bool {
 		return true
 	}
 
-	// Layer 2: Datamuse API (millions of words, cached after first call)
-	if GetWordFrequency(lower) > 0 {
+	// Layer 2: Datamuse API — require genuine English usage (>= 2.5 per million),
+	// rejecting obscure/archaic tokens like "mainer" (freq=0.09)
+	if GetWordFrequency(lower) >= 2.5 {
 		return true
 	}
 
@@ -1219,6 +1233,24 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	var anchorInjected bool
 
 	if saleRecord, ok := GetHistoricalSaleRecord(lowerUsername); ok && saleRecord.Price > 0 {
+		// Tier-0 Anchor Protection: when a flagship brand/headword has a high canonical anchor (>= 40,000 TON,
+		// e.g. @tether=180k, @miner=55k, @wallet=750k), filter out ancient early-2022 micro-sales (< 15% of anchor)
+		// so 3-4 pre-liquidity 500 TON rows cannot outvote the flagship anchor in WeightedMedian.
+		if saleRecord.Price >= 40000 && len(targetComps) > 0 {
+			filtered := make([]ComparableSale, 0, len(targetComps)+1)
+			minValidComp := saleRecord.Price * 0.15
+			for _, tc := range targetComps {
+				rawP := tc.RawPriceTON
+				if rawP <= 0 {
+					rawP = tc.PriceTON
+				}
+				if rawP >= minValidComp {
+					filtered = append(filtered, tc)
+				}
+			}
+			targetComps = filtered
+		}
+
 		alreadyHasAnchor := false
 		for _, tc := range targetComps {
 			if math.Abs(tc.PriceTON-saleRecord.Price) < 1.0 {
@@ -1259,28 +1291,32 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 	semResult := s.semanticEngine.Score(ctx, username)
 	if semResult != nil {
 		features.SemanticScore = semResult.TotalScore
-		features.IsDictionary = features.IsDictionary || semResult.WordFreqScore > 20
+		if !features.IsTypoShadow {
+			features.IsDictionary = features.IsDictionary || semResult.WordFreqScore >= 45
+		}
+	}
+	if features.IsTypoShadow {
+		reasoning["typo_shadow_of"] = "@" + features.ShadowCanonical
+		reasoning["typo_shadow_type"] = features.ShadowType
 	}
 	reasoning["features"] = features
 
 	// 3a. Base Price (Bayesian with Winsorized Comps)
 	baseLog, nEff, mad, saleIDs := CalcBaseLog(targetComps, exactComps, broadComps, s.cfg, features, now)
 
-	// 3a-1. Semantic-Aware Base Price Boost
-	if !anchorInjected && semResult != nil && semResult.TotalScore >= 40 {
-		scoreDiff := semResult.TotalScore - 40.0
-		semBaseMult := 1.0 + math.Pow(scoreDiff/60.0, 1.5)*5.0
-
-		lengthFallback := fallbackForLength(int(charLen), s.cfg)
-		if features.IsDictionary && lengthFallback < 500.0 {
-			lengthFallback = 500.0 // Verified English dictionary words have minimum 500 TON baseline
-		}
-		minBasePrice := lengthFallback * semBaseMult
-		minBaseLog := math.Log(minBasePrice)
-
-		if baseLog < minBaseLog {
-			baseLog = minBaseLog
-			reasoning["semantic_base_boost"] = fmt.Sprintf("continuous_boost_%.2fx", semBaseMult)
+	// 3a-1. Verified Primary Dictionary Baseline Floor (No double-counting of semBaseMult — semanticLog applies semResult.Multiplier once)
+	if !anchorInjected && !features.IsTypoShadow && features.IsDictionary && semResult != nil && semResult.TotalScore >= 55 {
+		isPrimaryHeadword := (features.FrequencyRank > 0 && features.FrequencyRank <= 5000) || CheckTier(lowerUsername).Tier <= 4
+		if isPrimaryHeadword {
+			lengthFallback := fallbackForLength(int(charLen), s.cfg)
+			if lengthFallback < 500.0 {
+				lengthFallback = 500.0
+			}
+			minBaseLog := math.Log(lengthFallback)
+			if baseLog < minBaseLog {
+				baseLog = minBaseLog
+				reasoning["semantic_base_boost"] = "verified_headword_baseline_500"
+			}
 		}
 	}
 
@@ -1508,19 +1544,24 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		tonCancel()
 	}
 
-	// 2. Live Bid Floor
-	if s.db != nil {
+	// 2. Live Bid Floor (Guarded against unbid seller vanity reserves & poisoned active_bids)
+	if s.db != nil && !features.IsTypoShadow && !features.IsGibberish {
 		activeBid, err := s.db.GetActiveBid(ctx, username)
 		if err == nil && activeBid != nil {
 			maxBidFloat := ToFloat64(activeBid.HighestBidTON)
-			if expectedTONRaw < maxBidFloat {
-				expectedTONRaw = maxBidFloat
-				lowTONRaw = maxBidFloat
-				if highTONRaw < maxBidFloat {
-					highTONRaw = maxBidFloat * 1.5
+			plausibleCeiling := math.Max(expectedTONRaw*2.5, 25000.0)
+			if maxBidFloat > 0 && maxBidFloat <= plausibleCeiling {
+				if expectedTONRaw < maxBidFloat {
+					expectedTONRaw = maxBidFloat
+					lowTONRaw = maxBidFloat
+					if highTONRaw < maxBidFloat {
+						highTONRaw = maxBidFloat * 1.35
+					}
+					reasoning["live_bid_floor_applied"] = true
+					reasoning["live_bid_ton"] = maxBidFloat
 				}
-				reasoning["live_bid_floor_applied"] = true
-				reasoning["live_bid_ton"] = maxBidFloat
+			} else if maxBidFloat > plausibleCeiling {
+				reasoning["live_bid_outlier_rejected"] = maxBidFloat
 			}
 		}
 	}
@@ -1598,12 +1639,23 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		}
 	}
 
-	// 6. Gibberish and copycat hard cap (25 TON)
+	// 6. Gibberish, Copycat, and Typo/Phonetic Shadow Hard Caps
 	if (features.IsGibberish && !features.IsDictionary && features.FlowScore < 0.55) || features.HasCheapPrefix || features.HasCheapSuffix {
 		expectedTONRaw = math.Min(expectedTONRaw, 25.0)
 		lowTONRaw = math.Min(lowTONRaw, 15.0)
 		highTONRaw = math.Min(highTONRaw, 35.0)
 		reasoning["gibberish_copycat_hard_cap_applied"] = true
+	} else if features.IsTypoShadow && !anchorInjected && highestPastSale == 0 {
+		if charLen == 5 {
+			expectedTONRaw = math.Min(expectedTONRaw, 240.0)
+			lowTONRaw = math.Min(lowTONRaw, 160.0)
+			highTONRaw = math.Min(highTONRaw, 350.0)
+		} else if charLen >= 6 {
+			expectedTONRaw = math.Min(expectedTONRaw, 80.0)
+			lowTONRaw = math.Min(lowTONRaw, 50.0)
+			highTONRaw = math.Min(highTONRaw, 120.0)
+		}
+		reasoning["typo_shadow_cap_applied"] = true
 	} else if charLen == 3 {
 		// 7. Protocol Length Floor (3-char: 10,000 TON)
 		minFloor := 10000.0
@@ -1648,11 +1700,14 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 		}
 
 		if nEff >= s.cfg.BandBlendNEffThreshold && mad > 0 {
-			// Empirical MAD blended with baseline fixed band
+			// Empirical MAD blended with baseline fixed band, clamped so wide segment dispersion never explodes HighTON to 20x+
 			bandMethod = "blend"
 			madWidth := mad * s.cfg.UncertaintyMult
 			if madWidth < 0.10 {
 				madWidth = 0.10
+			}
+			if madWidth > 0.50 {
+				madWidth = 0.50
 			}
 			blendedWidth := s.cfg.BandBlendMADWeight*madWidth + s.cfg.BandBlendFixedWeight*math.Log(1.0+fixedPct)
 
@@ -2643,10 +2698,19 @@ func (s *ValuationService) valuateInternal(ctx context.Context, username string,
 				return "Standard Reserve Auction"
 			}(),
 		},
-		PhishingThreat: &PhishingThreatDto{
-			HasThreat: false,
-			RiskLevel: "LOW",
-		},
+		PhishingThreat: func() *PhishingThreatDto {
+			if features.IsTypoShadow && features.ShadowCanonical != "" {
+				return &PhishingThreatDto{
+					HasThreat:       true,
+					SimilarUsername: "@" + features.ShadowCanonical,
+					RiskLevel:       "MODERATE",
+				}
+			}
+			return &PhishingThreatDto{
+				HasThreat: false,
+				RiskLevel: "LOW",
+			}
+		}(),
 		// Demand signal derived from real segment momentum (last 30 days versus the
 		// preceding 60), not a constant.
 		SearchTrend:   buildSearchTrend(count30, count31_90),
@@ -2983,6 +3047,7 @@ func SalesToComparables(sales []repository.Sale, cfg EngineConfig) []ComparableS
 		comps = append(comps, ComparableSale{
 			ID:            s.ID,
 			PriceTON:      ToFloat64(normalized),
+			RawPriceTON:   ToFloat64(s.SalePriceTON),
 			SaleDate:      s.SaleDate,
 			CharLength:    int(s.CharLength),
 			HasNumbers:    s.HasNumbers,
@@ -3087,8 +3152,8 @@ func initKNNAnchorIndex() {
 // CalculateSemanticKNNFloor finds similar high-value sold dictionary anchors for premium words
 // using a deterministic 6D k-Nearest Neighbors (k-NN) vector similarity model over HistoricalSales.
 func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResult *SemanticResult) float64 {
-	// STRICT GIBBERISH GUARD: Never elevate random gibberish (e.g. @fhhff, @xqzkw)
-	if features.IsGibberish || (!features.IsDictionary && features.SemanticScore < 40) {
+	// STRICT GIBBERISH & TYPO-SHADOW GUARD: Never elevate random gibberish or phonetic/typo shadows (e.g. @fhhff, @mainer, @walet)
+	if features.IsGibberish || features.IsTypoShadow || !features.IsDictionary || features.SemanticScore < 55.0 {
 		return 0
 	}
 
@@ -3205,6 +3270,19 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 	}
 
 	knnEstimate := weightedPriceSum / weightSum
+
+	// Selection-bias calibration: HistoricalSales + ValuationAnchors heavily over-represent
+	// Genesis mega-grails (hotels, casino, amazon, news, bank). When a word lacks an ultra-premium
+	// category tag (vTag == 1.0) and has SemanticScore < 80, attenuate the raw grail average appropriately.
+	if vTag <= 1.01 && features.SemanticScore < 80.0 {
+		if charLen == 4 {
+			knnEstimate *= 0.65
+		} else if charLen == 5 {
+			knnEstimate = math.Min(knnEstimate*0.18, 8500.0)
+		} else if charLen >= 6 {
+			knnEstimate = math.Min(knnEstimate*0.04, 1800.0)
+		}
+	}
 
 	// Calibrate KNN estimate by character length category
 	if charLen == 3 {
