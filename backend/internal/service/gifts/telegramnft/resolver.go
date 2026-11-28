@@ -33,21 +33,25 @@ type MTProtoValueInfo struct {
 
 // LiveNFTDetails contains parsed on-chain attributes from t.me/nft
 type LiveNFTDetails struct {
-	CollectionName  string            `json:"collection_name"`
-	CollectionSlug  string            `json:"collection_slug"`
-	SerialNumber    int               `json:"serial_number"`
-	OwnerName       string            `json:"owner_name"`
-	Model           string            `json:"model"`
-	ModelRarityPct  float64           `json:"model_rarity_pct"`
-	Backdrop        string            `json:"backdrop"`
-	BackdropRarity  float64           `json:"backdrop_rarity_pct"`
-	Symbol          string            `json:"symbol"`
-	SymbolRarityPct float64           `json:"symbol_rarity_pct"`
-	IssuedCount     int               `json:"issued_count"`
-	TotalSupply     int               `json:"total_supply"`
-	ImageURL        string            `json:"image_url"`
-	ValueInfo       *MTProtoValueInfo `json:"value_info,omitempty"`
-	CheckedAt       time.Time         `json:"checked_at"`
+	CollectionName   string            `json:"collection_name"`
+	CollectionSlug   string            `json:"collection_slug"`
+	SerialNumber     int               `json:"serial_number"`
+	OwnerName        string            `json:"owner_name"`
+	Model            string            `json:"model"`
+	ModelRarityPct   float64           `json:"model_rarity_pct"`
+	Backdrop         string            `json:"backdrop"`
+	BackdropRarity   float64           `json:"backdrop_rarity_pct"`
+	BackdropCenter   string            `json:"backdrop_center_hex,omitempty"`
+	BackdropEdge     string            `json:"backdrop_edge_hex,omitempty"`
+	BackdropPattern  string            `json:"backdrop_pattern_hex,omitempty"`
+	BackdropText     string            `json:"backdrop_text_hex,omitempty"`
+	Symbol           string            `json:"symbol"`
+	SymbolRarityPct  float64           `json:"symbol_rarity_pct"`
+	IssuedCount      int               `json:"issued_count"`
+	TotalSupply      int               `json:"total_supply"`
+	ImageURL         string            `json:"image_url"`
+	ValueInfo        *MTProtoValueInfo `json:"value_info,omitempty"`
+	CheckedAt        time.Time         `json:"checked_at"`
 }
 
 // Resolver fetches and parses official Telegram NFT details from t.me/nft
@@ -76,12 +80,14 @@ var (
 	symbolRe   = regexp.MustCompile(`(?is)<th>Symbol</th>\s*<td>([^<\n\r]+?)(?:\s*<mark>([\d\.]+)%?</mark>)?\s*</td>`)
 	qtyRe      = regexp.MustCompile(`(?i)<th>Quantity</th>\s*<td>\s*(\d+)\s*/\s*(\d+)\s*issued`)
 
-	// Official Telegram OpenGraph metadata parsers
-	ogImageRe      = regexp.MustCompile(`(?i)<meta\s+(?:property|name)=["'](?:og:image|twitter:image)["']\s+content=["']([^"']+)["']`)
-	ogDescRe       = regexp.MustCompile(`(?is)<meta\s+(?:property|name)=["'](?:og:description|twitter:description)["']\s+content=["'](.*?)["']`)
-	descModelRe    = regexp.MustCompile(`(?i)Model:\s*([^<\r\n&#]+)`)
-	descBackdropRe = regexp.MustCompile(`(?i)Backdrop:\s*([^<\r\n&#]+)`)
-	descSymbolRe   = regexp.MustCompile(`(?i)Symbol:\s*([^<\r\n&#]+)`)
+	// Official Telegram OpenGraph & SVG gradient metadata parsers
+	ogImageRe       = regexp.MustCompile(`(?i)<meta\s+(?:property|name)=["'](?:og:image|twitter:image)["']\s+content=["']([^"']+)["']`)
+	ogDescRe        = regexp.MustCompile(`(?is)<meta\s+(?:property|name)=["'](?:og:description|twitter:description)["']\s+content=["'](.*?)["']`)
+	descModelRe     = regexp.MustCompile(`(?i)Model:\s*([^<\r\n&#]+)`)
+	descBackdropRe  = regexp.MustCompile(`(?i)Backdrop:\s*([^<\r\n&#]+)`)
+	descSymbolRe    = regexp.MustCompile(`(?i)Symbol:\s*([^<\r\n&#]+)`)
+	svgStopColorRe  = regexp.MustCompile(`(?i)<stop[^>]*stop-color=["'](#[0-9a-fA-F]{6})["']`)
+	svgTextFillRe   = regexp.MustCompile(`(?i)<text[^>]*fill=["'](#[0-9a-fA-F]{6})["']`)
 )
 
 func NewResolver() *Resolver {
@@ -95,7 +101,7 @@ func NewResolver() *Resolver {
 
 // telegramNFTSlugOverrides maps internal model IDs to official Telegram t.me/nft URL slugs
 var telegramNFTSlugOverrides = map[string]string{
-	"durov_cap":   "DurovsBlackCap",
+	"durov_cap":   "DurovsCap",
 	"golden_star": "CelestialStar",
 }
 
@@ -184,6 +190,18 @@ func (r *Resolver) ResolveGiftNFT(ctx context.Context, modelID string, serial in
 					}
 				case *tg.StarGiftAttributeBackdrop:
 					details.Backdrop = a.Name
+					if a.CenterColor != 0 {
+						details.BackdropCenter = fmt.Sprintf("#%06X", a.CenterColor&0xFFFFFF)
+					}
+					if a.EdgeColor != 0 {
+						details.BackdropEdge = fmt.Sprintf("#%06X", a.EdgeColor&0xFFFFFF)
+					}
+					if a.PatternColor != 0 {
+						details.BackdropPattern = fmt.Sprintf("#%06X", a.PatternColor&0xFFFFFF)
+					}
+					if a.TextColor != 0 {
+						details.BackdropText = fmt.Sprintf("#%06X", a.TextColor&0xFFFFFF)
+					}
 					if rarity, ok := a.Rarity.(*tg.StarGiftAttributeRarity); ok && rarity != nil {
 						details.BackdropRarity = float64(rarity.Permille) / 10.0
 					}
@@ -243,35 +261,73 @@ func (r *Resolver) ResolveGiftNFT(ctx context.Context, modelID string, serial in
 		}
 	}
 
-	targetURL := fmt.Sprintf("https://t.me/nft/%s-%d", pascal, serial)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
-	if err != nil {
-		return nil, err
+	candidatePascals := []string{pascal}
+	rawWords := strings.FieldsFunc(cleanModel, func(r rune) bool { return r == '_' || r == '-' || r == ' ' })
+	for i, w := range rawWords {
+		if len(w) > 0 {
+			rawWords[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+		}
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; iFragmentBot/1.0; +https://ifragment.app)")
-
-	resp, err := r.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("t.me returned HTTP %d for %s", resp.StatusCode, targetURL)
+	if altPascal := strings.Join(rawWords, ""); altPascal != "" && altPascal != pascal {
+		candidatePascals = append(candidatePascals, altPascal)
 	}
 
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	var html string
+	var lastErr error
+	for _, cand := range candidatePascals {
+		targetURL := fmt.Sprintf("https://t.me/nft/%s-%d", cand, serial)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; iFragmentBot/1.0; +https://ifragment.app)")
+
+		resp, err := r.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("t.me returned HTTP %d for %s", resp.StatusCode, targetURL)
+			continue
+		}
+		pageHTML := string(bodyBytes)
+		if strings.Contains(pageHTML, "<th>Model</th>") || strings.Contains(pageHTML, "Model:") {
+			html = pageHTML
+			break
+		}
+		if html == "" {
+			html = pageHTML
+		}
 	}
-	html := string(bodyBytes)
+	if html == "" {
+		if lastErr != nil {
+			return nil, lastErr
+		}
+		return nil, fmt.Errorf("failed to resolve t.me/nft metadata for %s-%d", pascal, serial)
+	}
 
 	details := &LiveNFTDetails{
 		CollectionName: col.Name,
 		CollectionSlug: cleanModel,
 		SerialNumber:   serial,
 		CheckedAt:      time.Now().UTC(),
+	}
+
+	// 0. Parse exact on-chain SVG radialGradient backdrop hex colors directly from t.me/nft SVG
+	if stops := svgStopColorRe.FindAllStringSubmatch(html, 4); len(stops) >= 2 {
+		details.BackdropCenter = strings.ToUpper(stops[0][1])
+		details.BackdropEdge = strings.ToUpper(stops[1][1])
+	}
+	if tm := svgTextFillRe.FindStringSubmatch(html); len(tm) >= 2 {
+		details.BackdropText = strings.ToUpper(tm[1])
 	}
 
 	// 1. Parse Image URL directly from official Telegram OpenGraph CDN (telesco.pe)

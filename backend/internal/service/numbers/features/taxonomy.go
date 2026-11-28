@@ -194,15 +194,15 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 		}
 	}
 
-	// 8. Bronze Tier (Quad run, Ternary vanity)
+	// 8. Bronze Tier (Quad run, Ternary vanity, Dual Mirror Blocks, 4+ Dominant Digits, Clean Rhythmic Blocks)
 	if maxRun == 4 {
 		return VIPTaxonomy{
-			Tier:         TierBronze,
+			Tier:         TierSilver,
 			PatternKey:   "QUAD_RUN",
-			TitleEn:      "Bronze Quad Run",
-			TitleFa:      "رند برنزی چهار رقمی",
+			TitleEn:      "Silver Quad Run",
+			TitleFa:      "رند نقره‌ای چهار رقمی متوالی",
 			Description:  "4 identical consecutive digits",
-			BetaTaxonomy: 0.80,
+			BetaTaxonomy: 1.35,
 		}
 	}
 
@@ -214,6 +214,62 @@ func ClassifyVIPTaxonomy(suffix string, maxRun int, distinctDigits int, isPalind
 			TitleFa:      "رند برنزی سه رقمی",
 			Description:  "Composed of only 3 distinct digits across all 8 places",
 			BetaTaxonomy: 0.70,
+		}
+	}
+
+	if n == 8 {
+		b1 := classifyVisualBlock4(suffix[0:4])
+		b2 := classifyVisualBlock4(suffix[4:8])
+		if b1 == "MIRROR_ABBA" && b2 == "MIRROR_ABBA" {
+			return VIPTaxonomy{
+				Tier:         TierSilver,
+				PatternKey:   "DUAL_MIRROR_ABBA",
+				TitleEn:      "Silver Dual Mirror",
+				TitleFa:      "رند نقره‌ای دوگانه آینه‌ای",
+				Description:  "Both 4-digit visual blocks are symmetric mirrors (ABBA CDDC)",
+				BetaTaxonomy: 1.25,
+			}
+		}
+		if b1 != "RANDOM" && b2 != "RANDOM" {
+			return VIPTaxonomy{
+				Tier:         TierBronze,
+				PatternKey:   "DUAL_RHYTHMIC_BLOCKS",
+				TitleEn:      "Bronze Rhythmic Blocks",
+				TitleFa:      "رند برنزی دو بلوک ریتمیک",
+				Description:  "Both 4-digit display blocks carry structured collector symmetry",
+				BetaTaxonomy: 0.75,
+			}
+		}
+		var freq [10]int
+		maxF := 0
+		for i := 0; i < 8; i++ {
+			d := suffix[i] - '0'
+			if d <= 9 {
+				freq[d]++
+				if freq[d] > maxF {
+					maxF = freq[d]
+				}
+			}
+		}
+		if maxF >= 4 {
+			return VIPTaxonomy{
+				Tier:         TierBronze,
+				PatternKey:   "DOMINANT_QUAD_DIGIT",
+				TitleEn:      "Bronze Dominant Digit",
+				TitleFa:      "رند برنزی تکرار چهارگانه رقم",
+				Description:  "4 or more occurrences of a single dominant digit across the number",
+				BetaTaxonomy: 0.65,
+			}
+		}
+		if b2 == "MIRROR_ABBA" || b2 == "ALT_ABAB" || b2 == "PAIR_AABB" || b2 == "LADDER_4" || b1 == "MIRROR_ABBA" {
+			return VIPTaxonomy{
+				Tier:         TierBronze,
+				PatternKey:   "CLEAN_SYMMETRIC_BLOCK",
+				TitleEn:      "Bronze Symmetric Block",
+				TitleFa:      "رند برنزی بلوک متقارن",
+				Description:  "Contains a clean 4-digit mirror, alternating pair, or sequential block",
+				BetaTaxonomy: 0.52,
+			}
 		}
 	}
 

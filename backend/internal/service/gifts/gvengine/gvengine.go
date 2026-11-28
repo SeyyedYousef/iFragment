@@ -470,10 +470,11 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 	modelFloor := baseFloor
 	betaModel := 0.0
+	_, _, hasExplicitModelSkin, isPrestigeModelSkin := traits.InferModelColorProfile(col.ModelID, modelKey)
 	if e.giftsRepo != nil && modelVerified && modelKey != "" && !strings.EqualFold(modelKey, col.Name) {
 		if mf, ok := e.giftsRepo.GetModelFloor(ctx, ref.ModelID, modelKey); ok && mf.GreaterThan(decimal.Zero) {
 			f, _ := mf.Float64()
-			if f > modelFloor && f <= baseFloor*3.50 {
+			if f > modelFloor && f <= baseFloor*6.00 {
 				modelFloor = f
 			}
 		}
@@ -483,16 +484,36 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 			modelFloor = baseFloor * 1.25
 		}
 		betaModel = math.Log(modelFloor / baseFloor)
-	} else if modelVerified && modelPct <= 1.2 && modelPct > 0 {
-		rareModelPremium := 0.22 * math.Log(1.2/math.Max(modelPct, 0.10))
-		theoreticalModelFloor := baseFloor * (1.0 + rareModelPremium)
+	} else if modelVerified && modelPct > 0 {
+		// Human Collector Skin Scarcity & Visual Desirability Curve:
+		// 0.1%-0.35% Mythic skins (e.g. Monument 0.3%, Gold Midas 0.2%) command 2.2x-3.4x floor;
+		// 0.4%-0.75% Legendary skins (e.g. Titanium 0.5%) command 1.65x-2.20x floor;
+		// 0.8%-1.4% Epic skins command 1.25x-1.60x floor;
+		// 1.4%-2.2% Named prestige/chromatic skins command 1.08x-1.20x floor.
+		skinMult := 1.00
+		switch {
+		case modelPct <= 0.35:
+			skinMult = 2.15 + 0.42*math.Log(0.40/math.Max(modelPct, 0.08))
+		case modelPct <= 0.75:
+			skinMult = 1.60 + ((0.75-modelPct)/0.40)*0.55
+		case modelPct <= 1.40:
+			skinMult = 1.22 + ((1.40-modelPct)/0.65)*0.36
+		case modelPct <= 2.20 && (isPrestigeModelSkin || hasExplicitModelSkin):
+			skinMult = 1.08 + ((2.20-modelPct)/0.80)*0.10
+		}
+		if isPrestigeModelSkin && skinMult > 1.0 {
+			skinMult *= 1.14 // Visual flex bonus for Gold, Blackout, Marble/Diamond/Titanium, Cyber/Neon skins
+		}
+		theoreticalModelFloor := baseFloor * skinMult
 		if theoreticalModelFloor > modelFloor {
 			modelFloor = theoreticalModelFloor
 		}
-		betaModel = math.Log(modelFloor / baseFloor)
+		if modelFloor > baseFloor {
+			betaModel = math.Log(modelFloor / baseFloor)
+		}
 	}
 
-	// Axis 2: Backdrop exact permille & resolution from DB or official catalog
+	// Axis 2: Backdrop exact permille & on-chain SVG hex color resolution
 	backdropKey := "Midnight Blue"
 	backdropCertainty := "measured"
 	var backdropColors traits.BackdropColorSet
@@ -532,8 +553,28 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		if liveNFT.BackdropRarity > 0 {
 			backdropPermille = int(liveNFT.BackdropRarity * 10)
 		}
-		_, _, bColors, _ := traits.ResolveBackdrop(backdropKey)
+		_, bPerm, bColors, exactCat := traits.ResolveBackdrop(backdropKey)
+		if backdropPermille <= 0 {
+			backdropPermille = bPerm
+		}
 		backdropColors = bColors
+		// Override with pixel-exact live SVG radialGradient hex colors parsed directly from t.me/nft or MTProto!
+		if liveNFT.BackdropCenter != "" {
+			backdropColors.CenterHex = liveNFT.BackdropCenter
+			if liveNFT.BackdropEdge != "" {
+				backdropColors.EdgeHex = liveNFT.BackdropEdge
+			} else {
+				backdropColors.EdgeHex = liveNFT.BackdropCenter
+			}
+			if liveNFT.BackdropPattern != "" {
+				backdropColors.PatternHex = liveNFT.BackdropPattern
+			} else if !exactCat {
+				backdropColors.PatternHex = liveNFT.BackdropEdge
+			}
+			if liveNFT.BackdropText != "" {
+				backdropColors.TextHex = liveNFT.BackdropText
+			}
+		}
 	} else {
 		// No live NFT metadata: instance backdrop is NOT exact; mark as estimated baseline
 		backdropCertainty = "estimated"
@@ -572,40 +613,54 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		}
 	}
 
-	// Axis 6: Perceptual CIEDE2000 Chromatic Harmony, 3D Model Color-Match & Prestige Color Matrix
+	// Axis 6: Perceptual CIEDE2000 Chromatic Harmony, 10-Family Color-Match & Prestige Color Matrix
 	aestheticHarmony := traits.EvaluateAestheticHarmonyWithModel(col.ModelID, modelKey, backdropKey, &backdropColors)
 	betaColorPrestige := aestheticHarmony.BetaColorPrestige
 
-	// Backdrop Floor evaluation:
-	// In the real market, Black / Obsidian / Onyx backdrops command a genuine backdrop floor premium.
-	// Unverified fallback ("estimated" backdrop when liveNFT is absent) must NEVER inflate backdropFloor above baseFloor!
+	// Backdrop Floor evaluation (grounded in real Fragment/Portals/Tonnel collector demand):
+	// Black / Onyx / Obsidian backdrops alone trade at 2.25x-2.85x collection floor;
+	// Pure Gold, Ivory/White/Platinum, and Cyberpunk trade at 1.28x-1.45x;
+	// Vibrant Sapphire/Neon/Crimson/Emerald/Sakura trade at 1.10x-1.18x.
 	backdropFloor := baseFloor
 	if e.giftsRepo != nil && backdropCertainty == "exact" {
 		if bf, ok := e.giftsRepo.GetBackdropFloor(ctx, ref.ModelID, backdropKey); ok && bf.GreaterThan(decimal.Zero) {
 			f, _ := bf.Float64()
-			if f > backdropFloor && f <= baseFloor*3.50 {
+			if f > backdropFloor && f <= baseFloor*5.00 {
 				backdropFloor = f
 			}
 		}
 	}
 	if backdropCertainty == "exact" {
-		bdLower := strings.ToLower(strings.TrimSpace(backdropKey))
-		isBlackBackdrop := strings.Contains(bdLower, "black") || strings.Contains(bdLower, "obsidian") || strings.Contains(bdLower, "onyx")
-		if isBlackBackdrop {
-			tierSMult := 1.45
-			if col.ModelID == "swiss_watch" || col.ModelID == "plush_pepe" || col.ModelID == "durov_cap" || col.ModelID == "heart_locket" {
-				tierSMult = 1.85
+		switch {
+		case aestheticHarmony.BackdropColorFamily == "BLACK":
+			tierSMult := 2.25
+			switch col.ModelID {
+			case "swiss_watch", "plush_pepe", "durov_cap", "heart_locket", "resistance_dog", "scared_cat", "precious_peach", "loot_bag", "mini_oscar":
+				tierSMult = 2.65
 			}
 			if baseFloor*tierSMult > backdropFloor {
 				backdropFloor = baseFloor * tierSMult
 			}
-		} else if aestheticHarmony.PrestigeTier == traits.PrestigeTierS {
+		case aestheticHarmony.BackdropColorFamily == "GOLD":
+			if baseFloor*1.42 > backdropFloor {
+				backdropFloor = baseFloor * 1.42
+			}
+		case aestheticHarmony.BackdropColorFamily == "WHITE":
+			if baseFloor*1.32 > backdropFloor {
+				backdropFloor = baseFloor * 1.32
+			}
+		case aestheticHarmony.PrestigeTier == traits.PrestigeTierS:
+			if baseFloor*1.28 > backdropFloor {
+				backdropFloor = baseFloor * 1.28
+			}
+		case aestheticHarmony.PrestigeTier == traits.PrestigeTierA ||
+			aestheticHarmony.BackdropColorFamily == "PINK" ||
+			aestheticHarmony.BackdropColorFamily == "RED" ||
+			aestheticHarmony.BackdropColorFamily == "BLUE" ||
+			aestheticHarmony.BackdropColorFamily == "PURPLE" ||
+			aestheticHarmony.BackdropColorFamily == "GREEN":
 			if baseFloor*1.12 > backdropFloor {
 				backdropFloor = baseFloor * 1.12
-			}
-		} else if aestheticHarmony.PrestigeTier == traits.PrestigeTierA {
-			if baseFloor*1.04 > backdropFloor {
-				backdropFloor = baseFloor * 1.04
 			}
 		}
 	}
@@ -625,31 +680,39 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		betaBackdrop = math.Log(backdropFloor / baseFloor)
 	}
 
-	// Axis 3: Symbol rarity (in Telegram Gifts, standard 0.4%-1.0% symbols trade at 1.00x floor; only <=0.2% mythic symbols add a minor nudge)
+	// Axis 3: Symbol Rarity & Thematic Lore Synergy (Telegram/TON/Bitcoin/Crown/Skull/Wreath storytelling)
 	betaSymbol := 0.0
-	if symbolCertainty == "exact" && symbolPermille <= 2 && symbolPermille > 0 {
-		betaSymbol = 0.04
+	symbolLoreTag := ""
+	if symbolCertainty == "exact" {
+		betaSymbol, symbolLoreTag = traits.EvaluateSymbolLoreSynergy(col.ModelID, modelKey, symbolKey, symbolPermille)
 	}
 
-	// Axis 4: Serial smooth non-linear curve + Omega Final Mint (#N/N) grounded in historical sales
+	// Axis 4: Human Collector Serial Curve (Single-Digit, Sub-100, Repdigits, Ladders, Round Milestones, Early Mint)
 	classifiedSerial := serials.ClassifySerialWithSupply(ref.SerialNumber, col.TotalSupply, baseFloor)
 	betaSerial := computeSerialExponent(ref.SerialNumber, col.TotalSupply, classifiedSerial)
 
 	// Axis 5: Keep Original Details
 	betaOriginal := 0.0
 
-	// 4-Regime Floor-Lock Law Detection:
-	// Most Telegram Collectible Gifts sell strictly at their Dominant Floor (Collection Floor,
-	// Model Floor, or Backdrop Floor) unless they possess a genuine secondary special feature!
-	specialFeatures := make([]string, 0, 4)
+	// 4-Regime Collector Psychology Detection:
+	specialFeatures := make([]string, 0, 6)
 	if betaSerial > 0 {
 		specialFeatures = append(specialFeatures, fmt.Sprintf("SERIAL_%s (#%d)", classifiedSerial.Category, ref.SerialNumber))
 	}
-	if aestheticHarmony.IsMonochromeColorMatch && backdropCertainty == "exact" && modelVerified {
-		specialFeatures = append(specialFeatures, fmt.Sprintf("CIEDE2000_COLOR_MATCH (dE00=%.2f)", aestheticHarmony.DeltaE2000ModelBackdrop))
+	if backdropCertainty == "exact" && modelVerified && aestheticHarmony.ColorSynergyMultiplier > 1.15 {
+		specialFeatures = append(specialFeatures, fmt.Sprintf("COLOR_SYNERGY_%s (%.2fx)", aestheticHarmony.ColorMatchArchetype, aestheticHarmony.ColorSynergyMultiplier))
+	}
+	if modelFloor > baseFloor*1.18 {
+		specialFeatures = append(specialFeatures, fmt.Sprintf("RARE_3D_SKIN (%s %.2f%%)", modelKey, modelPct))
+	}
+	if backdropFloor > baseFloor*1.20 {
+		specialFeatures = append(specialFeatures, fmt.Sprintf("PRESTIGE_BACKDROP (%s)", backdropKey))
 	}
 	if modelFloor > baseFloor*1.08 && backdropFloor > baseFloor*1.08 {
 		specialFeatures = append(specialFeatures, "DUAL_RARE_MODEL_AND_BACKDROP")
+	}
+	if symbolLoreTag != "" && betaSymbol >= 0.10 {
+		specialFeatures = append(specialFeatures, symbolLoreTag)
 	}
 	hasSpecialFeature := len(specialFeatures) > 0
 
@@ -665,24 +728,24 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	// Axis 7: Multi-Dimensional Joint Statistical Rarity & Surprisal
 	jointRarity := traits.ComputeJointRarity(col.TotalSupply, ref.SerialNumber, backdropPermille, symbolPermille, col.CraftedFlag)
 
-	// Trait Synergy & Harmony Over Dominant Floor (ONLY active when hasSpecialFeature is true!)
+	// Multiplicative Trait Compounding & Color-Match Synergy Over Dominant Floor:
+	// Previously max(modelFloor, backdropFloor) discarded the smaller rare trait completely!
+	// Now when BOTH model AND backdrop carry independent collector value, we compound 75% of the secondary log-lift,
+	// AND multiply by the human Color-Match / Contrast synergy (e.g. Black-on-Black, Monument+Ivory White, Sky High+Neon Blue, Titanium+Black).
 	synergyBonus := 0.0
 	if hasSpecialFeature {
-		if modelFloor > baseFloor*1.08 && backdropFloor > baseFloor*1.08 {
-			secondaryLift := (math.Min(modelFloor, backdropFloor) - baseFloor) / baseFloor
-			synergyBonus += math.Min(0.16, secondaryLift*0.22)
+		smallerTraitFloor := math.Min(modelFloor, backdropFloor)
+		if smallerTraitFloor > baseFloor*1.04 {
+			secondaryLogLift := math.Log(smallerTraitFloor / baseFloor)
+			synergyBonus += secondaryLogLift * 0.78
 		}
-		if backdropCertainty == "exact" && modelVerified && aestheticHarmony.IsMonochromeColorMatch {
-			if aestheticHarmony.DeltaE2000ModelBackdrop <= 10.0 {
-				synergyBonus += 0.14 // Full Monochrome Grail
-			} else {
-				synergyBonus += 0.08 // Chromatic Twin Match
-			}
+		if backdropCertainty == "exact" && modelVerified && aestheticHarmony.ColorSynergyMultiplier > 1.02 {
+			synergyBonus += math.Log(aestheticHarmony.ColorSynergyMultiplier)
 		} else if backdropCertainty == "exact" && aestheticHarmony.ThemeMatchRating == "PERFECT_MATCH" {
-			synergyBonus += 0.06
+			synergyBonus += 0.10
 		}
-		if jointRarity.BetaSynergy > 0 && (betaSerial > 0.10 || (backdropCertainty == "exact" && modelVerified)) {
-			synergyBonus += jointRarity.BetaSynergy * 0.25
+		if jointRarity.BetaSynergy > 0 && (betaSerial > 0.15 || (backdropCertainty == "exact" && modelVerified && modelPct <= 1.0)) {
+			synergyBonus += math.Min(0.25, jointRarity.BetaSynergy*0.30)
 		}
 	}
 
@@ -1235,89 +1298,119 @@ func computeSerialExponent(serial, supply int, classified serials.Classification
 		supply = 10000
 	}
 
-	// 1. Empirical serial curve:
-	// In the real market, serials > 250 without a vanity pattern trade at 1.00x floor!
+	// 1. Human Collector Early-Mint & Badge Length Curve:
+	// Humans strongly prize 1-digit (#1-#9), 2-digit (#10-#99), and early 3-digit (#100-#250) badges on Telegram profiles,
+	// with larger collections commanding a steeper trophy multiplier for #1 and single digits.
+	supplyScale := 1.0
+	if supply >= 25000 {
+		supplyScale = 1.18
+	} else if supply >= 10000 {
+		supplyScale = 1.10
+	}
+
 	var betaAbs float64
-	if serial == 1 {
-		betaAbs = 1.70 // Sacred #1 Sovereign Genesis (exp(1.70) ≈ 5.47x)
-	} else if serial == 2 || serial == 3 {
-		betaAbs = 1.15 - float64(serial-2)*0.10 // ~3.15x down to 2.85x
-	} else if serial <= 9 {
-		// Single digit #4 to #9: 2.2x down to 1.7x
-		betaAbs = 0.78 - (float64(serial-4)/5.0)*0.25
-	} else if serial <= 25 {
-		// Low double digit #10 to #25: 1.55x down to 1.30x
+	switch {
+	case serial == 1:
+		betaAbs = 2.65 * supplyScale // #1 Genesis Sovereign Trophy (~14x to 22x floor)
+	case serial == 2 || serial == 3:
+		betaAbs = (1.85 - float64(serial-2)*0.15) * supplyScale // Podium #2-#3 (~5.5x to 7.5x)
+	case serial <= 9:
+		betaAbs = (1.42 - (float64(serial-4)/5.0)*0.22) * supplyScale // Single digit #4-#9 (~3.3x to 4.8x)
+		if serial == 7 || serial == 8 {
+			betaAbs += 0.18 // Lucky #7 & Prosperity #8 single-digit boost
+		}
+	case serial <= 25:
 		t := float64(serial-10) / 15.0
-		betaAbs = 0.44 - t*0.18
-	} else if serial <= 99 {
-		// Double digit #26 to #99: 1.15x down to 1.02x
+		betaAbs = 1.02 - t*0.28 // #10-#25 (~2.1x to 2.8x)
+	case serial <= 99:
 		t := float64(serial-26) / 73.0
-		betaAbs = 0.14 - t*0.12
-	} else if serial <= 250 {
-		// Early Mint #100 to #250: 1.03x down to 1.00x
+		betaAbs = 0.65 - t*0.28 // All 2-digit sub-100 badges (#26-#99: ~1.45x to 1.92x)
+		if serial%10 == 0 {
+			betaAbs += 0.14 // Clean two-digit tens (#20, #30..#90)
+		}
+		if serial == 69 {
+			betaAbs += 0.25
+		}
+	case serial <= 250:
 		t := float64(serial-100) / 150.0
-		betaAbs = 0.03 - t*0.03
-	} else {
-		// Standard serials: strictly zero baseline inflation!
+		betaAbs = 0.24 - t*0.14 // Early Mint #100-#250 (~1.11x to 1.27x; stacks with repdigits/rounds like #100, #111, #200, #222!)
+	case serial <= 999 && supply >= 5000:
+		t := float64(serial-251) / 748.0
+		betaAbs = 0.10 - t*0.06 // Clean 3-digit profile badge in large collections (~1.04x to 1.11x)
+	default:
 		betaAbs = 0.0
 	}
 
-	// 2. Numerical Genetics & Vanity Patterns (Omega Mint, Ladders, Doublets, Milestones, Repdigits)
+	// 2. Numerical Genetics & Vanity Patterns (Stacks cleanly with Early Mint for e.g. #77, #88, #100, #111, #222!)
 	switch classified.Category {
 	case serials.CategoryOmegaMint:
-		betaAbs += 0.24 // Final Supply Bookend (#N of N, ~1.27x collector premium)
+		betaAbs += 0.58 // Exact Final Mint (#N of N, ~1.78x collector bookend)
 	case serials.CategoryRepDigit:
 		s := strconv.Itoa(serial)
-		if stringsContainsAllChars(s, '7') {
-			betaAbs += 0.35 // Lucky 7s (e.g. 777, 7777)
-		} else if stringsContainsAllChars(s, '8') {
-			betaAbs += 0.30 // Prosperity 8s (e.g. 888, 8888)
-		} else {
-			betaAbs += 0.22
+		switch {
+		case stringsContainsAllChars(s, '7'):
+			betaAbs += 0.85 // Lucky 7s (#77, #777, #7777 -> ~2.35x+)
+		case stringsContainsAllChars(s, '8'):
+			betaAbs += 0.78 // Prosperity 8s (#88, #888, #8888 -> ~2.18x+)
+		case stringsContainsAllChars(s, '9') || stringsContainsAllChars(s, '1') || stringsContainsAllChars(s, '6'):
+			betaAbs += 0.58 // #111, #666, #999, #1111 (~1.78x+)
+		default:
+			betaAbs += 0.50 // #222, #333, #555, #2222 (~1.65x+, and #222 also gets EarlyMint -> ~2.05x!)
 		}
 	case serials.CategoryLadder:
 		s := strconv.Itoa(serial)
-		if len(s) >= 4 {
-			betaAbs += 0.20 // 4-digit ladder (e.g. 1234, 4321, 6789)
+		if len(s) >= 5 {
+			betaAbs += 0.72 // #12345, #54321 (~2.05x)
+		} else if len(s) == 4 {
+			betaAbs += 0.56 // #1234, #4321, #6789 (~1.75x)
 		} else {
-			betaAbs += 0.12 // 3-digit ladder (e.g. 123, 321, 789)
+			betaAbs += 0.36 // #123, #321, #789 (~1.43x)
 		}
 	case serials.CategoryDoublet:
-		if serial == 6969 {
-			betaAbs += 0.28 // Apex meme doublet
-		} else {
-			betaAbs += 0.15 // ABAB or AABB (e.g. 2020, 1212, 1122, 7788)
+		switch {
+		case serial == 6969 || serial == 420 || serial == 1337 || serial == 520 || serial == 1314 || serial == 168:
+			betaAbs += 0.52 // Apex meme / lucky milestones (~1.68x)
+		default:
+			betaAbs += 0.34 // ABAB / AABB (#1212, #2020, #1122, #7788, #8800 -> ~1.40x)
 		}
 	case serials.CategoryMilestoneYear:
 		if serial == 2024 {
-			betaAbs += 0.22 // Telegram Gifts Genesis Launch Year
-		} else if serial == 2025 || serial == 2026 {
-			betaAbs += 0.14 // Active ecosystem expansion era
-		} else if serial == 2000 || serial == 1999 {
-			betaAbs += 0.15 // Millennium milestone
+			betaAbs += 0.42 // Telegram Gifts Genesis Year
+		} else if serial == 2000 || serial == 2025 || serial == 2026 {
+			betaAbs += 0.28
 		} else {
-			betaAbs += 0.08
+			betaAbs += 0.16
 		}
 	case serials.CategoryPalindrome:
 		s := strconv.Itoa(serial)
-		if len(s) >= 4 {
-			betaAbs += 0.14 // e.g. 1221, 5005, 7007
+		if len(s) >= 4 && (s[1] == '0' || s[0] == '7' || s[0] == '8') {
+			betaAbs += 0.36 // Clean zero/lucky mirror (#1001, #7007, #8008, #7887)
+		} else if len(s) >= 4 {
+			betaAbs += 0.26 // #1221, #3443
 		} else {
-			betaAbs += 0.08 // e.g. 101, 707
+			betaAbs += 0.18 // #101, #707, #808
 		}
 	case serials.CategoryRoundNumber:
-		if serial == 100 {
-			betaAbs += 0.18 // Clean century milestone
-		} else if serial%100 == 0 && serial < 1000 {
-			betaAbs += 0.14 // e.g. 200, 500
-		} else if serial%1000 == 0 {
-			betaAbs += 0.08 // e.g. 1000, 5000
-		} else if serial%100 == 0 {
-			betaAbs += 0.04
-		}
-	default:
-		if serial == 420 || serial == 1337 {
-			betaAbs += 0.18
+		switch {
+		case serial == 100 || serial == 1000 || serial == 10000 || serial == 100000:
+			betaAbs += 0.62 // Exact power-of-10 milestone (~1.86x+)
+		case serial == 500 || serial == 5000 || serial == 50000:
+			betaAbs += 0.48 // Half-power milestone (~1.62x)
+		case serial < 1000 && serial%100 == 0:
+			betaAbs += 0.38 // #200, #300..#900 (~1.46x+)
+		case serial < 10000 && serial%1000 == 0:
+			betaAbs += 0.40 // #2000, #3000..#9000 (~1.49x)
+		case serial%10000 == 0:
+			betaAbs += 0.36 // #20000, #30000..
+		case serial%500 == 0:
+			betaAbs += 0.22 // #1500, #2500.. (~1.25x)
+		case serial%100 == 0:
+			s := strconv.Itoa(serial)
+			if len(s) == 4 && s[0] == s[1] && (s[0] == '7' || s[0] == '8') {
+				betaAbs += 0.26 // #7700, #8800 lucky double-hundred (~1.30x)
+			} else {
+				betaAbs += 0.08 // Clean double-zero hundred (#1200, #2200 -> ~1.08x)
+			}
 		}
 	}
 
@@ -1357,12 +1450,17 @@ func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, 
 		priceBasis := "gift_market_trait_comps_bayesian_shrunk"
 
 		// Tier 1: Seek Trait-Aware Comparable Sales ONLY when backdrop is verified on-chain
+		traitMatchedComps := false
 		if backdropCertainty == "exact" {
 			sales, err = e.giftsRepo.GetTraitAwareCompsForGift(ctx, ref.ModelID, ref.SerialNumber, backdrop, 8)
+			if err == nil && len(sales) > 0 {
+				traitMatchedComps = true
+			}
 		}
 
-		// Tier 2: If no exact backdrop-matched sales exist, fetch collection cohort sales
-		if err != nil || len(sales) == 0 {
+		// Tier 2: Only use generic collection cohort comps when the gift is NOT a Special Collector Grail!
+		// Shrinking a 0.3% Mythic Color-Matched or Blackout Grail toward ordinary floor sales destroys its collector premium.
+		if !traitMatchedComps && !hasSpecialFeature {
 			sales, err = e.giftsRepo.GetCompsForGift(ctx, ref.ModelID, ref.SerialNumber, 10)
 			priceBasis = "gift_market_cohort_comps_bayesian_shrunk"
 		}

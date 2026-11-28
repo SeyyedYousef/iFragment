@@ -55,20 +55,25 @@ func ClassifyColorPrestige(backdropName string, harmonyClass string) (string, fl
 
 // AestheticHarmonyResult contains the color theory and theme harmony evaluation
 type AestheticHarmonyResult struct {
-	HarmonyClass            string  `json:"harmony_class"`              // "MONOCHROMATIC_GOLD", "OBSIDIAN_STEALTH", "CYBER_NEON", "EMERALD_VELVET", "ROYAL_SAPPHIRE", "STANDARD"
-	HarmonyScore            float64 `json:"harmony_score"`              // 0 to 100
-	DeltaECenterEdge        float64 `json:"delta_e_center_edge"`        // CIELAB Euclidean color distance between center and edge
-	DeltaEScore             float64 `json:"delta_e_score,omitempty"`    // Primary Delta-E metric exposed to UI
-	DeltaE2000ModelBackdrop float64 `json:"delta_e_2000_model_backdrop"` // ISO/CIE 11664-6 CIEDE2000 perceptual distance between 3D model and backdrop
-	ModelDominantHex        string  `json:"model_dominant_hex,omitempty"`
-	IsMonochromeColorMatch  bool    `json:"is_monochrome_color_match"`
-	WCAGContrastRatio       float64 `json:"wcag_contrast_ratio"`
-	ThemeMatchRating        string  `json:"theme_match_rating"`  // "PERFECT_MATCH", "HIGH_SYNERGY", "HARMONIOUS", "NEUTRAL"
-	BetaAesthetic           float64 `json:"beta_aesthetic"`      // Hedonic log-price bonus (0.0 to 0.45)
-	DominantPaletteEn       string  `json:"dominant_palette_en"`
-	DominantPaletteFa       string  `json:"dominant_palette_fa"`
-	PrestigeTier            string  `json:"prestige_tier"`       // "TIER_S", "TIER_A", "TIER_B", "TIER_C"
-	BetaColorPrestige       float64 `json:"beta_color_prestige"` // Dedicated empirical secondary market premium
+	HarmonyClass             string  `json:"harmony_class"`               // "MONOCHROMATIC_GOLD", "OBSIDIAN_STEALTH", "CYBER_NEON", "EMERALD_VELVET", "ROYAL_SAPPHIRE", "STANDARD"
+	HarmonyScore             float64 `json:"harmony_score"`               // 0 to 100
+	DeltaECenterEdge         float64 `json:"delta_e_center_edge"`         // CIELAB Euclidean color distance between center and edge
+	DeltaEScore              float64 `json:"delta_e_score,omitempty"`     // Primary Delta-E metric exposed to UI
+	DeltaE2000ModelBackdrop  float64 `json:"delta_e_2000_model_backdrop"` // ISO/CIE 11664-6 CIEDE2000 perceptual distance between 3D model and backdrop
+	ModelDominantHex         string  `json:"model_dominant_hex,omitempty"`
+	ModelColorFamily         string  `json:"model_color_family,omitempty"`
+	BackdropColorFamily      string  `json:"backdrop_color_family,omitempty"`
+	ColorMatchArchetype      string  `json:"color_match_archetype,omitempty"`
+	ColorSynergyMultiplier   float64 `json:"color_synergy_multiplier,omitempty"`
+	IsPrestigeModelArchetype bool    `json:"is_prestige_model_archetype,omitempty"`
+	IsMonochromeColorMatch   bool    `json:"is_monochrome_color_match"`
+	WCAGContrastRatio        float64 `json:"wcag_contrast_ratio"`
+	ThemeMatchRating         string  `json:"theme_match_rating"` // "PERFECT_MATCH", "HIGH_SYNERGY", "HARMONIOUS", "NEUTRAL"
+	BetaAesthetic            float64 `json:"beta_aesthetic"`     // Hedonic log-price bonus (0.0 to 0.45)
+	DominantPaletteEn        string  `json:"dominant_palette_en"`
+	DominantPaletteFa        string  `json:"dominant_palette_fa"`
+	PrestigeTier             string  `json:"prestige_tier"`       // "TIER_S", "TIER_A", "TIER_B", "TIER_C"
+	BetaColorPrestige        float64 `json:"beta_color_prestige"` // Dedicated empirical secondary market premium
 }
 
 // HexToRGB parses a hex string (#RRGGBB or RRGGBB) into sRGB [0..1]
@@ -248,53 +253,246 @@ func DeltaE2000(c1, c2 Lab) float64 {
 	return math.Round(de00*100.0) / 100.0
 }
 
+func containsAnyKeyword(text string, keywords ...string) bool {
+	for _, kw := range keywords {
+		if strings.Contains(text, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+// InferModelColorProfile classifies a 3D model variant into a perceptual color family, representative hex,
+// whether the chromatic cue came from an explicit 3D variant skin (not a generic fallback), and whether the
+// skin belongs to a high-demand collector material archetype (Gold, Blackout, Diamond/Marble/Titanium, Cyber/Neon).
+func InferModelColorProfile(collectionID, modelVariantName string) (hex string, family string, explicit bool, prestigeSkin bool) {
+	mLower := strings.ToLower(strings.TrimSpace(modelVariantName))
+	cLower := strings.ToLower(strings.TrimSpace(collectionID))
+	cSpaced := strings.ReplaceAll(cLower, "_", " ")
+
+	// Generic / unresolved model names do not carry explicit variant chromatic identity
+	isGeneric := mLower == "" || mLower == "original" || mLower == "default" || mLower == "standard" ||
+		mLower == "classic" || mLower == "normal" || mLower == cLower || mLower == cSpaced
+
+	if !isGeneric {
+		switch {
+		case containsAnyKeyword(mLower,
+			"midas", "gold", "golden", "aurum", "imperial", "royal", "crown", "pharaoh",
+			"trophy", "oscar", "champagne", "bullion", "bitcoin", "btc", "solar", "sun ",
+			"sunburst", "honey", "banana", "pikachu", "sponge", "cheese", "lemon", "wealth"):
+			return "#FFD700", "GOLD", true, true
+
+		case containsAnyKeyword(mLower,
+			"onyx", "obsidian", "black", "dark", "ninja", "shadow", "stealth", "batman",
+			"vader", "noir", "raven", "crow", "reaper", "venom", "panther", "eclipse",
+			"carbon", "coal", "soot", "graphite", "tuxedo", "void", "abyss", "phantom",
+			"nightmare", "goth", "ink", "matte"):
+			return "#121318", "BLACK", true, true
+
+		case containsAnyKeyword(mLower, "titanium", "gunmetal", "iron", " tungsten", "beskar", "cyborg"):
+			return "#2C3038", "BLACK", true, true
+
+		case containsAnyKeyword(mLower,
+			"ivory", "marble", "monument", "statue", "alabaster", "porcelain", "white",
+			"albino", "snow", "ghost", "angel", "pearl", "silver", "platinum", "chrome",
+			"mirror", "diamond", "crystal", "glass", "clear", "translucent", "skeleton",
+			"bone", "lunar", "moon", "polar", "dove", "swan", "milk", "cream", "cloud"):
+			return "#EAECEF", "WHITE", true, true
+
+		case containsAnyKeyword(mLower,
+			"emerald", "jade", "pepemint", "matrix", "forest", "green", "goblin", "zombie",
+			"pepe", "frog", "toad", "toxic", "acid", "alien", "martian", "shrek", "hulk",
+			"clover", "shamrock", "mint", "lime", "dollar", "cash", "money", "cactus",
+			"matcha", "avocado", "pickle", "bamboo", "viper", "cobra", "camo"):
+			prestige := containsAnyKeyword(mLower, "emerald", "jade", "matrix", "pepe", "toxic", "alien", "dollar", "money")
+			return "#007A3D", "GREEN", true, prestige
+
+		case containsAnyKeyword(mLower,
+			"ruby", "crimson", "red", "magma", "lava", "devil", "satan", "sith", "hell",
+			"demon", "vampire", "dracula", "blood", "scarlet", "garnet", "cherry",
+			"strawberry", "raspberry", "fire", "flame", "inferno", "phoenix", "ferrari",
+			"samurai", "mars", "heart", "chili", "lobster", "dragon"):
+			prestige := containsAnyKeyword(mLower, "ruby", "crimson", "devil", "demon", "vampire", "lava", "magma", "phoenix", "dragon")
+			return "#C41E3A", "RED", true, prestige
+
+		case containsAnyKeyword(mLower,
+			"pink", "sakura", "rose", "bubblegum", "flamingo", "cupid", "cotton",
+			"blossom", "barbie", "kitty", "magenta", "fuchsia", "coral", "lotus",
+			"orchid", "unicorn", "candy", "sweet", "pastel", "love"):
+			prestige := containsAnyKeyword(mLower, "sakura", "rose", "flamingo", "unicorn", "cupid")
+			return "#FF69B4", "PINK", true, prestige
+
+		case containsAnyKeyword(mLower,
+			"sapphire", "cobalt", "ocean", "navy", "blue", "aqua", "poseidon", "sky",
+			"cyan", "turquoise", "teal", "neon blue", "ton", "telegram", "arctic",
+			"ice", "frost", "frozen", "glacier", "sub-zero", "shark", "whale",
+			"dolphin", "genie", "avatar", "indigo", "electric"):
+			prestige := containsAnyKeyword(mLower, "sapphire", "neon", "ton", "telegram", "ice", "frost", "glacier", "poseidon")
+			return "#2563EB", "BLUE", true, prestige
+
+		case containsAnyKeyword(mLower,
+			"cyber", "cyberpunk", "neon", "galaxy", "amethyst", "purple", "violet",
+			"cosmic", "nebula", "astral", "mystic", "wizard", "arcane", "hologram",
+			"glitch", "vaporwave", "synthwave", "grape", "plum", "lavender", "joker", "thanos"):
+			return "#7B2CBF", "PURPLE", true, true
+
+		case containsAnyKeyword(mLower,
+			"amber", "orange", "pumpkin", "peach", "tangerine", "sunset", "tiger",
+			"fox", "copper", "rust", "terracotta", "ember", "koi", "citrus", "carrot"):
+			return "#EA580C", "ORANGE", true, false
+
+		case containsAnyKeyword(mLower,
+			"bronze", "chocolate", "coffee", "mocha", "caramel", "wood", "wooden",
+			"leather", "cigar", "cookie", "gingerbread", "teddy", "bear", "desert"):
+			return "#78350F", "BROWN", true, false
+		}
+	}
+
+	// Fallback to canonical collection base palette when model variant is default or unspecified (non-explicit)
+	switch cLower {
+	case "plush_pepe", "kissed_frog":
+		return "#1E7E34", "GREEN", false, false
+	case "durov_cap", "scared_cat", "witch_hat":
+		return "#14161D", "BLACK", false, false
+	case "snoop_dogg", "golden_star", "signet_ring", "mini_oscar", "genie_lamp", "hanging_star":
+		return "#EAC117", "GOLD", false, false
+	case "eternal_rose", "trapped_heart", "love_candle", "santa_hat", "spiced_wine":
+		return "#B91C1C", "RED", false, false
+	case "cyber_heart", "evil_eye", "astral_shard", "ion_gem":
+		return "#1D4ED8", "BLUE", false, false
+	case "precious_peach", "cookie_heart", "vintage_cigar":
+		return "#EA580C", "ORANGE", false, false
+	default:
+		return "#64748B", "", false, false
+	}
+}
+
+// InferBackdropColorFamily determines a backdrop's human perceptual color family using both its official name
+// and its on-chain SVG CIELAB coordinates (so even brand-new Telegram backdrops classify accurately).
+func InferBackdropColorFamily(backdropName string, colors *BackdropColorSet) string {
+	bd := strings.ToLower(strings.TrimSpace(backdropName))
+	switch {
+	case containsAnyKeyword(bd, "black", "obsidian", "onyx", "pitch", "coal", "stealth", "shadow", "midnight black"):
+		return "BLACK"
+	case containsAnyKeyword(bd, "ivory", "white", "platinum", "silver", "pearl", "alabaster", "snow", "chalk"):
+		return "WHITE"
+	case containsAnyKeyword(bd, "gold", "lemon", "yellow", "champagne", "sunflower", "mustard"):
+		return "GOLD"
+	case containsAnyKeyword(bd, "crimson", "ruby", "red", "scarlet", "fire", "burgundy", "raspberry", "strawberry", "cherry", "garnet"):
+		return "RED"
+	case containsAnyKeyword(bd, "pink", "sakura", "rose", "coral", "flamingo", "magenta", "cotton", "peach", "blossom"):
+		return "PINK"
+	case containsAnyKeyword(bd, "blue", "sapphire", "cobalt", "navy", "cyan", "sky", "aqua", "turquoise", "pacific", "azure", "arctic"):
+		return "BLUE"
+	case containsAnyKeyword(bd, "emerald", "green", "jade", "mint", "shamrock", "forest", "lime", "olive", "pistachio", "camo"):
+		return "GREEN"
+	case containsAnyKeyword(bd, "purple", "violet", "lavender", "indigo", "grape", "amethyst", "lilac", "fandango", "cyberpunk", "plum"):
+		return "PURPLE"
+	case containsAnyKeyword(bd, "orange", "tangerine", "amber", "sunset", "copper", "pumpkin", "persimmon"):
+		return "ORANGE"
+	case containsAnyKeyword(bd, "chocolate", "caramel", "brown", "cocoa", "coffee", "desert", "taupe", "chestnut", "bronze"):
+		return "BROWN"
+	}
+
+	if colors == nil || colors.CenterHex == "" {
+		return ""
+	}
+	lab := RGBToLab(HexToRGB(colors.CenterHex))
+	chroma := math.Sqrt(lab.A*lab.A + lab.B*lab.B)
+	if lab.L < 24.0 && chroma < 10.0 {
+		return "BLACK"
+	}
+	if lab.L > 66.0 && chroma < 14.0 {
+		return "WHITE"
+	}
+	if chroma < 8.0 {
+		if lab.L < 40.0 {
+			return "BLACK"
+		}
+		return "WHITE"
+	}
+	hue := math.Atan2(lab.B, lab.A) * 180.0 / math.Pi
+	if hue < 0 {
+		hue += 360.0
+	}
+	switch {
+	case hue >= 348.0 || hue < 26.0:
+		if lab.L > 64.0 {
+			return "PINK"
+		}
+		return "RED"
+	case hue >= 26.0 && hue < 62.0:
+		if lab.L < 44.0 {
+			return "BROWN"
+		}
+		return "ORANGE"
+	case hue >= 62.0 && hue < 102.0:
+		return "GOLD"
+	case hue >= 102.0 && hue < 175.0:
+		return "GREEN"
+	case hue >= 175.0 && hue < 268.0:
+		return "BLUE"
+	case hue >= 268.0 && hue < 328.0:
+		return "PURPLE"
+	default:
+		return "PINK"
+	}
+}
+
+// EvaluateSymbolLoreSynergy rewards iconic collector symbols and thematic Model × Symbol lore combinations.
+func EvaluateSymbolLoreSynergy(collectionID, modelVariantName, symbolName string, symbolPermille int) (float64, string) {
+	sLower := strings.ToLower(strings.TrimSpace(symbolName))
+	mLower := strings.ToLower(strings.TrimSpace(modelVariantName))
+	cLower := strings.ToLower(strings.TrimSpace(collectionID))
+	if sLower == "" || sLower == "aero crest" || sLower == "standard mark" {
+		return 0.0, ""
+	}
+
+	bonus := 0.0
+	tag := ""
+
+	// 1. Universal Tier-S Telegram & Crypto Whale Symbols
+	switch {
+	case containsAnyKeyword(sLower, "telegram", "ton", "durov", "resistance", "redo", "plane"):
+		bonus = 0.14
+		tag = "TELEGRAM_ECOSYSTEM_EMBLEM"
+	case containsAnyKeyword(sLower, "bitcoin", "btc", "crown", "diamond", "illuminati", "all-seeing", "dragon"):
+		bonus = 0.11
+		tag = "SOVEREIGN_PRESTIGE_EMBLEM"
+	case containsAnyKeyword(sLower, "cash", "dollar", "money", "coin", "skull", "fire", "flame", "lightning", "halo", "wings", "heart", "star"):
+		bonus = 0.06
+		tag = "HIGH_DEMAND_COLLECTOR_EMBLEM"
+	}
+
+	// 2. Thematic Lore Combos (Model + Symbol storytelling that human collectors love)
+	if (containsAnyKeyword(mLower, "monument", "statue", "marble", "imperial", "roman", "caesar") && containsAnyKeyword(sLower, "wreath", "laurel", "crown", "pillar")) ||
+		(containsAnyKeyword(mLower, "devil", "demon", "hell", "vampire", "reaper", "shadow") && containsAnyKeyword(sLower, "skull", "fire", "flame", "pentagram", "horns", "bat")) ||
+		(containsAnyKeyword(mLower, "angel", "ghost", "heaven", "divine", "white") && containsAnyKeyword(sLower, "halo", "wings", "star", "dove", "cross")) ||
+		(containsAnyKeyword(mLower, "gold", "midas", "royal", "king", "rich", "bitcoin") && containsAnyKeyword(sLower, "crown", "cash", "dollar", "coin", "diamond", "bitcoin")) ||
+		((cLower == "plush_pepe" || containsAnyKeyword(mLower, "pepe", "frog")) && containsAnyKeyword(sLower, "crown", "frog", "lily", "bitcoin", "ton")) ||
+		((cLower == "durov_cap" || cLower == "resistance_dog") && containsAnyKeyword(sLower, "telegram", "ton", "plane", "dog", "key", "shield")) {
+		bonus += 0.10
+		if tag == "" {
+			tag = "THEMATIC_LORE_MATCH"
+		} else {
+			tag = "THEMATIC_TRIPLE_LORE_GRAIL"
+		}
+	}
+
+	if symbolPermille > 0 && symbolPermille <= 2 {
+		bonus += 0.05
+	}
+	if bonus > 0.24 {
+		bonus = 0.24
+	}
+	return bonus, tag
+}
+
 // InferModelDominantHexWithCertainty infers the primary 3D artwork color hex of a Telegram Gift model variant
 // and reports whether the color came from an explicit chromatic variant name (true) or a generic fallback (false).
 func InferModelDominantHexWithCertainty(collectionID, modelVariantName string) (string, bool) {
-	mLower := strings.ToLower(strings.TrimSpace(modelVariantName))
-	cLower := strings.ToLower(strings.TrimSpace(collectionID))
-
-	// 1. Check explicit 3D Model Variant chromatic keywords first
-	switch {
-	case strings.Contains(mLower, "midas") || strings.Contains(mLower, "gold") || strings.Contains(mLower, "golden") || strings.Contains(mLower, "astral") || strings.Contains(mLower, "solar") || strings.Contains(mLower, "crown") || strings.Contains(mLower, "imperial"):
-		return "#FFD700", true // Pure Gold
-	case strings.Contains(mLower, "onyx") || strings.Contains(mLower, "obsidian") || strings.Contains(mLower, "black") || strings.Contains(mLower, "dark") || strings.Contains(mLower, "ninja") || strings.Contains(mLower, "shadow") || strings.Contains(mLower, "stealth") || strings.Contains(mLower, "batman") || strings.Contains(mLower, "vader") || strings.Contains(mLower, "noir"):
-		return "#121318", true // Obsidian Black
-	case strings.Contains(mLower, "emerald") || strings.Contains(mLower, "jade") || strings.Contains(mLower, "pepemint") || strings.Contains(mLower, "matrix") || strings.Contains(mLower, "forest") || strings.Contains(mLower, "green") || strings.Contains(mLower, "goblin") || strings.Contains(mLower, "zombie"):
-		return "#007A3D", true // Emerald Green
-	case strings.Contains(mLower, "ruby") || strings.Contains(mLower, "crimson") || strings.Contains(mLower, "red") || strings.Contains(mLower, "magma") || strings.Contains(mLower, "lava") || strings.Contains(mLower, "devil") || strings.Contains(mLower, "sith") || strings.Contains(mLower, "santa") || strings.Contains(mLower, "hell"):
-		return "#C41E3A", true // Crimson Ruby
-	case strings.Contains(mLower, "pink") || strings.Contains(mLower, "sakura") || strings.Contains(mLower, "rose") || strings.Contains(mLower, "bubblegum") || strings.Contains(mLower, "flamingo") || strings.Contains(mLower, "cupid") || strings.Contains(mLower, "strawberry") || strings.Contains(mLower, "cotton"):
-		return "#FF69B4", true // Sakura Pink
-	case strings.Contains(mLower, "sapphire") || strings.Contains(mLower, "cobalt") || strings.Contains(mLower, "ocean") || strings.Contains(mLower, "navy") || strings.Contains(mLower, "blue") || strings.Contains(mLower, "aqua") || strings.Contains(mLower, "poseidon"):
-		return "#0F52BA", true // Royal Sapphire
-	case strings.Contains(mLower, "arctic") || strings.Contains(mLower, "ice") || strings.Contains(mLower, "frost") || strings.Contains(mLower, "diamond") || strings.Contains(mLower, "crystal") || strings.Contains(mLower, "glacier"):
-		return "#A5F2F3", true // Diamond Ice
-	case strings.Contains(mLower, "cyber") || strings.Contains(mLower, "neon") || strings.Contains(mLower, "galaxy") || strings.Contains(mLower, "amethyst") || strings.Contains(mLower, "purple") || strings.Contains(mLower, "violet") || strings.Contains(mLower, "cosmic") || strings.Contains(mLower, "nebula"):
-		return "#7B2CBF", true // Cyber Violet
-	case strings.Contains(mLower, "silver") || strings.Contains(mLower, "platinum") || strings.Contains(mLower, "chrome") || strings.Contains(mLower, "white") || strings.Contains(mLower, "albino") || strings.Contains(mLower, "ghost") || strings.Contains(mLower, "angel") || strings.Contains(mLower, "pearl"):
-		return "#E5E7EB", true // Platinum White
-	case strings.Contains(mLower, "bronze") || strings.Contains(mLower, "copper") || strings.Contains(mLower, "amber") || strings.Contains(mLower, "orange") || strings.Contains(mLower, "pumpkin") || strings.Contains(mLower, "peach"):
-		return "#D97706", true // Warm Amber
-	}
-
-	// 2. Fallback to canonical collection base palette when model variant is default or unspecified (non-explicit)
-	switch cLower {
-	case "plush_pepe", "kissed_frog":
-		return "#1E7E34", false // Pepe Emerald Green
-	case "durov_cap", "scared_cat", "witch_hat":
-		return "#14161D", false // Signature Durov Black
-	case "snoop_dogg", "golden_star", "signet_ring", "mini_oscar", "genie_lamp", "hanging_star":
-		return "#EAC117", false // Sovereign Gold
-	case "eternal_rose", "trapped_heart", "love_candle", "santa_hat", "spiced_wine":
-		return "#B91C1C", false // Velvet Crimson
-	case "cyber_heart", "evil_eye", "astral_shard", "ion_gem":
-		return "#1D4ED8", false // Electric Sapphire
-	case "precious_peach", "cookie_heart", "vintage_cigar":
-		return "#EA580C", false // Warm Peach/Amber
-	default:
-		return "#64748B", false // Neutral Slate
-	}
+	hex, _, explicit, _ := InferModelColorProfile(collectionID, modelVariantName)
+	return hex, explicit
 }
 
 // InferModelDominantHex infers the primary 3D artwork color hex of a Telegram Gift model variant
@@ -332,7 +530,8 @@ func EvaluateAestheticHarmonyWithModel(modelID string, modelVariantName string, 
 	distCenterEdge := DeltaE(labCenter, labEdge)
 	distCenterPattern := DeltaE(labCenter, labPattern)
 
-	modelHex, hasExplicitModelColor := InferModelDominantHexWithCertainty(modelID, modelVariantName)
+	modelHex, modelFamily, hasExplicitModelColor, isPrestigeSkin := InferModelColorProfile(modelID, modelVariantName)
+	backdropFamily := InferBackdropColorFamily(backdropName, colors)
 	labModel := RGBToLab(HexToRGB(modelHex))
 	de00ModelCenter := DeltaE2000(labModel, labCenter)
 	de00ModelEdge := DeltaE2000(labModel, labEdge)
@@ -352,37 +551,40 @@ func EvaluateAestheticHarmonyWithModel(modelID string, modelVariantName string, 
 
 	bdLower := strings.ToLower(strings.TrimSpace(backdropName))
 	centerChroma := math.Sqrt(labCenter.A*labCenter.A + labCenter.B*labCenter.B)
-	isExplicitBlackBackdrop := strings.Contains(bdLower, "black") || strings.Contains(bdLower, "obsidian") ||
-		strings.Contains(bdLower, "onyx") || strings.Contains(bdLower, "stealth") || strings.Contains(bdLower, "coal") ||
-		strings.Contains(bdLower, "shadow")
+	isExplicitBlackBackdrop := backdropFamily == "BLACK"
 
 	// 1. Detect Special Material & Color Chord Classes
-	// Guard: Do NOT misclassify dark navy fallback (#1a2035, chroma ~19) as OBSIDIAN_STEALTH unless it is genuinely achromatic/black
-	if (labCenter.L < 22.0 && labEdge.L < 25.0) && (isExplicitBlackBackdrop || centerChroma < 8.0) {
+	if (labCenter.L < 24.0 && labEdge.L < 27.0) && (isExplicitBlackBackdrop || centerChroma < 8.0) {
 		harmonyClass = "OBSIDIAN_STEALTH"
 		harmonyScore = 94.0
 		betaAesthetic = 0.25
 		palEn = "Obsidian Stealth Matrix"
 		palFa = "ماتریکس مشکی مات آبسیدین"
-	} else if labCenter.B > 28.0 && labEdge.B > 20.0 && labCenter.L > 50.0 {
+	} else if (labCenter.B > 28.0 && labEdge.B > 20.0 && labCenter.L > 50.0) || backdropFamily == "GOLD" {
 		harmonyClass = "MONOCHROMATIC_GOLD"
 		harmonyScore = 96.0
 		betaAesthetic = 0.28
 		palEn = "Pure Astral Gold"
 		palFa = "طلای ناب کیهانی"
-	} else if labCenter.A < -20.0 && labCenter.B > 5.0 {
+	} else if (labCenter.A < -20.0 && labCenter.B > 5.0) || strings.Contains(bdLower, "emerald") {
 		harmonyClass = "EMERALD_VELVET"
 		harmonyScore = 92.0
 		betaAesthetic = 0.22
 		palEn = "Emerald Velvet Glow"
 		palFa = "درخشش مخمل زمردین"
+	} else if backdropFamily == "WHITE" {
+		harmonyClass = "PURE_IVORY_PEARL"
+		harmonyScore = 90.0
+		betaAesthetic = 0.18
+		palEn = "Pure Ivory & Marble"
+		palFa = "سفید مرمرین و صدفی"
 	} else if distCenterEdge > 55.0 || distCenterPattern > 55.0 {
 		harmonyClass = "CYBER_NEON"
 		harmonyScore = 88.0
 		betaAesthetic = 0.18
 		palEn = "Cyber Neon Duo-Tone"
 		palFa = "کنتراست نئون سایبرپانک"
-	} else if labCenter.B < -20.0 {
+	} else if labCenter.B < -20.0 || backdropFamily == "BLUE" {
 		harmonyClass = "ROYAL_SAPPHIRE"
 		harmonyScore = 86.0
 		betaAesthetic = 0.15
@@ -392,23 +594,83 @@ func EvaluateAestheticHarmonyWithModel(modelID string, modelVariantName string, 
 
 	// 2. Classify Prestige Tier & Dedicated Market Color Alpha
 	prestigeTier, betaColorPrestige := ClassifyColorPrestige(backdropName, harmonyClass)
+	if backdropFamily == "WHITE" && prestigeTier == PrestigeTierC {
+		prestigeTier = PrestigeTierA
+		betaColorPrestige = 0.10
+	}
 
-	// 3. Model-Specific & CIEDE2000 Perceptual Color-Match Synergy Matrix
-	// Guard: True monochrome collector match requires an explicit chromatic 3D model variant (e.g. Midas on Gold, Ninja on Onyx),
-	// NOT a generic collection fallback hex (which previously misclassified every dark Scared Cat / Witch Hat as a Monochrome Grail).
+	// 3. Human Collector Color-Match Psychology (Blackout, Pure Color Twins across all 10 families, Luxury Contrast)
 	themeRating := "HARMONIOUS"
 	modelSynergyBonus := 0.0
 	isMonochromeMatch := false
+	matchArchetype := "NONE"
+	colorSynergyMult := 1.00
 
 	if hasExplicitModelColor {
-		if de00ModelBackdrop <= 11.5 {
+		mLower := strings.ToLower(strings.TrimSpace(modelVariantName))
+		isTitaniumOnBlack := containsAnyKeyword(mLower, "titanium", "gunmetal", "cyborg") && backdropFamily == "BLACK"
+
+		switch {
+		case modelFamily == "BLACK" && backdropFamily == "BLACK" && !isTitaniumOnBlack:
+			// #1 Telegram Collector Grail: Black/Dark/Shadow/Onyx Model on Black/Obsidian Backdrop ("Full Blackout")
+			themeRating = "PERFECT_MATCH"
+			modelSynergyBonus = 0.20
+			isMonochromeMatch = true
+			matchArchetype = "BLACKOUT_MONOCHROME"
+			colorSynergyMult = 2.15
+
+		case isTitaniumOnBlack:
+			// Metallic Titanium/Gunmetal on Black Backdrop: Dark Stealth Metallic Grail
+			themeRating = "PERFECT_MATCH"
+			modelSynergyBonus = 0.18
+			isMonochromeMatch = true
+			matchArchetype = "STEALTH_METALLIC_MONOCHROME"
+			colorSynergyMult = 1.78
+
+		case modelFamily != "" && modelFamily == backdropFamily:
+			// Exact Perceptual Color Family Twin (Gold+Gold, White/Monument+Ivory White, Blue+Neon Blue, Pink+Sakura, Red+Crimson, Green+Emerald, Purple+Cyber)
+			themeRating = "PERFECT_MATCH"
+			modelSynergyBonus = 0.18
+			isMonochromeMatch = true
+			matchArchetype = "PURE_COLOR_TWIN"
+			switch modelFamily {
+			case "GOLD":
+				colorSynergyMult = 1.88
+			case "WHITE":
+				colorSynergyMult = 1.80
+			case "PINK", "RED", "BLUE", "GREEN", "PURPLE":
+				colorSynergyMult = 1.62
+			default:
+				colorSynergyMult = 1.45
+			}
+
+		case de00ModelBackdrop <= 13.5:
 			themeRating = "PERFECT_MATCH"
 			modelSynergyBonus = 0.16
 			isMonochromeMatch = true
-		} else if de00ModelBackdrop <= 18.0 {
+			matchArchetype = "PURE_COLOR_TWIN"
+			colorSynergyMult = 1.58
+
+		case (backdropFamily == "BLACK" && (modelFamily == "GOLD" || modelFamily == "WHITE" || modelFamily == "RED" || modelFamily == "PURPLE")) ||
+			(modelFamily == "BLACK" && (backdropFamily == "GOLD" || backdropFamily == "WHITE" || backdropFamily == "RED")):
+			// High-Contrast Luxury Showcase (e.g. Gold Midas on Black, Diamond/White on Black, Black Panther on Gold)
+			themeRating = "HIGH_SYNERGY"
+			modelSynergyBonus = 0.12
+			matchArchetype = "LUXURY_CONTRAST"
+			colorSynergyMult = 1.42
+
+		case de00ModelBackdrop <= 20.0:
 			themeRating = "HIGH_SYNERGY"
 			modelSynergyBonus = 0.09
 			isMonochromeMatch = true
+			matchArchetype = "ANALOGOUS_TWIN"
+			colorSynergyMult = 1.32
+
+		case de00ModelBackdrop <= 27.0:
+			themeRating = "HARMONIOUS"
+			modelSynergyBonus = 0.04
+			matchArchetype = "ANALOGOUS_HARMONY"
+			colorSynergyMult = 1.12
 		}
 	}
 
@@ -434,8 +696,11 @@ func EvaluateAestheticHarmonyWithModel(modelID string, modelVariantName string, 
 			if modelSynergyBonus < 0.12 {
 				modelSynergyBonus = 0.12
 			}
-			if isExplicitBlackBackdrop || (hasExplicitModelColor && de00ModelBackdrop <= 20.0) {
+			if isExplicitBlackBackdrop && (!hasExplicitModelColor || modelFamily == "BLACK") {
 				isMonochromeMatch = true
+				if colorSynergyMult < 1.75 {
+					colorSynergyMult = 1.75
+				}
 			}
 		} else if harmonyClass == "ROYAL_SAPPHIRE" && themeRating != "PERFECT_MATCH" {
 			themeRating = "HIGH_SYNERGY"
@@ -466,20 +731,25 @@ func EvaluateAestheticHarmonyWithModel(modelID string, modelVariantName string, 
 	}
 
 	return AestheticHarmonyResult{
-		HarmonyClass:            harmonyClass,
-		HarmonyScore:            math.Round(harmonyScore*10.0) / 10.0,
-		DeltaECenterEdge:        math.Round(distCenterEdge*100.0) / 100.0,
-		DeltaEScore:             math.Round(distCenterEdge*100.0) / 100.0,
-		DeltaE2000ModelBackdrop: de00ModelBackdrop,
-		ModelDominantHex:        modelHex,
-		IsMonochromeColorMatch:  isMonochromeMatch,
-		WCAGContrastRatio:       wcagRatio,
-		ThemeMatchRating:        themeRating,
-		BetaAesthetic:           math.Round(totalBeta*100.0) / 100.0,
-		DominantPaletteEn:       palEn,
-		DominantPaletteFa:       palFa,
-		PrestigeTier:            prestigeTier,
-		BetaColorPrestige:       betaColorPrestige,
+		HarmonyClass:             harmonyClass,
+		HarmonyScore:             math.Round(harmonyScore*10.0) / 10.0,
+		DeltaECenterEdge:         math.Round(distCenterEdge*100.0) / 100.0,
+		DeltaEScore:              math.Round(distCenterEdge*100.0) / 100.0,
+		DeltaE2000ModelBackdrop:  de00ModelBackdrop,
+		ModelDominantHex:         modelHex,
+		ModelColorFamily:         modelFamily,
+		BackdropColorFamily:      backdropFamily,
+		ColorMatchArchetype:      matchArchetype,
+		ColorSynergyMultiplier:   colorSynergyMult,
+		IsPrestigeModelArchetype: isPrestigeSkin,
+		IsMonochromeColorMatch:   isMonochromeMatch,
+		WCAGContrastRatio:        wcagRatio,
+		ThemeMatchRating:         themeRating,
+		BetaAesthetic:            math.Round(totalBeta*100.0) / 100.0,
+		DominantPaletteEn:        palEn,
+		DominantPaletteFa:        palFa,
+		PrestigeTier:             prestigeTier,
+		BetaColorPrestige:        betaColorPrestige,
 	}
 }
 

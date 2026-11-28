@@ -348,4 +348,51 @@ func TestOverhaul_NeverBelowFloorAndGenesisSixEightHierarchy(t *testing.T) {
 	}
 }
 
+func TestHumanPsychology_MirrorsQuadRepeatsAndRhythm(t *testing.T) {
+	engine := NewValuationEngine(nil, nil, nil)
+	ctx := context.Background()
+
+	eval := func(n string) float64 {
+		v, err := engine.Valuate(ctx, n)
+		if err != nil {
+			t.Fatalf("Valuate(%q) failed: %v", n, err)
+		}
+		f, _ := v.ExpectedTON.Float64()
+		return f
+	}
+
+	pRandom := eval("+888 0802 4317")
+	pRhythm := eval("+888 0100 2929")       // Clean hundred + ABAB pair
+	pScattered4 := eval("+888 7172 7375")   // 4 scattered 7s
+	pScattered8 := eval("+888 8128 3848")   // 4 scattered 8s (7 eights with +888)
+	pDualMirror := eval("+888 1221 4554")   // Both 4-digit visual blocks are mirrors
+	pQuadTail := eval("+888 0419 7777")     // 4 consecutive 7s at tail
+	pPureMirror := eval("+888 1937 7391")   // Pure 8-digit mirror palindrome (non-ladder)
+	pFullMirror := eval("+888 1234 4321")   // Full 8-digit mirror + sequential ladder
+	pWhaleTwin := eval("+888 0007 0007")    // Twin zero-padded whale block
+
+	if pRhythm <= pRandom*1.50 {
+		t.Errorf("expected +888 0100 2929 (%.2f) > 1.50x random floor (%.2f)", pRhythm, pRandom)
+	}
+	if pScattered4 <= pRandom*1.45 {
+		t.Errorf("expected 4-scattered-digit +888 7172 7375 (%.2f) > 1.45x random floor (%.2f)", pScattered4, pRandom)
+	}
+	if pScattered8 <= pScattered4 {
+		t.Errorf("expected 4-scattered-eights +888 8128 3848 (%.2f) > +888 7172 7375 (%.2f)", pScattered8, pScattered4)
+	}
+	if pDualMirror <= pRhythm {
+		t.Errorf("expected dual-mirror +888 1221 4554 (%.2f) > +888 0100 2929 (%.2f)", pDualMirror, pRhythm)
+	}
+	if pQuadTail <= pDualMirror {
+		t.Errorf("expected quad-tail +888 0419 7777 (%.2f) > dual-mirror +888 1221 4554 (%.2f)", pQuadTail, pDualMirror)
+	}
+	if pPureMirror <= pDualMirror {
+		t.Errorf("expected pure mirror +888 1937 7391 (%.2f) > dual-mirror +888 1221 4554 (%.2f)", pPureMirror, pDualMirror)
+	}
+	if pWhaleTwin <= pFullMirror || pWhaleTwin <= pPureMirror*2.0 {
+		t.Errorf("expected whale twin +888 0007 0007 (%.2f) > ladder-mirror (%.2f) and > 2x pure mirror (%.2f)", pWhaleTwin, pFullMirror, pPureMirror)
+	}
+}
+
+
 

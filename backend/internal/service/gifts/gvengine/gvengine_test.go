@@ -320,4 +320,64 @@ func TestOverhaul_UnresolvedOrdinaryGiftsFloorLocked(t *testing.T) {
 	}
 }
 
+func TestHumanPsychology_ColorMatchingAcrossAllFamiliesAndSerials(t *testing.T) {
+	// 1. Black Model + Black Backdrop ("Full Blackout Grail")
+	blackColors := &traits.BackdropColorSet{CenterHex: "#363738", EdgeHex: "#0E0F0F"}
+	resBlackout := traits.EvaluateAestheticHarmonyWithModel("scared_cat", "Shadow Ninja", "Onyx Black", blackColors)
+	if !resBlackout.IsMonochromeColorMatch || resBlackout.ColorSynergyMultiplier < 2.0 {
+		t.Errorf("expected Black-on-Black ColorSynergyMultiplier >= 2.0, got match=%v mult=%.2f", resBlackout.IsMonochromeColorMatch, resBlackout.ColorSynergyMultiplier)
+	}
+
+	// 2. Monument (White/Marble) + Ivory White SVG Hexes (#BAB6B1 -> #A19D97)
+	ivoryColors := &traits.BackdropColorSet{CenterHex: "#BAB6B1", EdgeHex: "#A19D97"}
+	resIvory := traits.EvaluateAestheticHarmonyWithModel("resistance_dog", "Monument", "Ivory White", ivoryColors)
+	if !resIvory.IsMonochromeColorMatch || resIvory.ColorSynergyMultiplier < 1.70 {
+		t.Errorf("expected Monument + Ivory White pure color twin >= 1.70x, got match=%v mult=%.2f", resIvory.IsMonochromeColorMatch, resIvory.ColorSynergyMultiplier)
+	}
+	loreBonus, loreTag := traits.EvaluateSymbolLoreSynergy("resistance_dog", "Monument", "Wreath", 5)
+	if loreBonus < 0.08 || loreTag == "" {
+		t.Errorf("expected Monument + Wreath thematic lore synergy, got bonus=%.2f tag=%s", loreBonus, loreTag)
+	}
+
+	// 3. Sky High (Blue) + Neon Blue SVG Hexes (#7596F9 -> #6862E4)
+	neonBlueColors := &traits.BackdropColorSet{CenterHex: "#7596F9", EdgeHex: "#6862E4"}
+	resBlue := traits.EvaluateAestheticHarmonyWithModel("durov_cap", "Sky High", "Neon Blue", neonBlueColors)
+	if !resBlue.IsMonochromeColorMatch || resBlue.ColorSynergyMultiplier < 1.55 {
+		t.Errorf("expected Sky High + Neon Blue color twin >= 1.55x, got match=%v mult=%.2f", resBlue.IsMonochromeColorMatch, resBlue.ColorSynergyMultiplier)
+	}
+
+	// 4. Sakura Pink + Rose Quartz Pink SVG Hexes
+	pinkColors := &traits.BackdropColorSet{CenterHex: "#F4A6C8", EdgeHex: "#D96B9C"}
+	resPink := traits.EvaluateAestheticHarmonyWithModel("plush_pepe", "Sakura Blossom", "Rose Quartz", pinkColors)
+	if !resPink.IsMonochromeColorMatch || resPink.ColorSynergyMultiplier < 1.55 {
+		t.Errorf("expected Sakura + Rose Quartz pink twin >= 1.55x, got match=%v mult=%.2f", resPink.IsMonochromeColorMatch, resPink.ColorSynergyMultiplier)
+	}
+
+	// 5. Serial Hierarchy (#1 > #7 > #42 > #100 > #777 > #1000 > #8247)
+	engine := NewValuationEngine(nil, nil, nil)
+	engine.SetNFTResolver(nil)
+	ctx := context.Background()
+
+	valOf := func(s int) float64 {
+		v, err := engine.Valuate(ctx, fmt.Sprintf("santa_hat-%d", s))
+		if err != nil {
+			t.Fatalf("Valuate(santa_hat-%d) failed: %v", s, err)
+		}
+		f, _ := v.ExpectedGRAM.Float64()
+		return f
+	}
+	v1 := valOf(1)
+	v7 := valOf(7)
+	v42 := valOf(42)
+	v777 := valOf(777)
+	v1000 := valOf(1000)
+	v8247 := valOf(8247)
+
+	if !(v1 > v7 && v7 > v42 && v777 > v1000 && v1000 > v8247*1.5) {
+		t.Errorf("serial psychology hierarchy violated: #1=%.1f #7=%.1f #42=%.1f #777=%.1f #1000=%.1f #8247=%.1f",
+			v1, v7, v42, v777, v1000, v8247)
+	}
+}
+
+
 

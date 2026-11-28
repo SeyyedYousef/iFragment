@@ -309,73 +309,160 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 			betaPrimaryPattern = 1.75
 		} else if fv.VIP.PatternKey == "BINARY_ALTERNATING_ABAB" {
 			// ABAB ABAB (e.g. 8080 8080, 0101 0101)
-			// Target: ~11,000-16,000 TON
-			betaPrimaryPattern = 1.55
+			betaPrimaryPattern = 1.85
+		} else if fv.BlockSynergyPattern == "TWIN_TRIPLE_BLOCK" {
+			// Whale Twin Zero-Pad / Triple Block (e.g. +888 0007 0007, +888 7000 7000, +888 8881 8881)
+			betaPrimaryPattern = 2.45
 		} else if fv.VIP.PatternKey == "PERIODIC_QUAD_ABCD" || fv.RepeatedBlock == "PERIOD_HALF" {
-			// ABCD ABCD (e.g. 1234 1234, 5678 5678)
-			// Target: ~12,000-18,000 TON
-			betaPrimaryPattern = 1.50
+			// ABCD ABCD (e.g. 1234 1234, 5678 5678, 2025 2025)
+			if fv.DistinctDigits <= 3 {
+				betaPrimaryPattern = 1.95
+			} else {
+				betaPrimaryPattern = 1.72
+			}
 		} else if fv.VIP.PatternKey == "TRIPLET_REPEAT" || fv.RepeatedBlock == "PERIOD_TRIPLET" {
 			// ABC ABC xx or xx ABC ABC (e.g. 123 123 45, 800 800 12)
-			// Target: ~14,000-22,000 TON
 			if strings.Contains(fv.Suffix, "888") || strings.Contains(fv.Suffix, "800") || strings.Contains(fv.Suffix, "777") {
-				betaPrimaryPattern = 1.85 // ~15,500 TON
+				betaPrimaryPattern = 1.90
 			} else {
-				betaPrimaryPattern = 1.65 // ~12,800 TON
+				betaPrimaryPattern = 1.68
+			}
+		} else if fv.IsPalindrome {
+			// True 8-digit Mirror / Palindrome (ABCD DCBA, e.g. +888 1234 4321, +888 8901 1098)
+			if fv.DistinctDigits <= 2 {
+				betaPrimaryPattern = 2.15
+			} else if fv.DistinctDigits == 3 {
+				betaPrimaryPattern = 1.82
+			} else {
+				betaPrimaryPattern = 1.58
 			}
 		} else if fv.IsFullDialPalindrome && !fv.IsPalindrome {
 			// Full-11-digit E.164 Palindrome where +888 mirrors the suffix tail (e.g. +888 1232 1888)
-			betaPrimaryPattern = 1.42
-		} else if fv.IsPalindrome {
-			// 8-digit Palindrome (e.g. 1234 4321)
-			// Target: ~9,000-15,000 TON
-			betaPrimaryPattern = 1.35
+			betaPrimaryPattern = 1.55
 		} else if fv.TailClass == "QUAD_8888" {
-			// Premium quad 8888 tail (e.g. +888 1234 8888)
-			// Target: ~12,000-18,000 TON
-			betaPrimaryPattern = 1.50
+			// Quad 8888 tail (+888 ABCD 8888)
+			betaPrimaryPattern = 1.85
 		} else if fv.TailClass == "QUAD_7777" || fv.TailClass == "QUAD_0000" {
-			// Premium quad 7777/0000 tail
-			// Target: ~9,000-14,000 TON
-			betaPrimaryPattern = 1.30
+			// Quad 7777 / 0000 tail (+888 ABCD 7777, +888 ABCD 0000)
+			betaPrimaryPattern = 1.65
 		} else if fv.TailClass == "QUAD_AAAA" {
-			// General quad tail (e.g. 5555, 9999)
-			// Target: ~7,000-11,000 TON
-			betaPrimaryPattern = 1.10
-		} else if fv.HasPairProgression || fv.RepeatedBlock == "PAIR_LADDER" {
-			// 2-digit pair arithmetic progression (e.g. 10 20 30 40, 01 02 03 04, 80 60 40 20)
-			betaPrimaryPattern = 1.25
-		} else if suffixRun >= 4 {
-			// Other Quad Run (4 identical digits inside, e.g. +888 8888 0011 or +888 8888 1234)
-			// Target: ~8,000-16,000 TON
-			if fv.DistinctDigits <= 3 {
-				betaPrimaryPattern = 1.30
+			// Solid 4-digit identical tail (+888 ABCD 5555, +888 ABCD 9999)
+			if strings.HasSuffix(fv.Suffix, "9999") {
+				betaPrimaryPattern = 1.55
 			} else {
-				betaPrimaryPattern = 0.95
+				betaPrimaryPattern = 1.40
+			}
+		} else if fv.LeftBlockClass == "QUAD" {
+			// Solid 4-digit identical lead block (+888 8888 ABCD, +888 7777 ABCD, +888 0000 ABCD)
+			switch fv.Suffix[0] {
+			case '8':
+				betaPrimaryPattern = 1.75 // Combines with betaPrefixJoin (+0.35) -> 7 consecutive 8s!
+			case '0', '7', '9':
+				betaPrimaryPattern = 1.50
+			default:
+				betaPrimaryPattern = 1.32
+			}
+		} else if suffixRun >= 4 {
+			// Inner Bridge Quad Run (+888 ABXX XXCD, e.g. +888 1277 7734)
+			if fv.DistinctDigits <= 3 {
+				betaPrimaryPattern = 1.42
+			} else if fv.MaxRunDigit == "8" || fv.MaxRunDigit == "7" || fv.MaxRunDigit == "0" {
+				betaPrimaryPattern = 1.22
+			} else {
+				betaPrimaryPattern = 1.08
 			}
 		} else if fv.DistinctDigits == 2 {
-			// Binary Vanity (only 2 distinct digits total, non-alternating, non-run)
-			// Target: ~7,000-11,000 TON
-			betaPrimaryPattern = 1.15
-		} else if strings.HasPrefix(fv.TailClass, "TRIPLE_") {
-			// Triple tail (e.g. ending in 888, 000, 777)
-			// Target: ~4,000-6,500 TON
-			betaPrimaryPattern = 0.60
-		} else if fv.DistinctDigits == 3 {
-			// Ternary Vanity (3 distinct digits across 8 digits)
-			// Target: ~4,700-11,000 TON
-			if fv.RunCount2Plus >= 3 {
-				// e.g. 11 22 33 11 or 88 00 11 88
-				betaPrimaryPattern = 1.10 // ~7,300 TON
-			} else if strings.HasPrefix(fv.TailClass, "QUAD_") || strings.HasPrefix(fv.TailClass, "TRIPLE_") {
-				betaPrimaryPattern = 1.00 // ~6,700 TON
+			// Pure Binary Vanity (only 2 distinct digits across all 8 places!)
+			if fv.DigitFreq[8] > 0 && (fv.DigitFreq[0] > 0 || fv.DigitFreq[7] > 0) {
+				betaPrimaryPattern = 1.72 // Whole 11-digit +888 number uses only 2 digits!
 			} else {
-				betaPrimaryPattern = 0.65 // ~4,700 TON
+				betaPrimaryPattern = 1.45
 			}
-		} else if fv.RepeatedBlock == "AABB" || fv.RepeatedBlock == "ABAB" {
-			// Moderate vanity patterns
-			// Target: ~3,400-4,800 TON
-			betaPrimaryPattern = 0.35
+		} else if fv.HasPairProgression || fv.RepeatedBlock == "PAIR_LADDER" {
+			// 2-digit pair arithmetic progression (e.g. 10 20 30 40, 01 02 03 04)
+			betaPrimaryPattern = 1.35
+		} else if fv.BlockSynergyPattern == "DUAL_MIRROR_BLOCKS" {
+			// Both 4-digit visual blocks are mirrors (+888 1221 4554, +888 8008 7007)
+			betaPrimaryPattern = 1.25
+		} else if fv.BlockSynergyPattern == "DUAL_PAIR_CADENCE" || fv.RepeatedBlock == "AABB" {
+			// Quad-Pair Cascade (+888 1122 3344) or Dual Alternating (+888 1212 3434)
+			betaPrimaryPattern = 1.22
+		} else if fv.BlockSynergyPattern == "DOUBLE_THOUSAND_BLOCKS" {
+			// Double clean thousands (+888 2000 5000, +888 0001 0002)
+			betaPrimaryPattern = 1.30
+		} else if fv.BlockSynergyPattern == "STEPPING_TWIN_BLOCKS" {
+			// Consecutive stepping 4-digit blocks (+888 1001 1002, +888 2024 2025)
+			betaPrimaryPattern = 1.18
+		} else if fv.MaxDigitFreq >= 6 {
+			// 6 occurrences of the same digit non-contiguous (e.g. +888 8088 1888)
+			betaPrimaryPattern = 1.48
+		} else if fv.MaxDigitFreq == 5 {
+			// 5 occurrences of the same digit across 8 places (e.g. +888 7177 2707, +888 8182 8808)
+			if fv.DominantFreqDigit == "8" || fv.DominantFreqDigit == "0" || fv.DominantFreqDigit == "7" {
+				betaPrimaryPattern = 1.08
+			} else {
+				betaPrimaryPattern = 0.92
+			}
+		} else if fv.BlockSynergyPattern == "DUAL_CLEAN_CHUNKS" {
+			// Both visual blocks have human-memorable structure (e.g. +888 0100 2929, +888 1200 3400, +888 1234 6789)
+			betaPrimaryPattern = 0.72
+			if fv.DistinctDigits <= 4 {
+				betaPrimaryPattern += 0.14
+			}
+		} else if fv.DistinctDigits == 3 {
+			// Ternary Vanity (only 3 distinct digits across all 8 digits)
+			if fv.RunCount2Plus >= 3 {
+				betaPrimaryPattern = 1.12
+			} else if strings.HasPrefix(fv.TailClass, "QUAD_") || strings.HasPrefix(fv.TailClass, "TRIPLE_") {
+				betaPrimaryPattern = 1.02
+			} else {
+				betaPrimaryPattern = 0.74
+			}
+		} else if fv.BlockSynergyPattern == "NEAR_MIRROR_6" {
+			// 6-digit contiguous mirror or 6-of-8 symmetric frame (e.g. +888 0912 2195, +888 1234 5321)
+			betaPrimaryPattern = 0.68
+		} else if strings.HasPrefix(fv.TailClass, "TRIPLE_") || suffixRun == 3 {
+			// Triple run (tail x888/x777/x000 or lead/inner 888/777/000)
+			switch {
+			case fv.TailClass == "TRIPLE_X888" || fv.TailClass == "TRIPLE_X000" || fv.TailClass == "TRIPLE_X777":
+				betaPrimaryPattern = 0.78
+			case strings.HasPrefix(fv.TailClass, "TRIPLE_"):
+				betaPrimaryPattern = 0.64
+			case fv.MaxRunDigit == "8" || fv.MaxRunDigit == "7" || fv.MaxRunDigit == "0":
+				betaPrimaryPattern = 0.58
+			default:
+				betaPrimaryPattern = 0.46
+			}
+		} else if fv.MaxDigitFreq == 4 {
+			// 4 Repeating Digits scattered across the 8 digits (e.g. +888 7172 7375, +888 8128 3848, +888 5512 5589)
+			switch fv.DominantFreqDigit {
+			case "8":
+				betaPrimaryPattern = 0.76 // 4 eights + +888 prefix = 7 eights total!
+			case "0", "7", "9":
+				betaPrimaryPattern = 0.62
+			case "4":
+				betaPrimaryPattern = 0.38
+			default:
+				betaPrimaryPattern = 0.52
+			}
+			if fv.RunCount2Plus >= 2 {
+				betaPrimaryPattern += 0.12 // e.g. +888 7712 7734 (twin pair of 77s)
+			}
+		} else if fv.BlockSynergyPattern == "CLEAN_RIGHT_BLOCK" || fv.TailClass == "PAIR_ABBA" || fv.TailClass == "PAIR_ABAB" || fv.TailClass == "PAIR_AABB" || fv.TailClass == "MONOTONIC_4" {
+			// Clean memorable 4-digit right block (e.g. ending in 2929, 7227, 7788, 1234, 7000)
+			betaPrimaryPattern = 0.52
+			if fv.DistinctDigits <= 4 {
+				betaPrimaryPattern += 0.10
+			}
+		} else if fv.BlockSynergyPattern == "CLEAN_LEFT_BLOCK" {
+			// Clean memorable 4-digit left block (e.g. starting with 8008, 1212, 7788, 1234, 0007)
+			betaPrimaryPattern = 0.44
+			if fv.DistinctDigits <= 4 {
+				betaPrimaryPattern += 0.08
+			}
+		} else if fv.TailClass == "ROUND_HUNDRED" && fv.DistinctDigits <= 5 {
+			// Clean double-zero ending (e.g. +888 4512 8500)
+			betaPrimaryPattern = 0.28
 		}
 	}
 
@@ -472,9 +559,10 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	// Live orderbook floor ALREADY prices in macro Fear & Greed sentiment and baseline digit noise.
 	// Applying fngMult < 1.0 or negative cultural drag onto beta0 double-counts fear and pushes floor numbers below clearing floor.
 	patternBetaSum := betaGenesis + betaPrimaryPattern + betaDialPad + betaEntropy + betaEcho + betaSemantic + betaPrefixJoin
-	if !fv.IsGenesis4Digit && patternBetaSum > 0 && minFloor > 2450.0 {
-		// Floor-to-Grail elasticity damping: floor numbers track 100% of liveStdFloor, while apex Grails scale sub-linearly
-		elasticityDamp := 0.35 * math.Log(minFloor/2450.0) * math.Min(1.0, patternBetaSum/2.5)
+	if !fv.IsGenesis4Digit && patternBetaSum >= 2.2 && minFloor > 2450.0 {
+		// Only apply mild elasticity damping on top-end Grails (patternBetaSum >= 2.2) so mid-tier 4-repeats,
+		// mirrors, and clean visual block patterns retain 100% of their human collector spread above floor!
+		elasticityDamp := 0.30 * math.Log(minFloor/2450.0) * math.Min(1.0, (patternBetaSum-2.0)/2.5)
 		patternBetaSum = math.Max(0, patternBetaSum-elasticityDamp)
 	}
 	if patternBetaSum > 0 {

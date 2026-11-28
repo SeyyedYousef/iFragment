@@ -213,16 +213,27 @@ func ClassifySerialWithSupply(serial int, totalSupply int, baseFloor float64) Cl
 		}
 	}
 
-	// 8. Cultural Meme Milestones (#420, #1337)
-	if serial == 420 || serial == 1337 {
+	// 8. Cultural, Web3 & Whale Lucky Milestones (#420, #1337, #520, #1314, #168, #404, #911)
+	switch serial {
+	case 420, 1337, 520, 1314, 168:
 		return ClassificationResult{
 			SerialNumber:     serial,
 			Category:         CategoryDoublet,
-			Label:            "Cultural Web3 Milestone",
+			Label:            "Cultural & Whale Lucky Milestone",
 			Multiplier:       3.5,
 			RarityPercentage: 0.10,
 			EstimatedFloor:   round(baseFloor * 3.5),
-			Description:      "Iconic Internet culture milestone commanding aggressive community bidding",
+			Description:      "Iconic cultural and collector lucky milestone commanding aggressive bidding",
+		}
+	case 404, 911:
+		return ClassificationResult{
+			SerialNumber:     serial,
+			Category:         CategoryDoublet,
+			Label:            "Iconic Numeric Code",
+			Multiplier:       2.2,
+			RarityPercentage: 0.15,
+			EstimatedFloor:   round(baseFloor * 2.2),
+			Description:      "Recognized cultural code prized by digital asset collectors",
 		}
 	}
 
@@ -232,18 +243,31 @@ func ClassifySerialWithSupply(serial int, totalSupply int, baseFloor float64) Cl
 			SerialNumber:     serial,
 			Category:         CategoryOmegaMint,
 			Label:            "Omega Final Mint (#N/N)",
-			Multiplier:       2.6,
+			Multiplier:       2.8,
 			RarityPercentage: 0.04,
-			EstimatedFloor:   round(baseFloor * 2.6),
+			EstimatedFloor:   round(baseFloor * 2.8),
 			Description:      "The exact final minted serial boundary of the collection",
 		}
 	}
 
-	// 10. Round Number Milestone (#100, #500, #1000, #5000, #10000)
+	// 10. Round Number Milestone (#100..#900, #1000..#9000, #10000..#100000, #1500, #2500, etc.)
 	if isRoundNumber(serial) {
-		mult := 2.0
-		if serial == 1000 || serial == 5000 || serial == 10000 {
+		mult := 1.6
+		switch {
+		case serial == 100 || serial == 1000 || serial == 10000 || serial == 100000:
 			mult = 2.8
+		case serial == 500 || serial == 5000 || serial == 50000:
+			mult = 2.4
+		case serial < 1000 && serial%100 == 0:
+			mult = 2.0
+		case serial < 10000 && serial%1000 == 0:
+			mult = 2.1
+		case serial%10000 == 0:
+			mult = 2.0
+		case serial%500 == 0:
+			mult = 1.65
+		default:
+			mult = 1.35
 		}
 		return ClassificationResult{
 			SerialNumber:     serial,
@@ -256,7 +280,7 @@ func ClassifySerialWithSupply(serial int, totalSupply int, baseFloor float64) Cl
 		}
 	}
 
-	// 11. Early Mint (#100 - #250)
+	// 11. Early Mint (#100 - #250) & Clean 3-Digit Badge (#251 - #999 in large-supply collections)
 	if serial >= 100 && serial <= 250 {
 		mult := 1.5
 		return ClassificationResult{
@@ -267,6 +291,17 @@ func ClassifySerialWithSupply(serial int, totalSupply int, baseFloor float64) Cl
 			RarityPercentage: 1.5,
 			EstimatedFloor:   round(baseFloor * mult),
 			Description:      "First 250 minted gifts carrying provenance age premium",
+		}
+	}
+	if serial >= 251 && serial <= 999 && totalSupply >= 5000 {
+		return ClassificationResult{
+			SerialNumber:     serial,
+			Category:         CategoryEarlyMint,
+			Label:            "Sub-1000 Three-Digit Serial",
+			Multiplier:       1.18,
+			RarityPercentage: 5.0,
+			EstimatedFloor:   round(baseFloor * 1.18),
+			Description:      "Clean 3-digit serial badge in high-supply collection",
 		}
 	}
 
@@ -321,12 +356,15 @@ func isDoublet(s string) bool {
 			return true
 		}
 	}
+	if len(s) == 6 && s[0:3] == s[3:6] && (s[0] != s[1] || s[1] != s[2]) {
+		return true
+	}
 	return false
 }
 
 func isAABBQuadBlock(s string) bool {
 	if len(s) == 4 {
-		// AABB format with non-zero second pair (e.g. 1122, 3344, 7788, 8899)
+		// AABB format with non-zero second pair (e.g. 1122, 3344, 7788, 8899); XX00 is handled by RoundNumber
 		if s[0] == s[1] && s[2] == s[3] && s[0] != s[2] && s[2] != '0' {
 			return true
 		}

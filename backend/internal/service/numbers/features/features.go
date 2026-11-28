@@ -105,6 +105,12 @@ type FeatureVector struct {
 	HasMonotonicDesc     bool            `json:"has_monotonic_desc"`      // Contains monotonic descending run >= 4
 	HasPairProgression   bool            `json:"has_pair_progression"`    // 2-digit arithmetic progression (e.g. 10 20 30 40, 01 02 03 04)
 	RepeatedBlock        string          `json:"repeated_block"`          // "ALL_SAME", "AAAABBBB", "AABB_AABB", "ABBA_ABBA", "PERIOD_HALF", "PAIR_LADDER", etc.
+	LeftBlockClass       string          `json:"left_block_class"`        // Human visual 4-digit left chunk class (QUAD, MIRROR_ABBA, ALT_ABAB, PAIR_AABB, LADDER_4, ROUND_HUNDRED, TRIPLE, etc.)
+	RightBlockClass      string          `json:"right_block_class"`       // Human visual 4-digit right chunk class
+	BlockSynergyPattern  string          `json:"block_synergy_pattern"`   // Cross-block cognitive pattern (TWIN_ZERO_PAD, DUAL_MIRROR, DUAL_RHYTHM, STEPPING_BLOCKS, INNER_MIRROR_6, etc.)
+	MaxDigitFreq         int             `json:"max_digit_freq"`          // Highest count of any single digit across suffix (detects 4/5/6 scattered identical digits)
+	DominantFreqDigit    string          `json:"dominant_freq_digit"`     // Digit ('0'..'9') with highest frequency in suffix
+	HasContiguousPal6    bool            `json:"has_contiguous_pal6"`     // Contains a clean 6-digit mirror substring (e.g. +888 0912 2195)
 	DigitFreq            [10]int         `json:"digit_freq"`              // Frequency array for 0..9
 	LuckyWeight          float64         `json:"lucky_weight"`            // Cultural positive bonus
 	UnluckyWeight        float64         `json:"unlucky_weight"`          // Cultural negative penalty
@@ -217,6 +223,18 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 	fv.BinaryVanity = (fv.DistinctDigits <= 2)
 	fv.TernaryVanity = (fv.DistinctDigits == 3)
 
+	// Dominant single-digit frequency across the suffix (captures scattered 4-of-a-kind / 5-of-a-kind / 6-of-a-kind)
+	bestFreq := 0
+	bestFreqDigit := '0'
+	for _, d := range []int{8, 0, 7, 9, 6, 5, 1, 2, 3, 4} {
+		if fv.DigitFreq[d] > bestFreq {
+			bestFreq = fv.DigitFreq[d]
+			bestFreqDigit = rune('0' + d)
+		}
+	}
+	fv.MaxDigitFreq = bestFreq
+	fv.DominantFreqDigit = string(bestFreqDigit)
+
 	// Shannon Entropy: H = -sum(p * log2(p))
 	entropy := 0.0
 	for i := 0; i < 10; i++ {
@@ -313,8 +331,14 @@ func ExtractFeatures(normalizedNumber string) (FeatureVector, error) {
 	fv.HasMonotonicDesc = checkMonotonic(suffix, false, 4)
 	fv.HasPairProgression = checkPairProgression(suffix)
 
-	// 6. Repeated Block Detection
+	// 6. Repeated Block & Human Visual 4+4 Chunk Psychology Detection
 	fv.RepeatedBlock = detectRepeatedBlock(suffix)
+	if length == 8 {
+		fv.LeftBlockClass = classifyVisualBlock4(suffix[0:4])
+		fv.RightBlockClass = classifyVisualBlock4(suffix[4:8])
+		fv.HasContiguousPal6 = hasNonTrivialPalindrome6(suffix)
+		fv.BlockSynergyPattern = detectHumanBlockSynergy(suffix, fv.LeftBlockClass, fv.RightBlockClass, fv.IsPalindrome, fv.MirrorScore, fv.HasContiguousPal6)
+	}
 
 	// Kolmogorov / RLE Structural Compression Ratio
 	maxEntropy := math.Log2(float64(length))
@@ -564,23 +588,148 @@ func classifyTail(s string) string {
 		return "TRIPLE_XAAA"
 	}
 
-	// 3. ABAB tail (e.g. 1212, 8989)
+	// 3. ABBA mirror tail (e.g. 1221, 8008, 7007)
+	if tail[0] == tail[3] && tail[1] == tail[2] && tail[0] != tail[1] {
+		return "PAIR_ABBA"
+	}
+
+	// 4. ABAB tail (e.g. 1212, 2929, 8989)
 	if tail[0] == tail[2] && tail[1] == tail[3] && tail[0] != tail[1] {
 		return "PAIR_ABAB"
 	}
 
-	// 4. AABB tail (e.g. 1122, 8899)
+	// 5. AABB tail (e.g. 1122, 8899, 7700)
 	if tail[0] == tail[1] && tail[2] == tail[3] && tail[0] != tail[2] {
 		return "PAIR_AABB"
 	}
 
-	// 5. Monotonic 4 tail: 1234, 6789
+	// 6. Monotonic 4 tail: 1234, 6789, 4321
 	if (tail[1] == tail[0]+1 && tail[2] == tail[1]+1 && tail[3] == tail[2]+1) ||
 		(tail[1] == tail[0]-1 && tail[2] == tail[1]-1 && tail[3] == tail[2]-1) {
 		return "MONOTONIC_4"
 	}
 
+	// 7. Zero-padded / Round tail: 000X, X000, XX00, 0X00
+	if (tail[0] == '0' && tail[1] == '0' && tail[2] == '0') || (tail[1] == '0' && tail[2] == '0' && tail[3] == '0') {
+		return "ROUND_THOUSAND"
+	}
+	if tail[2] == '0' && tail[3] == '0' {
+		return "ROUND_HUNDRED"
+	}
+
 	return "STANDARD_TAIL"
+}
+
+// classifyVisualBlock4 classifies a single 4-digit visual block (how humans read +888 XXXX YYYY)
+func classifyVisualBlock4(b string) string {
+	if len(b) != 4 {
+		return "RANDOM"
+	}
+	if b[0] == b[1] && b[1] == b[2] && b[2] == b[3] {
+		return "QUAD"
+	}
+	if (b[0] == '0' && b[1] == '0' && b[2] == '0') || (b[1] == '0' && b[2] == '0' && b[3] == '0') {
+		return "TRIPLE_ZERO_PAD"
+	}
+	if (b[0] == b[1] && b[1] == b[2]) || (b[1] == b[2] && b[2] == b[3]) {
+		return "TRIPLE"
+	}
+	if b[0] == b[3] && b[1] == b[2] && b[0] != b[1] {
+		return "MIRROR_ABBA"
+	}
+	if b[0] == b[2] && b[1] == b[3] && b[0] != b[1] {
+		return "ALT_ABAB"
+	}
+	if b[0] == b[1] && b[2] == b[3] && b[0] != b[2] {
+		return "PAIR_AABB"
+	}
+	if (b[1] == b[0]+1 && b[2] == b[1]+1 && b[3] == b[2]+1) ||
+		(b[1] == b[0]-1 && b[2] == b[1]-1 && b[3] == b[2]-1) {
+		return "LADDER_4"
+	}
+	if b[2] == '0' && b[3] == '0' {
+		return "ROUND_HUNDRED"
+	}
+	if b[0] == '0' && b[1] == '0' {
+		return "ZERO_LEAD_PAIR"
+	}
+	return "RANDOM"
+}
+
+func hasNonTrivialPalindrome6(s string) bool {
+	if len(s) < 6 {
+		return false
+	}
+	for start := 0; start <= len(s)-6; start++ {
+		sub := s[start : start+6]
+		if sub[0] == sub[5] && sub[1] == sub[4] && sub[2] == sub[3] {
+			if !(sub[0] == sub[1] && sub[1] == sub[2]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func detectHumanBlockSynergy(s, b1, b2 string, isFullPal bool, mirrorScore float64, hasPal6 bool) string {
+	if len(s) != 8 {
+		return "NONE"
+	}
+	left := s[0:4]
+	right := s[4:8]
+
+	// 1. Whale Twin Zero-Padded / Triple Blocks (e.g. +888 0007 0007, +888 7000 7000, +888 8881 8881)
+	if left == right && (b1 == "TRIPLE_ZERO_PAD" || b1 == "TRIPLE") {
+		return "TWIN_TRIPLE_BLOCK"
+	}
+
+	// 2. Dual 4-Digit Mirror Blocks: +888 ABBA CDDC (e.g. +888 1221 4554, +888 8008 7007)
+	if (b1 == "MIRROR_ABBA" || b1 == "QUAD") && (b2 == "MIRROR_ABBA" || b2 == "QUAD") && left != right && !(b1 == "QUAD" && b2 == "QUAD") {
+		return "DUAL_MIRROR_BLOCKS"
+	}
+
+	// 3. Dual Alternating or Dual Pair Blocks: ABAB CDCD (+888 1212 3434) or AABB CCDD (+888 1122 3344)
+	if (b1 == "ALT_ABAB" && b2 == "ALT_ABAB") || (b1 == "PAIR_AABB" && b2 == "PAIR_AABB") {
+		return "DUAL_PAIR_CADENCE"
+	}
+
+	// 4. Double Clean Thousands: X000 Y000 or 000X 000Y (e.g. +888 2000 5000, +888 0001 0002)
+	if b1 == "TRIPLE_ZERO_PAD" && b2 == "TRIPLE_ZERO_PAD" {
+		return "DOUBLE_THOUSAND_BLOCKS"
+	}
+
+	// 5. Stepping 4-Digit Blocks: +888 1001 1002, +888 2024 2025, +888 1100 1200
+	v1, e1 := strconv.Atoi(left)
+	v2, e2 := strconv.Atoi(right)
+	if e1 == nil && e2 == nil {
+		diff := v2 - v1
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff == 1 || (diff == 100 && b1 == "ROUND_HUNDRED" && b2 == "ROUND_HUNDRED") || (diff == 1000 && (b1 == "TRIPLE_ZERO_PAD" || b1 == "ROUND_HUNDRED")) {
+			return "STEPPING_TWIN_BLOCKS"
+		}
+	}
+
+	// 6. Both Visual Blocks Structured (e.g. +888 0100 2929 -> ROUND_HUNDRED + ALT_ABAB, or +888 1200 3400, or +888 1234 6789)
+	if b1 != "RANDOM" && b2 != "RANDOM" {
+		return "DUAL_CLEAN_CHUNKS"
+	}
+
+	// 7. 6-Digit Contiguous Mirror or 6-of-8 Near-Palindrome (e.g. +888 0912 2195, +888 1234 5321)
+	if !isFullPal && (hasPal6 || mirrorScore >= 0.75) {
+		return "NEAR_MIRROR_6"
+	}
+
+	// 8. Single Prominent Structured Block (Tail or Lead)
+	if b2 == "MIRROR_ABBA" || b2 == "ALT_ABAB" || b2 == "PAIR_AABB" || b2 == "LADDER_4" || b2 == "TRIPLE_ZERO_PAD" {
+		return "CLEAN_RIGHT_BLOCK"
+	}
+	if b1 == "MIRROR_ABBA" || b1 == "ALT_ABAB" || b1 == "PAIR_AABB" || b1 == "LADDER_4" || b1 == "TRIPLE_ZERO_PAD" {
+		return "CLEAN_LEFT_BLOCK"
+	}
+
+	return "NONE"
 }
 
 func computeCompositeScore(fv FeatureVector) int {
@@ -661,7 +810,7 @@ func computeCompositeScore(fv FeatureVector) int {
 		score += netCultural * 0.5
 	}
 
-	// 7. Tail Class Bonus
+	// 7. Tail Class & Human Block Psychology Bonus
 	switch fv.TailClass {
 	case "QUAD_8888":
 		score += 20.0
@@ -669,10 +818,29 @@ func computeCompositeScore(fv FeatureVector) int {
 		score += 16.0
 	case "TRIPLE_X888":
 		score += 12.0
-	case "TRIPLE_X777", "TRIPLE_X000", "TRIPLE_X999", "TRIPLE_XAAA":
+	case "TRIPLE_X777", "TRIPLE_X000", "TRIPLE_X999", "TRIPLE_XAAA", "ROUND_THOUSAND":
+		score += 10.0
+	case "PAIR_ABBA", "PAIR_ABAB", "PAIR_AABB", "MONOTONIC_4":
 		score += 9.0
-	case "PAIR_ABAB", "PAIR_AABB", "MONOTONIC_4":
+	case "ROUND_HUNDRED":
+		score += 5.0
+	}
+
+	switch fv.BlockSynergyPattern {
+	case "TWIN_TRIPLE_BLOCK":
+		score += 24.0
+	case "DUAL_MIRROR_BLOCKS", "DUAL_PAIR_CADENCE", "DOUBLE_THOUSAND_BLOCKS":
+		score += 16.0
+	case "STEPPING_TWIN_BLOCKS", "DUAL_CLEAN_CHUNKS":
+		score += 12.0
+	case "NEAR_MIRROR_6":
+		score += 10.0
+	case "CLEAN_RIGHT_BLOCK", "CLEAN_LEFT_BLOCK":
 		score += 7.0
+	}
+
+	if fv.MaxRun < 4 && fv.MaxDigitFreq >= 4 {
+		score += float64((fv.MaxDigitFreq - 3) * 7)
 	}
 
 	// 8. Semantic Lexicon Bonus

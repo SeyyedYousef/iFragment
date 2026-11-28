@@ -10,7 +10,7 @@ func TestFormatPascalName(t *testing.T) {
 		expected string
 	}{
 		{"plush_pepe", "PlushPepe"},
-		{"durov_cap", "DurovsBlackCap"},
+		{"durov_cap", "DurovsCap"},
 		{"santa_hat", "SantaHat"},
 		{"golden_star", "CelestialStar"},
 	}

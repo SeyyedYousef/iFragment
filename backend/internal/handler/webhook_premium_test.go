@@ -225,11 +225,14 @@ func TestPremiumPayloadsAndCards(t *testing.T) {
 
 func TestHandlePremiumCommand_EndToEndZeroCredit(t *testing.T) {
 	type capturedCall struct {
-		Method     string
-		ChatID     string
-		Text       string
-		Caption    string
-		PhotoBytes []byte
+		Method      string
+		ChatID      string
+		Text        string
+		Caption     string
+		MediaJSON   string
+		PhotoBytes  []byte
+		Photo1Bytes []byte
+		Photo2Bytes []byte
 	}
 
 	var mu sync.Mutex
@@ -257,8 +260,20 @@ func TestHandlePremiumCommand_EndToEndZeroCredit(t *testing.T) {
 						c.ChatID = string(data)
 					case "caption":
 						c.Caption = string(data)
+					case "media":
+						c.MediaJSON = string(data)
+						var mediaItems []struct {
+							Caption string `json:"caption"`
+						}
+						if json.Unmarshal(data, &mediaItems) == nil && len(mediaItems) > 0 {
+							c.Caption = mediaItems[0].Caption
+						}
 					case "photo":
 						c.PhotoBytes = data
+					case "photo1":
+						c.Photo1Bytes = data
+					case "photo2":
+						c.Photo2Bytes = data
 					}
 					_ = part.Close()
 				}
@@ -278,6 +293,10 @@ func TestHandlePremiumCommand_EndToEndZeroCredit(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if method == "sendChatAction" {
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
+			return
+		}
+		if method == "sendMediaGroup" {
+			_, _ = w.Write([]byte(`{"ok":true,"result":[{"message_id":777},{"message_id":778}]}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{"ok":true,"result":{"message_id":777}}`))
@@ -340,10 +359,10 @@ func TestHandlePremiumCommand_EndToEndZeroCredit(t *testing.T) {
 			captured := append([]capturedCall(nil), calls...)
 			mu.Unlock()
 
-			var photoCall *capturedCall
+			var albumCall *capturedCall
 			for i := range captured {
-				if captured[i].Method == "sendPhoto" && len(captured[i].PhotoBytes) > 0 {
-					photoCall = &captured[i]
+				if captured[i].Method == "sendMediaGroup" && len(captured[i].Photo1Bytes) > 0 && len(captured[i].Photo2Bytes) > 0 {
+					albumCall = &captured[i]
 					break
 				}
 				// Ensure the precheck gate text was NEVER sent!
@@ -352,18 +371,21 @@ func TestHandlePremiumCommand_EndToEndZeroCredit(t *testing.T) {
 				}
 			}
 
-			if photoCall == nil {
-				t.Fatalf("expected sendPhoto with generated PNG for %q, got calls: %+v", tc.text, captured)
+			if albumCall == nil {
+				t.Fatalf("expected sendMediaGroup with 2 photos for %q, got calls: %+v", tc.text, captured)
 			}
-			img, err := png.Decode(bytes.NewReader(photoCall.PhotoBytes))
+			img, err := png.Decode(bytes.NewReader(albumCall.Photo1Bytes))
 			if err != nil {
-				t.Fatalf("sent photo bytes are not valid PNG: %v", err)
+				t.Fatalf("sent photo1 bytes are not valid PNG: %v", err)
 			}
 			if img.Bounds().Dx() != 1080 || img.Bounds().Dy() != 1080 {
-				t.Fatalf("expected 1080x1080 PNG, got %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
+				t.Fatalf("expected 1080x1080 PNG for photo1, got %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
 			}
-			if photoCall.Caption == "" {
-				t.Errorf("expected non-empty photo caption")
+			if len(albumCall.Photo2Bytes) != len(premiumWhalesProofPNG) || len(albumCall.Photo2Bytes) == 0 {
+				t.Fatalf("expected photo2 to match embedded whales proof image (%d bytes), got %d bytes", len(premiumWhalesProofPNG), len(albumCall.Photo2Bytes))
+			}
+			if albumCall.Caption == "" {
+				t.Errorf("expected non-empty album caption")
 			}
 		})
 	}

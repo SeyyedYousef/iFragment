@@ -276,8 +276,8 @@ func (h *WebhookHandler) deliverPremiumUsernamePhoto(
 		return
 	}
 
-	if _, sendErr := tg.SendPhotoBytesWithMarkup(ctx, m.Chat.ID, pngBytes, caption, markup, m.MessageThreadID); sendErr != nil {
-		slog.Error("Failed to send premium username photo", "username", normUser, "error", sendErr)
+	if sendErr := sendPremiumTwoPhotoAlbum(ctx, tg, m, pngBytes, caption, markup); sendErr != nil {
+		slog.Error("Failed to send premium username album", "username", normUser, "error", sendErr)
 		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, buildPremiumFailureText(lang), nil, m.MessageThreadID, "HTML")
 	}
 }
@@ -314,8 +314,8 @@ func (h *WebhookHandler) deliverPremiumNumberPhoto(
 		return
 	}
 
-	if _, sendErr := tg.SendPhotoBytesWithMarkup(ctx, m.Chat.ID, pngBytes, caption, markup, m.MessageThreadID); sendErr != nil {
-		slog.Error("Failed to send premium number photo", "number", val.DisplayNumber, "error", sendErr)
+	if sendErr := sendPremiumTwoPhotoAlbum(ctx, tg, m, pngBytes, caption, markup); sendErr != nil {
+		slog.Error("Failed to send premium number album", "number", val.DisplayNumber, "error", sendErr)
 		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, buildPremiumFailureText(lang), nil, m.MessageThreadID, "HTML")
 	}
 }
@@ -352,10 +352,22 @@ func (h *WebhookHandler) deliverPremiumGiftPhoto(
 		return
 	}
 
-	if _, sendErr := tg.SendPhotoBytesWithMarkup(ctx, m.Chat.ID, pngBytes, caption, markup, m.MessageThreadID); sendErr != nil {
-		slog.Error("Failed to send premium gift photo", "gift", giftSlug, "error", sendErr)
+	if sendErr := sendPremiumTwoPhotoAlbum(ctx, tg, m, pngBytes, caption, markup); sendErr != nil {
+		slog.Error("Failed to send premium gift album", "gift", giftSlug, "error", sendErr)
 		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, buildPremiumFailureText(lang), nil, m.MessageThreadID, "HTML")
 	}
+}
+
+func sendPremiumTwoPhotoAlbum(ctx context.Context, tg *telegram.BotAPIClient, m *Message, cardPNG []byte, caption string, markup map[string]interface{}) error {
+	if len(premiumWhalesProofPNG) > 0 {
+		if _, err := tg.SendTwoPhotosMediaGroupBytes(ctx, m.Chat.ID, cardPNG, premiumWhalesProofPNG, caption, m.MessageThreadID); err == nil {
+			return nil
+		} else {
+			slog.Warn("sendMediaGroup failed for /premium; falling back to single photo", "error", err)
+		}
+	}
+	_, err := tg.SendPhotoBytesWithMarkup(ctx, m.Chat.ID, cardPNG, caption, markup, m.MessageThreadID)
+	return err
 }
 
 func ensureNumberUSD(val *nvengine.NumberValuation, tonRate float64) {

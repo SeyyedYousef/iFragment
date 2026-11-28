@@ -258,7 +258,11 @@ func (c *BotAPIClient) doMultipartRequestWithRetry(ctx context.Context, method s
 		}
 
 		for fieldName, data := range files {
-			part, err := writer.CreateFormFile(fieldName, "card.png")
+			fileName := "card.png"
+			if fieldName != "photo" {
+				fileName = fieldName + ".png"
+			}
+			part, err := writer.CreateFormFile(fieldName, fileName)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create multipart form file %s: %w", fieldName, err)
 			}
@@ -1447,6 +1451,68 @@ func (c *BotAPIClient) SendPhotoBytesWithMarkup(ctx context.Context, chatID int6
 		return nil, fmt.Errorf("failed to parse sendPhotoBytesWithMarkup result: %w", err)
 	}
 	return &res, nil
+}
+
+// SendTwoPhotosMediaGroupBytes uploads two photos together as a single Telegram album (sendMediaGroup)
+// using multipart/form-data, attaching the caption to the first photo so both images appear side-by-side above the caption.
+func (c *BotAPIClient) SendTwoPhotosMediaGroupBytes(ctx context.Context, chatID int64, photo1Bytes []byte, photo2Bytes []byte, caption string, threadID *int, parseMode ...string) ([]MessageResult, error) {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
+
+	buildMediaJSON := func(capText, capMode string) (string, error) {
+		item1 := map[string]string{
+			"type":  "photo",
+			"media": "attach://photo1",
+		}
+		if capText != "" {
+			item1["caption"] = capText
+			if capMode != "" {
+				item1["parse_mode"] = capMode
+			}
+		}
+		item2 := map[string]string{
+			"type":  "photo",
+			"media": "attach://photo2",
+		}
+		b, err := json.Marshal([]map[string]string{item1, item2})
+		return string(b), err
+	}
+
+	mediaStr, err := buildMediaJSON(caption, mode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal media group: %w", err)
+	}
+
+	fields := map[string]string{
+		"chat_id": strconv.FormatInt(chatID, 10),
+		"media":   mediaStr,
+	}
+	if threadID != nil && *threadID != 0 {
+		fields["message_thread_id"] = strconv.Itoa(*threadID)
+	}
+	files := map[string][]byte{
+		"photo1": photo1Bytes,
+		"photo2": photo2Bytes,
+	}
+
+	resp, err := c.RequestMultipart(ctx, "sendMediaGroup", fields, files)
+	if err != nil && mode != "" && strings.Contains(strings.ToLower(err.Error()), "can't parse entities") {
+		if plainMedia, mErr := buildMediaJSON(StripHTMLTags(caption), ""); mErr == nil {
+			fields["media"] = plainMedia
+			resp, err = c.RequestMultipart(ctx, "sendMediaGroup", fields, files)
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var res []MessageResult
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse sendMediaGroup result: %w", err)
+	}
+	return res, nil
 }
 
 
