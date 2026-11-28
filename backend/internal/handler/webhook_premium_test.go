@@ -166,8 +166,11 @@ func TestPremiumPayloadsAndCards(t *testing.T) {
 			if err := ValidateTelegramHTML(caption); err != nil {
 				t.Fatalf("invalid caption HTML: %v\n%s", err, caption)
 			}
-			if strings.Contains(strings.ToLower(caption), "/premium") || strings.Contains(caption, "کریدت") || strings.Contains(strings.ToLower(caption), "credit") {
-				t.Errorf("caption should not expose /premium or credits: %s", caption)
+			if strings.Contains(strings.ToLower(caption), "/premium") {
+				t.Errorf("caption should not expose /premium command: %s", caption)
+			}
+			if !strings.Contains(caption, "@crypto") || !strings.Contains(caption, "@FragmentInvestors") || !strings.Contains(caption, "@iFragmentBot") {
+				t.Errorf("caption missing expected target/CTA handles: %s", caption)
 			}
 			if markup == nil {
 				t.Errorf("expected non-nil markup")
@@ -187,6 +190,9 @@ func TestPremiumPayloadsAndCards(t *testing.T) {
 			if err := ValidateTelegramHTML(caption); err != nil {
 				t.Fatalf("invalid caption HTML: %v", err)
 			}
+			if !strings.Contains(caption, "+888 8888 8888") || !strings.Contains(caption, "@FragmentInvestors") {
+				t.Errorf("number caption missing expected number or @FragmentInvestors: %s", caption)
+			}
 			pngBytes, err := cg.GeneratePremiumPromoCard(params)
 			if err != nil {
 				t.Fatalf("card gen failed: %v", err)
@@ -201,6 +207,9 @@ func TestPremiumPayloadsAndCards(t *testing.T) {
 			params, caption, _ := buildPremiumGiftPayload(gVal, 3.48, "@iFragmentBot", "https://t.me/iFragmentBot/iFragment", lang)
 			if err := ValidateTelegramHTML(caption); err != nil {
 				t.Fatalf("invalid caption HTML: %v", err)
+			}
+			if !strings.Contains(caption, "https://t.me/nft/PlushPepe-42") || !strings.Contains(caption, "@FragmentInvestors") {
+				t.Errorf("gift caption missing expected gift link or @FragmentInvestors: %s", caption)
 			}
 			pngBytes, err := cg.GeneratePremiumPromoCard(params)
 			if err != nil {

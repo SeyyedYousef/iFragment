@@ -750,8 +750,19 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		}
 	}
 
-	// 2. If message contains a Gift link, sniff & analyze automatically (only in private chat or when bot is explicitly mentioned in groups)
-	if isPrem, _ := parsePremiumCommand(raw); !isPrem && giftLinkRegex.MatchString(raw) {
+	// 2. Intercept /premium instant promo card command in private chat or when addressed in groups
+	if isPrem, premArg := parsePremiumCommand(raw); isPrem {
+		isGroup := msg.Chat.Type == "group" || msg.Chat.Type == "supergroup"
+		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
+		isFI := msg.Chat.ID == -1001972125896 || raffle.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username)
+		if !isGroup || isFI || (bot.BotUsername != "" && strings.Contains(strings.ToLower(raw), strings.ToLower(botMention))) {
+			h.handlePremiumCommand(ctx, bot, msg, premArg)
+			return
+		}
+	}
+
+	// 2b. If message contains a Gift link, sniff & analyze automatically (only in private chat or when bot is explicitly mentioned in groups)
+	if giftLinkRegex.MatchString(raw) {
 		isGroup := msg.Chat.Type == "group" || msg.Chat.Type == "supergroup"
 		botMention := "@" + strings.TrimPrefix(bot.BotUsername, "@")
 		isMentioned := bot.BotUsername != "" && strings.Contains(raw, botMention)

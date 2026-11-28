@@ -462,62 +462,10 @@ func buildPremiumUsernamePayload(normUser string, res *avm.ValuationResult, tonR
 		CertRef:    fmt.Sprintf("AVM %s | %s", nonEmptyStr(res.ModelVersion, "v7.0"), time.Now().UTC().Format("2006-01-02")),
 	}
 
-	escUser := telegram.EscapeHTML("@" + normUser)
-	escHandle := telegram.EscapeHTML(botHandle)
-	escTier := telegram.EscapeHTML(strings.ToUpper(tier))
-	escGrade := telegram.EscapeHTML(grade)
-
-	tonDisp := formatCommaNumberStr(res.ExpectedTON.InexactFloat64())
-	usdDisp := formatCommaIntStr(res.ExpectedUSD.InexactFloat64())
-	lowDisp := formatCommaNumberStr(res.LowTON.InexactFloat64())
-	highDisp := formatCommaNumberStr(res.HighTON.InexactFloat64())
-
-	var caption string
-	switch normalizeLang(lang) {
-	case "fa":
-		caption = fmt.Sprintf(
-			"✦ <b>گواهی ارزیابی رسمی نام کاربری  ·  %s</b> ✦\n\n"+
-				"<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>طیف نقدشوندگی و سقف:</b> <code>%s – %s TON</code>\n"+
-				"💎 <b>جایگاه کلکسیونی:</b> <b>%s</b>  ·  <b>گرید:</b> <b>%s</b>\n"+
-				"⚡ <b>قدرت برند:</b> <code>%d/100</code>  ·  <b>دقت مدل:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>صادرشده در تالار ارزیابی آن‌چین</i> <b>%s</b>",
-			escUser, tonDisp, usdDisp, lowDisp, highDisp, escTier, escGrade, res.Brandability, conf, escHandle,
-		)
-	case "ru":
-		caption = fmt.Sprintf(
-			"✦ <b>Официальный сертификат юзернейма  ·  %s</b> ✦\n\n"+
-				"<blockquote>💰 <b>Справедливая оценка:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>Спектр цен (Floor–Ceiling):</b> <code>%s – %s TON</code>\n"+
-				"💎 <b>Статус редкости:</b> <b>%s</b>  ·  <b>Грейд:</b> <b>%s</b>\n"+
-				"⚡ <b>Сила бренда:</b> <code>%d/100</code>  ·  <b>Точность:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>Сертифицировано он-чейн терминалом</i> <b>%s</b>",
-			escUser, tonDisp, usdDisp, lowDisp, highDisp, escTier, escGrade, res.Brandability, conf, escHandle,
-		)
-	case "zh":
-		caption = fmt.Sprintf(
-			"✦ <b>官方链上用户名估值证书  ·  %s</b> ✦\n\n"+
-				"<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>黄金估值区间:</b> <code>%s – %s TON</code>\n"+
-				"💎 <b>稀缺度等级:</b> <b>%s</b>  ·  <b>评级:</b> <b>%s</b>\n"+
-				"⚡ <b>品牌潜力:</b> <code>%d/100</code>  ·  <b>模型置信度:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>由</i> <b>%s</b> <i>链上智能终端签发</i>",
-			escUser, tonDisp, usdDisp, lowDisp, highDisp, escTier, escGrade, res.Brandability, conf, escHandle,
-		)
-	default:
-		caption = fmt.Sprintf(
-			"✦ <b>Official Username Valuation Certificate  ·  %s</b> ✦\n\n"+
-				"<blockquote>💰 <b>Estimated Fair Value:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>Valuation Spectrum:</b> <code>%s – %s TON</code>\n"+
-				"💎 <b>Rarity Tier:</b> <b>%s</b>  ·  <b>Grade:</b> <b>%s</b>\n"+
-				"⚡ <b>Brand Equity:</b> <code>%d/100</code>  ·  <b>Confidence:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>Minted by On-Chain Valuation Salon</i> <b>%s</b>",
-			escUser, tonDisp, usdDisp, lowDisp, highDisp, escTier, escGrade, res.Brandability, conf, escHandle,
-		)
-	}
-
 	appURL := appendStartParam(miniAppURL, fmt.Sprintf("val_%s", normUser))
 	fragURL := fmt.Sprintf("https://fragment.com/username/%s", normUser)
+	targetHTML := fmt.Sprintf("<b>%s</b>", telegram.EscapeHTML("@"+normUser))
+	caption := buildPremiumPromoCaption(targetHTML, botHandle)
 	markup := buildPremiumActionMarkup(appURL, fragURL, false, lang)
 	return params, caption, markup
 }
@@ -577,72 +525,13 @@ func buildPremiumNumberPayload(val *nvengine.NumberValuation, tonRate float64, b
 		CertRef:    fmt.Sprintf("NV ENGINE | %s", time.Now().UTC().Format("2006-01-02")),
 	}
 
-	clubDisplay := val.CategoryClubFa
-	if normalizeLang(lang) != "fa" || clubDisplay == "" {
-		clubDisplay = val.CategoryClub
-	}
-	if clubDisplay == "" {
-		clubDisplay = "Collectible"
-	}
-
-	escNum := telegram.EscapeHTML(displayNum)
-	escClub := telegram.EscapeHTML(clubDisplay)
-	escHandle := telegram.EscapeHTML(botHandle)
-
-	tonDisp := formatCommaNumberStr(val.ExpectedTON.InexactFloat64())
-	usdDisp := formatCommaIntStr(expectedUSD)
-	lowDisp := formatCommaNumberStr(val.LowTON.InexactFloat64())
-	highDisp := formatCommaNumberStr(val.HighTON.InexactFloat64())
-
-	var caption string
-	switch normalizeLang(lang) {
-	case "fa":
-		caption = fmt.Sprintf(
-			"✦ <b>گواهی ارزیابی شماره کلکسیونی  ·  <code>%s</code></b> ✦\n\n"+
-				"<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>طیف نقدشوندگی و سقف:</b> <code>%s – %s TON</code>\n"+
-				"👑 <b>کلوپ کلکسیونی:</b> <b>%s</b>  ·  <b>رتبه جهانی:</b> <b>#%d</b>\n"+
-				"⚡ <b>دقت الگوریتم:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>صادرشده در تالار ارزیابی آن‌چین</i> <b>%s</b>",
-			escNum, tonDisp, usdDisp, lowDisp, highDisp, escClub, val.GlobalRank, conf, escHandle,
-		)
-	case "ru":
-		caption = fmt.Sprintf(
-			"✦ <b>Сертификат анонимного номера  ·  <code>%s</code></b> ✦\n\n"+
-				"<blockquote>💰 <b>Справедливая оценка:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>Спектр цен (Floor–Ceiling):</b> <code>%s – %s TON</code>\n"+
-				"👑 <b>Клуб редкости:</b> <b>%s</b>  ·  <b>Мировой ранг:</b> <b>#%d</b>\n"+
-				"⚡ <b>Точность модели:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>Сертифицировано он-чейн терминалом</i> <b>%s</b>",
-			escNum, tonDisp, usdDisp, lowDisp, highDisp, escClub, val.GlobalRank, conf, escHandle,
-		)
-	case "zh":
-		caption = fmt.Sprintf(
-			"✦ <b>官方匿名靓号估值证书  ·  <code>%s</code></b> ✦\n\n"+
-				"<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>黄金估值区间:</b> <code>%s – %s TON</code>\n"+
-				"👑 <b>归属俱乐部:</b> <b>%s</b>  ·  <b>全网排名:</b> <b>#%d</b>\n"+
-				"⚡ <b>模型置信度:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>由</i> <b>%s</b> <i>链上智能终端签发</i>",
-			escNum, tonDisp, usdDisp, lowDisp, highDisp, escClub, val.GlobalRank, conf, escHandle,
-		)
-	default:
-		caption = fmt.Sprintf(
-			"✦ <b>Official Anonymous Number Certificate  ·  <code>%s</code></b> ✦\n\n"+
-				"<blockquote>💰 <b>Estimated Fair Value:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>Valuation Spectrum:</b> <code>%s – %s TON</code>\n"+
-				"👑 <b>Category Club:</b> <b>%s</b>  ·  <b>Global Rank:</b> <b>#%d</b>\n"+
-				"⚡ <b>Confidence:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>Minted by On-Chain Valuation Salon</i> <b>%s</b>",
-			escNum, tonDisp, usdDisp, lowDisp, highDisp, escClub, val.GlobalRank, conf, escHandle,
-		)
-	}
-
 	appURL := appendStartParam(miniAppURL, fmt.Sprintf("num_%s", cleanNum))
 	fragURL := val.FragmentDirectURL
 	if fragURL == "" {
 		fragURL = fmt.Sprintf("https://fragment.com/number/%s", cleanNum)
 	}
+	targetHTML := fmt.Sprintf("<b><a href=\"%s\">%s</a></b>", telegram.EscapeHTML(fragURL), telegram.EscapeHTML(displayNum))
+	caption := buildPremiumPromoCaption(targetHTML, botHandle)
 	markup := buildPremiumActionMarkup(appURL, fragURL, false, lang)
 	return params, caption, markup
 }
@@ -720,100 +609,50 @@ func buildPremiumGiftPayload(val *gvengine.GiftValuation, tonRate float64, botHa
 		SerialNumber:   gp.SerialNumber,
 	}
 
-	rarityLocalized := formatLocalizedRarityTier(val.JointRarity.RarityClass, lang)
-	escTitle := telegram.EscapeHTML(gp.Title)
-	escRarity := telegram.EscapeHTML(rarityLocalized)
-	escHandle := telegram.EscapeHTML(botHandle)
-
-	tonDisp := formatCommaNumberStr(fairGRAM)
-	usdDisp := formatCommaIntStr(fairUSD)
-	lowDisp := formatCommaNumberStr(lowGRAM)
-	highDisp := formatCommaNumberStr(highGRAM)
-
-	var caption string
-	switch normalizeLang(lang) {
-	case "fa":
-		caption = fmt.Sprintf(
-			"✦ <b>گواهی ارزیابی گیفت کلکسیونی  ·  %s</b> ✦\n\n"+
-				"<blockquote>💰 <b>ارزش منصفانه بازار:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>طیف نقدشوندگی و سقف:</b> <code>%s – %s TON</code>\n"+
-				"💎 <b>رده کمیابی ژنتیکی:</b> <b>%s</b>  ·  <b>دقت مدل:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>صادرشده در تالار ارزیابی آن‌چین</i> <b>%s</b>",
-			escTitle, tonDisp, usdDisp, lowDisp, highDisp, escRarity, conf, escHandle,
-		)
-	case "ru":
-		caption = fmt.Sprintf(
-			"✦ <b>Сертификат коллекционного подарка  ·  %s</b> ✦\n\n"+
-				"<blockquote>💰 <b>Справедливая оценка:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>Спектр цен (Floor–Ceiling):</b> <code>%s – %s TON</code>\n"+
-				"💎 <b>Редкость:</b> <b>%s</b>  ·  <b>Точность:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>Сертифицировано он-чейн терминалом</i> <b>%s</b>",
-			escTitle, tonDisp, usdDisp, lowDisp, highDisp, escRarity, conf, escHandle,
-		)
-	case "zh":
-		caption = fmt.Sprintf(
-			"✦ <b>官方典藏礼物估值证书  ·  %s</b> ✦\n\n"+
-				"<blockquote>💰 <b>预估公允价值:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>黄金估值区间:</b> <code>%s – %s TON</code>\n"+
-				"💎 <b>基因稀有度:</b> <b>%s</b>  ·  <b>模型置信度:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>由</i> <b>%s</b> <i>链上智能终端签发</i>",
-			escTitle, tonDisp, usdDisp, lowDisp, highDisp, escRarity, conf, escHandle,
-		)
-	default:
-		caption = fmt.Sprintf(
-			"✦ <b>Official Collectible Gift Certificate  ·  %s</b> ✦\n\n"+
-				"<blockquote>💰 <b>Estimated Fair Value:</b> <code>%s TON</code> (<b>≈ $%s</b>)\n"+
-				"📊 <b>Valuation Spectrum:</b> <code>%s – %s TON</code>\n"+
-				"💎 <b>Rarity Tier:</b> <b>%s</b>  ·  <b>Confidence:</b> <code>%d%%</code></blockquote>\n\n"+
-				"🔎 <i>Minted by On-Chain Valuation Salon</i> <b>%s</b>",
-			escTitle, tonDisp, usdDisp, lowDisp, highDisp, escRarity, conf, escHandle,
-		)
-	}
-
 	appURL := appendStartParam(miniAppURL, fmt.Sprintf("gift_%s", val.GiftID))
 	pascalName := telegramnft.FormatPascalName(val.ModelID)
 	tgNFTURL := fmt.Sprintf("https://t.me/nft/%s-%d", pascalName, val.SerialNumber)
+	targetHTML := fmt.Sprintf("<b>%s</b>", telegram.EscapeHTML(tgNFTURL))
+	caption := buildPremiumPromoCaption(targetHTML, botHandle)
 	markup := buildPremiumActionMarkup(appURL, tgNFTURL, true, lang)
 	return params, caption, markup
 }
 
-func buildPremiumActionMarkup(appURL, externalURL string, isGift bool, lang string) map[string]interface{} {
-	var btnApp, btnExt string
-	switch normalizeLang(lang) {
-	case "fa":
-		btnApp = "📊 تحلیل کامل در مینی‌اپ"
-		if isGift {
-			btnExt = "🔗 مشاهده گیفت در تلگرام"
-		} else {
-			btnExt = "🌐 مشاهده در فرگمنت"
-		}
-	case "ru":
-		btnApp = "📊 Открыть в Mini App"
-		if isGift {
-			btnExt = "🔗 Подарок в Telegram"
-		} else {
-			btnExt = "🌐 Открыть на Fragment"
-		}
-	case "zh":
-		btnApp = "📊 在小程序查看完整报告"
-		if isGift {
-			btnExt = "🔗 在 Telegram 查看"
-		} else {
-			btnExt = "🌐 在 Fragment 查看"
-		}
-	default:
-		btnApp = "📊 Open in Mini App"
-		if isGift {
-			btnExt = "🔗 View on Telegram"
-		} else {
-			btnExt = "🌐 View on Fragment"
-		}
+// buildPremiumPromoCaption formats the high-CTR Inner Circle promotional caption with the
+// dynamically substituted target (@username, collectible +888 number, or t.me/nft/... gift link).
+func buildPremiumPromoCaption(targetHTML, botHandle string) string {
+	cleanBot := strings.TrimSpace(botHandle)
+	if cleanBot == "" {
+		cleanBot = "@iFragmentbot"
+	} else if !strings.HasPrefix(cleanBot, "@") {
+		cleanBot = "@" + cleanBot
+	}
+	escBot := telegram.EscapeHTML(cleanBot)
+
+	return fmt.Sprintf(
+		"💎 The true anatomy and market worth of %s aren’t meant for ordinary buyers.\n\n"+
+			"Inside @FragmentInvestors, you deal directly with the 1%% who actually price, collect, and move rare Telegram assets. "+
+			"Don’t take our word for it — <b>step inside and check the admin list</b> to see which heavy-hitting whales and serious collectors run the room.\n\n"+
+			"🏛 <b>Enter the Inner Circle:</b> @FragmentInvestors\n\n"+
+			"<blockquote>📊 <i>Analytical poster gifted by %s — chat or boost the group to earn free credits and keep the live Fragment pricing radar right in your hands.</i></blockquote>",
+		targetHTML,
+		escBot,
+	)
+}
+
+func buildPremiumActionMarkup(appURL, externalURL string, isGift bool, _ string) map[string]interface{} {
+	btnExt := "🌐 View on Fragment"
+	if isGift {
+		btnExt = "🔗 View Collectible"
 	}
 
 	return map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
 			{
-				{"text": btnApp, "url": appURL},
+				{"text": "🏛 Join @FragmentInvestors", "url": "https://t.me/FragmentInvestors"},
+			},
+			{
+				{"text": "📊 Live Valuation Radar", "url": appURL},
 				{"text": btnExt, "url": externalURL},
 			},
 		},
